@@ -1,20 +1,48 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+**Bourbonomics** — [Game rules](docs/GAME_RULES.md) and [web game plan](docs/WEB_GAME_PLAN.md) are in the repo.
+
 ## Getting Started
 
-First, run the development server:
+### Run with SST (full game API + WebSocket)
+
+```bash
+npx sst dev
+```
+
+Then open the Next.js URL shown by SST. The API and WebSocket use `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`.
+
+### Run Next.js against your deployed SST backend
+
+To run the frontend locally while using the API and WebSocket from a deployed stage (e.g. `dandango`):
+
+1. Copy the env template and fill in your stage’s URLs:
+   ```bash
+   cp .env.example .env.local
+   ```
+2. Get the URLs from either:
+   - **SST Console** — [Open your app](https://console.sst.dev/local/bourbonomics/dandango) → select your stage → **Outputs** (or the resource URLs for **Api** and **Ws**).
+   - **Terminal** — Run `npx sst dev --stage dandango` once and note the **apiUrl** and **wsUrl** in the output (or in the Console link it prints).
+3. Edit `.env.local`:
+   ```env
+   NEXT_PUBLIC_API_URL=https://xxxxxxxx.execute-api.REGION.amazonaws.com
+   NEXT_PUBLIC_WS_URL=wss://xxxxxxxx.execute-api.REGION.amazonaws.com/dandango
+   ```
+   Use `https` for the API and `wss` for the WebSocket (same host, replace `https` with `wss`).
+4. Start Next.js:
+   ```bash
+   npm run dev
+   ```
+
+Open [http://localhost:3000](http://localhost:3000); the app will use the API and WebSocket from your SST stage.
+
+### Run Next.js only (no backend)
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Without `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL`, the lobby and game pages will not be able to create or join games.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
