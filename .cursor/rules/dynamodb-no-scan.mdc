@@ -1,0 +1,26 @@
+---
+description: DynamoDB — no table scans; bounded queries only (esp. analytics)
+alwaysApply: true
+---
+
+# DynamoDB: no scans
+
+## Hard rules
+
+- **Never** use DynamoDB **`Scan`**: no `ScanCommand`, `client.scan`, `docClient.scan`, or `scan()` wrappers.
+- **Never** emulate a table scan by repeatedly **`Query`ing a single GSI partition** that holds “all rows of type X” (e.g. `GSIENTITYPK = "SALE_LINE"`) **without a tight sort-key bound** — that reads the entire entity partition and does not scale.
+
+## Allowed access patterns
+
+- **`Query`** on the **base table** with `PK` + `SK` condition (e.g. `begins_with(SK, "LINE#")` under `INV#SALE_TXN#<machineId>`).
+- **`Query`** on a **GSI** only when the **partition key + sort key** (or key condition) **bounds** the result set (date range, id prefix tied to one tenant/resource, etc.).
+- **`GetItem`**, **`BatchGetItem`**, **`TransactWrite`**, **`UpdateItem`** as appropriate.
+
+## Analytics (`srv/handler/analytics-sales-api.ts` and related)
+
+- Load sales by **fan-out `Query` per known `machineId`** partition only.
+- If there are no machine IDs, return empty aggregates (or a clear `warning`), and require callers to pass **`machineId`** or **`machineIds`** (comma-separated) or register devices in OPS — **do not** scan the `SALE_LINE` GSI partition to “discover” rows.
+
+## Scripts
+
+- Ingestion utilities must use **`PutItem`** / **`TransactWrite`** / **`Query`**, not **`Scan`**, unless you are writing a one-off migration (prefer `dynamodb-admin` or a bounded export path instead).

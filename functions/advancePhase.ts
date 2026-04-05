@@ -38,7 +38,6 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     new PutItemCommand({
       TableName: Resource.Games.name,
       Item: marshall({
-        gameId: updated.gameId,
         ...updated,
         updatedAt: updated.updatedAt,
       }),

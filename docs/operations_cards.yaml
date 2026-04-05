@@ -1,0 +1,198 @@
+version: 1
+kind: operations_deck_v1
+title: Operations cards
+companion_doc: GAME_RULES.md
+preamble:
+  how_actions: >-
+    Per **GAME_RULES → Actions**, **Draw operations cards** is **one action** among everything else you might do on your
+    turn. You do **not** pay a separate “card price” printed on the operations card for that—**the action itself** has
+    the cost.
+
+
+    Actions on a turn use **one escalating sequence**: **1st action free ($0)**, **2nd costs $1**, **3rd costs $2**,
+    **4th costs $3**, and so on (see the table in **GAME_RULES**). Whichever **step** you are on when you take your
+    **draw/play operations card** action is what you pay to the bank for **that** action.
+
+
+    So the **only** “prerequisite” is: **you must spend an action** (and therefore accept **that** step’s cost on the
+    track). The **outcomes below are tuned** so that—**after** accounting for the fact that this uses an action—the
+    **benefit** of the card is **worth it on average** when you model the deck as a whole.
+  notation:
+    B: number of **Barons** (players) in the game
+balance:
+  intro: When you balance the **operations** deck, model each card’s **cash equivalent** for a **typical** line of play
+    (value **extra** resources at **~$1** each when comparing cards to each other; value **−$1** to fees as **~$1**
+    saved).
+  targets:
+    - label: Mean ≈ $4
+      detail: Across the deck, the **expected** cash-equivalent value of resolving a random operations card should land near
+        **$4** (so taking the action is “worth it” on average vs. a neutral blank).
+    - label: Median ≈ $3
+      detail: "**Half** the cards should be **≤ ~$3** equivalent on a **normal** resolution—lots of steady, modest hits."
+    - label: Right tail
+      detail: A **minority** of resolutions should spike **well above** the median (**~$7–$12+** equivalent) when the board
+        lines up, so the distribution is **right-skewed** (mean > median).
+  practical_recipe: "**Practical recipe:** most cards with **steady** **$2–$4** outcomes; several with **conditional**
+    spikes; a few **high-variance** cards where upside is rare but large (demand high, many rickhouses, perfect roll,
+    etc.). The numbers in the tables below follow that shape."
+categories:
+  - id: cash_liquidity
+    title: Cash & liquidity
+    cards:
+      - id: county_rebate
+        title: County rebate
+        concept: Economic development grant.
+        effect: Gain **$6** if market demand is **≥ 6**; otherwise gain **$2**. *(Rough EV ≈ $4 if high-demand happens ~half the
+          time—tune with your demand model.)*
+      - id: fire_sale
+        title: Fire sale
+        concept: Move inventory fast.
+        effect: Discard **1 resource**; gain **$6**. *(Treat net as **~$5** if a spare resource is worth ~$1.)*
+      - id: angels_share_cash
+        title: Angels’ share (cash)
+        concept: Evaporation in your favor.
+        effect: Gain **$2** per **year token** on your **oldest** barrelled bourbon (**max $10**). *(Typical **1–2** tokens →
+          median-friendly; cap stops runaway tail on this card—tail lives elsewhere.)*
+      - id: bridge_loan
+        title: Bridge loan
+        concept: Short-term paper.
+        effect: Gain **$8** now; at **end of your next turn**, pay **$5** to the bank **or** discard **1 resource**. *(Net often
+          **~$3–$4** after the bill; spike is the upfront **$8**.)*
+      - id: tour_bus_tips
+        title: Tour bus tips
+        concept: Visitors love the gift shop.
+        effect: Gain **$3** **+$1** per **distinct rickhouse** where you have at least one barrel (**max $3 + 6**). *(Median
+          case **~$4–$5** with **1–2** houses; **right tail** when you span many regions.)*
+  - id: rickhouse_fees
+    title: Rickhouse & fees (this turn / next turn)
+    cards:
+      - id: sandbag_the_leak
+        title: Sandbag the leak
+        concept: Emergency repair.
+        effect: "Choose one rickhouse: **−$2** off **entry rent** the next time you **make bourbon** there **this turn**, and
+          gain **$2**."
+      - id: stack_swap
+        title: Stack swap
+        concept: Crew rotates barrels for you.
+        effect: "**Once this turn**, when you **make bourbon**, you may place into **any legal slot** in that rickhouse; gain
+          **$3** when you do."
+      - id: freeze_rent
+        title: Freeze rent
+        concept: One-month abatement.
+        effect: Your **rickhouse fees** this turn are reduced by **$3** (minimum **$0** total).
+      - id: inspector_delay
+        title: Inspector delay
+        concept: Paperwork shuffle.
+        effect: "**Next turn only**, ignore **double-fee** consequences from partial fee payment (if you use that rule path).
+          **Gain $4** now. *(Cash now + insurance = tail when bankruptcy rules hurt.)*"
+  - id: market_hand
+    title: Market & hand (resources)
+    cards:
+      - id: cooper_on_call
+        title: Cooper on call
+        concept: Emergency repair staves.
+        effect: Take **1** card from the **Cask** pile; you may discard **1** card from hand. **Gain $3** *(side sale)*.
+      - id: extra_dray
+        title: Extra dray
+        concept: Truck showed up early.
+        effect: Your **next** “buy from market” action **this turn** gives **+1** card (**4** total) **or** **look** at the top
+          card of **one** pile before you choose draws. **Gain $2** now.
+      - id: mulligan_mash
+        title: Mulligan mash
+        concept: Scrap the cook.
+        effect: "**Discard up to 2** resources; **draw 4** from any combination of piles. **Gain $3** from scrap credit."
+      - id: grain_sweep
+        title: Grain sweep
+        concept: Clean the bin.
+        effect: Take **2** cards from the **Grain** pile; **gain $2**. *(Roughly **~$4** equivalent if a card ≈ **$1**.)*
+      - id: corn_rush
+        title: Corn rush
+        concept: Harvest window.
+        effect: Take **2** cards from the **Corn** pile; **gain $2**. *(Same as above.)*
+  - id: bourbon_sale_moment
+    title: Bourbon sale moment
+    cards:
+      - id: sample_pour
+        title: Sample pour
+        concept: Small loss, good will.
+        effect: "**Gain $3** now. On your **next** sale this turn, take **−$1** revenue **but** **market demand** does **not**
+          drop for that sale. *(Net swing depends on sale size—often **~$3** floor.)*"
+      - id: flash_tasting
+        title: Flash tasting
+        concept: Hype before the deal.
+        effect: "**Gain $2** now. On your **next sale this turn**, treat demand as **+1** for **price lookup only**."
+      - id: broker_call
+        title: Broker call
+        concept: Better quote.
+        effect: On your **next sale this turn**, after you see Bourbon Card options, you may **discard 1** resource to **draw
+          1** replacement Bourbon Card from the deck. **Gain $2** when you sell (even if you don’t replace).
+      - id: sticker_shock
+        title: Sticker shock
+        concept: Customer pays more anyway.
+        effect: On your **next sale this turn**, **+$4** revenue; **market demand** still drops normally. *(Tail when your sale
+          price was already high.)*
+  - id: dice_demand
+    title: Dice & demand (timing)
+    cards:
+      - id: bad_headlines
+        title: Bad headlines
+        concept: Tariffs, taxes, trends.
+        effect: "**Before** the market-demand roll, **−1** demand (floor **0**). **Gain $3**. *(Spite + cash.)*"
+      - id: weather_window
+        title: Weather window
+        concept: Perfect season.
+        effect: Reroll **one** demand die **once** this turn (second result stands). **Gain $2** now.
+      - id: lucky_seven
+        title: Lucky seven
+        concept: Superstition pays.
+        effect: If your roll for demand has sum **7**, **+1** **extra** demand after the normal rule **and** **gain $8**.
+          Otherwise **gain $2**. *(Rare spike = **right tail**.)*
+      - id: lobby_the_chamber
+        title: Lobby the chamber
+        concept: Industry association pushes.
+        effect: "**After** the market-demand roll at end of turn, **+1** demand (cap at table max, e.g. **12**). **Gain $5**
+          now. *(Strong when demand was already high.)*"
+  - id: soft_interaction
+    title: Soft interaction (table politics)
+    cards:
+      - id: spite_proof
+        title: Spite proof
+        concept: Steal the story.
+        effect: "Choose a player: they **reveal** a random resource from hand; you **name** Cask/Corn/Grain—if it matches,
+          **gain $5**; if not, **gain $2**."
+      - id: county_fair_booth
+        title: County fair booth
+        concept: Everyone sells a little.
+        effect: Each player gains **$1**; you **gain $3** more (**$4** total to you).
+      - id: round_on_you
+        title: Round on you
+        concept: Kentucky hospitality.
+        effect: "**Gain $3** now. Each other player may **give** you **$1**; for each who does, you **owe $1** back at **start
+          of your next turn** (binding if you want teeth)."
+      - id: union_rumor
+        title: Union rumor
+        concept: Slow their line.
+        effect: "Choose a player: their **first** action **next turn** costs **+$1** on the action track (if you use cross-turn
+          modifiers). **Gain $3** now."
+  - id: cleanup_recovery
+    title: Cleanup / recovery
+    cards:
+      - id: smoke_break
+        title: Smoke break
+        concept: Pause the line.
+        effect: "**End your action phase now**; **gain $3** if you already took **3+** actions this turn, otherwise **gain
+          $1**."
+      - id: audit_clean
+        title: Audit clean
+        concept: Books square.
+        effect: Remove **one** “debt” or “owe end of turn” marker from an operations/investment effect (if you use markers).
+          **Gain $3**.
+      - id: second_glance
+        title: Second glance
+        concept: Reread the rulebook.
+        effect: "**Discard** this card to **undo** **one** non-sale action you took **this turn** (return components—tune for
+          abuse). **Gain $2** now. *(Effective value can be **very** high when undo saves a blunder—**tail** comes from
+          situational upside.)*"
+footer: "**Design note:** Operations should **not** duplicate **investment** payoffs (no permanent “−$1 all rickhouse
+  fees forever”). If an effect feels evergreen, move it to **[investment_cards.yaml](investment_cards.yaml)** with
+  **capital** and **upright** rules."

@@ -1,0 +1,189 @@
+version: 1
+kind: specialty_resource_cards_v1
+title: Specialty resource cards
+companion_doc: GAME_RULES.md
+intro: >-
+  Companion to **[GAME_RULES.md](GAME_RULES.md)** — see **Resources** and **Mash** for how many **Cask**, **Corn**, and
+  **grain** cards (Barley / Rye / Wheat) go into a mash.
+
+
+  **Standard** resource cards only state their **type** (and maybe art). **Specialty** resource cards add **one rule
+  line** that matters when you **make bourbon**, **age**, **sell**, or **trade**—depending on the card. Unless a card
+  says otherwise, a specialty still counts fully as its **base type** for mash requirements (1 cask, 1 corn, ≥1 grain,
+  up to **four** corn+grain cards total, plus **1 cask**).
+
+
+  This document is the **catalog of specialty resource cards** for print-and-play or future deck lists. Balance numbers
+  when you build the physical deck.
+how_to_read:
+  - column: Card
+    meaning: Working title on the card.
+  - column: Hook
+    meaning: Flavor / why it’s “special.”
+  - column: Specialty rule
+    meaning: What changes in *Bourbonomics* when this card is part of your mash or otherwise referenced.
+icons_note: "**Icons (optional on cards):** use a small mark for **Award** (Silver/Gold criteria), **Aging**, **Money**,
+  **Draw**, **Demand**, **Rickhouse** so players parse fast at the table."
+categories:
+  - id: cask_specialty
+    title: Cask (specialty)
+    cards:
+      - id: new_american_oak
+        name: New American oak
+        hook: Big vanilla, first fill.
+        rule: When you **sell** bourbon that included this cask in the mash, **+$1** revenue once.
+      - id: heavy_char
+        name: Heavy char
+        hook: Deep toast layer.
+        rule: Treat this cask as **+1** toward **award** thresholds that care about “quality” or char (if you use tiers).
+      - id: second_use_barrel
+        name: Second-use barrel
+        hook: Softer oak.
+        rule: "**−$1** to **entry rent** the first time you **barrel** the bourbon made with this cask (this placement only)."
+      - id: honey_barrel
+        name: Honey barrel
+        hook: Prior honey holds sweetness.
+        rule: On **sell**, you may treat **market demand** as **+1** for **price lookup only** (once).
+      - id: wine_finish_cask
+        name: Wine finish cask
+        hook: Red-wine staves.
+        rule: When you **sell**, draw **+1** Bourbon Card (then choose as usual) **once** if your mash had **≥2** grains.
+      - id: small_format
+        name: Small format
+        hook: Faster extraction.
+        rule: When **aging** would add **1** year token, you may add **2** instead **once** (then flip this card sideways or
+          discard—your call when balancing).
+      - id: large_format
+        name: Large format
+        hook: Slower, rounder.
+        rule: "**−$1** **rickhouse fee** for the rickhouse where this bourbon sits **once per turn** while this barrel is there
+          (max **$1**)."
+      - id: independent_stave
+        name: Independent stave
+        hook: Tight grain, pricey.
+        rule: "**Trade** only: this cask counts as **$2** toward trades where you value resources in **$** (if you use that
+          optional rule)."
+      - id: cooper_s_select
+        name: Cooper’s select
+        hook: Hand-checked.
+        rule: "**Once** when you **make bourbon**, you may **look** at the top **Bourbon Card** after you commit the mash."
+      - id: leaky_angel
+        name: Leaky angel
+        hook: Evaporation story.
+        rule: On **sell**, **+$1** revenue; **−$1** revenue if **market demand** is **0** (risk/reward).
+  - id: corn_specialty
+    title: Corn (specialty)
+    cards:
+      - id: yellow_dent_2
+        name: "Yellow dent #2"
+        hook: Workhorse feed corn.
+        rule: No extra rule—this is the **baseline** specialty (vanilla flavor text only).
+      - id: heirloom_blue
+        name: Heirloom blue
+        hook: Terroir flex.
+        rule: "**Silver**-related award checks treat **one** fewer matching symbol **once** when this corn is in the mash (if
+          you use symbol checks)."
+      - id: bourbon_grade_bulk
+        name: Bourbon-grade bulk
+        hook: Volume play.
+        rule: If this mash uses **3** corn cards, **+$2** on **sell**; if **1** corn, **+$0**.
+      - id: high_starch_hybrid
+        name: High-starch hybrid
+        hook: Fermentation yield.
+        rule: On **make bourbon**, **gain $1** from the bank (once per mash that uses this card).
+      - id: local_co_op_corn
+        name: Local co-op corn
+        hook: Story for tourists.
+        rule: On **sell**, if **≥2** other players have barrelled bourbon this game, **+$1** revenue.
+      - id: drought_year
+        name: Drought year
+        hook: Scarce, intense.
+        rule: On **sell**, **+$2** revenue if **market demand ≤ 3**; otherwise **+$0**.
+      - id: waxy_corn
+        name: Waxy corn
+        hook: Unusual mouthfeel lab.
+        rule: When you **sell**, you may **discard 1** resource to **draw 1** Bourbon Card (then choose as usual).
+  - id: barley_specialty
+    title: Barley (specialty)
+    cards:
+      - id: two_row_malt
+        name: Two-row malt
+        hook: Standard malted barley.
+        rule: "**Once** on **sell**, treat your bourbon’s **age** as **+1** for **Market Price Guide** only."
+      - id: six_row_spice
+        name: Six-row spice
+        hook: Grainy, sharp.
+        rule: If your mash also includes **rye**, **+$1** on **sell**.
+      - id: peated_malt
+        name: Peated malt
+        hook: Smoke note.
+        rule: "**Gold**-related checks: treat **one** requirement as satisfied if you also spent **+$0**—tune to your Gold card
+          text (placeholder: **+1** “smoke” icon)."
+      - id: chocolate_malt
+        name: Chocolate malt
+        hook: Color and cocoa notes.
+        rule: On **sell**, if **market demand** is **even**, **+$1** revenue (ties to your **Notes** on even demand).
+  - id: rye_specialty
+    title: Rye (specialty)
+    cards:
+      - id: high_rye_bite
+        name: High-rye bite
+        hook: Spice forward.
+        rule: On **sell**, **+$1** revenue if **market demand ≥ 6**.
+      - id: malted_rye
+        name: Malted rye
+        hook: Softer spice.
+        rule: "**−$1** to **rickhouse fee** for **one** rickhouse where this barrel sits **this turn** (once)."
+      - id: canadian_style_rye
+        name: Canadian-style rye
+        hook: Label story.
+        rule: On **trade**, you may swap this card for **any one** grain card from a willing player **without** using an extra
+          action (still follow trade timing rules).
+  - id: wheat_specialty
+    title: Wheat (specialty)
+    cards:
+      - id: soft_red_winter
+        name: Soft red winter
+        hook: Easy, sweet.
+        rule: On **sell**, **+$1** revenue if your mash has **exactly 2** total grain cards (barley/rye/wheat).
+      - id: wheated_bill_helper
+        name: Wheated bill helper
+        hook: Wheater identity.
+        rule: If your mash has **no rye**, treat **demand** as **+1** for **price lookup** on **sell** (once).
+      - id: creamy_wheat
+        name: Creamy wheat
+        hook: Mouthfeel marketing.
+        rule: When you **sell**, you may **ignore** **−$1** revenue from **one** operations effect this turn (if applicable).
+  - id: cross_type_rare_promos_optional
+    title: Cross-type / rare promos (optional)
+    cards:
+      - id: certified_organic_grain
+        name: Certified organic grain
+        type_printed: "*Choose* Corn or one Grain when drafted"
+        hook: Paper trail.
+        rule: On **sell**, **+$1**; **−$1** on **sell** if **market demand** is **odd** (if you track odd/even quirks).
+      - id: heritage_grist
+        name: Heritage grist
+        type_printed: Counts as **1 corn + 1 grain** in one card
+        hook: Pre-mixed bill.
+        rule: Occupies **two** of your four **corn+grain** slots **by itself**; **+1** Bourbon Card draw on **sell** (then
+          choose as usual).
+      - id: neutral_spirits_transfer
+        name: Neutral spirits transfer
+        type_printed: Cask
+        hook: Blending loophole.
+        rule: "**Bottled-in-Bond only** (if you want): may **combine** with another barrel in the same rickhouse for **one**
+          merged **sell** (tune carefully)."
+    table: card_type_hook_rule
+notes:
+  - Aim for **most** draws to be **standard** cards so mash math stays readable; **specialty** density of **~20–35%** of
+    each pile is a starting point (tune for fun).
+  - If a specialty **stacks** with another specialty, say **“once per sale”** or **“first time each turn”** on the card
+    to avoid runaway combos.
+  - When you finalize names, add a **collector number** per pile (**CASK-12**, **CORN-08**, etc.) on the card face for
+    versioning.
+related_docs:
+  - label: GAME_RULES.md
+    href: GAME_RULES.md
+  - label: investment_cards.yaml
+    href: investment_cards.yaml
