@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import YAML from "yaml";
+import { Document, visit, isMap, isSeq } from "yaml";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const outPath = path.join(__dirname, "..", "docs", "bourbon_cards.yaml");
@@ -155,12 +155,27 @@ const doc = {
   cards: cardDocs,
 };
 
-const yamlText = YAML.stringify(doc, {
-  aliasDuplicateObjects: false,
-  lineWidth: 120,
-  defaultKeyType: "PLAIN",
-  defaultStringType: "PLAIN",
+const ydoc = new Document(doc, { aliasDuplicateObjects: false });
+visit(ydoc, {
+  Map(_, map) {
+    const pairNamed = (name) =>
+      map.items.find((p) => p.key?.value === name)?.value;
+    if (!pairNamed("grid")) return;
+    for (const key of ["demand", "ages", "grid"]) {
+      const v = pairNamed(key);
+      if (v && isSeq(v)) {
+        v.flow = true;
+        if (key === "grid") {
+          for (const row of v.items) {
+            if (isSeq(row)) row.flow = true;
+          }
+        }
+      }
+    }
+  },
 });
+
+const yamlText = String(ydoc);
 
 fs.writeFileSync(outPath, yamlText, "utf8");
 console.log("Wrote", outPath);

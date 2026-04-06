@@ -5,7 +5,7 @@ import {
   barrelBourbon,
   advancePhase,
   canMash,
-  drawCost,
+  normalizeGame,
 } from "./game";
 
 const MAX_BOT_TURN_ITERATIONS = 50;
@@ -16,7 +16,7 @@ const MAX_BOT_TURN_ITERATIONS = 50;
  */
 export function runComputerTurn(game: GameDoc): GameDoc {
   if (game.status !== "in_progress") return game;
-  let state = { ...game };
+  let state = normalizeGame({ ...game });
   let iterations = 0;
 
   while (iterations < MAX_BOT_TURN_ITERATIONS) {
@@ -28,22 +28,23 @@ export function runComputerTurn(game: GameDoc): GameDoc {
     if (!player) break;
 
     if (state.currentPhase === 1) {
-      state = { ...state, currentPhase: 2, currentPhaseDrawCount: 0 };
+      state = { ...state, currentPhase: 2, updatedAt: Date.now() };
       continue;
     }
 
     if (state.currentPhase === 2) {
-      const freeDraw = buyResources(state, "market");
-      if (!freeDraw.error && freeDraw.game.marketGoods.length > 0) {
-        state = freeDraw.game;
+      if (state.marketGoods.length > 0) {
+        const buyMarket = buyResources(state, "market");
+        if (!buyMarket.error) state = buyMarket.game;
       }
-      const costTwo = drawCost(state.currentPhaseDrawCount, 2);
-      const botAfterDraw = state.players[currentId];
-      if (botAfterDraw && botAfterDraw.cash >= costTwo && state.resourceDeck.length >= 2) {
-        const buyTwo = buyResources(state, "random");
+      const st = normalizeGame(state);
+      const bot = st.players[currentId];
+      const nextCost = st.actionsTakenThisTurn ?? 0;
+      if (bot && st.resourceDeck.length >= 2 && bot.cash >= nextCost) {
+        const buyTwo = buyResources(st, "random");
         if (!buyTwo.error) state = buyTwo.game;
       }
-      state = { ...state, currentPhase: 3 };
+      state = { ...state, currentPhase: 3, updatedAt: Date.now() };
       continue;
     }
 
@@ -56,7 +57,7 @@ export function runComputerTurn(game: GameDoc): GameDoc {
           if (!result.error) state = result.game;
         }
       }
-      state = { ...state, currentPhase: 4 };
+      state = { ...state, currentPhase: 4, updatedAt: Date.now() };
       continue;
     }
 
@@ -77,7 +78,8 @@ function pickCheapestRickhouse(game: GameDoc, playerId: string): Rickhouse | nul
     if (r.barrels.length >= r.capacity) continue;
     const rent = r.barrels.length + 1;
     const player = game.players[playerId];
-    if (player && player.cash >= rent && rent < bestRent) {
+    const actionCost = game.actionsTakenThisTurn ?? 0;
+    if (player && player.cash >= rent + actionCost && rent < bestRent) {
       bestRent = rent;
       best = r;
     }

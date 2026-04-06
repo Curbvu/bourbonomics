@@ -16,6 +16,19 @@ const PHASE_NAMES: Record<number, string> = {
   4: "Market",
 };
 
+interface OperationsCardInHand {
+  id: string;
+  title: string;
+  cashWhenPlayed: number;
+}
+
+interface InvestmentCardInHand {
+  id: string;
+  title: string;
+  capital: number;
+  upright: boolean;
+}
+
 interface Player {
   id: string;
   name: string;
@@ -23,6 +36,8 @@ interface Player {
   resourceCards: string[];
   barrelledBourbons: unknown[];
   bourbonCards: unknown[];
+  operationsHand?: OperationsCardInHand[];
+  investmentHand?: InvestmentCardInHand[];
 }
 
 interface Rickhouse {
@@ -41,9 +56,14 @@ interface Game {
   currentPhase: number;
   currentPlayerIndex: number;
   turnNumber: number;
+  /** Next action costs this many dollars (0, then 1, 2, …); resets each turn. */
+  actionsTakenThisTurn?: number;
+  operationsDeck?: string[];
+  investmentDeck?: string[];
   winnerIds?: string[];
   rickhouses?: Rickhouse[];
   marketGoods?: string[];
+  resourceDeck?: string[];
 }
 
 export default function GamePage() {
@@ -222,15 +242,53 @@ export default function GamePage() {
     }
   }
 
+  async function handleCardAction(
+    action:
+      | "drawOperations"
+      | "drawInvestment"
+      | "capitalizeInvestment"
+      | "playOperations",
+    handIndex?: number
+  ) {
+    setActionLoading(true);
+    setError("");
+    try {
+      const body: Record<string, unknown> = { playerId, action };
+      if (handIndex !== undefined) body.handIndex = handIndex;
+      const res = await fetch(`${API_URL}/games/${gameId}/cards`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Card action failed");
+      setGame(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Card action failed");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   const rickhouses = game.rickhouses ?? [];
   const marketGoods = game.marketGoods ?? [];
   const me = playerId ? game.players[playerId] : null;
+  const nextActionCost = game.actionsTakenThisTurn ?? 0;
+  const opsHand = me?.operationsHand ?? [];
+  const invHand = me?.investmentHand ?? [];
+  const opsDeckLeft = game.operationsDeck?.length ?? 0;
+  const invDeckLeft = game.investmentDeck?.length ?? 0;
+  const deckLeft = game.resourceDeck?.length ?? 0;
   const canMash =
     me &&
     me.resourceCards.filter((c) => c === "Cask").length >= 1 &&
     me.resourceCards.filter((c) => c === "Corn").length >= 1 &&
     me.resourceCards.filter((c) => c === "Barley").length >= 1 &&
     (me.resourceCards.includes("Wheat") || me.resourceCards.includes("Rye"));
+  const inCardPhases =
+    game.status === "in_progress" &&
+    game.currentPhase >= 2 &&
+    game.currentPhase <= 4;
 
   return (
     <div className="min-h-screen bg-amber-50 p-4 dark:bg-amber-950/20">
@@ -278,6 +336,20 @@ export default function GamePage() {
           {players[game.currentPlayerIndex]?.name ?? "—"}
           {isCurrentPlayer && " (you)"}
         </p>
+        {game.status === "in_progress" && (
+          <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
+            Next action fee:{" "}
+            <strong>${nextActionCost}</strong>
+            {isCurrentPlayer && !isComputerTurnNow && me != null && (
+              <>
+                {" "}
+                · Your cash: ${me.cash}
+              </>
+            )}
+            {" "}
+            · Operations deck: {opsDeckLeft} · Investment deck: {invDeckLeft}
+          </p>
+        )}
       </div>
 
       {game.status === "lobby" && (
@@ -298,49 +370,145 @@ export default function GamePage() {
       )}
 
       {game.status === "in_progress" && isCurrentPlayer && !isComputerTurnNow && (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          {game.currentPhase === 2 && (
-            <>
-              <button
-                onClick={() => handleBuy("market")}
-                disabled={actionLoading || marketGoods.length === 0}
-                className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
-              >
-                Buy 1 from market
-              </button>
-              <button
-                onClick={() => handleBuy("random")}
-                disabled={actionLoading}
-                className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
-              >
-                Buy 2 random
-              </button>
-            </>
-          )}
-          {game.currentPhase === 3 && (
-            <>
-              {rickhouses.map(
-                (r) =>
-                  r.barrels.length < r.capacity && (
-                    <button
-                      key={r.id}
-                      onClick={() => handleBarrel(r.id)}
-                      disabled={actionLoading || !canMash}
-                      className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
-                    >
-                      Barrel in {r.id.replace("rickhouse-", "R")} (rent {r.barrels.length + 1})
-                    </button>
-                  )
+        <div className="mb-4 flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {game.currentPhase === 2 && (
+              <>
+                <button
+                  onClick={() => handleBuy("market")}
+                  disabled={
+                    actionLoading ||
+                    marketGoods.length === 0 ||
+                    (me != null && me.cash < nextActionCost)
+                  }
+                  className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  Buy from market (up to 3) — ${nextActionCost}
+                </button>
+                <button
+                  onClick={() => handleBuy("random")}
+                  disabled={
+                    actionLoading ||
+                    deckLeft < 2 ||
+                    (me != null && me.cash < nextActionCost)
+                  }
+                  className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  Buy 2 random — ${nextActionCost}
+                </button>
+              </>
+            )}
+            {game.currentPhase === 3 && (
+              <>
+                {rickhouses.map(
+                  (r) =>
+                    r.barrels.length < r.capacity && (
+                      <button
+                        key={r.id}
+                        onClick={() => handleBarrel(r.id)}
+                        disabled={
+                          actionLoading ||
+                          !canMash ||
+                          (me != null &&
+                            me.cash < r.barrels.length + 1 + nextActionCost)
+                        }
+                        className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
+                      >
+                        Barrel {r.id.replace("rickhouse-", "R")} (rent{" "}
+                        {r.barrels.length + 1} + ${nextActionCost})
+                      </button>
+                    )
+                )}
+              </>
+            )}
+            <button
+              onClick={handleNextPhase}
+              disabled={actionLoading}
+              className="rounded bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              {actionLoading ? "…" : game.currentPhase === 4 ? "End turn" : "Next phase"}
+            </button>
+          </div>
+          {inCardPhases && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                Operations and investments
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCardAction("drawOperations")}
+                  disabled={
+                    actionLoading ||
+                    opsDeckLeft === 0 ||
+                    (me != null && me.cash < nextActionCost)
+                  }
+                  className="rounded bg-amber-700 px-3 py-1.5 text-sm text-white hover:bg-amber-800 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-500"
+                >
+                  Draw operations — ${nextActionCost}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCardAction("drawInvestment")}
+                  disabled={
+                    actionLoading ||
+                    invDeckLeft === 0 ||
+                    (me != null && me.cash < nextActionCost)
+                  }
+                  className="rounded bg-amber-700 px-3 py-1.5 text-sm text-white hover:bg-amber-800 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-500"
+                >
+                  Draw investment — ${nextActionCost}
+                </button>
+              </div>
+              {opsHand.length > 0 && (
+                <div className="mt-3">
+                  <p className="mb-1 text-xs text-amber-700 dark:text-amber-300">
+                    Operations in hand
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {opsHand.map((c, i) => (
+                      <button
+                        type="button"
+                        key={`${c.id}-${i}`}
+                        onClick={() => handleCardAction("playOperations", i)}
+                        disabled={
+                          actionLoading || (me != null && me.cash < nextActionCost)
+                        }
+                        className="rounded border border-amber-400 bg-white px-2 py-1 text-xs text-amber-900 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900"
+                      >
+                        Play {c.title} (+${c.cashWhenPlayed}, fee ${nextActionCost})
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-            </>
+              {invHand.some((c) => !c.upright) && (
+                <div className="mt-3">
+                  <p className="mb-1 text-xs text-amber-700 dark:text-amber-300">
+                    Capitalize investments (fee + printed capital)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {invHand.map((c, i) =>
+                      !c.upright ? (
+                        <button
+                          type="button"
+                          key={`${c.id}-${i}`}
+                          onClick={() => handleCardAction("capitalizeInvestment", i)}
+                          disabled={
+                            actionLoading ||
+                            (me != null && me.cash < nextActionCost + c.capital)
+                          }
+                          className="rounded border border-amber-400 bg-white px-2 py-1 text-xs text-amber-900 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900"
+                        >
+                          {c.title} (${nextActionCost} + ${c.capital})
+                        </button>
+                      ) : null
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
-          <button
-            onClick={handleNextPhase}
-            disabled={actionLoading}
-            className="rounded bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
-          >
-            {actionLoading ? "…" : game.currentPhase === 4 ? "End turn" : "Next phase"}
-          </button>
         </div>
       )}
 
@@ -422,6 +590,35 @@ export default function GamePage() {
                   </span>
                 ))}
               </div>
+              {opsHand.length > 0 && (
+                <div className="mt-3">
+                  <p className="mb-1 text-xs font-medium text-amber-800 dark:text-amber-200">
+                    Operations cards
+                  </p>
+                  <ul className="space-y-1 text-xs text-amber-700 dark:text-amber-300">
+                    {opsHand.map((c, i) => (
+                      <li key={`${c.id}-${i}`}>
+                        {c.title} (play +${c.cashWhenPlayed})
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {invHand.length > 0 && (
+                <div className="mt-3">
+                  <p className="mb-1 text-xs font-medium text-amber-800 dark:text-amber-200">
+                    Investment cards
+                  </p>
+                  <ul className="space-y-1 text-xs text-amber-700 dark:text-amber-300">
+                    {invHand.map((c, i) => (
+                      <li key={`${c.id}-${i}`}>
+                        {c.title}
+                        {c.upright ? " — active" : ` — sideways (capital $${c.capital})`}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {me.barrelledBourbons.length > 0 && (
                 <p className="mt-2 text-sm">
                   Barrelled: {me.barrelledBourbons.length}

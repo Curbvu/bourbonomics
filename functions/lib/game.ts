@@ -1,3 +1,10 @@
+import {
+  getInvestment,
+  getOperation,
+  INVESTMENTS,
+  OPERATIONS,
+} from "./cards";
+
 /** Short id for game code (e.g. 6 alphanumeric). */
 export function shortId(length = 6): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -17,6 +24,21 @@ export function isBotPlayer(playerId: string): boolean {
   return playerId.startsWith(BOT_ID_PREFIX);
 }
 
+/** Operations card in hand (resolved from deck). */
+export interface OperationsCardInHand {
+  id: string;
+  title: string;
+  cashWhenPlayed: number;
+}
+
+/** Investment card: sideways until capital paid. */
+export interface InvestmentCardInHand {
+  id: string;
+  title: string;
+  capital: number;
+  upright: boolean;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -24,6 +46,8 @@ export interface Player {
   resourceCards: string[];
   barrelledBourbons: BarrelledBourbon[];
   bourbonCards: BourbonCard[];
+  operationsHand: OperationsCardInHand[];
+  investmentHand: InvestmentCardInHand[];
 }
 
 export interface BarrelledBourbon {
@@ -63,8 +87,16 @@ export interface GameDoc {
   marketDemand: number;
   turnNumber: number;
   winnerIds?: string[];
-  /** Resets when entering Phase 2 (Preparation). Used for resource draw cost. */
-  currentPhaseDrawCount: number;
+  /**
+   * Escalating action costs for the current player this turn (GAME_RULES):
+   * next action costs `$actionsTakenThisTurn` (0, then 1, then 2, …).
+   * Resets when the turn ends (after Market phase).
+   */
+  actionsTakenThisTurn: number;
+  /** Shuffled operation card ids remaining in the deck. */
+  operationsDeck: string[];
+  /** Shuffled investment card ids remaining in the deck. */
+  investmentDeck: string[];
   rickhouses: Rickhouse[];
   marketGoods: string[];
   resourceDeck: string[];
@@ -130,7 +162,9 @@ export function createNewGame(gameId: string, mode: GameMode): GameDoc {
     currentPlayerIndex: 0,
     marketDemand: INITIAL_MARKET_DEMAND,
     turnNumber: 0,
-    currentPhaseDrawCount: 0,
+    actionsTakenThisTurn: 0,
+    operationsDeck: shuffle(OPERATIONS.map((c) => c.id)),
+    investmentDeck: shuffle(INVESTMENTS.map((c) => c.id)),
     rickhouses,
     marketGoods,
     resourceDeck: deck,
@@ -153,6 +187,8 @@ export function addPlayerToGame(game: GameDoc, playerId: string, name: string): 
         resourceCards: [],
         barrelledBourbons: [],
         bourbonCards: [],
+        operationsHand: [],
+        investmentHand: [],
       },
     },
     updatedAt: now,
@@ -180,14 +216,31 @@ export function startGame(game: GameDoc): GameDoc {
     resourceDeck = buildResourceDeck();
     marketGoods = resourceDeck.splice(0, 5);
   }
+  const opsDeck =
+    game.operationsDeck?.length ? [...game.operationsDeck] : shuffle(OPERATIONS.map((c) => c.id));
+  const invDeck =
+    game.investmentDeck?.length ? [...game.investmentDeck] : shuffle(INVESTMENTS.map((c) => c.id));
+
+  const playersWithHands: Record<string, Player> = {};
+  for (const pid of Object.keys(players)) {
+    const p = players[pid];
+    playersWithHands[pid] = {
+      ...p,
+      operationsHand: p.operationsHand ?? [],
+      investmentHand: p.investmentHand ?? [],
+    };
+  }
+
   return {
     ...game,
     status: "in_progress",
-    players,
+    players: playersWithHands,
     currentPhase: 1,
     currentPlayerIndex: 0,
     turnNumber: 1,
-    currentPhaseDrawCount: 0,
+    actionsTakenThisTurn: 0,
+    operationsDeck: opsDeck,
+    investmentDeck: invDeck,
     rickhouses,
     marketGoods: marketGoods ?? game.marketGoods ?? [],
     resourceDeck: resourceDeck ?? game.resourceDeck ?? [],
@@ -232,9 +285,7 @@ export function advancePhase(game: GameDoc): GameDoc {
   const now = Date.now();
   if (game.currentPhase < 4) {
     const next = game.currentPhase + 1;
-    const out = { ...game, currentPhase: next, updatedAt: now };
-    if (next === 2) out.currentPhaseDrawCount = 0;
-    return out;
+    return { ...game, currentPhase: next, updatedAt: now };
   }
   const newDemand = rollMarketDice(game.marketDemand);
   const nextIndex = (game.currentPlayerIndex + 1) % game.playerOrder.length;
@@ -244,7 +295,7 @@ export function advancePhase(game: GameDoc): GameDoc {
     currentPlayerIndex: nextIndex,
     turnNumber: nextIndex === 0 ? game.turnNumber + 1 : game.turnNumber,
     marketDemand: newDemand,
-    currentPhaseDrawCount: 0,
+    actionsTakenThisTurn: 0,
     updatedAt: now,
   };
   const winners = checkWinConditions(out);
@@ -252,17 +303,15 @@ export function advancePhase(game: GameDoc): GameDoc {
   return out;
 }
 
-/** Cost for drawing d more cards when currentPhaseDrawCount is c. First card free in Phase 2. */
-export function drawCost(c: number, d: number): number {
-  let cost = 0;
-  for (let i = 0; i < d; i++) {
-    if (c + i === 0) continue;
-    cost += c + i;
-  }
-  return cost;
+/** Next action costs `$actionsTakenThisTurn` (0, 1, 2, …) per GAME_RULES. */
+export function nextActionCashCost(actionsTakenThisTurn: number): number {
+  return actionsTakenThisTurn;
 }
 
-/** Buy 1 from market or 2 random. Only in Phase 2, current player. */
+const MARKET_LINE_SIZE = 5;
+const MARKET_BUY_COUNT = 3;
+
+/** Buy from market (3 face-up goods) or 2 random from deck. One action; escalating cash cost only. Phase 2. */
 export function buyResources(
   game: GameDoc,
   option: "market" | "random"
@@ -273,14 +322,9 @@ export function buyResources(
   const player = game.players[pid];
   if (!player) return { game, error: "Player not found" };
 
-  const count = option === "market" ? 1 : 2;
-  if (option === "market" && game.marketGoods.length === 0)
-    return { game, error: "Market empty" };
-  if (option === "random" && game.resourceDeck.length < 2)
-    return { game, error: "Not enough cards in deck" };
-
-  const cost = drawCost(game.currentPhaseDrawCount, count);
-  if (player.cash < cost) return { game, error: "Not enough cash" };
+  const actionCost = game.actionsTakenThisTurn ?? 0;
+  if (player.cash < actionCost)
+    return { game, error: "Not enough cash for this action" };
 
   const drawn: string[] = [];
   const now = Date.now();
@@ -288,18 +332,25 @@ export function buyResources(
   let resourceDeck = [...game.resourceDeck];
 
   if (option === "market") {
-    drawn.push(marketGoods.shift()!);
+    const take = Math.min(MARKET_BUY_COUNT, marketGoods.length);
+    if (take === 0) return { game, error: "Market empty" };
+    for (let i = 0; i < take; i++) {
+      const g = marketGoods.shift();
+      if (g) drawn.push(g);
+    }
+    while (marketGoods.length < MARKET_LINE_SIZE && resourceDeck.length > 0) {
+      marketGoods.push(resourceDeck.shift()!);
+    }
   } else {
-    const i1 = Math.floor(Math.random() * resourceDeck.length);
-    drawn.push(resourceDeck.splice(i1, 1)[0]);
-    const i2 = Math.floor(Math.random() * resourceDeck.length);
-    drawn.push(resourceDeck.splice(i2, 1)[0]);
+    if (resourceDeck.length < 2) return { game, error: "Not enough cards in deck" };
+    drawn.push(resourceDeck.shift()!);
+    drawn.push(resourceDeck.shift()!);
   }
 
   const newPlayers = { ...game.players };
   newPlayers[pid] = {
     ...player,
-    cash: player.cash - cost,
+    cash: player.cash - actionCost,
     resourceCards: [...player.resourceCards, ...drawn],
   };
 
@@ -309,7 +360,7 @@ export function buyResources(
       players: newPlayers,
       marketGoods,
       resourceDeck,
-      currentPhaseDrawCount: game.currentPhaseDrawCount + count,
+      actionsTakenThisTurn: actionCost + 1,
       updatedAt: now,
     },
   };
@@ -359,7 +410,9 @@ export function barrelBourbon(
   if (!newHand) return { game, error: "Cannot remove mash from hand" };
 
   const rent = rick.barrels.length + 1;
-  if (player.cash < rent) return { game, error: "Not enough cash for rent" };
+  const actionCost = game.actionsTakenThisTurn ?? 0;
+  if (player.cash < rent + actionCost)
+    return { game, error: "Not enough cash for rent and action cost" };
 
   const barrelId = `barrel_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   const barrel: RickhouseBarrel = { playerId, barrelId, age: 0 };
@@ -379,7 +432,7 @@ export function barrelBourbon(
   const newPlayers = { ...game.players };
   newPlayers[playerId] = {
     ...player,
-    cash: player.cash - rent,
+    cash: player.cash - rent - actionCost,
     resourceCards: newHand,
     barrelledBourbons: [...player.barrelledBourbons, barrelRef],
   };
@@ -388,6 +441,7 @@ export function barrelBourbon(
     ...game,
     rickhouses: newRickhouses,
     players: newPlayers,
+    actionsTakenThisTurn: actionCost + 1,
     updatedAt: now,
   };
   const winners = checkWinConditions(updated);
@@ -395,4 +449,203 @@ export function barrelBourbon(
     updated = { ...updated, status: "finished", winnerIds: winners };
   }
   return { game: updated };
+}
+
+function inActionPhases(phase: number): boolean {
+  return phase >= 2 && phase <= 4;
+}
+
+/** Draw top operations card (costs current action price). Phases 2–4. */
+export function drawOperationsCard(
+  game: GameDoc,
+  playerId: string
+): { game: GameDoc; error?: string } {
+  if (!inActionPhases(game.currentPhase))
+    return { game, error: "Operations draws only in phases 2–4" };
+  if (game.playerOrder[game.currentPlayerIndex] !== playerId)
+    return { game, error: "Not your turn" };
+  const player = ensurePlayerHands(game.players[playerId]);
+  if (!player) return { game, error: "Player not found" };
+
+  const actionCost = game.actionsTakenThisTurn ?? 0;
+  if (player.cash < actionCost)
+    return { game, error: "Not enough cash for this action" };
+  const deck = [...(game.operationsDeck ?? [])];
+  if (deck.length === 0) return { game, error: "Operations deck empty" };
+  const id = deck.shift()!;
+  const def = getOperation(id);
+  if (!def) return { game, error: "Invalid operations card" };
+
+  const card: OperationsCardInHand = {
+    id: def.id,
+    title: def.title,
+    cashWhenPlayed: def.cashWhenPlayed,
+  };
+  const now = Date.now();
+  const newPlayers = { ...game.players };
+  newPlayers[playerId] = {
+    ...player,
+    cash: player.cash - actionCost,
+    operationsHand: [...player.operationsHand, card],
+  };
+  return {
+    game: {
+      ...game,
+      players: newPlayers,
+      operationsDeck: deck,
+      actionsTakenThisTurn: actionCost + 1,
+      updatedAt: now,
+    },
+  };
+}
+
+/** Draw top investment card (sideways until capitalized). Phases 2–4. */
+export function drawInvestmentCard(
+  game: GameDoc,
+  playerId: string
+): { game: GameDoc; error?: string } {
+  if (!inActionPhases(game.currentPhase))
+    return { game, error: "Investment draws only in phases 2–4" };
+  if (game.playerOrder[game.currentPlayerIndex] !== playerId)
+    return { game, error: "Not your turn" };
+  const player = ensurePlayerHands(game.players[playerId]);
+  if (!player) return { game, error: "Player not found" };
+
+  const actionCost = game.actionsTakenThisTurn ?? 0;
+  if (player.cash < actionCost)
+    return { game, error: "Not enough cash for this action" };
+  const deck = [...(game.investmentDeck ?? [])];
+  if (deck.length === 0) return { game, error: "Investment deck empty" };
+  const id = deck.shift()!;
+  const def = getInvestment(id);
+  if (!def) return { game, error: "Invalid investment card" };
+
+  const card: InvestmentCardInHand = {
+    id: def.id,
+    title: def.title,
+    capital: def.capital,
+    upright: false,
+  };
+  const now = Date.now();
+  const newPlayers = { ...game.players };
+  newPlayers[playerId] = {
+    ...player,
+    cash: player.cash - actionCost,
+    investmentHand: [...player.investmentHand, card],
+  };
+  return {
+    game: {
+      ...game,
+      players: newPlayers,
+      investmentDeck: deck,
+      actionsTakenThisTurn: actionCost + 1,
+      updatedAt: now,
+    },
+  };
+}
+
+/** Pay escalating action cost + printed capital to stand an investment upright. */
+export function capitalizeInvestment(
+  game: GameDoc,
+  playerId: string,
+  handIndex: number
+): { game: GameDoc; error?: string } {
+  if (!inActionPhases(game.currentPhase))
+    return { game, error: "Capitalize only in phases 2–4" };
+  if (game.playerOrder[game.currentPlayerIndex] !== playerId)
+    return { game, error: "Not your turn" };
+  const player = ensurePlayerHands(game.players[playerId]);
+  if (!player) return { game, error: "Player not found" };
+  const card = player.investmentHand[handIndex];
+  if (!card) return { game, error: "No card at that index" };
+  if (card.upright) return { game, error: "Already capitalized" };
+
+  const actionCost = game.actionsTakenThisTurn ?? 0;
+  const total = actionCost + card.capital;
+  if (player.cash < total)
+    return { game, error: "Not enough cash for action + capital" };
+
+  const now = Date.now();
+  const next = [...player.investmentHand];
+  next[handIndex] = { ...card, upright: true };
+  const newPlayers = { ...game.players };
+  newPlayers[playerId] = {
+    ...player,
+    cash: player.cash - total,
+    investmentHand: next,
+  };
+  return {
+    game: {
+      ...game,
+      players: newPlayers,
+      actionsTakenThisTurn: actionCost + 1,
+      updatedAt: now,
+    },
+  };
+}
+
+/** Resolve an operations card from hand (pay action cost, gain printed cash). */
+export function playOperationsCard(
+  game: GameDoc,
+  playerId: string,
+  handIndex: number
+): { game: GameDoc; error?: string } {
+  if (!inActionPhases(game.currentPhase))
+    return { game, error: "Play operations only in phases 2–4" };
+  if (game.playerOrder[game.currentPlayerIndex] !== playerId)
+    return { game, error: "Not your turn" };
+  const player = ensurePlayerHands(game.players[playerId]);
+  if (!player) return { game, error: "Player not found" };
+  const card = player.operationsHand[handIndex];
+  if (!card) return { game, error: "No card at that index" };
+
+  const actionCost = game.actionsTakenThisTurn ?? 0;
+  if (player.cash < actionCost)
+    return { game, error: "Not enough cash for this action" };
+
+  const now = Date.now();
+  const nextHand = player.operationsHand.filter((_, i) => i !== handIndex);
+  const newPlayers = { ...game.players };
+  newPlayers[playerId] = {
+    ...player,
+    cash: player.cash - actionCost + card.cashWhenPlayed,
+    operationsHand: nextHand,
+  };
+  let updated: GameDoc = {
+    ...game,
+    players: newPlayers,
+    actionsTakenThisTurn: actionCost + 1,
+    updatedAt: now,
+  };
+  const winners = checkWinConditions(updated);
+  if (winners?.length) {
+    updated = { ...updated, status: "finished", winnerIds: winners };
+  }
+  return { game: updated };
+}
+
+function ensurePlayerHands(p: Player | undefined): Player | undefined {
+  if (!p) return undefined;
+  return {
+    ...p,
+    operationsHand: p.operationsHand ?? [],
+    investmentHand: p.investmentHand ?? [],
+  };
+}
+
+/** Defaults for older Dynamo items (safe to call on read). */
+export function normalizeGame(game: GameDoc): GameDoc {
+  const players: Record<string, Player> = {};
+  for (const pid of game.playerOrder) {
+    const p = game.players[pid];
+    if (!p) continue;
+    players[pid] = ensurePlayerHands(p)!;
+  }
+  return {
+    ...game,
+    actionsTakenThisTurn: game.actionsTakenThisTurn ?? 0,
+    operationsDeck: game.operationsDeck ?? [],
+    investmentDeck: game.investmentDeck ?? [],
+    players,
+  };
 }

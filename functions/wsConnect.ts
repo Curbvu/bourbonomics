@@ -10,7 +10,9 @@ export const handler = async (
   event: APIGatewayProxyWebsocketEventV2
 ): Promise<APIGatewayProxyResult> => {
   const connectionId = event.requestContext.connectionId;
-  const qs = event.queryStringParameters ?? {};
+  const qs =
+    (event as { queryStringParameters?: Record<string, string> | null })
+      .queryStringParameters ?? {};
   const gameId = (qs.gameId ?? "").toUpperCase();
   const playerId = qs.playerId ?? "";
 

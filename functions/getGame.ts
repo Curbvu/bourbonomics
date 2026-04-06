@@ -2,6 +2,7 @@ import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { Resource } from "sst";
+import { normalizeGame, type GameDoc } from "./lib/game";
 
 const client = new DynamoDBClient({});
 
@@ -22,7 +23,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 404, body: JSON.stringify({ error: "Game not found" }) };
   }
 
-  const game = unmarshall(res.Item);
+  const game = normalizeGame(unmarshall(res.Item) as GameDoc);
 
   return {
     statusCode: 200,

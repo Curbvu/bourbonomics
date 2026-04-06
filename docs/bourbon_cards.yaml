@@ -3,1205 +3,445 @@ kind: bourbon_cards_v1
 intro:
   title: Bourbon cards
   body: >-
-    Named **Bourbon Market Price Guide** cards for *Bourbonomics*. Each card is a specific product line. Grids use
-    **2–4** age rows (top age **6** max) and **2–4** demand columns; payoffs are **steppy** (uneven jumps). **Standard**
+    Named **Bourbon Market Price Guide** cards for *Bourbonomics*. Each card is
+    a specific product line. Grids use **2–4** age rows (top age **6** max) and
+    **2–4** demand columns; payoffs are **steppy** (uneven jumps). **Standard**
     cards are common; **Rare** cards are fewer copies with higher ceilings.
 
 
-    **Silver / Gold awards** appear only on **Rare** cards and a small set of **flagship Standard** lines—not every
-    bottle chases a medal. Cards without award lines still sell using the Market Price Guide only.
+    **Silver / Gold awards** appear only on **Rare** cards and a small set of
+    **flagship Standard** lines—not every bottle chases a medal. Cards without
+    award lines still sell using the Market Price Guide only.
 
 
-    Lookup matches **GAME_RULES.md** (highest age row ≤ your bourbon age, highest demand column ≤ market demand).
-    **Demand 0** uses **GAME_RULES**.
+    Lookup matches **GAME_RULES.md** (highest age row ≤ your bourbon age,
+    highest demand column ≤ market demand). **Demand 0** uses **GAME_RULES**.
 cards:
   - id: "01"
     name: Knob's End 90
     rarity: Standard
-    demand:
-      - 4
-      - 8
-      - 12
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 8
-        - 7
-        - 12
-      - - 10
-        - 8
-        - 20
-      - - 16
-        - 18
-        - 21
-      - - 20
-        - 16
-        - 21
+    demand: [ 4, 8, 12 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ], [ 20, 16, 21 ] ]
     awards: null
   - id: "02"
     name: Mammoth Cave Malt
     rarity: Standard
-    demand:
-      - 2
-      - 6
-      - 10
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 10
-        - 9
-        - 14
-      - - 12
-        - 10
-        - 22
-      - - 18
-        - 20
-        - 23
+    demand: [ 2, 6, 10 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
     awards: null
   - id: "03"
     name: Bardstown Boiler
     rarity: Standard
-    demand:
-      - 3
-      - 7
-      - 11
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 12
-        - 11
-        - 16
-      - - 14
-        - 12
-        - 24
-      - - 20
-        - 22
-        - 25
+    demand: [ 3, 7, 11 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
     awards: null
   - id: "04"
     name: Limestone Ledger
     rarity: Standard
-    demand:
-      - 5
-      - 9
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 14
-        - 13
-        - 18
-      - - 16
-        - 14
-        - 26
-      - - 22
-        - 24
-        - 27
+    demand: [ 5, 9, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
     awards: null
   - id: "05"
     name: Charred Oak Exchange
     rarity: Standard
-    demand:
-      - 4
-      - 6
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 8
-        - 7
-        - 12
-      - - 10
-        - 8
-        - 20
-      - - 16
-        - 18
-        - 21
+    demand: [ 4, 6, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
     awards: null
   - id: "06"
     name: Riverbend Rye Signal
     rarity: Standard
-    demand:
-      - 2
-      - 8
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 10
-        - 9
-        - 14
-      - - 12
-        - 10
-        - 22
-      - - 18
-        - 20
-        - 23
+    demand: [ 2, 8, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
     awards: null
   - id: "07"
     name: Stave & Story
     rarity: Standard
-    demand:
-      - 3
-      - 6
-      - 10
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 12
-        - 11
-        - 16
-      - - 14
-        - 12
-        - 24
-      - - 20
-        - 22
-        - 25
+    demand: [ 3, 6, 10 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
     awards: null
   - id: "08"
     name: Cooper's Quorum
     rarity: Standard
-    demand:
-      - 4
-      - 7
-      - 12
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 14
-        - 13
-        - 18
-      - - 16
-        - 14
-        - 26
-      - - 22
-        - 24
-        - 27
-      - - 26
-        - 22
-        - 27
+    demand: [ 4, 7, 12 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ], [ 26, 22, 27 ] ]
     awards:
       silver: sell price **≥ $20** on this card.
-      gold: Sell **≥ $27** on this card (any qualifying cell; grid **maximum** is **$27**).
+      gold: Sell **≥ $27** on this card (any qualifying cell; grid **maximum** is
+        **$27**).
   - id: "09"
     name: Mash Bill No. 7
     rarity: Standard
-    demand:
-      - 4
-      - 8
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 8
-        - 7
-        - 12
-      - - 10
-        - 8
-        - 20
-      - - 16
-        - 18
-        - 21
+    demand: [ 4, 8, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
     awards: null
   - id: "10"
     name: High Rickhouse Select
     rarity: Standard
-    demand:
-      - 2
-      - 6
-      - 10
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 10
-        - 9
-        - 14
-      - - 12
-        - 10
-        - 22
-      - - 18
-        - 20
-        - 23
+    demand: [ 2, 6, 10 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
     awards:
       silver: sell price **≥ $16** on this card.
-      gold: Sell **≥ $23** on this card (any qualifying cell; grid **maximum** is **$23**).
+      gold: Sell **≥ $23** on this card (any qualifying cell; grid **maximum** is
+        **$23**).
   - id: "11"
     name: Warehouse E Batch
     rarity: Standard
-    demand:
-      - 3
-      - 7
-      - 11
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 12
-        - 11
-        - 16
-      - - 14
-        - 12
-        - 24
-      - - 20
-        - 22
-        - 25
+    demand: [ 3, 7, 11 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
     awards: null
   - id: "12"
     name: Foggy Bottom Forge
     rarity: Standard
-    demand:
-      - 5
-      - 9
-      - 12
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 14
-        - 13
-        - 18
-      - - 16
-        - 14
-        - 26
-      - - 22
-        - 24
-        - 27
-      - - 26
-        - 22
-        - 27
+    demand: [ 5, 9, 12 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ], [ 26, 22, 27 ] ]
     awards: null
   - id: "13"
     name: Cornbread Line
     rarity: Standard
-    demand:
-      - 4
-      - 6
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 8
-        - 7
-        - 12
-      - - 10
-        - 8
-        - 20
-      - - 16
-        - 18
-        - 21
+    demand: [ 4, 6, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
     awards: null
   - id: "14"
     name: Rye Ladder 95
     rarity: Standard
-    demand:
-      - 2
-      - 8
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 10
-        - 9
-        - 14
-      - - 12
-        - 10
-        - 22
-      - - 18
-        - 20
-        - 23
+    demand: [ 2, 8, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
     awards: null
   - id: "15"
     name: Wheat Whisper
     rarity: Standard
-    demand:
-      - 3
-      - 6
-      - 10
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 12
-        - 11
-        - 16
-      - - 14
-        - 12
-        - 24
-      - - 20
-        - 22
-        - 25
-      - - 24
-        - 20
-        - 25
+    demand: [ 3, 6, 10 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ], [ 24, 20, 25 ] ]
     awards: null
   - id: "16"
     name: Barley Bastion
     rarity: Standard
-    demand:
-      - 4
-      - 7
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 14
-        - 13
-        - 18
-      - - 16
-        - 14
-        - 26
-      - - 22
-        - 24
-        - 27
+    demand: [ 4, 7, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
     awards: null
   - id: "17"
     name: Two Charring Points
     rarity: Standard
-    demand:
-      - 4
-      - 8
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 8
-        - 7
-        - 12
-      - - 10
-        - 8
-        - 20
-      - - 16
-        - 18
-        - 21
+    demand: [ 4, 8, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
     awards: null
   - id: "18"
     name: Angel's Trace
     rarity: Standard
-    demand:
-      - 2
-      - 6
-      - 10
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 10
-        - 9
-        - 14
-      - - 12
-        - 10
-        - 22
-      - - 18
-        - 20
-        - 23
+    demand: [ 2, 6, 10 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
     awards:
       silver: sell price **≥ $16** on this card.
-      gold: Sell **≥ $23** on this card (any qualifying cell; grid **maximum** is **$23**).
+      gold: Sell **≥ $23** on this card (any qualifying cell; grid **maximum** is
+        **$23**).
   - id: "19"
     name: Bonded & Bold
     rarity: Standard
-    demand:
-      - 3
-      - 7
-      - 11
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 12
-        - 11
-        - 16
-      - - 14
-        - 12
-        - 24
-      - - 20
-        - 22
-        - 25
+    demand: [ 3, 7, 11 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
     awards:
       silver: sell price **≥ $18** on this card.
-      gold: Sell **≥ $25** on this card (any qualifying cell; grid **maximum** is **$25**).
+      gold: Sell **≥ $25** on this card (any qualifying cell; grid **maximum** is
+        **$25**).
   - id: "20"
     name: Cork & Crown
     rarity: Standard
-    demand:
-      - 5
-      - 9
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 14
-        - 13
-        - 18
-      - - 16
-        - 14
-        - 26
-      - - 22
-        - 24
-        - 27
+    demand: [ 5, 9, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
     awards: null
   - id: "21"
     name: Proof Positive 100
     rarity: Standard
-    demand:
-      - 4
-      - 6
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 8
-        - 7
-        - 12
-      - - 10
-        - 8
-        - 20
-      - - 16
-        - 18
-        - 21
+    demand: [ 4, 6, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
     awards:
       silver: sell price **≥ $14** on this card.
-      gold: Sell **≥ $21** on this card (any qualifying cell; grid **maximum** is **$21**).
+      gold: Sell **≥ $21** on this card (any qualifying cell; grid **maximum** is
+        **$21**).
   - id: "22"
     name: Sour Mash Society
     rarity: Standard
-    demand:
-      - 2
-      - 8
-      - 12
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 10
-        - 9
-        - 14
-      - - 12
-        - 10
-        - 22
-      - - 18
-        - 20
-        - 23
-      - - 22
-        - 18
-        - 23
+    demand: [ 2, 8, 12 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ], [ 22, 18, 23 ] ]
     awards: null
   - id: "23"
     name: Stillhouse Sonnet
     rarity: Standard
-    demand:
-      - 3
-      - 6
-      - 10
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 12
-        - 11
-        - 16
-      - - 14
-        - 12
-        - 24
-      - - 20
-        - 22
-        - 25
-      - - 24
-        - 20
-        - 25
+    demand: [ 3, 6, 10 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ], [ 24, 20, 25 ] ]
     awards: null
   - id: "24"
     name: Patent Still 04
     rarity: Standard
-    demand:
-      - 4
-      - 7
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 14
-        - 13
-        - 18
-      - - 16
-        - 14
-        - 26
-      - - 22
-        - 24
-        - 27
+    demand: [ 4, 7, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
     awards: null
   - id: "25"
     name: Kentucky Crosscut
     rarity: Standard
-    demand:
-      - 4
-      - 8
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 8
-        - 7
-        - 12
-      - - 10
-        - 8
-        - 20
-      - - 16
-        - 18
-        - 21
+    demand: [ 4, 8, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
     awards: null
   - id: "26"
     name: Oak Algebra
     rarity: Standard
-    demand:
-      - 2
-      - 6
-      - 10
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 10
-        - 9
-        - 14
-      - - 12
-        - 10
-        - 22
-      - - 18
-        - 20
-        - 23
+    demand: [ 2, 6, 10 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
     awards: null
   - id: "27"
     name: Bottled Lightning 86
     rarity: Standard
-    demand:
-      - 3
-      - 7
-      - 11
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 12
-        - 11
-        - 16
-      - - 14
-        - 12
-        - 24
-      - - 20
-        - 22
-        - 25
+    demand: [ 3, 7, 11 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
     awards: null
   - id: "28"
     name: Copper Trace
     rarity: Standard
-    demand:
-      - 5
-      - 9
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 14
-        - 13
-        - 18
-      - - 16
-        - 14
-        - 26
-      - - 22
-        - 24
-        - 27
+    demand: [ 5, 9, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
     awards: null
   - id: "29"
     name: Bluegrass Boiler
     rarity: Standard
-    demand:
-      - 4
-      - 6
-      - 12
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 8
-        - 7
-        - 12
-      - - 10
-        - 8
-        - 20
-      - - 16
-        - 18
-        - 21
-      - - 20
-        - 16
-        - 21
+    demand: [ 4, 6, 12 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ], [ 20, 16, 21 ] ]
     awards: null
   - id: "30"
     name: Rickhouse Arithmetic
     rarity: Standard
-    demand:
-      - 2
-      - 8
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 10
-        - 9
-        - 14
-      - - 12
-        - 10
-        - 22
-      - - 18
-        - 20
-        - 23
+    demand: [ 2, 8, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
     awards: null
   - id: "31"
     name: Filtered Lore
     rarity: Standard
-    demand:
-      - 3
-      - 6
-      - 10
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 12
-        - 11
-        - 16
-      - - 14
-        - 12
-        - 24
-      - - 20
-        - 22
-        - 25
+    demand: [ 3, 6, 10 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
     awards: null
   - id: "32"
     name: Low Gauge Legacy
     rarity: Standard
-    demand:
-      - 4
-      - 7
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 14
-        - 13
-        - 18
-      - - 16
-        - 14
-        - 26
-      - - 22
-        - 24
-        - 27
+    demand: [ 4, 7, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
     awards: null
   - id: "33"
     name: Steam Furnace Five
     rarity: Standard
-    demand:
-      - 4
-      - 8
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 8
-        - 7
-        - 12
-      - - 10
-        - 8
-        - 20
-      - - 16
-        - 18
-        - 21
+    demand: [ 4, 8, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
     awards: null
   - id: "34"
     name: Grist Galaxy
     rarity: Standard
-    demand:
-      - 2
-      - 6
-      - 10
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 10
-        - 9
-        - 14
-      - - 12
-        - 10
-        - 22
-      - - 18
-        - 20
-        - 23
-      - - 22
-        - 18
-        - 23
+    demand: [ 2, 6, 10 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ], [ 22, 18, 23 ] ]
     awards:
       silver: sell price **≥ $16** on this card.
-      gold: Sell **≥ $23** on this card (any qualifying cell; grid **maximum** is **$23**).
+      gold: Sell **≥ $23** on this card (any qualifying cell; grid **maximum** is
+        **$23**).
   - id: "35"
     name: Turf & Tarnish
     rarity: Standard
-    demand:
-      - 3
-      - 7
-      - 11
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 12
-        - 11
-        - 16
-      - - 14
-        - 12
-        - 24
-      - - 20
-        - 22
-        - 25
+    demand: [ 3, 7, 11 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
     awards: null
   - id: "36"
     name: Copper Crossings 107
     rarity: Rare
-    demand:
-      - 5
-      - 9
-      - 12
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 35
-        - 34
-        - 41
-      - - 36
-        - 34
-        - 63
-      - - 54
-        - 60
-        - 62
-      - - 60
-        - 53
-        - 66
+    demand: [ 5, 9, 12 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 35, 34, 41 ], [ 36, 34, 63 ], [ 54, 60, 62 ], [ 60, 53, 66 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $50** on this card.
-      gold: Sell **≥ $66** on this card (any qualifying cell; grid **maximum** is **$66**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $50** on this
+        card.
+      gold: Sell **≥ $66** on this card (any qualifying cell; grid **maximum** is
+        **$66**).
   - id: "37"
     name: Seven Stars Odd Lot
     rarity: Rare
-    demand:
-      - 4
-      - 6
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 18
-        - 18
-        - 31
-      - - 27
-        - 24
-        - 46
-      - - 37
-        - 44
-        - 52
+    demand: [ 4, 6, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 18, 18, 31 ], [ 27, 24, 46 ], [ 37, 44, 52 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $36** on this card.
-      gold: Sell **≥ $52** on this card (any qualifying cell; grid **maximum** is **$52**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $36** on this
+        card.
+      gold: Sell **≥ $52** on this card (any qualifying cell; grid **maximum** is
+        **$52**).
   - id: "38"
     name: State Line BiB
     rarity: Rare
-    demand:
-      - 2
-      - 8
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 27
-        - 26
-        - 33
-      - - 28
-        - 26
-        - 55
-      - - 46
-        - 45
-        - 54
+    demand: [ 2, 8, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 27, 26, 33 ], [ 28, 26, 55 ], [ 46, 45, 54 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $39** on this card.
-      gold: Sell **≥ $55** on this card (any qualifying cell; grid **maximum** is **$55**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $39** on this
+        card.
+      gold: Sell **≥ $55** on this card (any qualifying cell; grid **maximum** is
+        **$55**).
   - id: "39"
     name: Barrel Thief Reserve
     rarity: Rare
-    demand:
-      - 3
-      - 6
-      - 10
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 28
-        - 28
-        - 41
-      - - 37
-        - 27
-        - 56
-      - - 47
-        - 54
-        - 62
+    demand: [ 3, 6, 10 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 28, 28, 41 ], [ 37, 27, 56 ], [ 47, 54, 62 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $46** on this card.
-      gold: Sell **≥ $62** on this card (any qualifying cell; grid **maximum** is **$62**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $46** on this
+        card.
+      gold: Sell **≥ $62** on this card (any qualifying cell; grid **maximum** is
+        **$62**).
   - id: "40"
     name: Ghost Warehouse
     rarity: Rare
-    demand:
-      - 4
-      - 7
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 37
-        - 29
-        - 43
-      - - 38
-        - 36
-        - 65
-      - - 56
-        - 55
-        - 64
+    demand: [ 4, 7, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 37, 29, 43 ], [ 38, 36, 65 ], [ 56, 55, 64 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $49** on this card.
-      gold: Sell **≥ $65** on this card (any qualifying cell; grid **maximum** is **$65**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $49** on this
+        card.
+      gold: Sell **≥ $65** on this card (any qualifying cell; grid **maximum** is
+        **$65**).
   - id: "41"
     name: Double Stack Destiny
     rarity: Rare
-    demand:
-      - 4
-      - 8
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 20
-        - 20
-        - 33
-      - - 29
-        - 19
-        - 48
-      - - 39
-        - 46
-        - 47
+    demand: [ 4, 8, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 20, 20, 33 ], [ 29, 19, 48 ], [ 39, 46, 47 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $32** on this card.
-      gold: Sell **≥ $48** on this card (any qualifying cell; grid **maximum** is **$48**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $32** on this
+        card.
+      gold: Sell **≥ $48** on this card (any qualifying cell; grid **maximum** is
+        **$48**).
   - id: "42"
     name: Crimson Corn Covenant
     rarity: Rare
-    demand:
-      - 2
-      - 6
-      - 10
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 29
-        - 21
-        - 35
-      - - 30
-        - 28
-        - 50
-      - - 41
-        - 47
-        - 56
+    demand: [ 2, 6, 10 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 29, 21, 35 ], [ 30, 28, 50 ], [ 41, 47, 56 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $40** on this card.
-      gold: Sell **≥ $56** on this card (any qualifying cell; grid **maximum** is **$56**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $40** on this
+        card.
+      gold: Sell **≥ $56** on this card (any qualifying cell; grid **maximum** is
+        **$56**).
   - id: "43"
     name: Platinum Rick Proof
     rarity: Rare
-    demand:
-      - 3
-      - 7
-      - 11
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 30
-        - 30
-        - 36
-      - - 32
-        - 29
-        - 58
-      - - 49
-        - 56
-        - 57
-      - - 55
-        - 48
-        - 61
+    demand: [ 3, 7, 11 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 30, 30, 36 ], [ 32, 29, 58 ], [ 49, 56, 57 ], [ 55, 48, 61 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $45** on this card.
-      gold: Sell **≥ $61** on this card (any qualifying cell; grid **maximum** is **$61**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $45** on this
+        card.
+      gold: Sell **≥ $61** on this card (any qualifying cell; grid **maximum** is
+        **$61**).
   - id: "44"
     name: Infinite Stave
     rarity: Rare
-    demand:
-      - 5
-      - 9
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 32
-        - 31
-        - 45
-      - - 40
-        - 38
-        - 60
-      - - 51
-        - 57
-        - 66
+    demand: [ 5, 9, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 32, 31, 45 ], [ 40, 38, 60 ], [ 51, 57, 66 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $50** on this card.
-      gold: Sell **≥ $66** on this card (any qualifying cell; grid **maximum** is **$66**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $50** on this
+        card.
+      gold: Sell **≥ $66** on this card (any qualifying cell; grid **maximum** is
+        **$66**).
   - id: "45"
     name: Crown Compass
     rarity: Rare
-    demand:
-      - 4
-      - 6
-      - 12
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 22
-        - 22
-        - 28
-      - - 24
-        - 21
-        - 50
-      - - 41
-        - 41
-        - 49
-      - - 47
-        - 40
-        - 53
+    demand: [ 4, 6, 12 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 22, 22, 28 ], [ 24, 21, 50 ], [ 41, 41, 49 ], [ 47, 40, 53 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $37** on this card.
-      gold: Sell **≥ $53** on this card (any qualifying cell; grid **maximum** is **$53**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $37** on this
+        card.
+      gold: Sell **≥ $53** on this card (any qualifying cell; grid **maximum** is
+        **$53**).
   - id: "46"
     name: Ledger Luxe
     rarity: Rare
-    demand:
-      - 2
-      - 8
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 24
-        - 23
-        - 37
-      - - 32
-        - 23
-        - 52
-      - - 43
-        - 49
-        - 58
+    demand: [ 2, 8, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 24, 23, 37 ], [ 32, 23, 52 ], [ 43, 49, 58 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $42** on this card.
-      gold: Sell **≥ $58** on this card (any qualifying cell; grid **maximum** is **$58**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $42** on this
+        card.
+      gold: Sell **≥ $58** on this card (any qualifying cell; grid **maximum** is
+        **$58**).
   - id: "47"
     name: Wild Rickhouse
     rarity: Rare
-    demand:
-      - 3
-      - 6
-      - 10
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 32
-        - 25
-        - 38
-      - - 34
-        - 31
-        - 60
-      - - 51
-        - 51
-        - 59
+    demand: [ 3, 6, 10 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 32, 25, 38 ], [ 34, 31, 60 ], [ 51, 51, 59 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $44** on this card.
-      gold: Sell **≥ $60** on this card (any qualifying cell; grid **maximum** is **$60**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $44** on this
+        card.
+      gold: Sell **≥ $60** on this card (any qualifying cell; grid **maximum** is
+        **$60**).
   - id: "48"
     name: Bonded Beyond
     rarity: Rare
-    demand:
-      - 4
-      - 7
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 34
-        - 33
-        - 47
-      - - 42
-        - 33
-        - 62
-      - - 53
-        - 59
-        - 61
+    demand: [ 4, 7, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 34, 33, 47 ], [ 42, 33, 62 ], [ 53, 59, 61 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $46** on this card.
-      gold: Sell **≥ $62** on this card (any qualifying cell; grid **maximum** is **$62**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $46** on this
+        card.
+      gold: Sell **≥ $62** on this card (any qualifying cell; grid **maximum** is
+        **$62**).
   - id: "49"
     name: Oak Oracle
     rarity: Rare
-    demand:
-      - 4
-      - 8
-      - 12
-    ages:
-      - 2
-      - 4
-      - 6
-    grid:
-      - - 24
-        - 17
-        - 30
-      - - 26
-        - 23
-        - 45
-      - - 36
-        - 43
-        - 51
+    demand: [ 4, 8, 12 ]
+    ages: [ 2, 4, 6 ]
+    grid: [ [ 24, 17, 30 ], [ 26, 23, 45 ], [ 36, 43, 51 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $35** on this card.
-      gold: Sell **≥ $51** on this card (any qualifying cell; grid **maximum** is **$51**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $35** on this
+        card.
+      gold: Sell **≥ $51** on this card (any qualifying cell; grid **maximum** is
+        **$51**).
   - id: "50"
     name: The Last Rick
     rarity: Rare
-    demand:
-      - 2
-      - 6
-      - 10
-    ages:
-      - 2
-      - 3
-      - 4
-      - 6
-    grid:
-      - - 26
-        - 25
-        - 32
-      - - 27
-        - 25
-        - 54
-      - - 45
-        - 51
-        - 53
-      - - 51
-        - 44
-        - 57
+    demand: [ 2, 6, 10 ]
+    ages: [ 2, 3, 4, 6 ]
+    grid: [ [ 26, 25, 32 ], [ 27, 25, 54 ], [ 45, 51, 53 ], [ 51, 44, 57 ] ]
     awards:
-      silver: Market demand is **odd** at sale, **or** sell price **≥ $41** on this card.
-      gold: Sell **≥ $57** on this card (any qualifying cell; grid **maximum** is **$57**).
+      silver: Market demand is **odd** at sale, **or** sell price **≥ $41** on this
+        card.
+      gold: Sell **≥ $57** on this card (any qualifying cell; grid **maximum** is
+        **$57**).

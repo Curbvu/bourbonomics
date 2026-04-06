@@ -39,6 +39,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     resourceCards: [],
     barrelledBourbons: [],
     bourbonCards: [],
+    operationsHand: [],
+    investmentHand: [],
   };
 
   if (mode === "singleplayer") {
@@ -51,9 +53,11 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       resourceCards: [],
       barrelledBourbons: [],
       bourbonCards: [],
+      operationsHand: [],
+      investmentHand: [],
     };
     const started = startGame(game);
-    const toStore = { gameId, ...started, updatedAt: started.updatedAt };
+    const toStore = { ...started, updatedAt: started.updatedAt };
     await client.send(
       new PutItemCommand({
         TableName: Resource.Games.name,
@@ -76,7 +80,6 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     new PutItemCommand({
       TableName: Resource.Games.name,
       Item: marshall({
-        gameId,
         ...game,
         updatedAt: game.updatedAt,
       }),

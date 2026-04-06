@@ -64,6 +64,7 @@ export default $config({
     api.route("POST /games/{id}/buy", "functions/buyResources.handler");
     api.route("POST /games/{id}/barrel", "functions/barrelBourbon.handler");
     api.route("POST /games/{id}/computer-turn", "functions/computerTurn.handler");
+    api.route("POST /games/{id}/cards", "functions/gameCards.handler");
 
     const web = new sst.aws.Nextjs("Web", {
       link: [api, ws],

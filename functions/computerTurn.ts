@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { Resource } from "sst";
-import { isBotPlayer, type GameDoc } from "./lib/game";
+import { isBotPlayer, normalizeGame, type GameDoc } from "./lib/game";
 import { runComputerTurn } from "./lib/bot";
 
 const client = new DynamoDBClient({});
@@ -44,7 +44,6 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     new PutItemCommand({
       TableName: Resource.Games.name,
       Item: marshall({
-        gameId: updated.gameId,
         ...updated,
         updatedAt: updated.updatedAt,
       }),

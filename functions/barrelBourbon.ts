@@ -6,7 +6,11 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { Resource } from "sst";
-import { barrelBourbon as barrelBourbonLogic, type GameDoc } from "./lib/game";
+import {
+  barrelBourbon as barrelBourbonLogic,
+  normalizeGame,
+  type GameDoc,
+} from "./lib/game";
 
 const client = new DynamoDBClient({});
 
@@ -35,7 +39,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 404, body: JSON.stringify({ error: "Game not found" }) };
   }
 
-  const game = unmarshall(res.Item) as GameDoc;
+  const game = normalizeGame(unmarshall(res.Item) as GameDoc);
   const result = barrelBourbonLogic(game, rickhouseId, playerId);
 
   if (result.error) {
@@ -49,7 +53,6 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     new PutItemCommand({
       TableName: Resource.Games.name,
       Item: marshall({
-        gameId: result.game.gameId,
         ...result.game,
         updatedAt: result.game.updatedAt,
       }),

@@ -6,7 +6,11 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { Resource } from "sst";
-import { advancePhase as advancePhaseLogic, type GameDoc } from "./lib/game";
+import {
+  advancePhase as advancePhaseLogic,
+  normalizeGame,
+  type GameDoc,
+} from "./lib/game";
 
 const client = new DynamoDBClient({});
 
@@ -27,7 +31,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 404, body: JSON.stringify({ error: "Game not found" }) };
   }
 
-  const game = unmarshall(res.Item) as GameDoc;
+  const game = normalizeGame(unmarshall(res.Item) as GameDoc);
   if (game.status !== "in_progress") {
     return { statusCode: 400, body: JSON.stringify({ error: "Game not in progress" }) };
   }
