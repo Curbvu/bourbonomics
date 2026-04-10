@@ -69,10 +69,10 @@ export default function Lobby() {
         body: JSON.stringify({ playerName: joinName || "Baron" }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to join game");
+      if (!res.ok) throw new Error(data.error || "Failed to join");
       window.location.href = `/game/${data.gameId}?playerId=${data.playerId}`;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to join game");
+      setError(err instanceof Error ? err.message : "Failed to join");
     } finally {
       setLoading(false);
     }
@@ -85,44 +85,43 @@ export default function Lobby() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#120a07] text-[#f5e6c8]">
-      <div className="border-b border-[#3d2918] bg-[#1a100a] px-4 py-6 text-center">
-        <h1 className="font-serif text-3xl font-semibold tracking-tight text-[#f0dcb0] md:text-4xl">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-950 text-slate-100">
+      <div className="border-b border-indigo-500/30 bg-slate-950/80 px-4 py-6 text-center backdrop-blur-sm">
+        <h1 className="font-serif text-3xl font-semibold tracking-tight text-cyan-100 md:text-4xl">
           Bourbonomics
         </h1>
-        <p className="mt-2 text-sm text-[#c4a574]">Host a game or join with a code</p>
+        <p className="mt-2 text-sm text-slate-400">Host a game or join with a code</p>
       </div>
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 lg:flex-row lg:items-start lg:gap-8">
-        {/* Player slots — AoE-style list */}
-        <section className="min-w-0 flex-1 rounded-lg border border-[#4a3424] bg-[#1c120c] p-4 shadow-lg">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[#e8c97a]">
+        <section className="min-w-0 flex-1 rounded-xl border border-indigo-500/25 bg-slate-900/60 p-4 shadow-lg shadow-indigo-950/40 backdrop-blur-sm">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-indigo-200">
             Players
           </h2>
 
           {!isMultiplayer ? (
-            <p className="rounded border border-[#3d2918] bg-[#120a07] p-3 text-sm text-[#c4a574]">
+            <p className="rounded-lg border border-slate-700/80 bg-slate-950/50 p-3 text-sm text-slate-400">
               Single player starts immediately: you versus one computer baron. Use multiplayer
               modes to configure up to six seats.
             </p>
           ) : null}
 
           <ul className="mt-3 space-y-2">
-            <li className="flex flex-wrap items-center gap-3 rounded border border-[#5c4330] bg-[#26160f] px-3 py-2.5">
-              <span className="w-8 shrink-0 text-center font-mono text-xs font-bold text-[#a08060]">
+            <li className="flex flex-wrap items-center gap-3 rounded-lg border border-cyan-500/30 bg-slate-950/40 px-3 py-2.5">
+              <span className="w-8 shrink-0 text-center font-mono text-xs font-bold text-cyan-400/90">
                 1
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-[#e8c97a]">You (host)</p>
+                <p className="text-xs font-semibold text-cyan-100">You (host)</p>
                 <input
                   type="text"
                   value={createName}
                   onChange={(e) => setCreateName(e.target.value)}
                   placeholder="Baron name"
-                  className="mt-1 w-full max-w-xs rounded border border-[#4a3424] bg-[#120a07] px-2 py-1.5 text-sm text-[#f5e6c8] placeholder:text-[#6b5344] focus:border-[#c87800] focus:outline-none"
+                  className="mt-1 w-full max-w-xs rounded-md border border-slate-600 bg-slate-950 px-2 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
                 />
               </div>
-              <span className="rounded bg-[#2a1810] px-2 py-1 text-[10px] font-semibold uppercase text-[#c4a574]">
+              <span className="rounded-md bg-indigo-600/30 px-2 py-1 text-[10px] font-semibold uppercase text-indigo-100">
                 Human
               </span>
             </li>
@@ -131,17 +130,17 @@ export default function Lobby() {
               ? seatPlan.map((slot, i) => (
                   <li
                     key={i}
-                    className="flex flex-wrap items-center gap-3 rounded border border-[#3d2918] bg-[#1a100a] px-3 py-2.5"
+                    className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-700/80 bg-slate-950/30 px-3 py-2.5"
                   >
-                    <span className="w-8 shrink-0 text-center font-mono text-xs font-bold text-[#a08060]">
+                    <span className="w-8 shrink-0 text-center font-mono text-xs font-bold text-slate-500">
                       {i + 2}
                     </span>
                     <label className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
-                      <span className="text-xs text-[#c4a574]">Slot type</span>
+                      <span className="text-xs text-slate-400">Slot type</span>
                       <select
                         value={slot}
                         onChange={(e) => setSeatAt(i, e.target.value as LobbySlotPlan)}
-                        className="w-full max-w-[220px] rounded border border-[#4a3424] bg-[#120a07] px-2 py-1.5 text-sm text-[#f5e6c8] focus:border-[#c87800] focus:outline-none"
+                        className="w-full max-w-[220px] rounded-md border border-slate-600 bg-slate-950 px-2 py-1.5 text-sm text-slate-100 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
                       >
                         {(Object.keys(slotLabels) as LobbySlotPlan[]).map((k) => (
                           <option key={k} value={k}>
@@ -156,26 +155,25 @@ export default function Lobby() {
           </ul>
         </section>
 
-        {/* Game settings */}
-        <aside className="w-full shrink-0 rounded-lg border border-[#4a3424] bg-[#1c120c] p-4 shadow-lg lg:max-w-sm">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[#e8c97a]">
+        <aside className="w-full shrink-0 rounded-xl border border-indigo-500/25 bg-slate-900/60 p-4 shadow-lg shadow-indigo-950/40 backdrop-blur-sm lg:max-w-sm">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-indigo-200">
             Game settings
           </h2>
 
           {error && (
-            <div className="mb-3 rounded border border-red-900/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+            <div className="mb-3 rounded-lg border border-red-500/40 bg-red-950/50 px-3 py-2 text-sm text-red-200">
               {error}
             </div>
           )}
 
           <form onSubmit={handleCreate} className="flex flex-col gap-3">
-            <label className="text-xs font-medium text-[#c4a574]">Mode</label>
+            <label className="text-xs font-medium text-slate-400">Mode</label>
             <select
               value={mode}
               onChange={(e) =>
                 setMode(e.target.value as "normal" | "bottled-in-bond" | "singleplayer")
               }
-              className="rounded border border-[#4a3424] bg-[#120a07] px-3 py-2 text-sm text-[#f5e6c8] focus:border-[#c87800] focus:outline-none"
+              className="rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
             >
               <option value="normal">Normal (multiplayer)</option>
               <option value="bottled-in-bond">Bottled-in-Bond</option>
@@ -185,15 +183,15 @@ export default function Lobby() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-1 w-full rounded-md bg-[#c87800] py-2.5 text-sm font-semibold text-[#1a0f08] shadow hover:bg-[#d89020] disabled:opacity-50"
+              className="mt-1 w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-900/40 hover:bg-indigo-500 disabled:opacity-50"
             >
               {loading ? "Creating…" : isMultiplayer ? "Create lobby" : "Start solo game"}
             </button>
           </form>
 
-          <div className="my-6 border-t border-[#3d2918]" />
+          <div className="my-6 border-t border-slate-700/80" />
 
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-[#a08060]">
+          <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
             Join existing game
           </h3>
           <form onSubmit={handleJoin} className="flex flex-col gap-2">
@@ -203,19 +201,19 @@ export default function Lobby() {
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               placeholder="Game code"
               maxLength={6}
-              className="rounded border border-[#4a3424] bg-[#120a07] px-3 py-2 font-mono text-sm uppercase text-[#f5e6c8] placeholder:text-[#6b5344] focus:border-[#c87800] focus:outline-none"
+              className="rounded-md border border-slate-600 bg-slate-950 px-3 py-2 font-mono text-sm uppercase text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
             />
             <input
               type="text"
               value={joinName}
               onChange={(e) => setJoinName(e.target.value)}
               placeholder="Your name"
-              className="rounded border border-[#4a3424] bg-[#120a07] px-3 py-2 text-sm text-[#f5e6c8] placeholder:text-[#6b5344] focus:border-[#c87800] focus:outline-none"
+              className="rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
             />
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-md border border-[#c87800] bg-transparent py-2.5 text-sm font-semibold text-[#f0dcb0] hover:bg-[#c87800]/15 disabled:opacity-50"
+              className="w-full rounded-lg border border-cyan-500/60 bg-transparent py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/10 disabled:opacity-50"
             >
               {loading ? "Joining…" : "Join game"}
             </button>
@@ -223,8 +221,11 @@ export default function Lobby() {
         </aside>
       </div>
 
-      <footer className="border-t border-[#3d2918] py-4 text-center">
-        <Link href="/rules" className="text-sm text-[#c4a574] underline hover:text-[#e8c97a]">
+      <footer className="border-t border-slate-800 py-4 text-center">
+        <Link
+          href="/rules"
+          className="text-sm text-indigo-300 underline decoration-indigo-500/50 underline-offset-2 hover:text-cyan-200"
+        >
           Game rules
         </Link>
       </footer>

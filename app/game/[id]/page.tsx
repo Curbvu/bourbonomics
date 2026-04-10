@@ -39,16 +39,16 @@ const BARON_THEMES = [
     chip: "bg-blue-700 text-white dark:bg-blue-600",
   },
   {
-    banner: "bg-slate-600 text-white dark:bg-slate-700",
-    border: "border-slate-500 dark:border-slate-400",
-    avatar: "bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100",
-    chip: "bg-slate-700 text-white dark:bg-slate-600",
+    banner: "bg-cyan-600 text-white dark:bg-cyan-700",
+    border: "border-cyan-600 dark:border-cyan-400",
+    avatar: "bg-cyan-100 text-cyan-900 dark:bg-cyan-950 dark:text-cyan-100",
+    chip: "bg-cyan-700 text-white dark:bg-cyan-600",
   },
   {
-    banner: "bg-amber-500 text-amber-950 dark:bg-amber-600 dark:text-amber-950",
-    border: "border-amber-500 dark:border-amber-400",
-    avatar: "bg-amber-100 text-amber-950 dark:bg-amber-900 dark:text-amber-100",
-    chip: "bg-amber-700 text-amber-950 dark:bg-amber-600 dark:text-amber-100",
+    banner: "bg-teal-600 text-white dark:bg-teal-700",
+    border: "border-teal-600 dark:border-teal-400",
+    avatar: "bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-100",
+    chip: "bg-teal-700 text-white dark:bg-teal-600",
   },
   {
     banner: "bg-red-600 text-white dark:bg-red-700",
@@ -70,6 +70,31 @@ const BARON_THEMES = [
   },
 ] as const;
 
+/** Per-pile market styling — distinct “board piece” colors (no brown/orange wash). */
+const MARKET_PILE_UI: Record<
+  "cask" | "corn" | "grain",
+  { active: string; idle: string }
+> = {
+  cask: {
+    active:
+      "cursor-pointer border-rose-500 bg-gradient-to-b from-rose-600 via-rose-800 to-slate-900 text-white shadow-md hover:brightness-110 active:scale-[0.98] dark:from-rose-600 dark:via-rose-900 dark:to-slate-950",
+    idle:
+      "cursor-default border-rose-200/90 bg-gradient-to-b from-rose-50 to-rose-100/90 text-rose-950 opacity-90 dark:border-rose-900/50 dark:from-rose-950/35 dark:to-slate-900 dark:text-rose-100",
+  },
+  corn: {
+    active:
+      "cursor-pointer border-sky-500 bg-gradient-to-b from-sky-600 via-sky-800 to-slate-900 text-white shadow-md hover:brightness-110 active:scale-[0.98] dark:from-sky-600 dark:via-sky-900 dark:to-slate-950",
+    idle:
+      "cursor-default border-sky-200/90 bg-gradient-to-b from-sky-50 to-sky-100/90 text-sky-950 opacity-90 dark:border-sky-900/50 dark:from-sky-950/35 dark:to-slate-900 dark:text-sky-100",
+  },
+  grain: {
+    active:
+      "cursor-pointer border-emerald-500 bg-gradient-to-b from-emerald-600 via-emerald-800 to-slate-900 text-white shadow-md hover:brightness-110 active:scale-[0.98] dark:from-emerald-600 dark:via-emerald-900 dark:to-slate-950",
+    idle:
+      "cursor-default border-emerald-200/90 bg-gradient-to-b from-emerald-50 to-emerald-100/90 text-emerald-950 opacity-90 dark:border-emerald-900/50 dark:from-emerald-950/35 dark:to-slate-900 dark:text-emerald-100",
+  },
+};
+
 function baronInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2)
@@ -78,10 +103,17 @@ function baronInitials(name: string): string {
   return one.slice(0, 2).toUpperCase() || "?";
 }
 
+const BARON_THEME_FALLBACK = {
+  banner: "bg-slate-500 text-white dark:bg-slate-600",
+  border: "border-slate-400 dark:border-slate-500",
+  avatar: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-100",
+  chip: "bg-slate-600 text-white dark:bg-slate-500",
+} as const;
+
 /** Seat order matches baron strip (playerOrder index) for shared colors. */
 function baronThemeForPlayer(playerOrder: string[], playerId: string) {
   const seat = playerOrder.indexOf(playerId);
-  if (seat < 0) return BARON_THEMES[1]!;
+  if (seat < 0) return BARON_THEME_FALLBACK;
   return BARON_THEMES[seat % BARON_THEMES.length]!;
 }
 
@@ -265,17 +297,17 @@ export default function GamePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-amber-50 dark:bg-amber-950/20">
-        <p className="text-amber-800 dark:text-amber-200">Loading game…</p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 dark:bg-slate-950">
+        <p className="text-slate-700 dark:text-slate-300">Loading game…</p>
       </div>
     );
   }
 
   if (error || !game) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-amber-50 p-6 dark:bg-amber-950/20">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-100 p-6 dark:bg-slate-950">
         <p className="text-red-600 dark:text-red-400">{error || "Game not found"}</p>
-        <Link href="/" className="text-amber-700 underline dark:text-amber-300">
+        <Link href="/" className="text-slate-600 underline dark:text-slate-200">
           Back to lobby
         </Link>
       </div>
@@ -534,55 +566,18 @@ export default function GamePage() {
 
   const lastRoll = game.lastDemandRoll;
 
-  return (
-    <div className="min-h-screen bg-amber-50 p-4 dark:bg-amber-950/20">
-      <header className="sticky top-0 z-10 -mx-4 mb-4 border-b border-amber-200 bg-amber-50/95 px-4 py-3 backdrop-blur-sm dark:border-amber-800 dark:bg-amber-950/90">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-            <h1 className="text-lg font-bold text-amber-900 dark:text-amber-100 sm:text-xl">
-              Game {game.gameId}
-            </h1>
-            {game.status === "in_progress" && (
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <div className="flex items-center gap-2 rounded-lg border-2 border-amber-500 bg-white px-3 py-2 shadow-sm dark:border-amber-600 dark:bg-amber-900/50">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
-                    Market demand
-                  </span>
-                  <span className="text-2xl font-bold tabular-nums text-amber-950 dark:text-amber-50">
-                    {game.marketDemand}
-                  </span>
-                  <span className="text-xs text-amber-600 dark:text-amber-400">barrels</span>
-                </div>
-                {lastRoll ? (
-                  <p className="max-w-xl text-xs leading-snug text-amber-800 dark:text-amber-200">
-                    <span className="font-medium">Last roll:</span>{" "}
-                    <span className="font-mono">
-                      {lastRoll.die1} + {lastRoll.die2}
-                    </span>
-                    {lastRoll.doubleSix ? (
-                      <> — double six, demand set to 12</>
-                    ) : (
-                      <>
-                        {" "}
-                        (sum {lastRoll.sum}) · demand {lastRoll.demandBefore} →{" "}
-                        {lastRoll.demandAfter}
-                      </>
-                    )}
-                  </p>
-                ) : null}
-              </div>
-            )}
-          </div>
-          <Link href="/" className="shrink-0 text-sm text-amber-700 underline dark:text-amber-300">
-            Lobby
-          </Link>
-        </div>
+  const canBarrelViaBoard =
+    game.status === "in_progress" &&
+    game.currentPhase === 3 &&
+    isCurrentPlayer &&
+    !isComputerTurnNow;
 
-        <div className="mt-3 w-full border-t border-amber-200/80 pt-3 dark:border-amber-800/80">
-          <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-            Barons
-          </p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+  const boardAndBarons = (
+    <>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+        Barons
+      </p>
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-6">
             {baronSlotRows.map((row) => {
               const seatIndex = row.seatIndex;
               const theme = BARON_THEMES[seatIndex % BARON_THEMES.length]!;
@@ -591,12 +586,12 @@ export default function GamePage() {
                 return (
                   <div
                     key={`seat-${seatIndex}-closed`}
-                    className="flex min-h-[6.25rem] flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-900/40 bg-amber-950/30 px-1 text-center dark:border-amber-900/50 dark:bg-black/20"
+                    className="flex min-h-[5rem] flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-800/40 bg-slate-800/30 px-1 text-center dark:border-slate-800/50 dark:bg-black/20"
                   >
-                    <span className="text-[10px] font-bold text-amber-700 dark:text-amber-600">
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-500">
                       Seat {seatIndex + 1}
                     </span>
-                    <span className="text-[9px] text-amber-600/80 dark:text-amber-700">Closed</span>
+                    <span className="text-[9px] text-slate-500/80 dark:text-slate-600">Closed</span>
                   </div>
                 );
               }
@@ -605,16 +600,16 @@ export default function GamePage() {
                 return (
                   <div
                     key={`seat-${seatIndex}-empty`}
-                    className="flex min-h-[6.25rem] flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-300/70 bg-amber-50/40 px-1 text-center dark:border-amber-700/60 dark:bg-amber-950/25"
+                    className="flex min-h-[5rem] flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-200/70 bg-slate-100/40 px-1 text-center dark:border-slate-600/60 dark:bg-slate-800/25"
                   >
-                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
                       Seat {seatIndex + 1}
                     </span>
-                    <span className="text-[9px] text-amber-500 dark:text-amber-600">
+                    <span className="text-[9px] text-slate-400 dark:text-slate-500">
                       {row.emptyLabel}
                     </span>
                     {row.emptyLabel === "Open" && game.status === "lobby" ? (
-                      <span className="mt-0.5 text-[8px] text-amber-500/90 dark:text-amber-600">
+                      <span className="mt-0.5 text-[8px] text-slate-400/90 dark:text-slate-500">
                         Waiting…
                       </span>
                     ) : null}
@@ -637,20 +632,20 @@ export default function GamePage() {
               return (
                 <div
                   key={pid}
-                  className={`relative flex min-h-[6.25rem] flex-col overflow-hidden rounded-lg border-2 bg-white shadow-md dark:bg-amber-950/50 ${theme.border} ${
+                  className={`relative flex min-h-[5rem] flex-col overflow-hidden rounded-lg border-2 bg-white shadow-md dark:bg-slate-800/50 ${theme.border} ${
                     isCurrentTurn
-                      ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-amber-50 dark:ring-amber-300 dark:ring-offset-amber-950"
+                      ? "ring-2 ring-cyan-400 ring-offset-2 ring-offset-slate-100 dark:ring-cyan-300 dark:ring-offset-slate-950"
                       : ""
                   } ${isYou ? "ring-1 ring-sky-500 dark:ring-sky-400" : ""}`}
                 >
                   <span
-                    className="absolute left-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-amber-900 text-[10px] font-bold text-white shadow dark:bg-amber-200 dark:text-amber-950"
+                    className="absolute left-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold text-white shadow dark:bg-slate-200 dark:text-slate-950"
                     title="Seat order"
                   >
                     {seatIndex + 1}
                   </span>
                   {isCurrentTurn ? (
-                    <span className="absolute right-1 top-1 z-10 rounded bg-amber-500 px-1 py-0.5 text-[9px] font-bold uppercase text-white shadow dark:bg-amber-400 dark:text-amber-950">
+                    <span className="absolute right-1 top-1 z-10 rounded bg-teal-500 px-1 py-0.5 text-[9px] font-bold uppercase text-white shadow dark:bg-teal-400 dark:text-slate-950">
                       Turn
                     </span>
                   ) : null}
@@ -660,10 +655,10 @@ export default function GamePage() {
                     </span>
                   ) : null}
 
-                  <div className="flex flex-1 gap-1.5 pl-8 pr-1.5 pt-7">
-                    <div className="relative shrink-0 self-end pb-2">
+                  <div className="flex flex-1 gap-1 pl-7 pr-1 pt-6">
+                    <div className="relative shrink-0 self-end pb-1">
                       <div
-                        className={`flex h-[3.25rem] w-[3.25rem] items-center justify-center rounded-md border-[3px] text-sm font-bold leading-none ${theme.border} ${theme.avatar}`}
+                        className={`flex h-11 w-11 items-center justify-center rounded-md border-2 text-xs font-bold leading-none ${theme.border} ${theme.avatar}`}
                         title={p.name}
                       >
                         {baronInitials(p.name)}
@@ -693,28 +688,28 @@ export default function GamePage() {
                           <span className="ml-0.5 text-[9px] font-bold opacity-90">(you)</span>
                         ) : null}
                       </div>
-                      <div className="flex flex-1 flex-col justify-center gap-0.5 rounded bg-slate-800 px-1 py-1 text-[9px] leading-tight text-amber-50 dark:bg-slate-900/95 dark:text-amber-100">
+                      <div className="flex flex-1 flex-col justify-center gap-0.5 rounded bg-slate-800 px-1 py-1 text-[9px] leading-tight text-slate-100 dark:bg-slate-900/95 dark:text-slate-100">
                         <div className="flex items-center justify-between gap-0.5 tabular-nums">
-                          <span className="text-amber-300/90">Cash</span>
+                          <span className="text-slate-200/90">Cash</span>
                           <span className="font-bold">${p.cash}</span>
                         </div>
-                        <div className="flex items-center justify-between gap-0.5 tabular-nums text-amber-100/90">
-                          <span className="text-amber-300/90">Resources</span>
+                        <div className="flex items-center justify-between gap-0.5 tabular-nums text-slate-100/90">
+                          <span className="text-slate-200/90">Resources</span>
                           <span>{resourceCount}</span>
                         </div>
-                        <div className="flex items-center justify-between gap-0.5 tabular-nums text-amber-100/90">
-                          <span className="text-amber-300/90">Barreled</span>
+                        <div className="flex items-center justify-between gap-0.5 tabular-nums text-slate-100/90">
+                          <span className="text-slate-200/90">Barreled</span>
                           <span>{barrelCount}</span>
                         </div>
                         {bizCount > 0 ? (
-                          <div className="flex items-center justify-between gap-0.5 tabular-nums text-amber-100/90">
-                            <span className="text-amber-300/90">Biz cards</span>
+                          <div className="flex items-center justify-between gap-0.5 tabular-nums text-slate-100/90">
+                            <span className="text-slate-200/90">Biz cards</span>
                             <span>{bizCount}</span>
                           </div>
                         ) : null}
                         {awardCount > 0 ? (
-                          <div className="flex items-center justify-between gap-0.5 tabular-nums text-amber-100/90">
-                            <span className="text-amber-300/90">Awards</span>
+                          <div className="flex items-center justify-between gap-0.5 tabular-nums text-slate-100/90">
+                            <span className="text-slate-200/90">Awards</span>
                             <span>{awardCount}</span>
                           </div>
                         ) : null}
@@ -724,15 +719,14 @@ export default function GamePage() {
                 </div>
               );
             })}
-          </div>
-        </div>
+      </div>
 
-        {game.status === "in_progress" && rickhouses.length > 0 && (
-          <div className="mt-6 w-full border-t border-amber-200/80 pt-6 sm:mt-8 sm:pt-8 dark:border-amber-800/80">
-            <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-              Rickhouses
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {game.status === "in_progress" && rickhouses.length > 0 && (
+        <div className="mt-4 border-t border-slate-200/80 pt-3 dark:border-violet-700/80">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+            Rickhouses
+          </p>
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
               {rickhouses.map((r) => {
                 const soleBaron6 =
                   r.capacity === 6 &&
@@ -741,12 +735,12 @@ export default function GamePage() {
                 return (
                   <div
                     key={r.id}
-                    className="rounded border border-amber-300 bg-white/80 p-2 dark:border-amber-700 dark:bg-amber-950/40"
+                    className="rounded border border-slate-200 bg-white/80 p-1.5 dark:border-slate-600 dark:bg-slate-800/40"
                   >
-                    <p className="text-sm font-medium leading-snug text-amber-900 dark:text-amber-100">
+                    <p className="text-xs font-medium leading-snug text-slate-800 dark:text-slate-100">
                       {rickhouseRegionLabel(r.id)}
                     </p>
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                    <p className="text-[10px] leading-tight text-slate-500 dark:text-slate-300">
                       {r.barrels.length}/{r.capacity} filled
                       {r.barrels.length > 0 ? (
                         <>
@@ -760,7 +754,7 @@ export default function GamePage() {
                       )}
                     </p>
                     <div
-                      className="mt-2 grid gap-1.5"
+                      className="mt-1.5 grid gap-1"
                       style={{
                         gridTemplateColumns: `repeat(${r.capacity}, minmax(0, 1fr))`,
                       }}
@@ -768,10 +762,49 @@ export default function GamePage() {
                       {Array.from({ length: r.capacity }, (_, slotIdx) => {
                         const b = r.barrels[slotIdx];
                         if (!b) {
+                          const entryNum = r.barrels.length + 1;
+                          const cashOk =
+                            me != null &&
+                            me.cash >= r.barrels.length + 1 + nextActionCost;
+                          const canSubmit =
+                            canBarrelViaBoard &&
+                            mashSelectionValid &&
+                            cashOk &&
+                            !actionLoading;
+                          const titleBarrel = canBarrelViaBoard
+                            ? mashSelectionValid
+                              ? cashOk
+                                ? `Barrel here — entry $${entryNum} + $${nextActionCost} action fee`
+                                : `Need $${r.barrels.length + 1 + nextActionCost} cash (entry + fee)`
+                              : "Select a valid mash in Your hand first"
+                            : "Empty slot";
+
+                          if (canBarrelViaBoard) {
+                            return (
+                              <button
+                                key={`${r.id}-slot-${slotIdx}`}
+                                type="button"
+                                title={titleBarrel}
+                                aria-label={`${rickhouseRegionLabel(r.id)} slot ${slotIdx + 1}: barrel bourbon`}
+                                disabled={!canSubmit}
+                                onClick={() => {
+                                  if (canSubmit) void handleBarrel(r.id);
+                                }}
+                                className={`flex min-h-[2.25rem] flex-col items-center justify-center rounded border-2 border-dashed text-[8px] font-medium transition ${
+                                  canSubmit
+                                    ? "cursor-pointer border-indigo-400 bg-indigo-50/80 text-indigo-800 shadow-sm hover:border-indigo-500 hover:bg-indigo-100/90 active:scale-[0.98] dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-100 dark:hover:bg-indigo-900/50"
+                                    : "cursor-not-allowed border-slate-200/70 bg-slate-100/50 text-slate-400 opacity-80 dark:border-slate-600/60 dark:bg-slate-800/30 dark:text-slate-500"
+                                }`}
+                              >
+                                {canSubmit ? "+" : "—"}
+                              </button>
+                            );
+                          }
+
                           return (
                             <div
                               key={`${r.id}-slot-${slotIdx}`}
-                              className="flex min-h-[2.75rem] flex-col items-center justify-center rounded-md border-2 border-dashed border-amber-300/70 bg-amber-50/50 text-[9px] font-medium text-amber-500 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-600"
+                              className="flex min-h-[2.25rem] flex-col items-center justify-center rounded border-2 border-dashed border-slate-200/70 bg-slate-100/50 text-[8px] font-medium text-slate-400 dark:border-slate-600/60 dark:bg-slate-800/30 dark:text-slate-500"
                               title="Empty slot"
                             >
                               —
@@ -785,14 +818,14 @@ export default function GamePage() {
                           <div
                             key={b.barrelId}
                             title={`${name} · age ${b.age}y · ${b.barrelId.slice(-6)}`}
-                            className={`flex min-h-[2.75rem] flex-col items-center justify-center rounded-md border-2 bg-white px-0.5 py-1 text-center shadow-sm dark:bg-amber-950/50 ${theme.border}`}
+                            className={`flex min-h-[2.25rem] flex-col items-center justify-center rounded border-2 bg-white px-0.5 py-0.5 text-center shadow-sm dark:bg-slate-800/50 ${theme.border}`}
                           >
                             <span
-                              className={`flex h-7 w-7 items-center justify-center rounded text-[10px] font-bold leading-none ${theme.avatar}`}
+                              className={`flex h-6 w-6 items-center justify-center rounded text-[9px] font-bold leading-none ${theme.avatar}`}
                             >
                               {baronInitials(name)}
                             </span>
-                            <span className="mt-0.5 text-[9px] font-semibold tabular-nums text-amber-900 dark:text-amber-100">
+                            <span className="mt-0.5 text-[8px] font-semibold tabular-nums text-slate-800 dark:text-slate-100">
                               {b.age}y
                             </span>
                           </div>
@@ -802,88 +835,143 @@ export default function GamePage() {
                   </div>
                 );
               })}
-            </div>
           </div>
-        )}
-      </header>
-
-      {error && (
-        <div className="mb-4 rounded bg-red-100 px-3 py-2 text-red-800 dark:bg-red-900/50 dark:text-red-200">
-          {error}
         </div>
       )}
+    </>
+  );
 
-      {isComputerTurnNow && (
-        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-100 p-3 dark:bg-amber-900/40">
-          <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-            Computer&apos;s turn…
-          </p>
-        </div>
-      )}
-
-      {game.status === "finished" && game.winnerIds?.length ? (
-        <div className="mb-4 rounded-lg border-2 border-amber-500 bg-amber-100 p-4 dark:bg-amber-900/40">
-          <p className="font-semibold text-amber-900 dark:text-amber-100">
-            Game over — Winner:{" "}
-            {game.winnerIds
-              .map((id) => game.players[id]?.name ?? id)
-              .join(", ")}
-          </p>
-        </div>
-      ) : null}
-
-      {game.status === "lobby" && (
-        <div className="mb-4">
-          <button
-            onClick={handleStart}
-            disabled={actionLoading || !canStartGame}
-            className="rounded bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
-          >
-            {actionLoading ? "Starting…" : "Start game"}
-          </button>
-          {!canStartGame && (
-            <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-              {lobbySeatsUi && lobbyHasUnfilledOpenSeat(lobbySeatsUi)
-                ? "Fill every open seat with a player, or change open slots to Closed or Computer before starting."
-                : lobbySeatsUi && countSeatedBarons(lobbySeatsUi) < 2
-                  ? "Need at least 2 barons (add a computer or wait for another player)."
-                  : "Need at least 2 barons to start."}
-            </p>
-          )}
-        </div>
-      )}
-
-      {game.status === "in_progress" && (
-        <div className="mx-auto mb-4 flex max-w-7xl flex-col gap-6 lg:flex-row lg:items-start">
-          <div className="min-w-0 flex-1 space-y-4">
-            <div className="rounded-lg border border-amber-200/80 bg-white/70 px-3 py-2 dark:border-amber-800/80 dark:bg-amber-950/40">
-              <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200">
-                <span className="font-semibold text-amber-950 dark:text-amber-50">{phaseName}</span>
-                <span className="text-amber-500 dark:text-amber-500"> · </span>
-                Turn {game.turnNumber}
-                <span className="text-amber-500 dark:text-amber-500"> · </span>
-                {game.mode}
-                <span className="text-amber-500 dark:text-amber-500"> · </span>
-                Next action <strong className="tabular-nums">${nextActionCost}</strong>
-                <span className="text-amber-500 dark:text-amber-500"> · </span>
-                Ops {opsDeckLeft} · Inv {invDeckLeft} · Used {game.actionsTakenThisTurn ?? 0}
-                {isCurrentPlayer && me != null ? (
-                  <>
-                    <span className="text-amber-500 dark:text-amber-500"> · </span>
-                    Cash <strong className="tabular-nums">${me.cash}</strong>
-                  </>
-                ) : null}
-              </p>
+  return (
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950">
+      <div className="flex min-h-screen flex-col lg:flex-row lg:items-stretch">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col border-slate-200 dark:border-slate-800 lg:border-r">
+          <header className="sticky top-0 z-10 shrink-0 border-b border-slate-200 bg-slate-100/95 px-3 py-2 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h1 className="min-w-0 truncate text-base font-bold text-slate-800 dark:text-slate-100 sm:text-lg">
+                Game {game.gameId}
+              </h1>
+              <div className="flex flex-wrap items-center gap-2">
+                {game.status === "in_progress" && (
+                  <div className="flex items-center gap-1.5 rounded-md border border-indigo-400 bg-white px-2 py-1 shadow-sm dark:border-indigo-500 dark:bg-slate-800/60">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">
+                      Demand
+                    </span>
+                    <span className="text-lg font-bold tabular-nums text-slate-800 dark:text-slate-100">
+                      {game.marketDemand}
+                    </span>
+                  </div>
+                )}
+                <Link
+                  href="/"
+                  className="shrink-0 text-xs font-medium text-slate-700 underline dark:text-slate-200"
+                >
+                  Lobby
+                </Link>
+              </div>
             </div>
+            {game.status === "in_progress" && lastRoll ? (
+              <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-slate-600 dark:text-slate-200">
+                <span className="font-medium">Last roll:</span>{" "}
+                <span className="font-mono">
+                  {lastRoll.die1} + {lastRoll.die2}
+                </span>
+                {lastRoll.doubleSix ? (
+                  <> — double six → demand 12</>
+                ) : (
+                  <>
+                    {" "}
+                    (sum {lastRoll.sum}) · {lastRoll.demandBefore} → {lastRoll.demandAfter}
+                  </>
+                )}
+              </p>
+            ) : null}
+          </header>
 
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
+            {boardAndBarons}
+
+            {game.status === "finished" && game.winnerIds?.length ? (
+              <div className="mt-4 rounded-lg border-2 border-indigo-400 bg-slate-100 p-3 dark:bg-slate-800/40">
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                  Game over — Winner:{" "}
+                  {game.winnerIds
+                    .map((id) => game.players[id]?.name ?? id)
+                    .join(", ")}
+                </p>
+              </div>
+            ) : null}
+
+            {game.status === "lobby" && (
+              <div className="mt-4">
+                <button
+                  onClick={handleStart}
+                  disabled={actionLoading || !canStartGame}
+                  className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {actionLoading ? "Starting…" : "Start game"}
+                </button>
+                {!canStartGame && (
+                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-200">
+                    {lobbySeatsUi && lobbyHasUnfilledOpenSeat(lobbySeatsUi)
+                      ? "Fill every open seat with a player, or change open slots to Closed or Computer before starting."
+                      : lobbySeatsUi && countSeatedBarons(lobbySeatsUi) < 2
+                        ? "Need at least 2 barons (add a computer or wait for another player)."
+                        : "Need at least 2 barons to start."}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {game.status === "in_progress" && (
+          <aside className="flex w-full shrink-0 flex-col border-t border-slate-300/80 bg-gradient-to-b from-slate-200/90 to-indigo-50/80 dark:border-slate-800 dark:from-slate-900 dark:to-slate-950 lg:sticky lg:top-0 lg:h-screen lg:max-h-screen lg:w-[min(100%,22rem)] lg:border-l lg:border-t-0 xl:w-96">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3">
+              {error ? (
+                <div className="shrink-0 rounded bg-red-100 px-2 py-1.5 text-xs text-red-800 dark:bg-red-900/50 dark:text-red-200">
+                  {error}
+                </div>
+              ) : null}
+
+              {isComputerTurnNow ? (
+                <div className="shrink-0 rounded-md border border-cyan-500 bg-cyan-100/90 p-2 dark:border-indigo-500 dark:bg-slate-800/60">
+                  <p className="text-xs font-medium text-slate-800 dark:text-slate-100">
+                    Computer&apos;s turn…
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="shrink-0 rounded-md border border-slate-200/90 bg-white/90 px-2.5 py-1.5 dark:border-slate-700 dark:bg-slate-800/60">
+                <p className="text-[11px] leading-snug text-slate-700 dark:text-slate-200">
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
+                    {phaseName}
+                  </span>
+                  <span className="text-slate-400"> · </span>
+                  Turn {game.turnNumber}
+                  <span className="text-slate-400"> · </span>
+                  {game.mode}
+                  <span className="text-slate-400"> · </span>
+                  Next <strong className="tabular-nums">${nextActionCost}</strong>
+                  <span className="text-slate-400"> · </span>
+                  Ops {opsDeckLeft} · Inv {invDeckLeft} · {game.actionsTakenThisTurn ?? 0} used
+                  {isCurrentPlayer && me != null ? (
+                    <>
+                      <span className="text-slate-400"> · </span>
+                      Cash <strong className="tabular-nums">${me.cash}</strong>
+                    </>
+                  ) : null}
+                </p>
+              </div>
+
+              <div className="min-h-0 flex-1 space-y-3">
             {isCurrentPlayer && !isComputerTurnNow && (
               <div className="flex flex-col gap-3">
                 {game.currentPhase === 1 && (
-                  <div className="rounded-lg border border-amber-300 bg-amber-50/90 p-3 dark:border-amber-700 dark:bg-amber-950/40">
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  <div className="rounded-lg border border-slate-200 bg-slate-100/90 p-3 dark:border-slate-600 dark:bg-slate-800/40">
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
                       Phase 1 — Age bourbons (rickhouse fees &amp; aging)
                     </p>
-                    <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
+                    <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
                       Total due this turn: <strong>${feePreview}</strong>
                       {game.rickhouseFeesPaidThisTurn ? (
                         <span className="ml-2 text-green-700 dark:text-green-400">
@@ -899,7 +987,7 @@ export default function GamePage() {
                         game.rickhouseFeesPaidThisTurn ||
                         (me != null && me.cash < feePreview)
                       }
-                      className="mt-2 rounded bg-amber-700 px-3 py-1.5 text-sm text-white hover:bg-amber-800 disabled:opacity-50"
+                      className="mt-2 rounded bg-indigo-700 px-3 py-1.5 text-sm text-white hover:bg-indigo-800 disabled:opacity-50"
                     >
                       {game.rickhouseFeesPaidThisTurn
                         ? "Fees paid"
@@ -908,27 +996,27 @@ export default function GamePage() {
                   </div>
                 )}
                 {game.currentPhase === 2 && (
-                  <div className="rounded-lg border border-amber-300 bg-amber-50/90 p-3 dark:border-amber-700 dark:bg-amber-950/40">
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  <div className="rounded-lg border border-slate-200 bg-slate-100/90 p-3 dark:border-slate-600 dark:bg-slate-800/40">
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
                       Phase 2 — Market demand dice
                     </p>
-                    <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
+                    <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
                       Roll two six-sided dice (mock). If the sum beats current demand, demand goes
                       up by 1 (max 12). Double six sets demand to 12. Demand before roll:{" "}
                       <strong>{game.marketDemand}</strong> (see top bar).
                     </p>
                     <div
-                      className="mt-2 flex items-center gap-3 text-amber-900 dark:text-amber-100"
+                      className="mt-2 flex items-center gap-3 text-slate-800 dark:text-slate-100"
                       aria-hidden
                     >
-                      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-amber-600 bg-white text-2xl font-bold dark:border-amber-500 dark:bg-amber-900/40">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-indigo-500 bg-white text-2xl font-bold dark:border-indigo-400 dark:bg-slate-800/40">
                         ?
                       </span>
                       <span className="text-lg font-medium">+</span>
-                      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-amber-600 bg-white text-2xl font-bold dark:border-amber-500 dark:bg-amber-900/40">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-indigo-500 bg-white text-2xl font-bold dark:border-indigo-400 dark:bg-slate-800/40">
                         ?
                       </span>
-                      <span className="text-sm text-amber-700 dark:text-amber-300">
+                      <span className="text-sm text-slate-600 dark:text-slate-200">
                         → roll to reveal
                       </span>
                     </div>
@@ -936,7 +1024,7 @@ export default function GamePage() {
                       type="button"
                       onClick={handleRollDemand}
                       disabled={actionLoading}
-                      className="mt-3 rounded bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-50"
+                      className="mt-3 rounded bg-indigo-700 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-800 disabled:opacity-50"
                     >
                       {actionLoading ? "Rolling…" : "Roll bourbon demand dice"}
                     </button>
@@ -947,7 +1035,7 @@ export default function GamePage() {
                     type="button"
                     onClick={handleNextPhase}
                     disabled={actionLoading}
-                    className="w-full max-w-xs rounded bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50 sm:w-auto"
+                    className="w-full max-w-xs rounded bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:opacity-50 sm:w-auto"
                   >
                     {actionLoading ? "…" : "Next phase"}
                   </button>
@@ -956,11 +1044,11 @@ export default function GamePage() {
             )}
 
             {me && (
-              <section className="rounded-lg border border-amber-200 bg-white p-4 dark:border-amber-800 dark:bg-amber-900/20">
-              <h2 className="mb-2 font-semibold text-amber-900 dark:text-amber-100">
+              <section className="rounded-lg border border-slate-200 bg-white/95 p-3 dark:border-violet-700 dark:bg-slate-800/25">
+              <h2 className="mb-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
                 Your hand
               </h2>
-              <p className="mb-2 text-sm text-amber-700 dark:text-amber-300">
+              <p className="mb-2 text-xs text-slate-600 dark:text-slate-200">
                 ${me.cash} · {me.resourceCards.length} resource cards
                 {me.resourceCards.length > 0 && (
                   <>
@@ -974,7 +1062,9 @@ export default function GamePage() {
                     }
                   </>
                 )}
-                {canMash ? " · Tap cards here to build your mash (see Action phase →)" : ""}
+                {canMash
+                  ? " · Tap cards to build mash, then tap a + on an empty rickhouse slot"
+                  : ""}
               </p>
               <div className="flex flex-wrap gap-1">
                 {me.resourceCards.map((c, i) => {
@@ -999,8 +1089,8 @@ export default function GamePage() {
                       }
                       className={`rounded px-2 py-0.5 text-xs transition-colors ${
                         selected
-                          ? "bg-amber-600 font-medium text-white ring-2 ring-amber-800 dark:bg-amber-500 dark:ring-amber-300"
-                          : "bg-amber-100 text-amber-900 dark:bg-amber-800 dark:text-amber-100"
+                          ? "bg-indigo-600 font-medium text-white ring-2 ring-slate-700 dark:bg-teal-500 dark:ring-cyan-300"
+                          : "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100"
                       } ${canToggle ? "cursor-pointer hover:opacity-90" : "cursor-default opacity-70"}`}
                     >
                       {c}
@@ -1010,10 +1100,10 @@ export default function GamePage() {
               </div>
               {opsHand.length > 0 && (
                 <div className="mt-3">
-                  <p className="mb-1 text-xs font-medium text-amber-800 dark:text-amber-200">
+                  <p className="mb-1 text-xs font-medium text-slate-700 dark:text-slate-200">
                     Operations cards
                   </p>
-                  <ul className="space-y-1 text-xs text-amber-700 dark:text-amber-300">
+                  <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-200">
                     {opsHand.map((c, i) => (
                       <li key={`${c.id}-${i}`}>
                         {c.title} (play +${c.cashWhenPlayed})
@@ -1024,10 +1114,10 @@ export default function GamePage() {
               )}
               {invHand.length > 0 && (
                 <div className="mt-3">
-                  <p className="mb-1 text-xs font-medium text-amber-800 dark:text-amber-200">
+                  <p className="mb-1 text-xs font-medium text-slate-700 dark:text-slate-200">
                     Investment cards
                   </p>
-                  <ul className="space-y-1 text-xs text-amber-700 dark:text-amber-300">
+                  <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-200">
                     {invHand.map((c, i) => (
                       <li key={`${c.id}-${i}`}>
                         {c.title}
@@ -1039,10 +1129,10 @@ export default function GamePage() {
               )}
               {me.barrelledBourbons.length > 0 && (
                 <div className="mt-3">
-                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-700 dark:text-slate-200">
                     Your barrelled bourbon
                   </p>
-                  <ul className="space-y-2 text-sm text-amber-800 dark:text-amber-200">
+                  <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
                     {me.barrelledBourbons.map((b) => {
                       const loc = rickhouseRegionLabel(b.rickhouseId);
                       const est = computeSaleProceeds(b.age, game.marketDemand);
@@ -1054,12 +1144,12 @@ export default function GamePage() {
                       return (
                         <li
                           key={b.id}
-                          className="flex flex-wrap items-center gap-2 rounded border border-amber-200/80 px-2 py-1 dark:border-amber-800"
+                          className="flex flex-wrap items-center gap-2 rounded border border-slate-200/80 px-2 py-1 dark:border-violet-700"
                         >
                           <span>
                             {loc} · {b.age}y · est. ${est}
                             {b.mashCards?.length ? (
-                              <span className="text-xs text-amber-600 dark:text-amber-400">
+                              <span className="text-xs text-slate-500 dark:text-slate-300">
                                 {" "}
                                 · mash {b.mashCards.length} cards
                               </span>
@@ -1072,7 +1162,7 @@ export default function GamePage() {
                               disabled={
                                 actionLoading || (me != null && me.cash < nextActionCost)
                               }
-                              className="rounded bg-amber-700 px-2 py-0.5 text-xs text-white hover:bg-amber-800 disabled:opacity-50"
+                              className="rounded bg-indigo-700 px-2 py-0.5 text-xs text-white hover:bg-indigo-800 disabled:opacity-50"
                             >
                               Sell (fee ${nextActionCost})
                             </button>
@@ -1085,18 +1175,18 @@ export default function GamePage() {
               )}
             </section>
             )}
-          </div>
 
-          <aside className="w-full shrink-0 space-y-4 lg:sticky lg:top-28 lg:z-0 lg:w-80 lg:self-start xl:w-96">
-            <section className="rounded-lg border border-amber-200 bg-white p-4 shadow-sm dark:border-amber-800 dark:bg-amber-900/20">
-              <h2 className="mb-1 font-semibold text-amber-900 dark:text-amber-100">Market</h2>
-              <p className="mb-3 text-[11px] text-amber-600 dark:text-amber-400">
+            <section className="rounded-lg border border-slate-200 bg-white/95 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/30">
+              <h2 className="mb-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                Market
+              </h2>
+              <p className="mb-3 text-[11px] text-slate-500 dark:text-slate-300">
                 {game.currentPhase === 3 && isCurrentPlayer && !isComputerTurnNow
                   ? "Tap a pile or mixed deck to draw 3 resource cards (one buy action)."
                   : "Face-down piles — counts shown. Resource buys happen in the Action phase."}
               </p>
               {deckLeft > 0 ? (
-                <p className="mb-2 text-[11px] text-amber-500 dark:text-amber-500">
+                <p className="mb-2 text-[11px] text-slate-400 dark:text-slate-400">
                   Side deck: {deckLeft}
                 </p>
               ) : null}
@@ -1144,6 +1234,8 @@ export default function GamePage() {
                 ).map((pile) => {
                   const interactive =
                     game.currentPhase === 3 && isCurrentPlayer && !isComputerTurnNow;
+                  const ui = MARKET_PILE_UI[pile.key];
+                  const on = interactive && !pile.disabled;
                   return (
                     <button
                       key={pile.key}
@@ -1157,16 +1249,18 @@ export default function GamePage() {
                       onClick={() => {
                         if (interactive && !pile.disabled) pile.onPick();
                       }}
-                      className={`flex flex-col items-center justify-end rounded-lg border-2 px-1.5 pb-2 pt-3 text-center shadow-sm transition ${
-                        interactive && !pile.disabled
-                          ? "cursor-pointer border-amber-800 bg-gradient-to-b from-amber-700 via-amber-900 to-amber-950 text-amber-50 hover:brightness-110 active:scale-[0.98] dark:from-amber-800 dark:via-amber-950 dark:to-black"
-                          : "cursor-default border-amber-300/80 bg-gradient-to-b from-amber-200/90 to-amber-400/80 text-amber-950 opacity-90 dark:border-amber-700 dark:from-amber-900/50 dark:to-amber-950 dark:text-amber-100"
+                      className={`flex flex-col items-center justify-end rounded-lg border-2 px-1.5 pb-2 pt-3 text-center transition ${
+                        on ? ui.active : ui.idle
                       } ${interactive && pile.disabled ? "opacity-50" : ""}`}
                     >
-                      <span className="mb-1 text-[9px] font-bold uppercase tracking-wide text-amber-100/90">
+                      <span
+                        className={`mb-1 text-[9px] font-bold uppercase tracking-wide ${
+                          on ? "text-white/90" : "text-slate-600 dark:text-slate-300"
+                        }`}
+                      >
                         {pile.label}
                       </span>
-                      <span className="mb-2 min-h-[2.5rem] w-[85%] rounded border border-amber-950/30 bg-amber-950/40 shadow-inner dark:border-amber-100/10" />
+                      <span className="mb-2 min-h-[2.5rem] w-[85%] rounded border border-black/10 bg-black/10 shadow-inner dark:border-white/10 dark:bg-white/5" />
                       <span className="text-lg font-bold tabular-nums leading-none">
                         {pile.count}
                       </span>
@@ -1187,16 +1281,16 @@ export default function GamePage() {
                   (me != null && me.cash < nextActionCost)
                 }
                 onClick={() => handleBuy("random")}
-                className="mb-2 flex w-full flex-col items-center gap-1 rounded-lg border-2 border-dashed border-amber-600 bg-amber-100/90 px-3 py-3 text-amber-950 hover:bg-amber-200/90 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-50 dark:hover:bg-amber-900/80"
+                className="mb-2 flex w-full flex-col items-center gap-1 rounded-lg border-2 border-dashed border-indigo-500 bg-slate-100/90 px-3 py-3 text-slate-800 hover:bg-slate-200/90 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-400 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-800/80"
               >
                 <span
-                  className="flex h-10 w-14 items-center justify-center rounded bg-gradient-to-br from-amber-800 to-amber-950 text-xs font-bold text-amber-100 shadow-md dark:from-amber-700 dark:to-black"
+                  className="flex h-10 w-14 items-center justify-center rounded bg-gradient-to-br from-violet-700 to-slate-900 text-xs font-bold text-slate-100 shadow-md dark:from-violet-700 dark:to-slate-950"
                   aria-hidden
                 >
                   3
                 </span>
                 <span className="text-xs font-semibold">Mixed deck — draw 3 random</span>
-                <span className="text-[10px] text-amber-700 dark:text-amber-300">
+                <span className="text-[10px] text-slate-600 dark:text-slate-200">
                   Fee ${nextActionCost} · {marketCardsTotal} cards in market
                 </span>
               </button>
@@ -1215,28 +1309,28 @@ export default function GamePage() {
                   (me != null && me.cash < nextActionCost)
                 }
                 onClick={() => handleBuy({ cask: 1, corn: 1, grain: 1 })}
-                className="w-full rounded-md border border-amber-500 bg-white px-2 py-2 text-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900"
+                className="w-full rounded-md border border-indigo-400 bg-white px-2 py-2 text-xs font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50 dark:border-indigo-500 dark:bg-slate-800/40 dark:text-slate-100 dark:hover:bg-slate-800"
               >
                 Balanced draw: 1 Cask + 1 Corn + 1 Grain — ${nextActionCost}
               </button>
             </section>
 
             {isCurrentPlayer && !isComputerTurnNow && game.currentPhase === 3 && (
-              <section className="rounded-lg border border-amber-200 bg-white p-4 shadow-sm dark:border-amber-800 dark:bg-amber-900/20">
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100">
+              <section className="rounded-lg border border-slate-200 bg-white/95 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/30">
+                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-800 dark:text-slate-100">
                   Action phase
                 </h2>
 
-                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50/90 p-2 text-sm dark:border-amber-800 dark:bg-amber-950/30">
-                  <p className="font-medium text-amber-900 dark:text-amber-100">
+                <div className="mb-3 rounded-lg border border-slate-200 bg-slate-100/90 p-2 text-sm dark:border-violet-700 dark:bg-slate-800/30">
+                  <p className="font-medium text-slate-800 dark:text-slate-100">
                     Mash for barreling
                   </p>
-                  <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
-                    In <strong>Your hand</strong> (left), tap cards for 3–6:{" "}
+                  <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-200">
+                    In <strong>Your hand</strong> (above), tap cards for 3–6:{" "}
                     <strong>1 Cask</strong>, <strong>≥1 Corn</strong>, <strong>≥1 grain</strong>.
-                    Then barrel below.
+                    Then tap a <strong>+</strong> on an empty rickhouse slot on the board to barrel.
                   </p>
-                  <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+                  <p className="mt-1 text-xs text-slate-700 dark:text-slate-200">
                     Selected: {mashSelection.size} card{mashSelection.size === 1 ? "" : "s"}
                     {mashSelection.size > 0 ? ` — ${selectedMashCards.join(", ")}` : ""}
                     {mashSelection.size > 0 && !mashSelectionValid ? (
@@ -1252,50 +1346,25 @@ export default function GamePage() {
                     <button
                       type="button"
                       onClick={() => setMashSelection(new Set())}
-                      className="mt-1 text-xs text-amber-700 underline dark:text-amber-300"
+                      className="mt-1 text-xs text-slate-600 underline dark:text-slate-200"
                     >
                       Clear mash
                     </button>
                   ) : null}
                 </div>
 
-                <div className="mb-3 flex flex-col gap-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                    Barrel here
-                  </p>
-                  {rickhouses.map(
-                    (r) =>
-                      r.barrels.length < r.capacity && (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => handleBarrel(r.id)}
-                          disabled={
-                            actionLoading ||
-                            !mashSelectionValid ||
-                            (me != null && me.cash < r.barrels.length + 1 + nextActionCost)
-                          }
-                          className="w-full rounded bg-amber-600 px-3 py-2 text-left text-sm text-white hover:bg-amber-700 disabled:opacity-50"
-                        >
-                          {rickhouseRegionLabel(r.id)} — entry {r.barrels.length + 1} + fee $
-                          {nextActionCost}
-                        </button>
-                      )
-                  )}
-                </div>
-
                 <button
                   type="button"
                   onClick={handleNextPhase}
                   disabled={actionLoading}
-                  className="mb-4 w-full rounded-lg bg-amber-600 px-4 py-2.5 font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                  className="mb-4 w-full rounded-lg bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {actionLoading ? "…" : "End turn"}
                 </button>
 
                 {inCardPhases && (
-                  <div className="border-t border-amber-200 pt-3 dark:border-amber-800">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                  <div className="border-t border-slate-200 pt-3 dark:border-violet-700">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-700 dark:text-slate-200">
                       Operations &amp; investments
                     </p>
                     <div className="flex flex-col gap-2">
@@ -1307,7 +1376,7 @@ export default function GamePage() {
                           opsDeckLeft === 0 ||
                           (me != null && me.cash < nextActionCost)
                         }
-                        className="w-full rounded bg-amber-700 px-3 py-2 text-sm text-white hover:bg-amber-800 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-500"
+                        className="w-full rounded bg-indigo-700 px-3 py-2 text-sm text-white hover:bg-indigo-800 disabled:opacity-50 dark:bg-indigo-600 dark:hover:bg-teal-500"
                       >
                         Draw operations — ${nextActionCost}
                       </button>
@@ -1319,14 +1388,14 @@ export default function GamePage() {
                           invDeckLeft === 0 ||
                           (me != null && me.cash < nextActionCost)
                         }
-                        className="w-full rounded bg-amber-700 px-3 py-2 text-sm text-white hover:bg-amber-800 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-500"
+                        className="w-full rounded bg-indigo-700 px-3 py-2 text-sm text-white hover:bg-indigo-800 disabled:opacity-50 dark:bg-indigo-600 dark:hover:bg-teal-500"
                       >
                         Draw investment — ${nextActionCost}
                       </button>
                     </div>
                     {opsHand.length > 0 && (
                       <div className="mt-3">
-                        <p className="mb-1 text-xs text-amber-700 dark:text-amber-300">
+                        <p className="mb-1 text-xs text-slate-600 dark:text-slate-200">
                           Play operations
                         </p>
                         <div className="flex flex-col gap-1.5">
@@ -1338,7 +1407,7 @@ export default function GamePage() {
                               disabled={
                                 actionLoading || (me != null && me.cash < nextActionCost)
                               }
-                              className="rounded border border-amber-400 bg-white px-2 py-1.5 text-left text-xs text-amber-900 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900"
+                              className="rounded border border-cyan-500 bg-white px-2 py-1.5 text-left text-xs text-slate-800 hover:bg-slate-100 disabled:opacity-50 dark:border-indigo-500 dark:bg-slate-800/40 dark:text-slate-100 dark:hover:bg-slate-800"
                             >
                               {c.title} (+${c.cashWhenPlayed}, fee ${nextActionCost})
                             </button>
@@ -1348,7 +1417,7 @@ export default function GamePage() {
                     )}
                     {invHand.some((c) => !c.upright) && (
                       <div className="mt-3">
-                        <p className="mb-1 text-xs text-amber-700 dark:text-amber-300">
+                        <p className="mb-1 text-xs text-slate-600 dark:text-slate-200">
                           Capitalize
                         </p>
                         <div className="flex flex-col gap-1.5">
@@ -1362,7 +1431,7 @@ export default function GamePage() {
                                   actionLoading ||
                                   (me != null && me.cash < nextActionCost + c.capital)
                                 }
-                                className="rounded border border-amber-400 bg-white px-2 py-1.5 text-left text-xs text-amber-900 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900"
+                                className="rounded border border-cyan-500 bg-white px-2 py-1.5 text-left text-xs text-slate-800 hover:bg-slate-100 disabled:opacity-50 dark:border-indigo-500 dark:bg-slate-800/40 dark:text-slate-100 dark:hover:bg-slate-800"
                               >
                                 {c.title} (${nextActionCost} + ${c.capital})
                               </button>
@@ -1375,9 +1444,11 @@ export default function GamePage() {
                 )}
               </section>
             )}
+              </div>
+            </div>
           </aside>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

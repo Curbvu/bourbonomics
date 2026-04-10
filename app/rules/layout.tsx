@@ -8,16 +8,16 @@ export default function RulesLayout({
 }) {
   const slugs = listGameDocSlugs();
   return (
-    <div className="min-h-screen bg-amber-50 dark:bg-amber-950/20">
-      <nav className="sticky top-0 z-10 border-b border-amber-200 bg-amber-100/90 px-4 py-3 backdrop-blur dark:border-amber-800 dark:bg-amber-900/50">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950">
+      <nav className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2">
           <Link
             href="/rules"
-            className="font-semibold text-amber-900 dark:text-amber-100"
+            className="font-semibold text-slate-900 dark:text-slate-100"
           >
             Rules hub
           </Link>
-          <span className="hidden text-amber-600 sm:inline" aria-hidden>
+          <span className="hidden text-slate-400 sm:inline" aria-hidden>
             |
           </span>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
@@ -25,7 +25,7 @@ export default function RulesLayout({
               <Link
                 key={slug}
                 href={`/rules/${slug}`}
-                className="text-amber-800 underline-offset-2 hover:text-amber-950 hover:underline dark:text-amber-200 dark:hover:text-amber-50"
+                className="text-indigo-700 underline-offset-2 hover:text-indigo-900 hover:underline dark:text-indigo-300 dark:hover:text-indigo-100"
               >
                 {GAME_DOC_TITLES[slug]}
               </Link>
@@ -33,7 +33,7 @@ export default function RulesLayout({
           </div>
           <Link
             href="/"
-            className="ml-auto text-sm text-amber-700 hover:underline dark:text-amber-300"
+            className="ml-auto text-sm text-slate-600 hover:underline dark:text-slate-300"
           >
             Lobby
           </Link>

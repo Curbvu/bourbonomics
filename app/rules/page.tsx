@@ -11,12 +11,12 @@ export default function RulesHubPage() {
   const slugs = listGameDocSlugs();
   return (
     <div>
-      <h1 className="mb-4 text-2xl font-bold text-amber-900 dark:text-amber-100">
+      <h1 className="mb-4 text-2xl font-bold text-slate-900 dark:text-slate-100">
         Bourbonomics — design docs
       </h1>
-      <p className="mb-2 text-amber-800 dark:text-amber-200">
+      <p className="mb-2 text-slate-700 dark:text-slate-300">
         The app reads sources from{" "}
-        <code className="rounded bg-amber-200/80 px-1 dark:bg-amber-800/80">docs/</code>{" "}
+        <code className="rounded bg-slate-200/90 px-1 dark:bg-slate-800">docs/</code>{" "}
         (rules as Markdown; card catalogs as YAML rendered to Markdown). Edit those files to
         tune rules and cards; the rules UI and API load them on each request (no rebuild needed
         in development).
@@ -26,30 +26,30 @@ export default function RulesHubPage() {
           <li key={slug}>
             <Link
               href={`/rules/${slug}`}
-              className="font-medium text-amber-900 underline-offset-2 hover:underline dark:text-amber-100"
+              className="font-medium text-indigo-800 underline-offset-2 hover:underline dark:text-indigo-200"
             >
               {GAME_DOC_TITLES[slug]}
             </Link>
-            <span className="ml-2 text-sm text-amber-700 dark:text-amber-400">
+            <span className="ml-2 text-sm text-slate-600 dark:text-slate-400">
               — docs/{GAME_DOC_FILES[slug]}
             </span>
           </li>
         ))}
       </ul>
-      <p className="text-sm text-amber-800 dark:text-amber-300">
+      <p className="text-sm text-slate-700 dark:text-slate-300">
         <strong>API:</strong>{" "}
-        <code className="rounded bg-amber-200/80 px-1 dark:bg-amber-800/80">
+        <code className="rounded bg-slate-200/90 px-1 dark:bg-slate-800">
           GET /api/game-docs
         </code>{" "}
         returns all documents;{" "}
-        <code className="rounded bg-amber-200/80 px-1 dark:bg-amber-800/80">
+        <code className="rounded bg-slate-200/90 px-1 dark:bg-slate-800">
           ?slug=operations-cards
         </code>{" "}
         returns one;{" "}
-        <code className="rounded bg-amber-200/80 px-1 dark:bg-amber-800/80">
+        <code className="rounded bg-slate-200/90 px-1 dark:bg-slate-800">
           ?includeData=1
         </code>{" "}
-        adds parsed YAML <code className="rounded bg-amber-200/80 px-1 dark:bg-amber-800/80">data</code>{" "}
+        adds parsed YAML <code className="rounded bg-slate-200/90 px-1 dark:bg-slate-800">data</code>{" "}
         for card slugs.
       </p>
     </div>

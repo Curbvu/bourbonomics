@@ -7,7 +7,7 @@ type Props = {
 
 export default function GameMarkdown({ content }: Props) {
   return (
-    <article className="game-markdown max-w-none text-amber-950 dark:text-amber-50">
+    <article className="game-markdown max-w-none text-slate-900 dark:text-slate-100">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
     </article>
   );
