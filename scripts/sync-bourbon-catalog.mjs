@@ -21,18 +21,21 @@ if (!doc || typeof doc !== "object" || !Array.isArray(doc.cards)) {
 
 const cards = doc.cards.map((c) => {
   if (!c || typeof c !== "object") throw new Error("Invalid card entry");
-  const { id, name, rarity, demand, ages, grid } = c;
+  const { id, name, rarity, grid } = c;
   if (
     typeof id !== "string" ||
     typeof name !== "string" ||
     typeof rarity !== "string" ||
-    !Array.isArray(demand) ||
-    !Array.isArray(ages) ||
     !Array.isArray(grid)
   ) {
-    throw new Error(`Card ${String(id)} missing id, name, rarity, demand, ages, or grid`);
+    throw new Error(`Card ${String(id)} missing id, name, rarity, or grid`);
   }
-  return { id, name, rarity, demand, ages, grid };
+  if (grid.length !== 3 || grid.some((row) => !Array.isArray(row) || row.length !== 3)) {
+    throw new Error(
+      `Card ${id}: grid must be 3×3 (age bands × demand bands), got ${grid.length} rows`
+    );
+  }
+  return { id, name, rarity, grid };
 });
 
 const payload = {

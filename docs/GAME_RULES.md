@@ -54,7 +54,7 @@ These decks sit in the **business** area of the board. Taking or buying a card f
 
 #### Bourbon cards
 
-**Bourbon cards** define **how your barrelled bourbon sells**: each card has a **Market Price Guide** (age × demand) used when you **sell bourbon**. There is always one **face-up** Bourbon Card, and the rest sit in the Bourbon pile. When selling Bourbons, you can either choose the face up card or draw one from the face down pile. *Note* some resource, investment and operation cards allow you to draw multiple cards or lets you discard Bourbon cards. 
+**Bourbon cards** define **how your barrelled bourbon sells**: each card has a **Market Price Guide** (fixed **age bands** × **demand bands**) used when you **sell bourbon**. There is always one **face-up** Bourbon Card, and the rest sit in the Bourbon pile. When selling Bourbons, you can either choose the face up card or draw one from the face down pile. *Note* some resource, investment and operation cards allow you to draw multiple cards or lets you discard Bourbon cards. 
 
 Bourbon Cards may contain award criteria (**Silver** / **Gold**) on the card. These convey unique advantages to your Bourbon and your distillery and Gold Bourbon Cards are also a win condition. Generally awards require a large amount of resources and barrel aging; keep an eye on your business while you try and elevate your Bourbon to Gold!
 
@@ -185,12 +185,11 @@ Rickhouses are where bourbon is stored and aged. There are **6 rickhouses** in t
 
 Each Bourbon Card has a **Market Price Guide** that shows the **value of your bourbon** based on its **age** and **current market demand**. You won't know its true worth until you go to market.
 
-**How to read the Market Price Guide:** Demand is along the top and Age of your bourbon is along the left side. The value is the cell at the **highest age on the chart that is equal or less than** your bourbon's age, and the **highest demand on the chart that is equal or less than** Market Demand.
+**How to read the Market Price Guide:** Every card uses the same **bands** — no stepped “≤” lookup. **Demand** runs across the top in three bands: **Low (2–3)**, **Mid (4–5)**, **High (6+)** barrels. **Age** runs down the left in three bands: **2–3**, **4–7**, and **8+** years. Find the row for your bourbon’s age band and the column for the current market-demand band; the dollar amount in that cell is your sale price.
 
-- *Example (age):* If you sell a 6-year bourbon and the card shows 2, 4, 8 Years, you sell at the **"4 year"** price.
-- *Example (demand):* If market demand is 3 and the card shows 2, 4, 6 market demand, you sell at the **"2 demand"** level.
+- *Example:* Market demand is **5** → **Mid (4–5)** column. Your bourbon is **6** years old → **4–7** row. You collect the cash printed where that row and column meet.
 
-**Demand is 0:** You may still sell your bourbon for its **age in years** (e.g., a 3-year bourbon sells for 3). Some money is better than no money.
+**Demand is 0:** You may still sell your bourbon for its **age in dollars** (e.g., a 3-year bourbon sells for **$3**) — not a grid cell. Some money is better than no money.
 
 ![Market Price Guide](market-price-guide.png)
 

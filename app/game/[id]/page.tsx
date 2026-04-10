@@ -139,8 +139,9 @@ function BourbonSaleExperience(props: {
           </div>
 
           <p className="mx-auto mt-3 max-w-md text-center text-xs leading-relaxed text-slate-400">
-            Market Price Guide: use the highest age row ≤ your bourbon age and the highest
-            demand column ≤ market demand (from{" "}
+            Market Price Guide: pick your <span className="font-medium text-slate-300">age band</span>{" "}
+            (2–3, 4–7, or 8+ years) and your <span className="font-medium text-slate-300">demand band</span>{" "}
+            (Low 2–3, Mid 4–5, High 6+ barrels). The cash in that cell is your sale price (see{" "}
             <span className="font-medium text-slate-300">docs/bourbon_cards.yaml</span>).
           </p>
 
@@ -154,16 +155,16 @@ function BourbonSaleExperience(props: {
                   <th className="border border-slate-700/80 bg-slate-900/90 px-1.5 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
                     Age \ Demand
                   </th>
-                  {sale.demand.map((d, ci) => (
+                  {sale.demandBandHeaders.map((label, ci) => (
                     <th
-                      key={`${d}-${ci}`}
-                      className={`border border-slate-700/80 px-1.5 py-1.5 text-[10px] font-bold tabular-nums ${
+                      key={`${label}-${ci}`}
+                      className={`border border-slate-700/80 px-1.5 py-1.5 text-[9px] font-bold leading-tight ${
                         sale.payoutSource === "grid" && sale.usedCol === ci
                           ? "bg-amber-500/25 text-amber-100 ring-1 ring-amber-400/60"
                           : "bg-slate-900/90 text-slate-300"
                       }`}
                     >
-                      ≤{d}
+                      {label.replace(" (", "\n(")}
                     </th>
                   ))}
                 </tr>
@@ -178,7 +179,7 @@ function BourbonSaleExperience(props: {
                           : "bg-slate-900/95 text-slate-400"
                       }`}
                     >
-                      {sale.ages[ri]}y
+                      {sale.ageBandLabels[ri]}
                     </th>
                     {row.map((cell, ci) => {
                       const isPick =
@@ -211,7 +212,7 @@ function BourbonSaleExperience(props: {
               <p className="mt-2 text-[11px] text-slate-400">
                 Matched cell:{" "}
                 <span className="font-semibold text-amber-100">
-                  {sale.ages[sale.usedRow]}y × demand ≤ {sale.demand[sale.usedCol]}
+                  Age band {sale.ageBandLabels[sale.usedRow]} · {sale.demandBandHeaders[sale.usedCol]}
                 </span>
               </p>
             )}

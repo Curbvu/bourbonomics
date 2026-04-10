@@ -24,12 +24,13 @@ export type BourbonCardYaml = {
   id: string;
   name: string;
   rarity: "Standard" | "Rare";
-  demand: number[];
-  ages: number[];
-  /** Rows align with ages; each row aligns with demand columns */
+  /** Fixed 3×3: rows = age bands 2–3 / 4–7 / 8+; cols = demand Low / Mid / High */
   grid: number[][];
   awards: null | { silver: string; gold: string };
 };
+
+const BOURBON_DOC_DEMAND_HEADERS = ["Low (2–3)", "Mid (4–5)", "High (6+)"] as const;
+const BOURBON_DOC_AGE_ROWS = ["2–3", "4–7", "8+"] as const;
 
 function esc(s: string): string {
   return s.replace(/\|/g, "\\|");
@@ -48,10 +49,13 @@ export function renderBourbonCardsYaml(doc: BourbonCardsYaml): string {
   for (const c of doc.cards) {
     lines.push(`## ${c.id} — *${esc(c.name)}* — **${c.rarity}**`);
     lines.push("");
-    const header = `| Age \\ Demand | ${c.demand.map((d) => `**${d}**`).join(" | ")} |`;
-    const sep = `|${"---|".repeat(1 + c.demand.length)}`;
+    const header = `| Age \\ Demand | ${BOURBON_DOC_DEMAND_HEADERS.map((h) => `**${h}**`).join(" | ")} |`;
+    const sep = `|${"---|".repeat(1 + BOURBON_DOC_DEMAND_HEADERS.length)}`;
     const body = c.grid
-      .map((row, i) => `| **${c.ages[i]}** | ${row.join(" | ")} |`)
+      .map(
+        (row, i) =>
+          `| **${BOURBON_DOC_AGE_ROWS[i] ?? "?"}** | ${row.map((v) => `$${v}`).join(" | ")} |`
+      )
       .join("\n");
     lines.push(header, sep, body, "");
     if (c.awards) {

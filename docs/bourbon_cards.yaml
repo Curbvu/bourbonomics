@@ -6,10 +6,12 @@ intro:
   title: Bourbon cards
   body: >-
     Named **Bourbon Market Price Guide** cards for *Bourbonomics*. Each card is a
-    specific product line. Grids use **2–6** age rows (reserve lines print **8–12
-    year** tiers) and **2–4** demand columns; payoffs are **steppy** (uneven
-    jumps). **Standard** cards are common; **Rare** cards are fewer copies with
-    higher ceilings—and the wildest age ladders.
+    specific product line. The guide is a **3×3** table: **age bands** down the
+    side (**2–3**, **4–7**, **8+** years) and **demand bands** across the top
+    (**Low 2–3**, **Mid 4–5**, **High 6+** market-demand barrels). Your sale price
+    is the dollar amount in the cell where **your age band** meets **your demand
+    band** — no “highest row/column ≤” math. **Standard** cards are common;
+    **Rare** cards are fewer copies with higher ceilings.
 
 
     **Mash arithmetic (read this before awards):** Count only **Corn**, **Rye**,
@@ -24,12 +26,12 @@ intro:
 
 
     **Silver / Gold awards** read like real distillery and competition copy: they
-    care about **grain bills** under those limits—plus **age on this card’s grid**
-    and sometimes **provenance** (**rickhouse-0** … **rickhouse-5**). **Silver** is
-    the strong bar (corn-forward, rye-heavy, wheat- or barley-led, tri-type, or a
-    named rick). **Gold** is exceptional: **tri-type** mashes, **2 + 1** stacks
-    (two of one grain + corn + the third slot), **12-year** rows on long-age
-    cards, or warehouse story that matches the line.
+    care about **grain bills** under those limits—plus **age band on this card’s
+    grid** and sometimes **provenance** (**rickhouse-0** … **rickhouse-5**).
+    **Silver** is the strong bar (corn-forward, rye-heavy, wheat- or barley-led,
+    tri-type, or a named rick). **Gold** is exceptional: **tri-type** mashes,
+    **2 + 1** stacks (two of one grain + corn + the third slot), **8+** age band on
+    this card, or warehouse story that matches the line.
 
 
     Awards appear on **Rare** cards and a small set of **flagship Standard** lines;
@@ -43,463 +45,748 @@ intro:
     card calls out a warehouse story or provenance.
 
 
-    Lookup matches **GAME_RULES.md** (highest age row ≤ your bourbon age, highest
-    demand column ≤ market demand). **Demand 0** uses **GAME_RULES**.
+    Selling rules and **demand 0** are in **GAME_RULES.md** (demand **0** pays
+    **age in dollars**, not a grid cell).
 cards:
   - id: "01"
-    name: Knob's End 90
-    rarity: Standard
-    demand: [ 4, 8, 12 ]
-    ages: [ 2, 3, 4, 6 ]
-    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ], [ 20, 16, 21 ] ]
+    name: "Knob's End 90"
+    rarity: "Standard"
+    grid:
+      - - 10
+        - 10
+        - 20
+      - - 20
+        - 20
+        - 21
+      - - 20
+        - 20
+        - 21
     awards: null
   - id: "02"
-    name: Mammoth Cave Malt
-    rarity: Standard
-    demand: [ 2, 6, 10 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
+    name: "Mammoth Cave Malt"
+    rarity: "Standard"
+    grid:
+      - - 10
+        - 10
+        - 14
+      - - 18
+        - 18
+        - 23
+      - - 18
+        - 18
+        - 23
     awards: null
   - id: "03"
-    name: Bardstown Boiler
-    rarity: Standard
-    demand: [ 3, 7, 11 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
+    name: "Bardstown Boiler"
+    rarity: "Standard"
+    grid:
+      - - 12
+        - 12
+        - 16
+      - - 20
+        - 20
+        - 25
+      - - 20
+        - 20
+        - 25
     awards: null
   - id: "04"
-    name: Limestone Ledger
-    rarity: Standard
-    demand: [ 5, 9, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
+    name: "Limestone Ledger"
+    rarity: "Standard"
+    grid:
+      - - 14
+        - 14
+        - 18
+      - - 22
+        - 22
+        - 27
+      - - 22
+        - 22
+        - 27
     awards: null
   - id: "05"
-    name: Charred Oak Exchange
-    rarity: Standard
-    demand: [ 4, 6, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
+    name: "Charred Oak Exchange"
+    rarity: "Standard"
+    grid:
+      - - 8
+        - 8
+        - 12
+      - - 16
+        - 16
+        - 21
+      - - 16
+        - 16
+        - 21
     awards: null
   - id: "06"
-    name: Riverbend Rye Signal
-    rarity: Standard
-    demand: [ 2, 8, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
+    name: "Riverbend Rye Signal"
+    rarity: "Standard"
+    grid:
+      - - 10
+        - 10
+        - 14
+      - - 18
+        - 18
+        - 23
+      - - 18
+        - 18
+        - 23
     awards: null
   - id: "07"
-    name: Stave & Story
-    rarity: Standard
-    demand: [ 3, 6, 10 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
+    name: "Stave & Story"
+    rarity: "Standard"
+    grid:
+      - - 12
+        - 12
+        - 16
+      - - 20
+        - 20
+        - 25
+      - - 20
+        - 20
+        - 25
     awards: null
   - id: "08"
-    name: Cooper's Quorum
-    rarity: Standard
-    demand: [ 4, 7, 12 ]
-    ages: [ 2, 3, 4, 6 ]
-    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ], [ 26, 22, 27 ] ]
+    name: "Cooper's Quorum"
+    rarity: "Standard"
+    grid:
+      - - 16
+        - 16
+        - 26
+      - - 26
+        - 26
+        - 27
+      - - 26
+        - 26
+        - 27
     awards:
-      silver: Mash includes **≥2 rye** cards **or** **2 corn** cards (plus the
-        required small grain in the third slot); **and** sell price **≥ $20** on
-        this card (middle-floor "quorum" pick—**rickhouse-2** counts as the rye
-        tie).
-      gold: '**Tri-type** mash (one corn, rye, wheat **or** corn, rye, barley **or**
-        corn, wheat, barley) **or** **1 corn + 2 rye** (max rye stack); **and** sell
-        **≥ $27** on this card (grid **maximum** **$27**).'
+      silver: "Mash includes **≥2 rye** cards **or** **2 corn** cards (plus the required small grain in the third slot); **and** sell price **≥ $20** on this card (middle-floor \"quorum\" pick—**rickhouse-2** counts as the rye tie)."
+      gold: "**Tri-type** mash (one corn, rye, wheat **or** corn, rye, barley **or** corn, wheat, barley) **or** **1 corn + 2 rye** (max rye stack); **and** sell **≥ $27** on this card (grid **maximum** **$27**)."
   - id: "09"
-    name: Mash Bill No. 7
-    rarity: Standard
-    demand: [ 4, 8, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
+    name: "Mash Bill No. 7"
+    rarity: "Standard"
+    grid:
+      - - 8
+        - 8
+        - 12
+      - - 16
+        - 16
+        - 21
+      - - 16
+        - 16
+        - 21
     awards: null
   - id: "10"
-    name: High Rickhouse Select
-    rarity: Standard
-    demand: [ 2, 6, 10 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
+    name: "High Rickhouse Select"
+    rarity: "Standard"
+    grid:
+      - - 10
+        - 10
+        - 14
+      - - 18
+        - 18
+        - 23
+      - - 18
+        - 18
+        - 23
     awards:
-      silver: Barrel aged at **rickhouse-3** (top deck / hottest tier) **or** mash
-        includes **≥2 wheat** cards; **and** sell price **≥ $16** on this card.
-      gold: Mash includes **≥1 wheat** and **≥1 rye** with corn **or** **1 corn + 2
-        wheat**; **and** sell **≥ $23** on this card (grid **maximum** **$23**).
+      silver: "Barrel aged at **rickhouse-3** (top deck / hottest tier) **or** mash includes **≥2 wheat** cards; **and** sell price **≥ $16** on this card."
+      gold: "Mash includes **≥1 wheat** and **≥1 rye** with corn **or** **1 corn + 2 wheat**; **and** sell **≥ $23** on this card (grid **maximum** **$23**)."
   - id: "11"
-    name: Warehouse E Batch
-    rarity: Standard
-    demand: [ 3, 7, 11 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
+    name: "Warehouse E Batch"
+    rarity: "Standard"
+    grid:
+      - - 12
+        - 12
+        - 16
+      - - 20
+        - 20
+        - 25
+      - - 20
+        - 20
+        - 25
     awards: null
   - id: "12"
-    name: Foggy Bottom Forge
-    rarity: Standard
-    demand: [ 5, 9, 12 ]
-    ages: [ 2, 3, 4, 6 ]
-    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ], [ 26, 22, 27 ] ]
+    name: "Foggy Bottom Forge"
+    rarity: "Standard"
+    grid:
+      - - 16
+        - 16
+        - 26
+      - - 26
+        - 26
+        - 27
+      - - 26
+        - 26
+        - 27
     awards: null
   - id: "13"
-    name: Cornbread Line
-    rarity: Standard
-    demand: [ 4, 6, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
+    name: "Cornbread Line"
+    rarity: "Standard"
+    grid:
+      - - 8
+        - 8
+        - 12
+      - - 16
+        - 16
+        - 21
+      - - 16
+        - 16
+        - 21
     awards: null
   - id: "14"
-    name: Rye Ladder 95
-    rarity: Standard
-    demand: [ 2, 8, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
+    name: "Rye Ladder 95"
+    rarity: "Standard"
+    grid:
+      - - 10
+        - 10
+        - 14
+      - - 18
+        - 18
+        - 23
+      - - 18
+        - 18
+        - 23
     awards: null
   - id: "15"
-    name: Wheat Whisper
-    rarity: Standard
-    demand: [ 3, 6, 10 ]
-    ages: [ 2, 3, 4, 6 ]
-    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ], [ 24, 20, 25 ] ]
+    name: "Wheat Whisper"
+    rarity: "Standard"
+    grid:
+      - - 14
+        - 14
+        - 24
+      - - 24
+        - 24
+        - 25
+      - - 24
+        - 24
+        - 25
     awards: null
   - id: "16"
-    name: Barley Bastion
-    rarity: Standard
-    demand: [ 4, 7, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
+    name: "Barley Bastion"
+    rarity: "Standard"
+    grid:
+      - - 14
+        - 14
+        - 18
+      - - 22
+        - 22
+        - 27
+      - - 22
+        - 22
+        - 27
     awards: null
   - id: "17"
-    name: Two Charring Points
-    rarity: Standard
-    demand: [ 4, 8, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
+    name: "Two Charring Points"
+    rarity: "Standard"
+    grid:
+      - - 8
+        - 8
+        - 12
+      - - 16
+        - 16
+        - 21
+      - - 16
+        - 16
+        - 21
     awards: null
   - id: "18"
-    name: Angel's Trace
-    rarity: Standard
-    demand: [ 2, 6, 10 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
+    name: "Angel's Trace"
+    rarity: "Standard"
+    grid:
+      - - 10
+        - 10
+        - 14
+      - - 18
+        - 18
+        - 23
+      - - 18
+        - 18
+        - 23
     awards:
-      silver: Mash includes **≥2 barley** cards **or** **≥1 rye** and **≥1 wheat**;
-        **and** sell price **≥ $16** on this card (angel’s-share patience).
-      gold: '**Barley-led:** **1 corn + 2 barley** (max barley stack) **or** tri-type
-        with barley (corn + rye + barley, etc.); **and** sell **≥ $23** on this card
-        (grid **maximum** **$23**).'
+      silver: "Mash includes **≥2 barley** cards **or** **≥1 rye** and **≥1 wheat**; **and** sell price **≥ $16** on this card (angel’s-share patience)."
+      gold: "**Barley-led:** **1 corn + 2 barley** (max barley stack) **or** tri-type with barley (corn + rye + barley, etc.); **and** sell **≥ $23** on this card (grid **maximum** **$23**)."
   - id: "19"
-    name: Bonded & Bold
-    rarity: Standard
-    demand: [ 3, 7, 11 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
+    name: "Bonded & Bold"
+    rarity: "Standard"
+    grid:
+      - - 12
+        - 12
+        - 16
+      - - 20
+        - 20
+        - 25
+      - - 20
+        - 20
+        - 25
     awards:
-      silver: >-
-        Mash is **≥51% corn** in spirit — **2 corn** cards in the three-grain mix
-        (third card is rye, wheat, or barley); **and** sell price **≥ $18** on this
-        card.
-      gold: '**Corn-forward bond**: **2 corn + 1 rye** **or** **2 corn + 1 wheat**
-        (or **2 corn + 1 barley**); **and** sell **≥ $25** on this card (grid
-        **maximum** **$25**).'
+      silver: "Mash is **≥51% corn** in spirit — **2 corn** cards in the three-grain mix (third card is rye, wheat, or barley); **and** sell price **≥ $18** on this card."
+      gold: "**Corn-forward bond**: **2 corn + 1 rye** **or** **2 corn + 1 wheat** (or **2 corn + 1 barley**); **and** sell **≥ $25** on this card (grid **maximum** **$25**)."
   - id: "20"
-    name: Cork & Crown
-    rarity: Standard
-    demand: [ 5, 9, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
+    name: "Cork & Crown"
+    rarity: "Standard"
+    grid:
+      - - 14
+        - 14
+        - 18
+      - - 22
+        - 22
+        - 27
+      - - 22
+        - 22
+        - 27
     awards: null
   - id: "21"
-    name: Proof Positive 100
-    rarity: Standard
-    demand: [ 4, 6, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
+    name: "Proof Positive 100"
+    rarity: "Standard"
+    grid:
+      - - 8
+        - 8
+        - 12
+      - - 16
+        - 16
+        - 21
+      - - 16
+        - 16
+        - 21
     awards:
-      silver: Mash includes **≥2 rye** **or** barrel at **rickhouse-4** (sun-swing
-        metal style); **and** sell price **≥ $14** on this card.
-      gold: '**Heavy rye stack**: **1 corn + 2 rye** (maximum rye) **or** tri-type with
-        rye as the tie-break highest count; **and** sell **≥ $21** on this card
-        (grid **maximum** **$21**).'
+      silver: "Mash includes **≥2 rye** **or** barrel at **rickhouse-4** (sun-swing metal style); **and** sell price **≥ $14** on this card."
+      gold: "**Heavy rye stack**: **1 corn + 2 rye** (maximum rye) **or** tri-type with rye as the tie-break highest count; **and** sell **≥ $21** on this card (grid **maximum** **$21**)."
   - id: "22"
-    name: Sour Mash Society
-    rarity: Standard
-    demand: [ 2, 8, 12 ]
-    ages: [ 2, 3, 4, 6 ]
-    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ], [ 22, 18, 23 ] ]
+    name: "Sour Mash Society"
+    rarity: "Standard"
+    grid:
+      - - 12
+        - 12
+        - 22
+      - - 22
+        - 22
+        - 23
+      - - 22
+        - 22
+        - 23
     awards: null
   - id: "23"
-    name: Stillhouse Sonnet
-    rarity: Standard
-    demand: [ 3, 6, 10 ]
-    ages: [ 2, 3, 4, 6 ]
-    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ], [ 24, 20, 25 ] ]
+    name: "Stillhouse Sonnet"
+    rarity: "Standard"
+    grid:
+      - - 14
+        - 14
+        - 24
+      - - 24
+        - 24
+        - 25
+      - - 24
+        - 24
+        - 25
     awards: null
   - id: "24"
-    name: Patent Still 04
-    rarity: Standard
-    demand: [ 4, 7, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
+    name: "Patent Still 04"
+    rarity: "Standard"
+    grid:
+      - - 14
+        - 14
+        - 18
+      - - 22
+        - 22
+        - 27
+      - - 22
+        - 22
+        - 27
     awards: null
   - id: "25"
-    name: Kentucky Crosscut
-    rarity: Standard
-    demand: [ 4, 8, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
+    name: "Kentucky Crosscut"
+    rarity: "Standard"
+    grid:
+      - - 8
+        - 8
+        - 12
+      - - 16
+        - 16
+        - 21
+      - - 16
+        - 16
+        - 21
     awards: null
   - id: "26"
-    name: Oak Algebra
-    rarity: Standard
-    demand: [ 2, 6, 10 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
+    name: "Oak Algebra"
+    rarity: "Standard"
+    grid:
+      - - 10
+        - 10
+        - 14
+      - - 18
+        - 18
+        - 23
+      - - 18
+        - 18
+        - 23
     awards: null
   - id: "27"
-    name: Bottled Lightning 86
-    rarity: Standard
-    demand: [ 3, 7, 11 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
+    name: "Bottled Lightning 86"
+    rarity: "Standard"
+    grid:
+      - - 12
+        - 12
+        - 16
+      - - 20
+        - 20
+        - 25
+      - - 20
+        - 20
+        - 25
     awards: null
   - id: "28"
-    name: Copper Trace
-    rarity: Standard
-    demand: [ 5, 9, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
+    name: "Copper Trace"
+    rarity: "Standard"
+    grid:
+      - - 14
+        - 14
+        - 18
+      - - 22
+        - 22
+        - 27
+      - - 22
+        - 22
+        - 27
     awards: null
   - id: "29"
-    name: Bluegrass Boiler
-    rarity: Standard
-    demand: [ 4, 6, 12 ]
-    ages: [ 2, 3, 4, 6 ]
-    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ], [ 20, 16, 21 ] ]
+    name: "Bluegrass Boiler"
+    rarity: "Standard"
+    grid:
+      - - 10
+        - 10
+        - 20
+      - - 20
+        - 20
+        - 21
+      - - 20
+        - 20
+        - 21
     awards: null
   - id: "30"
-    name: Rickhouse Arithmetic
-    rarity: Standard
-    demand: [ 2, 8, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ] ]
+    name: "Rickhouse Arithmetic"
+    rarity: "Standard"
+    grid:
+      - - 10
+        - 10
+        - 14
+      - - 18
+        - 18
+        - 23
+      - - 18
+        - 18
+        - 23
     awards: null
   - id: "31"
-    name: Filtered Lore
-    rarity: Standard
-    demand: [ 3, 6, 10 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
+    name: "Filtered Lore"
+    rarity: "Standard"
+    grid:
+      - - 12
+        - 12
+        - 16
+      - - 20
+        - 20
+        - 25
+      - - 20
+        - 20
+        - 25
     awards: null
   - id: "32"
-    name: Low Gauge Legacy
-    rarity: Standard
-    demand: [ 4, 7, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 14, 13, 18 ], [ 16, 14, 26 ], [ 22, 24, 27 ] ]
+    name: "Low Gauge Legacy"
+    rarity: "Standard"
+    grid:
+      - - 14
+        - 14
+        - 18
+      - - 22
+        - 22
+        - 27
+      - - 22
+        - 22
+        - 27
     awards: null
   - id: "33"
-    name: Steam Furnace Five
-    rarity: Standard
-    demand: [ 4, 8, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 8, 7, 12 ], [ 10, 8, 20 ], [ 16, 18, 21 ] ]
+    name: "Steam Furnace Five"
+    rarity: "Standard"
+    grid:
+      - - 8
+        - 8
+        - 12
+      - - 16
+        - 16
+        - 21
+      - - 16
+        - 16
+        - 21
     awards: null
   - id: "34"
-    name: Grist Galaxy
-    rarity: Standard
-    demand: [ 2, 6, 10 ]
-    ages: [ 2, 3, 4, 6 ]
-    grid: [ [ 10, 9, 14 ], [ 12, 10, 22 ], [ 18, 20, 23 ], [ 22, 18, 23 ] ]
+    name: "Grist Galaxy"
+    rarity: "Standard"
+    grid:
+      - - 12
+        - 12
+        - 22
+      - - 22
+        - 22
+        - 23
+      - - 22
+        - 22
+        - 23
     awards:
-      silver: Mash includes **≥2 wheat** **or** **≥1 corn** and **≥1 barley**;
-        **and** sell price **≥ $16** on this card (grist-forward flavor).
-      gold: '**Tri-type** mash using **three different grains** among corn / rye /
-        wheat / barley (e.g. corn + rye + wheat)—the richest bill possible in three
-        grain cards; **and** sell **≥ $23** on this card (grid **maximum** **$23**).'
+      silver: "Mash includes **≥2 wheat** **or** **≥1 corn** and **≥1 barley**; **and** sell price **≥ $16** on this card (grist-forward flavor)."
+      gold: "**Tri-type** mash using **three different grains** among corn / rye / wheat / barley (e.g. corn + rye + wheat)—the richest bill possible in three grain cards; **and** sell **≥ $23** on this card (grid **maximum** **$23**)."
   - id: "35"
-    name: Turf & Tarnish
-    rarity: Standard
-    demand: [ 3, 7, 11 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 12, 11, 16 ], [ 14, 12, 24 ], [ 20, 22, 25 ] ]
+    name: "Turf & Tarnish"
+    rarity: "Standard"
+    grid:
+      - - 12
+        - 12
+        - 16
+      - - 20
+        - 20
+        - 25
+      - - 20
+        - 20
+        - 25
     awards: null
   - id: "36"
-    name: Copper Crossings 107
-    rarity: Rare
-    demand: [ 5, 9, 12 ]
-    ages: [ 2, 4, 6, 8, 10, 12 ]
+    name: "Copper Crossings 107"
+    rarity: "Rare"
     grid:
-      - [ 35, 34, 41 ]
-      - [ 36, 34, 63 ]
-      - [ 54, 60, 62 ]
-      - [ 60, 53, 66 ]
-      - [ 64, 58, 72 ]
-      - [ 68, 62, 78 ]
+      - - 35
+        - 35
+        - 41
+      - - 54
+        - 54
+        - 62
+      - - 64
+        - 64
+        - 72
     awards:
-      silver: Mash includes **≥2 rye** cards **or** barrel aged at **rickhouse-1**
-        (limestone shell pick); **and** sell price **≥ $50** on this card **or**
-        market demand **odd** at sale.
-      gold: '**1 corn + 2 rye** (max rye) **or** tri-type with rye highest count; **and**
-        use the **12-year** row on this card **or** sell **≥ $78** (grid **maximum**
-        **$78**).'
+      silver: "Mash includes **≥2 rye** cards **or** barrel aged at **rickhouse-1** (limestone shell pick); **and** sell price **≥ $50** on this card **or** market demand **odd** at sale."
+      gold: "**1 corn + 2 rye** (max rye) **or** tri-type with rye highest count; **and** use the **8+** age band on this card **or** sell **≥ $78** (grid **maximum** **$78**)."
   - id: "37"
-    name: Seven Stars Odd Lot
-    rarity: Rare
-    demand: [ 4, 6, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 18, 18, 31 ], [ 27, 24, 46 ], [ 37, 44, 52 ] ]
+    name: "Seven Stars Odd Lot"
+    rarity: "Rare"
+    grid:
+      - - 18
+        - 18
+        - 31
+      - - 37
+        - 37
+        - 52
+      - - 37
+        - 37
+        - 52
     awards:
-      silver: Mash includes **≥3 corn** cards **or** **≥2 wheat** and **≥1 rye**;
-        **and** sell price **≥ $36** on this card **or** market demand **odd** at
-        sale.
-      gold: '**Four-grain** (at least one corn, rye, wheat, barley) **or** **≥5** grain cards total; **and** sell **≥ $52** (grid **maximum** **$52**).'
+      silver: "Mash includes **≥3 corn** cards **or** **≥2 wheat** and **≥1 rye**; **and** sell price **≥ $36** on this card **or** market demand **odd** at sale."
+      gold: "**Four-grain** (at least one corn, rye, wheat, barley) **or** **≥5** grain cards total; **and** sell **≥ $52** (grid **maximum** **$52**)."
   - id: "38"
-    name: State Line BiB
-    rarity: Rare
-    demand: [ 2, 8, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 27, 26, 33 ], [ 28, 26, 55 ], [ 46, 45, 54 ] ]
+    name: "State Line BiB"
+    rarity: "Rare"
+    grid:
+      - - 27
+        - 27
+        - 33
+      - - 46
+        - 46
+        - 54
+      - - 46
+        - 46
+        - 54
     awards:
-      silver: >-
-        Bottled-in-bond style: **≥3 corn** **and** **≥2 rye** among grains
-        **or** barrel at **rickhouse-0** (cool river rack); **and** sell **≥ $39**
-        **or** demand **odd**.
-      gold: '**≥4 corn** and **≥2 rye** in the mash bill **or** sell **≥ $55** (grid **maximum** **$55**).'
+      silver: "Bottled-in-bond style: **≥3 corn** **and** **≥2 rye** among grains **or** barrel at **rickhouse-0** (cool river rack); **and** sell **≥ $39** **or** demand **odd**."
+      gold: "**≥4 corn** and **≥2 rye** in the mash bill **or** sell **≥ $55** (grid **maximum** **$55**)."
   - id: "39"
-    name: Barrel Thief Reserve
-    rarity: Rare
-    demand: [ 3, 6, 10 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 28, 28, 41 ], [ 37, 27, 56 ], [ 47, 54, 62 ] ]
+    name: "Barrel Thief Reserve"
+    rarity: "Rare"
+    grid:
+      - - 28
+        - 28
+        - 41
+      - - 47
+        - 47
+        - 62
+      - - 47
+        - 47
+        - 62
     awards:
-      silver: Mash includes **≥3 barley** **or** **≥2 rye** and **≥2 corn**;
-        **and** sell **≥ $46** **or** demand **odd**.
-      gold: '**≥3 grain types** with **barley** **and** **≥2 rye**; **and** sell **≥ $62** (grid **maximum** **$62**).'
+      silver: "Mash includes **≥3 barley** **or** **≥2 rye** and **≥2 corn**; **and** sell **≥ $46** **or** demand **odd**."
+      gold: "**≥3 grain types** with **barley** **and** **≥2 rye**; **and** sell **≥ $62** (grid **maximum** **$62**)."
   - id: "40"
-    name: Ghost Warehouse
-    rarity: Rare
-    demand: [ 4, 7, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 37, 29, 43 ], [ 38, 36, 65 ], [ 56, 55, 64 ] ]
+    name: "Ghost Warehouse"
+    rarity: "Rare"
+    grid:
+      - - 37
+        - 37
+        - 43
+      - - 56
+        - 56
+        - 64
+      - - 56
+        - 56
+        - 64
     awards:
-      silver: Barrel at **rickhouse-3** (six-slot top heat) **or** mash **≥3 rye**;
-        **and** sell **≥ $49** **or** demand **odd**.
-      gold: '**Rickhouse-3** age **and** **≥4 rye** cards **or** sell **≥ $65** (grid **maximum** **$65**).'
+      silver: "Barrel at **rickhouse-3** (six-slot top heat) **or** mash **≥3 rye**; **and** sell **≥ $49** **or** demand **odd**."
+      gold: "**Rickhouse-3** age **and** **≥4 rye** cards **or** sell **≥ $65** (grid **maximum** **$65**)."
   - id: "41"
-    name: Double Stack Destiny
-    rarity: Rare
-    demand: [ 4, 8, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 20, 20, 33 ], [ 29, 19, 48 ], [ 39, 46, 47 ] ]
+    name: "Double Stack Destiny"
+    rarity: "Rare"
+    grid:
+      - - 20
+        - 20
+        - 33
+      - - 39
+        - 39
+        - 47
+      - - 39
+        - 39
+        - 47
     awards:
-      silver: Mash includes **≥2 wheat** and **≥2 corn** **or** barrel **rickhouse-5**
-        (low brick steady floor); **and** sell **≥ $32** **or** demand **odd**.
-      gold: '**≥3 grain types** with **wheat** and **corn** both **≥2** cards; **and** sell **≥ $48** (grid **maximum** **$48**).'
+      silver: "Mash includes **≥2 wheat** and **≥2 corn** **or** barrel **rickhouse-5** (low brick steady floor); **and** sell **≥ $32** **or** demand **odd**."
+      gold: "**≥3 grain types** with **wheat** and **corn** both **≥2** cards; **and** sell **≥ $48** (grid **maximum** **$48**)."
   - id: "42"
-    name: Crimson Corn Covenant
-    rarity: Rare
-    demand: [ 2, 6, 10 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 29, 21, 35 ], [ 30, 28, 50 ], [ 41, 47, 56 ] ]
+    name: "Crimson Corn Covenant"
+    rarity: "Rare"
+    grid:
+      - - 29
+        - 29
+        - 35
+      - - 41
+        - 41
+        - 56
+      - - 41
+        - 41
+        - 56
     awards:
-      silver: >-
-        **High-corn** mash: **≥4 corn** cards among grains **or** **≥3 corn**
-        with **≥1 rye**; **and** sell **≥ $40** **or** demand **odd**.
-      gold: '**≥5 corn** cards **or** **≥4 corn** and **≥2 wheat**; **and** sell **≥ $56** (grid **maximum** **$56**).'
+      silver: "**High-corn** mash: **≥4 corn** cards among grains **or** **≥3 corn** with **≥1 rye**; **and** sell **≥ $40** **or** demand **odd**."
+      gold: "**≥5 corn** cards **or** **≥4 corn** and **≥2 wheat**; **and** sell **≥ $56** (grid **maximum** **$56**)."
   - id: "43"
-    name: Platinum Rick Proof
-    rarity: Rare
-    demand: [ 3, 7, 11 ]
-    ages: [ 2, 3, 4, 6 ]
-    grid: [ [ 30, 30, 36 ], [ 32, 29, 58 ], [ 49, 56, 57 ], [ 55, 48, 61 ] ]
+    name: "Platinum Rick Proof"
+    rarity: "Rare"
+    grid:
+      - - 32
+        - 32
+        - 58
+      - - 55
+        - 55
+        - 61
+      - - 55
+        - 55
+        - 61
     awards:
-      silver: Mash includes **≥2 rye** and **≥2 wheat** **or** barrel **rickhouse-2**
-        (true "platinum" middle tier); **and** sell **≥ $45** **or** demand **odd**.
-      gold: '**≥3 grain types** with **rye** and **wheat** each **≥2** cards; **and** sell **≥ $61** (grid **maximum** **$61**).'
+      silver: "Mash includes **≥2 rye** and **≥2 wheat** **or** barrel **rickhouse-2** (true \"platinum\" middle tier); **and** sell **≥ $45** **or** demand **odd**."
+      gold: "**≥3 grain types** with **rye** and **wheat** each **≥2** cards; **and** sell **≥ $61** (grid **maximum** **$61**)."
   - id: "44"
-    name: Infinite Stave
-    rarity: Rare
-    demand: [ 5, 9, 12 ]
-    ages: [ 2, 4, 6, 8, 10, 12 ]
+    name: "Infinite Stave"
+    rarity: "Rare"
     grid:
-      - [ 32, 31, 45 ]
-      - [ 40, 38, 60 ]
-      - [ 51, 57, 66 ]
-      - [ 55, 60, 72 ]
-      - [ 59, 64, 78 ]
-      - [ 63, 68, 84 ]
+      - - 32
+        - 32
+        - 45
+      - - 51
+        - 51
+        - 66
+      - - 59
+        - 59
+        - 78
     awards:
-      silver: Mash includes **≥3 distinct grains** (any three of corn/rye/wheat/barley)
-        **or** barrel **rickhouse-4** (iron & sun); **and** sell **≥ $50** **or**
-        demand **odd**.
-      gold: '**12-year** row on this card **or** **≥4 grain types** represented; **and** sell **≥ $84** (grid **maximum** **$84**).'
+      silver: "Mash includes **≥3 distinct grains** (any three of corn/rye/wheat/barley) **or** barrel **rickhouse-4** (iron & sun); **and** sell **≥ $50** **or** demand **odd**."
+      gold: "**8+** age band on this card **or** **≥4 grain types** represented; **and** sell **≥ $84** (grid **maximum** **$84**)."
   - id: "45"
-    name: Crown Compass
-    rarity: Rare
-    demand: [ 4, 6, 12 ]
-    ages: [ 2, 3, 4, 6 ]
-    grid: [ [ 22, 22, 28 ], [ 24, 21, 50 ], [ 41, 41, 49 ], [ 47, 40, 53 ] ]
-    awards:
-      silver: Mash includes **≥2 barley** and **≥1 rye** **or** **rickhouse-1**
-        limestone pick; **and** sell **≥ $37** **or** demand **odd**.
-      gold: '**≥3 barley** cards **or** **≥3 grain types** with barley anchoring; **and** sell **≥ $53** (grid **maximum** **$53**).'
-  - id: "46"
-    name: Ledger Luxe
-    rarity: Rare
-    demand: [ 2, 8, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 24, 23, 37 ], [ 32, 23, 52 ], [ 43, 49, 58 ] ]
-    awards:
-      silver: Mash includes **≥3 wheat** **or** **≥2 corn** and **≥2 rye**; **and**
-        sell **≥ $42** **or** demand **odd**.
-      gold: '**Wheat-led** stack: **≥4 wheat** **or** **≥3 grain types** with wheat highest count; **and** sell **≥ $58** (grid **maximum** **$58**).'
-  - id: "47"
-    name: Wild Rickhouse
-    rarity: Rare
-    demand: [ 3, 6, 10 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 32, 25, 38 ], [ 34, 31, 60 ], [ 51, 51, 59 ] ]
-    awards:
-      silver: Barrel at **rickhouse-5** **or** **rickhouse-3** (wild vertical swing);
-        **and** mash **≥2 rye**; **and** sell **≥ $44** **or** demand **odd**.
-      gold: '**Rickhouse-3** or **-5** **and** **≥3 rye** cards **or** sell **≥ $60** (grid **maximum** **$60**).'
-  - id: "48"
-    name: Bonded Beyond
-    rarity: Rare
-    demand: [ 4, 7, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 34, 33, 47 ], [ 42, 33, 62 ], [ 53, 59, 61 ] ]
-    awards:
-      silver: Mash includes **≥3 corn** and **≥2 rye** (bonded grain discipline)
-        **or** barrel **rickhouse-0**; **and** sell **≥ $46** **or** demand **odd**.
-      gold: '**≥4 corn** with **≥2 rye** and **≥1 wheat** **or** sell **≥ $62** (grid **maximum** **$62**).'
-  - id: "49"
-    name: Oak Oracle
-    rarity: Rare
-    demand: [ 4, 8, 12 ]
-    ages: [ 2, 4, 6 ]
-    grid: [ [ 24, 17, 30 ], [ 26, 23, 45 ], [ 36, 43, 51 ] ]
-    awards:
-      silver: Mash includes **≥2 barley** and **≥1 wheat** **or** **rickhouse-1**
-        (limestone oak oracle); **and** sell **≥ $35** **or** demand **odd**.
-      gold: '**≥3 barley** and **≥2 wheat** **or** **≥4 grain types**; **and** sell **≥ $51** (grid **maximum** **$51**).'
-  - id: "50"
-    name: The Last Rick
-    rarity: Rare
-    demand: [ 2, 6, 10 ]
-    ages: [ 2, 4, 6, 8, 10, 12 ]
+    name: "Crown Compass"
+    rarity: "Rare"
     grid:
-      - [ 26, 25, 32 ]
-      - [ 27, 25, 54 ]
-      - [ 45, 51, 53 ]
-      - [ 51, 44, 57 ]
-      - [ 55, 48, 63 ]
-      - [ 60, 52, 70 ]
+      - - 24
+        - 24
+        - 50
+      - - 47
+        - 47
+        - 53
+      - - 47
+        - 47
+        - 53
     awards:
-      silver: >-
-        Final-rick drama: barrel **rickhouse-3** **or** **rickhouse-5**; **and**
-        mash **≥2 rye** **or** **≥3 corn**; **and** sell **≥ $41** **or** demand
-        **odd**.
-      gold: '**12-year** row on this card **or** (**rickhouse-3** **and** **≥3 grain types**); **and** sell **≥ $70** (grid **maximum** **$70**).'
-
+      silver: "Mash includes **≥2 barley** and **≥1 rye** **or** **rickhouse-1** limestone pick; **and** sell **≥ $37** **or** demand **odd**."
+      gold: "**≥3 barley** cards **or** **≥3 grain types** with barley anchoring; **and** sell **≥ $53** (grid **maximum** **$53**)."
+  - id: "46"
+    name: "Ledger Luxe"
+    rarity: "Rare"
+    grid:
+      - - 24
+        - 24
+        - 37
+      - - 43
+        - 43
+        - 58
+      - - 43
+        - 43
+        - 58
+    awards:
+      silver: "Mash includes **≥3 wheat** **or** **≥2 corn** and **≥2 rye**; **and** sell **≥ $42** **or** demand **odd**."
+      gold: "**Wheat-led** stack: **≥4 wheat** **or** **≥3 grain types** with wheat highest count; **and** sell **≥ $58** (grid **maximum** **$58**)."
+  - id: "47"
+    name: "Wild Rickhouse"
+    rarity: "Rare"
+    grid:
+      - - 32
+        - 32
+        - 38
+      - - 51
+        - 51
+        - 59
+      - - 51
+        - 51
+        - 59
+    awards:
+      silver: "Barrel at **rickhouse-5** **or** **rickhouse-3** (wild vertical swing); **and** mash **≥2 rye**; **and** sell **≥ $44** **or** demand **odd**."
+      gold: "**Rickhouse-3** or **-5** **and** **≥3 rye** cards **or** sell **≥ $60** (grid **maximum** **$60**)."
+  - id: "48"
+    name: "Bonded Beyond"
+    rarity: "Rare"
+    grid:
+      - - 34
+        - 34
+        - 47
+      - - 53
+        - 53
+        - 61
+      - - 53
+        - 53
+        - 61
+    awards:
+      silver: "Mash includes **≥3 corn** and **≥2 rye** (bonded grain discipline) **or** barrel **rickhouse-0**; **and** sell **≥ $46** **or** demand **odd**."
+      gold: "**≥4 corn** with **≥2 rye** and **≥1 wheat** **or** sell **≥ $62** (grid **maximum** **$62**)."
+  - id: "49"
+    name: "Oak Oracle"
+    rarity: "Rare"
+    grid:
+      - - 24
+        - 24
+        - 30
+      - - 36
+        - 36
+        - 51
+      - - 36
+        - 36
+        - 51
+    awards:
+      silver: "Mash includes **≥2 barley** and **≥1 wheat** **or** **rickhouse-1** (limestone oak oracle); **and** sell **≥ $35** **or** demand **odd**."
+      gold: "**≥3 barley** and **≥2 wheat** **or** **≥4 grain types**; **and** sell **≥ $51** (grid **maximum** **$51**)."
+  - id: "50"
+    name: "The Last Rick"
+    rarity: "Rare"
+    grid:
+      - - 26
+        - 26
+        - 32
+      - - 45
+        - 45
+        - 53
+      - - 55
+        - 55
+        - 63
+    awards:
+      silver: "Final-rick drama: barrel **rickhouse-3** **or** **rickhouse-5**; **and** mash **≥2 rye** **or** **≥3 corn**; **and** sell **≥ $41** **or** demand **odd**."
+      gold: "**8+** age band on this card **or** (**rickhouse-3** **and** **≥3 grain types**); **and** sell **≥ $70** (grid **maximum** **$70**)."
