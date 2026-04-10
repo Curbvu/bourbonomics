@@ -1,0 +1,173 @@
+{
+  "version": 1,
+  "onSellById": {
+    "new_american_oak": [
+      {
+        "op": "revenue_bonus",
+        "amount": 1,
+        "limit": "once_per_sale"
+      }
+    ],
+    "honey_barrel": [
+      {
+        "op": "demand_lookup_shift",
+        "delta": 1,
+        "limit": "once_per_sale"
+      }
+    ],
+    "wine_finish_cask": [
+      {
+        "op": "draw_bourbon_cards",
+        "count": 1,
+        "limit": "once_per_sale",
+        "when": {
+          "mash_small_grain_count_gte": 2
+        }
+      }
+    ],
+    "yellow_dent_2": [
+      {
+        "op": "noop"
+      }
+    ],
+    "bourbon_grade_bulk": [
+      {
+        "op": "revenue_bonus",
+        "amount": 2,
+        "limit": "once_per_sale",
+        "when": {
+          "mash_corn_count_eq": 3
+        }
+      }
+    ],
+    "local_co_op_corn": [
+      {
+        "op": "revenue_bonus",
+        "amount": 1,
+        "limit": "once_per_sale",
+        "when": {
+          "other_barons_barrelled_gte": 2
+        }
+      }
+    ],
+    "drought_year": [
+      {
+        "op": "revenue_bonus",
+        "amount": 2,
+        "limit": "once_per_sale",
+        "when": {
+          "demand_lte": 3
+        }
+      }
+    ],
+    "two_row_malt": [
+      {
+        "op": "age_lookup_shift_years",
+        "years": 1,
+        "limit": "once_per_sale"
+      }
+    ],
+    "six_row_spice": [
+      {
+        "op": "revenue_bonus",
+        "amount": 1,
+        "limit": "once_per_sale",
+        "when": {
+          "mash_includes_rye": true
+        }
+      }
+    ],
+    "chocolate_malt": [
+      {
+        "op": "revenue_bonus",
+        "amount": 1,
+        "limit": "once_per_sale",
+        "when": {
+          "demand_even": true
+        }
+      }
+    ],
+    "high_rye_bite": [
+      {
+        "op": "revenue_bonus",
+        "amount": 1,
+        "limit": "once_per_sale",
+        "when": {
+          "demand_gte": 6
+        }
+      }
+    ],
+    "soft_red_winter": [
+      {
+        "op": "revenue_bonus",
+        "amount": 1,
+        "limit": "once_per_sale",
+        "when": {
+          "mash_small_grain_count_eq": 2
+        }
+      }
+    ],
+    "wheated_bill_helper": [
+      {
+        "op": "demand_lookup_shift",
+        "delta": 1,
+        "limit": "once_per_sale",
+        "when": {
+          "mash_excludes_rye": true
+        }
+      }
+    ],
+    "heritage_grist": [
+      {
+        "op": "draw_bourbon_cards",
+        "count": 1,
+        "limit": "once_per_sale"
+      }
+    ],
+    "ten_year_tale": [
+      {
+        "op": "revenue_bonus",
+        "amount": 4,
+        "limit": "once_per_sale",
+        "when": {
+          "demand_gte": 6
+        }
+      }
+    ],
+    "limestone_ledger_age": [
+      {
+        "op": "age_lookup_shift_years",
+        "years": 2,
+        "limit": "once_per_sale"
+      }
+    ],
+    "headline_pour": [
+      {
+        "op": "market_demand_global_delta",
+        "delta": 1,
+        "limit": "once_per_sale"
+      }
+    ],
+    "tariff_whisper": [
+      {
+        "op": "market_demand_global_delta",
+        "delta": -1,
+        "limit": "once_per_sale"
+      }
+    ],
+    "wet_warehouse_floor": [
+      {
+        "op": "revenue_bonus",
+        "amount": -2,
+        "limit": "once_per_sale"
+      }
+    ],
+    "green_grain_day": [
+      {
+        "op": "revenue_bonus",
+        "amount": -1,
+        "limit": "once_per_sale"
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "onMakeById": {
+    "second_use_barrel": [
+      {
+        "op": "barrel_entry_rent_discount",
+        "amount": -1,
+        "limit": "first_barrel_placement_from_mash"
+      }
+    ],
+    "high_starch_hybrid": [
+      {
+        "op": "bank_payout",
+        "amount": 1,
+        "limit": "once_per_mash"
+      }
+    ]
+  }
+}

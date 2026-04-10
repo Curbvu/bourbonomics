@@ -96,6 +96,12 @@ export type ResourcePlayOp =
       limit?: "each_turn_while_barrel_in_rickhouse";
       max_per_turn?: number;
     }
+  | {
+      /** Rare Tier B: shift global market demand after this sell (still clamp 0–12 in engine). */
+      op: "market_demand_global_delta";
+      delta: number;
+      limit?: "once_per_sale";
+    }
   | { op: "noop" }
   | { op: "legacy_manual"; note?: string };
 
@@ -124,4 +130,7 @@ export const DEFAULT_CATEGORY_RESOURCE: Record<string, PlayResourceKind> = {
   rye_specialty: "rye",
   wheat_specialty: "wheat",
   cross_type_rare_promos_optional: "multi",
+  strong_special_tier_a: "multi",
+  global_swing_tier_b: "multi",
+  detrimental_soft: "multi",
 };

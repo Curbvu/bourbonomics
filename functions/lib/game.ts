@@ -11,6 +11,23 @@ import {
   getBourbonCardDefById,
   type BourbonSaleReveal,
 } from "../../lib/bourbonCards";
+import deckPools from "../../lib/resourceDeckPools.generated.json";
+import {
+  cornGrainSlotsUsed,
+  isCaskResource,
+  isDualCornGrainCard,
+  marketPileForResourceCard,
+  mashCountsAsCorn,
+  mashCountsAsGrain,
+  mashGrainSlotCost,
+  resourceBaseKind,
+  isSmallGrainResource,
+} from "../../lib/resource-card-resolve";
+import {
+  clampMarketDemand,
+  resolveSellWithSpecialtyResources,
+  totalBarrelEntryRentDiscount,
+} from "../../lib/specialty-resource-sale";
 export {
   KENTUCKY_BOURBON_TRAIL_REGIONS,
   rickhouseRegionLabel,
@@ -233,26 +250,62 @@ function shuffle<T>(arr: T[]): T[] {
   return out;
 }
 
-/** Build a full resource deck (simplified: fixed counts per type). */
-function buildResourceDeck(): string[] {
-  const deck: string[] = [];
-  /** Grains are only barley, rye, and wheat (same total count as pre–Flavor removal). */
-  const counts: Record<string, number> = {
-    Cask: 30,
-    Corn: 30,
-    Barley: 37,
-    Wheat: 67,
-    Rye: 66,
-  };
-  for (const [type, n] of Object.entries(counts)) {
-    for (let i = 0; i < n; i++) deck.push(type);
+const PLAIN_RESOURCE_TOTAL = 230;
+const PLAIN_RESOURCE_COUNTS: Record<string, number> = {
+  Cask: 30,
+  Corn: 30,
+  Barley: 37,
+  Wheat: 67,
+  Rye: 66,
+};
+
+function samplePoolWithReplacement(pool: string[], n: number): string[] {
+  if (!pool.length || n <= 0) return [];
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    out.push(pool[Math.floor(Math.random() * pool.length)]!);
   }
-  return shuffle(deck);
+  return out;
+}
+
+/** Build a full resource deck: plain type cards + specialty ids (see `docs/resource_cards.yaml` / sync script). */
+function buildResourceDeck(): string[] {
+  const target = deckPools.targetTotalCards ?? PLAIN_RESOURCE_TOTAL;
+  const pools = deckPools.pools;
+  const globalN = Math.round(target * 0.03);
+  const detN = Math.round(target * 0.05);
+  const strongN = Math.round(target * 0.06);
+  const specialN = Math.round(target * 0.22);
+  const specCount = globalN + detN + strongN + specialN;
+  const normalN = Math.max(0, target - specCount);
+
+  const specialty: string[] = [
+    ...samplePoolWithReplacement(pools.global_swing ?? [], globalN),
+    ...samplePoolWithReplacement(pools.detrimental ?? [], detN),
+    ...samplePoolWithReplacement(pools.strong_special ?? [], strongN),
+    ...samplePoolWithReplacement(pools.special ?? [], specialN),
+  ];
+
+  const plain: string[] = [];
+  for (const [kind, count] of Object.entries(PLAIN_RESOURCE_COUNTS)) {
+    const n = Math.round((normalN * count) / PLAIN_RESOURCE_TOTAL);
+    for (let i = 0; i < n; i++) plain.push(kind);
+  }
+  let fill = normalN - plain.length;
+  while (fill > 0) {
+    plain.push("Wheat");
+    fill--;
+  }
+  while (plain.length > normalN) {
+    plain.pop();
+  }
+
+  return shuffle([...plain, ...specialty]);
 }
 
 /** True if the card counts as grain for mash / market grain pile (barley, rye, wheat only). */
 export function isGrainCard(type: string): boolean {
-  return type === "Barley" || type === "Rye" || type === "Wheat";
+  return isSmallGrainResource(type);
 }
 
 /** Removed card type: migrate old saves to a valid grain. */
@@ -264,9 +317,7 @@ function migrateResourceCardType(c: string): string {
 export function splitDeckIntoMarketPiles(deck: string[]): MarketPiles {
   const raw: MarketPiles = { cask: [], corn: [], grain: [] };
   for (const c of deck) {
-    if (c === "Cask") raw.cask.push(c);
-    else if (c === "Corn") raw.corn.push(c);
-    else raw.grain.push(c);
+    raw[marketPileForResourceCard(c)].push(c);
   }
   return {
     cask: shuffle(raw.cask),
@@ -277,6 +328,24 @@ export function splitDeckIntoMarketPiles(deck: string[]): MarketPiles {
 
 function emptyMarketPiles(): MarketPiles {
   return { cask: [], corn: [], grain: [] };
+}
+
+/** Put a barrel’s mash cards back into the face-down market piles when it is sold. */
+function recycleMashCardsIntoMarketPiles(
+  piles: MarketPiles,
+  mash: string[] | undefined
+): MarketPiles {
+  if (!mash?.length) return piles;
+  const cask = [...piles.cask];
+  const corn = [...piles.corn];
+  const grain = [...piles.grain];
+  for (const c of mash) {
+    const pile = marketPileForResourceCard(c);
+    if (pile === "cask") cask.push(c);
+    else if (pile === "corn") corn.push(c);
+    else grain.push(c);
+  }
+  return { cask, corn, grain };
 }
 
 export function createNewGame(gameId: string, mode: GameMode): GameDoc {
@@ -800,12 +869,7 @@ export function buyResources(
 
 /** True if the hand can supply at least one mash (extra cards / duplicate casks are OK). */
 export function handHasMashForBarrel(cards: string[]): boolean {
-  if (cards.length < 3) return false;
-  return (
-    cards.some((c) => c === "Cask") &&
-    cards.some((c) => c === "Corn") &&
-    cards.some((c) => isGrainCard(c))
-  );
+  return takeMashCardsFromHand(cards) != null;
 }
 
 /** @deprecated Prefer {@link handHasMashForBarrel} — whole-hand “exactly 1 cask” is no longer required. */
@@ -813,13 +877,23 @@ export function canMash(cards: string[]): boolean {
   return handHasMashForBarrel(cards);
 }
 
-/** True if this set of cards is a legal mash to barrel (GAME_RULES: 1 Cask, ≥1 Corn, ≥1 grain, 3–6 cards). */
+function minMashCardCount(cards: string[]): number {
+  return cards.some((c) => isDualCornGrainCard(c)) ? 2 : 3;
+}
+
+/** True if this set of cards is a legal mash to barrel (1 Cask, ≥1 Corn, ≥1 grain; 2–6 cards if a dual corn+grain card). */
 export function isValidMashSelection(cards: string[]): boolean {
-  if (cards.length < 3 || cards.length > 6) return false;
-  if (cards.filter((c) => c === "Cask").length !== 1) return false;
-  if (cards.filter((c) => c === "Corn").length < 1) return false;
-  if (cards.filter((c) => isGrainCard(c)).length < 1) return false;
-  return true;
+  if (cards.length < minMashCardCount(cards) || cards.length > 6) return false;
+  if (cards.filter((c) => isCaskResource(c)).length !== 1) return false;
+  if (cornGrainSlotsUsed(cards) > 4) return false;
+  let hasCorn = false;
+  let hasGrain = false;
+  for (const c of cards) {
+    if (isCaskResource(c)) continue;
+    if (mashCountsAsCorn(c)) hasCorn = true;
+    if (mashCountsAsGrain(c)) hasGrain = true;
+  }
+  return hasCorn && hasGrain;
 }
 
 /**
@@ -844,7 +918,7 @@ export function resolveMashFromIndices(
   if (!isValidMashSelection(mash)) {
     return {
       error:
-        "Invalid mash: need 3–6 cards, exactly 1 Cask, ≥1 Corn, ≥1 grain (Barley/Rye/Wheat)",
+        "Invalid mash: need 2–6 cards when using a dual corn+grain card, otherwise 3–6; exactly 1 Cask, ≥1 Corn, ≥1 grain; max 4 corn+grain slots",
     };
   }
   const remaining = hand.filter((_, i) => !uniq.has(i));
@@ -855,23 +929,26 @@ export function resolveMashFromIndices(
 export function removeMashFromHand(cards: string[]): { hand: string[]; removed: string[] } | null {
   const hand = [...cards];
   const removed: string[] = [];
-  const takeOne = (type: string): boolean => {
-    const i = hand.indexOf(type);
-    if (i === -1) return false;
-    removed.push(hand.splice(i, 1)[0]);
-    return true;
-  };
-  if (!takeOne("Cask")) return null;
-  if (!takeOne("Corn")) return null;
-  const grainTypes = ["Barley", "Rye", "Wheat"];
-  let tookGrain = false;
-  for (const g of grainTypes) {
-    if (takeOne(g)) {
-      tookGrain = true;
-      break;
-    }
+  const caskIdx = hand.findIndex((c) => isCaskResource(c));
+  if (caskIdx === -1) return null;
+  removed.push(hand.splice(caskIdx, 1)[0]);
+
+  const dualIdx = hand.findIndex((c) => isDualCornGrainCard(c));
+  if (dualIdx !== -1) {
+    removed.push(hand.splice(dualIdx, 1)[0]);
+    return { hand, removed };
   }
-  if (!tookGrain) return null;
+
+  const cornIdx = hand.findIndex((c) => resourceBaseKind(c) === "corn");
+  if (cornIdx === -1) return null;
+  removed.push(hand.splice(cornIdx, 1)[0]);
+
+  const grainIdx = hand.findIndex(
+    (c) => mashCountsAsGrain(c) && resourceBaseKind(c) !== "corn"
+  );
+  if (grainIdx === -1) return null;
+  removed.push(hand.splice(grainIdx, 1)[0]);
+
   return { hand, removed };
 }
 
@@ -887,7 +964,14 @@ export function takeMashCardsFromHand(
   const hand = [...base.hand];
   const mash = [...base.removed];
   while (mash.length < 6 && hand.length > 0) {
-    const idx = hand.findIndex((c) => c === "Corn" || isGrainCard(c));
+    const slotsUsed = cornGrainSlotsUsed(mash);
+    if (slotsUsed >= 4) break;
+    const idx = hand.findIndex((c) => {
+      if (isCaskResource(c)) return false;
+      const cost = mashGrainSlotCost(c);
+      if (slotsUsed + cost > 4) return false;
+      return mashCountsAsCorn(c) || mashCountsAsGrain(c);
+    });
     if (idx === -1) break;
     mash.push(hand.splice(idx, 1)[0]);
   }
@@ -935,7 +1019,8 @@ export function barrelBourbon(
   if (!rick) return { game, error: "Rickhouse not found" };
   if (rick.barrels.length >= rick.capacity) return { game, error: "Rickhouse full" };
 
-  const rent = rick.barrels.length + 1;
+  const rentDiscount = totalBarrelEntryRentDiscount(mashCards);
+  const rent = Math.max(0, rick.barrels.length + 1 + rentDiscount);
   const taken = game.actionsTakenThisTurn ?? 0;
   const actionCost = nextActionCashCost(taken);
   if (player.cash < rent + actionCost)
@@ -1157,7 +1242,11 @@ export function rickhouseFeePerBarrelForBaron(
   rick: Rickhouse,
   payerId: string
 ): number {
-  if (rick.capacity === 6 && rick.barrels.length > 0) {
+  if (
+    rick.capacity === 6 &&
+    rick.barrels.length === rick.capacity &&
+    rick.barrels.length > 0
+  ) {
     const soleBaron = rick.barrels.every((b) => b.playerId === payerId);
     if (soleBaron) return 0;
   }
@@ -1269,14 +1358,28 @@ export function sellBourbon(
 
   const demandAtSale = game.marketDemand;
   let deck = [...(game.bourbonDeck ?? [])];
-  if (deck.length === 0) deck = shuffle([...BOURBON_CARD_IDS]);
-  const drawnYamlId = deck.pop()!;
+  const otherBaronsBarrelledCount = Object.entries(game.players).filter(
+    ([pid, p]) =>
+      pid !== playerId && (p.barrelledBourbons ?? []).length > 0
+  ).length;
+
+  const sellRes = resolveSellWithSpecialtyResources({
+    mashCardIds: barrel.mashCards,
+    barrelAge: barrel.age,
+    marketDemandAtSale: demandAtSale,
+    bourbonDeck: deck,
+    otherBaronsBarrelledCount,
+  });
+  deck = sellRes.bourbonDeck;
+  const drawnYamlId = sellRes.chosenYamlId;
   const cardDef = getBourbonCardDefById(drawnYamlId);
   if (!cardDef) return { game, error: "Bourbon card data missing" };
 
-  const proceeds = bourbonPayoutFromGrid(cardDef, barrel.age, demandAtSale);
+  const proceeds = sellRes.finalProceeds;
+  const revealDemand =
+    demandAtSale <= 0 ? demandAtSale : sellRes.lookupDemandForGrid;
   const sale: BourbonSaleReveal = {
-    ...buildBourbonSaleReveal(cardDef, barrel.age, demandAtSale, proceeds),
+    ...buildBourbonSaleReveal(cardDef, sellRes.lookupAge, revealDemand, proceeds),
     actionFeePaid: actionCost,
   };
 
@@ -1301,11 +1404,20 @@ export function sellBourbon(
     bourbonCards: [...player.bourbonCards, newBourbonCard],
   };
 
-  const newDemand = Math.max(0, game.marketDemand - 1);
+  const newDemand = clampMarketDemand(
+    game.marketDemand - 1 + sellRes.globalDemandDelta
+  );
+  const piles: MarketPiles = {
+    cask: [...(game.marketPiles?.cask ?? [])],
+    corn: [...(game.marketPiles?.corn ?? [])],
+    grain: [...(game.marketPiles?.grain ?? [])],
+  };
+  const marketPiles = recycleMashCardsIntoMarketPiles(piles, barrel.mashCards);
   let updated: GameDoc = {
     ...game,
     rickhouses: newRickhouses,
     players: newPlayers,
+    marketPiles,
     marketDemand: newDemand,
     marketDemandHistory: appendMarketDemandHistory(game, newDemand, "sell"),
     actionsTakenThisTurn: taken + 1,
@@ -1356,7 +1468,7 @@ export function normalizeGame(game: GameDoc): GameDoc {
       marketPiles = splitDeckIntoMarketPiles(shuffle(legacy));
       resourceDeck = [];
     } else {
-      marketPiles = emptyMarketPiles();
+      marketPiles = splitDeckIntoMarketPiles(buildResourceDeck());
     }
   }
 

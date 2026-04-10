@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "targetTotalCards": 230,
+  "pools": {
+    "special": [
+      "new_american_oak",
+      "heavy_char",
+      "second_use_barrel",
+      "honey_barrel",
+      "wine_finish_cask",
+      "small_format",
+      "large_format",
+      "independent_stave",
+      "cooper_s_select",
+      "leaky_angel",
+      "yellow_dent_2",
+      "heirloom_blue",
+      "bourbon_grade_bulk",
+      "high_starch_hybrid",
+      "local_co_op_corn",
+      "drought_year",
+      "waxy_corn",
+      "two_row_malt",
+      "six_row_spice",
+      "peated_malt",
+      "chocolate_malt",
+      "high_rye_bite",
+      "malted_rye",
+      "canadian_style_rye",
+      "soft_red_winter",
+      "wheated_bill_helper",
+      "creamy_wheat",
+      "certified_organic_grain",
+      "heritage_grist",
+      "neutral_spirits_transfer"
+    ],
+    "strong_special": [
+      "charter_floor_myth",
+      "ten_year_tale",
+      "limestone_ledger_age"
+    ],
+    "global_swing": [
+      "headline_pour",
+      "tariff_whisper"
+    ],
+    "detrimental": [
+      "wet_warehouse_floor",
+      "green_grain_day"
+    ]
+  }
+}

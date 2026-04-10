@@ -135,7 +135,7 @@ At the start of every turn, you'll pay the yearly rickhouse fee to age your Bour
 
  To sell Bourbon, you first select which Bourbon you'd like to sell. Then you draw a Bourbon card. A Bourbon card has a payoff chart which determines how much you make from your Bourbon based on the age of the Bourbon and market demand. All else being equal, you make more money when market demand is high and your bourbon is well-aged (8+years). Make sure you time your sales right!  
 
-Return the resouces and Bourbon card to the discard pile. If you Bourbon qualifies for an award you can keep your Bourbon card. 
+Return the **cask, corn, and grain** cards from that mash to the **market piles** (they go back under the face-down Cask / Corn / Grain stacks). Return the drawn Bourbon card to the discard pile unless you earn a **Silver** or **Gold** award and keep it. 
 
 ### Kentucky Straight Actions
 For more advanced game modes, we introduce 3 additional actions:
@@ -177,7 +177,7 @@ Rickhouses are where bourbon is stored and aged. There are **6 rickhouses** in t
 - Players pay **rent** to the rickhouse based on the total number of barrelled bourbons stored there (your bourbon as well as other players bourbons).
   - **Rent = Total number of barrelled bourbons in that rickhouse.**
 - Once a bourbon is barrelled and placed in a rickhouse, it **cannot be moved** to another rickhouse.
-- If a baron controls **all** the barrelled bourbon in a **6-capacity** rickhouse, they pay **no rent** for that rickhouse.
+- If a baron **fills every slot** in a **6-capacity** rickhouse and **every barrel there is theirs**, they pay **no rent** for that rickhouse (a true monopoly on a full six-slot warehouse).
 
 **Bourbon Demand** — Bourbon Demand is anywhere from 0–12 barrels. Demand starts the game at **6 barrels**. Each time Bourbon is sold, demand goes down by **1 barrel**. At the end of each turn, players will roll the Bourbon Dice. If the number on the dice is higher than Bourbon Demand, then Bourbon Demand goes up by 1. 
 

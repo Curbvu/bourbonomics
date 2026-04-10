@@ -12,6 +12,11 @@ export type SpecialtyResourceCard = {
   name: string;
   hook: string;
   rule: string;
+  /**
+   * Deck-building tier for `sync-resource-card-index.mjs` (target mix in
+   * {@link docs/RESOURCE_CARDS_DESIGN_NOTES.md}).
+   */
+  deck_tier?: "special" | "strong_special" | "global_swing" | "detrimental_soft";
   /** Cross-type / promo rows */
   type_printed?: string;
   /**
@@ -28,6 +33,14 @@ export type SpecialtyResourceCategory = {
   cards: SpecialtyResourceCard[];
 };
 
+export type DeckDistributionTier = {
+  id: string;
+  label: string;
+  target_pct: string;
+  count_in_100?: number;
+  notes?: string;
+};
+
 export type SpecialtyResourceCardsYamlV1 = {
   version: 1;
   kind: "specialty_resource_cards_v1";
@@ -40,6 +53,12 @@ export type SpecialtyResourceCardsYamlV1 = {
   icons_note?: string;
   categories: SpecialtyResourceCategory[];
   notes?: string[];
+  /** Target mix for a ~100-card reference deck (see RESOURCE_CARDS_DESIGN_NOTES.md). */
+  deck_distribution?: {
+    title?: string;
+    summary?: string;
+    tiers: DeckDistributionTier[];
+  };
   related_docs?: { label: string; href: string }[];
 };
 
@@ -177,6 +196,26 @@ export function renderSpecialtyResourceCardsYaml(
     out.push("## Deck-building notes");
     out.push("");
     for (const n of doc.notes) out.push(`- ${n}`);
+    out.push("");
+  }
+
+  if (doc.deck_distribution?.tiers?.length) {
+    const dd = doc.deck_distribution;
+    out.push("## Target deck mix (reference)");
+    out.push("");
+    if (dd.summary?.trim()) {
+      out.push(dd.summary.trim());
+      out.push("");
+    }
+    out.push("| Tier | Target | ~100 cards | Notes |");
+    out.push("|------|--------|------------|-------|");
+    for (const t of dd.tiers) {
+      const n = t.count_in_100 != null ? String(t.count_in_100) : "—";
+      const notes = t.notes ? esc(t.notes) : "—";
+      out.push(
+        `| **${esc(t.label)}** | ${esc(t.target_pct)} | ${n} | ${notes} |`
+      );
+    }
     out.push("");
   }
 

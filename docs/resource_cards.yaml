@@ -22,6 +22,11 @@ intro: >-
   up to **four** corn+grain cards total, plus **1 cask**).
 
 
+  **Design tiers & deck percentages** (Strong vs Global swing, soft negatives, grain/cask identity) live in
+  **[RESOURCE_CARDS_DESIGN_NOTES.md](RESOURCE_CARDS_DESIGN_NOTES.md)**. The **Target deck mix** table below is the
+  canonical ~100-card reference; the **digital** build scales the same ratios to a larger deck.
+
+
   This document is the **catalog of specialty resource cards** for print-and-play or future deck lists. Balance numbers
   when you build the physical deck.
 how_to_read:
@@ -33,6 +38,38 @@ how_to_read:
     meaning: What changes in *Bourbonomics* when this card is part of your mash or otherwise referenced.
 icons_note: "**Icons (optional on cards):** use a small mark for **Award** (Silver/Gold criteria), **Aging**, **Money**,
   **Draw**, **Demand**, **Rickhouse** so players parse fast at the table."
+deck_distribution:
+  title: Reference 100-card mix
+  summary: >-
+    Percentages align with **RESOURCE_CARDS_DESIGN_NOTES.md**. “Normal” cards are plain **Cask / Corn / Barley / Rye /
+    Wheat** with no rule line (not listed in this YAML). Specialty rows below are **this catalog’s** examples; expand the
+    pools before print.
+  tiers:
+    - id: normal
+      label: Normal (plain type)
+      target_pct: ~68%
+      count_in_100: 68
+      notes: No YAML row — type-only cards.
+    - id: special
+      label: Special (local helpful)
+      target_pct: ~22%
+      count_in_100: 22
+      notes: Most rows in the category tables below (default tier).
+    - id: strong_special
+      label: Tier A — Strong special
+      target_pct: ~6%
+      count_in_100: 6
+      notes: Big payouts, extra lookup age, rent waivers — keep scarce.
+    - id: global_swing
+      label: Tier B — Global swing
+      target_pct: ~2–4%
+      count_in_100: 3
+      notes: ±1 **market demand** — very rare.
+    - id: detrimental
+      label: Detrimental (soft)
+      target_pct: ~4–6%
+      count_in_100: 5
+      notes: Prefer “this bourbon sells at −$X” over raw “lose $X.”
 categories:
   - id: cask_specialty
     title: Cask (specialty)
@@ -401,12 +438,102 @@ categories:
         type_printed: Cask
         hook: Blending loophole.
         rule: "**Bottled-in-Bond only** (if you want): may **combine** with another barrel in the same rickhouse for **one**
-          merged **sell** (tune carefully).
+          merged **sell** (tune carefully)."
         play:
           resource: cask
           engine: pending
           flags: [bib_merge_sell_unimplemented]
     table: card_type_hook_rule
+  - id: strong_special_tier_a
+    title: Strong special (Tier A) — examples
+    cards:
+      - id: charter_floor_myth
+        name: Charter floor myth
+        hook: Legendary lease deal.
+        rule: While this barrel is in a rickhouse, **ignore rickhouse fees** for **this barrel only** (still pay other barrels
+          normally).
+        play:
+          resource: cask
+          engine: partial
+          flags: [ignore_rickhouse_fees_this_barrel_unimplemented]
+          on_rickhouse_fee:
+            - op: legacy_manual
+              note: Ignore per-barrel rent for this mash’s barrel only
+      - id: ten_year_tale
+        name: Ten-year tale
+        hook: Tasting-room story sells.
+        rule: On **sell**, **+$4** revenue **once** if **market demand ≥ 6**.
+        play:
+          resource: rye
+          engine: modeled
+          on_sell:
+            - op: revenue_bonus
+              amount: 4
+              limit: once_per_sale
+              when:
+                demand_gte: 6
+      - id: limestone_ledger_age
+        name: Limestone ledger age
+        hook: Accounting fiction, real smoothness.
+        rule: On **sell**, treat bourbon **age** as **+2** for **Market Price Guide** lookup only **once**.
+        play:
+          resource: wheat
+          engine: modeled
+          on_sell:
+            - op: age_lookup_shift_years
+              years: 2
+              limit: once_per_sale
+  - id: global_swing_tier_b
+    title: Global swing (Tier B) — demand shifts
+    cards:
+      - id: headline_pour
+        name: Headline pour
+        hook: Viral pour event.
+        rule: After this **sell** resolves, **market demand** increases by **+1** (clamp **0–12**) **once**.
+        play:
+          resource: corn
+          engine: modeled
+          on_sell:
+            - op: market_demand_global_delta
+              delta: 1
+              limit: once_per_sale
+      - id: tariff_whisper
+        name: Tariff whisper
+        hook: Buyers flinch.
+        rule: After this **sell** resolves, **market demand** decreases by **1** (clamp **0–12**) **once**.
+        play:
+          resource: barley
+          engine: modeled
+          on_sell:
+            - op: market_demand_global_delta
+              delta: -1
+              limit: once_per_sale
+  - id: detrimental_soft
+    title: Detrimental (soft negatives) — examples
+    cards:
+      - id: wet_warehouse_floor
+        name: Wet warehouse floor
+        hook: Leak story — buyers hesitate.
+        rule: On **sell**, this bourbon’s proceeds are **−$2** after the Market Price Guide (minimum **$0** total from this
+          sale before action fees).
+        play:
+          resource: corn
+          engine: modeled
+          on_sell:
+            - op: revenue_bonus
+              amount: -2
+              limit: once_per_sale
+      - id: green_grain_day
+        name: Green grain day
+        hook: Off-profile cut.
+        rule: On **sell**, **−$1** revenue **once** (still playable — hedge with wheat specials).
+        play:
+          resource: rye
+          engine: modeled
+          on_sell:
+            - op: revenue_bonus
+              amount: -1
+              limit: once_per_sale
 notes:
   - Aim for **most** draws to be **standard** cards so mash math stays readable; **specialty** density of **~20–35%** of
     each pile is a starting point (tune for fun).
@@ -415,6 +542,8 @@ notes:
   - When you finalize names, add a **collector number** per pile (**CASK-12**, **CORN-08**, etc.) on the card face for
     versioning.
 related_docs:
+  - label: RESOURCE_CARDS_DESIGN_NOTES.md
+    href: RESOURCE_CARDS_DESIGN_NOTES.md
   - label: GAME_RULES.md
     href: GAME_RULES.md
   - label: investment_cards.yaml

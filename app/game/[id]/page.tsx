@@ -79,33 +79,107 @@ function DemandDiceFaces(props: {
   );
 }
 
+type BourbonGridRevealPhase = "idle" | "demand" | "age" | "cell" | "done";
+
 function BourbonSaleExperience(props: {
   sale: BourbonSaleReveal;
   onDismiss: () => void;
 }) {
   const { sale, onDismiss } = props;
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
+  const [gridPhase, setGridPhase] = useState<BourbonGridRevealPhase>("idle");
+  const [payoutVisible, setPayoutVisible] = useState(false);
+  const [autoCloseSecs, setAutoCloseSecs] = useState<number | null>(null);
+
+  const timersRef = useRef<{ timeouts: number[]; interval?: number }>({
+    timeouts: [],
+  });
+
+  const clearTimers = useCallback(() => {
+    for (const id of timersRef.current.timeouts) window.clearTimeout(id);
+    timersRef.current.timeouts = [];
+    if (timersRef.current.interval != null) {
+      window.clearInterval(timersRef.current.interval);
+      timersRef.current.interval = undefined;
+    }
+  }, []);
+
+  const dismiss = useCallback(() => {
+    clearTimers();
+    onDismissRef.current();
+  }, [clearTimers]);
 
   useEffect(() => {
-    const t = window.setTimeout(onDismiss, 9500);
-    return () => window.clearTimeout(t);
-  }, [sale, onDismiss]);
+    clearTimers();
+    setGridPhase("idle");
+    setPayoutVisible(false);
+    setAutoCloseSecs(null);
+
+    const push = (fn: () => void, ms: number) => {
+      timersRef.current.timeouts.push(window.setTimeout(fn, ms));
+    };
+
+    const isGrid = sale.payoutSource === "grid";
+
+    if (isGrid) {
+      push(() => setGridPhase("demand"), 420);
+      push(() => setGridPhase("age"), 920);
+      push(() => setGridPhase("cell"), 1420);
+      push(() => setGridPhase("done"), 1980);
+      push(() => setPayoutVisible(true), 2080);
+    } else {
+      push(() => setGridPhase("age"), 420);
+      push(() => setGridPhase("done"), 980);
+      push(() => setPayoutVisible(true), 1080);
+    }
+
+    push(() => {
+      let n = 5;
+      setAutoCloseSecs(n);
+      timersRef.current.interval = window.setInterval(() => {
+        n -= 1;
+        if (n <= 0) {
+          if (timersRef.current.interval != null) {
+            window.clearInterval(timersRef.current.interval);
+            timersRef.current.interval = undefined;
+          }
+          setAutoCloseSecs(null);
+          onDismissRef.current();
+        } else {
+          setAutoCloseSecs(n);
+        }
+      }, 1000);
+    }, 10_000);
+
+    return () => clearTimers();
+  }, [sale, clearTimers]);
 
   const rarityTone =
     sale.rarity === "Rare"
       ? "border-violet-400/70 bg-violet-500/15 text-violet-100"
       : "border-amber-400/60 bg-amber-500/15 text-amber-50";
 
+  const showDemandPulse =
+    sale.payoutSource === "grid" &&
+    (gridPhase === "demand" || gridPhase === "age" || gridPhase === "cell" || gridPhase === "done");
+  const showAgePulse =
+    gridPhase === "age" || gridPhase === "cell" || gridPhase === "done";
+  const showCellReveal =
+    sale.payoutSource === "grid" && (gridPhase === "cell" || gridPhase === "done");
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="bourbon-sale-title"
-      className="bourbon-sale-backdrop fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md"
-      onClick={onDismiss}
+      className="bourbon-sale-backdrop fixed inset-0 z-[200] flex cursor-pointer items-center justify-center bg-slate-950/85 p-4 backdrop-blur-md"
+      onClick={dismiss}
     >
       <div
-        className="bourbon-sale-card relative max-h-[92vh] w-full max-w-lg cursor-default overflow-y-auto rounded-2xl border-2 border-amber-500/50 bg-gradient-to-b from-amber-950/90 via-slate-950 to-slate-950 p-5 text-slate-100 shadow-[0_0_55px_rgba(245,158,11,0.22)] sm:p-6"
-        onClick={(e) => e.stopPropagation()}
+        className="bourbon-sale-card relative max-h-[92vh] w-full min-w-0 max-w-lg cursor-pointer overflow-x-hidden overflow-y-auto rounded-2xl border-2 border-amber-500/50 bg-gradient-to-b from-amber-950/90 via-slate-950 to-slate-950 p-5 text-slate-100 shadow-[0_0_55px_rgba(245,158,11,0.22)] ring-1 ring-amber-400/20 sm:p-6"
+        onClick={dismiss}
       >
         <div
           className="bourbon-sale-shine pointer-events-none absolute inset-0 overflow-hidden rounded-2xl"
@@ -120,11 +194,14 @@ function BourbonSaleExperience(props: {
           </p>
           <h2
             id="bourbon-sale-title"
-            className="mt-2 text-center font-serif text-2xl font-semibold leading-tight text-amber-50 sm:text-3xl"
+            className="bourbon-sale-title-reveal mt-2 text-center font-serif text-2xl font-semibold leading-tight text-amber-50 sm:text-3xl"
           >
             {sale.bourbonName}
           </h2>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+          <div
+            className="bourbon-sale-title-reveal mt-3 flex flex-wrap items-center justify-center gap-2"
+            style={{ animationDelay: "0.22s" }}
+          >
             <span
               className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${rarityTone}`}
             >
@@ -138,44 +215,43 @@ function BourbonSaleExperience(props: {
             </span>
           </div>
 
-          <p className="mx-auto mt-3 max-w-md text-center text-xs leading-relaxed text-slate-400">
-            Market Price Guide: pick your <span className="font-medium text-slate-300">age band</span>{" "}
-            (2–3, 4–7, or 8+ years) and your <span className="font-medium text-slate-300">demand band</span>{" "}
-            (Low 2–3, Mid 4–5, High 6+ barrels). The cash in that cell is your sale price (see{" "}
-            <span className="font-medium text-slate-300">docs/bourbon_cards.yaml</span>).
-          </p>
-
-          <div className="relative mt-5 overflow-x-auto rounded-xl border border-amber-900/50 bg-black/35 p-3">
+          <div
+            className={`bourbon-sale-grid-veil relative mt-5 min-w-0 overflow-x-hidden rounded-xl border border-amber-900/50 bg-black/35 p-3 ${gridPhase === "idle" ? "opacity-70 blur-[1px]" : ""}`}
+          >
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-200/80">
               Price guide ($)
             </p>
-            <table className="w-full min-w-[260px] border-collapse text-center text-[11px]">
+            <table className="w-full min-w-0 table-fixed border-collapse text-center text-[10px] sm:text-[11px]">
               <thead>
                 <tr>
-                  <th className="border border-slate-700/80 bg-slate-900/90 px-1.5 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="w-[22%] border border-slate-700/80 bg-slate-900/90 px-1 py-1.5 text-[8px] font-semibold uppercase tracking-wide text-slate-500 sm:px-1.5 sm:text-[9px]">
                     Age \ Demand
                   </th>
-                  {sale.demandBandHeaders.map((label, ci) => (
-                    <th
-                      key={`${label}-${ci}`}
-                      className={`border border-slate-700/80 px-1.5 py-1.5 text-[9px] font-bold leading-tight ${
-                        sale.payoutSource === "grid" && sale.usedCol === ci
-                          ? "bg-amber-500/25 text-amber-100 ring-1 ring-amber-400/60"
-                          : "bg-slate-900/90 text-slate-300"
-                      }`}
-                    >
-                      {label.replace(" (", "\n(")}
-                    </th>
-                  ))}
+                  {sale.demandBandHeaders.map((label, ci) => {
+                    const isCol =
+                      sale.payoutSource === "grid" && sale.usedCol === ci && showDemandPulse;
+                    return (
+                      <th
+                        key={`${label}-${ci}`}
+                        className={`border border-slate-700/80 px-1 py-1.5 text-[8px] font-bold leading-tight break-words whitespace-pre-line transition-all duration-500 sm:px-1.5 sm:text-[9px] ${
+                          isCol
+                            ? "bourbon-sale-reveal-pulse bg-amber-500/30 text-amber-50 ring-1 ring-amber-400/70"
+                            : "bg-slate-900/90 text-slate-300"
+                        }`}
+                      >
+                        {label.replace(" (", "\n(")}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {sale.grid.map((row, ri) => (
                   <tr key={ri}>
                     <th
-                      className={`border border-slate-700/80 px-1.5 py-1.5 text-left text-[10px] font-bold tabular-nums ${
-                        sale.payoutSource === "grid" && ri === sale.usedRow
-                          ? "bg-amber-500/20 text-amber-50 ring-1 ring-amber-400/50"
+                      className={`border border-slate-700/80 px-1 py-1.5 text-left text-[9px] font-bold tabular-nums transition-all duration-500 sm:px-1.5 sm:text-[10px] ${
+                        ri === sale.usedRow && showAgePulse
+                          ? "bourbon-sale-reveal-pulse bg-amber-500/25 text-amber-50 ring-1 ring-amber-400/60"
                           : "bg-slate-900/95 text-slate-400"
                       }`}
                     >
@@ -189,10 +265,12 @@ function BourbonSaleExperience(props: {
                       return (
                         <td
                           key={ci}
-                          className={`border border-slate-700/70 px-1 py-1.5 font-mono text-[11px] tabular-nums ${
-                            isPick
-                              ? "bg-amber-400/90 font-bold text-slate-950 shadow-[inset_0_0_0_2px_rgba(251,191,36,0.9)]"
-                              : "bg-slate-950/60 text-slate-200"
+                          className={`border border-slate-700/70 px-0.5 py-1.5 font-mono text-[10px] tabular-nums transition-all duration-300 sm:px-1 sm:text-[11px] ${
+                            isPick && showCellReveal
+                              ? `bourbon-sale-cell-pop bg-amber-400/90 font-bold text-slate-950 shadow-[inset_0_0_0_2px_rgba(251,191,36,0.9)]`
+                              : isPick
+                                ? "bg-amber-400/90 font-bold text-slate-950 shadow-[inset_0_0_0_2px_rgba(251,191,36,0.9)]"
+                                : "bg-slate-950/60 text-slate-200"
                           }`}
                         >
                           ${cell}
@@ -208,32 +286,44 @@ function BourbonSaleExperience(props: {
                 Market demand was 0 — payout uses the age-only fallback (${sale.payout}), not a
                 grid cell.
               </p>
-            ) : (
-              <p className="mt-2 text-[11px] text-slate-400">
+            ) : payoutVisible ? (
+              <p className="bourbon-sale-payout-rise mt-2 text-[11px] text-slate-400">
                 Matched cell:{" "}
                 <span className="font-semibold text-amber-100">
-                  Age band {sale.ageBandLabels[sale.usedRow]} · {sale.demandBandHeaders[sale.usedCol]}
+                  Age band {sale.ageBandLabels[sale.usedRow]} ·{" "}
+                  {sale.demandBandHeaders[sale.usedCol]}
                 </span>
               </p>
-            )}
+            ) : null}
           </div>
 
-          <div className="relative mt-5 rounded-2xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-4 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300/90">
-              Your payout
-            </p>
-            <p className="mt-1 font-mono text-4xl font-black tabular-nums text-emerald-50 sm:text-5xl">
-              ${sale.payout}
-            </p>
-            <p className="mt-1 text-[11px] text-emerald-200/80">
-              {sale.actionFeePaid != null && sale.actionFeePaid > 0
-                ? `Action fee for this sell: $${sale.actionFeePaid} (already taken from your cash). Net from this action: $${sale.payout - sale.actionFeePaid}.`
-                : "No action fee on this sell — first three actions each turn are free."}
-            </p>
-          </div>
+          {payoutVisible ? (
+            <div className="bourbon-sale-payout-rise relative mt-5 rounded-2xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-4 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300/90">
+                Your payout
+              </p>
+              <p className="mt-1 font-mono text-4xl font-black tabular-nums text-emerald-50 sm:text-5xl">
+                ${sale.payout}
+              </p>
+              <p className="mt-1 text-[11px] text-emerald-200/80">
+                {sale.actionFeePaid != null && sale.actionFeePaid > 0
+                  ? `Action fee for this sell: $${sale.actionFeePaid} (already taken from your cash). Net from this action: $${sale.payout - sale.actionFeePaid}.`
+                  : "No action fee on this sell — first three actions each turn are free."}
+              </p>
+            </div>
+          ) : null}
 
           <p className="mt-4 text-center text-[11px] text-slate-500">
-            Tap outside or wait — this message closes automatically.
+            {autoCloseSecs != null ? (
+              <span
+                key={autoCloseSecs}
+                className="bourbon-sale-countdown-tick inline-block font-semibold text-amber-200/95"
+              >
+                Closing in {autoCloseSecs}s — tap anywhere to dismiss now
+              </span>
+            ) : (
+              <>Tap anywhere to dismiss · auto-close countdown starts in 10s</>
+            )}
           </p>
         </div>
       </div>
@@ -1325,8 +1415,9 @@ export default function GamePage() {
           </p>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
               {rickhouses.map((r) => {
-                const soleBaron6 =
+                const soleBaron6Full =
                   r.capacity === 6 &&
+                  r.barrels.length === r.capacity &&
                   r.barrels.length > 0 &&
                   r.barrels.every((b) => b.playerId === r.barrels[0].playerId);
                 return (
@@ -1356,12 +1447,12 @@ export default function GamePage() {
                             </strong>{" "}
                             · Yearly / barrel{" "}
                             <strong className="tabular-nums text-slate-700 dark:text-slate-200">
-                              ${soleBaron6 ? 0 : r.barrels.length}
+                              ${soleBaron6Full ? 0 : r.barrels.length}
                             </strong>
-                            {soleBaron6 ? (
+                            {soleBaron6Full ? (
                               <span className="text-slate-400 dark:text-slate-500">
                                 {" "}
-                                (sole 6-cap)
+                                (full 6-cap — no rent)
                               </span>
                             ) : null}
                           </>
