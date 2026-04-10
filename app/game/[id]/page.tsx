@@ -11,6 +11,9 @@ import {
   computeSaleProceeds,
   handHasMashForBarrel,
   isValidMashSelection,
+  getLobbySeatsForDisplay,
+  lobbyHasUnfilledOpenSeat,
+  countSeatedBarons,
 } from "../../../functions/lib/game";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -73,6 +76,13 @@ function baronInitials(name: string): string {
     return (parts[0]![0] + parts[1]![0]).toUpperCase();
   const one = parts[0] ?? name;
   return one.slice(0, 2).toUpperCase() || "?";
+}
+
+/** Seat order matches baron strip (playerOrder index) for shared colors. */
+function baronThemeForPlayer(playerOrder: string[], playerId: string) {
+  const seat = playerOrder.indexOf(playerId);
+  if (seat < 0) return BARON_THEMES[1]!;
+  return BARON_THEMES[seat % BARON_THEMES.length]!;
 }
 
 interface OperationsCardInHand {
@@ -148,6 +158,7 @@ interface Game {
   /** @deprecated Legacy face-up line; migrated server-side to marketPiles. */
   marketGoods?: string[];
   resourceDeck?: string[];
+  lobbySeats?: { kind: string; playerId?: string }[];
 }
 
 export default function GamePage() {
@@ -272,6 +283,42 @@ export default function GamePage() {
   }
 
   const players = game.playerOrder.map((id) => game.players[id]).filter(Boolean);
+  const lobbySeatsUi =
+    game.status === "lobby"
+      ? getLobbySeatsForDisplay(game as unknown as GameDoc)
+      : null;
+  const canStartGame =
+    game.status !== "lobby" ||
+    (lobbySeatsUi
+      ? !lobbyHasUnfilledOpenSeat(lobbySeatsUi) && countSeatedBarons(lobbySeatsUi) >= 2
+      : players.length >= 2);
+
+  type BaronSlotRow =
+    | { rowKind: "closed"; seatIndex: number }
+    | { rowKind: "empty"; seatIndex: number; emptyLabel: string }
+    | { rowKind: "baron"; seatIndex: number; pid: string; p: Baron };
+
+  const baronSlotRows: BaronSlotRow[] =
+    game.status === "lobby" && lobbySeatsUi
+      ? lobbySeatsUi.map((seat, seatIndex) => {
+          if (seat.kind === "closed")
+            return { rowKind: "closed" as const, seatIndex };
+          if (seat.kind === "open" && !seat.playerId)
+            return { rowKind: "empty" as const, seatIndex, emptyLabel: "Open" };
+          const pid = seat.playerId!;
+          const p = game.players[pid];
+          if (!p)
+            return { rowKind: "empty" as const, seatIndex, emptyLabel: "Open" };
+          return { rowKind: "baron" as const, seatIndex, pid, p };
+        })
+      : Array.from({ length: MAX_BARONS }, (_, seatIndex) => {
+          const pid = game.playerOrder[seatIndex];
+          const p = pid ? game.players[pid] : undefined;
+          if (!p || !pid)
+            return { rowKind: "empty" as const, seatIndex, emptyLabel: "Open" };
+          return { rowKind: "baron" as const, seatIndex, pid, p };
+        });
+
   const isCurrentPlayer = game.playerOrder[game.currentPlayerIndex] === playerId;
   const isComputerTurnNow =
     game.status === "in_progress" &&
@@ -299,9 +346,23 @@ export default function GamePage() {
     setError("");
     try {
       const res = await fetch(`${API_URL}/games/${gameId}/phase`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to advance");
-      setGame(data);
+      const text = await res.text();
+      let data: unknown = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        if (!res.ok) {
+          throw new Error(text.trim().slice(0, 200) || "Failed to advance");
+        }
+        throw new Error("Invalid server response");
+      }
+      if (!res.ok) {
+        const errBody = data as { error?: string; message?: string };
+        throw new Error(
+          errBody.error || errBody.message || "Failed to advance"
+        );
+      }
+      setGame(data as Game);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to advance");
     } finally {
@@ -522,29 +583,50 @@ export default function GamePage() {
             Barons
           </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
-            {Array.from({ length: MAX_BARONS }, (_, seatIndex) => {
-              const pid = game.playerOrder[seatIndex];
-              const p = pid ? game.players[pid] : undefined;
+            {baronSlotRows.map((row) => {
+              const seatIndex = row.seatIndex;
               const theme = BARON_THEMES[seatIndex % BARON_THEMES.length]!;
-              const isCurrentTurn =
-                game.status === "in_progress" &&
-                seatIndex === game.currentPlayerIndex &&
-                pid != null;
-              const isYou = pid != null && pid === playerId;
 
-              if (!p || !pid) {
+              if (row.rowKind === "closed") {
                 return (
                   <div
-                    key={`seat-${seatIndex}`}
+                    key={`seat-${seatIndex}-closed`}
+                    className="flex min-h-[6.25rem] flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-900/40 bg-amber-950/30 px-1 text-center dark:border-amber-900/50 dark:bg-black/20"
+                  >
+                    <span className="text-[10px] font-bold text-amber-700 dark:text-amber-600">
+                      Seat {seatIndex + 1}
+                    </span>
+                    <span className="text-[9px] text-amber-600/80 dark:text-amber-700">Closed</span>
+                  </div>
+                );
+              }
+
+              if (row.rowKind === "empty") {
+                return (
+                  <div
+                    key={`seat-${seatIndex}-empty`}
                     className="flex min-h-[6.25rem] flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-300/70 bg-amber-50/40 px-1 text-center dark:border-amber-700/60 dark:bg-amber-950/25"
                   >
                     <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500">
                       Seat {seatIndex + 1}
                     </span>
-                    <span className="text-[9px] text-amber-500 dark:text-amber-600">Open</span>
+                    <span className="text-[9px] text-amber-500 dark:text-amber-600">
+                      {row.emptyLabel}
+                    </span>
+                    {row.emptyLabel === "Open" && game.status === "lobby" ? (
+                      <span className="mt-0.5 text-[8px] text-amber-500/90 dark:text-amber-600">
+                        Waiting…
+                      </span>
+                    ) : null}
                   </div>
                 );
               }
+
+              const { pid, p } = row;
+              const currentTurnId = game.playerOrder[game.currentPlayerIndex];
+              const isCurrentTurn =
+                game.status === "in_progress" && currentTurnId != null && pid === currentTurnId;
+              const isYou = pid === playerId;
 
               const resourceCount = p.resourceCards?.length ?? 0;
               const barrelCount = p.barrelledBourbons?.length ?? 0;
@@ -644,6 +726,85 @@ export default function GamePage() {
             })}
           </div>
         </div>
+
+        {game.status === "in_progress" && rickhouses.length > 0 && (
+          <div className="mt-6 w-full border-t border-amber-200/80 pt-6 sm:mt-8 sm:pt-8 dark:border-amber-800/80">
+            <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+              Rickhouses
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {rickhouses.map((r) => {
+                const soleBaron6 =
+                  r.capacity === 6 &&
+                  r.barrels.length > 0 &&
+                  r.barrels.every((b) => b.playerId === r.barrels[0].playerId);
+                return (
+                  <div
+                    key={r.id}
+                    className="rounded border border-amber-300 bg-white/80 p-2 dark:border-amber-700 dark:bg-amber-950/40"
+                  >
+                    <p className="text-sm font-medium leading-snug text-amber-900 dark:text-amber-100">
+                      {rickhouseRegionLabel(r.id)}
+                    </p>
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                      {r.barrels.length}/{r.capacity} filled
+                      {r.barrels.length > 0 ? (
+                        <>
+                          {" "}
+                          · Next entry <strong>${r.barrels.length + 1}</strong> · Yearly / barrel{" "}
+                          <strong>${soleBaron6 ? 0 : r.barrels.length}</strong>
+                          {soleBaron6 ? " (sole 6-cap)" : ""}
+                        </>
+                      ) : (
+                        <> · Next entry $1</>
+                      )}
+                    </p>
+                    <div
+                      className="mt-2 grid gap-1.5"
+                      style={{
+                        gridTemplateColumns: `repeat(${r.capacity}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {Array.from({ length: r.capacity }, (_, slotIdx) => {
+                        const b = r.barrels[slotIdx];
+                        if (!b) {
+                          return (
+                            <div
+                              key={`${r.id}-slot-${slotIdx}`}
+                              className="flex min-h-[2.75rem] flex-col items-center justify-center rounded-md border-2 border-dashed border-amber-300/70 bg-amber-50/50 text-[9px] font-medium text-amber-500 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-600"
+                              title="Empty slot"
+                            >
+                              —
+                            </div>
+                          );
+                        }
+                        const name =
+                          game.players[b.playerId]?.name ?? b.playerId.slice(0, 8);
+                        const theme = baronThemeForPlayer(game.playerOrder, b.playerId);
+                        return (
+                          <div
+                            key={b.barrelId}
+                            title={`${name} · age ${b.age}y · ${b.barrelId.slice(-6)}`}
+                            className={`flex min-h-[2.75rem] flex-col items-center justify-center rounded-md border-2 bg-white px-0.5 py-1 text-center shadow-sm dark:bg-amber-950/50 ${theme.border}`}
+                          >
+                            <span
+                              className={`flex h-7 w-7 items-center justify-center rounded text-[10px] font-bold leading-none ${theme.avatar}`}
+                            >
+                              {baronInitials(name)}
+                            </span>
+                            <span className="mt-0.5 text-[9px] font-semibold tabular-nums text-amber-900 dark:text-amber-100">
+                              {b.age}y
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </header>
 
       {error && (
@@ -671,407 +832,131 @@ export default function GamePage() {
         </div>
       ) : null}
 
-      <div className="mb-4 rounded-lg border border-amber-200 bg-white p-3 dark:border-amber-800 dark:bg-amber-900/20">
-        <p className="text-sm text-amber-800 dark:text-amber-200">
-          Status: <strong>{game.status}</strong> · Mode: {game.mode}
-        </p>
-        <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
-          Phase {game.currentPhase}: {phaseName} · Turn {game.turnNumber} · Current:{" "}
-          {players[game.currentPlayerIndex]?.name ?? "—"}
-          {isCurrentPlayer && " (you)"}
-        </p>
-        {game.status === "in_progress" && (
-          <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
-            Next action fee: <strong>${nextActionCost}</strong>
-            <span className="text-amber-600 dark:text-amber-400">
-              {" "}
-              (first 3 actions free this turn, then escalating — see rules)
-            </span>
-            {isCurrentPlayer && !isComputerTurnNow && me != null && (
-              <>
-                {" "}
-                · Your cash: ${me.cash}
-              </>
-            )}
-            {" "}
-            · Actions used: {game.actionsTakenThisTurn ?? 0} · Operations deck:{" "}
-            {opsDeckLeft} · Investment deck: {invDeckLeft}
-          </p>
-        )}
-      </div>
-
       {game.status === "lobby" && (
         <div className="mb-4">
           <button
             onClick={handleStart}
-            disabled={actionLoading || players.length < 2}
+            disabled={actionLoading || !canStartGame}
             className="rounded bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
           >
             {actionLoading ? "Starting…" : "Start game"}
           </button>
-          {players.length < 2 && (
+          {!canStartGame && (
             <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-              Need at least 2 barons to start.
+              {lobbySeatsUi && lobbyHasUnfilledOpenSeat(lobbySeatsUi)
+                ? "Fill every open seat with a player, or change open slots to Closed or Computer before starting."
+                : lobbySeatsUi && countSeatedBarons(lobbySeatsUi) < 2
+                  ? "Need at least 2 barons (add a computer or wait for another player)."
+                  : "Need at least 2 barons to start."}
             </p>
-          )}
-        </div>
-      )}
-
-      {game.status === "in_progress" && isCurrentPlayer && !isComputerTurnNow && (
-        <div className="mb-4 flex flex-col gap-3">
-          {game.currentPhase === 1 && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50/90 p-3 dark:border-amber-700 dark:bg-amber-950/40">
-              <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                Phase 1 — Age bourbons (rickhouse fees &amp; aging)
-              </p>
-              <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
-                Total due this turn: <strong>${feePreview}</strong>
-                {game.rickhouseFeesPaidThisTurn ? (
-                  <span className="ml-2 text-green-700 dark:text-green-400">
-                    Paid — your barrels aged 1 year.
-                  </span>
-                ) : null}
-              </p>
-              <button
-                type="button"
-                onClick={handlePayRickhouseFees}
-                disabled={
-                  actionLoading ||
-                  game.rickhouseFeesPaidThisTurn ||
-                  (me != null && me.cash < feePreview)
-                }
-                className="mt-2 rounded bg-amber-700 px-3 py-1.5 text-sm text-white hover:bg-amber-800 disabled:opacity-50"
-              >
-                {game.rickhouseFeesPaidThisTurn
-                  ? "Fees paid"
-                  : `Pay $${feePreview} & age bourbon`}
-              </button>
-            </div>
-          )}
-          {game.currentPhase === 2 && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50/90 p-3 dark:border-amber-700 dark:bg-amber-950/40">
-              <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                Phase 2 — Market demand dice
-              </p>
-              <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
-                Roll two six-sided dice (mock). If the sum beats current demand, demand goes up
-                by 1 (max 12). Double six sets demand to 12. Demand before roll:{" "}
-                <strong>{game.marketDemand}</strong> (see top bar).
-              </p>
-              <div
-                className="mt-2 flex items-center gap-3 text-amber-900 dark:text-amber-100"
-                aria-hidden
-              >
-                <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-amber-600 bg-white text-2xl font-bold dark:border-amber-500 dark:bg-amber-900/40">
-                  ?
-                </span>
-                <span className="text-lg font-medium">+</span>
-                <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-amber-600 bg-white text-2xl font-bold dark:border-amber-500 dark:bg-amber-900/40">
-                  ?
-                </span>
-                <span className="text-sm text-amber-700 dark:text-amber-300">→ roll to reveal</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleRollDemand}
-                disabled={actionLoading}
-                className="mt-3 rounded bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-50"
-              >
-                {actionLoading ? "Rolling…" : "Roll bourbon demand dice"}
-              </button>
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            {game.currentPhase === 3 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => handleBuy({ cask: 1, corn: 1, grain: 1 })}
-                  disabled={
-                    actionLoading ||
-                    marketCardsTotal < 3 ||
-                    piles.cask.length < 1 ||
-                    piles.corn.length < 1 ||
-                    piles.grain.length < 1 ||
-                    (me != null && me.cash < nextActionCost)
-                  }
-                  className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
-                >
-                  Buy 1+1+1 — ${nextActionCost}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBuy("random")}
-                  disabled={
-                    actionLoading ||
-                    marketCardsTotal < 3 ||
-                    (me != null && me.cash < nextActionCost)
-                  }
-                  className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
-                >
-                  Buy 3 random — ${nextActionCost}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBuy({ cask: 3, corn: 0, grain: 0 })}
-                  disabled={
-                    actionLoading ||
-                    piles.cask.length < 3 ||
-                    (me != null && me.cash < nextActionCost)
-                  }
-                  className="rounded border border-amber-500 bg-white px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-100"
-                >
-                  3× Cask — ${nextActionCost}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBuy({ cask: 0, corn: 3, grain: 0 })}
-                  disabled={
-                    actionLoading ||
-                    piles.corn.length < 3 ||
-                    (me != null && me.cash < nextActionCost)
-                  }
-                  className="rounded border border-amber-500 bg-white px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-100"
-                >
-                  3× Corn — ${nextActionCost}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBuy({ cask: 0, corn: 0, grain: 3 })}
-                  disabled={
-                    actionLoading ||
-                    piles.grain.length < 3 ||
-                    (me != null && me.cash < nextActionCost)
-                  }
-                  className="rounded border border-amber-500 bg-white px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-100"
-                >
-                  3× Grain — ${nextActionCost}
-                </button>
-              </>
-            )}
-            {game.currentPhase === 3 && (
-              <div className="w-full rounded-lg border border-amber-200 bg-amber-50/90 p-2 text-sm dark:border-amber-800 dark:bg-amber-950/30">
-                <p className="font-medium text-amber-900 dark:text-amber-100">
-                  Mash for barreling
-                </p>
-                <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
-                  In <strong>Your hand</strong> below, tap cards to select 3–6 for this bourbon:
-                  exactly <strong>1 Cask</strong>, <strong>≥1 Corn</strong>, <strong>≥1 grain</strong>{" "}
-                  (Barley / Rye / Wheat / Flavor). Then pick a rickhouse.
-                </p>
-                <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
-                  Selected: {mashSelection.size} card{mashSelection.size === 1 ? "" : "s"}
-                  {mashSelection.size > 0
-                    ? ` — ${selectedMashCards.join(", ")}`
-                    : ""}
-                  {mashSelection.size > 0 && !mashSelectionValid ? (
-                    <span className="ml-1 text-red-700 dark:text-red-400">
-                      (invalid — adjust selection)
-                    </span>
-                  ) : null}
-                  {mashSelectionValid ? (
-                    <span className="ml-1 text-green-700 dark:text-green-400">— valid mash</span>
-                  ) : null}
-                </p>
-                {mashSelection.size > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setMashSelection(new Set())}
-                    className="mt-1 text-xs text-amber-700 underline dark:text-amber-300"
-                  >
-                    Clear mash selection
-                  </button>
-                )}
-              </div>
-            )}
-            {game.currentPhase === 3 && (
-              <>
-                {rickhouses.map(
-                  (r) =>
-                    r.barrels.length < r.capacity && (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => handleBarrel(r.id)}
-                        disabled={
-                          actionLoading ||
-                          !mashSelectionValid ||
-                          (me != null &&
-                            me.cash < r.barrels.length + 1 + nextActionCost)
-                        }
-                        className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
-                      >
-                        Barrel — {rickhouseRegionLabel(r.id)} (entry{" "}
-                        {r.barrels.length + 1} + fee ${nextActionCost})
-                      </button>
-                    )
-                )}
-              </>
-            )}
-            {game.currentPhase !== 2 && (
-              <button
-                type="button"
-                onClick={handleNextPhase}
-                disabled={actionLoading}
-                className="rounded bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
-              >
-                {actionLoading
-                  ? "…"
-                  : game.currentPhase === 3
-                    ? "End turn"
-                    : "Next phase"}
-              </button>
-            )}
-          </div>
-          {inCardPhases && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-800 dark:bg-amber-950/30">
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
-                Operations and investments
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleCardAction("drawOperations")}
-                  disabled={
-                    actionLoading ||
-                    opsDeckLeft === 0 ||
-                    (me != null && me.cash < nextActionCost)
-                  }
-                  className="rounded bg-amber-700 px-3 py-1.5 text-sm text-white hover:bg-amber-800 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-500"
-                >
-                  Draw operations — ${nextActionCost}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCardAction("drawInvestment")}
-                  disabled={
-                    actionLoading ||
-                    invDeckLeft === 0 ||
-                    (me != null && me.cash < nextActionCost)
-                  }
-                  className="rounded bg-amber-700 px-3 py-1.5 text-sm text-white hover:bg-amber-800 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-500"
-                >
-                  Draw investment — ${nextActionCost}
-                </button>
-              </div>
-              {opsHand.length > 0 && (
-                <div className="mt-3">
-                  <p className="mb-1 text-xs text-amber-700 dark:text-amber-300">
-                    Operations in hand
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {opsHand.map((c, i) => (
-                      <button
-                        type="button"
-                        key={`${c.id}-${i}`}
-                        onClick={() => handleCardAction("playOperations", i)}
-                        disabled={
-                          actionLoading || (me != null && me.cash < nextActionCost)
-                        }
-                        className="rounded border border-amber-400 bg-white px-2 py-1 text-xs text-amber-900 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900"
-                      >
-                        Play {c.title} (+${c.cashWhenPlayed}, fee ${nextActionCost})
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {invHand.some((c) => !c.upright) && (
-                <div className="mt-3">
-                  <p className="mb-1 text-xs text-amber-700 dark:text-amber-300">
-                    Capitalize investments (fee + printed capital)
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {invHand.map((c, i) =>
-                      !c.upright ? (
-                        <button
-                          type="button"
-                          key={`${c.id}-${i}`}
-                          onClick={() => handleCardAction("capitalizeInvestment", i)}
-                          disabled={
-                            actionLoading ||
-                            (me != null && me.cash < nextActionCost + c.capital)
-                          }
-                          className="rounded border border-amber-400 bg-white px-2 py-1 text-xs text-amber-900 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900"
-                        >
-                          {c.title} (${nextActionCost} + ${c.capital})
-                        </button>
-                      ) : null
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
           )}
         </div>
       )}
 
       {game.status === "in_progress" && (
-        <>
-          <section className="mt-4 rounded-lg border border-amber-200 bg-white p-4 dark:border-amber-800 dark:bg-amber-900/20">
-            <h2 className="mb-2 font-semibold text-amber-900 dark:text-amber-100">
-              Market (face-down piles)
-            </h2>
-            <p className="mb-2 text-sm text-amber-700 dark:text-amber-300">
-              Cask: {piles.cask.length} · Corn: {piles.corn.length} · Grain:{" "}
-              {piles.grain.length}
-              {deckLeft > 0 ? ` · Side deck: ${deckLeft}` : null}
-            </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              Each buy action draws exactly 3 cards; you choose how many from each pile (or
-              random).
-            </p>
-          </section>
-          <section className="mt-4 rounded-lg border border-amber-200 bg-white p-4 dark:border-amber-800 dark:bg-amber-900/20">
-            <h2 className="mb-2 font-semibold text-amber-900 dark:text-amber-100">
-              Rickhouses
-            </h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {rickhouses.map((r) => {
-                const soleBaron6 =
-                  r.capacity === 6 &&
-                  r.barrels.length > 0 &&
-                  r.barrels.every((b) => b.playerId === r.barrels[0].playerId);
-                return (
-                  <div
-                    key={r.id}
-                    className="rounded border border-amber-300 p-2 dark:border-amber-700"
-                  >
-                    <p className="text-sm font-medium leading-snug">
-                      {rickhouseRegionLabel(r.id)}
-                    </p>
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      {r.barrels.length}/{r.capacity} barrels
-                      {r.barrels.length > 0 ? (
-                        <>
-                          {" "}
-                          · Next entry rent: <strong>${r.barrels.length + 1}</strong> · Yearly
-                          per barrel:{" "}
-                          <strong>${soleBaron6 ? 0 : r.barrels.length}</strong>
-                          {soleBaron6 ? " (sole baron, 6-cap)" : ""}
-                        </>
-                      ) : (
-                        <> · Empty — next entry rent $1</>
-                      )}
-                    </p>
-                    <ul className="mt-1 max-h-28 space-y-0.5 overflow-y-auto text-xs text-amber-800 dark:text-amber-200">
-                      {r.barrels.map((b) => {
-                        const name =
-                          game.players[b.playerId]?.name ?? b.playerId.slice(0, 8);
-                        return (
-                          <li key={b.barrelId}>
-                            {name} · age {b.age}y · {b.barrelId.slice(-6)}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                );
-              })}
+        <div className="mx-auto mb-4 flex max-w-7xl flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="min-w-0 flex-1 space-y-4">
+            <div className="rounded-lg border border-amber-200/80 bg-white/70 px-3 py-2 dark:border-amber-800/80 dark:bg-amber-950/40">
+              <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+                <span className="font-semibold text-amber-950 dark:text-amber-50">{phaseName}</span>
+                <span className="text-amber-500 dark:text-amber-500"> · </span>
+                Turn {game.turnNumber}
+                <span className="text-amber-500 dark:text-amber-500"> · </span>
+                {game.mode}
+                <span className="text-amber-500 dark:text-amber-500"> · </span>
+                Next action <strong className="tabular-nums">${nextActionCost}</strong>
+                <span className="text-amber-500 dark:text-amber-500"> · </span>
+                Ops {opsDeckLeft} · Inv {invDeckLeft} · Used {game.actionsTakenThisTurn ?? 0}
+                {isCurrentPlayer && me != null ? (
+                  <>
+                    <span className="text-amber-500 dark:text-amber-500"> · </span>
+                    Cash <strong className="tabular-nums">${me.cash}</strong>
+                  </>
+                ) : null}
+              </p>
             </div>
-          </section>
-          {me && (
-            <section className="mt-4 rounded-lg border border-amber-200 bg-white p-4 dark:border-amber-800 dark:bg-amber-900/20">
+
+            {isCurrentPlayer && !isComputerTurnNow && (
+              <div className="flex flex-col gap-3">
+                {game.currentPhase === 1 && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50/90 p-3 dark:border-amber-700 dark:bg-amber-950/40">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                      Phase 1 — Age bourbons (rickhouse fees &amp; aging)
+                    </p>
+                    <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
+                      Total due this turn: <strong>${feePreview}</strong>
+                      {game.rickhouseFeesPaidThisTurn ? (
+                        <span className="ml-2 text-green-700 dark:text-green-400">
+                          Paid — your barrels aged 1 year.
+                        </span>
+                      ) : null}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handlePayRickhouseFees}
+                      disabled={
+                        actionLoading ||
+                        game.rickhouseFeesPaidThisTurn ||
+                        (me != null && me.cash < feePreview)
+                      }
+                      className="mt-2 rounded bg-amber-700 px-3 py-1.5 text-sm text-white hover:bg-amber-800 disabled:opacity-50"
+                    >
+                      {game.rickhouseFeesPaidThisTurn
+                        ? "Fees paid"
+                        : `Pay $${feePreview} & age bourbon`}
+                    </button>
+                  </div>
+                )}
+                {game.currentPhase === 2 && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50/90 p-3 dark:border-amber-700 dark:bg-amber-950/40">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                      Phase 2 — Market demand dice
+                    </p>
+                    <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
+                      Roll two six-sided dice (mock). If the sum beats current demand, demand goes
+                      up by 1 (max 12). Double six sets demand to 12. Demand before roll:{" "}
+                      <strong>{game.marketDemand}</strong> (see top bar).
+                    </p>
+                    <div
+                      className="mt-2 flex items-center gap-3 text-amber-900 dark:text-amber-100"
+                      aria-hidden
+                    >
+                      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-amber-600 bg-white text-2xl font-bold dark:border-amber-500 dark:bg-amber-900/40">
+                        ?
+                      </span>
+                      <span className="text-lg font-medium">+</span>
+                      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-amber-600 bg-white text-2xl font-bold dark:border-amber-500 dark:bg-amber-900/40">
+                        ?
+                      </span>
+                      <span className="text-sm text-amber-700 dark:text-amber-300">
+                        → roll to reveal
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRollDemand}
+                      disabled={actionLoading}
+                      className="mt-3 rounded bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-50"
+                    >
+                      {actionLoading ? "Rolling…" : "Roll bourbon demand dice"}
+                    </button>
+                  </div>
+                )}
+                {game.currentPhase === 1 && (
+                  <button
+                    type="button"
+                    onClick={handleNextPhase}
+                    disabled={actionLoading}
+                    className="w-full max-w-xs rounded bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50 sm:w-auto"
+                  >
+                    {actionLoading ? "…" : "Next phase"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {me && (
+              <section className="rounded-lg border border-amber-200 bg-white p-4 dark:border-amber-800 dark:bg-amber-900/20">
               <h2 className="mb-2 font-semibold text-amber-900 dark:text-amber-100">
                 Your hand
               </h2>
@@ -1089,9 +974,7 @@ export default function GamePage() {
                     }
                   </>
                 )}
-                {canMash
-                  ? " · Tap cards in the Action phase to build your mash"
-                  : ""}
+                {canMash ? " · Tap cards here to build your mash (see Action phase →)" : ""}
               </p>
               <div className="flex flex-wrap gap-1">
                 {me.resourceCards.map((c, i) => {
@@ -1201,8 +1084,299 @@ export default function GamePage() {
                 </div>
               )}
             </section>
-          )}
-        </>
+            )}
+          </div>
+
+          <aside className="w-full shrink-0 space-y-4 lg:sticky lg:top-28 lg:z-0 lg:w-80 lg:self-start xl:w-96">
+            <section className="rounded-lg border border-amber-200 bg-white p-4 shadow-sm dark:border-amber-800 dark:bg-amber-900/20">
+              <h2 className="mb-1 font-semibold text-amber-900 dark:text-amber-100">Market</h2>
+              <p className="mb-3 text-[11px] text-amber-600 dark:text-amber-400">
+                {game.currentPhase === 3 && isCurrentPlayer && !isComputerTurnNow
+                  ? "Tap a pile or mixed deck to draw 3 resource cards (one buy action)."
+                  : "Face-down piles — counts shown. Resource buys happen in the Action phase."}
+              </p>
+              {deckLeft > 0 ? (
+                <p className="mb-2 text-[11px] text-amber-500 dark:text-amber-500">
+                  Side deck: {deckLeft}
+                </p>
+              ) : null}
+
+              <div className="mb-3 grid grid-cols-3 gap-2">
+                {(
+                  [
+                    {
+                      key: "cask",
+                      label: "Cask",
+                      count: piles.cask.length,
+                      onPick: () => handleBuy({ cask: 3, corn: 0, grain: 0 }),
+                      disabled:
+                        actionLoading ||
+                        piles.cask.length < 3 ||
+                        (me != null && me.cash < nextActionCost) ||
+                        marketCardsTotal < 3,
+                      sub: "3× pile",
+                    },
+                    {
+                      key: "corn",
+                      label: "Corn",
+                      count: piles.corn.length,
+                      onPick: () => handleBuy({ cask: 0, corn: 3, grain: 0 }),
+                      disabled:
+                        actionLoading ||
+                        piles.corn.length < 3 ||
+                        (me != null && me.cash < nextActionCost) ||
+                        marketCardsTotal < 3,
+                      sub: "3× pile",
+                    },
+                    {
+                      key: "grain",
+                      label: "Grain",
+                      count: piles.grain.length,
+                      onPick: () => handleBuy({ cask: 0, corn: 0, grain: 3 }),
+                      disabled:
+                        actionLoading ||
+                        piles.grain.length < 3 ||
+                        (me != null && me.cash < nextActionCost) ||
+                        marketCardsTotal < 3,
+                      sub: "3× pile",
+                    },
+                  ] as const
+                ).map((pile) => {
+                  const interactive =
+                    game.currentPhase === 3 && isCurrentPlayer && !isComputerTurnNow;
+                  return (
+                    <button
+                      key={pile.key}
+                      type="button"
+                      title={
+                        interactive
+                          ? `${pile.count} left — ${pile.sub} ($${nextActionCost})`
+                          : `${pile.count} cards`
+                      }
+                      disabled={!interactive || pile.disabled}
+                      onClick={() => {
+                        if (interactive && !pile.disabled) pile.onPick();
+                      }}
+                      className={`flex flex-col items-center justify-end rounded-lg border-2 px-1.5 pb-2 pt-3 text-center shadow-sm transition ${
+                        interactive && !pile.disabled
+                          ? "cursor-pointer border-amber-800 bg-gradient-to-b from-amber-700 via-amber-900 to-amber-950 text-amber-50 hover:brightness-110 active:scale-[0.98] dark:from-amber-800 dark:via-amber-950 dark:to-black"
+                          : "cursor-default border-amber-300/80 bg-gradient-to-b from-amber-200/90 to-amber-400/80 text-amber-950 opacity-90 dark:border-amber-700 dark:from-amber-900/50 dark:to-amber-950 dark:text-amber-100"
+                      } ${interactive && pile.disabled ? "opacity-50" : ""}`}
+                    >
+                      <span className="mb-1 text-[9px] font-bold uppercase tracking-wide text-amber-100/90">
+                        {pile.label}
+                      </span>
+                      <span className="mb-2 min-h-[2.5rem] w-[85%] rounded border border-amber-950/30 bg-amber-950/40 shadow-inner dark:border-amber-100/10" />
+                      <span className="text-lg font-bold tabular-nums leading-none">
+                        {pile.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                title="Draw 3 cards at random from the market"
+                disabled={
+                  actionLoading ||
+                  game.currentPhase !== 3 ||
+                  !isCurrentPlayer ||
+                  isComputerTurnNow ||
+                  marketCardsTotal < 3 ||
+                  (me != null && me.cash < nextActionCost)
+                }
+                onClick={() => handleBuy("random")}
+                className="mb-2 flex w-full flex-col items-center gap-1 rounded-lg border-2 border-dashed border-amber-600 bg-amber-100/90 px-3 py-3 text-amber-950 hover:bg-amber-200/90 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-50 dark:hover:bg-amber-900/80"
+              >
+                <span
+                  className="flex h-10 w-14 items-center justify-center rounded bg-gradient-to-br from-amber-800 to-amber-950 text-xs font-bold text-amber-100 shadow-md dark:from-amber-700 dark:to-black"
+                  aria-hidden
+                >
+                  3
+                </span>
+                <span className="text-xs font-semibold">Mixed deck — draw 3 random</span>
+                <span className="text-[10px] text-amber-700 dark:text-amber-300">
+                  Fee ${nextActionCost} · {marketCardsTotal} cards in market
+                </span>
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  actionLoading ||
+                  game.currentPhase !== 3 ||
+                  !isCurrentPlayer ||
+                  isComputerTurnNow ||
+                  marketCardsTotal < 3 ||
+                  piles.cask.length < 1 ||
+                  piles.corn.length < 1 ||
+                  piles.grain.length < 1 ||
+                  (me != null && me.cash < nextActionCost)
+                }
+                onClick={() => handleBuy({ cask: 1, corn: 1, grain: 1 })}
+                className="w-full rounded-md border border-amber-500 bg-white px-2 py-2 text-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900"
+              >
+                Balanced draw: 1 Cask + 1 Corn + 1 Grain — ${nextActionCost}
+              </button>
+            </section>
+
+            {isCurrentPlayer && !isComputerTurnNow && game.currentPhase === 3 && (
+              <section className="rounded-lg border border-amber-200 bg-white p-4 shadow-sm dark:border-amber-800 dark:bg-amber-900/20">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100">
+                  Action phase
+                </h2>
+
+                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50/90 p-2 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+                  <p className="font-medium text-amber-900 dark:text-amber-100">
+                    Mash for barreling
+                  </p>
+                  <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
+                    In <strong>Your hand</strong> (left), tap cards for 3–6:{" "}
+                    <strong>1 Cask</strong>, <strong>≥1 Corn</strong>, <strong>≥1 grain</strong>.
+                    Then barrel below.
+                  </p>
+                  <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+                    Selected: {mashSelection.size} card{mashSelection.size === 1 ? "" : "s"}
+                    {mashSelection.size > 0 ? ` — ${selectedMashCards.join(", ")}` : ""}
+                    {mashSelection.size > 0 && !mashSelectionValid ? (
+                      <span className="ml-1 text-red-700 dark:text-red-400">
+                        (invalid — adjust)
+                      </span>
+                    ) : null}
+                    {mashSelectionValid ? (
+                      <span className="ml-1 text-green-700 dark:text-green-400">— valid</span>
+                    ) : null}
+                  </p>
+                  {mashSelection.size > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setMashSelection(new Set())}
+                      className="mt-1 text-xs text-amber-700 underline dark:text-amber-300"
+                    >
+                      Clear mash
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="mb-3 flex flex-col gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                    Barrel here
+                  </p>
+                  {rickhouses.map(
+                    (r) =>
+                      r.barrels.length < r.capacity && (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => handleBarrel(r.id)}
+                          disabled={
+                            actionLoading ||
+                            !mashSelectionValid ||
+                            (me != null && me.cash < r.barrels.length + 1 + nextActionCost)
+                          }
+                          className="w-full rounded bg-amber-600 px-3 py-2 text-left text-sm text-white hover:bg-amber-700 disabled:opacity-50"
+                        >
+                          {rickhouseRegionLabel(r.id)} — entry {r.barrels.length + 1} + fee $
+                          {nextActionCost}
+                        </button>
+                      )
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleNextPhase}
+                  disabled={actionLoading}
+                  className="mb-4 w-full rounded-lg bg-amber-600 px-4 py-2.5 font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {actionLoading ? "…" : "End turn"}
+                </button>
+
+                {inCardPhases && (
+                  <div className="border-t border-amber-200 pt-3 dark:border-amber-800">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                      Operations &amp; investments
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleCardAction("drawOperations")}
+                        disabled={
+                          actionLoading ||
+                          opsDeckLeft === 0 ||
+                          (me != null && me.cash < nextActionCost)
+                        }
+                        className="w-full rounded bg-amber-700 px-3 py-2 text-sm text-white hover:bg-amber-800 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-500"
+                      >
+                        Draw operations — ${nextActionCost}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCardAction("drawInvestment")}
+                        disabled={
+                          actionLoading ||
+                          invDeckLeft === 0 ||
+                          (me != null && me.cash < nextActionCost)
+                        }
+                        className="w-full rounded bg-amber-700 px-3 py-2 text-sm text-white hover:bg-amber-800 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-500"
+                      >
+                        Draw investment — ${nextActionCost}
+                      </button>
+                    </div>
+                    {opsHand.length > 0 && (
+                      <div className="mt-3">
+                        <p className="mb-1 text-xs text-amber-700 dark:text-amber-300">
+                          Play operations
+                        </p>
+                        <div className="flex flex-col gap-1.5">
+                          {opsHand.map((c, i) => (
+                            <button
+                              type="button"
+                              key={`${c.id}-${i}`}
+                              onClick={() => handleCardAction("playOperations", i)}
+                              disabled={
+                                actionLoading || (me != null && me.cash < nextActionCost)
+                              }
+                              className="rounded border border-amber-400 bg-white px-2 py-1.5 text-left text-xs text-amber-900 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900"
+                            >
+                              {c.title} (+${c.cashWhenPlayed}, fee ${nextActionCost})
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {invHand.some((c) => !c.upright) && (
+                      <div className="mt-3">
+                        <p className="mb-1 text-xs text-amber-700 dark:text-amber-300">
+                          Capitalize
+                        </p>
+                        <div className="flex flex-col gap-1.5">
+                          {invHand.map((c, i) =>
+                            !c.upright ? (
+                              <button
+                                type="button"
+                                key={`${c.id}-${i}`}
+                                onClick={() => handleCardAction("capitalizeInvestment", i)}
+                                disabled={
+                                  actionLoading ||
+                                  (me != null && me.cash < nextActionCost + c.capital)
+                                }
+                                className="rounded border border-amber-400 bg-white px-2 py-1.5 text-left text-xs text-amber-900 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900"
+                              >
+                                {c.title} (${nextActionCost} + ${c.capital})
+                              </button>
+                            ) : null
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
+          </aside>
+        </div>
       )}
     </div>
   );

@@ -6,7 +6,12 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { Resource } from "sst";
-import { startGame as startGameLogic, type GameDoc } from "./lib/game";
+import {
+  startGame as startGameLogic,
+  lobbyHasUnfilledOpenSeat,
+  countSeatedBarons,
+  type GameDoc,
+} from "./lib/game";
 
 const client = new DynamoDBClient({});
 
@@ -31,7 +36,20 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   if (game.status !== "lobby") {
     return { statusCode: 400, body: JSON.stringify({ error: "Game already started" }) };
   }
-  if (game.playerOrder.length < 2) {
+  const seats = game.lobbySeats;
+  if (seats?.length === 6) {
+    if (lobbyHasUnfilledOpenSeat(seats)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: "Close or fill every open seat before starting",
+        }),
+      };
+    }
+    if (countSeatedBarons(seats) < 2) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Need at least 2 barons to start" }) };
+    }
+  } else if (game.playerOrder.length < 2) {
     return { statusCode: 400, body: JSON.stringify({ error: "Need at least 2 barons to start" }) };
   }
 

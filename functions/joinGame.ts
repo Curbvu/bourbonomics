@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { Resource } from "sst";
-import { addPlayerToGame, type GameDoc } from "./lib/game";
+import { joinPlayerAtOpenLobbySeat, type GameDoc } from "./lib/game";
 
 const client = new DynamoDBClient({});
 
@@ -39,7 +39,11 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   const playerId = `p_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-  const updated = addPlayerToGame(game, playerId, playerName);
+  const joined = joinPlayerAtOpenLobbySeat(game, playerId, playerName);
+  if (joined.error) {
+    return { statusCode: 400, body: JSON.stringify({ error: joined.error }) };
+  }
+  const updated = joined.game;
 
   await client.send(
     new PutItemCommand({

@@ -22,6 +22,18 @@ export function shortId(length = 6): string {
 export type GameMode = "normal" | "bottled-in-bond" | "singleplayer";
 export type GameStatus = "lobby" | "in_progress" | "finished";
 
+/** Seats 2–6 plan when creating a multiplayer lobby (seat 1 is always the host). */
+export type LobbySlotPlan = "closed" | "open" | "computer";
+
+/** Fixed lobby seat (up to 6). Used when hosting with an Age-of-Empires-style slot layout. */
+export type LobbySeatKind = "human" | "computer" | "open" | "closed";
+
+export interface LobbySeat {
+  kind: LobbySeatKind;
+  /** Present when a baron occupies this seat (host, joiner, or computer). */
+  playerId?: string;
+}
+
 /** Computer (bot) baron IDs start with this prefix. */
 export const BOT_ID_PREFIX = "bot_";
 export function isBotPlayer(playerId: string): boolean {
@@ -132,6 +144,8 @@ export interface GameDoc {
   resourceDeck: string[];
   createdAt: number;
   updatedAt: number;
+  /** Six seats for lobby UI and join order; omit on older saves. */
+  lobbySeats?: LobbySeat[];
 }
 
 export const INITIAL_MARKET_DEMAND = 6;
@@ -246,6 +260,142 @@ export function addPlayerToGame(game: GameDoc, playerId: string, name: string): 
     },
     updatedAt: now,
   };
+}
+
+function emptyBaron(playerId: string, name: string): Baron {
+  return {
+    id: playerId,
+    name,
+    cash: 0,
+    resourceCards: [],
+    barrelledBourbons: [],
+    bourbonCards: [],
+    operationsHand: [],
+    investmentHand: [],
+  };
+}
+
+/** Player ids in seat order (left to right) for games that use `lobbySeats`. */
+export function playerOrderFromLobbySeats(seats: LobbySeat[]): string[] {
+  const out: string[] = [];
+  for (const s of seats) {
+    if (s.playerId) out.push(s.playerId);
+  }
+  return out;
+}
+
+export function lobbyHasUnfilledOpenSeat(seats: LobbySeat[]): boolean {
+  return seats.some((s) => s.kind === "open" && !s.playerId);
+}
+
+export function countSeatedBarons(seats: LobbySeat[]): number {
+  return seats.filter((s) => s.playerId).length;
+}
+
+/**
+ * Six-seat lobby: seat 0 = host; `plan` is seats 1–5 (closed / open / computer).
+ */
+export function applyMultiplayerLobbyPlan(
+  game: GameDoc,
+  hostId: string,
+  hostName: string,
+  plan: LobbySlotPlan[]
+): { game: GameDoc; error?: string } {
+  if (plan.length !== 5) {
+    return { game, error: "lobbySlots must be an array of 5 entries (seats 2–6)" };
+  }
+  const hasSecondBaron = plan.some((p) => p === "open" || p === "computer");
+  if (!hasSecondBaron) {
+    return {
+      game,
+      error: "Need at least one open seat or computer (seats 2–6) to play",
+    };
+  }
+
+  const seats: LobbySeat[] = [{ kind: "human", playerId: hostId }];
+  for (const p of plan) {
+    if (p === "closed") seats.push({ kind: "closed" });
+    else if (p === "open") seats.push({ kind: "open" });
+    else seats.push({ kind: "computer" });
+  }
+  if (seats.length !== 6) return { game, error: "Invalid lobby seat count" };
+
+  const players: Record<string, Baron> = { ...game.players, [hostId]: emptyBaron(hostId, hostName) };
+  let botIndex = 1;
+  for (let i = 1; i < 6; i++) {
+    const seat = seats[i]!;
+    if (seat.kind !== "computer") continue;
+    const botId = `${BOT_ID_PREFIX}${botIndex}`;
+    botIndex += 1;
+    seats[i] = { kind: "computer", playerId: botId };
+    players[botId] = emptyBaron(botId, `Computer ${botIndex - 1}`);
+  }
+
+  const now = Date.now();
+  const playerOrder = playerOrderFromLobbySeats(seats);
+  return {
+    game: {
+      ...game,
+      lobbySeats: seats,
+      players,
+      playerOrder,
+      updatedAt: now,
+    },
+  };
+}
+
+/** First open human slot, or -1. */
+export function firstOpenLobbySeatIndex(seats: LobbySeat[]): number {
+  return seats.findIndex((s) => s.kind === "open" && !s.playerId);
+}
+
+export function joinPlayerAtOpenLobbySeat(
+  game: GameDoc,
+  playerId: string,
+  name: string
+): { game: GameDoc; error?: string } {
+  const seats = game.lobbySeats;
+  if (!seats || seats.length !== 6) {
+    return { game: addPlayerToGame(game, playerId, name) };
+  }
+  const idx = firstOpenLobbySeatIndex(seats);
+  if (idx < 0) {
+    return { game, error: "No open seats in this game" };
+  }
+  const nextSeats = seats.map((s, i) =>
+    i === idx ? { kind: "human" as const, playerId } : { ...s }
+  );
+  const now = Date.now();
+  return {
+    game: {
+      ...game,
+      lobbySeats: nextSeats,
+      players: {
+        ...game.players,
+        [playerId]: emptyBaron(playerId, name),
+      },
+      playerOrder: playerOrderFromLobbySeats(nextSeats),
+      updatedAt: now,
+    },
+  };
+}
+
+/** Lobby grid for UI when `lobbySeats` is missing (older games). */
+export function getLobbySeatsForDisplay(game: GameDoc): LobbySeat[] {
+  if (game.lobbySeats?.length === 6) return game.lobbySeats;
+  const seats: LobbySeat[] = [];
+  for (let i = 0; i < 6; i++) {
+    if (i < game.playerOrder.length) {
+      const pid = game.playerOrder[i]!;
+      seats.push({
+        kind: isBotPlayer(pid) ? "computer" : "human",
+        playerId: pid,
+      });
+    } else {
+      seats.push({ kind: "open" });
+    }
+  }
+  return seats;
 }
 
 export function startGame(game: GameDoc): GameDoc {
@@ -403,20 +553,23 @@ export type AdvancePhaseResult = { game: GameDoc; error?: string };
 export function advancePhase(game: GameDoc): AdvancePhaseResult {
   const now = Date.now();
   if (game.currentPhase === 1) {
-    if (
-      game.status === "in_progress" &&
-      !(game.rickhouseFeesPaidThisTurn ?? false)
-    ) {
-      return { game, error: "Pay rickhouse fees before continuing." };
+    let g = game;
+    if (g.status === "in_progress" && !(g.rickhouseFeesPaidThisTurn ?? false)) {
+      const pid = g.playerOrder[g.currentPlayerIndex];
+      if (!pid) return { game: g, error: "No current baron" };
+      const feesDue = previewRickhouseFeesForPlayer(g, pid);
+      if (feesDue === 0) {
+        const paid = payRickhouseFeesAndAge(g, pid);
+        if (paid.error) return { game: g, error: paid.error };
+        g = paid.game;
+      } else {
+        return { game: g, error: "Pay rickhouse fees before continuing." };
+      }
     }
-    return {
-      game: {
-        ...game,
-        currentPhase: 2,
-        lastDemandRoll: undefined,
-        updatedAt: now,
-      },
-    };
+    // Clear last roll for the new demand phase; do not set `undefined` — Dynamo `marshall` throws on undefined.
+    const next: GameDoc = { ...g, currentPhase: 2, updatedAt: now };
+    delete next.lastDemandRoll;
+    return { game: next };
   }
   if (game.currentPhase === 2) {
     return {
@@ -1053,7 +1206,9 @@ export function normalizeGame(game: GameDoc): GameDoc {
     }
   }
 
-  const legacyPhase = game.currentPhase ?? 1;
+  const rawPhase = Number(game.currentPhase);
+  const legacyPhase =
+    Number.isFinite(rawPhase) && rawPhase >= 1 ? Math.floor(rawPhase) : 1;
   let turnStructureVersion = game.turnStructureVersion ?? 1;
   let currentPhase = legacyPhase;
   if (turnStructureVersion < 2) {

@@ -27,18 +27,31 @@ export default $config({
       },
     });
 
-    const ws = new sst.aws.ApiGatewayWebSocket("Ws", {
-      transform: {
-        route: {
-          handler: {
-            link: [connectionsTable, gamesTable],
+    // Do not set `link` on transform.route.handler: SST merges `{ ...routeArgs, ...transform }`,
+    // which overwrites per-route `link` and drops `ws` on $default — breaking PostToConnection IAM.
+    const ws = new sst.aws.ApiGatewayWebSocket("Ws");
+    ws.route("$connect", {
+      handler: "functions/wsConnect.handler",
+      link: [connectionsTable, gamesTable],
+    });
+    ws.route("$disconnect", {
+      handler: "functions/wsDisconnect.handler",
+      link: [connectionsTable, gamesTable],
+    });
+    // Explicit ManageConnections: linking `ws` from its own route can omit IAM in some cases;
+    // scope to this API’s execution ARN (trailing `/*` matches stage / POST / @connections / id).
+    ws.route("$default", {
+      handler: {
+        handler: "functions/wsDefault.handler",
+        link: [connectionsTable, gamesTable],
+        permissions: [
+          {
+            actions: ["execute-api:ManageConnections"],
+            resources: [$interpolate`${ws.nodes.api.executionArn}/*`],
           },
-        },
+        ],
       },
     });
-    ws.route("$connect", "functions/wsConnect.handler");
-    ws.route("$disconnect", "functions/wsDisconnect.handler");
-    ws.route("$default", "functions/wsDefault.handler");
 
     const api = new sst.aws.ApiGatewayV2("Api", {
       cors: {
