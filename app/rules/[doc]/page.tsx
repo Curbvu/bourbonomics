@@ -38,7 +38,7 @@ export default async function RulesDocPage({ params }: PageProps) {
         </code>
         ).
       </p>
-      <article className="max-w-none whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-slate-900 dark:text-slate-100 sm:text-sm">
+      <article className="max-w-none whitespace-pre-wrap wrap-break-word font-mono text-xs leading-relaxed text-slate-900 dark:text-slate-100 sm:text-sm">
         {content}
       </article>
     </div>
