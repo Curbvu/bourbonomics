@@ -47,8 +47,8 @@ deck_distribution:
   tiers:
     - id: normal
       label: Normal (plain type)
-      target_pct: ~68%
-      count_in_100: 68
+      target_pct: ~64%
+      count_in_100: 64
       notes: No YAML row — type-only cards.
     - id: special
       label: Special (local helpful)

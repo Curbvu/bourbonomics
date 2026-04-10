@@ -101,6 +101,10 @@ export default $config({
       handler: "functions/startGame.handler",
       ...gameLink,
     });
+    api.route("POST /games/{id}/lobby-seat", {
+      handler: "functions/lobbySeat.handler",
+      ...gameLink,
+    });
     api.route("POST /games/{id}/phase", {
       handler: "functions/advancePhase.handler",
       ...gameLink,

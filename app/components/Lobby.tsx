@@ -20,6 +20,8 @@ export default function Lobby() {
   ]);
   const [joinCode, setJoinCode] = useState("");
   const [joinName, setJoinName] = useState("");
+  /** Optional 2–6 when the host opened a specific seat for you. */
+  const [joinSeat, setJoinSeat] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -64,10 +66,21 @@ export default function Lobby() {
     }
     setLoading(true);
     try {
+      const seatRaw = joinSeat.trim();
+      const body: Record<string, unknown> = { playerName: joinName || "Baron" };
+      if (seatRaw !== "") {
+        const n = Number(seatRaw);
+        if (!Number.isFinite(n) || n < 2 || n > 6) {
+          setError("Join seat must be 2–6 when provided");
+          setLoading(false);
+          return;
+        }
+        body.seatNumber = n;
+      }
       const res = await fetch(`${API_URL}/games/${joinCode.trim().toUpperCase()}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerName: joinName || "Baron" }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to join");
@@ -215,6 +228,17 @@ export default function Lobby() {
               placeholder="Your name"
               className="rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
             />
+            <input
+              type="text"
+              inputMode="numeric"
+              value={joinSeat}
+              onChange={(e) => setJoinSeat(e.target.value.replace(/[^\d]/g, "").slice(0, 1))}
+              placeholder="Seat 2–6 (optional)"
+              className="rounded-md border border-slate-600 bg-slate-950 px-3 py-2 font-mono text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            />
+            <p className="text-[10px] leading-snug text-slate-500">
+              Use a seat number only if the host opened that slot for you (otherwise leave blank).
+            </p>
             <button
               type="submit"
               disabled={loading}

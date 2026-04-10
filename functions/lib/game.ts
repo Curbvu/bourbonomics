@@ -492,15 +492,28 @@ export function firstOpenLobbySeatIndex(seats: LobbySeat[]): number {
 export function joinPlayerAtOpenLobbySeat(
   game: GameDoc,
   playerId: string,
-  name: string
+  name: string,
+  opts?: { seatIndex?: number }
 ): { game: GameDoc; error?: string } {
   const seats = game.lobbySeats;
   if (!seats || seats.length !== 6) {
     return { game: addPlayerToGame(game, playerId, name) };
   }
-  const idx = firstOpenLobbySeatIndex(seats);
-  if (idx < 0) {
-    return { game, error: "No open seats in this game" };
+  let idx: number;
+  if (opts?.seatIndex != null) {
+    idx = Math.floor(Number(opts.seatIndex));
+    if (!Number.isFinite(idx) || idx < 1 || idx > 5) {
+      return { game, error: "Join target must be an open seat 2–6" };
+    }
+    const s = seats[idx];
+    if (!s || s.kind !== "open" || s.playerId) {
+      return { game, error: "That seat is not open for joining" };
+    }
+  } else {
+    idx = firstOpenLobbySeatIndex(seats);
+    if (idx < 0) {
+      return { game, error: "No open seats in this game" };
+    }
   }
   const nextSeats = seats.map((s, i) =>
     i === idx ? { kind: "human" as const, playerId } : { ...s }
@@ -514,6 +527,139 @@ export function joinPlayerAtOpenLobbySeat(
         ...game.players,
         [playerId]: emptyBaron(playerId, name),
       },
+      playerOrder: playerOrderFromLobbySeats(nextSeats),
+      updatedAt: now,
+    },
+  };
+}
+
+/** Seat 1 in the UI is the host (`playerOrder[0]`). */
+export function lobbyHostPlayerId(game: GameDoc): string | undefined {
+  return game.playerOrder[0];
+}
+
+/** Next unused `bot_n` id and display name (n ≥ 1). */
+export function nextComputerBaronIdentity(game: GameDoc): { id: string; name: string } {
+  let max = 0;
+  for (const pid of Object.keys(game.players)) {
+    if (!isBotPlayer(pid)) continue;
+    const m = /^bot_(\d+)$/.exec(pid);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  const n = max + 1;
+  return { id: `${BOT_ID_PREFIX}${n}`, name: `Computer ${n}` };
+}
+
+/**
+ * Host-only (caller must enforce): add a computer baron to an empty **open** slot or a **closed** slot.
+ * `seatIndex` is the `lobbySeats` array index (1–5 = seats 2–6 in the UI).
+ */
+export function addComputerToLobbySeat(
+  game: GameDoc,
+  seatIndex: number
+): { game: GameDoc; error?: string } {
+  const seats = game.lobbySeats;
+  if (!seats || seats.length !== 6) {
+    return { game, error: "Lobby seats not configured" };
+  }
+  if (!Number.isFinite(seatIndex) || seatIndex < 1 || seatIndex > 5) {
+    return { game, error: "Seat must be 2–6" };
+  }
+  const cur = seats[seatIndex]!;
+  if (cur.kind === "computer" && cur.playerId) {
+    return { game, error: "That seat already has a computer" };
+  }
+  if (cur.kind === "human" && cur.playerId) {
+    return { game, error: "That seat is taken by a player" };
+  }
+  if (cur.kind === "open" && cur.playerId) {
+    return { game, error: "That seat is taken" };
+  }
+  if (cur.kind !== "closed" && !(cur.kind === "open" && !cur.playerId)) {
+    return { game, error: "Cannot add a computer to that seat" };
+  }
+  const { id: botId, name: botName } = nextComputerBaronIdentity(game);
+  const nextSeats = seats.map((s, i) =>
+    i === seatIndex ? { kind: "computer" as const, playerId: botId } : { ...s }
+  );
+  const now = Date.now();
+  return {
+    game: {
+      ...game,
+      lobbySeats: nextSeats,
+      players: {
+        ...game.players,
+        [botId]: emptyBaron(botId, botName),
+      },
+      playerOrder: playerOrderFromLobbySeats(nextSeats),
+      updatedAt: now,
+    },
+  };
+}
+
+/**
+ * Host-only: remove a computer from a seat so a human can join that slot (use join with `seatIndex`).
+ */
+export function openComputerLobbySeatForHuman(
+  game: GameDoc,
+  seatIndex: number
+): { game: GameDoc; error?: string } {
+  const seats = game.lobbySeats;
+  if (!seats || seats.length !== 6) {
+    return { game, error: "Lobby seats not configured" };
+  }
+  if (!Number.isFinite(seatIndex) || seatIndex < 1 || seatIndex > 5) {
+    return { game, error: "Seat must be 2–6" };
+  }
+  const cur = seats[seatIndex]!;
+  if (cur.kind !== "computer" || !cur.playerId) {
+    return { game, error: "That seat is not a computer" };
+  }
+  const botId = cur.playerId;
+  if (!isBotPlayer(botId)) {
+    return { game, error: "That seat is not a computer" };
+  }
+  const nextPlayers = { ...game.players };
+  delete nextPlayers[botId];
+  const nextSeats = seats.map((s, i) =>
+    i === seatIndex ? { kind: "open" as const } : { ...s }
+  );
+  const now = Date.now();
+  return {
+    game: {
+      ...game,
+      lobbySeats: nextSeats,
+      players: nextPlayers,
+      playerOrder: playerOrderFromLobbySeats(nextSeats),
+      updatedAt: now,
+    },
+  };
+}
+
+/** Host-only: turn an empty **open** waiting slot into **closed** so the game can start. */
+export function closeEmptyLobbySeat(
+  game: GameDoc,
+  seatIndex: number
+): { game: GameDoc; error?: string } {
+  const seats = game.lobbySeats;
+  if (!seats || seats.length !== 6) {
+    return { game, error: "Lobby seats not configured" };
+  }
+  if (!Number.isFinite(seatIndex) || seatIndex < 1 || seatIndex > 5) {
+    return { game, error: "Seat must be 2–6" };
+  }
+  const cur = seats[seatIndex]!;
+  if (cur.kind !== "open" || cur.playerId) {
+    return { game, error: "Only an empty open seat can be closed" };
+  }
+  const nextSeats = seats.map((s, i) =>
+    i === seatIndex ? { kind: "closed" as const } : { ...s }
+  );
+  const now = Date.now();
+  return {
+    game: {
+      ...game,
+      lobbySeats: nextSeats,
       playerOrder: playerOrderFromLobbySeats(nextSeats),
       updatedAt: now,
     },

@@ -22,6 +22,19 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: "playerName required" }) };
   }
 
+  /** Optional UI seat number 2–6 (host must have opened that slot). */
+  let joinSeatIndex: number | undefined;
+  if (body.seatNumber != null && body.seatNumber !== "") {
+    const n = Math.floor(Number(body.seatNumber));
+    if (!Number.isFinite(n) || n < 2 || n > 6) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "seatNumber must be 2–6 when provided" }),
+      };
+    }
+    joinSeatIndex = n - 1;
+  }
+
   const res = await client.send(
     new GetItemCommand({
       TableName: Resource.Games.name,
@@ -39,7 +52,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   const playerId = `p_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-  const joined = joinPlayerAtOpenLobbySeat(game, playerId, playerName);
+  const joined = joinPlayerAtOpenLobbySeat(game, playerId, playerName, {
+    seatIndex: joinSeatIndex,
+  });
   if (joined.error) {
     return { statusCode: 400, body: JSON.stringify({ error: joined.error }) };
   }

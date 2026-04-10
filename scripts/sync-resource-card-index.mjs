@@ -4,6 +4,7 @@
  * - lib/resourceSellModeled.generated.json — id → modeled on_sell ops
  * - lib/resourceMakeModeled.generated.json — id → modeled on_make_bourbon ops
  * - lib/resourceDeckPools.generated.json — specialty ids by deck tier (for buildResourceDeck)
+ * - lib/resourceCardDisplay.generated.json — id → { name, hook } for UI
  *
  * Run: npm run sync:resource-cards
  */
@@ -62,6 +63,8 @@ const pools = {
   global_swing: /** @type {string[]} */ ([]),
   detrimental: /** @type {string[]} */ ([]),
 };
+/** @type {Record<string, { name: string; hook: string; rule: string; engine: string; type_printed: string }>} */
+const cardDisplay = {};
 
 for (const cat of doc.categories) {
   const catId = cat.id;
@@ -71,6 +74,13 @@ for (const cat of doc.categories) {
     const play = c.play;
     const r = play?.resource ?? fallback;
     kinds[c.id] = r;
+    cardDisplay[c.id] = {
+      name: typeof c.name === "string" ? c.name : c.id,
+      hook: typeof c.hook === "string" ? c.hook : "",
+      rule: typeof c.rule === "string" ? c.rule : "",
+      engine: typeof play?.engine === "string" ? play.engine : "",
+      type_printed: typeof c.type_printed === "string" ? c.type_printed : "",
+    };
     const gsc = play?.grain_slot_cost;
     if (typeof gsc === "number" && gsc > 0) grainSlotCost[c.id] = gsc;
     const flags = play?.flags;
@@ -91,6 +101,7 @@ for (const cat of doc.categories) {
 }
 
 const makeOut = join(root, "lib", "resourceMakeModeled.generated.json");
+const displayOut = join(root, "lib", "resourceCardDisplay.generated.json");
 
 writeFileSync(
   kindOut,
@@ -116,9 +127,14 @@ writeFileSync(
   `${JSON.stringify({ version: 1, targetTotalCards: 230, pools }, null, 2)}\n`,
   "utf8"
 );
+writeFileSync(
+  displayOut,
+  `${JSON.stringify({ version: 1, byId: cardDisplay }, null, 2)}\n`,
+  "utf8"
+);
 
 console.log(
-  `Wrote kinds=${Object.keys(kinds).length}, modeled on_sell=${Object.keys(sellModeled).length}, on_make=${Object.keys(makeModeled).length}, pools=` +
+  `Wrote kinds=${Object.keys(kinds).length}, display=${Object.keys(cardDisplay).length}, modeled on_sell=${Object.keys(sellModeled).length}, on_make=${Object.keys(makeModeled).length}, pools=` +
     JSON.stringify({
       special: pools.special.length,
       strong_special: pools.strong_special.length,
