@@ -36,6 +36,25 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: "Game not in progress" }) };
   }
 
+  if (game.currentPhase === 2 && game.lastDemandRoll) {
+    let actor = "";
+    try {
+      const b = event.body ? (JSON.parse(event.body) as { playerId?: string }) : {};
+      actor = typeof b.playerId === "string" ? b.playerId : "";
+    } catch {
+      actor = "";
+    }
+    const cur = game.playerOrder[game.currentPlayerIndex];
+    if (!actor || !cur || actor !== cur) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: "Current baron's playerId required to start the Action phase",
+        }),
+      };
+    }
+  }
+
   const { game: updated, error } = advancePhaseLogic(game);
   if (error) {
     return { statusCode: 400, body: JSON.stringify({ error }) };

@@ -24,3 +24,56 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes bourbon-sale-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bourbon-sale-card {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) rotate(-2deg) translateY(14px);
+    filter: blur(5px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03) rotate(0.6deg) translateY(0);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg) translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes bourbon-sale-shine {
+  0% {
+    transform: translateX(-120%) skewX(-12deg);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateX(220%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+.bourbon-sale-backdrop {
+  animation: bourbon-sale-backdrop 0.35s ease-out both;
+}
+
+.bourbon-sale-card {
+  animation: bourbon-sale-card 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bourbon-sale-shine {
+  animation: bourbon-sale-shine 1.1s ease-in-out 0.15s both;
+}

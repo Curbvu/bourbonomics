@@ -7,8 +7,8 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { Resource } from "sst";
 import {
+  applyDemandRoll,
   normalizeGame,
-  rollDemandAndAdvance,
   type GameDoc,
 } from "./lib/game";
 
@@ -38,7 +38,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   const game = normalizeGame(unmarshall(res.Item) as GameDoc);
-  const result = rollDemandAndAdvance(game, playerId);
+  const result = applyDemandRoll(game, playerId);
 
   if (result.error) {
     return {

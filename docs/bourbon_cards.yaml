@@ -1,3 +1,5 @@
+# Canonical bourbon card data for Bourbonomics (single source of truth).
+# After editing, run: npm run sync:cards  (also runs on prebuild / predev).
 version: 1
 kind: bourbon_cards_v1
 intro:
@@ -359,7 +361,8 @@ cards:
     ages: [ 2, 4, 6 ]
     grid: [ [ 27, 26, 33 ], [ 28, 26, 55 ], [ 46, 45, 54 ] ]
     awards:
-      silver: Bottled-in-bond style: **≥3 corn** **and** **≥2 rye** among grains
+      silver: >-
+        Bottled-in-bond style: **≥3 corn** **and** **≥2 rye** among grains
         **or** barrel at **rickhouse-0** (cool river rack); **and** sell **≥ $39**
         **or** demand **odd**.
       gold: '**≥4 corn** and **≥2 rye** in the mash bill **or** sell **≥ $55** (grid **maximum** **$55**).'
@@ -400,7 +403,8 @@ cards:
     ages: [ 2, 4, 6 ]
     grid: [ [ 29, 21, 35 ], [ 30, 28, 50 ], [ 41, 47, 56 ] ]
     awards:
-      silver: **High-corn** mash: **≥4 corn** cards among grains **or** **≥3 corn**
+      silver: >-
+        **High-corn** mash: **≥4 corn** cards among grains **or** **≥3 corn**
         with **≥1 rye**; **and** sell **≥ $40** **or** demand **odd**.
       gold: '**≥5 corn** cards **or** **≥4 corn** and **≥2 wheat**; **and** sell **≥ $56** (grid **maximum** **$56**).'
   - id: "43"
@@ -493,7 +497,8 @@ cards:
       - [ 55, 48, 63 ]
       - [ 60, 52, 70 ]
     awards:
-      silver: Final-rick drama: barrel **rickhouse-3** **or** **rickhouse-5**; **and**
+      silver: >-
+        Final-rick drama: barrel **rickhouse-3** **or** **rickhouse-5**; **and**
         mash **≥2 rye** **or** **≥3 corn**; **and** sell **≥ $41** **or** demand
         **odd**.
       gold: '**12-year** row on this card **or** (**rickhouse-3** **and** **≥3 grain types**); **and** sell **≥ $70** (grid **maximum** **$70**).'

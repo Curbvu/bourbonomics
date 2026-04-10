@@ -4,10 +4,18 @@ import {
   INVESTMENTS,
   OPERATIONS,
 } from "./cards";
+import {
+  BOURBON_CARD_IDS,
+  buildBourbonSaleReveal,
+  bourbonPayoutFromGrid,
+  getBourbonCardDefById,
+  type BourbonSaleReveal,
+} from "../../lib/bourbonCards";
 export {
   KENTUCKY_BOURBON_TRAIL_REGIONS,
   rickhouseRegionLabel,
 } from "../../lib/rickhouses";
+export type { BourbonSaleReveal };
 
 /** Short id for game code (e.g. 6 alphanumeric). */
 export function shortId(length = 6): string {
@@ -99,6 +107,8 @@ export interface BarrelledBourbon {
 export interface BourbonCard {
   id: string;
   cardType: string;
+  /** Id from `docs/bourbon_cards.yaml` (e.g. `"01"`). */
+  yamlId?: string;
   silverAward?: boolean;
   goldAward?: boolean;
 }
@@ -195,6 +205,10 @@ export interface GameDoc {
   updatedAt: number;
   /** Six seats for lobby UI and join order; omit on older saves. */
   lobbySeats?: LobbySeat[];
+  /** Face-up bourbon market card id (yaml) for price previews. */
+  bourbonFaceUpId?: string;
+  /** Remaining shuffled bourbon card ids (yaml) to draw on sale. */
+  bourbonDeck?: string[];
 }
 
 export const INITIAL_MARKET_DEMAND = 6;
@@ -501,6 +515,10 @@ export function startGame(game: GameDoc): GameDoc {
     };
   }
 
+  const bourbonPile = shuffle([...BOURBON_CARD_IDS]);
+  const bourbonFaceUpId = bourbonPile.pop() ?? BOURBON_CARD_IDS[0]!;
+  const bourbonDeck = bourbonPile;
+
   return {
     ...game,
     status: "in_progress",
@@ -516,6 +534,8 @@ export function startGame(game: GameDoc): GameDoc {
     rickhouses,
     marketPiles: marketPiles ?? emptyMarketPiles(),
     resourceDeck,
+    bourbonFaceUpId,
+    bourbonDeck,
     marketDemandHistory: [
       { demand: game.marketDemand, kind: "start", turnNumber: 1 },
     ],
@@ -558,8 +578,11 @@ export function rollMarketDice(currentDemand: number): number {
   return rollMarketDemandDice(currentDemand).demandAfter;
 }
 
-/** Phase 2: current baron rolls demand dice and advances to the Action phase. */
-export function rollDemandAndAdvance(
+/**
+ * Phase 2: resolve demand dice and persist `lastDemandRoll`, but stay in Phase 2
+ * so the client can animate and delay advancing (see `advancePhase` from phase 2).
+ */
+export function applyDemandRoll(
   game: GameDoc,
   playerId: string
 ): { game: GameDoc; error?: string } {
@@ -569,6 +592,8 @@ export function rollDemandAndAdvance(
     return { game, error: "Roll demand only in Phase 2 (market demand)" };
   const currentId = game.playerOrder[game.currentPlayerIndex];
   if (currentId !== playerId) return { game, error: "Not your turn" };
+  if (game.lastDemandRoll)
+    return { game, error: "Demand dice already rolled this turn." };
 
   const roll = rollMarketDemandDice(game.marketDemand);
   const now = Date.now();
@@ -576,7 +601,6 @@ export function rollDemandAndAdvance(
     game: {
       ...game,
       marketDemand: roll.demandAfter,
-      currentPhase: 3,
       lastDemandRoll: roll,
       marketDemandHistory: appendMarketDemandHistory(
         game,
@@ -586,6 +610,18 @@ export function rollDemandAndAdvance(
       updatedAt: now,
     },
   };
+}
+
+/** Bots / tests: roll and enter the Action phase in one step. */
+export function rollDemandAndAdvance(
+  game: GameDoc,
+  playerId: string
+): { game: GameDoc; error?: string } {
+  const rolled = applyDemandRoll(game, playerId);
+  if (rolled.error) return rolled;
+  const adv = advancePhase(rolled.game);
+  if (adv.error) return { game: rolled.game, error: adv.error };
+  return { game: adv.game };
 }
 
 /** Check win conditions. Returns winnerIds if game is over. */
@@ -640,9 +676,18 @@ export function advancePhase(game: GameDoc): AdvancePhaseResult {
     return { game: next };
   }
   if (game.currentPhase === 2) {
+    if (!game.lastDemandRoll) {
+      return {
+        game,
+        error: "Roll market demand (use Roll dice) before the Action phase.",
+      };
+    }
     return {
-      game,
-      error: "Roll market demand (use Roll dice) before the Action phase.",
+      game: {
+        ...game,
+        currentPhase: 3,
+        updatedAt: now,
+      },
     };
   }
   if (game.currentPhase === 3) {
@@ -1131,12 +1176,22 @@ export function previewRickhouseFeesForPlayer(game: GameDoc, playerId: string): 
   return total;
 }
 
-/** Until Bourbon Card matrix is wired, use age × demand (demand 0 ⇒ age only), clamped (GAME_RULES). */
+/** Legacy age × demand (demand 0 ⇒ age only), clamped — fallback when no bourbon card. */
 export function computeSaleProceeds(ageYears: number, marketDemand: number): number {
   if (marketDemand <= 0) return ageYears;
   const a = Math.min(Math.max(0, ageYears), 12);
   const d = Math.min(Math.max(0, marketDemand), 12);
   return a * d;
+}
+
+/** Estimated sale using the face-up bourbon card grid when available. */
+export function previewSaleProceeds(game: GameDoc, barrelAge: number): number {
+  const d = game.marketDemand;
+  const face = game.bourbonFaceUpId
+    ? getBourbonCardDefById(game.bourbonFaceUpId)
+    : undefined;
+  if (face) return bourbonPayoutFromGrid(face, barrelAge, d);
+  return computeSaleProceeds(barrelAge, d);
 }
 
 /** Phase 1: pay all rickhouse fees and age each of your barrelled bourbons by 1 year. */
@@ -1195,7 +1250,7 @@ export function sellBourbon(
   game: GameDoc,
   playerId: string,
   barrelId: string
-): { game: GameDoc; error?: string } {
+): { game: GameDoc; error?: string; sale?: BourbonSaleReveal } {
   if (!inActionPhases(game.currentPhase))
     return { game, error: "Sell only during the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
@@ -1212,18 +1267,38 @@ export function sellBourbon(
   if (player.cash < actionCost)
     return { game, error: "Not enough cash for this action" };
 
-  const proceeds = computeSaleProceeds(barrel.age, game.marketDemand);
+  const demandAtSale = game.marketDemand;
+  let deck = [...(game.bourbonDeck ?? [])];
+  if (deck.length === 0) deck = shuffle([...BOURBON_CARD_IDS]);
+  const drawnYamlId = deck.pop()!;
+  const cardDef = getBourbonCardDefById(drawnYamlId);
+  if (!cardDef) return { game, error: "Bourbon card data missing" };
+
+  const proceeds = bourbonPayoutFromGrid(cardDef, barrel.age, demandAtSale);
+  const sale: BourbonSaleReveal = {
+    ...buildBourbonSaleReveal(cardDef, barrel.age, demandAtSale, proceeds),
+    actionFeePaid: actionCost,
+  };
+
   const now = Date.now();
   const newRickhouses = game.rickhouses.map((r) =>
     r.id === barrel.rickhouseId
       ? { ...r, barrels: r.barrels.filter((br) => br.barrelId !== barrelId) }
       : r
   );
+  const bourbonInstanceId = `bourbon_${now}_${Math.random().toString(36).slice(2, 9)}`;
+  const newBourbonCard: BourbonCard = {
+    id: bourbonInstanceId,
+    cardType: cardDef.name,
+    yamlId: cardDef.id,
+  };
+
   const newPlayers = { ...game.players };
   newPlayers[playerId] = {
     ...player,
     cash: player.cash - actionCost + proceeds,
     barrelledBourbons: player.barrelledBourbons.filter((b) => b.id !== barrelId),
+    bourbonCards: [...player.bourbonCards, newBourbonCard],
   };
 
   const newDemand = Math.max(0, game.marketDemand - 1);
@@ -1234,11 +1309,12 @@ export function sellBourbon(
     marketDemand: newDemand,
     marketDemandHistory: appendMarketDemandHistory(game, newDemand, "sell"),
     actionsTakenThisTurn: taken + 1,
+    bourbonDeck: deck,
     updatedAt: now,
   };
   const winners = checkWinConditions(updated);
   if (winners?.length) updated = { ...updated, status: "finished", winnerIds: winners };
-  return { game: updated };
+  return { game: updated, sale };
 }
 
 function ensureBaronHands(p: Baron | undefined): Baron | undefined {
@@ -1328,6 +1404,18 @@ export function normalizeGame(game: GameDoc): GameDoc {
     ];
   }
 
+  let bourbonDeck = game.bourbonDeck;
+  let bourbonFaceUpId = game.bourbonFaceUpId;
+  if (
+    game.status === "in_progress" &&
+    bourbonDeck === undefined &&
+    bourbonFaceUpId === undefined
+  ) {
+    const pile = shuffle([...BOURBON_CARD_IDS]);
+    bourbonFaceUpId = pile.pop() ?? BOURBON_CARD_IDS[0]!;
+    bourbonDeck = pile;
+  }
+
   const next: GameDoc = {
     ...game,
     mode: normalizeGameMode(game.mode),
@@ -1340,6 +1428,8 @@ export function normalizeGame(game: GameDoc): GameDoc {
     resourceDeck,
     rickhouseFeesPaidThisTurn,
     players,
+    bourbonDeck,
+    bourbonFaceUpId,
   };
   if (marketDemandHistory !== undefined) {
     next.marketDemandHistory = marketDemandHistory;

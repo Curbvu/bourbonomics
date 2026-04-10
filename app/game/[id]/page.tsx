@@ -10,12 +10,13 @@ import {
   type ReactNode,
 } from "react";
 import { rickhouseRegionLabel } from "@/lib/rickhouses";
+import type { BourbonSaleReveal } from "@/lib/bourbonCards";
 import {
   type GameDoc,
   type MarketDemandHistoryEntry,
   nextActionCashCost,
   previewRickhouseFeesForPlayer,
-  computeSaleProceeds,
+  previewSaleProceeds,
   handHasMashForBarrel,
   isGrainCard,
   isValidMashSelection,
@@ -27,8 +28,17 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
+/** Minimum time to show demand dice cycling before revealing the server roll. */
+const DEMAND_ROLL_ANIM_MIN_MS = 1100;
+/** After the roll is shown, auto-advance to Action phase after this many ms (current baron only). */
+const PHASE_2_TO_3_DELAY_MS = 3000;
+
 function isBotPlayer(id: string): boolean {
   return id.startsWith("bot_");
+}
+
+function randomD6(): number {
+  return Math.floor(Math.random() * 6) + 1;
 }
 
 function DemandDiceFaces(props: {
@@ -37,24 +47,195 @@ function DemandDiceFaces(props: {
   after: ReactNode;
   className?: string;
   announceLabel?: string;
+  /** Rapidly cycling faces (rolling animation). */
+  rolling?: boolean;
 }) {
-  const { left, right, after, className, announceLabel } = props;
+  const { left, right, after, className, announceLabel, rolling } = props;
+  const dieClass =
+    "flex h-12 w-12 items-center justify-center rounded-lg border-2 border-indigo-500 bg-white text-2xl font-bold tabular-nums shadow-inner transition-transform dark:border-indigo-400 dark:bg-slate-800/40";
   return (
     <div
       className={`flex flex-wrap items-center gap-3 text-slate-800 dark:text-slate-100 ${className ?? ""}`}
       role={announceLabel ? "region" : undefined}
       aria-label={announceLabel}
     >
-      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-indigo-500 bg-white text-2xl font-bold tabular-nums dark:border-indigo-400 dark:bg-slate-800/40">
+      <span
+        className={`${dieClass} ${rolling ? "motion-safe:animate-pulse motion-safe:ring-2 motion-safe:ring-indigo-400/50" : ""}`}
+        style={rolling ? { animationDuration: "0.45s" } : undefined}
+      >
         {left}
       </span>
       <span className="text-lg font-medium">+</span>
-      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-indigo-500 bg-white text-2xl font-bold tabular-nums dark:border-indigo-400 dark:bg-slate-800/40">
+      <span
+        className={`${dieClass} ${rolling ? "motion-safe:animate-pulse motion-safe:ring-2 motion-safe:ring-indigo-400/50" : ""}`}
+        style={rolling ? { animationDuration: "0.55s" } : undefined}
+      >
         {right}
       </span>
       <span className="min-w-0 text-sm leading-snug text-slate-600 dark:text-slate-200">
         {after}
       </span>
+    </div>
+  );
+}
+
+function BourbonSaleExperience(props: {
+  sale: BourbonSaleReveal;
+  onDismiss: () => void;
+}) {
+  const { sale, onDismiss } = props;
+
+  useEffect(() => {
+    const t = window.setTimeout(onDismiss, 9500);
+    return () => window.clearTimeout(t);
+  }, [sale, onDismiss]);
+
+  const rarityTone =
+    sale.rarity === "Rare"
+      ? "border-violet-400/70 bg-violet-500/15 text-violet-100"
+      : "border-amber-400/60 bg-amber-500/15 text-amber-50";
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="bourbon-sale-title"
+      className="bourbon-sale-backdrop fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md"
+      onClick={onDismiss}
+    >
+      <div
+        className="bourbon-sale-card relative max-h-[92vh] w-full max-w-lg cursor-default overflow-y-auto rounded-2xl border-2 border-amber-500/50 bg-gradient-to-b from-amber-950/90 via-slate-950 to-slate-950 p-5 text-slate-100 shadow-[0_0_55px_rgba(245,158,11,0.22)] sm:p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="bourbon-sale-shine pointer-events-none absolute inset-0 overflow-hidden rounded-2xl"
+          aria-hidden
+        >
+          <div className="absolute inset-y-0 left-0 w-2/5 bg-gradient-to-r from-amber-300/25 to-transparent opacity-30" />
+        </div>
+
+        <div className="relative">
+          <p className="text-center text-[10px] font-bold uppercase tracking-[0.28em] text-amber-200/90">
+            Bourbon card drawn
+          </p>
+          <h2
+            id="bourbon-sale-title"
+            className="mt-2 text-center font-serif text-2xl font-semibold leading-tight text-amber-50 sm:text-3xl"
+          >
+            {sale.bourbonName}
+          </h2>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <span
+              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${rarityTone}`}
+            >
+              {sale.rarity}
+            </span>
+            <span className="rounded-full border border-slate-600/80 bg-slate-900/80 px-2.5 py-0.5 font-mono text-[10px] text-slate-300">
+              #{sale.bourbonYamlId}
+            </span>
+            <span className="rounded-full border border-slate-600/80 bg-slate-900/80 px-2.5 py-0.5 text-[10px] text-slate-300">
+              Barrel {sale.barrelAge}y · Demand {sale.marketDemandAtSale} at sale
+            </span>
+          </div>
+
+          <p className="mx-auto mt-3 max-w-md text-center text-xs leading-relaxed text-slate-400">
+            Market Price Guide: use the highest age row ≤ your bourbon age and the highest
+            demand column ≤ market demand (from{" "}
+            <span className="font-medium text-slate-300">docs/bourbon_cards.yaml</span>).
+          </p>
+
+          <div className="relative mt-5 overflow-x-auto rounded-xl border border-amber-900/50 bg-black/35 p-3">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-200/80">
+              Price guide ($)
+            </p>
+            <table className="w-full min-w-[260px] border-collapse text-center text-[11px]">
+              <thead>
+                <tr>
+                  <th className="border border-slate-700/80 bg-slate-900/90 px-1.5 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                    Age \ Demand
+                  </th>
+                  {sale.demand.map((d, ci) => (
+                    <th
+                      key={`${d}-${ci}`}
+                      className={`border border-slate-700/80 px-1.5 py-1.5 text-[10px] font-bold tabular-nums ${
+                        sale.payoutSource === "grid" && sale.usedCol === ci
+                          ? "bg-amber-500/25 text-amber-100 ring-1 ring-amber-400/60"
+                          : "bg-slate-900/90 text-slate-300"
+                      }`}
+                    >
+                      ≤{d}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sale.grid.map((row, ri) => (
+                  <tr key={ri}>
+                    <th
+                      className={`border border-slate-700/80 px-1.5 py-1.5 text-left text-[10px] font-bold tabular-nums ${
+                        sale.payoutSource === "grid" && ri === sale.usedRow
+                          ? "bg-amber-500/20 text-amber-50 ring-1 ring-amber-400/50"
+                          : "bg-slate-900/95 text-slate-400"
+                      }`}
+                    >
+                      {sale.ages[ri]}y
+                    </th>
+                    {row.map((cell, ci) => {
+                      const isPick =
+                        sale.payoutSource === "grid" &&
+                        ri === sale.usedRow &&
+                        ci === sale.usedCol;
+                      return (
+                        <td
+                          key={ci}
+                          className={`border border-slate-700/70 px-1 py-1.5 font-mono text-[11px] tabular-nums ${
+                            isPick
+                              ? "bg-amber-400/90 font-bold text-slate-950 shadow-[inset_0_0_0_2px_rgba(251,191,36,0.9)]"
+                              : "bg-slate-950/60 text-slate-200"
+                          }`}
+                        >
+                          ${cell}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {sale.payoutSource === "demand_zero" ? (
+              <p className="mt-2 text-[11px] leading-snug text-amber-200/90">
+                Market demand was 0 — payout uses the age-only fallback (${sale.payout}), not a
+                grid cell.
+              </p>
+            ) : (
+              <p className="mt-2 text-[11px] text-slate-400">
+                Matched cell:{" "}
+                <span className="font-semibold text-amber-100">
+                  {sale.ages[sale.usedRow]}y × demand ≤ {sale.demand[sale.usedCol]}
+                </span>
+              </p>
+            )}
+          </div>
+
+          <div className="relative mt-5 rounded-2xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-4 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300/90">
+              Your payout
+            </p>
+            <p className="mt-1 font-mono text-4xl font-black tabular-nums text-emerald-50 sm:text-5xl">
+              ${sale.payout}
+            </p>
+            <p className="mt-1 text-[11px] text-emerald-200/80">
+              {sale.actionFeePaid != null && sale.actionFeePaid > 0
+                ? `Action fee for this sell: $${sale.actionFeePaid} (already taken from your cash). Net from this action: $${sale.payout - sale.actionFeePaid}.`
+                : "No action fee on this sell — first three actions each turn are free."}
+            </p>
+          </div>
+
+          <p className="mt-4 text-center text-[11px] text-slate-500">
+            Tap outside or wait — this message closes automatically.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -358,6 +539,9 @@ interface Game {
   marketGoods?: string[];
   resourceDeck?: string[];
   lobbySeats?: { kind: string; playerId?: string }[];
+  /** Face-up bourbon card id from `docs/bourbon_cards.yaml` (price preview). */
+  bourbonFaceUpId?: string;
+  bourbonDeck?: string[];
 }
 
 function barrelMashCards(
@@ -448,7 +632,48 @@ export default function GamePage() {
   const [mashSelection, setMashSelection] = useState<Set<number>>(() => new Set());
   /** Up to 3 pile taps for the next market buy (Action phase). */
   const [marketDrawPicks, setMarketDrawPicks] = useState<MarketPileKey[]>([]);
+  const [demandRollSpinning, setDemandRollSpinning] = useState(false);
+  const [demandSpinFaces, setDemandSpinFaces] = useState<[number, number]>([1, 1]);
+  /** 0–1 fill while waiting to auto-advance Phase 2 → 3 (current human baron only). */
+  const [phase2AdvanceBar, setPhase2AdvanceBar] = useState(0);
+  const [bourbonSaleReveal, setBourbonSaleReveal] = useState<BourbonSaleReveal | null>(null);
+  const demandSpinTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const computerTurnRequested = useRef(false);
+
+  const dismissBourbonSale = useCallback(() => setBourbonSaleReveal(null), []);
+
+  const handleNextPhase = useCallback(async () => {
+    setActionLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/games/${gameId}/phase`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId }),
+      });
+      const text = await res.text();
+      let data: unknown = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        if (!res.ok) {
+          throw new Error(text.trim().slice(0, 200) || "Failed to advance");
+        }
+        throw new Error("Invalid server response");
+      }
+      if (!res.ok) {
+        const errBody = data as { error?: string; message?: string };
+        throw new Error(
+          errBody.error || errBody.message || "Failed to advance"
+        );
+      }
+      setGame(data as Game);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to advance");
+    } finally {
+      setActionLoading(false);
+    }
+  }, [gameId, playerId]);
 
   const loadGame = useCallback(async () => {
     if (!gameId) return;
@@ -476,6 +701,71 @@ export default function GamePage() {
     game?.status === "in_progress" &&
     currentPlayerId != null &&
     isBotPlayer(currentPlayerId);
+
+  const p2RollKey =
+    game != null &&
+    game.status === "in_progress" &&
+    game.currentPhase === 2 &&
+    game.lastDemandRoll
+      ? `${game.turnNumber}:${game.currentPlayerIndex}:${game.lastDemandRoll.die1}-${game.lastDemandRoll.die2}-${game.lastDemandRoll.demandAfter}`
+      : "";
+  const phase2CountdownIsCurrent =
+    game != null &&
+    game.status === "in_progress" &&
+    playerId !== "" &&
+    game.playerOrder[game.currentPlayerIndex ?? 0] === playerId;
+  const phase2CountdownIsCpuTurn =
+    game != null &&
+    game.status === "in_progress" &&
+    currentPlayerId != null &&
+    isBotPlayer(currentPlayerId);
+
+  useEffect(() => {
+    return () => {
+      if (demandSpinTimerRef.current) {
+        clearInterval(demandSpinTimerRef.current);
+        demandSpinTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!p2RollKey) {
+      setPhase2AdvanceBar(0);
+      return;
+    }
+    if (!phase2CountdownIsCurrent || phase2CountdownIsCpuTurn) {
+      setPhase2AdvanceBar(0);
+      return;
+    }
+    if (demandRollSpinning) {
+      setPhase2AdvanceBar(0);
+      return;
+    }
+
+    const start = performance.now();
+    const dur = PHASE_2_TO_3_DELAY_MS;
+    let rafId = 0;
+
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / dur);
+      setPhase2AdvanceBar(p);
+      if (p >= 1) {
+        void handleNextPhase();
+        return;
+      }
+      rafId = requestAnimationFrame(step);
+    };
+    rafId = requestAnimationFrame(step);
+
+    return () => cancelAnimationFrame(rafId);
+  }, [
+    p2RollKey,
+    demandRollSpinning,
+    phase2CountdownIsCurrent,
+    phase2CountdownIsCpuTurn,
+    handleNextPhase,
+  ]);
 
   useEffect(() => {
     if (!isComputerTurn || !gameId || !API_URL || computerTurnRequested.current) return;
@@ -630,36 +920,18 @@ export default function GamePage() {
     }
   }
 
-  async function handleNextPhase() {
-    setActionLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`${API_URL}/games/${gameId}/phase`, { method: "POST" });
-      const text = await res.text();
-      let data: unknown = null;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        if (!res.ok) {
-          throw new Error(text.trim().slice(0, 200) || "Failed to advance");
-        }
-        throw new Error("Invalid server response");
-      }
-      if (!res.ok) {
-        const errBody = data as { error?: string; message?: string };
-        throw new Error(
-          errBody.error || errBody.message || "Failed to advance"
-        );
-      }
-      setGame(data as Game);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to advance");
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
   async function handleRollDemand() {
+    if (demandSpinTimerRef.current) {
+      clearInterval(demandSpinTimerRef.current);
+      demandSpinTimerRef.current = null;
+    }
+    const rollStart = Date.now();
+    setDemandRollSpinning(true);
+    setDemandSpinFaces([randomD6(), randomD6()]);
+    demandSpinTimerRef.current = setInterval(() => {
+      setDemandSpinFaces([randomD6(), randomD6()]);
+    }, 65);
+
     setActionLoading(true);
     setError("");
     try {
@@ -668,10 +940,28 @@ export default function GamePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as Game & { error?: string };
       if (!res.ok) throw new Error(data.error || "Failed to roll demand");
+
+      const elapsed = Date.now() - rollStart;
+      const wait = Math.max(0, DEMAND_ROLL_ANIM_MIN_MS - elapsed);
+      await new Promise((r) => setTimeout(r, wait));
+
+      if (demandSpinTimerRef.current) {
+        clearInterval(demandSpinTimerRef.current);
+        demandSpinTimerRef.current = null;
+      }
+      setDemandRollSpinning(false);
       setGame(data);
+      const resolved = data.lastDemandRoll;
+      if (resolved)
+        setDemandSpinFaces([resolved.die1, resolved.die2]);
     } catch (err) {
+      if (demandSpinTimerRef.current) {
+        clearInterval(demandSpinTimerRef.current);
+        demandSpinTimerRef.current = null;
+      }
+      setDemandRollSpinning(false);
       setError(err instanceof Error ? err.message : "Failed to roll demand");
     } finally {
       setActionLoading(false);
@@ -726,9 +1016,15 @@ export default function GamePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId, barrelId }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to sell");
-      setGame(data);
+      const raw: unknown = await res.json();
+      const body = raw as { error?: string; game?: Game; sale?: BourbonSaleReveal };
+      if (!res.ok) throw new Error(body.error || "Failed to sell");
+      if (body.game) {
+        setGame(body.game);
+        if (body.sale) setBourbonSaleReveal(body.sale);
+      } else {
+        setGame(raw as Game);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sell");
     } finally {
@@ -1217,6 +1513,9 @@ export default function GamePage() {
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950">
+      {bourbonSaleReveal ? (
+        <BourbonSaleExperience sale={bourbonSaleReveal} onDismiss={dismissBourbonSale} />
+      ) : null}
       <div className="flex min-h-screen flex-col lg:flex-row lg:items-stretch">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col border-slate-200 dark:border-slate-800 lg:border-r">
           <header className="sticky top-0 z-10 shrink-0 border-b border-slate-200 bg-slate-100/95 px-3 py-2 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95">
@@ -1425,7 +1724,10 @@ export default function GamePage() {
                       <ul className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">
                         {me.barrelledBourbons.map((b) => {
                           const loc = rickhouseRegionLabel(b.rickhouseId);
-                          const est = computeSaleProceeds(b.age, game.marketDemand);
+                          const est = previewSaleProceeds(
+                            game as unknown as GameDoc,
+                            b.age
+                          );
                           const canSell =
                             isCurrentPlayer &&
                             !isComputerTurnNow &&
@@ -1535,6 +1837,140 @@ export default function GamePage() {
                     </div>
                   ) : null}
 
+                  {game.status === "in_progress" &&
+                  game.currentPhase === 2 &&
+                  !isComputerTurnNow ? (
+                    <div className="rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm dark:border-slate-600 dark:bg-slate-800/50">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Roll market demand
+                      </p>
+                      <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                        Two dice (mock). Sum &gt; demand → +1 (max 12). Double six → 12.
+                        {game.lastDemandRoll ? (
+                          <>
+                            {" "}
+                            New demand:{" "}
+                            <strong className="tabular-nums">{game.marketDemand}</strong>.
+                          </>
+                        ) : (
+                          <>
+                            {" "}
+                            Demand before roll:{" "}
+                            <strong className="tabular-nums">{game.marketDemand}</strong>.
+                          </>
+                        )}
+                      </p>
+                      {(() => {
+                        const lr = game.lastDemandRoll;
+                        const showLocalSpin =
+                          demandRollSpinning && isCurrentPlayer && !isComputerTurnNow;
+                        const left: number | "?" = showLocalSpin
+                          ? demandSpinFaces[0]
+                          : lr
+                            ? lr.die1
+                            : "?";
+                        const right: number | "?" = showLocalSpin
+                          ? demandSpinFaces[1]
+                          : lr
+                            ? lr.die2
+                            : "?";
+                        const after =
+                          !lr && !showLocalSpin ? (
+                            <span>
+                              Tap <strong>Roll demand dice</strong> for two d6.
+                            </span>
+                          ) : showLocalSpin ? (
+                            <span>Rolling…</span>
+                          ) : lr ? (
+                            <span>
+                              Sum{" "}
+                              <strong className="tabular-nums text-slate-800 dark:text-slate-100">
+                                {lr.sum}
+                              </strong>
+                              {lr.doubleSix ? (
+                                <span className="text-amber-700 dark:text-amber-300">
+                                  {" "}
+                                  · Double six — demand set to 12.
+                                </span>
+                              ) : null}
+                              {" "}
+                              · Demand{" "}
+                              <strong className="tabular-nums">{lr.demandBefore}</strong> →{" "}
+                              <strong className="tabular-nums">{lr.demandAfter}</strong>
+                            </span>
+                          ) : null;
+                        return (
+                          <DemandDiceFaces
+                            className="mt-2"
+                            left={left}
+                            right={right}
+                            after={after}
+                            rolling={showLocalSpin}
+                            announceLabel="Market demand dice"
+                          />
+                        );
+                      })()}
+                      {isCurrentPlayer && !game.lastDemandRoll ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleRollDemand()}
+                          disabled={actionLoading || demandRollSpinning}
+                          className="mt-3 w-full rounded-lg bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-800 disabled:opacity-50"
+                        >
+                          {actionLoading || demandRollSpinning
+                            ? "Rolling…"
+                            : "Roll demand dice"}
+                        </button>
+                      ) : null}
+                      {isCurrentPlayer && game.lastDemandRoll && !demandRollSpinning ? (
+                        <div className="mt-3">
+                          <div className="mb-1 flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            <span>Starting Action phase</span>
+                            <span className="tabular-nums text-indigo-600 dark:text-indigo-300">
+                              {Math.max(0, Math.ceil((1 - phase2AdvanceBar) * (PHASE_2_TO_3_DELAY_MS / 1000)))}
+                              s
+                            </span>
+                          </div>
+                          <div
+                            className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
+                            role="progressbar"
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={Math.round(phase2AdvanceBar * 100)}
+                            aria-label="Time until Action phase"
+                          >
+                            <div
+                              className="h-full rounded-full bg-indigo-500 transition-[width] duration-75 ease-linear dark:bg-teal-500"
+                              style={{ width: `${Math.round(phase2AdvanceBar * 100)}%` }}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void handleNextPhase()}
+                            disabled={actionLoading}
+                            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                          >
+                            Skip wait — go now
+                          </button>
+                        </div>
+                      ) : null}
+                      {!isCurrentPlayer && game.lastDemandRoll ? (
+                        <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                          Dice are in — waiting for{" "}
+                          <strong>
+                            {game.players[game.playerOrder[game.currentPlayerIndex] ?? ""]
+                              ?.name ?? "the active baron"}
+                          </strong>{" "}
+                          to enter the Action phase.
+                        </p>
+                      ) : !isCurrentPlayer && !game.lastDemandRoll ? (
+                        <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                          Waiting for the roll from the active baron.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   {isCurrentPlayer && !isComputerTurnNow && (
                     <div className="flex flex-col gap-3">
                       {game.currentPhase === 1 && (
@@ -1571,32 +2007,6 @@ export default function GamePage() {
                             className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                           >
                             {actionLoading ? "…" : "Next phase"}
-                          </button>
-                        </div>
-                      )}
-                      {game.currentPhase === 2 && (
-                        <div className="rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm dark:border-slate-600 dark:bg-slate-800/50">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Roll market demand
-                          </p>
-                          <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
-                            Two dice (mock). Sum &gt; demand → +1 (max 12). Double six → 12.
-                            Demand now:{" "}
-                            <strong className="tabular-nums">{game.marketDemand}</strong>.
-                          </p>
-                          <DemandDiceFaces
-                            className="mt-2"
-                            left="?"
-                            right="?"
-                            after="→ roll to reveal"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleRollDemand}
-                            disabled={actionLoading}
-                            className="mt-3 w-full rounded-lg bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-800 disabled:opacity-50"
-                          >
-                            {actionLoading ? "Rolling…" : "Roll demand dice"}
                           </button>
                         </div>
                       )}

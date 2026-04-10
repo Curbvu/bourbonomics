@@ -6,6 +6,9 @@
     "node": ">=22 <25"
   },
   "scripts": {
+    "sync:cards": "node scripts/sync-bourbon-catalog.mjs",
+    "prebuild": "npm run sync:cards",
+    "predev": "npm run sync:cards",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

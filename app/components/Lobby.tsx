@@ -92,6 +92,12 @@ export default function Lobby() {
           Bourbonomics
         </h1>
         <p className="mt-2 text-sm text-slate-400">Host a game or join with a code</p>
+        <Link
+          href="/rules"
+          className="mt-2 inline-block text-xs font-medium text-indigo-300 underline decoration-indigo-500/40 underline-offset-2 hover:text-cyan-200"
+        >
+          Quick tutorial — how to play
+        </Link>
       </div>
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 lg:flex-row lg:items-start lg:gap-8">
