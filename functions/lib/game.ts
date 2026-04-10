@@ -19,7 +19,28 @@ export function shortId(length = 6): string {
   return result;
 }
 
-export type GameMode = "normal" | "bottled-in-bond" | "singleplayer";
+/** Canonical game modes (lobby + stored on `GameDoc`). */
+export type GameMode =
+  | "whiskey-tutorial"
+  | "kentucky-straight"
+  | "bottled-in-bond";
+
+/** Map API body / legacy Dynamo values to canonical {@link GameMode}. */
+export function normalizeGameMode(raw: unknown): GameMode {
+  if (raw === "bottled-in-bond") return "bottled-in-bond";
+  if (raw === "whiskey-tutorial" || raw === "singleplayer") return "whiskey-tutorial";
+  return "kentucky-straight";
+}
+
+export const GAME_MODE_LABELS: Record<GameMode, string> = {
+  "whiskey-tutorial": "Whiskey Tutorial",
+  "kentucky-straight": "Kentucky Straight",
+  "bottled-in-bond": "Bottled-in-Bond (pending)",
+};
+
+export function gameModeDisplayLabel(raw: unknown): string {
+  return GAME_MODE_LABELS[normalizeGameMode(raw)];
+}
 export type GameStatus = "lobby" | "in_progress" | "finished";
 
 /** Seats 2–6 plan when creating a multiplayer lobby (seat 1 is always the host). */
@@ -151,6 +172,8 @@ export interface GameDoc {
 export const INITIAL_MARKET_DEMAND = 6;
 /** Capacities per slot; indices align with Kentucky Bourbon Trail® regions (see `lib/rickhouses.ts`). */
 export const RICKHOUSE_CAPACITIES = [3, 4, 5, 6, 4, 5]; // 6 rickhouses
+/** Baron of Kentucky: total barrelled bourbons required (GAME_RULES). */
+export const WIN_BARON_OF_KENTUCKY_MIN_BARRELS = 15;
 export const STARTING_CASH = 25;
 export const PHASE_NAMES = [
   "",
@@ -533,10 +556,13 @@ export function checkWinConditions(game: GameDoc): string[] | null {
     return last ? [last.id] : [];
   }
   for (const p of players) {
-    const barrelledIn = new Set(
-      (p.barrelledBourbons ?? []).map((b) => b.rickhouseId)
-    );
-    if (barrelledIn.size >= 6) return [p.id];
+    const barrelled = p.barrelledBourbons ?? [];
+    const barrelledIn = new Set(barrelled.map((b) => b.rickhouseId));
+    if (
+      barrelledIn.size >= RICKHOUSE_CAPACITIES.length &&
+      barrelled.length >= WIN_BARON_OF_KENTUCKY_MIN_BARRELS
+    )
+      return [p.id];
   }
   const goldCount = (pid: string) =>
     (game.players[pid]?.bourbonCards ?? []).filter(
@@ -1228,6 +1254,7 @@ export function normalizeGame(game: GameDoc): GameDoc {
 
   return {
     ...game,
+    mode: normalizeGameMode(game.mode),
     currentPhase,
     turnStructureVersion,
     actionsTakenThisTurn: game.actionsTakenThisTurn ?? 0,

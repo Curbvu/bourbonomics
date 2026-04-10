@@ -18,7 +18,7 @@ Only the savviest player will rise to the top. **Do you have what it takes to ru
 
 ### Game Modes
 
-- **Whiskey Mode** — First-time players should start with this mode. It focuses on the core concept of the game. 
+- **Whiskey Tutorial Mode** — First-time players should start with this mode. It focuses on the core concept of the game. 
 - **Kentucky Straight** —This is the "normal" game mode. All instructions are written for the "normal" game mode.
 - **Bottled-in-Bond** — This mode is not for the faint of heart; it presents more challenges for the players.
 
@@ -26,7 +26,7 @@ Only the savviest player will rise to the top. **Do you have what it takes to ru
 
 - **Triple Crown** — Have 3 Gold Bourbon Awards.
 - **Last Baron Standing** — All other players eliminated or bankrupted.
-- **Baron of Kentucky** — Have a barrelled bourbon in all 6 rickhouses.
+- **Baron of Kentucky** — Have 15 barrelled bourbon and atleast one in each of the 6 rickhouses.
 
 ---
 

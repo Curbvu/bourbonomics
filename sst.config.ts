@@ -4,11 +4,34 @@ export default $config({
   app(input) {
     return {
       name: "bourbonomics",
-      removal: input?.stage === "production" ? "retain" : "remove",
+      removal: input?.stage === "prod" ? "retain" : "remove",
+      protect: ["prod"].includes(input?.stage ?? ""),
       home: "aws",
     };
   },
   async run() {
+    const hostedZoneId = process.env.HOSTED_ZONE_ID;
+    const certificateArn = process.env.CERTIFICATE_ARN;
+    const apexDomain = process.env.DOMAIN?.replace(/\.$/, "");
+    const stageName = process.env.STAGE;
+
+    const siteDomain =
+      hostedZoneId && certificateArn && apexDomain && stageName
+        ? stageName === "prod"
+          ? apexDomain
+          : stageName === "stg"
+            ? `stg.${apexDomain}`
+            : `dev.${apexDomain}`
+        : undefined;
+
+    const webDomain =
+      siteDomain != null
+        ? {
+            name: siteDomain,
+            dns: sst.aws.dns({ zone: hostedZoneId! }),
+            cert: certificateArn!,
+          }
+        : undefined;
     const gamesTable = new sst.aws.Dynamo("Games", {
       fields: {
         gameId: "string",
@@ -83,6 +106,7 @@ export default $config({
     api.route("POST /games/{id}/cards", "functions/gameCards.handler");
 
     const web = new sst.aws.Nextjs("Web", {
+      ...(webDomain ? { domain: webDomain } : {}),
       link: [api, ws],
       environment: {
         NEXT_PUBLIC_API_URL: api.url,
@@ -93,6 +117,7 @@ export default $config({
     return {
       apiUrl: api.url,
       webUrl: web.url,
+      siteDomain: siteDomain ?? "",
       wsUrl: ws.url,
     };
   },

@@ -11,6 +11,7 @@ import {
   startGame,
   BOT_ID_PREFIX,
   applyMultiplayerLobbyPlan,
+  normalizeGameMode,
   type GameMode,
   type LobbySlotPlan,
 } from "./lib/game";
@@ -19,12 +20,7 @@ const client = new DynamoDBClient({});
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const body = event.body ? JSON.parse(event.body) : {};
-  const mode: GameMode =
-    body.mode === "bottled-in-bond"
-      ? "bottled-in-bond"
-      : body.mode === "singleplayer"
-        ? "singleplayer"
-        : "normal";
+  const mode: GameMode = normalizeGameMode(body.mode);
   const playerName = typeof body.playerName === "string" ? body.playerName.trim() : "Baron 1";
   if (!playerName) {
     return { statusCode: 400, body: JSON.stringify({ error: "playerName required" }) };
@@ -58,7 +54,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const playerId = `p_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   const base = createNewGame(gameId, mode);
 
-  if (mode === "singleplayer") {
+  if (mode === "whiskey-tutorial") {
     const game = base;
     game.playerOrder = [playerId];
     game.players[playerId] = {

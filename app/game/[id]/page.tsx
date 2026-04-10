@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { rickhouseRegionLabel } from "@/lib/rickhouses";
 import {
   type GameDoc,
@@ -14,12 +20,41 @@ import {
   getLobbySeatsForDisplay,
   lobbyHasUnfilledOpenSeat,
   countSeatedBarons,
+  gameModeDisplayLabel,
 } from "../../../functions/lib/game";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 function isBotPlayer(id: string): boolean {
   return id.startsWith("bot_");
+}
+
+function DemandDiceFaces(props: {
+  left: number | "?";
+  right: number | "?";
+  after: ReactNode;
+  className?: string;
+  announceLabel?: string;
+}) {
+  const { left, right, after, className, announceLabel } = props;
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-3 text-slate-800 dark:text-slate-100 ${className ?? ""}`}
+      role={announceLabel ? "region" : undefined}
+      aria-label={announceLabel}
+    >
+      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-indigo-500 bg-white text-2xl font-bold tabular-nums dark:border-indigo-400 dark:bg-slate-800/40">
+        {left}
+      </span>
+      <span className="text-lg font-medium">+</span>
+      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-indigo-500 bg-white text-2xl font-bold tabular-nums dark:border-indigo-400 dark:bg-slate-800/40">
+        {right}
+      </span>
+      <span className="min-w-0 text-sm leading-snug text-slate-600 dark:text-slate-200">
+        {after}
+      </span>
+    </div>
+  );
 }
 
 const PHASE_NAMES: Record<number, string> = {
@@ -30,42 +65,66 @@ const PHASE_NAMES: Record<number, string> = {
 
 const MAX_BARONS = 6;
 
+type MarketPileKey = "cask" | "corn" | "grain";
+
+const MARKET_PILE_LABEL: Record<MarketPileKey, string> = {
+  cask: "Cask",
+  corn: "Corn",
+  grain: "Grain",
+};
+
+function tallyMarketPilePicks(order: MarketPileKey[]): {
+  cask: number;
+  corn: number;
+  grain: number;
+} {
+  const o = { cask: 0, corn: 0, grain: 0 };
+  for (const k of order) o[k] += 1;
+  return o;
+}
+
 /** Distinct player card themes (banner + avatar), left-to-right by seat order. */
 const BARON_THEMES = [
   {
     banner: "bg-blue-600 text-white dark:bg-blue-700",
     border: "border-blue-600 dark:border-blue-400",
-    avatar: "bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-100",
+    avatar:
+      "bg-gradient-to-br from-blue-200 via-blue-100 to-blue-300 text-blue-950 dark:from-blue-400 dark:via-blue-500 dark:to-blue-700 dark:text-white",
     chip: "bg-blue-700 text-white dark:bg-blue-600",
   },
   {
     banner: "bg-cyan-600 text-white dark:bg-cyan-700",
     border: "border-cyan-600 dark:border-cyan-400",
-    avatar: "bg-cyan-100 text-cyan-900 dark:bg-cyan-950 dark:text-cyan-100",
+    avatar:
+      "bg-gradient-to-br from-cyan-200 via-cyan-100 to-cyan-300 text-cyan-950 dark:from-cyan-400 dark:via-cyan-500 dark:to-cyan-700 dark:text-white",
     chip: "bg-cyan-700 text-white dark:bg-cyan-600",
   },
   {
     banner: "bg-teal-600 text-white dark:bg-teal-700",
     border: "border-teal-600 dark:border-teal-400",
-    avatar: "bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-100",
+    avatar:
+      "bg-gradient-to-br from-teal-200 via-teal-100 to-teal-300 text-teal-950 dark:from-teal-400 dark:via-teal-500 dark:to-teal-700 dark:text-white",
     chip: "bg-teal-700 text-white dark:bg-teal-600",
   },
   {
     banner: "bg-red-600 text-white dark:bg-red-700",
     border: "border-red-600 dark:border-red-400",
-    avatar: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-100",
+    avatar:
+      "bg-gradient-to-br from-red-200 via-red-100 to-red-300 text-red-950 dark:from-red-400 dark:via-red-500 dark:to-red-700 dark:text-white",
     chip: "bg-red-700 text-white dark:bg-red-600",
   },
   {
     banner: "bg-emerald-600 text-white dark:bg-emerald-700",
     border: "border-emerald-600 dark:border-emerald-400",
-    avatar: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100",
+    avatar:
+      "bg-gradient-to-br from-emerald-200 via-emerald-100 to-emerald-300 text-emerald-950 dark:from-emerald-400 dark:via-emerald-500 dark:to-emerald-700 dark:text-white",
     chip: "bg-emerald-700 text-white dark:bg-emerald-600",
   },
   {
     banner: "bg-violet-600 text-white dark:bg-violet-700",
     border: "border-violet-600 dark:border-violet-400",
-    avatar: "bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-100",
+    avatar:
+      "bg-gradient-to-br from-violet-200 via-violet-100 to-violet-300 text-violet-950 dark:from-violet-400 dark:via-violet-500 dark:to-violet-700 dark:text-white",
     chip: "bg-violet-700 text-white dark:bg-violet-600",
   },
 ] as const;
@@ -106,7 +165,8 @@ function baronInitials(name: string): string {
 const BARON_THEME_FALLBACK = {
   banner: "bg-slate-500 text-white dark:bg-slate-600",
   border: "border-slate-400 dark:border-slate-500",
-  avatar: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-100",
+  avatar:
+    "bg-gradient-to-br from-slate-200 via-slate-100 to-slate-300 text-slate-900 dark:from-slate-500 dark:via-slate-600 dark:to-slate-800 dark:text-white",
   chip: "bg-slate-600 text-white dark:bg-slate-500",
 } as const;
 
@@ -205,6 +265,8 @@ export default function GamePage() {
   const [error, setError] = useState("");
   /** Indices into `resourceCards` for the next barrel action (Action phase). */
   const [mashSelection, setMashSelection] = useState<Set<number>>(() => new Set());
+  /** Up to 3 pile taps for the next market buy (Action phase). */
+  const [marketDrawPicks, setMarketDrawPicks] = useState<MarketPileKey[]>([]);
   const computerTurnRequested = useRef(false);
 
   const loadGame = useCallback(async () => {
@@ -294,6 +356,20 @@ export default function GamePage() {
       return next;
     });
   }, [handFingerprint, resourceHandForPrune.length, playerId]);
+
+  useEffect(() => {
+    if (!game) return;
+    if (
+      game.status !== "in_progress" ||
+      game.currentPhase !== 3 ||
+      !playerId
+    ) {
+      setMarketDrawPicks([]);
+      return;
+    }
+    const cur = game.playerOrder[game.currentPlayerIndex ?? 0];
+    if (!cur || cur !== playerId || isBotPlayer(cur)) setMarketDrawPicks([]);
+  }, [game, playerId]);
 
   if (loading) {
     return (
@@ -421,22 +497,19 @@ export default function GamePage() {
     }
   }
 
-  async function handleBuy(
-    picks: { cask: number; corn: number; grain: number } | "random"
-  ) {
+  async function handleBuy(picks: { cask: number; corn: number; grain: number }) {
     setActionLoading(true);
     setError("");
     try {
-      const body =
-        picks === "random" ? { random: true } : { picks };
       const res = await fetch(`${API_URL}/games/${gameId}/buy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ picks }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to buy");
       setGame(data);
+      setMarketDrawPicks([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to buy");
     } finally {
@@ -545,6 +618,34 @@ export default function GamePage() {
   const marketCardsTotal = piles.cask.length + piles.corn.length + piles.grain.length;
   const me = playerId ? game.players[playerId] : null;
   const nextActionCost = nextActionCashCost(game.actionsTakenThisTurn ?? 0);
+  const marketPickTally = tallyMarketPilePicks(marketDrawPicks);
+  const canConfigureMarketBuy =
+    game.status === "in_progress" &&
+    game.currentPhase === 3 &&
+    isCurrentPlayer &&
+    !isComputerTurnNow;
+  const marketBuyBlocked =
+    actionLoading ||
+    marketCardsTotal < 3 ||
+    (me != null && me.cash < nextActionCost);
+  const canAddMarketPicks =
+    canConfigureMarketBuy && !marketBuyBlocked && marketDrawPicks.length < 3;
+
+  function addMarketPilePick(key: MarketPileKey) {
+    if (!canConfigureMarketBuy || marketBuyBlocked) return;
+    setMarketDrawPicks((prev) => {
+      if (prev.length >= 3) return prev;
+      const next = [...prev, key];
+      const t = tallyMarketPilePicks(next);
+      if (
+        piles.cask.length < t.cask ||
+        piles.corn.length < t.corn ||
+        piles.grain.length < t.grain
+      )
+        return prev;
+      return next;
+    });
+  }
   const opsHand = me?.operationsHand ?? [];
   const invHand = me?.investmentHand ?? [];
   const opsDeckLeft = game.operationsDeck?.length ?? 0;
@@ -949,7 +1050,7 @@ export default function GamePage() {
                   <span className="text-slate-400"> · </span>
                   Turn {game.turnNumber}
                   <span className="text-slate-400"> · </span>
-                  {game.mode}
+                  {gameModeDisplayLabel(game.mode)}
                   <span className="text-slate-400"> · </span>
                   Next <strong className="tabular-nums">${nextActionCost}</strong>
                   <span className="text-slate-400"> · </span>
@@ -964,6 +1065,38 @@ export default function GamePage() {
               </div>
 
               <div className="min-h-0 flex-1 space-y-3">
+            {game.currentPhase === 3 && lastRoll ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-100/90 p-3 dark:border-slate-600 dark:bg-slate-800/40">
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                  Phase 2 — Market demand dice
+                </p>
+                <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
+                  Result this turn (faces below match the roll).
+                </p>
+                <DemandDiceFaces
+                  className="mt-2"
+                  left={lastRoll.die1}
+                  right={lastRoll.die2}
+                  announceLabel={`Demand dice: ${lastRoll.die1} and ${lastRoll.die2}`}
+                  after={
+                    lastRoll.doubleSix ? (
+                      <span>
+                        Double six → demand set to <strong>12</strong>
+                      </span>
+                    ) : (
+                      <span>
+                        Sum <strong className="tabular-nums">{lastRoll.sum}</strong>
+                        <span className="text-slate-500 dark:text-slate-400"> · </span>
+                        demand{" "}
+                        <strong className="tabular-nums">{lastRoll.demandBefore}</strong>
+                        {" → "}
+                        <strong className="tabular-nums">{lastRoll.demandAfter}</strong>
+                      </span>
+                    )
+                  }
+                />
+              </div>
+            ) : null}
             {isCurrentPlayer && !isComputerTurnNow && (
               <div className="flex flex-col gap-3">
                 {game.currentPhase === 1 && (
@@ -1005,21 +1138,12 @@ export default function GamePage() {
                       up by 1 (max 12). Double six sets demand to 12. Demand before roll:{" "}
                       <strong>{game.marketDemand}</strong> (see top bar).
                     </p>
-                    <div
-                      className="mt-2 flex items-center gap-3 text-slate-800 dark:text-slate-100"
-                      aria-hidden
-                    >
-                      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-indigo-500 bg-white text-2xl font-bold dark:border-indigo-400 dark:bg-slate-800/40">
-                        ?
-                      </span>
-                      <span className="text-lg font-medium">+</span>
-                      <span className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-indigo-500 bg-white text-2xl font-bold dark:border-indigo-400 dark:bg-slate-800/40">
-                        ?
-                      </span>
-                      <span className="text-sm text-slate-600 dark:text-slate-200">
-                        → roll to reveal
-                      </span>
-                    </div>
+                    <DemandDiceFaces
+                      className="mt-2"
+                      left="?"
+                      right="?"
+                      after="→ roll to reveal"
+                    />
                     <button
                       type="button"
                       onClick={handleRollDemand}
@@ -1182,7 +1306,7 @@ export default function GamePage() {
               </h2>
               <p className="mb-3 text-[11px] text-slate-500 dark:text-slate-300">
                 {game.currentPhase === 3 && isCurrentPlayer && !isComputerTurnNow
-                  ? "Tap a pile or mixed deck to draw 3 resource cards (one buy action)."
+                  ? "Tap piles in order to choose 3 cards, then confirm (one buy action)."
                   : "Face-down piles — counts shown. Resource buys happen in the Action phase."}
               </p>
               {deckLeft > 0 ? (
@@ -1194,68 +1318,47 @@ export default function GamePage() {
               <div className="mb-3 grid grid-cols-3 gap-2">
                 {(
                   [
-                    {
-                      key: "cask",
-                      label: "Cask",
-                      count: piles.cask.length,
-                      onPick: () => handleBuy({ cask: 3, corn: 0, grain: 0 }),
-                      disabled:
-                        actionLoading ||
-                        piles.cask.length < 3 ||
-                        (me != null && me.cash < nextActionCost) ||
-                        marketCardsTotal < 3,
-                      sub: "3× pile",
-                    },
-                    {
-                      key: "corn",
-                      label: "Corn",
-                      count: piles.corn.length,
-                      onPick: () => handleBuy({ cask: 0, corn: 3, grain: 0 }),
-                      disabled:
-                        actionLoading ||
-                        piles.corn.length < 3 ||
-                        (me != null && me.cash < nextActionCost) ||
-                        marketCardsTotal < 3,
-                      sub: "3× pile",
-                    },
-                    {
-                      key: "grain",
-                      label: "Grain",
-                      count: piles.grain.length,
-                      onPick: () => handleBuy({ cask: 0, corn: 0, grain: 3 }),
-                      disabled:
-                        actionLoading ||
-                        piles.grain.length < 3 ||
-                        (me != null && me.cash < nextActionCost) ||
-                        marketCardsTotal < 3,
-                      sub: "3× pile",
-                    },
+                    { key: "cask" as const, label: "Cask", count: piles.cask.length },
+                    { key: "corn" as const, label: "Corn", count: piles.corn.length },
+                    { key: "grain" as const, label: "Grain", count: piles.grain.length },
                   ] as const
                 ).map((pile) => {
                   const interactive =
                     game.currentPhase === 3 && isCurrentPlayer && !isComputerTurnNow;
                   const ui = MARKET_PILE_UI[pile.key];
-                  const on = interactive && !pile.disabled;
+                  const remainingThisPile =
+                    pile.count - marketPickTally[pile.key];
+                  const canTapPile =
+                    canAddMarketPicks && remainingThisPile > 0;
+                  const pileLit = interactive && canTapPile;
                   return (
                     <button
                       key={pile.key}
                       type="button"
                       title={
-                        interactive
-                          ? `${pile.count} left — ${pile.sub} ($${nextActionCost})`
-                          : `${pile.count} cards`
+                        !interactive
+                          ? `${pile.count} cards`
+                          : marketBuyBlocked
+                            ? marketCardsTotal < 3
+                              ? "Market has fewer than 3 cards"
+                              : me != null && me.cash < nextActionCost
+                                ? `Need $${nextActionCost} cash (you have $${me.cash})`
+                                : "Cannot add right now"
+                            : marketDrawPicks.length >= 3
+                              ? "Confirm draw or clear picks"
+                              : remainingThisPile <= 0
+                                ? `No ${pile.label} left in this pile`
+                                : `Add 1 ${pile.label} (${marketDrawPicks.length}/3) · fee $${nextActionCost}`
                       }
-                      disabled={!interactive || pile.disabled}
-                      onClick={() => {
-                        if (interactive && !pile.disabled) pile.onPick();
-                      }}
+                      disabled={!interactive || !canTapPile}
+                      onClick={() => addMarketPilePick(pile.key)}
                       className={`flex flex-col items-center justify-end rounded-lg border-2 px-1.5 pb-2 pt-3 text-center transition ${
-                        on ? ui.active : ui.idle
-                      } ${interactive && pile.disabled ? "opacity-50" : ""}`}
+                        pileLit ? ui.active : ui.idle
+                      } ${interactive && marketBuyBlocked ? "opacity-50" : ""}`}
                     >
                       <span
                         className={`mb-1 text-[9px] font-bold uppercase tracking-wide ${
-                          on ? "text-white/90" : "text-slate-600 dark:text-slate-300"
+                          pileLit ? "text-white/90" : "text-slate-600 dark:text-slate-300"
                         }`}
                       >
                         {pile.label}
@@ -1269,50 +1372,78 @@ export default function GamePage() {
                 })}
               </div>
 
-              <button
-                type="button"
-                title="Draw 3 cards at random from the market"
-                disabled={
-                  actionLoading ||
-                  game.currentPhase !== 3 ||
-                  !isCurrentPlayer ||
-                  isComputerTurnNow ||
-                  marketCardsTotal < 3 ||
-                  (me != null && me.cash < nextActionCost)
-                }
-                onClick={() => handleBuy("random")}
-                className="mb-2 flex w-full flex-col items-center gap-1 rounded-lg border-2 border-dashed border-indigo-500 bg-slate-100/90 px-3 py-3 text-slate-800 hover:bg-slate-200/90 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-400 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-800/80"
-              >
-                <span
-                  className="flex h-10 w-14 items-center justify-center rounded bg-gradient-to-br from-violet-700 to-slate-900 text-xs font-bold text-slate-100 shadow-md dark:from-violet-700 dark:to-slate-950"
-                  aria-hidden
+              {canConfigureMarketBuy ? (
+                <div
+                  className="mb-3 rounded-lg border border-slate-200 bg-slate-50/90 px-2.5 py-2 dark:border-slate-600 dark:bg-slate-900/50"
+                  aria-live="polite"
                 >
-                  3
-                </span>
-                <span className="text-xs font-semibold">Mixed deck — draw 3 random</span>
-                <span className="text-[10px] text-slate-600 dark:text-slate-200">
-                  Fee ${nextActionCost} · {marketCardsTotal} cards in market
-                </span>
-              </button>
-
-              <button
-                type="button"
-                disabled={
-                  actionLoading ||
-                  game.currentPhase !== 3 ||
-                  !isCurrentPlayer ||
-                  isComputerTurnNow ||
-                  marketCardsTotal < 3 ||
-                  piles.cask.length < 1 ||
-                  piles.corn.length < 1 ||
-                  piles.grain.length < 1 ||
-                  (me != null && me.cash < nextActionCost)
-                }
-                onClick={() => handleBuy({ cask: 1, corn: 1, grain: 1 })}
-                className="w-full rounded-md border border-indigo-400 bg-white px-2 py-2 text-xs font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50 dark:border-indigo-500 dark:bg-slate-800/40 dark:text-slate-100 dark:hover:bg-slate-800"
-              >
-                Balanced draw: 1 Cask + 1 Corn + 1 Grain — ${nextActionCost}
-              </button>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                    This draw ({marketDrawPicks.length}/3)
+                  </p>
+                  {marketDrawPicks.length === 0 ? (
+                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      Tap piles above in order. Order is kept so you know what you took.
+                    </p>
+                  ) : (
+                    <ol className="mt-1.5 flex list-none flex-wrap gap-1">
+                      {marketDrawPicks.map((k, i) => (
+                        <li
+                          key={`${k}-${i}`}
+                          className="rounded-md border border-slate-300/90 bg-white px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-800 shadow-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
+                        >
+                          {i + 1}. {MARKET_PILE_LABEL[k]}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={
+                        actionLoading ||
+                        marketDrawPicks.length !== 3 ||
+                        marketBuyBlocked
+                      }
+                      onClick={() => {
+                        if (marketDrawPicks.length !== 3) return;
+                        void handleBuy(marketPickTally);
+                      }}
+                      className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                    >
+                      Draw these 3 — ${nextActionCost}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading || marketDrawPicks.length === 0}
+                      onClick={() =>
+                        setMarketDrawPicks((prev) => prev.slice(0, -1))
+                      }
+                      className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Undo last
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading || marketDrawPicks.length === 0}
+                      onClick={() => setMarketDrawPicks([])}
+                      className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  {marketDrawPicks.length > 0 &&
+                  marketBuyBlocked &&
+                  !actionLoading ? (
+                    <p className="mt-1.5 text-[10px] text-amber-800 dark:text-amber-200">
+                      {marketCardsTotal < 3
+                        ? "Not enough cards left in the market."
+                        : me != null && me.cash < nextActionCost
+                          ? `Need $${nextActionCost} cash for this action.`
+                          : "Cannot complete this buy right now."}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </section>
 
             {isCurrentPlayer && !isComputerTurnNow && game.currentPhase === 3 && (

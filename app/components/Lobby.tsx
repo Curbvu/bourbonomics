@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import type { GameMode } from "../../functions/lib/game";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 type LobbySlotPlan = "closed" | "open" | "computer";
 
 export default function Lobby() {
-  const [mode, setMode] = useState<"normal" | "bottled-in-bond" | "singleplayer">("normal");
+  const [mode, setMode] = useState<GameMode>("kentucky-straight");
   const [createName, setCreateName] = useState("");
   const [seatPlan, setSeatPlan] = useState<LobbySlotPlan[]>([
     "open",
@@ -22,7 +23,7 @@ export default function Lobby() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const isMultiplayer = mode !== "singleplayer";
+  const isMultiplayer = mode !== "whiskey-tutorial";
 
   function setSeatAt(index: number, value: LobbySlotPlan) {
     setSeatPlan((prev) => prev.map((p, i) => (i === index ? value : p)));
@@ -170,14 +171,12 @@ export default function Lobby() {
             <label className="text-xs font-medium text-slate-400">Mode</label>
             <select
               value={mode}
-              onChange={(e) =>
-                setMode(e.target.value as "normal" | "bottled-in-bond" | "singleplayer")
-              }
+              onChange={(e) => setMode(e.target.value as GameMode)}
               className="rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
             >
-              <option value="normal">Normal (multiplayer)</option>
-              <option value="bottled-in-bond">Bottled-in-Bond</option>
-              <option value="singleplayer">Single player vs computer</option>
+              <option value="whiskey-tutorial">Whiskey Tutorial</option>
+              <option value="kentucky-straight">Kentucky Straight</option>
+              <option value="bottled-in-bond">Bottled-in-Bond (pending)</option>
             </select>
 
             <button

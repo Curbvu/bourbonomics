@@ -1,0 +1,98 @@
+name: CI/CD Pipeline Bourbonomics
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Optional SST stage override — prod, stg, or dev (leave blank to use branch mapping)"
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    outputs:
+      stage: ${{ steps.map.outputs.stage }}
+    steps:
+      - id: map
+        run: |
+          set -e
+
+          # Branch → STAGE: main=prod, stg=stg, else=dev
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            STAGE="prod"
+          elif [ "${{ github.ref }}" = "refs/heads/stg" ]; then
+            STAGE="stg"
+          else
+            STAGE="dev"
+          fi
+
+          if [ -n "${{ github.event.inputs.stage }}" ]; then
+            case "${{ github.event.inputs.stage }}" in
+              prod|stg|dev)
+                STAGE="${{ github.event.inputs.stage }}"
+                ;;
+              *)
+                echo "Invalid manual stage '${{ github.event.inputs.stage }}'"; exit 1
+                ;;
+            esac
+          fi
+          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+
+  build-and-deploy:
+    needs: stage
+    runs-on: ubuntu-latest
+    env:
+      HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
+      CERTIFICATE_ARN: ${{ secrets.CERTIFICATE_ARN }}
+      DOMAIN: ${{ secrets.DOMAIN }}
+      STAGE: ${{ needs.stage.outputs.stage }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Remove preinstalled Pulumi language plugin
+        run: sudo rm -f /usr/local/bin/pulumi-language-nodejs
+
+      - name: Deploy with SST
+        run: npx sst deploy --stage "${{ env.STAGE }}"
+
+      # Invalidate CloudFront so the UI updates immediately (edge cache can otherwise serve old HTML)
+      - name: Invalidate CloudFront cache
+        run: |
+          case "${{ env.STAGE }}" in
+            prod) SITE_DOMAIN="$DOMAIN" ;;
+            stg)  SITE_DOMAIN="stg.$DOMAIN" ;;
+            *)    SITE_DOMAIN="dev.$DOMAIN" ;;
+          esac
+          if [ -z "$DOMAIN" ]; then
+            echo "DOMAIN secret empty, skipping invalidation"
+            exit 0
+          fi
+          DIST_ID=$(aws cloudfront list-distributions --output json | jq -r --arg dom "$SITE_DOMAIN" '.DistributionList.Items[]? | select((.Aliases.Items // []) | index($dom)) | .Id' | head -1)
+          if [ -n "$DIST_ID" ] && [ "$DIST_ID" != "null" ]; then
+            aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+            echo "Invalidation created for distribution $DIST_ID ($SITE_DOMAIN)"
+          else
+            echo "No CloudFront distribution found for $SITE_DOMAIN, skipping invalidation"
+          fi

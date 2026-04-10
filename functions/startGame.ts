@@ -10,6 +10,7 @@ import {
   startGame as startGameLogic,
   lobbyHasUnfilledOpenSeat,
   countSeatedBarons,
+  normalizeGame,
   type GameDoc,
 } from "./lib/game";
 
@@ -53,7 +54,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: "Need at least 2 barons to start" }) };
   }
 
-  const updated = startGameLogic(game);
+  const updated = normalizeGame(startGameLogic(normalizeGame(game)));
 
   await client.send(
     new PutItemCommand({
