@@ -83,49 +83,43 @@ function tallyMarketPilePicks(order: MarketPileKey[]): {
   return o;
 }
 
-/** Distinct player card themes (banner + avatar), left-to-right by seat order. */
+/** Distinct player card themes (banner + avatar + border), left-to-right by seat order. */
 const BARON_THEMES = [
   {
     banner: "bg-blue-600 text-white dark:bg-blue-700",
     border: "border-blue-600 dark:border-blue-400",
     avatar:
       "bg-gradient-to-br from-blue-200 via-blue-100 to-blue-300 text-blue-950 dark:from-blue-400 dark:via-blue-500 dark:to-blue-700 dark:text-white",
-    chip: "bg-blue-700 text-white dark:bg-blue-600",
   },
   {
     banner: "bg-cyan-600 text-white dark:bg-cyan-700",
     border: "border-cyan-600 dark:border-cyan-400",
     avatar:
       "bg-gradient-to-br from-cyan-200 via-cyan-100 to-cyan-300 text-cyan-950 dark:from-cyan-400 dark:via-cyan-500 dark:to-cyan-700 dark:text-white",
-    chip: "bg-cyan-700 text-white dark:bg-cyan-600",
   },
   {
     banner: "bg-teal-600 text-white dark:bg-teal-700",
     border: "border-teal-600 dark:border-teal-400",
     avatar:
       "bg-gradient-to-br from-teal-200 via-teal-100 to-teal-300 text-teal-950 dark:from-teal-400 dark:via-teal-500 dark:to-teal-700 dark:text-white",
-    chip: "bg-teal-700 text-white dark:bg-teal-600",
   },
   {
     banner: "bg-red-600 text-white dark:bg-red-700",
     border: "border-red-600 dark:border-red-400",
     avatar:
       "bg-gradient-to-br from-red-200 via-red-100 to-red-300 text-red-950 dark:from-red-400 dark:via-red-500 dark:to-red-700 dark:text-white",
-    chip: "bg-red-700 text-white dark:bg-red-600",
   },
   {
     banner: "bg-emerald-600 text-white dark:bg-emerald-700",
     border: "border-emerald-600 dark:border-emerald-400",
     avatar:
       "bg-gradient-to-br from-emerald-200 via-emerald-100 to-emerald-300 text-emerald-950 dark:from-emerald-400 dark:via-emerald-500 dark:to-emerald-700 dark:text-white",
-    chip: "bg-emerald-700 text-white dark:bg-emerald-600",
   },
   {
     banner: "bg-violet-600 text-white dark:bg-violet-700",
     border: "border-violet-600 dark:border-violet-400",
     avatar:
       "bg-gradient-to-br from-violet-200 via-violet-100 to-violet-300 text-violet-950 dark:from-violet-400 dark:via-violet-500 dark:to-violet-700 dark:text-white",
-    chip: "bg-violet-700 text-white dark:bg-violet-600",
   },
 ] as const;
 
@@ -167,7 +161,6 @@ const BARON_THEME_FALLBACK = {
   border: "border-slate-400 dark:border-slate-500",
   avatar:
     "bg-gradient-to-br from-slate-200 via-slate-100 to-slate-300 text-slate-900 dark:from-slate-500 dark:via-slate-600 dark:to-slate-800 dark:text-white",
-  chip: "bg-slate-600 text-white dark:bg-slate-500",
 } as const;
 
 /** Seat order matches baron strip (playerOrder index) for shared colors. */
@@ -757,30 +750,16 @@ export default function GamePage() {
                   ) : null}
 
                   <div className="flex flex-1 gap-1 pl-7 pr-1 pt-6">
-                    <div className="relative shrink-0 self-end pb-1">
+                    <div className="flex shrink-0 items-center pb-1">
                       <div
                         className={`flex h-11 w-11 items-center justify-center rounded-md border-2 text-xs font-bold leading-none ${theme.border} ${theme.avatar}`}
                         title={p.name}
                       >
                         {baronInitials(p.name)}
                       </div>
-                      <div className="absolute -bottom-0.5 left-1/2 flex -translate-x-1/2 gap-0.5">
-                        <span
-                          className={`flex h-5 min-w-[1.1rem] items-center justify-center rounded-full border-2 border-white px-0.5 text-[9px] font-bold shadow ${theme.chip}`}
-                          title="Resource cards in hand"
-                        >
-                          {resourceCount}
-                        </span>
-                        <span
-                          className={`flex h-5 min-w-[1.1rem] items-center justify-center rounded-full border-2 border-white px-0.5 text-[9px] font-bold shadow ${theme.chip}`}
-                          title="Barrelled bourbons"
-                        >
-                          {barrelCount}
-                        </span>
-                      </div>
                     </div>
 
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5 pb-1 pt-0.5">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1 pb-1 pt-0.5">
                       <div
                         className={`truncate rounded px-1 py-0.5 text-center text-[11px] font-semibold leading-tight ${theme.banner}`}
                       >
@@ -789,32 +768,57 @@ export default function GamePage() {
                           <span className="ml-0.5 text-[9px] font-bold opacity-90">(you)</span>
                         ) : null}
                       </div>
-                      <div className="flex flex-1 flex-col justify-center gap-0.5 rounded bg-slate-800 px-1 py-1 text-[9px] leading-tight text-slate-100 dark:bg-slate-900/95 dark:text-slate-100">
-                        <div className="flex items-center justify-between gap-0.5 tabular-nums">
-                          <span className="text-slate-200/90">Cash</span>
-                          <span className="font-bold">${p.cash}</span>
+                      <div className="grid min-h-0 flex-1 grid-cols-3 gap-1">
+                        <div
+                          className={`flex min-w-0 flex-col items-center justify-center rounded-md border-2 bg-slate-100 px-0.5 py-1.5 text-center shadow-sm dark:bg-slate-950/90 ${theme.border}`}
+                          title="Cash"
+                        >
+                          <span className="text-[8px] font-bold uppercase leading-none tracking-wide text-slate-500 dark:text-slate-500">
+                            Cash
+                          </span>
+                          <span className="mt-1 text-sm font-bold tabular-nums leading-none text-slate-900 dark:text-slate-50">
+                            ${p.cash}
+                          </span>
                         </div>
-                        <div className="flex items-center justify-between gap-0.5 tabular-nums text-slate-100/90">
-                          <span className="text-slate-200/90">Resources</span>
-                          <span>{resourceCount}</span>
+                        <div
+                          className={`flex min-w-0 flex-col items-center justify-center rounded-md border-2 bg-slate-100 px-0.5 py-1.5 text-center shadow-sm dark:bg-slate-950/90 ${theme.border}`}
+                          title="Resource cards in hand"
+                        >
+                          <span className="text-[8px] font-bold uppercase leading-none tracking-wide text-slate-500 dark:text-slate-500">
+                            Res.
+                          </span>
+                          <span className="mt-1 text-sm font-bold tabular-nums leading-none text-slate-900 dark:text-slate-50">
+                            {resourceCount}
+                          </span>
                         </div>
-                        <div className="flex items-center justify-between gap-0.5 tabular-nums text-slate-100/90">
-                          <span className="text-slate-200/90">Barreled</span>
-                          <span>{barrelCount}</span>
+                        <div
+                          className={`flex min-w-0 flex-col items-center justify-center rounded-md border-2 bg-slate-100 px-0.5 py-1.5 text-center shadow-sm dark:bg-slate-950/90 ${theme.border}`}
+                          title="Barrelled bourbons"
+                        >
+                          <span className="text-[8px] font-bold uppercase leading-none tracking-wide text-slate-500 dark:text-slate-500">
+                            Barrels
+                          </span>
+                          <span className="mt-1 text-sm font-bold tabular-nums leading-none text-slate-900 dark:text-slate-50">
+                            {barrelCount}
+                          </span>
                         </div>
-                        {bizCount > 0 ? (
-                          <div className="flex items-center justify-between gap-0.5 tabular-nums text-slate-100/90">
-                            <span className="text-slate-200/90">Biz cards</span>
-                            <span>{bizCount}</span>
-                          </div>
-                        ) : null}
-                        {awardCount > 0 ? (
-                          <div className="flex items-center justify-between gap-0.5 tabular-nums text-slate-100/90">
-                            <span className="text-slate-200/90">Awards</span>
-                            <span>{awardCount}</span>
-                          </div>
-                        ) : null}
                       </div>
+                      {bizCount > 0 || awardCount > 0 ? (
+                        <div className="grid grid-cols-2 gap-1 text-[9px] leading-tight text-slate-200 dark:text-slate-300">
+                          {bizCount > 0 ? (
+                            <div className="rounded border border-slate-600/60 bg-slate-800/80 px-1 py-0.5 text-center dark:border-slate-600 dark:bg-slate-900/80">
+                              <span className="font-semibold text-slate-400">Biz</span>{" "}
+                              <span className="tabular-nums font-bold text-slate-100">{bizCount}</span>
+                            </div>
+                          ) : null}
+                          {awardCount > 0 ? (
+                            <div className="rounded border border-slate-600/60 bg-slate-800/80 px-1 py-0.5 text-center dark:border-slate-600 dark:bg-slate-900/80">
+                              <span className="font-semibold text-slate-400">Awards</span>{" "}
+                              <span className="tabular-nums font-bold text-slate-100">{awardCount}</span>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
