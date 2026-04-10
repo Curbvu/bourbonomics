@@ -23,7 +23,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       : body.mode === "singleplayer"
         ? "singleplayer"
         : "normal";
-  const playerName = typeof body.playerName === "string" ? body.playerName.trim() : "Player 1";
+  const playerName = typeof body.playerName === "string" ? body.playerName.trim() : "Baron 1";
   if (!playerName) {
     return { statusCode: 400, body: JSON.stringify({ error: "playerName required" }) };
   }

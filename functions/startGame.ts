@@ -32,7 +32,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: "Game already started" }) };
   }
   if (game.playerOrder.length < 2) {
-    return { statusCode: 400, body: JSON.stringify({ error: "Need at least 2 players to start" }) };
+    return { statusCode: 400, body: JSON.stringify({ error: "Need at least 2 barons to start" }) };
   }
 
   const updated = startGameLogic(game);

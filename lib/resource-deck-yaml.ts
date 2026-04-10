@@ -2,6 +2,9 @@
  * Specialty resource catalog (docs/resource_cards.yaml).
  */
 
+import type { SpecialtyResourcePlay } from "./resource-play-types";
+import { DEFAULT_CATEGORY_RESOURCE } from "./resource-play-types";
+
 export type HowToReadRow = { column: string; meaning: string };
 
 export type SpecialtyResourceCard = {
@@ -11,6 +14,10 @@ export type SpecialtyResourceCard = {
   rule: string;
   /** Cross-type / promo rows */
   type_printed?: string;
+  /**
+   * Engine-facing rules. Omitted → {@link resolveSpecialtyPlay} yields `pending` with category default `resource`.
+   */
+  play?: Partial<SpecialtyResourcePlay>;
 };
 
 export type SpecialtyResourceCategory = {
@@ -26,6 +33,8 @@ export type SpecialtyResourceCardsYamlV1 = {
   kind: "specialty_resource_cards_v1";
   title: string;
   companion_doc: string;
+  /** Explains structured `play` blocks for engine use. */
+  machine_play?: string;
   intro: string;
   how_to_read?: HowToReadRow[];
   icons_note?: string;
@@ -53,6 +62,52 @@ export function parseSpecialtyResourceCardsYamlV1(
   return data;
 }
 
+/** Merge category defaults into a full `SpecialtyResourcePlay` for indexing / simulation. */
+export function resolveSpecialtyPlay(
+  categoryId: string,
+  card: SpecialtyResourceCard
+): SpecialtyResourcePlay {
+  const fallbackResource = DEFAULT_CATEGORY_RESOURCE[categoryId] ?? "multi";
+  const p = card.play;
+  if (!p) {
+    return { resource: fallbackResource, engine: "pending" };
+  }
+  return {
+    resource: p.resource ?? fallbackResource,
+    grain_slot_cost: p.grain_slot_cost,
+    engine: p.engine ?? "pending",
+    on_make_bourbon: p.on_make_bourbon,
+    on_sell: p.on_sell,
+    on_age_tick: p.on_age_tick,
+    on_rickhouse_fee: p.on_rickhouse_fee,
+    on_trade: p.on_trade,
+    flags: p.flags,
+  };
+}
+
+/** All specialty cards by stable `id` (for engine lookups from mash card ids). */
+export function indexSpecialtyResourceById(
+  doc: SpecialtyResourceCardsYamlV1
+): Map<
+  string,
+  { card: SpecialtyResourceCard; categoryId: string; play: SpecialtyResourcePlay }
+> {
+  const m = new Map<
+    string,
+    { card: SpecialtyResourceCard; categoryId: string; play: SpecialtyResourcePlay }
+  >();
+  for (const cat of doc.categories) {
+    for (const c of cat.cards) {
+      m.set(c.id, {
+        card: c,
+        categoryId: cat.id,
+        play: resolveSpecialtyPlay(cat.id, c),
+      });
+    }
+  }
+  return m;
+}
+
 function esc(s: string): string {
   return s.replace(/\|/g, "\\|");
 }
@@ -65,6 +120,14 @@ export function renderSpecialtyResourceCardsYaml(
   out.push("");
   out.push(doc.intro.trim());
   out.push("");
+  if (doc.machine_play?.trim()) {
+    out.push("---");
+    out.push("");
+    out.push("## Machine-readable `play` blocks");
+    out.push("");
+    out.push(doc.machine_play.trim());
+    out.push("");
+  }
 
   if (doc.how_to_read?.length) {
     out.push("---");

@@ -36,7 +36,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: "Game not in progress" }) };
   }
 
-  const updated = advancePhaseLogic(game);
+  const { game: updated, error } = advancePhaseLogic(game);
+  if (error) {
+    return { statusCode: 400, body: JSON.stringify({ error }) };
+  }
 
   await client.send(
     new PutItemCommand({

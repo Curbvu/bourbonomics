@@ -22,7 +22,7 @@ export default function Lobby() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode,
-          playerName: createName || "Player 1",
+          playerName: createName || "Baron 1",
         }),
       });
       const data = await res.json();
@@ -47,7 +47,7 @@ export default function Lobby() {
       const res = await fetch(`${API_URL}/games/${joinCode.trim().toUpperCase()}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerName: joinName || "Player" }),
+        body: JSON.stringify({ playerName: joinName || "Baron" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to join game");
@@ -86,7 +86,7 @@ export default function Lobby() {
             type="text"
             value={createName}
             onChange={(e) => setCreateName(e.target.value)}
-            placeholder="Player 1"
+            placeholder="Baron 1"
             className="rounded border border-amber-300 bg-white px-3 py-2 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-100"
           />
           <label className="text-sm text-amber-800 dark:text-amber-200">
@@ -132,7 +132,7 @@ export default function Lobby() {
             type="text"
             value={joinName}
             onChange={(e) => setJoinName(e.target.value)}
-            placeholder="Player"
+            placeholder="Baron"
             className="rounded border border-amber-300 bg-white px-3 py-2 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-100"
           />
           <button

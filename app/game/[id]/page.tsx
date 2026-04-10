@@ -1,7 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { rickhouseRegionLabel } from "@/lib/rickhouses";
+import {
+  type GameDoc,
+  nextActionCashCost,
+  previewRickhouseFeesForPlayer,
+  computeSaleProceeds,
+} from "../../../functions/lib/game";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -29,12 +37,12 @@ interface InvestmentCardInHand {
   upright: boolean;
 }
 
-interface Player {
+interface Baron {
   id: string;
   name: string;
   cash: number;
   resourceCards: string[];
-  barrelledBourbons: unknown[];
+  barrelledBourbons: BarrelledBourbon[];
   bourbonCards: unknown[];
   operationsHand?: OperationsCardInHand[];
   investmentHand?: InvestmentCardInHand[];
@@ -46,22 +54,37 @@ interface Rickhouse {
   barrels: { playerId: string; barrelId: string; age: number }[];
 }
 
+interface MarketPiles {
+  cask: string[];
+  corn: string[];
+  grain: string[];
+}
+
+interface BarrelledBourbon {
+  id: string;
+  rickhouseId: string;
+  age: number;
+  mashCards?: string[];
+}
+
 interface Game {
   gameId: string;
   mode: string;
   status: string;
   playerOrder: string[];
-  players: Record<string, Player>;
+  players: Record<string, Baron>;
   marketDemand: number;
   currentPhase: number;
   currentPlayerIndex: number;
   turnNumber: number;
-  /** Next action costs this many dollars (0, then 1, 2, …); resets each turn. */
   actionsTakenThisTurn?: number;
+  rickhouseFeesPaidThisTurn?: boolean;
   operationsDeck?: string[];
   investmentDeck?: string[];
   winnerIds?: string[];
   rickhouses?: Rickhouse[];
+  marketPiles?: MarketPiles;
+  /** @deprecated Legacy face-up line; migrated server-side to marketPiles. */
   marketGoods?: string[];
   resourceDeck?: string[];
 }
@@ -123,7 +146,7 @@ export default function GamePage() {
       }
     }, 800);
     return () => clearTimeout(t);
-  }, [isComputerTurn, gameId, API_URL]);
+  }, [isComputerTurn, gameId]);
 
   const WS_URL = process.env.NEXT_PUBLIC_WS_URL?.replace(/^http/, "ws") ?? "";
   useEffect(() => {
@@ -159,9 +182,9 @@ export default function GamePage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-amber-50 p-6 dark:bg-amber-950/20">
         <p className="text-red-600 dark:text-red-400">{error || "Game not found"}</p>
-        <a href="/" className="text-amber-700 underline dark:text-amber-300">
+        <Link href="/" className="text-amber-700 underline dark:text-amber-300">
           Back to lobby
-        </a>
+        </Link>
       </div>
     );
   }
@@ -204,20 +227,62 @@ export default function GamePage() {
     }
   }
 
-  async function handleBuy(option: "market" | "random") {
+  async function handleBuy(
+    picks: { cask: number; corn: number; grain: number } | "random"
+  ) {
     setActionLoading(true);
     setError("");
     try {
+      const body =
+        picks === "random" ? { random: true } : { picks };
       const res = await fetch(`${API_URL}/games/${gameId}/buy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ option }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to buy");
       setGame(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to buy");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handlePayRickhouseFees() {
+    setActionLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/games/${gameId}/rickhouse-fees`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to pay fees");
+      setGame(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to pay fees");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleSellBarrel(barrelId: string) {
+    setActionLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/games/${gameId}/sell`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId, barrelId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to sell");
+      setGame(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sell");
     } finally {
       setActionLoading(false);
     }
@@ -271,20 +336,27 @@ export default function GamePage() {
   }
 
   const rickhouses = game.rickhouses ?? [];
-  const marketGoods = game.marketGoods ?? [];
+  const piles = game.marketPiles ?? { cask: [], corn: [], grain: [] };
+  const marketCardsTotal = piles.cask.length + piles.corn.length + piles.grain.length;
   const me = playerId ? game.players[playerId] : null;
-  const nextActionCost = game.actionsTakenThisTurn ?? 0;
+  const nextActionCost = nextActionCashCost(game.actionsTakenThisTurn ?? 0);
   const opsHand = me?.operationsHand ?? [];
   const invHand = me?.investmentHand ?? [];
   const opsDeckLeft = game.operationsDeck?.length ?? 0;
   const invDeckLeft = game.investmentDeck?.length ?? 0;
   const deckLeft = game.resourceDeck?.length ?? 0;
+  const rc = me?.resourceCards ?? [];
   const canMash =
-    me &&
-    me.resourceCards.filter((c) => c === "Cask").length >= 1 &&
-    me.resourceCards.filter((c) => c === "Corn").length >= 1 &&
-    me.resourceCards.filter((c) => c === "Barley").length >= 1 &&
-    (me.resourceCards.includes("Wheat") || me.resourceCards.includes("Rye"));
+    me != null &&
+    rc.length <= 6 &&
+    rc.length >= 3 &&
+    rc.filter((c) => c === "Cask").length === 1 &&
+    rc.filter((c) => c === "Corn").length >= 1 &&
+    rc.some((c) => ["Barley", "Rye", "Wheat", "Flavor"].includes(c));
+  const feePreview =
+    game.status === "in_progress" && me != null
+      ? previewRickhouseFeesForPlayer(game as unknown as GameDoc, playerId)
+      : 0;
   const inCardPhases =
     game.status === "in_progress" &&
     game.currentPhase >= 2 &&
@@ -296,9 +368,9 @@ export default function GamePage() {
         <h1 className="text-xl font-bold text-amber-900 dark:text-amber-100">
           Game {game.gameId}
         </h1>
-        <a href="/" className="text-sm text-amber-700 underline dark:text-amber-300">
+        <Link href="/" className="text-sm text-amber-700 underline dark:text-amber-300">
           Lobby
-        </a>
+        </Link>
       </header>
 
       {error && (
@@ -338,8 +410,11 @@ export default function GamePage() {
         </p>
         {game.status === "in_progress" && (
           <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
-            Next action fee:{" "}
-            <strong>${nextActionCost}</strong>
+            Next action fee: <strong>${nextActionCost}</strong>
+            <span className="text-amber-600 dark:text-amber-400">
+              {" "}
+              (first 3 actions free this turn, then escalating — see rules)
+            </span>
             {isCurrentPlayer && !isComputerTurnNow && me != null && (
               <>
                 {" "}
@@ -347,7 +422,8 @@ export default function GamePage() {
               </>
             )}
             {" "}
-            · Operations deck: {opsDeckLeft} · Investment deck: {invDeckLeft}
+            · Actions used: {game.actionsTakenThisTurn ?? 0} · Operations deck:{" "}
+            {opsDeckLeft} · Investment deck: {invDeckLeft}
           </p>
         )}
       </div>
@@ -363,7 +439,7 @@ export default function GamePage() {
           </button>
           {players.length < 2 && (
             <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-              Need at least 2 players to start.
+              Need at least 2 barons to start.
             </p>
           )}
         </div>
@@ -371,40 +447,111 @@ export default function GamePage() {
 
       {game.status === "in_progress" && isCurrentPlayer && !isComputerTurnNow && (
         <div className="mb-4 flex flex-col gap-3">
+          {game.currentPhase === 1 && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50/90 p-3 dark:border-amber-700 dark:bg-amber-950/40">
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                Phase 1 — Rickhouse fees &amp; aging
+              </p>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
+                Total due this turn: <strong>${feePreview}</strong>
+                {game.rickhouseFeesPaidThisTurn ? (
+                  <span className="ml-2 text-green-700 dark:text-green-400">
+                    Paid — your barrels aged 1 year.
+                  </span>
+                ) : null}
+              </p>
+              <button
+                type="button"
+                onClick={handlePayRickhouseFees}
+                disabled={
+                  actionLoading ||
+                  game.rickhouseFeesPaidThisTurn ||
+                  (me != null && me.cash < feePreview)
+                }
+                className="mt-2 rounded bg-amber-700 px-3 py-1.5 text-sm text-white hover:bg-amber-800 disabled:opacity-50"
+              >
+                {game.rickhouseFeesPaidThisTurn
+                  ? "Fees paid"
+                  : `Pay $${feePreview} & age bourbon`}
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
-            {game.currentPhase === 2 && (
+            {game.currentPhase >= 2 && game.currentPhase <= 4 && (
               <>
                 <button
-                  onClick={() => handleBuy("market")}
+                  type="button"
+                  onClick={() => handleBuy({ cask: 1, corn: 1, grain: 1 })}
                   disabled={
                     actionLoading ||
-                    marketGoods.length === 0 ||
+                    marketCardsTotal < 3 ||
+                    piles.cask.length < 1 ||
+                    piles.corn.length < 1 ||
+                    piles.grain.length < 1 ||
                     (me != null && me.cash < nextActionCost)
                   }
                   className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
                 >
-                  Buy from market (up to 3) — ${nextActionCost}
+                  Buy 1+1+1 — ${nextActionCost}
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleBuy("random")}
                   disabled={
                     actionLoading ||
-                    deckLeft < 2 ||
+                    marketCardsTotal < 3 ||
                     (me != null && me.cash < nextActionCost)
                   }
                   className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
                 >
-                  Buy 2 random — ${nextActionCost}
+                  Buy 3 random — ${nextActionCost}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBuy({ cask: 3, corn: 0, grain: 0 })}
+                  disabled={
+                    actionLoading ||
+                    piles.cask.length < 3 ||
+                    (me != null && me.cash < nextActionCost)
+                  }
+                  className="rounded border border-amber-500 bg-white px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-100"
+                >
+                  3× Cask — ${nextActionCost}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBuy({ cask: 0, corn: 3, grain: 0 })}
+                  disabled={
+                    actionLoading ||
+                    piles.corn.length < 3 ||
+                    (me != null && me.cash < nextActionCost)
+                  }
+                  className="rounded border border-amber-500 bg-white px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-100"
+                >
+                  3× Corn — ${nextActionCost}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBuy({ cask: 0, corn: 0, grain: 3 })}
+                  disabled={
+                    actionLoading ||
+                    piles.grain.length < 3 ||
+                    (me != null && me.cash < nextActionCost)
+                  }
+                  className="rounded border border-amber-500 bg-white px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-100"
+                >
+                  3× Grain — ${nextActionCost}
                 </button>
               </>
             )}
-            {game.currentPhase === 3 && (
+            {game.currentPhase >= 2 && game.currentPhase <= 4 && (
               <>
                 {rickhouses.map(
                   (r) =>
                     r.barrels.length < r.capacity && (
                       <button
                         key={r.id}
+                        type="button"
                         onClick={() => handleBarrel(r.id)}
                         disabled={
                           actionLoading ||
@@ -414,14 +561,15 @@ export default function GamePage() {
                         }
                         className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
                       >
-                        Barrel {r.id.replace("rickhouse-", "R")} (rent{" "}
-                        {r.barrels.length + 1} + ${nextActionCost})
+                        Barrel — {rickhouseRegionLabel(r.id)} (entry{" "}
+                        {r.barrels.length + 1} + fee ${nextActionCost})
                       </button>
                     )
                 )}
               </>
             )}
             <button
+              type="button"
               onClick={handleNextPhase}
               disabled={actionLoading}
               className="rounded bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
@@ -514,7 +662,7 @@ export default function GamePage() {
 
       <section className="rounded-lg border border-amber-200 bg-white p-4 dark:border-amber-800 dark:bg-amber-900/20">
         <h2 className="mb-2 font-semibold text-amber-900 dark:text-amber-100">
-          Players
+          Barons
         </h2>
         <ul className="space-y-1">
           {players.map((p) => (
@@ -538,37 +686,64 @@ export default function GamePage() {
         <>
           <section className="mt-4 rounded-lg border border-amber-200 bg-white p-4 dark:border-amber-800 dark:bg-amber-900/20">
             <h2 className="mb-2 font-semibold text-amber-900 dark:text-amber-100">
-              Market
+              Market (face-down piles)
             </h2>
-            <div className="flex flex-wrap gap-2">
-              {(marketGoods as string[]).slice(0, 5).map((g, i) => (
-                <span
-                  key={i}
-                  className="rounded bg-amber-100 px-2 py-1 text-sm dark:bg-amber-800"
-                >
-                  {g}
-                </span>
-              ))}
-            </div>
+            <p className="mb-2 text-sm text-amber-700 dark:text-amber-300">
+              Cask: {piles.cask.length} · Corn: {piles.corn.length} · Grain:{" "}
+              {piles.grain.length}
+              {deckLeft > 0 ? ` · Side deck: ${deckLeft}` : null}
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Each buy action draws exactly 3 cards; you choose how many from each pile (or
+              random).
+            </p>
           </section>
           <section className="mt-4 rounded-lg border border-amber-200 bg-white p-4 dark:border-amber-800 dark:bg-amber-900/20">
             <h2 className="mb-2 font-semibold text-amber-900 dark:text-amber-100">
               Rickhouses
             </h2>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {rickhouses.map((r) => (
-                <div
-                  key={r.id}
-                  className="rounded border border-amber-300 p-2 dark:border-amber-700"
-                >
-                  <p className="text-sm font-medium">
-                    {r.id.replace("rickhouse-", "Rickhouse ")} ({r.barrels.length}/{r.capacity})
-                  </p>
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    {r.barrels.length} barrel{r.barrels.length !== 1 ? "s" : ""}
-                  </p>
-                </div>
-              ))}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {rickhouses.map((r) => {
+                const soleBaron6 =
+                  r.capacity === 6 &&
+                  r.barrels.length > 0 &&
+                  r.barrels.every((b) => b.playerId === r.barrels[0].playerId);
+                return (
+                  <div
+                    key={r.id}
+                    className="rounded border border-amber-300 p-2 dark:border-amber-700"
+                  >
+                    <p className="text-sm font-medium leading-snug">
+                      {rickhouseRegionLabel(r.id)}
+                    </p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      {r.barrels.length}/{r.capacity} barrels
+                      {r.barrels.length > 0 ? (
+                        <>
+                          {" "}
+                          · Next entry rent: <strong>${r.barrels.length + 1}</strong> · Yearly
+                          per barrel:{" "}
+                          <strong>${soleBaron6 ? 0 : r.barrels.length}</strong>
+                          {soleBaron6 ? " (sole baron, 6-cap)" : ""}
+                        </>
+                      ) : (
+                        <> · Empty — next entry rent $1</>
+                      )}
+                    </p>
+                    <ul className="mt-1 max-h-28 space-y-0.5 overflow-y-auto text-xs text-amber-800 dark:text-amber-200">
+                      {r.barrels.map((b) => {
+                        const name =
+                          game.players[b.playerId]?.name ?? b.playerId.slice(0, 8);
+                        return (
+                          <li key={b.barrelId}>
+                            {name} · age {b.age}y · {b.barrelId.slice(-6)}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
             </div>
           </section>
           {me && (
@@ -577,8 +752,20 @@ export default function GamePage() {
                 Your hand
               </h2>
               <p className="mb-2 text-sm text-amber-700 dark:text-amber-300">
-                ${me.cash} · {me.resourceCards.length} cards
-                {canMash && " · Can mash"}
+                ${me.cash} · {me.resourceCards.length} resource cards
+                {me.resourceCards.length > 0 && (
+                  <>
+                    {" "}
+                    · Cask {me.resourceCards.filter((c) => c === "Cask").length}, Corn{" "}
+                    {me.resourceCards.filter((c) => c === "Corn").length}, Grain{" "}
+                    {
+                      me.resourceCards.filter((c) =>
+                        ["Barley", "Rye", "Wheat", "Flavor"].includes(c)
+                      ).length
+                    }
+                  </>
+                )}
+                {canMash ? " · Valid mash (≤6)" : ""}
               </p>
               <div className="flex flex-wrap gap-1">
                 {me.resourceCards.map((c, i) => (
@@ -620,9 +807,51 @@ export default function GamePage() {
                 </div>
               )}
               {me.barrelledBourbons.length > 0 && (
-                <p className="mt-2 text-sm">
-                  Barrelled: {me.barrelledBourbons.length}
-                </p>
+                <div className="mt-3">
+                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                    Your barrelled bourbon
+                  </p>
+                  <ul className="space-y-2 text-sm text-amber-800 dark:text-amber-200">
+                    {me.barrelledBourbons.map((b) => {
+                      const loc = rickhouseRegionLabel(b.rickhouseId);
+                      const est = computeSaleProceeds(b.age, game.marketDemand);
+                      const canSell =
+                        isCurrentPlayer &&
+                        !isComputerTurnNow &&
+                        game.currentPhase >= 2 &&
+                        game.currentPhase <= 4 &&
+                        b.age >= 2;
+                      return (
+                        <li
+                          key={b.id}
+                          className="flex flex-wrap items-center gap-2 rounded border border-amber-200/80 px-2 py-1 dark:border-amber-800"
+                        >
+                          <span>
+                            {loc} · {b.age}y · est. ${est}
+                            {b.mashCards?.length ? (
+                              <span className="text-xs text-amber-600 dark:text-amber-400">
+                                {" "}
+                                · mash {b.mashCards.length} cards
+                              </span>
+                            ) : null}
+                          </span>
+                          {canSell && (
+                            <button
+                              type="button"
+                              onClick={() => handleSellBarrel(b.id)}
+                              disabled={
+                                actionLoading || (me != null && me.cash < nextActionCost)
+                              }
+                              className="rounded bg-amber-700 px-2 py-0.5 text-xs text-white hover:bg-amber-800 disabled:opacity-50"
+                            >
+                              Sell (fee ${nextActionCost})
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               )}
             </section>
           )}

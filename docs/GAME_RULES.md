@@ -18,7 +18,8 @@ Only the savviest player will rise to the top. **Do you have what it takes to ru
 
 ### Game Modes
 
-- **Normal** — First-time players should start with this mode. All instructions are written for the "normal" game mode.
+- **Whiskey Mode** — First-time players should start with this mode. It focuses on the core concept of the game. 
+- **Kentucky Straight** —This is the "normal" game mode. All instructions are written for the "normal" game mode.
 - **Bottled-in-Bond** — This mode is not for the faint of heart; it presents more challenges for the players.
 
 ### Winning
@@ -37,17 +38,17 @@ The board has the 6 regions of Bourbon. Each region has a **rickhouse** with var
 
 ### Market
 
-The market has **3 goods for sale** a "Cask" pile, a "Corn" pile and a "Grain" pile. These goods are "face-down", buyers draw from the pile and can view the card. 
+The market has **3 goods for sale** a "Cask" pile, a "Corn" pile and a "Grain" pile. These goods are "face-down", buyers draw from the pile and can view the card when selecting
 
 ### Business
 
 These decks sit in the **business** area of the board. Taking or buying a card from them usually **costs an action** (see **Actions**). Full rules for each type appear later in this document; here is what each deck represents.
 
-#### Investment cards
+#### Investment cards (In Kentucky Straight and BiB Mode)
 
 **Investment cards** are long-term **strategic** upgrades to your distillery: cheaper rickhouse fees, advantages on resources, better leverage when you take actions, extra rickhouse slots, and similar effects. Investment cards can be acquired via an "action". However, they also require **capital** that you must pay to **implement** the investment card. Newly acquired investment cards start **sideways** until you pay that capital and stand them **upright**. When invested, then the card effects can be used. *Note* if you choose not to put in capital on the turn that you drew the card, then you must pay for another action to capitalize the card. You can perform other actions on that turn (for example if you need to raise money). Details: **Investment cards**; example seeds: **[investment_cards.yaml](investment_cards.yaml)**.
 
-#### Operations cards
+#### Operations cards (In Kentucky Straight and BiB Mode)
 
 **Operations cards** are **tactical** one-offs: they have **no capital cost** to resolve. They typically give an **immediate** payoff (cash), a benefit on your **next** turn, or a **short window** of advantage printed on the card. Details: **Operations cards**; example seeds: **[operations_cards.yaml](operations_cards.yaml)**.
 
@@ -64,8 +65,8 @@ Bourbon Cards may contain award criteria (**Silver** / **Gold**) on the card. Th
 Each turn includes:
 
 1. **Rickhouse fees & aging** — Pay rent for barrelled bourbon and age your stock (see Phase 1).
-2. **Actions** — Take as many actions as you want and can afford (see **Actions** below). The **first action each turn is free**; each further action costs **$1 more than the previous one** ($1, then $2, then $3, then $4, and so on).
-3. **Market demand** — Resolved at end of turn (see Phase 3).
+2. **Market demand** — Roll Dice to determine market demand goes up or down
+3. **Actions** — Take as many actions as you want and can afford (see **Actions** below). The **first three action each turn is free**; each further action costs more than the previous
 
 **Trade:** Players may **trade** resources, barrelled bourbons, investments cards, operations cards and Bourbon Cards / Awards at any point; **trading does not use an action**! Anything and everything can be traded!
 
@@ -73,29 +74,76 @@ Each turn includes:
 
 ## Actions
 
-On your turn, after Phase 1, you may take **any number of actions**. You pay for actions in a single escalating sequence for that turn:
+Your actions are what make your growing business. Each turn you get 3 **Free** actions. You can get additional actions by spending money. If you choose to take additional actions, you pay for all the actions at the end of your turn. If you do not have enough money to pay for your additional actions, then you go bankrupt. Trading does not cost "actions".
 
-| Action # | Cost this action | Running total spent (starting at $0) |
-|----------|------------------|----------------------------------------|
-| 1st      | **Free** ($0)    | $0                                     |
-| 2nd      | $1               | $1                                     |
-| 3rd      | $2               | $3                                     |
-| 4th      | $3               | $6                                     |
-| 5th      | $4               | $10                                    |
-| *n*th    | *$(n−1)* for *n* ≥ 2 | *(sum 0..n−1)*                    |
+actions costs:
+First 3 action - Free
+4th action - $1
+5th action - $2
+6th action - $5
+7th action - $10
+8th action - $15
+9th action - $20
+10th action - $30
+thereafter $10 each
 
 Each of the following counts as **one action** when you take it:
 
-1. **Make bourbon** — Combine the required **resource cards** into a mash and **barrel** it into a rickhouse slot (committing it to age). Pay any **entry rent** for that rickhouse as usual when the bourbon is placed.
-2. **Buy from the market** — Each time you take this action, you receive **3 resource cards**.
-3. **Sell bourbon** — Commit to a sale: you sell your mash, **draw Bourbon Card(s)** per the mash rules, resolve price from the card’s Market Price Guide, and collect (or lose) cash. You must **finish one sale** before starting another.
+1. **Buy from the market** — Each time you take this action, you receive **3 resource cards** (enough to make a Bourbon)!
+2. **Make bourbon** — Combine the required **resource cards** (cask, corn, and grain) and **barrel** it into a rickhouse slot. Pay any **entry rent** for that rickhouse as usual when the bourbon is placed.
+3. **Sell bourbon** — Pick a Bourbon to sell, **draw Bourbon Card(s)** and see how much your Bourbon's worth. Collect cash. You must **finish one sale** before starting another.
+
+-- Kentucky Straight Actions:
 4. **Draw investment cards** — When specified by the game deck / market, taking or purchasing an **investment** card uses an action (see **Investment cards**).
 5. **Draw operations cards** — Taking or purchasing an **operations** card uses an action (see **Operations cards**).
 6. **Capitalize an investment** - For investment cards not capitalized on that turn, you must pay for an action
 
----
+### Bourbon Cycle
+Collecting Resources, Making Bourbon and Selling Bourbon is the primary way you make money in Bourbonomics. Making Bourbon, even the cheap stuff, is not a quick turn-around. Bourbon needs to age at least 2 years before you can sell it. A lot can happen when you start making Bourbon to when you sell it: demand can shoot up, other distilleries can be opening, rickhouses might also fill up! 
 
-## Investment cards
+#### Resources
+Resources can be purchased from the market. There is a Cask, Corn and Grain pile. These cards are "face-down". When you purchase from the market you get to select any 3 cards. For example, you can select one from each pile; that will be enough to make one Bourbon. 
+
+The Grain pile is unique: There are three different types of Grains: Barley, Rye, Wheat. 
+
+| Resource | Role |
+|----------|------|
+| **Cask** | Required for Bourbon. Some casks have **special traits**. |
+| **Corn** | Required for Bourbon; some corn cards have **special properties**. |
+| **Barley, Rye, or Wheat** | **Grains** — at least **one** grain card must be in each Bourbon (any mix of barley, rye, and wheat allowed). |
+
+> **Note:** By U.S. law, bourbon must be at least **51% corn** in the grain bill.
+
+Some resource cards contain special properties and traits, they can improve sale price, add certain bonuses; additionally some Bourbon awards are dependent on how much corn or grains are in your Bourbon. Some resource cards have **special properties** — mix and match to maximize benefit. A working catalog of **specialty** resource cards (names + example rules) lives in **[SPECIALTY_RESOURCE_CARDS.md](SPECIALTY_RESOURCE_CARDS.md)**.
+
+#### Making Bourbon
+
+You make Bourbon by collecting the necessary resources and putting the Bourbon into a rickhouse. Your bourbon must include **at least 1 cask, 1 corn, and 1 grain**. You can include additional corn and grains; you can only include 1 cask.  Your Bourbon can have up to 6 resource cards total.
+
+- 4 corn + 1 grain + 1 cask
+- 1 corn + 2 grain + 1 cask 
+- 2 corn + 2 grain + 1 cask
+
+You put your cards into a "rickhouse slot". You must pay the entry fee. The entry fee is equal to the number of Bourbons (including the Bourbon your adding), in that rickhouse. For example, if there are two other Bourbons in the rickhouse, and you're adding a Bourbon, your entry fee will be $3. 
+
+#### Aging Bourbon
+At the start of every turn, you'll pay the yearly rickhouse fee to age your Bourbon. The rickhouse fee is the total number of Bourbons in that rickhouse. You will need to pay the rickhouse fee for every Bourbon. When you pay the fee, you'll place one token on top of each Bourbon; this will track how many years old your Bourbon has aged. 
+
+#### Selling Bourbon
+
+ All your hard work has finally paid off! Selling Bourbon is where you make the money! A Bourbon must be at least 2 years old (have 2 tokens on top). 
+
+ To sell Bourbon, you first select which Bourbon you'd like to sell. Then you draw a Bourbon card. A Bourbon card has a payoff chart which determines how much you make from your Bourbon based on the age of the Bourbon and market demand. All else being equal, you make more money when market demand is high and your bourbon is well-aged (8+years). Make sure you time your sales right!  
+
+Return the resouces and Bourbon card to the discard pile. If you Bourbon qualifies for an award you can keep your Bourbon card. 
+
+### Kentucky Straight Actions
+For more advanced game modes, we introduce 3 additional actions:
+- Investment Cards
+- Operations Cards
+- Capitalize an Investment
+
+#### Investment cards
 
 **Investment cards** are long-term effects on your business: lower rickhouse fees, resource monopolies, extra leverage on actions, and similar payoffs. For printable **idea seeds**, see **[INVESTMENT_CARD_IDEAS.md](INVESTMENT_CARD_IDEAS.md)**.
 
@@ -110,41 +158,21 @@ Each of the following counts as **one action** when you take it:
 
 **Operations cards** have **no capital / investment cost** to resolve. They usually provide **immediate or short-term** benefits: cash now, reduced costs on your **next** turn, or a **limited-time** effect that expires after a window printed on the card. For printable **idea seeds**, see **[OPERATIONS_CARD_IDEAS.md](OPERATIONS_CARD_IDEAS.md)**.
 
----
-
-## Resources
-
-There are **five** resource types in the deck: **Cask**, **Corn**, **Barley**, **Rye**, and **Wheat**. For building a mash, use them as follows:
-
-| Resource | Role |
-|----------|------|
-| **Cask** | Required for every mash. Some casks have **special traits**. |
-| **Corn** | Required for bourbon; some corn cards have **special properties**. |
-| **Barley, Rye, or Wheat** | **Grains** — at least **one** grain card must be in each mash (any mix of barley, rye, and wheat allowed). |
-
-Your bourbon mash must include **at least 1 cask, 1 corn, and 1 grain**. Beyond that, you may add **multiple corn and grain cards** to the same mash: your **corn + grain** cards together may total up to **four** cards in any mix, for example:
-
-- 3 corn + 1 grain  
-- 2 corn + 2 grain  
-- 1 corn + 3 grain  
-
-(Always with **1 cask** in addition.) Some resource cards have **special properties** — mix and match to maximize benefit. A working catalog of **specialty** resource cards (names + example rules) lives in **[SPECIALTY_RESOURCE_CARDS.md](SPECIALTY_RESOURCE_CARDS.md)**.
-
-> **Tip:** By U.S. law, bourbon must be at least **51% corn** in the grain bill; *Bourbonomics* uses the simplified **card** rules above for play.
 
 ---
 
-## Bourbon 101
+# Bourbon 101
+A little bit of fact, trivia and history of Bourbon and how it relates to the game.
 
-### Mash
+## Mash
 
 A **mash bill** is the recipe used to make your bourbon, built from **resource cards** (see **Resources**). When you **sell**, you **draw Bourbon Card(s)** depending on mash composition — often **up to 3 Bourbon Cards** based on how rich your mash is; choose which Bourbon Card to use for that sale unless the rules say otherwise.
 
-### Rickhouse
+## Rickhouse
 
 > **Tip:** A **rickhouse** (or rackhouse) is a multi-story warehouse used to age bourbon in barrels. The structure's wood floors, open ventilation, and height all affect how barrels age. Temperature swings across different levels create unique aging conditions—barrels at the top tend to age faster due to higher heat, while barrels at the bottom age slower and smoother.
 
-Rickhouses are where bourbon is stored and aged. There are **6 rickhouses** in the state, each with a capacity of **3, 4, 5, or 6** bourbons.
+Rickhouses are where bourbon is stored and aged. There are **6 rickhouses** in the state—each tied to a **Kentucky Bourbon Trail®** region (in play order: **Northern**, **Louisville**, **Central**, **Lexington**, **Bardstown**, **Western**), each with a capacity of **3, 4, 5, or 6** bourbons.
 
 - Players pay **rent** to the rickhouse based on the total number of barrelled bourbons stored there (your bourbon as well as other players bourbons).
   - **Rent = Total number of barrelled bourbons in that rickhouse.**
@@ -153,7 +181,7 @@ Rickhouses are where bourbon is stored and aged. There are **6 rickhouses** in t
 
 **Bourbon Demand** — Bourbon Demand is anywhere from 0–12 barrels. Demand starts the game at **6 barrels**. Each time Bourbon is sold, demand goes down by **1 barrel**. At the end of each turn, players will roll the Bourbon Dice. If the number on the dice is higher than Bourbon Demand, then Bourbon Demand goes up by 1. 
 
-### Bourbon Card
+## Bourbon / Bourbon Card
 
 Each Bourbon Card has a **Market Price Guide** that shows the **value of your bourbon** based on its **age** and **current market demand**. You won't know its true worth until you go to market.
 

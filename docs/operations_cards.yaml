@@ -69,17 +69,15 @@ categories:
       - id: sandbag_the_leak
         title: Sandbag the leak
         concept: Emergency repair.
-        effect: "Choose one rickhouse: **−$2** off **entry rent** the next time you **make bourbon** there **this turn**, and
-          gain **$2**."
+        effect: "Keep this card in your hand. Waive all fees at one rickhouse when you use this card. You can still place a year token on a barrel in that rickhouse."
       - id: stack_swap
         title: Stack swap
         concept: Crew rotates barrels for you.
-        effect: "**Once this turn**, when you **make bourbon**, you may place into **any legal slot** in that rickhouse; gain
-          **$3** when you do."
+        effect: "Add +1 year token to one of your barrelled bourbons (for no fee)."
       - id: freeze_rent
         title: Freeze rent
         concept: One-month abatement.
-        effect: Your **rickhouse fees** this turn are reduced by **$3** (minimum **$0** total).
+        effect: Keep this card in your hand. Your **rickhouse fees** are a maximum of $2 across all rickhouses this turn.
       - id: inspector_delay
         title: Inspector delay
         concept: Paperwork shuffle.
@@ -91,12 +89,11 @@ categories:
       - id: cooper_on_call
         title: Cooper on call
         concept: Emergency repair staves.
-        effect: Take **1** card from the **Cask** pile; you may discard **1** card from hand. **Gain $3** *(side sale)*.
+        effect: Swap a cask in one of your rickhouses for a cask in your hand.
       - id: extra_dray
         title: Extra dray
         concept: Truck showed up early.
-        effect: Your **next** “buy from market” action **this turn** gives **+1** card (**4** total) **or** **look** at the top
-          card of **one** pile before you choose draws. **Gain $2** now.
+        effect: Keep this card in your hand. When using this card, all your “buy from market” action **this turn** gives **+1** card (**4** total) without looking at the top card of the pile.
       - id: mulligan_mash
         title: Mulligan mash
         concept: Scrap the cook.

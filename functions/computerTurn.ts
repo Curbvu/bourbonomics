@@ -38,7 +38,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: "Not the computer's turn" }) };
   }
 
-  const updated = runComputerTurn(game);
+  const updated = runComputerTurn(normalizeGame(game));
 
   await client.send(
     new PutItemCommand({

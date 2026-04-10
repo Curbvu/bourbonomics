@@ -2,6 +2,21 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 **Bourbonomics** — [Game rules](docs/GAME_RULES.md) and [web game plan](docs/WEB_GAME_PLAN.md) are in the repo.
 
+### Rickhouses and Kentucky Bourbon Trail® regions
+
+The six in-game rickhouses (`rickhouse-0` … `rickhouse-5`) are named for the six official **[Kentucky Bourbon Trail® regions](https://kybourbontrail.com/regions/)** (see also `lib/rickhouses.ts`):
+
+| Id | Region |
+|----|--------|
+| `rickhouse-0` | Northern Region |
+| `rickhouse-1` | Louisville Region |
+| `rickhouse-2` | Central Region |
+| `rickhouse-3` | Lexington Region |
+| `rickhouse-4` | Bardstown Region |
+| `rickhouse-5` | Western Region |
+
+Capacities per slot are **3, 4, 5, 6, 4, 5** barrels (same index order as the table).
+
 ## Getting Started
 
 ### Run with SST (full game API + WebSocket)

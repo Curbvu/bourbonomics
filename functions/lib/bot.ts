@@ -1,4 +1,4 @@
-import type { GameDoc, Rickhouse } from "./game";
+import type { GameDoc, MarketBuyPicks, Rickhouse } from "./game";
 import {
   isBotPlayer,
   buyResources,
@@ -6,13 +6,29 @@ import {
   advancePhase,
   canMash,
   normalizeGame,
+  nextActionCashCost,
+  payRickhouseFeesAndAge,
 } from "./game";
 
 const MAX_BOT_TURN_ITERATIONS = 50;
 
+function totalMarketCards(g: GameDoc): number {
+  const p = g.marketPiles;
+  if (!p) return 0;
+  return p.cask.length + p.corn.length + p.grain.length;
+}
+
+function botMarketPicks(g: GameDoc): MarketBuyPicks | "random" {
+  const p = g.marketPiles;
+  if (!p) return "random";
+  if (p.cask.length >= 1 && p.corn.length >= 1 && p.grain.length >= 1)
+    return { cask: 1, corn: 1, grain: 1 };
+  return "random";
+}
+
 /**
- * Run the computer player's turn to completion (all phases), then continue
- * if the next player is also a bot, until it's a human's turn or the game ends.
+ * Run the computer baron's turn to completion (all phases), then continue
+ * if the next baron is also a bot, until it's a human's turn or the game ends.
  */
 export function runComputerTurn(game: GameDoc): GameDoc {
   if (game.status !== "in_progress") return game;
@@ -28,21 +44,33 @@ export function runComputerTurn(game: GameDoc): GameDoc {
     if (!player) break;
 
     if (state.currentPhase === 1) {
+      const res = payRickhouseFeesAndAge(state, currentId);
+      if (!res.error) {
+        state = res.game;
+      } else {
+        // Prototype bot: unblock the turn if fees cannot be paid in full.
+        state = {
+          ...state,
+          rickhouseFeesPaidThisTurn: true,
+          updatedAt: Date.now(),
+        };
+      }
       state = { ...state, currentPhase: 2, updatedAt: Date.now() };
       continue;
     }
 
     if (state.currentPhase === 2) {
-      if (state.marketGoods.length > 0) {
-        const buyMarket = buyResources(state, "market");
+      const picks = botMarketPicks(state);
+      if (totalMarketCards(state) >= 3) {
+        const buyMarket = buyResources(state, picks);
         if (!buyMarket.error) state = buyMarket.game;
       }
       const st = normalizeGame(state);
       const bot = st.players[currentId];
-      const nextCost = st.actionsTakenThisTurn ?? 0;
-      if (bot && st.resourceDeck.length >= 2 && bot.cash >= nextCost) {
-        const buyTwo = buyResources(st, "random");
-        if (!buyTwo.error) state = buyTwo.game;
+      const nextCost = nextActionCashCost(st.actionsTakenThisTurn ?? 0);
+      if (bot && totalMarketCards(st) >= 3 && bot.cash >= nextCost) {
+        const buyAgain = buyResources(st, "random");
+        if (!buyAgain.error) state = buyAgain.game;
       }
       state = { ...state, currentPhase: 3, updatedAt: Date.now() };
       continue;
@@ -62,7 +90,8 @@ export function runComputerTurn(game: GameDoc): GameDoc {
     }
 
     if (state.currentPhase === 4) {
-      state = advancePhase(state);
+      const out = advancePhase(state);
+      state = out.error ? state : out.game;
     }
 
     iterations++;
@@ -78,7 +107,7 @@ function pickCheapestRickhouse(game: GameDoc, playerId: string): Rickhouse | nul
     if (r.barrels.length >= r.capacity) continue;
     const rent = r.barrels.length + 1;
     const player = game.players[playerId];
-    const actionCost = game.actionsTakenThisTurn ?? 0;
+    const actionCost = nextActionCashCost(game.actionsTakenThisTurn ?? 0);
     if (player && player.cash >= rent + actionCost && rent < bestRent) {
       bestRent = rent;
       best = r;
