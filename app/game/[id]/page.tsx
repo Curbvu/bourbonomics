@@ -370,6 +370,26 @@ function barrelMashCards(
   return list.find((bb) => bb.id === barrelId)?.mashCards;
 }
 
+/** Face-up resource chip in the bottom hand bar (idle state). */
+function handResourceChipIdleClass(card: string): string {
+  const base =
+    "border-2 bg-linear-to-b shadow-md ring-1 ring-black/5 dark:ring-white/10";
+  switch (card) {
+    case "Cask":
+      return `${base} border-rose-400/80 from-rose-100 to-rose-50 text-rose-950 dark:border-rose-500/60 dark:from-rose-950/70 dark:to-rose-900/40 dark:text-rose-50`;
+    case "Corn":
+      return `${base} border-sky-400/80 from-sky-100 to-sky-50 text-sky-950 dark:border-sky-500/60 dark:from-sky-950/70 dark:to-sky-900/40 dark:text-sky-50`;
+    case "Barley":
+      return `${base} border-emerald-500/70 from-emerald-100 to-emerald-50 text-emerald-950 dark:border-emerald-500/50 dark:from-emerald-950/60 dark:to-emerald-900/35 dark:text-emerald-50`;
+    case "Rye":
+      return `${base} border-lime-500/70 from-lime-100 to-lime-50 text-lime-950 dark:border-lime-500/50 dark:from-lime-950/50 dark:to-lime-900/35 dark:text-lime-50`;
+    case "Wheat":
+      return `${base} border-amber-500/70 from-amber-100 to-amber-50 text-amber-950 dark:border-amber-500/50 dark:from-amber-950/55 dark:to-amber-900/35 dark:text-amber-50`;
+    default:
+      return `${base} border-slate-300 from-slate-100 to-white text-slate-900 dark:border-slate-600 dark:from-slate-800 dark:to-slate-900 dark:text-slate-100`;
+  }
+}
+
 /** Compact pill for one resource type in a barrel mash (board slots). */
 function mashResourcePill(card: string): { short: string; title: string; className: string } {
   const base =
@@ -898,82 +918,82 @@ export default function GamePage() {
                       : ""
                   } ${isYou ? "ring-1 ring-sky-500 dark:ring-sky-400" : ""}`}
                 >
-                  {isBotPlayer(pid) ? (
-                    <span className="absolute right-0.5 top-[1.35rem] z-10 rounded bg-slate-600 px-1 py-0.5 text-[7px] font-semibold uppercase leading-none text-white dark:bg-slate-500">
-                      CPU
-                    </span>
-                  ) : null}
-
-                  <div className="flex flex-1 items-start gap-1.5 p-1.5 pr-1">
+                  <div className="flex flex-1 items-start gap-1 p-1">
                     <div className="relative shrink-0">
                       <span
-                        className="absolute -left-0.5 -top-0.5 z-10 flex h-4.5 min-w-4.5 items-center justify-center rounded-full border border-white bg-slate-800 px-0.5 text-[8px] font-bold leading-none text-white shadow dark:border-slate-700 dark:bg-slate-200 dark:text-slate-950"
+                        className="absolute -left-0.5 -top-0.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-slate-800 px-0.5 text-[7px] font-bold leading-none text-white shadow dark:border-slate-700 dark:bg-slate-200 dark:text-slate-950"
                         title="Seat order"
                       >
                         {seatIndex + 1}
                       </span>
-                      <div className="relative">
-                        <div
-                          className={`flex h-10 w-10 items-center justify-center rounded-md border-2 text-[11px] font-bold leading-none ${theme.border} ${theme.avatar}`}
-                          title={p.name}
-                        >
-                          {baronInitials(p.name)}
-                        </div>
-                        {isCurrentTurn ? (
-                          <span
-                            className="absolute -bottom-0.5 -left-0.5 z-10 rounded bg-teal-500 px-1 py-0.5 text-[7px] font-bold uppercase leading-none text-white shadow dark:bg-teal-400 dark:text-slate-950"
-                            title="Current turn"
+                      <div className="flex flex-col items-center">
+                        <div className="relative">
+                          <div
+                            className={`flex h-9 w-9 items-center justify-center rounded-md border-2 text-[10px] font-bold leading-none ${theme.border} ${theme.avatar}`}
+                            title={p.name}
                           >
-                            Turn
+                            {baronInitials(p.name)}
+                          </div>
+                          {isCurrentTurn ? (
+                            <span
+                              className="absolute -bottom-0.5 -left-0.5 z-10 rounded bg-teal-500 px-1 py-px text-[6px] font-bold uppercase leading-none text-white shadow dark:bg-teal-400 dark:text-slate-950"
+                              title="Current turn"
+                            >
+                              Turn
+                            </span>
+                          ) : null}
+                        </div>
+                        {isBotPlayer(pid) ? (
+                          <span
+                            className="mt-0.5 rounded bg-slate-600 px-1 py-px text-[6px] font-semibold uppercase leading-none text-white shadow-sm dark:bg-slate-500"
+                            title="Computer baron"
+                          >
+                            CPU
                           </span>
                         ) : null}
                       </div>
                     </div>
 
-                    <div
-                      className={`flex min-w-0 flex-1 flex-col gap-1 ${
-                        isBotPlayer(pid) ? "pr-8" : ""
-                      }`}
-                    >
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <div
-                        className={`truncate rounded px-1 py-0.5 text-center text-[11px] font-semibold leading-tight ${theme.banner}`}
+                        className={`truncate rounded px-1 py-px text-center text-[10px] font-semibold leading-tight ${theme.banner}`}
                       >
                         {p.name}
                         {isYou ? (
                           <span className="ml-0.5 text-[9px] font-bold opacity-90">(you)</span>
                         ) : null}
                       </div>
-                      <div className="grid min-h-0 flex-1 grid-cols-3 gap-1">
+                      <div className="grid min-h-0 flex-1 grid-cols-3 gap-0.5">
                         <div
-                          className={`flex min-w-0 flex-col items-center justify-center rounded-md border-2 bg-slate-100 px-0.5 py-1.5 text-center shadow-sm dark:bg-slate-950/90 ${theme.border}`}
+                          className={`flex min-w-0 flex-col items-center justify-center rounded-md border-2 bg-slate-100 px-0.5 py-1 text-center shadow-sm dark:bg-slate-950/90 ${theme.border}`}
                           title="Cash"
                         >
-                          <span className="text-[8px] font-bold uppercase leading-none tracking-wide text-slate-500 dark:text-slate-500">
+                          <span className="text-[7px] font-bold uppercase leading-none tracking-wide text-slate-500 dark:text-slate-500">
                             Cash
                           </span>
-                          <span className="mt-1 text-sm font-bold tabular-nums leading-none text-slate-900 dark:text-slate-50">
+                          <span className="mt-0.5 text-xs font-bold tabular-nums leading-none text-slate-900 dark:text-slate-50">
                             ${p.cash}
                           </span>
                         </div>
                         <div
-                          className={`flex min-w-0 flex-col items-center justify-center rounded-md border-2 bg-slate-100 px-0.5 py-1.5 text-center shadow-sm dark:bg-slate-950/90 ${theme.border}`}
+                          className={`flex min-w-0 flex-col items-center justify-center rounded-md border-2 bg-slate-100 px-0.5 py-1 text-center shadow-sm dark:bg-slate-950/90 ${theme.border}`}
                           title="Resource cards in hand"
                         >
-                          <span className="text-[8px] font-bold uppercase leading-none tracking-wide text-slate-500 dark:text-slate-500">
+                          <span className="text-[7px] font-bold uppercase leading-none tracking-wide text-slate-500 dark:text-slate-500">
                             Res.
                           </span>
-                          <span className="mt-1 text-sm font-bold tabular-nums leading-none text-slate-900 dark:text-slate-50">
+                          <span className="mt-0.5 text-xs font-bold tabular-nums leading-none text-slate-900 dark:text-slate-50">
                             {resourceCount}
                           </span>
                         </div>
                         <div
-                          className={`flex min-w-0 flex-col items-center justify-center rounded-md border-2 bg-slate-100 px-0.5 py-1.5 text-center shadow-sm dark:bg-slate-950/90 ${theme.border}`}
+                          className={`flex min-w-0 flex-col items-center justify-center rounded-md border-2 bg-slate-100 px-0.5 py-1 text-center shadow-sm dark:bg-slate-950/90 ${theme.border}`}
                           title="Barrelled bourbons"
                         >
-                          <span className="text-[8px] font-bold uppercase leading-none tracking-wide text-slate-500 dark:text-slate-500">
+                          <span className="text-[7px] font-bold uppercase leading-none tracking-wide text-slate-500 dark:text-slate-500">
                             Barrels
                           </span>
-                          <span className="mt-1 text-sm font-bold tabular-nums leading-none text-slate-900 dark:text-slate-50">
+                          <span className="mt-0.5 text-xs font-bold tabular-nums leading-none text-slate-900 dark:text-slate-50">
                             {barrelCount}
                           </span>
                         </div>
@@ -1281,68 +1301,82 @@ export default function GamePage() {
                 aria-label="Your hand"
               >
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/60 dark:bg-white/10" />
-                <div className="mx-auto max-w-6xl rounded-t-2xl rounded-b-lg border border-slate-300/80 bg-white/95 px-3 py-2.5 shadow-lg ring-1 ring-slate-900/5 dark:border-violet-800/60 dark:bg-slate-800/95 dark:ring-white/10 sm:px-4">
-                  <div className="mb-1.5 flex flex-wrap items-end justify-between gap-2">
-                    <div>
-                      <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                        Your hand
-                      </h2>
-                      <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-300">
-                        <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
-                          ${me.cash}
-                        </span>
-                        <span className="text-slate-400"> · </span>
-                        {me.resourceCards.length} resource cards
-                        {me.resourceCards.length > 0 && (
-                          <>
-                            {" "}
-                            · Cask {me.resourceCards.filter((c) => c === "Cask").length}, Corn{" "}
-                            {me.resourceCards.filter((c) => c === "Corn").length}, Grain{" "}
-                            {me.resourceCards.filter((c) => isGrainCard(c)).length}
-                          </>
-                        )}
-                        {canMash
-                          ? " · Tap cards for mash, then + on a rickhouse slot"
-                          : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex min-h-8 flex-wrap gap-1.5">
-                    {me.resourceCards.map((c, i) => {
-                      const selected = mashSelection.has(i);
-                      const canToggle =
-                        game.status === "in_progress" &&
-                        game.currentPhase === 3 &&
-                        isCurrentPlayer &&
-                        !isComputerTurnNow;
-                      return (
-                        <button
-                          key={`${i}-${c}`}
-                          type="button"
-                          disabled={!canToggle}
-                          onClick={() => toggleMashIndex(i)}
-                          title={
-                            canToggle
-                              ? selected
-                                ? "Remove from mash"
-                                : "Add to mash"
-                              : "Select during your Action phase"
-                          }
-                          className={`rounded-md px-2.5 py-1 text-xs shadow-sm transition ${
-                            selected
-                              ? "bg-indigo-600 font-semibold text-white ring-2 ring-indigo-300 dark:bg-teal-600 dark:ring-cyan-400"
-                              : "border border-slate-200/90 bg-slate-50 text-slate-800 dark:border-slate-600 dark:bg-slate-700/80 dark:text-slate-100"
-                          } ${canToggle ? "cursor-pointer hover:brightness-95 active:scale-[0.98] dark:hover:brightness-110" : "cursor-default opacity-70"}`}
-                        >
-                          {c}
-                        </button>
-                      );
-                    })}
-                    {me.resourceCards.length === 0 ? (
-                      <span className="text-xs italic text-slate-400 dark:text-slate-500">
-                        No resource cards yet — buy from the market in Action phase.
+                <div className="mx-auto max-w-6xl rounded-t-2xl rounded-b-lg border border-slate-300/80 bg-white/95 px-3 py-3 shadow-lg ring-1 ring-slate-900/5 dark:border-violet-800/60 dark:bg-slate-800/95 dark:ring-white/10 sm:px-5 sm:py-4">
+                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-stretch sm:gap-4">
+                    <div className="flex shrink-0 flex-col justify-center rounded-2xl border-2 border-emerald-600/45 bg-linear-to-br from-emerald-100 via-white to-emerald-50/80 px-4 py-3 shadow-lg ring-2 ring-emerald-500/15 dark:border-emerald-500/40 dark:from-emerald-950/80 dark:via-slate-900 dark:to-emerald-950/40 dark:ring-emerald-400/20">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-800 dark:text-emerald-300">
+                        Cash
                       </span>
-                    ) : null}
+                      <span className="mt-0.5 text-3xl font-black tabular-nums leading-none tracking-tight text-emerald-950 dark:text-emerald-50 sm:text-4xl">
+                        ${me.cash}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300">
+                          Your hand — resources
+                        </h2>
+                        <span className="rounded-full border border-slate-300/80 bg-slate-100 px-2.5 py-1 text-xs font-bold tabular-nums text-slate-800 shadow-sm dark:border-slate-600 dark:bg-slate-900/80 dark:text-slate-100">
+                          {me.resourceCards.length} card
+                          {me.resourceCards.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      {me.resourceCards.length > 0 ? (
+                        <p className="mb-2 text-[10px] text-slate-500 dark:text-slate-400">
+                          Cask {me.resourceCards.filter((c) => c === "Cask").length} · Corn{" "}
+                          {me.resourceCards.filter((c) => c === "Corn").length} · Grain{" "}
+                          {me.resourceCards.filter((c) => isGrainCard(c)).length}
+                          {canMash ? (
+                            <span className="text-slate-400 dark:text-slate-500">
+                              {" "}
+                              · Tap to build mash, then + on a rickhouse
+                            </span>
+                          ) : null}
+                        </p>
+                      ) : (
+                        <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                          No resource cards yet — buy from the{" "}
+                          <strong className="text-slate-700 dark:text-slate-200">Market</strong> in
+                          Action phase.
+                        </p>
+                      )}
+                      <div className="flex min-h-[3.25rem] flex-wrap gap-2 sm:gap-2.5">
+                        {me.resourceCards.map((c, i) => {
+                          const selected = mashSelection.has(i);
+                          const canToggle =
+                            game.status === "in_progress" &&
+                            game.currentPhase === 3 &&
+                            isCurrentPlayer &&
+                            !isComputerTurnNow;
+                          return (
+                            <button
+                              key={`${i}-${c}`}
+                              type="button"
+                              disabled={!canToggle}
+                              onClick={() => toggleMashIndex(i)}
+                              title={
+                                canToggle
+                                  ? selected
+                                    ? "Remove from mash"
+                                    : "Add to mash"
+                                  : "Select during your Action phase"
+                              }
+                              className={`flex min-h-[3.25rem] min-w-[5.25rem] flex-col items-center justify-center rounded-xl px-3 py-2 text-center text-sm font-bold leading-tight transition ${
+                                selected
+                                  ? "scale-[1.02] bg-indigo-600 text-white shadow-lg ring-4 ring-indigo-300/80 dark:bg-teal-600 dark:ring-cyan-400/70"
+                                  : `${handResourceChipIdleClass(c)} text-slate-900 dark:text-slate-50`
+                              } ${
+                                canToggle
+                                  ? "cursor-pointer hover:brightness-[1.03] active:scale-[0.98] dark:hover:brightness-110"
+                                  : "cursor-default opacity-65"
+                              }`}
+                            >
+                              {c}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                   {opsHand.length > 0 && (
                     <div className="mt-2 border-t border-slate-200/80 pt-2 dark:border-slate-600/80">
@@ -1477,32 +1511,17 @@ export default function GamePage() {
                 </div>
               </div>
 
-              <div className="shrink-0 rounded-lg border border-slate-200/90 bg-white/85 px-2.5 py-2 text-[10px] leading-relaxed text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
-                <p>
-                  <span className="font-semibold text-slate-800 dark:text-slate-100">
-                    Turn {game.turnNumber}
-                  </span>
-                  <span className="text-slate-400"> · </span>
-                  {gameModeDisplayLabel(game.mode)}
-                </p>
-                <p className="mt-1">
-                  Ops {opsDeckLeft} · Inv {invDeckLeft}
-                  <span className="text-slate-400"> · </span>
-                  {game.actionsTakenThisTurn ?? 0} used this turn
-                </p>
-                {me != null ? (
-                  <p className="mt-1 font-medium text-slate-800 dark:text-slate-100">
-                    Your cash{" "}
-                    <strong className="tabular-nums">${me.cash}</strong>
-                  </p>
-                ) : null}
-              </div>
-
               <div className="min-h-0 flex-1 space-y-3">
                 <div>
-                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                    This phase — your actions
-                  </p>
+                  {!(
+                    game.currentPhase === 3 &&
+                    isCurrentPlayer &&
+                    !isComputerTurnNow
+                  ) ? (
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                      This phase — your actions
+                    </p>
+                  ) : null}
                   {game.status === "in_progress" &&
                   !isComputerTurnNow &&
                   !isCurrentPlayer ? (
@@ -1581,39 +1600,20 @@ export default function GamePage() {
                           </button>
                         </div>
                       )}
-                      {game.currentPhase === 3 && (
-                        <div className="rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm dark:border-slate-600 dark:bg-slate-800/50">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Action checklist
-                          </p>
-                          <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-sm text-slate-700 dark:text-slate-200">
-                            <li>
-                              Buy resources from the <strong>Market</strong> (below) when you need
-                              cards.
-                            </li>
-                            <li>
-                              Tap cards in <strong>Your hand</strong> at the bottom of the board to
-                              build a mash, then use <strong>+</strong> on a rickhouse slot.
-                            </li>
-                            <li>
-                              Draw/play operations &amp; investments, sell aged barrels from your
-                              hand bar, then <strong>End turn</strong>.
-                            </li>
-                          </ol>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
 
             <section className="rounded-lg border border-slate-200 bg-white/95 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/30">
-              <h2 className="mb-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                Market
-              </h2>
-              <p className="mb-3 text-[11px] text-slate-500 dark:text-slate-300">
+              <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">
                 {game.currentPhase === 3 && isCurrentPlayer && !isComputerTurnNow
-                  ? "Tap piles in order to choose 3 cards, then confirm (one buy action)."
-                  : "Face-down piles — counts shown. Resource buys happen in the Action phase."}
+                  ? "Buy from market"
+                  : "Market"}
+              </h2>
+              <p className="mb-3 mt-1 text-[11px] leading-snug text-slate-600 dark:text-slate-300">
+                {game.currentPhase === 3 && isCurrentPlayer && !isComputerTurnNow
+                  ? "One buy action: tap a pile for each of 3 picks (any mix of Cask, Corn, Grain), then confirm. Your pick order is listed below."
+                  : "Face-down piles — counts shown. Buys happen in the Action phase."}
               </p>
               {deckLeft > 0 ? (
                 <p className="mb-2 text-[11px] text-slate-400 dark:text-slate-400">
@@ -1688,7 +1688,7 @@ export default function GamePage() {
                   </p>
                   {marketDrawPicks.length === 0 ? (
                     <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      Tap piles above in order. Order is kept so you know what you took.
+                      Tap a pile for each of your 3 picks.
                     </p>
                   ) : (
                     <ol className="mt-1.5 flex list-none flex-wrap gap-1">
@@ -1754,20 +1754,17 @@ export default function GamePage() {
 
             {isCurrentPlayer && !isComputerTurnNow && game.currentPhase === 3 && (
               <section className="rounded-xl border border-slate-200 bg-linear-to-b from-white to-slate-50/90 p-3 shadow-sm dark:border-violet-800/60 dark:from-slate-800/90 dark:to-slate-950/90">
-                <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-300">
-                  Mash &amp; barreling
+                <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-violet-700 dark:text-violet-300">
+                  Barrel bourbon
                 </h2>
+                <p className="mb-3 mt-1 text-[11px] leading-snug text-slate-600 dark:text-slate-300">
+                  In <strong>Your hand</strong> at the bottom, tap <strong>3–6</strong> cards:{" "}
+                  <strong>1 Cask</strong>, <strong>≥1 Corn</strong>, <strong>≥1 grain</strong>. Then
+                  tap <strong>+</strong> on an empty rickhouse slot (one barreling action).
+                </p>
 
                 <div className="mb-3 rounded-lg border border-violet-200/80 bg-violet-50/50 p-2.5 text-sm dark:border-violet-800/50 dark:bg-violet-950/25">
-                  <p className="font-medium text-slate-800 dark:text-slate-100">
-                    Build a mash
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-200">
-                    In <strong>Your hand</strong> along the bottom of the board, tap cards for 3–6:{" "}
-                    <strong>1 Cask</strong>, <strong>≥1 Corn</strong>, <strong>≥1 grain</strong>.
-                    Then tap <strong>+</strong> on an empty rickhouse slot to barrel.
-                  </p>
-                  <p className="mt-1 text-xs text-slate-700 dark:text-slate-200">
+                  <p className="text-xs text-slate-700 dark:text-slate-200">
                     Selected: {mashSelection.size} card{mashSelection.size === 1 ? "" : "s"}
                     {mashSelection.size > 0 ? ` — ${selectedMashCards.join(", ")}` : ""}
                     {mashSelection.size > 0 && !mashSelectionValid ? (
@@ -1790,19 +1787,15 @@ export default function GamePage() {
                   ) : null}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleNextPhase}
-                  disabled={actionLoading}
-                  className="mb-4 w-full rounded-lg bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {actionLoading ? "…" : "End turn"}
-                </button>
-
                 {inCardPhases && (
                   <div className="border-t border-slate-200 pt-3 dark:border-violet-700">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-700 dark:text-slate-200">
-                      Operations &amp; investments
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">
+                      Business cards
+                    </p>
+                    <p className="mb-2 mt-1 text-[11px] leading-snug text-slate-600 dark:text-slate-300">
+                      Draw or play operations, draw or capitalize investments — each uses the{" "}
+                      <strong>next action</strong> fee. Sell aged barrels from your hand bar when
+                      ready.
                     </p>
                     <div className="flex flex-col gap-2">
                       <button
@@ -1879,6 +1872,18 @@ export default function GamePage() {
                     )}
                   </div>
                 )}
+
+                <p className="mb-2 mt-3 text-[11px] text-slate-500 dark:text-slate-400">
+                  When you&apos;re done with actions this turn, end and pass the Baron role.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleNextPhase}
+                  disabled={actionLoading}
+                  className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {actionLoading ? "…" : "End turn"}
+                </button>
               </section>
             )}
               </div>

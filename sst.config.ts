@@ -50,8 +50,8 @@ export default $config({
       },
     });
 
-    // Do not set `link` on transform.route.handler: SST merges `{ ...routeArgs, ...transform }`,
-    // which overwrites per-route `link` and drops `ws` on $default — breaking PostToConnection IAM.
+    // Per-route `link` / `permissions` only — `transform.route.handler` must be a callback in SST v4,
+    // not a plain object; a `{ link }` object there was unmarshaled as `handler` and broke deploy.
     const ws = new sst.aws.ApiGatewayWebSocket("Ws");
     ws.route("$connect", {
       handler: "functions/wsConnect.handler",
@@ -64,16 +64,14 @@ export default $config({
     // Explicit ManageConnections: linking `ws` from its own route can omit IAM in some cases;
     // scope to this API’s execution ARN (trailing `/*` matches stage / POST / @connections / id).
     ws.route("$default", {
-      handler: {
-        handler: "functions/wsDefault.handler",
-        link: [connectionsTable, gamesTable],
-        permissions: [
-          {
-            actions: ["execute-api:ManageConnections"],
-            resources: [$interpolate`${ws.nodes.api.executionArn}/*`],
-          },
-        ],
-      },
+      handler: "functions/wsDefault.handler",
+      link: [connectionsTable, gamesTable],
+      permissions: [
+        {
+          actions: ["execute-api:ManageConnections"],
+          resources: [$interpolate`${ws.nodes.api.executionArn}/*`],
+        },
+      ],
     });
 
     const api = new sst.aws.ApiGatewayV2("Api", {
@@ -82,28 +80,59 @@ export default $config({
         allowMethods: ["*"],
         allowHeaders: ["*"],
       },
-      transform: {
-        route: {
-          handler: {
-            link: [gamesTable],
-          },
-        },
-      },
     });
 
+    const gameLink = { link: [gamesTable] };
+
     api.route("GET /health", "functions/health.handler");
-    api.route("POST /games", "functions/createGame.handler");
-    api.route("POST /games/{id}/join", "functions/joinGame.handler");
-    api.route("GET /games/{id}", "functions/getGame.handler");
-    api.route("POST /games/{id}/start", "functions/startGame.handler");
-    api.route("POST /games/{id}/phase", "functions/advancePhase.handler");
-    api.route("POST /games/{id}/roll-demand", "functions/rollDemand.handler");
-    api.route("POST /games/{id}/buy", "functions/buyResources.handler");
-    api.route("POST /games/{id}/rickhouse-fees", "functions/rickhouseFees.handler");
-    api.route("POST /games/{id}/sell", "functions/sellBourbon.handler");
-    api.route("POST /games/{id}/barrel", "functions/barrelBourbon.handler");
-    api.route("POST /games/{id}/computer-turn", "functions/computerTurn.handler");
-    api.route("POST /games/{id}/cards", "functions/gameCards.handler");
+    api.route("POST /games", {
+      handler: "functions/createGame.handler",
+      ...gameLink,
+    });
+    api.route("POST /games/{id}/join", {
+      handler: "functions/joinGame.handler",
+      ...gameLink,
+    });
+    api.route("GET /games/{id}", {
+      handler: "functions/getGame.handler",
+      ...gameLink,
+    });
+    api.route("POST /games/{id}/start", {
+      handler: "functions/startGame.handler",
+      ...gameLink,
+    });
+    api.route("POST /games/{id}/phase", {
+      handler: "functions/advancePhase.handler",
+      ...gameLink,
+    });
+    api.route("POST /games/{id}/roll-demand", {
+      handler: "functions/rollDemand.handler",
+      ...gameLink,
+    });
+    api.route("POST /games/{id}/buy", {
+      handler: "functions/buyResources.handler",
+      ...gameLink,
+    });
+    api.route("POST /games/{id}/rickhouse-fees", {
+      handler: "functions/rickhouseFees.handler",
+      ...gameLink,
+    });
+    api.route("POST /games/{id}/sell", {
+      handler: "functions/sellBourbon.handler",
+      ...gameLink,
+    });
+    api.route("POST /games/{id}/barrel", {
+      handler: "functions/barrelBourbon.handler",
+      ...gameLink,
+    });
+    api.route("POST /games/{id}/computer-turn", {
+      handler: "functions/computerTurn.handler",
+      ...gameLink,
+    });
+    api.route("POST /games/{id}/cards", {
+      handler: "functions/gameCards.handler",
+      ...gameLink,
+    });
 
     const web = new sst.aws.Nextjs("Web", {
       ...(webDomain ? { domain: webDomain } : {}),
