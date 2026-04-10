@@ -4,13 +4,15 @@ import {
   buyResources,
   barrelBourbon,
   advancePhase,
-  canMash,
+  handHasMashForBarrel,
   normalizeGame,
   nextActionCashCost,
   payRickhouseFeesAndAge,
+  pickAutoMashIndices,
+  rollDemandAndAdvance,
 } from "./game";
 
-const MAX_BOT_TURN_ITERATIONS = 50;
+const MAX_BOT_TURN_ITERATIONS = 80;
 
 function totalMarketCards(g: GameDoc): number {
   const p = g.marketPiles;
@@ -48,18 +50,24 @@ export function runComputerTurn(game: GameDoc): GameDoc {
       if (!res.error) {
         state = res.game;
       } else {
-        // Prototype bot: unblock the turn if fees cannot be paid in full.
         state = {
           ...state,
           rickhouseFeesPaidThisTurn: true,
           updatedAt: Date.now(),
         };
       }
-      state = { ...state, currentPhase: 2, updatedAt: Date.now() };
+      const adv = advancePhase(state);
+      state = adv.error ? state : adv.game;
       continue;
     }
 
     if (state.currentPhase === 2) {
+      const rolled = rollDemandAndAdvance(state, currentId);
+      state = rolled.error ? state : rolled.game;
+      continue;
+    }
+
+    if (state.currentPhase === 3) {
       const picks = botMarketPicks(state);
       if (totalMarketCards(state) >= 3) {
         const buyMarket = buyResources(state, picks);
@@ -72,25 +80,17 @@ export function runComputerTurn(game: GameDoc): GameDoc {
         const buyAgain = buyResources(st, "random");
         if (!buyAgain.error) state = buyAgain.game;
       }
-      state = { ...state, currentPhase: 3, updatedAt: Date.now() };
-      continue;
-    }
-
-    if (state.currentPhase === 3) {
-      const bot = state.players[currentId];
-      if (bot && canMash(bot.resourceCards)) {
-        const rick = pickCheapestRickhouse(state, currentId);
-        if (rick) {
-          const result = barrelBourbon(state, rick.id, currentId);
+      const st2 = normalizeGame(state);
+      const bot2 = st2.players[currentId];
+      if (bot2 && handHasMashForBarrel(bot2.resourceCards)) {
+        const rick = pickCheapestRickhouse(st2, currentId);
+        const autoIdx = pickAutoMashIndices(bot2.resourceCards);
+        if (rick && autoIdx?.length) {
+          const result = barrelBourbon(st2, rick.id, currentId, autoIdx);
           if (!result.error) state = result.game;
         }
       }
-      state = { ...state, currentPhase: 4, updatedAt: Date.now() };
-      continue;
-    }
-
-    if (state.currentPhase === 4) {
-      const out = advancePhase(state);
+      const out = advancePhase(normalizeGame(state));
       state = out.error ? state : out.game;
     }
 

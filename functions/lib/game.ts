@@ -89,6 +89,16 @@ export interface MarketPiles {
   grain: string[];
 }
 
+/** Result of the Phase 2 bourbon demand dice (stored for the top bar / last roll line). */
+export type LastDemandRoll = {
+  die1: number;
+  die2: number;
+  sum: number;
+  demandBefore: number;
+  demandAfter: number;
+  doubleSix: boolean;
+};
+
 export interface GameDoc {
   gameId: string;
   mode: GameMode;
@@ -102,11 +112,15 @@ export interface GameDoc {
   winnerIds?: string[];
   /**
    * Count of actions already taken this turn; next action cost is `nextActionCashCost(actionsTakenThisTurn)`.
-   * Resets when the turn ends (after Market phase).
+   * Resets when the turn ends (after the Action phase).
    */
   actionsTakenThisTurn: number;
   /** After Phase 1 fees are resolved, the baron may advance (GAME_RULES). */
   rickhouseFeesPaidThisTurn?: boolean;
+  /** `2` = three-phase turn (age → demand roll → actions). Older saves omit and migrate in normalizeGame. */
+  turnStructureVersion?: number;
+  /** Set when the baron rolls demand in Phase 2 (mock dice for UI). Cleared when entering Phase 2. */
+  lastDemandRoll?: LastDemandRoll;
   /** Shuffled operation card ids remaining in the deck. */
   operationsDeck: string[];
   /** Shuffled investment card ids remaining in the deck. */
@@ -123,13 +137,12 @@ export interface GameDoc {
 export const INITIAL_MARKET_DEMAND = 6;
 /** Capacities per slot; indices align with Kentucky Bourbon Trail® regions (see `lib/rickhouses.ts`). */
 export const RICKHOUSE_CAPACITIES = [3, 4, 5, 6, 4, 5]; // 6 rickhouses
-export const STARTING_CASH = 10;
+export const STARTING_CASH = 25;
 export const PHASE_NAMES = [
   "",
-  "Rickhouse Fees",
-  "Preparation",
-  "Operations",
-  "Market",
+  "Age bourbons",
+  "Market demand",
+  "Action phase",
 ] as const;
 
 function shuffle<T>(arr: T[]): T[] {
@@ -202,6 +215,7 @@ export function createNewGame(gameId: string, mode: GameMode): GameDoc {
     turnNumber: 0,
     actionsTakenThisTurn: 0,
     rickhouseFeesPaidThisTurn: false,
+    turnStructureVersion: 2,
     operationsDeck: shuffle(OPERATIONS.map((c) => c.id)),
     investmentDeck: shuffle(INVESTMENTS.map((c) => c.id)),
     rickhouses,
@@ -289,6 +303,7 @@ export function startGame(game: GameDoc): GameDoc {
     turnNumber: 1,
     actionsTakenThisTurn: 0,
     rickhouseFeesPaidThisTurn: false,
+    turnStructureVersion: 2,
     operationsDeck: opsDeck,
     investmentDeck: invDeck,
     rickhouses,
@@ -299,16 +314,63 @@ export function startGame(game: GameDoc): GameDoc {
 }
 
 /**
- * End-of-turn demand roll (GAME_RULES): sum of two d6; if sum > demand then +1 (max 12);
- * double 6 sets demand to 12.
+ * Resolve demand after two d6 (GAME_RULES): sum > current demand ⇒ +1 (max 12); double 6 ⇒ 12.
  */
-export function rollMarketDice(currentDemand: number): number {
-  const a = Math.floor(Math.random() * 6) + 1;
-  const b = Math.floor(Math.random() * 6) + 1;
-  if (a === 6 && b === 6) return 12;
-  const sum = a + b;
+export function demandAfterDice(
+  currentDemand: number,
+  die1: number,
+  die2: number
+): number {
+  if (die1 === 6 && die2 === 6) return 12;
+  const sum = die1 + die2;
   if (sum > currentDemand) return Math.min(12, currentDemand + 1);
   return currentDemand;
+}
+
+/** Roll two d6 and return full detail (mock “dice” for UI). */
+export function rollMarketDemandDice(currentDemand: number): LastDemandRoll {
+  const die1 = Math.floor(Math.random() * 6) + 1;
+  const die2 = Math.floor(Math.random() * 6) + 1;
+  const demandBefore = currentDemand;
+  const demandAfter = demandAfterDice(demandBefore, die1, die2);
+  return {
+    die1,
+    die2,
+    sum: die1 + die2,
+    demandBefore,
+    demandAfter,
+    doubleSix: die1 === 6 && die2 === 6,
+  };
+}
+
+/** @deprecated Prefer {@link rollMarketDemandDice}. */
+export function rollMarketDice(currentDemand: number): number {
+  return rollMarketDemandDice(currentDemand).demandAfter;
+}
+
+/** Phase 2: current baron rolls demand dice and advances to the Action phase. */
+export function rollDemandAndAdvance(
+  game: GameDoc,
+  playerId: string
+): { game: GameDoc; error?: string } {
+  if (game.status !== "in_progress")
+    return { game, error: "Game not in progress" };
+  if (game.currentPhase !== 2)
+    return { game, error: "Roll demand only in Phase 2 (market demand)" };
+  const currentId = game.playerOrder[game.currentPlayerIndex];
+  if (currentId !== playerId) return { game, error: "Not your turn" };
+
+  const roll = rollMarketDemandDice(game.marketDemand);
+  const now = Date.now();
+  return {
+    game: {
+      ...game,
+      marketDemand: roll.demandAfter,
+      currentPhase: 3,
+      lastDemandRoll: roll,
+      updatedAt: now,
+    },
+  };
 }
 
 /** Check win conditions. Returns winnerIds if game is over. */
@@ -340,32 +402,44 @@ export type AdvancePhaseResult = { game: GameDoc; error?: string };
 
 export function advancePhase(game: GameDoc): AdvancePhaseResult {
   const now = Date.now();
-  if (game.currentPhase < 4) {
+  if (game.currentPhase === 1) {
     if (
       game.status === "in_progress" &&
-      game.currentPhase === 1 &&
       !(game.rickhouseFeesPaidThisTurn ?? false)
     ) {
       return { game, error: "Pay rickhouse fees before continuing." };
     }
-    const next = game.currentPhase + 1;
-    return { game: { ...game, currentPhase: next, updatedAt: now } };
+    return {
+      game: {
+        ...game,
+        currentPhase: 2,
+        lastDemandRoll: undefined,
+        updatedAt: now,
+      },
+    };
   }
-  const newDemand = rollMarketDice(game.marketDemand);
-  const nextIndex = (game.currentPlayerIndex + 1) % game.playerOrder.length;
-  let out: GameDoc = {
-    ...game,
-    currentPhase: 1,
-    currentPlayerIndex: nextIndex,
-    turnNumber: nextIndex === 0 ? game.turnNumber + 1 : game.turnNumber,
-    marketDemand: newDemand,
-    actionsTakenThisTurn: 0,
-    rickhouseFeesPaidThisTurn: false,
-    updatedAt: now,
-  };
-  const winners = checkWinConditions(out);
-  if (winners?.length) out = { ...out, status: "finished", winnerIds: winners };
-  return { game: out };
+  if (game.currentPhase === 2) {
+    return {
+      game,
+      error: "Roll market demand (use Roll dice) before the Action phase.",
+    };
+  }
+  if (game.currentPhase === 3) {
+    const nextIndex = (game.currentPlayerIndex + 1) % game.playerOrder.length;
+    let out: GameDoc = {
+      ...game,
+      currentPhase: 1,
+      currentPlayerIndex: nextIndex,
+      turnNumber: nextIndex === 0 ? game.turnNumber + 1 : game.turnNumber,
+      actionsTakenThisTurn: 0,
+      rickhouseFeesPaidThisTurn: false,
+      updatedAt: now,
+    };
+    const winners = checkWinConditions(out);
+    if (winners?.length) out = { ...out, status: "finished", winnerIds: winners };
+    return { game: out };
+  }
+  return { game: { ...game, currentPhase: 1, updatedAt: now } };
 }
 
 /**
@@ -387,7 +461,7 @@ export function nextActionCashCost(actionsTakenThisTurn: number): number {
 const MARKET_BUY_COUNT = 3;
 
 function inActionPhases(phase: number): boolean {
-  return phase >= 2 && phase <= 4;
+  return phase === 3;
 }
 
 export type MarketBuyPicks = { cask: number; corn: number; grain: number };
@@ -398,7 +472,7 @@ export function buyResources(
   picks: MarketBuyPicks | "random"
 ): { game: GameDoc; error?: string } {
   if (!inActionPhases(game.currentPhase))
-    return { game, error: "Market buy only during action phases (2–4)" };
+    return { game, error: "Market buy only during the Action phase" };
   const pid = game.playerOrder[game.currentPlayerIndex];
   if (!pid) return { game, error: "No current baron" };
   const player = game.players[pid];
@@ -458,13 +532,57 @@ export function buyResources(
   };
 }
 
-/** Mash: exactly 1 Cask, ≥1 Corn, ≥1 grain (Barley / Rye / Wheat / Flavor), ≤6 cards (GAME_RULES). */
+/** True if the hand can supply at least one mash (extra cards / duplicate casks are OK). */
+export function handHasMashForBarrel(cards: string[]): boolean {
+  if (cards.length < 3) return false;
+  return (
+    cards.some((c) => c === "Cask") &&
+    cards.some((c) => c === "Corn") &&
+    cards.some((c) => isGrainCard(c))
+  );
+}
+
+/** @deprecated Prefer {@link handHasMashForBarrel} — whole-hand “exactly 1 cask” is no longer required. */
 export function canMash(cards: string[]): boolean {
-  if (cards.length > 6 || cards.length < 3) return false;
+  return handHasMashForBarrel(cards);
+}
+
+/** True if this set of cards is a legal mash to barrel (GAME_RULES: 1 Cask, ≥1 Corn, ≥1 grain, 3–6 cards). */
+export function isValidMashSelection(cards: string[]): boolean {
+  if (cards.length < 3 || cards.length > 6) return false;
   if (cards.filter((c) => c === "Cask").length !== 1) return false;
   if (cards.filter((c) => c === "Corn").length < 1) return false;
-  const grainCount = cards.filter((c) => isGrainCard(c)).length;
-  return grainCount >= 1;
+  if (cards.filter((c) => isGrainCard(c)).length < 1) return false;
+  return true;
+}
+
+/**
+ * Resolve selected hand indices into a mash and remaining hand, or an error message.
+ */
+export function resolveMashFromIndices(
+  hand: string[],
+  indices: number[]
+): { mash: string[]; remaining: string[] } | { error: string } {
+  if (indices.length === 0)
+    return { error: "Select which resource cards to barrel (mashIndices)" };
+  const uniq = new Set<number>();
+  for (const x of indices) {
+    const i = Math.floor(Number(x));
+    if (!Number.isFinite(i) || i < 0 || i >= hand.length)
+      return { error: "Invalid card index" };
+    if (uniq.has(i)) return { error: "Duplicate card index" };
+    uniq.add(i);
+  }
+  const sorted = [...uniq].sort((a, b) => a - b);
+  const mash = sorted.map((idx) => hand[idx]);
+  if (!isValidMashSelection(mash)) {
+    return {
+      error:
+        "Invalid mash: need 3–6 cards, exactly 1 Cask, ≥1 Corn, ≥1 grain (Barley/Rye/Wheat/Flavor)",
+    };
+  }
+  const remaining = hand.filter((_, i) => !uniq.has(i));
+  return { mash, remaining };
 }
 
 /** Remove one minimal legal mash from hand (1 Cask, 1 Corn, 1 grain); rest stay. */
@@ -491,33 +609,65 @@ export function removeMashFromHand(cards: string[]): { hand: string[]; removed: 
   return { hand, removed };
 }
 
+/**
+ * Build one mash from the hand: exactly one Cask, ≥1 Corn, ≥1 grain, up to 6 cards (GAME_RULES).
+ * Leaves surplus resources in hand for later barrels or trades.
+ */
+export function takeMashCardsFromHand(
+  cards: string[]
+): { hand: string[]; mash: string[] } | null {
+  const base = removeMashFromHand(cards);
+  if (!base) return null;
+  const hand = [...base.hand];
+  const mash = [...base.removed];
+  while (mash.length < 6 && hand.length > 0) {
+    const idx = hand.findIndex((c) => c === "Corn" || isGrainCard(c));
+    if (idx === -1) break;
+    mash.push(hand.splice(idx, 1)[0]);
+  }
+  return { hand, mash };
+}
+
+/** Indices into `hand` matching {@link takeMashCardsFromHand} (leftmost matches; for bots). */
+export function pickAutoMashIndices(hand: string[]): number[] | null {
+  const tak = takeMashCardsFromHand(hand);
+  if (!tak) return null;
+  const used = new Set<number>();
+  const idxs: number[] = [];
+  for (const card of tak.mash) {
+    let found = -1;
+    for (let i = 0; i < hand.length; i++) {
+      if (used.has(i) || hand[i] !== card) continue;
+      found = i;
+      break;
+    }
+    if (found === -1) return null;
+    used.add(found);
+    idxs.push(found);
+  }
+  return idxs;
+}
+
 export function barrelBourbon(
   game: GameDoc,
   rickhouseId: string,
-  playerId: string
+  playerId: string,
+  mashIndices: number[]
 ): { game: GameDoc; error?: string } {
   if (!inActionPhases(game.currentPhase))
-    return { game, error: "Barrel only during action phases (2–4)" };
+    return { game, error: "Barrel only during the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
 
   const player = game.players[playerId];
   if (!player) return { game, error: "Baron not found" };
-  const resourceCards = player.resourceCards;
-  if (resourceCards.length > 6)
-    return { game, error: "A mash can include at most 6 resource cards" };
-  if (!canMash(resourceCards))
-    return {
-      game,
-      error: "Need a mash: 1 Cask, ≥1 Corn, ≥1 grain (Barley/Rye/Wheat/Flavor), ≤6 cards",
-    };
+  const resolved = resolveMashFromIndices(player.resourceCards, mashIndices);
+  if ("error" in resolved) return { game, error: resolved.error };
+  const { mash: mashCards, remaining: newHand } = resolved;
 
   const rick = game.rickhouses.find((r) => r.id === rickhouseId);
   if (!rick) return { game, error: "Rickhouse not found" };
   if (rick.barrels.length >= rick.capacity) return { game, error: "Rickhouse full" };
-
-  const mashCards = [...resourceCards];
-  const newHand: string[] = [];
 
   const rent = rick.barrels.length + 1;
   const taken = game.actionsTakenThisTurn ?? 0;
@@ -563,13 +713,13 @@ export function barrelBourbon(
   return { game: updated };
 }
 
-/** Draw top operations card (costs current action price). Phases 2–4. */
+/** Draw top operations card (costs current action price). Action phase only. */
 export function drawOperationsCard(
   game: GameDoc,
   playerId: string
 ): { game: GameDoc; error?: string } {
   if (!inActionPhases(game.currentPhase))
-    return { game, error: "Operations draws only in phases 2–4" };
+    return { game, error: "Operations draws only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
   const player = ensureBaronHands(game.players[playerId]);
@@ -608,13 +758,13 @@ export function drawOperationsCard(
   };
 }
 
-/** Draw top investment card (sideways until capitalized). Phases 2–4. */
+/** Draw top investment card (sideways until capitalized). Action phase only. */
 export function drawInvestmentCard(
   game: GameDoc,
   playerId: string
 ): { game: GameDoc; error?: string } {
   if (!inActionPhases(game.currentPhase))
-    return { game, error: "Investment draws only in phases 2–4" };
+    return { game, error: "Investment draws only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
   const player = ensureBaronHands(game.players[playerId]);
@@ -661,7 +811,7 @@ export function capitalizeInvestment(
   handIndex: number
 ): { game: GameDoc; error?: string } {
   if (!inActionPhases(game.currentPhase))
-    return { game, error: "Capitalize only in phases 2–4" };
+    return { game, error: "Capitalize only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
   const player = ensureBaronHands(game.players[playerId]);
@@ -702,7 +852,7 @@ export function playOperationsCard(
   handIndex: number
 ): { game: GameDoc; error?: string } {
   if (!inActionPhases(game.currentPhase))
-    return { game, error: "Play operations only in phases 2–4" };
+    return { game, error: "Play operations only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
   const player = ensureBaronHands(game.players[playerId]);
@@ -826,7 +976,7 @@ export function sellBourbon(
   barrelId: string
 ): { game: GameDoc; error?: string } {
   if (!inActionPhases(game.currentPhase))
-    return { game, error: "Sell only during action phases (2–4)" };
+    return { game, error: "Sell only during the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
 
@@ -903,10 +1053,19 @@ export function normalizeGame(game: GameDoc): GameDoc {
     }
   }
 
+  const legacyPhase = game.currentPhase ?? 1;
+  let turnStructureVersion = game.turnStructureVersion ?? 1;
+  let currentPhase = legacyPhase;
+  if (turnStructureVersion < 2) {
+    if (currentPhase > 3) currentPhase = 3;
+    else if (currentPhase >= 2) currentPhase = 3;
+    turnStructureVersion = 2;
+  }
+
   let rickhouseFeesPaidThisTurn = game.rickhouseFeesPaidThisTurn ?? false;
   if (
     game.status === "in_progress" &&
-    (game.currentPhase ?? 1) > 1 &&
+    legacyPhase > 1 &&
     game.rickhouseFeesPaidThisTurn !== true
   ) {
     rickhouseFeesPaidThisTurn = true;
@@ -914,6 +1073,8 @@ export function normalizeGame(game: GameDoc): GameDoc {
 
   return {
     ...game,
+    currentPhase,
+    turnStructureVersion,
     actionsTakenThisTurn: game.actionsTakenThisTurn ?? 0,
     operationsDeck: game.operationsDeck ?? [],
     investmentDeck: game.investmentDeck ?? [],

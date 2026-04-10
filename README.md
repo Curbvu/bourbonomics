@@ -17,6 +17,14 @@ The six in-game rickhouses (`rickhouse-0` … `rickhouse-5`) are named for the s
 
 Capacities per slot are **3, 4, 5, 6, 4, 5** barrels (same index order as the table).
 
+### Turn structure (in-game phases)
+
+Each baron’s turn has **three** phases, in order:
+
+1. **Age bourbons** — Pay rickhouse fees for your barrelled stock and age each barrel one year (see [GAME_RULES.md](docs/GAME_RULES.md)).
+2. **Market demand** — Resolve the **bourbon demand dice roll** (updates market demand for the coming action phase).
+3. **Action phase** — Take actions in any order: buy from the market, barrel bourbon into a rickhouse, sell, draw/play operations and investments, etc. End the turn when you are done.
+
 ## Getting Started
 
 ### Run with SST (full game API + WebSocket)

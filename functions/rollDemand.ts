@@ -7,8 +7,8 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { Resource } from "sst";
 import {
-  barrelBourbon as barrelBourbonLogic,
   normalizeGame,
+  rollDemandAndAdvance,
   type GameDoc,
 } from "./lib/game";
 
@@ -20,22 +20,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: "game id required" }) };
   }
 
-  const body = event.body ? JSON.parse(event.body) : {};
-  const rickhouseId = body.rickhouseId ?? "";
-  const playerId = body.playerId ?? "";
-  const rawIdx = body.mashIndices ?? body.resourceIndices;
-  const mashIndices: number[] = Array.isArray(rawIdx)
-    ? rawIdx.map((n: unknown) => Math.floor(Number(n))).filter((n) => Number.isFinite(n))
-    : [];
-
-  if (!rickhouseId || !playerId) {
-    return { statusCode: 400, body: JSON.stringify({ error: "rickhouseId and playerId required" }) };
-  }
-  if (mashIndices.length === 0) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "mashIndices required (indices of resource cards to barrel)" }),
-    };
+  const body = event.body ? (JSON.parse(event.body) as { playerId?: string }) : {};
+  const playerId = typeof body.playerId === "string" ? body.playerId : "";
+  if (!playerId) {
+    return { statusCode: 400, body: JSON.stringify({ error: "playerId required" }) };
   }
 
   const res = await client.send(
@@ -50,7 +38,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   const game = normalizeGame(unmarshall(res.Item) as GameDoc);
-  const result = barrelBourbonLogic(game, rickhouseId, playerId, mashIndices);
+  const result = rollDemandAndAdvance(game, playerId);
 
   if (result.error) {
     return {

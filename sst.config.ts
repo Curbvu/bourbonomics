@@ -61,6 +61,7 @@ export default $config({
     api.route("GET /games/{id}", "functions/getGame.handler");
     api.route("POST /games/{id}/start", "functions/startGame.handler");
     api.route("POST /games/{id}/phase", "functions/advancePhase.handler");
+    api.route("POST /games/{id}/roll-demand", "functions/rollDemand.handler");
     api.route("POST /games/{id}/buy", "functions/buyResources.handler");
     api.route("POST /games/{id}/rickhouse-fees", "functions/rickhouseFees.handler");
     api.route("POST /games/{id}/sell", "functions/sellBourbon.handler");
