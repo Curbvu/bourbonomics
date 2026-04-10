@@ -42,6 +42,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const DEMAND_ROLL_ANIM_MIN_MS = 1100;
 /** After the roll is shown, auto-advance to Action phase after this many ms (current baron only). */
 const PHASE_2_TO_3_DELAY_MS = 3000;
+/** After Phase 1 rickhouse fees are paid, auto-advance to demand phase (same pacing as dice delay). */
+const PHASE_1_TO_2_DELAY_MS = 3000;
 
 function isBotPlayer(id: string): boolean {
   return id.startsWith("bot_");
@@ -673,6 +675,8 @@ export default function GamePage() {
   const [demandSpinFaces, setDemandSpinFaces] = useState<[number, number]>([1, 1]);
   /** 0–1 fill while waiting to auto-advance Phase 2 → 3 (current human baron only). */
   const [phase2AdvanceBar, setPhase2AdvanceBar] = useState(0);
+  /** 0–1 fill while waiting to auto-advance Phase 1 → 2 after fees paid (current human baron only). */
+  const [phase1AdvanceBar, setPhase1AdvanceBar] = useState(0);
   const [bourbonSaleReveal, setBourbonSaleReveal] = useState<BourbonSaleReveal | null>(null);
   const demandSpinTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const computerTurnRequested = useRef(false);
@@ -757,6 +761,14 @@ export default function GamePage() {
     currentPlayerId != null &&
     isBotPlayer(currentPlayerId);
 
+  const p1FeesPaidKey =
+    game != null &&
+    game.status === "in_progress" &&
+    game.currentPhase === 1 &&
+    game.rickhouseFeesPaidThisTurn
+      ? `${game.turnNumber}:${game.currentPlayerIndex}:p1fees`
+      : "";
+
   useEffect(() => {
     return () => {
       if (demandSpinTimerRef.current) {
@@ -803,6 +815,34 @@ export default function GamePage() {
     phase2CountdownIsCpuTurn,
     handleNextPhase,
   ]);
+
+  useEffect(() => {
+    if (!p1FeesPaidKey) {
+      setPhase1AdvanceBar(0);
+      return;
+    }
+    if (!phase2CountdownIsCurrent || phase2CountdownIsCpuTurn) {
+      setPhase1AdvanceBar(0);
+      return;
+    }
+
+    const start = performance.now();
+    const dur = PHASE_1_TO_2_DELAY_MS;
+    let rafId = 0;
+
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / dur);
+      setPhase1AdvanceBar(p);
+      if (p >= 1) {
+        void handleNextPhase();
+        return;
+      }
+      rafId = requestAnimationFrame(step);
+    };
+    rafId = requestAnimationFrame(step);
+
+    return () => cancelAnimationFrame(rafId);
+  }, [p1FeesPaidKey, phase2CountdownIsCurrent, phase2CountdownIsCpuTurn, handleNextPhase]);
 
   useEffect(() => {
     if (!isComputerTurn || !gameId || !API_URL || computerTurnRequested.current) return;
@@ -1772,7 +1812,7 @@ export default function GamePage() {
               >
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/60 dark:bg-white/10" />
                 <div className="mx-auto max-w-6xl rounded-t-2xl rounded-b-lg border border-slate-300/80 bg-white/95 px-3 py-3 shadow-lg ring-1 ring-slate-900/5 dark:border-violet-800/60 dark:bg-slate-800/95 dark:ring-white/10 sm:px-5 sm:py-4">
-                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-stretch sm:gap-4">
+                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
                     <div className="flex shrink-0 flex-col justify-center rounded-2xl border-2 border-emerald-600/45 bg-linear-to-br from-emerald-100 via-white to-emerald-50/80 px-4 py-3 shadow-lg ring-2 ring-emerald-500/15 dark:border-emerald-500/40 dark:from-emerald-950/80 dark:via-slate-900 dark:to-emerald-950/40 dark:ring-emerald-400/20">
                       <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-800 dark:text-emerald-300">
                         Cash
@@ -1781,7 +1821,7 @@ export default function GamePage() {
                         ${me.cash}
                       </span>
                     </div>
-                    <div className="min-w-0 flex-1">
+                    <div className="min-h-0 min-w-0 flex-1">
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                         <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300">
                           Your hand — resources
@@ -1818,47 +1858,55 @@ export default function GamePage() {
                           Action phase.
                         </p>
                       )}
-                      <div className="flex min-h-[3.25rem] flex-wrap gap-2 sm:gap-2.5">
-                        {me.resourceCards.map((c, i) => {
-                          const selected = mashSelection.has(i);
-                          const face = getResourceCardFace(c);
-                          const canToggle =
-                            game.status === "in_progress" &&
-                            game.currentPhase === 3 &&
-                            isCurrentPlayer &&
-                            !isComputerTurnNow;
-                          return (
-                            <button
-                              key={`${i}-${c}`}
-                              type="button"
-                              disabled={!canToggle}
-                              onClick={() => toggleMashIndex(i)}
-                              title={
-                                canToggle
-                                  ? selected
-                                    ? "Remove from mash"
-                                    : "Add to mash"
-                                  : "Select during your Action phase"
-                              }
-                              className={`resource-hand-chip flex min-h-[4.75rem] min-w-[6.75rem] flex-col items-center justify-center px-2.5 py-2 text-center leading-tight transition ${handResourceChipClassNames(c, { selected })} ${
-                                canToggle
-                                  ? "cursor-pointer hover:brightness-[1.03] active:scale-[0.98] dark:hover:brightness-110"
-                                  : "cursor-default opacity-65"
-                              }`}
-                            >
-                              <span className="text-lg leading-none" aria-hidden>
-                                {face.glyph}
-                              </span>
-                              <span className="resource-chip-title mt-1 text-[11px] font-extrabold leading-snug">
-                                {face.title}
-                              </span>
-                              <span className="resource-chip-muted mt-0.5 line-clamp-2 text-[8px] font-semibold uppercase tracking-[0.06em] opacity-80">
-                                {face.character}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {me.resourceCards.length > 0 ? (
+                        <div
+                          className="max-h-[min(42vh,20rem)] overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-slate-200/70 bg-slate-50/50 p-2 dark:border-slate-600/50 dark:bg-slate-900/35 sm:max-h-[min(48vh,26rem)] sm:p-2.5"
+                          role="region"
+                          aria-label="Resource cards in hand"
+                        >
+                          <div className="flex min-h-[3.25rem] flex-wrap content-start justify-start gap-2 sm:gap-2.5">
+                            {me.resourceCards.map((c, i) => {
+                              const selected = mashSelection.has(i);
+                              const face = getResourceCardFace(c);
+                              const canToggle =
+                                game.status === "in_progress" &&
+                                game.currentPhase === 3 &&
+                                isCurrentPlayer &&
+                                !isComputerTurnNow;
+                              return (
+                                <button
+                                  key={`${i}-${c}`}
+                                  type="button"
+                                  disabled={!canToggle}
+                                  onClick={() => toggleMashIndex(i)}
+                                  title={
+                                    canToggle
+                                      ? selected
+                                        ? "Remove from mash"
+                                        : "Add to mash"
+                                      : "Select during your Action phase"
+                                  }
+                                  className={`resource-hand-chip flex min-h-[4.75rem] min-w-[6.75rem] flex-col items-center justify-center px-2.5 py-2 text-center leading-tight transition ${handResourceChipClassNames(c, { selected })} ${
+                                    canToggle
+                                      ? "cursor-pointer hover:brightness-[1.03] active:scale-[0.98] dark:hover:brightness-110"
+                                      : "cursor-default opacity-65"
+                                  }`}
+                                >
+                                  <span className="text-lg leading-none" aria-hidden>
+                                    {face.glyph}
+                                  </span>
+                                  <span className="resource-chip-title mt-1 text-[11px] font-extrabold leading-snug">
+                                    {face.title}
+                                  </span>
+                                  <span className="resource-chip-muted mt-0.5 line-clamp-2 text-[8px] font-semibold uppercase tracking-[0.06em] opacity-80">
+                                    {face.character}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                   {opsHand.length > 0 && (
@@ -2160,7 +2208,7 @@ export default function GamePage() {
                           </p>
                           <button
                             type="button"
-                            onClick={handlePayRickhouseFees}
+                            onClick={() => void handlePayRickhouseFees()}
                             disabled={
                               actionLoading ||
                               game.rickhouseFeesPaidThisTurn ||
@@ -2172,14 +2220,55 @@ export default function GamePage() {
                               ? "Fees paid"
                               : `Pay $${feePreview} & age bourbon`}
                           </button>
-                          <button
-                            type="button"
-                            onClick={handleNextPhase}
-                            disabled={actionLoading}
-                            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                          >
-                            {actionLoading ? "…" : "Next phase"}
-                          </button>
+                          {game.rickhouseFeesPaidThisTurn ? (
+                            <div className="mt-3">
+                              <div className="mb-1 flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                <span>Starting demand phase</span>
+                                <span className="tabular-nums text-indigo-600 dark:text-indigo-300">
+                                  {Math.max(
+                                    0,
+                                    Math.ceil(
+                                      (1 - phase1AdvanceBar) *
+                                        (PHASE_1_TO_2_DELAY_MS / 1000),
+                                    ),
+                                  )}
+                                  s
+                                </span>
+                              </div>
+                              <div
+                                className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
+                                role="progressbar"
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-valuenow={Math.round(phase1AdvanceBar * 100)}
+                                aria-label="Time until demand phase"
+                              >
+                                <div
+                                  className="h-full rounded-full bg-indigo-500 transition-[width] duration-75 ease-linear dark:bg-teal-500"
+                                  style={{
+                                    width: `${Math.round(phase1AdvanceBar * 100)}%`,
+                                  }}
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void handleNextPhase()}
+                                disabled={actionLoading}
+                                className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                              >
+                                Skip wait — go now
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => void handleNextPhase()}
+                              disabled={actionLoading}
+                              className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                            >
+                              {actionLoading ? "…" : "Next phase"}
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
