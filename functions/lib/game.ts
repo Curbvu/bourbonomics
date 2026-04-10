@@ -115,7 +115,7 @@ export interface Rickhouse {
   barrels: RickhouseBarrel[];
 }
 
-/** Face-down market piles (GAME_RULES): Cask, Corn, Grain (Barley / Rye / Wheat / Flavor). */
+/** Face-down market piles (GAME_RULES): Cask, Corn, Grain (Barley / Rye / Wheat). */
 export interface MarketPiles {
   cask: string[];
   corn: string[];
@@ -132,6 +132,32 @@ export type LastDemandRoll = {
   doubleSix: boolean;
 };
 
+/** One point on the demand sparkline (server-persisted). */
+export type MarketDemandHistoryEntry = {
+  demand: number;
+  kind: "start" | "roll" | "sell";
+  turnNumber: number;
+};
+
+const MAX_MARKET_DEMAND_HISTORY = 40;
+
+function appendMarketDemandHistory(
+  game: GameDoc,
+  demand: number,
+  kind: MarketDemandHistoryEntry["kind"]
+): MarketDemandHistoryEntry[] {
+  const prev = game.marketDemandHistory ?? [];
+  const entry: MarketDemandHistoryEntry = {
+    demand,
+    kind,
+    turnNumber: game.turnNumber,
+  };
+  const next = [...prev, entry];
+  if (next.length > MAX_MARKET_DEMAND_HISTORY)
+    return next.slice(next.length - MAX_MARKET_DEMAND_HISTORY);
+  return next;
+}
+
 export interface GameDoc {
   gameId: string;
   mode: GameMode;
@@ -141,6 +167,8 @@ export interface GameDoc {
   currentPhase: number;
   currentPlayerIndex: number;
   marketDemand: number;
+  /** Recent demand snapshots for header sparkline (oldest → newest). */
+  marketDemandHistory?: MarketDemandHistoryEntry[];
   turnNumber: number;
   winnerIds?: string[];
   /**
@@ -194,13 +222,13 @@ function shuffle<T>(arr: T[]): T[] {
 /** Build a full resource deck (simplified: fixed counts per type). */
 function buildResourceDeck(): string[] {
   const deck: string[] = [];
+  /** Grains are only barley, rye, and wheat (same total count as pre–Flavor removal). */
   const counts: Record<string, number> = {
     Cask: 30,
     Corn: 30,
-    Barley: 30,
-    Wheat: 60,
-    Rye: 60,
-    Flavor: 20,
+    Barley: 37,
+    Wheat: 67,
+    Rye: 66,
   };
   for (const [type, n] of Object.entries(counts)) {
     for (let i = 0; i < n; i++) deck.push(type);
@@ -208,8 +236,14 @@ function buildResourceDeck(): string[] {
   return shuffle(deck);
 }
 
-function isGrainCard(type: string): boolean {
-  return type === "Barley" || type === "Rye" || type === "Wheat" || type === "Flavor";
+/** True if the card counts as grain for mash / market grain pile (barley, rye, wheat only). */
+export function isGrainCard(type: string): boolean {
+  return type === "Barley" || type === "Rye" || type === "Wheat";
+}
+
+/** Removed card type: migrate old saves to a valid grain. */
+function migrateResourceCardType(c: string): string {
+  return c === "Flavor" ? "Barley" : c;
 }
 
 /** Split a shuffled deck into the three face-down market piles (GAME_RULES). */
@@ -482,6 +516,9 @@ export function startGame(game: GameDoc): GameDoc {
     rickhouses,
     marketPiles: marketPiles ?? emptyMarketPiles(),
     resourceDeck,
+    marketDemandHistory: [
+      { demand: game.marketDemand, kind: "start", turnNumber: 1 },
+    ],
     updatedAt: now,
   };
 }
@@ -541,6 +578,11 @@ export function rollDemandAndAdvance(
       marketDemand: roll.demandAfter,
       currentPhase: 3,
       lastDemandRoll: roll,
+      marketDemandHistory: appendMarketDemandHistory(
+        game,
+        roll.demandAfter,
+        "roll"
+      ),
       updatedAt: now,
     },
   };
@@ -757,7 +799,7 @@ export function resolveMashFromIndices(
   if (!isValidMashSelection(mash)) {
     return {
       error:
-        "Invalid mash: need 3–6 cards, exactly 1 Cask, ≥1 Corn, ≥1 grain (Barley/Rye/Wheat/Flavor)",
+        "Invalid mash: need 3–6 cards, exactly 1 Cask, ≥1 Corn, ≥1 grain (Barley/Rye/Wheat)",
     };
   }
   const remaining = hand.filter((_, i) => !uniq.has(i));
@@ -776,7 +818,7 @@ export function removeMashFromHand(cards: string[]): { hand: string[]; removed: 
   };
   if (!takeOne("Cask")) return null;
   if (!takeOne("Corn")) return null;
-  const grainTypes = ["Barley", "Rye", "Wheat", "Flavor"];
+  const grainTypes = ["Barley", "Rye", "Wheat"];
   let tookGrain = false;
   for (const g of grainTypes) {
     if (takeOne(g)) {
@@ -1184,11 +1226,13 @@ export function sellBourbon(
     barrelledBourbons: player.barrelledBourbons.filter((b) => b.id !== barrelId),
   };
 
+  const newDemand = Math.max(0, game.marketDemand - 1);
   let updated: GameDoc = {
     ...game,
     rickhouses: newRickhouses,
     players: newPlayers,
-    marketDemand: Math.max(0, game.marketDemand - 1),
+    marketDemand: newDemand,
+    marketDemandHistory: appendMarketDemandHistory(game, newDemand, "sell"),
     actionsTakenThisTurn: taken + 1,
     updatedAt: now,
   };
@@ -1212,7 +1256,15 @@ export function normalizeGame(game: GameDoc): GameDoc {
   for (const pid of game.playerOrder) {
     const p = game.players[pid];
     if (!p) continue;
-    players[pid] = ensureBaronHands(p)!;
+    const base = ensureBaronHands(p)!;
+    players[pid] = {
+      ...base,
+      resourceCards: base.resourceCards.map(migrateResourceCardType),
+      barrelledBourbons: (base.barrelledBourbons ?? []).map((b) => ({
+        ...b,
+        mashCards: b.mashCards?.map(migrateResourceCardType),
+      })),
+    };
   }
 
   let marketPiles = game.marketPiles;
@@ -1231,6 +1283,15 @@ export function normalizeGame(game: GameDoc): GameDoc {
       marketPiles = emptyMarketPiles();
     }
   }
+
+  if (marketPiles) {
+    marketPiles = {
+      cask: marketPiles.cask.map(migrateResourceCardType),
+      corn: marketPiles.corn.map(migrateResourceCardType),
+      grain: marketPiles.grain.map(migrateResourceCardType),
+    };
+  }
+  resourceDeck = resourceDeck.map(migrateResourceCardType);
 
   const rawPhase = Number(game.currentPhase);
   const legacyPhase =
@@ -1252,7 +1313,22 @@ export function normalizeGame(game: GameDoc): GameDoc {
     rickhouseFeesPaidThisTurn = true;
   }
 
-  return {
+  let marketDemandHistory: MarketDemandHistoryEntry[] | undefined =
+    game.marketDemandHistory;
+  if (
+    game.status === "in_progress" &&
+    (!marketDemandHistory || marketDemandHistory.length === 0)
+  ) {
+    marketDemandHistory = [
+      {
+        demand: game.marketDemand,
+        kind: "start",
+        turnNumber: game.turnNumber,
+      },
+    ];
+  }
+
+  const next: GameDoc = {
     ...game,
     mode: normalizeGameMode(game.mode),
     currentPhase,
@@ -1265,4 +1341,8 @@ export function normalizeGame(game: GameDoc): GameDoc {
     rickhouseFeesPaidThisTurn,
     players,
   };
+  if (marketDemandHistory !== undefined) {
+    next.marketDemandHistory = marketDemandHistory;
+  }
+  return next;
 }
