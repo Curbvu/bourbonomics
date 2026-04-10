@@ -18,14 +18,13 @@ function docPayload(s: GameDocSlug, includeData: boolean) {
     markdown: loadGameDoc(s),
   };
   if (!includeData) return base;
-  const data = loadGameDocData(s);
-  return data != null ? { ...base, data } : base;
+  return { ...base, data: loadGameDocData(s) };
 }
 
 /**
  * GET /api/game-docs — all docs as JSON: { docs: { [slug]: { title, markdown, ... } } }
  * GET /api/game-docs?slug=bourbon-cards — one doc
- * GET ?includeData=1 — add parsed `data` (YAML) for non–game-rules slugs
+ * GET ?includeData=1 — add parsed `data` (YAML)
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

@@ -27,6 +27,8 @@ Each baron’s turn has **three** phases, in order:
 
 ## Getting Started
 
+Use **Node.js 22** or newer (see `.nvmrc` and `package.json` `engines`).
+
 ### Run with SST (full game API + WebSocket)
 
 ```bash

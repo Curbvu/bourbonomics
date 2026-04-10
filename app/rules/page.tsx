@@ -15,11 +15,13 @@ export default function RulesHubPage() {
         Bourbonomics — design docs
       </h1>
       <p className="mb-2 text-slate-700 dark:text-slate-300">
-        The app reads sources from{" "}
+        The app reads YAML card catalogs from{" "}
         <code className="rounded bg-slate-200/90 px-1 dark:bg-slate-800">docs/</code>{" "}
-        (rules as Markdown; card catalogs as YAML rendered to Markdown). Edit those files to
-        tune rules and cards; the rules UI and API load them on each request (no rebuild needed
-        in development).
+        and shows them as plain text (pipe tables and headings preserved). Edit those files to
+        tune cards; the rules UI and API load them on each request (no rebuild needed in
+        development). Full prose rules live in{" "}
+        <code className="rounded bg-slate-200/90 px-1 dark:bg-slate-800">docs/GAME_RULES.md</code>{" "}
+        in the repo only—not served by this app.
       </p>
       <ul className="mb-8 mt-6 space-y-2">
         {slugs.map((slug) => (
