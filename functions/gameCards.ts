@@ -6,6 +6,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { Resource } from "sst";
+import type { InvestmentDrawReveal } from "../lib/investmentCatalog";
 import {
   capitalizeInvestment as capitalizeLogic,
   drawInvestmentCard as drawInvLogic,
@@ -52,14 +53,22 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 
   const game = normalizeGame(unmarshall(res.Item) as GameDoc);
   let result: { game: GameDoc; error?: string };
+  let investmentReveal: InvestmentDrawReveal | undefined;
 
   switch (action) {
     case "drawOperations":
       result = drawOpLogic(game, playerId);
       break;
-    case "drawInvestment":
-      result = drawInvLogic(game, playerId);
+    case "drawInvestment": {
+      const inv = drawInvLogic(game, playerId);
+      if (inv.error) {
+        result = { game, error: inv.error };
+      } else {
+        result = { game: inv.game };
+        investmentReveal = inv.reveal;
+      }
       break;
+    }
     case "capitalizeInvestment":
     case "implementInvestment":
       if (handIndex < 0) {
@@ -108,16 +117,24 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   await client.send(
     new PutItemCommand({
       TableName: Resource.Games.name,
-      Item: marshall({
-        ...result.game,
-        updatedAt: result.game.updatedAt,
-      }),
+      Item: marshall(
+        {
+          ...result.game,
+          updatedAt: result.game.updatedAt,
+        },
+        { removeUndefinedValues: true }
+      ),
     })
   );
+
+  const responseBody =
+    action === "drawInvestment" && investmentReveal != null
+      ? { game: result.game, reveal: investmentReveal }
+      : { game: result.game };
 
   return {
     statusCode: 200,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(result.game),
+    body: JSON.stringify(responseBody),
   };
 };

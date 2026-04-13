@@ -1,4 +1,4 @@
-import type { GameDoc, MarketBuyPicks, Rickhouse } from "./game";
+import type { GameDoc, MarketBuyPicks, MarketPiles, Rickhouse } from "./game";
 import {
   applyDemandRoll,
   isBotPlayer,
@@ -16,6 +16,7 @@ import {
   rollDemandAndAdvance,
   sellBourbon,
   usesTableRoundStructure,
+  marketBuyExtraCardCount,
 } from "./game";
 
 const MAX_BOT_TURN_ITERATIONS = 120;
@@ -29,12 +30,22 @@ function totalMarketCards(g: GameDoc): number {
   return p.cask.length + p.corn.length + p.grain.length;
 }
 
-function botMarketPicks(g: GameDoc): MarketBuyPicks | "random" {
+function botMarketPicks(g: GameDoc, playerId: string): MarketBuyPicks | "random" {
+  const extra = marketBuyExtraCardCount(g, playerId);
+  if (extra > 0) return "random";
   const p = g.marketPiles;
   if (!p) return "random";
-  if (p.cask.length >= 1 && p.corn.length >= 1 && p.grain.length >= 1)
-    return { cask: 1, corn: 1, grain: 1 };
-  return "random";
+  const nonempty: (keyof MarketPiles)[] = [];
+  if (p.cask.length) nonempty.push("cask");
+  if (p.corn.length) nonempty.push("corn");
+  if (p.grain.length) nonempty.push("grain");
+  if (!nonempty.length) return "random";
+  const k = nonempty[Math.floor(Math.random() * nonempty.length)]!;
+  return {
+    cask: k === "cask" ? 1 : 0,
+    corn: k === "corn" ? 1 : 0,
+    grain: k === "grain" ? 1 : 0,
+  };
 }
 
 /**
@@ -112,8 +123,8 @@ function runComputerTurnTableRounds(game: GameDoc): GameDoc {
     if (state.currentPhase === 2) {
       state = sellBarrelsForRentIfNeeded(normalizeGame(state), currentId);
 
-      const picks = botMarketPicks(state);
-      if (totalMarketCards(state) >= 3) {
+      const picks = botMarketPicks(state, currentId);
+      if (totalMarketCards(state) >= 1) {
         const buyMarket = buyResources(state, picks);
         if (!buyMarket.error) {
           state = buyMarket.game;
@@ -130,7 +141,7 @@ function runComputerTurnTableRounds(game: GameDoc): GameDoc {
       const rentAfterFirstBuy = previewRickhouseFeesForPlayer(st, currentId);
       if (
         bot &&
-        totalMarketCards(st) >= 3 &&
+        totalMarketCards(st) >= 1 &&
         bot.cash >= nextCost + rentAfterFirstBuy + BOT_RENT_BUFFER
       ) {
         const buyAgain = buyResources(st, "random");
@@ -225,8 +236,8 @@ export function runComputerTurn(game: GameDoc): GameDoc {
     if (state.currentPhase === 3) {
       state = sellBarrelsForRentIfNeeded(normalizeGame(state), currentId);
 
-      const picks = botMarketPicks(state);
-      if (totalMarketCards(state) >= 3) {
+      const picks = botMarketPicks(state, currentId);
+      if (totalMarketCards(state) >= 1) {
         const buyMarket = buyResources(state, picks);
         if (!buyMarket.error) state = buyMarket.game;
       }
@@ -238,7 +249,7 @@ export function runComputerTurn(game: GameDoc): GameDoc {
       const rentAfterFirstBuy = previewRickhouseFeesForPlayer(st, currentId);
       if (
         bot &&
-        totalMarketCards(st) >= 3 &&
+        totalMarketCards(st) >= 1 &&
         bot.cash >= nextCost + rentAfterFirstBuy + BOT_RENT_BUFFER
       ) {
         const buyAgain = buyResources(st, "random");

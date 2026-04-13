@@ -7,6 +7,9 @@ intro: >-
   cards**.
 
 
+  **Runtime / playable cards** are authored in **[investment_catalog.yaml](investment_catalog.yaml)** (YAML → bundled JSON → app).
+
+
   These rows are **not balanced**—they are prompts for future cards. When you print a card, give it a clear **capital**
   cost, **timing** (when it triggers), and **upright** effect.
 

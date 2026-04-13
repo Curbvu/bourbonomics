@@ -36,7 +36,7 @@ Before **Round 1** begins, each Baron seeds their **investment** hand:
 2. **Keep 3** in hand. **Return the other 3** to the **bottom** of the investment deck (shuffle the returned cards together first if you want less order memory).
 3. **Optional auction (at most 1 per Baron):** You may offer **one** investment from your hand for auction. If you do, resolve it **before** step 4.
    - **Bidding:** Go **clockwise** around the seller, starting with the Baron **immediately clockwise** from the seller. Each Baron may **raise** the current bid or **pass**. The **seller bids last** and may **match or beat** the high bid to **keep** the card.
-   - **Payment:** The winner pays the **bank** (not the seller). **If the seller wins** by matching or beating the high bid to **keep** the card, that **winning bid is also paid to the bank** — cash is **removed from the seller’s pool** like any other winning bid; the seller does **not** receive that money as income (there is no “pay yourself”).
+   - **Payment:** The **winner** (the Baron who ends up with the card after bidding) pays the **seller** the **winning bid**. **If the seller wins** by matching or beating the high bid to **keep** the card, they pay the **bank** that **winning bid** (cash leaves the seller’s pool; it is not received as seller income — there is no “pay yourself”).
    - **What the winner gets:** The card is **upright** and **active immediately**—it works **this year (Round 1)**. The card’s **printed capital** is **waived** for this purchase; the **winning bid** is the only purchase cost. That makes auctions **high risk / high reward**: you can land a **ready-to-run** investment, but you can also **overpay** in cash you need elsewhere.
 4. **Commit what’s left in hand:** For each investment still in your hand after any auction, pick **one** (this step is **setup**—it does **not** use an **action**):
    - **Implement** (opening): Pay the card’s **printed capital** from **starting cash** → place it **sideways** (**paid**, **waiting** one year—the same as **Implement investment** in play). Flip **upright** (**active**) at the **start of Round 2**, not Round 1.
@@ -62,7 +62,7 @@ These decks sit in the **business** area of the board. Taking or buying a card f
 
 #### Investment cards (In Kentucky Straight and BiB Mode)
 
-**Investment cards** are long-term **strategic** upgrades to your distillery: cheaper rickhouse fees, advantages on resources, better leverage when you take actions, extra rickhouse slots, and similar effects. In **normal play**, you **Draw** a card (**unbuilt**, **upright**), then you may **Implement** it by paying **printed capital** and placing it **sideways**—**sideways** means **paid for** but **waiting** until **next year** before it flips **upright** and becomes **active**. **Opening** deals and **auctions** can change timing—see **Opening investments** and **Investment cards** under **Bourbon Cycle**. Example seeds: **[investment_cards.yaml](investment_cards.yaml)**.
+**Investment cards** are long-term **strategic** upgrades to your distillery: cheaper rickhouse fees, advantages on resources, better leverage when you take actions, extra rickhouse slots, and similar effects. In **normal play**, you **Draw** a card (**unbuilt**, **upright**), then you may **Implement** it by paying **printed capital** and placing it **sideways**—**sideways** means **paid for** but **waiting** until **next year** before it flips **upright** and becomes **active**. **Opening** deals and **auctions** can change timing—see **Opening investments** and **Investment cards** under **Bourbon Cycle**. The **playable catalog** (ids, capital, modifiers synced into the app) lives in **[investment_catalog.yaml](investment_catalog.yaml)**. **[investment_cards.yaml](investment_cards.yaml)** remains a broader design/backlog reference.
 
 #### Operations cards (In Kentucky Straight and BiB Mode)
 
@@ -180,7 +180,7 @@ Return the **cask, corn, and grain** cards from that mash to the **market piles*
 
 **Opening and auctions**
 
-- Follow **Opening investments**. **Auction** winners are the main **exception**: they receive the card **upright** and **active immediately** in Round 1, with **printed capital waived**; **every** winning bid (including when the **seller keeps** the card) is paid to the **bank**, never to the seller as proceeds. **Implement** during opening (setup) uses the same **sideways (paid, wait) → next round upright** timing as **Implement investment** during play.
+- Follow **Opening investments**. **Auction** winners are the main **exception**: they receive the card **upright** and **active immediately** in Round 1, with **printed capital waived**. **Another Baron’s winning bid is paid to the seller**; **if the seller keeps** the card, that winning amount is paid to the **bank** instead. **Implement** during opening (setup) uses the same **sideways (paid, wait) → next round upright** timing as **Implement investment** during play.
 
 **Trading**
 

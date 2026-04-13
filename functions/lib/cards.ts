@@ -1,6 +1,14 @@
 /** Minimal card defs for the playable prototype (ids stable for saves). */
 
+import {
+  getInvestmentCardDefById,
+  INVESTMENT_CARDS,
+  type InvestmentCardDef,
+} from "../../lib/investmentCatalog";
+
 export type OperationDef = { id: string; title: string; cashWhenPlayed: number };
+
+/** @deprecated Prefer {@link InvestmentCardDef} from `lib/investmentCatalog.ts` — `title` mirrors catalog `name`. */
 export type InvestmentDef = { id: string; title: string; capital: number };
 
 export const OPERATIONS: OperationDef[] = [
@@ -14,14 +22,12 @@ export const OPERATIONS: OperationDef[] = [
   { id: "op_bad_headlines", title: "Bad headlines", cashWhenPlayed: 3 },
 ];
 
-export const INVESTMENTS: InvestmentDef[] = [
-  { id: "inv_rickhouse", title: "Rickhouse expansion", capital: 6 },
-  { id: "inv_climate", title: "Climate-controlled tier", capital: 8 },
-  { id: "inv_second_shift", title: "Second shift", capital: 10 },
-  { id: "inv_corn_futures", title: "Corn futures", capital: 7 },
-  { id: "inv_vertical", title: "Vertical integration", capital: 9 },
-  { id: "inv_brand", title: "Brand ambassador", capital: 12 },
-];
+/** @deprecated Use {@link INVESTMENT_CARDS} / {@link expandInvestmentDeckIds}. */
+export const INVESTMENTS: InvestmentDef[] = INVESTMENT_CARDS.map((c) => ({
+  id: c.id,
+  title: c.name,
+  capital: c.capital,
+}));
 
 const OP_BY_ID = Object.fromEntries(OPERATIONS.map((c) => [c.id, c]));
 const INV_BY_ID = Object.fromEntries(INVESTMENTS.map((c) => [c.id, c]));
@@ -31,5 +37,10 @@ export function getOperation(id: string): OperationDef | undefined {
 }
 
 export function getInvestment(id: string): InvestmentDef | undefined {
+  const c = getInvestmentCardDefById(id);
+  if (c) return { id: c.id, title: c.name, capital: c.capital };
   return INV_BY_ID[id];
 }
+
+export { getInvestmentCardDefById, INVESTMENT_CARDS } from "../../lib/investmentCatalog";
+export type { InvestmentCardDef, InvestmentModifier, InvestmentDrawReveal } from "../../lib/investmentCatalog";

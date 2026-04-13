@@ -7,9 +7,10 @@
   },
   "scripts": {
     "sync:cards": "node scripts/sync-bourbon-catalog.mjs",
+    "sync:investments": "node scripts/sync-investment-catalog.mjs",
     "sync:resource-cards": "node scripts/sync-resource-card-index.mjs",
-    "prebuild": "npm run sync:cards && npm run sync:resource-cards",
-    "predev": "npm run sync:cards && npm run sync:resource-cards",
+    "prebuild": "npm run sync:cards && npm run sync:investments && npm run sync:resource-cards",
+    "predev": "npm run sync:cards && npm run sync:investments && npm run sync:resource-cards",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

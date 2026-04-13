@@ -137,6 +137,10 @@ export default $config({
       handler: "functions/computerTurn.handler",
       ...gameLink,
     });
+    api.route("POST /games/{id}/opening-investments", {
+      handler: "functions/openingInvestments.handler",
+      ...gameLink,
+    });
     api.route("POST /games/{id}/cards", {
       handler: "functions/gameCards.handler",
       ...gameLink,

@@ -17,7 +17,7 @@ const client = new DynamoDBClient({});
 
 function parsePicks(body: Record<string, unknown>): MarketBuyPicks | "random" {
   if (body.random === true || body.option === "random") return "random";
-  if (body.option === "market") return { cask: 1, corn: 1, grain: 1 };
+  if (body.option === "market") return "random";
   const raw = body.picks as Record<string, unknown> | undefined;
   const c = raw
     ? Math.max(0, Math.floor(Number(raw.cask) || 0))
@@ -65,10 +65,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   await client.send(
     new PutItemCommand({
       TableName: Resource.Games.name,
-      Item: marshall({
-        ...result.game,
-        updatedAt: result.game.updatedAt,
-      }),
+      Item: marshall(
+        {
+          ...result.game,
+          updatedAt: result.game.updatedAt,
+        },
+        { removeUndefinedValues: true }
+      ),
     })
   );
 

@@ -12,6 +12,11 @@ import {
 import { rickhouseRegionLabel } from "@/lib/rickhouses";
 import type { BourbonSaleReveal } from "@/lib/bourbonCards";
 import {
+  getInvestmentCardDefById,
+  type InvestmentDrawReveal,
+  type InvestmentModifier,
+} from "@/lib/investmentCatalog";
+import {
   isCaskResource,
   isSmallGrainResource,
   resourceBaseKind,
@@ -33,6 +38,7 @@ import {
   previewSaleProceeds,
   handHasMashForBarrel,
   isValidMashSelection,
+  marketBuyExtraCardCount,
   getLobbySeatsForDisplay,
   lobbyHasUnfilledOpenSeat,
   countSeatedBarons,
@@ -459,6 +465,7 @@ function MarketDemandSparkline(props: {
 }
 
 function phaseTitleForGame(game: Game): string {
+  if (game.status === "opening_investments") return "Opening investments";
   const names = usesTableRoundStructure(game as unknown as GameDoc)
     ? PHASE_NAMES_TABLE_ROUNDS
     : PHASE_NAMES;
@@ -467,6 +474,212 @@ function phaseTitleForGame(game: Game): string {
 
 function investmentUiStatus(c: InvestmentCardInHand): "unbuilt" | "funded_waiting" | "active" {
   return effectiveInvestmentStatus(c as unknown as ServerInvestmentCard);
+}
+
+/** Catalog copy for opening / hand (falls back gracefully if id is unknown). */
+function investmentCatalogCopy(id: string): { short: string; effect: string } | null {
+  const def = getInvestmentCardDefById(id);
+  if (!def) return null;
+  return { short: def.short, effect: def.effect };
+}
+
+function investmentModifierShortLabels(modifiers: InvestmentModifier[]): string[] {
+  return modifiers.map((m) => {
+    if (m.kind === "action_cost_discount") {
+      return m.scope === "next_action"
+        ? `−$${m.amount} next`
+        : `−$${m.amount} 1st paid`;
+    }
+    if (m.kind === "rickhouse_fee_discount") {
+      return m.oncePerRound ? `−$${m.amount} fees/yr` : `−$${m.amount} fees`;
+    }
+    return m.oncePerRound ? `+${m.extra} market/yr` : `+${m.extra} market`;
+  });
+}
+
+type InvestmentRevealPhase = "idle" | "face" | "hook" | "effect" | "capital" | "mods";
+
+function InvestmentDrawExperience(props: {
+  reveal: InvestmentDrawReveal;
+  onDismiss: () => void;
+}) {
+  const { reveal, onDismiss } = props;
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
+  const [phase, setPhase] = useState<InvestmentRevealPhase>("idle");
+  const [autoCloseSecs, setAutoCloseSecs] = useState<number | null>(null);
+  const timersRef = useRef<{ timeouts: number[]; interval?: number }>({
+    timeouts: [],
+  });
+
+  const clearTimers = useCallback(() => {
+    for (const id of timersRef.current.timeouts) window.clearTimeout(id);
+    timersRef.current.timeouts = [];
+    if (timersRef.current.interval != null) {
+      window.clearInterval(timersRef.current.interval);
+      timersRef.current.interval = undefined;
+    }
+  }, []);
+
+  const dismiss = useCallback(() => {
+    clearTimers();
+    onDismissRef.current();
+  }, [clearTimers]);
+
+  useEffect(() => {
+    clearTimers();
+    setPhase("idle");
+    setAutoCloseSecs(null);
+
+    const push = (fn: () => void, ms: number) => {
+      timersRef.current.timeouts.push(window.setTimeout(fn, ms));
+    };
+
+    push(() => setPhase("face"), 380);
+    push(() => setPhase("hook"), 900);
+    push(() => setPhase("effect"), 1480);
+    push(() => setPhase("capital"), 2100);
+    push(() => setPhase("mods"), 2680);
+
+    push(() => {
+      let n = 5;
+      setAutoCloseSecs(n);
+      timersRef.current.interval = window.setInterval(() => {
+        n -= 1;
+        if (n <= 0) {
+          if (timersRef.current.interval != null) {
+            window.clearInterval(timersRef.current.interval);
+            timersRef.current.interval = undefined;
+          }
+          setAutoCloseSecs(null);
+          onDismissRef.current();
+        } else {
+          setAutoCloseSecs(n);
+        }
+      }, 1000);
+    }, 9000);
+
+    return () => clearTimers();
+  }, [reveal, clearTimers]);
+
+  const rarityTone =
+    reveal.rarity === "Rare"
+      ? "border-violet-400/70 bg-violet-500/15 text-violet-100"
+      : "border-amber-400/60 bg-amber-500/15 text-amber-50";
+
+  const showCardFace = phase !== "idle";
+  const showHook = phase === "hook" || phase === "effect" || phase === "capital" || phase === "mods";
+  const showEffect = phase === "effect" || phase === "capital" || phase === "mods";
+  const showCapital = phase === "capital" || phase === "mods";
+  const showMods = phase === "mods";
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="investment-draw-title"
+      className="fixed inset-0 z-[200] flex cursor-pointer items-center justify-center bg-slate-950/85 p-4 backdrop-blur-md"
+      onClick={dismiss}
+    >
+      <div
+        className="relative max-h-[92vh] w-full min-w-0 max-w-lg cursor-pointer overflow-x-hidden overflow-y-auto rounded-2xl border-2 border-violet-500/45 bg-gradient-to-b from-violet-950/90 via-slate-950 to-slate-950 p-5 text-slate-100 shadow-[0_0_48px_rgba(139,92,246,0.2)] ring-1 ring-violet-400/20 sm:p-6"
+        onClick={dismiss}
+      >
+        <div
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl"
+          aria-hidden
+        >
+          <div className="absolute inset-y-0 left-0 w-2/5 bg-gradient-to-r from-violet-300/20 to-transparent opacity-35" />
+        </div>
+
+        <div className="relative">
+          <p className="text-center text-[10px] font-bold uppercase tracking-[0.28em] text-violet-200/90">
+            Investment drawn
+          </p>
+          <div
+            className={`mx-auto mt-4 aspect-[3/4] w-[min(100%,14rem)] rounded-xl border-2 transition-all duration-500 ${
+              showCardFace
+                ? "border-violet-400/60 bg-slate-900/80 shadow-lg ring-2 ring-violet-500/30"
+                : "border-slate-600/80 bg-slate-900/40 opacity-80 blur-[2px]"
+            }`}
+            style={{ perspective: "1200px" }}
+          >
+            <div className="flex h-full flex-col justify-between p-4">
+              <div>
+                {showCardFace ? (
+                  <>
+                    <h2
+                      id="investment-draw-title"
+                      className="text-center font-serif text-xl font-semibold leading-tight text-violet-50 sm:text-2xl"
+                    >
+                      {reveal.name}
+                    </h2>
+                    <div className="mt-2 flex flex-wrap justify-center gap-2">
+                      <span
+                        className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${rarityTone}`}
+                      >
+                        {reveal.rarity}
+                      </span>
+                      <span className="rounded-full border border-slate-600/80 bg-slate-900/80 px-2.5 py-0.5 font-mono text-[10px] text-slate-300">
+                        {reveal.catalogId}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="pt-8 text-center text-sm text-slate-400">…</p>
+                )}
+              </div>
+              {showHook ? (
+                <p
+                  className={`mt-3 text-center text-sm font-medium text-violet-100/95 transition-opacity duration-500 ${
+                    showHook ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  {reveal.short}
+                </p>
+              ) : null}
+              {showEffect ? (
+                <p className="mt-3 text-[11px] leading-snug text-slate-300/95">{reveal.effect}</p>
+              ) : null}
+              {showCapital ? (
+                <div className="mt-4 rounded-xl border border-amber-500/35 bg-amber-950/35 px-3 py-3 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200/90">
+                    Implement cost
+                  </p>
+                  <p className="mt-1 font-mono text-3xl font-black tabular-nums text-amber-50">
+                    ${reveal.capital}
+                  </p>
+                </div>
+              ) : null}
+              {showMods && reveal.modifierSummaries.length > 0 ? (
+                <ul className="mt-3 flex list-none flex-wrap justify-center gap-1.5">
+                  {reveal.modifierSummaries.map((s, i) => (
+                    <li
+                      key={`${s}-${i}`}
+                      className="rounded-full border border-emerald-500/40 bg-emerald-950/40 px-2 py-0.5 text-[9px] font-semibold text-emerald-100"
+                    >
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </div>
+
+          <p className="mt-4 text-center text-[11px] text-slate-500">
+            {autoCloseSecs != null ? (
+              <span className="inline-block font-semibold text-violet-200/95">
+                Closing in {autoCloseSecs}s — tap anywhere to dismiss now
+              </span>
+            ) : (
+              <>Tap anywhere to dismiss · auto-close countdown starts in 9s</>
+            )}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const MAX_BARONS = 6;
@@ -586,10 +799,13 @@ interface InvestmentCardInHand {
   id: string;
   title: string;
   capital: number;
+  rarity?: string;
   upright: boolean;
   investmentStatus?: "unbuilt" | "funded_waiting" | "active";
   fundedOnRound?: number;
 }
+
+type OpeningCommitChoice = "implement" | "hold" | "";
 
 interface Baron {
   id: string;
@@ -600,6 +816,7 @@ interface Baron {
   bourbonCards: unknown[];
   operationsHand?: OperationsCardInHand[];
   investmentHand?: InvestmentCardInHand[];
+  openingInvestmentDraft?: InvestmentCardInHand[];
 }
 
 interface Rickhouse {
@@ -662,6 +879,9 @@ interface Game {
   /** Face-up bourbon card id from `docs/bourbon_cards.yaml` (price preview). */
   bourbonFaceUpId?: string;
   bourbonDeck?: string[];
+  openingSubphase?: "keep_three" | "commit_hand";
+  openingKeepDoneIds?: string[];
+  openingCommitDoneIds?: string[];
 }
 
 function barrelMashCards(
@@ -686,8 +906,12 @@ export default function GamePage() {
   const [error, setError] = useState("");
   /** Indices into `resourceCards` for the next barrel action (Action phase). */
   const [mashSelection, setMashSelection] = useState<Set<number>>(() => new Set());
-  /** Up to 3 pile taps for the next market buy (Action phase). */
+  /** Up to 1 pile tap for the next market buy (Action phase). */
   const [marketDrawPicks, setMarketDrawPicks] = useState<MarketPileKey[]>([]);
+  const [openingKeepSel, setOpeningKeepSel] = useState<Set<number>>(() => new Set());
+  const [openingCommitChoice, setOpeningCommitChoice] = useState<
+    [OpeningCommitChoice, OpeningCommitChoice, OpeningCommitChoice]
+  >(["", "", ""]);
   const [demandRollSpinning, setDemandRollSpinning] = useState(false);
   const [demandSpinFaces, setDemandSpinFaces] = useState<[number, number]>([1, 1]);
   /** 0–1 fill while waiting to auto-advance Phase 2 → 3 (current human baron only). */
@@ -695,10 +919,13 @@ export default function GamePage() {
   /** 0–1 fill while waiting to auto-advance Phase 1 → 2 after fees paid (current human baron only). */
   const [phase1AdvanceBar, setPhase1AdvanceBar] = useState(0);
   const [bourbonSaleReveal, setBourbonSaleReveal] = useState<BourbonSaleReveal | null>(null);
+  const [investmentDrawReveal, setInvestmentDrawReveal] =
+    useState<InvestmentDrawReveal | null>(null);
   const demandSpinTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const computerTurnRequested = useRef(false);
 
   const dismissBourbonSale = useCallback(() => setBourbonSaleReveal(null), []);
+  const dismissInvestmentDraw = useCallback(() => setInvestmentDrawReveal(null), []);
 
   const handlePassAction = useCallback(async () => {
     setActionLoading(true);
@@ -785,11 +1012,24 @@ export default function GamePage() {
     loadGame();
   }, [loadGame]);
 
-  const currentPlayerId = game?.playerOrder[game.currentPlayerIndex ?? 0];
+  const currentPlayerId = game?.playerOrder?.[game.currentPlayerIndex ?? 0];
   const isComputerTurn =
     game?.status === "in_progress" &&
     currentPlayerId != null &&
     isBotPlayer(currentPlayerId);
+  const needsOpeningBotAutomation =
+    game?.status === "opening_investments" &&
+    Boolean(game.playerOrder?.some((id) => isBotPlayer(id)));
+
+  /** When this changes (e.g. human finishes keep/commit), re-run CPU opening steps — see computer-turn effect deps. */
+  const openingProgressKey =
+    game?.status === "opening_investments"
+      ? [
+          game.openingSubphase ?? "keep_three",
+          [...(game.openingKeepDoneIds ?? [])].sort().join(","),
+          [...(game.openingCommitDoneIds ?? [])].sort().join(","),
+        ].join("|")
+      : "";
 
   const tableRoundsUi =
     game != null ? usesTableRoundStructure(game as unknown as GameDoc) : false;
@@ -900,16 +1140,28 @@ export default function GamePage() {
   }, [p1FeesPaidKey, phase2CountdownIsCurrent, phase2CountdownIsCpuTurn, handleNextPhase]);
 
   useEffect(() => {
-    if (!isComputerTurn || !gameId || !API_URL || computerTurnRequested.current) return;
+    if (
+      (!needsOpeningBotAutomation && !isComputerTurn) ||
+      !gameId ||
+      !API_URL ||
+      computerTurnRequested.current
+    )
+      return;
     computerTurnRequested.current = true;
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`${API_URL}/games/${gameId}/computer-turn`, {
           method: "POST",
         });
-        const data = await res.json();
-        if (res.ok) setGame(data);
-        else setError(data.error || "Computer turn failed");
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) setGame(data as Game);
+        else {
+          const msg =
+            typeof data === "object" && data && "error" in data
+              ? String((data as { error?: string }).error)
+              : "Computer turn failed";
+          if (msg !== "Not the computer's turn") setError(msg);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Computer turn failed");
       } finally {
@@ -917,7 +1169,7 @@ export default function GamePage() {
       }
     }, 800);
     return () => clearTimeout(t);
-  }, [isComputerTurn, gameId]);
+  }, [needsOpeningBotAutomation, isComputerTurn, gameId, openingProgressKey]);
 
   const WS_URL = process.env.NEXT_PUBLIC_WS_URL?.replace(/^http/, "ws") ?? "";
   useEffect(() => {
@@ -974,6 +1226,17 @@ export default function GamePage() {
     const cur = game.playerOrder[game.currentPlayerIndex ?? 0];
     if (!cur || cur !== playerId || isBotPlayer(cur)) setMarketDrawPicks([]);
   }, [game, playerId]);
+
+  const openingUiResetKey = `${game?.gameId ?? ""}|${game?.status ?? ""}|${game?.openingSubphase ?? ""}`;
+  useEffect(() => {
+    if (game?.status !== "opening_investments") {
+      setOpeningKeepSel(new Set());
+      setOpeningCommitChoice(["", "", ""]);
+      return;
+    }
+    setOpeningKeepSel(new Set());
+    setOpeningCommitChoice(["", "", ""]);
+  }, [openingUiResetKey, game?.status]);
 
   if (loading) {
     return (
@@ -1042,14 +1305,31 @@ export default function GamePage() {
     isBotPlayer(currentPlayerId);
   const phaseName = phaseTitleForGame(game);
 
+  async function runOpeningComputerTurnFromClient(nextGame: Game) {
+    if (!API_URL || !gameId) return;
+    if (nextGame.status !== "opening_investments") return;
+    if (!nextGame.playerOrder?.some((id) => isBotPlayer(id))) return;
+    try {
+      const res = await fetch(`${API_URL}/games/${gameId}/computer-turn`, {
+        method: "POST",
+      });
+      const payload = (await res.json().catch(() => null)) as Game | null;
+      if (res.ok && payload) setGame(payload);
+    } catch {
+      /* useEffect also polls computer-turn when opening progress changes */
+    }
+  }
+
   async function handleStart() {
     setActionLoading(true);
     setError("");
     try {
       const res = await fetch(`${API_URL}/games/${gameId}/start`, { method: "POST" });
-      const data = await res.json();
+      const data = (await res.json()) as Game & { error?: string };
       if (!res.ok) throw new Error(data.error || "Failed to start");
-      setGame(data);
+      const g = data as Game;
+      setGame(g);
+      void runOpeningComputerTurnFromClient(g);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start");
     } finally {
@@ -1148,6 +1428,63 @@ export default function GamePage() {
     }
   }
 
+  async function handleOpeningKeep() {
+    if (!playerId) return;
+    const idx = [...openingKeepSel].sort((a, b) => a - b);
+    if (idx.length !== 3) {
+      setError("Select exactly 3 cards to keep");
+      return;
+    }
+    setActionLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/games/${gameId}/opening-investments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId, kind: "keep", keepIndices: idx }),
+      });
+      const data = (await res.json()) as Game & { error?: string };
+      if (!res.ok) throw new Error(data.error || "Failed to confirm keep");
+      const g = data as Game;
+      setGame(g);
+      void runOpeningComputerTurnFromClient(g);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to confirm keep");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleOpeningCommit() {
+    if (!playerId) return;
+    if (openingCommitChoice.some((c) => c !== "implement" && c !== "hold")) {
+      setError("Choose Implement or Hold for each of your 3 cards");
+      return;
+    }
+    const commit = [0, 1, 2].map((handIndex) => ({
+      handIndex,
+      action: openingCommitChoice[handIndex] as "implement" | "hold",
+    }));
+    setActionLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/games/${gameId}/opening-investments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId, kind: "commit", commit }),
+      });
+      const data = (await res.json()) as Game & { error?: string };
+      if (!res.ok) throw new Error(data.error || "Failed to commit opening");
+      const g = data as Game;
+      setGame(g);
+      void runOpeningComputerTurnFromClient(g);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to commit opening");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function handlePayRickhouseFees() {
     setActionLoading(true);
     setError("");
@@ -1241,9 +1578,15 @@ export default function GamePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const raw: unknown = await res.json();
+      const data = raw as { error?: string; game?: Game; reveal?: InvestmentDrawReveal };
       if (!res.ok) throw new Error(data.error || "Card action failed");
-      setGame(data);
+      if (data.game) {
+        setGame(data.game);
+        if (action === "drawInvestment" && data.reveal) setInvestmentDrawReveal(data.reveal);
+      } else {
+        setGame(raw as Game);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Card action failed");
     } finally {
@@ -1257,6 +1600,10 @@ export default function GamePage() {
   const me = playerId ? game.players[playerId] : null;
   const nextActionCost = nextActionCashCostFromGame(game as unknown as GameDoc);
   const marketPickTally = tallyMarketPilePicks(marketDrawPicks);
+  const marketBuyTotalCards =
+    playerId && me
+      ? 1 + marketBuyExtraCardCount(game as unknown as GameDoc, playerId)
+      : 1;
   const canConfigureMarketBuy =
     game.status === "in_progress" &&
     game.currentPhase === actionPhaseNum &&
@@ -1264,15 +1611,17 @@ export default function GamePage() {
     !isComputerTurnNow;
   const marketBuyBlocked =
     actionLoading ||
-    marketCardsTotal < 3 ||
+    marketCardsTotal < 1 ||
     (me != null && me.cash < nextActionCost);
   const canAddMarketPicks =
-    canConfigureMarketBuy && !marketBuyBlocked && marketDrawPicks.length < 3;
+    canConfigureMarketBuy &&
+    !marketBuyBlocked &&
+    marketDrawPicks.length < marketBuyTotalCards;
 
   function addMarketPilePick(key: MarketPileKey) {
     if (!canConfigureMarketBuy || marketBuyBlocked) return;
     setMarketDrawPicks((prev) => {
-      if (prev.length >= 3) return prev;
+      if (prev.length >= marketBuyTotalCards) return prev;
       const next = [...prev, key];
       const t = tallyMarketPilePicks(next);
       if (
@@ -1301,7 +1650,8 @@ export default function GamePage() {
       ? previewRickhouseFeesForPlayer(game as unknown as GameDoc, playerId)
       : 0;
   const inCardPhases =
-    game.status === "in_progress" && game.currentPhase === actionPhaseNum;
+    game.status === "in_progress" &&
+    game.currentPhase === actionPhaseNum;
 
   const canBarrelViaBoard =
     game.status === "in_progress" &&
@@ -1776,6 +2126,11 @@ export default function GamePage() {
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950">
       {bourbonSaleReveal ? (
         <BourbonSaleExperience sale={bourbonSaleReveal} onDismiss={dismissBourbonSale} />
+      ) : investmentDrawReveal ? (
+        <InvestmentDrawExperience
+          reveal={investmentDrawReveal}
+          onDismiss={dismissInvestmentDraw}
+        />
       ) : null}
       <div className="flex min-h-screen flex-col lg:flex-row lg:items-stretch">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col border-slate-200 dark:border-slate-800 lg:border-r">
@@ -1785,7 +2140,7 @@ export default function GamePage() {
                 Game {game.gameId}
               </h1>
               <div className="flex flex-wrap items-center gap-2">
-                {game.status === "in_progress" && (
+                {(game.status === "in_progress" || game.status === "opening_investments") && (
                   <div className="flex items-center gap-2 rounded-md border border-indigo-400 bg-white px-2 py-1 shadow-sm dark:border-indigo-500 dark:bg-slate-800/60">
                     <div className="flex flex-col leading-none">
                       <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">
@@ -1820,6 +2175,181 @@ export default function GamePage() {
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
               {boardAndBarons}
+
+              {game.status === "opening_investments" && playerId && me ? (
+                <div className="mt-4 rounded-xl border-2 border-amber-500/50 bg-linear-to-br from-amber-950/20 via-slate-900/40 to-slate-950 p-4 shadow-lg dark:from-amber-950/30 dark:via-slate-950 dark:to-black">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-200">
+                    Opening investments
+                  </p>
+                  <p className="mt-1 text-sm text-slate-200">
+                    Draw six, keep three, return three to the deck bottom — then choose{" "}
+                    <strong>Implement</strong> (pay printed capital only; becomes active next year) or{" "}
+                    <strong>Hold</strong> (stay unbuilt).
+                  </p>
+                  {(game.openingSubphase ?? "keep_three") === "keep_three" &&
+                  me.openingInvestmentDraft &&
+                  me.openingInvestmentDraft.length === 6 ? (
+                    <div className="mt-3">
+                      <p className="text-[11px] font-semibold text-slate-300">
+                        Tap exactly 3 cards to keep ({openingKeepSel.size}/3).
+                      </p>
+                      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {me.openingInvestmentDraft.map((c, i) => {
+                          const on = openingKeepSel.has(i);
+                          const copy = investmentCatalogCopy(c.id);
+                          return (
+                            <button
+                              key={`${c.id}-${i}`}
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => {
+                                setOpeningKeepSel((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(i)) next.delete(i);
+                                  else if (next.size < 3) next.add(i);
+                                  return next;
+                                });
+                              }}
+                              className={`rounded-lg border-2 px-2 py-2 text-left text-xs transition ${
+                                on
+                                  ? "border-amber-400 bg-amber-500/20 text-amber-50"
+                                  : "border-slate-600 bg-slate-800/60 text-slate-100 hover:border-slate-400"
+                              }`}
+                            >
+                              <span className="block font-bold">{c.title}</span>
+                              <span className="text-[10px] text-slate-300">Capital ${c.capital}</span>
+                              {copy ? (
+                                <>
+                                  <span className="mt-1.5 block text-[10px] font-medium leading-snug text-slate-200/95">
+                                    {copy.short}
+                                  </span>
+                                  <span className="mt-1 block text-[9px] leading-snug text-slate-400">
+                                    {copy.effect}
+                                  </span>
+                                </>
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={actionLoading || openingKeepSel.size !== 3}
+                        onClick={() => void handleOpeningKeep()}
+                        className="mt-3 w-full rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
+                      >
+                        Keep these 3
+                      </button>
+                    </div>
+                  ) : null}
+                  {(game.openingSubphase ?? "keep_three") === "commit_hand" &&
+                  !(game.openingCommitDoneIds ?? []).includes(playerId) &&
+                  (me.investmentHand?.length ?? 0) === 3 &&
+                  !me.openingInvestmentDraft ? (
+                    <div className="mt-3 space-y-3">
+                      <p className="text-[11px] font-semibold text-slate-300">
+                        For each kept card: <strong>Implement</strong> (pay printed capital only) or{" "}
+                        <strong>Hold</strong>.
+                      </p>
+                      {(me.investmentHand ?? []).map((c, i) => {
+                        const copy = investmentCatalogCopy(c.id);
+                        return (
+                        <div
+                          key={`${c.id}-commit-${i}`}
+                          className="rounded-lg border border-slate-600 bg-slate-900/50 p-2"
+                        >
+                          <p className="text-sm font-semibold text-slate-100">
+                            {c.title}{" "}
+                            <span className="text-xs font-normal text-slate-400">
+                              (${c.capital})
+                            </span>
+                          </p>
+                          {copy ? (
+                            <>
+                              <p className="mt-1.5 text-[11px] font-medium leading-snug text-slate-300">
+                                {copy.short}
+                              </p>
+                              <p className="mt-1 text-[10px] leading-snug text-slate-500">
+                                {copy.effect}
+                              </p>
+                            </>
+                          ) : null}
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() =>
+                                setOpeningCommitChoice((prev) => {
+                                  const next: [
+                                    OpeningCommitChoice,
+                                    OpeningCommitChoice,
+                                    OpeningCommitChoice,
+                                  ] = [...prev];
+                                  next[i] = "implement";
+                                  return next;
+                                })
+                              }
+                              className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+                                openingCommitChoice[i] === "implement"
+                                  ? "bg-emerald-600 text-white"
+                                  : "border border-slate-500 text-slate-200"
+                              }`}
+                            >
+                              Implement
+                            </button>
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() =>
+                                setOpeningCommitChoice((prev) => {
+                                  const next: [
+                                    OpeningCommitChoice,
+                                    OpeningCommitChoice,
+                                    OpeningCommitChoice,
+                                  ] = [...prev];
+                                  next[i] = "hold";
+                                  return next;
+                                })
+                              }
+                              className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+                                openingCommitChoice[i] === "hold"
+                                  ? "bg-slate-600 text-white"
+                                  : "border border-slate-500 text-slate-200"
+                              }`}
+                            >
+                              Hold
+                            </button>
+                          </div>
+                        </div>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        disabled={
+                          actionLoading ||
+                          openingCommitChoice.some((c) => c !== "implement" && c !== "hold")
+                        }
+                        onClick={() => void handleOpeningCommit()}
+                        className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                      >
+                        Confirm opening setup
+                      </button>
+                    </div>
+                  ) : null}
+                  {(game.openingSubphase ?? "keep_three") === "keep_three" &&
+                  (game.openingKeepDoneIds ?? []).includes(playerId) ? (
+                    <p className="mt-3 text-sm text-slate-400">
+                      You&apos;ve locked in your keep — waiting for other barons…
+                    </p>
+                  ) : null}
+                  {(game.openingSubphase ?? "keep_three") === "commit_hand" &&
+                  (game.openingCommitDoneIds ?? []).includes(playerId) ? (
+                    <p className="mt-3 text-sm text-slate-400">
+                      Opening choices saved — waiting for other barons…
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
 
               {game.status === "finished" && game.winnerIds?.length ? (
                 <div className="mt-4 rounded-lg border-2 border-indigo-400 bg-slate-100 p-3 dark:bg-slate-800/40">
@@ -1988,20 +2518,63 @@ export default function GamePage() {
                       <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
                         Investment cards
                       </p>
-                      <ul className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-600 dark:text-slate-300">
-                        {invHand.map((c, i) => (
-                          <li key={`${c.id}-${i}`}>
-                            {c.title}
-                            {c.upright ? (
-                              <span className="text-slate-500 dark:text-slate-400"> — active</span>
-                            ) : (
-                              <span className="tabular-nums text-slate-500 dark:text-slate-400">
-                                {" "}
-                                — sideways (${c.capital})
+                      <ul className="flex flex-col gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                        {invHand.map((c, i) => {
+                          const def = getInvestmentCardDefById(c.id);
+                          const modLabels = def
+                            ? investmentModifierShortLabels(def.modifiers)
+                            : [];
+                          const rarity = c.rarity ?? def?.rarity ?? "Standard";
+                          const rareCls =
+                            rarity === "Rare"
+                              ? "border-violet-400/60 bg-violet-500/15 text-violet-950 dark:text-violet-100"
+                              : "border-slate-300/80 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-900/80 dark:text-slate-200";
+                          return (
+                            <li key={`${c.id}-${i}`} className="min-w-0">
+                              <span className="inline-flex flex-wrap items-center gap-1.5">
+                                <span
+                                  className={`rounded-full border px-1.5 py-px text-[8px] font-bold uppercase tracking-wide ${rareCls}`}
+                                >
+                                  {rarity}
+                                </span>
+                                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                                  {c.title}
+                                </span>
+                                {c.upright ? (
+                                  <span className="text-slate-500 dark:text-slate-400">— active</span>
+                                ) : (
+                                  <span className="tabular-nums text-slate-500 dark:text-slate-400">
+                                    — sideways (${c.capital})
+                                  </span>
+                                )}
                               </span>
-                            )}
-                          </li>
-                        ))}
+                              {def ? (
+                                <span className="mt-1 block text-[10px] leading-snug text-slate-500 dark:text-slate-400">
+                                  <span className="font-medium text-slate-600 dark:text-slate-300">
+                                    {def.short}
+                                  </span>
+                                  {def.effect ? (
+                                    <span className="mt-0.5 block text-[9px] text-slate-500 dark:text-slate-500">
+                                      {def.effect}
+                                    </span>
+                                  ) : null}
+                                </span>
+                              ) : null}
+                              {modLabels.length > 0 ? (
+                                <span className="mt-1 flex flex-wrap gap-1">
+                                  {modLabels.map((label, mi) => (
+                                    <span
+                                      key={`${c.id}-m-${mi}`}
+                                      className="rounded-full border border-emerald-500/35 bg-emerald-500/10 px-1.5 py-px text-[8px] font-semibold text-emerald-900 dark:text-emerald-100"
+                                    >
+                                      {label}
+                                    </span>
+                                  ))}
+                                </span>
+                              ) : null}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   )}
@@ -2049,7 +2622,7 @@ export default function GamePage() {
           </div>
         </div>
 
-        {game.status === "in_progress" && (
+        {(game.status === "in_progress" || game.status === "opening_investments") && (
           <aside className="flex w-full shrink-0 flex-col border-t border-slate-300/80 bg-linear-to-b from-slate-200/90 to-indigo-50/80 dark:border-slate-800 dark:from-slate-900 dark:to-slate-950 lg:sticky lg:top-0 lg:h-screen lg:max-h-screen lg:w-[min(100%,22rem)] lg:border-l lg:border-t-0 xl:w-96">
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3">
               {error ? (
@@ -2097,8 +2670,15 @@ export default function GamePage() {
                     ${nextActionCost}
                   </span>
                 </div>
+                {game.status === "opening_investments" ? (
+                  <p className="mt-2 text-[11px] leading-snug text-slate-600 dark:text-slate-300">
+                    Year 1 starts after every baron finishes opening setup (see main column). CPUs act
+                    automatically.
+                  </p>
+                ) : null}
               </div>
 
+              {game.status === "in_progress" ? (
               <div className="min-h-0 flex-1 space-y-3">
                 <div>
                   {!(
@@ -2367,7 +2947,9 @@ export default function GamePage() {
               </h2>
               <p className="mb-3 mt-1 text-[11px] leading-snug text-slate-600 dark:text-slate-300">
                 {game.currentPhase === actionPhaseNum && isCurrentPlayer && !isComputerTurnNow
-                  ? "One buy action: tap a pile for each of 3 picks (any mix of Cask, Corn, Grain), then confirm. Your pick order is listed below."
+                  ? marketBuyTotalCards === 1
+                    ? "One buy action: tap a pile once to draw exactly 1 resource card, then confirm."
+                    : `One buy action: tap piles in order to draw exactly ${marketBuyTotalCards} resource cards (base 1 + investment bonus), then confirm.`
                   : "Face-down piles — counts shown. Buys happen in the Action phase."}
               </p>
               {deckLeft > 0 ? (
@@ -2402,16 +2984,16 @@ export default function GamePage() {
                         !interactive
                           ? `${pile.count} cards`
                           : marketBuyBlocked
-                            ? marketCardsTotal < 3
-                              ? "Market has fewer than 3 cards"
+                            ? marketCardsTotal < 1
+                              ? "Market is empty"
                               : me != null && me.cash < nextActionCost
                                 ? `Need $${nextActionCost} cash (you have $${me.cash})`
                                 : "Cannot add right now"
-                            : marketDrawPicks.length >= 3
+                            : marketDrawPicks.length >= marketBuyTotalCards
                               ? "Confirm draw or clear picks"
                               : remainingThisPile <= 0
                                 ? `No ${pile.label} left in this pile`
-                                : `Add 1 ${pile.label} (${marketDrawPicks.length}/3) · fee $${nextActionCost}`
+                                : `Draw ${pile.label} (${marketDrawPicks.length + 1}/${marketBuyTotalCards}) · fee $${nextActionCost}`
                       }
                       disabled={!interactive || !canTapPile}
                       onClick={() => addMarketPilePick(pile.key)}
@@ -2441,11 +3023,13 @@ export default function GamePage() {
                   aria-live="polite"
                 >
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                    This draw ({marketDrawPicks.length}/3)
+                    This draw ({marketDrawPicks.length}/{marketBuyTotalCards})
                   </p>
                   {marketDrawPicks.length === 0 ? (
                     <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      Tap a pile for each of your 3 picks.
+                      {marketBuyTotalCards === 1
+                        ? "Tap one pile to choose your single card."
+                        : `Tap piles in order — ${marketBuyTotalCards} picks total.`}
                     </p>
                   ) : (
                     <ol className="mt-1.5 flex list-none flex-wrap gap-1">
@@ -2464,16 +3048,17 @@ export default function GamePage() {
                       type="button"
                       disabled={
                         actionLoading ||
-                        marketDrawPicks.length !== 3 ||
+                        marketDrawPicks.length !== marketBuyTotalCards ||
                         marketBuyBlocked
                       }
                       onClick={() => {
-                        if (marketDrawPicks.length !== 3) return;
+                        if (marketDrawPicks.length !== marketBuyTotalCards) return;
                         void handleBuy(marketPickTally);
                       }}
                       className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-400"
                     >
-                      Draw these 3 — ${nextActionCost}
+                      Draw {marketBuyTotalCards} card{marketBuyTotalCards === 1 ? "" : "s"} — $
+                      {nextActionCost}
                     </button>
                     <button
                       type="button"
@@ -2498,7 +3083,7 @@ export default function GamePage() {
                   marketBuyBlocked &&
                   !actionLoading ? (
                     <p className="mt-1.5 text-[10px] text-amber-800 dark:text-amber-200">
-                      {marketCardsTotal < 3
+                      {marketCardsTotal < 1
                         ? "Not enough cards left in the market."
                         : me != null && me.cash < nextActionCost
                           ? `Need $${nextActionCost} cash for this action.`
@@ -2613,6 +3198,15 @@ export default function GamePage() {
                         <div className="flex flex-col gap-1.5">
                           {invHand.map((c, i) => {
                             const st = investmentUiStatus(c);
+                            const def = getInvestmentCardDefById(c.id);
+                            const modLabels = def
+                              ? investmentModifierShortLabels(def.modifiers)
+                              : [];
+                            const rarity = c.rarity ?? def?.rarity ?? "Standard";
+                            const rareBtnCls =
+                              rarity === "Rare"
+                                ? "border-violet-500/50 text-violet-200"
+                                : "border-slate-500/40 text-slate-400";
                             if (st === "unbuilt") {
                               return (
                                 <button
@@ -2630,8 +3224,29 @@ export default function GamePage() {
                                   }
                                   className="rounded border border-cyan-500 bg-white px-2 py-1.5 text-left text-xs text-slate-800 hover:bg-slate-100 disabled:opacity-50 dark:border-indigo-500 dark:bg-slate-800/40 dark:text-slate-100 dark:hover:bg-slate-800"
                                 >
-                                  {tableRoundsUi ? "Implement" : "Capitalize"} {c.title} ($
-                                  {nextActionCost} + ${c.capital})
+                                  <span className="flex flex-wrap items-center gap-1.5">
+                                    <span
+                                      className={`rounded-full border px-1.5 py-px text-[8px] font-bold uppercase tracking-wide ${rareBtnCls}`}
+                                    >
+                                      {rarity}
+                                    </span>
+                                    <span>
+                                      {tableRoundsUi ? "Implement" : "Capitalize"} {c.title} ($
+                                      {nextActionCost} + ${c.capital})
+                                    </span>
+                                  </span>
+                                  {modLabels.length > 0 ? (
+                                    <span className="mt-1 flex flex-wrap gap-1">
+                                      {modLabels.map((label, mi) => (
+                                        <span
+                                          key={`side-${c.id}-m-${mi}`}
+                                          className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-px text-[8px] font-semibold text-emerald-800 dark:text-emerald-100"
+                                        >
+                                          {label}
+                                        </span>
+                                      ))}
+                                    </span>
+                                  ) : null}
                                 </button>
                               );
                             }
@@ -2672,6 +3287,7 @@ export default function GamePage() {
               </section>
             )}
               </div>
+              ) : null}
             </div>
           </aside>
         )}

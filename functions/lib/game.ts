@@ -1,9 +1,24 @@
 import {
   getInvestment,
+  getInvestmentCardDefById,
   getOperation,
-  INVESTMENTS,
   OPERATIONS,
 } from "./cards";
+import {
+  applyRickhouseFeeDiscountToTotal,
+  clearInvestmentModifierTracking,
+  markInvestmentActionDiscountsConsumed,
+  markMarketBuyBonusConsumed,
+  marketBuyExtraCardCount,
+  nextActionCashBaseCostFromGame,
+  nextActionCashCostForPlayer,
+  previewRickhouseFeeDiscountForPlayer,
+} from "./investmentModifiers";
+import {
+  buildInvestmentDrawReveal,
+  expandInvestmentDeckIds,
+  type InvestmentDrawReveal,
+} from "../../lib/investmentCatalog";
 import {
   BOURBON_CARD_IDS,
   buildBourbonSaleReveal,
@@ -33,6 +48,7 @@ export {
   rickhouseRegionLabel,
 } from "../../lib/rickhouses";
 export type { BourbonSaleReveal };
+export { marketBuyExtraCardCount } from "./investmentModifiers";
 
 /** Short id for game code (e.g. 6 alphanumeric). */
 export function shortId(length = 6): string {
@@ -66,7 +82,10 @@ export const GAME_MODE_LABELS: Record<GameMode, string> = {
 export function gameModeDisplayLabel(raw: unknown): string {
   return GAME_MODE_LABELS[normalizeGameMode(raw)];
 }
-export type GameStatus = "lobby" | "in_progress" | "finished";
+export type GameStatus = "lobby" | "opening_investments" | "in_progress" | "finished";
+
+/** Sub-steps for GAME_RULES opening investments (draw 6 / keep 3 / commit each). */
+export type OpeningInvestmentSubphase = "keep_three" | "commit_hand";
 
 /** Seats 2–6 plan when creating a multiplayer lobby (seat 1 is always the host). */
 export type LobbySlotPlan = "closed" | "open" | "computer";
@@ -101,6 +120,8 @@ export interface InvestmentCardInHand {
   id: string;
   title: string;
   capital: number;
+  /** From catalog (e.g. Standard / Rare). */
+  rarity?: string;
   /**
    * Legacy display flag; prefer {@link investmentStatus}.
    * Unbuilt = upright; funded_waiting = sideways; active = upright.
@@ -120,6 +141,14 @@ export interface Baron {
   bourbonCards: BourbonCard[];
   operationsHand: OperationsCardInHand[];
   investmentHand: InvestmentCardInHand[];
+  /** Six-card opening draft (GAME_RULES); cleared after the baron keeps 3. */
+  openingInvestmentDraft?: InvestmentCardInHand[];
+  /** Aligns with `GameDoc.roundNumber` for investment modifier once-per-year flags. */
+  investmentModifierRound?: number;
+  investmentUsedRickhouseDiscount?: boolean;
+  investmentUsedFirstPaidDiscount?: boolean;
+  investmentUsedMarketBuyBonus?: boolean;
+  investmentUsedNextActionDiscount?: boolean;
 }
 
 export interface BarrelledBourbon {
@@ -260,6 +289,12 @@ export interface GameDoc {
   bourbonFaceUpId?: string;
   /** Remaining shuffled bourbon card ids (yaml) to draw on sale. */
   bourbonDeck?: string[];
+  /** Pre-play setup: keep 3 / commit Implement or Hold (GAME_RULES opening investments). */
+  openingSubphase?: OpeningInvestmentSubphase;
+  /** Barons who finished the keep-3 step. */
+  openingKeepDoneIds?: string[];
+  /** Barons who finished Implement/Hold on their 3 kept cards. */
+  openingCommitDoneIds?: string[];
 }
 
 /**
@@ -355,10 +390,10 @@ function beginSharedActionPhase(game: GameDoc): GameDoc {
     actionPaidLapTier: 1,
     actionOpportunitiesThisLap: 0,
     actionConsecutivePasses: 0,
-    firstPasserPlayerId: undefined,
     actionsTakenThisTurn: 0,
     updatedAt: now,
   };
+  delete next.firstPasserPlayerId;
   delete next.lastDemandRoll;
   return next;
 }
@@ -388,11 +423,9 @@ function activateFundedInvestmentsForNewRound(game: GameDoc, finishedRound: numb
     const hand = (p.investmentHand ?? []).map((c) => {
       const st = effectiveInvestmentStatus(c);
       if (st === "funded_waiting" && c.fundedOnRound === finishedRound) {
-        return withInvestmentLifecycle({
-          ...c,
-          investmentStatus: "active",
-          fundedOnRound: undefined,
-        });
+        const upgraded: InvestmentCardInHand = { ...c, investmentStatus: "active" };
+        delete upgraded.fundedOnRound;
+        return withInvestmentLifecycle(upgraded);
       }
       return withInvestmentLifecycle(c);
     });
@@ -427,15 +460,17 @@ function completeTableRoundAfterMarket(game: GameDoc): GameDoc {
     actionPaidLapTier: 1,
     actionOpportunitiesThisLap: 0,
     actionConsecutivePasses: 0,
-    firstPasserPlayerId: undefined,
     actionsTakenThisTurn: 0,
     rickhouseFeesPaidThisTurn: false,
     updatedAt: now,
   };
+  delete out.firstPasserPlayerId;
   delete out.lastDemandRoll;
-  const winners = checkWinConditions(out);
-  if (winners?.length) out = { ...out, status: "finished", winnerIds: winners };
-  return out;
+  let finished: GameDoc = clearInvestmentModifierTracking(out);
+  const winners = checkWinConditions(finished);
+  if (winners?.length)
+    finished = { ...finished, status: "finished", winnerIds: winners };
+  return finished;
 }
 
 function maybeAutoFinishFeesPhase(game: GameDoc): GameDoc {
@@ -478,6 +513,309 @@ function shuffle<T>(arr: T[]): T[] {
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
+}
+
+/** Large pool of investment ids so opening draft + draws do not exhaust the deck. */
+export function buildInvestmentDeckPool(): string[] {
+  const chunk = expandInvestmentDeckIds();
+  const ids: string[] = [];
+  for (let c = 0; c < 10; c++) ids.push(...chunk);
+  return ids;
+}
+
+const OPENING_DRAFT_COUNT = 6;
+const OPENING_KEEP_COUNT = 3;
+
+function investmentCardFromDeckId(id: string): InvestmentCardInHand | undefined {
+  const cat = getInvestmentCardDefById(id);
+  if (cat) {
+    return withInvestmentLifecycle({
+      id: cat.id,
+      title: cat.name,
+      capital: cat.capital,
+      rarity: cat.rarity,
+      upright: true,
+      investmentStatus: "unbuilt",
+    });
+  }
+  const legacy = getInvestment(id);
+  if (!legacy) return undefined;
+  return withInvestmentLifecycle({
+    id: legacy.id,
+    title: legacy.title,
+    capital: legacy.capital,
+    rarity: "Standard",
+    upright: true,
+    investmentStatus: "unbuilt",
+  });
+}
+
+/** After all barons finish opening Implement/Hold, enter year 1 Action phase (GAME_RULES). */
+export function enterMainPlayFromOpening(game: GameDoc): GameDoc {
+  const now = Date.now();
+  const players: Record<string, Baron> = { ...game.players };
+  for (const pid of game.playerOrder) {
+    const p = players[pid];
+    if (!p) continue;
+    if (!p.openingInvestmentDraft) continue;
+    const { openingInvestmentDraft, ...rest } = p;
+    void openingInvestmentDraft;
+    players[pid] = rest;
+  }
+
+  const out: GameDoc = {
+    ...game,
+    status: "in_progress",
+    players,
+    roundStructureVersion: 3,
+    roundNumber: 1,
+    roundStartPlayerIndex: 0,
+    currentPhase: 2,
+    currentPlayerIndex: 0,
+    feesPaidPlayerIds: [],
+    marketDonePlayerIds: [],
+    actionFreeWindowActive: true,
+    actionPaidLapTier: 1,
+    actionOpportunitiesThisLap: 0,
+    actionConsecutivePasses: 0,
+    turnNumber: 1,
+    actionsTakenThisTurn: 0,
+    rickhouseFeesPaidThisTurn: false,
+    marketDemandHistory: [
+      { demand: game.marketDemand, kind: "start", turnNumber: 1 },
+    ],
+    updatedAt: now,
+  };
+  delete out.firstPasserPlayerId;
+  delete out.lastDemandRoll;
+  delete out.openingSubphase;
+  delete out.openingKeepDoneIds;
+  delete out.openingCommitDoneIds;
+  return out;
+}
+
+/**
+ * Opening: keep 3 of 6 draft cards; return the other 3 to the bottom of the investment deck.
+ */
+export function openingKeepThreeInvestments(
+  game: GameDoc,
+  playerId: string,
+  keepIndices: number[]
+): { game: GameDoc; error?: string } {
+  if (game.status !== "opening_investments")
+    return { game, error: "Opening investments not active" };
+  if ((game.openingSubphase ?? "keep_three") !== "keep_three")
+    return { game, error: "Wrong opening step" };
+  if ((game.openingKeepDoneIds ?? []).includes(playerId))
+    return { game, error: "Already chose cards to keep" };
+
+  const player = game.players[playerId];
+  if (!player) return { game, error: "Baron not found" };
+  const draft = player.openingInvestmentDraft;
+  if (!draft || draft.length !== OPENING_DRAFT_COUNT)
+    return { game, error: "No opening draft to resolve" };
+
+  if (keepIndices.length !== OPENING_KEEP_COUNT)
+    return { game, error: `Keep exactly ${OPENING_KEEP_COUNT} cards` };
+  const uniq = new Set(keepIndices.map((i) => Math.floor(Number(i))));
+  if (uniq.size !== OPENING_KEEP_COUNT)
+    return { game, error: "Keep indices must be distinct" };
+  for (const i of uniq) {
+    if (i < 0 || i >= OPENING_DRAFT_COUNT) return { game, error: "Invalid card index" };
+  }
+
+  const sortedKeep = [...uniq].sort((a, b) => a - b);
+  const kept: InvestmentCardInHand[] = sortedKeep.map((i) =>
+    withInvestmentLifecycle({
+      ...draft[i]!,
+      investmentStatus: "unbuilt",
+      upright: true,
+    })
+  );
+  const returnedIds: string[] = [];
+  for (let i = 0; i < draft.length; i++) {
+    if (!uniq.has(i)) returnedIds.push(draft[i]!.id);
+  }
+
+  const now = Date.now();
+  const deck = [...(game.investmentDeck ?? []), ...returnedIds];
+  const newPlayers = { ...game.players };
+  const nextBaron: Baron = {
+    ...player,
+    investmentHand: kept,
+  };
+  delete nextBaron.openingInvestmentDraft;
+  newPlayers[playerId] = nextBaron;
+
+  const keepDone = [...(game.openingKeepDoneIds ?? []), playerId];
+  let updated: GameDoc = {
+    ...game,
+    players: newPlayers,
+    investmentDeck: deck,
+    openingKeepDoneIds: keepDone,
+    updatedAt: now,
+  };
+
+  if (updated.playerOrder.length > 0 && updated.playerOrder.every((id) => keepDone.includes(id))) {
+    updated = {
+      ...updated,
+      openingSubphase: "commit_hand",
+      updatedAt: Date.now(),
+    };
+  }
+
+  return { game: updated };
+}
+
+/**
+ * Opening: for each kept card, Implement (pay capital only) or Hold (unbuilt).
+ * Implemented cards are `funded_waiting` with `fundedOnRound: 1` (active start of round 2).
+ */
+export function openingCommitInvestments(
+  game: GameDoc,
+  playerId: string,
+  decisions: { handIndex: number; action: "implement" | "hold" }[]
+): { game: GameDoc; error?: string } {
+  if (game.status !== "opening_investments")
+    return { game, error: "Opening investments not active" };
+  if ((game.openingSubphase ?? "keep_three") !== "commit_hand")
+    return { game, error: "Keep three cards first" };
+  if ((game.openingCommitDoneIds ?? []).includes(playerId))
+    return { game, error: "Already committed opening investments" };
+
+  const player = ensureBaronHands(game.players[playerId]);
+  if (!player) return { game, error: "Baron not found" };
+  if (player.openingInvestmentDraft?.length)
+    return { game, error: "Finish the keep-3 step first" };
+  if (player.investmentHand.length !== OPENING_KEEP_COUNT)
+    return { game, error: "Expected three investment cards in hand" };
+
+  const idxs = new Set(decisions.map((d) => Math.floor(Number(d.handIndex))));
+  if (
+    decisions.length !== OPENING_KEEP_COUNT ||
+    idxs.size !== OPENING_KEEP_COUNT ||
+    ![0, 1, 2].every((i) => idxs.has(i))
+  ) {
+    return {
+      game,
+      error: `Provide exactly one decision for hand slots 0, 1, and 2`,
+    };
+  }
+
+  let cash = player.cash;
+  const nextHand: InvestmentCardInHand[] = [];
+  for (let i = 0; i < OPENING_KEEP_COUNT; i++) {
+    const dec = decisions.find((d) => Math.floor(Number(d.handIndex)) === i)!;
+    const card = player.investmentHand[i]!;
+    if (dec.action === "implement") {
+      if (effectiveInvestmentStatus(card) !== "unbuilt")
+        return { game, error: "Can only implement unbuilt cards in opening" };
+      if (cash < card.capital)
+        return { game, error: "Not enough cash to implement that investment" };
+      cash -= card.capital;
+      nextHand.push(
+        withInvestmentLifecycle({
+          ...card,
+          investmentStatus: "funded_waiting",
+          fundedOnRound: 1,
+          upright: false,
+        })
+      );
+    } else {
+      nextHand.push(
+        withInvestmentLifecycle({
+          ...card,
+          investmentStatus: "unbuilt",
+          upright: true,
+        })
+      );
+    }
+  }
+
+  const now = Date.now();
+  const newPlayers = { ...game.players };
+  newPlayers[playerId] = {
+    ...player,
+    cash,
+    investmentHand: nextHand,
+  };
+  const done = [...(game.openingCommitDoneIds ?? []), playerId];
+  let updated: GameDoc = {
+    ...game,
+    players: newPlayers,
+    openingCommitDoneIds: done,
+    updatedAt: now,
+  };
+
+  if (updated.playerOrder.length > 0 && updated.playerOrder.every((id) => done.includes(id))) {
+    updated = enterMainPlayFromOpening(updated);
+  }
+
+  return { game: updated };
+}
+
+function openingBotCommitDecisions(p: Baron): { handIndex: number; action: "implement" | "hold" }[] {
+  const hand = p.investmentHand;
+  if (hand.length !== OPENING_KEEP_COUNT) return [];
+  let bestIdx = -1;
+  let bestCap = Infinity;
+  for (let i = 0; i < OPENING_KEEP_COUNT; i++) {
+    const cap = hand[i]!.capital;
+    if (cap < bestCap) {
+      bestCap = cap;
+      bestIdx = i;
+    }
+  }
+  if (bestIdx < 0 || p.cash < bestCap) {
+    return [0, 1, 2].map((handIndex) => ({ handIndex, action: "hold" as const }));
+  }
+  return [0, 1, 2].map((handIndex) => ({
+    handIndex,
+    action: handIndex === bestIdx ? ("implement" as const) : ("hold" as const),
+  }));
+}
+
+/** Run bot steps for opening investments (keep 3, then commit); no-op if not in opening. */
+export function processOpeningBotSteps(game: GameDoc): GameDoc {
+  let g = normalizeGame({ ...game });
+  if (g.status !== "opening_investments") return g;
+
+  let sub = g.openingSubphase ?? "keep_three";
+
+  if (sub === "keep_three") {
+    for (const pid of g.playerOrder) {
+      if (!isBotPlayer(pid)) continue;
+      const p = g.players[pid];
+      if (!p?.openingInvestmentDraft || p.openingInvestmentDraft.length !== OPENING_DRAFT_COUNT)
+        continue;
+      if ((g.openingKeepDoneIds ?? []).includes(pid)) continue;
+      const r = openingKeepThreeInvestments(g, pid, [0, 1, 2]);
+      if (!r.error) g = r.game;
+    }
+  }
+
+  g = normalizeGame(g);
+  sub = g.openingSubphase ?? "keep_three";
+
+  if (sub === "commit_hand") {
+    for (const pid of g.playerOrder) {
+      if (!isBotPlayer(pid)) continue;
+      if ((g.openingCommitDoneIds ?? []).includes(pid)) continue;
+      const p = ensureBaronHands(g.players[pid]);
+      if (!p || p.investmentHand.length !== OPENING_KEEP_COUNT) continue;
+      const decisions = openingBotCommitDecisions(p);
+      const r = openingCommitInvestments(g, pid, decisions);
+      if (!r.error) g = r.game;
+    }
+  }
+
+  return g;
+}
+
+function requireMainPlayForActions(game: GameDoc): string | undefined {
+  if (game.status === "opening_investments") return "Finish opening investments first";
+  if (game.status !== "in_progress") return "Game not in progress";
+  return undefined;
 }
 
 const PLAIN_RESOURCE_TOTAL = 230;
@@ -603,7 +941,7 @@ export function createNewGame(gameId: string, mode: GameMode): GameDoc {
     turnStructureVersion: 2,
     roundStructureVersion: 3,
     operationsDeck: shuffle(OPERATIONS.map((c) => c.id)),
-    investmentDeck: shuffle(INVESTMENTS.map((c) => c.id)),
+    investmentDeck: shuffle(buildInvestmentDeckPool()),
     rickhouses,
     marketPiles,
     resourceDeck: [],
@@ -917,10 +1255,8 @@ export function getLobbySeatsForDisplay(game: GameDoc): LobbySeat[] {
 }
 
 /**
- * Deal starting cash and enter **year 1** (table rounds: Action phase first; fees skipped round 1).
- * **Opening investments** (draw 6 / keep 3 / optional auction / setup Implement) from `GAME_RULES` are not
- * wired here yet — when they are, auction resolution must charge **every** winning bid to the **bank**
- * (including when the **seller keeps** the card); sellers never receive auction cash as income.
+ * Deal starting cash, bourbon market, and **opening investments** (draw 6 / keep 3 / Implement or Hold).
+ * Main play (`in_progress`) begins after every baron finishes opening (GAME_RULES).
  */
 export function startGame(game: GameDoc): GameDoc {
   const now = Date.now();
@@ -955,8 +1291,13 @@ export function startGame(game: GameDoc): GameDoc {
   }
   const opsDeck =
     game.operationsDeck?.length ? [...game.operationsDeck] : shuffle(OPERATIONS.map((c) => c.id));
-  const invDeck =
-    game.investmentDeck?.length ? [...game.investmentDeck] : shuffle(INVESTMENTS.map((c) => c.id));
+  let invDeck = game.investmentDeck?.length ? [...game.investmentDeck] : shuffle(buildInvestmentDeckPool());
+  const nBarons = game.playerOrder.length;
+  const needCards = OPENING_DRAFT_COUNT * Math.max(1, nBarons);
+  while (invDeck.length < needCards) {
+    invDeck = [...invDeck, ...shuffle(buildInvestmentDeckPool())];
+  }
+  invDeck = shuffle(invDeck);
 
   const playersWithHands: Record<string, Baron> = {};
   for (const pid of Object.keys(players)) {
@@ -968,16 +1309,40 @@ export function startGame(game: GameDoc): GameDoc {
     };
   }
 
+  const withOpeningDrafts: Record<string, Baron> = { ...playersWithHands };
+  for (const pid of game.playerOrder) {
+    const p = withOpeningDrafts[pid];
+    if (!p) continue;
+    const six: InvestmentCardInHand[] = [];
+    for (let i = 0; i < OPENING_DRAFT_COUNT; i++) {
+      const id = invDeck.shift();
+      if (!id) break;
+      const card = investmentCardFromDeckId(id);
+      if (card) six.push(card);
+    }
+    while (six.length < OPENING_DRAFT_COUNT) {
+      invDeck = [...invDeck, ...shuffle(buildInvestmentDeckPool())];
+      const id = invDeck.shift();
+      if (!id) break;
+      const card = investmentCardFromDeckId(id);
+      if (card) six.push(card);
+    }
+    withOpeningDrafts[pid] = { ...p, openingInvestmentDraft: six };
+  }
+
   const bourbonPile = shuffle([...BOURBON_CARD_IDS]);
   const bourbonFaceUpId = bourbonPile.pop() ?? BOURBON_CARD_IDS[0]!;
   const bourbonDeck = bourbonPile;
 
-  return {
+  const started: GameDoc = {
     ...game,
-    status: "in_progress",
-    players: playersWithHands,
+    status: "opening_investments",
+    openingSubphase: "keep_three",
+    openingKeepDoneIds: [],
+    openingCommitDoneIds: [],
+    players: withOpeningDrafts,
     roundStructureVersion: 3,
-    roundNumber: 1,
+    roundNumber: 0,
     roundStartPlayerIndex: 0,
     currentPhase: 2,
     currentPlayerIndex: 0,
@@ -987,8 +1352,7 @@ export function startGame(game: GameDoc): GameDoc {
     actionPaidLapTier: 1,
     actionOpportunitiesThisLap: 0,
     actionConsecutivePasses: 0,
-    firstPasserPlayerId: undefined,
-    turnNumber: 1,
+    turnNumber: 0,
     actionsTakenThisTurn: 0,
     rickhouseFeesPaidThisTurn: false,
     turnStructureVersion: 2,
@@ -999,11 +1363,11 @@ export function startGame(game: GameDoc): GameDoc {
     resourceDeck,
     bourbonFaceUpId,
     bourbonDeck,
-    marketDemandHistory: [
-      { demand: game.marketDemand, kind: "start", turnNumber: 1 },
-    ],
     updatedAt: now,
   };
+  delete started.firstPasserPlayerId;
+  delete started.lastDemandRoll;
+  return started;
 }
 
 /**
@@ -1160,6 +1524,12 @@ export type AdvancePhaseResult = { game: GameDoc; error?: string };
 
 export function advancePhase(game: GameDoc): AdvancePhaseResult {
   const now = Date.now();
+  if (game.status === "opening_investments") {
+    return { game, error: "Finish opening investments first" };
+  }
+  if (game.status !== "in_progress") {
+    return { game, error: "Game not in progress" };
+  }
   if (usesTableRoundStructure(game)) {
     if (game.currentPhase === 1) {
       if (!allBaronsPaidFees(game)) {
@@ -1292,22 +1662,27 @@ export function nextActionCashCost(actionsTakenThisTurn: number): number {
 
 /** Cash cost for the next distillery action (GAME_RULES shared Action phase ladder when `roundStructureVersion >= 3`). */
 export function nextActionCashCostFromGame(game: GameDoc): number {
-  if (!usesTableRoundStructure(game)) {
-    return nextActionCashCostLegacy(game.actionsTakenThisTurn ?? 0);
-  }
-  if (game.actionFreeWindowActive ?? true) return 0;
-  return Math.max(1, game.actionPaidLapTier ?? 1);
+  const pid = game.playerOrder[game.currentPlayerIndex];
+  return nextActionCashCostForPlayer(game, pid);
 }
 
-const MARKET_BUY_COUNT = 3;
+function afterPaidDistilleryAction(game: GameDoc, playerId: string, pre: GameDoc): GameDoc {
+  const base = nextActionCashBaseCostFromGame(pre);
+  if (base > 0) return markInvestmentActionDiscountsConsumed(game, playerId, base);
+  return game;
+}
+
+const MARKET_BUY_COUNT = 1;
 
 export type MarketBuyPicks = { cask: number; corn: number; grain: number };
 
-/** Draw exactly 3 cards from the three face-down piles (GAME_RULES). One action. */
+/** Draw resource cards from market piles (base count + active investment bonuses). One action. */
 export function buyResources(
   game: GameDoc,
   picks: MarketBuyPicks | "random"
 ): { game: GameDoc; error?: string } {
+  const main = requireMainPlayForActions(game);
+  if (main) return { game, error: main };
   if (!inActionPhaseGame(game))
     return { game, error: "Market buy only during the Action phase" };
   const pid = game.playerOrder[game.currentPlayerIndex];
@@ -1315,8 +1690,11 @@ export function buyResources(
   const player = game.players[pid];
   if (!player) return { game, error: "Baron not found" };
 
+  const pre = game;
+  const extra = marketBuyExtraCardCount(game, pid);
+  const totalDraws = MARKET_BUY_COUNT + extra;
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCostFromGame(game);
+  const actionCost = nextActionCashCostFromGame(pre);
   if (player.cash < actionCost)
     return { game, error: "Not enough cash for this action" };
 
@@ -1329,7 +1707,7 @@ export function buyResources(
   const now = Date.now();
 
   if (picks === "random") {
-    for (let i = 0; i < MARKET_BUY_COUNT; i++) {
+    for (let i = 0; i < totalDraws; i++) {
       const nonempty: (keyof MarketPiles)[] = [];
       if (piles.cask.length) nonempty.push("cask");
       if (piles.corn.length) nonempty.push("corn");
@@ -1342,8 +1720,11 @@ export function buyResources(
     const nc = picks.cask;
     const nk = picks.corn;
     const ng = picks.grain;
-    if (nc + nk + ng !== MARKET_BUY_COUNT)
-      return { game, error: "Pick exactly 3 cards total" };
+    if (nc + nk + ng !== totalDraws)
+      return {
+        game,
+        error: `Pick exactly ${totalDraws} card${totalDraws === 1 ? "" : "s"} total`,
+      };
     if (piles.cask.length < nc || piles.corn.length < nk || piles.grain.length < ng)
       return { game, error: "Not enough cards in chosen piles" };
     for (let i = 0; i < nc; i++) drawn.push(piles.cask.pop()!);
@@ -1371,6 +1752,8 @@ export function buyResources(
       actionConsecutivePasses: 0,
     });
   }
+  if (extra > 0) updated = markMarketBuyBonusConsumed(updated, pid);
+  updated = afterPaidDistilleryAction(updated, pid, pre);
   return { game: updated };
 }
 
@@ -1511,6 +1894,8 @@ export function barrelBourbon(
   playerId: string,
   mashIndices: number[]
 ): { game: GameDoc; error?: string } {
+  const main = requireMainPlayForActions(game);
+  if (main) return { game, error: main };
   if (!inActionPhaseGame(game))
     return { game, error: "Barrel only during the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
@@ -1526,8 +1911,9 @@ export function barrelBourbon(
   if (!rick) return { game, error: "Rickhouse not found" };
   if (rick.barrels.length >= rick.capacity) return { game, error: "Rickhouse full" };
 
+  const pre = game;
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCostFromGame(game);
+  const actionCost = nextActionCashCostFromGame(pre);
   const tableRounds = usesTableRoundStructure(game);
   const rentDiscount = totalBarrelEntryRentDiscount(mashCards);
   const legacyPlacementRent = tableRounds
@@ -1579,6 +1965,7 @@ export function barrelBourbon(
       actionConsecutivePasses: 0,
     });
   }
+  updated = afterPaidDistilleryAction(updated, playerId, pre);
   const winners = checkWinConditions(updated);
   if (winners?.length) {
     updated = { ...updated, status: "finished", winnerIds: winners };
@@ -1591,6 +1978,8 @@ export function drawOperationsCard(
   game: GameDoc,
   playerId: string
 ): { game: GameDoc; error?: string } {
+  const main = requireMainPlayForActions(game);
+  if (main) return { game, error: main };
   if (!inActionPhaseGame(game))
     return { game, error: "Operations draws only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
@@ -1598,8 +1987,9 @@ export function drawOperationsCard(
   const player = ensureBaronHands(game.players[playerId]);
   if (!player) return { game, error: "Baron not found" };
 
+  const pre = game;
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCostFromGame(game);
+  const actionCost = nextActionCashCostFromGame(pre);
   if (player.cash < actionCost)
     return { game, error: "Not enough cash for this action" };
   const deck = [...(game.operationsDeck ?? [])];
@@ -1633,6 +2023,7 @@ export function drawOperationsCard(
       actionConsecutivePasses: 0,
     });
   }
+  updated = afterPaidDistilleryAction(updated, playerId, pre);
   return { game: updated };
 }
 
@@ -1640,7 +2031,9 @@ export function drawOperationsCard(
 export function drawInvestmentCard(
   game: GameDoc,
   playerId: string
-): { game: GameDoc; error?: string } {
+): { game: GameDoc; reveal?: InvestmentDrawReveal; error?: string } {
+  const main = requireMainPlayForActions(game);
+  if (main) return { game, error: main };
   if (!inActionPhaseGame(game))
     return { game, error: "Investment draws only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
@@ -1648,23 +2041,37 @@ export function drawInvestmentCard(
   const player = ensureBaronHands(game.players[playerId]);
   if (!player) return { game, error: "Baron not found" };
 
+  const pre = game;
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCostFromGame(game);
+  const actionCost = nextActionCashCostFromGame(pre);
   if (player.cash < actionCost)
     return { game, error: "Not enough cash for this action" };
   const deck = [...(game.investmentDeck ?? [])];
   if (deck.length === 0) return { game, error: "Investment deck empty" };
   const id = deck.shift()!;
-  const def = getInvestment(id);
-  if (!def) return { game, error: "Invalid investment card" };
+  const cat = getInvestmentCardDefById(id);
+  const legacy = cat ? null : getInvestment(id);
+  if (!cat && !legacy) return { game, error: "Invalid investment card" };
 
-  const card: InvestmentCardInHand = withInvestmentLifecycle({
-    id: def.id,
-    title: def.title,
-    capital: def.capital,
-    upright: true,
-    investmentStatus: "unbuilt",
-  });
+  const card: InvestmentCardInHand = withInvestmentLifecycle(
+    cat
+      ? {
+          id: cat.id,
+          title: cat.name,
+          capital: cat.capital,
+          rarity: cat.rarity,
+          upright: true,
+          investmentStatus: "unbuilt",
+        }
+      : {
+          id: legacy!.id,
+          title: legacy!.title,
+          capital: legacy!.capital,
+          rarity: "Standard",
+          upright: true,
+          investmentStatus: "unbuilt",
+        }
+  );
   const now = Date.now();
   const newPlayers = { ...game.players };
   newPlayers[playerId] = {
@@ -1685,7 +2092,9 @@ export function drawInvestmentCard(
       actionConsecutivePasses: 0,
     });
   }
-  return { game: updated };
+  updated = afterPaidDistilleryAction(updated, playerId, pre);
+  const reveal = cat ? buildInvestmentDrawReveal(cat) : undefined;
+  return { game: updated, reveal };
 }
 
 /** Pay action cost + printed capital; funded card is sideways until next round (GAME_RULES). */
@@ -1694,6 +2103,8 @@ export function implementInvestment(
   playerId: string,
   handIndex: number
 ): { game: GameDoc; error?: string } {
+  const main = requireMainPlayForActions(game);
+  if (main) return { game, error: main };
   if (!inActionPhaseGame(game))
     return { game, error: "Implement investment only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
@@ -1705,8 +2116,9 @@ export function implementInvestment(
   if (effectiveInvestmentStatus(card) !== "unbuilt")
     return { game, error: "Only unbuilt investments can be implemented" };
 
+  const pre = game;
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCostFromGame(game);
+  const actionCost = nextActionCashCostFromGame(pre);
   const total = actionCost + card.capital;
   if (player.cash < total)
     return { game, error: "Not enough cash for action + capital" };
@@ -1737,6 +2149,7 @@ export function implementInvestment(
       actionConsecutivePasses: 0,
     });
   }
+  updated = afterPaidDistilleryAction(updated, playerId, pre);
   return { game: updated };
 }
 
@@ -1757,6 +2170,7 @@ export function capitalizeInvestment(
   if (!card) return { game, error: "No card at that index" };
   if (card.upright) return { game, error: "Already capitalized" };
 
+  const pre = game;
   const taken = game.actionsTakenThisTurn ?? 0;
   const actionCost = nextActionCashCostLegacy(taken);
   const total = actionCost + card.capital;
@@ -1772,14 +2186,14 @@ export function capitalizeInvestment(
     cash: player.cash - total,
     investmentHand: nextHand,
   };
-  return {
-    game: {
-      ...game,
-      players: newPlayers,
-      actionsTakenThisTurn: taken + 1,
-      updatedAt: now,
-    },
+  let updated: GameDoc = {
+    ...game,
+    players: newPlayers,
+    actionsTakenThisTurn: taken + 1,
+    updatedAt: now,
   };
+  updated = afterPaidDistilleryAction(updated, playerId, pre);
+  return { game: updated };
 }
 
 /** Resolve an operations card from hand (pay action cost, gain printed cash). */
@@ -1788,6 +2202,8 @@ export function playOperationsCard(
   playerId: string,
   handIndex: number
 ): { game: GameDoc; error?: string } {
+  const main = requireMainPlayForActions(game);
+  if (main) return { game, error: main };
   if (!inActionPhaseGame(game))
     return { game, error: "Play operations only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
@@ -1797,8 +2213,9 @@ export function playOperationsCard(
   const card = player.operationsHand[handIndex];
   if (!card) return { game, error: "No card at that index" };
 
+  const pre = game;
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCostFromGame(game);
+  const actionCost = nextActionCashCostFromGame(pre);
   if (player.cash < actionCost)
     return { game, error: "Not enough cash for this action" };
 
@@ -1822,6 +2239,7 @@ export function playOperationsCard(
       actionConsecutivePasses: 0,
     });
   }
+  updated = afterPaidDistilleryAction(updated, playerId, pre);
   const winners = checkWinConditions(updated);
   if (winners?.length) {
     updated = { ...updated, status: "finished", winnerIds: winners };
@@ -1845,7 +2263,7 @@ export function rickhouseFeePerBarrelForBaron(
   return rick.barrels.length;
 }
 
-export function previewRickhouseFeesForPlayer(game: GameDoc, playerId: string): number {
+function grossRickhouseFeesForPlayer(game: GameDoc, playerId: string): number {
   const player = game.players[playerId];
   if (!player) return 0;
   let total = 0;
@@ -1855,6 +2273,13 @@ export function previewRickhouseFeesForPlayer(game: GameDoc, playerId: string): 
     total += rickhouseFeePerBarrelForBaron(rick, playerId);
   }
   return total;
+}
+
+/** Amount this baron would pay this Phase 1 after active investment rickhouse discounts (if any). */
+export function previewRickhouseFeesForPlayer(game: GameDoc, playerId: string): number {
+  const gross = grossRickhouseFeesForPlayer(game, playerId);
+  const disc = previewRickhouseFeeDiscountForPlayer(game, playerId);
+  return Math.max(0, gross - disc);
 }
 
 /** Legacy age × demand (demand 0 ⇒ age only), clamped — fallback when no bourbon card. */
@@ -1891,42 +2316,42 @@ export function payRickhouseFeesAndAge(
     if (feesPaidSet(game).has(playerId))
       return { game, error: "You already paid rickhouse fees this round" };
 
-    const player = game.players[playerId];
-    if (!player) return { game, error: "Baron not found" };
-
-    const total = previewRickhouseFeesForPlayer(game, playerId);
-    if (player.cash < total)
+    const gross = grossRickhouseFeesForPlayer(game, playerId);
+    const { game: afterDisc, fees } = applyRickhouseFeeDiscountToTotal(game, playerId, gross);
+    const p0 = afterDisc.players[playerId];
+    if (!p0) return { game, error: "Baron not found" };
+    if (p0.cash < fees)
       return {
         game,
-        error: `Not enough cash: need $${total} for rickhouse fees`,
+        error: `Not enough cash: need $${fees} for rickhouse fees`,
       };
 
     const now = Date.now();
-    const newRickhouses = game.rickhouses.map((r) => ({
+    const newRickhouses = afterDisc.rickhouses.map((r) => ({
       ...r,
       barrels: r.barrels.map((br) =>
         br.playerId === playerId ? { ...br, age: br.age + 1 } : br
       ),
     }));
 
-    const newPlayers = { ...game.players };
+    const newPlayers = { ...afterDisc.players };
     newPlayers[playerId] = {
-      ...player,
-      cash: player.cash - total,
-      barrelledBourbons: (player.barrelledBourbons ?? []).map((b) => ({
+      ...p0,
+      cash: p0.cash - fees,
+      barrelledBourbons: (p0.barrelledBourbons ?? []).map((b) => ({
         ...b,
         age: b.age + 1,
       })),
     };
 
-    const paid = [...(game.feesPaidPlayerIds ?? []), playerId];
-    const n = game.playerOrder.length;
-    let nextIdx = game.currentPlayerIndex;
+    const paid = [...(afterDisc.feesPaidPlayerIds ?? []), playerId];
+    const n = afterDisc.playerOrder.length;
+    let nextIdx = afterDisc.currentPlayerIndex;
     if (n > 0 && paid.length < n) {
       const paidSet = new Set(paid);
-      let idx = nextClockwiseIndex(game, game.currentPlayerIndex);
+      let idx = nextClockwiseIndex(afterDisc, afterDisc.currentPlayerIndex);
       for (let k = 0; k < n; k++) {
-        const pid = game.playerOrder[idx];
+        const pid = afterDisc.playerOrder[idx];
         if (pid && !paidSet.has(pid)) {
           nextIdx = idx;
           break;
@@ -1936,7 +2361,7 @@ export function payRickhouseFeesAndAge(
     }
 
     let updated: GameDoc = {
-      ...game,
+      ...afterDisc,
       rickhouses: newRickhouses,
       players: newPlayers,
       feesPaidPlayerIds: paid,
@@ -2000,6 +2425,8 @@ export function sellBourbon(
   playerId: string,
   barrelId: string
 ): { game: GameDoc; error?: string; sale?: BourbonSaleReveal } {
+  const main = requireMainPlayForActions(game);
+  if (main) return { game, error: main };
   if (!inActionPhaseGame(game))
     return { game, error: "Sell only during the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
@@ -2011,8 +2438,9 @@ export function sellBourbon(
   if (!barrel) return { game, error: "Barrel not found" };
   if (barrel.age < 2) return { game, error: "Bourbon must be at least 2 years old to sell" };
 
+  const pre = game;
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCostFromGame(game);
+  const actionCost = nextActionCashCostFromGame(pre);
   if (player.cash < actionCost)
     return { game, error: "Not enough cash for this action" };
 
@@ -2090,6 +2518,7 @@ export function sellBourbon(
       actionConsecutivePasses: 0,
     });
   }
+  updated = afterPaidDistilleryAction(updated, playerId, pre);
   const winners = checkWinConditions(updated);
   if (winners?.length) updated = { ...updated, status: "finished", winnerIds: winners };
   return { game: updated, sale };
@@ -2118,13 +2547,27 @@ export function normalizeGame(game: GameDoc): GameDoc {
         ...b,
         mashCards: b.mashCards?.map(migrateResourceCardType),
       })),
-      investmentHand: (base.investmentHand ?? []).map((c) =>
-        withInvestmentLifecycle({
+      investmentHand: (base.investmentHand ?? []).map((c) => {
+        const migrated = withInvestmentLifecycle({
           ...c,
           investmentStatus:
             c.investmentStatus ?? (c.upright ? "active" : "unbuilt"),
-        })
-      ),
+        });
+        const def = getInvestmentCardDefById(migrated.id);
+        if (!def) return migrated;
+        const titleOk =
+          typeof migrated.title === "string" && migrated.title.trim() !== "";
+        const capOk =
+          typeof migrated.capital === "number" &&
+          Number.isFinite(migrated.capital) &&
+          migrated.capital >= 0;
+        return withInvestmentLifecycle({
+          ...migrated,
+          title: titleOk ? migrated.title : def.name,
+          capital: capOk ? migrated.capital : def.capital,
+          rarity: migrated.rarity ?? def.rarity,
+        });
+      }),
     };
   }
 
@@ -2177,7 +2620,7 @@ export function normalizeGame(game: GameDoc): GameDoc {
   const roundNumber =
     game.roundNumber != null && Number.isFinite(game.roundNumber)
       ? Math.max(0, Math.floor(game.roundNumber))
-      : game.status === "lobby"
+      : game.status === "lobby" || game.status === "opening_investments"
         ? 0
         : Math.max(1, game.turnNumber || 1);
 
