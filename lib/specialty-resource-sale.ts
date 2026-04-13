@@ -85,6 +85,11 @@ function collectSellOps(mash: string[]): ResourcePlayOp[] {
   return out;
 }
 
+/**
+ * Legacy prototype hook for discounted **barrel placement rent**.
+ * Table-round rules (GAME_RULES) charge **no placement rent** — ongoing rickhouse fees are Phase 1 only — so this is
+ * unused for `roundStructureVersion >= 3` games (see `functions/lib/game.ts` `barrelBourbon`).
+ */
 export function totalBarrelEntryRentDiscount(mashCardIds: string[]): number {
   let sum = 0;
   for (const id of mashCardIds) {

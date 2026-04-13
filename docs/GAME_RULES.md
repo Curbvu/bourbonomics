@@ -8,7 +8,7 @@
 
 In *Bourbonomics*, your goal is to become **the Bourbon Baron of America**—a legendary distiller with the most successful bourbon empire! But the road to whiskey wealth isn't easy. You'll need to secure the best ingredients, **outmaneuver competitors**, **manage your bourbon**, and expand your brand while avoiding financial ruin.
 
-Each round, you'll collect resources, **age, and sell bourbon**, navigate shifting market demands, and make strategic investments to your business and work on refining operations. Will you focus on crafting small-batch artisanal whiskey, or will you scale up for mass production? Can you source prime barrels and top-tier corn? Or will a sudden drop in market demand put your business at risk?
+Each **round** runs in three beats for the whole table: **rickhouse fees** (skipped in **round 1**), a shared **action phase** where barons go around the table taking actions or passing, then a **market phase** for demand or events (see **Rounds (Overview)**). Within that rhythm you’ll collect resources, **age and sell bourbon**, navigate shifting demand, and invest in your business and operations. Will you focus on crafting small-batch artisanal whiskey, or will you scale up for mass production? Can you source prime barrels and top-tier corn? Or will a sudden drop in market demand put your business at risk?
 
 Only the savviest player will rise to the top. **Do you have what it takes to rule the world of bourbon?**
 
@@ -28,6 +28,22 @@ Only the savviest player will rise to the top. **Do you have what it takes to ru
 - **Last Baron Standing** — All other players eliminated or bankrupted.
 - **Baron of Kentucky** — Have 15 barrelled bourbon and atleast one in each of the 6 rickhouses.
 
+### Opening investments (Kentucky Straight and BiB)
+
+Before **Round 1** begins, each Baron seeds their **investment** hand:
+
+1. **Draw 6** cards from the **investment** deck.
+2. **Keep 3** in hand. **Return the other 3** to the **bottom** of the investment deck (shuffle the returned cards together first if you want less order memory).
+3. **Optional auction (at most 1 per Baron):** You may offer **one** investment from your hand for auction. If you do, resolve it **before** step 4.
+   - **Bidding:** Go **clockwise** around the seller, starting with the Baron **immediately clockwise** from the seller. Each Baron may **raise** the current bid or **pass**. The **seller bids last** and may **match or beat** the high bid to **keep** the card.
+   - **Payment:** The winner pays the **bank** (not the seller). **If the seller wins** by matching or beating the high bid to **keep** the card, that **winning bid is also paid to the bank** — cash is **removed from the seller’s pool** like any other winning bid; the seller does **not** receive that money as income (there is no “pay yourself”).
+   - **What the winner gets:** The card is **upright** and **active immediately**—it works **this year (Round 1)**. The card’s **printed capital** is **waived** for this purchase; the **winning bid** is the only purchase cost. That makes auctions **high risk / high reward**: you can land a **ready-to-run** investment, but you can also **overpay** in cash you need elsewhere.
+4. **Commit what’s left in hand:** For each investment still in your hand after any auction, pick **one** (this step is **setup**—it does **not** use an **action**):
+   - **Implement** (opening): Pay the card’s **printed capital** from **starting cash** → place it **sideways** (**paid**, **waiting** one year—the same as **Implement investment** in play). Flip **upright** (**active**) at the **start of Round 2**, not Round 1.
+   - **Hold uncommitted:** Leave it in your **hand** (off the table). It has **no effect** until you **Implement** it with the **Implement investment** action (it is already **drawn**—you do not **Draw** it again).
+
+**Starting cash** must be enough to make the choices in step 4 and any auctions meaningful; set it in your **mode rules** or scenario sheet and keep it consistent across playtests.
+
 ---
 
 ## Board
@@ -46,11 +62,11 @@ These decks sit in the **business** area of the board. Taking or buying a card f
 
 #### Investment cards (In Kentucky Straight and BiB Mode)
 
-**Investment cards** are long-term **strategic** upgrades to your distillery: cheaper rickhouse fees, advantages on resources, better leverage when you take actions, extra rickhouse slots, and similar effects. Investment cards can be acquired via an "action". However, they also require **capital** that you must pay to **implement** the investment card. Newly acquired investment cards start **sideways** until you pay that capital and stand them **upright**. When invested, then the card effects can be used. *Note* if you choose not to put in capital on the turn that you drew the card, then you must pay for another action to capitalize the card. You can perform other actions on that turn (for example if you need to raise money). Details: **Investment cards**; example seeds: **[investment_cards.yaml](investment_cards.yaml)**.
+**Investment cards** are long-term **strategic** upgrades to your distillery: cheaper rickhouse fees, advantages on resources, better leverage when you take actions, extra rickhouse slots, and similar effects. In **normal play**, you **Draw** a card (**unbuilt**, **upright**), then you may **Implement** it by paying **printed capital** and placing it **sideways**—**sideways** means **paid for** but **waiting** until **next year** before it flips **upright** and becomes **active**. **Opening** deals and **auctions** can change timing—see **Opening investments** and **Investment cards** under **Bourbon Cycle**. Example seeds: **[investment_cards.yaml](investment_cards.yaml)**.
 
 #### Operations cards (In Kentucky Straight and BiB Mode)
 
-**Operations cards** are **tactical** one-offs: they have **no capital cost** to resolve. They typically give an **immediate** payoff (cash), a benefit on your **next** turn, or a **short window** of advantage printed on the card. Details: **Operations cards**; example seeds: **[operations_cards.yaml](operations_cards.yaml)**.
+**Operations cards** are **tactical** one-offs: they have **no capital cost** to resolve. They typically give an **immediate** payoff (cash), a benefit on your **next** round, or a **short window** of advantage printed on the card. Details: **Operations cards**; example seeds: **[operations_cards.yaml](operations_cards.yaml)**.
 
 #### Bourbon cards
 
@@ -60,61 +76,70 @@ Bourbon Cards may contain award criteria (**Silver** / **Gold**) on the card. Th
 
 ---
 
-## Turns (Overview)
+## Rounds (Overview)
 
-Each turn includes:
+Each **round** (a round is a "year") of play has three parts, in order:
 
-1. **Rickhouse fees & aging** — Pay rent for barrelled bourbon and age your stock (see Phase 1).
-2. **Market demand** — Roll Dice to determine market demand goes up or down
-3. **Actions** — Take as many actions as you want and can afford (see **Actions** below). The **first three action each turn is free**; each further action costs more than the previous
+1. **Rickhouse fees (and aging)** — All barons pay rickhouse fees for their barrelled bourbon (see **Phase 1**). **The first round of the game skips this step** (no bourbon so no fees!).
+2. **Action phase** — Barons take **actions** one at a time in order, going around the table clockwise. See **Actions** and **Phase 2**. This continues until all Barons pass.
+3. **Market phase** — Barons roll **market demand** (dice) **or** draw an **event card**—each baron does this **once** unless a card or rule says otherwise. See **Phase 3**.
 
-**Trade:** Players may **trade** resources, barrelled bourbons, investments cards, operations cards and Bourbon Cards / Awards at any point; **trading does not use an action**! Anything and everything can be traded!
+**Starting player for the next year:** The **first baron to pass** during the **action phase** becomes the **start player** for the **next** round. Play then proceeds around the table clockwise: the start player **leads** the next **action phase** and you continue from that baron for that round’s phases unless a rule says otherwise.
+
+**Trade:** Players may **trade** resources, barrelled bourbons, investment cards, operations cards, and Bourbon Cards / Awards at any point; **trading does not use an action**. Anything and everything can be traded!
 
 ---
 
 ## Actions
 
-Your actions are what make your growing business. Each turn you get 3 **Free** actions. You can get additional actions by spending money. If you choose to take additional actions, you pay for all the actions at the end of your turn. If you do not have enough money to pay for your additional actions, then you go bankrupt. Trading does not cost "actions".
+Actions are how you run your distillery during the **action phase**.
 
-actions costs:
-First 3 action - Free
-4th action - $1
-5th action - $2
-6th action - $5
-7th action - $10
-8th action - $15
-9th action - $20
-10th action - $30
-thereafter $10 each
+### Free actions, passes, and paid actions
 
-Each of the following counts as **one action** when you take it:
+- Actions move **clockwise** around the **barons**. Barons can perform one action at a time (unless they have a card that allows otherwise). Each loop around the table is a "phase". Barons can take an action or **pass**
+- **While no one has passed yet**, every action is **free**
+- **As soon as any baron passes**, the **free‑action period ends** at the end of that action phase. After that, **each** phase costs money if a baron performs an action during that phase. **Barons who passed at any prior phase may still take actions**.
+- **Paid‑action ladder:** The first paid action phase costs **$1** per Baron that takes actions, the next **$2**, the next **$3**, and so on (**+$1** each time). Barons must pay before they take their actions. 
+- **When does the action phase end?** The action phase ends when all Barons pass in a phase. 
 
-1. **Buy from the market** — Each time you take this action, you receive **3 resource cards** (enough to make a Bourbon)!
-2. **Make bourbon** — Combine the required **resource cards** (cask, corn, and grain) and **barrel** it into a rickhouse slot. Pay any **entry rent** for that rickhouse as usual when the bourbon is placed.
-3. **Sell bourbon** — Pick a Bourbon to sell, **draw Bourbon Card(s)** and see how much your Bourbon's worth. Collect cash. You must **finish one sale** before starting another.
+If a baron cannot pay for a **paid** before they take their action, they cannot take the action
 
--- Kentucky Straight Actions:
-4. **Draw investment cards** — When specified by the game deck / market, taking or purchasing an **investment** card uses an action (see **Investment cards**).
-5. **Draw operations cards** — Taking or purchasing an **operations** card uses an action (see **Operations cards**).
-6. **Capitalize an investment** - For investment cards not capitalized on that turn, you must pay for an action
+**Trading** does not count as an action and does not advance the paid‑action ladder.
+
+### What counts as one action
+
+Each of the following is **one action** when you take it on **your opportunity** in the action phase:
+
+1. **Draw resource cards** — players can draw one resource card from any pile (unless they have a card that allows more card draws)
+2. **Draw bourbon cards** — Players can draw a Bourbon card to keep in their hand. Note: **Selling bourbon** still uses its **own** action and includes **drawing Bourbon Card(s)** as part of completing that sale (see **Sell bourbon** below).
+3. **Make bourbon** — Combine the required **resource cards** (cask, corn, and grain) and **barrel** the bourbon into a rickhouse slot. 
+4. **Sell bourbon** — Pick a barrelled bourbon to sell, **draw Bourbon Card(s)** as required, and **complete that sale**. You must **finish one sale** before starting another sale action.
+5. **Draw investment** — **One action** unless a card says otherwise: take an investment from the deck (or the mode’s supply). It is **unbuilt** (capital **not** paid): keep it **upright** in your **hand** or **prospect** row—**no** effects yet. (**Sideways** is reserved for **funded** cards that are **waiting** a year; see **Implement investment**.)
+6. **Draw operations cards** — Drawing an **operations** card uses an action when the rules or card say so (see **Operations cards**).
+7. **Implement investment** — **One action** in the **action phase** on an **unbuilt** investment you control (including one **held** from **Opening investments**): pay its **printed capital**, then place it **sideways**. **Sideways** = **paid for**, **waiting** until **next year** (**no** effects **this round**). At the **start of the next round**, flip it **upright**—it is then **active**. (Opening **Implement** in **Opening investments** is the same move but is **free** during **setup**.)
+8. **Resolve an operations card** — **Playing** or **resolving** an operations card uses an action unless the card says otherwise (operations cards have **no capital cost**). Operations cards can be used in the same year as the year drawn.
 
 ### Bourbon Cycle
 Collecting Resources, Making Bourbon and Selling Bourbon is the primary way you make money in Bourbonomics. Making Bourbon, even the cheap stuff, is not a quick turn-around. Bourbon needs to age at least 2 years before you can sell it. A lot can happen when you start making Bourbon to when you sell it: demand can shoot up, other distilleries can be opening, rickhouses might also fill up! 
 
 #### Resources
-Resources can be purchased from the market. There is a Cask, Corn and Grain pile. These cards are "face-down". When you purchase from the market you get to select any 3 cards. For example, you can select one from each pile; that will be enough to make one Bourbon. 
+Resources come from the market. There is a Cask, Corn, and Grain pile. These cards are "face-down". When you use the **draw resource cards** action (see **Actions**), you typically select **1** card. However certain investments and operation cards can get you an advantage. 
 
-The Grain pile is unique: There are three different types of Grains: Barley, Rye, Wheat. 
+The **grain** pile uses three base types — **barley**, **rye**, and **wheat** — drawn as separate sub-piles or marked on the card. **Plain** grain cards are **type-only** (no rule line). **Specialty** grains add a printed rule; the canonical list is **[resource_cards.yaml](resource_cards.yaml)** (see the `barley_specialty`, `rye_specialty`, and `wheat_specialty` sections).
 
 | Resource | Role |
 |----------|------|
 | **Cask** | Required for Bourbon. Some casks have **special traits**. |
-| **Corn** | Required for Bourbon; some corn cards have **special properties**. |
-| **Barley, Rye, or Wheat** | **Grains** — at least **one** grain card must be in each Bourbon (any mix of barley, rye, and wheat allowed). |
+| **Corn** | **Baseload** grain: real bourbon **must** be **≥51% corn** in the grain bill (U.S. law—see note). In *Bourbonomics* every mash includes **at least 1 corn**, and corn is where you stack **volume** and **flex**—**specialty** corn spans a **wide** range of **advantages** (sell bonuses, demand tricks, cash on **make**, awards, and more). See **[resource_cards.yaml](resource_cards.yaml)** (`corn_specialty`). |
+| **Barley** | **Grain** — the **base** grain; it counts toward the mash’s **≥1 grain** rule. Barley is tuned to work well when **market demand** is **low**, and it typically **helps with operations costs** (and related fees—see specialty card text). **Specialty** barley rules live in **[resource_cards.yaml](resource_cards.yaml)** (`barley_specialty`). |
+| **Rye** | **Grain** — counts toward the mash’s **≥1 grain** rule. Rye **shines in high-demand** periods: expect **sell** payoffs and effects that spike when the market is hot. **Specialty** rye rules live in **[resource_cards.yaml](resource_cards.yaml)** (`rye_specialty`). |
+| **Wheat** | **Grain** — counts toward the mash’s **≥1 grain** rule. Treat wheat as a **modifier**: it **adjusts** how other parts of the mash or the market resolve (demand **lookup**, bill shape, cushioning small hits) rather than defining the core “low vs high demand” posture on its own. **Specialty** wheat rules live in **[resource_cards.yaml](resource_cards.yaml)** (`wheat_specialty`). |
 
-> **Note:** By U.S. law, bourbon must be at least **51% corn** in the grain bill.
+Each bourbon must include **at least one** grain card (**any mix** of barley, rye, and wheat). **Specialty** text on a card overrides the generalities above when there is a conflict.
 
-Some resource cards contain special properties and traits, they can improve sale price, add certain bonuses; additionally some Bourbon awards are dependent on how much corn or grains are in your Bourbon. Some resource cards have **special properties** — mix and match to maximize benefit. A working catalog of **specialty** resource cards (names + example rules) lives in **[SPECIALTY_RESOURCE_CARDS.md](SPECIALTY_RESOURCE_CARDS.md)**.
+> **Note:** Federal rules treat **corn** as the backbone of the grain bill: **≥51% corn** is required for bourbon. Build mashes so your **corn count** reflects that majority when you translate cards into a bill.
+
+Some resource cards contain special properties and traits; they can improve sale price, add bonuses, and tie into **Silver** / **Gold** award checks. Mix and match to maximize benefit. A human-readable digest is **[SPECIALTY_RESOURCE_CARDS.md](SPECIALTY_RESOURCE_CARDS.md)**; machine-oriented names and opcode hooks live in **[resource_cards.yaml](resource_cards.yaml)**.
 
 #### Making Bourbon
 
@@ -124,10 +149,10 @@ You make Bourbon by collecting the necessary resources and putting the Bourbon i
 - 1 corn + 2 grain + 1 cask 
 - 2 corn + 2 grain + 1 cask
 
-You put your cards into a "rickhouse slot". You must pay the entry fee. The entry fee is equal to the number of Bourbons (including the Bourbon your adding), in that rickhouse. For example, if there are two other Bourbons in the rickhouse, and you're adding a Bourbon, your entry fee will be $3. 
+You put your cards into an available **rickhouse slot** (respect each rickhouse’s **capacity** printed on the board). There is **no separate entry fee** when placing a new bourbon; ongoing **rickhouse rent** is handled in **Phase 1** only.
 
 #### Aging Bourbon
-At the start of every turn, you'll pay the yearly rickhouse fee to age your Bourbon. The rickhouse fee is the total number of Bourbons in that rickhouse. You will need to pay the rickhouse fee for every Bourbon. When you pay the fee, you'll place one token on top of each Bourbon; this will track how many years old your Bourbon has aged. 
+During **Phase 1 (Rickhouse fees)** each **round** (except the **first round**, which skips fees), barons pay the yearly rickhouse fee to age their Bourbon. The rickhouse fee is the total number of Bourbons in that rickhouse. You pay the fee for each of your barrelled bourbons in that warehouse. When you pay the fee for a barrel, place a **$1 token** (or coin) on that barrel; it **ages one year**. 
 
 #### Selling Bourbon
 
@@ -137,26 +162,35 @@ At the start of every turn, you'll pay the yearly rickhouse fee to age your Bour
 
 Return the **cask, corn, and grain** cards from that mash to the **market piles** (they go back under the face-down Cask / Corn / Grain stacks). Return the drawn Bourbon card to the discard pile unless you earn a **Silver** or **Gold** award and keep it. 
 
-### Kentucky Straight Actions
-For more advanced game modes, we introduce 3 additional actions:
-- Investment Cards
-- Operations Cards
-- Capitalize an Investment
-
-#### Investment cards
+#### Investment cards (Kentucky Straight and BiB)
 
 **Investment cards** are long-term effects on your business: lower rickhouse fees, resource monopolies, extra leverage on actions, and similar payoffs. For printable **idea seeds**, see **[INVESTMENT_CARD_IDEAS.md](INVESTMENT_CARD_IDEAS.md)**.
 
-- When an investment card is **drawn or acquired**, place it **sideways** (not yet active).
-- Each card lists a **capital** cost. When you **pay that capital**, rotate the card **upright** — it is now **implemented** and its ongoing rules apply.
-- If you **do not** pay capital to implement the card **on the turn you draw it**, you must spend **another action** later to pay the capital and turn the card upright — i.e. **delaying implementation costs an extra action** on top of the action you already used to take the card.
-- You may **sell** an investment card to another player **whether it is sideways or upright**. The buyer receives it in the **same state** (sideways stays sideways; upright stays upright).
+**States (normal play)**
+
+- **Unbuilt:** **Drawn**, **capital not paid**—keep **upright** in your **hand** / **prospect** row, **no** effects. (Opening **Hold** cards are **unbuilt** here until **Implemented**.)
+- **Sideways (funded, waiting):** **Capital paid** via **Implement** (either **opening** setup or the **Implement investment** action). **Sideways** = **paid for**, but the project **does not go live** until **next year**—**no** effects **this round**. At the **start of the next round**, flip **upright**.
+- **Active:** **Upright** after the wait; the card’s rules apply.
+
+**Flow**
+
+1. **Draw** (action) → **unbuilt** (**upright**, unpaid).  
+2. **Implement** (action) → pay **printed capital** → **sideways** (paid, **waiting** one year).  
+3. **Start of next round** → flip **sideways** → **upright** (**active**).
+
+**Opening and auctions**
+
+- Follow **Opening investments**. **Auction** winners are the main **exception**: they receive the card **upright** and **active immediately** in Round 1, with **printed capital waived**; **every** winning bid (including when the **seller keeps** the card) is paid to the **bank**, never to the seller as proceeds. **Implement** during opening (setup) uses the same **sideways (paid, wait) → next round upright** timing as **Implement investment** during play.
+
+**Trading**
+
+- You may **sell** an investment. The buyer keeps the same **state** (**unbuilt** **upright** / **sideways** waiting / **active** **upright**) and the same **activation** schedule. **Held** cards stay **unbuilt** in the buyer’s hand until they **Implement** them.
 
 ---
 
 ## Operations cards
 
-**Operations cards** have **no capital / investment cost** to resolve. They usually provide **immediate or short-term** benefits: cash now, reduced costs on your **next** turn, or a **limited-time** effect that expires after a window printed on the card. For printable **idea seeds**, see **[OPERATIONS_CARD_IDEAS.md](OPERATIONS_CARD_IDEAS.md)**.
+**Operations cards** have **no capital / investment cost** to resolve. They usually provide **immediate or short-term** benefits: cash now, reduced costs on your **next** round, or a **limited-time** effect that expires after a window printed on the card. For printable **idea seeds**, see **[OPERATIONS_CARD_IDEAS.md](OPERATIONS_CARD_IDEAS.md)**.
 
 
 ---
@@ -179,7 +213,7 @@ Rickhouses are where bourbon is stored and aged. There are **6 rickhouses** in t
 - Once a bourbon is barrelled and placed in a rickhouse, it **cannot be moved** to another rickhouse.
 - If a baron **fills every slot** in a **6-capacity** rickhouse and **every barrel there is theirs**, they pay **no rent** for that rickhouse (a true monopoly on a full six-slot warehouse).
 
-**Bourbon Demand** — Bourbon Demand is anywhere from 0–12 barrels. Demand starts the game at **6 barrels**. Each time Bourbon is sold, demand goes down by **1 barrel**. At the end of each turn, players will roll the Bourbon Dice. If the number on the dice is higher than Bourbon Demand, then Bourbon Demand goes up by 1. 
+**Bourbon Demand** — Bourbon Demand is anywhere from 0–12 barrels. Demand starts the game at **6 barrels**. Each time Bourbon is sold, demand goes down by **1 barrel** (unless a rule or card says otherwise). During the **market phase** (see **Phase 3**), each baron may **roll** to shift demand or **draw an event card**—usually **once per round** each. 
 
 ## Bourbon / Bourbon Card
 
@@ -213,75 +247,60 @@ If your bourbon earns the **Gold Award**, you may use that Bourbon Card for an *
 
 ---
 
-## Player Phases (Turn Structure)
+## Round structure (phases of a round)
 
-### Phase 1: Rickhouse Fees
+Phases run **once per round** for the whole table, in order: **Phase 1 → Phase 2 → Phase 3**.
 
-At the start of their turn, the Baron must pay rent for each barrelled bourbon based on the number of bourbons in each respective warehouse. 
+**Start-of-round housekeeping:** At the **beginning of each round**, before **Phase 1** (or before the **action phase** in **Round 1**, if you prefer), flip **sideways** (**funded**, **waiting**) investments **upright**: anything **Implemented** the **prior** round (or during **opening Implement** in setup) becomes **active** now (see **Investment cards** under **Bourbon Cycle**). **Opening Implement** cards therefore turn **active** at the **start of Round 2**.
 
-1. **Rickhouse Fees**
-   - The fee is equal to the **total number of barrelled bourbons** in each rickhouse, including barrels owned by other players.
-   - All rickhouse fees must be paid **in full** before the player can continue to the next phase.
+### Phase 1: Rickhouse fees (and aging)
 
-2. **Aging Bourbon**
-   - For each barrelled bourbon that a player pays rent on, place a **$1 token** (or coin) on top of the barrel.
-   - This token represents that the bourbon has **aged one year**.
-   - Any additional rent is put in the bank.
+**Round 1 exception — skip fees:** Skip this phase entirely in the **first round** of the game (no rickhouse fees, no aging from fees).
 
-#### Not Enough Cash?
+**All later rounds:** Before the action phase, **each baron** pays **rickhouse rent** for their own barrelled bourbon. Rent per barrel is based on the **total number of barrelled bourbons** in that rickhouse (all players’ barrels count toward the count; each baron pays for **their** barrels there).
 
-If a Baron **cannot pay their rickhouse fees**, then those barrels do not age and the Baron must pay double the rickhouse fee at the end of their turn. (Even after paying those barrels do not age!) *Note* A Baron can pay fees for some barrels and not for others, only the barrels that were unpaid incur the double penalty. The double penalty is based on the barrels at the start of the turn; if a Baron sells that mash they still have to pay the fee.  
+1. **Pay fees** — Resolve fees **in full** for the barrels you choose to keep aging (see **Not enough cash?** for partial payment).
+2. **Age bourbon** — For each barrel you paid for, place a **$1 token** (or coin) on that barrel (**+1 year**). Excess payments go to the bank as usual.
 
-- The player pays **double the fee** at the **end of their turn**.
-- If they **still cannot pay**, the player goes **bankruptcy**:
+#### Not enough cash?
+
+If a Baron **cannot pay** rickhouse fees for some barrels, those barrels **do not age** this round, and the Baron owes **double** the unpaid fee. *Note:* A Baron can pay for some barrels and not others; only **unpaid** barrels trigger the double penalty. The double penalty is based on the barrels **at the start of Phase 1**; if a Baron sells that mash later in the round, they **still** owe the fee for barrels that were unpaid in Phase 1.
+
+- The Baron pays **double the unpaid fee** at the **end of Phase 1** (before **Phase 2** begins), unless your table explicitly uses another fixed moment—stay consistent.
+- If they **still cannot pay**, the player **bankrupts**:
   - The bank takes possession of the assets: All money goes to the bank.
   - All assets are **sold in bulk** by category. The auction process goes as follows:
       - first **resources are auctioned** as a group
       - **barrelled bourbons**
-      -  operations cards
+      - operations cards
       - investment cards
       - Bourbon Awards
   - The Baron is **eliminated** from the game.
 
-### Phase 2: Actions (operations)
+### Phase 2: Action phase
 
-This is the heart of Bourbonomics. Use the **Actions** section above: each **make bourbon**, **market buy**, **sell bourbon**, or **card** purchase/draw that counts as an action advances the **$0, $1, $2, $3…** cost track for that turn. You may mix actions in any order (e.g., sell, buy from market, make bourbon, sell again) as long as you pay each action’s cost in sequence.
+This is the heart of Bourbonomics. Barons take **one action or pass** in **seat order**, repeating until the **all‑pass lap** end condition in **Actions** is met (see **Actions** for the free‑action period, passes, paid‑action ladder, and the list of actions).
 
-**Make bourbon (one action)**
+Reminder: The **first baron to pass** this phase becomes the **start player** for the **next** round (see **Rounds (Overview)**).
 
-- Spend the resource cards that form your **mash** and **barrel** the bourbon into an available rickhouse slot.
-- Pay **entry rent** for that rickhouse based on the number of barrelled bourbons (including your new bourbon and other players’ bourbons) already there.
-- Once placed, barrelled bourbons **cannot move** to another rickhouse. Choose wisely.
+Details for common actions (mash rules, sale steps, cards) are in **Actions**, **Bourbon Cycle**, **Investment cards**, and **Operations cards** above.
 
-**Buy from the market (one action)**
+### Phase 3: Market phase
 
-- Resolve the market’s procedure for **which** goods or piles you take; you always receive **3 resource cards** for that action.
+**Market demand** is **0–12 barrels**. The higher demand, the better bourbon sale prices tend to be.
 
-**Sell bourbon (one action)**
+- Each **sale** during the action phase usually lowers demand by **1 barrel** (unless a card or rule says otherwise).
 
-- Choose which barrelled bourbon you are selling; **complete that sale** before starting another sale action.
-- Draw **Bourbon Card(s)** per your mash (often up to **3**). Choose which Bourbon Card applies to this sale.
-- If market demand is **0**, the bourbon can still be sold for its **age in years**.
+After the action phase, in **seat order** (usually starting with the **start player** for the **next** round—the baron who passed first in Phase 2—or another fixed order your table agrees on), **each baron chooses once**:
 
-**Investment and operations cards**
+- **Roll for demand** — e.g. **roll 2 dice**; if the **total** is **greater than** current market demand, demand **increases by 1**; on **double sixes**, demand jumps to **12** immediately (unless you replace this with a printed chart later), **or**
+- **Draw an event card** — resolve the card (some events may change demand or grant an **extra** market resolution—follow the card).
 
-- Follow **Investment cards** and **Operations cards** for sideways/upright, capital, and timing. Taking or buying a card typically uses **one action** unless a specific card says otherwise.
-
-### Phase 3: Market Demand Phase
-
-**Market Demand** is 0–12 barrels. The more barrels, the higher the price your bourbon will sell for.
-
-- Each time a **bourbon is sold**, demand **decreases by 1 barrel**. (e.g., selling 3 bourbons reduces demand by 3.)
-
-At the **end of each turn**, players roll to see how demand shifts:
-
-1. **Roll 2 dice.**
-2. If number greater than market demand, market demand goes up. 
-3. If roll double 6's, then market demand goes to 12 immediately
+Each baron normally does **only one** of these (roll **or** event) **per round**, unless a card explicitly allows more.
 
 # Notes
-* In the early phases, market demand will steadily increase and actions are limited, choose wisely on investing and expanding your distillery
-* In the later phases selling Bourbon will put pressure on market demand, time your sales wisely. 
+* In the early game, market demand will often rise during **market phases**; the **action phase** stays tight once someone passes and the **paid‑action ladder** kicks in—choose wisely when investing and expanding your distillery
+* In the later rounds, selling Bourbon will put pressure on market demand; time your sales wisely.
 * Most Bourbon cards are based on even number demands, the rare cards will have odd number demands
 * A double six is a huge windfall
 
@@ -291,7 +310,7 @@ At the **end of each turn**, players roll to see how demand shifts:
 
 Scratchpads for printable cards (not core rules until you adopt them):
 
-- **[Investment cards](investment_cards.yaml)** — long-term investments (**capital**, sideways / upright).
+- **[Investment cards](investment_cards.yaml)** — long-term investments (printed **capital**; **Draw** → **unbuilt upright** → **Implement** → **sideways** = paid, wait one year → **upright active**; YAML may use older verbs—map to **GAME_RULES**).
 - **[Operations cards](operations_cards.yaml)** — tactical one-offs (**no capital**; immediate or short-term).
 - **[Resource cards](resource_cards.yaml)** — specialty cask / corn / grain cards and example rule text.
 - **[Bourbon cards](bourbon_cards.yaml)** — named Market Price Guides and award lines (full list).

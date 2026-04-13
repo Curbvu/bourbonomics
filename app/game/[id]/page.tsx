@@ -24,8 +24,11 @@ import {
 } from "@/lib/resource-card-ui";
 import {
   type GameDoc,
+  type InvestmentCardInHand as ServerInvestmentCard,
   type MarketDemandHistoryEntry,
-  nextActionCashCost,
+  nextActionCashCostFromGame,
+  PHASE_NAMES,
+  PHASE_NAMES_TABLE_ROUNDS,
   previewRickhouseFeesForPlayer,
   previewSaleProceeds,
   handHasMashForBarrel,
@@ -33,7 +36,8 @@ import {
   getLobbySeatsForDisplay,
   lobbyHasUnfilledOpenSeat,
   countSeatedBarons,
-  gameModeDisplayLabel,
+  usesTableRoundStructure,
+  effectiveInvestmentStatus,
 } from "../../../functions/lib/game";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -454,11 +458,16 @@ function MarketDemandSparkline(props: {
   );
 }
 
-const PHASE_NAMES: Record<number, string> = {
-  1: "Age bourbons",
-  2: "Market demand",
-  3: "Action phase",
-};
+function phaseTitleForGame(game: Game): string {
+  const names = usesTableRoundStructure(game as unknown as GameDoc)
+    ? PHASE_NAMES_TABLE_ROUNDS
+    : PHASE_NAMES;
+  return names[game.currentPhase] ?? `Phase ${game.currentPhase}`;
+}
+
+function investmentUiStatus(c: InvestmentCardInHand): "unbuilt" | "funded_waiting" | "active" {
+  return effectiveInvestmentStatus(c as unknown as ServerInvestmentCard);
+}
 
 const MAX_BARONS = 6;
 
@@ -578,6 +587,8 @@ interface InvestmentCardInHand {
   title: string;
   capital: number;
   upright: boolean;
+  investmentStatus?: "unbuilt" | "funded_waiting" | "active";
+  fundedOnRound?: number;
 }
 
 interface Baron {
@@ -629,6 +640,12 @@ interface Game {
   currentPhase: number;
   currentPlayerIndex: number;
   turnNumber: number;
+  roundNumber?: number;
+  roundStructureVersion?: number;
+  feesPaidPlayerIds?: string[];
+  marketDonePlayerIds?: string[];
+  actionFreeWindowActive?: boolean;
+  actionPaidLapTier?: number;
   actionsTakenThisTurn?: number;
   rickhouseFeesPaidThisTurn?: boolean;
   lastDemandRoll?: LastDemandRoll;
@@ -682,6 +699,37 @@ export default function GamePage() {
   const computerTurnRequested = useRef(false);
 
   const dismissBourbonSale = useCallback(() => setBourbonSaleReveal(null), []);
+
+  const handlePassAction = useCallback(async () => {
+    setActionLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/games/${gameId}/pass`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId }),
+      });
+      const text = await res.text();
+      let data: unknown = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        if (!res.ok) {
+          throw new Error(text.trim().slice(0, 200) || "Failed to pass");
+        }
+        throw new Error("Invalid server response");
+      }
+      if (!res.ok) {
+        const errBody = data as { error?: string; message?: string };
+        throw new Error(errBody.error || errBody.message || "Failed to pass");
+      }
+      setGame(data as Game);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to pass");
+    } finally {
+      setActionLoading(false);
+    }
+  }, [gameId, playerId]);
 
   const handleNextPhase = useCallback(async () => {
     setActionLoading(true);
@@ -743,10 +791,16 @@ export default function GamePage() {
     currentPlayerId != null &&
     isBotPlayer(currentPlayerId);
 
+  const tableRoundsUi =
+    game != null ? usesTableRoundStructure(game as unknown as GameDoc) : false;
+  const marketPhaseNum = tableRoundsUi ? 3 : 2;
+  const actionPhaseNum = tableRoundsUi ? 2 : 3;
+
   const p2RollKey =
+    !tableRoundsUi &&
     game != null &&
     game.status === "in_progress" &&
-    game.currentPhase === 2 &&
+    game.currentPhase === marketPhaseNum &&
     game.lastDemandRoll
       ? `${game.turnNumber}:${game.currentPlayerIndex}:${game.lastDemandRoll.die1}-${game.lastDemandRoll.die2}-${game.lastDemandRoll.demandAfter}`
       : "";
@@ -762,6 +816,7 @@ export default function GamePage() {
     isBotPlayer(currentPlayerId);
 
   const p1FeesPaidKey =
+    !tableRoundsUi &&
     game != null &&
     game.status === "in_progress" &&
     game.currentPhase === 1 &&
@@ -907,9 +962,10 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!game) return;
+    const ap = usesTableRoundStructure(game as unknown as GameDoc) ? 2 : 3;
     if (
       game.status !== "in_progress" ||
-      game.currentPhase !== 3 ||
+      game.currentPhase !== ap ||
       !playerId
     ) {
       setMarketDrawPicks([]);
@@ -984,7 +1040,7 @@ export default function GamePage() {
     game.status === "in_progress" &&
     currentPlayerId != null &&
     isBotPlayer(currentPlayerId);
-  const phaseName = PHASE_NAMES[game.currentPhase] ?? `Phase ${game.currentPhase}`;
+  const phaseName = phaseTitleForGame(game);
 
   async function handleStart() {
     setActionLoading(true);
@@ -1171,6 +1227,7 @@ export default function GamePage() {
       | "drawOperations"
       | "drawInvestment"
       | "capitalizeInvestment"
+      | "implementInvestment"
       | "playOperations",
     handIndex?: number
   ) {
@@ -1198,11 +1255,11 @@ export default function GamePage() {
   const piles = game.marketPiles ?? { cask: [], corn: [], grain: [] };
   const marketCardsTotal = piles.cask.length + piles.corn.length + piles.grain.length;
   const me = playerId ? game.players[playerId] : null;
-  const nextActionCost = nextActionCashCost(game.actionsTakenThisTurn ?? 0);
+  const nextActionCost = nextActionCashCostFromGame(game as unknown as GameDoc);
   const marketPickTally = tallyMarketPilePicks(marketDrawPicks);
   const canConfigureMarketBuy =
     game.status === "in_progress" &&
-    game.currentPhase === 3 &&
+    game.currentPhase === actionPhaseNum &&
     isCurrentPlayer &&
     !isComputerTurnNow;
   const marketBuyBlocked =
@@ -1244,11 +1301,11 @@ export default function GamePage() {
       ? previewRickhouseFeesForPlayer(game as unknown as GameDoc, playerId)
       : 0;
   const inCardPhases =
-    game.status === "in_progress" && game.currentPhase === 3;
+    game.status === "in_progress" && game.currentPhase === actionPhaseNum;
 
   const canBarrelViaBoard =
     game.status === "in_progress" &&
-    game.currentPhase === 3 &&
+    game.currentPhase === actionPhaseNum &&
     isCurrentPlayer &&
     !isComputerTurnNow;
 
@@ -1610,7 +1667,7 @@ export default function GamePage() {
                           isYourBarrel &&
                           isCurrentPlayer &&
                           !isComputerTurnNow &&
-                          game.currentPhase === 3 &&
+                          game.currentPhase === actionPhaseNum &&
                           b.age >= 2;
                         const sellBlockedByCash =
                           canSellThisBarrel && me != null && me.cash < nextActionCost;
@@ -1870,7 +1927,7 @@ export default function GamePage() {
                               const face = getResourceCardFace(c);
                               const canToggle =
                                 game.status === "in_progress" &&
-                                game.currentPhase === 3 &&
+                                game.currentPhase === actionPhaseNum &&
                                 isCurrentPlayer &&
                                 !isComputerTurnNow;
                               return (
@@ -2020,9 +2077,18 @@ export default function GamePage() {
                     {phaseName}
                   </span>
                 </p>
+                {tableRoundsUi && game.roundNumber != null && game.roundNumber > 0 ? (
+                  <p className="mt-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    Year <span className="tabular-nums">{game.roundNumber}</span>
+                  </p>
+                ) : null}
                 <div
                   className="mt-2.5 flex items-center justify-between gap-2 rounded-lg border border-indigo-400/35 bg-white/80 px-2.5 py-2 dark:border-indigo-500/30 dark:bg-slate-900/55"
-                  title="Cost for your next action this turn (first three are free)"
+                  title={
+                    tableRoundsUi
+                      ? "Shared Action phase ladder (GAME_RULES): free until someone passes, then $1 / $2 / $3… each full lap."
+                      : "Cost for your next action this turn (first three are free)"
+                  }
                 >
                   <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-200">
                     Next action
@@ -2036,7 +2102,7 @@ export default function GamePage() {
               <div className="min-h-0 flex-1 space-y-3">
                 <div>
                   {!(
-                    game.currentPhase === 3 &&
+                    game.currentPhase === actionPhaseNum &&
                     isCurrentPlayer &&
                     !isComputerTurnNow
                   ) ? (
@@ -2058,7 +2124,7 @@ export default function GamePage() {
                   ) : null}
 
                   {game.status === "in_progress" &&
-                  game.currentPhase === 2 &&
+                  game.currentPhase === marketPhaseNum &&
                   !isComputerTurnNow ? (
                     <div className="rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm dark:border-slate-600 dark:bg-slate-800/50">
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -2142,7 +2208,10 @@ export default function GamePage() {
                             : "Roll demand dice"}
                         </button>
                       ) : null}
-                      {isCurrentPlayer && game.lastDemandRoll && !demandRollSpinning ? (
+                      {!tableRoundsUi &&
+                      isCurrentPlayer &&
+                      game.lastDemandRoll &&
+                      !demandRollSpinning ? (
                         <div className="mt-3">
                           <div className="mb-1 flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             <span>Starting Action phase</span>
@@ -2174,14 +2243,16 @@ export default function GamePage() {
                           </button>
                         </div>
                       ) : null}
+                      {tableRoundsUi && isCurrentPlayer && game.lastDemandRoll && !demandRollSpinning ? (
+                        <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                          Demand updated. When every baron has rolled, the table advances to the next year.
+                        </p>
+                      ) : null}
                       {!isCurrentPlayer && game.lastDemandRoll ? (
                         <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
-                          Dice are in — waiting for{" "}
-                          <strong>
-                            {game.players[game.playerOrder[game.currentPlayerIndex] ?? ""]
-                              ?.name ?? "the active baron"}
-                          </strong>{" "}
-                          to enter the Action phase.
+                          {tableRoundsUi
+                            ? `Dice are in — waiting for ${game.players[game.playerOrder[game.currentPlayerIndex] ?? ""]?.name ?? "the next baron"} to roll.`
+                            : `Dice are in — waiting for ${game.players[game.playerOrder[game.currentPlayerIndex] ?? ""]?.name ?? "the active baron"} to enter the Action phase.`}
                         </p>
                       ) : !isCurrentPlayer && !game.lastDemandRoll ? (
                         <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
@@ -2198,76 +2269,89 @@ export default function GamePage() {
                           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             Rickhouse fees &amp; aging
                           </p>
-                          <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
-                            Total due: <strong className="tabular-nums">${feePreview}</strong>
-                            {game.rickhouseFeesPaidThisTurn ? (
-                              <span className="ml-2 text-green-700 dark:text-green-400">
-                                Paid — barrels aged 1 year.
-                              </span>
-                            ) : null}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => void handlePayRickhouseFees()}
-                            disabled={
-                              actionLoading ||
-                              game.rickhouseFeesPaidThisTurn ||
-                              (me != null && me.cash < feePreview)
-                            }
-                            className="mt-2 w-full rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800 disabled:opacity-50"
-                          >
-                            {game.rickhouseFeesPaidThisTurn
-                              ? "Fees paid"
-                              : `Pay $${feePreview} & age bourbon`}
-                          </button>
-                          {game.rickhouseFeesPaidThisTurn ? (
-                            <div className="mt-3">
-                              <div className="mb-1 flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                <span>Starting demand phase</span>
-                                <span className="tabular-nums text-indigo-600 dark:text-indigo-300">
-                                  {Math.max(
-                                    0,
-                                    Math.ceil(
-                                      (1 - phase1AdvanceBar) *
-                                        (PHASE_1_TO_2_DELAY_MS / 1000),
-                                    ),
-                                  )}
-                                  s
-                                </span>
-                              </div>
-                              <div
-                                className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
-                                role="progressbar"
-                                aria-valuemin={0}
-                                aria-valuemax={100}
-                                aria-valuenow={Math.round(phase1AdvanceBar * 100)}
-                                aria-label="Time until demand phase"
-                              >
-                                <div
-                                  className="h-full rounded-full bg-indigo-500 transition-[width] duration-75 ease-linear dark:bg-teal-500"
-                                  style={{
-                                    width: `${Math.round(phase1AdvanceBar * 100)}%`,
-                                  }}
-                                />
-                              </div>
+                          {tableRoundsUi && (game.roundNumber ?? 1) <= 1 ? (
+                            <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                              <strong>Round 1</strong> skips rickhouse fees — there&apos;s no barrelled bourbon yet
+                              (GAME_RULES).
+                            </p>
+                          ) : (
+                            <>
+                              <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                                Total due:{" "}
+                                <strong className="tabular-nums">${feePreview}</strong>
+                                {tableRoundsUi ? (
+                                  game.feesPaidPlayerIds?.includes(playerId) ? (
+                                    <span className="ml-2 text-green-700 dark:text-green-400">
+                                      Paid — barrels aged 1 year.
+                                    </span>
+                                  ) : null
+                                ) : game.rickhouseFeesPaidThisTurn ? (
+                                  <span className="ml-2 text-green-700 dark:text-green-400">
+                                    Paid — barrels aged 1 year.
+                                  </span>
+                                ) : null}
+                              </p>
                               <button
                                 type="button"
-                                onClick={() => void handleNextPhase()}
-                                disabled={actionLoading}
-                                className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                                onClick={() => void handlePayRickhouseFees()}
+                                disabled={
+                                  actionLoading ||
+                                  (tableRoundsUi
+                                    ? Boolean(game.feesPaidPlayerIds?.includes(playerId))
+                                    : Boolean(game.rickhouseFeesPaidThisTurn)) ||
+                                  (me != null && me.cash < feePreview)
+                                }
+                                className="mt-2 w-full rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800 disabled:opacity-50"
                               >
-                                Skip wait — go now
+                                {tableRoundsUi
+                                  ? game.feesPaidPlayerIds?.includes(playerId)
+                                    ? "Fees paid"
+                                    : `Pay $${feePreview} & age bourbon`
+                                  : game.rickhouseFeesPaidThisTurn
+                                    ? "Fees paid"
+                                    : `Pay $${feePreview} & age bourbon`}
                               </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => void handleNextPhase()}
-                              disabled={actionLoading}
-                              className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                            >
-                              {actionLoading ? "…" : "Next phase"}
-                            </button>
+                              {!tableRoundsUi && game.rickhouseFeesPaidThisTurn ? (
+                                <div className="mt-3">
+                                  <div className="mb-1 flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    <span>Starting demand phase</span>
+                                    <span className="tabular-nums text-indigo-600 dark:text-indigo-300">
+                                      {Math.max(
+                                        0,
+                                        Math.ceil(
+                                          (1 - phase1AdvanceBar) *
+                                            (PHASE_1_TO_2_DELAY_MS / 1000),
+                                        ),
+                                      )}
+                                      s
+                                    </span>
+                                  </div>
+                                  <div
+                                    className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
+                                    role="progressbar"
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-valuenow={Math.round(phase1AdvanceBar * 100)}
+                                    aria-label="Time until demand phase"
+                                  >
+                                    <div
+                                      className="h-full rounded-full bg-indigo-500 transition-[width] duration-75 ease-linear dark:bg-teal-500"
+                                      style={{
+                                        width: `${Math.round(phase1AdvanceBar * 100)}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleNextPhase()}
+                                    disabled={actionLoading}
+                                    className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                                  >
+                                    Skip wait — go now
+                                  </button>
+                                </div>
+                              ) : null}
+                            </>
                           )}
                         </div>
                       )}
@@ -2277,12 +2361,12 @@ export default function GamePage() {
 
             <section className="rounded-lg border border-slate-200 bg-white/95 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/30">
               <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">
-                {game.currentPhase === 3 && isCurrentPlayer && !isComputerTurnNow
+                {game.currentPhase === actionPhaseNum && isCurrentPlayer && !isComputerTurnNow
                   ? "Buy from market"
                   : "Market"}
               </h2>
               <p className="mb-3 mt-1 text-[11px] leading-snug text-slate-600 dark:text-slate-300">
-                {game.currentPhase === 3 && isCurrentPlayer && !isComputerTurnNow
+                {game.currentPhase === actionPhaseNum && isCurrentPlayer && !isComputerTurnNow
                   ? "One buy action: tap a pile for each of 3 picks (any mix of Cask, Corn, Grain), then confirm. Your pick order is listed below."
                   : "Face-down piles — counts shown. Buys happen in the Action phase."}
               </p>
@@ -2301,7 +2385,9 @@ export default function GamePage() {
                   ] as const
                 ).map((pile) => {
                   const interactive =
-                    game.currentPhase === 3 && isCurrentPlayer && !isComputerTurnNow;
+                    game.currentPhase === actionPhaseNum &&
+                    isCurrentPlayer &&
+                    !isComputerTurnNow;
                   const ui = MARKET_PILE_UI[pile.key];
                   const remainingThisPile =
                     pile.count - marketPickTally[pile.key];
@@ -2423,7 +2509,7 @@ export default function GamePage() {
               ) : null}
             </section>
 
-            {isCurrentPlayer && !isComputerTurnNow && game.currentPhase === 3 && (
+            {isCurrentPlayer && !isComputerTurnNow && game.currentPhase === actionPhaseNum && (
               <section className="rounded-xl border border-slate-200 bg-linear-to-b from-white to-slate-50/90 p-3 shadow-sm dark:border-violet-800/60 dark:from-slate-800/90 dark:to-slate-950/90">
                 <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-violet-700 dark:text-violet-300">
                   Barrel bourbon
@@ -2518,28 +2604,50 @@ export default function GamePage() {
                         </div>
                       </div>
                     )}
-                    {invHand.some((c) => !c.upright) && (
+                    {(invHand.some((c) => investmentUiStatus(c) === "unbuilt") ||
+                      invHand.some((c) => investmentUiStatus(c) === "funded_waiting")) && (
                       <div className="mt-3">
                         <p className="mb-1 text-xs text-slate-600 dark:text-slate-200">
-                          Capitalize
+                          Investments
                         </p>
                         <div className="flex flex-col gap-1.5">
-                          {invHand.map((c, i) =>
-                            !c.upright ? (
-                              <button
-                                type="button"
-                                key={`${c.id}-${i}`}
-                                onClick={() => handleCardAction("capitalizeInvestment", i)}
-                                disabled={
-                                  actionLoading ||
-                                  (me != null && me.cash < nextActionCost + c.capital)
-                                }
-                                className="rounded border border-cyan-500 bg-white px-2 py-1.5 text-left text-xs text-slate-800 hover:bg-slate-100 disabled:opacity-50 dark:border-indigo-500 dark:bg-slate-800/40 dark:text-slate-100 dark:hover:bg-slate-800"
-                              >
-                                {c.title} (${nextActionCost} + ${c.capital})
-                              </button>
-                            ) : null
-                          )}
+                          {invHand.map((c, i) => {
+                            const st = investmentUiStatus(c);
+                            if (st === "unbuilt") {
+                              return (
+                                <button
+                                  type="button"
+                                  key={`${c.id}-${i}`}
+                                  onClick={() =>
+                                    handleCardAction(
+                                      tableRoundsUi ? "implementInvestment" : "capitalizeInvestment",
+                                      i
+                                    )
+                                  }
+                                  disabled={
+                                    actionLoading ||
+                                    (me != null && me.cash < nextActionCost + c.capital)
+                                  }
+                                  className="rounded border border-cyan-500 bg-white px-2 py-1.5 text-left text-xs text-slate-800 hover:bg-slate-100 disabled:opacity-50 dark:border-indigo-500 dark:bg-slate-800/40 dark:text-slate-100 dark:hover:bg-slate-800"
+                                >
+                                  {tableRoundsUi ? "Implement" : "Capitalize"} {c.title} ($
+                                  {nextActionCost} + ${c.capital})
+                                </button>
+                              );
+                            }
+                            if (st === "funded_waiting") {
+                              return (
+                                <p
+                                  key={`${c.id}-${i}-wait`}
+                                  className="rounded border border-amber-400/60 bg-amber-50/80 px-2 py-1.5 text-left text-[11px] text-amber-950 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100"
+                                >
+                                  {c.title}{" "}
+                                  <span className="font-semibold">(funded — active next year)</span>
+                                </p>
+                              );
+                            }
+                            return null;
+                          })}
                         </div>
                       </div>
                     )}
@@ -2547,15 +2655,19 @@ export default function GamePage() {
                 )}
 
                 <p className="mb-2 mt-3 text-[11px] text-slate-500 dark:text-slate-400">
-                  When you&apos;re done with actions this turn, end and pass the Baron role.
+                  {tableRoundsUi
+                    ? "When you are done taking actions on your opportunity, pass so the table can continue (GAME_RULES)."
+                    : "When you are done with actions this turn, end and pass the Baron role."}
                 </p>
                 <button
                   type="button"
-                  onClick={handleNextPhase}
+                  onClick={() =>
+                    void (tableRoundsUi ? handlePassAction() : handleNextPhase())
+                  }
                   disabled={actionLoading}
                   className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {actionLoading ? "…" : "End turn"}
+                  {actionLoading ? "…" : tableRoundsUi ? "Pass" : "End turn"}
                 </button>
               </section>
             )}

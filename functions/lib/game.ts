@@ -93,12 +93,22 @@ export interface OperationsCardInHand {
   cashWhenPlayed: number;
 }
 
-/** Investment card: sideways until capital paid. */
+/** Normal play lifecycle (GAME_RULES — Investment cards / Bourbon Cycle). */
+export type InvestmentLifecycleStatus = "unbuilt" | "funded_waiting" | "active";
+
+/** Investment card in hand / on table. */
 export interface InvestmentCardInHand {
   id: string;
   title: string;
   capital: number;
+  /**
+   * Legacy display flag; prefer {@link investmentStatus}.
+   * Unbuilt = upright; funded_waiting = sideways; active = upright.
+   */
   upright: boolean;
+  investmentStatus?: InvestmentLifecycleStatus;
+  /** Round when Implement was paid; activates at round boundary after this round. */
+  fundedOnRound?: number;
 }
 
 export interface Baron {
@@ -174,10 +184,11 @@ function appendMarketDemandHistory(
   kind: MarketDemandHistoryEntry["kind"]
 ): MarketDemandHistoryEntry[] {
   const prev = game.marketDemandHistory ?? [];
+  const tableRounds = (game.roundStructureVersion ?? 0) >= 3;
   const entry: MarketDemandHistoryEntry = {
     demand,
     kind,
-    turnNumber: game.turnNumber,
+    turnNumber: tableRounds ? game.roundNumber : game.turnNumber,
   };
   const next = [...prev, entry];
   if (next.length > MAX_MARKET_DEMAND_HISTORY)
@@ -197,6 +208,8 @@ export interface GameDoc {
   /** Recent demand snapshots for header sparkline (oldest → newest). */
   marketDemandHistory?: MarketDemandHistoryEntry[];
   turnNumber: number;
+  /** Table year (round). Round 1 skips Phase 1 fees (GAME_RULES). */
+  roundNumber: number;
   winnerIds?: string[];
   /**
    * Count of actions already taken this turn; next action cost is `nextActionCashCost(actionsTakenThisTurn)`.
@@ -207,6 +220,27 @@ export interface GameDoc {
   rickhouseFeesPaidThisTurn?: boolean;
   /** `2` = three-phase turn (age → demand roll → actions). Older saves omit and migrate in normalizeGame. */
   turnStructureVersion?: number;
+  /**
+   * `3` = table rounds (Phase 1 fees table-wide → Phase 2 shared action → Phase 3 market).
+   * See `usesTableRoundStructure`.
+   */
+  roundStructureVersion?: number;
+  /** Seat index (into `playerOrder`) that leads this round’s phases clockwise. */
+  roundStartPlayerIndex?: number;
+  /** Phase 1 (fees): barons who have paid for the current round. */
+  feesPaidPlayerIds?: string[];
+  /** Phase 3 (market): barons who have rolled demand this round. */
+  marketDonePlayerIds?: string[];
+  /** While true, every action in the shared Action phase is free (until someone passes). */
+  actionFreeWindowActive?: boolean;
+  /** Paid-action ladder tier ($1, $2, $3, …) after the free window ends; increments each full lap. */
+  actionPaidLapTier?: number;
+  /** How many consecutive seat opportunities have been used in the current action lap (0..n). */
+  actionOpportunitiesThisLap?: number;
+  /** Passes in a row without an intervening action; ends Action phase at n. */
+  actionConsecutivePasses?: number;
+  /** First baron to pass this Action phase becomes start player next round (GAME_RULES). */
+  firstPasserPlayerId?: string;
   /** Set when the baron rolls demand in Phase 2 (mock dice for UI). Cleared when entering Phase 2. */
   lastDemandRoll?: LastDemandRoll;
   /** Shuffled operation card ids remaining in the deck. */
@@ -228,12 +262,208 @@ export interface GameDoc {
   bourbonDeck?: string[];
 }
 
+/**
+ * Table-round layout (GAME_RULES): `currentPhase` is **table-wide** —
+ * 1 = Rickhouse fees (+ aging), 2 = shared Action phase, 3 = Market (demand dice each baron once).
+ * Older saves used per-seat phases (1 fees, 2 demand, 3 actions); see `normalizeGame`.
+ */
+export function usesTableRoundStructure(game: GameDoc): boolean {
+  return (game.roundStructureVersion ?? 0) >= 3;
+}
+
+function inActionPhaseGame(game: GameDoc): boolean {
+  if (usesTableRoundStructure(game)) return game.currentPhase === 2;
+  return game.currentPhase === 3;
+}
+
+function inMarketPhaseGame(game: GameDoc): boolean {
+  if (usesTableRoundStructure(game)) return game.currentPhase === 3;
+  return game.currentPhase === 2;
+}
+
+export function effectiveInvestmentStatus(card: InvestmentCardInHand): InvestmentLifecycleStatus {
+  if (card.investmentStatus) return card.investmentStatus;
+  return card.upright ? "active" : "unbuilt";
+}
+
+function withInvestmentLifecycle(card: InvestmentCardInHand): InvestmentCardInHand {
+  const st = effectiveInvestmentStatus(card);
+  return {
+    ...card,
+    investmentStatus: st,
+    upright: st === "funded_waiting" ? false : true,
+  };
+}
+
+function feesPaidSet(game: GameDoc): Set<string> {
+  return new Set(game.feesPaidPlayerIds ?? []);
+}
+
+function marketDoneSet(game: GameDoc): Set<string> {
+  return new Set(game.marketDonePlayerIds ?? []);
+}
+
+function allBaronsPaidFees(game: GameDoc): boolean {
+  const paid = feesPaidSet(game);
+  return game.playerOrder.length > 0 && game.playerOrder.every((id) => paid.has(id));
+}
+
+function allBaronsFinishedMarket(game: GameDoc): boolean {
+  const done = marketDoneSet(game);
+  return game.playerOrder.length > 0 && game.playerOrder.every((id) => done.has(id));
+}
+
+function nextClockwiseIndex(game: GameDoc, fromIdx: number): number {
+  const n = game.playerOrder.length;
+  if (n === 0) return 0;
+  return (fromIdx + 1) % n;
+}
+
+/** Advance seat pointer after an action or pass; wrap paid lap tier per GAME_RULES. */
+function advanceActionSeatAndLap(game: GameDoc): GameDoc {
+  const n = game.playerOrder.length;
+  if (n === 0) return game;
+  let lap = (game.actionOpportunitiesThisLap ?? 0) + 1;
+  let tier = game.actionPaidLapTier ?? 1;
+  const freeWindow = game.actionFreeWindowActive ?? true;
+  const nextIdx = nextClockwiseIndex(game, game.currentPlayerIndex);
+  if (lap >= n) {
+    lap = 0;
+    if (!freeWindow) tier = tier + 1;
+  }
+  const now = Date.now();
+  return {
+    ...game,
+    currentPlayerIndex: nextIdx,
+    actionOpportunitiesThisLap: lap,
+    actionPaidLapTier: tier,
+    updatedAt: now,
+  };
+}
+
+function beginSharedActionPhase(game: GameDoc): GameDoc {
+  const start = Math.min(
+    Math.max(0, game.roundStartPlayerIndex ?? 0),
+    Math.max(0, game.playerOrder.length - 1)
+  );
+  const now = Date.now();
+  const next: GameDoc = {
+    ...game,
+    currentPhase: 2,
+    currentPlayerIndex: start,
+    actionFreeWindowActive: true,
+    actionPaidLapTier: 1,
+    actionOpportunitiesThisLap: 0,
+    actionConsecutivePasses: 0,
+    firstPasserPlayerId: undefined,
+    actionsTakenThisTurn: 0,
+    updatedAt: now,
+  };
+  delete next.lastDemandRoll;
+  return next;
+}
+
+function beginMarketPhase(game: GameDoc): GameDoc {
+  const start = Math.min(
+    Math.max(0, game.roundStartPlayerIndex ?? 0),
+    Math.max(0, game.playerOrder.length - 1)
+  );
+  const now = Date.now();
+  const next: GameDoc = {
+    ...game,
+    currentPhase: 3,
+    currentPlayerIndex: start,
+    marketDonePlayerIds: [],
+    updatedAt: now,
+  };
+  delete next.lastDemandRoll;
+  return next;
+}
+
+function activateFundedInvestmentsForNewRound(game: GameDoc, finishedRound: number): GameDoc {
+  const players = { ...game.players };
+  for (const pid of game.playerOrder) {
+    const p = players[pid];
+    if (!p) continue;
+    const hand = (p.investmentHand ?? []).map((c) => {
+      const st = effectiveInvestmentStatus(c);
+      if (st === "funded_waiting" && c.fundedOnRound === finishedRound) {
+        return withInvestmentLifecycle({
+          ...c,
+          investmentStatus: "active",
+          fundedOnRound: undefined,
+        });
+      }
+      return withInvestmentLifecycle(c);
+    });
+    players[pid] = { ...p, investmentHand: hand };
+  }
+  return { ...game, players };
+}
+
+function completeTableRoundAfterMarket(game: GameDoc): GameDoc {
+  const n = game.playerOrder.length;
+  const finishedRound = game.roundNumber;
+  const afterActivate = activateFundedInvestmentsForNewRound(game, finishedRound);
+  const passer = afterActivate.firstPasserPlayerId;
+  let startIdx = afterActivate.roundStartPlayerIndex ?? 0;
+  if (passer) {
+    const ix = afterActivate.playerOrder.indexOf(passer);
+    if (ix >= 0) startIdx = ix;
+  }
+  startIdx = Math.min(Math.max(0, startIdx), Math.max(0, n - 1));
+  const newRound = finishedRound + 1;
+  const now = Date.now();
+  let out: GameDoc = {
+    ...afterActivate,
+    roundNumber: newRound,
+    turnNumber: afterActivate.turnNumber + 1,
+    roundStartPlayerIndex: startIdx,
+    currentPlayerIndex: startIdx,
+    currentPhase: 1,
+    feesPaidPlayerIds: [],
+    marketDonePlayerIds: [],
+    actionFreeWindowActive: true,
+    actionPaidLapTier: 1,
+    actionOpportunitiesThisLap: 0,
+    actionConsecutivePasses: 0,
+    firstPasserPlayerId: undefined,
+    actionsTakenThisTurn: 0,
+    rickhouseFeesPaidThisTurn: false,
+    updatedAt: now,
+  };
+  delete out.lastDemandRoll;
+  const winners = checkWinConditions(out);
+  if (winners?.length) out = { ...out, status: "finished", winnerIds: winners };
+  return out;
+}
+
+function maybeAutoFinishFeesPhase(game: GameDoc): GameDoc {
+  if (!usesTableRoundStructure(game) || game.currentPhase !== 1) return game;
+  if (!allBaronsPaidFees(game)) return game;
+  return beginSharedActionPhase(game);
+}
+
+function maybeAutoFinishMarketPhase(game: GameDoc): GameDoc {
+  if (!usesTableRoundStructure(game) || game.currentPhase !== 3) return game;
+  if (!allBaronsFinishedMarket(game)) return game;
+  return completeTableRoundAfterMarket(game);
+}
+
 export const INITIAL_MARKET_DEMAND = 6;
 /** Capacities per slot; indices align with Kentucky Bourbon Trail® regions (see `lib/rickhouses.ts`). */
 export const RICKHOUSE_CAPACITIES = [3, 4, 5, 6, 4, 5]; // 6 rickhouses
 /** Baron of Kentucky: total barrelled bourbons required (GAME_RULES). */
 export const WIN_BARON_OF_KENTUCKY_MIN_BARRELS = 15;
 export const STARTING_CASH = 25;
+/** Labels for `currentPhase` when `roundStructureVersion >= 3` (GAME_RULES table phases). */
+export const PHASE_NAMES_TABLE_ROUNDS = [
+  "",
+  "Rickhouse fees",
+  "Action phase",
+  "Market phase",
+] as const;
+/** @deprecated Legacy per-seat turn; use {@link PHASE_NAMES_TABLE_ROUNDS} for new games. */
 export const PHASE_NAMES = [
   "",
   "Age bourbons",
@@ -367,9 +597,11 @@ export function createNewGame(gameId: string, mode: GameMode): GameDoc {
     currentPlayerIndex: 0,
     marketDemand: INITIAL_MARKET_DEMAND,
     turnNumber: 0,
+    roundNumber: 0,
     actionsTakenThisTurn: 0,
     rickhouseFeesPaidThisTurn: false,
     turnStructureVersion: 2,
+    roundStructureVersion: 3,
     operationsDeck: shuffle(OPERATIONS.map((c) => c.id)),
     investmentDeck: shuffle(INVESTMENTS.map((c) => c.id)),
     rickhouses,
@@ -684,6 +916,12 @@ export function getLobbySeatsForDisplay(game: GameDoc): LobbySeat[] {
   return seats;
 }
 
+/**
+ * Deal starting cash and enter **year 1** (table rounds: Action phase first; fees skipped round 1).
+ * **Opening investments** (draw 6 / keep 3 / optional auction / setup Implement) from `GAME_RULES` are not
+ * wired here yet — when they are, auction resolution must charge **every** winning bid to the **bank**
+ * (including when the **seller keeps** the card); sellers never receive auction cash as income.
+ */
 export function startGame(game: GameDoc): GameDoc {
   const now = Date.now();
   const players: Record<string, Baron> = {};
@@ -738,8 +976,18 @@ export function startGame(game: GameDoc): GameDoc {
     ...game,
     status: "in_progress",
     players: playersWithHands,
-    currentPhase: 1,
+    roundStructureVersion: 3,
+    roundNumber: 1,
+    roundStartPlayerIndex: 0,
+    currentPhase: 2,
     currentPlayerIndex: 0,
+    feesPaidPlayerIds: [],
+    marketDonePlayerIds: [],
+    actionFreeWindowActive: true,
+    actionPaidLapTier: 1,
+    actionOpportunitiesThisLap: 0,
+    actionConsecutivePasses: 0,
+    firstPasserPlayerId: undefined,
     turnNumber: 1,
     actionsTakenThisTurn: 0,
     rickhouseFeesPaidThisTurn: false,
@@ -803,6 +1051,46 @@ export function applyDemandRoll(
 ): { game: GameDoc; error?: string } {
   if (game.status !== "in_progress")
     return { game, error: "Game not in progress" };
+  if (usesTableRoundStructure(game)) {
+    if (!inMarketPhaseGame(game))
+      return { game, error: "Roll demand only in the Market phase" };
+    const currentId = game.playerOrder[game.currentPlayerIndex];
+    if (currentId !== playerId) return { game, error: "Not your turn" };
+    if (marketDoneSet(game).has(playerId))
+      return { game, error: "You already rolled demand this round" };
+
+    const roll = rollMarketDemandDice(game.marketDemand);
+    const now = Date.now();
+    const done = [...(game.marketDonePlayerIds ?? []), playerId];
+    const doneSet = new Set(done);
+    let next: GameDoc = {
+      ...game,
+      marketDemand: roll.demandAfter,
+      lastDemandRoll: roll,
+      marketDonePlayerIds: done,
+      marketDemandHistory: appendMarketDemandHistory(
+        game,
+        roll.demandAfter,
+        "roll"
+      ),
+      updatedAt: now,
+    };
+    const n = next.playerOrder.length;
+    if (n > 0 && doneSet.size < n) {
+      let idx = nextClockwiseIndex(next, next.currentPlayerIndex);
+      for (let k = 0; k < n; k++) {
+        const pid = next.playerOrder[idx];
+        if (pid && !doneSet.has(pid)) {
+          next = { ...next, currentPlayerIndex: idx };
+          break;
+        }
+        idx = (idx + 1) % n;
+      }
+    }
+    next = maybeAutoFinishMarketPhase(next);
+    return { game: next };
+  }
+
   if (game.currentPhase !== 2)
     return { game, error: "Roll demand only in Phase 2 (market demand)" };
   const currentId = game.playerOrder[game.currentPlayerIndex];
@@ -834,6 +1122,7 @@ export function rollDemandAndAdvance(
 ): { game: GameDoc; error?: string } {
   const rolled = applyDemandRoll(game, playerId);
   if (rolled.error) return rolled;
+  if (usesTableRoundStructure(rolled.game)) return { game: rolled.game };
   const adv = advancePhase(rolled.game);
   if (adv.error) return { game: rolled.game, error: adv.error };
   return { game: adv.game };
@@ -871,6 +1160,28 @@ export type AdvancePhaseResult = { game: GameDoc; error?: string };
 
 export function advancePhase(game: GameDoc): AdvancePhaseResult {
   const now = Date.now();
+  if (usesTableRoundStructure(game)) {
+    if (game.currentPhase === 1) {
+      if (!allBaronsPaidFees(game)) {
+        return { game, error: "All barons must pay rickhouse fees before the Action phase." };
+      }
+      return { game: beginSharedActionPhase(game) };
+    }
+    if (game.currentPhase === 2) {
+      return {
+        game,
+        error: "During the Action phase, take actions or pass — there is no manual advance.",
+      };
+    }
+    if (game.currentPhase === 3) {
+      if (!allBaronsFinishedMarket(game)) {
+        return { game, error: "Each baron must roll market demand before the round can end." };
+      }
+      return { game: completeTableRoundAfterMarket(game) };
+    }
+    return { game: { ...game, currentPhase: 1, updatedAt: now } };
+  }
+
   if (game.currentPhase === 1) {
     let g = game;
     if (g.status === "in_progress" && !(g.rickhouseFeesPaidThisTurn ?? false)) {
@@ -885,7 +1196,6 @@ export function advancePhase(game: GameDoc): AdvancePhaseResult {
         return { game: g, error: "Pay rickhouse fees before continuing." };
       }
     }
-    // Clear last roll for the new demand phase; do not set `undefined` — Dynamo `marshall` throws on undefined.
     const next: GameDoc = { ...g, currentPhase: 2, updatedAt: now };
     delete next.lastDemandRoll;
     return { game: next };
@@ -923,11 +1233,47 @@ export function advancePhase(game: GameDoc): AdvancePhaseResult {
   return { game: { ...game, currentPhase: 1, updatedAt: now } };
 }
 
+/** Pass during the shared Action phase (table rounds). Ends the phase after a full lap of passes. */
+export function passActionPhase(game: GameDoc, playerId: string): { game: GameDoc; error?: string } {
+  if (game.status !== "in_progress") return { game, error: "Game not in progress" };
+  if (!usesTableRoundStructure(game))
+    return { game, error: "Pass action is only for table-round games" };
+  if (!inActionPhaseGame(game)) return { game, error: "Pass only during the Action phase" };
+  const cur = game.playerOrder[game.currentPlayerIndex];
+  if (cur !== playerId) return { game, error: "Not your turn" };
+  const n = game.playerOrder.length;
+  if (n === 0) return { game, error: "No players" };
+
+  const firstPasser = game.firstPasserPlayerId ?? playerId;
+  const consecutive = (game.actionConsecutivePasses ?? 0) + 1;
+
+  if (consecutive >= n) {
+    let next: GameDoc = {
+      ...game,
+      firstPasserPlayerId: firstPasser,
+      actionFreeWindowActive: false,
+      actionConsecutivePasses: 0,
+      updatedAt: Date.now(),
+    };
+    next = beginMarketPhase(next);
+    return { game: next };
+  }
+
+  const next: GameDoc = advanceActionSeatAndLap({
+    ...game,
+    firstPasserPlayerId: firstPasser,
+    actionFreeWindowActive: false,
+    actionConsecutivePasses: consecutive,
+    updatedAt: Date.now(),
+  });
+  return { game: next };
+}
+
 /**
- * Per GAME_RULES: first 3 actions free; 4th $1, 5th $2, 6th $5, 7th $10, 8th $15, 9th $20, 10th $30; then $10 each.
+ * Legacy per-seat Action phase ladder (pre–table-round prototype).
  * `actionsTakenThisTurn` is the count of actions already completed this turn.
  */
-export function nextActionCashCost(actionsTakenThisTurn: number): number {
+export function nextActionCashCostLegacy(actionsTakenThisTurn: number): number {
   if (actionsTakenThisTurn < 3) return 0;
   if (actionsTakenThisTurn === 3) return 1;
   if (actionsTakenThisTurn === 4) return 2;
@@ -939,11 +1285,21 @@ export function nextActionCashCost(actionsTakenThisTurn: number): number {
   return 10;
 }
 
-const MARKET_BUY_COUNT = 3;
-
-function inActionPhases(phase: number): boolean {
-  return phase === 3;
+/** @deprecated Prefer {@link nextActionCashCostFromGame} for table-round games. */
+export function nextActionCashCost(actionsTakenThisTurn: number): number {
+  return nextActionCashCostLegacy(actionsTakenThisTurn);
 }
+
+/** Cash cost for the next distillery action (GAME_RULES shared Action phase ladder when `roundStructureVersion >= 3`). */
+export function nextActionCashCostFromGame(game: GameDoc): number {
+  if (!usesTableRoundStructure(game)) {
+    return nextActionCashCostLegacy(game.actionsTakenThisTurn ?? 0);
+  }
+  if (game.actionFreeWindowActive ?? true) return 0;
+  return Math.max(1, game.actionPaidLapTier ?? 1);
+}
+
+const MARKET_BUY_COUNT = 3;
 
 export type MarketBuyPicks = { cask: number; corn: number; grain: number };
 
@@ -952,7 +1308,7 @@ export function buyResources(
   game: GameDoc,
   picks: MarketBuyPicks | "random"
 ): { game: GameDoc; error?: string } {
-  if (!inActionPhases(game.currentPhase))
+  if (!inActionPhaseGame(game))
     return { game, error: "Market buy only during the Action phase" };
   const pid = game.playerOrder[game.currentPlayerIndex];
   if (!pid) return { game, error: "No current baron" };
@@ -960,7 +1316,7 @@ export function buyResources(
   if (!player) return { game, error: "Baron not found" };
 
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCost(taken);
+  const actionCost = nextActionCashCostFromGame(game);
   if (player.cash < actionCost)
     return { game, error: "Not enough cash for this action" };
 
@@ -1002,15 +1358,20 @@ export function buyResources(
     resourceCards: [...player.resourceCards, ...drawn],
   };
 
-  return {
-    game: {
-      ...game,
-      players: newPlayers,
-      marketPiles: piles,
-      actionsTakenThisTurn: taken + 1,
-      updatedAt: now,
-    },
+  let updated: GameDoc = {
+    ...game,
+    players: newPlayers,
+    marketPiles: piles,
+    actionsTakenThisTurn: taken + 1,
+    updatedAt: now,
   };
+  if (usesTableRoundStructure(updated)) {
+    updated = advanceActionSeatAndLap({
+      ...updated,
+      actionConsecutivePasses: 0,
+    });
+  }
+  return { game: updated };
 }
 
 /** True if the hand can supply at least one mash (extra cards / duplicate casks are OK). */
@@ -1150,7 +1511,7 @@ export function barrelBourbon(
   playerId: string,
   mashIndices: number[]
 ): { game: GameDoc; error?: string } {
-  if (!inActionPhases(game.currentPhase))
+  if (!inActionPhaseGame(game))
     return { game, error: "Barrel only during the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
@@ -1165,12 +1526,21 @@ export function barrelBourbon(
   if (!rick) return { game, error: "Rickhouse not found" };
   if (rick.barrels.length >= rick.capacity) return { game, error: "Rickhouse full" };
 
-  const rentDiscount = totalBarrelEntryRentDiscount(mashCards);
-  const rent = Math.max(0, rick.barrels.length + 1 + rentDiscount);
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCost(taken);
-  if (player.cash < rent + actionCost)
-    return { game, error: "Not enough cash for rent and action cost" };
+  const actionCost = nextActionCashCostFromGame(game);
+  const tableRounds = usesTableRoundStructure(game);
+  const rentDiscount = totalBarrelEntryRentDiscount(mashCards);
+  const legacyPlacementRent = tableRounds
+    ? 0
+    : Math.max(0, rick.barrels.length + 1 + rentDiscount);
+  if (player.cash < legacyPlacementRent + actionCost) {
+    return {
+      game,
+      error: tableRounds
+        ? "Not enough cash for this action"
+        : "Not enough cash for rent and action cost",
+    };
+  }
 
   const barrelId = `barrel_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   const barrel: RickhouseBarrel = { playerId, barrelId, age: 0 };
@@ -1191,7 +1561,7 @@ export function barrelBourbon(
   const newPlayers = { ...game.players };
   newPlayers[playerId] = {
     ...player,
-    cash: player.cash - rent - actionCost,
+    cash: player.cash - legacyPlacementRent - actionCost,
     resourceCards: newHand,
     barrelledBourbons: [...player.barrelledBourbons, barrelRef],
   };
@@ -1203,6 +1573,12 @@ export function barrelBourbon(
     actionsTakenThisTurn: taken + 1,
     updatedAt: now,
   };
+  if (usesTableRoundStructure(updated)) {
+    updated = advanceActionSeatAndLap({
+      ...updated,
+      actionConsecutivePasses: 0,
+    });
+  }
   const winners = checkWinConditions(updated);
   if (winners?.length) {
     updated = { ...updated, status: "finished", winnerIds: winners };
@@ -1215,7 +1591,7 @@ export function drawOperationsCard(
   game: GameDoc,
   playerId: string
 ): { game: GameDoc; error?: string } {
-  if (!inActionPhases(game.currentPhase))
+  if (!inActionPhaseGame(game))
     return { game, error: "Operations draws only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
@@ -1223,7 +1599,7 @@ export function drawOperationsCard(
   if (!player) return { game, error: "Baron not found" };
 
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCost(taken);
+  const actionCost = nextActionCashCostFromGame(game);
   if (player.cash < actionCost)
     return { game, error: "Not enough cash for this action" };
   const deck = [...(game.operationsDeck ?? [])];
@@ -1244,23 +1620,28 @@ export function drawOperationsCard(
     cash: player.cash - actionCost,
     operationsHand: [...player.operationsHand, card],
   };
-  return {
-    game: {
-      ...game,
-      players: newPlayers,
-      operationsDeck: deck,
-      actionsTakenThisTurn: taken + 1,
-      updatedAt: now,
-    },
+  let updated: GameDoc = {
+    ...game,
+    players: newPlayers,
+    operationsDeck: deck,
+    actionsTakenThisTurn: taken + 1,
+    updatedAt: now,
   };
+  if (usesTableRoundStructure(updated)) {
+    updated = advanceActionSeatAndLap({
+      ...updated,
+      actionConsecutivePasses: 0,
+    });
+  }
+  return { game: updated };
 }
 
-/** Draw top investment card (sideways until capitalized). Action phase only. */
+/** Draw top investment card (unbuilt, upright — GAME_RULES). Action phase only. */
 export function drawInvestmentCard(
   game: GameDoc,
   playerId: string
 ): { game: GameDoc; error?: string } {
-  if (!inActionPhases(game.currentPhase))
+  if (!inActionPhaseGame(game))
     return { game, error: "Investment draws only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
@@ -1268,7 +1649,7 @@ export function drawInvestmentCard(
   if (!player) return { game, error: "Baron not found" };
 
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCost(taken);
+  const actionCost = nextActionCashCostFromGame(game);
   if (player.cash < actionCost)
     return { game, error: "Not enough cash for this action" };
   const deck = [...(game.investmentDeck ?? [])];
@@ -1277,12 +1658,13 @@ export function drawInvestmentCard(
   const def = getInvestment(id);
   if (!def) return { game, error: "Invalid investment card" };
 
-  const card: InvestmentCardInHand = {
+  const card: InvestmentCardInHand = withInvestmentLifecycle({
     id: def.id,
     title: def.title,
     capital: def.capital,
-    upright: false,
-  };
+    upright: true,
+    investmentStatus: "unbuilt",
+  });
   const now = Date.now();
   const newPlayers = { ...game.players };
   newPlayers[playerId] = {
@@ -1290,24 +1672,82 @@ export function drawInvestmentCard(
     cash: player.cash - actionCost,
     investmentHand: [...player.investmentHand, card],
   };
-  return {
-    game: {
-      ...game,
-      players: newPlayers,
-      investmentDeck: deck,
-      actionsTakenThisTurn: taken + 1,
-      updatedAt: now,
-    },
+  let updated: GameDoc = {
+    ...game,
+    players: newPlayers,
+    investmentDeck: deck,
+    actionsTakenThisTurn: taken + 1,
+    updatedAt: now,
   };
+  if (usesTableRoundStructure(updated)) {
+    updated = advanceActionSeatAndLap({
+      ...updated,
+      actionConsecutivePasses: 0,
+    });
+  }
+  return { game: updated };
 }
 
-/** Pay escalating action cost + printed capital to stand an investment upright. */
+/** Pay action cost + printed capital; funded card is sideways until next round (GAME_RULES). */
+export function implementInvestment(
+  game: GameDoc,
+  playerId: string,
+  handIndex: number
+): { game: GameDoc; error?: string } {
+  if (!inActionPhaseGame(game))
+    return { game, error: "Implement investment only in the Action phase" };
+  if (game.playerOrder[game.currentPlayerIndex] !== playerId)
+    return { game, error: "Not your turn" };
+  const player = ensureBaronHands(game.players[playerId]);
+  if (!player) return { game, error: "Baron not found" };
+  const card = player.investmentHand[handIndex];
+  if (!card) return { game, error: "No card at that index" };
+  if (effectiveInvestmentStatus(card) !== "unbuilt")
+    return { game, error: "Only unbuilt investments can be implemented" };
+
+  const taken = game.actionsTakenThisTurn ?? 0;
+  const actionCost = nextActionCashCostFromGame(game);
+  const total = actionCost + card.capital;
+  if (player.cash < total)
+    return { game, error: "Not enough cash for action + capital" };
+
+  const now = Date.now();
+  const next = [...player.investmentHand];
+  next[handIndex] = withInvestmentLifecycle({
+    ...card,
+    investmentStatus: "funded_waiting",
+    fundedOnRound: game.roundNumber,
+    upright: false,
+  });
+  const newPlayers = { ...game.players };
+  newPlayers[playerId] = {
+    ...player,
+    cash: player.cash - total,
+    investmentHand: next,
+  };
+  let updated: GameDoc = {
+    ...game,
+    players: newPlayers,
+    actionsTakenThisTurn: taken + 1,
+    updatedAt: now,
+  };
+  if (usesTableRoundStructure(updated)) {
+    updated = advanceActionSeatAndLap({
+      ...updated,
+      actionConsecutivePasses: 0,
+    });
+  }
+  return { game: updated };
+}
+
+/** @deprecated Use {@link implementInvestment}. */
 export function capitalizeInvestment(
   game: GameDoc,
   playerId: string,
   handIndex: number
 ): { game: GameDoc; error?: string } {
-  if (!inActionPhases(game.currentPhase))
+  if (usesTableRoundStructure(game)) return implementInvestment(game, playerId, handIndex);
+  if (!inActionPhaseGame(game))
     return { game, error: "Capitalize only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
@@ -1318,19 +1758,19 @@ export function capitalizeInvestment(
   if (card.upright) return { game, error: "Already capitalized" };
 
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCost(taken);
+  const actionCost = nextActionCashCostLegacy(taken);
   const total = actionCost + card.capital;
   if (player.cash < total)
     return { game, error: "Not enough cash for action + capital" };
 
   const now = Date.now();
-  const next = [...player.investmentHand];
-  next[handIndex] = { ...card, upright: true };
+  const nextHand = [...player.investmentHand];
+  nextHand[handIndex] = { ...card, upright: true };
   const newPlayers = { ...game.players };
   newPlayers[playerId] = {
     ...player,
     cash: player.cash - total,
-    investmentHand: next,
+    investmentHand: nextHand,
   };
   return {
     game: {
@@ -1348,7 +1788,7 @@ export function playOperationsCard(
   playerId: string,
   handIndex: number
 ): { game: GameDoc; error?: string } {
-  if (!inActionPhases(game.currentPhase))
+  if (!inActionPhaseGame(game))
     return { game, error: "Play operations only in the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
@@ -1358,7 +1798,7 @@ export function playOperationsCard(
   if (!card) return { game, error: "No card at that index" };
 
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCost(taken);
+  const actionCost = nextActionCashCostFromGame(game);
   if (player.cash < actionCost)
     return { game, error: "Not enough cash for this action" };
 
@@ -1376,6 +1816,12 @@ export function playOperationsCard(
     actionsTakenThisTurn: taken + 1,
     updatedAt: now,
   };
+  if (usesTableRoundStructure(updated)) {
+    updated = advanceActionSeatAndLap({
+      ...updated,
+      actionConsecutivePasses: 0,
+    });
+  }
   const winners = checkWinConditions(updated);
   if (winners?.length) {
     updated = { ...updated, status: "finished", winnerIds: winners };
@@ -1435,9 +1881,77 @@ export function payRickhouseFeesAndAge(
   playerId: string
 ): { game: GameDoc; error?: string } {
   if (game.status !== "in_progress") return { game, error: "Game not in progress" };
+  if (game.currentPhase !== 1) return { game, error: "Rickhouse fees are paid in Phase 1" };
+
+  if (usesTableRoundStructure(game)) {
+    if (game.roundNumber <= 1)
+      return { game, error: "Round 1 skips rickhouse fees (GAME_RULES)" };
+    if (game.playerOrder[game.currentPlayerIndex] !== playerId)
+      return { game, error: "Not your turn" };
+    if (feesPaidSet(game).has(playerId))
+      return { game, error: "You already paid rickhouse fees this round" };
+
+    const player = game.players[playerId];
+    if (!player) return { game, error: "Baron not found" };
+
+    const total = previewRickhouseFeesForPlayer(game, playerId);
+    if (player.cash < total)
+      return {
+        game,
+        error: `Not enough cash: need $${total} for rickhouse fees`,
+      };
+
+    const now = Date.now();
+    const newRickhouses = game.rickhouses.map((r) => ({
+      ...r,
+      barrels: r.barrels.map((br) =>
+        br.playerId === playerId ? { ...br, age: br.age + 1 } : br
+      ),
+    }));
+
+    const newPlayers = { ...game.players };
+    newPlayers[playerId] = {
+      ...player,
+      cash: player.cash - total,
+      barrelledBourbons: (player.barrelledBourbons ?? []).map((b) => ({
+        ...b,
+        age: b.age + 1,
+      })),
+    };
+
+    const paid = [...(game.feesPaidPlayerIds ?? []), playerId];
+    const n = game.playerOrder.length;
+    let nextIdx = game.currentPlayerIndex;
+    if (n > 0 && paid.length < n) {
+      const paidSet = new Set(paid);
+      let idx = nextClockwiseIndex(game, game.currentPlayerIndex);
+      for (let k = 0; k < n; k++) {
+        const pid = game.playerOrder[idx];
+        if (pid && !paidSet.has(pid)) {
+          nextIdx = idx;
+          break;
+        }
+        idx = (idx + 1) % n;
+      }
+    }
+
+    let updated: GameDoc = {
+      ...game,
+      rickhouses: newRickhouses,
+      players: newPlayers,
+      feesPaidPlayerIds: paid,
+      currentPlayerIndex: nextIdx,
+      rickhouseFeesPaidThisTurn: paid.length >= n && n > 0,
+      updatedAt: now,
+    };
+    updated = maybeAutoFinishFeesPhase(updated);
+    const winners = checkWinConditions(updated);
+    if (winners?.length) updated = { ...updated, status: "finished", winnerIds: winners };
+    return { game: updated };
+  }
+
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
-  if (game.currentPhase !== 1) return { game, error: "Rickhouse fees are paid in Phase 1" };
   if (game.rickhouseFeesPaidThisTurn) return { game, error: "Fees already paid this turn" };
 
   const player = game.players[playerId];
@@ -1486,7 +2000,7 @@ export function sellBourbon(
   playerId: string,
   barrelId: string
 ): { game: GameDoc; error?: string; sale?: BourbonSaleReveal } {
-  if (!inActionPhases(game.currentPhase))
+  if (!inActionPhaseGame(game))
     return { game, error: "Sell only during the Action phase" };
   if (game.playerOrder[game.currentPlayerIndex] !== playerId)
     return { game, error: "Not your turn" };
@@ -1498,7 +2012,7 @@ export function sellBourbon(
   if (barrel.age < 2) return { game, error: "Bourbon must be at least 2 years old to sell" };
 
   const taken = game.actionsTakenThisTurn ?? 0;
-  const actionCost = nextActionCashCost(taken);
+  const actionCost = nextActionCashCostFromGame(game);
   if (player.cash < actionCost)
     return { game, error: "Not enough cash for this action" };
 
@@ -1570,6 +2084,12 @@ export function sellBourbon(
     bourbonDeck: deck,
     updatedAt: now,
   };
+  if (usesTableRoundStructure(updated)) {
+    updated = advanceActionSeatAndLap({
+      ...updated,
+      actionConsecutivePasses: 0,
+    });
+  }
   const winners = checkWinConditions(updated);
   if (winners?.length) updated = { ...updated, status: "finished", winnerIds: winners };
   return { game: updated, sale };
@@ -1598,6 +2118,13 @@ export function normalizeGame(game: GameDoc): GameDoc {
         ...b,
         mashCards: b.mashCards?.map(migrateResourceCardType),
       })),
+      investmentHand: (base.investmentHand ?? []).map((c) =>
+        withInvestmentLifecycle({
+          ...c,
+          investmentStatus:
+            c.investmentStatus ?? (c.upright ? "active" : "unbuilt"),
+        })
+      ),
     };
   }
 
@@ -1637,6 +2164,43 @@ export function normalizeGame(game: GameDoc): GameDoc {
     else if (currentPhase >= 2) currentPhase = 3;
     turnStructureVersion = 2;
   }
+
+  let roundStructureVersion = game.roundStructureVersion ?? 0;
+  const marketDonePlayerIds = [...(game.marketDonePlayerIds ?? [])];
+  const roundStartPlayerIndex =
+    game.roundStartPlayerIndex != null && Number.isFinite(game.roundStartPlayerIndex)
+      ? Math.min(
+          Math.max(0, Math.floor(game.roundStartPlayerIndex)),
+          Math.max(0, game.playerOrder.length - 1)
+        )
+      : 0;
+  const roundNumber =
+    game.roundNumber != null && Number.isFinite(game.roundNumber)
+      ? Math.max(0, Math.floor(game.roundNumber))
+      : game.status === "lobby"
+        ? 0
+        : Math.max(1, game.turnNumber || 1);
+
+  const migratingToTableRounds = roundStructureVersion < 3;
+  if (migratingToTableRounds) {
+    roundStructureVersion = 3;
+    if (game.status === "in_progress") {
+      if (currentPhase === 2) currentPhase = 3;
+      else if (currentPhase === 3) currentPhase = 2;
+    }
+  }
+
+  const baseFeesPaid = [...(game.feesPaidPlayerIds ?? [])];
+  const feesPaidPlayerIds =
+    migratingToTableRounds &&
+    baseFeesPaid.length === 0 &&
+    currentPhase === 1 &&
+    (game.rickhouseFeesPaidThisTurn ?? false)
+      ? (() => {
+          const pid = game.playerOrder[game.currentPlayerIndex];
+          return pid ? [pid] : baseFeesPaid;
+        })()
+      : baseFeesPaid;
 
   let rickhouseFeesPaidThisTurn = game.rickhouseFeesPaidThisTurn ?? false;
   if (
@@ -1679,6 +2243,15 @@ export function normalizeGame(game: GameDoc): GameDoc {
     mode: normalizeGameMode(game.mode),
     currentPhase,
     turnStructureVersion,
+    roundStructureVersion,
+    roundNumber,
+    roundStartPlayerIndex,
+    feesPaidPlayerIds,
+    marketDonePlayerIds,
+    actionFreeWindowActive: game.actionFreeWindowActive ?? true,
+    actionPaidLapTier: game.actionPaidLapTier ?? 1,
+    actionOpportunitiesThisLap: game.actionOpportunitiesThisLap ?? 0,
+    actionConsecutivePasses: game.actionConsecutivePasses ?? 0,
     actionsTakenThisTurn: game.actionsTakenThisTurn ?? 0,
     operationsDeck: game.operationsDeck ?? [],
     investmentDeck: game.investmentDeck ?? [],

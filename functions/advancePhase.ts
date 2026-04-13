@@ -9,6 +9,7 @@ import { Resource } from "sst";
 import {
   advancePhase as advancePhaseLogic,
   normalizeGame,
+  usesTableRoundStructure,
   type GameDoc,
 } from "./lib/game";
 
@@ -36,7 +37,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: "Game not in progress" }) };
   }
 
-  if (game.currentPhase === 2 && game.lastDemandRoll) {
+  if (!usesTableRoundStructure(game) && game.currentPhase === 2 && game.lastDemandRoll) {
     let actor = "";
     try {
       const b = event.body ? (JSON.parse(event.body) as { playerId?: string }) : {};

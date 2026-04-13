@@ -10,6 +10,7 @@ import {
   capitalizeInvestment as capitalizeLogic,
   drawInvestmentCard as drawInvLogic,
   drawOperationsCard as drawOpLogic,
+  implementInvestment as implementInvLogic,
   normalizeGame,
   playOperationsCard as playOpLogic,
   type GameDoc,
@@ -49,7 +50,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 404, body: JSON.stringify({ error: "Game not found" }) };
   }
 
-  let game = normalizeGame(unmarshall(res.Item) as GameDoc);
+  const game = normalizeGame(unmarshall(res.Item) as GameDoc);
   let result: { game: GameDoc; error?: string };
 
   switch (action) {
@@ -60,13 +61,17 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       result = drawInvLogic(game, playerId);
       break;
     case "capitalizeInvestment":
+    case "implementInvestment":
       if (handIndex < 0) {
         return {
           statusCode: 400,
           body: JSON.stringify({ error: "handIndex required" }),
         };
       }
-      result = capitalizeLogic(game, playerId, handIndex);
+      result =
+        action === "implementInvestment"
+          ? implementInvLogic(game, playerId, handIndex)
+          : capitalizeLogic(game, playerId, handIndex);
       break;
     case "playOperations":
       if (handIndex < 0) {
@@ -86,6 +91,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
             "drawOperations",
             "drawInvestment",
             "capitalizeInvestment",
+            "implementInvestment",
             "playOperations",
           ],
         }),

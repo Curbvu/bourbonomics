@@ -109,6 +109,10 @@ export default $config({
       handler: "functions/advancePhase.handler",
       ...gameLink,
     });
+    api.route("POST /games/{id}/pass", {
+      handler: "functions/passAction.handler",
+      ...gameLink,
+    });
     api.route("POST /games/{id}/roll-demand", {
       handler: "functions/rollDemand.handler",
       ...gameLink,
