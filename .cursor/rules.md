@@ -2,20 +2,27 @@
 
 ## Project
 
-**Bourbonomics** is this repository: a Next.js app, AWS/SST-style backend pieces, and DynamoDB. Stack and conventions live in the codebase; follow existing patterns for TypeScript, React, and infra.
+**Bourbonomics** is a client-side Next.js solo-vs-computer implementation of the Bourbonomics board game (Kentucky Straight mode). No backend; all state is a pure reducer + Zustand store. Follow existing patterns for TypeScript and React.
 
 ## Game rules (canonical)
 
-**[`docs/GAME_RULES.md`](../docs/GAME_RULES.md)** is the **single source of truth** for how the Bourbonomics game works: setup, modes, board, turn structure, phases, bourbon/mash/rickhouse rules, market demand, awards, and bankruptcy.
+**[`docs/GAME_RULES.md`](../docs/GAME_RULES.md)** is the **single source of truth** for gameplay. The engine (`lib/engine/`), rules modules (`lib/rules/`), modifier opcodes (`lib/modifiers/`), and AI (`lib/ai/`) must all agree with it.
 
-- **Before** implementing or changing anything that affects gameplay, UX copy tied to rules, or validation logic, **read (or re-read) `docs/GAME_RULES.md`**.
-- **When the game changes**, updates belong in **`docs/GAME_RULES.md` first** (or in the same change: keep the doc and code aligned). Do not invent rules in code that are not reflected there unless the user explicitly asks for a temporary divergence.
-- If `GAME_RULES.md` and implementation disagree, **treat the document as authoritative** for “what the game is supposed to be” and fix code—or flag the mismatch for the maintainer.
+- **Before** implementing or changing anything that affects gameplay, validation, or rules-tied copy, **read (or re-read) `docs/GAME_RULES.md`**.
+- **When the game changes**, update `docs/GAME_RULES.md` first (or in the same change) — keep doc and code aligned.
+- If doc and code disagree, **the document is authoritative**; fix code or flag the mismatch.
 
-## Other Cursor rules
+## Layout
 
-Additional always-on rules (for example DynamoDB access patterns) live under **`.cursor/rules/`** as `*.mdc` files. Follow those for infrastructure and data access.
+- `data/` — runtime YAML catalogs (bourbon / investment / operations / resource / events).
+- `lib/catalogs/*.generated.ts` — typed JSON emitted from `data/` by `scripts/build-catalogs.ts`. **Do not hand-edit generated files.**
+- `lib/engine/` — state shape, reducer, phases, RNG, legal-action checks. Pure functions only.
+- `lib/rules/` — per-rule modules (mash, pricing, awards, fees, investments).
+- `lib/modifiers/` — opcode dispatchers for resource / investment / operations effects.
+- `lib/ai/` — bot scoring + decision.
+- `lib/store/` — Zustand store and localStorage persistence.
+- `app/` — Next.js App Router: `/` (new game), `/play` (game), `/rules` (rules doc viewer).
 
 ## Scope of edits
 
-Change only what the task requires. Do not refactor unrelated code or add unsolicited markdown files outside what was requested.
+Change only what the task requires. Do not refactor unrelated code or add unsolicited files.

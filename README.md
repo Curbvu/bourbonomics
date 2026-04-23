@@ -1,89 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bourbonomics
 
-**Bourbonomics** — [Game rules](docs/GAME_RULES.md) and [web game plan](docs/WEB_GAME_PLAN.md) are in the repo.
+A solo-vs-computer implementation of the **Bourbonomics** board game — [Kentucky Straight mode](docs/GAME_RULES.md). Single-player only: you vs. 1–5 bots, all running in the browser.
 
-### Rickhouses and Kentucky Bourbon Trail® regions
+## Rules
 
-The six in-game rickhouses (`rickhouse-0` … `rickhouse-5`) are named for the six official **[Kentucky Bourbon Trail® regions](https://kybourbontrail.com/regions/)** (see also `lib/rickhouses.ts`):
+[`docs/GAME_RULES.md`](docs/GAME_RULES.md) is the canonical rulebook. When game behavior changes, update the rulebook first.
 
-| Id | Region |
-|----|--------|
-| `rickhouse-0` | Northern Region |
-| `rickhouse-1` | Louisville Region |
-| `rickhouse-2` | Central Region |
-| `rickhouse-3` | Lexington Region |
-| `rickhouse-4` | Bardstown Region |
-| `rickhouse-5` | Western Region |
+## Getting started
 
-Capacities per slot are **3, 4, 5, 6, 4, 5** barrels (same index order as the table).
-
-### Turn structure (in-game phases)
-
-Each baron’s turn has **three** phases, in order:
-
-1. **Age bourbons** — Pay rickhouse fees for your barrelled stock and age each barrel one year (see [GAME_RULES.md](docs/GAME_RULES.md)).
-2. **Market demand** — Resolve the **bourbon demand dice roll** (updates market demand for the coming action phase).
-3. **Action phase** — Take actions in any order: buy from the market, barrel bourbon into a rickhouse, sell, draw/play operations and investments, etc. End the turn when you are done.
-
-## Getting Started
-
-Use **Node.js 22** or newer (see `.nvmrc` and `package.json` `engines`).
-
-### Run with SST (full game API + WebSocket)
+Use **Node.js 22+** (see `.nvmrc`).
 
 ```bash
-npx sst dev
-```
-
-Then open the Next.js URL shown by SST. The API and WebSocket use `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`.
-
-### Run Next.js against your deployed SST backend
-
-To run the frontend locally while using the API and WebSocket from a deployed stage (e.g. `dandango`):
-
-1. Copy the env template and fill in your stage’s URLs:
-   ```bash
-   cp .env.example .env.local
-   ```
-2. Get the URLs from either:
-   - **SST Console** — [Open your app](https://console.sst.dev/local/bourbonomics/dandango) → select your stage → **Outputs** (or the resource URLs for **Api** and **Ws**).
-   - **Terminal** — Run `npx sst dev --stage dandango` once and note the **apiUrl** and **wsUrl** in the output (or in the Console link it prints).
-3. Edit `.env.local`:
-   ```env
-   NEXT_PUBLIC_API_URL=https://xxxxxxxx.execute-api.REGION.amazonaws.com
-   NEXT_PUBLIC_WS_URL=wss://xxxxxxxx.execute-api.REGION.amazonaws.com/dandango
-   ```
-   Use `https` for the API and `wss` for the WebSocket (same host, replace `https` with `wss`).
-4. Start Next.js:
-   ```bash
-   npm run dev
-   ```
-
-Open [http://localhost:3000](http://localhost:3000); the app will use the API and WebSocket from your SST stage.
-
-### Run Next.js only (no backend)
-
-```bash
+npm install
 npm run dev
 ```
 
-Without `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL`, the lobby and game pages will not be able to create or join games.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run build:catalogs` — regenerate `lib/catalogs/*.generated.ts` from `data/*.yaml`. Runs automatically before `dev` and `build`.
+- `npm run dev` — start Next.js locally.
+- `npm run build` / `npm start` — production build.
+- `npm test` — run the engine test suite (Vitest).
 
-## Learn More
+## Architecture
 
-To learn more about Next.js, take a look at the following resources:
+- **Frontend:** Next.js 16 (App Router), React 19, Tailwind 4.
+- **State:** pure reducer (`lib/engine/reducer.ts`) wrapped by a Zustand store. Immer for nested updates. Seeded PRNG (`lib/engine/rng.ts`) makes games reproducible.
+- **Persistence:** localStorage — one active game at a time.
+- **No backend.** Everything runs in the browser.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+See [`docs/GAME_RULES.md`](docs/GAME_RULES.md) for gameplay rules and [`.cursor/rules.md`](.cursor/rules.md) for project conventions.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Rickhouses
 
-## Deploy on Vercel
+The six rickhouses map to the **[Kentucky Bourbon Trail® regions](https://kybourbontrail.com/regions/)**:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Index | Region      | Capacity |
+|-------|-------------|----------|
+| 0     | Northern    | 3        |
+| 1     | Louisville  | 4        |
+| 2     | Central     | 5        |
+| 3     | Lexington   | 6        |
+| 4     | Bardstown   | 4        |
+| 5     | Western     | 5        |
