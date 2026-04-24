@@ -8,7 +8,9 @@ import { useGameStore } from "@/lib/store/gameStore";
 export default function OpeningPanel() {
   const state = useGameStore((s) => s.state)!;
   const dispatch = useGameStore((s) => s.dispatch);
-  const [selected, setSelected] = useState<string[]>([]);
+  // Selection is tracked by draft index, not by card id, so duplicate copies
+  // of the same investment in the draft can be selected independently.
+  const [selectedIdx, setSelectedIdx] = useState<number[]>([]);
   const [commitChoices, setCommitChoices] = useState<Record<number, "implement" | "hold">>({});
 
   const humanId = state.playerOrder.find((id) => state.players[id].kind === "human");
@@ -21,12 +23,12 @@ export default function OpeningPanel() {
   if (!awaitingKeep && !awaitingCommit) return null;
 
   if (awaitingKeep && me.openingDraft) {
-    const toggle = (id: string) => {
-      setSelected((cur) => {
-        const set = new Set(cur);
-        if (set.has(id)) set.delete(id);
-        else if (set.size < 3) set.add(id);
-        return Array.from(set);
+    const draft = me.openingDraft;
+    const toggle = (idx: number) => {
+      setSelectedIdx((cur) => {
+        if (cur.includes(idx)) return cur.filter((i) => i !== idx);
+        if (cur.length >= 3) return cur;
+        return [...cur, idx];
       });
     };
     return (
@@ -38,14 +40,15 @@ export default function OpeningPanel() {
           Pick 3 investments to keep. The other 3 go to the bottom of the deck.
         </p>
         <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-          {me.openingDraft.map((id, idx) => {
+          {draft.map((id, idx) => {
             const def = INVESTMENT_CARDS_BY_ID[id];
-            const chosen = selected.includes(id);
+            const chosen = selectedIdx.includes(idx);
             return (
               <button
                 type="button"
                 key={`${id}-${idx}`}
-                onClick={() => toggle(id)}
+                onClick={() => toggle(idx)}
+                aria-pressed={chosen}
                 className={`flex flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm ${
                   chosen
                     ? "border-amber-400 bg-amber-900/60 text-amber-100"
@@ -63,16 +66,16 @@ export default function OpeningPanel() {
         </div>
         <div className="mt-3 flex items-center gap-3">
           <span className="text-xs text-amber-200">
-            {selected.length} / 3 selected
+            {selectedIdx.length} / 3 selected
           </span>
           <button
             type="button"
-            disabled={selected.length !== 3}
+            disabled={selectedIdx.length !== 3}
             onClick={() =>
               dispatch({
                 t: "OPENING_KEEP",
                 playerId: humanId,
-                keptIds: selected,
+                keptIds: selectedIdx.map((i) => draft[i]),
               })
             }
             className="rounded-md bg-amber-500 px-4 py-1.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-500"

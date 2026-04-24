@@ -1218,6 +1218,378 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       "silver": "Final-rick drama: barrel **rickhouse-3** **or** **rickhouse-5**; **and** mash **≥2 rye** **or** **≥3 corn**; **and** sell **≥ $41** **or** demand **odd**.",
       "gold": "**8+** age band on this card **or** (**rickhouse-3** **and** **≥3 grain types**); **and** sell **≥ $70** (grid **maximum** **$70**)."
     }
+  },
+  {
+    "id": "51",
+    "name": "Moonlit Mash",
+    "rarity": "Standard",
+    "grid": [
+      [
+        10,
+        10,
+        15
+      ],
+      [
+        19,
+        19,
+        24
+      ],
+      [
+        19,
+        19,
+        24
+      ]
+    ],
+    "awards": null
+  },
+  {
+    "id": "52",
+    "name": "Backroad Batch",
+    "rarity": "Standard",
+    "grid": [
+      [
+        8,
+        8,
+        12
+      ],
+      [
+        14,
+        14,
+        18
+      ],
+      [
+        14,
+        14,
+        18
+      ]
+    ],
+    "awards": null
+  },
+  {
+    "id": "53",
+    "name": "Distiller's Dozen",
+    "rarity": "Standard",
+    "grid": [
+      [
+        12,
+        12,
+        16
+      ],
+      [
+        22,
+        22,
+        28
+      ],
+      [
+        22,
+        22,
+        28
+      ]
+    ],
+    "awards": {
+      "silver": "Mash includes **≥3 corn** **or** **≥2 rye** (steady house bill); **and** sell price **≥ $20** on this card.",
+      "gold": "**Tri-type** mash (corn + any two of rye/wheat/barley) **and** **4–7** or **8+** age band; **and** sell **≥ $28** (grid **maximum** **$28**)."
+    }
+  },
+  {
+    "id": "54",
+    "name": "Owensboro Drift",
+    "rarity": "Standard",
+    "grid": [
+      [
+        10,
+        10,
+        14
+      ],
+      [
+        18,
+        18,
+        22
+      ],
+      [
+        18,
+        18,
+        22
+      ]
+    ],
+    "awards": null
+  },
+  {
+    "id": "55",
+    "name": "Frankfort Flare",
+    "rarity": "Standard",
+    "grid": [
+      [
+        12,
+        12,
+        18
+      ],
+      [
+        20,
+        20,
+        26
+      ],
+      [
+        20,
+        20,
+        26
+      ]
+    ],
+    "awards": {
+      "silver": "Barrel at **rickhouse-3** **or** mash includes **≥2 rye**; **and** sell **≥ $20**.",
+      "gold": "Barrel at **rickhouse-3** **and** mash **≥2 rye**; **and** sell **≥ $26** (grid **maximum** **$26**)."
+    }
+  },
+  {
+    "id": "56",
+    "name": "Stave Society 88",
+    "rarity": "Standard",
+    "grid": [
+      [
+        11,
+        11,
+        16
+      ],
+      [
+        20,
+        20,
+        25
+      ],
+      [
+        20,
+        20,
+        25
+      ]
+    ],
+    "awards": null
+  },
+  {
+    "id": "57",
+    "name": "Copper Cadence",
+    "rarity": "Standard",
+    "grid": [
+      [
+        10,
+        10,
+        14
+      ],
+      [
+        19,
+        19,
+        23
+      ],
+      [
+        19,
+        19,
+        23
+      ]
+    ],
+    "awards": null
+  },
+  {
+    "id": "58",
+    "name": "Greenriver Gold",
+    "rarity": "Standard",
+    "grid": [
+      [
+        13,
+        13,
+        17
+      ],
+      [
+        21,
+        21,
+        27
+      ],
+      [
+        21,
+        21,
+        27
+      ]
+    ],
+    "awards": {
+      "silver": "Mash includes **≥2 wheat** **or** barrel at **rickhouse-5**; **and** sell **≥ $20**.",
+      "gold": "Mash includes **≥3 wheat** **and** **≥1 corn**; **and** sell **≥ $27** (grid **maximum** **$27**)."
+    }
+  },
+  {
+    "id": "59",
+    "name": "Heirloom 1792",
+    "rarity": "Standard",
+    "grid": [
+      [
+        12,
+        12,
+        15
+      ],
+      [
+        20,
+        20,
+        26
+      ],
+      [
+        20,
+        20,
+        26
+      ]
+    ],
+    "awards": {
+      "silver": "Mash includes **≥3 distinct grain types** (corn + two of rye/wheat/barley); **and** sell **≥ $20**.",
+      "gold": "Mash features **all four grain types** (corn, rye, wheat, barley); **and** sell **≥ $26** (grid **maximum** **$26**)."
+    }
+  },
+  {
+    "id": "60",
+    "name": "The Proofsmith",
+    "rarity": "Standard",
+    "grid": [
+      [
+        11,
+        11,
+        14
+      ],
+      [
+        18,
+        18,
+        24
+      ],
+      [
+        18,
+        18,
+        24
+      ]
+    ],
+    "awards": null
+  },
+  {
+    "id": "61",
+    "name": "Phoenix Cooperage",
+    "rarity": "Rare",
+    "grid": [
+      [
+        22,
+        22,
+        32
+      ],
+      [
+        42,
+        42,
+        52
+      ],
+      [
+        52,
+        52,
+        68
+      ]
+    ],
+    "awards": {
+      "silver": "Comeback story: mash includes **≥2 rye** **or** barrel at **rickhouse-5**; **and** sell **≥ $38** **or** demand **odd**.",
+      "gold": "**8+** age band on this card **and** **≥3 grain types**; **and** sell **≥ $68** (grid **maximum** **$68**)."
+    }
+  },
+  {
+    "id": "62",
+    "name": "Whisper Barrel",
+    "rarity": "Rare",
+    "grid": [
+      [
+        20,
+        20,
+        26
+      ],
+      [
+        38,
+        38,
+        48
+      ],
+      [
+        48,
+        48,
+        58
+      ]
+    ],
+    "awards": {
+      "silver": "Mash includes **≥2 wheat** **and** **≥1 corn** (softer voice); **and** sell **≥ $35** **or** demand **odd**.",
+      "gold": "**≥3 wheat** cards **or** **8+** age band with wheat as the majority grain; **and** sell **≥ $58** (grid **maximum** **$58**)."
+    }
+  },
+  {
+    "id": "63",
+    "name": "Midnight Mash Bill",
+    "rarity": "Rare",
+    "grid": [
+      [
+        24,
+        24,
+        30
+      ],
+      [
+        44,
+        44,
+        54
+      ],
+      [
+        54,
+        54,
+        70
+      ]
+    ],
+    "awards": {
+      "silver": "Mash includes **≥2 corn** **and** **≥2 rye** (twin-column bill); **and** sell **≥ $38**.",
+      "gold": "**Tri-type** mash with **each of three grains ≥2 cards** **or** **8+** age band on this card; **and** sell **≥ $70** (grid **maximum** **$70**)."
+    }
+  },
+  {
+    "id": "64",
+    "name": "Triple Crown Reserve",
+    "rarity": "Rare",
+    "grid": [
+      [
+        28,
+        28,
+        34
+      ],
+      [
+        48,
+        48,
+        58
+      ],
+      [
+        60,
+        60,
+        78
+      ]
+    ],
+    "awards": {
+      "silver": "Prestige pick: you already hold a **Silver Award** on another card **or** barrel at **rickhouse-3**; **and** sell **≥ $42** **or** demand **odd**.",
+      "gold": "You already hold a **Gold Award** on another card **or** barrel at **rickhouse-3** with **≥4 grain types**; **and** sell **≥ $78** (grid **maximum** **$78**)."
+    }
+  },
+  {
+    "id": "65",
+    "name": "Black River Belle",
+    "rarity": "Rare",
+    "grid": [
+      [
+        20,
+        20,
+        28
+      ],
+      [
+        40,
+        40,
+        50
+      ],
+      [
+        50,
+        50,
+        62
+      ]
+    ],
+    "awards": {
+      "silver": "Barrel at **rickhouse-5** **or** mash **≥2 wheat**; **and** sell **≥ $36** **or** demand **odd**.",
+      "gold": "Barrel at **rickhouse-5** **and** **≥3 grain types** represented; **and** sell **≥ $62** (grid **maximum** **$62**)."
+    }
   }
 ] as const;
 

@@ -208,6 +208,62 @@ export const OPERATIONS_CARDS: readonly OperationsCardDef[] = [
     "title": "Second glance",
     "concept": "Reread the rulebook.",
     "effect": "**Discard** this card to **undo** **one** non-sale action you took **this turn** (return components—tune for abuse). **Gain $2** now. *(Effective value can be **very** high when undo saves a blunder—**tail** comes from situational upside.)*"
+  },
+  {
+    "id": "distillers_bonus",
+    "categoryId": "new_arrivals",
+    "title": "Distiller's bonus",
+    "concept": "End-of-year payout.",
+    "effect": "**Gain $1 per barrelled bourbon** you own (max $8). *(Steady-scaling payout — rewards mid-game volume.)*"
+  },
+  {
+    "id": "speakeasy_tipoff",
+    "categoryId": "new_arrivals",
+    "title": "Speakeasy tipoff",
+    "concept": "Back-alley intel.",
+    "effect": "**Gain $4** if **market demand ≥ 4**, otherwise **gain $1**. Low-variance fallback card."
+  },
+  {
+    "id": "copper_salvage",
+    "categoryId": "new_arrivals",
+    "title": "Copper salvage",
+    "concept": "Pull a barrel out and recoup scrap.",
+    "effect": "**Gain $2 per year token** on your *youngest* barrelled bourbon (max **$6**). *(Rewards freshly-laid stock.)*"
+  },
+  {
+    "id": "blenders_touch",
+    "categoryId": "new_arrivals",
+    "title": "Blender's touch",
+    "concept": "Master blender moment.",
+    "effect": "**Gain $3** immediately. If you own any barrel whose mash includes **≥3 grain types**, **gain $5** instead."
+  },
+  {
+    "id": "late_shipment",
+    "categoryId": "new_arrivals",
+    "title": "Late shipment",
+    "concept": "A pallet of resources turns up at the gate.",
+    "effect": "**Draw 2 resource cards** from a single pile of your choice (face-down). Free — does not cost an additional action."
+  },
+  {
+    "id": "coopers_gift",
+    "categoryId": "new_arrivals",
+    "title": "Cooper's gift",
+    "concept": "Spare cask from the cooperage.",
+    "effect": "**Gain $2**. If you have **fewer than 2 barrels** barrelled, **gain $4** instead. A mercy payout for slow starts."
+  },
+  {
+    "id": "state_fair_demo",
+    "categoryId": "new_arrivals",
+    "title": "State fair demo",
+    "concept": "Public tasting pays the gate.",
+    "effect": "**Gain $6** if market demand is **odd**, otherwise **gain $3**. Demand-parity flex."
+  },
+  {
+    "id": "insurance_payout",
+    "categoryId": "new_arrivals",
+    "title": "Insurance payout",
+    "concept": "Claim settled.",
+    "effect": "**Gain $2 per rickhouse** where you have **no barrels** (max **$6**). *(Awkward-comeback tool — pays more when you're thin.)*"
   }
 ] as const;
 

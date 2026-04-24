@@ -101,6 +101,144 @@ export const INVESTMENT_CARDS: readonly InvestmentCardDef[] = [
         "scope": "per_round_first_paid"
       }
     ]
+  },
+  {
+    "id": "inv_master_cooper",
+    "name": "Master cooper",
+    "rarity": "Rare",
+    "capital": 13,
+    "short": "Cheaper first move, lighter rent",
+    "effect": "While active, the first paid action you take each round costs $1 less, and once per round subtract $1 from your rickhouse fees (minimum $0). A top-tier dual-purpose upgrade.",
+    "deckCopies": 1,
+    "modifiers": [
+      {
+        "kind": "action_cost_discount",
+        "amount": 1,
+        "scope": "per_round_first_paid"
+      },
+      {
+        "kind": "rickhouse_fee_discount",
+        "amount": 1,
+        "oncePerRound": true
+      }
+    ]
+  },
+  {
+    "id": "inv_mash_reclamation",
+    "name": "Mash reclamation",
+    "rarity": "Standard",
+    "capital": 10,
+    "short": "Two dollars off, every year",
+    "effect": "While active, once per round subtract $2 from your total rickhouse fees (minimum $0). Efficient reuse programme that really adds up in a crowded rickhouse.",
+    "deckCopies": 2,
+    "modifiers": [
+      {
+        "kind": "rickhouse_fee_discount",
+        "amount": 2,
+        "oncePerRound": true
+      }
+    ]
+  },
+  {
+    "id": "inv_tourism_board",
+    "name": "Tourism board seat",
+    "rarity": "Standard",
+    "capital": 8,
+    "short": "First paid action cheaper",
+    "effect": "While active, the first paid action you take each round costs $1 less. A Standard-priced alternative to Brand ambassador so the effect shows up more often.",
+    "deckCopies": 2,
+    "modifiers": [
+      {
+        "kind": "action_cost_discount",
+        "amount": 1,
+        "scope": "per_round_first_paid"
+      }
+    ]
+  },
+  {
+    "id": "inv_grain_elevator",
+    "name": "Grain elevator",
+    "rarity": "Standard",
+    "capital": 6,
+    "short": "Cheap market bump",
+    "effect": "While active, once per round your market buy draws one extra resource card on that action. Budget version of Corn futures — accessible to any Baron with $6 of starting capital.",
+    "deckCopies": 3,
+    "modifiers": [
+      {
+        "kind": "market_buy_bonus_cards",
+        "extra": 1,
+        "oncePerRound": true
+      }
+    ]
+  },
+  {
+    "id": "inv_traveling_salesman",
+    "name": "Travelling salesman",
+    "rarity": "Rare",
+    "capital": 11,
+    "short": "Next action runs much cheaper",
+    "effect": "While active, your very next distillery action this round costs $2 less (cost stays at a minimum of $0). Big one-shot discount for a well-timed expensive action.",
+    "deckCopies": 2,
+    "modifiers": [
+      {
+        "kind": "action_cost_discount",
+        "amount": 2,
+        "scope": "next_action"
+      }
+    ]
+  },
+  {
+    "id": "inv_estate_distillery",
+    "name": "Estate distillery",
+    "rarity": "Rare",
+    "capital": 16,
+    "short": "Heritage compound effects",
+    "effect": "While active, once per round subtract $2 from rickhouse fees and draw one extra resource card on your market buy. High capital cost but compounds into serious advantage.",
+    "deckCopies": 1,
+    "modifiers": [
+      {
+        "kind": "rickhouse_fee_discount",
+        "amount": 2,
+        "oncePerRound": true
+      },
+      {
+        "kind": "market_buy_bonus_cards",
+        "extra": 1,
+        "oncePerRound": true
+      }
+    ]
+  },
+  {
+    "id": "inv_family_recipe",
+    "name": "Family recipe",
+    "rarity": "Standard",
+    "capital": 5,
+    "short": "Flex a cheap action",
+    "effect": "While active, your very next distillery action this round costs $1 less. Low-capital flexibility pick — good filler when you can't afford bigger upgrades.",
+    "deckCopies": 3,
+    "modifiers": [
+      {
+        "kind": "action_cost_discount",
+        "amount": 1,
+        "scope": "next_action"
+      }
+    ]
+  },
+  {
+    "id": "inv_warehouse_syndicate",
+    "name": "Warehouse syndicate",
+    "rarity": "Rare",
+    "capital": 15,
+    "short": "Deep rent relief",
+    "effect": "While active, once per round subtract $3 from your total rickhouse fees (minimum $0). Expensive but shreds rent in a packed cap-6 warehouse without true monopoly.",
+    "deckCopies": 1,
+    "modifiers": [
+      {
+        "kind": "rickhouse_fee_discount",
+        "amount": 3,
+        "oncePerRound": true
+      }
+    ]
   }
 ] as const;
 

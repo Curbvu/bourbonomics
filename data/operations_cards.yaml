@@ -190,6 +190,41 @@ categories:
         effect: "**Discard** this card to **undo** **one** non-sale action you took **this turn** (return components—tune for
           abuse). **Gain $2** now. *(Effective value can be **very** high when undo saves a blunder—**tail** comes from
           situational upside.)*"
+  - id: new_arrivals
+    title: New arrivals
+    cards:
+      - id: distillers_bonus
+        title: Distiller's bonus
+        concept: End-of-year payout.
+        effect: "**Gain $1 per barrelled bourbon** you own (max $8). *(Steady-scaling payout — rewards mid-game volume.)*"
+      - id: speakeasy_tipoff
+        title: Speakeasy tipoff
+        concept: Back-alley intel.
+        effect: "**Gain $4** if **market demand ≥ 4**, otherwise **gain $1**. Low-variance fallback card."
+      - id: copper_salvage
+        title: Copper salvage
+        concept: Pull a barrel out and recoup scrap.
+        effect: "**Gain $2 per year token** on your *youngest* barrelled bourbon (max **$6**). *(Rewards freshly-laid stock.)*"
+      - id: blenders_touch
+        title: Blender's touch
+        concept: Master blender moment.
+        effect: "**Gain $3** immediately. If you own any barrel whose mash includes **≥3 grain types**, **gain $5** instead."
+      - id: late_shipment
+        title: Late shipment
+        concept: A pallet of resources turns up at the gate.
+        effect: "**Draw 2 resource cards** from a single pile of your choice (face-down). Free — does not cost an additional action."
+      - id: coopers_gift
+        title: Cooper's gift
+        concept: Spare cask from the cooperage.
+        effect: "**Gain $2**. If you have **fewer than 2 barrels** barrelled, **gain $4** instead. A mercy payout for slow starts."
+      - id: state_fair_demo
+        title: State fair demo
+        concept: Public tasting pays the gate.
+        effect: "**Gain $6** if market demand is **odd**, otherwise **gain $3**. Demand-parity flex."
+      - id: insurance_payout
+        title: Insurance payout
+        concept: Claim settled.
+        effect: "**Gain $2 per rickhouse** where you have **no barrels** (max **$6**). *(Awkward-comeback tool — pays more when you're thin.)*"
 footer: "**Design note:** Operations should **not** duplicate **investment** payoffs (no permanent “−$1 all rickhouse
   fees forever”). If an effect feels evergreen, move it to **[investment_cards.yaml](investment_cards.yaml)** with
   **capital** and **upright** rules."
