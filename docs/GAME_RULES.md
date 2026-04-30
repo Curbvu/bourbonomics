@@ -2,9 +2,9 @@
 
 ## Become the Bourbon Baron
 
-Welcome to *Bourbonomics*, a game about building a bourbon empire in a shifting and often unpredictable market.
+Welcome to *Bourbonomics*, an economic strategy game about building a bourbon empire in a shifting and often unpredictable market.
 
-Each player takes on the role of a distiller trying to grow their business by sourcing ingredients, producing bourbon, aging it over time, and selling it at the perfect moment. Along the way, you’ll invest in your operations, adapt to market conditions, and try to outmaneuver your competitors.
+Each player owns a distiller and tries to gorwh their business to be the most valuable bourbon business. Barons source ingredients, produce bourbon, age it over time, and selling it at the perfect moment. Along the way, you’ll invest in your distillery, improve operatoins, adapt to market conditions, and try to outmaneuver your competitors.
 
 The challenge isn’t just making bourbon—it’s knowing **when** to make it, **where** to store it, and **when** to sell.
 
@@ -22,7 +22,7 @@ The player with the highest total value wins.
 
 # 🎬 Setup
 
-To begin, give each player a starting amount of cash (this can be adjusted depending on your playtest). No one starts with investments in play.
+To begin, give each player starts with $40 in initial capital.
 
 Shuffle all decks separately: the resource piles (Cask, Corn, Grain), the Bourbon cards, the Investment cards, the Operations cards, and the Market cards.
 
@@ -32,13 +32,15 @@ Set the market demand to **6**. This number will rise and fall throughout the ga
 
 # 🗺️ Understanding the Board
 
-The game revolves around three main areas: the **market**, the **rickhouses**, and the **business decks**.
+The game revolves around three main areas: the **resources pile**, the **rickhouses**, and the **business decks**.
 
 The market consists of three face-down piles: casks, corn, and grain. These represent the raw materials you’ll use to produce bourbon.
 
 Rickhouses are shared storage locations where your bourbon ages. Each rickhouse has limited capacity, so space becomes competitive over time.
 
-The business decks contain Investment cards (long-term upgrades), Operations cards (short-term advantages), and Bourbon cards (which determine how much your bourbon sells for).
+The business decks contain Investment cards (long-term upgrades), Operations cards (short-term advantages), Bourbon cards (which determine how much your bourbon sells for)
+
+Lastly there is the Market Cards, which are drawn at the end of each round.
 
 ---
 
@@ -62,13 +64,13 @@ If you pay the rent, your bourbon ages by one year. If you cannot pay, that barr
 
 This is the heart of the game.
 
-Players take turns in clockwise order. On your turn, you may take one action or pass. The phase continues looping around the table until all players pass.
+Players take turns in clockwise order. Once around the table is a "loop". On your turn, you may take one action or pass. The phase continues looping around the table until all players pass.
 
-At the beginning of the phase, all actions are free. This continues until the first player decides to pass. When that happens, every other player gets one final free action. After that, actions begin to cost money.
+At the beginning of the phase, all actions are free. This continues until the first player decides to pass. When that happens, players finish the loop as "free". Actions on the next loop cost money.
 
-The cost starts at $1 for the first paid round of actions, then increases to $2, $3, and so on with each full rotation of the table. This creates pressure: the longer players keep going, the more expensive it becomes to act.
+The cost starts at $1 for the first loop, then increases to $2, $3, and so on with each full rotation of the table. This creates pressure: the longer players keep going, the more expensive it becomes to act.
 
-The phase ends once all players pass in the same rotation. The first player to pass becomes the starting player for the next round.
+The phase ends once all players pass in the same loop. The first player to pass that (original loop) becomes the starting player for the next round.
 
 ---
 
