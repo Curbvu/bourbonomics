@@ -37,6 +37,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # `sst install` generates `.sst/platform/config.d.ts`, which sst.config.ts
+      # references via a triple-slash directive. Without this step, tsc would
+      # fail on the missing types (and so would IDE / editor type-checks). It
+      # runs offline — no AWS calls — so it's safe in the pre-deploy CI job.
+      - name: Bootstrap SST platform types
+        run: npx sst install
+
       - name: Lint
         run: npm run lint
 
