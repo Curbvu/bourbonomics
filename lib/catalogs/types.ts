@@ -55,6 +55,28 @@ export type OperationsCardDef = {
   effect: string;
 };
 
+// ---------- Market cards ----------
+//
+// Phase 3 of every round each baron draws 2 market cards and keeps 1. The
+// majority of cards in the deck raise demand; the rest are softer twists
+// (small drops, shortages, rickhouse modifiers) currently encoded only as
+// flavor — the engine resolves the typed `effect` and ignores the prose.
+
+export type MarketEffect =
+  | { kind: "demand_delta"; delta: number }
+  | { kind: "flavor" };
+
+export type MarketCardDef = {
+  id: string;
+  title: string;
+  /** Player-facing prose printed on the card. */
+  effect: string;
+  /** Number of copies of this card in the market deck. */
+  deckCopies: number;
+  /** Engine-resolved effect. Cards with `kind: "flavor"` only print prose. */
+  resolved: MarketEffect;
+};
+
 export type ResourceType = "cask" | "corn" | "barley" | "rye" | "wheat";
 
 export type ResourceEngineStatus = "modeled" | "partial" | "pending";

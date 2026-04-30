@@ -23,17 +23,27 @@ function passUntilPhaseEnds(s: GameState): GameState {
   return out;
 }
 
-function rollAllUntilPhaseEnds(s: GameState): GameState {
+function resolveMarketUntilPhaseEnds(s: GameState): GameState {
   let out = s;
   let safety = 50;
   while (out.phase === "market" && safety-- > 0) {
-    out = reduce(out, { t: "ROLL_DEMAND", playerId: out.currentPlayerId });
+    const cur = out.currentPlayerId;
+    const stash = out.marketPhase[cur];
+    if (!stash || stash.drawnCardIds.length === 0) {
+      out = reduce(out, { t: "MARKET_DRAW", playerId: cur });
+    } else {
+      out = reduce(out, {
+        t: "MARKET_KEEP",
+        playerId: cur,
+        keptCardId: stash.drawnCardIds[0],
+      });
+    }
   }
   return out;
 }
 
 describe("integration — full round loop", () => {
-  it("plays 2 rounds: opening → action (all pass) → market → fees → action → market", () => {
+  it("plays 2 rounds: action (all pass) → market → fees → action → market", () => {
     let s = createInitialState({
       id: "g1",
       seed: 1337,
@@ -42,14 +52,7 @@ describe("integration — full round loop", () => {
         { name: "Bob", kind: "bot", botDifficulty: "easy" },
       ],
     });
-
-    // Opening.
-    s = step(s, [
-      { t: "OPENING_KEEP", playerId: "p1", keptIds: s.players.p1.openingDraft!.slice(0, 3) },
-      { t: "OPENING_KEEP", playerId: "p2", keptIds: s.players.p2.openingDraft!.slice(0, 3) },
-      { t: "OPENING_COMMIT", playerId: "p1", decisions: ["hold", "hold", "hold"] },
-      { t: "OPENING_COMMIT", playerId: "p2", decisions: ["hold", "hold", "hold"] },
-    ]);
+    // Round 1 starts directly in action phase.
     expect(s.phase).toBe("action");
     expect(s.round).toBe(1);
 
@@ -57,8 +60,8 @@ describe("integration — full round loop", () => {
     s = passUntilPhaseEnds(s);
     expect(s.phase).toBe("market");
 
-    // Market: both players roll.
-    s = rollAllUntilPhaseEnds(s);
+    // Market: each player draws 2 and keeps 1.
+    s = resolveMarketUntilPhaseEnds(s);
     expect(s.round).toBe(2);
     expect(s.phase).toBe("fees");
 
@@ -72,7 +75,7 @@ describe("integration — full round loop", () => {
 
     // One more full loop.
     s = passUntilPhaseEnds(s);
-    s = rollAllUntilPhaseEnds(s);
+    s = resolveMarketUntilPhaseEnds(s);
     expect(s.round).toBe(3);
   });
 
@@ -85,10 +88,6 @@ describe("integration — full round loop", () => {
         { name: "B", kind: "bot", botDifficulty: "easy" },
       ],
     });
-    for (const id of ["p1", "p2"]) {
-      s = reduce(s, { t: "OPENING_KEEP", playerId: id, keptIds: s.players[id].openingDraft!.slice(0, 3) });
-      s = reduce(s, { t: "OPENING_COMMIT", playerId: id, decisions: ["hold", "hold", "hold"] });
-    }
 
     const startingCashA = s.players.p1.cash;
     // Lap 1: p1 draws (free), p2 passes (first pass — free window closes at end of this lap).
@@ -115,10 +114,6 @@ describe("integration — full round loop", () => {
         { name: "B", kind: "bot", botDifficulty: "easy" },
       ],
     });
-    for (const id of ["p1", "p2"]) {
-      s = reduce(s, { t: "OPENING_KEEP", playerId: id, keptIds: s.players[id].openingDraft!.slice(0, 3) });
-      s = reduce(s, { t: "OPENING_COMMIT", playerId: id, decisions: ["hold", "hold", "hold"] });
-    }
     // Give p1 a known mash by drawing during the free window. The market piles are shuffled so we
     // just draw from each required pile until p1 has 1 cask + 1 corn + 1 rye.
     function pullUntil(resource: "cask" | "corn" | "rye") {

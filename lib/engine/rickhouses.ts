@@ -1,6 +1,6 @@
 /**
- * Rickhouse definitions per GAME_RULES.md §Rickhouse.
- * Six Kentucky Bourbon Trail regions in play order; capacities [3, 4, 5, 6, 4, 5].
+ * Rickhouse definitions per GAME_RULES.md §Rickhouses.
+ * Six Kentucky bourbon regions in play order; capacities [3, 5, 4, 4, 6, 5] = 27 slots total.
  */
 
 export type RickhouseId =
@@ -19,10 +19,10 @@ export type RickhouseDef = {
 
 export const RICKHOUSES: readonly RickhouseDef[] = [
   { id: "rickhouse-0", name: "Northern", capacity: 3 },
-  { id: "rickhouse-1", name: "Louisville", capacity: 4 },
-  { id: "rickhouse-2", name: "Central", capacity: 5 },
-  { id: "rickhouse-3", name: "Lexington", capacity: 6 },
-  { id: "rickhouse-4", name: "Bardstown", capacity: 4 },
+  { id: "rickhouse-1", name: "Louisville", capacity: 5 },
+  { id: "rickhouse-2", name: "Central", capacity: 4 },
+  { id: "rickhouse-3", name: "Lexington", capacity: 4 },
+  { id: "rickhouse-4", name: "Bardstown", capacity: 6 },
   { id: "rickhouse-5", name: "Western", capacity: 5 },
 ];
 

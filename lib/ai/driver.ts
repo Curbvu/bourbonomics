@@ -13,8 +13,6 @@ import {
   pickActionPhaseMove,
   pickFeePayment,
   pickMarketMove,
-  pickOpeningCommit,
-  pickOpeningKeep,
 } from "./bot";
 
 const MAX_AUTOMATIC_STEPS = 200;
@@ -28,40 +26,6 @@ export function driveBots(initial: GameState): GameState {
     const needsHuman = current?.kind === "human" && !current.eliminated;
 
     switch (state.phase) {
-      case "opening": {
-        if (needsHuman) {
-          const needsKeep = current.openingDraft !== null;
-          if (needsKeep) return state;
-          const needsCommit = current.openingKeptBeforeAuction !== null;
-          if (needsCommit) return state;
-          // Human is fully opened; keep stepping for other players.
-        }
-        const p = current;
-        if (!p || p.eliminated) return state;
-        if (p.openingDraft !== null) {
-          state = reduce(state, {
-            t: "OPENING_KEEP",
-            playerId: p.id,
-            keptIds: pickOpeningKeep(p),
-          });
-          continue;
-        }
-        if (p.openingKeptBeforeAuction !== null) {
-          state = reduce(state, {
-            t: "OPENING_COMMIT",
-            playerId: p.id,
-            decisions: pickOpeningCommit(p),
-          });
-          continue;
-        }
-        // Player fully opened; advance by nudging currentPlayerId.
-        state = {
-          ...state,
-          currentPlayerId: nextPlayer(state),
-        };
-        continue;
-      }
-
       case "fees": {
         // Fees resolve per-player in seat order.
         const nextUnresolved = state.playerOrder.find(
@@ -89,7 +53,7 @@ export function driveBots(initial: GameState): GameState {
       }
 
       case "market": {
-        // Each not-yet-resolved bot rolls.
+        // Each not-yet-resolved bot draws + keeps in seat order.
         const nextUnresolved = state.playerOrder.find(
           (id) =>
             !state.players[id].eliminated &&
@@ -107,14 +71,4 @@ export function driveBots(initial: GameState): GameState {
     }
   }
   return state;
-}
-
-function nextPlayer(state: GameState): string {
-  const order = state.playerOrder;
-  const idx = order.indexOf(state.currentPlayerId);
-  for (let i = 1; i <= order.length; i++) {
-    const cand = order[(idx + i) % order.length];
-    if (!state.players[cand].eliminated) return cand;
-  }
-  return state.currentPlayerId;
 }

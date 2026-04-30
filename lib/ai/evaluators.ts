@@ -65,7 +65,8 @@ export function totalInvestmentValue(player: Player): number {
   let n = 0;
   for (const inv of player.investments) {
     if (inv.status === "active") n += investmentCapital(inv.cardId) * 0.6;
-    else if (inv.status === "funded_waiting") n += investmentCapital(inv.cardId) * 0.3;
+    // Unbuilt investments contribute their face value as paper assets.
+    else n += investmentCapital(inv.cardId) * 0.2;
   }
   return n;
 }

@@ -2,8 +2,6 @@
  * Reducer action union. Every state change flows through one of these.
  *
  * Rules source: docs/GAME_RULES.md §Actions + §Round structure.
- * Opening-phase actions are also here (the rules call them "setup" but
- * conceptually the reducer still needs them as dispatchable events).
  */
 
 import type { RickhouseId } from "./rickhouses";
@@ -15,7 +13,7 @@ export type ResourcePileName =
   | "rye"
   | "wheat";
 
-// ---------- Action-phase actions (Phase 2) ----------
+// ---------- Phase 2 actions ----------
 
 export type ActionDrawResource = {
   t: "DRAW_RESOURCE";
@@ -69,7 +67,7 @@ export type ActionResolveOperations = {
 
 export type ActionPass = { t: "PASS_ACTION"; playerId: string };
 
-// ---------- Phase-1 action (fees) ----------
+// ---------- Phase 1 actions ----------
 
 export type ActionPayFees = {
   t: "PAY_FEES";
@@ -78,24 +76,27 @@ export type ActionPayFees = {
   barrelIds: string[];
 };
 
-// ---------- Phase-3 actions (market) ----------
-
-export type ActionRollDemand = { t: "ROLL_DEMAND"; playerId: string };
-export type ActionDrawEvent = { t: "DRAW_EVENT"; playerId: string };
-
-// ---------- Opening-phase actions ----------
-
-export type ActionOpeningKeep = {
-  t: "OPENING_KEEP";
+export type ActionTakeDistressedLoan = {
+  t: "TAKE_DISTRESSED_LOAN";
   playerId: string;
-  keptIds: string[]; // exactly 3
 };
 
-export type ActionOpeningCommit = {
-  t: "OPENING_COMMIT";
+// ---------- Phase 3 actions ----------
+
+/**
+ * Phase 3 is "draw 2 market cards, keep 1, discard 1". The reducer splits this
+ * into two dispatches so the UI can show the choice between calls.
+ */
+export type ActionMarketDraw = {
+  t: "MARKET_DRAW";
   playerId: string;
-  /** One decision per kept card, in the same order as keptIds from OPENING_KEEP. */
-  decisions: Array<"implement" | "hold">;
+};
+
+export type ActionMarketKeep = {
+  t: "MARKET_KEEP";
+  playerId: string;
+  /** Card id from the two drawn that the player chooses to resolve. */
+  keptCardId: string;
 };
 
 // ---------- Phase transition (reducer-driven) ----------
@@ -115,10 +116,9 @@ export type Action =
   | ActionResolveOperations
   | ActionPass
   | ActionPayFees
-  | ActionRollDemand
-  | ActionDrawEvent
-  | ActionOpeningKeep
-  | ActionOpeningCommit
+  | ActionTakeDistressedLoan
+  | ActionMarketDraw
+  | ActionMarketKeep
   | ActionAdvance;
 
 export type ActionKind = Action["t"];

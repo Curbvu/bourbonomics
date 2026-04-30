@@ -1,20 +1,18 @@
 /**
- * Bourbon sale pricing per GAME_RULES.md §Bourbon / Bourbon Card.
+ * Bourbon sale pricing per GAME_RULES.md §Bourbon Card Pricing.
  *
  * Market Price Guide = 3×3 grid.
- *   Age bands    (rows):    [2–3, 4–7, 8+]
- *   Demand bands (columns): [Low 2–3, Mid 4–5, High 6+]
+ *   Age bands    (rows):    Young 2–3, Aged 4–7, Well-Aged 8+
+ *   Demand bands (columns): Low 0–3, Mid 4–6, High 7–12
  *
- * Demand = 0 → special case: sale price = age in dollars (not a grid cell).
- * Demand = 1 is between "demand is 0" and the Low band per rules; we treat
- * demand 1 the same as Low (2–3) since a single barrel of demand still pays
- * the Low cell (the rules say "≥0" fallback only at 0).
+ * Grids are intentionally sparse — blank cells pay $0. A bourbon sold into a
+ * cell with no printed price simply collects nothing for that sale.
  */
 
 import type { BourbonCardDef } from "@/lib/catalogs/types";
 
-export type AgeBand = 0 | 1 | 2; // 2–3, 4–7, 8+
-export type DemandBand = 0 | 1 | 2; // Low, Mid, High
+export type AgeBand = 0 | 1 | 2; // Young 2–3, Aged 4–7, Well-Aged 8+
+export type DemandBand = 0 | 1 | 2; // Low 0–3, Mid 4–6, High 7–12
 
 export function ageBand(ageYears: number): AgeBand {
   if (ageYears < 2)
@@ -26,14 +24,14 @@ export function ageBand(ageYears: number): AgeBand {
 
 export function demandBand(demand: number): DemandBand {
   if (demand <= 3) return 0;
-  if (demand <= 5) return 1;
+  if (demand <= 6) return 1;
   return 2;
 }
 
 export type PriceLookupResult = {
   price: number;
-  /** "grid" for normal, "demand_zero_fallback" when demand == 0. */
-  source: "grid" | "demand_zero_fallback";
+  /** "grid" for a printed cell, "blank" when the grid cell has no price ($0). */
+  source: "grid" | "blank";
 };
 
 export function lookupSalePrice(
@@ -41,11 +39,10 @@ export function lookupSalePrice(
   ageYears: number,
   demand: number,
 ): PriceLookupResult {
-  if (demand <= 0) {
-    // Per rules: bourbon sells for its age in dollars when demand is 0.
-    return { price: ageYears, source: "demand_zero_fallback" };
-  }
   const row = ageBand(ageYears);
   const col = demandBand(demand);
-  return { price: card.grid[row][col], source: "grid" };
+  const cell = card.grid[row][col];
+  // Blank cells (encoded as 0 or missing) pay nothing.
+  if (cell == null || cell <= 0) return { price: 0, source: "blank" };
+  return { price: cell, source: "grid" };
 }

@@ -17,7 +17,7 @@ describe("bot driver", () => {
     // Round should have advanced from 1.
     expect(s.round).toBeGreaterThan(1);
     // Phase should be a valid terminal or steady-state value.
-    expect(["opening", "fees", "action", "market", "gameover"]).toContain(s.phase);
+    expect(["fees", "action", "market", "gameover"]).toContain(s.phase);
   });
 
   it("is deterministic — same seed yields the same end state", () => {
@@ -49,8 +49,10 @@ describe("bot driver", () => {
       ],
     });
     const s = driveBots(s0);
-    // The human has an openingDraft still, so the driver should stop there.
-    expect(s.phase).toBe("opening");
-    expect(s.players.p1.openingDraft).not.toBeNull();
+    // Game starts in Round 1 action phase, with the human (p1) up first.
+    // The driver should stop on the human's turn.
+    expect(s.phase).toBe("action");
+    expect(s.currentPlayerId).toBe("p1");
+    expect(s.players.p1.kind).toBe("human");
   });
 });

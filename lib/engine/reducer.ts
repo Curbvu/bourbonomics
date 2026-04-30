@@ -14,6 +14,7 @@ import { produce } from "immer";
 
 import { evaluateAward } from "@/lib/rules/awards";
 import { feesForPlayer, totalFeesForPlayer } from "@/lib/rules/fees";
+import { activeInvestmentCount } from "@/lib/rules/investments";
 import { lookupSalePrice } from "@/lib/rules/pricing";
 import {
   applyActionCostDiscount,
@@ -23,13 +24,18 @@ import {
 import { applyMakeOps, applySellOps } from "@/lib/modifiers/resource";
 import { resolveOperationsEffect } from "@/lib/modifiers/operations";
 import type { Action, ResourcePileName } from "./actions";
-import { INVESTMENT_CARDS_BY_ID, drawTop, mintInstanceId } from "./decks";
+import {
+  BOURBON_CARDS_BY_ID,
+  INVESTMENT_CARDS_BY_ID,
+  MARKET_CARDS_BY_ID,
+  drawTop,
+  mintInstanceId,
+} from "./decks";
 import {
   advanceToNextPlayer,
   checkWinConditions,
   clampDemand,
   enterFeesPhase,
-  enterFirstRound,
   enterMarketPhase,
   finishFeesPhase,
   logEvent,
@@ -37,7 +43,7 @@ import {
   maybeEndMarketPhase,
   onLapEnd,
 } from "./phases";
-import { createRng, rollD6 } from "./rng";
+import { createRng } from "./rng";
 import {
   canMakeBourbon,
   canPassAction,
@@ -47,7 +53,13 @@ import {
   findBarrel,
   isPlayersTurn,
 } from "./checks";
-import type { GameState, ResourceCardInstance } from "./state";
+import {
+  DISTRESSED_LOAN_AMOUNT,
+  MARKET_DRAW_COUNT,
+  MAX_ACTIVE_INVESTMENTS,
+  type GameState,
+  type ResourceCardInstance,
+} from "./state";
 
 export function reduce(state: GameState, action: Action): GameState {
   return produce(state, (draft) => {
@@ -62,12 +74,10 @@ function apply(state: GameState, action: Action): void {
   }
 
   switch (action.t) {
-    case "OPENING_KEEP":
-      return openingKeep(state, action);
-    case "OPENING_COMMIT":
-      return openingCommit(state, action);
     case "PAY_FEES":
       return payFees(state, action);
+    case "TAKE_DISTRESSED_LOAN":
+      return takeDistressedLoan(state, action);
     case "DRAW_RESOURCE":
       return drawResource(state, action);
     case "DRAW_BOURBON":
@@ -86,116 +96,16 @@ function apply(state: GameState, action: Action): void {
       return resolveOperations(state, action);
     case "PASS_ACTION":
       return passAction(state, action);
-    case "ROLL_DEMAND":
-      return rollDemand(state, action);
-    case "DRAW_EVENT":
-      return drawEvent(state, action);
+    case "MARKET_DRAW":
+      return marketDraw(state, action);
+    case "MARKET_KEEP":
+      return marketKeep(state, action);
     case "ADVANCE":
       return advance(state);
   }
 }
 
-// ---------- Opening phase ----------
-
-function openingKeep(
-  state: GameState,
-  action: Extract<Action, { t: "OPENING_KEEP" }>,
-): void {
-  if (state.phase !== "opening") return errorEvent(state, "not_in_opening");
-  const p = state.players[action.playerId];
-  if (!p || p.openingDraft === null || p.openingKeptBeforeAuction !== null) {
-    return errorEvent(state, "already_kept_or_no_draft");
-  }
-  if (action.keptIds.length !== 3) {
-    return errorEvent(state, "must_keep_three", { kept: action.keptIds.length });
-  }
-  for (const id of action.keptIds) {
-    if (!p.openingDraft.includes(id))
-      return errorEvent(state, "kept_not_in_draft", { id });
-  }
-  // Discard the unkept three to the bottom of the investment deck.
-  const discarded = p.openingDraft.filter((id) => !action.keptIds.includes(id));
-  for (const id of discarded) state.market.investmentDeck.unshift(id);
-  p.openingKeptBeforeAuction = action.keptIds.slice();
-  p.openingDraft = null;
-  logEvent(state, "opening_keep", { playerId: p.id, kept: action.keptIds });
-}
-
-function openingCommit(
-  state: GameState,
-  action: Extract<Action, { t: "OPENING_COMMIT" }>,
-): void {
-  if (state.phase !== "opening") return errorEvent(state, "not_in_opening");
-  const p = state.players[action.playerId];
-  if (!p || p.openingKeptBeforeAuction === null) {
-    return errorEvent(state, "not_ready_to_commit");
-  }
-  // Materialise instances for each kept card, in the same order as keptIds.
-  const instances = p.openingKeptBeforeAuction.map((cardId) => ({
-    instanceId: mintInstanceId("inv"),
-    cardId,
-  }));
-  if (action.decisions.length !== instances.length) {
-    return errorEvent(state, "decision_count_mismatch", {
-      expected: instances.length,
-      got: action.decisions.length,
-    });
-  }
-  for (let i = 0; i < instances.length; i++) {
-    const inst = instances[i];
-    const choice = action.decisions[i];
-    const def = INVESTMENT_CARDS_BY_ID[inst.cardId];
-    if (!def) return errorEvent(state, "unknown_investment", { cardId: inst.cardId });
-    if (choice === "implement") {
-      if (p.cash < def.capital) {
-        // Force "hold" if they can't afford — illegal otherwise.
-        p.investments.push({
-          ...inst,
-          status: "unbuilt",
-          fundedOnRound: null,
-          usedThisRound: false,
-        });
-        logEvent(state, "opening_hold_forced", {
-          playerId: p.id,
-          cardId: inst.cardId,
-        });
-      } else {
-        p.cash -= def.capital;
-        p.investments.push({
-          ...inst,
-          status: "funded_waiting",
-          fundedOnRound: 1, // Round 1 is the "current" round during opening; flips at start of round 2.
-          usedThisRound: false,
-        });
-        logEvent(state, "opening_implement", {
-          playerId: p.id,
-          cardId: inst.cardId,
-          capital: def.capital,
-        });
-      }
-    } else {
-      p.investments.push({
-        ...inst,
-        status: "unbuilt",
-        fundedOnRound: null,
-        usedThisRound: false,
-      });
-      logEvent(state, "opening_hold", {
-        playerId: p.id,
-        cardId: inst.cardId,
-      });
-    }
-  }
-  p.openingKeptBeforeAuction = null;
-
-  // If all players have committed, enter Round 1 action phase (Phase 1 is skipped in round 1).
-  const allDone = state.playerOrder.every(
-    (id) => state.players[id].openingKeptBeforeAuction === null && state.players[id].openingDraft === null,
-  );
-  if (allDone) enterFirstRound(state);
-}
-
-// ---------- Phase 1 ----------
+// ---------- Phase 1: fees ----------
 
 function payFees(
   state: GameState,
@@ -244,14 +154,16 @@ function payFees(
       state.feesPhase.paidBarrelIds.push(fee.barrelId);
     }
   }
-  state.feesPhase.unpaidDebt[p.id] = (state.feesPhase.unpaidDebt[p.id] ?? 0) + unpaid * 2;
   state.feesPhase.resolvedPlayerIds.push(p.id);
+  // Per current rules: unpaid barrels simply do not age. No double penalty,
+  // no debt tracking, no bankruptcy.
   logEvent(state, "fees_paid", {
     playerId: p.id,
     paid,
     unpaid,
     total,
-    doublePenaltyAdded: unpaid * 2,
+    barrelsAged: action.barrelIds.length,
+    barrelsSkipped: owedAll.length - action.barrelIds.length,
   });
 
   // If everyone has resolved, run the end-of-fees pass.
@@ -260,6 +172,30 @@ function payFees(
       !state.players[id].eliminated && !state.feesPhase.resolvedPlayerIds.includes(id),
   );
   if (stillToResolve.length === 0) finishFeesPhase(state);
+}
+
+function takeDistressedLoan(
+  state: GameState,
+  action: Extract<Action, { t: "TAKE_DISTRESSED_LOAN" }>,
+): void {
+  if (state.phase !== "fees") return errorEvent(state, "not_in_fees");
+  const p = state.players[action.playerId];
+  if (!p || p.eliminated) return errorEvent(state, "no_player");
+  if (p.loanUsed) return errorEvent(state, "loan_already_used");
+  if (p.loanOutstanding) return errorEvent(state, "loan_already_outstanding");
+  // Eligibility: cash must be less than the rent owed for the round.
+  const owed = totalFeesForPlayer(state, p.id);
+  if (p.cash >= owed) {
+    return errorEvent(state, "loan_not_needed", { cash: p.cash, owed });
+  }
+  p.cash += DISTRESSED_LOAN_AMOUNT;
+  p.loanOutstanding = true;
+  p.loanUsed = true;
+  logEvent(state, "loan_taken", {
+    playerId: p.id,
+    amount: DISTRESSED_LOAN_AMOUNT,
+    rentOwed: owed,
+  });
 }
 
 // ---------- Phase 2: action phase common helpers ----------
@@ -416,7 +352,6 @@ function refillBourbonFaceUp(state: GameState): void {
 
 function reshuffleBourbonDiscard(state: GameState): void {
   if (state.market.bourbonDiscard.length === 0) return;
-  // Use a deterministic shuffle via the rng state.
   const rng = createRng(state.rngState);
   const merged = state.market.bourbonDeck.concat(state.market.bourbonDiscard);
   const shuffled: string[] = [];
@@ -428,6 +363,22 @@ function reshuffleBourbonDiscard(state: GameState): void {
   }
   state.market.bourbonDeck = shuffled;
   state.market.bourbonDiscard = [];
+  state.rngState = rng.state;
+}
+
+function reshuffleMarketDiscard(state: GameState): void {
+  if (state.market.marketDiscard.length === 0) return;
+  const rng = createRng(state.rngState);
+  const merged = state.market.marketDeck.concat(state.market.marketDiscard);
+  const shuffled: string[] = [];
+  const pool = merged.slice();
+  while (pool.length > 0) {
+    const idx = Math.floor(((rng.state = (rng.state + 0x6d2b79f5) >>> 0) >>> 0) / 4294967296 * pool.length);
+    shuffled.push(pool[idx]);
+    pool.splice(idx, 1);
+  }
+  state.market.marketDeck = shuffled;
+  state.market.marketDiscard = [];
   state.rngState = rng.state;
 }
 
@@ -602,7 +553,6 @@ function drawInvestment(
     instanceId: mintInstanceId("inv"),
     cardId: drawn,
     status: "unbuilt",
-    fundedOnRound: null,
     usedThisRound: false,
   });
   logEvent(state, "draw_investment", {
@@ -646,14 +596,20 @@ function implementInvestment(
   if (!inv) return errorEvent(state, "investment_not_in_hand");
   if (inv.status !== "unbuilt")
     return errorEvent(state, "investment_already_built");
+  // Cap: at most MAX_ACTIVE_INVESTMENTS active per player at once.
+  if (activeInvestmentCount(state, player.id) >= MAX_ACTIVE_INVESTMENTS) {
+    return errorEvent(state, "investment_cap_reached", {
+      cap: MAX_ACTIVE_INVESTMENTS,
+    });
+  }
   const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
   if (!def) return errorEvent(state, "unknown_investment");
   if (player.cash < def.capital)
     return errorEvent(state, "cannot_afford_capital", { capital: def.capital });
   if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
   player.cash -= def.capital;
-  inv.status = "funded_waiting";
-  inv.fundedOnRound = state.round;
+  // Per current rules: implemented investments are active immediately.
+  inv.status = "active";
   logEvent(state, "implement_investment", {
     playerId: player.id,
     instanceId: inv.instanceId,
@@ -713,38 +669,98 @@ function passAction(
   }
 }
 
-// ---------- Phase 3 ----------
+// ---------- Phase 3: market ----------
 
-function rollDemand(
+function marketDraw(
   state: GameState,
-  action: Extract<Action, { t: "ROLL_DEMAND" }>,
+  action: Extract<Action, { t: "MARKET_DRAW" }>,
 ): void {
   if (state.phase !== "market") return errorEvent(state, "not_in_market");
   const p = state.players[action.playerId];
   if (!p || p.eliminated || p.marketResolved)
-    return errorEvent(state, "cannot_roll");
-
-  const rng = createRng(state.rngState);
-  const d1 = rollD6(rng);
-  const d2 = rollD6(rng);
-  state.rngState = rng.state;
-  const total = d1 + d2;
-  const oldDemand = state.demand;
-  if (d1 === 6 && d2 === 6) {
-    state.demand = 12;
-  } else if (total > state.demand) {
-    state.demand += 1;
+    return errorEvent(state, "cannot_draw_market");
+  // It must be this player's turn to draw.
+  if (state.currentPlayerId !== action.playerId)
+    return errorEvent(state, "not_your_market_turn");
+  // Already drawn but not yet kept.
+  if (state.marketPhase[action.playerId]?.drawnCardIds?.length) {
+    return errorEvent(state, "already_drew_market");
   }
-  clampDemand(state);
-  p.marketResolved = true;
-  logEvent(state, "roll_demand", {
+  const drawn: string[] = [];
+  for (let i = 0; i < MARKET_DRAW_COUNT; i++) {
+    if (state.market.marketDeck.length === 0) reshuffleMarketDiscard(state);
+    if (state.market.marketDeck.length === 0) break; // truly exhausted
+    const [top, rest] = drawTop(state.market.marketDeck);
+    state.market.marketDeck = rest;
+    if (top) drawn.push(top);
+  }
+  if (drawn.length === 0) {
+    // Nothing to do. Mark resolved and advance.
+    p.marketResolved = true;
+    logEvent(state, "market_deck_exhausted", { playerId: p.id });
+    advanceToNextMarketResolver(state);
+    maybeEndMarketPhase(state);
+    return;
+  }
+  state.marketPhase[action.playerId] = { drawnCardIds: drawn };
+  logEvent(state, "market_draw", {
     playerId: p.id,
-    d1,
-    d2,
-    total,
-    oldDemand,
-    newDemand: state.demand,
+    drawnCardIds: drawn,
   });
+}
+
+function marketKeep(
+  state: GameState,
+  action: Extract<Action, { t: "MARKET_KEEP" }>,
+): void {
+  if (state.phase !== "market") return errorEvent(state, "not_in_market");
+  const p = state.players[action.playerId];
+  if (!p || p.eliminated || p.marketResolved)
+    return errorEvent(state, "cannot_keep_market");
+  const stash = state.marketPhase[action.playerId];
+  if (!stash || stash.drawnCardIds.length === 0)
+    return errorEvent(state, "no_market_draw_to_keep");
+  if (!stash.drawnCardIds.includes(action.keptCardId))
+    return errorEvent(state, "kept_not_in_drawn");
+
+  // Discard the unkept cards.
+  for (const id of stash.drawnCardIds) {
+    if (id !== action.keptCardId) state.market.marketDiscard.push(id);
+  }
+  // Resolve the kept card.
+  const def = MARKET_CARDS_BY_ID[action.keptCardId];
+  if (!def) {
+    // Shouldn't happen, but keep playing.
+    state.market.marketDiscard.push(action.keptCardId);
+    logEvent(state, "market_keep_unknown", {
+      playerId: p.id,
+      cardId: action.keptCardId,
+    });
+  } else {
+    if (def.resolved.kind === "demand_delta") {
+      const before = state.demand;
+      state.demand += def.resolved.delta;
+      clampDemand(state);
+      logEvent(state, "market_demand_change", {
+        playerId: p.id,
+        cardId: def.id,
+        delta: def.resolved.delta,
+        before,
+        after: state.demand,
+      });
+    } else {
+      logEvent(state, "market_flavor", {
+        playerId: p.id,
+        cardId: def.id,
+      });
+    }
+    // Resolved cards go to the discard.
+    state.market.marketDiscard.push(action.keptCardId);
+  }
+
+  delete state.marketPhase[action.playerId];
+  p.marketResolved = true;
+
   advanceToNextMarketResolver(state);
   maybeEndMarketPhase(state);
 }
@@ -762,45 +778,14 @@ function advanceToNextMarketResolver(state: GameState): void {
   }
 }
 
-function drawEvent(
-  state: GameState,
-  action: Extract<Action, { t: "DRAW_EVENT" }>,
-): void {
-  if (state.phase !== "market") return errorEvent(state, "not_in_market");
-  const p = state.players[action.playerId];
-  if (!p || p.eliminated || p.marketResolved)
-    return errorEvent(state, "cannot_draw_event");
-  // Event deck currently empty — graceful degrade to a roll.
-  if (state.market.eventDeck.length === 0) {
-    logEvent(state, "draw_event_empty_falls_back_to_roll", {
-      playerId: p.id,
-    });
-    return rollDemand(state, { t: "ROLL_DEMAND", playerId: p.id });
-  }
-  const [drawn, rest] = drawTop(state.market.eventDeck);
-  state.market.eventDeck = rest;
-  p.marketResolved = true;
-  logEvent(state, "draw_event", { playerId: p.id, cardId: drawn });
-  advanceToNextMarketResolver(state);
-  maybeEndMarketPhase(state);
-}
-
 // ---------- Reducer-driven advance ----------
 
 function advance(state: GameState): void {
   if (state.phase === "fees") {
-    // Some test paths use ADVANCE to skip past round 1 fees (which are auto-skipped).
-    // No-op outside fees; normal phase exit happens automatically.
-    return;
-  }
-  if (state.phase === "opening") {
-    // No-op; opening completes when all OPENING_COMMIT actions resolve.
     return;
   }
   if (state.phase === "action") return;
   if (state.phase === "market") return;
-  // Useful when wiring round 1: caller can dispatch ADVANCE to enter feeds in round 2.
-  // Currently unused but kept for future test ergonomics.
 }
 
 // ---------- Helpers ----------
@@ -810,4 +795,4 @@ function errorEvent(state: GameState, kind: string, data?: Record<string, unknow
 }
 
 // Re-exports for convenience in tests / store.
-export { enterMarketPhase, enterFeesPhase };
+export { enterMarketPhase, enterFeesPhase, BOURBON_CARDS_BY_ID };

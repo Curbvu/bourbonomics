@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 
-import { feesForPlayer } from "@/lib/rules/fees";
+import { feesForPlayer, totalFeesForPlayer } from "@/lib/rules/fees";
 import { useGameStore } from "@/lib/store/gameStore";
+import {
+  DISTRESSED_LOAN_AMOUNT,
+  DISTRESSED_LOAN_REPAYMENT,
+} from "@/lib/engine/state";
 
 export default function FeesPanel() {
   const state = useGameStore((s) => s.state)!;
@@ -17,6 +21,9 @@ export default function FeesPanel() {
   if (alreadyResolved) return null;
 
   const fees = feesForPlayer(state, humanId);
+  const totalOwed = totalFeesForPlayer(state, humanId);
+  const loanEligible = !me.loanUsed && me.cash < totalOwed;
+
   if (fees.length === 0) {
     return (
       <section className="rounded-md border border-slate-800 bg-slate-900/60 p-4">
@@ -49,9 +56,6 @@ export default function FeesPanel() {
   const pay = fees
     .filter((f) => !skipped.has(f.barrelId))
     .reduce((s, f) => s + f.amount, 0);
-  const unpaid = fees
-    .filter((f) => skipped.has(f.barrelId))
-    .reduce((s, f) => s + f.amount, 0);
 
   return (
     <section className="rounded-md border border-emerald-800 bg-emerald-950/30 p-4">
@@ -59,8 +63,13 @@ export default function FeesPanel() {
         Phase 1 · Rickhouse fees
       </h2>
       <p className="mb-3 text-sm text-emerald-100">
-        Click a barrel to skip it (it won&apos;t age and you&apos;ll owe double).
+        Click a barrel to skip it (it won&apos;t age this round, no penalty).
         Cash: <span className="font-semibold">${me.cash}</span>.
+        {me.loanOutstanding ? (
+          <span className="ml-2 rounded bg-amber-700/40 px-1.5 py-0.5 text-xs text-amber-200">
+            Loan outstanding · repays ${DISTRESSED_LOAN_REPAYMENT} next Phase 1
+          </span>
+        ) : null}
       </p>
       <div className="mb-3 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
         {fees.map((fee) => {
@@ -84,21 +93,36 @@ export default function FeesPanel() {
                 {fee.monopolyWaived
                   ? "$0 monopoly"
                   : sk
-                    ? `skip · $${fee.amount * 2} penalty`
+                    ? `skip · won't age`
                     : `$${fee.amount}`}
               </span>
             </button>
           );
         })}
       </div>
-      <div className="flex items-center gap-4 text-sm">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
         <span>
           Pay now: <span className="font-semibold text-emerald-300">${pay}</span>
         </span>
-        {unpaid > 0 ? (
-          <span>
-            Double-penalty queued:{" "}
-            <span className="font-semibold text-rose-300">${unpaid * 2}</span>
+        {loanEligible ? (
+          <button
+            type="button"
+            onClick={() =>
+              dispatch({
+                t: "TAKE_DISTRESSED_LOAN",
+                playerId: humanId,
+              })
+            }
+            title={`Borrow $${DISTRESSED_LOAN_AMOUNT} now, repay $${DISTRESSED_LOAN_REPAYMENT} at the start of next Phase 1. Once per game.`}
+            className="rounded-md border border-amber-500 bg-amber-900/40 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-800/60"
+          >
+            Take Distressed Loan (+${DISTRESSED_LOAN_AMOUNT}, owes $
+            {DISTRESSED_LOAN_REPAYMENT})
+          </button>
+        ) : null}
+        {me.loanUsed && !me.loanOutstanding ? (
+          <span className="rounded bg-slate-800/60 px-1.5 py-0.5 text-xs text-slate-400">
+            Loan already used this game
           </span>
         ) : null}
         <button

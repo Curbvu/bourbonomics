@@ -14,6 +14,7 @@ import {
   INVESTMENT_CARDS,
   INVESTMENT_CARDS_BY_ID,
 } from "@/lib/catalogs/investment.generated";
+import { MARKET_CARDS, MARKET_CARDS_BY_ID } from "@/lib/catalogs/market.generated";
 import { OPERATIONS_CARDS } from "@/lib/catalogs/operations.generated";
 import { SPECIALTY_RESOURCES } from "@/lib/catalogs/resource.generated";
 import type { ResourceType } from "@/lib/catalogs/types";
@@ -21,7 +22,7 @@ import type { Rng } from "./rng";
 import { shuffle } from "./rng";
 import type { ResourceCardInstance } from "./state";
 
-export { BOURBON_CARDS_BY_ID, INVESTMENT_CARDS_BY_ID };
+export { BOURBON_CARDS_BY_ID, INVESTMENT_CARDS_BY_ID, MARKET_CARDS_BY_ID };
 
 let instanceCounter = 0;
 /**
@@ -126,11 +127,14 @@ export function buildOperationsDeck(rng: Rng): string[] {
 }
 
 /**
- * Events deck is empty for now; Phase 3 falls through to "roll for demand" if empty.
- * Add structured events in data/events.yaml + build script later (chapter deferral).
+ * Phase 3 market deck. Built from MARKET_CARDS catalog with per-card copies.
  */
-export function buildEventDeck(_rng: Rng): string[] {
-  return [];
+export function buildMarketDeck(rng: Rng): string[] {
+  const ids: string[] = [];
+  for (const c of MARKET_CARDS) {
+    for (let i = 0; i < c.deckCopies; i++) ids.push(c.id);
+  }
+  return shuffle(rng, ids);
 }
 
 /** Draw the top card from a pile; returns [drawn, rest]. Null if empty. */

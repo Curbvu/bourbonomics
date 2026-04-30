@@ -1,11 +1,14 @@
 /**
- * New-game construction: builds a fresh GameState at the opening phase.
+ * New-game construction: builds a fresh GameState ready for Round 1's action phase.
+ *
+ * Per current rules there is no opening draft / auction. Phase 1 is skipped in
+ * Round 1 (no barrels yet to age), so the new game starts in the action phase.
  */
 
 import {
   buildBourbonDeck,
-  buildEventDeck,
   buildInvestmentDeck,
+  buildMarketDeck,
   buildOperationsDeck,
   buildResourcePiles,
   drawTop,
@@ -47,7 +50,7 @@ export function createInitialState(config: NewGameConfig): GameState {
   let bourbonDeck = buildBourbonDeck(rng);
   const investmentDeck = buildInvestmentDeck(rng);
   const operationsDeck = buildOperationsDeck(rng);
-  const eventDeck = buildEventDeck(rng);
+  const marketDeck = buildMarketDeck(rng);
 
   // Flip the top of the bourbon deck face up.
   const [faceUp, rest] = drawTop(bourbonDeck);
@@ -75,23 +78,10 @@ export function createInitialState(config: NewGameConfig): GameState {
       eliminated: false,
       marketResolved: false,
       hasTakenPaidActionThisRound: false,
-      openingDraft: null,
-      openingKeptBeforeAuction: null,
+      loanOutstanding: false,
+      loanUsed: false,
     };
   });
-
-  // Opening-phase draft: draw 6 investments for each player. They will choose 3 to keep.
-  for (const pid of playerOrder) {
-    const draft: string[] = [];
-    for (let i = 0; i < 6; i++) {
-      const [top, rem] = drawTop(investmentDeck);
-      if (top === null) break;
-      draft.push(top);
-      investmentDeck.length = 0;
-      investmentDeck.push(...rem);
-    }
-    players[pid].openingDraft = draft;
-  }
 
   const rickhouses = RICKHOUSES.map((r) => ({
     id: r.id,
@@ -105,9 +95,9 @@ export function createInitialState(config: NewGameConfig): GameState {
     createdAt,
     seed: config.seed,
     rngState: rng.state,
-    mode: "kentucky_straight",
     round: 1,
-    phase: "opening",
+    // Round 1 skips Phase 1 fees; the game starts directly in the action phase.
+    phase: "action",
     startPlayerId: playerOrder[0],
     firstPasserId: null,
     players,
@@ -125,7 +115,8 @@ export function createInitialState(config: NewGameConfig): GameState {
       bourbonDiscard: [],
       investmentDeck,
       operationsDeck,
-      eventDeck,
+      marketDeck,
+      marketDiscard: [],
     },
     demand: STARTING_DEMAND,
     actionPhase: {
@@ -138,8 +129,8 @@ export function createInitialState(config: NewGameConfig): GameState {
     feesPhase: {
       resolvedPlayerIds: [],
       paidBarrelIds: [],
-      unpaidDebt: {},
     },
+    marketPhase: {},
     winnerIds: [],
     winReason: null,
     log: [],

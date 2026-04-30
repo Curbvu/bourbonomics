@@ -2,25 +2,19 @@
  * Core game state shape. Pure data: every field must be JSON-serializable so the
  * reducer is deterministic and save/load is free.
  *
- * Authoritative rules source: docs/GAME_RULES.md (Kentucky Straight mode).
+ * Authoritative rules source: docs/GAME_RULES.md.
  */
 
 import type { ResourceType } from "@/lib/catalogs/types";
 import type { RickhouseId } from "./rickhouses";
 
-export type Mode = "kentucky_straight";
-
 export type Phase =
-  | "opening" // pre-round 1 setup: keep 3, then commit
   | "fees" // Phase 1
   | "action" // Phase 2
   | "market" // Phase 3
   | "gameover";
 
-export type WinReason =
-  | "triple_crown"
-  | "baron_of_kentucky"
-  | "last_baron_standing";
+export type WinReason = "triple_crown";
 
 // ---------- Resources ----------
 
@@ -48,16 +42,22 @@ export type BarrelInstance = {
 
 // ---------- Investments ----------
 
-export type InvestmentStatus = "unbuilt" | "funded_waiting" | "active";
+/**
+ * Investment lifecycle (per current rules):
+ *   unbuilt — drawn into hand, capital not paid, no effects.
+ *   active  — implemented (capital paid), effects apply immediately.
+ *
+ * Players may hold any number of unbuilt investments in hand, but
+ * may have at most MAX_ACTIVE_INVESTMENTS implemented at once.
+ */
+export type InvestmentStatus = "unbuilt" | "active";
 
 export type InvestmentInstance = {
   /** Instance id — a player can hold multiple copies of the same cardId. */
   instanceId: string;
   cardId: string;
   status: InvestmentStatus;
-  /** Round when funded (via Implement). Flips to "active" at start of round + 1. */
-  fundedOnRound: number | null;
-  /** Per-round usage flags keyed to roundNumber to enforce oncePerRound modifiers. */
+  /** Per-round usage flag for once-per-round modifiers. */
   usedThisRound: boolean;
 };
 
@@ -86,14 +86,22 @@ export type Player = {
   operations: OperationsInstance[];
   silverAwards: string[]; // bourbon card ids with Silver
   goldAwards: string[]; // bourbon card ids with Gold
+  /**
+   * Defensive flag — current rules have no bankruptcy, so this should
+   * never become true in normal play. Kept so future re-introduction
+   * of an elimination mechanic has a place to land without rippling
+   * type changes through filters that already check it.
+   */
   eliminated: boolean;
-  /** Set once the player has chosen "roll" or "event" during Phase 3 this round. */
+  /** Set once the player has resolved their Phase 3 market draw this round. */
   marketResolved: boolean;
   /** True after the player has spent on at least one paid action this round. Resets at round start. */
   hasTakenPaidActionThisRound: boolean;
-  /** Opening-phase scratchpads. */
-  openingDraft: string[] | null; // the initial draw of 6
-  openingKeptBeforeAuction: string[] | null; // kept 3 (pre-auction)
+  // Distressed Distiller's Loan tracking.
+  /** True while this player owes the bank a loan repayment. */
+  loanOutstanding: boolean;
+  /** True after this player has used their once-per-game loan eligibility. */
+  loanUsed: boolean;
 };
 
 // ---------- Rickhouses ----------
@@ -119,7 +127,9 @@ export type Market = {
   bourbonDiscard: string[];
   investmentDeck: string[];
   operationsDeck: string[];
-  eventDeck: string[];
+  /** Phase 3 market cards. Reshuffled from `marketDiscard` when empty. */
+  marketDeck: string[];
+  marketDiscard: string[];
 };
 
 // ---------- Action phase bookkeeping ----------
@@ -142,8 +152,16 @@ export type FeesPhaseState = {
   resolvedPlayerIds: string[];
   /** Per-barrel: whether it was paid this round. */
   paidBarrelIds: string[];
-  /** Double-penalty debt remaining per player. */
-  unpaidDebt: Record<string, number>;
+};
+
+/**
+ * Per-player Phase 3 state: each baron draws 2 market cards and keeps 1.
+ * `drawnCardIds` holds the cards currently on offer for that player; once
+ * they choose one, the chosen card resolves and the other is discarded,
+ * after which the entry is cleared.
+ */
+export type MarketPhasePlayerState = {
+  drawnCardIds: string[];
 };
 
 // ---------- Events / log ----------
@@ -167,7 +185,6 @@ export type GameState = {
   seed: number;
   rngState: number;
 
-  mode: Mode;
   round: number;
   phase: Phase;
 
@@ -184,6 +201,7 @@ export type GameState = {
 
   actionPhase: ActionPhaseState;
   feesPhase: FeesPhaseState;
+  marketPhase: Record<string, MarketPhasePlayerState>;
 
   /** Set when the game ends. */
   winnerIds: string[];
@@ -194,11 +212,15 @@ export type GameState = {
   logSeq: number;
 };
 
-// ---------- Helpers ----------
+// ---------- Constants ----------
 
 export const STARTING_DEMAND = 6;
 export const MAX_DEMAND = 12;
 export const MIN_DEMAND = 0;
-export const DEFAULT_STARTING_CASH = 20;
-export const BARON_OF_KENTUCKY_BARRELS = 15;
+export const DEFAULT_STARTING_CASH = 40;
 export const TRIPLE_CROWN_GOLDS = 3;
+export const MAX_ACTIVE_INVESTMENTS = 3;
+export const DISTRESSED_LOAN_AMOUNT = 10;
+export const DISTRESSED_LOAN_REPAYMENT = 13;
+/** Number of market cards drawn per player in Phase 3 (one is kept, the rest discarded). */
+export const MARKET_DRAW_COUNT = 2;

@@ -2,10 +2,9 @@
  * Weighted-scoring bot for Bourbonomics.
  *
  * Decision points handled here:
- *   - Opening: `pickOpeningKeep` (3 of 6) and `pickOpeningCommit` (implement vs hold).
  *   - Action phase: `pickActionPhaseMove` — scores all legal moves and picks one.
  *   - Fees: `pickFeePayment` — pick which barrels to pay for given cash.
- *   - Market: `pickMarketMove` — roll or event.
+ *   - Market: `pickMarketMove` — drives the Phase 3 draw-and-keep flow.
  *
  * Each `botDifficulty` level tunes exploration via a softmax-ish temperature:
  *   - easy:   high noise, often picks below-optimal
@@ -17,7 +16,7 @@
  */
 
 import type { Action } from "@/lib/engine/actions";
-import { drawTop } from "@/lib/engine/decks";
+import { drawTop, MARKET_CARDS_BY_ID } from "@/lib/engine/decks";
 import type { BotDifficulty, GameState, Player } from "@/lib/engine/state";
 import {
   actionCostNow,
@@ -60,34 +59,6 @@ function pickBest(
   const window = Math.min(windowForDifficulty(difficulty), sorted.length);
   const idx = (state.logSeq + state.round) % window;
   return sorted[idx];
-}
-
-// ---------- Opening ----------
-
-export function pickOpeningKeep(player: Player): string[] {
-  const draft = player.openingDraft ?? [];
-  // Prefer high-capital (higher ceiling) cards — bot will hold cheap ones.
-  const ranked = draft
-    .slice()
-    .sort((a, b) => investmentCapital(b) - investmentCapital(a));
-  return ranked.slice(0, 3);
-}
-
-export function pickOpeningCommit(player: Player): Array<"implement" | "hold"> {
-  const kept = player.openingKeptBeforeAuction ?? [];
-  const budget = Math.floor(player.cash * 0.4); // don't sink more than 40% of cash into round-1 implements
-  const out: Array<"implement" | "hold"> = [];
-  let spent = 0;
-  for (const cardId of kept) {
-    const cost = investmentCapital(cardId);
-    if (cost > 0 && spent + cost <= budget) {
-      out.push("implement");
-      spent += cost;
-    } else {
-      out.push("hold");
-    }
-  }
-  return out;
 }
 
 // ---------- Action phase ----------
@@ -253,13 +224,29 @@ export function pickFeePayment(state: GameState, playerId: string): string[] {
 
 // ---------- Market ----------
 
+/**
+ * Phase 3 is now "draw 2, keep 1." The bot's choice of which to keep is to
+ * pick whichever card raises demand the most (or, if both are non-numeric
+ * flavor cards, the first one). When the bot hasn't drawn yet, it draws.
+ */
 export function pickMarketMove(state: GameState, playerId: string): Action {
-  // Events not yet authored; always roll.
-  if (state.market.eventDeck.length === 0) {
-    return { t: "ROLL_DEMAND", playerId };
+  const stash = state.marketPhase[playerId];
+  const drawn = stash?.drawnCardIds ?? [];
+  if (drawn.length === 0) {
+    return { t: "MARKET_DRAW", playerId };
   }
-  // With events present: 50/50 bias toward rolling.
-  return { t: "ROLL_DEMAND", playerId };
+  let bestId = drawn[0];
+  let bestScore = -Infinity;
+  for (const id of drawn) {
+    const def = MARKET_CARDS_BY_ID[id];
+    let score = 0;
+    if (def && def.resolved.kind === "demand_delta") score = def.resolved.delta;
+    if (score > bestScore) {
+      bestScore = score;
+      bestId = id;
+    }
+  }
+  return { t: "MARKET_KEEP", playerId, keptCardId: bestId };
 }
 
 // Re-export for tests.

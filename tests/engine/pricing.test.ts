@@ -6,14 +6,17 @@ import {
 } from "@/lib/rules/pricing";
 import type { BourbonCardDef } from "@/lib/catalogs/types";
 
+// Sample card with a sparse grid: some cells are blank ($0).
+//   Age bands:    Young 2–3, Aged 4–7, Well-Aged 8+
+//   Demand bands: Low 0–3,  Mid 4–6,   High 7–12
 const sampleCard: BourbonCardDef = {
   id: "TEST",
   name: "Test card",
   rarity: "Standard",
   grid: [
-    [3, 5, 7],
-    [10, 14, 18],
-    [15, 22, 30],
+    [3, 5, 0], // Young: pays Low/Mid; nothing at High
+    [10, 14, 18], // Aged: full row
+    [0, 22, 30], // Well-Aged: nothing at Low
   ],
   awards: null,
 };
@@ -33,30 +36,37 @@ describe("pricing", () => {
     expect(() => ageBand(0)).toThrow();
   });
 
-  it("demandBand maps correctly", () => {
-    expect(demandBand(1)).toBe(0); // 1 still uses Low column
-    expect(demandBand(2)).toBe(0);
+  it("demandBand maps correctly per current rules (Low 0–3, Mid 4–6, High 7–12)", () => {
+    expect(demandBand(0)).toBe(0);
+    expect(demandBand(1)).toBe(0);
     expect(demandBand(3)).toBe(0);
     expect(demandBand(4)).toBe(1);
     expect(demandBand(5)).toBe(1);
-    expect(demandBand(6)).toBe(2);
+    expect(demandBand(6)).toBe(1);
+    expect(demandBand(7)).toBe(2);
     expect(demandBand(12)).toBe(2);
   });
 
-  it("looks up the grid intersection", () => {
+  it("looks up the grid intersection for printed cells", () => {
     expect(lookupSalePrice(sampleCard, 2, 3).price).toBe(3);
     expect(lookupSalePrice(sampleCard, 5, 5).price).toBe(14);
     expect(lookupSalePrice(sampleCard, 10, 9).price).toBe(30);
   });
 
-  it("demand 0 returns age in dollars (not the grid)", () => {
-    const r = lookupSalePrice(sampleCard, 6, 0);
-    expect(r.price).toBe(6);
-    expect(r.source).toBe("demand_zero_fallback");
-    expect(lookupSalePrice(sampleCard, 12, 0).price).toBe(12);
+  it("blank cells pay $0", () => {
+    // Young × High is blank.
+    const r1 = lookupSalePrice(sampleCard, 2, 8);
+    expect(r1.price).toBe(0);
+    expect(r1.source).toBe("blank");
+
+    // Well-Aged × Low is blank.
+    const r2 = lookupSalePrice(sampleCard, 9, 1);
+    expect(r2.price).toBe(0);
+    expect(r2.source).toBe("blank");
   });
 
-  it("uses the grid for demand >= 1", () => {
-    expect(lookupSalePrice(sampleCard, 5, 1).price).toBe(10);
+  it("demand 0 still uses the Low column", () => {
+    // Aged × Low (demand 0) → printed price.
+    expect(lookupSalePrice(sampleCard, 5, 0).price).toBe(10);
   });
 });

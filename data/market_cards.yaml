@@ -1,0 +1,110 @@
+# Market cards
+#
+# Phase 3 deck. Each baron draws 2, keeps 1, discards 1. Per current rules
+# the majority of cards raise demand; a smaller number do other things
+# (drops, shortages, rickhouse effects).
+#
+# resolved.kind:
+#   demand_delta — adjust market demand by `delta` immediately when the
+#                  card is kept (positive raises, negative lowers).
+#   flavor       — engine treats as a no-op for now; prose renders to UI
+#                  and a follow-up pass will wire shortages / rickhouse
+#                  effects to the resource and rickhouse opcode systems.
+
+cards:
+  # ----- Demand raisers (the majority of the deck) -----
+  - id: holiday_rush
+    title: "Holiday rush"
+    effect: "Demand surges as the holidays approach. Demand **+2**."
+    deckCopies: 4
+    resolved:
+      kind: demand_delta
+      delta: 2
+
+  - id: critic_review
+    title: "Critic's review"
+    effect: "A glowing review hits the trade press. Demand **+2**."
+    deckCopies: 3
+    resolved:
+      kind: demand_delta
+      delta: 2
+
+  - id: cocktail_revival
+    title: "Cocktail revival"
+    effect: "Old fashioneds are everywhere again. Demand **+1**."
+    deckCopies: 4
+    resolved:
+      kind: demand_delta
+      delta: 1
+
+  - id: export_deal
+    title: "Export deal"
+    effect: "A foreign distributor signs on. Demand **+3**."
+    deckCopies: 2
+    resolved:
+      kind: demand_delta
+      delta: 3
+
+  - id: bourbon_festival
+    title: "Bourbon festival"
+    effect: "The annual festival drives buyers to the state. Demand **+1**."
+    deckCopies: 3
+    resolved:
+      kind: demand_delta
+      delta: 1
+
+  - id: celebrity_endorsement
+    title: "Celebrity endorsement"
+    effect: "A famous face is suddenly drinking your brand. Demand **+2**."
+    deckCopies: 2
+    resolved:
+      kind: demand_delta
+      delta: 2
+
+  - id: distillers_award
+    title: "Distillers' award"
+    effect: "An industry award lifts the whole category. Demand **+1**."
+    deckCopies: 3
+    resolved:
+      kind: demand_delta
+      delta: 1
+
+  # ----- Demand drops (rarer) -----
+  - id: economic_downturn
+    title: "Economic downturn"
+    effect: "Tightened wallets across the country. Demand **-2**."
+    deckCopies: 2
+    resolved:
+      kind: demand_delta
+      delta: -2
+
+  - id: wine_takes_over
+    title: "Wine takes over"
+    effect: "A wine boom pulls drinkers away from brown spirits. Demand **-1**."
+    deckCopies: 2
+    resolved:
+      kind: demand_delta
+      delta: -1
+
+  # ----- Flavor / future-engine cards -----
+  - id: corn_shortage
+    title: "Corn shortage"
+    effect: "A poor corn harvest tightens supply. (Flavor — full effect arrives in a future engine pass.)"
+    deckCopies: 1
+    resolved:
+      kind: flavor
+
+  - id: rickhouse_inspection
+    title: "Rickhouse inspection"
+    effect: "Inspectors comb the warehouses. (Flavor — full effect arrives in a future engine pass.)"
+    deckCopies: 1
+    resolved:
+      kind: flavor
+
+  - id: trade_show_buzz
+    title: "Trade show buzz"
+    effect: "Buyers chatter at a national trade show. Demand **+1**."
+    deckCopies: 2
+    resolved:
+      kind: demand_delta
+      delta: 1

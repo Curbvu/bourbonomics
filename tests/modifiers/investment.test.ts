@@ -22,8 +22,8 @@ function player(investments: Player["investments"]): Player {
     eliminated: false,
     marketResolved: false,
     hasTakenPaidActionThisRound: false,
-    openingDraft: null,
-    openingKeptBeforeAuction: null,
+    loanOutstanding: false,
+    loanUsed: false,
   };
 }
 
@@ -34,7 +34,6 @@ describe("investment modifiers", () => {
         instanceId: "i1",
         cardId: "inv_rickhouse",
         status: "active",
-        fundedOnRound: 1,
         usedThisRound: false,
       },
     ]);
@@ -53,7 +52,6 @@ describe("investment modifiers", () => {
         instanceId: "i1",
         cardId: "inv_rickhouse",
         status: "active",
-        fundedOnRound: 1,
         usedThisRound: false,
       },
     ]);
@@ -61,20 +59,12 @@ describe("investment modifiers", () => {
     expect(r.total).toBe(0);
   });
 
-  it("unbuilt / funded_waiting investments do NOT apply", () => {
+  it("unbuilt investments do NOT apply", () => {
     const p = player([
-      {
-        instanceId: "i1",
-        cardId: "inv_rickhouse",
-        status: "funded_waiting",
-        fundedOnRound: 1,
-        usedThisRound: false,
-      },
       {
         instanceId: "i2",
         cardId: "inv_rickhouse",
         status: "unbuilt",
-        fundedOnRound: null,
         usedThisRound: false,
       },
     ]);
@@ -88,7 +78,6 @@ describe("investment modifiers", () => {
         instanceId: "i1",
         cardId: "inv_climate",
         status: "active",
-        fundedOnRound: 1,
         usedThisRound: false,
       },
     ]);
@@ -105,7 +94,6 @@ describe("investment modifiers", () => {
         instanceId: "i1",
         cardId: "inv_corn_futures",
         status: "active",
-        fundedOnRound: 1,
         usedThisRound: false,
       },
     ]);

@@ -3,9 +3,7 @@
 import { useGameStore } from "@/lib/store/gameStore";
 
 const REASON_LABEL: Record<string, string> = {
-  triple_crown: "Triple Crown — 3 Gold Awards",
-  baron_of_kentucky: "Baron of Kentucky — 15 barrels across all rickhouses",
-  last_baron_standing: "Last baron standing",
+  triple_crown: "Triple Crown — 3 Gold Bourbons",
 };
 
 export default function GameOverPanel() {

@@ -89,9 +89,7 @@ export default function HandTray() {
             const statusClass =
               inv.status === "active"
                 ? "border-emerald-600 bg-emerald-900/40 text-emerald-200"
-                : inv.status === "funded_waiting"
-                  ? "border-cyan-700 bg-cyan-950/40 text-cyan-200"
-                  : "border-slate-700 bg-slate-950 text-slate-200";
+                : "border-slate-700 bg-slate-950 text-slate-200";
             return (
               <div
                 key={inv.instanceId}
@@ -100,7 +98,7 @@ export default function HandTray() {
               >
                 <div className="font-semibold">{def?.name ?? inv.cardId}</div>
                 <div className="text-[10px] opacity-80">
-                  {inv.status.replace("_", " ")} · ${def?.capital ?? 0}
+                  {inv.status} · ${def?.capital ?? 0}
                 </div>
               </div>
             );
