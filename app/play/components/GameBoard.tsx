@@ -12,6 +12,7 @@ import MarketPhasePanel from "./MarketPhasePanel";
 import GameOverPanel from "./GameOverPanel";
 import EventLog from "./EventLog";
 import SaleRevealModal from "./SaleRevealModal";
+import CardDrawOverlay from "./CardDrawOverlay";
 
 export default function GameBoard() {
   const state = useGameStore((s) => s.state);
@@ -40,6 +41,7 @@ export default function GameBoard() {
       {state.phase === "action" ? <ActionBar /> : null}
 
       <SaleRevealModal />
+      <CardDrawOverlay />
     </div>
   );
 }
