@@ -80,11 +80,13 @@ export default function MarketRevealModal() {
       role="dialog"
       aria-modal="true"
       aria-label="Pick one of two market cards"
-      className="card-draw-stage fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur"
+      className="market-reveal-stage fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur"
     >
-      {/* Centered amber aura — same colour family as the card-draw overlay. */}
+      {/* Centred amber aura. Uses `market-reveal-glow` (fades in + holds);
+          the regular card-draw glow auto-fades to 0 because it belongs to an
+          auto-dismissing overlay — wrong fit for a forced-choice modal. */}
       <div
-        className="card-draw-glow pointer-events-none absolute left-1/2 top-1/2 h-[520px] w-[640px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+        className="market-reveal-glow pointer-events-none absolute left-1/2 top-1/2 h-[520px] w-[640px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
         style={{
           background:
             "radial-gradient(circle, rgba(251,191,36,0.35) 0%, transparent 65%)",

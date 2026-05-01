@@ -516,6 +516,42 @@ body {
   will-change: transform, opacity, filter;
 }
 
+/* Backdrop / aura companions for the market reveal — fade IN and HOLD at
+   the final visible state. The regular card-draw companions (`card-draw-
+   stage`, `card-draw-glow`) intentionally fade back to opacity 0 because
+   they belong to an auto-dismissing overlay; reusing them here made the
+   market modal disappear after 1.5s before the player could click. */
+
+@keyframes market-reveal-stage-fade {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+.market-reveal-stage {
+  animation: market-reveal-stage-fade 0.4s ease-out both;
+}
+
+@keyframes market-reveal-glow {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.market-reveal-glow {
+  animation: market-reveal-glow 0.6s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .resource-hand-tier-special,
   .resource-hand-tier-strong,
@@ -531,7 +567,9 @@ body {
   .card-draw-glow,
   .card-draw-shine,
   .card-draw-spark,
-  .market-reveal-card {
+  .market-reveal-card,
+  .market-reveal-stage,
+  .market-reveal-glow {
     animation: none !important;
   }
 
