@@ -32,12 +32,20 @@ export default function MarketRevealModal() {
   const state = useGameStore((s) => s.state);
   const dispatch = useGameStore((s) => s.dispatch);
 
-  // Auto-draw subscription. Whenever the store updates and it's the
-  // human's market turn with no draw yet on file, fire MARKET_DRAW. The
-  // reducer's own guards make this idempotent — once drawnCardIds is
-  // non-empty, the next subscribe callback short-circuits.
+  // Auto-draw — fires whenever the human's market-phase turn is up and
+  // they haven't drawn yet. Two trigger points:
+  //
+  //   1) On every store update (subscribe) — covers the live in-game flow
+  //      where bots auto-resolve and control eventually reaches the human.
+  //   2) Once on mount (initial check) — covers refresh / save-load where
+  //      the conditions are *already* met when this component first
+  //      renders. A subscribe-only approach would miss this.
+  //
+  // The reducer's own guards make this idempotent — once drawnCardIds is
+  // non-empty, both the subscribe handler and any subsequent re-trigger
+  // short-circuit.
   useEffect(() => {
-    const unsubscribe = useGameStore.subscribe((cur) => {
+    const tryAutoDraw = (cur: ReturnType<typeof useGameStore.getState>) => {
       const s = cur.state;
       if (!s) return;
       const me = s.playerOrder.find((id) => s.players[id].kind === "human");
@@ -48,8 +56,11 @@ export default function MarketRevealModal() {
       if (!player || player.eliminated || player.marketResolved) return;
       if (s.marketPhase[me]?.drawnCardIds?.length) return;
       cur.dispatch({ t: "MARKET_DRAW", playerId: me });
-    });
-    return unsubscribe;
+    };
+    // Initial check (covers refresh / save-load into market phase).
+    tryAutoDraw(useGameStore.getState());
+    // Future updates.
+    return useGameStore.subscribe(tryAutoDraw);
   }, []);
 
   // Render gate — read directly from state so the modal also shows up
