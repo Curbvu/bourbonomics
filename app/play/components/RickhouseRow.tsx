@@ -10,18 +10,30 @@
  * row of 28×28 barrel chips. Filled chips show their age in white mono;
  * empty slots are 1px-dashed slate-700 squares.
  *
+ * Phase 2 of the make-bourbon flow: when `useUiStore.makeBourbon.active`
+ * is true and the player has a valid mash selected in their hand, the
+ * rickhouses with capacity light up amber and become click-to-place. The
+ * click dispatches MAKE_BOURBON with the selected resource ids and clears
+ * the mode.
+ *
  * The component name is kept (`RickhouseRow`) for import compatibility with
  * existing consumers — the layout is no longer a single row.
  */
 
+import type { RickhouseId } from "@/lib/engine/rickhouses";
 import { RICKHOUSES } from "@/lib/engine/rickhouses";
+import { validateMash } from "@/lib/rules/mash";
 import { useGameStore } from "@/lib/store/gameStore";
+import { useUiStore } from "@/lib/store/uiStore";
 import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
 
 const TOTAL_SLOTS = RICKHOUSES.reduce((n, r) => n + r.capacity, 0);
 
 export default function RickhouseRow() {
   const state = useGameStore((s) => s.state)!;
+  const dispatch = useGameStore((s) => s.dispatch);
+  const makeBourbon = useUiStore((s) => s.makeBourbon);
+  const cancelMakeBourbon = useUiStore((s) => s.cancelMakeBourbon);
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
   );
@@ -41,11 +53,39 @@ export default function RickhouseRow() {
     return `${label} ${totals[id]}`;
   });
 
+  // Compute mash validity once per render so each rickhouse card can
+  // light up consistently.
+  const me = humanId ? state.players[humanId] : null;
+  const selectedSet = new Set(makeBourbon.selectedIds);
+  const selectedMash =
+    makeBourbon.active && me
+      ? me.resourceHand.filter((r) => selectedSet.has(r.instanceId))
+      : [];
+  const mashValid = makeBourbon.active && validateMash(selectedMash).ok;
+
+  const placeInRickhouse = (rickhouseId: RickhouseId) => {
+    if (!mashValid || !humanId) return;
+    dispatch({
+      t: "MAKE_BOURBON",
+      playerId: humanId,
+      rickhouseId,
+      resourceInstanceIds: makeBourbon.selectedIds,
+    });
+    cancelMakeBourbon();
+  };
+
+  const sectionClass = makeBourbon.active ? "relative z-40" : "";
+
   return (
-    <section>
+    <section className={sectionClass}>
       <div className="mb-2.5 flex items-baseline justify-between gap-3">
         <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-slate-400">
           Rickhouses · {RICKHOUSES.length} regions · {TOTAL_SLOTS} slots
+          {mashValid ? (
+            <span className="ml-2 rounded border border-amber-500 bg-amber-700/[0.20] px-1.5 py-0.5 text-amber-200">
+              Click a rickhouse to barrel
+            </span>
+          ) : null}
         </h2>
         <span className="font-mono text-[10px] uppercase tracking-[.12em] tabular-nums text-slate-500">
           {tallyParts.join(" · ")}
@@ -60,10 +100,40 @@ export default function RickhouseRow() {
             ? h.barrels.filter((b) => b.ownerId === humanId).length
             : 0;
           const freeSlots = def.capacity - filled;
+          const targetable = mashValid && freeSlots > 0;
           return (
             <div
               key={h.id}
-              className="flex flex-col gap-2.5 rounded-lg border border-slate-800 bg-slate-900/60 px-3.5 py-3"
+              role={targetable ? "button" : undefined}
+              tabIndex={targetable ? 0 : undefined}
+              onClick={targetable ? () => placeInRickhouse(h.id) : undefined}
+              onKeyDown={
+                targetable
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        placeInRickhouse(h.id);
+                      }
+                    }
+                  : undefined
+              }
+              title={
+                makeBourbon.active && !mashValid
+                  ? "Mash isn't valid yet"
+                  : makeBourbon.active && freeSlots === 0
+                    ? "No room here"
+                    : targetable
+                      ? `Barrel mash in ${def.name}`
+                      : undefined
+              }
+              className={[
+                "flex flex-col gap-2.5 rounded-lg border bg-slate-900/60 px-3.5 py-3 transition-all",
+                targetable
+                  ? "cursor-pointer border-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,.15)] hover:-translate-y-0.5 hover:shadow-[0_0_0_3px_rgba(245,158,11,.35)]"
+                  : makeBourbon.active && freeSlots === 0
+                    ? "border-rose-700/40 opacity-60"
+                    : "border-slate-800",
+              ].join(" ")}
             >
               <div className="flex items-baseline justify-between gap-2">
                 <div>
@@ -99,7 +169,12 @@ export default function RickhouseRow() {
                 {Array.from({ length: freeSlots }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
-                    className="h-7 w-7 rounded-[5px] border border-dashed border-slate-700"
+                    className={[
+                      "h-7 w-7 rounded-[5px] border border-dashed",
+                      targetable
+                        ? "border-amber-400/70"
+                        : "border-slate-700",
+                    ].join(" ")}
                     aria-hidden
                   />
                 ))}

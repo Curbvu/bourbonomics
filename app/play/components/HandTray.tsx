@@ -4,18 +4,13 @@
  * HandTray — bottom-of-canvas horizontal strip showing the human player's
  * hand, with the action affordances co-located with what they act on.
  *
- * Layout (left → right):
- *   1. Identity     — colored dot + "Your hand" + caption
- *   2. Resources    — chips + amber "Make ↵" button (opens MakeBourbonModal)
- *   3. Divider
- *   4. Bourbon      — small BourbonCardFace + amber "Sell ↵" button
- *   5. Divider
- *   6. Ops + Invest — pills + amber "Implement ↵" button
- *   7. Spacer (flex-1)
- *   8. End-turn cluster — "discard" ghost pill + amber primary "Pass ↵"
- *
- * Per-section contextual buttons replace what used to live in ActionBar:
- *   - Make ↵       opens the mash-builder modal
+ * Per-section contextual buttons:
+ *   - Make ↵       enters the in-place "make bourbon" mode. The dashboard
+ *                  blurs except for the hand and rickhouses; the player
+ *                  ticks resource chips in their hand to build the mash,
+ *                  then clicks a rickhouse on the board to barrel it.
+ *                  Cancel via Esc, the Cancel button, or clicking the
+ *                  dim overlay.
  *   - Sell ↵       sells the oldest sellable barrel using the displayed
  *                  bourbon card (face-up if available, else first in hand)
  *   - Implement ↵  pays printed capital on the first unbuilt investment
@@ -26,7 +21,7 @@
  * treatment with a tooltip explaining why.
  */
 
-import { useState } from "react";
+import { useEffect } from "react";
 
 import { BOURBON_CARDS_BY_ID } from "@/lib/catalogs/bourbon.generated";
 import { INVESTMENT_CARDS_BY_ID } from "@/lib/catalogs/investment.generated";
@@ -34,10 +29,11 @@ import { OPERATIONS_CARDS_BY_ID } from "@/lib/catalogs/operations.generated";
 import { SPECIALTY_RESOURCES_BY_ID } from "@/lib/catalogs/resource.generated";
 import type { ResourceCardDef, ResourceType } from "@/lib/catalogs/types";
 import { MAX_ACTIVE_INVESTMENTS } from "@/lib/engine/state";
+import { summarizeMash, validateMash } from "@/lib/rules/mash";
 import { useGameStore } from "@/lib/store/gameStore";
+import { useUiStore } from "@/lib/store/uiStore";
 import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
 import BourbonCardFace from "./BourbonCardFace";
-import MakeBourbonModal from "./MakeBourbonModal";
 
 type ResourceMeta = {
   glyph: string;
@@ -88,11 +84,25 @@ const RESOURCE_META: Record<ResourceType, ResourceMeta> = {
 export default function HandTray() {
   const state = useGameStore((s) => s.state)!;
   const dispatch = useGameStore((s) => s.dispatch);
-  const [makeBourbonOpen, setMakeBourbonOpen] = useState(false);
+  const makeBourbon = useUiStore((s) => s.makeBourbon);
+  const startMakeBourbon = useUiStore((s) => s.startMakeBourbon);
+  const cancelMakeBourbon = useUiStore((s) => s.cancelMakeBourbon);
+  const toggleMashCard = useUiStore((s) => s.toggleMashCard);
 
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
   );
+
+  // Esc cancels make-bourbon mode at any time.
+  useEffect(() => {
+    if (!makeBourbon.active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancelMakeBourbon();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [makeBourbon.active, cancelMakeBourbon]);
+
   if (!humanId) return null;
   const me = state.players[humanId];
   const seatIdx = paletteIndex(me.seatIndex);
@@ -115,8 +125,8 @@ export default function HandTray() {
 
   // ---- Action eligibility checks ----------------------------------------
 
-  // Make Bourbon — gate on "minimum viable mash possible". The actual
-  // mash gets built in the modal.
+  // Make Bourbon — gate on "minimum viable mash possible". The mash gets
+  // built inline by ticking chips while make-bourbon mode is active.
   const handHasCask = me.resourceHand.some((r) => r.resource === "cask");
   const handHasCorn = me.resourceHand.some((r) => r.resource === "corn");
   const handHasGrain = me.resourceHand.some(
@@ -126,26 +136,37 @@ export default function HandTray() {
   const hasOpenRickhouse = state.rickhouses.some(
     (h) => h.barrels.length < h.capacity,
   );
-  const canMake =
+  const canStartMake =
     isMyActionTurn &&
     canAfford &&
     handHasCask &&
     handHasCorn &&
     handHasGrain &&
     hasOpenRickhouse;
-  const makeReason = !isMyActionTurn
-    ? "Wait for your turn"
-    : !canAfford
-      ? `Need $${cost} to act`
-      : !handHasCask
-        ? "Need a cask in hand"
-        : !handHasCorn
-          ? "Need corn in hand"
-          : !handHasGrain
-            ? "Need a grain in hand"
-            : !hasOpenRickhouse
-              ? "Every rickhouse is full"
-              : "Build a mash and barrel it";
+  const makeReason = makeBourbon.active
+    ? "Cancel mash building"
+    : !isMyActionTurn
+      ? "Wait for your turn"
+      : !canAfford
+        ? `Need $${cost} to act`
+        : !handHasCask
+          ? "Need a cask in hand"
+          : !handHasCorn
+            ? "Need corn in hand"
+            : !handHasGrain
+              ? "Need a grain in hand"
+              : !hasOpenRickhouse
+                ? "Every rickhouse is full"
+                : "Build a mash, then click a rickhouse";
+
+  // Live mash status while make-bourbon mode is active.
+  const selectedSet = new Set(makeBourbon.selectedIds);
+  const selectedMash = me.resourceHand.filter((r) =>
+    selectedSet.has(r.instanceId),
+  );
+  const mashValidation = validateMash(selectedMash);
+  const mashBreakdown = summarizeMash(selectedMash);
+  const mashValid = mashValidation.ok;
 
   // Sell — auto-pick oldest sellable barrel + face-up bourbon card or first
   // bourbon card in hand. Same logic ActionBar's "Sell" used to use.
@@ -217,7 +238,16 @@ export default function HandTray() {
   };
 
   return (
-    <section className="hand-scrollbar flex items-center gap-[14px] overflow-x-auto border-t border-slate-800 bg-slate-950 px-[22px] py-3">
+    <section
+      className={[
+        "hand-scrollbar flex items-center gap-[14px] overflow-x-auto border-t border-slate-800 bg-slate-950 px-[22px] py-3",
+        // Lift above the make-bourbon dim overlay so the chips remain
+        // interactive while the rest of the dashboard is blurred out.
+        makeBourbon.active ? "relative z-40" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       {/* 1 — identity */}
       <div className="flex min-w-[120px] flex-shrink-0 flex-col gap-0.5">
         <div className="flex items-center gap-2">
@@ -238,13 +268,28 @@ export default function HandTray() {
       <div className="flex flex-shrink-0 items-stretch gap-2">
         <VerticalCaption>resources</VerticalCaption>
         <div className="flex flex-col items-start gap-1.5">
-          <ContextButton
-            enabled={canMake}
-            onClick={() => setMakeBourbonOpen(true)}
-            title={makeReason}
-          >
-            Make ↵
-          </ContextButton>
+          <div className="flex items-center gap-2">
+            <ContextButton
+              enabled={canStartMake || makeBourbon.active}
+              onClick={
+                makeBourbon.active ? cancelMakeBourbon : startMakeBourbon
+              }
+              title={makeReason}
+              variant={makeBourbon.active ? "danger" : "primary"}
+            >
+              {makeBourbon.active ? "Cancel ↵" : "Make ↵"}
+            </ContextButton>
+            {makeBourbon.active ? (
+              <MashStatusPill
+                valid={mashValid}
+                cask={mashBreakdown.cask}
+                corn={mashBreakdown.corn}
+                grain={mashBreakdown.grain}
+                total={mashBreakdown.total}
+                reason={mashValidation.ok ? null : mashValidation.reason}
+              />
+            ) : null}
+          </div>
           {/* Chips flow continuously; if total HandTray width exceeds the
               viewport, the parent section's `overflow-x-auto` provides a
               styled thin amber scrollbar at the bottom. */}
@@ -258,12 +303,21 @@ export default function HandTray() {
                 const specialty = r.specialtyId
                   ? SPECIALTY_RESOURCES_BY_ID[r.specialtyId]
                   : null;
+                const selectable = makeBourbon.active;
+                const selected = selectedSet.has(r.instanceId);
                 return (
                   <ResourceChip
                     key={r.instanceId}
                     meta={meta}
                     resource={r.resource}
                     specialty={specialty}
+                    selectable={selectable}
+                    selected={selected}
+                    onSelect={
+                      selectable
+                        ? () => toggleMashCard(r.instanceId)
+                        : undefined
+                    }
                   />
                 );
               })
@@ -390,10 +444,6 @@ export default function HandTray() {
         </button>
       </div>
 
-      {/* Make-bourbon modal — only mounted while open. */}
-      {makeBourbonOpen ? (
-        <MakeBourbonModal onClose={() => setMakeBourbonOpen(false)} />
-      ) : null}
     </section>
   );
 }
@@ -412,12 +462,18 @@ function ContextButton({
   enabled,
   onClick,
   title,
+  variant = "primary",
 }: {
   children: React.ReactNode;
   enabled: boolean;
   onClick: () => void;
   title: string;
+  variant?: "primary" | "danger";
 }) {
+  const enabledStyle =
+    variant === "danger"
+      ? "border-rose-700 bg-gradient-to-b from-rose-500 to-rose-700 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.2),0_2px_8px_rgba(244,63,94,.25)] hover:-translate-y-0.5 hover:from-rose-400 hover:to-rose-600 hover:shadow-[inset_0_1px_0_rgba(255,255,255,.25),0_4px_12px_rgba(244,63,94,.35)]"
+      : "border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2),0_2px_8px_rgba(245,158,11,.25)] hover:-translate-y-0.5 hover:from-amber-400 hover:to-amber-600 hover:shadow-[inset_0_1px_0_rgba(255,255,255,.25),0_4px_12px_rgba(245,158,11,.35)]";
   return (
     <button
       type="button"
@@ -427,12 +483,61 @@ function ContextButton({
       className={[
         "rounded-md border px-3 py-1 font-sans text-[11px] font-bold uppercase tracking-[.05em] transition-all",
         enabled
-          ? "border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2),0_2px_8px_rgba(245,158,11,.25)] hover:-translate-y-0.5 hover:from-amber-400 hover:to-amber-600 hover:shadow-[inset_0_1px_0_rgba(255,255,255,.25),0_4px_12px_rgba(245,158,11,.35)]"
+          ? enabledStyle
           : "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600 shadow-none",
       ].join(" ")}
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Live mash readout pill shown next to the Cancel button while make-bourbon
+ * mode is active. Mirrors the ✓/! styling from the modal version so the
+ * player gets immediate feedback as they tick chips.
+ */
+function MashStatusPill({
+  valid,
+  cask,
+  corn,
+  grain,
+  total,
+  reason,
+}: {
+  valid: boolean;
+  cask: number;
+  corn: number;
+  grain: number;
+  total: number;
+  reason: string | null;
+}) {
+  return (
+    <span
+      title={reason ?? undefined}
+      className={[
+        "flex items-center gap-2 rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[.10em]",
+        valid
+          ? "border-emerald-500/50 bg-emerald-500/[0.10] text-emerald-200"
+          : "border-slate-700 bg-slate-900 text-slate-400",
+      ].join(" ")}
+    >
+      <span
+        className={[
+          "grid h-3.5 w-3.5 place-items-center rounded-full font-bold",
+          valid ? "bg-emerald-500 text-slate-950" : "bg-slate-700 text-slate-300",
+        ].join(" ")}
+        aria-hidden
+      >
+        {valid ? "✓" : "·"}
+      </span>
+      <span className="tabular-nums">
+        {cask}c · {corn}🌽 · {grain}g · {total}/6
+      </span>
+      {valid ? (
+        <span className="text-amber-300">click a rickhouse →</span>
+      ) : null}
+    </span>
   );
 }
 
@@ -460,18 +565,43 @@ function ResourceChip({
   meta,
   resource,
   specialty,
+  selectable = false,
+  selected = false,
+  onSelect,
 }: {
   meta: ResourceMeta;
   resource: string;
   specialty: ResourceCardDef | null;
+  selectable?: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
 }) {
+  const Element = selectable ? "button" : "div";
   return (
-    <div
-      className={`flex h-[76px] w-[56px] flex-shrink-0 flex-col rounded-md border p-1.5 shadow-md ${meta.tint} ${meta.border}`}
+    <Element
+      type={selectable ? "button" : undefined}
+      onClick={selectable ? onSelect : undefined}
+      aria-pressed={selectable ? selected : undefined}
+      className={[
+        "relative flex h-[76px] w-[56px] flex-shrink-0 flex-col rounded-md border-2 p-1.5 shadow-md transition-all",
+        meta.tint,
+        selected ? "border-amber-300 ring-2 ring-amber-300" : meta.border,
+        selectable && !selected ? "cursor-pointer hover:-translate-y-0.5" : "",
+        selectable && selected ? "-translate-y-0.5" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       title={specialty?.rule}
-      role="img"
       aria-label={specialty ? `${resource}: ${specialty.name}` : resource}
     >
+      {selected ? (
+        <span
+          className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-amber-300 font-mono text-[9px] font-bold text-slate-950 shadow"
+          aria-hidden
+        >
+          ✓
+        </span>
+      ) : null}
       <div className="flex items-center justify-between">
         <span
           className={`font-mono text-[9px] font-bold tracking-[.1em] ${meta.ink}`}
@@ -496,7 +626,7 @@ function ResourceChip({
           </span>
         ) : null}
       </div>
-    </div>
+    </Element>
   );
 }
 

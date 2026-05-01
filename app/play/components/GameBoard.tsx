@@ -33,6 +33,7 @@
  */
 
 import { useGameStore } from "@/lib/store/gameStore";
+import { useUiStore } from "@/lib/store/uiStore";
 import CardDrawOverlay from "./CardDrawOverlay";
 import FeesPanel from "./FeesPanel";
 import GameOverPanel from "./GameOverPanel";
@@ -45,6 +46,8 @@ import SaleRevealModal from "./SaleRevealModal";
 
 export default function GameBoard() {
   const state = useGameStore((s) => s.state);
+  const makeBourbonActive = useUiStore((s) => s.makeBourbon.active);
+  const cancelMakeBourbon = useUiStore((s) => s.cancelMakeBourbon);
   if (!state) return null;
 
   return (
@@ -71,6 +74,26 @@ export default function GameBoard() {
 
       {/* HandTray bleeds to canvas edges. */}
       <HandTray />
+
+      {/* Make-bourbon dim/blur layer. Sits beneath the HandTray (z-40)
+          and RickhouseRow (z-40) so those stay interactive while the
+          rest of the dashboard fades out. Click anywhere on the
+          overlay to cancel the mode. */}
+      {makeBourbonActive ? (
+        <div
+          aria-label="Cancel make-bourbon"
+          role="button"
+          tabIndex={0}
+          onClick={cancelMakeBourbon}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              cancelMakeBourbon();
+            }
+          }}
+          className="fixed inset-0 z-30 bg-slate-950/55 backdrop-blur-sm transition-opacity"
+        />
+      ) : null}
 
       {/* Modal-style overlays (always mounted, render conditionally). */}
       <SaleRevealModal />
