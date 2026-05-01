@@ -12,7 +12,7 @@ The challenge isn't just making bourbon—it's knowing **when** to make it, **wh
 
 # 🏆 Winning the Game
 
-The game ends when a player collects their third Gold Bourbon. Producing the third Gold does not end the round immediately — it announces that the **current round is the final round**.
+The game ends when a player **unlocks** their third Gold Bourbon. Unlocking the third Gold does not end the round immediately — it announces that the **current round is the final round**.
 
 The action phase continues normally for all players, including the triggering player. All standard actions are allowed: production, sales, swapping mash bills, calling audits, installing investments, and playing Operations cards. The paid-action pivot and audit rules apply as usual.
 
@@ -24,15 +24,10 @@ Each player calculates their final score by totaling the following:
 
 - **Cash:** Face value (each $1 in cash = $1 in score).
 - **Active Investments:** Each active investment scores its printed installation cost.
-- **Unsold Barrels in Rickhouses:** Score by age band, regardless of demand:
-  - Unaged (under 2 years): $1 per barrel
-  - Young (2–3 years): $2 per barrel
-  - Aged (4–7 years): $5 per barrel
-  - Well-Aged (8+ years): $10 per barrel
-- **Mash Bill Trophies:** $25 per Gold mash bill held, $5 per Silver mash bill held.
-- **Cards in hand (mash bills not held as trophies, Investments not yet installed, Operations cards):** Score $0.
+- **Unlocked Gold Bourbons:** Each scores its listed Brand Value.
+- **Cards in hand (mash bills, Investments not yet installed, Operations cards):** Score $0.
 
-The highest total wins. Ties are broken first by number of Gold mash bills held, then by remaining cash. If still tied, the win is shared.
+The highest total wins. Ties are broken first by number of unlocked Gold Bourbons, then by remaining cash. If still tied, the win is shared.
 
 ## Why the Final Round Matters
 
@@ -121,7 +116,7 @@ A baron who is short on cash at the start of Phase 1 may take a one-time **Distr
 - **Eligibility:** At the start of Phase 1, the baron's available cash must be **less than the rent they owe this round**. The loan may be used **once per game** per baron.
 - **Loan amount:** **$10**, taken from the bank into the baron's cash pool immediately.
 - **Repayment:** **$13** (the loan plus $3 interest), paid off the top at the **start of the next Phase 1**, before any rent is calculated.
-- **If the baron cannot repay $13 in full** at the start of next Phase 1, they pay whatever cash they have toward the loan; the remaining debt simply continues — no compounding interest, but they may not take another loan, and any cash they earn in subsequent rounds goes first to repaying the bank until the $13 is settled.
+- **If the baron cannot repay $15 in full** at the start of next Phase 1, they pay whatever cash they have toward the loan; the remaining debt simply continues — no compounding interest, but they may not take another loan, and any cash they earn in subsequent rounds goes first to repaying the bank until the $13 is settled.
 - **Tracking:** Place a "Loan" token in front of the baron while the loan is outstanding so the table remembers.
 
 The loan is intended as an emergency bridge — enough to cover a tight Phase 1 and keep barrels aging — not a free expansion of capital.
@@ -157,7 +152,7 @@ You might draw a resource card from the market, taking a cask, corn, or grain. Y
 
 You can also make bourbon. To do this, you must combine at least one cask, one corn, and one grain, then choose one mash bill from your hand and place it face-up on the new barrel as you place it in an available rickhouse slot. The mash bill is locked to that barrel and becomes public information. You can add additional grains or corn to improve your mix, but you may only use one cask per barrel. A player with no mash bills in hand cannot make bourbon.
 
-Another option is to sell bourbon, which requires the barrel to be at least two years old. When you sell, refer to the mash bill attached to that barrel and determine the payout based on the bourbon's age and the current market demand. The mash bill is then discarded with the barrel, unless a Silver or Gold award states otherwise.
+Another option is to sell bourbon, which requires the barrel to be at least two years old. When you sell, refer to the mash bill attached to that barrel and determine the payout based on the bourbon's age and the current market demand. If the barrel satisfies the requirements of one of your already-unlocked Gold Bourbons, you may apply that Gold Bourbon's payout instead — this is free and always optional (see §Bourbon Awards). The mash bill is then discarded with the barrel; the exceptions are when its Silver award returns it to your hand, or its Gold award unlocks a new Gold Bourbon for you.
 
 You may also choose to **implement an investment**. This requires paying the cost printed on the card. Once paid, the investment is placed in front of you and becomes active immediately.
 
@@ -195,7 +190,7 @@ Most market effects apply during the **next round** and last for only one round.
 
 If the Market deck runs out, **reshuffle the discard pile** to form a new deck and continue play.
 
-**Final Round Exception:** The Market Phase is skipped in the final round (the round in which a player produces their third Gold Bourbon). After the action phase ends, scoring occurs immediately.
+**Final Round Exception:** The Market Phase is skipped in the final round (the round in which a player unlocks their third Gold Bourbon). After the action phase ends, scoring occurs immediately.
 
 ---
 
@@ -278,17 +273,42 @@ Capacity is the maximum number of barrels (across all players) that can age in t
 
 # 🥇 Bourbon Awards
 
-Some mash bills grant special awards when the bourbon is sold.
+Some mash bills grant special awards when the bourbon they're attached to is sold. There are two tiers — Silver and Gold — and they behave very differently.
 
-A Silver award returns the mash bill to your hand instead of discarding it, allowing you to attach it to a future barrel.
+## Silver — Bill Returns to Hand
 
-A Gold award also returns the mash bill to your hand permanently — it stays with you for the rest of the game and may be reused on any number of future barrels. Gold mash bills also contribute toward winning the game.
+A **Silver award** returns the mash bill to the player's hand instead of being discarded with the barrel. The player can attach it to a future barrel like any other mash bill in their hand. Silver bills count toward the 10-card hand limit.
 
-Note: Gold and Silver mash bills returned to a player's hand are kept face-up in front of the player as **trophies**. They count toward the 10-card hand limit but score brand value at game end ($25 per Gold, $5 per Silver). They may be attached to future barrels per their award rules.
+## Gold — Unlocked Gold Bourbon
+
+A **Gold award** is a different beast. The mash bill itself is **removed from circulation** — the printed card is set face-up in front of the player as an **unlocked Gold Bourbon**, representing a permanent mastered bourbon style.
+
+An unlocked Gold Bourbon:
+
+- Is **not** part of the player's hand and **does not** count toward the 10-card hand limit.
+- Cannot be attached to future barrels and cannot be discarded.
+- Counts toward the **win condition** — unlocking the third Gold Bourbon triggers the final round.
+- Scores its **listed Brand Value** at game end.
+
+The mash bill that earned the Gold is *not* returned to the hand. It lives in front of the player as the Gold Bourbon for the rest of the game.
+
+### Reusing an Unlocked Gold Bourbon
+
+Once unlocked, a Gold Bourbon may be applied as a **free option at sale time**. When a player sells any barrel whose age, mash composition, and demand satisfy that Gold Bourbon's listed requirements, they may choose to apply the Gold Bourbon's payout/effect **instead of** the attached mash bill's normal payout.
+
+- Applying an unlocked Gold Bourbon at sale time costs nothing and is never required.
+- The barrel's attached mash bill is still discarded with the barrel as normal (unless that bill itself carries a Silver award).
+- A Gold Bourbon may be applied to any number of qualifying sales over the course of the game.
+
+If the barrel doesn't satisfy any of your unlocked Gold Bourbons' requirements, the sale resolves using the attached mash bill's grid as usual.
+
+## Award Precedence
+
+A given mash bill prints both Silver and Gold criteria; whichever is met by the sale is the award that fires. Gold takes precedence over Silver when both qualify — the bill is unlocked as a Gold Bourbon rather than returned to hand.
 
 ## Design Guidance for Card Authors
 
-When designing a mash bill with a Gold award, the qualification bar should be intentionally hard to reach. As a rule of thumb, Gold typically requires a bourbon that is 10+ years aged AND uses at least 2 grain cards in its mash bill. Pair that with a strong demand band requirement and Gold stays rare and meaningful — the win-condition card it is meant to be. Silver criteria can be looser (e.g. a single specialty grain, or one demand band lower) so that mid-game play has reachable upside without trivializing Gold.
+When designing a mash bill with a Gold award, the qualification bar should be intentionally hard to reach. As a rule of thumb, Gold typically requires a bourbon that is 10+ years aged AND uses at least 2 grain cards in its mash bill. Pair that with a strong demand band requirement and Gold stays rare and meaningful — it is both the win-condition trigger and a source of repeatable end-game value, so it should feel earned. Silver criteria can be looser (e.g. a single specialty grain, or one demand band lower) so that mid-game play has reachable upside without trivializing Gold.
 
 ---
 
