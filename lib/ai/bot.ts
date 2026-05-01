@@ -16,8 +16,20 @@
  */
 
 import type { Action } from "@/lib/engine/actions";
-import { drawTop, MARKET_CARDS_BY_ID } from "@/lib/engine/decks";
-import type { BotDifficulty, GameState, Player } from "@/lib/engine/state";
+import {
+  BOURBON_CARDS_BY_ID,
+  drawTop,
+  MARKET_CARDS_BY_ID,
+} from "@/lib/engine/decks";
+import { handSize } from "@/lib/engine/checks";
+import {
+  HAND_LIMIT,
+  STARTING_BOURBON_HAND,
+  type BotDifficulty,
+  type GameState,
+  type Player,
+} from "@/lib/engine/state";
+import { lookupSalePrice } from "@/lib/rules/pricing";
 import {
   actionCostNow,
   estimateSalePayout,
@@ -26,6 +38,7 @@ import {
   hasLegalMash,
   investmentCapital,
   ownedBarrels,
+  pickBestGoldAlt,
 } from "./evaluators";
 import { feesForPlayer } from "@/lib/rules/fees";
 
@@ -61,6 +74,68 @@ function pickBest(
   return sorted[idx];
 }
 
+// ---------- Audit discard ----------
+
+/**
+ * Pick which cards to dump when the bot owes an Audit overage. Strategy:
+ *   1. Drop operations cards first (lowest expected value).
+ *   2. Then unbuilt investments with low capital (we already know we
+ *      probably can't afford expensive ones soon).
+ *   3. Then mash bills with the worst age-4 grid value.
+ * Stops once we've selected `overage` cards.
+ */
+export function pickAuditDiscard(
+  state: GameState,
+  playerId: string,
+): Extract<Action, { t: "AUDIT_DISCARD" }> {
+  const player = state.players[playerId];
+  const overage = player.pendingAuditOverage ?? 0;
+  const ops = player.operations.map((o) => o.instanceId);
+  const unbuiltInv = player.investments
+    .filter((i) => i.status === "unbuilt")
+    .sort((a, b) => investmentCapital(a.cardId) - investmentCapital(b.cardId))
+    .map((i) => i.instanceId);
+  const bills = player.bourbonHand.slice().sort((a, b) => {
+    const ca = BOURBON_CARDS_BY_ID[a];
+    const cb = BOURBON_CARDS_BY_ID[b];
+    if (!ca && !cb) return 0;
+    if (!ca) return -1;
+    if (!cb) return 1;
+    return (
+      lookupSalePrice(ca, 4, state.demand).price -
+      lookupSalePrice(cb, 4, state.demand).price
+    );
+  });
+
+  const opsToDiscard: string[] = [];
+  const invToDiscard: string[] = [];
+  const billsToDiscard: string[] = [];
+  let need = overage;
+
+  for (const id of ops) {
+    if (need <= 0) break;
+    opsToDiscard.push(id);
+    need -= 1;
+  }
+  for (const id of unbuiltInv) {
+    if (need <= 0) break;
+    invToDiscard.push(id);
+    need -= 1;
+  }
+  for (const id of bills) {
+    if (need <= 0) break;
+    billsToDiscard.push(id);
+    need -= 1;
+  }
+  return {
+    t: "AUDIT_DISCARD",
+    playerId,
+    mashBillIds: billsToDiscard,
+    investmentInstanceIds: invToDiscard,
+    operationsInstanceIds: opsToDiscard,
+  };
+}
+
 // ---------- Action phase ----------
 
 export function pickActionPhaseMove(
@@ -68,6 +143,12 @@ export function pickActionPhaseMove(
   playerId: string,
 ): Action {
   const player = state.players[playerId];
+
+  // If the bot owes an audit discard, that's the only legal next move.
+  if (player.pendingAuditOverage != null && player.pendingAuditOverage > 0) {
+    return pickAuditDiscard(state, playerId);
+  }
+
   const scored: ScoredAction[] = [];
   const cost = actionCostNow(state);
 
@@ -75,50 +156,65 @@ export function pickActionPhaseMove(
   for (const { barrel } of ownedBarrels(state, playerId)) {
     if (barrel.age < 2) continue;
     if (player.cash < cost) continue;
-    const payout = estimateSalePayout(state, barrel.age);
+    const basePayout = estimateSalePayout(state, barrel);
+    const altPick = pickBestGoldAlt(state, player, barrel);
+    const payout = altPick ? altPick.payout : basePayout;
     if (payout <= cost) continue;
-    const bourbonCardId =
-      state.market.bourbonFaceUp ?? player.bourbonHand[0];
-    if (!bourbonCardId) continue;
     scored.push({
-      action: {
-        t: "SELL_BOURBON",
-        playerId,
-        barrelId: barrel.barrelId,
-        bourbonCardId,
-      },
+      action: altPick
+        ? {
+            t: "SELL_BOURBON",
+            playerId,
+            barrelId: barrel.barrelId,
+            applyGoldBourbonId: altPick.goldId,
+          }
+        : {
+            t: "SELL_BOURBON",
+            playerId,
+            barrelId: barrel.barrelId,
+          },
       score: payout - cost,
-      reason: `sell age ${barrel.age} for ~$${payout}`,
+      reason: altPick
+        ? `sell age ${barrel.age} via Gold for ~$${payout}`
+        : `sell age ${barrel.age} for ~$${payout}`,
     });
   }
 
-  // Make bourbon: if legal mash + open slot, and demand profile is reasonable.
-  if (hasLegalMash(player) && player.cash >= cost) {
+  // Make bourbon: if legal mash + open slot, a mash bill in hand, and we can pay.
+  if (
+    hasLegalMash(player) &&
+    player.bourbonHand.length > 0 &&
+    player.cash >= cost
+  ) {
     const rickhouseId = firstOpenRickhouse(state);
     if (rickhouseId) {
       const mash = pickMashFromHand(player);
       if (mash.length >= 3) {
-        // Value of aging ≈ expected future sale minus expected fees.
-        const score = 14 - cost - expectedFeesNextRound(state, playerId) * 0.3;
-        scored.push({
-          action: {
-            t: "MAKE_BOURBON",
-            playerId,
-            rickhouseId,
-            resourceInstanceIds: mash,
-          },
-          score,
-          reason: `make bourbon at ${rickhouseId}`,
-        });
+        const mashBillId = pickBestMashBill(state, player);
+        if (mashBillId) {
+          // Value of aging ≈ expected future sale minus expected fees.
+          const score = 14 - cost - expectedFeesNextRound(state, playerId) * 0.3;
+          scored.push({
+            action: {
+              t: "MAKE_BOURBON",
+              playerId,
+              rickhouseId,
+              resourceInstanceIds: mash,
+              mashBillId,
+            },
+            score,
+            reason: `make bourbon at ${rickhouseId} with ${mashBillId}`,
+          });
+        }
       }
     }
   }
 
   // Draw resources: valuable if hand is missing a mash ingredient; dwindles as hand grows.
   if (player.cash >= cost) {
-    const handSize = player.resourceHand.length;
+    const handSizeNow = player.resourceHand.length;
     // Past 5 cards, drawing has negative value (overloaded hand).
-    const handPenalty = Math.max(0, handSize - 3) * 2;
+    const handPenalty = Math.max(0, handSizeNow - 3) * 2;
     for (const pile of ["cask", "corn", "barley", "rye", "wheat"] as const) {
       const missing = !player.resourceHand.some((r) => r.resource === pile);
       // If the bot already has a complete mash, don't chase more resources.
@@ -132,16 +228,22 @@ export function pickActionPhaseMove(
     }
   }
 
-  // Draw bourbon: useful if we have a sellable barrel but no card in hand or face-up.
-  if (player.cash >= cost && !state.market.bourbonFaceUp && state.market.bourbonDeck.length > 0) {
-    const sellableAges = ownedBarrels(state, playerId).filter((b) => b.barrel.age >= 2);
-    if (sellableAges.length > 0 && player.bourbonHand.length === 0) {
-      scored.push({
-        action: { t: "DRAW_BOURBON", playerId, source: "deck" },
-        score: 4 - cost,
-        reason: "draw bourbon — sellable barrel waiting",
-      });
-    }
+  // Draw bourbon: most useful when the player has a small bourbon hand.
+  // Soft cap means the engine no longer blocks this past 10 — but the bot
+  // still doesn't want to bloat past the hand limit (Audit risk).
+  const totalHand = handSize(player);
+  if (
+    player.cash >= cost &&
+    state.market.bourbonDeck.length + state.market.bourbonDiscard.length > 0
+  ) {
+    const bourbonHandGap = STARTING_BOURBON_HAND - player.bourbonHand.length;
+    const overflowPenalty = Math.max(0, totalHand - HAND_LIMIT) * 4;
+    const score = bourbonHandGap * 1.2 - cost - overflowPenalty;
+    scored.push({
+      action: { t: "DRAW_BOURBON", playerId },
+      score,
+      reason: `draw bourbon — bills ${player.bourbonHand.length}, hand ${totalHand}/${HAND_LIMIT}`,
+    });
   }
 
   // Implement investment: only if we have cash + no pressing fees.
@@ -176,6 +278,29 @@ export function pickActionPhaseMove(
     });
   }
 
+  // Call Audit: positive EV when at least one opponent is over the hand
+  // limit. The auditor pays nothing they wouldn't pay otherwise (cost
+  // matches a normal action), but forces a hand dump on opponents.
+  // Self-audit is fine if we're under-cap (no penalty to us).
+  if (player.cash >= cost && !state.actionPhase.auditCalledThisRound) {
+    let opponentOver = 0;
+    for (const id of state.playerOrder) {
+      if (id === playerId) continue;
+      const op = state.players[id];
+      if (op.eliminated) continue;
+      if (handSize(op) > HAND_LIMIT) opponentOver += 1;
+    }
+    const selfPenalty = handSize(player) > HAND_LIMIT ? 3 : 0;
+    const score = opponentOver * 5 - cost - selfPenalty;
+    if (opponentOver > 0) {
+      scored.push({
+        action: { t: "CALL_AUDIT", playerId },
+        score,
+        reason: `call audit — ${opponentOver} opponent(s) over ${HAND_LIMIT}`,
+      });
+    }
+  }
+
   // Pass: gets stronger once the bot has nothing productive left to do.
   const sellableBarrels = ownedBarrels(state, playerId).filter((b) => b.barrel.age >= 2).length;
   const makeReady = hasLegalMash(player) && firstOpenRickhouse(state) !== null;
@@ -188,6 +313,29 @@ export function pickActionPhaseMove(
 
   const best = pickBest(scored, state, player.botDifficulty);
   return best?.action ?? { t: "PASS_ACTION", playerId };
+}
+
+/**
+ * Choose which mash bill to commit to the new barrel. Prefer the bill
+ * with the best 4-year × current-demand grid cell — that's the bot's
+ * baseline expected payout once aging completes. Falls back to the
+ * first card in hand for unknown ids.
+ */
+function pickBestMashBill(state: GameState, player: Player): string | null {
+  if (player.bourbonHand.length === 0) return null;
+  let bestId = player.bourbonHand[0];
+  let bestScore = -Infinity;
+  for (const id of player.bourbonHand) {
+    const card = BOURBON_CARDS_BY_ID[id];
+    if (!card) continue;
+    // Score against age 4 (a reasonable hold target) at current demand.
+    const score = lookupSalePrice(card, 4, state.demand).price;
+    if (score > bestScore) {
+      bestScore = score;
+      bestId = id;
+    }
+  }
+  return bestId;
 }
 
 function pickMashFromHand(player: Player): string[] {

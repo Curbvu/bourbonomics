@@ -9,6 +9,7 @@
 import type { MarketCardDef } from "./types";
 
 export const MARKET_CARDS: readonly MarketCardDef[] = [
+  // Demand raisers
   {
     id: "holiday_rush",
     title: "Holiday rush",
@@ -59,39 +60,111 @@ export const MARKET_CARDS: readonly MarketCardDef[] = [
     resolved: { kind: "demand_delta", delta: 1 },
   },
   {
+    id: "trade_show_buzz",
+    title: "Trade show buzz",
+    effect: "Demand **+1**.",
+    deckCopies: 2,
+    resolved: { kind: "demand_delta", delta: 1 },
+  },
+
+  // Conditional demand swings
+  {
+    id: "smart_marketing",
+    title: "Smart marketing",
+    effect: "If demand >6, demand **+1**; otherwise **+2**.",
+    deckCopies: 2,
+    resolved: {
+      kind: "demand_delta_conditional",
+      threshold: 6,
+      deltaAbove: 1,
+      deltaBelow: 2,
+    },
+  },
+  {
+    id: "contrarian_press",
+    title: "Contrarian press",
+    effect: "If demand >6, demand **−1**; otherwise **+2**.",
+    deckCopies: 1,
+    resolved: {
+      kind: "demand_delta_conditional",
+      threshold: 6,
+      deltaAbove: -1,
+      deltaBelow: 2,
+    },
+  },
+  {
+    id: "scarcity_premium",
+    title: "Scarcity premium",
+    effect: "If demand >8, demand **+2**; otherwise **+1**.",
+    deckCopies: 1,
+    resolved: {
+      kind: "demand_delta_conditional",
+      threshold: 8,
+      deltaAbove: 2,
+      deltaBelow: 1,
+    },
+  },
+
+  // Demand drops
+  {
     id: "economic_downturn",
     title: "Economic downturn",
-    effect: "Demand **-2**.",
+    effect: "Demand **−2**.",
     deckCopies: 2,
     resolved: { kind: "demand_delta", delta: -2 },
   },
   {
     id: "wine_takes_over",
     title: "Wine takes over",
-    effect: "Demand **-1**.",
+    effect: "Demand **−1**.",
     deckCopies: 2,
     resolved: { kind: "demand_delta", delta: -1 },
   },
+
+  // Resource shortages — lock a pile next round
   {
-    id: "corn_shortage",
-    title: "Corn shortage",
-    effect: "A poor corn harvest tightens supply. (Flavor for now.)",
-    deckCopies: 1,
-    resolved: { kind: "flavor" },
+    id: "corn_blight",
+    title: "Corn harvest fail",
+    effect: "Corn pile locked next round.",
+    deckCopies: 2,
+    resolved: { kind: "resource_shortage", resource: "corn" },
   },
+  {
+    id: "cooperage_strike",
+    title: "Cooperage strike",
+    effect: "Cask pile locked next round.",
+    deckCopies: 1,
+    resolved: { kind: "resource_shortage", resource: "cask" },
+  },
+  {
+    id: "rye_blight",
+    title: "Rye blight",
+    effect: "Rye pile locked next round.",
+    deckCopies: 1,
+    resolved: { kind: "resource_shortage", resource: "rye" },
+  },
+  {
+    id: "wheat_storm",
+    title: "Hailstorm",
+    effect: "Wheat pile locked next round.",
+    deckCopies: 1,
+    resolved: { kind: "resource_shortage", resource: "wheat" },
+  },
+  {
+    id: "barley_drought",
+    title: "Barley drought",
+    effect: "Barley pile locked next round.",
+    deckCopies: 1,
+    resolved: { kind: "resource_shortage", resource: "barley" },
+  },
+
+  // Flavor (engine-side no-op)
   {
     id: "rickhouse_inspection",
     title: "Rickhouse inspection",
     effect: "Inspectors comb the warehouses. (Flavor for now.)",
     deckCopies: 1,
     resolved: { kind: "flavor" },
-  },
-  {
-    id: "trade_show_buzz",
-    title: "Trade show buzz",
-    effect: "Demand **+1**.",
-    deckCopies: 2,
-    resolved: { kind: "demand_delta", delta: 1 },
   },
 ];
 

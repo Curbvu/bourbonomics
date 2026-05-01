@@ -20,13 +20,18 @@ export function installPersistence(): void {
   installed = true;
   if (typeof window === "undefined") return;
 
-  // Load existing save if any.
+  // Load existing save if any. We accept only the current schema version —
+  // anything older is silently discarded so a stale save can't crash a new
+  // build that has rearranged GameState fields.
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as GameState;
-      if (parsed && parsed.version === 1) {
-        useGameStore.getState().loadState(parsed);
+      const parsed = JSON.parse(raw) as Partial<GameState>;
+      if (parsed && parsed.version === 6) {
+        useGameStore.getState().loadState(parsed as GameState);
+      } else if (parsed) {
+        // Old / unknown schema — drop it so the page boots into a fresh game.
+        window.localStorage.removeItem(STORAGE_KEY);
       }
     }
   } catch {

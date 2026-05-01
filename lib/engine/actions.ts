@@ -24,7 +24,6 @@ export type ActionDrawResource = {
 export type ActionDrawBourbon = {
   t: "DRAW_BOURBON";
   playerId: string;
-  source: "face-up" | "deck";
 };
 
 export type ActionMakeBourbon = {
@@ -33,14 +32,25 @@ export type ActionMakeBourbon = {
   rickhouseId: RickhouseId;
   /** Instance ids of resource cards from the player's hand to commit to the mash. */
   resourceInstanceIds: string[];
+  /**
+   * Mash bill (Bourbon card) committed to the barrel at production. Must
+   * be in the player's `bourbonHand` at dispatch; it leaves the hand and
+   * is locked to the new barrel for the barrel's life.
+   */
+  mashBillId: string;
 };
 
 export type ActionSellBourbon = {
   t: "SELL_BOURBON";
   playerId: string;
   barrelId: string;
-  /** Bourbon card id chosen for the sale — either a face-up id or a drawn id already in hand. */
-  bourbonCardId: string;
+  /**
+   * If set, the player is opting to apply one of their unlocked Gold
+   * Bourbons as the alt payout for this sale. The reducer validates
+   * the barrel actually meets that Gold Bourbon's criteria; if not the
+   * dispatch is rejected.
+   */
+  applyGoldBourbonId?: string;
 };
 
 export type ActionDrawInvestment = {
@@ -63,6 +73,33 @@ export type ActionResolveOperations = {
   t: "RESOLVE_OPERATIONS";
   playerId: string;
   operationsInstanceId: string;
+};
+
+/**
+ * Audit — any player whose turn it is may call this once per round.
+ * Forces every player (including the auditor) over the soft hand limit
+ * (HAND_LIMIT = 10 cards across mash bills + unbuilt investments + ops)
+ * into a `pendingAuditOverage` state; their next action must be an
+ * AUDIT_DISCARD bringing them back to 10. The auditor's action is
+ * consumed regardless of whether anyone overflowed.
+ */
+export type ActionCallAudit = {
+  t: "CALL_AUDIT";
+  playerId: string;
+};
+
+/**
+ * The discard side of an Audit. The acting player must specify which
+ * cards to drop; combined count must equal their `pendingAuditOverage`.
+ * Mash bills go to the bourbon discard, unbuilt investments to the
+ * investment discard, operations to the operations discard.
+ */
+export type ActionAuditDiscard = {
+  t: "AUDIT_DISCARD";
+  playerId: string;
+  mashBillIds: string[];
+  investmentInstanceIds: string[];
+  operationsInstanceIds: string[];
 };
 
 export type ActionPass = { t: "PASS_ACTION"; playerId: string };
@@ -114,6 +151,8 @@ export type Action =
   | ActionDrawOperations
   | ActionImplementInvestment
   | ActionResolveOperations
+  | ActionCallAudit
+  | ActionAuditDiscard
   | ActionPass
   | ActionPayFees
   | ActionTakeDistressedLoan

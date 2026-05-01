@@ -53,16 +53,22 @@ export function driveBots(initial: GameState): GameState {
       }
 
       case "market": {
-        // Each not-yet-resolved bot draws + keeps in seat order.
-        const nextUnresolved = state.playerOrder.find(
-          (id) =>
-            !state.players[id].eliminated &&
-            !state.players[id].marketResolved,
-        );
-        if (!nextUnresolved) return state;
-        const p = state.players[nextUnresolved];
-        if (p.kind === "human") return state;
-        state = reduce(state, pickMarketMove(state, p.id));
+        // Use currentPlayerId, NOT playerOrder.find. The reducer's MARKET_DRAW
+        // guard requires `state.currentPlayerId === action.playerId`, and
+        // `advanceToNextMarketResolver` keeps currentPlayerId pointing at the
+        // next-to-resolve player. Picking a different unresolved baron via
+        // playerOrder.find dispatches for someone other than currentPlayerId
+        // and the reducer silently rejects → driver loops forever → market
+        // phase appears "stuck" with no cards drawn.
+        const cur = state.players[state.currentPlayerId];
+        if (!cur || cur.eliminated || cur.marketResolved) {
+          // Defensive: if currentPlayerId is somehow at a resolved /
+          // eliminated player, the reducer's advance logic should have moved
+          // it. Bail and let the next state update reconcile.
+          return state;
+        }
+        if (cur.kind === "human") return state;
+        state = reduce(state, pickMarketMove(state, state.currentPlayerId));
         continue;
       }
 

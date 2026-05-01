@@ -45,19 +45,25 @@ import {
 } from "./phases";
 import { createRng } from "./rng";
 import {
+  canCallAudit,
   canMakeBourbon,
   canPassAction,
   canSellBourbon,
   canAffordCurrentAction,
   currentActionCost,
   findBarrel,
+  handSize,
   isPlayersTurn,
 } from "./checks";
+import { canSpend, creditCash } from "./cash";
 import {
   DISTRESSED_LOAN_AMOUNT,
+  DISTRESSED_LOAN_REPAYMENT,
+  HAND_LIMIT,
   MARKET_DRAW_COUNT,
   MAX_ACTIVE_INVESTMENTS,
   type GameState,
+  type Player,
   type ResourceCardInstance,
 } from "./state";
 
@@ -94,6 +100,10 @@ function apply(state: GameState, action: Action): void {
       return implementInvestment(state, action);
     case "RESOLVE_OPERATIONS":
       return resolveOperations(state, action);
+    case "CALL_AUDIT":
+      return callAudit(state, action);
+    case "AUDIT_DISCARD":
+      return auditDiscard(state, action);
     case "PASS_ACTION":
       return passAction(state, action);
     case "MARKET_DRAW":
@@ -132,6 +142,14 @@ function payFees(
   }
   // Apply active-investment rickhouse-fee discount (once per round).
   const { total: discountedPaid, consume } = applyRickhouseFeeDiscount(p, paid);
+  if (discountedPaid > 0 && !canSpend(state, p.id)) {
+    // Loan-siphon "frozen": cannot spend on rent while debt is outstanding.
+    // The chosen barrels just don't age this round (per the unpaid-rent
+    // rule — no penalty beyond losing time).
+    return errorEvent(state, "frozen_by_loan", {
+      stillOwed: p.loanRemaining,
+    });
+  }
   if (discountedPaid > p.cash) {
     return errorEvent(state, "cannot_afford_chosen", {
       paid: discountedPaid,
@@ -181,19 +199,28 @@ function takeDistressedLoan(
   if (state.phase !== "fees") return errorEvent(state, "not_in_fees");
   const p = state.players[action.playerId];
   if (!p || p.eliminated) return errorEvent(state, "no_player");
+  // No second loan — once-per-game per baron, AND nobody can take one
+  // while a debt is still outstanding.
   if (p.loanUsed) return errorEvent(state, "loan_already_used");
-  if (p.loanOutstanding) return errorEvent(state, "loan_already_outstanding");
+  if (p.loanRemaining > 0)
+    return errorEvent(state, "loan_already_outstanding");
   // Eligibility: cash must be less than the rent owed for the round.
   const owed = totalFeesForPlayer(state, p.id);
   if (p.cash >= owed) {
     return errorEvent(state, "loan_not_needed", { cash: p.cash, owed });
   }
+  // Disbursement is the loan principal; the player's debt to the bank is
+  // the FULL repayment amount (principal + interest) and is due at the
+  // start of next Phase 1. The loan-disbursement is NOT routed through
+  // creditCash — siphon mode can't be active yet (you can't take a loan
+  // while one is outstanding) and a fresh loan is not "income".
   p.cash += DISTRESSED_LOAN_AMOUNT;
-  p.loanOutstanding = true;
+  p.loanRemaining = DISTRESSED_LOAN_REPAYMENT;
   p.loanUsed = true;
   logEvent(state, "loan_taken", {
     playerId: p.id,
-    amount: DISTRESSED_LOAN_AMOUNT,
+    disbursed: DISTRESSED_LOAN_AMOUNT,
+    repaymentDue: DISTRESSED_LOAN_REPAYMENT,
     rentOwed: owed,
   });
 }
@@ -207,6 +234,10 @@ function chargeActionCost(state: GameState, playerId: string): boolean {
   const firstPaidThisRound = !state.actionPhase.freeWindowActive && !p.hasTakenPaidActionThisRound;
   const { cost, consume } = applyActionCostDiscount(p, baseCost, firstPaidThisRound);
   if (cost > 0) {
+    // Loan-siphon "frozen" rule: a baron with active siphon cannot
+    // spend on actions until the loan clears. Free actions (cost===0)
+    // are still allowed.
+    if (!canSpend(state, playerId)) return false;
     if (p.cash < cost) return false;
     p.cash -= cost;
   }
@@ -252,6 +283,12 @@ function preActionGuards(state: GameState, playerId: string): boolean {
     errorEvent(state, "player_eliminated", { playerId });
     return false;
   }
+  // If the player owes an audit discard, every action other than
+  // AUDIT_DISCARD itself is rejected.
+  if (state.players[playerId].pendingAuditOverage != null) {
+    errorEvent(state, "audit_discard_pending");
+    return false;
+  }
   if (!canAffordCurrentAction(state, playerId)) {
     errorEvent(state, "cannot_afford_action", { playerId });
     return false;
@@ -273,6 +310,12 @@ function drawResource(
   action: Extract<Action, { t: "DRAW_RESOURCE" }>,
 ): void {
   if (!preActionGuards(state, action.playerId)) return;
+  // Resource shortage block — comes from a Phase 3 market card kept last
+  // round. Locked piles refuse all draws this round; shortage clears on
+  // the next round's startNextRound.
+  if (state.currentRoundEffects.resourceShortages.includes(action.pile)) {
+    return errorEvent(state, "pile_shortaged", { pile: action.pile });
+  }
   const pile = state.market[action.pile as ResourcePileName];
   if (pile.length === 0) return errorEvent(state, "pile_empty", { pile: action.pile });
   if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
@@ -311,43 +354,26 @@ function drawBourbonAction(
   action: Extract<Action, { t: "DRAW_BOURBON" }>,
 ): void {
   if (!preActionGuards(state, action.playerId)) return;
-  let cardId: string | null = null;
-  if (action.source === "face-up") {
-    cardId = state.market.bourbonFaceUp;
-    if (!cardId) return errorEvent(state, "no_face_up_bourbon");
-    if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
-    state.market.bourbonFaceUp = null;
-    refillBourbonFaceUp(state);
-  } else {
-    if (state.market.bourbonDeck.length === 0) {
-      reshuffleBourbonDiscard(state);
-    }
-    if (state.market.bourbonDeck.length === 0)
-      return errorEvent(state, "bourbon_deck_empty");
-    if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
-    const [drawn, rest] = drawTop(state.market.bourbonDeck);
-    state.market.bourbonDeck = rest;
-    cardId = drawn;
+  // Soft hand cap: nothing prevents drawing past 10. The Audit action is
+  // the enforcement mechanism for trimming hands.
+  const player = state.players[action.playerId];
+  if (state.market.bourbonDeck.length === 0) {
+    reshuffleBourbonDiscard(state);
   }
-  if (cardId) {
-    state.players[action.playerId].bourbonHand.push(cardId);
-    logEvent(state, "draw_bourbon", {
-      playerId: action.playerId,
-      source: action.source,
-      cardId,
-    });
-  }
+  if (state.market.bourbonDeck.length === 0)
+    return errorEvent(state, "bourbon_deck_empty");
+  if (!chargeActionCost(state, action.playerId))
+    return errorEvent(state, "afford");
+  const [drawn, rest] = drawTop(state.market.bourbonDeck);
+  state.market.bourbonDeck = rest;
+  if (!drawn) return;
+  player.bourbonHand.push(drawn);
+  logEvent(state, "draw_bourbon", {
+    playerId: action.playerId,
+    cardId: drawn,
+    handSize: handSize(player),
+  });
   postActionAdvance(state, action.playerId);
-}
-
-function refillBourbonFaceUp(state: GameState): void {
-  if (state.market.bourbonFaceUp !== null) return;
-  if (state.market.bourbonDeck.length === 0) reshuffleBourbonDiscard(state);
-  const [top, rest] = drawTop(state.market.bourbonDeck);
-  if (top !== null) {
-    state.market.bourbonFaceUp = top;
-    state.market.bourbonDeck = rest;
-  }
 }
 
 function reshuffleBourbonDiscard(state: GameState): void {
@@ -392,6 +418,7 @@ function makeBourbon(
     action.playerId,
     action.rickhouseId,
     action.resourceInstanceIds,
+    action.mashBillId,
   );
   if (!check.ok) return errorEvent(state, "make_invalid", { reason: check.reason });
   if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
@@ -405,6 +432,12 @@ function makeBourbon(
     player.resourceHand.splice(idx, 1);
   }
 
+  // Detach the mash bill from the player's hand — it's now locked to the
+  // new barrel for the barrel's life.
+  const billIdx = player.bourbonHand.indexOf(action.mashBillId);
+  if (billIdx === -1) return errorEvent(state, "bourbon_not_in_hand");
+  player.bourbonHand.splice(billIdx, 1);
+
   const rickhouse = state.rickhouses.find((r) => r.id === action.rickhouseId)!;
   const barrelId = mintInstanceId("barrel");
   rickhouse.barrels.push({
@@ -412,6 +445,7 @@ function makeBourbon(
     ownerId: player.id,
     rickhouseId: rickhouse.id,
     mash,
+    mashBillId: action.mashBillId,
     age: 0,
     barreledOnRound: state.round,
   });
@@ -420,11 +454,13 @@ function makeBourbon(
     barrelId,
     rickhouseId: rickhouse.id,
     mashSize: mash.length,
+    mashBillId: action.mashBillId,
   });
-  // Resource on_make_bourbon opcodes (e.g., bank_payout).
+  // Resource on_make_bourbon opcodes (e.g., bank_payout). Routed through
+  // creditCash so any active loan siphon claims it first.
   const makeOps = applyMakeOps({ state, playerId: player.id, mash });
   if (makeOps.bankPayout !== 0) {
-    player.cash += makeOps.bankPayout;
+    creditCash(state, player.id, makeOps.bankPayout, "make_bourbon_bank_payout");
     logEvent(state, "make_bourbon_bank_payout", {
       playerId: player.id,
       amount: makeOps.bankPayout,
@@ -439,18 +475,14 @@ function sellBourbon(
   action: Extract<Action, { t: "SELL_BOURBON" }>,
 ): void {
   if (!preActionGuards(state, action.playerId)) return;
-  const check = canSellBourbon(
-    state,
-    action.playerId,
-    action.barrelId,
-    action.bourbonCardId,
-  );
+  const check = canSellBourbon(state, action.playerId, action.barrelId);
   if (!check.ok) return errorEvent(state, "sell_invalid", { reason: check.reason });
   if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
 
   const card = check.card;
   const found = findBarrel(state, action.barrelId)!;
   const player = state.players[action.playerId];
+  const mashBillId = found.barrel.mashBillId;
 
   // Apply resource on_sell opcodes FIRST to shift lookup age/demand before grid lookup.
   const sellOps = applySellOps({
@@ -463,10 +495,56 @@ function sellBourbon(
   const lookupDemand = Math.max(0, state.demand + sellOps.demandLookupShift);
   const lookupAge = Math.max(2, found.barrel.age + sellOps.ageLookupShift);
   const price = lookupSalePrice(card, lookupAge, lookupDemand);
-  const finalPayout = price.price + sellOps.revenueBonus;
+  // Payout the player would receive selling the attached bill normally.
+  // We track this separately from `finalPayout` so the attached bill's
+  // own Silver/Gold award eligibility is evaluated against ITS grid,
+  // not against the alt-payout (a Gold Bourbon's grid sub).
+  const attachedBillPayout = price.price + sellOps.revenueBonus;
+  let finalPayout = attachedBillPayout;
 
-  player.cash += finalPayout;
-  // Extra bourbon-card draws (specialty resource effect).
+  // Optional Gold Bourbon alt payout. The rules let a player sell any
+  // qualifying barrel using one of their unlocked Gold Bourbons' grid
+  // instead of the attached bill's grid. We treat "qualifies" as: the
+  // sale already meets the Gold criteria of the chosen Gold Bourbon.
+  // Player has full discretion to apply or skip.
+  let altPayoutSource: string | null = null;
+  if (action.applyGoldBourbonId) {
+    if (!player.goldBourbons.includes(action.applyGoldBourbonId)) {
+      return errorEvent(state, "gold_not_unlocked", {
+        gold: action.applyGoldBourbonId,
+      });
+    }
+    const altCard = BOURBON_CARDS_BY_ID[action.applyGoldBourbonId];
+    if (!altCard) {
+      return errorEvent(state, "unknown_gold", {
+        gold: action.applyGoldBourbonId,
+      });
+    }
+    const altAward = evaluateAward(
+      altCard,
+      found.barrel.mash,
+      found.barrel.age,
+      // Pre-eval pricing on the *alt* grid to determine whether Gold
+      // criteria are met under that bill. We use the maximum of the
+      // alt's grid here as the reference price for award eligibility.
+      Math.max(...altCard.grid.flatMap((row) => row)),
+    );
+    if (!altAward.gold) {
+      return errorEvent(state, "barrel_does_not_qualify", {
+        gold: action.applyGoldBourbonId,
+      });
+    }
+    const altPrice = lookupSalePrice(altCard, lookupAge, lookupDemand).price;
+    finalPayout = altPrice + sellOps.revenueBonus;
+    altPayoutSource = action.applyGoldBourbonId;
+  }
+
+  // Sale proceeds — routed through creditCash so an active loan siphon
+  // intercepts the payout first.
+  creditCash(state, player.id, finalPayout, "sell_bourbon");
+  // Extra bourbon-card draws (specialty resource effect). Soft cap: no
+  // hard ceiling, but we still cap at a sane bound to prevent infinite
+  // draws on a degenerate state. Audit handles real overflow later.
   for (let i = 0; i < sellOps.extraBourbonDraws; i++) {
     if (state.market.bourbonDeck.length === 0) reshuffleBourbonDiscard(state);
     const [extra, rest] = drawTop(state.market.bourbonDeck);
@@ -478,20 +556,35 @@ function sellBourbon(
       cardId: extra,
     });
   }
-  // Awards — evaluated against the final payout.
-  const award = evaluateAward(card, found.barrel.mash, found.barrel.age, finalPayout);
-  let keptCard = false;
+
+  // Awards — evaluated against the ATTACHED BILL'S grid price, not the
+  // alt-payout (if any). Applying a Gold alt substitutes the dollar
+  // amount the player receives, but the attached bill follows its own
+  // award rules per the original sale.
+  const award = evaluateAward(
+    card,
+    found.barrel.mash,
+    found.barrel.age,
+    attachedBillPayout,
+  );
+
+  // Disposition of the attached mash bill.
+  // Gold takes precedence over Silver. Gold UNLOCKS the bill as a
+  // permanent trophy — removed from circulation, NOT in hand, scores
+  // brand value at game end. Silver returns the bill to the player's
+  // hand (soft cap, so we always return regardless of hand size).
+  let disposition: "gold_unlock" | "silver_return" | "discard" = "discard";
   if (award.gold) {
-    if (!player.goldAwards.includes(card.id)) {
-      player.goldAwards.push(card.id);
-      keptCard = true;
+    if (!player.goldBourbons.includes(mashBillId)) {
+      player.goldBourbons.push(mashBillId);
     }
-  }
-  if (award.silver) {
-    if (!player.silverAwards.includes(card.id) && !player.goldAwards.includes(card.id)) {
-      player.silverAwards.push(card.id);
-      keptCard = true;
+    disposition = "gold_unlock";
+  } else if (award.silver) {
+    if (!player.silverAwards.includes(mashBillId)) {
+      player.silverAwards.push(mashBillId);
     }
+    player.bourbonHand.push(mashBillId);
+    disposition = "silver_return";
   }
 
   // Return mash resources to market piles.
@@ -505,15 +598,9 @@ function sellBourbon(
     found.rickhouseIdx
   ].barrels.filter((b) => b.barrelId !== action.barrelId);
 
-  // Resolve the bourbon card source.
-  if (state.market.bourbonFaceUp === action.bourbonCardId) {
-    state.market.bourbonFaceUp = null;
-    refillBourbonFaceUp(state);
-  } else if (player.bourbonHand.includes(action.bourbonCardId)) {
-    player.bourbonHand = player.bourbonHand.filter((id) => id !== action.bourbonCardId);
-  }
-  if (!keptCard) {
-    state.market.bourbonDiscard.push(card.id);
+  // Mash-bill goes to discard only when no award fired.
+  if (disposition === "discard") {
+    state.market.bourbonDiscard.push(mashBillId);
   }
 
   // Demand drops by 1 per sale.
@@ -523,7 +610,7 @@ function sellBourbon(
   logEvent(state, "sell_bourbon", {
     playerId: player.id,
     barrelId: action.barrelId,
-    bourbonCardId: card.id,
+    bourbonCardId: mashBillId,
     age: found.barrel.age,
     lookupAge,
     lookupDemand,
@@ -533,6 +620,8 @@ function sellBourbon(
     priceSource: price.source,
     silver: award.silver,
     gold: award.gold,
+    disposition,
+    altPayoutSource,
   });
   checkWinConditions(state);
   postActionAdvance(state, action.playerId);
@@ -604,6 +693,11 @@ function implementInvestment(
   }
   const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
   if (!def) return errorEvent(state, "unknown_investment");
+  if (def.capital > 0 && !canSpend(state, player.id)) {
+    return errorEvent(state, "frozen_by_loan", {
+      stillOwed: player.loanRemaining,
+    });
+  }
   if (player.cash < def.capital)
     return errorEvent(state, "cannot_afford_capital", { capital: def.capital });
   if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
@@ -641,6 +735,134 @@ function resolveOperations(
     summary: outcome.summary,
   });
   postActionAdvance(state, action.playerId);
+}
+
+// ---------- Audit ----------
+
+function callAudit(
+  state: GameState,
+  action: Extract<Action, { t: "CALL_AUDIT" }>,
+): void {
+  if (state.phase !== "action") return errorEvent(state, "not_in_action");
+  if (!isPlayersTurn(state, action.playerId))
+    return errorEvent(state, "not_your_turn");
+  const auditCheck = canCallAudit(state, action.playerId);
+  if (!auditCheck.ok)
+    return errorEvent(state, "audit_invalid", { reason: auditCheck.reason });
+  if (!chargeActionCost(state, action.playerId))
+    return errorEvent(state, "afford");
+
+  state.actionPhase.auditCalledThisRound = true;
+  const overflowingPlayers: { playerId: string; overage: number }[] = [];
+  for (const id of state.playerOrder) {
+    const p = state.players[id];
+    if (p.eliminated) continue;
+    const size = handSize(p);
+    if (size > HAND_LIMIT) {
+      const overage = size - HAND_LIMIT;
+      p.pendingAuditOverage = overage;
+      overflowingPlayers.push({ playerId: id, overage });
+    }
+  }
+  logEvent(state, "audit_called", {
+    auditorId: action.playerId,
+    overflowing: overflowingPlayers,
+  });
+  postActionAdvance(state, action.playerId);
+}
+
+function auditDiscard(
+  state: GameState,
+  action: Extract<Action, { t: "AUDIT_DISCARD" }>,
+): void {
+  if (state.phase !== "action") return errorEvent(state, "not_in_action");
+  const player = state.players[action.playerId];
+  if (!player || player.eliminated) return errorEvent(state, "no_player");
+  const overage = player.pendingAuditOverage;
+  if (overage == null || overage <= 0)
+    return errorEvent(state, "no_audit_overage");
+
+  const totalChosen =
+    action.mashBillIds.length +
+    action.investmentInstanceIds.length +
+    action.operationsInstanceIds.length;
+  if (totalChosen !== overage) {
+    return errorEvent(state, "wrong_discard_count", {
+      expected: overage,
+      actual: totalChosen,
+    });
+  }
+
+  // Validate every id exists in the player's hand before mutating.
+  const mashBillToDiscardIdx: number[] = [];
+  for (const billId of action.mashBillIds) {
+    const idx = player.bourbonHand.indexOf(billId);
+    if (idx === -1) return errorEvent(state, "mashbill_not_in_hand", { billId });
+    mashBillToDiscardIdx.push(idx);
+  }
+  const invToDiscardIdx: number[] = [];
+  for (const instId of action.investmentInstanceIds) {
+    const idx = player.investments.findIndex(
+      (i) => i.instanceId === instId && i.status === "unbuilt",
+    );
+    if (idx === -1)
+      return errorEvent(state, "investment_not_unbuilt_in_hand", { instId });
+    invToDiscardIdx.push(idx);
+  }
+  const opsToDiscardIdx: number[] = [];
+  for (const instId of action.operationsInstanceIds) {
+    const idx = player.operations.findIndex((o) => o.instanceId === instId);
+    if (idx === -1)
+      return errorEvent(state, "operations_not_in_hand", { instId });
+    opsToDiscardIdx.push(idx);
+  }
+
+  // Discard mash bills (sort indices descending so splice is stable).
+  for (const billId of action.mashBillIds) {
+    const idx = player.bourbonHand.indexOf(billId);
+    if (idx !== -1) {
+      player.bourbonHand.splice(idx, 1);
+      state.market.bourbonDiscard.push(billId);
+    }
+  }
+  // Discard investments. Keep cardId in the investment discard pile so the
+  // engine can recycle them. Drop the instance.
+  for (const instId of action.investmentInstanceIds) {
+    const idx = player.investments.findIndex(
+      (i) => i.instanceId === instId && i.status === "unbuilt",
+    );
+    if (idx !== -1) {
+      const inv = player.investments[idx];
+      player.investments.splice(idx, 1);
+      state.market.investmentDiscard.push(inv.cardId);
+    }
+  }
+  // Discard operations.
+  for (const instId of action.operationsInstanceIds) {
+    const idx = player.operations.findIndex((o) => o.instanceId === instId);
+    if (idx !== -1) {
+      const ops = player.operations[idx];
+      player.operations.splice(idx, 1);
+      state.market.operationsDiscard.push(ops.cardId);
+    }
+  }
+
+  player.pendingAuditOverage = null;
+  logEvent(state, "audit_discard", {
+    playerId: player.id,
+    discarded: {
+      mashBills: action.mashBillIds,
+      investments: action.investmentInstanceIds,
+      operations: action.operationsInstanceIds,
+    },
+  });
+
+  // Audit discards happen OUTSIDE of the normal action ladder — they
+  // resolve a debt rather than counting as a turn move. We do not advance
+  // the lap or charge cost. The reducer leaves currentPlayerId where it
+  // is (likely the audited player whose turn was interrupted by their own
+  // pending overage). When all overages are clear, action play resumes
+  // normally.
 }
 
 function passAction(
@@ -737,16 +959,44 @@ function marketKeep(
       cardId: action.keptCardId,
     });
   } else {
-    if (def.resolved.kind === "demand_delta") {
+    const r = def.resolved;
+    if (r.kind === "demand_delta") {
       const before = state.demand;
-      state.demand += def.resolved.delta;
+      state.demand += r.delta;
       clampDemand(state);
       logEvent(state, "market_demand_change", {
         playerId: p.id,
         cardId: def.id,
-        delta: def.resolved.delta,
+        delta: r.delta,
         before,
         after: state.demand,
+      });
+    } else if (r.kind === "demand_delta_conditional") {
+      const before = state.demand;
+      const delta = state.demand > r.threshold ? r.deltaAbove : r.deltaBelow;
+      state.demand += delta;
+      clampDemand(state);
+      logEvent(state, "market_demand_change", {
+        playerId: p.id,
+        cardId: def.id,
+        delta,
+        branch: state.demand > r.threshold ? "above" : "below",
+        threshold: r.threshold,
+        before,
+        after: state.demand,
+      });
+    } else if (r.kind === "resource_shortage") {
+      // Queue the lock for next round (rules: market effects apply during
+      // the next round, last one round). startNextRound swaps pending in.
+      if (
+        !state.pendingRoundEffects.resourceShortages.includes(r.resource)
+      ) {
+        state.pendingRoundEffects.resourceShortages.push(r.resource);
+      }
+      logEvent(state, "market_shortage_queued", {
+        playerId: p.id,
+        cardId: def.id,
+        resource: r.resource,
       });
     } else {
       logEvent(state, "market_flavor", {
@@ -796,3 +1046,5 @@ function errorEvent(state: GameState, kind: string, data?: Record<string, unknow
 
 // Re-exports for convenience in tests / store.
 export { enterMarketPhase, enterFeesPhase, BOURBON_CARDS_BY_ID };
+// `Player` only re-exported for type ergonomics in test fixtures.
+export type { Player };

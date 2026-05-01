@@ -1,47 +1,106 @@
 "use client";
 
+/**
+ * GameBoard — the dashboard layout container.
+ *
+ * Vertical structure (top → bottom):
+ *
+ *   [TopBar]                              ← rendered by app/play/page.tsx
+ *   PhaseStrip          (gutter: pt 14, sides 22)
+ *   contextual decision panel (FeesPanel / GameOverPanel)
+ *   ──────────────────────────────────────────────
+ *   ┌──────────────────────────┐  ┌────────────┐
+ *   │ RickhouseRow             │  │ RightRail  │
+ *   │  (rickhouses)            │  │ (380px)    │
+ *   │                          │  │            │
+ *   └──────────────────────────┘  └────────────┘
+ *   ──────────────────────────────────────────────
+ *   [HandTray]                           ← flush bottom, full bleed
+ *
+ * Action affordances live in the HandTray itself now (Make / Sell /
+ * Implement / Pass) — there's no separate ActionBar. Draws happen by
+ * clicking deck stacks in the RightRail Market tab.
+ *
+ * Spec: design_handoff_bourbon_blend/README.md §Layout.
+ *
+ * Spacing:
+ *   - 22px side gutter on all of: PhaseStrip, decision panel, main grid.
+ *   - 14px between PhaseStrip and the next block.
+ *   - 14px between blocks within the padded content area.
+ *   - HandTray has its own 12px×22px padding and slate-950 bg, so it bleeds
+ *     to the canvas edges with a slate-800 top border separating it from
+ *     the content above.
+ */
+
 import { useGameStore } from "@/lib/store/gameStore";
+import { useUiStore } from "@/lib/store/uiStore";
+import CardDrawOverlay from "./CardDrawOverlay";
+import FeesPanel from "./FeesPanel";
+import GameOverPanel from "./GameOverPanel";
+import HandTray from "./HandTray";
+import MarketRecapPanel from "./MarketRecapPanel";
+import MarketRevealModal from "./MarketRevealModal";
 import PhaseBanner from "./PhaseBanner";
 import RickhouseRow from "./RickhouseRow";
-import MarketPanel from "./MarketPanel";
-import OpponentList from "./OpponentList";
-import HandTray from "./HandTray";
-import ActionBar from "./ActionBar";
-import FeesPanel from "./FeesPanel";
-import MarketPhasePanel from "./MarketPhasePanel";
-import GameOverPanel from "./GameOverPanel";
-import EventLog from "./EventLog";
+import RightRail from "./RightRail";
 import SaleRevealModal from "./SaleRevealModal";
-import CardDrawOverlay from "./CardDrawOverlay";
 
 export default function GameBoard() {
   const state = useGameStore((s) => s.state);
+  const makeBourbonActive = useUiStore((s) => s.makeBourbon.active);
+  const cancelMakeBourbon = useUiStore((s) => s.cancelMakeBourbon);
   if (!state) return null;
 
   return (
-    <div className="flex flex-col gap-4">
-      <PhaseBanner />
+    <div className="flex flex-1 flex-col">
+      {/* Padded content area — sits between TopBar (above, in page.tsx) and
+          HandTray (below). 22px side gutter; 14px top; 14px bottom; 14px gap
+          between sibling blocks. */}
+      <div className="flex flex-1 flex-col gap-[14px] px-[22px] pb-[14px] pt-[14px]">
+        <PhaseBanner />
 
-      {state.phase === "gameover" ? <GameOverPanel /> : null}
+        {state.phase === "gameover" ? <GameOverPanel /> : null}
+        {state.phase === "fees" ? <MarketRecapPanel /> : null}
+        {state.phase === "fees" ? <FeesPanel /> : null}
+        {/* Phase 3 (market) is fully owned by MarketRevealModal — no inline
+            decision panel needed; the modal auto-draws and forces a choice. */}
 
-      {state.phase === "fees" ? <FeesPanel /> : null}
-      {state.phase === "market" ? <MarketPhasePanel /> : null}
-
-      <RickhouseRow />
-
-      <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-        <div className="flex flex-col gap-4">
-          <MarketPanel />
-          <OpponentList />
+        {/* Main grid — rickhouses left (1fr), right rail right (380px). */}
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="flex min-h-0 flex-col">
+            <RickhouseRow />
+          </div>
+          <RightRail />
         </div>
-        <EventLog />
       </div>
 
+      {/* HandTray bleeds to canvas edges. */}
       <HandTray />
-      {state.phase === "action" ? <ActionBar /> : null}
 
+      {/* Make-bourbon dim/blur layer. Sits beneath the HandTray (z-40)
+          and RickhouseRow (z-40) so those stay interactive while the
+          rest of the dashboard fades out. Click anywhere on the
+          overlay to cancel the mode. */}
+      {makeBourbonActive ? (
+        <div
+          aria-label="Cancel make-bourbon"
+          role="button"
+          tabIndex={0}
+          onClick={cancelMakeBourbon}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              cancelMakeBourbon();
+            }
+          }}
+          className="fixed inset-0 z-30 bg-slate-950/55 backdrop-blur-sm transition-opacity"
+        />
+      ) : null}
+
+      {/* Modal-style overlays (always mounted, render conditionally). */}
       <SaleRevealModal />
       <CardDrawOverlay />
+      <MarketRevealModal />
     </div>
   );
 }

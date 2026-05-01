@@ -30,7 +30,8 @@ describe("reducer — initial state", () => {
 
   it("loan flags start unset", () => {
     const s = newGame();
-    expect(s.players.p1.loanOutstanding).toBe(false);
+    expect(s.players.p1.loanRemaining).toBe(0);
+    expect(s.players.p1.loanSiphonActive).toBe(false);
     expect(s.players.p1.loanUsed).toBe(false);
   });
 });

@@ -4,10 +4,10 @@
  * Hearthstone-style card draw reveal.
  *
  * Watches the game log for new draw events on the human player and queues
- * each one for a brief, dramatic reveal: the card flips in from below, hovers
- * in the centre with a shimmer sweep and a coloured aura, then drifts toward
- * the hand tray. Auto-dismisses after the animation; clicking the backdrop
- * skips to the next queued card.
+ * each one for a dramatic reveal: the card flips in from below and **stays
+ * on screen** until the player clicks to dismiss / advance to the next
+ * queued draw. (Earlier versions auto-dismissed after 1.5s, which didn't
+ * give enough time to read the card.)
  *
  * Responds to: draw_resource, draw_resource_bonus, draw_bourbon,
  * draw_investment, draw_operations.
@@ -29,8 +29,6 @@ import type { ResourceType } from "@/lib/catalogs/types";
 import { useGameStore } from "@/lib/store/gameStore";
 
 import BourbonCardFace from "./BourbonCardFace";
-
-const ANIM_DURATION_MS = 1500;
 
 type DrawEvent =
   | {
@@ -159,13 +157,18 @@ export default function CardDrawOverlay() {
     return unsubscribe;
   }, []);
 
-  // Auto-advance the queue once the head animation completes.
+  // No auto-advance — the player clicks to dismiss / go to the next
+  // queued card. Keyboard: Esc also dismisses.
   useEffect(() => {
     if (queue.length === 0) return;
-    const t = setTimeout(() => {
-      setQueue((q) => q.slice(1));
-    }, ANIM_DURATION_MS);
-    return () => clearTimeout(t);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setQueue((q) => q.slice(1));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [queue]);
 
   if (queue.length === 0) return null;
@@ -173,6 +176,7 @@ export default function CardDrawOverlay() {
 
   const skip = () => setQueue((q) => q.slice(1));
   const glow = glowFor(head);
+  const remaining = queue.length - 1;
 
   return (
     <div
@@ -198,7 +202,7 @@ export default function CardDrawOverlay() {
 
       <div
         key={head.key}
-        className="card-draw-card pointer-events-auto absolute left-1/2 top-1/2"
+        className="card-draw-card pointer-events-auto absolute left-1/2 top-1/2 cursor-pointer"
         onClick={(e) => {
           e.stopPropagation();
           skip();
@@ -217,6 +221,18 @@ export default function CardDrawOverlay() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Click-to-continue hint, pinned to the bottom of the overlay. */}
+      <div className="pointer-events-none absolute bottom-10 left-1/2 -translate-x-1/2 text-center">
+        <div className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
+          click to continue
+        </div>
+        {remaining > 0 ? (
+          <div className="mt-1 font-mono text-[10px] uppercase tracking-[.12em] text-amber-300">
+            +{remaining} more
+          </div>
+        ) : null}
       </div>
     </div>
   );

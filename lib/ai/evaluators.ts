@@ -5,10 +5,11 @@
 
 import { BOURBON_CARDS_BY_ID } from "@/lib/catalogs/bourbon.generated";
 import { INVESTMENT_CARDS_BY_ID } from "@/lib/catalogs/investment.generated";
+import { evaluateAward } from "@/lib/rules/awards";
 import { feesForPlayer } from "@/lib/rules/fees";
 import { lookupSalePrice } from "@/lib/rules/pricing";
 import { currentActionCost } from "@/lib/engine/checks";
-import type { GameState, Player } from "@/lib/engine/state";
+import type { BarrelInstance, GameState, Player } from "@/lib/engine/state";
 import type { RickhouseId } from "@/lib/engine/rickhouses";
 
 /** Player's owned barrels across all rickhouses. */
@@ -23,18 +24,106 @@ export function ownedBarrels(state: GameState, playerId: string) {
 }
 
 /**
- * Estimated payout if the player sold this barrel now. Uses the current face-up
- * bourbon card if available; otherwise the median grid cell of the deck.
+ * Estimated payout if the player sold this barrel now. With mash bills
+ * locked at production we can use the barrel's actual bill grid to look
+ * up an exact sale price.
  */
-export function estimateSalePayout(state: GameState, barrelAge: number): number {
-  const cardId = state.market.bourbonFaceUp;
-  const card = cardId ? BOURBON_CARDS_BY_ID[cardId] : null;
+export function estimateSalePayout(
+  state: GameState,
+  barrel: { age: number; mashBillId: string },
+): number {
+  if (barrel.age < 2) return 0;
+  const card = BOURBON_CARDS_BY_ID[barrel.mashBillId];
   if (!card) {
-    // Conservative fallback.
+    // Conservative fallback for unknown mash bill ids.
     return 10;
   }
-  if (barrelAge < 2) return 0;
-  return lookupSalePrice(card, barrelAge, state.demand).price;
+  return lookupSalePrice(card, barrel.age, state.demand).price;
+}
+
+/**
+ * Best Gold-Bourbon alt payout for selling this barrel, or null if no
+ * unlocked Gold qualifies / none pays more than the attached bill.
+ * Used by the bot at decision time and by the human Sell button to
+ * auto-apply the best legal Gold whenever it strictly improves the
+ * payout. (The rules say it's optional; nobody declines free money.)
+ */
+export function pickBestGoldAlt(
+  state: GameState,
+  player: Player,
+  barrel: BarrelInstance,
+): { goldId: string; payout: number } | null {
+  if (player.goldBourbons.length === 0) return null;
+  const attached = BOURBON_CARDS_BY_ID[barrel.mashBillId];
+  if (!attached) return null;
+  const attachedPrice = lookupSalePrice(attached, barrel.age, state.demand).price;
+
+  let bestId: string | null = null;
+  let bestPrice = -Infinity;
+  for (const goldId of player.goldBourbons) {
+    const altCard = BOURBON_CARDS_BY_ID[goldId];
+    if (!altCard) continue;
+    const altAward = evaluateAward(
+      altCard,
+      barrel.mash,
+      barrel.age,
+      // Reference price for Gold-criteria eligibility = alt's grid max.
+      Math.max(...altCard.grid.flatMap((row) => row)),
+    );
+    if (!altAward.gold) continue;
+    const altPrice = lookupSalePrice(altCard, barrel.age, state.demand).price;
+    if (altPrice > bestPrice) {
+      bestPrice = altPrice;
+      bestId = goldId;
+    }
+  }
+  if (!bestId) return null;
+  if (bestPrice <= attachedPrice) return null;
+  return { goldId: bestId, payout: bestPrice };
+}
+
+/**
+ * Pick the best owned barrel to sell right now.
+ *
+ * Considers every owned age-≥2 barrel and returns the one with the
+ * highest projected payout, accounting for any Gold Bourbon alt-payout
+ * that strictly beats the attached bill's grid. Returns null when the
+ * player has no sellable barrel.
+ *
+ * Used by:
+ *   - the HandTray "Sell ↵" shortcut (sell the obvious best one),
+ *   - any "did I miss a better sale?" hint in the UI,
+ *   - tests that lock the contract independently of bot scoring code.
+ */
+export function pickBestSellable(
+  state: GameState,
+  player: Player,
+): {
+  barrel: BarrelInstance;
+  rickhouseId: RickhouseId;
+  payout: number;
+  goldAlt: { goldId: string; payout: number } | null;
+} | null {
+  let bestPayout = -Infinity;
+  let best:
+    | {
+        barrel: BarrelInstance;
+        rickhouseId: RickhouseId;
+        payout: number;
+        goldAlt: { goldId: string; payout: number } | null;
+      }
+    | null = null;
+  for (const { rickhouseId, barrel } of ownedBarrels(state, player.id)) {
+    if (barrel.age < 2) continue;
+    const basePayout = estimateSalePayout(state, barrel);
+    const altPick = pickBestGoldAlt(state, player, barrel);
+    const payout = altPick ? altPick.payout : basePayout;
+    if (payout > bestPayout) {
+      bestPayout = payout;
+      best = { barrel, rickhouseId, payout, goldAlt: altPick };
+    }
+  }
+  return best;
 }
 
 export function expectedFeesNextRound(state: GameState, playerId: string): number {

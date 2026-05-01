@@ -7,13 +7,9 @@
  */
 
 import { resetPerRoundInvestmentUsage } from "@/lib/rules/investments";
+import { computeFinalScores, pickWinners } from "@/lib/rules/scoring";
 import type { GameState } from "./state";
-import {
-  DISTRESSED_LOAN_REPAYMENT,
-  MAX_DEMAND,
-  MIN_DEMAND,
-  TRIPLE_CROWN_GOLDS,
-} from "./state";
+import { MAX_DEMAND, MIN_DEMAND, TRIPLE_CROWN_GOLDS } from "./state";
 import { activePlayerCount } from "./checks";
 
 // ---------- Logging helpers ----------
@@ -36,19 +32,30 @@ export function logEvent(
 // ---------- Win condition checks ----------
 
 /**
- * Per current rules, the only end-trigger is the Triple Crown:
- * any player with 3 Gold Bourbons ends the game immediately.
+ * Per current rules, the third unlocked Gold Bourbon does NOT end the game
+ * immediately — it announces the current round as the FINAL round. The
+ * action phase continues normally; the market phase is then skipped, and
+ * scoring runs as a separate phase.
+ *
+ * Idempotent: calling this multiple times within the trigger round just
+ * re-asserts the flag. The `finalRoundEndsOnRound` is locked the first
+ * time the flag is set so additional Golds in the same round don't shift
+ * the end-of-game.
  */
 export function checkWinConditions(state: GameState): void {
-  if (state.phase === "gameover") return;
+  if (state.phase === "gameover" || state.phase === "scoring") return;
+  if (state.finalRoundTriggered) return;
 
   for (const id of state.playerOrder) {
     const p = state.players[id];
-    if (p.goldAwards.length >= TRIPLE_CROWN_GOLDS) {
-      state.winnerIds = [id];
-      state.winReason = "triple_crown";
-      state.phase = "gameover";
-      logEvent(state, "win", { playerId: id, reason: "triple_crown" });
+    if (p.goldBourbons.length >= TRIPLE_CROWN_GOLDS) {
+      state.finalRoundTriggered = true;
+      state.finalRoundEndsOnRound = state.round;
+      logEvent(state, "final_round_triggered", {
+        triggeredBy: id,
+        round: state.round,
+        golds: p.goldBourbons.length,
+      });
       return;
     }
   }
@@ -74,31 +81,33 @@ export function enterFeesPhase(state: GameState): void {
     resolvedPlayerIds: [],
     paidBarrelIds: [],
   };
-  // Distressed loan repayment is taken off the top before any rent decisions.
-  // We resolve it here so per-player rent UIs see post-repayment cash.
+  // Distressed loan repayment is taken off the top before any rent decisions
+  // (Phase 1 sequence: a → b → c). If the player can pay the full
+  // `loanRemaining`, the loan clears. Otherwise they pay whatever they
+  // have, the residual stays in `loanRemaining`, and `loanSiphonActive`
+  // turns on so every future cash credit auto-siphons until the loan
+  // clears (GAME_RULES.md §Distressed Distiller's Loan).
   for (const id of state.playerOrder) {
     const p = state.players[id];
-    if (!p.loanOutstanding) continue;
-    const owed = DISTRESSED_LOAN_REPAYMENT;
+    if (p.loanRemaining <= 0) continue;
+    const owed = p.loanRemaining;
     if (p.cash >= owed) {
       p.cash -= owed;
-      p.loanOutstanding = false;
+      p.loanRemaining = 0;
+      p.loanSiphonActive = false;
       logEvent(state, "loan_repaid", { playerId: id, amount: owed });
     } else {
-      // Partial repayment: pay all available cash; debt continues to next Phase 1.
-      // No compounding interest, no penalty — just rolls over.
       const partial = p.cash;
       p.cash = 0;
+      p.loanRemaining = owed - partial;
+      // Activate the siphon: from this point on, every cash credit
+      // diverts to the bank first.
+      p.loanSiphonActive = true;
       logEvent(state, "loan_partial_repayment", {
         playerId: id,
         paid: partial,
-        stillOwed: owed - partial,
+        stillOwed: p.loanRemaining,
       });
-      // Note: we leave loanOutstanding = true; the remaining $owed - partial
-      // will be re-attempted next Phase 1. The reducer-level repayment helper
-      // can be smarter later; for now this keeps the rule honest.
-      // To avoid double-counting, store remaining owed via subtraction by
-      // reusing the constant on next entry (the player has $0 either way).
     }
   }
   logEvent(state, "phase_change", { phase: "fees", round: state.round });
@@ -124,6 +133,7 @@ export function resetActionPhase(state: GameState): void {
     consecutivePasses: 0,
     passedPlayerIds: [],
     actionsThisLapPlayerIds: [],
+    auditCalledThisRound: false,
   };
   state.firstPasserId = null;
 }
@@ -162,7 +172,15 @@ export function maybeEndActionPhase(state: GameState): boolean {
   const alive = activePlayerCount(state);
   if (alive === 0) return false;
   if (state.actionPhase.consecutivePasses >= alive) {
-    enterMarketPhase(state);
+    // Final-round exception: skip Phase 3 and go straight to scoring.
+    if (
+      state.finalRoundTriggered &&
+      state.finalRoundEndsOnRound === state.round
+    ) {
+      enterScoringPhase(state);
+    } else {
+      enterMarketPhase(state);
+    }
     return true;
   }
   return false;
@@ -194,8 +212,40 @@ export function startNextRound(state: GameState): void {
     state.players[id].hasTakenPaidActionThisRound = false;
   }
   resetPerRoundInvestmentUsage(state);
+  // Swap the round-effect queues. Anything market cards queued during the
+  // round that just ended becomes active now; this round's slot resets.
+  state.currentRoundEffects = state.pendingRoundEffects;
+  state.pendingRoundEffects = { resourceShortages: [] };
+  if (state.currentRoundEffects.resourceShortages.length > 0) {
+    logEvent(state, "round_effects_active", {
+      shortages: [...state.currentRoundEffects.resourceShortages],
+    });
+  }
   enterFeesPhase(state);
+  // Re-check: an outstanding final-round flag from a prior round shouldn't
+  // be possible (we route to scoring instead of starting a next round), but
+  // keep the win-check defensive in case of state import.
   checkWinConditions(state);
+}
+
+/**
+ * End-of-game scoring sweep. Computes per-player breakdowns, picks the
+ * winner(s) with tiebreaks, and parks the game in `gameover`.
+ */
+export function enterScoringPhase(state: GameState): void {
+  state.phase = "scoring";
+  logEvent(state, "phase_change", { phase: "scoring", round: state.round });
+  const scores = computeFinalScores(state);
+  state.finalScores = scores;
+  const winners = pickWinners(state, scores);
+  state.winnerIds = winners;
+  state.winReason = "final-round";
+  state.phase = "gameover";
+  logEvent(state, "win", {
+    winnerIds: winners,
+    reason: "final-round",
+    scores,
+  });
 }
 
 /** Cap demand to [MIN_DEMAND, MAX_DEMAND]. */

@@ -44,17 +44,42 @@ export function findBarrel(
   return null;
 }
 
+/**
+ * Number of cards counted against the soft 10-card hand limit. Includes
+ * mash bills + UNBUILT investments + operations cards. Active investments
+ * sit on the table and are NOT in hand. Unlocked Gold Bourbons are
+ * trophies, also NOT in hand.
+ */
+export function handSize(player: Player): number {
+  const unbuiltInvestments = player.investments.filter(
+    (i) => i.status === "unbuilt",
+  ).length;
+  return (
+    player.bourbonHand.length + unbuiltInvestments + player.operations.length
+  );
+}
+
 export function canMakeBourbon(
   state: GameState,
   playerId: string,
   rickhouseId: RickhouseId,
   resourceInstanceIds: string[],
+  mashBillId: string,
 ): { ok: true } | { ok: false; reason: string } {
   const player = state.players[playerId];
   const rickhouse = state.rickhouses.find((r) => r.id === rickhouseId);
   if (!rickhouse) return { ok: false, reason: "Unknown rickhouse" };
   if (rickhouse.barrels.length >= rickhouse.capacity) {
     return { ok: false, reason: "Rickhouse is full" };
+  }
+
+  // Mash bill must be in the player's bourbon hand (committed at production,
+  // locked to the barrel; it leaves the hand on success).
+  if (!player.bourbonHand.includes(mashBillId)) {
+    return { ok: false, reason: "Mash bill not in your hand" };
+  }
+  if (!BOURBON_CARDS_BY_ID[mashBillId]) {
+    return { ok: false, reason: `Unknown mash bill ${mashBillId}` };
   }
 
   const seen = new Set<string>();
@@ -78,7 +103,6 @@ export function canSellBourbon(
   state: GameState,
   playerId: string,
   barrelId: string,
-  bourbonCardId: string,
 ): { ok: true; card: BourbonCardDef } | { ok: false; reason: string } {
   const found = findBarrel(state, barrelId);
   if (!found) return { ok: false, reason: "Barrel not found" };
@@ -87,26 +111,42 @@ export function canSellBourbon(
   if (found.barrel.age < 2)
     return { ok: false, reason: "Bourbon must age ≥ 2 years before selling" };
 
-  const card = BOURBON_CARDS_BY_ID[bourbonCardId];
-  if (!card) return { ok: false, reason: `Unknown bourbon card ${bourbonCardId}` };
-
-  const player = state.players[playerId];
-  const inHand = player.bourbonHand.includes(bourbonCardId);
-  const isFaceUp = state.market.bourbonFaceUp === bourbonCardId;
-  const hasMatchingAward =
-    player.goldAwards.includes(bourbonCardId) ||
-    player.silverAwards.includes(bourbonCardId);
-
-  // Player may use a card from hand, the face-up card, or one of their award cards.
-  if (!inHand && !isFaceUp && !hasMatchingAward) {
-    return { ok: false, reason: "Bourbon card not available to you" };
+  const card = BOURBON_CARDS_BY_ID[found.barrel.mashBillId];
+  if (!card) {
+    return {
+      ok: false,
+      reason: `Unknown mash bill ${found.barrel.mashBillId}`,
+    };
   }
   return { ok: true, card };
 }
 
+export function canCallAudit(
+  state: GameState,
+  playerId: string,
+): { ok: true } | { ok: false; reason: string } {
+  if (state.phase !== "action") return { ok: false, reason: "Not in action phase" };
+  if (state.currentPlayerId !== playerId)
+    return { ok: false, reason: "Not your turn" };
+  const p = state.players[playerId];
+  if (!p || p.eliminated) return { ok: false, reason: "No player" };
+  if (p.pendingAuditOverage != null)
+    return { ok: false, reason: "You owe an audit discard first" };
+  if (state.actionPhase.auditCalledThisRound)
+    return { ok: false, reason: "Audit already called this round" };
+  if (!canAffordCurrentAction(state, playerId))
+    return { ok: false, reason: "Cannot afford action cost" };
+  return { ok: true };
+}
+
 export function canPassAction(state: GameState, playerId: string): boolean {
   // Passing is always legal on your turn, regardless of the paid-action ladder.
-  return state.phase === "action" && state.currentPlayerId === playerId;
+  // Exception: a player owing an audit discard cannot pass — they must
+  // resolve the discard first.
+  if (state.phase !== "action") return false;
+  if (state.currentPlayerId !== playerId) return false;
+  if (state.players[playerId].pendingAuditOverage != null) return false;
+  return true;
 }
 
 export function activePlayerCount(state: GameState): number {

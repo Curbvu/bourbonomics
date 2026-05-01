@@ -27,6 +27,7 @@ function barrel(mash: ResourceCardInstance[], age = 4): BarrelInstance {
     ownerId: "p1",
     rickhouseId: "rickhouse-0",
     mash,
+    mashBillId: "test-bill",
     age,
     barreledOnRound: 1,
   };

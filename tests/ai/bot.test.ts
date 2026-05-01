@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "@/lib/engine/setup";
 import { driveBots } from "@/lib/ai/driver";
+import type { GameState } from "@/lib/engine/state";
 
 describe("bot driver", () => {
   it("drives an all-bot game through multiple rounds without deadlock", () => {
@@ -54,5 +55,57 @@ describe("bot driver", () => {
     expect(s.phase).toBe("action");
     expect(s.currentPlayerId).toBe("p1");
     expect(s.players.p1.kind).toBe("human");
+  });
+
+  it("market phase: drives a bot through draw + keep when it's the current player", () => {
+    // Regression: previously the driver picked the next-unresolved player
+    // via `playerOrder.find` rather than `currentPlayerId`. When the
+    // human was earlier in seat order than the current bot (e.g. a bot
+    // had passed first in the action phase, so `enterMarketPhase` set
+    // currentPlayerId to that bot), the driver dispatched MARKET_DRAW
+    // for the human — the reducer rejected it for a currentPlayerId
+    // mismatch and the market phase soft-locked.
+    const fresh = createInitialState({
+      id: "g",
+      seed: 100,
+      seats: [
+        { name: "You", kind: "human" },
+        { name: "Clyde", kind: "bot", botDifficulty: "easy" },
+      ],
+    });
+
+    // Manually engineer a market-phase state where currentPlayerId is a
+    // bot (Clyde, p2) and the human (p1) is earlier in seat order. This
+    // mirrors the live state after `enterMarketPhase` runs with
+    // firstPasserId set to a bot.
+    const market: GameState = {
+      ...fresh,
+      phase: "market",
+      currentPlayerId: "p2",
+      firstPasserId: "p2",
+      actionPhase: {
+        ...fresh.actionPhase,
+        freeWindowActive: false,
+        paidLapTier: 1,
+        consecutivePasses: 2,
+        passedPlayerIds: ["p2", "p1"],
+        actionsThisLapPlayerIds: [],
+      },
+      marketPhase: {},
+    };
+    // Reset marketResolved on both players just in case.
+    market.players = {
+      p1: { ...fresh.players.p1, marketResolved: false },
+      p2: { ...fresh.players.p2, marketResolved: false },
+    };
+
+    // Now drive — this is the path that used to soft-lock.
+    const final = driveBots(market);
+
+    // Bot fully resolved its market draw; control passed to the human.
+    expect(final.players.p2.marketResolved).toBe(true);
+    expect(final.players.p1.marketResolved).toBe(false);
+    expect(final.currentPlayerId).toBe("p1");
+    expect(final.phase).toBe("market");
   });
 });
