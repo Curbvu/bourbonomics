@@ -338,21 +338,16 @@ body {
    ---------------------------------------------------------------------- */
 
 @keyframes card-draw-stage-fade {
+  /* Fade in and HOLD — the overlay stays visible until the user clicks to
+     dismiss. Was previously a fade-in-out cycle on a 1.5s auto-dismiss
+     timer; that gave the player no time to read the card. */
   0% {
     opacity: 0;
     backdrop-filter: blur(0);
   }
-  18% {
-    opacity: 1;
-    backdrop-filter: blur(4px);
-  }
-  82% {
-    opacity: 1;
-    backdrop-filter: blur(4px);
-  }
   100% {
-    opacity: 0;
-    backdrop-filter: blur(0);
+    opacity: 1;
+    backdrop-filter: blur(4px);
   }
 }
 
@@ -363,51 +358,41 @@ body {
     transform: translate(-50%, calc(-50% + 220px)) scale(0.35) rotateY(180deg);
     filter: blur(10px) brightness(0.7);
   }
-  18% {
+  35% {
     opacity: 1;
     transform: translate(-50%, calc(-50% + 60px)) scale(0.85) rotateY(60deg);
     filter: blur(3px) brightness(1.05);
   }
   /* Phase 2: arrive face-up, slight overshoot */
-  32% {
+  60% {
     opacity: 1;
     transform: translate(-50%, calc(-50% - 8px)) scale(1.08) rotateY(0deg);
     filter: blur(0) brightness(1.15);
   }
-  44% {
+  /* Phase 3: settle and HOLD. animation-fill-mode: both keeps the card
+     pinned at this state until the component unmounts (i.e. the player
+     clicks to dismiss). No fly-out animation. */
+  100% {
+    opacity: 1;
     transform: translate(-50%, -50%) scale(1) rotateY(0deg);
     filter: blur(0) brightness(1);
-  }
-  /* Phase 3: hover */
-  78% {
-    opacity: 1;
-    transform: translate(-50%, calc(-50% - 4px)) scale(1.02) rotateY(0deg);
-    filter: blur(0) brightness(1);
-  }
-  /* Phase 4: drift to hand (bottom-right of viewport) */
-  100% {
-    opacity: 0;
-    transform: translate(calc(-50% + 280px), calc(-50% + 320px)) scale(0.4) rotateY(0deg);
-    filter: blur(2px) brightness(0.7);
   }
 }
 
 @keyframes card-draw-glow {
+  /* Pulse in, then HOLD at a slightly muted level so the aura keeps
+     framing the card while the player reads it. */
   0% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(0.5);
   }
-  20% {
+  40% {
     opacity: 0.85;
     transform: translate(-50%, -50%) scale(1.1);
   }
-  60% {
-    opacity: 0.55;
-    transform: translate(-50%, -50%) scale(1.18);
-  }
   100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1.05);
   }
 }
 
@@ -451,11 +436,13 @@ body {
 }
 
 .card-draw-stage {
-  animation: card-draw-stage-fade 1.5s ease-in-out both;
+  animation: card-draw-stage-fade 0.4s ease-out both;
 }
 
 .card-draw-card {
-  animation: card-draw-card 1.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* Flip-in over ~800ms then hold (animation-fill-mode: both pins it at
+     the final keyframe until the component unmounts). */
+  animation: card-draw-card 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
   transform-origin: 50% 50%;
   transform-style: preserve-3d;
   backface-visibility: hidden;
@@ -463,16 +450,20 @@ body {
 }
 
 .card-draw-glow {
-  animation: card-draw-glow 1.5s ease-out both;
+  animation: card-draw-glow 0.85s ease-out both;
 }
 
+/* The shine sweep and spark are one-shot flair — they fire during the
+   flip-in and quietly fade. Their original keyframes already end at
+   opacity 0, which is the right behaviour here. */
+
 .card-draw-shine {
-  animation: card-draw-shine 1.5s ease-in-out 0.18s both;
+  animation: card-draw-shine 0.85s ease-in-out 0.15s both;
   pointer-events: none;
 }
 
 .card-draw-spark {
-  animation: card-draw-spark 1.5s ease-out both;
+  animation: card-draw-spark 0.85s ease-out both;
   pointer-events: none;
 }
 
