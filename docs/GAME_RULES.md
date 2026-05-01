@@ -115,8 +115,8 @@ A baron who is short on cash at the start of Phase 1 may take a one-time **Distr
 
 - **Eligibility:** At the start of Phase 1, the baron's available cash must be **less than the rent they owe this round**. The loan may be used **once per game** per baron.
 - **Loan amount:** **$10**, taken from the bank into the baron's cash pool immediately.
-- **Repayment:** **$13** (the loan plus $3 interest), paid off the top at the **start of the next Phase 1**, before any rent is calculated.
-- **If the baron cannot repay $15 in full** at the start of next Phase 1, they pay whatever cash they have toward the loan; the remaining debt simply continues — no compounding interest, but they may not take another loan, and any cash they earn in subsequent rounds goes first to repaying the bank until the $13 is settled.
+- **Repayment:** **$15** (the loan plus $5 interest), paid off the top at the **start of the next Phase 1**, before any rent is calculated.
+- **If the baron cannot repay $15 in full** at the start of next Phase 1, they pay whatever cash they have toward the loan; the remaining debt simply continues — no compounding interest, but they may not take another loan, and any cash they earn in subsequent rounds goes first to repaying the bank until the $15 is settled.
 - **Tracking:** Place a "Loan" token in front of the baron while the loan is outstanding so the table remembers.
 
 The loan is intended as an emergency bridge — enough to cover a tight Phase 1 and keep barrels aging — not a free expansion of capital.
