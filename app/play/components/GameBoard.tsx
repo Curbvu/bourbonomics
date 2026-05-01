@@ -5,9 +5,8 @@
  *
  * Vertical structure (top → bottom):
  *
- *   [TopBar]                              ← rendered by app/play/page.tsx
- *   PhaseStrip          (gutter: pt 14, sides 22)
- *   contextual decision panel (FeesPanel / GameOverPanel)
+ *   [TopBar + Phase sub-bar]              ← rendered by app/play/page.tsx
+ *   contextual decision panel (FeesPanel / GameOverPanel / MarketRecapPanel)
  *   ──────────────────────────────────────────────
  *   ┌──────────────────────────┐  ┌────────────┐
  *   │ RickhouseRow             │  │ RightRail  │
@@ -17,16 +16,17 @@
  *   ──────────────────────────────────────────────
  *   [HandTray]                           ← flush bottom, full bleed
  *
- * Action affordances live in the HandTray itself now (Make / Sell /
- * Implement / Pass) — there's no separate ActionBar. Draws happen by
- * clicking deck stacks in the RightRail Market tab.
+ * The phase strip used to sit here as a separate band; it's now folded
+ * into GameTopBar as a sub-bar since it's purely game-state metadata.
+ * Action affordances live in the HandTray itself (Make / Sell /
+ * Implement / Audit / Pass) — there's no separate ActionBar. Draws
+ * happen by clicking deck stacks in the RightRail Market tab.
  *
  * Spec: design_handoff_bourbon_blend/README.md §Layout.
  *
  * Spacing:
- *   - 22px side gutter on all of: PhaseStrip, decision panel, main grid.
- *   - 14px between PhaseStrip and the next block.
- *   - 14px between blocks within the padded content area.
+ *   - 22px side gutter on the decision panel and main grid.
+ *   - 14px top gutter under the TopBar, 14px between blocks.
  *   - HandTray has its own 12px×22px padding and slate-950 bg, so it bleeds
  *     to the canvas edges with a slate-800 top border separating it from
  *     the content above.
@@ -34,13 +34,13 @@
 
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
+import BourbonInspectModal from "./BourbonInspectModal";
 import CardDrawOverlay from "./CardDrawOverlay";
 import FeesPanel from "./FeesPanel";
 import GameOverPanel from "./GameOverPanel";
 import HandTray from "./HandTray";
 import MarketRecapPanel from "./MarketRecapPanel";
 import MarketRevealModal from "./MarketRevealModal";
-import PhaseBanner from "./PhaseBanner";
 import RickhouseRow from "./RickhouseRow";
 import RightRail from "./RightRail";
 import SaleRevealModal from "./SaleRevealModal";
@@ -57,8 +57,6 @@ export default function GameBoard() {
           HandTray (below). 22px side gutter; 14px top; 14px bottom; 14px gap
           between sibling blocks. */}
       <div className="flex flex-1 flex-col gap-[14px] px-[22px] pb-[14px] pt-[14px]">
-        <PhaseBanner />
-
         {state.phase === "gameover" ? <GameOverPanel /> : null}
         {state.phase === "fees" ? <MarketRecapPanel /> : null}
         {state.phase === "fees" ? <FeesPanel /> : null}
@@ -101,6 +99,7 @@ export default function GameBoard() {
       <SaleRevealModal />
       <CardDrawOverlay />
       <MarketRevealModal />
+      <BourbonInspectModal />
     </div>
   );
 }

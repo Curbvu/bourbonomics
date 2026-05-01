@@ -1,20 +1,25 @@
 "use client";
 
 /**
- * Rickhouse grid — six region cards laid out 3 columns × 2 rows.
+ * Rickhouse grid — six region cards laid out 3 columns × 2 rows on lg+
+ * screens, dropping to 2 columns on md.
  *
  * Spec: design_handoff_bourbon_blend/README.md §RickhouseGrid.
  *
- * Each card has a Cormorant Garamond name, a `{filled}/{capacity} barrels`
- * subtitle, an optional "+N you" callout in the player's seat colour, and a
- * row of 28×28 barrel chips. Filled chips show their age in white mono;
- * empty slots are 1px-dashed slate-700 squares.
+ * Each card has a Cormorant Garamond region name, a `{filled}/{capacity}
+ * barrels` subtitle, an optional "+N you" callout in the player's seat
+ * colour, and a wrapping grid of barrel slots. Each filled slot is a
+ * card-sized chip (108 × 88) that shows the mash bill's name, age,
+ * current sale price, owner colour stripe, and a rarity star — enough
+ * to read the bill at a glance. Click any barrel chip to open a full
+ * inspect modal with the complete grid + awards + Sell button.
  *
  * Phase 2 of the make-bourbon flow: when `useUiStore.makeBourbon.active`
  * is true and the player has a valid mash selected in their hand, the
  * rickhouses with capacity light up amber and become click-to-place. The
  * click dispatches MAKE_BOURBON with the selected resource ids and clears
- * the mode.
+ * the mode. (In that mode, individual barrel-chip clicks are suppressed
+ * so the rickhouse-card-as-target behaviour wins.)
  *
  * The component name is kept (`RickhouseRow`) for import compatibility with
  * existing consumers — the layout is no longer a single row.
@@ -37,6 +42,7 @@ export default function RickhouseRow() {
   const dispatch = useGameStore((s) => s.dispatch);
   const makeBourbon = useUiStore((s) => s.makeBourbon);
   const cancelMakeBourbon = useUiStore((s) => s.cancelMakeBourbon);
+  const inspectBarrel = useUiStore((s) => s.inspectBarrel);
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
   );
@@ -150,7 +156,7 @@ export default function RickhouseRow() {
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {state.rickhouses.map((h, idx) => {
           const def = RICKHOUSES[idx];
           const filled = h.barrels.length;
@@ -185,7 +191,7 @@ export default function RickhouseRow() {
                       : undefined
               }
               className={[
-                "flex flex-col gap-2.5 rounded-lg border bg-slate-900/60 px-3.5 py-3 transition-all",
+                "flex flex-col gap-3 rounded-lg border bg-slate-900/60 px-4 py-3.5 transition-all",
                 targetable
                   ? "cursor-pointer border-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,.15)] hover:-translate-y-0.5 hover:shadow-[0_0_0_3px_rgba(245,158,11,.35)]"
                   : makeBourbon.active && freeSlots === 0
@@ -195,10 +201,10 @@ export default function RickhouseRow() {
             >
               <div className="flex items-baseline justify-between gap-2">
                 <div>
-                  <div className="font-display text-[16px] font-semibold leading-tight tracking-[.01em] text-amber-100">
+                  <div className="font-display text-[18px] font-semibold leading-tight tracking-[.01em] text-amber-100">
                     {def.name}
                   </div>
-                  <div className="font-mono text-[10.5px] tabular-nums text-slate-500">
+                  <div className="font-mono text-[11px] tabular-nums text-slate-500">
                     {filled}/{def.capacity} barrels
                   </div>
                 </div>
@@ -209,7 +215,7 @@ export default function RickhouseRow() {
                 ) : null}
               </div>
 
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {h.barrels.map((b) => {
                   const seatIdx = paletteIndex(
                     state.players[b.ownerId]?.seatIndex ?? 0,
@@ -223,102 +229,118 @@ export default function RickhouseRow() {
                   const altPick =
                     isMine && me ? pickBestGoldAlt(state, me, b) : null;
                   const projectedPrice = altPick ? altPick.payout : basePrice;
-                  // Compact label for the chip — first word of the bill,
-                  // capped to 5 chars so the chip stays tight.
-                  const billAbbrev = (() => {
-                    const name = card?.name ?? b.mashBillId;
-                    const head = name.split(/\s+/)[0] ?? name;
-                    const stripped = head.replace(/[^a-zA-Z0-9]/g, "");
-                    return (stripped.slice(0, 5) || "?").toUpperCase();
-                  })();
                   const isRare = card?.rarity === "Rare";
+                  const showPrice = isMine && b.age >= 2;
                   const tooltip = isMine
                     ? `${card?.name ?? b.mashBillId}${isRare ? " (Rare)" : ""} · age ${b.age}` +
                       (b.age < 2
-                        ? " · needs ≥2 to sell"
+                        ? " · needs ≥2 to sell · click to inspect"
                         : ` · sells for $${projectedPrice}` +
                           (altPick
                             ? ` (Gold alt: ${BOURBON_CARDS_BY_ID[altPick.goldId]?.name ?? altPick.goldId})`
                             : "") +
-                          (sellable
-                            ? actionCost > 0
-                              ? ` · click to sell ($${actionCost} action)`
-                              : ` · click to sell`
-                            : ""))
+                          " · click to inspect / sell")
                     : `${state.players[b.ownerId]?.name ?? "?"} · ${
                         card?.name ?? b.mashBillId
-                      }${isRare ? " (Rare)" : ""} · age ${b.age}`;
-                  const baseChipClass = `relative flex h-12 w-[60px] flex-col items-center justify-center gap-px rounded-[6px] font-mono leading-none text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18)] ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`;
-                  const showPrice = isMine && b.age >= 2;
-                  const inner = (
-                    <>
-                      <span className="text-[8px] font-bold tracking-[.04em] opacity-95">
-                        {billAbbrev}
-                      </span>
-                      <span className="text-[12px] font-bold tabular-nums">
-                        {b.age}y
-                      </span>
-                      {showPrice ? (
-                        <span
-                          className={[
-                            "rounded-sm px-1 font-mono text-[8px] font-bold leading-none tabular-nums",
-                            altPick
-                              ? "bg-amber-300/95 text-slate-950"
-                              : "bg-emerald-400/90 text-slate-950",
-                          ].join(" ")}
-                        >
-                          ${projectedPrice}
-                        </span>
-                      ) : null}
-                      {isRare ? (
-                        <span
-                          className="absolute right-0.5 top-0.5 text-[8px] leading-none text-amber-200"
-                          aria-hidden
-                        >
-                          ★
-                        </span>
-                      ) : null}
-                    </>
-                  );
-                  if (sellable) {
-                    return (
-                      <button
-                        key={b.barrelId}
-                        type="button"
-                        title={tooltip}
-                        onClick={() =>
+                      }${isRare ? " (Rare)" : ""} · age ${b.age} · click to inspect`;
+                  // Card-sized barrel chip with the bill's name on a
+                  // header strip in the owner's colour, age centered,
+                  // and a price badge for sellable own barrels.
+                  const chipClass = [
+                    "group relative flex h-[88px] w-[108px] flex-col overflow-hidden rounded-md border bg-slate-950/70 text-left transition-all",
+                    sellable
+                      ? "border-amber-400 outline outline-2 outline-amber-300/70 outline-offset-1 hover:-translate-y-0.5 hover:border-amber-300"
+                      : "border-slate-700 hover:-translate-y-0.5 hover:border-amber-500/60",
+                  ].join(" ");
+                  // Suppress click during make-bourbon mode — that
+                  // mode's click target is the rickhouse card itself.
+                  const clickable = !makeBourbon.active;
+                  const onClick = clickable
+                    ? sellable
+                      ? () =>
                           sellBarrel(
                             b.barrelId,
                             altPick ? altPick.goldId : undefined,
                           )
-                        }
-                        className={`${baseChipClass} cursor-pointer outline outline-2 outline-amber-300 outline-offset-1 transition-transform hover:-translate-y-0.5`}
-                      >
-                        {inner}
-                      </button>
-                    );
-                  }
+                      : () => inspectBarrel(b.barrelId)
+                    : undefined;
+                  // Sell-mode barrels stay sellable on click; everyone
+                  // else opens the inspect modal. The modal exposes its
+                  // own Sell button so a player can always inspect first
+                  // — opt-in via the chip's bottom-left "info" badge.
                   return (
-                    <div
+                    <button
                       key={b.barrelId}
+                      type="button"
                       title={tooltip}
-                      className={baseChipClass}
+                      onClick={onClick}
+                      disabled={!clickable}
+                      className={chipClass}
                     >
-                      {inner}
-                    </div>
+                      {/* Owner color header strip with bill name */}
+                      <div
+                        className={`flex items-center gap-1 px-1.5 py-0.5 text-white ${PLAYER_BG_CLASS[seatIdx]}`}
+                      >
+                        <span
+                          className="line-clamp-1 flex-1 font-display text-[11px] font-semibold leading-tight tracking-[.01em]"
+                          title={card?.name}
+                        >
+                          {card?.name ?? b.mashBillId}
+                        </span>
+                        {isRare ? (
+                          <span
+                            className="text-[9px] leading-none text-amber-200"
+                            aria-hidden
+                          >
+                            ★
+                          </span>
+                        ) : null}
+                      </div>
+                      {/* Body: age centered + price badge */}
+                      <div className="relative flex flex-1 items-center justify-center">
+                        <span className="font-mono text-[20px] font-bold leading-none tabular-nums text-amber-100">
+                          {b.age}
+                          <span className="ml-0.5 text-[11px] text-slate-400">
+                            y
+                          </span>
+                        </span>
+                        {showPrice ? (
+                          <span
+                            className={[
+                              "absolute bottom-1 right-1 rounded px-1 py-px font-mono text-[9px] font-bold leading-none tabular-nums",
+                              altPick
+                                ? "bg-amber-300/95 text-slate-950"
+                                : "bg-emerald-400/90 text-slate-950",
+                            ].join(" ")}
+                          >
+                            ${projectedPrice}
+                          </span>
+                        ) : null}
+                        {!sellable && clickable ? (
+                          <span
+                            className="absolute bottom-1 left-1 rounded border border-slate-600 bg-slate-900/80 px-1 font-mono text-[8px] font-bold uppercase tracking-[.05em] text-slate-300 opacity-0 transition-opacity group-hover:opacity-100"
+                            aria-hidden
+                          >
+                            info
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
                   );
                 })}
                 {Array.from({ length: freeSlots }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
                     className={[
-                      "h-12 w-[60px] rounded-[6px] border border-dashed",
+                      "flex h-[88px] w-[108px] items-center justify-center rounded-md border border-dashed font-mono text-[9px] uppercase tracking-[.12em]",
                       targetable
-                        ? "border-amber-400/70"
-                        : "border-slate-700",
+                        ? "border-amber-400/70 text-amber-300/70"
+                        : "border-slate-700 text-slate-700",
                     ].join(" ")}
                     aria-hidden
-                  />
+                  >
+                    empty
+                  </div>
                 ))}
               </div>
             </div>

@@ -98,6 +98,7 @@ export default function HandTray() {
   const toggleAuditInvestment = useUiStore((s) => s.toggleAuditInvestment);
   const toggleAuditOperations = useUiStore((s) => s.toggleAuditOperations);
   const cancelAuditDiscard = useUiStore((s) => s.cancelAuditDiscard);
+  const inspectBill = useUiStore((s) => s.inspectBill);
 
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
@@ -510,9 +511,13 @@ export default function HandTray() {
                   if (!card) return null;
                   const auditMode = auditDiscard.active;
                   const makeMode = makeBourbon.active && !auditMode;
+                  const idle = !auditMode && !makeMode;
                   const auditSelected = auditDiscard.mashBillIds.includes(id);
                   const makeSelected = makeBourbon.mashBillId === id;
-                  const selectable = makeMode || auditMode;
+                  // In idle mode every bourbon card is clickable to open
+                  // the inspect modal. In make/audit modes the click does
+                  // its mode-specific thing instead.
+                  const selectable = makeMode || auditMode || idle;
                   const selected = auditMode ? auditSelected : makeSelected;
                   const className = [
                     "w-[110px] rounded-md transition-all",
@@ -524,27 +529,31 @@ export default function HandTray() {
                       : selectable
                         ? auditMode
                           ? "ring-1 ring-rose-500/40 hover:-translate-y-0.5"
-                          : "ring-1 ring-amber-500/40 hover:-translate-y-0.5"
+                          : makeMode
+                            ? "ring-1 ring-amber-500/40 hover:-translate-y-0.5"
+                            : "hover:-translate-y-0.5 hover:ring-1 hover:ring-amber-500/40"
                         : "",
                   ]
                     .filter(Boolean)
                     .join(" ");
+                  const onClick = auditMode
+                    ? () => toggleAuditMashBill(id)
+                    : makeMode
+                      ? () => pickMashBill(id)
+                      : () => inspectBill(id);
+                  const title = auditMode
+                    ? `${card.name} — toggle for audit discard`
+                    : makeMode
+                      ? `${card.name} — pick as mash bill`
+                      : `${card.name} — click to inspect`;
                   if (selectable) {
                     return (
                       <button
                         key={`${id}-${i}`}
                         type="button"
                         aria-pressed={selected}
-                        title={
-                          auditMode
-                            ? `${card.name} — toggle for audit discard`
-                            : `${card.name} — pick as mash bill`
-                        }
-                        onClick={() =>
-                          auditMode
-                            ? toggleAuditMashBill(id)
-                            : pickMashBill(id)
-                        }
+                        title={title}
+                        onClick={onClick}
                         className={className}
                       >
                         <BourbonCardFace card={card} size="sm" />

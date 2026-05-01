@@ -28,16 +28,33 @@ const PHASES = [
 
 const COST_TIERS = ["FREE", "$1", "$2", "$3+"] as const;
 
-export default function PhaseBanner() {
+export default function PhaseBanner({
+  subBar = false,
+}: {
+  /**
+   * When true, render flush as a sub-bar inside GameTopBar — no outer
+   * border, no rounded corners, transparent backdrop. The default
+   * (false) keeps the original card chrome for any standalone usage.
+   */
+  subBar?: boolean;
+}) {
   const state = useGameStore((s) => s.state)!;
 
   // Game-over has its own panel; no phase strip in that state.
   if (state.phase === "gameover") return null;
 
   const currentIndex = PHASES.findIndex((p) => p.k === state.phase);
-  const paid = state.actionPhase.freeWindowActive
+  const rawTier = state.actionPhase.freeWindowActive
     ? 0
-    : Math.min(state.actionPhase.paidLapTier, COST_TIERS.length - 1);
+    : state.actionPhase.paidLapTier;
+  const paid = Math.min(rawTier, COST_TIERS.length - 1);
+  // Once we cross the $3+ chip, the ladder visually "runs out". Surface the
+  // overshoot — actual dollar amount of the current tier, plus how many laps
+  // past the cap we are — so the escalation reads at a glance.
+  const escalating = rawTier >= 3;
+  const escalationOvershoot = Math.max(0, rawTier - 3);
+  const dynamicLastLabel =
+    escalating && rawTier > 3 ? `$${rawTier}` : "$3+";
 
   // Accumulated fees inline under the Fees cell.
   const humanId = state.playerOrder.find((id) => state.players[id].kind === "human");
@@ -53,7 +70,11 @@ export default function PhaseBanner() {
 
   return (
     <div
-      className="flex overflow-hidden rounded-lg border border-slate-800 bg-slate-900"
+      className={
+        subBar
+          ? "flex overflow-hidden rounded-md border border-slate-800/60 bg-slate-900/40"
+          : "flex overflow-hidden rounded-lg border border-slate-800 bg-slate-900"
+      }
       role="navigation"
       aria-label="Round phases"
     >
@@ -131,16 +152,30 @@ export default function PhaseBanner() {
                   next costs
                 </span>
                 <div className="flex items-center gap-1">
-                  {COST_TIERS.map((label, idx) => (
-                    <CostChip
-                      key={label}
-                      label={label}
-                      caret={idx > 0}
-                      state={
-                        idx === paid ? "next" : idx < paid ? "spent" : "future"
-                      }
-                    />
-                  ))}
+                  {COST_TIERS.map((label, idx) => {
+                    const isLast = idx === COST_TIERS.length - 1;
+                    const chipLabel = isLast ? dynamicLastLabel : label;
+                    const chipState =
+                      idx === paid ? "next" : idx < paid ? "spent" : "future";
+                    return (
+                      <CostChip
+                        key={label}
+                        label={chipLabel}
+                        caret={idx > 0}
+                        state={chipState}
+                        escalating={isLast && escalating && chipState === "next"}
+                      />
+                    );
+                  })}
+                  {escalationOvershoot > 0 ? (
+                    <span
+                      className="ml-1 inline-flex animate-pulse items-center gap-0.5 rounded-full border border-rose-500/70 bg-rose-700/[0.30] px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-[.10em] text-rose-100"
+                      title={`Lap tier has overrun the $3+ cap by ${escalationOvershoot} ${escalationOvershoot === 1 ? "lap" : "laps"} — every action this lap costs $${rawTier}`}
+                    >
+                      <span aria-hidden>↑</span>
+                      <span>+{escalationOvershoot}</span>
+                    </span>
+                  ) : null}
                 </div>
                 <span className="flex-1" />
                 <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
@@ -197,26 +232,41 @@ function CostChip({
   label,
   caret,
   state,
+  escalating = false,
 }: {
   label: string;
   caret: boolean;
   state: "next" | "spent" | "future";
+  /**
+   * When true and state === "next", the chip is the live "$3+" cap and
+   * the lap tier has met or exceeded $3 — render in rose with an
+   * animated escalation glow so the player sees costs running away.
+   */
+  escalating?: boolean;
 }) {
   const cls =
-    state === "next"
-      ? "border-amber-500 bg-amber-500 text-slate-950 shadow-[0_0_0_3px_rgba(245,158,11,.18)]"
-      : state === "spent"
-        ? "border-slate-700 bg-slate-800 text-slate-500 line-through"
-        : "border-slate-700 bg-transparent text-slate-300";
+    state === "next" && escalating
+      ? "border-rose-500 bg-rose-500 text-slate-950 shadow-[0_0_0_3px_rgba(244,63,94,.25)] animate-[escalate_1.2s_ease-in-out_infinite] motion-reduce:animate-none"
+      : state === "next"
+        ? "border-amber-500 bg-amber-500 text-slate-950 shadow-[0_0_0_3px_rgba(245,158,11,.18)] transition-shadow duration-300"
+        : state === "spent"
+          ? "border-slate-700 bg-slate-800 text-slate-500 line-through"
+          : "border-slate-700 bg-transparent text-slate-300";
   return (
     <>
       {caret && (
-        <span className="font-mono text-[11px] text-slate-600" aria-hidden>
+        <span
+          className={[
+            "font-mono text-[11px] transition-colors",
+            escalating ? "text-rose-400" : "text-slate-600",
+          ].join(" ")}
+          aria-hidden
+        >
           ›
         </span>
       )}
       <span
-        className={`rounded border px-2 py-[3px] font-mono text-[10px] font-bold leading-none ${cls}`}
+        className={`rounded border px-2 py-[3px] font-mono text-[10px] font-bold leading-none transition-colors duration-300 ${cls}`}
       >
         {label}
       </span>

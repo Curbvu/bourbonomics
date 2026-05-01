@@ -571,6 +571,29 @@ body {
   background: rgba(245, 158, 11, 0.65);
 }
 
+/* ----------------------------------------------------------------------
+   Action-cost ladder escalation pulse. Used by PhaseBanner's $3+ chip
+   when the lap tier has met or exceeded the cap — costs are now running
+   away, so the chip glows in rose with a continuous pulse to convey
+   urgency. Reduced-motion users get a static rose chip instead.
+   ---------------------------------------------------------------------- */
+
+@keyframes escalate {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(244, 63, 94, 0.18),
+      0 0 0 0 rgba(244, 63, 94, 0);
+    transform: translateY(0);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(244, 63, 94, 0.45),
+      0 0 18px 2px rgba(244, 63, 94, 0.35);
+    transform: translateY(-1px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .resource-hand-tier-special,
   .resource-hand-tier-strong,

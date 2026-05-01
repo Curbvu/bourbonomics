@@ -62,6 +62,21 @@ export type UiStore = {
    */
   dismissedMarketRecapForRound: number | null;
   dismissMarketRecap: (round: number) => void;
+
+  /**
+   * Currently open inspect target — either a free-floating mash bill
+   * (kind: "bill" — used when clicking a card in the bourbon hand) or a
+   * specific aging barrel (kind: "barrel" — used when clicking a chip in
+   * a rickhouse). The BourbonInspectModal reads this and renders the
+   * full Bourbon Card face plus contextual info.
+   */
+  inspect:
+    | { kind: "bill"; cardId: string }
+    | { kind: "barrel"; barrelId: string }
+    | null;
+  inspectBill: (cardId: string) => void;
+  inspectBarrel: (barrelId: string) => void;
+  closeInspect: () => void;
 };
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -139,4 +154,10 @@ export const useUiStore = create<UiStore>((set) => ({
   dismissedMarketRecapForRound: null,
   dismissMarketRecap: (round) =>
     set({ dismissedMarketRecapForRound: round }),
+
+  inspect: null,
+  inspectBill: (cardId) => set({ inspect: { kind: "bill", cardId } }),
+  inspectBarrel: (barrelId) =>
+    set({ inspect: { kind: "barrel", barrelId } }),
+  closeInspect: () => set({ inspect: null }),
 }));
