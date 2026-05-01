@@ -38,6 +38,7 @@ import {
   hasLegalMash,
   investmentCapital,
   ownedBarrels,
+  pickBestGoldAlt,
 } from "./evaluators";
 import { feesForPlayer } from "@/lib/rules/fees";
 
@@ -155,16 +156,27 @@ export function pickActionPhaseMove(
   for (const { barrel } of ownedBarrels(state, playerId)) {
     if (barrel.age < 2) continue;
     if (player.cash < cost) continue;
-    const payout = estimateSalePayout(state, barrel);
+    const basePayout = estimateSalePayout(state, barrel);
+    const altPick = pickBestGoldAlt(state, player, barrel);
+    const payout = altPick ? altPick.payout : basePayout;
     if (payout <= cost) continue;
     scored.push({
-      action: {
-        t: "SELL_BOURBON",
-        playerId,
-        barrelId: barrel.barrelId,
-      },
+      action: altPick
+        ? {
+            t: "SELL_BOURBON",
+            playerId,
+            barrelId: barrel.barrelId,
+            applyGoldBourbonId: altPick.goldId,
+          }
+        : {
+            t: "SELL_BOURBON",
+            playerId,
+            barrelId: barrel.barrelId,
+          },
       score: payout - cost,
-      reason: `sell age ${barrel.age} for ~$${payout}`,
+      reason: altPick
+        ? `sell age ${barrel.age} via Gold for ~$${payout}`
+        : `sell age ${barrel.age} for ~$${payout}`,
     });
   }
 

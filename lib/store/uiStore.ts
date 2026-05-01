@@ -4,16 +4,11 @@
  * UI-only zustand store for transient interaction modes that aren't part
  * of GameState (and therefore aren't persisted).
  *
- * Currently houses the "make bourbon" two-phase flow:
- *   1) Player clicks Make ↵ → `active = true`. The dashboard blurs except
- *      for HandTray + RickhouseRow.
- *   2) Player toggles resource chips in their hand → `selectedIds`
- *      accumulates / drops the cards. They also pick exactly one mash
- *      bill from their bourbon hand → `mashBillId` holds the choice.
- *   3) Once the selection forms a valid mash AND a mash bill is picked,
- *      RickhouseRow lights up the open rickhouses; clicking one dispatches
- *      MAKE_BOURBON and clears the mode.
- *   4) Cancel via Esc, the Cancel button, or clicking the dim overlay.
+ * Two modes today:
+ *   - makeBourbon: two-phase flow for committing a mash + a bill to a barrel.
+ *   - auditDiscard: builder for an AUDIT_DISCARD payload — the player must
+ *     drop exactly `pendingAuditOverage` cards across mash bills + unbuilt
+ *     investments + operations.
  */
 
 import { create } from "zustand";
@@ -35,12 +30,29 @@ type MakeBourbonMode = {
   mashBillId: string | null;
 };
 
+type AuditDiscardMode = {
+  active: boolean;
+  /** Mash-bill ids selected to drop. */
+  mashBillIds: string[];
+  /** Investment instance ids (must be unbuilt) selected to drop. */
+  investmentInstanceIds: string[];
+  /** Operations instance ids selected to drop. */
+  operationsInstanceIds: string[];
+};
+
 export type UiStore = {
   makeBourbon: MakeBourbonMode;
   startMakeBourbon: () => void;
   toggleMashCard: (instanceId: string) => void;
   pickMashBill: (cardId: string) => void;
   cancelMakeBourbon: () => void;
+
+  auditDiscard: AuditDiscardMode;
+  startAuditDiscard: () => void;
+  toggleAuditMashBill: (cardId: string) => void;
+  toggleAuditInvestment: (instanceId: string) => void;
+  toggleAuditOperations: (instanceId: string) => void;
+  cancelAuditDiscard: () => void;
 };
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -65,4 +77,53 @@ export const useUiStore = create<UiStore>((set) => ({
     })),
   cancelMakeBourbon: () =>
     set({ makeBourbon: { active: false, selectedIds: [], mashBillId: null } }),
+
+  auditDiscard: {
+    active: false,
+    mashBillIds: [],
+    investmentInstanceIds: [],
+    operationsInstanceIds: [],
+  },
+  startAuditDiscard: () =>
+    set({
+      auditDiscard: {
+        active: true,
+        mashBillIds: [],
+        investmentInstanceIds: [],
+        operationsInstanceIds: [],
+      },
+    }),
+  toggleAuditMashBill: (cardId) =>
+    set((s) => {
+      const has = s.auditDiscard.mashBillIds.includes(cardId);
+      const mashBillIds = has
+        ? s.auditDiscard.mashBillIds.filter((id) => id !== cardId)
+        : [...s.auditDiscard.mashBillIds, cardId];
+      return { auditDiscard: { ...s.auditDiscard, mashBillIds } };
+    }),
+  toggleAuditInvestment: (instanceId) =>
+    set((s) => {
+      const has = s.auditDiscard.investmentInstanceIds.includes(instanceId);
+      const investmentInstanceIds = has
+        ? s.auditDiscard.investmentInstanceIds.filter((id) => id !== instanceId)
+        : [...s.auditDiscard.investmentInstanceIds, instanceId];
+      return { auditDiscard: { ...s.auditDiscard, investmentInstanceIds } };
+    }),
+  toggleAuditOperations: (instanceId) =>
+    set((s) => {
+      const has = s.auditDiscard.operationsInstanceIds.includes(instanceId);
+      const operationsInstanceIds = has
+        ? s.auditDiscard.operationsInstanceIds.filter((id) => id !== instanceId)
+        : [...s.auditDiscard.operationsInstanceIds, instanceId];
+      return { auditDiscard: { ...s.auditDiscard, operationsInstanceIds } };
+    }),
+  cancelAuditDiscard: () =>
+    set({
+      auditDiscard: {
+        active: false,
+        mashBillIds: [],
+        investmentInstanceIds: [],
+        operationsInstanceIds: [],
+      },
+    }),
 }));

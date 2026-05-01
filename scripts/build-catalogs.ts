@@ -40,6 +40,7 @@ function buildBourbon() {
     rarity: string;
     grid: number[][];
     awards: { silver?: string; gold?: string } | null;
+    brandValue?: number;
   }>;
 
   for (const c of cards) {
@@ -48,6 +49,16 @@ function buildBourbon() {
     }
     if (c.rarity !== "Standard" && c.rarity !== "Rare") {
       throw new Error(`Bourbon card ${c.id} unknown rarity: ${c.rarity}`);
+    }
+    // Default brandValue for Gold-capable cards: grid maximum + a small
+    // rarity bonus, rounded up to the nearest $5 so the trophy value
+    // visually scales with the card's strength. Cards without a Gold
+    // award never become trophies, so they don't get a brandValue.
+    if (c.awards && c.awards.gold && typeof c.brandValue !== "number") {
+      const gridMax = Math.max(...c.grid.flatMap((row) => row));
+      const rarityBonus = c.rarity === "Rare" ? 10 : 5;
+      const raw = gridMax + rarityBonus;
+      c.brandValue = Math.ceil(raw / 5) * 5;
     }
   }
 

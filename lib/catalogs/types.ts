@@ -19,6 +19,15 @@ export type BourbonCardDef = {
     [number, number, number],
   ];
   awards: BourbonAwards;
+  /**
+   * Brand value awarded at game end if this mash bill is unlocked as a
+   * Gold Bourbon. Only present on cards with a `gold` award line; absent
+   * on plain Standard cards (which can never become trophies anyway).
+   * The catalog generator derives a default per-card value from the
+   * card's grid maximum + a rarity bonus when the YAML doesn't specify
+   * one explicitly.
+   */
+  brandValue?: number;
 };
 
 export type InvestmentModifier =

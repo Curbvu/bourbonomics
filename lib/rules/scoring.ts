@@ -18,19 +18,18 @@ import {
 } from "@/lib/engine/state";
 
 /**
- * Return the catalog brand value for a Gold Bourbon. Today's catalog has no
- * `brandValue` column (it would be plumbed through `BourbonCardDef` plus the
- * YAML build), so every unlocked Gold scores `DEFAULT_GOLD_BRAND_VALUE`.
- * When the catalog is enriched, the per-card override will land here.
+ * Return the catalog brand value for a Gold Bourbon. The catalog generator
+ * derives a per-card brandValue for every Gold-capable card (grid max + a
+ * rarity bonus, rounded up to the nearest $5). Cards without an override
+ * fall back to `DEFAULT_GOLD_BRAND_VALUE`, which only matters when an
+ * award test ever fires on a non-Gold-capable card (defensively safe).
  */
 export function brandValueFor(bourbonCardId: string): number {
   const card = BOURBON_CARDS_BY_ID[bourbonCardId];
   if (!card) return 0;
-  // Allow per-card override via a future `brandValue` field, falling back to
-  // the default. We read it dynamically so a plumbed-in field is honoured
-  // without retypifying call sites.
-  const candidate = (card as unknown as { brandValue?: number }).brandValue;
-  if (typeof candidate === "number" && candidate >= 0) return candidate;
+  if (typeof card.brandValue === "number" && card.brandValue >= 0) {
+    return card.brandValue;
+  }
   return DEFAULT_GOLD_BRAND_VALUE;
 }
 

@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "@/lib/engine/setup";
 import {
+  brandValueFor,
   computeFinalScores,
   pickWinners,
   scorePlayer,
@@ -17,6 +18,10 @@ import {
 } from "@/lib/engine/decks";
 
 const REAL_BOURBON_IDS = Object.keys(BOURBON_CARDS_BY_ID);
+// Pick two Gold-capable cards so the test exercises real brandValue values.
+const GOLD_CAPABLE_IDS = REAL_BOURBON_IDS.filter(
+  (id) => BOURBON_CARDS_BY_ID[id].awards?.gold,
+);
 
 function gs() {
   return createInitialState({
@@ -63,14 +68,19 @@ describe("scoring — scorePlayer", () => {
     expect(score.total).toBe(40 + sample.capital);
   });
 
-  it("Gold Bourbons score brand value (default $25 each)", () => {
+  it("Gold Bourbons score per-card brand value (catalog-derived)", () => {
     const s = gs();
-    // Use real catalog ids — the scoring helper looks them up.
-    s.players.p1.goldBourbons.push(REAL_BOURBON_IDS[0], REAL_BOURBON_IDS[1]);
+    expect(GOLD_CAPABLE_IDS.length).toBeGreaterThanOrEqual(2);
+    const [a, b] = GOLD_CAPABLE_IDS;
+    s.players.p1.goldBourbons.push(a, b);
+    const expected = brandValueFor(a) + brandValueFor(b);
     const score = scorePlayer(s.players.p1);
     expect(score.goldCount).toBe(2);
-    expect(score.goldBourbons).toBe(2 * DEFAULT_GOLD_BRAND_VALUE);
-    expect(score.total).toBe(40 + 2 * DEFAULT_GOLD_BRAND_VALUE);
+    expect(score.goldBourbons).toBe(expected);
+    expect(score.total).toBe(40 + expected);
+    // Plumbed brandValue must be at LEAST the default fallback for any
+    // Gold-capable card (the generator only ever assigns values >= 25).
+    expect(brandValueFor(a)).toBeGreaterThanOrEqual(DEFAULT_GOLD_BRAND_VALUE);
   });
 
   it("cards in hand and unsold barrels score $0", () => {
@@ -92,10 +102,12 @@ describe("scoring — pickWinners tie-breaks", () => {
 
   it("on a total tie, more Gold Bourbons wins", () => {
     const s = gs();
+    const goldId = GOLD_CAPABLE_IDS[0];
+    const goldValue = brandValueFor(goldId);
     s.players.p1.cash = 50;
-    s.players.p1.goldBourbons.push(REAL_BOURBON_IDS[0]);
-    s.players.p2.cash = 50 + DEFAULT_GOLD_BRAND_VALUE;
-    // p1 has $50 + $25 = $75, p2 has $75 — same total.
+    s.players.p1.goldBourbons.push(goldId);
+    s.players.p2.cash = 50 + goldValue;
+    // p1 has $50 + brand, p2 has $50 + brand — same total.
     const scores = computeFinalScores(s);
     expect(scores.p1.total).toBe(scores.p2.total);
     expect(pickWinners(s, scores)).toEqual(["p1"]);

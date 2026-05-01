@@ -5,10 +5,11 @@
 
 import { BOURBON_CARDS_BY_ID } from "@/lib/catalogs/bourbon.generated";
 import { INVESTMENT_CARDS_BY_ID } from "@/lib/catalogs/investment.generated";
+import { evaluateAward } from "@/lib/rules/awards";
 import { feesForPlayer } from "@/lib/rules/fees";
 import { lookupSalePrice } from "@/lib/rules/pricing";
 import { currentActionCost } from "@/lib/engine/checks";
-import type { GameState, Player } from "@/lib/engine/state";
+import type { BarrelInstance, GameState, Player } from "@/lib/engine/state";
 import type { RickhouseId } from "@/lib/engine/rickhouses";
 
 /** Player's owned barrels across all rickhouses. */
@@ -38,6 +39,47 @@ export function estimateSalePayout(
     return 10;
   }
   return lookupSalePrice(card, barrel.age, state.demand).price;
+}
+
+/**
+ * Best Gold-Bourbon alt payout for selling this barrel, or null if no
+ * unlocked Gold qualifies / none pays more than the attached bill.
+ * Used by the bot at decision time and by the human Sell button to
+ * auto-apply the best legal Gold whenever it strictly improves the
+ * payout. (The rules say it's optional; nobody declines free money.)
+ */
+export function pickBestGoldAlt(
+  state: GameState,
+  player: Player,
+  barrel: BarrelInstance,
+): { goldId: string; payout: number } | null {
+  if (player.goldBourbons.length === 0) return null;
+  const attached = BOURBON_CARDS_BY_ID[barrel.mashBillId];
+  if (!attached) return null;
+  const attachedPrice = lookupSalePrice(attached, barrel.age, state.demand).price;
+
+  let bestId: string | null = null;
+  let bestPrice = -Infinity;
+  for (const goldId of player.goldBourbons) {
+    const altCard = BOURBON_CARDS_BY_ID[goldId];
+    if (!altCard) continue;
+    const altAward = evaluateAward(
+      altCard,
+      barrel.mash,
+      barrel.age,
+      // Reference price for Gold-criteria eligibility = alt's grid max.
+      Math.max(...altCard.grid.flatMap((row) => row)),
+    );
+    if (!altAward.gold) continue;
+    const altPrice = lookupSalePrice(altCard, barrel.age, state.demand).price;
+    if (altPrice > bestPrice) {
+      bestPrice = altPrice;
+      bestId = goldId;
+    }
+  }
+  if (!bestId) return null;
+  if (bestPrice <= attachedPrice) return null;
+  return { goldId: bestId, payout: bestPrice };
 }
 
 export function expectedFeesNextRound(state: GameState, playerId: string): number {

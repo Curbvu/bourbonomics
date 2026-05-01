@@ -510,7 +510,12 @@ function sellBourbon(
   const lookupDemand = Math.max(0, state.demand + sellOps.demandLookupShift);
   const lookupAge = Math.max(2, found.barrel.age + sellOps.ageLookupShift);
   const price = lookupSalePrice(card, lookupAge, lookupDemand);
-  let finalPayout = price.price + sellOps.revenueBonus;
+  // Payout the player would receive selling the attached bill normally.
+  // We track this separately from `finalPayout` so the attached bill's
+  // own Silver/Gold award eligibility is evaluated against ITS grid,
+  // not against the alt-payout (a Gold Bourbon's grid sub).
+  const attachedBillPayout = price.price + sellOps.revenueBonus;
+  let finalPayout = attachedBillPayout;
 
   // Optional Gold Bourbon alt payout. The rules let a player sell any
   // qualifying barrel using one of their unlocked Gold Bourbons' grid
@@ -565,10 +570,16 @@ function sellBourbon(
     });
   }
 
-  // Awards — evaluated against the grid price as defined in awards.ts.
-  // Using `finalPayout` here still works as a coarse signal even when
-  // sellOps inflate the price.
-  const award = evaluateAward(card, found.barrel.mash, found.barrel.age, finalPayout);
+  // Awards — evaluated against the ATTACHED BILL'S grid price, not the
+  // alt-payout (if any). Applying a Gold alt substitutes the dollar
+  // amount the player receives, but the attached bill follows its own
+  // award rules per the original sale.
+  const award = evaluateAward(
+    card,
+    found.barrel.mash,
+    found.barrel.age,
+    attachedBillPayout,
+  );
 
   // Disposition of the attached mash bill.
   // Gold takes precedence over Silver. Gold UNLOCKS the bill as a

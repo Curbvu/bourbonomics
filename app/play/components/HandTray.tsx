@@ -30,6 +30,7 @@ import { SPECIALTY_RESOURCES_BY_ID } from "@/lib/catalogs/resource.generated";
 import type { ResourceCardDef, ResourceType } from "@/lib/catalogs/types";
 import { HAND_LIMIT, MAX_ACTIVE_INVESTMENTS } from "@/lib/engine/state";
 import { handSize } from "@/lib/engine/checks";
+import { pickBestGoldAlt } from "@/lib/ai/evaluators";
 import { summarizeMash, validateMash } from "@/lib/rules/mash";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
@@ -90,6 +91,12 @@ export default function HandTray() {
   const cancelMakeBourbon = useUiStore((s) => s.cancelMakeBourbon);
   const toggleMashCard = useUiStore((s) => s.toggleMashCard);
   const pickMashBill = useUiStore((s) => s.pickMashBill);
+  const auditDiscard = useUiStore((s) => s.auditDiscard);
+  const startAuditDiscard = useUiStore((s) => s.startAuditDiscard);
+  const toggleAuditMashBill = useUiStore((s) => s.toggleAuditMashBill);
+  const toggleAuditInvestment = useUiStore((s) => s.toggleAuditInvestment);
+  const toggleAuditOperations = useUiStore((s) => s.toggleAuditOperations);
+  const cancelAuditDiscard = useUiStore((s) => s.cancelAuditDiscard);
 
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
@@ -104,6 +111,23 @@ export default function HandTray() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [makeBourbon.active, cancelMakeBourbon]);
+
+  // Audit-discard mode is auto-entered for whichever player owes an
+  // overage. Computed inline (rather than in a derived const) so the
+  // effect runs at the top level and respects React's rule-of-hooks.
+  const auditOverageForEffect = humanId
+    ? state.players[humanId].pendingAuditOverage
+    : null;
+  const auditPendingForEffect =
+    auditOverageForEffect != null && auditOverageForEffect > 0;
+  useEffect(() => {
+    if (auditPendingForEffect && !auditDiscard.active) {
+      startAuditDiscard();
+    }
+    if (!auditPendingForEffect && auditDiscard.active) {
+      cancelAuditDiscard();
+    }
+  }, [auditPendingForEffect, auditDiscard.active, startAuditDiscard, cancelAuditDiscard]);
 
   if (!humanId) return null;
   const me = state.players[humanId];
@@ -188,6 +212,14 @@ export default function HandTray() {
   const sellableBarrelBill = sellableBarrel
     ? BOURBON_CARDS_BY_ID[sellableBarrel.mashBillId]
     : null;
+  // If the player has unlocked Gold Bourbons that beat the attached
+  // bill's payout for this barrel, auto-apply the best one. The rules
+  // make alt-payout optional, but it's strictly better — taking it
+  // every time is the right default UX. (Power-user override could
+  // surface a picker later.)
+  const goldAlt = sellableBarrel
+    ? pickBestGoldAlt(state, me, sellableBarrel)
+    : null;
   const canSell = isMyActionTurn && canAfford && !!sellableBarrel;
   const sellReason = !isMyActionTurn
     ? "Wait for your turn"
@@ -195,9 +227,11 @@ export default function HandTray() {
       ? `Need $${cost} to act`
       : !sellableBarrel
         ? "No barrel is 2+ years aged"
-        : `Sell ${sellableBarrel.age}y barrel (${
-            sellableBarrelBill?.name ?? sellableBarrel.mashBillId
-          })`;
+        : goldAlt
+          ? `Sell ${sellableBarrel.age}y barrel via Gold (${BOURBON_CARDS_BY_ID[goldAlt.goldId]?.name ?? goldAlt.goldId}) for $${goldAlt.payout}`
+          : `Sell ${sellableBarrel.age}y barrel (${
+              sellableBarrelBill?.name ?? sellableBarrel.mashBillId
+            })`;
 
   // Implement — auto-pick the first unbuilt investment. Cap at 3 active.
   const unbuiltInv = me.investments.find((i) => i.status === "unbuilt");
@@ -225,15 +259,52 @@ export default function HandTray() {
               INVESTMENT_CARDS_BY_ID[unbuiltInv.cardId]?.name ?? unbuiltInv.cardId
             }`;
 
+  // Audit — any player whose turn it is may call once per round if they
+  // can afford the action and don't owe a discard themselves.
+  const canCallAudit =
+    isMyActionTurn &&
+    canAfford &&
+    !state.actionPhase.auditCalledThisRound &&
+    !auditPending;
+  const auditButtonReason = !isMyActionTurn
+    ? "Wait for your turn"
+    : !canAfford
+      ? `Need $${cost} to act`
+      : auditPending
+        ? "Resolve your audit discard first"
+        : state.actionPhase.auditCalledThisRound
+          ? "Audit already called this round"
+          : `Force every player over ${HAND_LIMIT} cards to discard down to ${HAND_LIMIT}`;
+
+  // Audit discard — auto-entered via the top-level useEffect above; this
+  // block just exposes the derived selection counts to the render tree.
+
+  const auditSelectedCount =
+    auditDiscard.mashBillIds.length +
+    auditDiscard.investmentInstanceIds.length +
+    auditDiscard.operationsInstanceIds.length;
+  const auditOverage = me.pendingAuditOverage ?? 0;
+  const auditDiscardReady =
+    auditDiscard.active && auditSelectedCount === auditOverage;
+
   // ---- Action dispatchers -----------------------------------------------
 
   const sell = () => {
     if (!canSell || !sellableBarrel) return;
-    dispatch({
-      t: "SELL_BOURBON",
-      playerId: humanId,
-      barrelId: sellableBarrel.barrelId,
-    });
+    if (goldAlt) {
+      dispatch({
+        t: "SELL_BOURBON",
+        playerId: humanId,
+        barrelId: sellableBarrel.barrelId,
+        applyGoldBourbonId: goldAlt.goldId,
+      });
+    } else {
+      dispatch({
+        t: "SELL_BOURBON",
+        playerId: humanId,
+        barrelId: sellableBarrel.barrelId,
+      });
+    }
   };
 
   const implement = () => {
@@ -243,6 +314,23 @@ export default function HandTray() {
       playerId: humanId,
       investmentInstanceId: unbuiltInv.instanceId,
     });
+  };
+
+  const callAudit = () => {
+    if (!canCallAudit) return;
+    dispatch({ t: "CALL_AUDIT", playerId: humanId });
+  };
+
+  const submitAuditDiscard = () => {
+    if (!auditPending || !auditDiscardReady) return;
+    dispatch({
+      t: "AUDIT_DISCARD",
+      playerId: humanId,
+      mashBillIds: auditDiscard.mashBillIds,
+      investmentInstanceIds: auditDiscard.investmentInstanceIds,
+      operationsInstanceIds: auditDiscard.operationsInstanceIds,
+    });
+    cancelAuditDiscard();
   };
 
   return (
@@ -392,15 +480,23 @@ export default function HandTray() {
               me.bourbonHand.map((id, i) => {
                 const card = BOURBON_CARDS_BY_ID[id];
                 if (!card) return null;
-                const selectable = makeBourbon.active;
-                const selected = makeBourbon.mashBillId === id;
+                const auditMode = auditDiscard.active;
+                const makeMode = makeBourbon.active && !auditMode;
+                const auditSelected = auditDiscard.mashBillIds.includes(id);
+                const makeSelected = makeBourbon.mashBillId === id;
+                const selectable = makeMode || auditMode;
+                const selected = auditMode ? auditSelected : makeSelected;
                 const className = [
                   "w-[110px] rounded-md transition-all",
                   selectable ? "cursor-pointer" : "",
                   selected
-                    ? "ring-2 ring-amber-300 -translate-y-0.5"
+                    ? auditMode
+                      ? "ring-2 ring-rose-400 -translate-y-0.5"
+                      : "ring-2 ring-amber-300 -translate-y-0.5"
                     : selectable
-                      ? "ring-1 ring-amber-500/40 hover:-translate-y-0.5"
+                      ? auditMode
+                        ? "ring-1 ring-rose-500/40 hover:-translate-y-0.5"
+                        : "ring-1 ring-amber-500/40 hover:-translate-y-0.5"
                       : "",
                 ]
                   .filter(Boolean)
@@ -411,8 +507,16 @@ export default function HandTray() {
                       key={`${id}-${i}`}
                       type="button"
                       aria-pressed={selected}
-                      title={`${card.name} — pick as mash bill`}
-                      onClick={() => pickMashBill(id)}
+                      title={
+                        auditMode
+                          ? `${card.name} — toggle for audit discard`
+                          : `${card.name} — pick as mash bill`
+                      }
+                      onClick={() =>
+                        auditMode
+                          ? toggleAuditMashBill(id)
+                          : pickMashBill(id)
+                      }
                       className={className}
                     >
                       <BourbonCardFace card={card} size="sm" />
@@ -463,6 +567,34 @@ export default function HandTray() {
               ) : (
                 me.operations.map((ops) => {
                   const def = OPERATIONS_CARDS_BY_ID[ops.cardId];
+                  const auditMode = auditDiscard.active;
+                  const auditSelected = auditDiscard.operationsInstanceIds.includes(
+                    ops.instanceId,
+                  );
+                  if (auditMode) {
+                    return (
+                      <button
+                        key={ops.instanceId}
+                        type="button"
+                        aria-pressed={auditSelected}
+                        title={
+                          def?.effect
+                            ? `${def.effect} — toggle for audit discard`
+                            : "toggle for audit discard"
+                        }
+                        onClick={() => toggleAuditOperations(ops.instanceId)}
+                        className={[
+                          "rounded border px-2.5 py-1 font-mono text-[11px] font-semibold transition-all",
+                          auditSelected
+                            ? "border-rose-400 bg-rose-500/[0.20] text-rose-100 ring-2 ring-rose-400"
+                            : "border-violet-500/45 bg-violet-500/[0.15] text-violet-200 hover:border-rose-500/60",
+                        ].join(" ")}
+                      >
+                        {def?.title ?? ops.cardId}
+                        <span className="ml-1.5 opacity-60">OPS</span>
+                      </button>
+                    );
+                  }
                   return (
                     <span
                       key={ops.instanceId}
@@ -481,6 +613,36 @@ export default function HandTray() {
                 {me.investments.map((inv) => {
                   const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
                   const isActive = inv.status === "active";
+                  const auditMode = auditDiscard.active && !isActive;
+                  const auditSelected = auditDiscard.investmentInstanceIds.includes(
+                    inv.instanceId,
+                  );
+                  if (auditMode) {
+                    return (
+                      <button
+                        key={inv.instanceId}
+                        type="button"
+                        aria-pressed={auditSelected}
+                        title={
+                          def?.effect
+                            ? `${def.effect} — toggle for audit discard`
+                            : "toggle for audit discard"
+                        }
+                        onClick={() => toggleAuditInvestment(inv.instanceId)}
+                        className={[
+                          "rounded border bg-emerald-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold transition-all",
+                          auditSelected
+                            ? "border-rose-400 bg-rose-500/[0.20] text-rose-100 ring-2 ring-rose-400"
+                            : "border-slate-600 text-slate-300 opacity-80 hover:border-rose-500/60",
+                        ].join(" ")}
+                      >
+                        {def?.name ?? inv.cardId}
+                        <span className="ml-1.5 opacity-60">
+                          ${def?.capital ?? 0} · UNBUILT
+                        </span>
+                      </button>
+                    );
+                  }
                   return (
                     <span
                       key={inv.instanceId}
@@ -510,22 +672,41 @@ export default function HandTray() {
 
       {/* 8 — end-turn cluster */}
       <div className="flex flex-shrink-0 items-center gap-2">
+        {auditPending ? (
+          <button
+            type="button"
+            disabled={!auditDiscardReady}
+            onClick={submitAuditDiscard}
+            title={
+              auditDiscardReady
+                ? `Discard ${auditOverage} card${auditOverage === 1 ? "" : "s"} to resolve the Audit`
+                : `Pick exactly ${auditOverage} card${auditOverage === 1 ? "" : "s"} to discard`
+            }
+            className="rounded-md border border-rose-700 bg-gradient-to-b from-rose-500 to-rose-700 px-3.5 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-rose-400 hover:to-rose-600 disabled:cursor-not-allowed disabled:border-slate-700 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
+          >
+            Discard {auditSelectedCount}/{auditOverage}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={!canCallAudit}
+            onClick={callAudit}
+            title={auditButtonReason}
+            className="rounded border border-rose-500/60 bg-rose-700/[0.20] px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-rose-100 transition-colors hover:bg-rose-700/[0.35] disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-transparent disabled:text-slate-500"
+          >
+            Audit ↵
+          </button>
+        )}
         <button
           type="button"
-          disabled
-          aria-label="Discard (not implemented)"
-          className="rounded border border-slate-700 bg-transparent px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-slate-300 opacity-50"
-        >
-          discard
-        </button>
-        <button
-          type="button"
-          disabled={!isMyActionTurn}
+          disabled={!isMyActionTurn || auditPending}
           onClick={() => dispatch({ t: "PASS_ACTION", playerId: humanId })}
           title={
-            isMyActionTurn
-              ? "Pass — finish your action loop"
-              : "Wait for your turn"
+            auditPending
+              ? "Resolve your audit discard first"
+              : isMyActionTurn
+                ? "Pass — finish your action loop"
+                : "Wait for your turn"
           }
           className="rounded-md border border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 px-3.5 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-amber-400 hover:to-amber-600 disabled:cursor-not-allowed disabled:border-slate-700 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
         >

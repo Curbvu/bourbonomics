@@ -129,12 +129,24 @@ function summarise(
       return `${who} drew ${str("pile") ?? "resource"}${
         kind === "draw_resource_bonus" ? " (bonus)" : ""
       }`;
+    // Bourbon hands are private — never surface the cardId in any
+    // bourbon-related event message. Public actions (make / sell / Gold
+    // unlock) reveal the bill's identity by virtue of placing it on a
+    // barrel or a trophy slot, but the log line stays generic.
     case "draw_bourbon":
-      return `${who} drew a bourbon card`;
+      return `${who} drew a mash bill`;
+    case "discard_and_draw_bourbon":
+      return `${who} swapped a mash bill`;
     case "draw_investment":
       return `${who} drew an investment`;
     case "draw_operations":
       return `${who} drew an operations card`;
+    case "audit_called":
+      return `${who} called an Audit`;
+    case "audit_discard":
+      return `${who} discarded down to the hand limit`;
+    case "final_round_triggered":
+      return `Final round announced`;
     case "make_bourbon":
       return `${who} barrelled bourbon`;
     case "sell_bourbon": {
@@ -165,8 +177,11 @@ function summarise(
       return `Phase → ${str("phase") ?? "?"}`;
     case "lap_end":
       return `Lap ended (tier $${num("paidLapTier") ?? 0})`;
-    case "win":
-      return `${who} wins (${str("reason") ?? "—"})`;
+    case "win": {
+      const reason = str("reason");
+      if (reason === "final-round") return `Game over — final-round scoring`;
+      return `Game over (${reason ?? "—"})`;
+    }
     default:
       if (kind.startsWith("error:")) {
         return kind.replace(/^error:/, "⚠ ");
