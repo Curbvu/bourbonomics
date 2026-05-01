@@ -1,24 +1,25 @@
 "use client";
 
 /**
- * HandTray — bottom-of-canvas horizontal strip showing the human player's
- * hand, with the action affordances co-located with what they act on.
+ * HandTray — bottom-of-canvas strip showing the human player's hand.
  *
- * Per-section contextual buttons:
- *   - Make ↵       enters the in-place "make bourbon" mode. The dashboard
- *                  blurs except for the hand and rickhouses; the player
- *                  ticks resource chips in their hand to build the mash,
- *                  then clicks a rickhouse on the board to barrel it.
- *                  Cancel via Esc, the Cancel button, or clicking the
- *                  dim overlay.
- *   - Sell ↵       sells the oldest sellable barrel using the displayed
- *                  bourbon card (face-up if available, else first in hand)
- *   - Implement ↵  pays printed capital on the first unbuilt investment
- *   - Pass ↵       dispatches PASS_ACTION
+ * Two stacked rows:
  *
- * Each button is enabled only when the action is legal for the current
- * turn / phase / cash state; otherwise it sits in a disabled slate
- * treatment with a tooltip explaining why.
+ *   1. Actions row: identity cluster on the left, then every action button
+ *      (Make / Sell / Implement / Audit / Pass) in a single line. Status
+ *      pills (mash-status, pick-bill, audit-pending) sit inline next to
+ *      the relevant button.
+ *
+ *   2. Cards row: resources / bourbon / play sections, each a vertical
+ *      label + the actual cards or chips. No buttons in this row — the
+ *      controls all live in the actions row above.
+ *
+ * Actions are enabled only when legal for the current turn / phase /
+ * cash state; otherwise they sit in a slate disabled treatment with a
+ * tooltip explaining why. The make-bourbon flow uses a two-row sweep:
+ * tick resource chips in row 2, pick a bill in row 2, then click a
+ * rickhouse on the board; "Make ↵" toggles the mode in row 1 and
+ * "Cancel ↵" appears in its place while active.
  */
 
 import { useEffect } from "react";
@@ -133,10 +134,6 @@ export default function HandTray() {
   const me = state.players[humanId];
   const seatIdx = paletteIndex(me.seatIndex);
 
-  // Total cards visible in tray (resources + every kind of card-in-hand).
-  // The 10-card hand limit only counts mash bills + unbuilt investments +
-  // operations (not resources, not Gold trophies); `cappedHandSize` is what
-  // the Audit cares about.
   const traySize =
     me.resourceHand.length +
     me.bourbonHand.length +
@@ -149,10 +146,6 @@ export default function HandTray() {
     ? 0
     : state.actionPhase.paidLapTier;
   const canAfford = me.cash >= cost;
-
-  // Bourbon hand is multi-card; soft-capped at HAND_LIMIT (combined with
-  // unbuilt investments + ops). Drawing past the cap is allowed but
-  // exposes you to the next Audit.
   const overHandLimit = cappedHandSize > HAND_LIMIT;
   const auditPending =
     me.pendingAuditOverage != null && me.pendingAuditOverage > 0;
@@ -160,8 +153,6 @@ export default function HandTray() {
 
   // ---- Action eligibility checks ----------------------------------------
 
-  // Make Bourbon — gate on "minimum viable mash possible". The mash gets
-  // built inline by ticking chips while make-bourbon mode is active.
   const handHasCask = me.resourceHand.some((r) => r.resource === "cask");
   const handHasCorn = me.resourceHand.some((r) => r.resource === "corn");
   const handHasGrain = me.resourceHand.some(
@@ -194,7 +185,6 @@ export default function HandTray() {
                 ? "Every rickhouse is full"
                 : "Build a mash, then click a rickhouse";
 
-  // Live mash status while make-bourbon mode is active.
   const selectedSet = new Set(makeBourbon.selectedIds);
   const selectedMash = me.resourceHand.filter((r) =>
     selectedSet.has(r.instanceId),
@@ -203,11 +193,6 @@ export default function HandTray() {
   const mashBreakdown = summarizeMash(selectedMash);
   const mashValid = mashValidation.ok;
 
-  // Sell — pick the highest-paying sellable barrel as the default. With
-  // mash bills locked at production, every barrel has a known sale price
-  // right now; the Sell ↵ button is a "sell the obvious best one"
-  // shortcut. Players can also click any individual barrel chip directly
-  // in the rickhouse grid to sell that specific barrel.
   const bestSellable = pickBestSellable(state, me);
   const goldAlt = bestSellable?.goldAlt ?? null;
   const canSell = isMyActionTurn && canAfford && !!bestSellable;
@@ -228,7 +213,6 @@ export default function HandTray() {
             return `Sell ${ageStr} barrel (${bill}) for $${bestSellable.payout}${altStr} — or click any barrel in a rickhouse to sell it directly`;
           })();
 
-  // Implement — auto-pick the first unbuilt investment. Cap at 3 active.
   const unbuiltInv = me.investments.find((i) => i.status === "unbuilt");
   const activeInvCount = me.investments.filter(
     (i) => i.status === "active",
@@ -254,8 +238,6 @@ export default function HandTray() {
               INVESTMENT_CARDS_BY_ID[unbuiltInv.cardId]?.name ?? unbuiltInv.cardId
             }`;
 
-  // Audit — any player whose turn it is may call once per round if they
-  // can afford the action and don't owe a discard themselves.
   const canCallAudit =
     isMyActionTurn &&
     canAfford &&
@@ -270,9 +252,6 @@ export default function HandTray() {
         : state.actionPhase.auditCalledThisRound
           ? "Audit already called this round"
           : `Force every player over ${HAND_LIMIT} cards to discard down to ${HAND_LIMIT}`;
-
-  // Audit discard — auto-entered via the top-level useEffect above; this
-  // block just exposes the derived selection counts to the render tree.
 
   const auditSelectedCount =
     auditDiscard.mashBillIds.length +
@@ -331,7 +310,7 @@ export default function HandTray() {
   return (
     <section
       className={[
-        "hand-scrollbar flex items-center gap-[14px] overflow-x-auto border-t border-slate-800 bg-slate-950 px-[22px] py-3",
+        "hand-scrollbar flex flex-col gap-2 border-t border-slate-800 bg-slate-950 px-[22px] py-3",
         // Lift above the make-bourbon dim overlay so the chips remain
         // interactive while the rest of the dashboard is blurred out.
         makeBourbon.active ? "relative z-40" : "",
@@ -339,40 +318,47 @@ export default function HandTray() {
         .filter(Boolean)
         .join(" ")}
     >
-      {/* 1 — identity */}
-      <div className="flex min-w-[120px] flex-shrink-0 flex-col gap-0.5">
-        <div className="flex items-center gap-2">
+      {/* ─── Row 1: identity + every action button in a single line ─── */}
+      <div className="flex flex-shrink-0 items-center gap-3 overflow-x-auto">
+        {/* Identity cluster */}
+        <div className="flex min-w-[140px] flex-shrink-0 flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <span
+              className={`block h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
+              aria-hidden
+            />
+            <span className="font-display text-base font-semibold text-amber-100">
+              Your hand
+            </span>
+          </div>
           <span
-            className={`block h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
-            aria-hidden
-          />
-          <span className="font-display text-base font-semibold text-amber-100">
-            Your hand
+            className={[
+              "font-mono text-[10px] uppercase tracking-[.12em]",
+              overHandLimit ? "text-rose-400" : "text-slate-500",
+            ].join(" ")}
+            title={
+              overHandLimit
+                ? `Over hand limit (${cappedHandSize}/${HAND_LIMIT}). An Audit will force a discard.`
+                : `Cards in hand: ${cappedHandSize}/${HAND_LIMIT}`
+            }
+          >
+            {traySize} cards · {cappedHandSize}/{HAND_LIMIT}
           </span>
         </div>
-        <span
-          className={[
-            "font-mono text-[10px] uppercase tracking-[.12em]",
-            overHandLimit ? "text-rose-400" : "text-slate-500",
-          ].join(" ")}
-          title={
-            overHandLimit
-              ? `Over hand limit (${cappedHandSize}/${HAND_LIMIT}). An Audit will force a discard.`
-              : `Cards in hand: ${cappedHandSize}/${HAND_LIMIT}`
-          }
-        >
-          {traySize} cards · {cappedHandSize}/{HAND_LIMIT}
-        </span>
+
+        {/* Loan / audit-pending status badges */}
         {auditPending ? (
-          <span className="font-mono text-[10px] uppercase tracking-[.12em] text-rose-400">
-            audit: discard {me.pendingAuditOverage}
+          <span className="rounded-md border border-rose-500/60 bg-rose-700/[0.20] px-2 py-1 font-mono text-[10px] uppercase tracking-[.12em] text-rose-200">
+            audit · pick {me.pendingAuditOverage} to discard
           </span>
         ) : null}
         {me.loanRemaining > 0 ? (
           <span
             className={[
-              "font-mono text-[10px] uppercase tracking-[.12em]",
-              loanFrozen ? "text-rose-300" : "text-amber-300",
+              "rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[.12em]",
+              loanFrozen
+                ? "border-rose-500/60 bg-rose-700/[0.20] text-rose-200"
+                : "border-amber-500/60 bg-amber-700/[0.20] text-amber-200",
             ].join(" ")}
             title={
               loanFrozen
@@ -380,40 +366,93 @@ export default function HandTray() {
                 : `Loan repayment due next Phase 1: $${me.loanRemaining}`
             }
           >
-            {loanFrozen ? "FROZEN " : "loan "}${me.loanRemaining}
+            {loanFrozen ? "FROZEN" : "loan"} ${me.loanRemaining}
           </span>
         ) : null}
+
+        {/* Action buttons. Order: Make · Sell · Implement · (gap) · Audit · Pass */}
+        <ContextButton
+          enabled={canStartMake || makeBourbon.active}
+          onClick={makeBourbon.active ? cancelMakeBourbon : startMakeBourbon}
+          title={makeReason}
+          variant={makeBourbon.active ? "danger" : "primary"}
+        >
+          {makeBourbon.active ? "Cancel ↵" : "Make ↵"}
+        </ContextButton>
+        {makeBourbon.active ? (
+          <MashStatusPill
+            valid={mashValid}
+            cask={mashBreakdown.cask}
+            corn={mashBreakdown.corn}
+            grain={mashBreakdown.grain}
+            total={mashBreakdown.total}
+            reason={mashValidation.ok ? null : mashValidation.reason}
+            billPicked={!!makeBourbon.mashBillId}
+          />
+        ) : null}
+
+        <ContextButton enabled={canSell} onClick={sell} title={sellReason}>
+          Sell ↵
+        </ContextButton>
+
+        <ContextButton
+          enabled={canImplement}
+          onClick={implement}
+          title={implementReason}
+        >
+          Implement ↵
+        </ContextButton>
+
+        <span className="flex-1" />
+
+        {/* End-turn cluster: Audit (or Discard submit if pending) + Pass */}
+        {auditPending ? (
+          <button
+            type="button"
+            disabled={!auditDiscardReady}
+            onClick={submitAuditDiscard}
+            title={
+              auditDiscardReady
+                ? `Discard ${auditOverage} card${auditOverage === 1 ? "" : "s"} to resolve the Audit`
+                : `Pick exactly ${auditOverage} card${auditOverage === 1 ? "" : "s"} to discard`
+            }
+            className="rounded-md border border-rose-700 bg-gradient-to-b from-rose-500 to-rose-700 px-3.5 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-rose-400 hover:to-rose-600 disabled:cursor-not-allowed disabled:border-slate-700 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
+          >
+            Discard {auditSelectedCount}/{auditOverage}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={!canCallAudit}
+            onClick={callAudit}
+            title={auditButtonReason}
+            className="rounded border border-rose-500/60 bg-rose-700/[0.20] px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-rose-100 transition-colors hover:bg-rose-700/[0.35] disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-transparent disabled:text-slate-500"
+          >
+            Audit ↵
+          </button>
+        )}
+        <button
+          type="button"
+          disabled={!isMyActionTurn || auditPending}
+          onClick={() => dispatch({ t: "PASS_ACTION", playerId: humanId })}
+          title={
+            auditPending
+              ? "Resolve your audit discard first"
+              : isMyActionTurn
+                ? "Pass — finish your action loop"
+                : "Wait for your turn"
+          }
+          className="rounded-md border border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 px-3.5 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-amber-400 hover:to-amber-600 disabled:cursor-not-allowed disabled:border-slate-700 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
+        >
+          Pass ↵
+        </button>
       </div>
 
-      {/* 2 — resources, with Make stacked above */}
-      <div className="flex flex-shrink-0 items-stretch gap-2">
-        <VerticalCaption>resources</VerticalCaption>
-        <div className="flex flex-col items-start gap-1.5">
-          <div className="flex items-center gap-2">
-            <ContextButton
-              enabled={canStartMake || makeBourbon.active}
-              onClick={
-                makeBourbon.active ? cancelMakeBourbon : startMakeBourbon
-              }
-              title={makeReason}
-              variant={makeBourbon.active ? "danger" : "primary"}
-            >
-              {makeBourbon.active ? "Cancel ↵" : "Make ↵"}
-            </ContextButton>
-            {makeBourbon.active ? (
-              <MashStatusPill
-                valid={mashValid}
-                cask={mashBreakdown.cask}
-                corn={mashBreakdown.corn}
-                grain={mashBreakdown.grain}
-                total={mashBreakdown.total}
-                reason={mashValidation.ok ? null : mashValidation.reason}
-              />
-            ) : null}
-          </div>
-          {/* Chips flow continuously; if total HandTray width exceeds the
-              viewport, the parent section's `overflow-x-auto` provides a
-              styled thin amber scrollbar at the bottom. */}
+      {/* ─── Row 2: cards (resources / bourbon / play) ─── */}
+      <div className="flex items-stretch gap-[14px] overflow-x-auto">
+        {/* Resources */}
+        <div className="flex flex-shrink-0 items-stretch gap-2">
+          <VerticalCaption>resources</VerticalCaption>
           <div className="flex gap-1.5">
             {me.resourceHand.length === 0 ? (
               <EmptyTallChip>no resources</EmptyTallChip>
@@ -445,132 +484,90 @@ export default function HandTray() {
             )}
           </div>
         </div>
-      </div>
 
-      <Divider />
+        <Divider />
 
-      {/* 4 — bourbon hand, with Sell stacked above. The full 4-card hand
-            is rendered. While make-bourbon mode is active, clicking a
-            card picks it as the locked-in mash bill for the new barrel. */}
-      <div className="flex flex-shrink-0 items-stretch gap-2">
-        <VerticalCaption>bourbon</VerticalCaption>
-        <div className="flex flex-col items-start gap-1.5">
-          <div className="flex items-center gap-2">
-            <ContextButton enabled={canSell} onClick={sell} title={sellReason}>
-              Sell ↵
-            </ContextButton>
-            {makeBourbon.active ? (
-              <span
-                title={
-                  makeBourbon.mashBillId
-                    ? "Mash bill picked"
-                    : "Pick a mash bill to commit to the barrel"
-                }
-                className={[
-                  "rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[.10em]",
-                  makeBourbon.mashBillId
-                    ? "border-emerald-500/50 bg-emerald-500/[0.10] text-emerald-200"
-                    : "border-amber-500/50 bg-amber-500/[0.10] text-amber-200",
-                ].join(" ")}
-              >
-                {makeBourbon.mashBillId ? "bill ✓" : "pick bill ↓"}
-              </span>
-            ) : (
-              <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500 tabular-nums">
-                {me.bourbonHand.length} bills
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5">
-            {me.bourbonHand.length === 0 ? (
-              <div className="grid h-[76px] w-[110px] place-items-center rounded-md border border-dashed border-slate-700 px-2 text-center font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-                no mash bills
-              </div>
-            ) : (
-              me.bourbonHand.map((id, i) => {
-                const card = BOURBON_CARDS_BY_ID[id];
-                if (!card) return null;
-                const auditMode = auditDiscard.active;
-                const makeMode = makeBourbon.active && !auditMode;
-                const auditSelected = auditDiscard.mashBillIds.includes(id);
-                const makeSelected = makeBourbon.mashBillId === id;
-                const selectable = makeMode || auditMode;
-                const selected = auditMode ? auditSelected : makeSelected;
-                const className = [
-                  "w-[110px] rounded-md transition-all",
-                  selectable ? "cursor-pointer" : "",
-                  selected
-                    ? auditMode
-                      ? "ring-2 ring-rose-400 -translate-y-0.5"
-                      : "ring-2 ring-amber-300 -translate-y-0.5"
-                    : selectable
+        {/* Bourbon hand */}
+        <div className="flex flex-shrink-0 items-stretch gap-2">
+          <VerticalCaption>bourbon</VerticalCaption>
+          <div className="flex flex-col items-start gap-1">
+            <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500 tabular-nums">
+              {me.bourbonHand.length} bills
+              {me.goldBourbons.length > 0 ? (
+                <span className="ml-1.5 text-amber-300">
+                  · {me.goldBourbons.length} gold
+                </span>
+              ) : null}
+            </span>
+            <div className="flex items-center gap-1.5">
+              {me.bourbonHand.length === 0 ? (
+                <div className="grid h-[76px] w-[110px] place-items-center rounded-md border border-dashed border-slate-700 px-2 text-center font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+                  no mash bills
+                </div>
+              ) : (
+                me.bourbonHand.map((id, i) => {
+                  const card = BOURBON_CARDS_BY_ID[id];
+                  if (!card) return null;
+                  const auditMode = auditDiscard.active;
+                  const makeMode = makeBourbon.active && !auditMode;
+                  const auditSelected = auditDiscard.mashBillIds.includes(id);
+                  const makeSelected = makeBourbon.mashBillId === id;
+                  const selectable = makeMode || auditMode;
+                  const selected = auditMode ? auditSelected : makeSelected;
+                  const className = [
+                    "w-[110px] rounded-md transition-all",
+                    selectable ? "cursor-pointer" : "",
+                    selected
                       ? auditMode
-                        ? "ring-1 ring-rose-500/40 hover:-translate-y-0.5"
-                        : "ring-1 ring-amber-500/40 hover:-translate-y-0.5"
-                      : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ");
-                if (selectable) {
+                        ? "ring-2 ring-rose-400 -translate-y-0.5"
+                        : "ring-2 ring-amber-300 -translate-y-0.5"
+                      : selectable
+                        ? auditMode
+                          ? "ring-1 ring-rose-500/40 hover:-translate-y-0.5"
+                          : "ring-1 ring-amber-500/40 hover:-translate-y-0.5"
+                        : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+                  if (selectable) {
+                    return (
+                      <button
+                        key={`${id}-${i}`}
+                        type="button"
+                        aria-pressed={selected}
+                        title={
+                          auditMode
+                            ? `${card.name} — toggle for audit discard`
+                            : `${card.name} — pick as mash bill`
+                        }
+                        onClick={() =>
+                          auditMode
+                            ? toggleAuditMashBill(id)
+                            : pickMashBill(id)
+                        }
+                        className={className}
+                      >
+                        <BourbonCardFace card={card} size="sm" />
+                      </button>
+                    );
+                  }
                   return (
-                    <button
-                      key={`${id}-${i}`}
-                      type="button"
-                      aria-pressed={selected}
-                      title={
-                        auditMode
-                          ? `${card.name} — toggle for audit discard`
-                          : `${card.name} — pick as mash bill`
-                      }
-                      onClick={() =>
-                        auditMode
-                          ? toggleAuditMashBill(id)
-                          : pickMashBill(id)
-                      }
-                      className={className}
-                    >
+                    <div key={`${id}-${i}`} className={className}>
                       <BourbonCardFace card={card} size="sm" />
-                    </button>
+                    </div>
                   );
-                }
-                return (
-                  <div key={`${id}-${i}`} className={className}>
-                    <BourbonCardFace card={card} size="sm" />
-                  </div>
-                );
-              })
-            )}
-            {me.goldBourbons.length > 0 ? (
-              <div
-                className="ml-1 flex items-center gap-1 rounded-md border border-amber-400/50 bg-amber-500/[0.10] px-2 py-1"
-                title={`${me.goldBourbons.length} unlocked Gold Bourbon${me.goldBourbons.length === 1 ? "" : "s"} — score brand value at game end.`}
-              >
-                <span className="font-mono text-[10px] uppercase tracking-[.12em] text-amber-300">
-                  gold
-                </span>
-                <span className="font-mono text-[12px] font-bold text-amber-200 tabular-nums">
-                  {me.goldBourbons.length}
-                </span>
-              </div>
-            ) : null}
+                })
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <Divider />
+        <Divider />
 
-      {/* 6 — play (ops + invest), with Implement stacked above */}
-      <div className="flex flex-shrink-0 items-stretch gap-2">
-        <VerticalCaption>play</VerticalCaption>
-        <div className="flex flex-col items-start gap-1.5">
-          <ContextButton
-            enabled={canImplement}
-            onClick={implement}
-            title={implementReason}
-          >
-            Implement ↵
-          </ContextButton>
-          <div className="flex max-w-[220px] flex-col gap-1.5">
+        {/* Play (ops + investments) */}
+        <div className="flex flex-shrink-0 items-stretch gap-2">
+          <VerticalCaption>play</VerticalCaption>
+          <div className="flex max-w-[260px] flex-col gap-1.5">
             <div className="flex flex-wrap gap-1.5">
               {me.operations.length === 0 ? (
                 <EmptyPill>no ops</EmptyPill>
@@ -676,54 +673,6 @@ export default function HandTray() {
           </div>
         </div>
       </div>
-
-      {/* 7 — spacer */}
-      <span className="flex-1" />
-
-      {/* 8 — end-turn cluster */}
-      <div className="flex flex-shrink-0 items-center gap-2">
-        {auditPending ? (
-          <button
-            type="button"
-            disabled={!auditDiscardReady}
-            onClick={submitAuditDiscard}
-            title={
-              auditDiscardReady
-                ? `Discard ${auditOverage} card${auditOverage === 1 ? "" : "s"} to resolve the Audit`
-                : `Pick exactly ${auditOverage} card${auditOverage === 1 ? "" : "s"} to discard`
-            }
-            className="rounded-md border border-rose-700 bg-gradient-to-b from-rose-500 to-rose-700 px-3.5 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-rose-400 hover:to-rose-600 disabled:cursor-not-allowed disabled:border-slate-700 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
-          >
-            Discard {auditSelectedCount}/{auditOverage}
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={!canCallAudit}
-            onClick={callAudit}
-            title={auditButtonReason}
-            className="rounded border border-rose-500/60 bg-rose-700/[0.20] px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-rose-100 transition-colors hover:bg-rose-700/[0.35] disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-transparent disabled:text-slate-500"
-          >
-            Audit ↵
-          </button>
-        )}
-        <button
-          type="button"
-          disabled={!isMyActionTurn || auditPending}
-          onClick={() => dispatch({ t: "PASS_ACTION", playerId: humanId })}
-          title={
-            auditPending
-              ? "Resolve your audit discard first"
-              : isMyActionTurn
-                ? "Pass — finish your action loop"
-                : "Wait for your turn"
-          }
-          className="rounded-md border border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 px-3.5 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-amber-400 hover:to-amber-600 disabled:cursor-not-allowed disabled:border-slate-700 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
-        >
-          Pass ↵
-        </button>
-      </div>
-
     </section>
   );
 }
@@ -731,12 +680,6 @@ export default function HandTray() {
 // ---------------------------------------------------------------------------
 // Subcomponents
 
-/**
- * Per-section contextual primary button. Same amber gradient as the End-turn
- * Pass button so each section's "do the thing" affordance reads as primary.
- * Disabled state matches the Pass button — slate-on-slate with a tooltip
- * explaining why.
- */
 function ContextButton({
   children,
   enabled,
@@ -772,11 +715,6 @@ function ContextButton({
   );
 }
 
-/**
- * Live mash readout pill shown next to the Cancel button while make-bourbon
- * mode is active. Mirrors the ✓/! styling from the modal version so the
- * player gets immediate feedback as they tick chips.
- */
 function MashStatusPill({
   valid,
   cask,
@@ -784,6 +722,7 @@ function MashStatusPill({
   grain,
   total,
   reason,
+  billPicked,
 }: {
   valid: boolean;
   cask: number;
@@ -791,13 +730,24 @@ function MashStatusPill({
   grain: number;
   total: number;
   reason: string | null;
+  billPicked: boolean;
 }) {
+  // While make-bourbon mode is active, surface BOTH the mash validity AND
+  // whether the player has picked a bill yet. Both are required to land a
+  // barrel; missing either freezes the rickhouse click target.
+  const mashOk = valid;
+  const allOk = valid && billPicked;
+  const tooltip = !valid
+    ? (reason ?? undefined)
+    : !billPicked
+      ? "Pick a mash bill from your bourbon hand below"
+      : "Mash + bill ready — click a rickhouse to barrel";
   return (
     <span
-      title={reason ?? undefined}
+      title={tooltip}
       className={[
         "flex items-center gap-2 rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[.10em]",
-        valid
+        allOk
           ? "border-emerald-500/50 bg-emerald-500/[0.10] text-emerald-200"
           : "border-slate-700 bg-slate-900 text-slate-400",
       ].join(" ")}
@@ -805,16 +755,26 @@ function MashStatusPill({
       <span
         className={[
           "grid h-3.5 w-3.5 place-items-center rounded-full font-bold",
-          valid ? "bg-emerald-500 text-slate-950" : "bg-slate-700 text-slate-300",
+          mashOk ? "bg-emerald-500 text-slate-950" : "bg-slate-700 text-slate-300",
         ].join(" ")}
         aria-hidden
       >
-        {valid ? "✓" : "·"}
+        {mashOk ? "✓" : "·"}
       </span>
       <span className="tabular-nums">
         {cask}c · {corn}🌽 · {grain}g · {total}/6
       </span>
-      {valid ? (
+      <span
+        className={[
+          "rounded border px-1 py-px text-[9px]",
+          billPicked
+            ? "border-emerald-500/50 text-emerald-200"
+            : "border-amber-500/50 text-amber-200",
+        ].join(" ")}
+      >
+        {billPicked ? "bill ✓" : "pick bill ↓"}
+      </span>
+      {allOk ? (
         <span className="text-amber-300">click a rickhouse →</span>
       ) : null}
     </span>
@@ -835,7 +795,7 @@ function VerticalCaption({ children }: { children: React.ReactNode }) {
 function Divider() {
   return (
     <span
-      className="block h-[60px] w-px flex-shrink-0 bg-slate-800"
+      className="block w-px flex-shrink-0 self-stretch bg-slate-800"
       aria-hidden
     />
   );

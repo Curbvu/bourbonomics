@@ -53,6 +53,15 @@ export type UiStore = {
   toggleAuditInvestment: (instanceId: string) => void;
   toggleAuditOperations: (instanceId: string) => void;
   cancelAuditDiscard: () => void;
+
+  /**
+   * Round number whose post-market recap the player has dismissed.
+   * The MarketRecapPanel renders during the next round's fees phase
+   * (i.e. round = N + 1 when this stores N) and hides itself once
+   * dismissed. Cleared implicitly by comparing against current round.
+   */
+  dismissedMarketRecapForRound: number | null;
+  dismissMarketRecap: (round: number) => void;
 };
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -126,4 +135,8 @@ export const useUiStore = create<UiStore>((set) => ({
         operationsInstanceIds: [],
       },
     }),
+
+  dismissedMarketRecapForRound: null,
+  dismissMarketRecap: (round) =>
+    set({ dismissedMarketRecapForRound: round }),
 }));

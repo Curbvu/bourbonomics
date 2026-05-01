@@ -209,7 +209,7 @@ export default function RickhouseRow() {
                 ) : null}
               </div>
 
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1.5">
                 {h.barrels.map((b) => {
                   const seatIdx = paletteIndex(
                     state.players[b.ownerId]?.seatIndex ?? 0,
@@ -223,8 +223,17 @@ export default function RickhouseRow() {
                   const altPick =
                     isMine && me ? pickBestGoldAlt(state, me, b) : null;
                   const projectedPrice = altPick ? altPick.payout : basePrice;
+                  // Compact label for the chip — first word of the bill,
+                  // capped to 5 chars so the chip stays tight.
+                  const billAbbrev = (() => {
+                    const name = card?.name ?? b.mashBillId;
+                    const head = name.split(/\s+/)[0] ?? name;
+                    const stripped = head.replace(/[^a-zA-Z0-9]/g, "");
+                    return (stripped.slice(0, 5) || "?").toUpperCase();
+                  })();
+                  const isRare = card?.rarity === "Rare";
                   const tooltip = isMine
-                    ? `${card?.name ?? b.mashBillId} · age ${b.age}` +
+                    ? `${card?.name ?? b.mashBillId}${isRare ? " (Rare)" : ""} · age ${b.age}` +
                       (b.age < 2
                         ? " · needs ≥2 to sell"
                         : ` · sells for $${projectedPrice}` +
@@ -236,8 +245,41 @@ export default function RickhouseRow() {
                               ? ` · click to sell ($${actionCost} action)`
                               : ` · click to sell`
                             : ""))
-                    : `${state.players[b.ownerId]?.name ?? "?"} · age ${b.age}`;
-                  const baseChipClass = `grid h-7 w-7 place-items-center rounded-[5px] font-mono text-[10px] font-bold leading-none text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18)] ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`;
+                    : `${state.players[b.ownerId]?.name ?? "?"} · ${
+                        card?.name ?? b.mashBillId
+                      }${isRare ? " (Rare)" : ""} · age ${b.age}`;
+                  const baseChipClass = `relative flex h-12 w-[60px] flex-col items-center justify-center gap-px rounded-[6px] font-mono leading-none text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18)] ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`;
+                  const showPrice = isMine && b.age >= 2;
+                  const inner = (
+                    <>
+                      <span className="text-[8px] font-bold tracking-[.04em] opacity-95">
+                        {billAbbrev}
+                      </span>
+                      <span className="text-[12px] font-bold tabular-nums">
+                        {b.age}y
+                      </span>
+                      {showPrice ? (
+                        <span
+                          className={[
+                            "rounded-sm px-1 font-mono text-[8px] font-bold leading-none tabular-nums",
+                            altPick
+                              ? "bg-amber-300/95 text-slate-950"
+                              : "bg-emerald-400/90 text-slate-950",
+                          ].join(" ")}
+                        >
+                          ${projectedPrice}
+                        </span>
+                      ) : null}
+                      {isRare ? (
+                        <span
+                          className="absolute right-0.5 top-0.5 text-[8px] leading-none text-amber-200"
+                          aria-hidden
+                        >
+                          ★
+                        </span>
+                      ) : null}
+                    </>
+                  );
                   if (sellable) {
                     return (
                       <button
@@ -252,7 +294,7 @@ export default function RickhouseRow() {
                         }
                         className={`${baseChipClass} cursor-pointer outline outline-2 outline-amber-300 outline-offset-1 transition-transform hover:-translate-y-0.5`}
                       >
-                        {b.age}
+                        {inner}
                       </button>
                     );
                   }
@@ -262,7 +304,7 @@ export default function RickhouseRow() {
                       title={tooltip}
                       className={baseChipClass}
                     >
-                      {b.age}
+                      {inner}
                     </div>
                   );
                 })}
@@ -270,7 +312,7 @@ export default function RickhouseRow() {
                   <div
                     key={`empty-${i}`}
                     className={[
-                      "h-7 w-7 rounded-[5px] border border-dashed",
+                      "h-12 w-[60px] rounded-[6px] border border-dashed",
                       targetable
                         ? "border-amber-400/70"
                         : "border-slate-700",

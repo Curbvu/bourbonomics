@@ -38,11 +38,14 @@ const GRAIN_SUB_PILES = ["barley", "rye", "wheat"] as const satisfies readonly R
  * by design ("you don't get to choose"), but the engine still records the
  * specific pile in the dispatched action so save/load round-trips cleanly.
  */
-function pickRandomGrain(state: {
-  market: { barley: unknown[]; rye: unknown[]; wheat: unknown[] };
-}): ResourcePileName | null {
+function pickRandomGrain(
+  state: {
+    market: { barley: unknown[]; rye: unknown[]; wheat: unknown[] };
+  },
+  shortages: ResourcePileName[] = [],
+): ResourcePileName | null {
   const candidates = GRAIN_SUB_PILES.filter(
-    (id) => state.market[id].length > 0,
+    (id) => state.market[id].length > 0 && !shortages.includes(id),
   );
   if (candidates.length === 0) return null;
   const idx = Math.floor(Math.random() * candidates.length);
@@ -86,6 +89,20 @@ export default function MarketPanel() {
       : demand >= 6
         ? "text-amber-400"
         : "text-slate-300";
+
+  // Resource shortages: market cards from last round can lock specific
+  // piles for this round. We render those piles in a "shut down" state.
+  const shortages = state.currentRoundEffects.resourceShortages;
+  const caskShortage = shortages.includes("cask");
+  const cornShortage = shortages.includes("corn");
+  const grainShortage =
+    shortages.includes("barley") &&
+    shortages.includes("rye") &&
+    shortages.includes("wheat");
+  // Note: a single grain pile being shorted doesn't lock the combined
+  // grain stack visually — the player can still pull from the others.
+  // Only when ALL three are shorted does the combined display read as
+  // shut down. (We can refine to per-grain chips later if desired.)
 
   const dispatchDraw = (action: Action) => {
     if (!drawable) return;
@@ -145,15 +162,18 @@ export default function MarketPanel() {
             count={m.cask.length}
             tone="amber"
             disabled={!drawable || m.cask.length === 0}
+            shutdown={caskShortage}
             title={
-              !drawable
-                ? notDrawableReason(state, humanId, canAfford)
-                : m.cask.length === 0
-                  ? "Cask pile is empty"
-                  : `Draw a cask${cost > 0 ? ` ($${cost})` : ""}`
+              caskShortage
+                ? "Cask pile shut down this round (market shortage)"
+                : !drawable
+                  ? notDrawableReason(state, humanId, canAfford)
+                  : m.cask.length === 0
+                    ? "Cask pile is empty"
+                    : `Draw a cask${cost > 0 ? ` ($${cost})` : ""}`
             }
             onClick={
-              drawable && humanId && m.cask.length > 0
+              drawable && humanId && m.cask.length > 0 && !caskShortage
                 ? () =>
                     dispatchDraw({
                       t: "DRAW_RESOURCE",
@@ -166,16 +186,20 @@ export default function MarketPanel() {
           <DeckStack
             label="corn"
             count={m.corn.length}
+            tone="yellow"
             disabled={!drawable || m.corn.length === 0}
+            shutdown={cornShortage}
             title={
-              !drawable
-                ? notDrawableReason(state, humanId, canAfford)
-                : m.corn.length === 0
-                  ? "Corn pile is empty"
-                  : `Draw corn${cost > 0 ? ` ($${cost})` : ""}`
+              cornShortage
+                ? "Corn pile shut down this round (market shortage)"
+                : !drawable
+                  ? notDrawableReason(state, humanId, canAfford)
+                  : m.corn.length === 0
+                    ? "Corn pile is empty"
+                    : `Draw corn${cost > 0 ? ` ($${cost})` : ""}`
             }
             onClick={
-              drawable && humanId && m.corn.length > 0
+              drawable && humanId && m.corn.length > 0 && !cornShortage
                 ? () =>
                     dispatchDraw({
                       t: "DRAW_RESOURCE",
@@ -185,23 +209,35 @@ export default function MarketPanel() {
                 : undefined
             }
           />
-          {/* Grain — picks a random non-empty grain pile (barley / rye /
-              wheat). The user doesn't choose which grain. */}
+          {/* Grain — picks a random non-empty, non-shorted grain pile
+              (barley / rye / wheat). The user doesn't choose which grain. */}
           <DeckStack
             label="grain"
             count={grainCount}
+            tone="lime"
             disabled={!drawable || grainCount === 0}
+            shutdown={grainShortage}
             title={
-              !drawable
-                ? notDrawableReason(state, humanId, canAfford)
-                : grainCount === 0
-                  ? "All grain piles empty"
-                  : `Draw a random grain${cost > 0 ? ` ($${cost})` : ""}`
+              grainShortage
+                ? "All grain piles shut down this round (market shortages)"
+                : !drawable
+                  ? notDrawableReason(state, humanId, canAfford)
+                  : grainCount === 0
+                    ? "All grain piles empty"
+                    : (() => {
+                        const partial = GRAIN_SUB_PILES.filter((p) =>
+                          shortages.includes(p),
+                        );
+                        const partialNote = partial.length
+                          ? ` · ${partial.join(", ")} shut down`
+                          : "";
+                        return `Draw a random grain${cost > 0 ? ` ($${cost})` : ""}${partialNote}`;
+                      })()
             }
             onClick={
-              drawable && humanId && grainCount > 0
+              drawable && humanId && grainCount > 0 && !grainShortage
                 ? () => {
-                    const pile = pickRandomGrain(state);
+                    const pile = pickRandomGrain(state, shortages);
                     if (!pile) return;
                     dispatchDraw({
                       t: "DRAW_RESOURCE",

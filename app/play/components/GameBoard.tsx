@@ -38,6 +38,7 @@ import CardDrawOverlay from "./CardDrawOverlay";
 import FeesPanel from "./FeesPanel";
 import GameOverPanel from "./GameOverPanel";
 import HandTray from "./HandTray";
+import MarketRecapPanel from "./MarketRecapPanel";
 import MarketRevealModal from "./MarketRevealModal";
 import PhaseBanner from "./PhaseBanner";
 import RickhouseRow from "./RickhouseRow";
@@ -59,6 +60,7 @@ export default function GameBoard() {
         <PhaseBanner />
 
         {state.phase === "gameover" ? <GameOverPanel /> : null}
+        {state.phase === "fees" ? <MarketRecapPanel /> : null}
         {state.phase === "fees" ? <FeesPanel /> : null}
         {/* Phase 3 (market) is fully owned by MarketRevealModal — no inline
             decision panel needed; the modal auto-draws and forces a choice. */}
