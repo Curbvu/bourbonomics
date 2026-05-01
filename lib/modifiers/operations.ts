@@ -4,8 +4,13 @@
  * The YAML catalog carries prose rules. We ship a starter set of hand-coded
  * opcodes keyed by card id so that a subset of ops cards has real mechanical
  * effects — the rest resolve as a no-op with a log entry (authorable later).
+ *
+ * Every cash payout is routed through `creditCash` so that an active
+ * Distressed-Loan siphon claims the income first (GAME_RULES.md §Distressed
+ * Distiller's Loan).
  */
 
+import { creditCash } from "@/lib/engine/cash";
 import type { GameState } from "@/lib/engine/state";
 
 type OpsEffect = (state: GameState, playerId: string) => { summary: string };
@@ -13,7 +18,7 @@ type OpsEffect = (state: GameState, playerId: string) => { summary: string };
 const OPS_EFFECTS: Record<string, OpsEffect> = {
   county_rebate(state, playerId) {
     const gain = state.demand >= 6 ? 6 : 2;
-    state.players[playerId].cash += gain;
+    creditCash(state, playerId, gain, "ops:county_rebate");
     return { summary: `Gained $${gain} (demand ${state.demand})` };
   },
 
@@ -26,7 +31,7 @@ const OPS_EFFECTS: Record<string, OpsEffect> = {
       if (pile) pile.unshift(r);
       discarded = true;
     }
-    p.cash += 6;
+    creditCash(state, playerId, 6, "ops:fire_sale");
     return {
       summary: discarded
         ? `Discarded 1 resource; gained $6`
@@ -35,7 +40,6 @@ const OPS_EFFECTS: Record<string, OpsEffect> = {
   },
 
   angels_share_cash(state, playerId) {
-    const p = state.players[playerId];
     let oldestAge = 0;
     for (const h of state.rickhouses) {
       for (const b of h.barrels) {
@@ -43,18 +47,17 @@ const OPS_EFFECTS: Record<string, OpsEffect> = {
       }
     }
     const gain = Math.min(10, oldestAge * 2);
-    p.cash += gain;
+    creditCash(state, playerId, gain, "ops:angels_share_cash");
     return { summary: `Gained $${gain} from oldest barrel (age ${oldestAge})` };
   },
 
   tour_bus_tips(state, playerId) {
-    const p = state.players[playerId];
     const rickhousesWithMine = new Set<string>();
     for (const h of state.rickhouses) {
       if (h.barrels.some((b) => b.ownerId === playerId)) rickhousesWithMine.add(h.id);
     }
     const gain = 3 + Math.min(6, rickhousesWithMine.size);
-    p.cash += gain;
+    creditCash(state, playerId, gain, "ops:tour_bus_tips");
     return {
       summary: `Gained $${gain} (3 + ${rickhousesWithMine.size} rickhouse)`,
     };
@@ -66,18 +69,17 @@ const OPS_EFFECTS: Record<string, OpsEffect> = {
       0,
     );
     const gain = Math.min(8, barrels);
-    state.players[playerId].cash += gain;
+    creditCash(state, playerId, gain, "ops:distillers_bonus");
     return { summary: `Gained $${gain} ($1 per barrel × ${barrels}, max $8)` };
   },
 
   speakeasy_tipoff(state, playerId) {
     const gain = state.demand >= 4 ? 4 : 1;
-    state.players[playerId].cash += gain;
+    creditCash(state, playerId, gain, "ops:speakeasy_tipoff");
     return { summary: `Gained $${gain} (demand ${state.demand})` };
   },
 
   copper_salvage(state, playerId) {
-    // Find the player's youngest barrel (smallest age).
     let youngestAge: number | null = null;
     for (const h of state.rickhouses) {
       for (const b of h.barrels) {
@@ -89,12 +91,11 @@ const OPS_EFFECTS: Record<string, OpsEffect> = {
       return { summary: "No barrels to salvage from — gained $0" };
     }
     const gain = Math.min(6, youngestAge * 2);
-    state.players[playerId].cash += gain;
+    creditCash(state, playerId, gain, "ops:copper_salvage");
     return { summary: `Gained $${gain} from youngest barrel (age ${youngestAge})` };
   },
 
   blenders_touch(state, playerId) {
-    // Check if any of the player's barrels has ≥3 distinct grain types in its mash.
     let bonusQualifies = false;
     for (const h of state.rickhouses) {
       for (const b of h.barrels) {
@@ -106,7 +107,6 @@ const OPS_EFFECTS: Record<string, OpsEffect> = {
           }
         }
         if (types.size >= 2) {
-          // 2 small grains + corn counts as 3 distinct grains; corn is always present.
           bonusQualifies = true;
           break;
         }
@@ -114,7 +114,7 @@ const OPS_EFFECTS: Record<string, OpsEffect> = {
       if (bonusQualifies) break;
     }
     const gain = bonusQualifies ? 5 : 3;
-    state.players[playerId].cash += gain;
+    creditCash(state, playerId, gain, "ops:blenders_touch");
     return {
       summary: bonusQualifies
         ? `Gained $${gain} (≥3 grain types in a barrel)`
@@ -124,7 +124,6 @@ const OPS_EFFECTS: Record<string, OpsEffect> = {
 
   late_shipment(state, playerId) {
     const p = state.players[playerId];
-    // Pick the pile with the most cards remaining — gives the best odds of completing a mash.
     const candidates: Array<keyof typeof state.market & ("cask" | "corn" | "barley" | "rye" | "wheat")> = [
       "cask",
       "corn",
@@ -151,7 +150,7 @@ const OPS_EFFECTS: Record<string, OpsEffect> = {
       0,
     );
     const gain = barrels < 2 ? 4 : 2;
-    state.players[playerId].cash += gain;
+    creditCash(state, playerId, gain, "ops:coopers_gift");
     return {
       summary:
         barrels < 2
@@ -163,7 +162,7 @@ const OPS_EFFECTS: Record<string, OpsEffect> = {
   state_fair_demo(state, playerId) {
     const odd = state.demand % 2 === 1;
     const gain = odd ? 6 : 3;
-    state.players[playerId].cash += gain;
+    creditCash(state, playerId, gain, "ops:state_fair_demo");
     return { summary: `Gained $${gain} (demand ${state.demand} is ${odd ? "odd" : "even"})` };
   },
 
@@ -172,7 +171,7 @@ const OPS_EFFECTS: Record<string, OpsEffect> = {
       (h) => !h.barrels.some((b) => b.ownerId === playerId),
     ).length;
     const gain = Math.min(6, empty * 2);
-    state.players[playerId].cash += gain;
+    creditCash(state, playerId, gain, "ops:insurance_payout");
     return { summary: `Gained $${gain} ($2 per empty-to-you rickhouse × ${empty}, max $6)` };
   },
 };

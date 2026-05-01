@@ -27,7 +27,7 @@ export function installPersistence(): void {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<GameState>;
-      if (parsed && parsed.version === 5) {
+      if (parsed && parsed.version === 6) {
         useGameStore.getState().loadState(parsed as GameState);
       } else if (parsed) {
         // Old / unknown schema — drop it so the page boots into a fresh game.

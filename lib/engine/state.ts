@@ -120,8 +120,24 @@ export type Player = {
   /** True after the player has spent on at least one paid action this round. Resets at round start. */
   hasTakenPaidActionThisRound: boolean;
   // Distressed Distiller's Loan tracking.
-  /** True while this player owes the bank a loan repayment. */
-  loanOutstanding: boolean;
+  /**
+   * Dollars still owed to the bank. 0 means the player owes nothing.
+   * Set to DISTRESSED_LOAN_REPAYMENT (15) at the moment a loan is taken;
+   * decremented by the Phase-1 repayment and (if siphon is active) by
+   * every cash credit that flows through `creditCash`.
+   */
+  loanRemaining: number;
+  /**
+   * True ONLY after a partial Phase-1 repayment failed to clear the
+   * full $15. While this is on, every cash credit auto-siphons to the
+   * bank first and the player cannot spend (rent, capital, action cost).
+   * Cleared automatically when `loanRemaining` reaches 0.
+   *
+   * Note: a loan in its "fresh" round (taken this round, due next Phase 1)
+   * has `loanRemaining > 0` but `loanSiphonActive === false`. The punitive
+   * mode only activates after a partial repayment.
+   */
+  loanSiphonActive: boolean;
   /** True after this player has used their once-per-game loan eligibility. */
   loanUsed: boolean;
   /**
@@ -257,8 +273,15 @@ export type GameState = {
    *        new Audit action (CALL_AUDIT / AUDIT_DISCARD); third Gold triggers
    *        FINAL ROUND (not immediate end), then market is skipped and a
    *        new "scoring" phase resolves a detailed end-game tally.
+   *   v6 → punitive Distressed Loan: replaces `loanOutstanding: boolean`
+   *        with `loanRemaining: number` + `loanSiphonActive: boolean`.
+   *        Partial Phase-1 repayment now activates a siphon mode in
+   *        which every cash credit auto-pays the bank first and the
+   *        player is blocked from spending (rent / actions / capital)
+   *        until $15 is cleared. DISCARD_AND_DRAW_BOURBON action retired
+   *        (mash bills draw freely; Audit handles overflow).
    */
-  version: 5;
+  version: 6;
   id: string;
   createdAt: number;
 

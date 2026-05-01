@@ -55,8 +55,10 @@ import {
   handSize,
   isPlayersTurn,
 } from "./checks";
+import { canSpend, creditCash } from "./cash";
 import {
   DISTRESSED_LOAN_AMOUNT,
+  DISTRESSED_LOAN_REPAYMENT,
   HAND_LIMIT,
   MARKET_DRAW_COUNT,
   MAX_ACTIVE_INVESTMENTS,
@@ -86,8 +88,6 @@ function apply(state: GameState, action: Action): void {
       return drawResource(state, action);
     case "DRAW_BOURBON":
       return drawBourbonAction(state, action);
-    case "DISCARD_AND_DRAW_BOURBON":
-      return discardAndDrawBourbon(state, action);
     case "MAKE_BOURBON":
       return makeBourbon(state, action);
     case "SELL_BOURBON":
@@ -142,6 +142,14 @@ function payFees(
   }
   // Apply active-investment rickhouse-fee discount (once per round).
   const { total: discountedPaid, consume } = applyRickhouseFeeDiscount(p, paid);
+  if (discountedPaid > 0 && !canSpend(state, p.id)) {
+    // Loan-siphon "frozen": cannot spend on rent while debt is outstanding.
+    // The chosen barrels just don't age this round (per the unpaid-rent
+    // rule — no penalty beyond losing time).
+    return errorEvent(state, "frozen_by_loan", {
+      stillOwed: p.loanRemaining,
+    });
+  }
   if (discountedPaid > p.cash) {
     return errorEvent(state, "cannot_afford_chosen", {
       paid: discountedPaid,
@@ -191,19 +199,28 @@ function takeDistressedLoan(
   if (state.phase !== "fees") return errorEvent(state, "not_in_fees");
   const p = state.players[action.playerId];
   if (!p || p.eliminated) return errorEvent(state, "no_player");
+  // No second loan — once-per-game per baron, AND nobody can take one
+  // while a debt is still outstanding.
   if (p.loanUsed) return errorEvent(state, "loan_already_used");
-  if (p.loanOutstanding) return errorEvent(state, "loan_already_outstanding");
+  if (p.loanRemaining > 0)
+    return errorEvent(state, "loan_already_outstanding");
   // Eligibility: cash must be less than the rent owed for the round.
   const owed = totalFeesForPlayer(state, p.id);
   if (p.cash >= owed) {
     return errorEvent(state, "loan_not_needed", { cash: p.cash, owed });
   }
+  // Disbursement is the loan principal; the player's debt to the bank is
+  // the FULL repayment amount (principal + interest) and is due at the
+  // start of next Phase 1. The loan-disbursement is NOT routed through
+  // creditCash — siphon mode can't be active yet (you can't take a loan
+  // while one is outstanding) and a fresh loan is not "income".
   p.cash += DISTRESSED_LOAN_AMOUNT;
-  p.loanOutstanding = true;
+  p.loanRemaining = DISTRESSED_LOAN_REPAYMENT;
   p.loanUsed = true;
   logEvent(state, "loan_taken", {
     playerId: p.id,
-    amount: DISTRESSED_LOAN_AMOUNT,
+    disbursed: DISTRESSED_LOAN_AMOUNT,
+    repaymentDue: DISTRESSED_LOAN_REPAYMENT,
     rentOwed: owed,
   });
 }
@@ -217,6 +234,10 @@ function chargeActionCost(state: GameState, playerId: string): boolean {
   const firstPaidThisRound = !state.actionPhase.freeWindowActive && !p.hasTakenPaidActionThisRound;
   const { cost, consume } = applyActionCostDiscount(p, baseCost, firstPaidThisRound);
   if (cost > 0) {
+    // Loan-siphon "frozen" rule: a baron with active siphon cannot
+    // spend on actions until the loan clears. Free actions (cost===0)
+    // are still allowed.
+    if (!canSpend(state, playerId)) return false;
     if (p.cash < cost) return false;
     p.cash -= cost;
   }
@@ -355,43 +376,6 @@ function drawBourbonAction(
   postActionAdvance(state, action.playerId);
 }
 
-function discardAndDrawBourbon(
-  state: GameState,
-  action: Extract<Action, { t: "DISCARD_AND_DRAW_BOURBON" }>,
-): void {
-  if (!preActionGuards(state, action.playerId)) return;
-  const player = state.players[action.playerId];
-  const handIdx = player.bourbonHand.indexOf(action.bourbonCardId);
-  if (handIdx === -1) {
-    return errorEvent(state, "bourbon_not_in_hand", {
-      cardId: action.bourbonCardId,
-    });
-  }
-  // Need a card to draw on the swap. If the deck is empty, the discard
-  // we're about to push *would* go right back, so reshuffle BEFORE pushing
-  // to keep the swap deterministic and avoid cycling the same id back.
-  if (state.market.bourbonDeck.length === 0) reshuffleBourbonDiscard(state);
-  if (state.market.bourbonDeck.length === 0)
-    return errorEvent(state, "bourbon_deck_empty");
-  if (!chargeActionCost(state, action.playerId))
-    return errorEvent(state, "afford");
-
-  // Discard then draw — net hand size unchanged.
-  player.bourbonHand.splice(handIdx, 1);
-  state.market.bourbonDiscard.push(action.bourbonCardId);
-  const [drawn, rest] = drawTop(state.market.bourbonDeck);
-  state.market.bourbonDeck = rest;
-  if (drawn) {
-    player.bourbonHand.push(drawn);
-  }
-  logEvent(state, "discard_and_draw_bourbon", {
-    playerId: player.id,
-    discardedCardId: action.bourbonCardId,
-    drawnCardId: drawn,
-  });
-  postActionAdvance(state, action.playerId);
-}
-
 function reshuffleBourbonDiscard(state: GameState): void {
   if (state.market.bourbonDiscard.length === 0) return;
   const rng = createRng(state.rngState);
@@ -472,10 +456,11 @@ function makeBourbon(
     mashSize: mash.length,
     mashBillId: action.mashBillId,
   });
-  // Resource on_make_bourbon opcodes (e.g., bank_payout).
+  // Resource on_make_bourbon opcodes (e.g., bank_payout). Routed through
+  // creditCash so any active loan siphon claims it first.
   const makeOps = applyMakeOps({ state, playerId: player.id, mash });
   if (makeOps.bankPayout !== 0) {
-    player.cash += makeOps.bankPayout;
+    creditCash(state, player.id, makeOps.bankPayout, "make_bourbon_bank_payout");
     logEvent(state, "make_bourbon_bank_payout", {
       playerId: player.id,
       amount: makeOps.bankPayout,
@@ -554,7 +539,9 @@ function sellBourbon(
     altPayoutSource = action.applyGoldBourbonId;
   }
 
-  player.cash += finalPayout;
+  // Sale proceeds — routed through creditCash so an active loan siphon
+  // intercepts the payout first.
+  creditCash(state, player.id, finalPayout, "sell_bourbon");
   // Extra bourbon-card draws (specialty resource effect). Soft cap: no
   // hard ceiling, but we still cap at a sane bound to prevent infinite
   // draws on a degenerate state. Audit handles real overflow later.
@@ -706,6 +693,11 @@ function implementInvestment(
   }
   const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
   if (!def) return errorEvent(state, "unknown_investment");
+  if (def.capital > 0 && !canSpend(state, player.id)) {
+    return errorEvent(state, "frozen_by_loan", {
+      stillOwed: player.loanRemaining,
+    });
+  }
   if (player.cash < def.capital)
     return errorEvent(state, "cannot_afford_capital", { capital: def.capital });
   if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");

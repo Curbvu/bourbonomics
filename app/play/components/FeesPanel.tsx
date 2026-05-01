@@ -37,7 +37,9 @@ export default function FeesPanel() {
 
   const fees = feesForPlayer(state, humanId);
   const totalOwed = totalFeesForPlayer(state, humanId);
-  const loanEligible = !me.loanUsed && me.cash < totalOwed;
+  const loanEligible =
+    !me.loanUsed && me.loanRemaining === 0 && me.cash < totalOwed;
+  const loanFrozen = me.loanSiphonActive;
 
   if (fees.length === 0) {
     return (
@@ -78,12 +80,26 @@ export default function FeesPanel() {
           ${me.cash}
         </span>
         .
-        {me.loanOutstanding ? (
-          <span className="ml-2 inline-block rounded border border-amber-700 bg-amber-700/[0.20] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[.12em] text-amber-200">
-            loan outstanding · ${DISTRESSED_LOAN_REPAYMENT} owed
+        {me.loanRemaining > 0 ? (
+          <span
+            className={[
+              "ml-2 inline-block rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[.12em]",
+              loanFrozen
+                ? "border-rose-600 bg-rose-700/[0.25] text-rose-200"
+                : "border-amber-700 bg-amber-700/[0.20] text-amber-200",
+            ].join(" ")}
+          >
+            {loanFrozen ? "FROZEN · " : "loan · "}${me.loanRemaining} owed
           </span>
         ) : null}
       </p>
+      {loanFrozen ? (
+        <p className="mb-3 rounded border border-rose-600/60 bg-rose-950/30 px-3 py-2 font-mono text-[11px] text-rose-200">
+          Distressed loan in arrears — every dollar of income is automatically
+          siphoned to the bank, and you cannot spend on rent, capital, or
+          actions until the remaining ${me.loanRemaining} clears.
+        </p>
+      ) : null}
 
       <div className="mb-3 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
         {fees.map((fee) => {
@@ -130,13 +146,13 @@ export default function FeesPanel() {
             onClick={() =>
               dispatch({ t: "TAKE_DISTRESSED_LOAN", playerId: humanId })
             }
-            title={`Borrow $${DISTRESSED_LOAN_AMOUNT} now, repay $${DISTRESSED_LOAN_REPAYMENT} at the start of next Phase 1. Once per game.`}
+            title={`Borrow $${DISTRESSED_LOAN_AMOUNT} now, repay $${DISTRESSED_LOAN_REPAYMENT} at the start of next Phase 1. Once per game; the $5 interest is permanent. Lingering debt freezes you out of cash flow.`}
             className="rounded border border-amber-500/60 bg-amber-700/[0.20] px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-amber-100 transition-colors hover:bg-amber-700/[0.35]"
           >
             Distressed Loan +${DISTRESSED_LOAN_AMOUNT}
           </button>
         ) : null}
-        {me.loanUsed && !me.loanOutstanding ? (
+        {me.loanUsed && me.loanRemaining === 0 ? (
           <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
             loan already used
           </span>
@@ -147,14 +163,17 @@ export default function FeesPanel() {
             dispatch({
               t: "PAY_FEES",
               playerId: humanId,
-              barrelIds: fees
-                .filter((f) => !skipped.has(f.barrelId))
-                .map((f) => f.barrelId),
+              barrelIds:
+                loanFrozen
+                  ? []
+                  : fees
+                      .filter((f) => !skipped.has(f.barrelId))
+                      .map((f) => f.barrelId),
             })
           }
-          disabled={pay > me.cash}
+          disabled={!loanFrozen && pay > me.cash}
         >
-          Pay &amp; age ↵
+          {loanFrozen ? "Skip rent ↵" : "Pay & age ↵"}
         </PrimaryButton>
       </div>
     </PanelShell>

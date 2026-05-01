@@ -22,7 +22,8 @@ function player(investments: Player["investments"]): Player {
     eliminated: false,
     marketResolved: false,
     hasTakenPaidActionThisRound: false,
-    loanOutstanding: false,
+    loanRemaining: 0,
+    loanSiphonActive: false,
     loanUsed: false,
     pendingAuditOverage: null,
   };

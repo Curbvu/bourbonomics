@@ -26,19 +26,6 @@ export type ActionDrawBourbon = {
   playerId: string;
 };
 
-/**
- * Discard a held mash bill back into the bourbon discard, then draw a
- * fresh one off the top of the deck. Net hand size stays the same; this
- * is the only way to swap a card out once you're at the hand limit (or
- * to cycle a bad bill at any time).
- */
-export type ActionDiscardAndDrawBourbon = {
-  t: "DISCARD_AND_DRAW_BOURBON";
-  playerId: string;
-  /** The mash-bill card id to discard from the player's bourbon hand. */
-  bourbonCardId: string;
-};
-
 export type ActionMakeBourbon = {
   t: "MAKE_BOURBON";
   playerId: string;
@@ -158,7 +145,6 @@ export type ActionAdvance = { t: "ADVANCE" };
 export type Action =
   | ActionDrawResource
   | ActionDrawBourbon
-  | ActionDiscardAndDrawBourbon
   | ActionMakeBourbon
   | ActionSellBourbon
   | ActionDrawInvestment

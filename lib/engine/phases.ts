@@ -9,12 +9,7 @@
 import { resetPerRoundInvestmentUsage } from "@/lib/rules/investments";
 import { computeFinalScores, pickWinners } from "@/lib/rules/scoring";
 import type { GameState } from "./state";
-import {
-  DISTRESSED_LOAN_REPAYMENT,
-  MAX_DEMAND,
-  MIN_DEMAND,
-  TRIPLE_CROWN_GOLDS,
-} from "./state";
+import { MAX_DEMAND, MIN_DEMAND, TRIPLE_CROWN_GOLDS } from "./state";
 import { activePlayerCount } from "./checks";
 
 // ---------- Logging helpers ----------
@@ -86,29 +81,33 @@ export function enterFeesPhase(state: GameState): void {
     resolvedPlayerIds: [],
     paidBarrelIds: [],
   };
-  // Distressed loan repayment is taken off the top before any rent decisions.
-  // We resolve it here so per-player rent UIs see post-repayment cash.
+  // Distressed loan repayment is taken off the top before any rent decisions
+  // (Phase 1 sequence: a → b → c). If the player can pay the full
+  // `loanRemaining`, the loan clears. Otherwise they pay whatever they
+  // have, the residual stays in `loanRemaining`, and `loanSiphonActive`
+  // turns on so every future cash credit auto-siphons until the loan
+  // clears (GAME_RULES.md §Distressed Distiller's Loan).
   for (const id of state.playerOrder) {
     const p = state.players[id];
-    if (!p.loanOutstanding) continue;
-    const owed = DISTRESSED_LOAN_REPAYMENT;
+    if (p.loanRemaining <= 0) continue;
+    const owed = p.loanRemaining;
     if (p.cash >= owed) {
       p.cash -= owed;
-      p.loanOutstanding = false;
+      p.loanRemaining = 0;
+      p.loanSiphonActive = false;
       logEvent(state, "loan_repaid", { playerId: id, amount: owed });
     } else {
-      // Partial repayment: pay all available cash; debt continues to next Phase 1.
-      // No compounding interest, no penalty — just rolls over.
       const partial = p.cash;
       p.cash = 0;
+      p.loanRemaining = owed - partial;
+      // Activate the siphon: from this point on, every cash credit
+      // diverts to the bank first.
+      p.loanSiphonActive = true;
       logEvent(state, "loan_partial_repayment", {
         playerId: id,
         paid: partial,
-        stillOwed: owed - partial,
+        stillOwed: p.loanRemaining,
       });
-      // Note: we leave loanOutstanding = true; the remaining $owed - partial
-      // will be re-attempted next Phase 1. The reducer-level repayment helper
-      // can be smarter later; for now this keeps the rule honest.
     }
   }
   logEvent(state, "phase_change", { phase: "fees", round: state.round });

@@ -88,7 +88,8 @@ export function createInitialState(config: NewGameConfig): GameState {
       eliminated: false,
       marketResolved: false,
       hasTakenPaidActionThisRound: false,
-      loanOutstanding: false,
+      loanRemaining: 0,
+      loanSiphonActive: false,
       loanUsed: false,
       pendingAuditOverage: null,
     };
@@ -101,7 +102,7 @@ export function createInitialState(config: NewGameConfig): GameState {
   }));
 
   const state: GameState = {
-    version: 5,
+    version: 6,
     id: config.id,
     createdAt,
     seed: config.seed,

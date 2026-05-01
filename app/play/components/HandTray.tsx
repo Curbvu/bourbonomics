@@ -156,6 +156,7 @@ export default function HandTray() {
   const overHandLimit = cappedHandSize > HAND_LIMIT;
   const auditPending =
     me.pendingAuditOverage != null && me.pendingAuditOverage > 0;
+  const loanFrozen = me.loanSiphonActive;
 
   // ---- Action eligibility checks ----------------------------------------
 
@@ -371,6 +372,21 @@ export default function HandTray() {
         {auditPending ? (
           <span className="font-mono text-[10px] uppercase tracking-[.12em] text-rose-400">
             audit: discard {me.pendingAuditOverage}
+          </span>
+        ) : null}
+        {me.loanRemaining > 0 ? (
+          <span
+            className={[
+              "font-mono text-[10px] uppercase tracking-[.12em]",
+              loanFrozen ? "text-rose-300" : "text-amber-300",
+            ].join(" ")}
+            title={
+              loanFrozen
+                ? `Frozen by loan — every income siphons to bank, no spending until $${me.loanRemaining} clears`
+                : `Loan repayment due next Phase 1: $${me.loanRemaining}`
+            }
+          >
+            {loanFrozen ? "FROZEN " : "loan "}${me.loanRemaining}
           </span>
         ) : null}
       </div>

@@ -135,8 +135,6 @@ function summarise(
     // barrel or a trophy slot, but the log line stays generic.
     case "draw_bourbon":
       return `${who} drew a mash bill`;
-    case "discard_and_draw_bourbon":
-      return `${who} swapped a mash bill`;
     case "draw_investment":
       return `${who} drew an investment`;
     case "draw_operations":
@@ -147,6 +145,15 @@ function summarise(
       return `${who} discarded down to the hand limit`;
     case "final_round_triggered":
       return `Final round announced`;
+    case "loan_siphon": {
+      const amount = num("amount") ?? 0;
+      const remaining = num("remaining") ?? 0;
+      return `${who} loan siphon: $${amount} → bank (${remaining} remaining)`;
+    }
+    case "loan_cleared":
+      return `${who} cleared their distressed loan`;
+    case "loan_partial_repayment":
+      return `${who} partial loan repayment ($${num("paid") ?? 0}; $${num("stillOwed") ?? 0} remaining)`;
     case "make_bourbon":
       return `${who} barrelled bourbon`;
     case "sell_bourbon": {
