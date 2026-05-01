@@ -14,7 +14,7 @@ The challenge isn't just making bourbon—it's knowing **when** to make it, **wh
 
 The game ends when a player **unlocks** their third Gold Bourbon. Unlocking the third Gold does not end the round immediately — it announces that the **current round is the final round**.
 
-The action phase continues normally for all players, including the triggering player. All standard actions are allowed: production, sales, swapping mash bills, calling audits, installing investments, and playing Operations cards. The paid-action pivot and audit rules apply as usual.
+The action phase continues normally for all players, including the triggering player. All standard actions are allowed: production, sales, drawing cards, calling audits, installing investments, and playing Operations cards. The paid-action pivot and audit rules apply as usual.
 
 After the action phase ends, scoring occurs immediately. The Market Phase is skipped in the final round — there is no next round for market effects to apply to.
 
@@ -69,7 +69,9 @@ Mash bills are committed **at production, not at sale**. When you make bourbon, 
 
 When the barrel is sold, the attached mash bill's grid determines the payout based on the barrel's age and the current demand band.
 
-A player with **no mash bills in hand cannot make bourbon**. As an action, a player may discard one mash bill from their hand and draw a new one from the Bourbon deck.
+A player with **no mash bills in hand cannot make bourbon**. As an action, a player may draw a mash bill from the Bourbon deck. There is no swap-and-replace; mash bills accumulate freely until the 10-card hand limit is enforced via an Audit.
+
+If the Bourbon deck runs out, **reshuffle the Bourbon discard pile** to form a new deck and continue play.
 
 ---
 
@@ -105,21 +107,24 @@ Each round represents a year and is played in three phases: **Rickhouse Fees**, 
 
 Skip this phase in the first round.
 
+**Phase 1 sequence:** (a) any outstanding loan repayment is taken from the baron's cash first; (b) the baron may then take a Distressed Distiller's Loan if eligible; (c) rent is calculated and paid.
+
 For each barrel you have aging in a rickhouse, you must pay rent. The rent is equal to the total number of barrels in that rickhouse, including those owned by other players.
 
 If you pay the rent, your bourbon ages by one year. If you cannot pay, that barrel simply does not age this round. There are no additional penalties, but losing time can be costly.
 
 ## 🪙 Distressed Distiller's Loan
 
-A baron who is short on cash at the start of Phase 1 may take a one-time **Distressed Distiller's Loan** from the bank.
+A baron who is short on cash at the start of Phase 1 may take a one-time **Distressed Distiller's Loan** from the bank. The loan is intentionally harsh — the **$5 interest is a real cost**, not a soft bridge — and lingering debt freezes the baron out of cash flow until it clears.
 
-- **Eligibility:** At the start of Phase 1, the baron's available cash must be **less than the rent they owe this round**. The loan may be used **once per game** per baron.
+- **Eligibility:** At the start of Phase 1 (after any outstanding repayment is taken), the baron's available cash must be **less than the rent they owe this round**. The loan may be used **once per game** per baron — no stacking, no second loan, ever.
 - **Loan amount:** **$10**, taken from the bank into the baron's cash pool immediately.
 - **Repayment:** **$15** (the loan plus $5 interest), paid off the top at the **start of the next Phase 1**, before any rent is calculated.
-- **If the baron cannot repay $15 in full** at the start of next Phase 1, they pay whatever cash they have toward the loan; the remaining debt simply continues — no compounding interest, but they may not take another loan, and any cash they earn in subsequent rounds goes first to repaying the bank until the $15 is settled.
+- **The interest is a permanent score hit.** Even when paid in full on time, the loan permanently reduces the baron's final score by **$5** — that interest leaves their cash pool and never returns. Taking the loan is always a bet that surviving this round is worth $5 of end-game value.
+- **Lingering debt is a punishment.** If the baron cannot repay $15 in full at the start of next Phase 1, they pay whatever cash they have toward the loan; the remaining debt does not compound, but **all future income goes to the bank first**. Every dollar earned (sales, operations effects, investment payouts) is automatically siphoned to the loan until the full **$15** is settled. The baron is effectively frozen out of cash flow for the duration — they cannot spend on actions, capital, or rent until the bank is paid in full, and they may not take another loan.
 - **Tracking:** Place a "Loan" token in front of the baron while the loan is outstanding so the table remembers.
 
-The loan is intended as an emergency bridge — enough to cover a tight Phase 1 and keep barrels aging — not a free expansion of capital.
+The loan is an emergency bridge — enough to cover a tight Phase 1 and keep barrels aging — but never a free expansion of capital.
 
 ---
 
@@ -146,25 +151,25 @@ The phase ends once all players pass in the same loop. The pivot player (the fir
 
 # 🎲 Actions
 
-On your turn, you choose one action.
+On your turn, you choose one action from the list below.
 
-You might draw a resource card from the market, taking a cask, corn, or grain. You could also draw an Investment or Operations card to expand your options.
+You might **draw a resource card** from the market — a cask, corn, or grain — to build toward a mash.
 
-You can also make bourbon. To do this, you must combine at least one cask, one corn, and one grain, then choose one mash bill from your hand and place it face-up on the new barrel as you place it in an available rickhouse slot. The mash bill is locked to that barrel and becomes public information. You can add additional grains or corn to improve your mix, but you may only use one cask per barrel. A player with no mash bills in hand cannot make bourbon.
+You could **draw a card from a business deck**: a mash bill from the **Bourbon deck**, an **Investment** card, or an **Operations** card. Each of these is its own action — you pick one deck per turn. Mash bills accumulate in your hand freely; the 10-card hand limit is only enforced when someone calls an Audit.
 
-Another option is to sell bourbon, which requires the barrel to be at least two years old. When you sell, refer to the mash bill attached to that barrel and determine the payout based on the bourbon's age and the current market demand. If the barrel satisfies the requirements of one of your already-unlocked Gold Bourbons, you may apply that Gold Bourbon's payout instead — this is free and always optional (see §Bourbon Awards). The mash bill is then discarded with the barrel; the exceptions are when its Silver award returns it to your hand, or its Gold award unlocks a new Gold Bourbon for you.
+You can **make bourbon**. To do this, you must combine at least one cask, one corn, and one grain, then choose one mash bill from your hand and place it face-up on the new barrel as you place it in an available rickhouse slot. The mash bill is locked to that barrel and becomes public information. You can add additional grains or corn to improve your mix, but you may only use one cask per barrel. A player with no mash bills in hand cannot make bourbon.
 
-You may also choose to **implement an investment**. This requires paying the cost printed on the card. Once paid, the investment is placed in front of you and becomes active immediately.
+You can **sell bourbon** if the barrel is at least two years old. When you sell, refer to the mash bill attached to that barrel and determine the payout based on the bourbon's age and the current market demand. If the barrel satisfies the requirements of one of your already-unlocked Gold Bourbons, you may apply that Gold Bourbon's payout instead — this is free and always optional (see §Bourbon Awards). The mash bill is then discarded with the barrel; the exceptions are when its Silver award returns it to your hand, or its Gold award unlocks a new Gold Bourbon for you.
 
-However, each player may have no more than **three active investments at any time**. This forces you to make strategic choices about which long-term advantages matter most.
+You may **implement an investment**. This requires paying the cost printed on the card. Once paid, the investment is placed in front of you and becomes active immediately. Each player may have no more than **three active investments at any time** — choose which long-term advantages matter most.
 
-You may play an Operations card, which provides an immediate effect.
+You may **play an Operations card**, which provides an immediate effect.
 
-You may **swap a mash bill** by discarding one card from your hand and drawing a new one from the Bourbon deck. This is useful when your hand no longer matches your strategy.
+You may **call an Audit**, which forces every player holding more than 10 cards to discard down to 10. See the Audit section for full rules.
 
-You may **call an Audit**, which forces all players holding more than 10 cards to discard down to 10. See the Audit section for full rules.
+You may **pass**. The first player to pass becomes the paid-action pivot for the rest of the round (see §Phase 2: Action Phase).
 
-At any time, players may trade freely. Trading does not require an action and can involve any combination of resources, cards, bourbon, or even investments.
+At any time, players may **trade** freely. Trading does not require an action and can involve any combination of resources, cards, bourbon, or even investments.
 
 ---
 
