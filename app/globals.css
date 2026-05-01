@@ -8,8 +8,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Map Tailwind font tokens onto the next/font CSS variables defined in
+     app/layout.tsx. `font-sans` -> Inter, `font-mono` -> JetBrains Mono,
+     `font-display` -> Cormorant Garamond (the new game-board face). */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jb);
+  --font-display: var(--font-cormorant);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,7 +26,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
 @keyframes bourbon-sale-backdrop {
@@ -472,6 +476,46 @@ body {
   pointer-events: none;
 }
 
+/* ----------------------------------------------------------------------
+   Market reveal — same flip-in vocabulary as card-draw, but the cards
+   STAY on screen once they arrive (no fly-out) because the player still
+   has to choose one of the two. Used by MarketRevealModal.
+   ---------------------------------------------------------------------- */
+
+@keyframes market-reveal-card {
+  /* Phase 1: fly in from below, flipped face-down */
+  0% {
+    opacity: 0;
+    transform: translateY(180px) scale(0.45) rotateY(180deg);
+    filter: blur(8px) brightness(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(40px) scale(0.85) rotateY(60deg);
+    filter: blur(2px) brightness(1.05);
+  }
+  /* Phase 2: arrive face-up, slight overshoot */
+  40% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.05) rotateY(0deg);
+    filter: blur(0) brightness(1.1);
+  }
+  /* Phase 3: settle and stay */
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateY(0deg);
+    filter: blur(0) brightness(1);
+  }
+}
+
+.market-reveal-card {
+  animation: market-reveal-card 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: 50% 50%;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity, filter;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .resource-hand-tier-special,
   .resource-hand-tier-strong,
@@ -486,7 +530,8 @@ body {
   .card-draw-card,
   .card-draw-glow,
   .card-draw-shine,
-  .card-draw-spark {
+  .card-draw-spark,
+  .market-reveal-card {
     animation: none !important;
   }
 

@@ -164,6 +164,16 @@ export type MarketPhasePlayerState = {
   drawnCardIds: string[];
 };
 
+/**
+ * Round-scoped effects emitted by Phase 3 market cards. Most resolve
+ * immediately (demand deltas) but a few (`resource_shortage`) need to
+ * persist for the duration of the *next* round before clearing.
+ */
+export type RoundEffects = {
+  /** Pile names that DRAW_RESOURCE rejects this round. */
+  resourceShortages: ResourceType[];
+};
+
 // ---------- Events / log ----------
 
 export type GameEvent = {
@@ -178,7 +188,19 @@ export type GameEvent = {
 // ---------- Root state ----------
 
 export type GameState = {
-  version: 1;
+  /**
+   * Persistence schema version. Bump when GameState fields change in a way
+   * that would crash code reading an older save (added required fields,
+   * renamed/removed fields, etc.). The persistence layer rejects loads with
+   * a mismatched version so stale localStorage can't poison a new build.
+   *
+   *   v1 → initial single-page rewrite.
+   *   v2 → added marketDeck/marketDiscard/marketPhase, dropped eventDeck +
+   *        unpaidDebt + opening fields, collapsed investment lifecycle.
+   *   v3 → added currentRoundEffects + pendingRoundEffects for market-card
+   *        side-effects that span a round (resource shortages, etc.).
+   */
+  version: 3;
   id: string;
   createdAt: number;
 
@@ -202,6 +224,18 @@ export type GameState = {
   actionPhase: ActionPhaseState;
   feesPhase: FeesPhaseState;
   marketPhase: Record<string, MarketPhasePlayerState>;
+
+  /**
+   * Effects active *this* round (e.g. resource shortages from a Phase 3
+   * market card kept last round). Reducer reads from this; cleared at
+   * the start of the next round when `pendingRoundEffects` swap in.
+   */
+  currentRoundEffects: RoundEffects;
+  /**
+   * Effects queued *during this round* by Phase 3 market resolves; they
+   * become active at the start of the next round.
+   */
+  pendingRoundEffects: RoundEffects;
 
   /** Set when the game ends. */
   winnerIds: string[];

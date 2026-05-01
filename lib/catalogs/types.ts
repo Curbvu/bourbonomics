@@ -63,7 +63,27 @@ export type OperationsCardDef = {
 // flavor — the engine resolves the typed `effect` and ignores the prose.
 
 export type MarketEffect =
+  /** Apply a fixed delta to demand on resolve (clamped to 0..12). */
   | { kind: "demand_delta"; delta: number }
+  /**
+   * Apply one of two demand deltas based on the current demand at resolve
+   * time. If demand > `threshold`, apply `deltaAbove`; otherwise apply
+   * `deltaBelow`. Useful for "demand +1 if hot, +2 if cool" cards.
+   */
+  | {
+      kind: "demand_delta_conditional";
+      threshold: number;
+      deltaAbove: number;
+      deltaBelow: number;
+    }
+  /**
+   * Lock a resource pile next round — DRAW_RESOURCE on this pile is
+   * rejected until that round ends. The effect is queued into
+   * `pendingRoundEffects` on resolve and swapped into
+   * `currentRoundEffects` by `startNextRound`.
+   */
+  | { kind: "resource_shortage"; resource: ResourceType }
+  /** Engine-side no-op — the prose still shows on the card. */
   | { kind: "flavor" };
 
 export type MarketCardDef = {
@@ -73,7 +93,7 @@ export type MarketCardDef = {
   effect: string;
   /** Number of copies of this card in the market deck. */
   deckCopies: number;
-  /** Engine-resolved effect. Cards with `kind: "flavor"` only print prose. */
+  /** Engine-resolved effect. */
   resolved: MarketEffect;
 };
 

@@ -90,7 +90,7 @@ export function createInitialState(config: NewGameConfig): GameState {
   }));
 
   const state: GameState = {
-    version: 1,
+    version: 3,
     id: config.id,
     createdAt,
     seed: config.seed,
@@ -131,6 +131,8 @@ export function createInitialState(config: NewGameConfig): GameState {
       paidBarrelIds: [],
     },
     marketPhase: {},
+    currentRoundEffects: { resourceShortages: [] },
+    pendingRoundEffects: { resourceShortages: [] },
     winnerIds: [],
     winReason: null,
     log: [],

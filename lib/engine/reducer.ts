@@ -273,6 +273,12 @@ function drawResource(
   action: Extract<Action, { t: "DRAW_RESOURCE" }>,
 ): void {
   if (!preActionGuards(state, action.playerId)) return;
+  // Resource shortage block — comes from a Phase 3 market card kept last
+  // round. Locked piles refuse all draws this round; shortage clears on
+  // the next round's startNextRound.
+  if (state.currentRoundEffects.resourceShortages.includes(action.pile)) {
+    return errorEvent(state, "pile_shortaged", { pile: action.pile });
+  }
   const pile = state.market[action.pile as ResourcePileName];
   if (pile.length === 0) return errorEvent(state, "pile_empty", { pile: action.pile });
   if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
@@ -737,16 +743,44 @@ function marketKeep(
       cardId: action.keptCardId,
     });
   } else {
-    if (def.resolved.kind === "demand_delta") {
+    const r = def.resolved;
+    if (r.kind === "demand_delta") {
       const before = state.demand;
-      state.demand += def.resolved.delta;
+      state.demand += r.delta;
       clampDemand(state);
       logEvent(state, "market_demand_change", {
         playerId: p.id,
         cardId: def.id,
-        delta: def.resolved.delta,
+        delta: r.delta,
         before,
         after: state.demand,
+      });
+    } else if (r.kind === "demand_delta_conditional") {
+      const before = state.demand;
+      const delta = state.demand > r.threshold ? r.deltaAbove : r.deltaBelow;
+      state.demand += delta;
+      clampDemand(state);
+      logEvent(state, "market_demand_change", {
+        playerId: p.id,
+        cardId: def.id,
+        delta,
+        branch: state.demand > r.threshold ? "above" : "below",
+        threshold: r.threshold,
+        before,
+        after: state.demand,
+      });
+    } else if (r.kind === "resource_shortage") {
+      // Queue the lock for next round (rules: market effects apply during
+      // the next round, last one round). startNextRound swaps pending in.
+      if (
+        !state.pendingRoundEffects.resourceShortages.includes(r.resource)
+      ) {
+        state.pendingRoundEffects.resourceShortages.push(r.resource);
+      }
+      logEvent(state, "market_shortage_queued", {
+        playerId: p.id,
+        cardId: def.id,
+        resource: r.resource,
       });
     } else {
       logEvent(state, "market_flavor", {

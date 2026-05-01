@@ -1,5 +1,17 @@
 "use client";
 
+/**
+ * Action bar — full-width slate panel between the main grid and HandTray.
+ *
+ * Styled to the design handoff's panel chrome (slate-900/70, slate-800
+ * border, mono caption header, amber-on-hover ghost buttons). The Pass
+ * action lives in HandTray's "End turn" button now, so it's intentionally
+ * removed from this bar to avoid duplication.
+ *
+ * When it's not the human's turn, the bar collapses into a single mono
+ * caption announcing whose turn it is.
+ */
+
 import { useState } from "react";
 
 import type { Action, ResourcePileName } from "@/lib/engine/actions";
@@ -19,17 +31,29 @@ export default function ActionBar() {
   const dispatch = useGameStore((s) => s.dispatch);
   const [pileOpen, setPileOpen] = useState(false);
 
-  const humanId = state.playerOrder.find((id) => state.players[id].kind === "human");
+  const humanId = state.playerOrder.find(
+    (id) => state.players[id].kind === "human",
+  );
   if (!humanId) return null;
+
   if (state.currentPlayerId !== humanId) {
     return (
-      <section className="rounded-md border border-slate-800 bg-slate-900/60 px-3 py-4 text-center text-sm text-slate-400">
-        Waiting on {state.players[state.currentPlayerId]?.name ?? "opponent"}…
+      <section className="rounded-lg border border-slate-800 bg-slate-900/70 px-3.5 py-2.5">
+        <span className="font-mono text-[11px] uppercase tracking-[.18em] text-slate-500">
+          Waiting on{" "}
+          <span className="text-slate-300">
+            {state.players[state.currentPlayerId]?.name ?? "opponent"}
+          </span>
+          …
+        </span>
       </section>
     );
   }
+
   const me = state.players[humanId];
-  const cost = state.actionPhase.freeWindowActive ? 0 : state.actionPhase.paidLapTier;
+  const cost = state.actionPhase.freeWindowActive
+    ? 0
+    : state.actionPhase.paidLapTier;
   const canAfford = me.cash >= cost;
 
   const doDispatch = (action: Action) => {
@@ -57,34 +81,35 @@ export default function ActionBar() {
   const unbuilt = me.investments.find((i) => i.status === "unbuilt");
 
   return (
-    <section className="flex flex-wrap items-center gap-2 rounded-md border border-slate-800 bg-slate-900/60 p-3">
-      <span className="mr-auto text-xs uppercase tracking-wide text-slate-400">
-        Your turn · next action ${cost}
+    <section className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/70 px-3.5 py-2.5">
+      <span className="mr-auto font-mono text-[11px] uppercase tracking-[.18em] text-slate-400">
+        Your turn ·{" "}
+        <span className="text-amber-300">
+          {cost === 0 ? "FREE" : `$${cost}`}
+        </span>
       </span>
 
+      {/* Draw resource — picker menu */}
       <div className="relative">
-        <button
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={pileOpen}
+        <ActionButton
           onClick={() => setPileOpen((v) => !v)}
           disabled={!canAfford}
-          className="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-slate-950 transition hover:bg-amber-400 focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:outline-none disabled:bg-slate-800 disabled:text-slate-500"
+          aria-haspopup="menu"
+          aria-expanded={pileOpen}
         >
           Draw resource ▾
-        </button>
+        </ActionButton>
         {pileOpen ? (
           <div
             role="menu"
             aria-label="Resource pile"
-            className="absolute left-0 top-full z-20 mt-1 flex flex-col gap-1 rounded-md border border-slate-700 bg-slate-950 p-2 shadow-lg"
+            className="absolute left-0 top-full z-20 mt-1 flex flex-col gap-0.5 rounded-md border border-slate-700 bg-slate-950 p-1.5 shadow-lg"
           >
             {PILES.map((p) => (
               <button
+                key={p.id}
                 type="button"
                 role="menuitem"
-                key={p.id}
-                className="rounded px-3 py-1 text-left text-sm hover:bg-slate-800 focus-visible:bg-slate-800 focus-visible:outline-none"
                 onClick={() =>
                   doDispatch({
                     t: "DRAW_RESOURCE",
@@ -92,10 +117,11 @@ export default function ActionBar() {
                     pile: p.id,
                   })
                 }
+                className="flex items-center justify-between gap-3 rounded px-2.5 py-1 text-left font-mono text-[11px] hover:bg-slate-800 focus-visible:bg-slate-800 focus-visible:outline-none"
               >
-                {p.label}{" "}
-                <span className="text-xs text-slate-500">
-                  ({state.market[p.id].length} left)
+                <span className="font-semibold text-slate-200">{p.label}</span>
+                <span className="text-[10px] tabular-nums text-slate-500">
+                  {state.market[p.id].length}
                 </span>
               </button>
             ))}
@@ -103,7 +129,7 @@ export default function ActionBar() {
         ) : null}
       </div>
 
-      <Button
+      <ActionButton
         onClick={() =>
           doDispatch({
             t: "DRAW_BOURBON",
@@ -118,9 +144,9 @@ export default function ActionBar() {
         }
       >
         Draw bourbon
-      </Button>
+      </ActionButton>
 
-      <Button
+      <ActionButton
         onClick={() =>
           canMake && firstOpenRickhouse
             ? doDispatch({
@@ -134,9 +160,9 @@ export default function ActionBar() {
         disabled={!canAfford || !canMake}
       >
         Make bourbon
-      </Button>
+      </ActionButton>
 
-      <Button
+      <ActionButton
         onClick={() =>
           sellable && bourbonCardIdForSale
             ? doDispatch({
@@ -150,27 +176,27 @@ export default function ActionBar() {
         disabled={!canAfford || !sellable || !bourbonCardIdForSale}
       >
         Sell bourbon
-      </Button>
+      </ActionButton>
 
-      <Button
+      <ActionButton
         onClick={() =>
           doDispatch({ t: "DRAW_INVESTMENT", playerId: humanId })
         }
         disabled={!canAfford || state.market.investmentDeck.length === 0}
       >
-        Draw investment
-      </Button>
+        Draw invest
+      </ActionButton>
 
-      <Button
+      <ActionButton
         onClick={() =>
           doDispatch({ t: "DRAW_OPERATIONS", playerId: humanId })
         }
         disabled={!canAfford || state.market.operationsDeck.length === 0}
       >
-        Draw operations
-      </Button>
+        Draw ops
+      </ActionButton>
 
-      <Button
+      <ActionButton
         onClick={() =>
           unbuilt
             ? doDispatch({
@@ -182,42 +208,20 @@ export default function ActionBar() {
         }
         disabled={!canAfford || !unbuilt}
       >
-        Implement investment
-      </Button>
-
-      <Button
-        onClick={() => doDispatch({ t: "PASS_ACTION", playerId: humanId })}
-        tone="danger"
-      >
-        Pass{cost > 0 ? ` (lap $${cost})` : ""}
-      </Button>
+        Implement
+      </ActionButton>
     </section>
   );
 }
 
-function Button({
-  children,
-  onClick,
-  disabled,
-  tone,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  tone?: "primary" | "danger";
-}) {
-  const toneCls =
-    tone === "primary"
-      ? "bg-amber-500 text-slate-950 hover:bg-amber-400 focus-visible:ring-amber-300 disabled:bg-slate-800 disabled:text-slate-500"
-      : tone === "danger"
-        ? "bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-rose-300 disabled:bg-slate-800 disabled:text-slate-500"
-        : "border border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800 focus-visible:ring-slate-400 disabled:bg-slate-950 disabled:text-slate-600";
+type ActionButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement>;
+
+function ActionButton({ children, ...props }: ActionButtonProps) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`rounded-md px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 ${toneCls}`}
+      {...props}
+      className="rounded border border-slate-700 bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-slate-200 transition-colors hover:border-amber-500/60 hover:bg-amber-700/[0.20] hover:text-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-950 disabled:text-slate-600 disabled:hover:border-slate-800 disabled:hover:bg-slate-950 disabled:hover:text-slate-600"
     >
       {children}
     </button>

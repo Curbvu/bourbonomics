@@ -1,5 +1,18 @@
 "use client";
 
+/**
+ * FeesPanel — surfaces the human's Phase 1 rent decision.
+ *
+ * Each barrel becomes a toggleable tile (pay → ages, skip → doesn't age,
+ * no penalty per current rules). When the player can't cover their full
+ * bill, a one-time Distressed Distiller's Loan ($10 borrow / $13 repay
+ * next Phase 1) is offered.
+ *
+ * Restyled in the dashboard's panel chrome: slate-900/70 panel, mono
+ * caption header, amber primary "Pay & age" gradient button matching the
+ * HandTray End-turn button.
+ */
+
 import { useState } from "react";
 
 import { feesForPlayer, totalFeesForPlayer } from "@/lib/rules/fees";
@@ -14,7 +27,9 @@ export default function FeesPanel() {
   const dispatch = useGameStore((s) => s.dispatch);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
 
-  const humanId = state.playerOrder.find((id) => state.players[id].kind === "human");
+  const humanId = state.playerOrder.find(
+    (id) => state.players[id].kind === "human",
+  );
   if (!humanId) return null;
   const me = state.players[humanId];
   const alreadyResolved = state.feesPhase.resolvedPlayerIds.includes(humanId);
@@ -26,21 +41,18 @@ export default function FeesPanel() {
 
   if (fees.length === 0) {
     return (
-      <section className="rounded-md border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="mb-2 text-lg font-semibold">No rickhouse fees</h2>
-        <p className="mb-3 text-sm text-slate-400">
+      <PanelShell title="Phase 1 · Rickhouse fees">
+        <p className="mb-3 font-mono text-[11px] uppercase tracking-[.12em] text-slate-500">
           No barrels to age this year.
         </p>
-        <button
-          type="button"
+        <PrimaryButton
           onClick={() =>
             dispatch({ t: "PAY_FEES", playerId: humanId, barrelIds: [] })
           }
-          className="rounded-md bg-emerald-500 px-4 py-1.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400"
         >
-          Continue
-        </button>
-      </section>
+          Continue ↵
+        </PrimaryButton>
+      </PanelShell>
     );
   }
 
@@ -58,19 +70,21 @@ export default function FeesPanel() {
     .reduce((s, f) => s + f.amount, 0);
 
   return (
-    <section className="rounded-md border border-emerald-800 bg-emerald-950/30 p-4">
-      <h2 className="mb-2 text-lg font-semibold text-emerald-200">
-        Phase 1 · Rickhouse fees
-      </h2>
-      <p className="mb-3 text-sm text-emerald-100">
+    <PanelShell title="Phase 1 · Rickhouse fees">
+      <p className="mb-3 font-mono text-[11px] tracking-[.04em] text-slate-400">
         Click a barrel to skip it (it won&apos;t age this round, no penalty).
-        Cash: <span className="font-semibold">${me.cash}</span>.
+        Cash on hand:{" "}
+        <span className="font-bold tabular-nums text-emerald-400">
+          ${me.cash}
+        </span>
+        .
         {me.loanOutstanding ? (
-          <span className="ml-2 rounded bg-amber-700/40 px-1.5 py-0.5 text-xs text-amber-200">
-            Loan outstanding · repays ${DISTRESSED_LOAN_REPAYMENT} next Phase 1
+          <span className="ml-2 inline-block rounded border border-amber-700 bg-amber-700/[0.20] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[.12em] text-amber-200">
+            loan outstanding · ${DISTRESSED_LOAN_REPAYMENT} owed
           </span>
         ) : null}
       </p>
+
       <div className="mb-3 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
         {fees.map((fee) => {
           const sk = skipped.has(fee.barrelId);
@@ -79,55 +93,56 @@ export default function FeesPanel() {
               key={fee.barrelId}
               type="button"
               onClick={() => toggle(fee.barrelId)}
-              className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
+              className={`flex items-center justify-between rounded-md border px-3 py-2 font-mono text-[11px] transition-colors ${
                 sk
-                  ? "border-rose-600 bg-rose-950/40 text-rose-200"
-                  : "border-emerald-700 bg-emerald-900/40 text-emerald-100"
+                  ? "border-rose-600/60 bg-rose-950/30 text-rose-200 hover:bg-rose-950/50"
+                  : "border-slate-700 bg-slate-900 text-slate-200 hover:border-amber-500/60 hover:bg-amber-700/[0.18]"
               }`}
             >
-              <span>
-                {fee.rickhouseId.replace("rickhouse-", "#")}{" "}
-                <span className="text-xs text-slate-400">({fee.barrelId})</span>
+              <span className="text-[11px] uppercase tracking-[.05em]">
+                {fee.rickhouseId.replace("rickhouse-", "#")}
+                <span className="ml-1 text-[10px] tracking-normal text-slate-500">
+                  {fee.barrelId}
+                </span>
               </span>
-              <span className="font-semibold">
+              <span className="font-bold tabular-nums">
                 {fee.monopolyWaived
-                  ? "$0 monopoly"
+                  ? "$0"
                   : sk
-                    ? `skip · won't age`
+                    ? "skip"
                     : `$${fee.amount}`}
               </span>
             </button>
           );
         })}
       </div>
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span>
-          Pay now: <span className="font-semibold text-emerald-300">${pay}</span>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-mono text-[11px] uppercase tracking-[.12em] text-slate-500">
+          pay now:{" "}
+          <span className="font-bold tabular-nums text-emerald-400">
+            ${pay}
+          </span>
         </span>
         {loanEligible ? (
           <button
             type="button"
             onClick={() =>
-              dispatch({
-                t: "TAKE_DISTRESSED_LOAN",
-                playerId: humanId,
-              })
+              dispatch({ t: "TAKE_DISTRESSED_LOAN", playerId: humanId })
             }
             title={`Borrow $${DISTRESSED_LOAN_AMOUNT} now, repay $${DISTRESSED_LOAN_REPAYMENT} at the start of next Phase 1. Once per game.`}
-            className="rounded-md border border-amber-500 bg-amber-900/40 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-800/60"
+            className="rounded border border-amber-500/60 bg-amber-700/[0.20] px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-amber-100 transition-colors hover:bg-amber-700/[0.35]"
           >
-            Take Distressed Loan (+${DISTRESSED_LOAN_AMOUNT}, owes $
-            {DISTRESSED_LOAN_REPAYMENT})
+            Distressed Loan +${DISTRESSED_LOAN_AMOUNT}
           </button>
         ) : null}
         {me.loanUsed && !me.loanOutstanding ? (
-          <span className="rounded bg-slate-800/60 px-1.5 py-0.5 text-xs text-slate-400">
-            Loan already used this game
+          <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+            loan already used
           </span>
         ) : null}
-        <button
-          type="button"
-          disabled={pay > me.cash}
+        <span className="ml-auto" />
+        <PrimaryButton
           onClick={() =>
             dispatch({
               t: "PAY_FEES",
@@ -137,11 +152,49 @@ export default function FeesPanel() {
                 .map((f) => f.barrelId),
             })
           }
-          className="ml-auto rounded-md bg-emerald-500 px-4 py-1.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-500"
+          disabled={pay > me.cash}
         >
-          Pay &amp; age
-        </button>
+          Pay &amp; age ↵
+        </PrimaryButton>
       </div>
+    </PanelShell>
+  );
+}
+
+function PanelShell({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
+      <h2 className="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-amber-300">
+        {title}
+      </h2>
+      {children}
     </section>
+  );
+}
+
+function PrimaryButton({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-md border border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 px-3.5 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-amber-400 hover:to-amber-600 disabled:cursor-not-allowed disabled:border-slate-700 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
+    >
+      {children}
+    </button>
   );
 }

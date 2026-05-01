@@ -194,6 +194,15 @@ export function startNextRound(state: GameState): void {
     state.players[id].hasTakenPaidActionThisRound = false;
   }
   resetPerRoundInvestmentUsage(state);
+  // Swap the round-effect queues. Anything market cards queued during the
+  // round that just ended becomes active now; this round's slot resets.
+  state.currentRoundEffects = state.pendingRoundEffects;
+  state.pendingRoundEffects = { resourceShortages: [] };
+  if (state.currentRoundEffects.resourceShortages.length > 0) {
+    logEvent(state, "round_effects_active", {
+      shortages: [...state.currentRoundEffects.resourceShortages],
+    });
+  }
   enterFeesPhase(state);
   checkWinConditions(state);
 }

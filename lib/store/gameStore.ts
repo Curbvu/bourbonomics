@@ -12,6 +12,7 @@
 import { create } from "zustand";
 
 import type { Action } from "@/lib/engine/actions";
+import { recoverInstanceCounter } from "@/lib/engine/decks";
 import { reduce } from "@/lib/engine/reducer";
 import type { GameState } from "@/lib/engine/state";
 import { driveBots } from "@/lib/ai/driver";
@@ -39,6 +40,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const settled = driveBots(next);
     set({ state: settled });
   },
-  loadState: (state) => set({ state }),
+  loadState: (state) => {
+    // The instance-id counter lives in module scope and is not part of the
+    // serialised GameState. After a refresh / load, reconcile it against the
+    // ids already in the loaded state so subsequent mintInstanceId() calls
+    // never collide with ones that survived the round-trip.
+    recoverInstanceCounter(state);
+    set({ state });
+  },
   clear: () => set({ state: null }),
 }));

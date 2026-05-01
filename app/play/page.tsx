@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
 
 import GameBoard from "./components/GameBoard";
 import GameErrorBoundary from "./components/ErrorBoundary";
+import GameTopBar from "./components/GameTopBar";
 import { useGameStore } from "@/lib/store/gameStore";
 import { installPersistence } from "@/lib/store/persistence";
 
@@ -29,29 +29,29 @@ export default function PlayPage() {
 
   if (!state) {
     return (
-      <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
-        <div className="mx-auto max-w-5xl">
-          <h1 className="text-2xl font-semibold">Starting new game…</h1>
-        </div>
+      <main className="grid min-h-screen place-items-center bg-slate-950 text-slate-100">
+        <h1 className="font-display text-2xl font-semibold text-amber-100">
+          Starting new game…
+        </h1>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <nav className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 py-2 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center gap-4">
-          <Link href="/" className="text-sm font-semibold text-amber-400 hover:text-amber-300">
-            Bourbonomics
-          </Link>
-          <span className="text-xs text-slate-500">·</span>
-          <span className="text-xs text-slate-400">solo vs computer</span>
-          <Link href="/rules" className="ml-auto text-xs text-slate-400 hover:text-slate-200">
-            Rules
-          </Link>
-        </div>
-      </nav>
-      <div className="mx-auto max-w-7xl px-4 py-6">
+    <main
+      className="min-h-screen text-slate-100"
+      style={{
+        // Slate canvas with two soft radial gradients per design handoff
+        // §Backgrounds — amber lift top-right, indigo lift bottom-left.
+        backgroundColor: "#0f172a",
+        backgroundImage: `
+          radial-gradient(1200px 600px at 70% -10%, rgba(180,83,9,.10), transparent 60%),
+          radial-gradient(800px 500px at -10% 110%, rgba(99,102,241,.06), transparent 60%)
+        `,
+      }}
+    >
+      <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col">
+        <GameTopBar />
         <GameErrorBoundary>
           <GameBoard />
         </GameErrorBoundary>

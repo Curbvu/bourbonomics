@@ -27,8 +27,8 @@ export { BOURBON_CARDS_BY_ID, INVESTMENT_CARDS_BY_ID, MARKET_CARDS_BY_ID };
 let instanceCounter = 0;
 /**
  * The instance id must be globally unique for save/load to round-trip.
- * We use a prefix + monotonic counter scoped to a deck-build session; each session
- * takes a base offset so the ids don't collide across multiple decks in one game.
+ * We use a prefix + monotonic counter shared across all prefixes; the prefix
+ * exists for human readability only.
  */
 export function resetInstanceCounter(base = 0): void {
   instanceCounter = base;
@@ -36,6 +36,43 @@ export function resetInstanceCounter(base = 0): void {
 
 export function mintInstanceId(prefix: string): string {
   return `${prefix}-${instanceCounter++}`;
+}
+
+/**
+ * Reconcile the in-memory counter against a freshly-loaded `GameState`.
+ *
+ * The counter lives in module scope (not in `GameState`), so a page refresh
+ * restores all the existing `<prefix>-<n>` ids from localStorage but resets
+ * the counter back to 0. After enough new draws the counter would catch up
+ * and start producing collisions. Call this whenever a state is loaded from
+ * outside the reducer (persistence, save/load, replay) to set the counter
+ * to `max(existing numeric suffixes) + 1`.
+ */
+export function recoverInstanceCounter(state: unknown): void {
+  let max = -1;
+  const seen = new WeakSet<object>();
+  const visit = (v: unknown): void => {
+    if (typeof v === "string") {
+      const m = v.match(/-(\d+)$/);
+      if (m) {
+        const n = Number(m[1]);
+        if (Number.isFinite(n) && n > max) max = n;
+      }
+      return;
+    }
+    if (!v || typeof v !== "object") return;
+    if (seen.has(v as object)) return;
+    seen.add(v as object);
+    if (Array.isArray(v)) {
+      for (const item of v) visit(item);
+      return;
+    }
+    for (const k of Object.keys(v)) {
+      visit((v as Record<string, unknown>)[k]);
+    }
+  };
+  visit(state);
+  instanceCounter = max + 1;
 }
 
 const RESOURCE_TYPES: ResourceType[] = [
