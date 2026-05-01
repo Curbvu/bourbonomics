@@ -99,7 +99,7 @@ export default function MarketRevealModal() {
             Phase 3 · Market draw
           </div>
           <div className="mt-1 font-display text-2xl font-semibold text-amber-100">
-            Keep one — the other goes to the discard
+            Pick one — the other goes to the discard
           </div>
         </div>
 
@@ -115,7 +115,7 @@ export default function MarketRevealModal() {
         </div>
 
         <div className="font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
-          click a card to keep it
+          click a card to pick it
         </div>
       </div>
     </div>
@@ -138,7 +138,7 @@ function MarketCardTile({
       onClick={onChoose}
       className="market-reveal-card group flex h-[320px] w-[280px] cursor-pointer flex-col rounded-xl border-2 border-amber-700 bg-gradient-to-b from-amber-700/40 via-amber-900/40 to-slate-950 p-5 text-left shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-all hover:border-amber-400 hover:shadow-[0_0_0_3px_rgba(251,191,36,0.35),0_8px_24px_rgba(0,0,0,0.45)]"
       style={{ animationDelay: `${delayMs}ms` }}
-      aria-label={`Keep ${def?.title ?? cardId}`}
+      aria-label={`Pick ${def?.title ?? cardId}`}
     >
       <header className="flex items-baseline justify-between">
         <span className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-amber-300">
@@ -157,7 +157,7 @@ function MarketCardTile({
 
       <div className="mt-auto pt-4">
         <span className="inline-flex items-center gap-2 rounded-md border border-amber-500 bg-gradient-to-b from-amber-500 to-amber-700 px-4 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors group-hover:from-amber-400 group-hover:to-amber-600">
-          Keep this card ↵
+          Pick this card
         </span>
       </div>
     </button>

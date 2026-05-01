@@ -16,7 +16,7 @@ import { useState } from "react";
 
 import type { Action, ResourcePileName } from "@/lib/engine/actions";
 import { useGameStore } from "@/lib/store/gameStore";
-import { pickMashFromHand } from "./mashHelpers";
+import MakeBourbonModal from "./MakeBourbonModal";
 
 const PILES: Array<{ id: ResourcePileName; label: string }> = [
   { id: "cask", label: "Cask" },
@@ -30,6 +30,7 @@ export default function ActionBar() {
   const state = useGameStore((s) => s.state)!;
   const dispatch = useGameStore((s) => s.dispatch);
   const [pileOpen, setPileOpen] = useState(false);
+  const [makeBourbonOpen, setMakeBourbonOpen] = useState(false);
 
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
@@ -69,14 +70,20 @@ export default function ActionBar() {
   const bourbonCardIdForSale =
     state.market.bourbonFaceUp ?? me.bourbonHand[0];
 
-  // Make-bourbon uses the first viable mash from hand.
-  const mash = pickMashFromHand(me);
-  const canMake =
-    mash.length >= 3 &&
-    state.rickhouses.some((h) => h.barrels.length < h.capacity);
-  const firstOpenRickhouse = state.rickhouses.find(
-    (h) => h.barrels.length < h.capacity,
+  // Make-bourbon now opens a modal so the player picks the mash by hand.
+  // The button is enabled if a *legal mash is at least possible* in their
+  // hand AND a rickhouse has room — otherwise the button is dead-grey
+  // because nothing the modal could let them do would actually work.
+  const handHasCask = me.resourceHand.some((r) => r.resource === "cask");
+  const handHasCorn = me.resourceHand.some((r) => r.resource === "corn");
+  const handHasGrain = me.resourceHand.some(
+    (r) => r.resource === "barley" || r.resource === "rye" || r.resource === "wheat",
   );
+  const canMake =
+    handHasCask &&
+    handHasCorn &&
+    handHasGrain &&
+    state.rickhouses.some((h) => h.barrels.length < h.capacity);
 
   const unbuilt = me.investments.find((i) => i.status === "unbuilt");
 
@@ -147,16 +154,7 @@ export default function ActionBar() {
       </ActionButton>
 
       <ActionButton
-        onClick={() =>
-          canMake && firstOpenRickhouse
-            ? doDispatch({
-                t: "MAKE_BOURBON",
-                playerId: humanId,
-                rickhouseId: firstOpenRickhouse.id,
-                resourceInstanceIds: mash,
-              })
-            : undefined
-        }
+        onClick={() => (canAfford && canMake ? setMakeBourbonOpen(true) : undefined)}
         disabled={!canAfford || !canMake}
       >
         Make bourbon
@@ -210,6 +208,12 @@ export default function ActionBar() {
       >
         Implement
       </ActionButton>
+
+      {/* Mount-only-when-open so the modal gets fresh state every time
+          (selection, chosen rickhouse) without needing a reset effect. */}
+      {makeBourbonOpen ? (
+        <MakeBourbonModal onClose={() => setMakeBourbonOpen(false)} />
+      ) : null}
     </section>
   );
 }
