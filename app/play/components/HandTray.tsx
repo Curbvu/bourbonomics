@@ -217,9 +217,9 @@ export default function HandTray() {
   };
 
   return (
-    <section className="flex items-center gap-[14px] border-t border-slate-800 bg-slate-950 px-[22px] py-3">
+    <section className="hand-scrollbar flex items-center gap-[14px] overflow-x-auto border-t border-slate-800 bg-slate-950 px-[22px] py-3">
       {/* 1 — identity */}
-      <div className="flex min-w-[120px] flex-col gap-0.5">
+      <div className="flex min-w-[120px] flex-shrink-0 flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <span
             className={`block h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
@@ -235,7 +235,7 @@ export default function HandTray() {
       </div>
 
       {/* 2 — resources, with Make stacked above */}
-      <div className="flex items-stretch gap-2">
+      <div className="flex flex-shrink-0 items-stretch gap-2">
         <VerticalCaption>resources</VerticalCaption>
         <div className="flex flex-col items-start gap-1.5">
           <ContextButton
@@ -245,7 +245,10 @@ export default function HandTray() {
           >
             Make ↵
           </ContextButton>
-          <div className="flex max-w-[260px] gap-1.5 overflow-x-auto">
+          {/* Chips flow continuously; if total HandTray width exceeds the
+              viewport, the parent section's `overflow-x-auto` provides a
+              styled thin amber scrollbar at the bottom. */}
+          <div className="flex gap-1.5">
             {me.resourceHand.length === 0 ? (
               <EmptyTallChip>no resources</EmptyTallChip>
             ) : (
@@ -272,7 +275,7 @@ export default function HandTray() {
       <Divider />
 
       {/* 4 — bourbon, with Sell stacked above */}
-      <div className="flex items-stretch gap-2">
+      <div className="flex flex-shrink-0 items-stretch gap-2">
         <VerticalCaption>bourbon</VerticalCaption>
         <div className="flex flex-col items-start gap-1.5">
           <ContextButton enabled={canSell} onClick={sell} title={sellReason}>
@@ -300,7 +303,7 @@ export default function HandTray() {
       <Divider />
 
       {/* 6 — play (ops + invest), with Implement stacked above */}
-      <div className="flex items-stretch gap-2">
+      <div className="flex flex-shrink-0 items-stretch gap-2">
         <VerticalCaption>play</VerticalCaption>
         <div className="flex flex-col items-start gap-1.5">
           <ContextButton
@@ -363,7 +366,7 @@ export default function HandTray() {
       <span className="flex-1" />
 
       {/* 8 — end-turn cluster */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-shrink-0 items-center gap-2">
         <button
           type="button"
           disabled
@@ -445,7 +448,12 @@ function VerticalCaption({ children }: { children: React.ReactNode }) {
 }
 
 function Divider() {
-  return <span className="block h-[60px] w-px bg-slate-800" aria-hidden />;
+  return (
+    <span
+      className="block h-[60px] w-px flex-shrink-0 bg-slate-800"
+      aria-hidden
+    />
+  );
 }
 
 function ResourceChip({
