@@ -16,8 +16,18 @@
  */
 
 import type { Action } from "@/lib/engine/actions";
-import { drawTop, MARKET_CARDS_BY_ID } from "@/lib/engine/decks";
-import type { BotDifficulty, GameState, Player } from "@/lib/engine/state";
+import {
+  BOURBON_CARDS_BY_ID,
+  drawTop,
+  MARKET_CARDS_BY_ID,
+} from "@/lib/engine/decks";
+import {
+  BOURBON_HAND_LIMIT,
+  type BotDifficulty,
+  type GameState,
+  type Player,
+} from "@/lib/engine/state";
+import { lookupSalePrice } from "@/lib/rules/pricing";
 import {
   actionCostNow,
   estimateSalePayout,
@@ -75,41 +85,45 @@ export function pickActionPhaseMove(
   for (const { barrel } of ownedBarrels(state, playerId)) {
     if (barrel.age < 2) continue;
     if (player.cash < cost) continue;
-    const payout = estimateSalePayout(state, barrel.age);
+    const payout = estimateSalePayout(state, barrel);
     if (payout <= cost) continue;
-    const bourbonCardId =
-      state.market.bourbonFaceUp ?? player.bourbonHand[0];
-    if (!bourbonCardId) continue;
     scored.push({
       action: {
         t: "SELL_BOURBON",
         playerId,
         barrelId: barrel.barrelId,
-        bourbonCardId,
       },
       score: payout - cost,
       reason: `sell age ${barrel.age} for ~$${payout}`,
     });
   }
 
-  // Make bourbon: if legal mash + open slot, and demand profile is reasonable.
-  if (hasLegalMash(player) && player.cash >= cost) {
+  // Make bourbon: if legal mash + open slot, a mash bill in hand, and we can pay.
+  if (
+    hasLegalMash(player) &&
+    player.bourbonHand.length > 0 &&
+    player.cash >= cost
+  ) {
     const rickhouseId = firstOpenRickhouse(state);
     if (rickhouseId) {
       const mash = pickMashFromHand(player);
       if (mash.length >= 3) {
-        // Value of aging ≈ expected future sale minus expected fees.
-        const score = 14 - cost - expectedFeesNextRound(state, playerId) * 0.3;
-        scored.push({
-          action: {
-            t: "MAKE_BOURBON",
-            playerId,
-            rickhouseId,
-            resourceInstanceIds: mash,
-          },
-          score,
-          reason: `make bourbon at ${rickhouseId}`,
-        });
+        const mashBillId = pickBestMashBill(state, player);
+        if (mashBillId) {
+          // Value of aging ≈ expected future sale minus expected fees.
+          const score = 14 - cost - expectedFeesNextRound(state, playerId) * 0.3;
+          scored.push({
+            action: {
+              t: "MAKE_BOURBON",
+              playerId,
+              rickhouseId,
+              resourceInstanceIds: mash,
+              mashBillId,
+            },
+            score,
+            reason: `make bourbon at ${rickhouseId} with ${mashBillId}`,
+          });
+        }
       }
     }
   }
@@ -132,16 +146,21 @@ export function pickActionPhaseMove(
     }
   }
 
-  // Draw bourbon: useful if we have a sellable barrel but no card in hand or face-up.
-  if (player.cash >= cost && !state.market.bourbonFaceUp && state.market.bourbonDeck.length > 0) {
-    const sellableAges = ownedBarrels(state, playerId).filter((b) => b.barrel.age >= 2);
-    if (sellableAges.length > 0 && player.bourbonHand.length === 0) {
-      scored.push({
-        action: { t: "DRAW_BOURBON", playerId, source: "deck" },
-        score: 4 - cost,
-        reason: "draw bourbon — sellable barrel waiting",
-      });
-    }
+  // Draw bourbon: most useful when the player has room in their bourbon
+  // hand and isn't yet ready to barrel. Stronger when they're empty,
+  // weaker (but still > 0) when they're partially full.
+  if (
+    player.cash >= cost &&
+    player.bourbonHand.length < BOURBON_HAND_LIMIT &&
+    state.market.bourbonDeck.length + state.market.bourbonDiscard.length > 0
+  ) {
+    const handGap = BOURBON_HAND_LIMIT - player.bourbonHand.length;
+    const score = handGap * 1.2 - cost;
+    scored.push({
+      action: { t: "DRAW_BOURBON", playerId },
+      score,
+      reason: `draw bourbon — hand ${player.bourbonHand.length}/${BOURBON_HAND_LIMIT}`,
+    });
   }
 
   // Implement investment: only if we have cash + no pressing fees.
@@ -188,6 +207,29 @@ export function pickActionPhaseMove(
 
   const best = pickBest(scored, state, player.botDifficulty);
   return best?.action ?? { t: "PASS_ACTION", playerId };
+}
+
+/**
+ * Choose which mash bill to commit to the new barrel. Prefer the bill
+ * with the best 4-year × current-demand grid cell — that's the bot's
+ * baseline expected payout once aging completes. Falls back to the
+ * first card in hand for unknown ids.
+ */
+function pickBestMashBill(state: GameState, player: Player): string | null {
+  if (player.bourbonHand.length === 0) return null;
+  let bestId = player.bourbonHand[0];
+  let bestScore = -Infinity;
+  for (const id of player.bourbonHand) {
+    const card = BOURBON_CARDS_BY_ID[id];
+    if (!card) continue;
+    // Score against age 4 (a reasonable hold target) at current demand.
+    const score = lookupSalePrice(card, 4, state.demand).price;
+    if (score > bestScore) {
+      bestScore = score;
+      bestId = id;
+    }
+  }
+  return bestId;
 }
 
 function pickMashFromHand(player: Player): string[] {

@@ -34,6 +34,13 @@ export type BarrelInstance = {
   rickhouseId: RickhouseId;
   /** Resource instances used in the mash. 1 cask + ≥1 corn + ≥1 grain, ≤6 total. */
   mash: ResourceCardInstance[];
+  /**
+   * Bourbon-card id (a.k.a. "mash bill") attached to this barrel at
+   * production. Locked for the barrel's life — the bill can't be moved,
+   * swapped, or shared with another barrel. The bill's price grid is
+   * what determines the sale payout.
+   */
+  mashBillId: string;
   /** Number of age tokens on the barrel (paid rickhouse fees). */
   age: number;
   /** Round number when the barrel was created. Used to gate selling (≥2 years). */
@@ -120,10 +127,12 @@ export type Market = {
   barley: ResourceCardInstance[];
   rye: ResourceCardInstance[];
   wheat: ResourceCardInstance[];
-  /** Bourbon cards not yet drawn. */
+  /**
+   * Bourbon mash-bill deck. Players draw from here into their
+   * `bourbonHand` (up to `BOURBON_HAND_LIMIT` cards). Discard pile is
+   * reshuffled into the deck when empty.
+   */
   bourbonDeck: string[];
-  bourbonFaceUp: string | null;
-  /** Discard returns to the bottom of the bourbon deck. */
   bourbonDiscard: string[];
   investmentDeck: string[];
   operationsDeck: string[];
@@ -199,8 +208,12 @@ export type GameState = {
    *        unpaidDebt + opening fields, collapsed investment lifecycle.
    *   v3 → added currentRoundEffects + pendingRoundEffects for market-card
    *        side-effects that span a round (resource shortages, etc.).
+   *   v4 → mash bills committed at production: BarrelInstance.mashBillId
+   *        added; SELL_BOURBON no longer takes a card param; players draw
+   *        4 bourbon cards into bourbonHand at setup; bourbonFaceUp
+   *        retired from the Market.
    */
-  version: 3;
+  version: 4;
   id: string;
   createdAt: number;
 
@@ -258,3 +271,5 @@ export const DISTRESSED_LOAN_AMOUNT = 10;
 export const DISTRESSED_LOAN_REPAYMENT = 13;
 /** Number of market cards drawn per player in Phase 3 (one is kept, the rest discarded). */
 export const MARKET_DRAW_COUNT = 2;
+/** Maximum mash bills (Bourbon cards) a player can hold in hand at once. */
+export const BOURBON_HAND_LIMIT = 4;

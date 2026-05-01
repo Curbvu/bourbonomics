@@ -24,6 +24,7 @@
  */
 
 import type { Action, ResourcePileName } from "@/lib/engine/actions";
+import { BOURBON_HAND_LIMIT } from "@/lib/engine/state";
 import { useGameStore } from "@/lib/store/gameStore";
 import DeckStack from "./DeckStack";
 
@@ -71,9 +72,9 @@ export default function MarketPanel() {
   // sub-piles). Cask is its own pile / pile-stack on the design.
   const grainCount = m.barley.length + m.rye.length + m.wheat.length;
 
-  // Bourbon deck count includes the face-up card if any (so the number
-  // matches "what could still come out").
-  const bourbonCount = m.bourbonDeck.length + (m.bourbonFaceUp ? 1 : 0);
+  const bourbonCount = m.bourbonDeck.length;
+  const bourbonHandFull =
+    !!me && me.bourbonHand.length >= BOURBON_HAND_LIMIT;
 
   // Demand value colour — cool when low, warm when mid, hot when high.
   const demandClass =
@@ -222,23 +223,22 @@ export default function MarketPanel() {
             label="bourbon"
             count={bourbonCount}
             tone="amber"
-            disabled={!drawable || bourbonCount === 0}
+            disabled={!drawable || bourbonCount === 0 || bourbonHandFull}
             title={
               !drawable
                 ? notDrawableReason(state, humanId, canAfford)
                 : bourbonCount === 0
                   ? "Bourbon deck empty"
-                  : `Draw a bourbon card${m.bourbonFaceUp ? " (face-up)" : ""}${
-                      cost > 0 ? ` ($${cost})` : ""
-                    }`
+                  : bourbonHandFull
+                    ? `Mash-bill hand full (${BOURBON_HAND_LIMIT}/${BOURBON_HAND_LIMIT})`
+                    : `Draw a mash bill${cost > 0 ? ` ($${cost})` : ""}`
             }
             onClick={
-              drawable && humanId && bourbonCount > 0
+              drawable && humanId && bourbonCount > 0 && !bourbonHandFull
                 ? () =>
                     dispatchDraw({
                       t: "DRAW_BOURBON",
                       playerId: humanId,
-                      source: m.bourbonFaceUp ? "face-up" : "deck",
                     })
                 : undefined
             }

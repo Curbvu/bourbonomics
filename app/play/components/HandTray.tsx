@@ -28,7 +28,7 @@ import { INVESTMENT_CARDS_BY_ID } from "@/lib/catalogs/investment.generated";
 import { OPERATIONS_CARDS_BY_ID } from "@/lib/catalogs/operations.generated";
 import { SPECIALTY_RESOURCES_BY_ID } from "@/lib/catalogs/resource.generated";
 import type { ResourceCardDef, ResourceType } from "@/lib/catalogs/types";
-import { MAX_ACTIVE_INVESTMENTS } from "@/lib/engine/state";
+import { BOURBON_HAND_LIMIT, MAX_ACTIVE_INVESTMENTS } from "@/lib/engine/state";
 import { summarizeMash, validateMash } from "@/lib/rules/mash";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
@@ -88,6 +88,7 @@ export default function HandTray() {
   const startMakeBourbon = useUiStore((s) => s.startMakeBourbon);
   const cancelMakeBourbon = useUiStore((s) => s.cancelMakeBourbon);
   const toggleMashCard = useUiStore((s) => s.toggleMashCard);
+  const pickMashBill = useUiStore((s) => s.pickMashBill);
 
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
@@ -119,9 +120,9 @@ export default function HandTray() {
     : state.actionPhase.paidLapTier;
   const canAfford = me.cash >= cost;
 
-  const headBourbonId = me.bourbonHand[0];
-  const headBourbon = headBourbonId ? BOURBON_CARDS_BY_ID[headBourbonId] : null;
-  const extraBourbon = Math.max(0, me.bourbonHand.length - 1);
+  // Bourbon hand is now public + multi-card; no more "headBourbon" face-up
+  // shortcut. The hand renders as a row of mini bourbon cards.
+  const bourbonHandFull = me.bourbonHand.length >= BOURBON_HAND_LIMIT;
 
   // ---- Action eligibility checks ----------------------------------------
 
@@ -168,27 +169,26 @@ export default function HandTray() {
   const mashBreakdown = summarizeMash(selectedMash);
   const mashValid = mashValidation.ok;
 
-  // Sell — auto-pick oldest sellable barrel + face-up bourbon card or first
-  // bourbon card in hand. Same logic ActionBar's "Sell" used to use.
+  // Sell — auto-pick the oldest sellable barrel. Mash bill is whatever
+  // the barrel was made with (locked at production), so the player no
+  // longer needs a separate bourbon card in hand.
   const ownedBarrels = state.rickhouses.flatMap((h) =>
     h.barrels.filter((b) => b.ownerId === humanId),
   );
   const sellableBarrel = ownedBarrels.find((b) => b.age >= 2);
-  const bourbonCardForSale =
-    state.market.bourbonFaceUp ?? me.bourbonHand[0] ?? null;
-  const canSell =
-    isMyActionTurn && canAfford && !!sellableBarrel && !!bourbonCardForSale;
+  const sellableBarrelBill = sellableBarrel
+    ? BOURBON_CARDS_BY_ID[sellableBarrel.mashBillId]
+    : null;
+  const canSell = isMyActionTurn && canAfford && !!sellableBarrel;
   const sellReason = !isMyActionTurn
     ? "Wait for your turn"
     : !canAfford
       ? `Need $${cost} to act`
       : !sellableBarrel
         ? "No barrel is 2+ years aged"
-        : !bourbonCardForSale
-          ? "Need a bourbon card (draw one or use the face-up)"
-          : `Sell ${sellableBarrel.age}y barrel using ${
-              BOURBON_CARDS_BY_ID[bourbonCardForSale]?.name ?? "card"
-            }`;
+        : `Sell ${sellableBarrel.age}y barrel (${
+            sellableBarrelBill?.name ?? sellableBarrel.mashBillId
+          })`;
 
   // Implement — auto-pick the first unbuilt investment. Cap at 3 active.
   const unbuiltInv = me.investments.find((i) => i.status === "unbuilt");
@@ -219,12 +219,11 @@ export default function HandTray() {
   // ---- Action dispatchers -----------------------------------------------
 
   const sell = () => {
-    if (!canSell || !sellableBarrel || !bourbonCardForSale) return;
+    if (!canSell || !sellableBarrel) return;
     dispatch({
       t: "SELL_BOURBON",
       playerId: humanId,
       barrelId: sellableBarrel.barrelId,
-      bourbonCardId: bourbonCardForSale,
     });
   };
 
@@ -328,26 +327,84 @@ export default function HandTray() {
 
       <Divider />
 
-      {/* 4 — bourbon, with Sell stacked above */}
+      {/* 4 — bourbon hand, with Sell stacked above. The full 4-card hand
+            is rendered. While make-bourbon mode is active, clicking a
+            card picks it as the locked-in mash bill for the new barrel. */}
       <div className="flex flex-shrink-0 items-stretch gap-2">
         <VerticalCaption>bourbon</VerticalCaption>
         <div className="flex flex-col items-start gap-1.5">
-          <ContextButton enabled={canSell} onClick={sell} title={sellReason}>
-            Sell ↵
-          </ContextButton>
           <div className="flex items-center gap-2">
-            {headBourbon ? (
-              <div className="w-[110px]">
-                <BourbonCardFace card={headBourbon} size="sm" />
+            <ContextButton enabled={canSell} onClick={sell} title={sellReason}>
+              Sell ↵
+            </ContextButton>
+            {makeBourbon.active ? (
+              <span
+                title={
+                  makeBourbon.mashBillId
+                    ? "Mash bill picked"
+                    : "Pick a mash bill to commit to the barrel"
+                }
+                className={[
+                  "rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[.10em]",
+                  makeBourbon.mashBillId
+                    ? "border-emerald-500/50 bg-emerald-500/[0.10] text-emerald-200"
+                    : "border-amber-500/50 bg-amber-500/[0.10] text-amber-200",
+                ].join(" ")}
+              >
+                {makeBourbon.mashBillId ? "bill ✓" : "pick bill ↓"}
+              </span>
+            ) : (
+              <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500 tabular-nums">
+                {me.bourbonHand.length}/{BOURBON_HAND_LIMIT}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {me.bourbonHand.length === 0 ? (
+              <div className="grid h-[76px] w-[110px] place-items-center rounded-md border border-dashed border-slate-700 px-2 text-center font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+                no mash bills
               </div>
             ) : (
-              <div className="grid h-[76px] w-[110px] place-items-center rounded-md border border-dashed border-slate-700 px-2 text-center font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-                no bourbon card
-              </div>
+              me.bourbonHand.map((id, i) => {
+                const card = BOURBON_CARDS_BY_ID[id];
+                if (!card) return null;
+                const selectable = makeBourbon.active;
+                const selected = makeBourbon.mashBillId === id;
+                const className = [
+                  "w-[110px] rounded-md transition-all",
+                  selectable ? "cursor-pointer" : "",
+                  selected
+                    ? "ring-2 ring-amber-300 -translate-y-0.5"
+                    : selectable
+                      ? "ring-1 ring-amber-500/40 hover:-translate-y-0.5"
+                      : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                if (selectable) {
+                  return (
+                    <button
+                      key={`${id}-${i}`}
+                      type="button"
+                      aria-pressed={selected}
+                      title={`${card.name} — pick as mash bill`}
+                      onClick={() => pickMashBill(id)}
+                      className={className}
+                    >
+                      <BourbonCardFace card={card} size="sm" />
+                    </button>
+                  );
+                }
+                return (
+                  <div key={`${id}-${i}`} className={className}>
+                    <BourbonCardFace card={card} size="sm" />
+                  </div>
+                );
+              })
             )}
-            {extraBourbon > 0 ? (
-              <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-                +{extraBourbon}
+            {bourbonHandFull && !makeBourbon.active ? (
+              <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
+                full
               </span>
             ) : null}
           </div>

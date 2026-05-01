@@ -24,7 +24,19 @@ export type ActionDrawResource = {
 export type ActionDrawBourbon = {
   t: "DRAW_BOURBON";
   playerId: string;
-  source: "face-up" | "deck";
+};
+
+/**
+ * Discard a held mash bill back into the bourbon discard, then draw a
+ * fresh one off the top of the deck. Net hand size stays the same; this
+ * is the only way to swap a card out once you're at the hand limit (or
+ * to cycle a bad bill at any time).
+ */
+export type ActionDiscardAndDrawBourbon = {
+  t: "DISCARD_AND_DRAW_BOURBON";
+  playerId: string;
+  /** The mash-bill card id to discard from the player's bourbon hand. */
+  bourbonCardId: string;
 };
 
 export type ActionMakeBourbon = {
@@ -33,14 +45,18 @@ export type ActionMakeBourbon = {
   rickhouseId: RickhouseId;
   /** Instance ids of resource cards from the player's hand to commit to the mash. */
   resourceInstanceIds: string[];
+  /**
+   * Mash bill (Bourbon card) committed to the barrel at production. Must
+   * be in the player's `bourbonHand` at dispatch; it leaves the hand and
+   * is locked to the new barrel for the barrel's life.
+   */
+  mashBillId: string;
 };
 
 export type ActionSellBourbon = {
   t: "SELL_BOURBON";
   playerId: string;
   barrelId: string;
-  /** Bourbon card id chosen for the sale — either a face-up id or a drawn id already in hand. */
-  bourbonCardId: string;
 };
 
 export type ActionDrawInvestment = {
@@ -108,6 +124,7 @@ export type ActionAdvance = { t: "ADVANCE" };
 export type Action =
   | ActionDrawResource
   | ActionDrawBourbon
+  | ActionDiscardAndDrawBourbon
   | ActionMakeBourbon
   | ActionSellBourbon
   | ActionDrawInvestment

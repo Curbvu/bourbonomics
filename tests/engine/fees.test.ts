@@ -21,6 +21,7 @@ function placeBarrel(state: GameState, ownerId: string, rickhouseIdx: number, ag
     ownerId,
     rickhouseId: r.id,
     mash: [],
+    mashBillId: "test-bill",
     age,
     barreledOnRound: 1,
   });

@@ -49,12 +49,22 @@ export function canMakeBourbon(
   playerId: string,
   rickhouseId: RickhouseId,
   resourceInstanceIds: string[],
+  mashBillId: string,
 ): { ok: true } | { ok: false; reason: string } {
   const player = state.players[playerId];
   const rickhouse = state.rickhouses.find((r) => r.id === rickhouseId);
   if (!rickhouse) return { ok: false, reason: "Unknown rickhouse" };
   if (rickhouse.barrels.length >= rickhouse.capacity) {
     return { ok: false, reason: "Rickhouse is full" };
+  }
+
+  // Mash bill must be in the player's bourbon hand (committed at production,
+  // locked to the barrel; it leaves the hand on success).
+  if (!player.bourbonHand.includes(mashBillId)) {
+    return { ok: false, reason: "Mash bill not in your hand" };
+  }
+  if (!BOURBON_CARDS_BY_ID[mashBillId]) {
+    return { ok: false, reason: `Unknown mash bill ${mashBillId}` };
   }
 
   const seen = new Set<string>();
@@ -78,7 +88,6 @@ export function canSellBourbon(
   state: GameState,
   playerId: string,
   barrelId: string,
-  bourbonCardId: string,
 ): { ok: true; card: BourbonCardDef } | { ok: false; reason: string } {
   const found = findBarrel(state, barrelId);
   if (!found) return { ok: false, reason: "Barrel not found" };
@@ -87,19 +96,12 @@ export function canSellBourbon(
   if (found.barrel.age < 2)
     return { ok: false, reason: "Bourbon must age ≥ 2 years before selling" };
 
-  const card = BOURBON_CARDS_BY_ID[bourbonCardId];
-  if (!card) return { ok: false, reason: `Unknown bourbon card ${bourbonCardId}` };
-
-  const player = state.players[playerId];
-  const inHand = player.bourbonHand.includes(bourbonCardId);
-  const isFaceUp = state.market.bourbonFaceUp === bourbonCardId;
-  const hasMatchingAward =
-    player.goldAwards.includes(bourbonCardId) ||
-    player.silverAwards.includes(bourbonCardId);
-
-  // Player may use a card from hand, the face-up card, or one of their award cards.
-  if (!inHand && !isFaceUp && !hasMatchingAward) {
-    return { ok: false, reason: "Bourbon card not available to you" };
+  const card = BOURBON_CARDS_BY_ID[found.barrel.mashBillId];
+  if (!card) {
+    return {
+      ok: false,
+      reason: `Unknown mash bill ${found.barrel.mashBillId}`,
+    };
   }
   return { ok: true, card };
 }

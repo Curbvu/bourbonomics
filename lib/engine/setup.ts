@@ -17,7 +17,11 @@ import {
 import { RICKHOUSES } from "./rickhouses";
 import { createRng } from "./rng";
 import type { BotDifficulty, GameState, Player, PlayerKind } from "./state";
-import { DEFAULT_STARTING_CASH, STARTING_DEMAND } from "./state";
+import {
+  BOURBON_HAND_LIMIT,
+  DEFAULT_STARTING_CASH,
+  STARTING_DEMAND,
+} from "./state";
 
 export type SeatSpec = {
   name: string;
@@ -52,16 +56,22 @@ export function createInitialState(config: NewGameConfig): GameState {
   const operationsDeck = buildOperationsDeck(rng);
   const marketDeck = buildMarketDeck(rng);
 
-  // Flip the top of the bourbon deck face up.
-  const [faceUp, rest] = drawTop(bourbonDeck);
-  bourbonDeck = rest;
-
-  // Players.
+  // Players. Each player draws BOURBON_HAND_LIMIT mash bills into their
+  // starting bourbon hand. The bourbon deck is small enough (and the seat
+  // count bounded at 6) that we can drain it in order without worrying
+  // about reshuffles here.
   const players: Record<string, Player> = {};
   const playerOrder: string[] = [];
   config.seats.forEach((seat, idx) => {
     const id = `p${idx + 1}`;
     playerOrder.push(id);
+    const bourbonHand: string[] = [];
+    for (let i = 0; i < BOURBON_HAND_LIMIT; i += 1) {
+      const [card, rest] = drawTop(bourbonDeck);
+      if (card == null) break;
+      bourbonHand.push(card);
+      bourbonDeck = rest;
+    }
     players[id] = {
       id,
       name: seat.name,
@@ -70,7 +80,7 @@ export function createInitialState(config: NewGameConfig): GameState {
       seatIndex: idx,
       cash: startingCash,
       resourceHand: [],
-      bourbonHand: [],
+      bourbonHand,
       investments: [],
       operations: [],
       silverAwards: [],
@@ -90,7 +100,7 @@ export function createInitialState(config: NewGameConfig): GameState {
   }));
 
   const state: GameState = {
-    version: 3,
+    version: 4,
     id: config.id,
     createdAt,
     seed: config.seed,
@@ -111,7 +121,6 @@ export function createInitialState(config: NewGameConfig): GameState {
       rye: piles.rye,
       wheat: piles.wheat,
       bourbonDeck,
-      bourbonFaceUp: faceUp,
       bourbonDiscard: [],
       investmentDeck,
       operationsDeck,

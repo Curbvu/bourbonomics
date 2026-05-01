@@ -132,18 +132,26 @@ describe("integration — full round loop", () => {
     const cask = s.players.p1.resourceHand.find((r) => r.resource === "cask")!;
     const corn = s.players.p1.resourceHand.find((r) => r.resource === "corn")!;
     const rye = s.players.p1.resourceHand.find((r) => r.resource === "rye")!;
+    // Pick a mash bill from the player's starting bourbon hand to commit
+    // to the new barrel.
+    const mashBillId = s.players.p1.bourbonHand[0];
+    expect(mashBillId).toBeTruthy();
     // Make bourbon in the first rickhouse.
     s = reduce(s, {
       t: "MAKE_BOURBON",
       playerId: "p1",
       rickhouseId: "rickhouse-0",
       resourceInstanceIds: [cask.instanceId, corn.instanceId, rye.instanceId],
+      mashBillId,
     });
     const rickhouse = s.rickhouses.find((r) => r.id === "rickhouse-0")!;
     const myBarrels = rickhouse.barrels.filter((b) => b.ownerId === "p1");
     expect(myBarrels.length).toBe(1);
     expect(myBarrels[0].age).toBe(0);
     expect(myBarrels[0].mash.length).toBe(3);
+    expect(myBarrels[0].mashBillId).toBe(mashBillId);
+    // The mash bill should have left the player's bourbon hand.
+    expect(s.players.p1.bourbonHand).not.toContain(mashBillId);
     // Those three cards should no longer be in hand.
     expect(
       s.players.p1.resourceHand.some((r) => r.instanceId === cask.instanceId),

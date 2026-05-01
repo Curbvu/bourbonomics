@@ -23,18 +23,21 @@ export function ownedBarrels(state: GameState, playerId: string) {
 }
 
 /**
- * Estimated payout if the player sold this barrel now. Uses the current face-up
- * bourbon card if available; otherwise the median grid cell of the deck.
+ * Estimated payout if the player sold this barrel now. With mash bills
+ * locked at production we can use the barrel's actual bill grid to look
+ * up an exact sale price.
  */
-export function estimateSalePayout(state: GameState, barrelAge: number): number {
-  const cardId = state.market.bourbonFaceUp;
-  const card = cardId ? BOURBON_CARDS_BY_ID[cardId] : null;
+export function estimateSalePayout(
+  state: GameState,
+  barrel: { age: number; mashBillId: string },
+): number {
+  if (barrel.age < 2) return 0;
+  const card = BOURBON_CARDS_BY_ID[barrel.mashBillId];
   if (!card) {
-    // Conservative fallback.
+    // Conservative fallback for unknown mash bill ids.
     return 10;
   }
-  if (barrelAge < 2) return 0;
-  return lookupSalePrice(card, barrelAge, state.demand).price;
+  return lookupSalePrice(card, barrel.age, state.demand).price;
 }
 
 export function expectedFeesNextRound(state: GameState, playerId: string): number {

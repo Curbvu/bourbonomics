@@ -32,8 +32,7 @@ export default function GameTopBar() {
   const state = useGameStore((s) => s.state)!;
   const humanId = state.playerOrder.find((id) => state.players[id].kind === "human");
 
-  const bourbonDeckCount =
-    state.market.bourbonDeck.length + (state.market.bourbonFaceUp ? 1 : 0);
+  const bourbonDeckCount = state.market.bourbonDeck.length;
   const marketDeckCount = state.market.marketDeck.length;
 
   return (

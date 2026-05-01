@@ -26,6 +26,8 @@ Each player starts with **$40** in initial capital. No one starts with investmen
 
 Shuffle all decks separately: the resource piles (Cask, Corn, Grain), the Bourbon cards, the Investment cards, the Operations cards, and the Market cards.
 
+Each player then draws **4 mash bills** (Bourbon Cards) from the top of the Bourbon deck into their starting hand. Mash bills are **public information** — keep them face-up so every player can see what brands and recipes you're working with.
+
 Set the market demand to **6**. This number will rise and fall throughout the game and directly affects how valuable your bourbon is when you sell it.
 
 ---
@@ -38,7 +40,7 @@ The market consists of three face-down piles: casks, corn, and grain. These repr
 
 Rickhouses are shared storage locations where your bourbon ages. Each rickhouse has limited capacity, so space becomes competitive over time.
 
-The business decks contain Investment cards (long-term upgrades), Operations cards (short-term advantages), and Bourbon cards (which determine how much your bourbon sells for).
+The business decks contain Investment cards (long-term upgrades), Operations cards (short-term advantages), and the **Bourbon deck** of mash bills (the brands that decide how much each barrel sells for — see §Mash Bills).
 
 Lastly there are the Market cards, which are drawn at the end of each round.
 
@@ -97,11 +99,11 @@ The phase ends once all players pass in the same loop. The pivot player (the fir
 
 On your turn, you choose one action.
 
-You might draw a resource card from the market, taking a cask, corn, or grain. You could draw a Bourbon card to prepare for a future sale, or draw an Investment or Operations card to expand your options.
+You might draw a resource card from the market, taking a cask, corn, or grain. You could draw an Investment or Operations card to expand your options. You may also **discard and draw a mash bill** (see §Mash Bills below) to refresh your hand.
 
-You can also **make bourbon**. To do this, you must combine at least one cask, one corn, and one grain, then place the bourbon into an available rickhouse slot. You can add additional grains or corn to improve your mix, but you may only use one cask per barrel.
+You can also **make bourbon**. To do this, you must combine at least one cask, one corn, and one grain, **and choose one mash bill from your hand to attach to the barrel**. Place the bourbon into an available rickhouse slot. You can add additional grains or corn to improve your mix, but you may only use one cask per barrel. The chosen mash bill is **locked to that barrel for life** and decides its sale price when you eventually sell.
 
-Another option is to **sell bourbon**, which requires the barrel to be at least two years old. When you sell, you draw a Bourbon card and determine the payout based on the bourbon’s age and the current market demand.
+Another option is to **sell bourbon**, which requires the barrel to be at least two years old. **The mash bill attached to the barrel determines the payout** based on the bourbon's age and the current market demand. (You do not draw a new mash bill at sale — the bill committed at production is what you sell on.)
 
 You may also choose to **implement an investment**. This requires paying the cost printed on the card. Once paid, the investment is placed in front of you and becomes active immediately.
 
@@ -120,6 +122,37 @@ The core of the game follows a simple rhythm.
 First, you gather resources from the market. Then you combine them to create bourbon and place it into a rickhouse. Over time, as you pay rent, your bourbon ages. Once it reaches at least two years, you may sell it for profit.
 
 The longer you wait, the more valuable it can become—but the market may not cooperate.
+
+---
+
+# 🍯 Mash Bills
+
+Mash bills are the brands and recipes that determine how much each barrel pays out when sold. They live in your hand until you commit one to a barrel at production.
+
+## Hand Limit
+
+You may hold **up to 4 mash bills** in your hand at any time. You start the game at the limit (4 bills, drawn during setup). The hand naturally drops below 4 as you commit mash bills to barrels — see *Refreshing Your Hand* below for how to bring it back up.
+
+Mash bills are **public information**: every player keeps their hand face-up. The table can read your brands and anticipate the kinds of barrels you're building toward.
+
+## Refreshing Your Hand
+
+Two action-phase actions interact with your mash-bill hand:
+
+- **Draw a mash bill** — when your hand is below the 4-card limit, draw the top card of the Bourbon deck into your hand.
+- **Discard and draw** — discard a mash bill from your hand and immediately draw a replacement from the top of the Bourbon deck. Useful when your current bills don't fit the barrels you're planning. Hand size is unchanged.
+
+Both options cost one action.
+
+## Committing at Production
+
+When you make bourbon, you **must choose exactly one mash bill from your hand** to attach to the new barrel. The mash bill is **locked to that specific barrel for life** — you cannot move it, swap it for another, or split it across barrels. While the barrel ages, that mash bill is *not* in your hand; it lives on the barrel.
+
+## At Sale
+
+When the barrel is sold, the **attached mash bill determines the payout** using its printed price grid (age band × demand band — see §Mash Bill Pricing). You do not draw a new bill at sale.
+
+By default, the mash bill is **discarded** to the bottom of the Bourbon deck once the sale resolves. The two **Bourbon Awards** below are exceptions to that default — they keep the mash bill in play.
 
 ---
 
@@ -159,7 +192,7 @@ Managing demand—either by timing your sales or shaping the market—is one of 
 
 ## Demand Bands
 
-When you sell a bourbon, the current demand falls into one of three bands. Bourbon cards use these same bands to set the sale price.
+When you sell a bourbon, the current demand falls into one of three bands. Mash bills use these same bands to set the sale price.
 
 | Band     | Demand Range |
 |----------|:------------:|
@@ -167,9 +200,9 @@ When you sell a bourbon, the current demand falls into one of three bands. Bourb
 | **Mid**  | 4 – 6        |
 | **High** | 7 – 12       |
 
-# 📈 Bourbon Card Pricing
+# 📈 Mash Bill Pricing
 
-Every Bourbon card uses the same three-by-three structure: three demand bands across the top, three age bands down the side.
+Every mash bill uses the same three-by-three structure: three demand bands across the top, three age bands down the side.
 
 ## Age Bands
 
@@ -181,9 +214,9 @@ Every Bourbon card uses the same three-by-three structure: three demand bands ac
 
 ## Reading the Grid
 
-Find the row for your bourbon's age band and the column for the current demand band. The value at the intersection is your sale price.
+Find the row for the barrel's age band and the column for the current demand band. The value at the intersection is your sale price — driven entirely by the mash bill that was attached when you made the bourbon.
 
-## Example: Sample Bourbon Card
+## Example: Sample Mash Bill
 
 | Age \\ Demand     | Low (0–3) | Mid (4–6) | High (7–12) |
 |-------------------|:---------:|:---------:|:-----------:|
@@ -191,9 +224,9 @@ Find the row for your bourbon's age band and the column for the current demand b
 | **Aged (4–7)**    |    $5     |    $9     |    $14      |
 | **Well-Aged (8+)**|     —     |   $14     |    $22      |
 
-A blank cell ("—") means **this card pays nothing** in that age-and-demand combination. Sparseness is intentional: every Bourbon card has gaps, and not every card rewards aging or scaling. Some cards favor young, fast turnover; others demand patience and reward only well-aged barrels in strong markets. Reading a card's grid before you commit to a sale is part of the game.
+A blank cell ("—") means **this mash bill pays nothing** in that age-and-demand combination. Sparseness is intentional: every mash bill has gaps, and not every recipe rewards aging or scaling. Some bills favour young, fast turnover; others demand patience and reward only well-aged barrels in strong markets. Reading a mash bill's grid **before you attach it to a barrel** is part of the game — once committed, you can't change your mind.
 
-If you sell into a cell with no printed price, you simply collect nothing for that sale (the card is still discarded or kept as normal).
+If you sell into a cell with no printed price, you simply collect nothing for that sale (the bill is still discarded or returned-to-hand normally per any award).
 
 ---
 
@@ -216,15 +249,16 @@ Capacity is the maximum number of barrels (across all players) that can age in t
 
 # 🥇 Bourbon Awards
 
-Some Bourbon cards grant special awards.
+Some mash bills grant special awards when their barrel is sold under the right conditions. Awards change what happens to the mash bill *after* the sale — the default behaviour is for the bill to head to the discard.
 
-A Silver award allows you to reuse that card one additional time.
+- **Silver award.** When the barrel is sold, the mash bill **returns to the player's hand** instead of being discarded. The player can attach it to a future barrel.
+- **Gold award.** When the barrel is sold, the mash bill **stays permanently in the player's hand** (and may be reattached to future barrels indefinitely). Gold-marked mash bills also count toward the **3 Gold Bourbons** win condition — the only path to the immediate-end Triple Crown.
 
-A Gold award allows you to reuse the card indefinitely and also contributes toward winning the game.
+A given mash bill prints both Silver and Gold criteria; whichever is met by the sale is the award that fires. Gold takes precedence over Silver when both qualify.
 
 ## Design Guidance for Card Authors
 
-When designing a Bourbon card with a **Gold** award, the qualification bar should be intentionally hard to reach. As a rule of thumb, **Gold typically requires a bourbon that is 10+ years aged AND uses at least 2 grain cards in its mash bill**. Pair that with a strong demand band requirement and Gold stays rare and meaningful — the win-condition card it is meant to be. Silver criteria can be looser (e.g. a single specialty grain, or one demand band lower) so that mid-game play has reachable upside without trivializing Gold.
+When designing a mash bill with a **Gold** award, the qualification bar should be intentionally hard to reach. As a rule of thumb, **Gold typically requires a bourbon that is 10+ years aged AND uses at least 2 grain cards in its production recipe**. Pair that with a strong demand-band requirement and Gold stays rare and meaningful — the win-condition trophy it is meant to be. Silver criteria can be looser (e.g. a single specialty grain, or one demand band lower) so that mid-game play has reachable upside without trivializing Gold.
 
 ---
 

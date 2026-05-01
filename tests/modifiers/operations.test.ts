@@ -72,6 +72,7 @@ describe("operations card effects", () => {
           ownerId: "p1",
           rickhouseId: h.id,
           mash: [],
+          mashBillId: "test-bill",
           age: 0,
           barreledOnRound: 1,
         });

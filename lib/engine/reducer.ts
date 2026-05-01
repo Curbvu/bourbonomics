@@ -54,6 +54,7 @@ import {
   isPlayersTurn,
 } from "./checks";
 import {
+  BOURBON_HAND_LIMIT,
   DISTRESSED_LOAN_AMOUNT,
   MARKET_DRAW_COUNT,
   MAX_ACTIVE_INVESTMENTS,
@@ -82,6 +83,8 @@ function apply(state: GameState, action: Action): void {
       return drawResource(state, action);
     case "DRAW_BOURBON":
       return drawBourbonAction(state, action);
+    case "DISCARD_AND_DRAW_BOURBON":
+      return discardAndDrawBourbon(state, action);
     case "MAKE_BOURBON":
       return makeBourbon(state, action);
     case "SELL_BOURBON":
@@ -317,43 +320,65 @@ function drawBourbonAction(
   action: Extract<Action, { t: "DRAW_BOURBON" }>,
 ): void {
   if (!preActionGuards(state, action.playerId)) return;
-  let cardId: string | null = null;
-  if (action.source === "face-up") {
-    cardId = state.market.bourbonFaceUp;
-    if (!cardId) return errorEvent(state, "no_face_up_bourbon");
-    if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
-    state.market.bourbonFaceUp = null;
-    refillBourbonFaceUp(state);
-  } else {
-    if (state.market.bourbonDeck.length === 0) {
-      reshuffleBourbonDiscard(state);
-    }
-    if (state.market.bourbonDeck.length === 0)
-      return errorEvent(state, "bourbon_deck_empty");
-    if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
-    const [drawn, rest] = drawTop(state.market.bourbonDeck);
-    state.market.bourbonDeck = rest;
-    cardId = drawn;
-  }
-  if (cardId) {
-    state.players[action.playerId].bourbonHand.push(cardId);
-    logEvent(state, "draw_bourbon", {
-      playerId: action.playerId,
-      source: action.source,
-      cardId,
+  const player = state.players[action.playerId];
+  if (player.bourbonHand.length >= BOURBON_HAND_LIMIT) {
+    return errorEvent(state, "bourbon_hand_full", {
+      limit: BOURBON_HAND_LIMIT,
     });
   }
+  if (state.market.bourbonDeck.length === 0) {
+    reshuffleBourbonDiscard(state);
+  }
+  if (state.market.bourbonDeck.length === 0)
+    return errorEvent(state, "bourbon_deck_empty");
+  if (!chargeActionCost(state, action.playerId))
+    return errorEvent(state, "afford");
+  const [drawn, rest] = drawTop(state.market.bourbonDeck);
+  state.market.bourbonDeck = rest;
+  if (!drawn) return;
+  player.bourbonHand.push(drawn);
+  logEvent(state, "draw_bourbon", {
+    playerId: action.playerId,
+    cardId: drawn,
+  });
   postActionAdvance(state, action.playerId);
 }
 
-function refillBourbonFaceUp(state: GameState): void {
-  if (state.market.bourbonFaceUp !== null) return;
-  if (state.market.bourbonDeck.length === 0) reshuffleBourbonDiscard(state);
-  const [top, rest] = drawTop(state.market.bourbonDeck);
-  if (top !== null) {
-    state.market.bourbonFaceUp = top;
-    state.market.bourbonDeck = rest;
+function discardAndDrawBourbon(
+  state: GameState,
+  action: Extract<Action, { t: "DISCARD_AND_DRAW_BOURBON" }>,
+): void {
+  if (!preActionGuards(state, action.playerId)) return;
+  const player = state.players[action.playerId];
+  const handIdx = player.bourbonHand.indexOf(action.bourbonCardId);
+  if (handIdx === -1) {
+    return errorEvent(state, "bourbon_not_in_hand", {
+      cardId: action.bourbonCardId,
+    });
   }
+  // Need a card to draw on the swap. If the deck is empty, the discard
+  // we're about to push *would* go right back, so reshuffle BEFORE pushing
+  // to keep the swap deterministic and avoid cycling the same id back.
+  if (state.market.bourbonDeck.length === 0) reshuffleBourbonDiscard(state);
+  if (state.market.bourbonDeck.length === 0)
+    return errorEvent(state, "bourbon_deck_empty");
+  if (!chargeActionCost(state, action.playerId))
+    return errorEvent(state, "afford");
+
+  // Discard then draw — net hand size unchanged.
+  player.bourbonHand.splice(handIdx, 1);
+  state.market.bourbonDiscard.push(action.bourbonCardId);
+  const [drawn, rest] = drawTop(state.market.bourbonDeck);
+  state.market.bourbonDeck = rest;
+  if (drawn) {
+    player.bourbonHand.push(drawn);
+  }
+  logEvent(state, "discard_and_draw_bourbon", {
+    playerId: player.id,
+    discardedCardId: action.bourbonCardId,
+    drawnCardId: drawn,
+  });
+  postActionAdvance(state, action.playerId);
 }
 
 function reshuffleBourbonDiscard(state: GameState): void {
@@ -398,6 +423,7 @@ function makeBourbon(
     action.playerId,
     action.rickhouseId,
     action.resourceInstanceIds,
+    action.mashBillId,
   );
   if (!check.ok) return errorEvent(state, "make_invalid", { reason: check.reason });
   if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
@@ -411,6 +437,12 @@ function makeBourbon(
     player.resourceHand.splice(idx, 1);
   }
 
+  // Detach the mash bill from the player's hand — it's now locked to the
+  // new barrel for the barrel's life.
+  const billIdx = player.bourbonHand.indexOf(action.mashBillId);
+  if (billIdx === -1) return errorEvent(state, "bourbon_not_in_hand");
+  player.bourbonHand.splice(billIdx, 1);
+
   const rickhouse = state.rickhouses.find((r) => r.id === action.rickhouseId)!;
   const barrelId = mintInstanceId("barrel");
   rickhouse.barrels.push({
@@ -418,6 +450,7 @@ function makeBourbon(
     ownerId: player.id,
     rickhouseId: rickhouse.id,
     mash,
+    mashBillId: action.mashBillId,
     age: 0,
     barreledOnRound: state.round,
   });
@@ -426,6 +459,7 @@ function makeBourbon(
     barrelId,
     rickhouseId: rickhouse.id,
     mashSize: mash.length,
+    mashBillId: action.mashBillId,
   });
   // Resource on_make_bourbon opcodes (e.g., bank_payout).
   const makeOps = applyMakeOps({ state, playerId: player.id, mash });
@@ -445,18 +479,14 @@ function sellBourbon(
   action: Extract<Action, { t: "SELL_BOURBON" }>,
 ): void {
   if (!preActionGuards(state, action.playerId)) return;
-  const check = canSellBourbon(
-    state,
-    action.playerId,
-    action.barrelId,
-    action.bourbonCardId,
-  );
+  const check = canSellBourbon(state, action.playerId, action.barrelId);
   if (!check.ok) return errorEvent(state, "sell_invalid", { reason: check.reason });
   if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
 
   const card = check.card;
   const found = findBarrel(state, action.barrelId)!;
   const player = state.players[action.playerId];
+  const mashBillId = found.barrel.mashBillId;
 
   // Apply resource on_sell opcodes FIRST to shift lookup age/demand before grid lookup.
   const sellOps = applySellOps({
@@ -474,6 +504,7 @@ function sellBourbon(
   player.cash += finalPayout;
   // Extra bourbon-card draws (specialty resource effect).
   for (let i = 0; i < sellOps.extraBourbonDraws; i++) {
+    if (player.bourbonHand.length >= BOURBON_HAND_LIMIT) break;
     if (state.market.bourbonDeck.length === 0) reshuffleBourbonDiscard(state);
     const [extra, rest] = drawTop(state.market.bourbonDeck);
     if (!extra) break;
@@ -486,18 +517,25 @@ function sellBourbon(
   }
   // Awards — evaluated against the final payout.
   const award = evaluateAward(card, found.barrel.mash, found.barrel.age, finalPayout);
-  let keptCard = false;
+  // Silver/Gold both return the mash bill to the player's bourbon hand on
+  // sale. Gold also marks a permanent award (3 unique → win). Silver does
+  // not contribute to the win, but a Silver win that's *also* a Gold win
+  // upgrades to Gold — so prefer Gold tracking.
+  let returnToHand = false;
   if (award.gold) {
-    if (!player.goldAwards.includes(card.id)) {
-      player.goldAwards.push(card.id);
-      keptCard = true;
+    if (!player.goldAwards.includes(mashBillId)) {
+      player.goldAwards.push(mashBillId);
     }
+    returnToHand = true;
   }
   if (award.silver) {
-    if (!player.silverAwards.includes(card.id) && !player.goldAwards.includes(card.id)) {
-      player.silverAwards.push(card.id);
-      keptCard = true;
+    if (
+      !player.silverAwards.includes(mashBillId) &&
+      !player.goldAwards.includes(mashBillId)
+    ) {
+      player.silverAwards.push(mashBillId);
     }
+    returnToHand = true;
   }
 
   // Return mash resources to market piles.
@@ -511,15 +549,14 @@ function sellBourbon(
     found.rickhouseIdx
   ].barrels.filter((b) => b.barrelId !== action.barrelId);
 
-  // Resolve the bourbon card source.
-  if (state.market.bourbonFaceUp === action.bourbonCardId) {
-    state.market.bourbonFaceUp = null;
-    refillBourbonFaceUp(state);
-  } else if (player.bourbonHand.includes(action.bourbonCardId)) {
-    player.bourbonHand = player.bourbonHand.filter((id) => id !== action.bourbonCardId);
-  }
-  if (!keptCard) {
-    state.market.bourbonDiscard.push(card.id);
+  // Mash-bill disposition: either back to the player's hand (Silver/Gold)
+  // or to the bourbon discard. Hand-limit guard for Silver/Gold returns —
+  // if the player is already at the cap, the card discards rather than
+  // overflowing the hand.
+  if (returnToHand && player.bourbonHand.length < BOURBON_HAND_LIMIT) {
+    player.bourbonHand.push(mashBillId);
+  } else {
+    state.market.bourbonDiscard.push(mashBillId);
   }
 
   // Demand drops by 1 per sale.
@@ -529,7 +566,7 @@ function sellBourbon(
   logEvent(state, "sell_bourbon", {
     playerId: player.id,
     barrelId: action.barrelId,
-    bourbonCardId: card.id,
+    bourbonCardId: mashBillId,
     age: found.barrel.age,
     lookupAge,
     lookupDemand,
@@ -539,6 +576,7 @@ function sellBourbon(
     priceSource: price.source,
     silver: award.silver,
     gold: award.gold,
+    returnedToHand: returnToHand,
   });
   checkWinConditions(state);
   postActionAdvance(state, action.playerId);

@@ -54,22 +54,30 @@ export default function RickhouseRow() {
   });
 
   // Compute mash validity once per render so each rickhouse card can
-  // light up consistently.
+  // light up consistently. Both pieces — a valid resource mash AND a
+  // chosen mash bill from the bourbon hand — are required before the
+  // rickhouse becomes a click target.
   const me = humanId ? state.players[humanId] : null;
   const selectedSet = new Set(makeBourbon.selectedIds);
   const selectedMash =
     makeBourbon.active && me
       ? me.resourceHand.filter((r) => selectedSet.has(r.instanceId))
       : [];
-  const mashValid = makeBourbon.active && validateMash(selectedMash).ok;
+  const mashOk = makeBourbon.active && validateMash(selectedMash).ok;
+  const billOk =
+    makeBourbon.active &&
+    !!makeBourbon.mashBillId &&
+    !!me?.bourbonHand.includes(makeBourbon.mashBillId);
+  const mashValid = mashOk && billOk;
 
   const placeInRickhouse = (rickhouseId: RickhouseId) => {
-    if (!mashValid || !humanId) return;
+    if (!mashValid || !humanId || !makeBourbon.mashBillId) return;
     dispatch({
       t: "MAKE_BOURBON",
       playerId: humanId,
       rickhouseId,
       resourceInstanceIds: makeBourbon.selectedIds,
+      mashBillId: makeBourbon.mashBillId,
     });
     cancelMakeBourbon();
   };
@@ -84,6 +92,10 @@ export default function RickhouseRow() {
           {mashValid ? (
             <span className="ml-2 rounded border border-amber-500 bg-amber-700/[0.20] px-1.5 py-0.5 text-amber-200">
               Click a rickhouse to barrel
+            </span>
+          ) : makeBourbon.active && mashOk && !billOk ? (
+            <span className="ml-2 rounded border border-amber-500/60 bg-amber-700/[0.10] px-1.5 py-0.5 text-amber-200/90">
+              Pick a mash bill
             </span>
           ) : null}
         </h2>
