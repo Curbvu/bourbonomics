@@ -2,34 +2,42 @@
 
 /**
  * HandTray — bottom-of-canvas horizontal strip showing the human player's
- * hand, with an End-turn (= pass) button on the right.
- *
- * Spec: design_handoff_bourbon_blend/README.md §HandTray.
+ * hand, with the action affordances co-located with what they act on.
  *
  * Layout (left → right):
  *   1. Identity     — colored dot + "Your hand" + caption
- *   2. Resources    — vertical "RESOURCES" label + 56×76 chips per card
+ *   2. Resources    — chips + amber "Make ↵" button (opens MakeBourbonModal)
  *   3. Divider
- *   4. Bourbon      — vertical "BOURBON" label + small BourbonCardFace
+ *   4. Bourbon      — small BourbonCardFace + amber "Sell ↵" button
  *   5. Divider
- *   6. Ops + Invest — stacked rows of pills
+ *   6. Ops + Invest — pills + amber "Implement ↵" button
  *   7. Spacer (flex-1)
- *   8. End-turn cluster — "discard" ghost pill + amber primary button
+ *   8. End-turn cluster — "discard" ghost pill + amber primary "Pass ↵"
  *
- * The "End turn" button dispatches PASS_ACTION (the closest analog to a
- * Hearthstone-style end-turn). It only fires on the human's action-phase
- * turn; otherwise it shows disabled. The "discard" pill is presentational
- * for now — Bourbonomics has no explicit discard action in current rules.
+ * Per-section contextual buttons replace what used to live in ActionBar:
+ *   - Make ↵       opens the mash-builder modal
+ *   - Sell ↵       sells the oldest sellable barrel using the displayed
+ *                  bourbon card (face-up if available, else first in hand)
+ *   - Implement ↵  pays printed capital on the first unbuilt investment
+ *   - Pass ↵       dispatches PASS_ACTION
+ *
+ * Each button is enabled only when the action is legal for the current
+ * turn / phase / cash state; otherwise it sits in a disabled slate
+ * treatment with a tooltip explaining why.
  */
+
+import { useState } from "react";
 
 import { BOURBON_CARDS_BY_ID } from "@/lib/catalogs/bourbon.generated";
 import { INVESTMENT_CARDS_BY_ID } from "@/lib/catalogs/investment.generated";
 import { OPERATIONS_CARDS_BY_ID } from "@/lib/catalogs/operations.generated";
 import { SPECIALTY_RESOURCES_BY_ID } from "@/lib/catalogs/resource.generated";
 import type { ResourceCardDef, ResourceType } from "@/lib/catalogs/types";
+import { MAX_ACTIVE_INVESTMENTS } from "@/lib/engine/state";
 import { useGameStore } from "@/lib/store/gameStore";
 import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
 import BourbonCardFace from "./BourbonCardFace";
+import MakeBourbonModal from "./MakeBourbonModal";
 
 type ResourceMeta = {
   glyph: string;
@@ -80,6 +88,8 @@ const RESOURCE_META: Record<ResourceType, ResourceMeta> = {
 export default function HandTray() {
   const state = useGameStore((s) => s.state)!;
   const dispatch = useGameStore((s) => s.dispatch);
+  const [makeBourbonOpen, setMakeBourbonOpen] = useState(false);
+
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
   );
@@ -94,15 +104,122 @@ export default function HandTray() {
     me.operations.length;
   const isMyActionTurn =
     state.currentPlayerId === humanId && state.phase === "action";
+  const cost = state.actionPhase.freeWindowActive
+    ? 0
+    : state.actionPhase.paidLapTier;
+  const canAfford = me.cash >= cost;
 
   const headBourbonId = me.bourbonHand[0];
   const headBourbon = headBourbonId ? BOURBON_CARDS_BY_ID[headBourbonId] : null;
   const extraBourbon = Math.max(0, me.bourbonHand.length - 1);
 
+  // ---- Action eligibility checks ----------------------------------------
+
+  // Make Bourbon — gate on "minimum viable mash possible". The actual
+  // mash gets built in the modal.
+  const handHasCask = me.resourceHand.some((r) => r.resource === "cask");
+  const handHasCorn = me.resourceHand.some((r) => r.resource === "corn");
+  const handHasGrain = me.resourceHand.some(
+    (r) =>
+      r.resource === "barley" || r.resource === "rye" || r.resource === "wheat",
+  );
+  const hasOpenRickhouse = state.rickhouses.some(
+    (h) => h.barrels.length < h.capacity,
+  );
+  const canMake =
+    isMyActionTurn &&
+    canAfford &&
+    handHasCask &&
+    handHasCorn &&
+    handHasGrain &&
+    hasOpenRickhouse;
+  const makeReason = !isMyActionTurn
+    ? "Wait for your turn"
+    : !canAfford
+      ? `Need $${cost} to act`
+      : !handHasCask
+        ? "Need a cask in hand"
+        : !handHasCorn
+          ? "Need corn in hand"
+          : !handHasGrain
+            ? "Need a grain in hand"
+            : !hasOpenRickhouse
+              ? "Every rickhouse is full"
+              : "Build a mash and barrel it";
+
+  // Sell — auto-pick oldest sellable barrel + face-up bourbon card or first
+  // bourbon card in hand. Same logic ActionBar's "Sell" used to use.
+  const ownedBarrels = state.rickhouses.flatMap((h) =>
+    h.barrels.filter((b) => b.ownerId === humanId),
+  );
+  const sellableBarrel = ownedBarrels.find((b) => b.age >= 2);
+  const bourbonCardForSale =
+    state.market.bourbonFaceUp ?? me.bourbonHand[0] ?? null;
+  const canSell =
+    isMyActionTurn && canAfford && !!sellableBarrel && !!bourbonCardForSale;
+  const sellReason = !isMyActionTurn
+    ? "Wait for your turn"
+    : !canAfford
+      ? `Need $${cost} to act`
+      : !sellableBarrel
+        ? "No barrel is 2+ years aged"
+        : !bourbonCardForSale
+          ? "Need a bourbon card (draw one or use the face-up)"
+          : `Sell ${sellableBarrel.age}y barrel using ${
+              BOURBON_CARDS_BY_ID[bourbonCardForSale]?.name ?? "card"
+            }`;
+
+  // Implement — auto-pick the first unbuilt investment. Cap at 3 active.
+  const unbuiltInv = me.investments.find((i) => i.status === "unbuilt");
+  const activeInvCount = me.investments.filter(
+    (i) => i.status === "active",
+  ).length;
+  const investCapital = unbuiltInv
+    ? (INVESTMENT_CARDS_BY_ID[unbuiltInv.cardId]?.capital ?? 0)
+    : 0;
+  const canImplement =
+    isMyActionTurn &&
+    canAfford &&
+    !!unbuiltInv &&
+    activeInvCount < MAX_ACTIVE_INVESTMENTS &&
+    me.cash >= investCapital + cost;
+  const implementReason = !isMyActionTurn
+    ? "Wait for your turn"
+    : !unbuiltInv
+      ? "No unbuilt investments in hand"
+      : activeInvCount >= MAX_ACTIVE_INVESTMENTS
+        ? `Already ${MAX_ACTIVE_INVESTMENTS}/3 active`
+        : me.cash < investCapital + cost
+          ? `Need $${investCapital + cost} to implement (capital + action)`
+          : `Pay $${investCapital} to implement ${
+              INVESTMENT_CARDS_BY_ID[unbuiltInv.cardId]?.name ?? unbuiltInv.cardId
+            }`;
+
+  // ---- Action dispatchers -----------------------------------------------
+
+  const sell = () => {
+    if (!canSell || !sellableBarrel || !bourbonCardForSale) return;
+    dispatch({
+      t: "SELL_BOURBON",
+      playerId: humanId,
+      barrelId: sellableBarrel.barrelId,
+      bourbonCardId: bourbonCardForSale,
+    });
+  };
+
+  const implement = () => {
+    if (!canImplement || !unbuiltInv) return;
+    dispatch({
+      t: "IMPLEMENT_INVESTMENT",
+      playerId: humanId,
+      investmentInstanceId: unbuiltInv.instanceId,
+    });
+  };
+
   return (
-    <section className="flex items-center gap-[18px] border-t border-slate-800 bg-slate-950 px-[22px] py-3">
+    <section className="flex items-center gap-[14px] border-t border-slate-800 bg-slate-950 px-[22px] py-3">
       {/* 1 — identity */}
-      <div className="flex min-w-[130px] flex-col gap-0.5">
+      <div className="flex min-w-[120px] flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <span
             className={`block h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
@@ -113,14 +230,14 @@ export default function HandTray() {
           </span>
         </div>
         <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-          {handSize} cards · click to play
+          {handSize} cards
         </span>
       </div>
 
-      {/* 2 — resources */}
+      {/* 2 — resources + Make */}
       <div className="flex items-stretch gap-2">
         <VerticalCaption>resources</VerticalCaption>
-        <div className="flex max-w-[400px] gap-1.5 overflow-x-auto">
+        <div className="flex max-w-[260px] gap-1.5 overflow-x-auto">
           {me.resourceHand.length === 0 ? (
             <EmptyTallChip>no resources</EmptyTallChip>
           ) : (
@@ -141,11 +258,18 @@ export default function HandTray() {
             })
           )}
         </div>
+        <ContextButton
+          enabled={canMake}
+          onClick={() => setMakeBourbonOpen(true)}
+          title={makeReason}
+        >
+          Make ↵
+        </ContextButton>
       </div>
 
       <Divider />
 
-      {/* 4 — bourbon */}
+      {/* 4 — bourbon + Sell */}
       <div className="flex items-stretch gap-2">
         <VerticalCaption>bourbon</VerticalCaption>
         <div className="flex items-center gap-2">
@@ -164,55 +288,69 @@ export default function HandTray() {
             </span>
           ) : null}
         </div>
+        <ContextButton enabled={canSell} onClick={sell} title={sellReason}>
+          Sell ↵
+        </ContextButton>
       </div>
 
       <Divider />
 
-      {/* 6 — ops + invest, stacked */}
-      <div className="flex max-w-[280px] flex-col gap-1.5">
-        <div className="flex flex-wrap gap-1.5">
-          {me.operations.length === 0 ? (
-            <EmptyPill>no ops</EmptyPill>
-          ) : (
-            me.operations.map((ops) => {
-              const def = OPERATIONS_CARDS_BY_ID[ops.cardId];
-              return (
-                <span
-                  key={ops.instanceId}
-                  title={def?.effect}
-                  className="rounded border border-violet-500/45 bg-violet-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold text-violet-200"
-                >
-                  {def?.title ?? ops.cardId}
-                  <span className="ml-1.5 opacity-60">OPS</span>
-                </span>
-              );
-            })
-          )}
-        </div>
-        {me.investments.length > 0 ? (
+      {/* 6 — ops + invest + Implement */}
+      <div className="flex items-stretch gap-2">
+        <VerticalCaption>play</VerticalCaption>
+        <div className="flex max-w-[220px] flex-col gap-1.5">
           <div className="flex flex-wrap gap-1.5">
-            {me.investments.map((inv) => {
-              const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
-              const isActive = inv.status === "active";
-              return (
-                <span
-                  key={inv.instanceId}
-                  title={def?.effect}
-                  className={`rounded border bg-emerald-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold ${
-                    isActive
-                      ? "border-emerald-500/45 text-emerald-200"
-                      : "border-slate-600 text-slate-300 opacity-80"
-                  }`}
-                >
-                  {def?.name ?? inv.cardId}
-                  <span className="ml-1.5 opacity-60">
-                    ${def?.capital ?? 0} · {isActive ? "ACTIVE" : "UNBUILT"}
+            {me.operations.length === 0 ? (
+              <EmptyPill>no ops</EmptyPill>
+            ) : (
+              me.operations.map((ops) => {
+                const def = OPERATIONS_CARDS_BY_ID[ops.cardId];
+                return (
+                  <span
+                    key={ops.instanceId}
+                    title={def?.effect}
+                    className="rounded border border-violet-500/45 bg-violet-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold text-violet-200"
+                  >
+                    {def?.title ?? ops.cardId}
+                    <span className="ml-1.5 opacity-60">OPS</span>
                   </span>
-                </span>
-              );
-            })}
+                );
+              })
+            )}
           </div>
-        ) : null}
+          {me.investments.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {me.investments.map((inv) => {
+                const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
+                const isActive = inv.status === "active";
+                return (
+                  <span
+                    key={inv.instanceId}
+                    title={def?.effect}
+                    className={`rounded border bg-emerald-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold ${
+                      isActive
+                        ? "border-emerald-500/45 text-emerald-200"
+                        : "border-slate-600 text-slate-300 opacity-80"
+                    }`}
+                  >
+                    {def?.name ?? inv.cardId}
+                    <span className="ml-1.5 opacity-60">
+                      ${def?.capital ?? 0} ·{" "}
+                      {isActive ? "ACTIVE" : "UNBUILT"}
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+        <ContextButton
+          enabled={canImplement}
+          onClick={implement}
+          title={implementReason}
+        >
+          Implement ↵
+        </ContextButton>
       </div>
 
       {/* 7 — spacer */}
@@ -242,12 +380,47 @@ export default function HandTray() {
           Pass ↵
         </button>
       </div>
+
+      {/* Make-bourbon modal — only mounted while open. */}
+      {makeBourbonOpen ? (
+        <MakeBourbonModal onClose={() => setMakeBourbonOpen(false)} />
+      ) : null}
     </section>
   );
 }
 
 // ---------------------------------------------------------------------------
 // Subcomponents
+
+/**
+ * Per-section contextual primary button. Same amber gradient as the End-turn
+ * Pass button so each section's "do the thing" affordance reads as primary.
+ * Disabled state matches the Pass button — slate-on-slate with a tooltip
+ * explaining why.
+ */
+function ContextButton({
+  children,
+  enabled,
+  onClick,
+  title,
+}: {
+  children: React.ReactNode;
+  enabled: boolean;
+  onClick: () => void;
+  title: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={enabled ? onClick : undefined}
+      disabled={!enabled}
+      title={title}
+      className="self-center rounded-md border border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-amber-400 hover:to-amber-600 disabled:cursor-not-allowed disabled:border-slate-700 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
+    >
+      {children}
+    </button>
+  );
+}
 
 function VerticalCaption({ children }: { children: React.ReactNode }) {
   return (

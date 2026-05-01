@@ -7,21 +7,24 @@
  *
  *   [TopBar]                              ← rendered by app/play/page.tsx
  *   PhaseStrip          (gutter: pt 14, sides 22)
- *   contextual decision panel (FeesPanel / MarketPhasePanel / GameOverPanel)
+ *   contextual decision panel (FeesPanel / GameOverPanel)
  *   ──────────────────────────────────────────────
  *   ┌──────────────────────────┐  ┌────────────┐
  *   │ RickhouseRow             │  │ RightRail  │
  *   │  (rickhouses)            │  │ (380px)    │
  *   │                          │  │            │
  *   └──────────────────────────┘  └────────────┘
- *   ActionBar             (when phase === "action")
  *   ──────────────────────────────────────────────
  *   [HandTray]                           ← flush bottom, full bleed
+ *
+ * Action affordances live in the HandTray itself now (Make / Sell /
+ * Implement / Pass) — there's no separate ActionBar. Draws happen by
+ * clicking deck stacks in the RightRail Market tab.
  *
  * Spec: design_handoff_bourbon_blend/README.md §Layout.
  *
  * Spacing:
- *   - 22px side gutter on all of: PhaseStrip, decision panel, main grid, ActionBar.
+ *   - 22px side gutter on all of: PhaseStrip, decision panel, main grid.
  *   - 14px between PhaseStrip and the next block.
  *   - 14px between blocks within the padded content area.
  *   - HandTray has its own 12px×22px padding and slate-950 bg, so it bleeds
@@ -30,7 +33,6 @@
  */
 
 import { useGameStore } from "@/lib/store/gameStore";
-import ActionBar from "./ActionBar";
 import CardDrawOverlay from "./CardDrawOverlay";
 import FeesPanel from "./FeesPanel";
 import GameOverPanel from "./GameOverPanel";
@@ -65,8 +67,6 @@ export default function GameBoard() {
           </div>
           <RightRail />
         </div>
-
-        {state.phase === "action" ? <ActionBar /> : null}
       </div>
 
       {/* HandTray bleeds to canvas edges. */}
