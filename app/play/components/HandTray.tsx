@@ -234,123 +234,129 @@ export default function HandTray() {
         </span>
       </div>
 
-      {/* 2 — resources + Make */}
+      {/* 2 — resources, with Make stacked above */}
       <div className="flex items-stretch gap-2">
         <VerticalCaption>resources</VerticalCaption>
-        <div className="flex max-w-[260px] gap-1.5 overflow-x-auto">
-          {me.resourceHand.length === 0 ? (
-            <EmptyTallChip>no resources</EmptyTallChip>
-          ) : (
-            me.resourceHand.map((r) => {
-              const meta = RESOURCE_META[r.resource];
-              if (!meta) return null;
-              const specialty = r.specialtyId
-                ? SPECIALTY_RESOURCES_BY_ID[r.specialtyId]
-                : null;
-              return (
-                <ResourceChip
-                  key={r.instanceId}
-                  meta={meta}
-                  resource={r.resource}
-                  specialty={specialty}
-                />
-              );
-            })
-          )}
-        </div>
-        <ContextButton
-          enabled={canMake}
-          onClick={() => setMakeBourbonOpen(true)}
-          title={makeReason}
-        >
-          Make ↵
-        </ContextButton>
-      </div>
-
-      <Divider />
-
-      {/* 4 — bourbon + Sell */}
-      <div className="flex items-stretch gap-2">
-        <VerticalCaption>bourbon</VerticalCaption>
-        <div className="flex items-center gap-2">
-          {headBourbon ? (
-            <div className="w-[110px]">
-              <BourbonCardFace card={headBourbon} size="sm" />
-            </div>
-          ) : (
-            <div className="grid h-[76px] w-[110px] place-items-center rounded-md border border-dashed border-slate-700 px-2 text-center font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-              no bourbon card
-            </div>
-          )}
-          {extraBourbon > 0 ? (
-            <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-              +{extraBourbon}
-            </span>
-          ) : null}
-        </div>
-        <ContextButton enabled={canSell} onClick={sell} title={sellReason}>
-          Sell ↵
-        </ContextButton>
-      </div>
-
-      <Divider />
-
-      {/* 6 — ops + invest + Implement */}
-      <div className="flex items-stretch gap-2">
-        <VerticalCaption>play</VerticalCaption>
-        <div className="flex max-w-[220px] flex-col gap-1.5">
-          <div className="flex flex-wrap gap-1.5">
-            {me.operations.length === 0 ? (
-              <EmptyPill>no ops</EmptyPill>
+        <div className="flex flex-col items-start gap-1.5">
+          <ContextButton
+            enabled={canMake}
+            onClick={() => setMakeBourbonOpen(true)}
+            title={makeReason}
+          >
+            Make ↵
+          </ContextButton>
+          <div className="flex max-w-[260px] gap-1.5 overflow-x-auto">
+            {me.resourceHand.length === 0 ? (
+              <EmptyTallChip>no resources</EmptyTallChip>
             ) : (
-              me.operations.map((ops) => {
-                const def = OPERATIONS_CARDS_BY_ID[ops.cardId];
+              me.resourceHand.map((r) => {
+                const meta = RESOURCE_META[r.resource];
+                if (!meta) return null;
+                const specialty = r.specialtyId
+                  ? SPECIALTY_RESOURCES_BY_ID[r.specialtyId]
+                  : null;
                 return (
-                  <span
-                    key={ops.instanceId}
-                    title={def?.effect}
-                    className="rounded border border-violet-500/45 bg-violet-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold text-violet-200"
-                  >
-                    {def?.title ?? ops.cardId}
-                    <span className="ml-1.5 opacity-60">OPS</span>
-                  </span>
+                  <ResourceChip
+                    key={r.instanceId}
+                    meta={meta}
+                    resource={r.resource}
+                    specialty={specialty}
+                  />
                 );
               })
             )}
           </div>
-          {me.investments.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {me.investments.map((inv) => {
-                const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
-                const isActive = inv.status === "active";
-                return (
-                  <span
-                    key={inv.instanceId}
-                    title={def?.effect}
-                    className={`rounded border bg-emerald-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold ${
-                      isActive
-                        ? "border-emerald-500/45 text-emerald-200"
-                        : "border-slate-600 text-slate-300 opacity-80"
-                    }`}
-                  >
-                    {def?.name ?? inv.cardId}
-                    <span className="ml-1.5 opacity-60">
-                      ${def?.capital ?? 0} ·{" "}
-                      {isActive ? "ACTIVE" : "UNBUILT"}
-                    </span>
-                  </span>
-                );
-              })}
-            </div>
-          ) : null}
         </div>
-        <ContextButton
-          enabled={canImplement}
-          onClick={implement}
-          title={implementReason}
-        >
-          Implement ↵
-        </ContextButton>
+      </div>
+
+      <Divider />
+
+      {/* 4 — bourbon, with Sell stacked above */}
+      <div className="flex items-stretch gap-2">
+        <VerticalCaption>bourbon</VerticalCaption>
+        <div className="flex flex-col items-start gap-1.5">
+          <ContextButton enabled={canSell} onClick={sell} title={sellReason}>
+            Sell ↵
+          </ContextButton>
+          <div className="flex items-center gap-2">
+            {headBourbon ? (
+              <div className="w-[110px]">
+                <BourbonCardFace card={headBourbon} size="sm" />
+              </div>
+            ) : (
+              <div className="grid h-[76px] w-[110px] place-items-center rounded-md border border-dashed border-slate-700 px-2 text-center font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+                no bourbon card
+              </div>
+            )}
+            {extraBourbon > 0 ? (
+              <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+                +{extraBourbon}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <Divider />
+
+      {/* 6 — play (ops + invest), with Implement stacked above */}
+      <div className="flex items-stretch gap-2">
+        <VerticalCaption>play</VerticalCaption>
+        <div className="flex flex-col items-start gap-1.5">
+          <ContextButton
+            enabled={canImplement}
+            onClick={implement}
+            title={implementReason}
+          >
+            Implement ↵
+          </ContextButton>
+          <div className="flex max-w-[220px] flex-col gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
+              {me.operations.length === 0 ? (
+                <EmptyPill>no ops</EmptyPill>
+              ) : (
+                me.operations.map((ops) => {
+                  const def = OPERATIONS_CARDS_BY_ID[ops.cardId];
+                  return (
+                    <span
+                      key={ops.instanceId}
+                      title={def?.effect}
+                      className="rounded border border-violet-500/45 bg-violet-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold text-violet-200"
+                    >
+                      {def?.title ?? ops.cardId}
+                      <span className="ml-1.5 opacity-60">OPS</span>
+                    </span>
+                  );
+                })
+              )}
+            </div>
+            {me.investments.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {me.investments.map((inv) => {
+                  const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
+                  const isActive = inv.status === "active";
+                  return (
+                    <span
+                      key={inv.instanceId}
+                      title={def?.effect}
+                      className={`rounded border bg-emerald-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold ${
+                        isActive
+                          ? "border-emerald-500/45 text-emerald-200"
+                          : "border-slate-600 text-slate-300 opacity-80"
+                      }`}
+                    >
+                      {def?.name ?? inv.cardId}
+                      <span className="ml-1.5 opacity-60">
+                        ${def?.capital ?? 0} ·{" "}
+                        {isActive ? "ACTIVE" : "UNBUILT"}
+                      </span>
+                    </span>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       {/* 7 — spacer */}
@@ -415,7 +421,12 @@ function ContextButton({
       onClick={enabled ? onClick : undefined}
       disabled={!enabled}
       title={title}
-      className="self-center rounded-md border border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 px-3 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-amber-400 hover:to-amber-600 disabled:cursor-not-allowed disabled:border-slate-700 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
+      className={[
+        "rounded-md border px-3 py-1 font-sans text-[11px] font-bold uppercase tracking-[.05em] transition-all",
+        enabled
+          ? "border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2),0_2px_8px_rgba(245,158,11,.25)] hover:-translate-y-0.5 hover:from-amber-400 hover:to-amber-600 hover:shadow-[inset_0_1px_0_rgba(255,255,255,.25),0_4px_12px_rgba(245,158,11,.35)]"
+          : "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600 shadow-none",
+      ].join(" ")}
     >
       {children}
     </button>
