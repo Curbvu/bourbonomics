@@ -5,7 +5,7 @@
  *
  * Each barrel becomes a toggleable tile (pay → ages, skip → doesn't age,
  * no penalty per current rules). When the player can't cover their full
- * bill, a one-time Distressed Distiller's Loan ($10 borrow / $13 repay
+ * bill, a one-time Distressed Distiller's Loan ($10 borrow / $15 repay
  * next Phase 1) is offered.
  *
  * Restyled in the dashboard's panel chrome: slate-900/70 panel, mono

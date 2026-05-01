@@ -28,7 +28,8 @@ import { INVESTMENT_CARDS_BY_ID } from "@/lib/catalogs/investment.generated";
 import { OPERATIONS_CARDS_BY_ID } from "@/lib/catalogs/operations.generated";
 import { SPECIALTY_RESOURCES_BY_ID } from "@/lib/catalogs/resource.generated";
 import type { ResourceCardDef, ResourceType } from "@/lib/catalogs/types";
-import { BOURBON_HAND_LIMIT, MAX_ACTIVE_INVESTMENTS } from "@/lib/engine/state";
+import { HAND_LIMIT, MAX_ACTIVE_INVESTMENTS } from "@/lib/engine/state";
+import { handSize } from "@/lib/engine/checks";
 import { summarizeMash, validateMash } from "@/lib/rules/mash";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
@@ -108,11 +109,16 @@ export default function HandTray() {
   const me = state.players[humanId];
   const seatIdx = paletteIndex(me.seatIndex);
 
-  const handSize =
+  // Total cards visible in tray (resources + every kind of card-in-hand).
+  // The 10-card hand limit only counts mash bills + unbuilt investments +
+  // operations (not resources, not Gold trophies); `cappedHandSize` is what
+  // the Audit cares about.
+  const traySize =
     me.resourceHand.length +
     me.bourbonHand.length +
     me.investments.length +
     me.operations.length;
+  const cappedHandSize = handSize(me);
   const isMyActionTurn =
     state.currentPlayerId === humanId && state.phase === "action";
   const cost = state.actionPhase.freeWindowActive
@@ -120,9 +126,12 @@ export default function HandTray() {
     : state.actionPhase.paidLapTier;
   const canAfford = me.cash >= cost;
 
-  // Bourbon hand is now public + multi-card; no more "headBourbon" face-up
-  // shortcut. The hand renders as a row of mini bourbon cards.
-  const bourbonHandFull = me.bourbonHand.length >= BOURBON_HAND_LIMIT;
+  // Bourbon hand is multi-card; soft-capped at HAND_LIMIT (combined with
+  // unbuilt investments + ops). Drawing past the cap is allowed but
+  // exposes you to the next Audit.
+  const overHandLimit = cappedHandSize > HAND_LIMIT;
+  const auditPending =
+    me.pendingAuditOverage != null && me.pendingAuditOverage > 0;
 
   // ---- Action eligibility checks ----------------------------------------
 
@@ -258,9 +267,24 @@ export default function HandTray() {
             Your hand
           </span>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-          {handSize} cards
+        <span
+          className={[
+            "font-mono text-[10px] uppercase tracking-[.12em]",
+            overHandLimit ? "text-rose-400" : "text-slate-500",
+          ].join(" ")}
+          title={
+            overHandLimit
+              ? `Over hand limit (${cappedHandSize}/${HAND_LIMIT}). An Audit will force a discard.`
+              : `Cards in hand: ${cappedHandSize}/${HAND_LIMIT}`
+          }
+        >
+          {traySize} cards · {cappedHandSize}/{HAND_LIMIT}
         </span>
+        {auditPending ? (
+          <span className="font-mono text-[10px] uppercase tracking-[.12em] text-rose-400">
+            audit: discard {me.pendingAuditOverage}
+          </span>
+        ) : null}
       </div>
 
       {/* 2 — resources, with Make stacked above */}
@@ -355,7 +379,7 @@ export default function HandTray() {
               </span>
             ) : (
               <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500 tabular-nums">
-                {me.bourbonHand.length}/{BOURBON_HAND_LIMIT}
+                {me.bourbonHand.length} bills
               </span>
             )}
           </div>
@@ -402,10 +426,18 @@ export default function HandTray() {
                 );
               })
             )}
-            {bourbonHandFull && !makeBourbon.active ? (
-              <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
-                full
-              </span>
+            {me.goldBourbons.length > 0 ? (
+              <div
+                className="ml-1 flex items-center gap-1 rounded-md border border-amber-400/50 bg-amber-500/[0.10] px-2 py-1"
+                title={`${me.goldBourbons.length} unlocked Gold Bourbon${me.goldBourbons.length === 1 ? "" : "s"} — score brand value at game end.`}
+              >
+                <span className="font-mono text-[10px] uppercase tracking-[.12em] text-amber-300">
+                  gold
+                </span>
+                <span className="font-mono text-[12px] font-bold text-amber-200 tabular-nums">
+                  {me.goldBourbons.length}
+                </span>
+              </div>
             ) : null}
           </div>
         </div>

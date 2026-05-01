@@ -18,12 +18,13 @@ function player(investments: Player["investments"]): Player {
     investments,
     operations: [],
     silverAwards: [],
-    goldAwards: [],
+    goldBourbons: [],
     eliminated: false,
     marketResolved: false,
     hasTakenPaidActionThisRound: false,
     loanOutstanding: false,
     loanUsed: false,
+    pendingAuditOverage: null,
   };
 }
 

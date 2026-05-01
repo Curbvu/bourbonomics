@@ -80,7 +80,7 @@ export default function OpponentList() {
               </span>
               <span>
                 <span className="font-semibold text-amber-300">
-                  {p.goldAwards.length}
+                  {p.goldBourbons.length}
                 </span>{" "}
                 gold
               </span>

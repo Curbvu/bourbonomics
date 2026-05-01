@@ -18,7 +18,7 @@ import { RICKHOUSES } from "./rickhouses";
 import { createRng } from "./rng";
 import type { BotDifficulty, GameState, Player, PlayerKind } from "./state";
 import {
-  BOURBON_HAND_LIMIT,
+  STARTING_BOURBON_HAND,
   DEFAULT_STARTING_CASH,
   STARTING_DEMAND,
 } from "./state";
@@ -56,7 +56,7 @@ export function createInitialState(config: NewGameConfig): GameState {
   const operationsDeck = buildOperationsDeck(rng);
   const marketDeck = buildMarketDeck(rng);
 
-  // Players. Each player draws BOURBON_HAND_LIMIT mash bills into their
+  // Players. Each player draws STARTING_BOURBON_HAND mash bills into their
   // starting bourbon hand. The bourbon deck is small enough (and the seat
   // count bounded at 6) that we can drain it in order without worrying
   // about reshuffles here.
@@ -66,7 +66,7 @@ export function createInitialState(config: NewGameConfig): GameState {
     const id = `p${idx + 1}`;
     playerOrder.push(id);
     const bourbonHand: string[] = [];
-    for (let i = 0; i < BOURBON_HAND_LIMIT; i += 1) {
+    for (let i = 0; i < STARTING_BOURBON_HAND; i += 1) {
       const [card, rest] = drawTop(bourbonDeck);
       if (card == null) break;
       bourbonHand.push(card);
@@ -84,12 +84,13 @@ export function createInitialState(config: NewGameConfig): GameState {
       investments: [],
       operations: [],
       silverAwards: [],
-      goldAwards: [],
+      goldBourbons: [],
       eliminated: false,
       marketResolved: false,
       hasTakenPaidActionThisRound: false,
       loanOutstanding: false,
       loanUsed: false,
+      pendingAuditOverage: null,
     };
   });
 
@@ -100,7 +101,7 @@ export function createInitialState(config: NewGameConfig): GameState {
   }));
 
   const state: GameState = {
-    version: 4,
+    version: 5,
     id: config.id,
     createdAt,
     seed: config.seed,
@@ -123,7 +124,9 @@ export function createInitialState(config: NewGameConfig): GameState {
       bourbonDeck,
       bourbonDiscard: [],
       investmentDeck,
+      investmentDiscard: [],
       operationsDeck,
+      operationsDiscard: [],
       marketDeck,
       marketDiscard: [],
     },
@@ -134,6 +137,7 @@ export function createInitialState(config: NewGameConfig): GameState {
       consecutivePasses: 0,
       passedPlayerIds: [],
       actionsThisLapPlayerIds: [],
+      auditCalledThisRound: false,
     },
     feesPhase: {
       resolvedPlayerIds: [],
@@ -142,8 +146,11 @@ export function createInitialState(config: NewGameConfig): GameState {
     marketPhase: {},
     currentRoundEffects: { resourceShortages: [] },
     pendingRoundEffects: { resourceShortages: [] },
+    finalRoundTriggered: false,
+    finalRoundEndsOnRound: null,
     winnerIds: [],
     winReason: null,
+    finalScores: null,
     log: [],
     logSeq: 0,
   };

@@ -24,7 +24,8 @@
  */
 
 import type { Action, ResourcePileName } from "@/lib/engine/actions";
-import { BOURBON_HAND_LIMIT } from "@/lib/engine/state";
+import { HAND_LIMIT } from "@/lib/engine/state";
+import { handSize } from "@/lib/engine/checks";
 import { useGameStore } from "@/lib/store/gameStore";
 import DeckStack from "./DeckStack";
 
@@ -73,8 +74,10 @@ export default function MarketPanel() {
   const grainCount = m.barley.length + m.rye.length + m.wheat.length;
 
   const bourbonCount = m.bourbonDeck.length;
-  const bourbonHandFull =
-    !!me && me.bourbonHand.length >= BOURBON_HAND_LIMIT;
+  // Soft cap — drawing past 10 is still legal but exposes you to the next
+  // Audit. We surface the over-cap state with a warning tooltip rather
+  // than blocking the draw.
+  const overHandLimit = !!me && handSize(me) >= HAND_LIMIT;
 
   // Demand value colour — cool when low, warm when mid, hot when high.
   const demandClass =
@@ -223,18 +226,18 @@ export default function MarketPanel() {
             label="bourbon"
             count={bourbonCount}
             tone="amber"
-            disabled={!drawable || bourbonCount === 0 || bourbonHandFull}
+            disabled={!drawable || bourbonCount === 0}
             title={
               !drawable
                 ? notDrawableReason(state, humanId, canAfford)
                 : bourbonCount === 0
                   ? "Bourbon deck empty"
-                  : bourbonHandFull
-                    ? `Mash-bill hand full (${BOURBON_HAND_LIMIT}/${BOURBON_HAND_LIMIT})`
+                  : overHandLimit
+                    ? `Hand at ${HAND_LIMIT}+; an Audit will force a discard`
                     : `Draw a mash bill${cost > 0 ? ` ($${cost})` : ""}`
             }
             onClick={
-              drawable && humanId && bourbonCount > 0 && !bourbonHandFull
+              drawable && humanId && bourbonCount > 0
                 ? () =>
                     dispatchDraw({
                       t: "DRAW_BOURBON",

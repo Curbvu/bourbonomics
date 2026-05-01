@@ -57,6 +57,13 @@ export type ActionSellBourbon = {
   t: "SELL_BOURBON";
   playerId: string;
   barrelId: string;
+  /**
+   * If set, the player is opting to apply one of their unlocked Gold
+   * Bourbons as the alt payout for this sale. The reducer validates
+   * the barrel actually meets that Gold Bourbon's criteria; if not the
+   * dispatch is rejected.
+   */
+  applyGoldBourbonId?: string;
 };
 
 export type ActionDrawInvestment = {
@@ -79,6 +86,33 @@ export type ActionResolveOperations = {
   t: "RESOLVE_OPERATIONS";
   playerId: string;
   operationsInstanceId: string;
+};
+
+/**
+ * Audit — any player whose turn it is may call this once per round.
+ * Forces every player (including the auditor) over the soft hand limit
+ * (HAND_LIMIT = 10 cards across mash bills + unbuilt investments + ops)
+ * into a `pendingAuditOverage` state; their next action must be an
+ * AUDIT_DISCARD bringing them back to 10. The auditor's action is
+ * consumed regardless of whether anyone overflowed.
+ */
+export type ActionCallAudit = {
+  t: "CALL_AUDIT";
+  playerId: string;
+};
+
+/**
+ * The discard side of an Audit. The acting player must specify which
+ * cards to drop; combined count must equal their `pendingAuditOverage`.
+ * Mash bills go to the bourbon discard, unbuilt investments to the
+ * investment discard, operations to the operations discard.
+ */
+export type ActionAuditDiscard = {
+  t: "AUDIT_DISCARD";
+  playerId: string;
+  mashBillIds: string[];
+  investmentInstanceIds: string[];
+  operationsInstanceIds: string[];
 };
 
 export type ActionPass = { t: "PASS_ACTION"; playerId: string };
@@ -131,6 +165,8 @@ export type Action =
   | ActionDrawOperations
   | ActionImplementInvestment
   | ActionResolveOperations
+  | ActionCallAudit
+  | ActionAuditDiscard
   | ActionPass
   | ActionPayFees
   | ActionTakeDistressedLoan

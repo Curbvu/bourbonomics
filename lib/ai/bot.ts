@@ -21,8 +21,10 @@ import {
   drawTop,
   MARKET_CARDS_BY_ID,
 } from "@/lib/engine/decks";
+import { handSize } from "@/lib/engine/checks";
 import {
-  BOURBON_HAND_LIMIT,
+  HAND_LIMIT,
+  STARTING_BOURBON_HAND,
   type BotDifficulty,
   type GameState,
   type Player,
@@ -71,6 +73,68 @@ function pickBest(
   return sorted[idx];
 }
 
+// ---------- Audit discard ----------
+
+/**
+ * Pick which cards to dump when the bot owes an Audit overage. Strategy:
+ *   1. Drop operations cards first (lowest expected value).
+ *   2. Then unbuilt investments with low capital (we already know we
+ *      probably can't afford expensive ones soon).
+ *   3. Then mash bills with the worst age-4 grid value.
+ * Stops once we've selected `overage` cards.
+ */
+export function pickAuditDiscard(
+  state: GameState,
+  playerId: string,
+): Extract<Action, { t: "AUDIT_DISCARD" }> {
+  const player = state.players[playerId];
+  const overage = player.pendingAuditOverage ?? 0;
+  const ops = player.operations.map((o) => o.instanceId);
+  const unbuiltInv = player.investments
+    .filter((i) => i.status === "unbuilt")
+    .sort((a, b) => investmentCapital(a.cardId) - investmentCapital(b.cardId))
+    .map((i) => i.instanceId);
+  const bills = player.bourbonHand.slice().sort((a, b) => {
+    const ca = BOURBON_CARDS_BY_ID[a];
+    const cb = BOURBON_CARDS_BY_ID[b];
+    if (!ca && !cb) return 0;
+    if (!ca) return -1;
+    if (!cb) return 1;
+    return (
+      lookupSalePrice(ca, 4, state.demand).price -
+      lookupSalePrice(cb, 4, state.demand).price
+    );
+  });
+
+  const opsToDiscard: string[] = [];
+  const invToDiscard: string[] = [];
+  const billsToDiscard: string[] = [];
+  let need = overage;
+
+  for (const id of ops) {
+    if (need <= 0) break;
+    opsToDiscard.push(id);
+    need -= 1;
+  }
+  for (const id of unbuiltInv) {
+    if (need <= 0) break;
+    invToDiscard.push(id);
+    need -= 1;
+  }
+  for (const id of bills) {
+    if (need <= 0) break;
+    billsToDiscard.push(id);
+    need -= 1;
+  }
+  return {
+    t: "AUDIT_DISCARD",
+    playerId,
+    mashBillIds: billsToDiscard,
+    investmentInstanceIds: invToDiscard,
+    operationsInstanceIds: opsToDiscard,
+  };
+}
+
 // ---------- Action phase ----------
 
 export function pickActionPhaseMove(
@@ -78,6 +142,12 @@ export function pickActionPhaseMove(
   playerId: string,
 ): Action {
   const player = state.players[playerId];
+
+  // If the bot owes an audit discard, that's the only legal next move.
+  if (player.pendingAuditOverage != null && player.pendingAuditOverage > 0) {
+    return pickAuditDiscard(state, playerId);
+  }
+
   const scored: ScoredAction[] = [];
   const cost = actionCostNow(state);
 
@@ -130,9 +200,9 @@ export function pickActionPhaseMove(
 
   // Draw resources: valuable if hand is missing a mash ingredient; dwindles as hand grows.
   if (player.cash >= cost) {
-    const handSize = player.resourceHand.length;
+    const handSizeNow = player.resourceHand.length;
     // Past 5 cards, drawing has negative value (overloaded hand).
-    const handPenalty = Math.max(0, handSize - 3) * 2;
+    const handPenalty = Math.max(0, handSizeNow - 3) * 2;
     for (const pile of ["cask", "corn", "barley", "rye", "wheat"] as const) {
       const missing = !player.resourceHand.some((r) => r.resource === pile);
       // If the bot already has a complete mash, don't chase more resources.
@@ -146,20 +216,21 @@ export function pickActionPhaseMove(
     }
   }
 
-  // Draw bourbon: most useful when the player has room in their bourbon
-  // hand and isn't yet ready to barrel. Stronger when they're empty,
-  // weaker (but still > 0) when they're partially full.
+  // Draw bourbon: most useful when the player has a small bourbon hand.
+  // Soft cap means the engine no longer blocks this past 10 — but the bot
+  // still doesn't want to bloat past the hand limit (Audit risk).
+  const totalHand = handSize(player);
   if (
     player.cash >= cost &&
-    player.bourbonHand.length < BOURBON_HAND_LIMIT &&
     state.market.bourbonDeck.length + state.market.bourbonDiscard.length > 0
   ) {
-    const handGap = BOURBON_HAND_LIMIT - player.bourbonHand.length;
-    const score = handGap * 1.2 - cost;
+    const bourbonHandGap = STARTING_BOURBON_HAND - player.bourbonHand.length;
+    const overflowPenalty = Math.max(0, totalHand - HAND_LIMIT) * 4;
+    const score = bourbonHandGap * 1.2 - cost - overflowPenalty;
     scored.push({
       action: { t: "DRAW_BOURBON", playerId },
       score,
-      reason: `draw bourbon — hand ${player.bourbonHand.length}/${BOURBON_HAND_LIMIT}`,
+      reason: `draw bourbon — bills ${player.bourbonHand.length}, hand ${totalHand}/${HAND_LIMIT}`,
     });
   }
 
@@ -193,6 +264,29 @@ export function pickActionPhaseMove(
       score: 3 - cost,
       reason: `resolve ops ${ops.cardId}`,
     });
+  }
+
+  // Call Audit: positive EV when at least one opponent is over the hand
+  // limit. The auditor pays nothing they wouldn't pay otherwise (cost
+  // matches a normal action), but forces a hand dump on opponents.
+  // Self-audit is fine if we're under-cap (no penalty to us).
+  if (player.cash >= cost && !state.actionPhase.auditCalledThisRound) {
+    let opponentOver = 0;
+    for (const id of state.playerOrder) {
+      if (id === playerId) continue;
+      const op = state.players[id];
+      if (op.eliminated) continue;
+      if (handSize(op) > HAND_LIMIT) opponentOver += 1;
+    }
+    const selfPenalty = handSize(player) > HAND_LIMIT ? 3 : 0;
+    const score = opponentOver * 5 - cost - selfPenalty;
+    if (opponentOver > 0) {
+      scored.push({
+        action: { t: "CALL_AUDIT", playerId },
+        score,
+        reason: `call audit — ${opponentOver} opponent(s) over ${HAND_LIMIT}`,
+      });
+    }
   }
 
   // Pass: gets stronger once the bot has nothing productive left to do.

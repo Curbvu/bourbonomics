@@ -12,9 +12,10 @@ export type Phase =
   | "fees" // Phase 1
   | "action" // Phase 2
   | "market" // Phase 3
+  | "scoring" // Final-round end-of-action scoring sweep
   | "gameover";
 
-export type WinReason = "triple_crown";
+export type WinReason = "final-round";
 
 // ---------- Resources ----------
 
@@ -91,8 +92,22 @@ export type Player = {
   bourbonHand: string[]; // bourbon card ids drawn / held
   investments: InvestmentInstance[];
   operations: OperationsInstance[];
-  silverAwards: string[]; // bourbon card ids with Silver
-  goldAwards: string[]; // bourbon card ids with Gold
+  /**
+   * Mash-bill ids that earned a Silver award and were returned to the
+   * player. Held in `bourbonHand`; this list is the de-dup set so the
+   * same mash bill can't be re-credited as Silver twice in a game.
+   */
+  silverAwards: string[];
+  /**
+   * Unlocked Gold Bourbons — face-up trophy cards that live in front
+   * of the player. NOT part of `bourbonHand`. Each one:
+   *   - is removed from the bourbon deck/discard for the rest of the game
+   *   - does NOT count toward the 10-card hand limit
+   *   - counts toward the 3-Gold final-round trigger
+   *   - scores its catalog `brandValue` at game end
+   *   - may be applied as an alt payout at sale time on any qualifying barrel
+   */
+  goldBourbons: string[];
   /**
    * Defensive flag — current rules have no bankruptcy, so this should
    * never become true in normal play. Kept so future re-introduction
@@ -109,6 +124,12 @@ export type Player = {
   loanOutstanding: boolean;
   /** True after this player has used their once-per-game loan eligibility. */
   loanUsed: boolean;
+  /**
+   * If non-null, this player owes an Audit-driven discard down to
+   * HAND_LIMIT (10). Their next legal action is `AUDIT_DISCARD`.
+   * Cleared once the discard is resolved.
+   */
+  pendingAuditOverage: number | null;
 };
 
 // ---------- Rickhouses ----------
@@ -129,13 +150,18 @@ export type Market = {
   wheat: ResourceCardInstance[];
   /**
    * Bourbon mash-bill deck. Players draw from here into their
-   * `bourbonHand` (up to `BOURBON_HAND_LIMIT` cards). Discard pile is
-   * reshuffled into the deck when empty.
+   * `bourbonHand`. Discard pile is reshuffled into the deck when
+   * empty. Bills earned as Gold trophies are REMOVED from circulation
+   * (never returned to deck or discard).
    */
   bourbonDeck: string[];
   bourbonDiscard: string[];
   investmentDeck: string[];
+  /** Pile that audited / dumped investments land in. */
+  investmentDiscard: string[];
   operationsDeck: string[];
+  /** Pile that audited / dumped operations cards land in. */
+  operationsDiscard: string[];
   /** Phase 3 market cards. Reshuffled from `marketDiscard` when empty. */
   marketDeck: string[];
   marketDiscard: string[];
@@ -154,6 +180,8 @@ export type ActionPhaseState = {
   passedPlayerIds: string[];
   /** Per-player track of actions taken this *lap* for ladder accounting. */
   actionsThisLapPlayerIds: string[];
+  /** True after any player calls Audit this round. Reset at round start. */
+  auditCalledThisRound: boolean;
 };
 
 export type FeesPhaseState = {
@@ -181,6 +209,17 @@ export type MarketPhasePlayerState = {
 export type RoundEffects = {
   /** Pile names that DRAW_RESOURCE rejects this round. */
   resourceShortages: ResourceType[];
+};
+
+// ---------- Final-round scoring ----------
+
+export type ScoreBreakdown = {
+  cash: number;
+  investments: number;
+  goldBourbons: number;
+  total: number;
+  /** How many unlocked Gold Bourbons the player has — used as primary tiebreak. */
+  goldCount: number;
 };
 
 // ---------- Events / log ----------
@@ -212,8 +251,14 @@ export type GameState = {
    *        added; SELL_BOURBON no longer takes a card param; players draw
    *        4 bourbon cards into bourbonHand at setup; bourbonFaceUp
    *        retired from the Market.
+   *   v5 → Gold awards UNLOCK a permanent face-up Gold Bourbon (Player.goldBourbons),
+   *        removed from circulation; loan repayment $13 → $15 ($5 interest);
+   *        soft 10-card combined hand limit replaces hard 4-bill cap;
+   *        new Audit action (CALL_AUDIT / AUDIT_DISCARD); third Gold triggers
+   *        FINAL ROUND (not immediate end), then market is skipped and a
+   *        new "scoring" phase resolves a detailed end-game tally.
    */
-  version: 4;
+  version: 5;
   id: string;
   createdAt: number;
 
@@ -250,9 +295,20 @@ export type GameState = {
    */
   pendingRoundEffects: RoundEffects;
 
+  /**
+   * True once any player unlocks their third Gold Bourbon. The current
+   * round becomes the final round: action phase continues normally, then
+   * market phase is skipped and scoring runs.
+   */
+  finalRoundTriggered: boolean;
+  /** Round number that the final round resolves on (the round the trigger fired in). */
+  finalRoundEndsOnRound: number | null;
+
   /** Set when the game ends. */
   winnerIds: string[];
   winReason: WinReason | null;
+  /** Final-round scoring breakdown per player. Populated when phase transitions to "scoring". */
+  finalScores: Record<string, ScoreBreakdown> | null;
 
   log: GameEvent[];
   /** Monotonic event counter. */
@@ -265,11 +321,22 @@ export const STARTING_DEMAND = 6;
 export const MAX_DEMAND = 12;
 export const MIN_DEMAND = 0;
 export const DEFAULT_STARTING_CASH = 40;
+/** Number of Gold Bourbons a player must unlock to trigger the final round. */
 export const TRIPLE_CROWN_GOLDS = 3;
 export const MAX_ACTIVE_INVESTMENTS = 3;
 export const DISTRESSED_LOAN_AMOUNT = 10;
-export const DISTRESSED_LOAN_REPAYMENT = 13;
+/** Loan repayment ($10 principal + $5 interest) — taken off the top in the next Phase 1. */
+export const DISTRESSED_LOAN_REPAYMENT = 15;
 /** Number of market cards drawn per player in Phase 3 (one is kept, the rest discarded). */
 export const MARKET_DRAW_COUNT = 2;
-/** Maximum mash bills (Bourbon cards) a player can hold in hand at once. */
-export const BOURBON_HAND_LIMIT = 4;
+/**
+ * Soft hand limit across mash bills + unbuilt investments + operations.
+ * Nothing prevents temporarily exceeding it — enforcement is via the
+ * Audit action, which forces every overflowing player to discard down
+ * to this number.
+ */
+export const HAND_LIMIT = 10;
+/** Number of Bourbon cards each player is dealt in setup. */
+export const STARTING_BOURBON_HAND = 4;
+/** Default brandValue applied at scoring for a Gold Bourbon if the catalog has no override. */
+export const DEFAULT_GOLD_BRAND_VALUE = 25;

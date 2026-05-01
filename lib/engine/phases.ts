@@ -7,6 +7,7 @@
  */
 
 import { resetPerRoundInvestmentUsage } from "@/lib/rules/investments";
+import { computeFinalScores, pickWinners } from "@/lib/rules/scoring";
 import type { GameState } from "./state";
 import {
   DISTRESSED_LOAN_REPAYMENT,
@@ -36,19 +37,30 @@ export function logEvent(
 // ---------- Win condition checks ----------
 
 /**
- * Per current rules, the only end-trigger is the Triple Crown:
- * any player with 3 Gold Bourbons ends the game immediately.
+ * Per current rules, the third unlocked Gold Bourbon does NOT end the game
+ * immediately — it announces the current round as the FINAL round. The
+ * action phase continues normally; the market phase is then skipped, and
+ * scoring runs as a separate phase.
+ *
+ * Idempotent: calling this multiple times within the trigger round just
+ * re-asserts the flag. The `finalRoundEndsOnRound` is locked the first
+ * time the flag is set so additional Golds in the same round don't shift
+ * the end-of-game.
  */
 export function checkWinConditions(state: GameState): void {
-  if (state.phase === "gameover") return;
+  if (state.phase === "gameover" || state.phase === "scoring") return;
+  if (state.finalRoundTriggered) return;
 
   for (const id of state.playerOrder) {
     const p = state.players[id];
-    if (p.goldAwards.length >= TRIPLE_CROWN_GOLDS) {
-      state.winnerIds = [id];
-      state.winReason = "triple_crown";
-      state.phase = "gameover";
-      logEvent(state, "win", { playerId: id, reason: "triple_crown" });
+    if (p.goldBourbons.length >= TRIPLE_CROWN_GOLDS) {
+      state.finalRoundTriggered = true;
+      state.finalRoundEndsOnRound = state.round;
+      logEvent(state, "final_round_triggered", {
+        triggeredBy: id,
+        round: state.round,
+        golds: p.goldBourbons.length,
+      });
       return;
     }
   }
@@ -97,8 +109,6 @@ export function enterFeesPhase(state: GameState): void {
       // Note: we leave loanOutstanding = true; the remaining $owed - partial
       // will be re-attempted next Phase 1. The reducer-level repayment helper
       // can be smarter later; for now this keeps the rule honest.
-      // To avoid double-counting, store remaining owed via subtraction by
-      // reusing the constant on next entry (the player has $0 either way).
     }
   }
   logEvent(state, "phase_change", { phase: "fees", round: state.round });
@@ -124,6 +134,7 @@ export function resetActionPhase(state: GameState): void {
     consecutivePasses: 0,
     passedPlayerIds: [],
     actionsThisLapPlayerIds: [],
+    auditCalledThisRound: false,
   };
   state.firstPasserId = null;
 }
@@ -162,7 +173,15 @@ export function maybeEndActionPhase(state: GameState): boolean {
   const alive = activePlayerCount(state);
   if (alive === 0) return false;
   if (state.actionPhase.consecutivePasses >= alive) {
-    enterMarketPhase(state);
+    // Final-round exception: skip Phase 3 and go straight to scoring.
+    if (
+      state.finalRoundTriggered &&
+      state.finalRoundEndsOnRound === state.round
+    ) {
+      enterScoringPhase(state);
+    } else {
+      enterMarketPhase(state);
+    }
     return true;
   }
   return false;
@@ -204,7 +223,30 @@ export function startNextRound(state: GameState): void {
     });
   }
   enterFeesPhase(state);
+  // Re-check: an outstanding final-round flag from a prior round shouldn't
+  // be possible (we route to scoring instead of starting a next round), but
+  // keep the win-check defensive in case of state import.
   checkWinConditions(state);
+}
+
+/**
+ * End-of-game scoring sweep. Computes per-player breakdowns, picks the
+ * winner(s) with tiebreaks, and parks the game in `gameover`.
+ */
+export function enterScoringPhase(state: GameState): void {
+  state.phase = "scoring";
+  logEvent(state, "phase_change", { phase: "scoring", round: state.round });
+  const scores = computeFinalScores(state);
+  state.finalScores = scores;
+  const winners = pickWinners(state, scores);
+  state.winnerIds = winners;
+  state.winReason = "final-round";
+  state.phase = "gameover";
+  logEvent(state, "win", {
+    winnerIds: winners,
+    reason: "final-round",
+    scores,
+  });
 }
 
 /** Cap demand to [MIN_DEMAND, MAX_DEMAND]. */

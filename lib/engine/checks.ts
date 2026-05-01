@@ -44,6 +44,21 @@ export function findBarrel(
   return null;
 }
 
+/**
+ * Number of cards counted against the soft 10-card hand limit. Includes
+ * mash bills + UNBUILT investments + operations cards. Active investments
+ * sit on the table and are NOT in hand. Unlocked Gold Bourbons are
+ * trophies, also NOT in hand.
+ */
+export function handSize(player: Player): number {
+  const unbuiltInvestments = player.investments.filter(
+    (i) => i.status === "unbuilt",
+  ).length;
+  return (
+    player.bourbonHand.length + unbuiltInvestments + player.operations.length
+  );
+}
+
 export function canMakeBourbon(
   state: GameState,
   playerId: string,
@@ -106,9 +121,32 @@ export function canSellBourbon(
   return { ok: true, card };
 }
 
+export function canCallAudit(
+  state: GameState,
+  playerId: string,
+): { ok: true } | { ok: false; reason: string } {
+  if (state.phase !== "action") return { ok: false, reason: "Not in action phase" };
+  if (state.currentPlayerId !== playerId)
+    return { ok: false, reason: "Not your turn" };
+  const p = state.players[playerId];
+  if (!p || p.eliminated) return { ok: false, reason: "No player" };
+  if (p.pendingAuditOverage != null)
+    return { ok: false, reason: "You owe an audit discard first" };
+  if (state.actionPhase.auditCalledThisRound)
+    return { ok: false, reason: "Audit already called this round" };
+  if (!canAffordCurrentAction(state, playerId))
+    return { ok: false, reason: "Cannot afford action cost" };
+  return { ok: true };
+}
+
 export function canPassAction(state: GameState, playerId: string): boolean {
   // Passing is always legal on your turn, regardless of the paid-action ladder.
-  return state.phase === "action" && state.currentPlayerId === playerId;
+  // Exception: a player owing an audit discard cannot pass — they must
+  // resolve the discard first.
+  if (state.phase !== "action") return false;
+  if (state.currentPlayerId !== playerId) return false;
+  if (state.players[playerId].pendingAuditOverage != null) return false;
+  return true;
 }
 
 export function activePlayerCount(state: GameState): number {
