@@ -4,19 +4,39 @@
 
 Welcome to *Bourbonomics*, an economic strategy game about building a bourbon empire in a shifting and often unpredictable market.
 
-Each player owns a distillery and tries to grow their business into the most valuable bourbon empire. Barons source ingredients, produce bourbon, age it over time, and sell it at the perfect moment. Along the way, you’ll invest in your distillery, improve operations, adapt to market conditions, and try to outmaneuver your competitors.
+Each player owns a distillery and tries to grow their business into the most valuable bourbon empire. Barons source ingredients, produce bourbon, age it over time, and sell it at the perfect moment. Along the way, you'll invest in your distillery, improve operations, adapt to market conditions, and try to outmaneuver your competitors.
 
-The challenge isn’t just making bourbon—it’s knowing **when** to make it, **where** to store it, and **when** to sell.
+The challenge isn't just making bourbon—it's knowing **when** to make it, **where** to store it, and **when** to sell.
 
 ---
 
 # 🏆 Winning the Game
 
-The game ends immediately when a player collects **three Gold Bourbons**.
+The game ends when a player collects their third Gold Bourbon. Producing the third Gold does not end the round immediately — it announces that the **current round is the final round**.
 
-At that point, all players calculate the value of their distillery. Count all cash, add the value of your investments, and treat every card you own as worth $1 unless otherwise stated. Gold Bourbons contribute additional brand value.
+The action phase continues normally for all players, including the triggering player. All standard actions are allowed: production, sales, swapping mash bills, calling audits, installing investments, and playing Operations cards. The paid-action pivot and audit rules apply as usual.
 
-The player with the highest total value wins.
+After the action phase ends, scoring occurs immediately. The Market Phase is skipped in the final round — there is no next round for market effects to apply to.
+
+## Scoring
+
+Each player calculates their final score by totaling the following:
+
+- **Cash:** Face value (each $1 in cash = $1 in score).
+- **Active Investments:** Each active investment scores its printed installation cost.
+- **Unsold Barrels in Rickhouses:** Score by age band, regardless of demand:
+  - Unaged (under 2 years): $1 per barrel
+  - Young (2–3 years): $2 per barrel
+  - Aged (4–7 years): $5 per barrel
+  - Well-Aged (8+ years): $10 per barrel
+- **Mash Bill Trophies:** $25 per Gold mash bill held, $5 per Silver mash bill held.
+- **Cards in hand (mash bills not held as trophies, Investments not yet installed, Operations cards):** Score $0.
+
+The highest total wins. Ties are broken first by number of Gold mash bills held, then by remaining cash. If still tied, the win is shared.
+
+## Why the Final Round Matters
+
+Triggering the third Gold doesn't immediately end play — every player, including the triggerer, takes their full set of actions in the final round. Most players will use the final round to liquidate barrels at current demand. Because each sale lowers demand by 1, selling order matters enormously: the first player to sell in the final round gets peak prices, while later sellers may face a crashed market. Smart play earlier in the game (pre-selling barrels, banking cash) sets up a strong position for this final scramble.
 
 ---
 
@@ -26,7 +46,7 @@ Each player starts with **$40** in initial capital. No one starts with investmen
 
 Shuffle all decks separately: the resource piles (Cask, Corn, Grain), the Bourbon cards, the Investment cards, the Operations cards, and the Market cards.
 
-Each player then draws **4 mash bills** (Bourbon Cards) from the top of the Bourbon deck into their starting hand. Mash bills are **public information** — keep them face-up so every player can see what brands and recipes you're working with.
+Deal each player 4 Bourbon cards (called "mash bills") as their starting hand. Mash bills are kept hidden from other players until played onto a barrel.
 
 Set the market demand to **6**. This number will rise and fall throughout the game and directly affects how valuable your bourbon is when you sell it.
 
@@ -36,13 +56,47 @@ Set the market demand to **6**. This number will rise and fall throughout the ga
 
 The game revolves around three main areas: the **market**, the **rickhouses**, and the **business decks**.
 
-The market consists of three face-down piles: casks, corn, and grain. These represent the raw materials you’ll use to produce bourbon.
+The market consists of three face-down piles: casks, corn, and grain. These represent the raw materials you'll use to produce bourbon.
 
 Rickhouses are shared storage locations where your bourbon ages. Each rickhouse has limited capacity, so space becomes competitive over time.
 
 The business decks contain Investment cards (long-term upgrades), Operations cards (short-term advantages), and the **Bourbon deck** of mash bills (the brands that decide how much each barrel sells for — see §Mash Bills).
 
 Lastly there are the Market cards, which are drawn at the end of each round.
+
+---
+
+# 📜 Mash Bills
+
+Bourbon cards are called **mash bills** — recipes that determine each barrel's sale price based on its age and current market demand.
+
+Mash bills are committed **at production, not at sale**. When you make bourbon, you choose one mash bill from your hand and place it face-up on the new barrel. Once placed, the mash bill is **locked to that barrel for its lifetime** and becomes public information that any player may inspect.
+
+When the barrel is sold, the attached mash bill's grid determines the payout based on the barrel's age and the current demand band.
+
+A player with **no mash bills in hand cannot make bourbon**. As an action, a player may discard one mash bill from their hand and draw a new one from the Bourbon deck.
+
+---
+
+# 🃏 Hand Limit
+
+A player's hand may contain a mix of **mash bills, Investment cards, and Operations cards**. The soft hand limit is **10 cards total** across all card types.
+
+The limit is **soft** because nothing prevents you from temporarily exceeding it. Instead, the limit is enforced by a player-triggered mechanism called the **Audit** (see next section).
+
+---
+
+# 🔍 The Audit
+
+As their action on their turn, a player may **call an Audit**.
+
+When an Audit is called, **all players** (including the auditor) holding **more than 10 cards** in hand must immediately discard down to 10. The discarding player chooses which cards to discard. Discarded cards go to their appropriate discard piles — mash bills to the Bourbon discard, Investments to the Investment discard, Operations to the Operations discard.
+
+Players already at 10 or fewer cards are unaffected.
+
+**Only one Audit may be called per round.** After an Audit is called, no further Audits may be called until the next round. The auditor's action is consumed by the Audit, regardless of whether any opponents had to discard.
+
+*Thematically, think of this as a regulatory inspection — distillery audits are part of the bourbon business.*
 
 ---
 
@@ -99,17 +153,21 @@ The phase ends once all players pass in the same loop. The pivot player (the fir
 
 On your turn, you choose one action.
 
-You might draw a resource card from the market, taking a cask, corn, or grain. You could draw an Investment or Operations card to expand your options. You may also **discard and draw a mash bill** (see §Mash Bills below) to refresh your hand.
+You might draw a resource card from the market, taking a cask, corn, or grain. You could also draw an Investment or Operations card to expand your options.
 
-You can also **make bourbon**. To do this, you must combine at least one cask, one corn, and one grain, **and choose one mash bill from your hand to attach to the barrel**. Place the bourbon into an available rickhouse slot. You can add additional grains or corn to improve your mix, but you may only use one cask per barrel. The chosen mash bill is **locked to that barrel for life** and decides its sale price when you eventually sell.
+You can also make bourbon. To do this, you must combine at least one cask, one corn, and one grain, then choose one mash bill from your hand and place it face-up on the new barrel as you place it in an available rickhouse slot. The mash bill is locked to that barrel and becomes public information. You can add additional grains or corn to improve your mix, but you may only use one cask per barrel. A player with no mash bills in hand cannot make bourbon.
 
-Another option is to **sell bourbon**, which requires the barrel to be at least two years old. **The mash bill attached to the barrel determines the payout** based on the bourbon's age and the current market demand. (You do not draw a new mash bill at sale — the bill committed at production is what you sell on.)
+Another option is to sell bourbon, which requires the barrel to be at least two years old. When you sell, refer to the mash bill attached to that barrel and determine the payout based on the bourbon's age and the current market demand. The mash bill is then discarded with the barrel, unless a Silver or Gold award states otherwise.
 
 You may also choose to **implement an investment**. This requires paying the cost printed on the card. Once paid, the investment is placed in front of you and becomes active immediately.
 
 However, each player may have no more than **three active investments at any time**. This forces you to make strategic choices about which long-term advantages matter most.
 
-Finally, you may play an Operations card, which provides an immediate effect.
+You may play an Operations card, which provides an immediate effect.
+
+You may **swap a mash bill** by discarding one card from your hand and drawing a new one from the Bourbon deck. This is useful when your hand no longer matches your strategy.
+
+You may **call an Audit**, which forces all players holding more than 10 cards to discard down to 10. See the Audit section for full rules.
 
 At any time, players may trade freely. Trading does not require an action and can involve any combination of resources, cards, bourbon, or even investments.
 
@@ -125,37 +183,6 @@ The longer you wait, the more valuable it can become—but the market may not co
 
 ---
 
-# 🍯 Mash Bills
-
-Mash bills are the brands and recipes that determine how much each barrel pays out when sold. They live in your hand until you commit one to a barrel at production.
-
-## Hand Limit
-
-You may hold **up to 4 mash bills** in your hand at any time. You start the game at the limit (4 bills, drawn during setup). The hand naturally drops below 4 as you commit mash bills to barrels — see *Refreshing Your Hand* below for how to bring it back up.
-
-Mash bills are **public information**: every player keeps their hand face-up. The table can read your brands and anticipate the kinds of barrels you're building toward.
-
-## Refreshing Your Hand
-
-Two action-phase actions interact with your mash-bill hand:
-
-- **Draw a mash bill** — when your hand is below the 4-card limit, draw the top card of the Bourbon deck into your hand.
-- **Discard and draw** — discard a mash bill from your hand and immediately draw a replacement from the top of the Bourbon deck. Useful when your current bills don't fit the barrels you're planning. Hand size is unchanged.
-
-Both options cost one action.
-
-## Committing at Production
-
-When you make bourbon, you **must choose exactly one mash bill from your hand** to attach to the new barrel. The mash bill is **locked to that specific barrel for life** — you cannot move it, swap it for another, or split it across barrels. While the barrel ages, that mash bill is *not* in your hand; it lives on the barrel.
-
-## At Sale
-
-When the barrel is sold, the **attached mash bill determines the payout** using its printed price grid (age band × demand band — see §Mash Bill Pricing). You do not draw a new bill at sale.
-
-By default, the mash bill is **discarded** to the bottom of the Bourbon deck once the sale resolves. The two **Bourbon Awards** below are exceptions to that default — they keep the mash bill in play.
-
----
-
 # 📉 Phase 3: Market Phase
 
 After all players have finished the action phase, the market shifts.
@@ -168,15 +195,17 @@ Most market effects apply during the **next round** and last for only one round.
 
 If the Market deck runs out, **reshuffle the discard pile** to form a new deck and continue play.
 
+**Final Round Exception:** The Market Phase is skipped in the final round (the round in which a player produces their third Gold Bourbon). After the action phase ends, scoring occurs immediately.
+
 ---
 
 ### Example
 
 You draw two cards:
-- “Demand increases by 2”
-- “Corn shortage next round”
+- "Demand increases by 2"
+- "Corn shortage next round"
 
-You must choose one. Increasing demand makes bourbon more valuable, but a corn shortage might disrupt your opponents’ plans—or your own.
+You must choose one. Increasing demand makes bourbon more valuable, but a corn shortage might disrupt your opponents' plans—or your own.
 
 This decision helps shape the conditions everyone will face in the next round.
 
@@ -249,16 +278,17 @@ Capacity is the maximum number of barrels (across all players) that can age in t
 
 # 🥇 Bourbon Awards
 
-Some mash bills grant special awards when their barrel is sold under the right conditions. Awards change what happens to the mash bill *after* the sale — the default behaviour is for the bill to head to the discard.
+Some mash bills grant special awards when the bourbon is sold.
 
-- **Silver award.** When the barrel is sold, the mash bill **returns to the player's hand** instead of being discarded. The player can attach it to a future barrel.
-- **Gold award.** When the barrel is sold, the mash bill **stays permanently in the player's hand** (and may be reattached to future barrels indefinitely). Gold-marked mash bills also count toward the **3 Gold Bourbons** win condition — the only path to the immediate-end Triple Crown.
+A Silver award returns the mash bill to your hand instead of discarding it, allowing you to attach it to a future barrel.
 
-A given mash bill prints both Silver and Gold criteria; whichever is met by the sale is the award that fires. Gold takes precedence over Silver when both qualify.
+A Gold award also returns the mash bill to your hand permanently — it stays with you for the rest of the game and may be reused on any number of future barrels. Gold mash bills also contribute toward winning the game.
+
+Note: Gold and Silver mash bills returned to a player's hand are kept face-up in front of the player as **trophies**. They count toward the 10-card hand limit but score brand value at game end ($25 per Gold, $5 per Silver). They may be attached to future barrels per their award rules.
 
 ## Design Guidance for Card Authors
 
-When designing a mash bill with a **Gold** award, the qualification bar should be intentionally hard to reach. As a rule of thumb, **Gold typically requires a bourbon that is 10+ years aged AND uses at least 2 grain cards in its production recipe**. Pair that with a strong demand-band requirement and Gold stays rare and meaningful — the win-condition trophy it is meant to be. Silver criteria can be looser (e.g. a single specialty grain, or one demand band lower) so that mid-game play has reachable upside without trivializing Gold.
+When designing a mash bill with a Gold award, the qualification bar should be intentionally hard to reach. As a rule of thumb, Gold typically requires a bourbon that is 10+ years aged AND uses at least 2 grain cards in its mash bill. Pair that with a strong demand band requirement and Gold stays rare and meaningful — the win-condition card it is meant to be. Silver criteria can be looser (e.g. a single specialty grain, or one demand band lower) so that mid-game play has reachable upside without trivializing Gold.
 
 ---
 
@@ -274,7 +304,7 @@ You gather resources, make bourbon, let it age, sell it into the market, and the
 
 Early in the game, your focus should be on getting bourbon into rickhouses as quickly as possible so it can begin aging.
 
-In the middle of the game, you’ll need to balance production, investment, and timing. Watch the market carefully—selling at the wrong moment can undo several rounds of work.
+In the middle of the game, you'll need to balance production, investment, and timing. Watch the market carefully—selling at the wrong moment can undo several rounds of work.
 
 In the late game, everything comes down to timing. A well-timed sale or a smart market choice can be the difference between winning and losing.
 
@@ -282,6 +312,6 @@ In the late game, everything comes down to timing. A well-timed sale or a smart 
 
 # 🥃 Final Thought
 
-Bourbonomics isn’t about making bourbon.
+Bourbonomics isn't about making bourbon.
 
-It’s about knowing when the world is ready to buy it.
+It's about knowing when the world is ready to buy it.
