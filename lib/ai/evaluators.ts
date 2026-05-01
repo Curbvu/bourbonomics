@@ -82,6 +82,50 @@ export function pickBestGoldAlt(
   return { goldId: bestId, payout: bestPrice };
 }
 
+/**
+ * Pick the best owned barrel to sell right now.
+ *
+ * Considers every owned age-≥2 barrel and returns the one with the
+ * highest projected payout, accounting for any Gold Bourbon alt-payout
+ * that strictly beats the attached bill's grid. Returns null when the
+ * player has no sellable barrel.
+ *
+ * Used by:
+ *   - the HandTray "Sell ↵" shortcut (sell the obvious best one),
+ *   - any "did I miss a better sale?" hint in the UI,
+ *   - tests that lock the contract independently of bot scoring code.
+ */
+export function pickBestSellable(
+  state: GameState,
+  player: Player,
+): {
+  barrel: BarrelInstance;
+  rickhouseId: RickhouseId;
+  payout: number;
+  goldAlt: { goldId: string; payout: number } | null;
+} | null {
+  let bestPayout = -Infinity;
+  let best:
+    | {
+        barrel: BarrelInstance;
+        rickhouseId: RickhouseId;
+        payout: number;
+        goldAlt: { goldId: string; payout: number } | null;
+      }
+    | null = null;
+  for (const { rickhouseId, barrel } of ownedBarrels(state, player.id)) {
+    if (barrel.age < 2) continue;
+    const basePayout = estimateSalePayout(state, barrel);
+    const altPick = pickBestGoldAlt(state, player, barrel);
+    const payout = altPick ? altPick.payout : basePayout;
+    if (payout > bestPayout) {
+      bestPayout = payout;
+      best = { barrel, rickhouseId, payout, goldAlt: altPick };
+    }
+  }
+  return best;
+}
+
 export function expectedFeesNextRound(state: GameState, playerId: string): number {
   const fees = feesForPlayer(state, playerId);
   return fees.reduce((s, f) => s + f.amount, 0);

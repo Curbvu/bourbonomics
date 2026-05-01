@@ -20,9 +20,12 @@
  * existing consumers — the layout is no longer a single row.
  */
 
+import { BOURBON_CARDS_BY_ID } from "@/lib/catalogs/bourbon.generated";
+import { pickBestGoldAlt } from "@/lib/ai/evaluators";
+import { lookupSalePrice } from "@/lib/rules/pricing";
+import { validateMash } from "@/lib/rules/mash";
 import type { RickhouseId } from "@/lib/engine/rickhouses";
 import { RICKHOUSES } from "@/lib/engine/rickhouses";
-import { validateMash } from "@/lib/rules/mash";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
 import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
@@ -80,6 +83,49 @@ export default function RickhouseRow() {
       mashBillId: makeBourbon.mashBillId,
     });
     cancelMakeBourbon();
+  };
+
+  // Per-barrel sell affordance. With mash bills locked to barrels at
+  // production every owned barrel has a knowable sale price right now,
+  // so each chip becomes a click-to-sell button when the conditions are
+  // right. Sell mode is mutually exclusive with make-bourbon mode (the
+  // rickhouse-card itself is the click target during a make), and is
+  // disabled while the player owes an audit discard or is frozen by a
+  // distressed loan.
+  const isMyActionTurn =
+    !!humanId &&
+    state.currentPlayerId === humanId &&
+    state.phase === "action";
+  const actionCost = state.actionPhase.freeWindowActive
+    ? 0
+    : state.actionPhase.paidLapTier;
+  const canAffordAction = !!me && me.cash >= actionCost;
+  const auditPending = !!me && (me.pendingAuditOverage ?? 0) > 0;
+  const sellingAllowed =
+    !!humanId &&
+    !!me &&
+    isMyActionTurn &&
+    canAffordAction &&
+    !makeBourbon.active &&
+    !auditPending &&
+    !me.loanSiphonActive;
+
+  const sellBarrel = (barrelId: string, applyGoldBourbonId?: string) => {
+    if (!sellingAllowed || !humanId) return;
+    if (applyGoldBourbonId) {
+      dispatch({
+        t: "SELL_BOURBON",
+        playerId: humanId,
+        barrelId,
+        applyGoldBourbonId,
+      });
+    } else {
+      dispatch({
+        t: "SELL_BOURBON",
+        playerId: humanId,
+        barrelId,
+      });
+    }
   };
 
   const sectionClass = makeBourbon.active ? "relative z-40" : "";
@@ -168,11 +214,53 @@ export default function RickhouseRow() {
                   const seatIdx = paletteIndex(
                     state.players[b.ownerId]?.seatIndex ?? 0,
                   );
+                  const isMine = !!humanId && b.ownerId === humanId;
+                  const sellable = isMine && b.age >= 2 && sellingAllowed;
+                  const card = BOURBON_CARDS_BY_ID[b.mashBillId];
+                  const basePrice = card
+                    ? lookupSalePrice(card, b.age, state.demand).price
+                    : 0;
+                  const altPick =
+                    isMine && me ? pickBestGoldAlt(state, me, b) : null;
+                  const projectedPrice = altPick ? altPick.payout : basePrice;
+                  const tooltip = isMine
+                    ? `${card?.name ?? b.mashBillId} · age ${b.age}` +
+                      (b.age < 2
+                        ? " · needs ≥2 to sell"
+                        : ` · sells for $${projectedPrice}` +
+                          (altPick
+                            ? ` (Gold alt: ${BOURBON_CARDS_BY_ID[altPick.goldId]?.name ?? altPick.goldId})`
+                            : "") +
+                          (sellable
+                            ? actionCost > 0
+                              ? ` · click to sell ($${actionCost} action)`
+                              : ` · click to sell`
+                            : ""))
+                    : `${state.players[b.ownerId]?.name ?? "?"} · age ${b.age}`;
+                  const baseChipClass = `grid h-7 w-7 place-items-center rounded-[5px] font-mono text-[10px] font-bold leading-none text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18)] ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`;
+                  if (sellable) {
+                    return (
+                      <button
+                        key={b.barrelId}
+                        type="button"
+                        title={tooltip}
+                        onClick={() =>
+                          sellBarrel(
+                            b.barrelId,
+                            altPick ? altPick.goldId : undefined,
+                          )
+                        }
+                        className={`${baseChipClass} cursor-pointer outline outline-2 outline-amber-300 outline-offset-1 transition-transform hover:-translate-y-0.5`}
+                      >
+                        {b.age}
+                      </button>
+                    );
+                  }
                   return (
                     <div
                       key={b.barrelId}
-                      title={`${state.players[b.ownerId]?.name ?? "?"} · age ${b.age}`}
-                      className={`grid h-7 w-7 place-items-center rounded-[5px] font-mono text-[10px] font-bold leading-none text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18)] ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
+                      title={tooltip}
+                      className={baseChipClass}
                     >
                       {b.age}
                     </div>

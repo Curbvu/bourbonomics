@@ -30,7 +30,7 @@ import { SPECIALTY_RESOURCES_BY_ID } from "@/lib/catalogs/resource.generated";
 import type { ResourceCardDef, ResourceType } from "@/lib/catalogs/types";
 import { HAND_LIMIT, MAX_ACTIVE_INVESTMENTS } from "@/lib/engine/state";
 import { handSize } from "@/lib/engine/checks";
-import { pickBestGoldAlt } from "@/lib/ai/evaluators";
+import { pickBestSellable } from "@/lib/ai/evaluators";
 import { summarizeMash, validateMash } from "@/lib/rules/mash";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
@@ -203,36 +203,30 @@ export default function HandTray() {
   const mashBreakdown = summarizeMash(selectedMash);
   const mashValid = mashValidation.ok;
 
-  // Sell — auto-pick the oldest sellable barrel. Mash bill is whatever
-  // the barrel was made with (locked at production), so the player no
-  // longer needs a separate bourbon card in hand.
-  const ownedBarrels = state.rickhouses.flatMap((h) =>
-    h.barrels.filter((b) => b.ownerId === humanId),
-  );
-  const sellableBarrel = ownedBarrels.find((b) => b.age >= 2);
-  const sellableBarrelBill = sellableBarrel
-    ? BOURBON_CARDS_BY_ID[sellableBarrel.mashBillId]
-    : null;
-  // If the player has unlocked Gold Bourbons that beat the attached
-  // bill's payout for this barrel, auto-apply the best one. The rules
-  // make alt-payout optional, but it's strictly better — taking it
-  // every time is the right default UX. (Power-user override could
-  // surface a picker later.)
-  const goldAlt = sellableBarrel
-    ? pickBestGoldAlt(state, me, sellableBarrel)
-    : null;
-  const canSell = isMyActionTurn && canAfford && !!sellableBarrel;
+  // Sell — pick the highest-paying sellable barrel as the default. With
+  // mash bills locked at production, every barrel has a known sale price
+  // right now; the Sell ↵ button is a "sell the obvious best one"
+  // shortcut. Players can also click any individual barrel chip directly
+  // in the rickhouse grid to sell that specific barrel.
+  const bestSellable = pickBestSellable(state, me);
+  const goldAlt = bestSellable?.goldAlt ?? null;
+  const canSell = isMyActionTurn && canAfford && !!bestSellable;
   const sellReason = !isMyActionTurn
     ? "Wait for your turn"
     : !canAfford
       ? `Need $${cost} to act`
-      : !sellableBarrel
+      : !bestSellable
         ? "No barrel is 2+ years aged"
-        : goldAlt
-          ? `Sell ${sellableBarrel.age}y barrel via Gold (${BOURBON_CARDS_BY_ID[goldAlt.goldId]?.name ?? goldAlt.goldId}) for $${goldAlt.payout}`
-          : `Sell ${sellableBarrel.age}y barrel (${
-              sellableBarrelBill?.name ?? sellableBarrel.mashBillId
-            })`;
+        : (() => {
+            const bill =
+              BOURBON_CARDS_BY_ID[bestSellable.barrel.mashBillId]?.name ??
+              bestSellable.barrel.mashBillId;
+            const ageStr = `${bestSellable.barrel.age}y`;
+            const altStr = goldAlt
+              ? ` via Gold (${BOURBON_CARDS_BY_ID[goldAlt.goldId]?.name ?? goldAlt.goldId})`
+              : "";
+            return `Sell ${ageStr} barrel (${bill}) for $${bestSellable.payout}${altStr} — or click any barrel in a rickhouse to sell it directly`;
+          })();
 
   // Implement — auto-pick the first unbuilt investment. Cap at 3 active.
   const unbuiltInv = me.investments.find((i) => i.status === "unbuilt");
@@ -291,19 +285,19 @@ export default function HandTray() {
   // ---- Action dispatchers -----------------------------------------------
 
   const sell = () => {
-    if (!canSell || !sellableBarrel) return;
+    if (!canSell || !bestSellable) return;
     if (goldAlt) {
       dispatch({
         t: "SELL_BOURBON",
         playerId: humanId,
-        barrelId: sellableBarrel.barrelId,
+        barrelId: bestSellable.barrel.barrelId,
         applyGoldBourbonId: goldAlt.goldId,
       });
     } else {
       dispatch({
         t: "SELL_BOURBON",
         playerId: humanId,
-        barrelId: sellableBarrel.barrelId,
+        barrelId: bestSellable.barrel.barrelId,
       });
     }
   };
