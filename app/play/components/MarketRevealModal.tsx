@@ -32,36 +32,31 @@ export default function MarketRevealModal() {
   const state = useGameStore((s) => s.state);
   const dispatch = useGameStore((s) => s.dispatch);
 
-  // Auto-draw — fires whenever the human's market-phase turn is up and
-  // they haven't drawn yet. Two trigger points:
+  // Auto-draw — re-checks every render. Whenever the human's market-phase
+  // turn is up and they haven't drawn yet, dispatch MARKET_DRAW. The
+  // reducer's own guards make this idempotent (once drawnCardIds is
+  // non-empty the next render's effect short-circuits), so the only thing
+  // that fires this is the actual transition into the "ready to draw"
+  // state.
   //
-  //   1) On every store update (subscribe) — covers the live in-game flow
-  //      where bots auto-resolve and control eventually reaches the human.
-  //   2) Once on mount (initial check) — covers refresh / save-load where
-  //      the conditions are *already* met when this component first
-  //      renders. A subscribe-only approach would miss this.
-  //
-  // The reducer's own guards make this idempotent — once drawnCardIds is
-  // non-empty, both the subscribe handler and any subsequent re-trigger
-  // short-circuit.
+  // We deliberately use a state-dependency useEffect rather than a
+  // useGameStore.subscribe handler: subscribe only delivers *future*
+  // updates, so a component that mounts with conditions already met (page
+  // refresh, save-load, bot driver having settled before mount) never
+  // received a callback.
   useEffect(() => {
-    const tryAutoDraw = (cur: ReturnType<typeof useGameStore.getState>) => {
-      const s = cur.state;
-      if (!s) return;
-      const me = s.playerOrder.find((id) => s.players[id].kind === "human");
-      if (!me) return;
-      if (s.phase !== "market") return;
-      if (s.currentPlayerId !== me) return;
-      const player = s.players[me];
-      if (!player || player.eliminated || player.marketResolved) return;
-      if (s.marketPhase[me]?.drawnCardIds?.length) return;
-      cur.dispatch({ t: "MARKET_DRAW", playerId: me });
-    };
-    // Initial check (covers refresh / save-load into market phase).
-    tryAutoDraw(useGameStore.getState());
-    // Future updates.
-    return useGameStore.subscribe(tryAutoDraw);
-  }, []);
+    if (!state) return;
+    const me = state.playerOrder.find(
+      (id) => state.players[id].kind === "human",
+    );
+    if (!me) return;
+    if (state.phase !== "market") return;
+    if (state.currentPlayerId !== me) return;
+    const player = state.players[me];
+    if (!player || player.eliminated || player.marketResolved) return;
+    if (state.marketPhase[me]?.drawnCardIds?.length) return;
+    dispatch({ t: "MARKET_DRAW", playerId: me });
+  }, [state, dispatch]);
 
   // Render gate — read directly from state so the modal also shows up
   // after a page refresh mid-draw.
