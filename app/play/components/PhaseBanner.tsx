@@ -93,7 +93,7 @@ export default function PhaseBanner({
           <div
             key={p.k}
             className={[
-              "flex min-w-0 items-center gap-2.5 px-3.5 py-2.5",
+              "flex min-w-0 items-center gap-3 px-4 py-4",
               expandActive ? "flex-[3]" : "flex-1",
               i < PHASES.length - 1 ? "border-r border-slate-800" : "",
               active ? "bg-amber-700/[0.18]" : "",
@@ -105,12 +105,12 @@ export default function PhaseBanner({
             {/* Step indicator (circle) */}
             <span
               className={[
-                "grid h-[22px] w-[22px] flex-shrink-0 place-items-center rounded-full font-mono text-[10px] font-bold leading-none",
+                "grid h-[30px] w-[30px] flex-shrink-0 place-items-center rounded-full font-mono text-[13px] font-bold leading-none",
                 active
                   ? "bg-amber-500 text-slate-950"
                   : past
                     ? "bg-slate-700 text-slate-300"
-                    : "border-[1.5px] border-slate-700 text-slate-400",
+                    : "border-2 border-slate-700 text-slate-400",
               ].join(" ")}
               aria-hidden
             >
@@ -120,7 +120,7 @@ export default function PhaseBanner({
             {/* Phase label */}
             <span
               className={[
-                "flex-shrink-0 text-[13px]",
+                "flex-shrink-0 text-[17px]",
                 active
                   ? "font-semibold text-amber-100"
                   : past
@@ -145,10 +145,10 @@ export default function PhaseBanner({
             {expandActive && (
               <>
                 <span
-                  className="ml-1.5 mr-1 h-[18px] w-px bg-amber-700 opacity-50"
+                  className="ml-2 mr-1 h-[24px] w-px bg-amber-700 opacity-50"
                   aria-hidden
                 />
-                <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+                <span className="font-mono text-[12px] uppercase tracking-[.14em] text-slate-400">
                   next costs
                 </span>
                 <div className="flex items-center gap-1">
@@ -178,16 +178,15 @@ export default function PhaseBanner({
                   ) : null}
                 </div>
                 {/* Demand lives in the action sub-bar — the strategic
-                    centrepiece of the action phase. Smooth gradient bar
-                    with a live marker so the player can read where the
-                    market is at a glance. */}
+                    centrepiece of the action phase. 12 discrete cells
+                    fill across a blue→amber gradient as demand rises. */}
                 <span
-                  className="ml-3 mr-1 h-[18px] w-px bg-amber-700 opacity-50"
+                  className="ml-3 mr-1 h-[24px] w-px bg-amber-700 opacity-50"
                   aria-hidden
                 />
                 <DemandBar value={state.demand} />
                 <span className="flex-1" />
-                <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+                <span className="font-mono text-[12px] uppercase tracking-[.14em] text-slate-400">
                   tap a pile to act
                 </span>
               </>
@@ -219,7 +218,7 @@ function FeesSummary({
   if (active) {
     return (
       <span
-        className="ml-1 truncate font-mono text-[10px] uppercase tracking-[.12em] text-amber-200"
+        className="ml-1 truncate font-mono text-[12px] uppercase tracking-[.14em] text-amber-200"
         title={`$${totalOwed} owed across ${totalBarrels} barrel${totalBarrels === 1 ? "" : "s"}`}
       >
         ${totalOwed} owed
@@ -229,7 +228,7 @@ function FeesSummary({
   // Past — already resolved this round.
   return (
     <span
-      className="ml-1 truncate font-mono text-[10px] uppercase tracking-[.12em] text-slate-500"
+      className="ml-1 truncate font-mono text-[12px] uppercase tracking-[.14em] text-slate-400"
       title={`${aged} of ${totalBarrels} barrel${totalBarrels === 1 ? "" : "s"} aged this round`}
     >
       {aged}/{totalBarrels} aged
@@ -238,57 +237,71 @@ function FeesSummary({
 }
 
 /**
- * Smooth-gradient demand readout for the action sub-bar. Renders a
- * single bar tinted with a continuous slate→emerald→amber→rose ramp
- * (cool when low, hot when high), filled to the current demand
- * percentage, with a marker at the live value and a tiny "N/12" label.
+ * Demand readout — 12 discrete slot cells, each painted with a colour
+ * sampled from a continuous **blue → amber** ramp so the fill goes
+ * cool at low demand and bourbon-warm at high demand. Inactive
+ * (above-current) cells stay slate.
  *
- * Replaces the previous chunky 12-cell strip in MarketPanel — same
- * data, much less visual noise, and now sits inline with the cost
- * ladder where strategic decisions actually happen.
+ * Sits inline in the action sub-bar next to the cost ladder, where
+ * strategic decisions actually happen — replaces the standalone
+ * Demand block that used to live at the top of MarketPanel.
  */
 function DemandBar({ value }: { value: number }) {
-  const pct = Math.max(0, Math.min(100, (value / 12) * 100));
-  // Same cool→warm→hot ramp colour-wise the player will recognise from
-  // the old 3-band chunks, but as one smooth gradient so the
-  // transition between bands isn't visually quantised.
-  const ramp =
-    "linear-gradient(90deg, rgb(71,85,105) 0%, rgb(16,185,129) 25%, rgb(245,158,11) 60%, rgb(244,63,94) 100%)";
+  // Discrete 12-step blue→amber ramp. Each cell index `i` (0..11)
+  // gets its own colour; the player perceives a smooth gradient
+  // across the row even though the cells are individually filled.
+  // Endpoints: sky-400 (cool low) → amber-400 (bourbon high).
+  const cellColor = (i: number) => {
+    const t = i / 11; // 0..1
+    // sky-400  rgb(56,189,248) → amber-400 rgb(251,191,36)
+    const r = Math.round(56 + (251 - 56) * t);
+    const g = Math.round(189 + (191 - 189) * t);
+    const b = Math.round(248 + (36 - 248) * t);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
   const valueClass =
     value >= 9
-      ? "text-rose-400"
+      ? "text-amber-300"
       : value >= 6
-        ? "text-amber-300"
+        ? "text-amber-200"
         : value >= 3
-          ? "text-emerald-300"
-          : "text-slate-300";
+          ? "text-sky-300"
+          : "text-slate-400";
   return (
     <div
-      className="flex min-w-[180px] items-center gap-2"
+      className="flex min-w-[320px] items-center gap-3"
       title={`Market demand ${value} of 12`}
     >
-      <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+      <span className="font-mono text-[12px] uppercase tracking-[.14em] text-slate-400">
         demand
       </span>
-      <div
-        className="relative h-[10px] flex-1 overflow-hidden rounded-full border border-slate-700 bg-slate-900/80"
-        aria-hidden
-      >
-        {/* Filled portion — gradient is fixed across the full track,
-            we just clip with width so the colour at the leading edge
-            tracks the value. */}
-        <div
-          className="h-full"
-          style={{ width: `${pct}%`, background: ramp }}
-        />
-        {/* Live marker at the value — small white tick. */}
-        <div
-          className="absolute top-1/2 h-[14px] w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-white/90 shadow-[0_0_6px_rgba(255,255,255,.7)]"
-          style={{ left: `${pct}%` }}
-        />
+      <div className="flex flex-1 gap-[4px]" aria-hidden>
+        {Array.from({ length: 12 }).map((_, i) => {
+          const cellNum = i + 1;
+          const active = cellNum <= value;
+          return (
+            <div
+              key={i}
+              className={[
+                "h-[22px] flex-1 rounded-[4px] border transition-colors duration-200",
+                active
+                  ? "text-slate-950"
+                  : "border-slate-800 bg-slate-900",
+              ].join(" ")}
+              style={
+                active
+                  ? {
+                      backgroundColor: cellColor(i),
+                      borderColor: cellColor(i),
+                    }
+                  : undefined
+              }
+            />
+          );
+        })}
       </div>
       <span
-        className={`font-mono text-[12px] font-bold tabular-nums ${valueClass}`}
+        className={`font-mono text-[16px] font-bold tabular-nums ${valueClass}`}
       >
         {value}/12
       </span>
@@ -325,7 +338,7 @@ function CostChip({
       {caret && (
         <span
           className={[
-            "font-mono text-[11px] transition-colors",
+            "font-mono text-[14px] transition-colors",
             escalating ? "text-rose-400" : "text-slate-600",
           ].join(" ")}
           aria-hidden
@@ -334,7 +347,7 @@ function CostChip({
         </span>
       )}
       <span
-        className={`rounded border px-2 py-[3px] font-mono text-[10px] font-bold leading-none transition-colors duration-300 ${cls}`}
+        className={`rounded-md border px-2.5 py-[5px] font-mono text-[13px] font-bold leading-none transition-colors duration-300 ${cls}`}
       >
         {label}
       </span>

@@ -364,49 +364,46 @@ export default function HandTray() {
     >
       {/* ─── Row 1: identity + every action button in a single line ─── */}
       <div className="flex flex-shrink-0 items-center gap-3 overflow-x-auto">
-        {/* Identity + cash cluster — cash sits prominently on the left
-            as the first element in the action row, since it gates
-            every paid action (and most strategic decisions). The cash
-            number is intentionally the largest text on the screen so
-            the player can see their bankroll without taking their eyes
-            off the board. */}
-        <div className="flex min-w-[200px] flex-shrink-0 items-center gap-4 rounded-lg border border-emerald-700/40 bg-emerald-900/[0.18] px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.05),0_2px_10px_rgba(16,185,129,.10)]">
-          <div className="flex flex-col gap-0.5">
+        {/* CASH — its own block, first in the action row. Loudest
+            element on the screen since it gates every paid action and
+            most strategic decisions. */}
+        <div
+          className="flex flex-shrink-0 flex-col items-start gap-0.5 rounded-lg border border-emerald-500/45 bg-emerald-900/[0.20] px-5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.05),0_2px_12px_rgba(16,185,129,.18)]"
+          title="Cash on hand — pays action costs, rent, and investment capital."
+        >
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[.22em] text-emerald-300/85">
+            Cash
+          </span>
+          <span className="font-display text-[44px] font-bold leading-[0.95] tabular-nums text-emerald-300 drop-shadow-[0_2px_4px_rgba(0,0,0,.55)]">
+            ${me.cash}
+          </span>
+        </div>
+
+        {/* Identity / hand-size readout — second block. Separate from
+            cash so each section reads as one thing. */}
+        <div className="flex min-w-0 flex-shrink-0 flex-col gap-0.5 rounded-lg border border-slate-800 bg-slate-950/60 px-3.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.04)]">
+          <div className="flex items-center gap-2">
             <span
-              className="font-mono text-[10px] font-semibold uppercase tracking-[.22em] text-emerald-300/85"
-              title="Cash on hand — pays action costs, rent, and investment capital."
-            >
-              Cash
-            </span>
-            <span className="font-display text-[44px] font-bold leading-[0.95] tabular-nums text-emerald-300 drop-shadow-[0_2px_4px_rgba(0,0,0,.55)]">
-              ${me.cash}
+              className={`block h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
+              aria-hidden
+            />
+            <span className="font-display text-[14px] font-semibold leading-tight text-amber-100">
+              Your hand
             </span>
           </div>
-          <span className="block h-12 w-px bg-emerald-700/30" aria-hidden />
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`block h-2 w-2 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
-                aria-hidden
-              />
-              <span className="font-display text-[13px] font-semibold leading-tight text-amber-100">
-                Your hand
-              </span>
-            </div>
-            <span
-              className={[
-                "font-mono text-[9.5px] uppercase tracking-[.12em]",
-                overHandLimit ? "text-rose-400" : "text-slate-500",
-              ].join(" ")}
-              title={
-                overHandLimit
-                  ? `Over hand limit (${cappedHandSize}/${HAND_LIMIT}). An Audit will force a discard.`
-                  : `Cards in hand: ${cappedHandSize}/${HAND_LIMIT}`
-              }
-            >
-              {traySize} cards · {cappedHandSize}/{HAND_LIMIT}
-            </span>
-          </div>
+          <span
+            className={[
+              "font-mono text-[10px] uppercase tracking-[.12em]",
+              overHandLimit ? "text-rose-400" : "text-slate-500",
+            ].join(" ")}
+            title={
+              overHandLimit
+                ? `Over hand limit (${cappedHandSize}/${HAND_LIMIT}). An Audit will force a discard.`
+                : `Cards in hand: ${cappedHandSize}/${HAND_LIMIT}`
+            }
+          >
+            {traySize} cards · {cappedHandSize}/{HAND_LIMIT}
+          </span>
         </div>
 
         {/* Loan / audit-pending status badges */}
