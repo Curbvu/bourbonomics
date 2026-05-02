@@ -228,16 +228,22 @@ export default function RickhouseRow() {
                     state.players[b.ownerId]?.seatIndex ?? 0,
                   );
                   const isMine = !!humanId && b.ownerId === humanId;
-                  const sellable = isMine && b.age >= 2 && sellingAllowed;
+                  const ageOk = b.age >= 2;
+                  const sellable = isMine && ageOk && sellingAllowed;
                   const card = BOURBON_CARDS_BY_ID[b.mashBillId];
-                  const basePrice = card
-                    ? lookupSalePrice(card, b.age, state.demand).price
-                    : 0;
+                  // Pricing helpers throw on age < 2 (the engine's sale path
+                  // never gets there). Skip the lookup entirely for aging
+                  // barrels so a freshly-made age-0 chip doesn't crash the
+                  // render.
+                  const basePrice =
+                    card && ageOk
+                      ? lookupSalePrice(card, b.age, state.demand).price
+                      : 0;
                   const altPick =
-                    isMine && me ? pickBestGoldAlt(state, me, b) : null;
+                    isMine && me && ageOk ? pickBestGoldAlt(state, me, b) : null;
                   const projectedPrice = altPick ? altPick.payout : basePrice;
                   const isRare = card?.rarity === "Rare";
-                  const showPrice = isMine && b.age >= 2;
+                  const showPrice = isMine && ageOk;
                   const tooltip = isMine
                     ? `${card?.name ?? b.mashBillId}${isRare ? " (Rare)" : ""} · age ${b.age}` +
                       (b.age < 2
