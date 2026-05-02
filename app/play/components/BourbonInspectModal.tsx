@@ -158,38 +158,40 @@ export default function BourbonInspectModal() {
       <div
         role="document"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md rounded-lg border border-amber-700/60 bg-slate-900 p-5 shadow-[0_8px_32px_rgba(0,0,0,.55)]"
+        className="relative w-full max-w-md"
       >
-        {/* Close pin */}
+        {/* Close pin — floats outside the card silhouette so it doesn't
+            intrude on the bourbon-label aesthetic. */}
         <button
           type="button"
           onClick={close}
           aria-label="Close"
-          className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded font-mono text-sm text-slate-400 hover:bg-slate-800 hover:text-amber-200"
+          className="absolute -right-1 -top-1 z-10 grid h-8 w-8 place-items-center rounded-full border border-slate-700 bg-slate-900 font-mono text-sm text-slate-300 shadow-lg transition-colors hover:border-amber-500 hover:text-amber-200"
         >
           ✕
         </button>
 
-        {/* Card face */}
-        <BourbonCardFace card={card} size="lg" />
+        {/* Card face — primary visual centerpiece. Live-demand column is
+            tinted softly when no sale-resolution highlight is in play. */}
+        <BourbonCardFace card={card} size="lg" currentDemand={state.demand} />
 
         {/* Brand-value + held badges */}
         <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[.12em]">
           {billGoldAware ? (
-            <span className="rounded border border-amber-500/55 bg-amber-700/[0.20] px-2 py-0.5 text-amber-200">
-              brand value <span className="font-bold">${billBrandValue}</span>
+            <span className="rounded-md border border-amber-500/55 bg-amber-700/[0.20] px-2 py-1 text-amber-200">
+              brand value <span className="font-bold text-amber-100">${billBrandValue}</span>
             </span>
           ) : (
-            <span className="rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-slate-400">
+            <span className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-slate-400">
               no gold award
             </span>
           )}
           {heldAsTrophy ? (
-            <span className="rounded border border-amber-500 bg-amber-500/[0.20] px-2 py-0.5 text-amber-100">
+            <span className="rounded-md border border-amber-500 bg-amber-500/[0.20] px-2 py-1 text-amber-100">
               unlocked gold bourbon
             </span>
           ) : heldByMe ? (
-            <span className="rounded border border-emerald-500/55 bg-emerald-500/[0.15] px-2 py-0.5 text-emerald-200">
+            <span className="rounded-md border border-emerald-500/55 bg-emerald-500/[0.15] px-2 py-1 text-emerald-200">
               in your hand
             </span>
           ) : null}
@@ -197,14 +199,16 @@ export default function BourbonInspectModal() {
 
         {/* Barrel context */}
         {barrel && ownerName != null && ownerSeatIdx != null ? (
-          <div className="mt-3 rounded border border-slate-800 bg-slate-950/60 p-3 font-mono text-[11px]">
+          <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/70 p-3 font-mono text-[11px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)]">
             <div className="flex items-center gap-2">
               <span
                 className={`block h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[ownerSeatIdx]}`}
                 aria-hidden
               />
               <span className="font-semibold text-amber-100">
-                {ownerName}&apos;s barrel
+                {barrel.barrel.ownerId === humanId
+                  ? "Your barrel"
+                  : `${ownerName}'s barrel`}
               </span>
               <span className="ml-auto tabular-nums text-slate-400">
                 age <span className="text-slate-100">{barrel.barrel.age}y</span>
@@ -228,8 +232,12 @@ export default function BourbonInspectModal() {
                 </span>
               </div>
             ) : (
-              <div className="mt-2 text-slate-500">
-                still aging — needs ≥2 years before sale
+              <div className="mt-2 flex items-center gap-2 text-slate-400">
+                <span aria-hidden className="text-amber-400/70">⏳</span>
+                <span>still aging — needs ≥2 years before sale</span>
+                <span className="ml-auto text-slate-500">
+                  demand {state.demand}/12
+                </span>
               </div>
             )}
             {me ? (
