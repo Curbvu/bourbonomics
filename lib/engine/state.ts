@@ -218,13 +218,51 @@ export type MarketPhasePlayerState = {
 };
 
 /**
+ * Demand boost applied at sale time, possibly conditional on the barrel
+ * or sale ordering. The boost adjusts the lookup demand passed to the
+ * bill's grid; it does NOT change the global demand value.
+ */
+export type DemandBoost = {
+  delta: number;
+  /** Only applies to barrels whose age ≥ this value, if set. */
+  minAge?: number;
+  /** Only applies if the boosted lookup lands in the bill's top demand band. */
+  topBandOnly?: boolean;
+  /** Only applies to the first sale of the round. */
+  firstSaleOnly?: boolean;
+};
+
+/** A persistent demand delta that ticks down each round. */
+export type PersistentDemandDelta = {
+  delta: number;
+  roundsRemaining: number;
+};
+
+/**
  * Round-scoped effects emitted by Phase 3 market cards. Most resolve
- * immediately (demand deltas) but a few (`resource_shortage`) need to
- * persist for the duration of the *next* round before clearing.
+ * immediately (demand deltas) but a few persist for the duration of the
+ * *next* round before clearing. New optional fields default to
+ * "no-effect" so older saves load cleanly.
  */
 export type RoundEffects = {
   /** Pile names that DRAW_RESOURCE rejects this round. */
   resourceShortages: ResourceType[];
+  /** Per-barrel rent surcharge added to this round's fee phase. */
+  rentSurchargePerBarrel?: number;
+  /** Each sale this round drops global demand by this many points (default 1). */
+  demandDecayPerSale?: number;
+  /** Player IDs blocked from MAKE_BOURBON this round. */
+  playersBlockedFromMake?: string[];
+  /** Demand boosts applied at sale time, possibly conditionally. */
+  demandBoosts?: DemandBoost[];
+  /** Counter incremented after each sale; used by firstSaleOnly boosts. */
+  salesThisRound?: number;
+  /**
+   * Persistent demand deltas that fire at the start of each subsequent
+   * round until `roundsRemaining` ticks down to 0. Every market-card
+   * persistent effect is stored here once it crosses round boundaries.
+   */
+  persistentDemandDeltas?: PersistentDemandDelta[];
 };
 
 // ---------- Final-round scoring ----------
@@ -281,7 +319,7 @@ export type GameState = {
    *        until $15 is cleared. DISCARD_AND_DRAW_BOURBON action retired
    *        (mash bills draw freely; Audit handles overflow).
    */
-  version: 6;
+  version: 7;
   id: string;
   createdAt: number;
 

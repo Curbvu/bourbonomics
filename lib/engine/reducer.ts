@@ -23,6 +23,7 @@ import {
 } from "@/lib/modifiers/investment";
 import { applyMakeOps, applySellOps } from "@/lib/modifiers/resource";
 import { resolveOperationsEffect } from "@/lib/modifiers/operations";
+import type { ResourceType } from "@/lib/catalogs/types";
 import type { Action, ResourcePileName } from "./actions";
 import {
   BOURBON_CARDS_BY_ID,
@@ -35,6 +36,7 @@ import {
   advanceToNextPlayer,
   checkWinConditions,
   clampDemand,
+  clampToDemandRange,
   enterFeesPhase,
   enterMarketPhase,
   finishFeesPhase,
@@ -492,7 +494,30 @@ function sellBourbon(
     baseDemand: state.demand,
     baseAge: found.barrel.age,
   });
-  const lookupDemand = Math.max(0, state.demand + sellOps.demandLookupShift);
+  // Apply any active market-card demand boosts. Each boost may be gated
+  // by minAge / firstSaleOnly / topBandOnly. They stack additively on
+  // top of resource on_sell shifts and the global demand.
+  const boosts = state.currentRoundEffects.demandBoosts ?? [];
+  const isFirstSale = (state.currentRoundEffects.salesThisRound ?? 0) === 0;
+  let marketBoost = 0;
+  for (const b of boosts) {
+    if (b.minAge != null && found.barrel.age < b.minAge) continue;
+    if (b.firstSaleOnly && !isFirstSale) continue;
+    if (b.topBandOnly) {
+      // Only apply if the boosted lookup demand lands in the bill's
+      // top demand band (col 2). Otherwise skip — the card text reads
+      // "premium push only when the sale is at the top demand tier."
+      const tentative = clampToDemandRange(
+        state.demand + sellOps.demandLookupShift + marketBoost + b.delta,
+      );
+      const topThreshold = card.demandBands[2];
+      if (tentative < topThreshold) continue;
+    }
+    marketBoost += b.delta;
+  }
+  const lookupDemand = clampToDemandRange(
+    state.demand + sellOps.demandLookupShift + marketBoost,
+  );
   const lookupAge = Math.max(2, found.barrel.age + sellOps.ageLookupShift);
   const price = lookupSalePrice(card, lookupAge, lookupDemand);
   // Payout the player would receive selling the attached bill normally.
@@ -603,9 +628,15 @@ function sellBourbon(
     state.market.bourbonDiscard.push(mashBillId);
   }
 
-  // Demand drops by 1 per sale.
-  state.demand -= 1;
+  // Demand drops per sale — usually 1, but a market card (Speculator
+  // Frenzy) can accelerate the decay for one round.
+  const decay = state.currentRoundEffects.demandDecayPerSale ?? 1;
+  state.demand -= decay;
   clampDemand(state);
+  // Bump the per-round sale counter so firstSaleOnly boosts deactivate
+  // after the first sale.
+  state.currentRoundEffects.salesThisRound =
+    (state.currentRoundEffects.salesThisRound ?? 0) + 1;
 
   logEvent(state, "sell_bourbon", {
     playerId: player.id,
@@ -998,6 +1029,147 @@ function marketKeep(
         cardId: def.id,
         resource: r.resource,
       });
+    } else if (r.kind === "persistent_demand_delta") {
+      // Apply the delta now AND queue the same delta to keep firing for
+      // `extraRounds` more rounds at the start of each one.
+      const before = state.demand;
+      state.demand += r.delta;
+      clampDemand(state);
+      if (r.extraRounds > 0) {
+        const queue =
+          state.pendingRoundEffects.persistentDemandDeltas ?? [];
+        queue.push({ delta: r.delta, roundsRemaining: r.extraRounds });
+        state.pendingRoundEffects.persistentDemandDeltas = queue;
+      }
+      logEvent(state, "market_demand_persistent", {
+        playerId: p.id,
+        cardId: def.id,
+        delta: r.delta,
+        extraRounds: r.extraRounds,
+        before,
+        after: state.demand,
+      });
+    } else if (r.kind === "conditional_demand_boost") {
+      const queue = state.pendingRoundEffects.demandBoosts ?? [];
+      queue.push({
+        delta: r.delta,
+        ...(r.minAge != null ? { minAge: r.minAge } : {}),
+        ...(r.topBandOnly ? { topBandOnly: true } : {}),
+        ...(r.firstSaleOnly ? { firstSaleOnly: true } : {}),
+      });
+      state.pendingRoundEffects.demandBoosts = queue;
+      logEvent(state, "market_boost_queued", {
+        playerId: p.id,
+        cardId: def.id,
+        delta: r.delta,
+      });
+    } else if (r.kind === "rent_surcharge") {
+      state.pendingRoundEffects.rentSurchargePerBarrel =
+        (state.pendingRoundEffects.rentSurchargePerBarrel ?? 0) + r.surcharge;
+      logEvent(state, "market_rent_surcharge_queued", {
+        playerId: p.id,
+        cardId: def.id,
+        surcharge: r.surcharge,
+      });
+    } else if (r.kind === "accelerated_demand_decay") {
+      // Last writer wins — two of these in one round phase isn't a real
+      // case in the current deck.
+      state.pendingRoundEffects.demandDecayPerSale = r.perSale;
+      logEvent(state, "market_decay_queued", {
+        playerId: p.id,
+        cardId: def.id,
+        perSale: r.perSale,
+      });
+    } else if (r.kind === "leader_skip_make") {
+      const target = leaderByMostBarrels(state);
+      if (target) {
+        const blocked = state.pendingRoundEffects.playersBlockedFromMake ?? [];
+        if (!blocked.includes(target)) blocked.push(target);
+        state.pendingRoundEffects.playersBlockedFromMake = blocked;
+      }
+      logEvent(state, "market_skip_make_queued", {
+        playerId: p.id,
+        cardId: def.id,
+        targetPlayerId: target,
+      });
+    } else if (r.kind === "leader_discard_bill") {
+      const target = leaderByMostBills(state);
+      if (target) {
+        const billId = pickLowestValueBill(state, target);
+        if (billId) {
+          const tp = state.players[target];
+          tp.bourbonHand.splice(tp.bourbonHand.indexOf(billId), 1);
+          state.market.bourbonDiscard.push(billId);
+          logEvent(state, "market_leader_discard_bill", {
+            playerId: p.id,
+            cardId: def.id,
+            targetPlayerId: target,
+            discardedBillId: billId,
+          });
+        }
+      }
+    } else if (r.kind === "rickhouse_age_loss") {
+      const rh = state.rickhouses.find((h) => h.id === r.rickhouseId);
+      if (rh) {
+        let losses = 0;
+        for (const b of rh.barrels) {
+          if (b.age > 0) {
+            b.age = Math.max(0, b.age - r.loss);
+            losses += 1;
+          }
+        }
+        logEvent(state, "market_rickhouse_age_loss", {
+          playerId: p.id,
+          cardId: def.id,
+          rickhouseId: r.rickhouseId,
+          loss: r.loss,
+          affected: losses,
+        });
+      }
+    } else if (r.kind === "all_draw_bourbon") {
+      for (const id of state.playerOrder) {
+        const pl = state.players[id];
+        if (pl.eliminated) continue;
+        for (let i = 0; i < r.count; i++) {
+          if (state.market.bourbonDeck.length === 0)
+            reshuffleBourbonDiscard(state);
+          const [drawn, rest] = drawTop(state.market.bourbonDeck);
+          if (!drawn) break;
+          state.market.bourbonDeck = rest;
+          pl.bourbonHand.push(drawn);
+        }
+      }
+      logEvent(state, "market_all_draw_bourbon", {
+        playerId: p.id,
+        cardId: def.id,
+        count: r.count,
+      });
+    } else if (r.kind === "all_draw_resource") {
+      // Each affected player pops `count` cards from the requested pile
+      // (or one of the five if `resource` is unspecified — chosen by
+      // round-robin per player so the result is deterministic).
+      const piles: ResourceType[] = r.resource
+        ? [r.resource]
+        : ["cask", "corn", "barley", "rye", "wheat"];
+      let pickIdx = 0;
+      for (const id of state.playerOrder) {
+        const pl = state.players[id];
+        if (pl.eliminated) continue;
+        for (let i = 0; i < r.count; i++) {
+          const pickName = piles[pickIdx % piles.length];
+          pickIdx += 1;
+          const pile = state.market[pickName];
+          if (pile.length === 0) continue;
+          const card = pile.pop()!;
+          pl.resourceHand.push(card);
+        }
+      }
+      logEvent(state, "market_all_draw_resource", {
+        playerId: p.id,
+        cardId: def.id,
+        resource: r.resource ?? "any",
+        count: r.count,
+      });
     } else {
       logEvent(state, "market_flavor", {
         playerId: p.id,
@@ -1013,6 +1185,84 @@ function marketKeep(
 
   advanceToNextMarketResolver(state);
   maybeEndMarketPhase(state);
+}
+
+// ---------- Market-card targeting helpers ----------
+
+/**
+ * Find the player who currently owns the most barrels across all
+ * rickhouses. Ties: lowest seat index wins. Returns null if nobody owns
+ * any barrels yet (no legal target — the card resolves as a no-op).
+ */
+function leaderByMostBarrels(state: GameState): string | null {
+  const counts: Record<string, number> = {};
+  for (const id of state.playerOrder) counts[id] = 0;
+  for (const h of state.rickhouses) {
+    for (const b of h.barrels) {
+      if (counts[b.ownerId] != null) counts[b.ownerId] += 1;
+    }
+  }
+  let best: string | null = null;
+  let bestCount = 0;
+  let bestSeat = Infinity;
+  for (const id of state.playerOrder) {
+    const c = counts[id];
+    if (c <= 0) continue;
+    const seat = state.players[id].seatIndex;
+    if (c > bestCount || (c === bestCount && seat < bestSeat)) {
+      best = id;
+      bestCount = c;
+      bestSeat = seat;
+    }
+  }
+  return best;
+}
+
+/**
+ * Find the player holding the most mash bills in hand. Ties broken by
+ * lowest seat index. Returns null if no player has any bills.
+ */
+function leaderByMostBills(state: GameState): string | null {
+  let best: string | null = null;
+  let bestCount = 0;
+  let bestSeat = Infinity;
+  for (const id of state.playerOrder) {
+    const p = state.players[id];
+    if (p.eliminated) continue;
+    const c = p.bourbonHand.length;
+    if (c <= 0) continue;
+    if (c > bestCount || (c === bestCount && p.seatIndex < bestSeat)) {
+      best = id;
+      bestCount = c;
+      bestSeat = p.seatIndex;
+    }
+  }
+  return best;
+}
+
+/**
+ * Pick which mash bill the engine "auto-discards" for a leader-discard
+ * market card — the bill with the lowest grid maximum (i.e. the
+ * weakest) so the punishment is real but not catastrophic. Future work:
+ * surface a UI prompt instead of auto-picking.
+ */
+function pickLowestValueBill(
+  state: GameState,
+  playerId: string,
+): string | null {
+  const p = state.players[playerId];
+  let pickId: string | null = null;
+  let pickMax = Infinity;
+  for (const id of p.bourbonHand) {
+    const card = BOURBON_CARDS_BY_ID[id];
+    if (!card) continue;
+    const max = Math.max(...card.grid.flatMap((row) => row));
+    if (max < pickMax) {
+      pickMax = max;
+      pickId = id;
+    }
+  }
+  return pickId ?? p.bourbonHand[0] ?? null;
 }
 
 function advanceToNextMarketResolver(state: GameState): void {

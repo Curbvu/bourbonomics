@@ -216,10 +216,34 @@ export function startNextRound(state: GameState): void {
   // round that just ended becomes active now; this round's slot resets.
   state.currentRoundEffects = state.pendingRoundEffects;
   state.pendingRoundEffects = { resourceShortages: [] };
+  // Reset per-round counters so first-sale boosts re-arm cleanly.
+  state.currentRoundEffects.salesThisRound = 0;
   if (state.currentRoundEffects.resourceShortages.length > 0) {
     logEvent(state, "round_effects_active", {
       shortages: [...state.currentRoundEffects.resourceShortages],
     });
+  }
+  // Apply this round's persistent demand deltas (e.g. "Cocktail
+  // Renaissance — +1 for 2 rounds"). Each entry's delta fires now and
+  // its roundsRemaining ticks down; entries that expire are removed.
+  const persistents = state.currentRoundEffects.persistentDemandDeltas;
+  if (persistents && persistents.length > 0) {
+    const survivors: typeof persistents = [];
+    for (const p of persistents) {
+      state.demand += p.delta;
+      logEvent(state, "market_persistent_tick", {
+        delta: p.delta,
+        roundsRemaining: p.roundsRemaining,
+      });
+      if (p.roundsRemaining > 1) {
+        survivors.push({
+          delta: p.delta,
+          roundsRemaining: p.roundsRemaining - 1,
+        });
+      }
+    }
+    state.currentRoundEffects.persistentDemandDeltas = survivors;
+    clampDemand(state);
   }
   enterFeesPhase(state);
   // Re-check: an outstanding final-round flag from a prior round shouldn't
@@ -252,4 +276,11 @@ export function enterScoringPhase(state: GameState): void {
 export function clampDemand(state: GameState): void {
   if (state.demand < MIN_DEMAND) state.demand = MIN_DEMAND;
   if (state.demand > MAX_DEMAND) state.demand = MAX_DEMAND;
+}
+
+/** Clamp an arbitrary demand value (not on state) into the legal range. */
+export function clampToDemandRange(value: number): number {
+  if (value < MIN_DEMAND) return MIN_DEMAND;
+  if (value > MAX_DEMAND) return MAX_DEMAND;
+  return value;
 }

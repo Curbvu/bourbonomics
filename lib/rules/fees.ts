@@ -18,6 +18,9 @@ export type BarrelFee = {
 
 export function feesForPlayer(state: GameState, playerId: string): BarrelFee[] {
   const out: BarrelFee[] = [];
+  // Market-card surcharge — added to every (non-monopoly-waived) barrel
+  // rent paid this round. Defaults to 0 when no card is active.
+  const surcharge = state.currentRoundEffects.rentSurchargePerBarrel ?? 0;
   for (const h of state.rickhouses) {
     const perBarrelRent = h.barrels.length; // includes this player's and others'
     const monopoly = isMonopolyWaiver(h, playerId);
@@ -26,7 +29,7 @@ export function feesForPlayer(state: GameState, playerId: string): BarrelFee[] {
       out.push({
         barrelId: b.barrelId,
         rickhouseId: h.id,
-        amount: monopoly ? 0 : perBarrelRent,
+        amount: monopoly ? 0 : perBarrelRent + surcharge,
         monopolyWaived: monopoly,
       });
     }

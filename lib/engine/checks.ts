@@ -67,6 +67,14 @@ export function canMakeBourbon(
   mashBillId: string,
 ): { ok: true } | { ok: false; reason: string } {
   const player = state.players[playerId];
+  // Market-card block — Distillery Strike skips the leader's next make.
+  const blocked = state.currentRoundEffects.playersBlockedFromMake;
+  if (blocked && blocked.includes(playerId)) {
+    return {
+      ok: false,
+      reason: "Distillery strike — you can't make bourbon this round",
+    };
+  }
   const rickhouse = state.rickhouses.find((r) => r.id === rickhouseId);
   if (!rickhouse) return { ok: false, reason: "Unknown rickhouse" };
   if (rickhouse.barrels.length >= rickhouse.capacity) {

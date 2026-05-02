@@ -1,181 +1,151 @@
-# Market cards
+# Phase 3 market deck.
+# Composition target (~30 / 30 / 30 / 10):
+#   - Pure positive (raise demand or aid all players)
+#   - Pure negative (lower demand, raise rent, cause shortages)
+#   - Conditional / mixed (effect depends on board state, hurts some, helps others)
+#   - Neutral / event (no demand change, but a one-shot event)
 #
-# Phase 3 deck. Each baron draws 2, keeps 1, discards 1. Most cards raise
-# demand; a handful are softer twists (small drops, conditional bumps,
-# resource shortages that lock a pile for the next round).
+# Because each Baron draws 2 and keeps 1, a deck where ~70% of cards are
+# negative or mixed forces the chosen card to often be a "lesser evil" pick.
 #
-# resolved.kind:
-#   demand_delta             — adjust market demand by `delta` immediately
-#                              when the card is kept (positive raises,
-#                              negative lowers; clamped to 0..12).
-#   demand_delta_conditional — apply `deltaAbove` if current demand is > threshold,
-#                              else apply `deltaBelow`. For "+1 if hot, +2 if cool"
-#                              style cards.
-#   resource_shortage        — lock a resource pile for the *next* round; queued
-#                              into pendingRoundEffects, then activated at the
-#                              next startNextRound. `resource` ∈ cask | corn |
-#                              barley | rye | wheat.
-#   flavor                   — engine-side no-op; prose still renders to the UI.
+# `resolved.kind` mirrors the union in lib/catalogs/types.ts.
+version: 1
+kind: market_cards_v2
+intro:
+  title: Market deck
+  body: >-
+    Phase 3 of every round, each Baron draws 2 market cards and keeps 1. The kept
+    card resolves now (and most also queue an effect for the *next* round). Most
+    effects last one round; persistent cards print their duration. Conditional
+    cards target specific board states (most barrels, sales of well-aged barrels,
+    sales in a bill's top demand band, etc.) and can hurt the player who plays
+    them as easily as an opponent.
 
 cards:
-  # ─── Demand raisers (the bulk of the deck) ─────────────────────────────────
+  # ──────────── Pure positive (12 cards / 5 designs) ────────────
   - id: holiday_rush
     title: "Holiday rush"
-    effect: "Demand surges as the holidays approach. Demand **+2**."
-    deckCopies: 4
-    resolved:
-      kind: demand_delta
-      delta: 2
-
-  - id: critic_review
-    title: "Critic's review"
-    effect: "A glowing review hits the trade press. Demand **+2**."
+    effect: "Demand **+2** next round."
     deckCopies: 3
-    resolved:
-      kind: demand_delta
-      delta: 2
-
-  - id: cocktail_revival
-    title: "Cocktail revival"
-    effect: "Old fashioneds are everywhere again. Demand **+1**."
-    deckCopies: 4
-    resolved:
-      kind: demand_delta
-      delta: 1
-
+    resolved: { kind: demand_delta, delta: 2 }
   - id: export_deal
     title: "Export deal"
-    effect: "A foreign distributor signs on. Demand **+3**."
-    deckCopies: 2
-    resolved:
-      kind: demand_delta
-      delta: 3
-
-  - id: bourbon_festival
-    title: "Bourbon festival"
-    effect: "The annual festival drives buyers to the state. Demand **+1**."
+    effect: "A foreign distributor signs on. Demand **+2** next round."
     deckCopies: 3
-    resolved:
-      kind: demand_delta
-      delta: 1
-
-  - id: celebrity_endorsement
-    title: "Celebrity endorsement"
-    effect: "A famous face is suddenly drinking your brand. Demand **+2**."
+    resolved: { kind: demand_delta, delta: 2 }
+  - id: cocktail_renaissance
+    title: "Cocktail renaissance"
+    effect: "Old fashioneds are back. Demand **+1**, persistent for **2 rounds**."
     deckCopies: 2
-    resolved:
-      kind: demand_delta
-      delta: 2
-
-  - id: distillers_award
-    title: "Distillers' award"
-    effect: "An industry award lifts the whole category. Demand **+1**."
-    deckCopies: 3
-    resolved:
-      kind: demand_delta
-      delta: 1
-
-  - id: trade_show_buzz
-    title: "Trade show buzz"
-    effect: "Buyers chatter at a national trade show. Demand **+1**."
+    resolved: { kind: persistent_demand_delta, delta: 1, extraRounds: 1 }
+  - id: festival_week
+    title: "Festival week"
+    effect: "The annual festival drives buyers in. Demand **+1** next round."
     deckCopies: 2
-    resolved:
-      kind: demand_delta
-      delta: 1
-
-  # ─── Conditional demand swings ─────────────────────────────────────────────
-  - id: smart_marketing
-    title: "Smart marketing"
-    effect: "If demand is **above 6**, demand **+1**; otherwise **+2**."
+    resolved: { kind: demand_delta, delta: 1 }
+  - id: bourbon_convention
+    title: "Bourbon convention"
+    effect: "Industry meet-up. **All players** draw **1** mash bill from the Bourbon deck now."
     deckCopies: 2
-    resolved:
-      kind: demand_delta_conditional
-      threshold: 6
-      deltaAbove: 1
-      deltaBelow: 2
+    resolved: { kind: all_draw_bourbon, count: 1 }
 
-  - id: contrarian_press
-    title: "Contrarian press"
-    effect: "If demand is **above 6**, demand **−1**; otherwise **+2**."
-    deckCopies: 1
-    resolved:
-      kind: demand_delta_conditional
-      threshold: 6
-      deltaAbove: -1
-      deltaBelow: 2
-
-  - id: scarcity_premium
-    title: "Scarcity premium"
-    effect: "If demand is already **above 8**, demand **+2**; otherwise **+1**."
-    deckCopies: 1
-    resolved:
-      kind: demand_delta_conditional
-      threshold: 8
-      deltaAbove: 2
-      deltaBelow: 1
-
-  # ─── Demand drops (rarer) ──────────────────────────────────────────────────
+  # ──────────── Pure negative (12 cards / 6 designs) ────────────
   - id: economic_downturn
     title: "Economic downturn"
-    effect: "Tightened wallets across the country. Demand **−2**."
+    effect: "Tightened wallets. Demand **−2** next round."
     deckCopies: 2
-    resolved:
-      kind: demand_delta
-      delta: -2
-
-  - id: wine_takes_over
-    title: "Wine takes over"
-    effect: "A wine boom pulls drinkers away from brown spirits. Demand **−1**."
+    resolved: { kind: demand_delta, delta: -2 }
+  - id: health_trend
+    title: "Health trend"
+    effect: "A wellness wave pulls drinkers away. Demand **−1**, persistent for **2 rounds**."
     deckCopies: 2
-    resolved:
-      kind: demand_delta
-      delta: -1
-
-  # ─── Resource shortages (lock a pile next round) ───────────────────────────
-  - id: corn_blight
-    title: "Corn harvest fail"
-    effect: "A bad season locks the **corn** pile next round."
+    resolved: { kind: persistent_demand_delta, delta: -1, extraRounds: 1 }
+  - id: tariff_shock
+    title: "Tariff shock"
+    effect: "Import duties bite. Demand **−2** next round."
     deckCopies: 2
-    resolved:
-      kind: resource_shortage
-      resource: corn
-
+    resolved: { kind: demand_delta, delta: -2 }
+  - id: tax_hike
+    title: "Tax hike"
+    effect: "Every barrel pays **+$1** rent next round."
+    deckCopies: 2
+    resolved: { kind: rent_surcharge, surcharge: 1 }
   - id: cooperage_strike
     title: "Cooperage strike"
     effect: "Coopers strike — **cask** pile is locked next round."
-    deckCopies: 1
-    resolved:
-      kind: resource_shortage
-      resource: cask
+    deckCopies: 2
+    resolved: { kind: resource_shortage, resource: cask }
+  - id: corn_blight
+    title: "Corn blight"
+    effect: "A bad season locks the **corn** pile next round."
+    deckCopies: 2
+    resolved: { kind: resource_shortage, resource: corn }
 
-  - id: rye_blight
-    title: "Rye blight"
-    effect: "Disease in the rye fields — **rye** pile locked next round."
+  # ──────────── Conditional / mixed (12 cards / 7 designs) ────────────
+  - id: connoisseur_boom
+    title: "Connoisseur boom"
+    effect: "Demand **+3** next round, but the boost only applies to sales of barrels **aged 6+ years**."
+    deckCopies: 2
+    resolved:
+      kind: conditional_demand_boost
+      delta: 3
+      minAge: 6
+  - id: distillery_strike
+    title: "Distillery strike"
+    effect: "The player with the **most barrels** can't make bourbon next round."
+    deckCopies: 1
+    resolved: { kind: leader_skip_make, criterion: most_barrels }
+  - id: flood_in_bardstown
+    title: "Flood in Bardstown"
+    effect: "Every barrel in **Bardstown** loses **1 year** of aging immediately."
     deckCopies: 1
     resolved:
-      kind: resource_shortage
-      resource: rye
+      kind: rickhouse_age_loss
+      rickhouseId: rickhouse-4
+      loss: 1
+  - id: premium_push
+    title: "Premium push"
+    effect: "Demand **+2** next round, but only sales that land in the **bill's top demand band** get it."
+    deckCopies: 2
+    resolved:
+      kind: conditional_demand_boost
+      delta: 2
+      topBandOnly: true
+  - id: single_barrel_spotlight
+    title: "Single-barrel spotlight"
+    effect: "The **first sale** of next round gets demand **+3**; subsequent sales use base demand."
+    deckCopies: 1
+    resolved:
+      kind: conditional_demand_boost
+      delta: 3
+      firstSaleOnly: true
+  - id: speculator_frenzy
+    title: "Speculator frenzy"
+    effect: "Demand **+3** next round, but every sale drops demand by **2** instead of 1."
+    deckCopies: 2
+    resolved:
+      kind: persistent_demand_delta
+      delta: 3
+      extraRounds: 0
+  - id: speculator_frenzy_decay
+    title: "Speculator volatility"
+    effect: "The market is jumpy — every sale next round drops demand by **2** instead of 1."
+    deckCopies: 1
+    resolved: { kind: accelerated_demand_decay, perSale: 2 }
+  - id: wholesaler_crackdown
+    title: "Wholesaler crackdown"
+    effect: "Player holding the most mash bills must **discard 1**."
+    deckCopies: 2
+    resolved: { kind: leader_discard_bill, criterion: most_bills }
 
-  - id: wheat_storm
-    title: "Hailstorm"
-    effect: "Hail flattens the wheat — **wheat** pile locked next round."
-    deckCopies: 1
-    resolved:
-      kind: resource_shortage
-      resource: wheat
-
-  - id: barley_drought
-    title: "Barley drought"
-    effect: "Drought withers the barley — **barley** pile locked next round."
-    deckCopies: 1
-    resolved:
-      kind: resource_shortage
-      resource: barley
-
-  # ─── Pure flavor (engine-side no-op) ───────────────────────────────────────
-  - id: rickhouse_inspection
-    title: "Rickhouse inspection"
-    effect: "Inspectors comb the warehouses. (Flavor — full effect arrives in a future engine pass.)"
-    deckCopies: 1
-    resolved:
-      kind: flavor
+  # ──────────── Neutral / event (4 cards / 2 designs) ────────────
+  - id: coopers_apprentice
+    title: "Cooper's apprentice"
+    effect: "Trainees fan out. **All players** draw **1 cask** from the market piles now."
+    deckCopies: 2
+    resolved: { kind: all_draw_resource, resource: cask, count: 1 }
+  - id: quiet_quarter
+    title: "Quiet quarter"
+    effect: "A lull settles in. No mechanical effect — the market simply waits."
+    deckCopies: 2
+    resolved: { kind: flavor }

@@ -206,9 +206,11 @@ After all players have finished the action phase, the market shifts.
 
 Each player, in turn, draws two Market cards. From those two, you choose one to resolve and discard the other.
 
-Market cards represent changes in the broader bourbon economy. The majority of cards **raise demand** — that is the dominant effect in the deck. A smaller number of cards do other things: lower demand, create shortages of certain resources, or temporarily affect rickhouses.
+The deck is intentionally **mixed**: roughly equal portions of cards that help the broad market, cards that hurt it, and **conditional** cards whose effect depends on board state — plus a small handful of neutral events. A typical "draw 2, pick 1" is therefore often a choice between two imperfect options, not a clear win. Reading the cards against your own position — and your opponents' — is the heart of the phase.
 
-Most market effects apply during the **next round** and last for only one round.
+Most market effects apply during the **next round** and last for only one round. A smaller number are **persistent** for several rounds; persistent cards print their duration and continue to fire at the start of each subsequent round until they expire.
+
+Some cards are **conditional** — they target specific players or board states (the player with the most barrels, every barrel in a particular rickhouse, sales of barrels above a certain age, sales that land in a bill's top demand band, etc.) — and so a card you choose to play can hurt you as easily as an opponent if the board shifts.
 
 If the Market deck runs out, **reshuffle the discard pile** to form a new deck and continue play.
 
@@ -219,12 +221,10 @@ If the Market deck runs out, **reshuffle the discard pile** to form a new deck a
 ### Example
 
 You draw two cards:
-- "Demand increases by 2"
-- "Corn shortage next round"
+- **Connoisseur boom** — *Demand +3 next round, but the boost only applies to sales of barrels aged 6+ years.*
+- **Cooperage strike** — *Cask pile is locked next round.*
 
-You must choose one. Increasing demand makes bourbon more valuable, but a corn shortage might disrupt your opponents' plans—or your own.
-
-This decision helps shape the conditions everyone will face in the next round.
+If you have a 7-year barrel queued to sell, the boom is golden — but if you don't, that +3 is locked away from you and the strike at least denies casks to everyone equally. The right pick depends on what's in your rickhouses, not on which card looks better in the abstract.
 
 ---
 

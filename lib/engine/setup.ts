@@ -102,7 +102,7 @@ export function createInitialState(config: NewGameConfig): GameState {
   }));
 
   const state: GameState = {
-    version: 6,
+    version: 7,
     id: config.id,
     createdAt,
     seed: config.seed,

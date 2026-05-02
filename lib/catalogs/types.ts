@@ -133,7 +133,7 @@ export type MarketEffect =
   /**
    * Apply one of two demand deltas based on the current demand at resolve
    * time. If demand > `threshold`, apply `deltaAbove`; otherwise apply
-   * `deltaBelow`. Useful for "demand +1 if hot, +2 if cool" cards.
+   * `deltaBelow`.
    */
   | {
       kind: "demand_delta_conditional";
@@ -142,12 +142,72 @@ export type MarketEffect =
       deltaBelow: number;
     }
   /**
+   * Apply a demand delta now AND queue the same delta to fire at the
+   * start of each subsequent round for `extraRounds` more rounds.
+   * Encodes "demand +1 persistent for N rounds" cards.
+   */
+  | { kind: "persistent_demand_delta"; delta: number; extraRounds: number }
+  /**
+   * Demand boost applied at sale time (next round), possibly conditional
+   * on the barrel or sale ordering. The boost adjusts the lookup demand
+   * passed to the bill's grid; it does NOT change the global demand.
+   */
+  | {
+      kind: "conditional_demand_boost";
+      delta: number;
+      /** Only applies to barrels whose age ≥ this value, if set. */
+      minAge?: number;
+      /** Only applies if the boosted lookup lands in the bill's top demand band. */
+      topBandOnly?: boolean;
+      /** Only applies to the first sale of the round. */
+      firstSaleOnly?: boolean;
+    }
+  /**
    * Lock a resource pile next round — DRAW_RESOURCE on this pile is
    * rejected until that round ends. The effect is queued into
    * `pendingRoundEffects` on resolve and swapped into
    * `currentRoundEffects` by `startNextRound`.
    */
   | { kind: "resource_shortage"; resource: ResourceType }
+  /**
+   * Add a flat per-barrel surcharge to next round's rickhouse rent.
+   * Stacks with the base fee per barrel; a card with `surcharge: 1`
+   * means every player pays $1 extra per barrel they own that round.
+   */
+  | { kind: "rent_surcharge"; surcharge: number }
+  /**
+   * Override the demand decrement-per-sale for next round (default 1).
+   * `accelerated` cards set this higher to drain demand faster as
+   * sales happen — the "speculator frenzy" pattern.
+   */
+  | { kind: "accelerated_demand_decay"; perSale: number }
+  /**
+   * Block the player who currently owns the most barrels (across all
+   * rickhouses) from MAKE_BOURBON next round. Ties: lowest seat index
+   * wins the block.
+   */
+  | { kind: "leader_skip_make"; criterion: "most_barrels" }
+  /**
+   * Force the player holding the most mash bills in hand to discard one
+   * of their choice immediately. Encoded as a flag the UI converts into
+   * a forced discard prompt similar to AUDIT_DISCARD; engine shorthand
+   * for now is "auto-pick the leader's lowest-grid-max bill" so the
+   * effect lands without needing a new modal.
+   */
+  | { kind: "leader_discard_bill"; criterion: "most_bills" }
+  /**
+   * Decrement age tokens by 1 on every barrel currently in a specific
+   * rickhouse, immediately. Floored at 0.
+   */
+  | { kind: "rickhouse_age_loss"; rickhouseId: string; loss: number }
+  /** Every player draws 1 mash bill from the bourbon deck immediately. */
+  | { kind: "all_draw_bourbon"; count: number }
+  /**
+   * Every player draws `count` of a specific resource (or random if
+   * unspecified) from the market piles immediately. Subject to existing
+   * shortages.
+   */
+  | { kind: "all_draw_resource"; resource?: ResourceType; count: number }
   /** Engine-side no-op — the prose still shows on the card. */
   | { kind: "flavor" };
 
