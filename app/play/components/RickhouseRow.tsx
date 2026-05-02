@@ -30,7 +30,11 @@ import { pickBestGoldAlt } from "@/lib/ai/evaluators";
 import { lookupSalePrice } from "@/lib/rules/pricing";
 import { validateMash } from "@/lib/rules/mash";
 import type { RickhouseId } from "@/lib/engine/rickhouses";
-import { RICKHOUSES } from "@/lib/engine/rickhouses";
+import {
+  RICKHOUSES,
+  RICKHOUSE_DISPLAY_ORDER,
+  rickhouseById,
+} from "@/lib/engine/rickhouses";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
 import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
@@ -156,9 +160,11 @@ export default function RickhouseRow() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {state.rickhouses.map((h, idx) => {
-          const def = RICKHOUSES[idx];
+      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3">
+        {RICKHOUSE_DISPLAY_ORDER.map((id) => {
+          const h = state.rickhouses.find((r) => r.id === id);
+          if (!h) return null;
+          const def = rickhouseById(id);
           const filled = h.barrels.length;
           const yoursHere = humanId
             ? h.barrels.filter((b) => b.ownerId === humanId).length
@@ -191,7 +197,7 @@ export default function RickhouseRow() {
                       : undefined
               }
               className={[
-                "flex flex-col gap-3 rounded-lg border bg-slate-900/60 px-4 py-3.5 transition-all",
+                "flex flex-col gap-2 rounded-lg border bg-slate-900/60 px-3.5 py-2.5 transition-all",
                 targetable
                   ? "cursor-pointer border-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,.15)] hover:-translate-y-0.5 hover:shadow-[0_0_0_3px_rgba(245,158,11,.35)]"
                   : makeBourbon.active && freeSlots === 0
@@ -199,15 +205,16 @@ export default function RickhouseRow() {
                     : "border-slate-800",
               ].join(" ")}
             >
-              <div className="flex items-baseline justify-between gap-2">
-                <div>
-                  <div className="font-display text-[18px] font-semibold leading-tight tracking-[.01em] text-amber-100">
-                    {def.name}
-                  </div>
-                  <div className="font-mono text-[11px] tabular-nums text-slate-500">
-                    {filled}/{def.capacity} barrels
-                  </div>
-                </div>
+              {/* Compact one-row header — region name + barrel count + */}
+              {/* "+N you" all on the same line to save vertical space.   */}
+              <div className="flex items-baseline gap-2">
+                <span className="font-display text-[17px] font-semibold leading-tight tracking-[.01em] text-amber-100">
+                  {def.name}
+                </span>
+                <span className="font-mono text-[10.5px] tabular-nums text-slate-500">
+                  {filled}/{def.capacity}
+                </span>
+                <span className="flex-1" />
                 {yoursHere > 0 ? (
                   <span className="font-mono text-[10px] font-bold text-indigo-400">
                     +{yoursHere} you

@@ -27,7 +27,7 @@ function placeBarrel(state: GameState, ownerId: string, rickhouseIdx: number, ag
   });
 }
 
-// Capacities per current rules: Northern 3, Louisville 5, Central 4, Lexington 4, Bardstown 6, Western 5.
+// Capacities per current rules: Northern 3, Louisville 5, Central 4, Lexington 5, Bardstown 6, Western 3.
 // rickhouse-4 (Bardstown) is the cap-6 rickhouse for monopoly tests.
 
 describe("rickhouse fees", () => {

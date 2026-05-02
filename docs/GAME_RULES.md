@@ -268,11 +268,11 @@ There are **six rickhouses**, each tied to a Kentucky bourbon region. They are s
 | Northern   | 3        |
 | Louisville | 5        |
 | Central    | 4        |
-| Lexington  | 4        |
+| Lexington  | 5        |
 | Bardstown  | 6        |
-| Western    | 5        |
+| Western    | 3        |
 
-Capacity is the maximum number of barrels (across all players) that can age in that rickhouse at any time. Total slots on the board: **27**.
+Capacity is the maximum number of barrels (across all players) that can age in that rickhouse at any time. Total slots on the board: **26**.
 
 ---
 

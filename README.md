@@ -40,8 +40,8 @@ The six rickhouses map to the **[Kentucky Bourbon Trail® regions](https://kybou
 | Index | Region      | Capacity |
 |-------|-------------|----------|
 | 0     | Northern    | 3        |
-| 1     | Louisville  | 4        |
-| 2     | Central     | 5        |
-| 3     | Lexington   | 6        |
-| 4     | Bardstown   | 4        |
-| 5     | Western     | 5        |
+| 1     | Louisville  | 5        |
+| 2     | Central     | 4        |
+| 3     | Lexington   | 5        |
+| 4     | Bardstown   | 6        |
+| 5     | Western     | 3        |
