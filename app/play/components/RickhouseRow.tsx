@@ -160,7 +160,7 @@ export default function RickhouseRow() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]">
+      <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-[minmax(0,3fr)_minmax(0,3fr)_minmax(0,4fr)]">
         {RICKHOUSE_DISPLAY_ORDER.map((id) => {
           const h = state.rickhouses.find((r) => r.id === id);
           if (!h) return null;
