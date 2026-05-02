@@ -99,6 +99,9 @@ export default function HandTray() {
   const toggleAuditOperations = useUiStore((s) => s.toggleAuditOperations);
   const cancelAuditDiscard = useUiStore((s) => s.cancelAuditDiscard);
   const inspectBill = useUiStore((s) => s.inspectBill);
+  const implementMode = useUiStore((s) => s.implement);
+  const startImplement = useUiStore((s) => s.startImplement);
+  const cancelImplement = useUiStore((s) => s.cancelImplement);
 
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
@@ -113,6 +116,16 @@ export default function HandTray() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [makeBourbon.active, cancelMakeBourbon]);
+
+  // Esc cancels implement mode.
+  useEffect(() => {
+    if (!implementMode.active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancelImplement();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [implementMode.active, cancelImplement]);
 
   // Audit-discard mode is auto-entered for whichever player owes an
   // overage. Computed inline (rather than in a derived const) so the
@@ -214,30 +227,43 @@ export default function HandTray() {
             return `Sell ${ageStr} barrel (${bill}) for $${bestSellable.payout}${altStr} — or click any barrel in a rickhouse to sell it directly`;
           })();
 
-  const unbuiltInv = me.investments.find((i) => i.status === "unbuilt");
+  // Implement — let the player CHOOSE which unbuilt investment to capitalise.
+  // Click the button to enter implement mode → the play-row investment cards
+  // become click targets → click one to dispatch IMPLEMENT_INVESTMENT for
+  // that specific instance.
+  const unbuiltInvestments = me.investments.filter(
+    (i) => i.status === "unbuilt",
+  );
   const activeInvCount = me.investments.filter(
     (i) => i.status === "active",
   ).length;
-  const investCapital = unbuiltInv
-    ? (INVESTMENT_CARDS_BY_ID[unbuiltInv.cardId]?.capital ?? 0)
-    : 0;
+  // Cheapest unbuilt sets the lower bound the button-enabled check uses.
+  const cheapestUnbuiltCapital = unbuiltInvestments.reduce<number | null>(
+    (lo, inv) => {
+      const cap = INVESTMENT_CARDS_BY_ID[inv.cardId]?.capital ?? 0;
+      return lo == null || cap < lo ? cap : lo;
+    },
+    null,
+  );
   const canImplement =
     isMyActionTurn &&
     canAfford &&
-    !!unbuiltInv &&
+    unbuiltInvestments.length > 0 &&
     activeInvCount < MAX_ACTIVE_INVESTMENTS &&
-    me.cash >= investCapital + cost;
-  const implementReason = !isMyActionTurn
-    ? "Wait for your turn"
-    : !unbuiltInv
-      ? "No unbuilt investments in hand"
-      : activeInvCount >= MAX_ACTIVE_INVESTMENTS
-        ? `Already ${MAX_ACTIVE_INVESTMENTS}/3 active`
-        : me.cash < investCapital + cost
-          ? `Need $${investCapital + cost} to implement (capital + action)`
-          : `Pay $${investCapital} to implement ${
-              INVESTMENT_CARDS_BY_ID[unbuiltInv.cardId]?.name ?? unbuiltInv.cardId
-            }`;
+    cheapestUnbuiltCapital != null &&
+    me.cash >= cheapestUnbuiltCapital + cost;
+  const implementReason = implementMode.active
+    ? "Cancel implement"
+    : !isMyActionTurn
+      ? "Wait for your turn"
+      : unbuiltInvestments.length === 0
+        ? "No unbuilt investments in hand"
+        : activeInvCount >= MAX_ACTIVE_INVESTMENTS
+          ? `Already ${MAX_ACTIVE_INVESTMENTS}/3 active`
+          : cheapestUnbuiltCapital == null ||
+              me.cash < cheapestUnbuiltCapital + cost
+            ? `Need $${(cheapestUnbuiltCapital ?? 0) + cost} for the cheapest one`
+            : `Click an investment card to implement it`;
 
   const canCallAudit =
     isMyActionTurn &&
@@ -282,13 +308,30 @@ export default function HandTray() {
     }
   };
 
-  const implement = () => {
-    if (!canImplement || !unbuiltInv) return;
+  // The Implement button toggles implement-mode; the actual dispatch
+  // happens when the player clicks a specific investment card.
+  const toggleImplement = () => {
+    if (implementMode.active) {
+      cancelImplement();
+      return;
+    }
+    if (!canImplement) return;
+    startImplement();
+  };
+  const implementSpecific = (instanceId: string) => {
+    if (!humanId) return;
+    const inv = me.investments.find((i) => i.instanceId === instanceId);
+    if (!inv || inv.status !== "unbuilt") return;
+    const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
+    if (!def) return;
+    if (me.cash < def.capital + cost) return;
+    if (activeInvCount >= MAX_ACTIVE_INVESTMENTS) return;
     dispatch({
       t: "IMPLEMENT_INVESTMENT",
       playerId: humanId,
-      investmentInstanceId: unbuiltInv.instanceId,
+      investmentInstanceId: instanceId,
     });
+    cancelImplement();
   };
 
   const callAudit = () => {
@@ -397,11 +440,12 @@ export default function HandTray() {
         </ContextButton>
 
         <ContextButton
-          enabled={canImplement}
-          onClick={implement}
+          enabled={canImplement || implementMode.active}
+          onClick={toggleImplement}
           title={implementReason}
+          variant={implementMode.active ? "danger" : "primary"}
         >
-          Implement ↵
+          {implementMode.active ? "Cancel ↵" : "Implement ↵"}
         </ContextButton>
 
         <span className="flex-1" />
@@ -546,6 +590,20 @@ export default function HandTray() {
                     : makeMode
                       ? `${card.name} — pick as mash bill`
                       : `${card.name} — click to inspect`;
+                  const isRare = card.rarity === "Rare";
+                  // Wrap rare cards in a shimmer container so the
+                  // sweep highlight runs over the card face. The
+                  // wrapper inherits rounding so the shimmer doesn't
+                  // bleed past the card's silhouette.
+                  const inner = (
+                    <div
+                      className={
+                        isRare ? "rare-shimmer rounded-md" : undefined
+                      }
+                    >
+                      <BourbonCardFace card={card} size="sm" />
+                    </div>
+                  );
                   if (selectable) {
                     return (
                       <button
@@ -556,13 +614,13 @@ export default function HandTray() {
                         onClick={onClick}
                         className={className}
                       >
-                        <BourbonCardFace card={card} size="sm" />
+                        {inner}
                       </button>
                     );
                   }
                   return (
                     <div key={`${id}-${i}`} className={className}>
-                      <BourbonCardFace card={card} size="sm" />
+                      {inner}
                     </div>
                   );
                 })
@@ -573,112 +631,80 @@ export default function HandTray() {
 
         <Divider />
 
-        {/* Play (ops + investments) */}
+        {/* Play (ops + investments) — accordion fan of mini cards */}
         <div className="flex flex-shrink-0 items-stretch gap-2">
           <VerticalCaption>play</VerticalCaption>
-          <div className="flex max-w-[260px] flex-col gap-1.5">
-            <div className="flex flex-wrap gap-1.5">
-              {me.operations.length === 0 ? (
-                <EmptyPill>no ops</EmptyPill>
-              ) : (
-                me.operations.map((ops) => {
-                  const def = OPERATIONS_CARDS_BY_ID[ops.cardId];
-                  const auditMode = auditDiscard.active;
-                  const auditSelected = auditDiscard.operationsInstanceIds.includes(
-                    ops.instanceId,
-                  );
-                  if (auditMode) {
-                    return (
-                      <button
-                        key={ops.instanceId}
-                        type="button"
-                        aria-pressed={auditSelected}
-                        title={
-                          def?.effect
-                            ? `${def.effect} — toggle for audit discard`
-                            : "toggle for audit discard"
-                        }
-                        onClick={() => toggleAuditOperations(ops.instanceId)}
-                        className={[
-                          "rounded border px-2.5 py-1 font-mono text-[11px] font-semibold transition-all",
-                          auditSelected
-                            ? "border-rose-400 bg-rose-500/[0.20] text-rose-100 ring-2 ring-rose-400"
-                            : "border-violet-500/45 bg-violet-500/[0.15] text-violet-200 hover:border-rose-500/60",
-                        ].join(" ")}
-                      >
-                        {def?.title ?? ops.cardId}
-                        <span className="ml-1.5 opacity-60">OPS</span>
-                      </button>
-                    );
-                  }
-                  return (
-                    <span
-                      key={ops.instanceId}
-                      title={def?.effect}
-                      className="rounded border border-violet-500/45 bg-violet-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold text-violet-200"
-                    >
-                      {def?.title ?? ops.cardId}
-                      <span className="ml-1.5 opacity-60">OPS</span>
-                    </span>
-                  );
-                })
-              )}
-            </div>
-            {me.investments.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {me.investments.map((inv) => {
-                  const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
-                  const isActive = inv.status === "active";
-                  const auditMode = auditDiscard.active && !isActive;
-                  const auditSelected = auditDiscard.investmentInstanceIds.includes(
-                    inv.instanceId,
-                  );
-                  if (auditMode) {
-                    return (
-                      <button
-                        key={inv.instanceId}
-                        type="button"
-                        aria-pressed={auditSelected}
-                        title={
-                          def?.effect
-                            ? `${def.effect} — toggle for audit discard`
-                            : "toggle for audit discard"
-                        }
-                        onClick={() => toggleAuditInvestment(inv.instanceId)}
-                        className={[
-                          "rounded border bg-emerald-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold transition-all",
-                          auditSelected
-                            ? "border-rose-400 bg-rose-500/[0.20] text-rose-100 ring-2 ring-rose-400"
-                            : "border-slate-600 text-slate-300 opacity-80 hover:border-rose-500/60",
-                        ].join(" ")}
-                      >
-                        {def?.name ?? inv.cardId}
-                        <span className="ml-1.5 opacity-60">
-                          ${def?.capital ?? 0} · UNBUILT
-                        </span>
-                      </button>
-                    );
-                  }
-                  return (
-                    <span
-                      key={inv.instanceId}
-                      title={def?.effect}
-                      className={`rounded border bg-emerald-500/[0.15] px-2.5 py-1 font-mono text-[11px] font-semibold ${
-                        isActive
-                          ? "border-emerald-500/45 text-emerald-200"
-                          : "border-slate-600 text-slate-300 opacity-80"
-                      }`}
-                    >
-                      {def?.name ?? inv.cardId}
-                      <span className="ml-1.5 opacity-60">
-                        ${def?.capital ?? 0} ·{" "}
-                        {isActive ? "ACTIVE" : "UNBUILT"}
-                      </span>
-                    </span>
-                  );
-                })}
-              </div>
-            ) : null}
+          <div className="flex flex-col gap-1.5">
+            {/* Single accordion row for all play-side cards. Cards
+                overlap by ~36px (-ml-9). On hover, the hovered card
+                lifts + scales, neighbours after it slide right via
+                `peer-hover` chaining; the card itself uses z-50 for the
+                stacking context. */}
+            <PlayAccordion>
+              {me.operations.length === 0 && me.investments.length === 0 ? (
+                <EmptyPill>no plays</EmptyPill>
+              ) : null}
+              {me.operations.map((ops, idx) => {
+                const def = OPERATIONS_CARDS_BY_ID[ops.cardId];
+                const auditMode = auditDiscard.active;
+                const auditSelected =
+                  auditDiscard.operationsInstanceIds.includes(ops.instanceId);
+                const onClick = auditMode
+                  ? () => toggleAuditOperations(ops.instanceId)
+                  : undefined;
+                return (
+                  <MiniOperationsCard
+                    key={ops.instanceId}
+                    title={def?.title ?? ops.cardId}
+                    concept={def?.concept}
+                    effect={def?.effect}
+                    indexInRow={idx}
+                    auditMode={auditMode}
+                    auditSelected={auditSelected}
+                    onClick={onClick}
+                  />
+                );
+              })}
+              {me.investments.map((inv, idx) => {
+                const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
+                const isActive = inv.status === "active";
+                const auditMode = auditDiscard.active && !isActive;
+                const auditSelected =
+                  auditDiscard.investmentInstanceIds.includes(inv.instanceId);
+                const isImplementable =
+                  implementMode.active &&
+                  !isActive &&
+                  isMyActionTurn &&
+                  canAfford &&
+                  activeInvCount < MAX_ACTIVE_INVESTMENTS &&
+                  me.cash >=
+                    (def?.capital ?? 0) + cost;
+                const onClick = auditMode
+                  ? () => toggleAuditInvestment(inv.instanceId)
+                  : isImplementable
+                    ? () => implementSpecific(inv.instanceId)
+                    : undefined;
+                return (
+                  <MiniInvestmentCard
+                    key={inv.instanceId}
+                    name={def?.name ?? inv.cardId}
+                    short={def?.short}
+                    effect={def?.effect}
+                    capital={def?.capital ?? 0}
+                    rarity={def?.rarity}
+                    isActive={isActive}
+                    indexInRow={me.operations.length + idx}
+                    auditMode={auditMode}
+                    auditSelected={auditSelected}
+                    implementable={isImplementable}
+                    canAffordImplement={
+                      def != null && me.cash >= def.capital + cost
+                    }
+                    onClick={onClick}
+                  />
+                );
+              })}
+            </PlayAccordion>
           </div>
         </div>
       </div>
@@ -892,5 +918,211 @@ function EmptyPill({ children }: { children: React.ReactNode }) {
     <span className="rounded border border-dashed border-slate-700 px-2.5 py-1 font-mono text-[11px] italic text-slate-500">
       {children}
     </span>
+  );
+}
+
+/**
+ * Accordion fan layout for the play row (ops + investments). Cards
+ * overlap horizontally; on hover the hovered card lifts and scales up,
+ * via the `group/card` + `hover:` utilities each card declares itself.
+ * Container has horizontal scrolling for hand sizes that exceed the
+ * tray width.
+ */
+function PlayAccordion({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="hand-scrollbar flex max-w-[420px] items-end overflow-x-auto py-2 pl-2 pr-3">
+      <div className="flex items-end">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Mini operations card — violet gradient, ~110×148, fits inline in the
+ * hand. Uses negative left margin to overlap with siblings (accordion
+ * fan); on hover, lifts + scales + rises above siblings via z-50.
+ */
+function MiniOperationsCard({
+  title,
+  concept,
+  effect,
+  indexInRow,
+  auditMode,
+  auditSelected,
+  onClick,
+}: {
+  title: string;
+  concept?: string;
+  effect?: string;
+  indexInRow: number;
+  auditMode: boolean;
+  auditSelected: boolean;
+  onClick?: () => void;
+}) {
+  const interactive = !!onClick;
+  const baseChrome =
+    "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 bg-gradient-to-b from-violet-600/90 via-violet-900/90 to-slate-950 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
+  const overlapMargin = indexInRow === 0 ? "" : "-ml-9";
+  const stateBorder = auditSelected
+    ? "border-rose-400 ring-2 ring-rose-400"
+    : auditMode
+      ? "border-rose-500/50"
+      : "border-violet-400";
+  const interactiveAffordance = interactive
+    ? "cursor-pointer hover:z-50 hover:-translate-y-3 hover:scale-[1.08]"
+    : "hover:z-50 hover:-translate-y-2 hover:scale-[1.05]";
+  return (
+    <button
+      type="button"
+      disabled={!interactive && !auditMode}
+      onClick={onClick}
+      title={effect ? `${title} — ${effect}` : title}
+      aria-pressed={auditMode ? auditSelected : undefined}
+      className={[baseChrome, overlapMargin, stateBorder, interactiveAffordance]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+        aria-hidden
+      />
+      <div className="flex items-baseline justify-between">
+        <span className="text-[8px] font-semibold uppercase tracking-[0.18em] text-violet-200">
+          Ops
+        </span>
+        <span className="text-[7px] uppercase tracking-wide text-violet-200/70">
+          one-shot
+        </span>
+      </div>
+      <h4 className="mt-1 line-clamp-2 font-display text-[13px] font-bold leading-tight text-white drop-shadow-[0_1px_4px_rgba(0,0,0,.35)]">
+        {title}
+      </h4>
+      {concept ? (
+        <p className="mt-0.5 line-clamp-2 text-[9px] italic leading-snug text-violet-100/80">
+          {concept}
+        </p>
+      ) : null}
+      <div className="mt-auto grid h-9 w-9 self-center place-items-center rounded-full border border-violet-300 bg-white/10 text-lg shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm">
+        ⚡
+      </div>
+      {effect ? (
+        <p className="mt-1 line-clamp-2 text-[8.5px] leading-snug text-white/85">
+          {effect}
+        </p>
+      ) : null}
+    </button>
+  );
+}
+
+/**
+ * Mini investment card — emerald gradient. Implementable variant gets
+ * a strong amber ring + lifted state in implement mode. Active (already
+ * built) cards render in a duller "applied" treatment with no overlap
+ * lift since they're table-state, not hand-state. Rare investments get
+ * the .rare-shimmer keyframe.
+ */
+function MiniInvestmentCard({
+  name,
+  short,
+  effect,
+  capital,
+  rarity,
+  isActive,
+  indexInRow,
+  auditMode,
+  auditSelected,
+  implementable,
+  canAffordImplement,
+  onClick,
+}: {
+  name: string;
+  short?: string;
+  effect?: string;
+  capital: number;
+  rarity?: string;
+  isActive: boolean;
+  indexInRow: number;
+  auditMode: boolean;
+  auditSelected: boolean;
+  implementable: boolean;
+  canAffordImplement: boolean;
+  onClick?: () => void;
+}) {
+  const interactive = !!onClick;
+  const isRare = rarity === "Rare";
+  const baseChrome =
+    "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
+  const gradient = isActive
+    ? "bg-gradient-to-b from-emerald-700/70 via-emerald-900/80 to-slate-950"
+    : "bg-gradient-to-b from-emerald-600/90 via-emerald-900/90 to-slate-950";
+  const overlapMargin = indexInRow === 0 ? "" : "-ml-9";
+  const stateBorder = auditSelected
+    ? "border-rose-400 ring-2 ring-rose-400"
+    : auditMode
+      ? "border-rose-500/50"
+      : implementable
+        ? "border-amber-300 ring-2 ring-amber-300"
+        : isActive
+          ? "border-emerald-400"
+          : "border-emerald-400/70";
+  const interactiveAffordance = interactive
+    ? implementable
+      ? "cursor-pointer hover:z-50 hover:-translate-y-4 hover:scale-[1.10]"
+      : "cursor-pointer hover:z-50 hover:-translate-y-3 hover:scale-[1.08]"
+    : "hover:z-50 hover:-translate-y-2 hover:scale-[1.05]";
+  return (
+    <button
+      type="button"
+      disabled={!interactive && !auditMode}
+      onClick={onClick}
+      title={
+        implementable
+          ? `Click to implement (pays $${capital} capital + action)`
+          : !isActive && !canAffordImplement && !auditMode
+            ? `${name} — can't afford implement`
+            : effect
+              ? `${name} — ${effect}`
+              : name
+      }
+      aria-pressed={auditMode ? auditSelected : undefined}
+      className={[
+        baseChrome,
+        gradient,
+        overlapMargin,
+        stateBorder,
+        interactiveAffordance,
+        isRare ? "rare-shimmer" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+        aria-hidden
+      />
+      <div className="flex items-baseline justify-between">
+        <span className="text-[8px] font-semibold uppercase tracking-[0.18em] text-emerald-200">
+          {isActive ? "Built" : "Invest"}
+        </span>
+        <span className="text-[7px] uppercase tracking-wide text-emerald-200/70">
+          {rarity ?? ""}
+        </span>
+      </div>
+      <h4 className="mt-1 line-clamp-2 font-display text-[13px] font-bold leading-tight text-white drop-shadow-[0_1px_4px_rgba(0,0,0,.35)]">
+        {name}
+      </h4>
+      {short ? (
+        <p className="mt-0.5 line-clamp-2 text-[9px] italic leading-snug text-emerald-100/80">
+          {short}
+        </p>
+      ) : null}
+      <div className="mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 border-emerald-300 bg-white/10 font-mono text-[13px] font-black tabular-nums text-white shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm">
+        ${capital}
+      </div>
+      {effect ? (
+        <p className="mt-1 line-clamp-2 text-[8.5px] leading-snug text-white/85">
+          {effect}
+        </p>
+      ) : null}
+    </button>
   );
 }

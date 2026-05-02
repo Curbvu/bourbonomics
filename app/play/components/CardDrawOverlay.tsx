@@ -187,13 +187,13 @@ export default function CardDrawOverlay() {
     >
       {/* Centred coloured aura (uses CSS vars so we don't ship a per-card class). */}
       <div
-        className="card-draw-glow pointer-events-none absolute left-1/2 top-1/2 h-[380px] w-[380px] rounded-full blur-3xl"
+        className="card-draw-glow pointer-events-none absolute left-1/2 top-1/2 h-[560px] w-[560px] rounded-full blur-3xl"
         style={{
           background: `radial-gradient(circle, ${glow} 0%, transparent 65%)`,
         }}
       />
       <div
-        className="card-draw-spark pointer-events-none absolute left-1/2 top-1/2 h-[200px] w-[200px] rounded-full"
+        className="card-draw-spark pointer-events-none absolute left-1/2 top-1/2 h-[300px] w-[300px] rounded-full"
         style={{
           background: `radial-gradient(circle, ${glow} 0%, transparent 70%)`,
           mixBlendMode: "screen",
@@ -282,34 +282,43 @@ function ResourceFace({
     : null;
   return (
     <article
-      className={`flex h-80 w-56 flex-col rounded-xl border-2 bg-gradient-to-b ${theme.gradient} ${theme.border} p-5 shadow-2xl`}
+      className={`relative flex h-[460px] w-[320px] flex-col overflow-hidden rounded-2xl border-2 bg-gradient-to-b ${theme.gradient} ${theme.border} p-6 shadow-[0_24px_60px_rgba(0,0,0,.55)] ring-1 ring-white/10`}
       aria-label={`Resource card: ${event.resource}${event.bonus ? " bonus" : ""}`}
     >
-      <header className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${theme.accent}`}>
-        {event.bonus ? "Bonus draw" : "Resource"}
+      {/* Top inner highlight — a subtle premium gloss */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+        aria-hidden
+      />
+      <header className="flex items-baseline justify-between">
+        <span
+          className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${theme.accent}`}
+        >
+          {event.bonus ? "Bonus draw" : "Resource"}
+        </span>
+        <span className={`text-[10px] uppercase tracking-wide ${theme.accent} opacity-70`}>
+          {specialty ? "Specialty" : "Plain"}
+        </span>
       </header>
-      <div className="mt-3 text-3xl font-bold capitalize text-white drop-shadow">
+      <h3 className="mt-4 text-5xl font-bold capitalize leading-none text-white drop-shadow-[0_2px_8px_rgba(0,0,0,.4)]">
         {event.resource}
-      </div>
-      <div className={`mt-1 text-xs ${theme.accent} opacity-80`}>
-        {specialty ? "Specialty" : "Plain"}
-      </div>
-      <div className="my-4 flex flex-1 items-center justify-center">
+      </h3>
+      <div className="my-6 flex flex-1 items-center justify-center">
         <div
-          className={`flex h-20 w-20 items-center justify-center rounded-full border-2 ${theme.border} bg-white/10 text-4xl font-black uppercase text-white`}
+          className={`flex h-32 w-32 items-center justify-center rounded-full border-2 ${theme.border} bg-white/10 text-7xl font-black uppercase text-white shadow-[inset_0_2px_8px_rgba(255,255,255,.18),0_8px_28px_rgba(0,0,0,.4)] backdrop-blur-sm`}
         >
           {event.resource[0]}
         </div>
       </div>
       {specialty ? (
-        <div className="space-y-1">
-          <div className="text-sm font-semibold text-white">{specialty.name}</div>
-          <div className="text-[11px] leading-snug text-white/85">
+        <div className="space-y-1.5">
+          <div className="text-base font-semibold text-white">{specialty.name}</div>
+          <div className="text-[12.5px] leading-snug text-white/85">
             {specialty.rule}
           </div>
         </div>
       ) : (
-        <div className="text-[11px] italic text-white/70">
+        <div className="text-[12.5px] italic leading-snug text-white/70">
           A standard {event.resource} card. Useful in any mash.
         </div>
       )}
@@ -337,13 +346,13 @@ function BourbonFace({
     <div className="relative">
       {/* Outer rare-amber halo if applicable */}
       {card.rarity === "Rare" ? (
-        <div className="pointer-events-none absolute -inset-2 rounded-2xl border-2 border-amber-300/40 shadow-[0_0_40px_rgba(251,191,36,0.35)]" />
+        <div className="pointer-events-none absolute -inset-3 rounded-2xl border-2 border-amber-300/40 shadow-[0_0_60px_rgba(251,191,36,0.45)]" />
       ) : null}
-      <div className="relative">
-        <BourbonCardFace card={card} size="md" />
-        <div className="mt-1 text-center text-[10px] uppercase tracking-widest text-amber-300/80">
-          {event.source === "face-up" ? "Drawn (face-up)" : "Drawn (deck)"}
-        </div>
+      <div className="relative ring-1 ring-white/10 rounded-md shadow-[0_24px_60px_rgba(0,0,0,.55)]">
+        <BourbonCardFace card={card} size="lg" />
+      </div>
+      <div className="mt-2 text-center text-[11px] uppercase tracking-[.22em] text-amber-300/80">
+        {event.source === "face-up" ? "Drawn (face-up)" : "Drawn (deck)"}
       </div>
     </div>
   );
@@ -357,29 +366,34 @@ function InvestmentFace({
   const def = INVESTMENT_CARDS_BY_ID[event.cardId];
   return (
     <article
-      className="flex h-80 w-60 flex-col rounded-xl border-2 border-emerald-400 bg-gradient-to-b from-emerald-700/85 via-emerald-900/85 to-slate-950 p-5 shadow-2xl"
+      className="relative flex h-[460px] w-[320px] flex-col overflow-hidden rounded-2xl border-2 border-emerald-400 bg-gradient-to-b from-emerald-600/90 via-emerald-900/90 to-slate-950 p-6 shadow-[0_24px_60px_rgba(0,0,0,.55)] ring-1 ring-white/10"
       aria-label={`Investment card: ${def?.name ?? event.cardId}`}
     >
+      {/* Top inner highlight */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+        aria-hidden
+      />
       <header className="flex items-baseline justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-200">
           Investment
         </span>
         <span className="text-[10px] uppercase tracking-wide text-emerald-200/80">
           {def?.rarity ?? ""}
         </span>
       </header>
-      <h3 className="mt-2 text-lg font-bold leading-tight text-white">
+      <h3 className="mt-3 font-display text-3xl font-bold leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,.4)]">
         {def?.name ?? event.cardId}
       </h3>
-      <div className="mt-1 text-[11px] italic text-emerald-100/80">
+      <div className="mt-2 text-[13px] italic text-emerald-100/85">
         {def?.short}
       </div>
-      <div className="my-4 flex items-center justify-center">
-        <div className="rounded-full border-2 border-emerald-300 bg-white/10 px-5 py-2 text-2xl font-black tabular-nums text-white shadow-inner">
+      <div className="my-6 flex items-center justify-center">
+        <div className="grid h-28 w-28 place-items-center rounded-full border-2 border-emerald-300 bg-white/10 text-4xl font-black tabular-nums text-white shadow-[inset_0_2px_8px_rgba(255,255,255,.20),0_8px_28px_rgba(0,0,0,.4)] backdrop-blur-sm">
           ${def?.capital ?? 0}
         </div>
       </div>
-      <p className="text-[11px] leading-snug text-white/90">{def?.effect}</p>
+      <p className="text-[13px] leading-snug text-white/90">{def?.effect}</p>
     </article>
   );
 }
@@ -392,29 +406,36 @@ function OperationsFace({
   const def = OPERATIONS_CARDS_BY_ID[event.cardId];
   return (
     <article
-      className="flex h-80 w-60 flex-col rounded-xl border-2 border-violet-400 bg-gradient-to-b from-violet-700/85 via-violet-900/85 to-slate-950 p-5 shadow-2xl"
+      className="relative flex h-[460px] w-[320px] flex-col overflow-hidden rounded-2xl border-2 border-violet-400 bg-gradient-to-b from-violet-600/90 via-violet-900/90 to-slate-950 p-6 shadow-[0_24px_60px_rgba(0,0,0,.55)] ring-1 ring-white/10"
       aria-label={`Operations card: ${def?.title ?? event.cardId}`}
     >
+      {/* Top inner highlight */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+        aria-hidden
+      />
       <header className="flex items-baseline justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-200">
           Operations
         </span>
         <span className="text-[10px] uppercase tracking-wide text-violet-200/80">
           One-shot
         </span>
       </header>
-      <h3 className="mt-2 text-lg font-bold leading-tight text-white">
+      <h3 className="mt-3 font-display text-3xl font-bold leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,.4)]">
         {def?.title ?? event.cardId}
       </h3>
       {def?.concept ? (
-        <div className="mt-1 text-[11px] italic text-violet-100/80">
+        <div className="mt-2 text-[13px] italic text-violet-100/85">
           {def.concept}
         </div>
       ) : null}
-      <div className="my-4 flex flex-1 items-center justify-center">
-        <div className="text-5xl">⚡</div>
+      <div className="my-6 flex flex-1 items-center justify-center">
+        <div className="grid h-28 w-28 place-items-center rounded-full border-2 border-violet-300 bg-white/10 text-6xl shadow-[inset_0_2px_8px_rgba(255,255,255,.20),0_8px_28px_rgba(0,0,0,.4)] backdrop-blur-sm">
+          ⚡
+        </div>
       </div>
-      <p className="text-[11px] leading-snug text-white/90">{def?.effect}</p>
+      <p className="text-[13px] leading-snug text-white/90">{def?.effect}</p>
     </article>
   );
 }
@@ -432,12 +453,12 @@ function FallbackFace({
 }) {
   return (
     <article
-      className={`flex h-80 w-56 flex-col rounded-xl border-2 ${accent} bg-gradient-to-b ${gradient} p-5 shadow-2xl`}
+      className={`flex h-[460px] w-[320px] flex-col rounded-2xl border-2 ${accent} bg-gradient-to-b ${gradient} p-6 shadow-[0_24px_60px_rgba(0,0,0,.55)] ring-1 ring-white/10`}
     >
-      <header className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/80">
+      <header className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/80">
         {label}
       </header>
-      <h3 className="mt-2 text-base font-semibold text-white">{title}</h3>
+      <h3 className="mt-3 text-2xl font-semibold leading-tight text-white">{title}</h3>
     </article>
   );
 }

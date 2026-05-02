@@ -572,6 +572,54 @@ body {
 }
 
 /* ----------------------------------------------------------------------
+   Rare-card shimmer. Sweeps a faint diagonal highlight across the card
+   face on a slow loop so Rare bourbons / investments visually shimmer
+   in the player's hand. Reduced-motion users get a static card.
+   ---------------------------------------------------------------------- */
+
+@keyframes rare-shimmer {
+  0% {
+    transform: translateX(-140%) skewX(-15deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.55;
+  }
+  60% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateX(220%) skewX(-15deg);
+    opacity: 0;
+  }
+}
+
+.rare-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.rare-shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 45%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.35) 55%,
+    transparent 100%
+  );
+  animation: rare-shimmer 3.4s ease-in-out infinite;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* ----------------------------------------------------------------------
    Action-cost ladder escalation pulse. Used by PhaseBanner's $3+ chip
    when the lap tier has met or exceeded the cap — costs are now running
    away, so the chip glows in rose with a continuous pulse to convey
@@ -595,6 +643,10 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .rare-shimmer::after {
+    animation: none !important;
+    opacity: 0 !important;
+  }
   .resource-hand-tier-special,
   .resource-hand-tier-strong,
   .resource-hand-tier-global,

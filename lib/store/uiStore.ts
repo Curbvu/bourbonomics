@@ -77,6 +77,18 @@ export type UiStore = {
   inspectBill: (cardId: string) => void;
   inspectBarrel: (barrelId: string) => void;
   closeInspect: () => void;
+
+  /**
+   * Implement mode — toggled when the player clicks IMPLEMENT in the
+   * HandTray. While active, every UNBUILT investment card in the play
+   * row becomes a click target; clicking one dispatches
+   * IMPLEMENT_INVESTMENT for that specific instance and exits the mode.
+   * Replaces the previous "auto-pick the first unbuilt" shortcut so the
+   * player can now decide which paid investment to capitalise.
+   */
+  implement: { active: boolean };
+  startImplement: () => void;
+  cancelImplement: () => void;
 };
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -160,4 +172,8 @@ export const useUiStore = create<UiStore>((set) => ({
   inspectBarrel: (barrelId) =>
     set({ inspect: { kind: "barrel", barrelId } }),
   closeInspect: () => set({ inspect: null }),
+
+  implement: { active: false },
+  startImplement: () => set({ implement: { active: true } }),
+  cancelImplement: () => set({ implement: { active: false } }),
 }));
