@@ -47,6 +47,8 @@ export default function RickhouseRow() {
   const makeBourbon = useUiStore((s) => s.makeBourbon);
   const cancelMakeBourbon = useUiStore((s) => s.cancelMakeBourbon);
   const inspectBarrel = useUiStore((s) => s.inspectBarrel);
+  const sellMode = useUiStore((s) => s.sell);
+  const cancelSell = useUiStore((s) => s.cancelSell);
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
   );
@@ -136,9 +138,16 @@ export default function RickhouseRow() {
         barrelId,
       });
     }
+    // Exit sell mode after a sale — one barrel per click, by design.
+    cancelSell();
   };
 
-  const sectionClass = makeBourbon.active ? "relative z-40" : "";
+  // Lift either the make-bourbon dim or the sell-mode dim above the
+  // backdrop so the rickhouse area stays interactive while the rest of
+  // the dashboard fades. Both are mutually exclusive in practice — the
+  // mode buttons gate each other.
+  const sectionClass =
+    makeBourbon.active || sellMode.active ? "relative z-40" : "";
 
   return (
     <section className={sectionClass}>
@@ -152,6 +161,10 @@ export default function RickhouseRow() {
           ) : makeBourbon.active && mashOk && !billOk ? (
             <span className="ml-2 rounded border border-amber-500/60 bg-amber-700/[0.10] px-1.5 py-0.5 text-amber-200/90">
               Pick a mash bill
+            </span>
+          ) : sellMode.active ? (
+            <span className="ml-2 rounded border border-amber-500 bg-amber-700/[0.20] px-1.5 py-0.5 text-amber-200">
+              Click one of your aged barrels to sell
             </span>
           ) : null}
         </h2>
@@ -244,32 +257,46 @@ export default function RickhouseRow() {
                   const projectedPrice = altPick ? altPick.payout : basePrice;
                   const isRare = card?.rarity === "Rare";
                   const showPrice = isMine && ageOk;
+                  // In sell mode, the barrel becomes the click target;
+                  // outside it, click-to-inspect is the only path —
+                  // accidental sells are gone.
+                  const sellTarget = sellable && sellMode.active;
                   const tooltip = isMine
                     ? `${card?.name ?? b.mashBillId}${isRare ? " (Rare)" : ""} · age ${b.age}` +
                       (b.age < 2
                         ? " · needs ≥2 to sell · click to inspect"
-                        : ` · sells for $${projectedPrice}` +
-                          (altPick
-                            ? ` (Gold alt: ${BOURBON_CARDS_BY_ID[altPick.goldId]?.name ?? altPick.goldId})`
-                            : "") +
-                          " · click to inspect / sell")
+                        : sellTarget
+                          ? ` · click to sell for $${projectedPrice}` +
+                            (altPick
+                              ? ` (Gold alt: ${BOURBON_CARDS_BY_ID[altPick.goldId]?.name ?? altPick.goldId})`
+                              : "")
+                          : ` · sells for $${projectedPrice}` +
+                            (altPick
+                              ? ` (Gold alt: ${BOURBON_CARDS_BY_ID[altPick.goldId]?.name ?? altPick.goldId})`
+                              : "") +
+                            " · click to inspect")
                     : `${state.players[b.ownerId]?.name ?? "?"} · ${
                         card?.name ?? b.mashBillId
                       }${isRare ? " (Rare)" : ""} · age ${b.age} · click to inspect`;
                   // Card-sized barrel chip with the bill's name on a
                   // header strip in the owner's colour, age centered,
-                  // and a price badge for sellable own barrels.
+                  // and a price badge for sellable own barrels. Sell
+                  // mode adds an amber outline + glow to the player's
+                  // own aged barrels and dims everyone else's so the
+                  // legal targets are unmistakable.
                   const chipClass = [
                     "group relative flex h-[88px] w-[108px] flex-col overflow-hidden rounded-md border bg-slate-950/70 text-left transition-all",
-                    sellable
-                      ? "border-amber-400 outline outline-2 outline-amber-300/70 outline-offset-1 hover:-translate-y-0.5 hover:border-amber-300"
-                      : "border-slate-700 hover:-translate-y-0.5 hover:border-amber-500/60",
+                    sellTarget
+                      ? "border-amber-400 outline outline-2 outline-amber-300/80 outline-offset-1 shadow-[0_0_18px_rgba(245,158,11,.45)] hover:-translate-y-0.5 hover:border-amber-300"
+                      : sellMode.active
+                        ? "border-slate-800 opacity-60"
+                        : "border-slate-700 hover:-translate-y-0.5 hover:border-amber-500/60",
                   ].join(" ");
                   // Suppress click during make-bourbon mode — that
                   // mode's click target is the rickhouse card itself.
                   const clickable = !makeBourbon.active;
                   const onClick = clickable
-                    ? sellable
+                    ? sellTarget
                       ? () =>
                           sellBarrel(
                             b.barrelId,

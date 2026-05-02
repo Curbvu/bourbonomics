@@ -68,6 +68,9 @@ export default function HandTray() {
   const implementMode = useUiStore((s) => s.implement);
   const startImplement = useUiStore((s) => s.startImplement);
   const cancelImplement = useUiStore((s) => s.cancelImplement);
+  const sellMode = useUiStore((s) => s.sell);
+  const startSell = useUiStore((s) => s.startSell);
+  const cancelSell = useUiStore((s) => s.cancelSell);
 
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
@@ -92,6 +95,16 @@ export default function HandTray() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [implementMode.active, cancelImplement]);
+
+  // Esc cancels sell mode.
+  useEffect(() => {
+    if (!sellMode.active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancelSell();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sellMode.active, cancelSell]);
 
   // Audit-discard mode is auto-entered for whichever player owes an
   // overage. Computed inline (rather than in a derived const) so the
@@ -176,22 +189,24 @@ export default function HandTray() {
   const bestSellable = pickBestSellable(state, me);
   const goldAlt = bestSellable?.goldAlt ?? null;
   const canSell = isMyActionTurn && canAfford && !!bestSellable;
-  const sellReason = !isMyActionTurn
-    ? "Wait for your turn"
-    : !canAfford
-      ? `Need $${cost} to act`
-      : !bestSellable
-        ? "No barrel is 2+ years aged"
-        : (() => {
-            const bill =
-              BOURBON_CARDS_BY_ID[bestSellable.barrel.mashBillId]?.name ??
-              bestSellable.barrel.mashBillId;
-            const ageStr = `${bestSellable.barrel.age}y`;
-            const altStr = goldAlt
-              ? ` via Gold (${BOURBON_CARDS_BY_ID[goldAlt.goldId]?.name ?? goldAlt.goldId})`
-              : "";
-            return `Sell ${ageStr} barrel (${bill}) for $${bestSellable.payout}${altStr} — or click any barrel in a rickhouse to sell it directly`;
-          })();
+  const sellReason = sellMode.active
+    ? "Cancel sell — exit sell mode"
+    : !isMyActionTurn
+      ? "Wait for your turn"
+      : !canAfford
+        ? `Need $${cost} to act`
+        : !bestSellable
+          ? "No barrel is 2+ years aged"
+          : (() => {
+              const bill =
+                BOURBON_CARDS_BY_ID[bestSellable.barrel.mashBillId]?.name ??
+                bestSellable.barrel.mashBillId;
+              const ageStr = `${bestSellable.barrel.age}y`;
+              const altStr = goldAlt
+                ? ` via Gold (${BOURBON_CARDS_BY_ID[goldAlt.goldId]?.name ?? goldAlt.goldId})`
+                : "";
+              return `Click any of your aged barrels to sell it (best right now: ${ageStr} ${bill} for $${bestSellable.payout}${altStr})`;
+            })();
 
   // Implement — let the player CHOOSE which unbuilt investment to capitalise.
   // Click the button to enter implement mode → the play-row investment cards
@@ -256,22 +271,16 @@ export default function HandTray() {
 
   // ---- Action dispatchers -----------------------------------------------
 
-  const sell = () => {
-    if (!canSell || !bestSellable) return;
-    if (goldAlt) {
-      dispatch({
-        t: "SELL_BOURBON",
-        playerId: humanId,
-        barrelId: bestSellable.barrel.barrelId,
-        applyGoldBourbonId: goldAlt.goldId,
-      });
-    } else {
-      dispatch({
-        t: "SELL_BOURBON",
-        playerId: humanId,
-        barrelId: bestSellable.barrel.barrelId,
-      });
+  // Sell — toggles sell mode. The actual SELL_BOURBON dispatch happens
+  // when the player clicks a specific barrel chip in RickhouseRow,
+  // mirroring the Implement/Make pattern of "pick a target on the board."
+  const toggleSell = () => {
+    if (sellMode.active) {
+      cancelSell();
+      return;
     }
+    if (!canSell) return;
+    startSell();
   };
 
   // The Implement button toggles implement-mode; the actual dispatch
@@ -401,8 +410,13 @@ export default function HandTray() {
           />
         ) : null}
 
-        <ContextButton enabled={canSell} onClick={sell} title={sellReason}>
-          Sell ↵
+        <ContextButton
+          enabled={canSell || sellMode.active}
+          onClick={toggleSell}
+          title={sellReason}
+          variant={sellMode.active ? "danger" : "primary"}
+        >
+          {sellMode.active ? "Cancel ↵" : "Sell ↵"}
         </ContextButton>
 
         <ContextButton

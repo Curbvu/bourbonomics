@@ -96,6 +96,19 @@ export type UiStore = {
   implement: { active: boolean };
   startImplement: () => void;
   cancelImplement: () => void;
+
+  /**
+   * Sell mode — toggled when the player clicks SELL in the HandTray.
+   * While active, every owned ≥2y barrel in a rickhouse becomes a
+   * click-to-sell target; clicking one dispatches SELL_BOURBON for that
+   * barrel (auto-applying the best Gold-trophy alt payout when one
+   * strictly improves the take). Idle clicks on barrels open the
+   * inspect modal, so the only way to sell from the board is to enter
+   * this mode first — no more accidental sales.
+   */
+  sell: { active: boolean };
+  startSell: () => void;
+  cancelSell: () => void;
 };
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -189,4 +202,8 @@ export const useUiStore = create<UiStore>((set) => ({
   implement: { active: false },
   startImplement: () => set({ implement: { active: true } }),
   cancelImplement: () => set({ implement: { active: false } }),
+
+  sell: { active: false },
+  startSell: () => set({ sell: { active: true } }),
+  cancelSell: () => set({ sell: { active: false } }),
 }));
