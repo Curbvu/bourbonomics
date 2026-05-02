@@ -13,18 +13,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         2,
-        2,
-        2
-      ],
-      [
-        2,
-        2,
-        2
+        3,
+        4
       ],
       [
         3,
-        3,
-        3
+        4,
+        5
+      ],
+      [
+        5,
+        6,
+        7
       ]
     ],
     "awards": null,
@@ -36,7 +36,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -47,18 +47,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        3,
-        3
-      ],
-      [
-        3,
-        3,
-        3
+        4,
+        5
       ],
       [
         4,
-        4,
-        4
+        5,
+        6
+      ],
+      [
+        6,
+        7,
+        8
       ]
     ],
     "awards": null,
@@ -70,7 +70,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -81,18 +81,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        4,
-        4
-      ],
-      [
-        4,
-        4,
-        4
+        5,
+        6
       ],
       [
         5,
-        5,
-        5
+        6,
+        7
+      ],
+      [
+        7,
+        8,
+        9
       ]
     ],
     "awards": null,
@@ -104,7 +104,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -115,18 +115,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         2,
-        2,
-        2
-      ],
-      [
-        2,
-        2,
-        2
+        3,
+        4
       ],
       [
         3,
-        3,
-        3
+        4,
+        5
+      ],
+      [
+        5,
+        6,
+        7
       ]
     ],
     "awards": null,
@@ -138,7 +138,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -148,19 +148,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
         4,
-        6
-      ],
-      [
-        3,
         5,
         7
       ],
       [
-        3,
         5,
-        7
+        7,
+        9
+      ],
+      [
+        7,
+        9,
+        12
       ]
     ],
     "awards": null,
@@ -182,19 +182,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
         5,
-        7
-      ],
-      [
-        4,
         6,
         8
       ],
       [
-        4,
         6,
-        8
+        8,
+        10
+      ],
+      [
+        8,
+        10,
+        13
       ]
     ],
     "awards": null,
@@ -216,19 +216,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
+        3,
         4,
         6
       ],
       [
-        3,
-        5,
-        7
+        4,
+        6,
+        8
       ],
       [
-        3,
-        5,
-        7
+        6,
+        8,
+        11
       ]
     ],
     "awards": null,
@@ -250,23 +250,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
         5,
-        7
+        7,
+        10
       ],
       [
-        6,
-        9,
-        12
+        7,
+        10,
+        14
       ],
       [
-        8,
-        13,
-        16
+        10,
+        15,
+        20
       ]
     ],
     "awards": {
-      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+      "silver": "Sell at demand **≥5** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
@@ -274,9 +274,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       8
     ],
     "demandBands": [
-      3,
-      6,
-      9
+      0,
+      5,
+      8
     ],
     "tier": "rare",
     "recipe": {
@@ -297,24 +297,24 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        0,
-        0,
-        9
+        11,
+        13,
+        15
       ],
       [
-        0,
-        14,
+        13,
+        17,
         21
       ],
       [
-        9,
+        16,
         21,
-        30
+        26
       ]
     ],
     "awards": {
-      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
-      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$30**)."
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe (grid **maximum** **$26**)."
     },
     "ageBands": [
       4,
@@ -323,8 +323,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     ],
     "demandBands": [
       4,
-      7,
-      10
+      6,
+      8
     ],
     "tier": "epic",
     "recipe": {
@@ -343,24 +343,24 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        0,
-        20,
-        30
-      ],
-      [
-        0,
-        28,
+        15,
+        25,
         35
       ],
       [
-        15,
+        20,
         35,
         50
+      ],
+      [
+        30,
+        50,
+        70
       ]
     ],
     "awards": {
-      "silver": "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe.",
-      "gold": "Barrel **≥15 years** **and** demand **≥10** at sale **and** mash uses **≥4 grain cards** with a specialty cask (grid **maximum** **$50**)."
+      "silver": "Barrel **≥10 years** **and** demand **≥7** at sale **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥15 years** **and** demand **≥10** at sale **and** mash uses **≥4 grain cards** with a specialty cask (grid **maximum** **$70**)."
     },
     "ageBands": [
       8,
@@ -369,7 +369,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     ],
     "demandBands": [
       4,
-      8,
+      7,
       10
     ],
     "tier": "legendary",
@@ -384,7 +384,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 55
+    "brandValue": 75
   },
   {
     "id": "11",
@@ -393,18 +393,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        3,
-        3
-      ],
-      [
-        3,
-        3,
-        3
+        4,
+        5
       ],
       [
         4,
-        4,
-        4
+        5,
+        6
+      ],
+      [
+        6,
+        7,
+        8
       ]
     ],
     "awards": null,
@@ -416,7 +416,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -427,18 +427,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        4,
-        4
-      ],
-      [
-        4,
-        4,
-        4
+        5,
+        6
       ],
       [
         5,
-        5,
-        5
+        6,
+        7
+      ],
+      [
+        7,
+        8,
+        9
       ]
     ],
     "awards": null,
@@ -450,7 +450,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -461,18 +461,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         2,
-        2,
-        2
-      ],
-      [
-        2,
-        2,
-        2
+        3,
+        4
       ],
       [
         3,
-        3,
-        3
+        4,
+        5
+      ],
+      [
+        5,
+        6,
+        7
       ]
     ],
     "awards": null,
@@ -484,7 +484,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -494,19 +494,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
+        4,
         5,
         7
       ],
       [
-        4,
-        6,
-        8
+        5,
+        7,
+        9
       ],
       [
-        4,
-        6,
-        8
+        7,
+        9,
+        12
       ]
     ],
     "awards": null,
@@ -528,19 +528,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
-        4,
-        6
+        5,
+        6,
+        8
       ],
       [
-        3,
-        5,
-        7
+        6,
+        8,
+        10
       ],
       [
-        3,
-        5,
-        7
+        8,
+        10,
+        13
       ]
     ],
     "awards": null,
@@ -563,8 +563,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        5,
-        7
+        4,
+        6
       ],
       [
         4,
@@ -572,9 +572,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         8
       ],
       [
-        4,
         6,
-        8
+        8,
+        11
       ]
     ],
     "awards": null,
@@ -596,23 +596,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
         5,
-        7
+        7,
+        10
       ],
       [
-        6,
-        9,
-        12
+        7,
+        10,
+        14
       ],
       [
-        8,
-        13,
-        16
+        10,
+        15,
+        20
       ]
     ],
     "awards": {
-      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+      "silver": "Sell at demand **≥5** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
@@ -620,9 +620,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       8
     ],
     "demandBands": [
-      3,
-      6,
-      9
+      0,
+      5,
+      8
     ],
     "tier": "rare",
     "recipe": {
@@ -637,23 +637,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
         6,
-        8
+        8,
+        11
       ],
       [
-        7,
-        10,
-        13
+        8,
+        11,
+        15
       ],
       [
-        9,
-        14,
-        17
+        11,
+        16,
+        21
       ]
     ],
     "awards": {
-      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+      "silver": "Sell at demand **≥5** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
@@ -661,9 +661,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       8
     ],
     "demandBands": [
-      3,
-      6,
-      9
+      0,
+      5,
+      8
     ],
     "tier": "rare",
     "recipe": {
@@ -678,24 +678,24 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        0,
-        0,
-        7
-      ],
-      [
-        0,
+        9,
         11,
-        17
+        13
       ],
       [
-        7,
-        17,
+        11,
+        15,
+        19
+      ],
+      [
+        14,
+        19,
         24
       ]
     ],
     "awards": {
-      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
-      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$24**)."
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe (grid **maximum** **$24**)."
     },
     "ageBands": [
       4,
@@ -704,8 +704,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     ],
     "demandBands": [
       4,
-      7,
-      10
+      6,
+      8
     ],
     "tier": "epic",
     "recipe": {
@@ -725,18 +725,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        3,
-        3
-      ],
-      [
-        3,
-        3,
-        3
+        4,
+        5
       ],
       [
         4,
-        4,
-        4
+        5,
+        6
+      ],
+      [
+        6,
+        7,
+        8
       ]
     ],
     "awards": null,
@@ -748,7 +748,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -759,18 +759,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        4,
-        4
-      ],
-      [
-        4,
-        4,
-        4
+        5,
+        6
       ],
       [
         5,
-        5,
-        5
+        6,
+        7
+      ],
+      [
+        7,
+        8,
+        9
       ]
     ],
     "awards": null,
@@ -782,7 +782,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -793,18 +793,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         2,
-        2,
-        2
-      ],
-      [
-        2,
-        2,
-        2
+        3,
+        4
       ],
       [
         3,
-        3,
-        3
+        4,
+        5
+      ],
+      [
+        5,
+        6,
+        7
       ]
     ],
     "awards": null,
@@ -816,7 +816,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -827,18 +827,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        3,
-        3
-      ],
-      [
-        3,
-        3,
-        3
+        4,
+        5
       ],
       [
         4,
-        4,
-        4
+        5,
+        6
+      ],
+      [
+        6,
+        7,
+        8
       ]
     ],
     "awards": null,
@@ -850,7 +850,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -860,19 +860,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
         5,
-        7
-      ],
-      [
-        4,
         6,
         8
       ],
       [
-        4,
         6,
-        8
+        8,
+        10
+      ],
+      [
+        8,
+        10,
+        13
       ]
     ],
     "awards": null,
@@ -894,19 +894,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
+        3,
         4,
         6
       ],
       [
-        3,
-        5,
-        7
+        4,
+        6,
+        8
       ],
       [
-        3,
-        5,
-        7
+        6,
+        8,
+        11
       ]
     ],
     "awards": null,
@@ -928,19 +928,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
+        4,
         5,
         7
       ],
       [
-        4,
-        6,
-        8
+        5,
+        7,
+        9
       ],
       [
-        4,
-        6,
-        8
+        7,
+        9,
+        12
       ]
     ],
     "awards": null,
@@ -962,23 +962,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
         6,
-        8
+        8,
+        11
       ],
       [
-        7,
-        10,
-        13
+        8,
+        11,
+        15
       ],
       [
-        9,
-        14,
-        17
+        11,
+        16,
+        21
       ]
     ],
     "awards": {
-      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+      "silver": "Sell at demand **≥5** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
@@ -986,9 +986,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       8
     ],
     "demandBands": [
-      3,
-      6,
-      9
+      0,
+      5,
+      8
     ],
     "recipe": {
       "rye": {
@@ -1003,24 +1003,24 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        0,
-        0,
-        7
-      ],
-      [
-        0,
+        9,
         11,
-        17
+        13
       ],
       [
-        7,
-        17,
+        11,
+        15,
+        19
+      ],
+      [
+        14,
+        19,
         24
       ]
     ],
     "awards": {
-      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
-      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$24**)."
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe (grid **maximum** **$24**)."
     },
     "ageBands": [
       4,
@@ -1029,8 +1029,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     ],
     "demandBands": [
       4,
-      7,
-      10
+      6,
+      8
     ],
     "recipe": {
       "rye": {
@@ -1050,18 +1050,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        3,
-        3
-      ],
-      [
-        3,
-        3,
-        3
+        4,
+        5
       ],
       [
         4,
-        4,
-        4
+        5,
+        6
+      ],
+      [
+        6,
+        7,
+        8
       ]
     ],
     "awards": null,
@@ -1073,7 +1073,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -1084,18 +1084,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        4,
-        4
-      ],
-      [
-        4,
-        4,
-        4
+        5,
+        6
       ],
       [
         5,
-        5,
-        5
+        6,
+        7
+      ],
+      [
+        7,
+        8,
+        9
       ]
     ],
     "awards": null,
@@ -1107,7 +1107,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -1118,18 +1118,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         2,
-        2,
-        2
-      ],
-      [
-        2,
-        2,
-        2
+        3,
+        4
       ],
       [
         3,
-        3,
-        3
+        4,
+        5
+      ],
+      [
+        5,
+        6,
+        7
       ]
     ],
     "awards": null,
@@ -1141,7 +1141,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -1152,18 +1152,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        3,
-        3
-      ],
-      [
-        3,
-        3,
-        3
+        4,
+        5
       ],
       [
         4,
-        4,
-        4
+        5,
+        6
+      ],
+      [
+        6,
+        7,
+        8
       ]
     ],
     "awards": null,
@@ -1175,7 +1175,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -1185,19 +1185,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
-        4,
-        6
+        5,
+        6,
+        8
       ],
       [
-        3,
-        5,
-        7
+        6,
+        8,
+        10
       ],
       [
-        3,
-        5,
-        7
+        8,
+        10,
+        13
       ]
     ],
     "awards": null,
@@ -1220,8 +1220,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        5,
-        7
+        4,
+        6
       ],
       [
         4,
@@ -1229,9 +1229,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         8
       ],
       [
-        4,
         6,
-        8
+        8,
+        11
       ]
     ],
     "awards": null,
@@ -1253,19 +1253,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
         4,
-        6
-      ],
-      [
-        3,
         5,
         7
       ],
       [
-        3,
         5,
-        7
+        7,
+        9
+      ],
+      [
+        7,
+        9,
+        12
       ]
     ],
     "awards": null,
@@ -1287,23 +1287,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        5,
         6,
-        8
+        8,
+        11
       ],
       [
-        7,
-        10,
-        13
+        8,
+        11,
+        15
       ],
       [
-        9,
-        14,
-        17
+        11,
+        16,
+        21
       ]
     ],
     "awards": {
-      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+      "silver": "Sell at demand **≥5** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
@@ -1311,9 +1311,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       8
     ],
     "demandBands": [
-      3,
-      6,
-      9
+      0,
+      5,
+      8
     ],
     "recipe": {
       "rye": {
@@ -1328,24 +1328,24 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        0,
-        0,
-        7
-      ],
-      [
-        0,
+        9,
         11,
-        17
+        13
       ],
       [
-        7,
-        17,
+        11,
+        15,
+        19
+      ],
+      [
+        14,
+        19,
         24
       ]
     ],
     "awards": {
-      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
-      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$24**)."
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe (grid **maximum** **$24**)."
     },
     "ageBands": [
       4,
@@ -1354,8 +1354,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     ],
     "demandBands": [
       4,
-      7,
-      10
+      6,
+      8
     ],
     "tier": "epic",
     "recipe": {
@@ -1374,24 +1374,24 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        0,
-        23,
-        35
-      ],
-      [
-        0,
-        32,
-        41
-      ],
-      [
         17,
-        41,
-        58
+        27,
+        37
+      ],
+      [
+        22,
+        37,
+        52
+      ],
+      [
+        32,
+        52,
+        72
       ]
     ],
     "awards": {
-      "silver": "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe.",
-      "gold": "Barrel **≥15 years** **and** demand **≥10** at sale **and** mash uses **≥4 grain cards** with a specialty cask (grid **maximum** **$58**)."
+      "silver": "Barrel **≥10 years** **and** demand **≥7** at sale **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥15 years** **and** demand **≥10** at sale **and** mash uses **≥4 grain cards** with a specialty cask (grid **maximum** **$72**)."
     },
     "ageBands": [
       8,
@@ -1400,7 +1400,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     ],
     "demandBands": [
       4,
-      8,
+      7,
       10
     ],
     "tier": "legendary",
@@ -1415,7 +1415,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 70
+    "brandValue": 85
   },
   {
     "id": "39",
@@ -1424,18 +1424,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        4,
-        4
-      ],
-      [
-        4,
-        4,
-        4
+        5,
+        6
       ],
       [
         5,
-        5,
-        5
+        6,
+        7
+      ],
+      [
+        7,
+        8,
+        9
       ]
     ],
     "awards": null,
@@ -1447,7 +1447,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -1458,18 +1458,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         2,
-        2,
-        2
-      ],
-      [
-        2,
-        2,
-        2
+        3,
+        4
       ],
       [
         3,
-        3,
-        3
+        4,
+        5
+      ],
+      [
+        5,
+        6,
+        7
       ]
     ],
     "awards": null,
@@ -1481,7 +1481,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -1492,18 +1492,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        3,
-        3
-      ],
-      [
-        3,
-        3,
-        3
+        4,
+        5
       ],
       [
         4,
-        4,
-        4
+        5,
+        6
+      ],
+      [
+        6,
+        7,
+        8
       ]
     ],
     "awards": null,
@@ -1515,7 +1515,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -1525,19 +1525,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        3,
         5,
-        7
-      ],
-      [
-        4,
         6,
         8
       ],
       [
-        4,
         6,
-        8
+        8,
+        10
+      ],
+      [
+        8,
+        10,
+        13
       ]
     ],
     "awards": null,
@@ -1559,19 +1559,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        2,
+        3,
         4,
         6
       ],
       [
-        3,
-        5,
-        7
+        4,
+        6,
+        8
       ],
       [
-        3,
-        5,
-        7
+        6,
+        8,
+        11
       ]
     ],
     "awards": null,
@@ -1593,19 +1593,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        3,
+        4,
         5,
         7
       ],
       [
-        4,
-        6,
-        8
+        5,
+        7,
+        9
       ],
       [
-        4,
-        6,
-        8
+        7,
+        9,
+        12
       ]
     ],
     "awards": null,
@@ -1627,23 +1627,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        5,
         6,
-        8
+        8,
+        11
       ],
       [
-        7,
-        10,
-        13
+        8,
+        11,
+        15
       ],
       [
-        9,
-        14,
-        17
+        11,
+        16,
+        21
       ]
     ],
     "awards": {
-      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+      "silver": "Sell at demand **≥5** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
@@ -1651,9 +1651,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       8
     ],
     "demandBands": [
-      3,
-      6,
-      9
+      0,
+      5,
+      8
     ],
     "recipe": {
       "rye": {
@@ -1668,23 +1668,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        3,
         4,
-        6
+        6,
+        9
       ],
       [
-        5,
-        8,
-        11
+        6,
+        9,
+        13
       ],
       [
-        7,
-        12,
-        15
+        9,
+        14,
+        19
       ]
     ],
     "awards": {
-      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+      "silver": "Sell at demand **≥5** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
@@ -1692,9 +1692,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       8
     ],
     "demandBands": [
-      3,
-      6,
-      9
+      0,
+      5,
+      8
     ],
     "recipe": {
       "rye": {
@@ -1709,24 +1709,24 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        0,
-        0,
-        8
-      ],
-      [
-        0,
+        10,
         12,
-        19
+        14
       ],
       [
-        8,
-        19,
-        27
+        12,
+        16,
+        20
+      ],
+      [
+        15,
+        20,
+        25
       ]
     ],
     "awards": {
-      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
-      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$27**)."
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe (grid **maximum** **$25**)."
     },
     "ageBands": [
       4,
@@ -1735,8 +1735,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     ],
     "demandBands": [
       4,
-      7,
-      10
+      6,
+      8
     ],
     "tier": "epic",
     "recipe": {
@@ -1747,7 +1747,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 40
+    "brandValue": 35
   },
   {
     "id": "48",
@@ -1756,18 +1756,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        4,
-        4
-      ],
-      [
-        4,
-        4,
-        4
+        5,
+        6
       ],
       [
         5,
-        5,
-        5
+        6,
+        7
+      ],
+      [
+        7,
+        8,
+        9
       ]
     ],
     "awards": null,
@@ -1779,7 +1779,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -1790,18 +1790,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         2,
-        2,
-        2
-      ],
-      [
-        2,
-        2,
-        2
+        3,
+        4
       ],
       [
         3,
-        3,
-        3
+        4,
+        5
+      ],
+      [
+        5,
+        6,
+        7
       ]
     ],
     "awards": null,
@@ -1813,7 +1813,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -1824,18 +1824,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        3,
-        3
-      ],
-      [
-        3,
-        3,
-        3
+        4,
+        5
       ],
       [
         4,
-        4,
-        4
+        5,
+        6
+      ],
+      [
+        6,
+        7,
+        8
       ]
     ],
     "awards": null,
@@ -1847,7 +1847,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -1858,18 +1858,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        4,
-        4
-      ],
-      [
-        4,
-        4,
-        4
+        5,
+        6
       ],
       [
         5,
-        5,
-        5
+        6,
+        7
+      ],
+      [
+        7,
+        8,
+        9
       ]
     ],
     "awards": null,
@@ -1881,7 +1881,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -1892,8 +1892,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        5,
-        7
+        4,
+        6
       ],
       [
         4,
@@ -1901,9 +1901,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         8
       ],
       [
-        4,
         6,
-        8
+        8,
+        11
       ]
     ],
     "awards": null,
@@ -1925,19 +1925,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
         4,
-        6
-      ],
-      [
-        3,
         5,
         7
       ],
       [
-        3,
         5,
-        7
+        7,
+        9
+      ],
+      [
+        7,
+        9,
+        12
       ]
     ],
     "awards": null,
@@ -1959,23 +1959,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
         6,
-        8
+        8,
+        11
       ],
       [
-        7,
-        10,
-        13
+        8,
+        11,
+        15
       ],
       [
-        9,
-        14,
-        17
+        11,
+        16,
+        21
       ]
     ],
     "awards": {
-      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+      "silver": "Sell at demand **≥5** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
@@ -1983,9 +1983,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       8
     ],
     "demandBands": [
-      3,
-      6,
-      9
+      0,
+      5,
+      8
     ],
     "recipe": {
       "rye": {
@@ -2000,23 +2000,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
         4,
-        6
+        6,
+        9
       ],
       [
-        5,
-        8,
-        11
+        6,
+        9,
+        13
       ],
       [
-        7,
-        12,
-        15
+        9,
+        14,
+        19
       ]
     ],
     "awards": {
-      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+      "silver": "Sell at demand **≥5** **and** mash satisfies the bill recipe."
     },
     "recipe": {
       "rye": {
@@ -2029,9 +2029,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       8
     ],
     "demandBands": [
-      3,
-      6,
-      9
+      0,
+      5,
+      8
     ],
     "tier": "rare"
   },
@@ -2041,24 +2041,24 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        0,
-        0,
-        8
-      ],
-      [
-        0,
+        10,
         12,
-        19
+        14
       ],
       [
-        8,
-        19,
-        27
+        12,
+        16,
+        20
+      ],
+      [
+        15,
+        20,
+        25
       ]
     ],
     "awards": {
-      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
-      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$27**)."
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe (grid **maximum** **$25**)."
     },
     "ageBands": [
       4,
@@ -2067,8 +2067,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     ],
     "demandBands": [
       4,
-      7,
-      10
+      6,
+      8
     ],
     "tier": "epic",
     "recipe": {
@@ -2079,7 +2079,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 35
+    "brandValue": 30
   },
   {
     "id": "57",
@@ -2088,18 +2088,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        4,
-        4
-      ],
-      [
-        4,
-        4,
-        4
+        5,
+        6
       ],
       [
         5,
-        5,
-        5
+        6,
+        7
+      ],
+      [
+        7,
+        8,
+        9
       ]
     ],
     "awards": null,
@@ -2111,7 +2111,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -2122,18 +2122,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         2,
-        2,
-        2
-      ],
-      [
-        2,
-        2,
-        2
+        3,
+        4
       ],
       [
         3,
-        3,
-        3
+        4,
+        5
+      ],
+      [
+        5,
+        6,
+        7
       ]
     ],
     "awards": null,
@@ -2145,7 +2145,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -2156,18 +2156,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        3,
-        3
-      ],
-      [
-        3,
-        3,
-        3
+        4,
+        5
       ],
       [
         4,
-        4,
-        4
+        5,
+        6
+      ],
+      [
+        6,
+        7,
+        8
       ]
     ],
     "awards": null,
@@ -2179,7 +2179,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -2190,18 +2190,18 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        4,
-        4
-      ],
-      [
-        4,
-        4,
-        4
+        5,
+        6
       ],
       [
         5,
-        5,
-        5
+        6,
+        7
+      ],
+      [
+        7,
+        8,
+        9
       ]
     ],
     "awards": null,
@@ -2213,7 +2213,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "demandBands": [
       0,
       4,
-      8
+      6
     ],
     "tier": "common"
   },
@@ -2223,19 +2223,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        2,
+        3,
         4,
         6
       ],
       [
-        3,
-        5,
-        7
+        4,
+        6,
+        8
       ],
       [
-        3,
-        5,
-        7
+        6,
+        8,
+        11
       ]
     ],
     "awards": null,
@@ -2257,19 +2257,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        3,
+        4,
         5,
         7
       ],
       [
-        4,
-        6,
-        8
+        5,
+        7,
+        9
       ],
       [
-        4,
-        6,
-        8
+        7,
+        9,
+        12
       ]
     ],
     "awards": null,
@@ -2291,19 +2291,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        2,
-        4,
-        6
+        5,
+        6,
+        8
       ],
       [
-        3,
-        5,
-        7
+        6,
+        8,
+        10
       ],
       [
-        3,
-        5,
-        7
+        8,
+        10,
+        13
       ]
     ],
     "awards": null,
@@ -2325,23 +2325,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        3,
         4,
-        6
+        6,
+        9
       ],
       [
-        5,
-        8,
-        11
+        6,
+        9,
+        13
       ],
       [
-        7,
-        12,
-        15
+        9,
+        14,
+        19
       ]
     ],
     "awards": {
-      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+      "silver": "Sell at demand **≥5** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
@@ -2349,9 +2349,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       8
     ],
     "demandBands": [
-      3,
-      6,
-      9
+      0,
+      5,
+      8
     ],
     "tier": "rare",
     "recipe": {
@@ -2366,24 +2366,24 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        0,
-        0,
-        8
-      ],
-      [
-        0,
+        10,
         12,
-        19
+        14
       ],
       [
-        8,
-        19,
-        27
+        12,
+        16,
+        20
+      ],
+      [
+        15,
+        20,
+        25
       ]
     ],
     "awards": {
-      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
-      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$27**)."
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe (grid **maximum** **$25**)."
     },
     "ageBands": [
       4,
@@ -2392,8 +2392,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     ],
     "demandBands": [
       4,
-      7,
-      10
+      6,
+      8
     ],
     "tier": "epic",
     "recipe": {
@@ -2404,7 +2404,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 40
+    "brandValue": 35
   }
 ] as const;
 

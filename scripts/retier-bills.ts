@@ -59,85 +59,96 @@ type Plan = {
 // Tier templates — each takes a per-card index for light variation.
 
 function commonPlan(i: number): Plan {
-  // Flat grid: this bill pays a small fixed amount irrespective of
-  // demand or age band. The "you can always rely on this card to make
-  // some money" tier. Three levels of "small" so commons aren't
-  // identical: $2 / $3 / $4 base, with a +$1 in the highest age row.
+  // Mild dispersion across age × demand. Per the design direction:
+  //   Age 2: $3 $4 $5 (low / mid / high demand)
+  //   Age 3: $4 $5 $6
+  //   Age 4+: $6 $7 $8
+  // Three flavour variants per cycle so the deck has slight variety
+  // even within commons (one bill might pay 1 less or 1 more across
+  // the board).
   const cycle = i % 3;
-  const base = 2 + cycle; // 2, 3, 4
-  const aged = base + 1; // 3, 4, 5
+  const bump = cycle - 1; // -1, 0, +1
+  const row = (a: number, b: number, c: number) =>
+    [a + bump, b + bump, c + bump];
   return {
     tier: "common",
     ageBands: [2, 3, 4],
-    demandBands: [0, 4, 8],
+    demandBands: [0, 4, 6],
     grid: [
-      [base, base, base],
-      [base, base, base],
-      [aged, aged, aged],
+      row(3, 4, 5),
+      row(4, 5, 6),
+      row(6, 7, 8),
     ],
   };
 }
 
 function uncommonPlan(i: number): Plan {
-  // Demand 0–3 is the floor; 4–6 is the lift; 7+ is a small premium.
-  // Aging contributes a tiny extra. Result is mildly dispersed but
-  // still readable at a glance.
-  const cycle = i % 4;
-  const lo = 2 + (cycle % 2); // 2 or 3
-  const mid = lo + 2; // 4 or 5
-  const hi = lo + 4; // 6 or 7
+  // Slightly more dispersion. Age and demand both matter modestly;
+  // every cell still pays. No recipe constraint.
+  const cycle = i % 3;
+  const bump = cycle - 1; // -1, 0, +1
+  const row = (a: number, b: number, c: number) =>
+    [a + bump, b + bump, c + bump];
   return {
     tier: "uncommon",
     ageBands: [2, 4, 6],
     demandBands: [0, 4, 7],
     grid: [
-      [lo, mid, hi],
-      [lo + 1, mid + 1, hi + 1],
-      [lo + 1, mid + 1, hi + 1],
+      row(4, 5, 7),
+      row(5, 7, 9),
+      row(7, 9, 12),
     ],
   };
 }
 
 function rarePlan(i: number, name: string): Plan {
-  // Age opens up: older barrels jump significantly. Demand still
-  // important but less than for epic/legendary. Recipe constraint
-  // matches the card's name; Silver award for hitting both.
+  // Age starts to really pay off. Every cell still has a value; the
+  // top-right corner is genuinely rewarding. Recipe constraint
+  // matches the card's name; Silver award for hitting demand + recipe.
   const cycle = i % 3;
-  const base = 5 + cycle; // 5, 6, 7
+  const bump = cycle - 1; // -1, 0, +1
+  const row = (a: number, b: number, c: number) =>
+    [a + bump, b + bump, c + bump];
   return {
     tier: "rare",
     ageBands: [2, 5, 8],
-    demandBands: [3, 6, 9],
+    demandBands: [0, 5, 8],
     grid: [
-      [base - 2, base - 1, base + 1],
-      [base, base + 3, base + 6],
-      [base + 2, base + 7, base + 10],
+      row(5, 7, 10),
+      row(7, 10, 14),
+      row(10, 15, 20),
     ],
-    silver: "Sell at demand **≥6** **and** mash satisfies the bill recipe.",
+    silver: "Sell at demand **≥5** **and** mash satisfies the bill recipe.",
     recipe: pickRecipeTheme(name) ?? { rye: { min: 2 } },
   };
 }
 
 function epicPlan(i: number, name: string): Plan {
-  // Both age AND demand matter. Lower-left is dead, upper-right is
-  // strong. Recipe is a 2-grain requirement; Gold path needs both
-  // aging and high demand.
+  // Per the design direction:
+  //   demand bands 4 / 6 / 8
+  //   Age 4 row:  10 12 14
+  //   Age 7 row:  12 16 20
+  //   Age 10+ row: 15 20 25
+  // Every cell pays; values escalate sharply with both axes. Recipe
+  // is a 2-grain requirement; Silver+Gold path.
   const cycle = i % 3;
-  const peak = 24 + cycle * 3; // 24, 27, 30
+  const bump = cycle - 1; // -1, 0, +1
+  const row = (a: number, b: number, c: number) =>
+    [a + bump, b + bump, c + bump];
   return {
     tier: "epic",
     ageBands: [4, 7, 10],
-    demandBands: [4, 7, 10],
+    demandBands: [4, 6, 8],
     grid: [
-      [0, 0, Math.round(peak * 0.3)],
-      [0, Math.round(peak * 0.45), Math.round(peak * 0.7)],
-      [Math.round(peak * 0.3), Math.round(peak * 0.7), peak],
+      row(10, 12, 14),
+      row(12, 16, 20),
+      row(15, 20, 25),
     ],
     silver:
-      "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
+      "Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies the recipe.",
     gold:
-      "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$" +
-      peak +
+      "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe (grid **maximum** **$" +
+      (25 + bump) +
       "**).",
     recipe:
       pickRecipeTheme(name) ?? {
@@ -148,30 +159,30 @@ function epicPlan(i: number, name: string): Plan {
 }
 
 function legendaryPlan(i: number, name: string): Plan {
-  // The flagship pieces. Age 8/10/15 thresholds, demand 4/8/10
-  // bands. Demand < 4 (col 0) is mostly blank — this bill simply
-  // doesn't sell into a cold market. Demand 8–9 is great, 10+ is
-  // a massive windfall. Recipe demands a complex mash (≥4 grain
-  // cards) plus a small-grain blend, and a specialty cask is
-  // implied by the printed text.
+  // Flagship pieces. Age 8 / 10 / 15 thresholds; demand 4 / 7 / 10.
+  // Every cell pays — even a low-demand sale of an 8-year barrel
+  // returns something — but the dispersion is huge: the top-right
+  // cell pays MASSIVELY, demanding the full recipe (≥4 grain cards
+  // + small-grain blend) and the patience to age the barrel 15
+  // years through whatever demand swings come.
   const cycle = i % 3;
-  const peak = 50 + cycle * 8; // 50, 58, 66
-  const great = Math.round(peak * 0.7);
-  const greatMid = Math.round(peak * 0.55);
+  const bump = cycle * 2; // 0, +2, +4 (legendaries vary more)
+  const row = (a: number, b: number, c: number) =>
+    [a + bump, b + bump, c + bump];
   return {
     tier: "legendary",
     ageBands: [8, 10, 15],
-    demandBands: [4, 8, 10],
+    demandBands: [4, 7, 10],
     grid: [
-      [0, Math.round(peak * 0.4), Math.round(peak * 0.6)],
-      [0, greatMid, great],
-      [Math.round(peak * 0.3), great, peak],
+      row(15, 25, 35),
+      row(20, 35, 50),
+      row(30, 50, 70),
     ],
     silver:
-      "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe.",
+      "Barrel **≥10 years** **and** demand **≥7** at sale **and** mash satisfies the recipe.",
     gold:
       "Barrel **≥15 years** **and** demand **≥10** at sale **and** mash uses **≥4 grain cards** with a specialty cask (grid **maximum** **$" +
-      peak +
+      (70 + bump) +
       "**).",
     recipe:
       pickRecipeTheme(name) ?? {
