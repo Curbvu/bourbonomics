@@ -38,6 +38,7 @@ import BourbonInspectModal from "./BourbonInspectModal";
 import CardDrawOverlay from "./CardDrawOverlay";
 import FeesPanel from "./FeesPanel";
 import GameOverPanel from "./GameOverPanel";
+import HandInspectModal from "./HandInspectModal";
 import HandTray from "./HandTray";
 import MarketRecapPanel from "./MarketRecapPanel";
 import MarketRevealModal from "./MarketRevealModal";
@@ -100,6 +101,7 @@ export default function GameBoard() {
       <CardDrawOverlay />
       <MarketRevealModal />
       <BourbonInspectModal />
+      <HandInspectModal />
     </div>
   );
 }

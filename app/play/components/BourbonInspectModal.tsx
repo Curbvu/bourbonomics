@@ -50,6 +50,9 @@ export default function BourbonInspectModal() {
   // exclusive use of the hand cards. The click handlers gate themselves
   // on these flags too, so reaching here without them is a no-op safety.
   if (!inspect || !state || makeBourbonActive || auditActive) return null;
+  // Other inspect kinds (resource / operations / investment) belong to
+  // the HandInspectModal — bail so both modals don't paint at once.
+  if (inspect.kind !== "bill" && inspect.kind !== "barrel") return null;
 
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",

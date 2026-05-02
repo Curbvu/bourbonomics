@@ -64,18 +64,25 @@ export type UiStore = {
   dismissMarketRecap: (round: number) => void;
 
   /**
-   * Currently open inspect target — either a free-floating mash bill
-   * (kind: "bill" — used when clicking a card in the bourbon hand) or a
-   * specific aging barrel (kind: "barrel" — used when clicking a chip in
-   * a rickhouse). The BourbonInspectModal reads this and renders the
-   * full Bourbon Card face plus contextual info.
+   * Currently open inspect target. Five kinds, dispatched to two modals:
+   *   - "bill" / "barrel" → BourbonInspectModal (full grid + awards).
+   *   - "resource" / "operations" / "investment" → HandInspectModal
+   *     (large detail view for the corresponding hand card).
+   * Each card in the HandTray opens this in idle mode (no make / audit /
+   * implement mode active).
    */
   inspect:
     | { kind: "bill"; cardId: string }
     | { kind: "barrel"; barrelId: string }
+    | { kind: "resource"; instanceId: string }
+    | { kind: "operations"; instanceId: string }
+    | { kind: "investment"; instanceId: string }
     | null;
   inspectBill: (cardId: string) => void;
   inspectBarrel: (barrelId: string) => void;
+  inspectResource: (instanceId: string) => void;
+  inspectOperations: (instanceId: string) => void;
+  inspectInvestment: (instanceId: string) => void;
   closeInspect: () => void;
 
   /**
@@ -171,6 +178,12 @@ export const useUiStore = create<UiStore>((set) => ({
   inspectBill: (cardId) => set({ inspect: { kind: "bill", cardId } }),
   inspectBarrel: (barrelId) =>
     set({ inspect: { kind: "barrel", barrelId } }),
+  inspectResource: (instanceId) =>
+    set({ inspect: { kind: "resource", instanceId } }),
+  inspectOperations: (instanceId) =>
+    set({ inspect: { kind: "operations", instanceId } }),
+  inspectInvestment: (instanceId) =>
+    set({ inspect: { kind: "investment", instanceId } }),
   closeInspect: () => set({ inspect: null }),
 
   implement: { active: false },

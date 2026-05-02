@@ -28,7 +28,11 @@ import { BOURBON_CARDS_BY_ID } from "@/lib/catalogs/bourbon.generated";
 import { INVESTMENT_CARDS_BY_ID } from "@/lib/catalogs/investment.generated";
 import { OPERATIONS_CARDS_BY_ID } from "@/lib/catalogs/operations.generated";
 import { SPECIALTY_RESOURCES_BY_ID } from "@/lib/catalogs/resource.generated";
-import type { ResourceCardDef, ResourceType } from "@/lib/catalogs/types";
+import type {
+  BourbonCardDef,
+  ResourceCardDef,
+  ResourceType,
+} from "@/lib/catalogs/types";
 import { HAND_LIMIT, MAX_ACTIVE_INVESTMENTS } from "@/lib/engine/state";
 import { handSize } from "@/lib/engine/checks";
 import { pickBestSellable } from "@/lib/ai/evaluators";
@@ -36,53 +40,12 @@ import { summarizeMash, validateMash } from "@/lib/rules/mash";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
 import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
-import BourbonCardFace from "./BourbonCardFace";
-
-type ResourceMeta = {
-  glyph: string;
-  short: string;
-  tint: string;
-  border: string;
-  ink: string;
-};
-
-const RESOURCE_META: Record<ResourceType, ResourceMeta> = {
-  cask: {
-    glyph: "◯",
-    short: "C",
-    tint: "bg-amber-700/[0.20]",
-    border: "border-amber-700",
-    ink: "text-amber-200",
-  },
-  corn: {
-    glyph: "◆",
-    short: "C",
-    tint: "bg-yellow-500/[0.18]",
-    border: "border-yellow-500/45",
-    ink: "text-yellow-100",
-  },
-  barley: {
-    glyph: "★",
-    short: "B",
-    tint: "bg-lime-500/[0.18]",
-    border: "border-lime-500/45",
-    ink: "text-lime-100",
-  },
-  rye: {
-    glyph: "▲",
-    short: "R",
-    tint: "bg-rose-600/[0.18]",
-    border: "border-rose-600/45",
-    ink: "text-rose-100",
-  },
-  wheat: {
-    glyph: "▼",
-    short: "W",
-    tint: "bg-sky-500/[0.18]",
-    border: "border-sky-500/45",
-    ink: "text-sky-100",
-  },
-};
+import {
+  HAND_CARD_OVERLAP,
+  RESOURCE_CHROME,
+  RESOURCE_GLYPH,
+  RESOURCE_LABEL,
+} from "./handCardStyles";
 
 export default function HandTray() {
   const state = useGameStore((s) => s.state)!;
@@ -99,6 +62,9 @@ export default function HandTray() {
   const toggleAuditOperations = useUiStore((s) => s.toggleAuditOperations);
   const cancelAuditDiscard = useUiStore((s) => s.cancelAuditDiscard);
   const inspectBill = useUiStore((s) => s.inspectBill);
+  const inspectResource = useUiStore((s) => s.inspectResource);
+  const inspectOperations = useUiStore((s) => s.inspectOperations);
+  const inspectInvestment = useUiStore((s) => s.inspectInvestment);
   const implementMode = useUiStore((s) => s.implement);
   const startImplement = useUiStore((s) => s.startImplement);
   const cancelImplement = useUiStore((s) => s.cancelImplement);
@@ -494,40 +460,38 @@ export default function HandTray() {
       </div>
 
       {/* ─── Row 2: cards (resources / bourbon / play) ─── */}
+      {/* Every section uses the same accordion-fan layout so the player
+          scans one visual idiom across resources, bourbon, and play. */}
       <div className="flex items-stretch gap-[14px] overflow-x-auto">
         {/* Resources */}
         <div className="flex flex-shrink-0 items-stretch gap-2">
           <VerticalCaption>resources</VerticalCaption>
-          <div className="flex gap-1.5">
+          <CardAccordion>
             {me.resourceHand.length === 0 ? (
-              <EmptyTallChip>no resources</EmptyTallChip>
-            ) : (
-              me.resourceHand.map((r) => {
-                const meta = RESOURCE_META[r.resource];
-                if (!meta) return null;
-                const specialty = r.specialtyId
-                  ? SPECIALTY_RESOURCES_BY_ID[r.specialtyId]
-                  : null;
-                const selectable = makeBourbon.active;
-                const selected = selectedSet.has(r.instanceId);
-                return (
-                  <ResourceChip
-                    key={r.instanceId}
-                    meta={meta}
-                    resource={r.resource}
-                    specialty={specialty}
-                    selectable={selectable}
-                    selected={selected}
-                    onSelect={
-                      selectable
-                        ? () => toggleMashCard(r.instanceId)
-                        : undefined
-                    }
-                  />
-                );
-              })
-            )}
-          </div>
+              <EmptyPill>no resources</EmptyPill>
+            ) : null}
+            {me.resourceHand.map((r, idx) => {
+              const specialty = r.specialtyId
+                ? SPECIALTY_RESOURCES_BY_ID[r.specialtyId] ?? null
+                : null;
+              const makeMode = makeBourbon.active;
+              const selected = selectedSet.has(r.instanceId);
+              const onClick = makeMode
+                ? () => toggleMashCard(r.instanceId)
+                : () => inspectResource(r.instanceId);
+              return (
+                <MiniResourceCard
+                  key={r.instanceId}
+                  resource={r.resource}
+                  specialty={specialty}
+                  indexInRow={idx}
+                  makeMode={makeMode}
+                  selected={selected}
+                  onClick={onClick}
+                />
+              );
+            })}
+          </CardAccordion>
         </div>
 
         <Divider />
@@ -544,103 +508,47 @@ export default function HandTray() {
                 </span>
               ) : null}
             </span>
-            <div className="flex items-center gap-1.5">
+            <CardAccordion>
               {me.bourbonHand.length === 0 ? (
-                <div className="grid h-[76px] w-[110px] place-items-center rounded-md border border-dashed border-slate-700 px-2 text-center font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-                  no mash bills
-                </div>
-              ) : (
-                me.bourbonHand.map((id, i) => {
-                  const card = BOURBON_CARDS_BY_ID[id];
-                  if (!card) return null;
-                  const auditMode = auditDiscard.active;
-                  const makeMode = makeBourbon.active && !auditMode;
-                  const idle = !auditMode && !makeMode;
-                  const auditSelected = auditDiscard.mashBillIds.includes(id);
-                  const makeSelected = makeBourbon.mashBillId === id;
-                  // In idle mode every bourbon card is clickable to open
-                  // the inspect modal. In make/audit modes the click does
-                  // its mode-specific thing instead.
-                  const selectable = makeMode || auditMode || idle;
-                  const selected = auditMode ? auditSelected : makeSelected;
-                  const className = [
-                    "w-[110px] rounded-md transition-all",
-                    selectable ? "cursor-pointer" : "",
-                    selected
-                      ? auditMode
-                        ? "ring-2 ring-rose-400 -translate-y-0.5"
-                        : "ring-2 ring-amber-300 -translate-y-0.5"
-                      : selectable
-                        ? auditMode
-                          ? "ring-1 ring-rose-500/40 hover:-translate-y-0.5"
-                          : makeMode
-                            ? "ring-1 ring-amber-500/40 hover:-translate-y-0.5"
-                            : "hover:-translate-y-0.5 hover:ring-1 hover:ring-amber-500/40"
-                        : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ");
-                  const onClick = auditMode
-                    ? () => toggleAuditMashBill(id)
-                    : makeMode
-                      ? () => pickMashBill(id)
-                      : () => inspectBill(id);
-                  const title = auditMode
-                    ? `${card.name} — toggle for audit discard`
-                    : makeMode
-                      ? `${card.name} — pick as mash bill`
-                      : `${card.name} — click to inspect`;
-                  const isRare = card.rarity === "Rare";
-                  // Wrap rare cards in a shimmer container so the
-                  // sweep highlight runs over the card face. The
-                  // wrapper inherits rounding so the shimmer doesn't
-                  // bleed past the card's silhouette.
-                  const inner = (
-                    <div
-                      className={
-                        isRare ? "rare-shimmer rounded-md" : undefined
-                      }
-                    >
-                      <BourbonCardFace card={card} size="sm" />
-                    </div>
-                  );
-                  if (selectable) {
-                    return (
-                      <button
-                        key={`${id}-${i}`}
-                        type="button"
-                        aria-pressed={selected}
-                        title={title}
-                        onClick={onClick}
-                        className={className}
-                      >
-                        {inner}
-                      </button>
-                    );
-                  }
-                  return (
-                    <div key={`${id}-${i}`} className={className}>
-                      {inner}
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                <EmptyPill>no mash bills</EmptyPill>
+              ) : null}
+              {me.bourbonHand.map((id, i) => {
+                const card = BOURBON_CARDS_BY_ID[id];
+                if (!card) return null;
+                const auditMode = auditDiscard.active;
+                const makeMode = makeBourbon.active && !auditMode;
+                const auditSelected = auditDiscard.mashBillIds.includes(id);
+                const makeSelected = makeBourbon.mashBillId === id;
+                const onClick = auditMode
+                  ? () => toggleAuditMashBill(id)
+                  : makeMode
+                    ? () => pickMashBill(id)
+                    : () => inspectBill(id);
+                return (
+                  <MiniBourbonCard
+                    key={`${id}-${i}`}
+                    card={card}
+                    demand={state.demand}
+                    indexInRow={i}
+                    auditMode={auditMode}
+                    auditSelected={auditSelected}
+                    makeMode={makeMode}
+                    makeSelected={makeSelected}
+                    onClick={onClick}
+                  />
+                );
+              })}
+            </CardAccordion>
           </div>
         </div>
 
         <Divider />
 
-        {/* Play (ops + investments) — accordion fan of mini cards */}
+        {/* Play (ops + investments) */}
         <div className="flex flex-shrink-0 items-stretch gap-2">
           <VerticalCaption>play</VerticalCaption>
           <div className="flex flex-col gap-1.5">
-            {/* Single accordion row for all play-side cards. Cards
-                overlap by ~36px (-ml-9). On hover, the hovered card
-                lifts + scales, neighbours after it slide right via
-                `peer-hover` chaining; the card itself uses z-50 for the
-                stacking context. */}
-            <PlayAccordion>
+            <CardAccordion>
               {me.operations.length === 0 && me.investments.length === 0 ? (
                 <EmptyPill>no plays</EmptyPill>
               ) : null}
@@ -651,7 +559,7 @@ export default function HandTray() {
                   auditDiscard.operationsInstanceIds.includes(ops.instanceId);
                 const onClick = auditMode
                   ? () => toggleAuditOperations(ops.instanceId)
-                  : undefined;
+                  : () => inspectOperations(ops.instanceId);
                 return (
                   <MiniOperationsCard
                     key={ops.instanceId}
@@ -683,7 +591,7 @@ export default function HandTray() {
                   ? () => toggleAuditInvestment(inv.instanceId)
                   : isImplementable
                     ? () => implementSpecific(inv.instanceId)
-                    : undefined;
+                    : () => inspectInvestment(inv.instanceId);
                 return (
                   <MiniInvestmentCard
                     key={inv.instanceId}
@@ -704,7 +612,7 @@ export default function HandTray() {
                   />
                 );
               })}
-            </PlayAccordion>
+            </CardAccordion>
           </div>
         </div>
       </div>
@@ -836,83 +744,6 @@ function Divider() {
   );
 }
 
-function ResourceChip({
-  meta,
-  resource,
-  specialty,
-  selectable = false,
-  selected = false,
-  onSelect,
-}: {
-  meta: ResourceMeta;
-  resource: string;
-  specialty: ResourceCardDef | null;
-  selectable?: boolean;
-  selected?: boolean;
-  onSelect?: () => void;
-}) {
-  const Element = selectable ? "button" : "div";
-  return (
-    <Element
-      type={selectable ? "button" : undefined}
-      onClick={selectable ? onSelect : undefined}
-      aria-pressed={selectable ? selected : undefined}
-      className={[
-        "relative flex h-[76px] w-[56px] flex-shrink-0 flex-col rounded-md border-2 p-1.5 shadow-md transition-all",
-        meta.tint,
-        selected ? "border-amber-300 ring-2 ring-amber-300" : meta.border,
-        selectable && !selected ? "cursor-pointer hover:-translate-y-0.5" : "",
-        selectable && selected ? "-translate-y-0.5" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      title={specialty?.rule}
-      aria-label={specialty ? `${resource}: ${specialty.name}` : resource}
-    >
-      {selected ? (
-        <span
-          className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-amber-300 font-mono text-[9px] font-bold text-slate-950 shadow"
-          aria-hidden
-        >
-          ✓
-        </span>
-      ) : null}
-      <div className="flex items-center justify-between">
-        <span
-          className={`font-mono text-[9px] font-bold tracking-[.1em] ${meta.ink}`}
-        >
-          {meta.short}
-        </span>
-        <span className={`text-[10px] opacity-70 ${meta.ink}`}>
-          {meta.glyph}
-        </span>
-      </div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-0.5 text-center">
-        <span
-          className={`font-mono text-[11px] font-semibold uppercase tracking-[.05em] ${meta.ink}`}
-        >
-          {resource}
-        </span>
-        {specialty ? (
-          <span
-            className={`line-clamp-2 px-0.5 text-[8px] leading-[1.1] ${meta.ink} opacity-75`}
-          >
-            {specialty.name}
-          </span>
-        ) : null}
-      </div>
-    </Element>
-  );
-}
-
-function EmptyTallChip({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid h-[76px] place-items-center rounded-md border border-dashed border-slate-700 px-3 font-mono text-[9px] uppercase tracking-[.12em] text-slate-500">
-      {children}
-    </div>
-  );
-}
-
 function EmptyPill({ children }: { children: React.ReactNode }) {
   return (
     <span className="rounded border border-dashed border-slate-700 px-2.5 py-1 font-mono text-[11px] italic text-slate-500">
@@ -922,17 +753,225 @@ function EmptyPill({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Accordion fan layout for the play row (ops + investments). Cards
- * overlap horizontally; on hover the hovered card lifts and scales up,
- * via the `group/card` + `hover:` utilities each card declares itself.
- * Container has horizontal scrolling for hand sizes that exceed the
- * tray width.
+ * Accordion fan layout shared by the resources / bourbon / play sections.
+ * Children overlap horizontally via {@link HAND_CARD_OVERLAP}; on hover,
+ * each card lifts + scales + jumps to z-50 via its own classes. The
+ * container scrolls horizontally when a section overflows the tray.
  */
-function PlayAccordion({ children }: { children: React.ReactNode }) {
+function CardAccordion({ children }: { children: React.ReactNode }) {
   return (
-    <div className="hand-scrollbar flex max-w-[420px] items-end overflow-x-auto py-2 pl-2 pr-3">
+    <div className="hand-scrollbar flex max-w-[460px] items-end overflow-x-auto py-2 pl-2 pr-3">
       <div className="flex items-end">{children}</div>
     </div>
+  );
+}
+
+/**
+ * Card-styled resource — shares silhouette and hover behaviour with the
+ * play-row mini cards. In make-bourbon mode the card becomes a toggle
+ * for the mash; in idle mode it opens HandInspectModal.
+ */
+function MiniResourceCard({
+  resource,
+  specialty,
+  indexInRow,
+  makeMode,
+  selected,
+  onClick,
+}: {
+  resource: ResourceType;
+  specialty: ResourceCardDef | null;
+  indexInRow: number;
+  makeMode: boolean;
+  selected: boolean;
+  onClick?: () => void;
+}) {
+  const chrome = RESOURCE_CHROME[resource];
+  const overlapMargin = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
+  const baseChrome =
+    "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
+  const stateBorder = selected
+    ? "border-amber-300 ring-2 ring-amber-300"
+    : makeMode
+      ? `${chrome.border} opacity-90`
+      : chrome.border;
+  const liftClass = selected
+    ? "z-40 -translate-y-2"
+    : "cursor-pointer hover:z-50 hover:-translate-y-3 hover:scale-[1.08]";
+  const title = specialty
+    ? `${RESOURCE_LABEL[resource]} · ${specialty.name} — click to inspect`
+    : `${RESOURCE_LABEL[resource]} — plain resource · click to inspect`;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={makeMode ? selected : undefined}
+      title={title}
+      className={[
+        baseChrome,
+        chrome.gradient,
+        overlapMargin,
+        stateBorder,
+        liftClass,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+        aria-hidden
+      />
+      {selected ? (
+        <span
+          className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-amber-300 font-mono text-[10px] font-bold text-slate-950 shadow"
+          aria-hidden
+        >
+          ✓
+        </span>
+      ) : null}
+      <div className="flex items-baseline justify-between">
+        <span
+          className={`text-[8px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}
+        >
+          Resource
+        </span>
+        <span
+          className={`text-[7px] uppercase tracking-wide ${chrome.label} opacity-80`}
+        >
+          {RESOURCE_LABEL[resource]}
+        </span>
+      </div>
+      <h4
+        className={`mt-1 line-clamp-2 font-display text-[13px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}
+      >
+        {specialty?.name ?? RESOURCE_LABEL[resource]}
+      </h4>
+      {specialty?.hook ? (
+        <p
+          className={`mt-0.5 line-clamp-2 text-[9px] italic leading-snug ${chrome.ink} opacity-80`}
+        >
+          {specialty.hook}
+        </p>
+      ) : null}
+      <div
+        className={`mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 bg-white/10 text-lg shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
+      >
+        {RESOURCE_GLYPH[resource]}
+      </div>
+      {specialty ? (
+        <p
+          className={`mt-1 line-clamp-2 text-[8.5px] leading-snug ${chrome.ink} opacity-90`}
+        >
+          {specialty.rule}
+        </p>
+      ) : (
+        <p
+          className={`mt-1 line-clamp-2 text-[8.5px] italic leading-snug ${chrome.ink} opacity-70`}
+        >
+          plain · spend in a mash
+        </p>
+      )}
+    </button>
+  );
+}
+
+/**
+ * Card-styled bourbon mash bill. Same silhouette as the other hand
+ * minis, with a price preview circle showing the typical-band payout
+ * (mid age, mid demand) for at-a-glance scanning. The full 3×3 grid
+ * lives in BourbonInspectModal — click the card to inspect.
+ */
+function MiniBourbonCard({
+  card,
+  demand,
+  indexInRow,
+  auditMode,
+  auditSelected,
+  makeMode,
+  makeSelected,
+  onClick,
+}: {
+  card: BourbonCardDef;
+  demand: number;
+  indexInRow: number;
+  auditMode: boolean;
+  auditSelected: boolean;
+  makeMode: boolean;
+  makeSelected: boolean;
+  onClick?: () => void;
+}) {
+  const isRare = card.rarity === "Rare";
+  const overlapMargin = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
+  // Demand band: 0..3 = Low, 4..7 = Mid, 8..12 = High. Pick the mid age
+  // row (4–7) as a representative payout for the card-face preview.
+  const demandBand = demand <= 3 ? 0 : demand <= 7 ? 1 : 2;
+  const previewPrice = card.grid[1][demandBand];
+  const baseChrome =
+    "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 bg-gradient-to-b from-amber-600/90 via-amber-900/90 to-slate-950 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
+  const stateBorder = auditSelected
+    ? "border-rose-400 ring-2 ring-rose-400"
+    : auditMode
+      ? "border-rose-500/50"
+      : makeSelected
+        ? "border-amber-200 ring-2 ring-amber-200"
+        : makeMode
+          ? "border-amber-400/70"
+          : "border-amber-400";
+  const liftClass = makeSelected || auditSelected
+    ? "z-40 -translate-y-2"
+    : "cursor-pointer hover:z-50 hover:-translate-y-3 hover:scale-[1.08]";
+  const title = auditMode
+    ? `${card.name} — toggle for audit discard`
+    : makeMode
+      ? `${card.name} — pick as mash bill`
+      : `${card.name} — click to inspect full grid`;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={
+        auditMode ? auditSelected : makeMode ? makeSelected : undefined
+      }
+      title={title}
+      className={[
+        baseChrome,
+        overlapMargin,
+        stateBorder,
+        liftClass,
+        isRare ? "rare-shimmer" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+        aria-hidden
+      />
+      <div className="flex items-baseline justify-between">
+        <span className="text-[8px] font-semibold uppercase tracking-[0.18em] text-amber-200">
+          Bourbon
+        </span>
+        <span className="text-[7px] uppercase tracking-wide text-amber-200/80">
+          {card.rarity}
+        </span>
+      </div>
+      <h4 className="mt-1 line-clamp-2 font-display text-[13px] font-bold leading-tight text-amber-50 drop-shadow-[0_1px_4px_rgba(0,0,0,.35)]">
+        {card.name}
+      </h4>
+      <p className="mt-0.5 text-[9px] italic leading-snug text-amber-100/80">
+        mash bill
+      </p>
+      <div className="mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 border-amber-300 bg-white/10 font-mono text-[12px] font-black tabular-nums text-white shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm">
+        ${previewPrice}
+      </div>
+      <p className="mt-1 line-clamp-2 text-[8.5px] leading-snug text-amber-50/90">
+        {demandBand === 0
+          ? "Low demand · 4–7y price"
+          : demandBand === 1
+            ? "Mid demand · 4–7y price"
+            : "High demand · 4–7y price"}
+      </p>
+    </button>
   );
 }
 
