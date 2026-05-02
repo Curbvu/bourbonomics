@@ -21,6 +21,7 @@ const sampleCard: BourbonCardDef = {
     [0, 22, 30], // Well-Aged: nothing at Low
   ],
   awards: null,
+  tier: "uncommon",
 };
 
 // Premium card with shifted thresholds — the *same* age and demand
@@ -37,6 +38,7 @@ const premiumCard: BourbonCardDef = {
     [9, 16, 22],
   ],
   awards: null,
+  tier: "uncommon",
 };
 
 describe("pricing — per-bill bands", () => {

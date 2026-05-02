@@ -51,6 +51,7 @@ import {
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
 } from "./handCardStyles";
+import { TIER_CHROME, tierOrCommon } from "./tierStyles";
 
 export default function HandTray() {
   const state = useGameStore((s) => s.state)!;
@@ -624,9 +625,9 @@ export default function HandTray() {
                   />
                 );
               })}
-              {/* Only UNBUILT investments live in the hand. Active ones
-                  have moved to the right-rail Active panel — they're
-                  table state, not hand state. */}
+              {/* Unbuilt investments are candidates for Implement mode
+                  and live alongside operations. Active ones get their
+                  own section to the right (see "active" below). */}
               {me.investments
                 .filter((inv) => inv.status !== "active")
                 .map((inv, idx) => {
@@ -662,6 +663,49 @@ export default function HandTray() {
                         def != null && me.cash >= def.capital + cost
                       }
                       onClick={onClick}
+                    />
+                  );
+                })}
+            </CardAccordion>
+          </div>
+        </div>
+
+        <Divider />
+
+        {/* Active investments — built upgrades that persist on the table.
+            Lives at the right of the hand row so the player can always
+            see what they've capitalised. Clicking opens the inspect
+            modal; in audit mode active investments are protected (built
+            upgrades aren't discardable). */}
+        <div className="flex flex-shrink-0 items-stretch gap-2">
+          <VerticalCaption>active</VerticalCaption>
+          <div className="flex flex-col items-start gap-1">
+            <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500 tabular-nums">
+              {activeInvCount}/{MAX_ACTIVE_INVESTMENTS} built
+            </span>
+            <CardAccordion>
+              {activeInvCount === 0 ? (
+                <EmptyPill>no active investments</EmptyPill>
+              ) : null}
+              {me.investments
+                .filter((inv) => inv.status === "active")
+                .map((inv, idx) => {
+                  const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
+                  return (
+                    <MiniInvestmentCard
+                      key={inv.instanceId}
+                      name={def?.name ?? inv.cardId}
+                      short={def?.short}
+                      effect={def?.effect}
+                      capital={def?.capital ?? 0}
+                      rarity={def?.rarity}
+                      isActive={true}
+                      indexInRow={idx}
+                      auditMode={false}
+                      auditSelected={false}
+                      implementable={false}
+                      canAffordImplement={false}
+                      onClick={() => inspectInvestment(inv.instanceId)}
                     />
                   );
                 })}
@@ -1014,7 +1058,8 @@ function MiniBourbonCard({
   makeSelected: boolean;
   onClick?: () => void;
 }) {
-  const isRare = card.rarity === "Rare";
+  const tier = tierOrCommon(card.tier);
+  const chrome = TIER_CHROME[tier];
   const overlapMargin = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
   // Resolve current demand against THIS bill's bands (each card defines
   // its own thresholds). Show a price preview from the middle age row
@@ -1027,7 +1072,7 @@ function MiniBourbonCard({
         : 0;
   const previewPrice = card.grid[1][demandBand];
   const baseChrome =
-    "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 bg-gradient-to-b from-amber-600/90 via-amber-900/90 to-slate-950 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
+    "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
   const stateBorder = auditSelected
     ? "border-rose-400 ring-2 ring-rose-400"
     : auditMode
@@ -1035,8 +1080,8 @@ function MiniBourbonCard({
       : makeSelected
         ? "border-amber-200 ring-2 ring-amber-200"
         : makeMode
-          ? "border-amber-400/70"
-          : "border-amber-400";
+          ? `${chrome.border} opacity-90`
+          : chrome.border;
   const liftClass = makeSelected || auditSelected
     ? "z-40 -translate-y-2"
     : "cursor-pointer hover:z-50 hover:-translate-y-3 hover:scale-[1.08]";
@@ -1055,10 +1100,12 @@ function MiniBourbonCard({
       title={title}
       className={[
         baseChrome,
+        chrome.gradient,
+        chrome.glow,
+        chrome.shimmer,
         overlapMargin,
         stateBorder,
         liftClass,
-        isRare ? "rare-shimmer" : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -1068,28 +1115,28 @@ function MiniBourbonCard({
         aria-hidden
       />
       <div className="flex items-baseline justify-between">
-        <span className="text-[8px] font-semibold uppercase tracking-[0.18em] text-amber-200">
+        <span className={`text-[8px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           Bourbon
         </span>
-        <span className="text-[7px] uppercase tracking-wide text-amber-200/80">
-          {card.rarity}
+        <span className={`text-[7px] uppercase tracking-wide ${chrome.label} opacity-80`}>
+          {chrome.label_text}
         </span>
       </div>
-      <h4 className="mt-1 line-clamp-2 font-display text-[13px] font-bold leading-tight text-amber-50 drop-shadow-[0_1px_4px_rgba(0,0,0,.35)]">
+      <h4 className={`mt-1 line-clamp-2 font-display text-[13px] font-bold leading-tight ${chrome.titleInk} drop-shadow-[0_1px_4px_rgba(0,0,0,.35)]`}>
         {card.name}
       </h4>
-      <p className="mt-0.5 text-[9px] italic leading-snug text-amber-100/80">
+      <p className={`mt-0.5 text-[9px] italic leading-snug ${chrome.label} opacity-90`}>
         mash bill
       </p>
-      <div className="mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 border-amber-300 bg-white/10 font-mono text-[12px] font-black tabular-nums text-white shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm">
+      <div className={`mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 ${chrome.border} bg-white/10 font-mono text-[12px] font-black tabular-nums text-white shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm`}>
         ${previewPrice}
       </div>
-      <p className="mt-1 line-clamp-2 text-[8.5px] leading-snug text-amber-50/90">
+      <p className={`mt-1 line-clamp-2 text-[8.5px] leading-snug ${chrome.titleInk} opacity-90`}>
         {demandBand === 0
-          ? "Low demand · 4–7y price"
+          ? "Low demand · mid-age price"
           : demandBand === 1
-            ? "Mid demand · 4–7y price"
-            : "High demand · 4–7y price"}
+            ? "Mid demand · mid-age price"
+            : "High demand · mid-age price"}
       </p>
     </button>
   );

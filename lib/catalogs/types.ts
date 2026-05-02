@@ -3,6 +3,28 @@
 
 export type BourbonRarity = "Standard" | "Rare";
 
+/**
+ * WoW-style visual / scoring tier for a bourbon card. Distinct from
+ * `rarity` (which is just a deck-distribution flag — Standard prints
+ * 2 copies, Rare prints 1). Tier drives the card chrome:
+ *
+ *   common     — white,  plain. The workhorse bills.
+ *   uncommon   — green,  modest accent + mild glow.
+ *   rare       — blue,   chrome + glow + soft pulse.
+ *   epic       — purple, strong border + ring + animated shimmer.
+ *   legendary  — orange, full bling: bright glow + shimmer + halo.
+ *
+ * Auto-derived in the catalog generator from grid max + awards when
+ * the YAML doesn't set an explicit `tier`. Authors override only when
+ * the algorithm picks something off — see scripts/build-catalogs.ts.
+ */
+export type BourbonTier =
+  | "common"
+  | "uncommon"
+  | "rare"
+  | "epic"
+  | "legendary";
+
 export type BourbonAwards = {
   silver?: string | null;
   gold?: string | null;
@@ -84,6 +106,12 @@ export type BourbonCardDef = {
    * rules. Absent on cards that accept any legal mash.
    */
   recipe?: MashRecipe;
+  /**
+   * WoW-style visual tier (common / uncommon / rare / epic / legendary).
+   * Always present on the generated catalog — derived from grid max +
+   * awards in scripts/build-catalogs.ts when the YAML doesn't override.
+   */
+  tier: BourbonTier;
 };
 
 export type InvestmentModifier =

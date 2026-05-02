@@ -54,22 +54,19 @@ describe("pickBestSellable", () => {
 
   it("picks the higher-paying barrel between two age-≥2 candidates", () => {
     const s = gs();
-    // Pick two cards with different grids and place a barrel of each.
-    const ids = Object.keys(BOURBON_CARDS_BY_ID).slice(0, 12);
-    let a = ids[0];
-    let b = ids[0];
-    for (const id of ids) {
-      const card = BOURBON_CARDS_BY_ID[id];
-      const max = Math.max(...card.grid.flatMap((row) => row));
-      const aMax = Math.max(...BOURBON_CARDS_BY_ID[a].grid.flatMap((r) => r));
-      const bMax = Math.max(...BOURBON_CARDS_BY_ID[b].grid.flatMap((r) => r));
-      if (max > aMax) {
-        b = a;
-        a = id;
-      } else if (max > bMax && id !== a) {
-        b = id;
-      }
-    }
+    // Scan the WHOLE catalog so we reliably find two cards with
+    // distinct grid-max values (the post-tier rebalance has many flat
+    // commons that share a max, so a slice-based scan over the first
+    // 12 ids isn't guaranteed to find distinct candidates).
+    const ids = Object.keys(BOURBON_CARDS_BY_ID);
+    const sortedByMax = ids
+      .map((id) => ({
+        id,
+        max: Math.max(...BOURBON_CARDS_BY_ID[id].grid.flatMap((r) => r)),
+      }))
+      .sort((x, y) => y.max - x.max);
+    const a = sortedByMax[0].id;
+    const b = sortedByMax.find((entry) => entry.max < sortedByMax[0].max)!.id;
     expect(a).not.toBe(b);
     placeBarrel(s, "p1", 0, 4, a); // higher-grid bill
     placeBarrel(s, "p1", 1, 4, b); // lower-grid bill

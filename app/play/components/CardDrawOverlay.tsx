@@ -244,9 +244,21 @@ function glowFor(event: DrawEvent): string {
       return RESOURCE_THEME[event.resource].glow;
     case "bourbon": {
       const card = BOURBON_CARDS_BY_ID[event.cardId];
-      return card?.rarity === "Rare"
-        ? "rgba(251, 191, 36, 0.7)"
-        : "rgba(251, 191, 36, 0.45)";
+      // Glow intensity scales with tier — legendary blazes amber/orange,
+      // epic glows violet, rare blue, uncommon green, common a soft slate.
+      switch (card?.tier) {
+        case "legendary":
+          return "rgba(251, 146, 60, 0.85)";
+        case "epic":
+          return "rgba(167, 139, 250, 0.65)";
+        case "rare":
+          return "rgba(56, 189, 248, 0.55)";
+        case "uncommon":
+          return "rgba(52, 211, 153, 0.45)";
+        case "common":
+        default:
+          return "rgba(148, 163, 184, 0.35)";
+      }
     }
     case "investment":
       return "rgba(52, 211, 153, 0.55)";

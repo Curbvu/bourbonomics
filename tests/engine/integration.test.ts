@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialState } from "@/lib/engine/setup";
 import { reduce } from "@/lib/engine/reducer";
 import type { Action } from "@/lib/engine/actions";
+import { BOURBON_CARDS_BY_ID } from "@/lib/catalogs/bourbon.generated";
 import type { GameState } from "@/lib/engine/state";
 
 function step(state: GameState, actions: Action[]): GameState {
@@ -132,10 +133,17 @@ describe("integration — full round loop", () => {
     const cask = s.players.p1.resourceHand.find((r) => r.resource === "cask")!;
     const corn = s.players.p1.resourceHand.find((r) => r.resource === "corn")!;
     const rye = s.players.p1.resourceHand.find((r) => r.resource === "rye")!;
-    // Pick a mash bill from the player's starting bourbon hand to commit
-    // to the new barrel.
-    const mashBillId = s.players.p1.bourbonHand[0];
-    expect(mashBillId).toBeTruthy();
+    // Pick a mash bill from the player's starting bourbon hand. With
+    // tier-shaped recipes, many bills now require more than 1 cask + 1
+    // corn + 1 rye — find one that has no recipe constraint so this
+    // minimal mash satisfies it.
+    const billsByDef = s.players.p1.bourbonHand.map((id) => ({
+      id,
+      def: BOURBON_CARDS_BY_ID[id],
+    }));
+    const noRecipe = billsByDef.find((x) => !x.def?.recipe);
+    expect(noRecipe).toBeTruthy();
+    const mashBillId = noRecipe!.id;
     // Make bourbon in the first rickhouse.
     s = reduce(s, {
       t: "MAKE_BOURBON",

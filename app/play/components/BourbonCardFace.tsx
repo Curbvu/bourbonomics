@@ -4,6 +4,7 @@ import { Fragment, type ReactNode } from "react";
 
 import { isRickhouseId, rickhouseById } from "@/lib/engine/rickhouses";
 import type { BourbonCardDef } from "@/lib/catalogs/types";
+import { TIER_CHROME, tierOrCommon } from "./tierStyles";
 
 type HighlightCell = {
   ageBand: 0 | 1 | 2;
@@ -103,21 +104,24 @@ export default function BourbonCardFace({
           ? 1
           : 0
       : null;
-  const isRare = card.rarity === "Rare";
+  const tier = tierOrCommon(card.tier);
+  const chrome = TIER_CHROME[tier];
   return (
     <article
       className={[
         "relative overflow-hidden border-2 shadow-[0_10px_32px_rgba(0,0,0,.55),inset_0_1px_0_rgba(255,255,255,.08)]",
         tok.rounded,
         tok.pad,
-        isRare ? "border-amber-400" : "border-amber-700/80",
-        "bg-[radial-gradient(120%_80%_at_50%_-10%,rgba(245,158,11,.20),transparent_55%),linear-gradient(180deg,rgba(120,53,15,.45)_0%,rgba(15,23,42,.95)_75%)]",
+        chrome.border,
+        chrome.gradient,
+        chrome.glow,
+        chrome.shimmer,
       ].join(" ")}
       aria-label={`Bourbon card ${card.name}`}
     >
       {/* Top hairline gloss */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/40 to-transparent"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
         aria-hidden
       />
 
@@ -125,17 +129,17 @@ export default function BourbonCardFace({
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p
-            className={`font-mono uppercase tracking-[.22em] text-amber-300/60 ${tok.eyebrow}`}
+            className={`font-mono uppercase tracking-[.22em] ${chrome.label} ${tok.eyebrow}`}
           >
             Bourbon
           </p>
           <h3
-            className={`mt-0.5 font-display font-semibold leading-tight text-amber-50 drop-shadow-[0_1px_2px_rgba(0,0,0,.5)] ${tok.title}`}
+            className={`mt-0.5 font-display font-semibold leading-tight ${chrome.titleInk} drop-shadow-[0_1px_2px_rgba(0,0,0,.5)] ${tok.title}`}
           >
             {card.name}
           </h3>
         </div>
-        <RarityBadge rarity={card.rarity} size={size} />
+        <TierBadge tier={tier} size={size} />
       </header>
 
       {/* Section divider — Market Price Guide */}
@@ -162,8 +166,8 @@ export default function BourbonCardFace({
                       hit
                         ? "text-amber-200"
                         : live
-                          ? "text-amber-300"
-                          : "text-amber-400/55",
+                          ? chrome.label
+                          : "text-slate-400",
                     ].join(" ")}
                   >
                     {label}
@@ -180,9 +184,7 @@ export default function BourbonCardFace({
                   className={[
                     "pr-2 text-right font-mono uppercase tracking-[.18em]",
                     tok.body,
-                    highlight?.ageBand === r
-                      ? "text-amber-200"
-                      : "text-amber-400/55",
+                    highlight?.ageBand === r ? "text-amber-200" : "text-slate-400",
                   ].join(" ")}
                 >
                   {ageLabels[r]}
@@ -201,10 +203,10 @@ export default function BourbonCardFace({
                         isHit
                           ? "bg-amber-300 text-slate-950 ring-2 ring-amber-200 shadow-[0_0_18px_rgba(245,158,11,.55)]"
                           : isBlank
-                            ? "border border-dashed border-slate-700/70 bg-slate-950/40 text-slate-600"
+                            ? "border border-dashed border-slate-700/60 bg-slate-950/40 text-slate-600"
                             : liveCol
-                              ? "bg-amber-700/[0.20] text-amber-100 ring-1 ring-amber-500/40"
-                              : "bg-slate-900/80 text-slate-100 ring-1 ring-amber-900/40",
+                              ? `bg-slate-900/80 ${chrome.titleInk} ring-1 ${chrome.borderSoft}`
+                              : "bg-slate-900/80 text-slate-100 ring-1 ring-slate-700/60",
                       ].join(" ")}
                     >
                       {isBlank ? "—" : `$${price}`}
@@ -293,8 +295,14 @@ function RecipeBadges({
 
 // ──────────────────────────────────────────────────────────────────────────
 
-function RarityBadge({ rarity, size }: { rarity: string; size: Size }) {
-  const isRare = rarity === "Rare";
+function TierBadge({
+  tier,
+  size,
+}: {
+  tier: ReturnType<typeof tierOrCommon>;
+  size: Size;
+}) {
+  const chrome = TIER_CHROME[tier];
   const padding = size === "lg" ? "px-2.5 py-1" : "px-1.5 py-0.5";
   const text = size === "lg" ? "text-[10px]" : "text-[8.5px]";
   return (
@@ -303,12 +311,13 @@ function RarityBadge({ rarity, size }: { rarity: string; size: Size }) {
         "flex-shrink-0 rounded-full border font-mono uppercase tracking-[.18em]",
         padding,
         text,
-        isRare
-          ? "border-amber-300 bg-gradient-to-b from-amber-300 to-amber-500 text-slate-950 shadow-[0_2px_8px_rgba(245,158,11,.45)]"
-          : "border-amber-700/60 bg-amber-900/30 text-amber-200/85",
+        chrome.pill,
+        tier === "legendary"
+          ? "shadow-[0_2px_8px_rgba(251,146,60,.45)]"
+          : "",
       ].join(" ")}
     >
-      {rarity}
+      {chrome.label_text}
     </span>
   );
 }

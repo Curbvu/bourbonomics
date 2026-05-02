@@ -12,32 +12,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        1,
         2,
-        3
+        2,
+        2
       ],
       [
         2,
-        4,
-        5
+        2,
+        2
       ],
       [
         3,
-        5,
-        6
+        3,
+        3
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      6
+      3,
+      4
     ],
     "demandBands": [
-      2,
+      0,
       4,
-      6
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "02",
@@ -45,37 +46,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        4,
-        6
+        3,
+        3,
+        3
       ],
       [
-        7,
-        7,
-        9
+        3,
+        3,
+        3
       ],
       [
-        7,
-        7,
-        9
+        4,
+        4,
+        4
       ]
     ],
     "awards": null,
-    "recipe": {
-      "barley": {
-        "min": 1
-      }
-    },
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "03",
@@ -83,32 +80,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        5,
-        6
+        4,
+        4,
+        4
       ],
       [
-        8,
-        8,
-        10
+        4,
+        4,
+        4
       ],
       [
-        8,
-        8,
-        10
+        5,
+        5,
+        5
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "04",
@@ -116,32 +114,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        6,
-        6,
-        7
+        2,
+        2,
+        2
       ],
       [
-        9,
-        9,
-        11
+        2,
+        2,
+        2
       ],
       [
-        9,
-        9,
-        11
+        3,
+        3,
+        3
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "05",
@@ -149,150 +148,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        3,
-        5
-      ],
-      [
-        6,
-        6,
-        8
-      ],
-      [
-        6,
-        6,
-        8
-      ]
-    ],
-    "awards": null,
-    "ageBands": [
-      2,
-      4,
-      8
-    ],
-    "demandBands": [
-      0,
-      4,
-      7
-    ]
-  },
-  {
-    "id": "06",
-    "name": "Riverbend Rye Signal",
-    "rarity": "Standard",
-    "grid": [
-      [
-        4,
-        4,
-        6
-      ],
-      [
-        7,
-        7,
-        9
-      ],
-      [
-        7,
-        7,
-        9
-      ]
-    ],
-    "awards": null,
-    "recipe": {
-      "rye": {
-        "min": 2
-      }
-    },
-    "ageBands": [
-      2,
-      4,
-      8
-    ],
-    "demandBands": [
-      0,
-      4,
-      7
-    ]
-  },
-  {
-    "id": "07",
-    "name": "Stave & Story",
-    "rarity": "Standard",
-    "grid": [
-      [
-        5,
-        5,
-        6
-      ],
-      [
-        8,
-        8,
-        10
-      ],
-      [
-        8,
-        8,
-        10
-      ]
-    ],
-    "awards": null,
-    "ageBands": [
-      2,
-      4,
-      8
-    ],
-    "demandBands": [
-      0,
-      4,
-      7
-    ]
-  },
-  {
-    "id": "08",
-    "name": "Cooper's Quorum",
-    "rarity": "Standard",
-    "grid": [
-      [
-        6,
-        6,
-        10
-      ],
-      [
-        10,
-        10,
-        11
-      ],
-      [
-        10,
-        10,
-        11
-      ]
-    ],
-    "awards": {
-      "silver": "Mash includes **≥2 rye** cards **or** **2 corn** cards (plus the required small grain in the third slot); **and** sell price **≥ $20** on this card (middle-floor \"quorum\" pick—**rickhouse-2** counts as the rye tie).",
-      "gold": "**Tri-type** mash (one corn, rye, wheat **or** corn, rye, barley **or** corn, wheat, barley) **or** **1 corn + 2 rye** (max rye stack); **and** sell **≥ $27** on this card (grid **maximum** **$27**)."
-    },
-    "ageBands": [
-      2,
-      4,
-      8
-    ],
-    "demandBands": [
-      0,
-      4,
-      7
-    ],
-    "brandValue": 25
-  },
-  {
-    "id": "09",
-    "name": "Mash Bill No. 7",
-    "rarity": "Standard",
-    "grid": [
-      [
         2,
-        3,
-        4
+        4,
+        6
       ],
       [
         3,
@@ -300,22 +158,184 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         7
       ],
       [
-        4,
-        7,
-        10
+        3,
+        5,
+        7
       ]
     ],
     "awards": null,
     "ageBands": [
-      3,
+      2,
+      4,
+      6
+    ],
+    "demandBands": [
+      0,
+      4,
+      7
+    ],
+    "tier": "uncommon"
+  },
+  {
+    "id": "06",
+    "name": "Riverbend Rye Signal",
+    "rarity": "Standard",
+    "grid": [
+      [
+        3,
+        5,
+        7
+      ],
+      [
+        4,
+        6,
+        8
+      ],
+      [
+        4,
+        6,
+        8
+      ]
+    ],
+    "awards": null,
+    "ageBands": [
+      2,
+      4,
+      6
+    ],
+    "demandBands": [
+      0,
+      4,
+      7
+    ],
+    "tier": "uncommon"
+  },
+  {
+    "id": "07",
+    "name": "Stave & Story",
+    "rarity": "Standard",
+    "grid": [
+      [
+        2,
+        4,
+        6
+      ],
+      [
+        3,
+        5,
+        7
+      ],
+      [
+        3,
+        5,
+        7
+      ]
+    ],
+    "awards": null,
+    "ageBands": [
+      2,
+      4,
+      6
+    ],
+    "demandBands": [
+      0,
+      4,
+      7
+    ],
+    "tier": "uncommon"
+  },
+  {
+    "id": "08",
+    "name": "Cooper's Quorum",
+    "rarity": "Standard",
+    "grid": [
+      [
+        4,
+        5,
+        7
+      ],
+      [
+        6,
+        9,
+        12
+      ],
+      [
+        8,
+        13,
+        16
+      ]
+    ],
+    "awards": {
+      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+    },
+    "ageBands": [
+      2,
       5,
       8
     ],
     "demandBands": [
       3,
-      5,
-      8
-    ]
+      6,
+      9
+    ],
+    "tier": "rare",
+    "recipe": {
+      "barley": {
+        "min": 1
+      },
+      "rye": {
+        "min": 1
+      },
+      "wheat": {
+        "min": 1
+      }
+    }
+  },
+  {
+    "id": "09",
+    "name": "Mash Bill No. 7",
+    "rarity": "Standard",
+    "grid": [
+      [
+        0,
+        0,
+        9
+      ],
+      [
+        0,
+        14,
+        21
+      ],
+      [
+        9,
+        21,
+        30
+      ]
+    ],
+    "awards": {
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$30**)."
+    },
+    "ageBands": [
+      4,
+      7,
+      10
+    ],
+    "demandBands": [
+      4,
+      7,
+      10
+    ],
+    "tier": "epic",
+    "recipe": {
+      "rye": {
+        "min": 2
+      },
+      "wheat": {
+        "min": 1
+      }
+    },
+    "brandValue": 35
   },
   {
     "id": "10",
@@ -323,36 +343,48 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        4,
-        6
+        0,
+        20,
+        30
       ],
       [
-        7,
-        7,
-        9
+        0,
+        28,
+        35
       ],
       [
-        7,
-        7,
-        9
+        15,
+        35,
+        50
       ]
     ],
     "awards": {
-      "silver": "Barrel aged at **rickhouse-3** (top deck / hottest tier) **or** mash includes **≥2 wheat** cards; **and** sell price **≥ $16** on this card.",
-      "gold": "Mash includes **≥1 wheat** and **≥1 rye** with corn **or** **1 corn + 2 wheat**; **and** sell **≥ $23** on this card (grid **maximum** **$23**)."
+      "silver": "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥15 years** **and** demand **≥10** at sale **and** mash uses **≥4 grain cards** with a specialty cask (grid **maximum** **$50**)."
     },
     "ageBands": [
-      2,
-      4,
-      8
+      8,
+      10,
+      15
     ],
     "demandBands": [
-      0,
       4,
-      7
+      8,
+      10
     ],
-    "brandValue": 25
+    "tier": "legendary",
+    "recipe": {
+      "grain": {
+        "min": 4
+      },
+      "rye": {
+        "min": 1
+      },
+      "wheat": {
+        "min": 1
+      }
+    },
+    "brandValue": 55
   },
   {
     "id": "11",
@@ -360,32 +392,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        5,
-        6
+        3,
+        3,
+        3
       ],
       [
-        8,
-        8,
-        10
+        3,
+        3,
+        3
       ],
       [
-        8,
-        8,
-        10
+        4,
+        4,
+        4
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "12",
@@ -393,32 +426,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        6,
-        6,
-        10
+        4,
+        4,
+        4
       ],
       [
-        10,
-        10,
-        11
+        4,
+        4,
+        4
       ],
       [
-        10,
-        10,
-        11
+        5,
+        5,
+        5
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "13",
@@ -426,37 +460,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        3,
-        5
+        2,
+        2,
+        2
       ],
       [
-        6,
-        6,
-        8
+        2,
+        2,
+        2
       ],
       [
-        6,
-        6,
-        8
+        3,
+        3,
+        3
       ]
     ],
     "awards": null,
-    "recipe": {
-      "corn": {
-        "min": 3
-      }
-    },
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "14",
@@ -464,40 +494,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        4,
-        6
+        3,
+        5,
+        7
       ],
       [
-        7,
-        7,
-        9
+        4,
+        6,
+        8
       ],
       [
-        7,
-        7,
-        9
+        4,
+        6,
+        8
       ]
     ],
     "awards": null,
-    "recipe": {
-      "rye": {
-        "min": 3
-      },
-      "wheat": {
-        "max": 0
-      }
-    },
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
-    ]
+    ],
+    "tier": "uncommon"
   },
   {
     "id": "15",
@@ -507,38 +530,31 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       [
         2,
         4,
-        5
+        6
       ],
       [
         3,
-        6,
-        8
+        5,
+        7
       ],
       [
-        4,
-        8,
-        11
+        3,
+        5,
+        7
       ]
     ],
     "awards": null,
-    "recipe": {
-      "wheat": {
-        "min": 1
-      },
-      "rye": {
-        "max": 0
-      }
-    },
     "ageBands": [
-      3,
-      6,
-      9
+      2,
+      4,
+      6
     ],
     "demandBands": [
+      0,
       4,
-      6,
-      8
-    ]
+      7
+    ],
+    "tier": "uncommon"
   },
   {
     "id": "16",
@@ -546,37 +562,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        6,
-        6,
+        3,
+        5,
         7
       ],
       [
-        9,
-        9,
-        11
+        4,
+        6,
+        8
       ],
       [
-        9,
-        9,
-        11
+        4,
+        6,
+        8
       ]
     ],
     "awards": null,
-    "recipe": {
-      "barley": {
-        "min": 2
-      }
-    },
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
-    ]
+    ],
+    "tier": "uncommon"
   },
   {
     "id": "17",
@@ -584,32 +596,40 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        3,
-        5
+        4,
+        5,
+        7
       ],
       [
         6,
-        6,
-        8
+        9,
+        12
       ],
       [
-        6,
-        6,
-        8
+        8,
+        13,
+        16
       ]
     ],
-    "awards": null,
+    "awards": {
+      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+    },
     "ageBands": [
       2,
-      4,
+      5,
       8
     ],
     "demandBands": [
-      0,
-      4,
-      7
-    ]
+      3,
+      6,
+      9
+    ],
+    "tier": "rare",
+    "recipe": {
+      "rye": {
+        "min": 2
+      }
+    }
   },
   {
     "id": "18",
@@ -617,36 +637,40 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        4,
-        6
+        5,
+        6,
+        8
       ],
       [
         7,
-        7,
-        9
+        10,
+        13
       ],
       [
-        7,
-        7,
-        9
+        9,
+        14,
+        17
       ]
     ],
     "awards": {
-      "silver": "Mash includes **≥2 barley** cards **or** **≥1 rye** and **≥1 wheat**; **and** sell price **≥ $16** on this card (angel’s-share patience).",
-      "gold": "**Barley-led:** **1 corn + 2 barley** (max barley stack) **or** tri-type with barley (corn + rye + barley, etc.); **and** sell **≥ $23** on this card (grid **maximum** **$23**)."
+      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
-      4,
+      5,
       8
     ],
     "demandBands": [
-      0,
-      4,
-      7
+      3,
+      6,
+      9
     ],
-    "brandValue": 25
+    "tier": "rare",
+    "recipe": {
+      "rye": {
+        "min": 2
+      }
+    }
   },
   {
     "id": "19",
@@ -654,36 +678,45 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        5,
-        6
+        0,
+        0,
+        7
       ],
       [
-        8,
-        8,
-        10
+        0,
+        11,
+        17
       ],
       [
-        8,
-        8,
-        10
+        7,
+        17,
+        24
       ]
     ],
     "awards": {
-      "silver": "Mash is **≥51% corn** in spirit — **2 corn** cards in the three-grain mix (third card is rye, wheat, or barley); **and** sell price **≥ $18** on this card.",
-      "gold": "**Corn-forward bond**: **2 corn + 1 rye** **or** **2 corn + 1 wheat** (or **2 corn + 1 barley**); **and** sell **≥ $25** on this card (grid **maximum** **$25**)."
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$24**)."
     },
     "ageBands": [
-      2,
       4,
-      8
+      7,
+      10
     ],
     "demandBands": [
-      0,
       4,
-      7
+      7,
+      10
     ],
-    "brandValue": 25
+    "tier": "epic",
+    "recipe": {
+      "rye": {
+        "min": 2
+      },
+      "wheat": {
+        "min": 1
+      }
+    },
+    "brandValue": 30
   },
   {
     "id": "20",
@@ -691,32 +724,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        6,
-        6,
-        7
+        3,
+        3,
+        3
       ],
       [
-        9,
-        9,
-        11
+        3,
+        3,
+        3
       ],
       [
-        9,
-        9,
-        11
+        4,
+        4,
+        4
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "21",
@@ -724,36 +758,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        3,
+        4,
+        4,
+        4
+      ],
+      [
+        4,
+        4,
+        4
+      ],
+      [
+        5,
+        5,
         5
-      ],
-      [
-        6,
-        6,
-        8
-      ],
-      [
-        6,
-        6,
-        8
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥2 rye** **or** barrel at **rickhouse-4** (sun-swing metal style); **and** sell price **≥ $14** on this card.",
-      "gold": "**Heavy rye stack**: **1 corn + 2 rye** (maximum rye) **or** tri-type with rye as the tie-break highest count; **and** sell **≥ $21** on this card (grid **maximum** **$21**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
+      8
     ],
-    "brandValue": 25
+    "tier": "common"
   },
   {
     "id": "22",
@@ -761,32 +792,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        5,
-        9
+        2,
+        2,
+        2
       ],
       [
-        9,
-        9,
-        9
+        2,
+        2,
+        2
       ],
       [
-        9,
-        9,
-        9
+        3,
+        3,
+        3
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "23",
@@ -794,32 +826,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        6,
-        6,
-        10
+        3,
+        3,
+        3
       ],
       [
-        10,
-        10,
-        10
+        3,
+        3,
+        3
       ],
       [
-        10,
-        10,
-        10
+        4,
+        4,
+        4
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "24",
@@ -827,32 +860,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        6,
-        6,
+        3,
+        5,
         7
       ],
       [
-        9,
-        9,
-        11
+        4,
+        6,
+        8
       ],
       [
-        9,
-        9,
-        11
+        4,
+        6,
+        8
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
-    ]
+    ],
+    "tier": "uncommon"
   },
   {
     "id": "25",
@@ -860,32 +894,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        3,
-        5
+        2,
+        4,
+        6
       ],
       [
-        6,
-        6,
-        8
+        3,
+        5,
+        7
       ],
       [
-        6,
-        6,
-        8
+        3,
+        5,
+        7
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
-    ]
+    ],
+    "tier": "uncommon"
   },
   {
     "id": "26",
@@ -893,32 +928,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        4,
-        6
+        3,
+        5,
+        7
       ],
       [
-        7,
-        7,
-        9
+        4,
+        6,
+        8
       ],
       [
-        7,
-        7,
-        9
+        4,
+        6,
+        8
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
-    ]
+    ],
+    "tier": "uncommon"
   },
   {
     "id": "27",
@@ -927,31 +963,39 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         5,
-        5,
-        6
+        6,
+        8
       ],
       [
-        8,
-        8,
-        10
+        7,
+        10,
+        13
       ],
       [
-        8,
-        8,
-        10
+        9,
+        14,
+        17
       ]
     ],
-    "awards": null,
+    "awards": {
+      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+    },
     "ageBands": [
       2,
-      4,
+      5,
       8
     ],
     "demandBands": [
-      0,
-      4,
-      7
-    ]
+      3,
+      6,
+      9
+    ],
+    "recipe": {
+      "rye": {
+        "min": 2
+      }
+    },
+    "tier": "rare"
   },
   {
     "id": "28",
@@ -959,32 +1003,45 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        6,
-        6,
+        0,
+        0,
         7
       ],
       [
-        9,
-        9,
-        11
+        0,
+        11,
+        17
       ],
       [
-        9,
-        9,
-        11
+        7,
+        17,
+        24
       ]
     ],
-    "awards": null,
+    "awards": {
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$24**)."
+    },
     "ageBands": [
-      2,
       4,
-      8
+      7,
+      10
     ],
     "demandBands": [
-      0,
       4,
-      7
-    ]
+      7,
+      10
+    ],
+    "recipe": {
+      "rye": {
+        "min": 2
+      },
+      "wheat": {
+        "min": 1
+      }
+    },
+    "tier": "epic",
+    "brandValue": 30
   },
   {
     "id": "29",
@@ -992,32 +1049,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        4,
-        8
+        3,
+        3,
+        3
       ],
       [
-        8,
-        8,
-        8
+        3,
+        3,
+        3
       ],
       [
-        8,
-        8,
-        8
+        4,
+        4,
+        4
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "30",
@@ -1027,30 +1085,31 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       [
         4,
         4,
-        6
+        4
       ],
       [
-        7,
-        7,
-        9
+        4,
+        4,
+        4
       ],
       [
-        7,
-        7,
-        9
+        5,
+        5,
+        5
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "31",
@@ -1058,32 +1117,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        5,
-        6
+        2,
+        2,
+        2
       ],
       [
-        8,
-        8,
-        10
+        2,
+        2,
+        2
       ],
       [
-        8,
-        8,
-        10
+        3,
+        3,
+        3
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "32",
@@ -1091,32 +1151,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        6,
-        6,
-        7
+        3,
+        3,
+        3
       ],
       [
-        9,
-        9,
-        11
+        3,
+        3,
+        3
       ],
       [
-        9,
-        9,
-        11
+        4,
+        4,
+        4
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "33",
@@ -1124,32 +1185,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        3,
-        5
+        2,
+        4,
+        6
       ],
       [
-        6,
-        6,
-        8
+        3,
+        5,
+        7
       ],
       [
-        6,
-        6,
-        8
+        3,
+        5,
+        7
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
-    ]
+    ],
+    "tier": "uncommon"
   },
   {
     "id": "34",
@@ -1157,47 +1219,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
+        3,
         5,
-        5,
-        9
+        7
       ],
       [
-        9,
-        9,
-        9
+        4,
+        6,
+        8
       ],
       [
-        9,
-        9,
-        9
+        4,
+        6,
+        8
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥2 wheat** **or** **≥1 corn** and **≥1 barley**; **and** sell price **≥ $16** on this card (grist-forward flavor).",
-      "gold": "**Tri-type** mash using **three different grains** among corn / rye / wheat / barley (e.g. corn + rye + wheat)—the richest bill possible in three grain cards; **and** sell **≥ $23** on this card (grid **maximum** **$23**)."
-    },
-    "recipe": {
-      "barley": {
-        "min": 1
-      },
-      "rye": {
-        "min": 1
-      },
-      "wheat": {
-        "min": 1
-      }
-    },
+    "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
     ],
-    "brandValue": 25
+    "tier": "uncommon"
   },
   {
     "id": "35",
@@ -1205,32 +1253,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        5,
+        2,
+        4,
         6
       ],
       [
-        8,
-        8,
-        10
+        3,
+        5,
+        7
       ],
       [
-        8,
-        8,
-        10
+        3,
+        5,
+        7
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
-    ]
+    ],
+    "tier": "uncommon"
   },
   {
     "id": "36",
@@ -1238,34 +1287,40 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        0,
-        4,
-        7
+        5,
+        6,
+        8
       ],
       [
-        4,
-        9,
+        7,
+        10,
         13
       ],
       [
-        6,
-        13,
-        18
+        9,
+        14,
+        17
       ]
     ],
     "awards": {
-      "silver": "Barrel **≥6 years** **and** demand **≥9** at sale."
+      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
+      2,
+      5,
+      8
+    ],
+    "demandBands": [
       3,
       6,
       9
     ],
-    "demandBands": [
-      7,
-      9,
-      11
-    ]
+    "recipe": {
+      "rye": {
+        "min": 2
+      }
+    },
+    "tier": "rare"
   },
   {
     "id": "37",
@@ -1273,35 +1328,44 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        7,
-        7,
-        12
+        0,
+        0,
+        7
       ],
       [
-        15,
-        15,
-        21
+        0,
+        11,
+        17
       ],
       [
-        15,
-        15,
-        21
+        7,
+        17,
+        24
       ]
     ],
     "awards": {
-      "silver": "Mash includes **≥3 corn** cards **or** **≥2 wheat** and **≥1 rye**; **and** sell price **≥ $36** on this card **or** market demand **odd** at sale.",
-      "gold": "**Four-grain** (at least one corn, rye, wheat, barley) **or** **≥5** grain cards total; **and** sell **≥ $52** (grid **maximum** **$52**)."
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$24**)."
     },
     "ageBands": [
-      2,
       4,
-      8
+      7,
+      10
     ],
     "demandBands": [
-      0,
       4,
-      7
+      7,
+      10
     ],
+    "tier": "epic",
+    "recipe": {
+      "rye": {
+        "min": 2
+      },
+      "wheat": {
+        "min": 1
+      }
+    },
     "brandValue": 35
   },
   {
@@ -1310,36 +1374,48 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        11,
-        11,
-        13
+        0,
+        23,
+        35
       ],
       [
-        18,
-        18,
-        22
+        0,
+        32,
+        41
       ],
       [
-        18,
-        18,
-        22
+        17,
+        41,
+        58
       ]
     ],
     "awards": {
-      "silver": "Bottled-in-bond style: **≥3 corn** **and** **≥2 rye** among grains **or** barrel at **rickhouse-0** (cool river rack); **and** sell **≥ $39** **or** demand **odd**.",
-      "gold": "**≥4 corn** and **≥2 rye** in the mash bill **or** sell **≥ $55** (grid **maximum** **$55**)."
+      "silver": "Barrel **≥10 years** **and** demand **≥8** at sale **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥15 years** **and** demand **≥10** at sale **and** mash uses **≥4 grain cards** with a specialty cask (grid **maximum** **$58**)."
     },
     "ageBands": [
-      2,
-      4,
-      8
+      8,
+      10,
+      15
     ],
     "demandBands": [
-      0,
       4,
-      7
+      8,
+      10
     ],
-    "brandValue": 35
+    "tier": "legendary",
+    "recipe": {
+      "grain": {
+        "min": 4
+      },
+      "rye": {
+        "min": 1
+      },
+      "wheat": {
+        "min": 1
+      }
+    },
+    "brandValue": 70
   },
   {
     "id": "39",
@@ -1347,36 +1423,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        11,
-        11,
-        16
+        4,
+        4,
+        4
       ],
       [
-        19,
-        19,
-        25
+        4,
+        4,
+        4
       ],
       [
-        19,
-        19,
-        25
+        5,
+        5,
+        5
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥3 barley** **or** **≥2 rye** and **≥2 corn**; **and** sell **≥ $46** **or** demand **odd**.",
-      "gold": "**≥3 grain types** with **barley** **and** **≥2 rye**; **and** sell **≥ $62** (grid **maximum** **$62**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
+      8
     ],
-    "brandValue": 35
+    "tier": "common"
   },
   {
     "id": "40",
@@ -1384,36 +1457,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        15,
-        15,
-        17
+        2,
+        2,
+        2
       ],
       [
-        22,
-        22,
-        26
+        2,
+        2,
+        2
       ],
       [
-        22,
-        22,
-        26
+        3,
+        3,
+        3
       ]
     ],
-    "awards": {
-      "silver": "Barrel at **rickhouse-3** (six-slot top heat) **or** mash **≥3 rye**; **and** sell **≥ $49** **or** demand **odd**.",
-      "gold": "**Rickhouse-3** age **and** **≥4 rye** cards **or** sell **≥ $65** (grid **maximum** **$65**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
+      8
     ],
-    "brandValue": 40
+    "tier": "common"
   },
   {
     "id": "41",
@@ -1421,36 +1491,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        8,
-        8,
-        13
+        3,
+        3,
+        3
       ],
       [
-        16,
-        16,
-        19
+        3,
+        3,
+        3
       ],
       [
-        16,
-        16,
-        19
+        4,
+        4,
+        4
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥2 wheat** and **≥2 corn** **or** barrel **rickhouse-5** (low brick steady floor); **and** sell **≥ $32** **or** demand **odd**.",
-      "gold": "**≥3 grain types** with **wheat** and **corn** both **≥2** cards; **and** sell **≥ $48** (grid **maximum** **$48**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
+      8
     ],
-    "brandValue": 30
+    "tier": "common"
   },
   {
     "id": "42",
@@ -1458,41 +1525,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        12,
-        12,
-        14
+        3,
+        5,
+        7
       ],
       [
-        16,
-        16,
-        22
+        4,
+        6,
+        8
       ],
       [
-        16,
-        16,
-        22
+        4,
+        6,
+        8
       ]
     ],
-    "awards": {
-      "silver": "**High-corn** mash: **≥4 corn** cards among grains **or** **≥3 corn** with **≥1 rye**; **and** sell **≥ $40** **or** demand **odd**.",
-      "gold": "**≥5 corn** cards **or** **≥4 corn** and **≥2 wheat**; **and** sell **≥ $56** (grid **maximum** **$56**)."
-    },
-    "recipe": {
-      "corn": {
-        "min": 3
-      }
-    },
+    "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
     ],
-    "brandValue": 35
+    "tier": "uncommon"
   },
   {
     "id": "43",
@@ -1500,36 +1559,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        13,
-        13,
-        23
+        2,
+        4,
+        6
       ],
       [
-        22,
-        22,
-        24
+        3,
+        5,
+        7
       ],
       [
-        22,
-        22,
-        24
+        3,
+        5,
+        7
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥2 rye** and **≥2 wheat** **or** barrel **rickhouse-2** (true \"platinum\" middle tier); **and** sell **≥ $45** **or** demand **odd**.",
-      "gold": "**≥3 grain types** with **rye** and **wheat** each **≥2** cards; **and** sell **≥ $61** (grid **maximum** **$61**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
     ],
-    "brandValue": 35
+    "tier": "uncommon"
   },
   {
     "id": "44",
@@ -1537,36 +1593,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        13,
-        13,
-        18
+        3,
+        5,
+        7
       ],
       [
-        20,
-        20,
-        26
+        4,
+        6,
+        8
       ],
       [
-        24,
-        24,
-        31
+        4,
+        6,
+        8
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥3 distinct grains** (any three of corn/rye/wheat/barley) **or** barrel **rickhouse-4** (iron & sun); **and** sell **≥ $50** **or** demand **odd**.",
-      "gold": "**8+** age band on this card **or** **≥4 grain types** represented; **and** sell **≥ $84** (grid **maximum** **$84**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
     ],
-    "brandValue": 45
+    "tier": "uncommon"
   },
   {
     "id": "45",
@@ -1574,24 +1627,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        2,
-        4,
-        7
-      ],
-      [
-        0,
         5,
-        9
+        6,
+        8
       ],
       [
-        3,
+        7,
+        10,
+        13
+      ],
+      [
         9,
-        14
+        14,
+        17
       ]
     ],
     "awards": {
-      "silver": "All-rye mash **and** demand **≥7** at sale.",
-      "gold": "Barrel **≥10 years** **and** all-rye mash **and** demand **≥10** at sale (grid **maximum** **$14**)."
+      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
@@ -1599,16 +1651,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       8
     ],
     "demandBands": [
-      4,
-      7,
-      10
+      3,
+      6,
+      9
     ],
     "recipe": {
       "rye": {
-        "min": 3
+        "min": 2
       }
     },
-    "brandValue": 25
+    "tier": "rare"
   },
   {
     "id": "46",
@@ -1616,36 +1668,40 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        0,
-        5,
-        9
+        3,
+        4,
+        6
       ],
       [
         5,
-        11,
-        16
+        8,
+        11
       ],
       [
-        9,
-        16,
-        22
+        7,
+        12,
+        15
       ]
     ],
     "awards": {
-      "silver": "Barrel **≥8 years** **and** mash includes **≥2 small grains** (barley + rye + wheat).",
-      "gold": "Barrel **≥10 years** **and** mash **≥2 small grains** **and** demand **12** at sale (grid **maximum** **$22**)."
+      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
-      6,
-      8,
-      10
+      2,
+      5,
+      8
     ],
     "demandBands": [
+      3,
       6,
-      8,
-      12
+      9
     ],
-    "brandValue": 35
+    "recipe": {
+      "rye": {
+        "min": 2
+      }
+    },
+    "tier": "rare"
   },
   {
     "id": "47",
@@ -1653,36 +1709,45 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        13,
-        13,
-        15
+        0,
+        0,
+        8
       ],
       [
-        20,
-        20,
-        24
+        0,
+        12,
+        19
       ],
       [
-        20,
-        20,
-        24
+        8,
+        19,
+        27
       ]
     ],
     "awards": {
-      "silver": "Barrel at **rickhouse-5** **or** **rickhouse-3** (wild vertical swing); **and** mash **≥2 rye**; **and** sell **≥ $44** **or** demand **odd**.",
-      "gold": "**Rickhouse-3** or **-5** **and** **≥3 rye** cards **or** sell **≥ $60** (grid **maximum** **$60**)."
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$27**)."
     },
     "ageBands": [
-      2,
       4,
-      8
+      7,
+      10
     ],
     "demandBands": [
-      0,
       4,
-      7
+      7,
+      10
     ],
-    "brandValue": 35
+    "tier": "epic",
+    "recipe": {
+      "rye": {
+        "min": 2
+      },
+      "wheat": {
+        "min": 1
+      }
+    },
+    "brandValue": 40
   },
   {
     "id": "48",
@@ -1690,36 +1755,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        14,
-        14,
-        19
+        4,
+        4,
+        4
       ],
       [
-        21,
-        21,
-        24
+        4,
+        4,
+        4
       ],
       [
-        21,
-        21,
-        24
+        5,
+        5,
+        5
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥3 corn** and **≥2 rye** (bonded grain discipline) **or** barrel **rickhouse-0**; **and** sell **≥ $46** **or** demand **odd**.",
-      "gold": "**≥4 corn** with **≥2 rye** and **≥1 wheat** **or** sell **≥ $62** (grid **maximum** **$62**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
+      8
     ],
-    "brandValue": 35
+    "tier": "common"
   },
   {
     "id": "49",
@@ -1727,36 +1789,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        10,
-        10,
-        12
+        2,
+        2,
+        2
       ],
       [
-        14,
-        14,
-        20
+        2,
+        2,
+        2
       ],
       [
-        14,
-        14,
-        20
+        3,
+        3,
+        3
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥2 barley** and **≥1 wheat** **or** **rickhouse-1** (limestone oak oracle); **and** sell **≥ $35** **or** demand **odd**.",
-      "gold": "**≥3 barley** and **≥2 wheat** **or** **≥4 grain types**; **and** sell **≥ $51** (grid **maximum** **$51**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
+      8
     ],
-    "brandValue": 30
+    "tier": "common"
   },
   {
     "id": "50",
@@ -1764,36 +1823,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        10,
-        10,
-        13
+        3,
+        3,
+        3
       ],
       [
-        18,
-        18,
-        21
+        3,
+        3,
+        3
       ],
       [
-        22,
-        22,
-        25
+        4,
+        4,
+        4
       ]
     ],
-    "awards": {
-      "silver": "Final-rick drama: barrel **rickhouse-3** **or** **rickhouse-5**; **and** mash **≥2 rye** **or** **≥3 corn**; **and** sell **≥ $41** **or** demand **odd**.",
-      "gold": "**8+** age band on this card **or** (**rickhouse-3** **and** **≥3 grain types**); **and** sell **≥ $70** (grid **maximum** **$70**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
+      8
     ],
-    "brandValue": 35
+    "tier": "common"
   },
   {
     "id": "51",
@@ -1803,30 +1859,31 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       [
         4,
         4,
-        6
+        4
       ],
       [
-        8,
-        8,
-        10
+        4,
+        4,
+        4
       ],
       [
-        8,
-        8,
-        10
+        5,
+        5,
+        5
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "52",
@@ -1835,31 +1892,32 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        3,
-        5
-      ],
-      [
-        6,
-        6,
+        5,
         7
       ],
       [
+        4,
         6,
+        8
+      ],
+      [
+        4,
         6,
-        7
+        8
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
-    ]
+    ],
+    "tier": "uncommon"
   },
   {
     "id": "53",
@@ -1867,41 +1925,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        5,
+        2,
+        4,
         6
       ],
       [
-        9,
-        9,
-        11
+        3,
+        5,
+        7
       ],
       [
-        9,
-        9,
-        11
+        3,
+        5,
+        7
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥3 corn** **or** **≥2 rye** (steady house bill); **and** sell price **≥ $20** on this card.",
-      "gold": "**Tri-type** mash (corn + any two of rye/wheat/barley) **and** **4–7** or **8+** age band; **and** sell **≥ $28** (grid **maximum** **$28**)."
-    },
-    "recipe": {
-      "grain": {
-        "min": 4
-      }
-    },
+    "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
     ],
-    "brandValue": 25
+    "tier": "uncommon"
   },
   {
     "id": "54",
@@ -1909,32 +1959,40 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        4,
-        6
+        5,
+        6,
+        8
       ],
       [
         7,
-        7,
-        9
+        10,
+        13
       ],
       [
-        7,
-        7,
-        9
+        9,
+        14,
+        17
       ]
     ],
-    "awards": null,
+    "awards": {
+      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
+    },
     "ageBands": [
       2,
-      4,
+      5,
       8
     ],
     "demandBands": [
-      0,
-      4,
-      7
-    ]
+      3,
+      6,
+      9
+    ],
+    "recipe": {
+      "rye": {
+        "min": 2
+      }
+    },
+    "tier": "rare"
   },
   {
     "id": "55",
@@ -1942,24 +2000,23 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        5,
-        7
+        3,
+        4,
+        6
       ],
       [
+        5,
         8,
-        8,
-        10
+        11
       ],
       [
-        8,
-        8,
-        10
+        7,
+        12,
+        15
       ]
     ],
     "awards": {
-      "silver": "Barrel at **rickhouse-3** **or** mash includes **≥2 rye**; **and** sell **≥ $20**.",
-      "gold": "Barrel at **rickhouse-3** **and** mash **≥2 rye**; **and** sell **≥ $26** (grid **maximum** **$26**)."
+      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
     },
     "recipe": {
       "rye": {
@@ -1968,15 +2025,15 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     },
     "ageBands": [
       2,
-      4,
+      5,
       8
     ],
     "demandBands": [
-      0,
-      4,
-      7
+      3,
+      6,
+      9
     ],
-    "brandValue": 25
+    "tier": "rare"
   },
   {
     "id": "56",
@@ -1984,32 +2041,45 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        4,
-        6
+        0,
+        0,
+        8
+      ],
+      [
+        0,
+        12,
+        19
       ],
       [
         8,
-        8,
-        10
-      ],
-      [
-        8,
-        8,
-        10
+        19,
+        27
       ]
     ],
-    "awards": null,
+    "awards": {
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$27**)."
+    },
     "ageBands": [
-      2,
       4,
-      8
+      7,
+      10
     ],
     "demandBands": [
-      0,
       4,
-      7
-    ]
+      7,
+      10
+    ],
+    "tier": "epic",
+    "recipe": {
+      "rye": {
+        "min": 2
+      },
+      "wheat": {
+        "min": 1
+      }
+    },
+    "brandValue": 35
   },
   {
     "id": "57",
@@ -2019,30 +2089,31 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       [
         4,
         4,
-        6
+        4
       ],
       [
-        8,
-        8,
-        9
+        4,
+        4,
+        4
       ],
       [
-        8,
-        8,
-        9
+        5,
+        5,
+        5
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "58",
@@ -2050,36 +2121,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        0,
-        4,
-        9
+        2,
+        2,
+        2
       ],
       [
-        5,
-        11,
-        17
+        2,
+        2,
+        2
       ],
       [
-        10,
-        18,
-        26
+        3,
+        3,
+        3
       ]
     ],
-    "awards": {
-      "silver": "Barrel **≥9 years** **and** mash includes **≥2 distinct small grains**.",
-      "gold": "Barrel **≥12 years** **and** mash **≥2 distinct small grains** **and** demand **12** at sale (grid **maximum** **$26**)."
-    },
+    "awards": null,
     "ageBands": [
-      6,
-      9,
-      12
+      2,
+      3,
+      4
     ],
     "demandBands": [
-      6,
-      9,
-      12
+      0,
+      4,
+      8
     ],
-    "brandValue": 35
+    "tier": "common"
   },
   {
     "id": "59",
@@ -2087,36 +2155,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        5,
-        6
+        3,
+        3,
+        3
       ],
       [
-        8,
-        8,
-        10
+        3,
+        3,
+        3
       ],
       [
-        8,
-        8,
-        10
+        4,
+        4,
+        4
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥3 distinct grain types** (corn + two of rye/wheat/barley); **and** sell **≥ $20**.",
-      "gold": "Mash features **all four grain types** (corn, rye, wheat, barley); **and** sell **≥ $26** (grid **maximum** **$26**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
+      8
     ],
-    "brandValue": 25
+    "tier": "common"
   },
   {
     "id": "60",
@@ -2126,30 +2191,31 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       [
         4,
         4,
-        6
+        4
       ],
       [
-        7,
-        7,
-        10
+        4,
+        4,
+        4
       ],
       [
-        7,
-        7,
-        10
+        5,
+        5,
+        5
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
-      8
+      3,
+      4
     ],
     "demandBands": [
       0,
       4,
-      7
-    ]
+      8
+    ],
+    "tier": "common"
   },
   {
     "id": "61",
@@ -2157,36 +2223,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        9,
-        9,
-        13
+        2,
+        4,
+        6
       ],
       [
-        17,
-        17,
-        21
+        3,
+        5,
+        7
       ],
       [
-        21,
-        21,
-        27
+        3,
+        5,
+        7
       ]
     ],
-    "awards": {
-      "silver": "Comeback story: mash includes **≥2 rye** **or** barrel at **rickhouse-5**; **and** sell **≥ $38** **or** demand **odd**.",
-      "gold": "**8+** age band on this card **and** **≥3 grain types**; **and** sell **≥ $68** (grid **maximum** **$68**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
     ],
-    "brandValue": 40
+    "tier": "uncommon"
   },
   {
     "id": "62",
@@ -2194,36 +2257,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        8,
-        8,
-        10
+        3,
+        5,
+        7
       ],
       [
-        15,
-        15,
-        19
+        4,
+        6,
+        8
       ],
       [
-        19,
-        19,
-        23
+        4,
+        6,
+        8
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥2 wheat** **and** **≥1 corn** (softer voice); **and** sell **≥ $35** **or** demand **odd**.",
-      "gold": "**≥3 wheat** cards **or** **8+** age band with wheat as the majority grain; **and** sell **≥ $58** (grid **maximum** **$58**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
     ],
-    "brandValue": 35
+    "tier": "uncommon"
   },
   {
     "id": "63",
@@ -2231,36 +2291,33 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        10,
-        10,
-        12
+        2,
+        4,
+        6
       ],
       [
-        18,
-        18,
-        22
+        3,
+        5,
+        7
       ],
       [
-        22,
-        22,
-        28
+        3,
+        5,
+        7
       ]
     ],
-    "awards": {
-      "silver": "Mash includes **≥2 corn** **and** **≥2 rye** (twin-column bill); **and** sell **≥ $38**.",
-      "gold": "**Tri-type** mash with **each of three grains ≥2 cards** **or** **8+** age band on this card; **and** sell **≥ $70** (grid **maximum** **$70**)."
-    },
+    "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
       0,
       4,
       7
     ],
-    "brandValue": 40
+    "tier": "uncommon"
   },
   {
     "id": "64",
@@ -2268,36 +2325,40 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        11,
-        11,
-        14
+        3,
+        4,
+        6
       ],
       [
-        19,
-        19,
-        23
+        5,
+        8,
+        11
       ],
       [
-        24,
-        24,
-        31
+        7,
+        12,
+        15
       ]
     ],
     "awards": {
-      "silver": "Prestige pick: you already hold a **Silver Award** on another card **or** barrel at **rickhouse-3**; **and** sell **≥ $42** **or** demand **odd**.",
-      "gold": "You already hold a **Gold Award** on another card **or** barrel at **rickhouse-3** with **≥4 grain types**; **and** sell **≥ $78** (grid **maximum** **$78**)."
+      "silver": "Sell at demand **≥6** **and** mash satisfies the bill recipe."
     },
     "ageBands": [
       2,
-      4,
+      5,
       8
     ],
     "demandBands": [
-      0,
-      4,
-      7
+      3,
+      6,
+      9
     ],
-    "brandValue": 45
+    "tier": "rare",
+    "recipe": {
+      "rye": {
+        "min": 2
+      }
+    }
   },
   {
     "id": "65",
@@ -2305,36 +2366,45 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        8,
-        8,
-        11
+        0,
+        0,
+        8
       ],
       [
-        16,
-        16,
-        20
+        0,
+        12,
+        19
       ],
       [
-        20,
-        20,
-        25
+        8,
+        19,
+        27
       ]
     ],
     "awards": {
-      "silver": "Barrel at **rickhouse-5** **or** mash **≥2 wheat**; **and** sell **≥ $36** **or** demand **odd**.",
-      "gold": "Barrel at **rickhouse-5** **and** **≥3 grain types** represented; **and** sell **≥ $62** (grid **maximum** **$62**)."
+      "silver": "Barrel **≥7 years** **and** sell at demand **≥7** **and** mash satisfies the recipe.",
+      "gold": "Barrel **≥10 years** **and** demand **≥10** at sale **and** mash satisfies the recipe (grid **maximum** **$27**)."
     },
     "ageBands": [
-      2,
       4,
-      8
+      7,
+      10
     ],
     "demandBands": [
-      0,
       4,
-      7
+      7,
+      10
     ],
-    "brandValue": 35
+    "tier": "epic",
+    "recipe": {
+      "rye": {
+        "min": 2
+      },
+      "wheat": {
+        "min": 1
+      }
+    },
+    "brandValue": 40
   }
 ] as const;
 

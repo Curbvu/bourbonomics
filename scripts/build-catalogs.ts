@@ -43,6 +43,7 @@ function buildBourbon() {
     grain?: RecipeBound;
   };
   type Triple = [number, number, number];
+  type Tier = "common" | "uncommon" | "rare" | "epic" | "legendary";
   const cards = doc.cards as Array<{
     id: string;
     name: string;
@@ -53,7 +54,28 @@ function buildBourbon() {
     awards: { silver?: string; gold?: string } | null;
     brandValue?: number;
     recipe?: Recipe;
+    tier?: Tier;
   }>;
+
+  /**
+   * Auto-derive the visual tier from grid max + awards when the YAML
+   * doesn't override. Tuned against the post-rebalance pool: workhorse
+   * bills (max ~$6) land Uncommon, mid-tier (max ~$10) Rare, premium
+   * (max ~$15+) Epic, the few Gold-capable flagships ≥$20 Legendary.
+   */
+  function deriveTier(c: {
+    grid: number[][];
+    awards: { silver?: string; gold?: string } | null;
+  }): Tier {
+    const gridMax = Math.max(...c.grid.flatMap((row) => row));
+    const hasGold = !!c.awards?.gold;
+    const hasSilver = !!c.awards?.silver;
+    if (hasGold && gridMax >= 22) return "legendary";
+    if (gridMax >= 18 || (hasGold && gridMax >= 14)) return "epic";
+    if (gridMax >= 11 || hasSilver) return "rare";
+    if (gridMax >= 7) return "uncommon";
+    return "common";
+  }
 
   // Defaults match the previous global lookup (Young 2–3 / Aged 4–7 /
   // Well-Aged 8+, Low 0–3 / Mid 4–6 / High 7–12) so any bill that
@@ -126,6 +148,7 @@ function buildBourbon() {
       const rounded = Math.ceil(raw / 5) * 5;
       c.brandValue = Math.max(rounded, 25);
     }
+    if (!c.tier) c.tier = deriveTier(c);
   }
 
   const body =
