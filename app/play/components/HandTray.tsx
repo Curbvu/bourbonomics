@@ -364,30 +364,49 @@ export default function HandTray() {
     >
       {/* ─── Row 1: identity + every action button in a single line ─── */}
       <div className="flex flex-shrink-0 items-center gap-3 overflow-x-auto">
-        {/* Identity cluster */}
-        <div className="flex min-w-[140px] flex-shrink-0 flex-col gap-0.5">
-          <div className="flex items-center gap-2">
+        {/* Identity + cash cluster — cash sits prominently on the left
+            as the first element in the action row, since it gates
+            every paid action (and most strategic decisions). The cash
+            number is intentionally the largest text on the screen so
+            the player can see their bankroll without taking their eyes
+            off the board. */}
+        <div className="flex min-w-[200px] flex-shrink-0 items-center gap-4 rounded-lg border border-emerald-700/40 bg-emerald-900/[0.18] px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.05),0_2px_10px_rgba(16,185,129,.10)]">
+          <div className="flex flex-col gap-0.5">
             <span
-              className={`block h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
-              aria-hidden
-            />
-            <span className="font-display text-base font-semibold text-amber-100">
-              Your hand
+              className="font-mono text-[10px] font-semibold uppercase tracking-[.22em] text-emerald-300/85"
+              title="Cash on hand — pays action costs, rent, and investment capital."
+            >
+              Cash
+            </span>
+            <span className="font-display text-[44px] font-bold leading-[0.95] tabular-nums text-emerald-300 drop-shadow-[0_2px_4px_rgba(0,0,0,.55)]">
+              ${me.cash}
             </span>
           </div>
-          <span
-            className={[
-              "font-mono text-[10px] uppercase tracking-[.12em]",
-              overHandLimit ? "text-rose-400" : "text-slate-500",
-            ].join(" ")}
-            title={
-              overHandLimit
-                ? `Over hand limit (${cappedHandSize}/${HAND_LIMIT}). An Audit will force a discard.`
-                : `Cards in hand: ${cappedHandSize}/${HAND_LIMIT}`
-            }
-          >
-            {traySize} cards · {cappedHandSize}/{HAND_LIMIT}
-          </span>
+          <span className="block h-12 w-px bg-emerald-700/30" aria-hidden />
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`block h-2 w-2 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
+                aria-hidden
+              />
+              <span className="font-display text-[13px] font-semibold leading-tight text-amber-100">
+                Your hand
+              </span>
+            </div>
+            <span
+              className={[
+                "font-mono text-[9.5px] uppercase tracking-[.12em]",
+                overHandLimit ? "text-rose-400" : "text-slate-500",
+              ].join(" ")}
+              title={
+                overHandLimit
+                  ? `Over hand limit (${cappedHandSize}/${HAND_LIMIT}). An Audit will force a discard.`
+                  : `Cards in hand: ${cappedHandSize}/${HAND_LIMIT}`
+              }
+            >
+              {traySize} cards · {cappedHandSize}/{HAND_LIMIT}
+            </span>
+          </div>
         </div>
 
         {/* Loan / audit-pending status badges */}
@@ -461,9 +480,10 @@ export default function HandTray() {
           {implementMode.active ? "Cancel ↵" : "Implement ↵"}
         </ContextButton>
 
-        <span className="flex-1" />
-
-        {/* End-turn cluster: Audit (or Discard submit if pending) + Pass */}
+        {/* End-turn cluster: Audit (or Discard submit if pending) +
+            Pass. Co-located with Make / Sell / Implement so every
+            action lives in the same row instead of being pushed to
+            the right edge. */}
         {auditPending ? (
           <button
             type="button"
@@ -672,44 +692,47 @@ export default function HandTray() {
 
         <Divider />
 
-        {/* Active investments — built upgrades that persist on the table.
-            Lives at the right of the hand row so the player can always
-            see what they've capitalised. Clicking opens the inspect
-            modal; in audit mode active investments are protected (built
-            upgrades aren't discardable). */}
+        {/* Active investments — built upgrades that persist on the
+            table. Lives at the right of the hand row so the player can
+            always see what they've capitalised. Three explicit slots
+            (matching MAX_ACTIVE_INVESTMENTS) render side-by-side: an
+            implemented investment fills its slot; unfilled slots show
+            a dashed empty placeholder so the cap is visible at a
+            glance. Clicking a built card opens the inspect modal. */}
         <div className="flex flex-shrink-0 items-stretch gap-2">
           <VerticalCaption>active</VerticalCaption>
           <div className="flex flex-col items-start gap-1">
             <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500 tabular-nums">
               {activeInvCount}/{MAX_ACTIVE_INVESTMENTS} built
             </span>
-            <CardAccordion>
-              {activeInvCount === 0 ? (
-                <EmptyPill>no active investments</EmptyPill>
-              ) : null}
-              {me.investments
-                .filter((inv) => inv.status === "active")
-                .map((inv, idx) => {
-                  const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
+            <div className="flex items-end gap-2 py-2 pl-2 pr-3">
+              {Array.from({ length: MAX_ACTIVE_INVESTMENTS }).map((_, slot) => {
+                const inv = me.investments.filter((x) => x.status === "active")[slot];
+                if (!inv) {
                   return (
-                    <MiniInvestmentCard
-                      key={inv.instanceId}
-                      name={def?.name ?? inv.cardId}
-                      short={def?.short}
-                      effect={def?.effect}
-                      capital={def?.capital ?? 0}
-                      rarity={def?.rarity}
-                      isActive={true}
-                      indexInRow={idx}
-                      auditMode={false}
-                      auditSelected={false}
-                      implementable={false}
-                      canAffordImplement={false}
-                      onClick={() => inspectInvestment(inv.instanceId)}
-                    />
+                    <EmptyInvestmentSlot key={`empty-${slot}`} />
                   );
-                })}
-            </CardAccordion>
+                }
+                const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
+                return (
+                  <MiniInvestmentCard
+                    key={inv.instanceId}
+                    name={def?.name ?? inv.cardId}
+                    short={def?.short}
+                    effect={def?.effect}
+                    capital={def?.capital ?? 0}
+                    rarity={def?.rarity}
+                    isActive={true}
+                    indexInRow={0}
+                    auditMode={false}
+                    auditSelected={false}
+                    implementable={false}
+                    canAffordImplement={false}
+                    onClick={() => inspectInvestment(inv.instanceId)}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -898,6 +921,24 @@ function EmptyPill({ children }: { children: React.ReactNode }) {
     <span className="rounded border border-dashed border-slate-700 px-2.5 py-1 font-mono text-[11px] italic text-slate-500">
       {children}
     </span>
+  );
+}
+
+/**
+ * Empty placeholder for an unfilled active-investment slot. Sized to
+ * match MiniInvestmentCard (112×148) so all three slots are visually
+ * present at all times — players can see the cap immediately without
+ * having to remember "you can have up to 3."
+ */
+function EmptyInvestmentSlot() {
+  return (
+    <div
+      aria-label="Empty investment slot"
+      className="flex h-[148px] w-[112px] flex-shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-700 bg-slate-950/40 font-mono text-[9px] uppercase tracking-[.18em] text-slate-600"
+    >
+      <span aria-hidden className="text-2xl text-slate-700">+</span>
+      <span>Empty slot</span>
+    </div>
   );
 }
 

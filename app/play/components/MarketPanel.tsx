@@ -56,7 +56,6 @@ export default function MarketPanel() {
   const state = useGameStore((s) => s.state)!;
   const dispatch = useGameStore((s) => s.dispatch);
   const m = state.market;
-  const demand = state.demand;
 
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
@@ -82,14 +81,6 @@ export default function MarketPanel() {
   // than blocking the draw.
   const overHandLimit = !!me && handSize(me) >= HAND_LIMIT;
 
-  // Demand value colour — cool when low, warm when mid, hot when high.
-  const demandClass =
-    demand >= 9
-      ? "text-rose-500"
-      : demand >= 6
-        ? "text-amber-400"
-        : "text-slate-300";
-
   // Resource shortages: market cards from last round can lock specific
   // piles for this round. We render those piles in a "shut down" state.
   const shortages = state.currentRoundEffects.resourceShortages;
@@ -111,46 +102,9 @@ export default function MarketPanel() {
 
   return (
     <div>
-      {/* 1. Demand bar */}
-      <div className="border-b border-slate-800 px-3.5 py-3.5">
-        <div className="mb-2 flex items-baseline justify-between">
-          <Caption>demand</Caption>
-          <span
-            className={`font-mono text-[13px] font-bold tabular-nums ${demandClass}`}
-          >
-            {demand}/12
-          </span>
-        </div>
-        <div className="flex gap-[3px]">
-          {Array.from({ length: 12 }).map((_, i) => {
-            const cellNum = i + 1;
-            const active = cellNum <= demand;
-            const band = i < 4 ? "low" : i < 8 ? "mid" : "high";
-            const fill =
-              band === "low"
-                ? "bg-slate-600 border-slate-600"
-                : band === "mid"
-                  ? "bg-amber-500 border-amber-500"
-                  : "bg-rose-500 border-rose-500";
-            return (
-              <div
-                key={i}
-                className={[
-                  "grid h-[22px] flex-1 place-items-center rounded-[3px] border font-mono text-[9px] font-bold leading-none",
-                  active
-                    ? `${fill} text-slate-950`
-                    : "border-slate-800 bg-slate-900 text-slate-600",
-                ].join(" ")}
-                aria-hidden
-              >
-                {cellNum}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {/* Demand has moved to the action sub-bar — see PhaseBanner. */}
 
-      {/* 2. Resource piles */}
+      {/* 1. Resource piles */}
       <div className="border-b border-slate-800 px-3.5 py-3.5">
         <div className="mb-2.5 flex items-baseline justify-between">
           <Caption>resource piles</Caption>

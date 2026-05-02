@@ -77,19 +77,20 @@ export default function GameTopBar() {
               Bourbonomics
             </span>
             <span className="-mt-0.5 font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-              distillery · turn {state.round}
+              distillery
             </span>
           </div>
         </div>
 
-        <span className="mx-1.5 h-[26px] w-px bg-slate-800" aria-hidden />
+        <span className="mx-1.5 h-[40px] w-px bg-slate-800" aria-hidden />
 
-        {/* Year indicator */}
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+        {/* Year indicator — large prominent number; year IS the turn,
+            so the top-bar wordmark only needs "distillery" beside it. */}
+        <div className="flex items-baseline gap-2.5">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-slate-400">
             year
           </span>
-          <span className="font-mono text-sm font-bold tabular-nums text-amber-300">
+          <span className="font-display text-[34px] font-bold leading-none tabular-nums text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,.5)]">
             {state.round}
           </span>
         </div>
@@ -110,19 +111,26 @@ export default function GameTopBar() {
             return (
               <div
                 key={id}
-                className={`flex items-center gap-2 rounded-md border px-3 py-[5px] ${borderClass} ${bgClass}`}
+                className={[
+                  "flex items-center gap-2.5 rounded-lg border-2 px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-shadow",
+                  borderClass,
+                  bgClass,
+                  isCurrent
+                    ? "shadow-[0_0_14px_rgba(245,158,11,.30),inset_0_1px_0_rgba(255,255,255,.05)]"
+                    : "",
+                ].join(" ")}
                 aria-current={isCurrent ? "true" : undefined}
               >
                 <span
-                  className={`block h-2 w-2 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[idx]}`}
+                  className={`block h-3 w-3 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[idx]}`}
                   aria-hidden
                 />
                 <span
-                  className={`text-[13px] text-slate-100 ${isYou ? "font-semibold" : "font-medium"}`}
+                  className={`text-[16px] text-slate-100 ${isYou ? "font-semibold" : "font-medium"}`}
                 >
                   {p.name}
                 </span>
-                <span className="font-mono text-xs font-semibold tabular-nums text-emerald-500">
+                <span className="font-mono text-[15px] font-bold tabular-nums text-emerald-300 drop-shadow-[0_1px_2px_rgba(0,0,0,.5)]">
                   ${p.cash}
                 </span>
               </div>

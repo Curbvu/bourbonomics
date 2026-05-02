@@ -177,6 +177,15 @@ export default function PhaseBanner({
                     </span>
                   ) : null}
                 </div>
+                {/* Demand lives in the action sub-bar — the strategic
+                    centrepiece of the action phase. Smooth gradient bar
+                    with a live marker so the player can read where the
+                    market is at a glance. */}
+                <span
+                  className="ml-3 mr-1 h-[18px] w-px bg-amber-700 opacity-50"
+                  aria-hidden
+                />
+                <DemandBar value={state.demand} />
                 <span className="flex-1" />
                 <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
                   tap a pile to act
@@ -225,6 +234,65 @@ function FeesSummary({
     >
       {aged}/{totalBarrels} aged
     </span>
+  );
+}
+
+/**
+ * Smooth-gradient demand readout for the action sub-bar. Renders a
+ * single bar tinted with a continuous slate→emerald→amber→rose ramp
+ * (cool when low, hot when high), filled to the current demand
+ * percentage, with a marker at the live value and a tiny "N/12" label.
+ *
+ * Replaces the previous chunky 12-cell strip in MarketPanel — same
+ * data, much less visual noise, and now sits inline with the cost
+ * ladder where strategic decisions actually happen.
+ */
+function DemandBar({ value }: { value: number }) {
+  const pct = Math.max(0, Math.min(100, (value / 12) * 100));
+  // Same cool→warm→hot ramp colour-wise the player will recognise from
+  // the old 3-band chunks, but as one smooth gradient so the
+  // transition between bands isn't visually quantised.
+  const ramp =
+    "linear-gradient(90deg, rgb(71,85,105) 0%, rgb(16,185,129) 25%, rgb(245,158,11) 60%, rgb(244,63,94) 100%)";
+  const valueClass =
+    value >= 9
+      ? "text-rose-400"
+      : value >= 6
+        ? "text-amber-300"
+        : value >= 3
+          ? "text-emerald-300"
+          : "text-slate-300";
+  return (
+    <div
+      className="flex min-w-[180px] items-center gap-2"
+      title={`Market demand ${value} of 12`}
+    >
+      <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+        demand
+      </span>
+      <div
+        className="relative h-[10px] flex-1 overflow-hidden rounded-full border border-slate-700 bg-slate-900/80"
+        aria-hidden
+      >
+        {/* Filled portion — gradient is fixed across the full track,
+            we just clip with width so the colour at the leading edge
+            tracks the value. */}
+        <div
+          className="h-full"
+          style={{ width: `${pct}%`, background: ramp }}
+        />
+        {/* Live marker at the value — small white tick. */}
+        <div
+          className="absolute top-1/2 h-[14px] w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-white/90 shadow-[0_0_6px_rgba(255,255,255,.7)]"
+          style={{ left: `${pct}%` }}
+        />
+      </div>
+      <span
+        className={`font-mono text-[12px] font-bold tabular-nums ${valueClass}`}
+      >
+        {value}/12
+      </span>
+    </div>
   );
 }
 
