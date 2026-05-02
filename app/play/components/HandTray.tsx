@@ -624,45 +624,47 @@ export default function HandTray() {
                   />
                 );
               })}
-              {me.investments.map((inv, idx) => {
-                const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
-                const isActive = inv.status === "active";
-                const auditMode = auditDiscard.active && !isActive;
-                const auditSelected =
-                  auditDiscard.investmentInstanceIds.includes(inv.instanceId);
-                const isImplementable =
-                  implementMode.active &&
-                  !isActive &&
-                  isMyActionTurn &&
-                  canAfford &&
-                  activeInvCount < MAX_ACTIVE_INVESTMENTS &&
-                  me.cash >=
-                    (def?.capital ?? 0) + cost;
-                const onClick = auditMode
-                  ? () => toggleAuditInvestment(inv.instanceId)
-                  : isImplementable
-                    ? () => implementSpecific(inv.instanceId)
-                    : () => inspectInvestment(inv.instanceId);
-                return (
-                  <MiniInvestmentCard
-                    key={inv.instanceId}
-                    name={def?.name ?? inv.cardId}
-                    short={def?.short}
-                    effect={def?.effect}
-                    capital={def?.capital ?? 0}
-                    rarity={def?.rarity}
-                    isActive={isActive}
-                    indexInRow={me.operations.length + idx}
-                    auditMode={auditMode}
-                    auditSelected={auditSelected}
-                    implementable={isImplementable}
-                    canAffordImplement={
-                      def != null && me.cash >= def.capital + cost
-                    }
-                    onClick={onClick}
-                  />
-                );
-              })}
+              {/* Only UNBUILT investments live in the hand. Active ones
+                  have moved to the right-rail Active panel — they're
+                  table state, not hand state. */}
+              {me.investments
+                .filter((inv) => inv.status !== "active")
+                .map((inv, idx) => {
+                  const def = INVESTMENT_CARDS_BY_ID[inv.cardId];
+                  const auditMode = auditDiscard.active;
+                  const auditSelected =
+                    auditDiscard.investmentInstanceIds.includes(inv.instanceId);
+                  const isImplementable =
+                    implementMode.active &&
+                    isMyActionTurn &&
+                    canAfford &&
+                    activeInvCount < MAX_ACTIVE_INVESTMENTS &&
+                    me.cash >= (def?.capital ?? 0) + cost;
+                  const onClick = auditMode
+                    ? () => toggleAuditInvestment(inv.instanceId)
+                    : isImplementable
+                      ? () => implementSpecific(inv.instanceId)
+                      : () => inspectInvestment(inv.instanceId);
+                  return (
+                    <MiniInvestmentCard
+                      key={inv.instanceId}
+                      name={def?.name ?? inv.cardId}
+                      short={def?.short}
+                      effect={def?.effect}
+                      capital={def?.capital ?? 0}
+                      rarity={def?.rarity}
+                      isActive={false}
+                      indexInRow={me.operations.length + idx}
+                      auditMode={auditMode}
+                      auditSelected={auditSelected}
+                      implementable={isImplementable}
+                      canAffordImplement={
+                        def != null && me.cash >= def.capital + cost
+                      }
+                      onClick={onClick}
+                    />
+                  );
+                })}
             </CardAccordion>
           </div>
         </div>

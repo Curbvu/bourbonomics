@@ -11,7 +11,7 @@ import {
   pickWinners,
   scorePlayer,
 } from "@/lib/rules/scoring";
-import { DEFAULT_GOLD_BRAND_VALUE } from "@/lib/engine/state";
+import { DEFAULT_GOLD_BRAND_VALUE, DEFAULT_STARTING_CASH } from "@/lib/engine/state";
 import {
   BOURBON_CARDS_BY_ID,
   INVESTMENT_CARDS_BY_ID,
@@ -38,11 +38,11 @@ describe("scoring — scorePlayer", () => {
   it("baseline: only cash counts", () => {
     const s = gs();
     const score = scorePlayer(s.players.p1);
-    expect(score.cash).toBe(40);
+    expect(score.cash).toBe(DEFAULT_STARTING_CASH);
     expect(score.investments).toBe(0);
     expect(score.goldBourbons).toBe(0);
     expect(score.goldCount).toBe(0);
-    expect(score.total).toBe(40);
+    expect(score.total).toBe(DEFAULT_STARTING_CASH);
   });
 
   it("active investments score their installation cost", () => {
@@ -65,7 +65,7 @@ describe("scoring — scorePlayer", () => {
     const score = scorePlayer(s.players.p1);
     // Only the active one counts.
     expect(score.investments).toBe(sample.capital);
-    expect(score.total).toBe(40 + sample.capital);
+    expect(score.total).toBe(DEFAULT_STARTING_CASH + sample.capital);
   });
 
   it("Gold Bourbons score per-card brand value (catalog-derived)", () => {
@@ -77,7 +77,7 @@ describe("scoring — scorePlayer", () => {
     const score = scorePlayer(s.players.p1);
     expect(score.goldCount).toBe(2);
     expect(score.goldBourbons).toBe(expected);
-    expect(score.total).toBe(40 + expected);
+    expect(score.total).toBe(DEFAULT_STARTING_CASH + expected);
     // Plumbed brandValue must be at LEAST the default fallback for any
     // Gold-capable card (the generator only ever assigns values >= 25).
     expect(brandValueFor(a)).toBeGreaterThanOrEqual(DEFAULT_GOLD_BRAND_VALUE);
@@ -88,7 +88,7 @@ describe("scoring — scorePlayer", () => {
     // bourbonHand started with 4 cards; verify it adds $0 to score.
     expect(s.players.p1.bourbonHand.length).toBeGreaterThan(0);
     const score = scorePlayer(s.players.p1);
-    expect(score.total).toBe(40);
+    expect(score.total).toBe(DEFAULT_STARTING_CASH);
   });
 });
 

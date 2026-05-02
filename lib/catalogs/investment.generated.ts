@@ -7,60 +7,12 @@ import type { InvestmentCardDef } from "./types";
 
 export const INVESTMENT_CARDS: readonly InvestmentCardDef[] = [
   {
-    "id": "inv_rickhouse",
-    "name": "Rickhouse expansion",
+    "id": "inv_grain_elevator",
+    "name": "Grain elevator",
     "rarity": "Standard",
-    "capital": 6,
-    "short": "+1 slot story — lighter fees",
-    "effect": "Add capacity narrative; while active, once per round subtract $1 from your total rickhouse fees (minimum $0).",
-    "deckCopies": 3,
-    "modifiers": [
-      {
-        "kind": "rickhouse_fee_discount",
-        "amount": 1,
-        "oncePerRound": true
-      }
-    ]
-  },
-  {
-    "id": "inv_climate",
-    "name": "Climate-controlled tier",
-    "rarity": "Standard",
-    "capital": 8,
-    "short": "Steady aging, steadier books",
-    "effect": "While active, the first paid action you take each round costs $1 less (after the free window ends).",
-    "deckCopies": 3,
-    "modifiers": [
-      {
-        "kind": "action_cost_discount",
-        "amount": 1,
-        "scope": "per_round_first_paid"
-      }
-    ]
-  },
-  {
-    "id": "inv_second_shift",
-    "name": "Second shift",
-    "rarity": "Rare",
-    "capital": 10,
-    "short": "Next action runs cheaper",
-    "effect": "While active, your very next distillery action this round costs $1 less (stacks with free window as $0 stays $0).",
-    "deckCopies": 2,
-    "modifiers": [
-      {
-        "kind": "action_cost_discount",
-        "amount": 1,
-        "scope": "next_action"
-      }
-    ]
-  },
-  {
-    "id": "inv_corn_futures",
-    "name": "Corn futures",
-    "rarity": "Standard",
-    "capital": 7,
-    "short": "Extra pull from the market",
-    "effect": "Once per round, your market buy draws one extra resource card on that action.",
+    "capital": 2,
+    "short": "Cheap market bump",
+    "effect": "While active, once per round your market buy draws one extra resource card on that action.",
     "deckCopies": 3,
     "modifiers": [
       {
@@ -71,12 +23,44 @@ export const INVESTMENT_CARDS: readonly InvestmentCardDef[] = [
     ]
   },
   {
-    "id": "inv_vertical",
-    "name": "Vertical integration",
+    "id": "inv_family_recipe",
+    "name": "Family recipe",
     "rarity": "Standard",
-    "capital": 9,
-    "short": "Lean supply chain",
-    "effect": "While active, once per round subtract $1 from your rickhouse fees (minimum $0).",
+    "capital": 2,
+    "short": "One cheaper action",
+    "effect": "While active, your very next distillery action this round costs $1 less (cost stays at a minimum of $0). Light flexibility pick — turn the next paid action back into a free one.",
+    "deckCopies": 3,
+    "modifiers": [
+      {
+        "kind": "action_cost_discount",
+        "amount": 1,
+        "scope": "next_action"
+      }
+    ]
+  },
+  {
+    "id": "inv_tourism_board",
+    "name": "Tourism board seat",
+    "rarity": "Standard",
+    "capital": 3,
+    "short": "First paid action cheaper",
+    "effect": "While active, the first paid action you take each round costs $1 less.",
+    "deckCopies": 3,
+    "modifiers": [
+      {
+        "kind": "action_cost_discount",
+        "amount": 1,
+        "scope": "per_round_first_paid"
+      }
+    ]
+  },
+  {
+    "id": "inv_rickhouse",
+    "name": "Rickhouse expansion",
+    "rarity": "Standard",
+    "capital": 3,
+    "short": "Lighter rent each round",
+    "effect": "While active, once per round subtract $1 from your total rickhouse fees (minimum $0).",
     "deckCopies": 3,
     "modifiers": [
       {
@@ -87,29 +71,29 @@ export const INVESTMENT_CARDS: readonly InvestmentCardDef[] = [
     ]
   },
   {
-    "id": "inv_brand",
-    "name": "Brand ambassador",
-    "rarity": "Rare",
-    "capital": 12,
-    "short": "Spotlight savings",
-    "effect": "While active, the first paid action you take each round costs $1 less.",
-    "deckCopies": 1,
+    "id": "inv_second_shift",
+    "name": "Second shift",
+    "rarity": "Standard",
+    "capital": 3,
+    "short": "One cheaper action (Standard)",
+    "effect": "While active, your very next distillery action this round costs $1 less (stacks with free window — $0 stays $0). A Standard-priced alternative to Family recipe so the effect shows up more often.",
+    "deckCopies": 2,
     "modifiers": [
       {
         "kind": "action_cost_discount",
         "amount": 1,
-        "scope": "per_round_first_paid"
+        "scope": "next_action"
       }
     ]
   },
   {
-    "id": "inv_master_cooper",
-    "name": "Master cooper",
-    "rarity": "Rare",
-    "capital": 13,
-    "short": "Cheaper first move, lighter rent",
-    "effect": "While active, the first paid action you take each round costs $1 less, and once per round subtract $1 from your rickhouse fees (minimum $0). A top-tier dual-purpose upgrade.",
-    "deckCopies": 1,
+    "id": "inv_climate",
+    "name": "Climate-controlled tier",
+    "rarity": "Standard",
+    "capital": 5,
+    "short": "Steady aging, steadier books",
+    "effect": "While active, the first paid action you take each round costs $1 less AND once per round subtract $1 from your total rickhouse fees (minimum $0). A balanced mid-tier upgrade.",
+    "deckCopies": 2,
     "modifiers": [
       {
         "kind": "action_cost_discount",
@@ -124,10 +108,26 @@ export const INVESTMENT_CARDS: readonly InvestmentCardDef[] = [
     ]
   },
   {
+    "id": "inv_corn_futures",
+    "name": "Corn futures",
+    "rarity": "Standard",
+    "capital": 5,
+    "short": "Two extra market draws",
+    "effect": "While active, once per round your market buy draws TWO extra resource cards on that action. Aggressive market accelerator.",
+    "deckCopies": 2,
+    "modifiers": [
+      {
+        "kind": "market_buy_bonus_cards",
+        "extra": 2,
+        "oncePerRound": true
+      }
+    ]
+  },
+  {
     "id": "inv_mash_reclamation",
     "name": "Mash reclamation",
     "rarity": "Standard",
-    "capital": 10,
+    "capital": 6,
     "short": "Two dollars off, every year",
     "effect": "While active, once per round subtract $2 from your total rickhouse fees (minimum $0). Efficient reuse programme that really adds up in a crowded rickhouse.",
     "deckCopies": 2,
@@ -140,50 +140,18 @@ export const INVESTMENT_CARDS: readonly InvestmentCardDef[] = [
     ]
   },
   {
-    "id": "inv_tourism_board",
-    "name": "Tourism board seat",
-    "rarity": "Standard",
-    "capital": 8,
-    "short": "First paid action cheaper",
-    "effect": "While active, the first paid action you take each round costs $1 less. A Standard-priced alternative to Brand ambassador so the effect shows up more often.",
-    "deckCopies": 2,
-    "modifiers": [
-      {
-        "kind": "action_cost_discount",
-        "amount": 1,
-        "scope": "per_round_first_paid"
-      }
-    ]
-  },
-  {
-    "id": "inv_grain_elevator",
-    "name": "Grain elevator",
-    "rarity": "Standard",
-    "capital": 6,
-    "short": "Cheap market bump",
-    "effect": "While active, once per round your market buy draws one extra resource card on that action. Budget version of Corn futures — accessible to any Baron with $6 of starting capital.",
-    "deckCopies": 3,
-    "modifiers": [
-      {
-        "kind": "market_buy_bonus_cards",
-        "extra": 1,
-        "oncePerRound": true
-      }
-    ]
-  },
-  {
-    "id": "inv_traveling_salesman",
-    "name": "Travelling salesman",
+    "id": "inv_brand",
+    "name": "Brand ambassador",
     "rarity": "Rare",
-    "capital": 11,
-    "short": "Next action runs much cheaper",
-    "effect": "While active, your very next distillery action this round costs $2 less (cost stays at a minimum of $0). Big one-shot discount for a well-timed expensive action.",
+    "capital": 7,
+    "short": "Two off the first paid action",
+    "effect": "While active, the first paid action you take each round costs $2 less (cost stays at a minimum of $0). Repeats forever once installed — a rare flagship cost shaver.",
     "deckCopies": 2,
     "modifiers": [
       {
         "kind": "action_cost_discount",
         "amount": 2,
-        "scope": "next_action"
+        "scope": "per_round_first_paid"
       }
     ]
   },
@@ -191,9 +159,9 @@ export const INVESTMENT_CARDS: readonly InvestmentCardDef[] = [
     "id": "inv_estate_distillery",
     "name": "Estate distillery",
     "rarity": "Rare",
-    "capital": 16,
+    "capital": 10,
     "short": "Heritage compound effects",
-    "effect": "While active, once per round subtract $2 from rickhouse fees and draw one extra resource card on your market buy. High capital cost but compounds into serious advantage.",
+    "effect": "While active, once per round subtract $2 from rickhouse fees AND draw one extra resource card on your market buy. High capital cost but compounds into serious advantage.",
     "deckCopies": 1,
     "modifiers": [
       {
@@ -209,26 +177,10 @@ export const INVESTMENT_CARDS: readonly InvestmentCardDef[] = [
     ]
   },
   {
-    "id": "inv_family_recipe",
-    "name": "Family recipe",
-    "rarity": "Standard",
-    "capital": 5,
-    "short": "Flex a cheap action",
-    "effect": "While active, your very next distillery action this round costs $1 less. Low-capital flexibility pick — good filler when you can't afford bigger upgrades.",
-    "deckCopies": 3,
-    "modifiers": [
-      {
-        "kind": "action_cost_discount",
-        "amount": 1,
-        "scope": "next_action"
-      }
-    ]
-  },
-  {
     "id": "inv_warehouse_syndicate",
     "name": "Warehouse syndicate",
     "rarity": "Rare",
-    "capital": 15,
+    "capital": 11,
     "short": "Deep rent relief",
     "effect": "While active, once per round subtract $3 from your total rickhouse fees (minimum $0). Expensive but shreds rent in a packed cap-6 warehouse without true monopoly.",
     "deckCopies": 1,
@@ -236,6 +188,27 @@ export const INVESTMENT_CARDS: readonly InvestmentCardDef[] = [
       {
         "kind": "rickhouse_fee_discount",
         "amount": 3,
+        "oncePerRound": true
+      }
+    ]
+  },
+  {
+    "id": "inv_master_cooper",
+    "name": "Master cooper",
+    "rarity": "Rare",
+    "capital": 12,
+    "short": "Cheap actions + lighter rent",
+    "effect": "While active, the first paid action you take each round costs $2 less, and once per round subtract $2 from your total rickhouse fees (minimum $0). The flagship endgame upgrade — cheaper to act and cheaper to age.",
+    "deckCopies": 1,
+    "modifiers": [
+      {
+        "kind": "action_cost_discount",
+        "amount": 2,
+        "scope": "per_round_first_paid"
+      },
+      {
+        "kind": "rickhouse_fee_discount",
+        "amount": 2,
         "oncePerRound": true
       }
     ]

@@ -20,7 +20,14 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { Document, parseDocument, isMap, isSeq, type YAMLMap } from "yaml";
+import {
+  Document,
+  parseDocument,
+  isMap,
+  isSeq,
+  YAMLSeq,
+  type YAMLMap,
+} from "yaml";
 
 type Triple = [number, number, number];
 type Grid = number[][];
@@ -221,19 +228,18 @@ function scaleCard(node: YAMLMap): void {
 
 function flowArray(t: Triple) {
   // Build a compact flow-style sequence node so the YAML reads
-  // `ageBands: [2, 4, 6]` instead of three child lines.
-  // The yaml package preserves the `flow` flag we set on a Seq.
-  const seq = new (require("yaml").YAMLSeq)();
+  // `ageBands: [2, 4, 6]` instead of three child lines. The yaml
+  // package preserves the `flow` flag we set on a Seq.
+  const seq = new YAMLSeq<number>();
   seq.flow = true;
   for (const v of t) seq.add(v);
   return seq;
 }
 
 function buildGridNode(grid: Grid) {
-  const { YAMLSeq } = require("yaml");
   const outer = new YAMLSeq();
   for (const row of grid) {
-    const inner = new YAMLSeq();
+    const inner = new YAMLSeq<number>();
     inner.flow = true;
     for (const v of row) inner.add(v);
     outer.add(inner);

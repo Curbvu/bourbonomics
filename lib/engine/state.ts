@@ -343,7 +343,7 @@ export type GameState = {
 export const STARTING_DEMAND = 6;
 export const MAX_DEMAND = 12;
 export const MIN_DEMAND = 0;
-export const DEFAULT_STARTING_CASH = 40;
+export const DEFAULT_STARTING_CASH = 15;
 /** Number of Gold Bourbons a player must unlock to trigger the final round. */
 export const TRIPLE_CROWN_GOLDS = 3;
 export const MAX_ACTIVE_INVESTMENTS = 3;

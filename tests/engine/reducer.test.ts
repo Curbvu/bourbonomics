@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "@/lib/engine/setup";
 import { reduce } from "@/lib/engine/reducer";
+import { DEFAULT_STARTING_CASH } from "@/lib/engine/state";
 
 function newGame() {
   return createInitialState({
@@ -24,8 +25,8 @@ describe("reducer — initial state", () => {
 
   it("each player gets the configured starting cash", () => {
     const s = newGame();
-    expect(s.players.p1.cash).toBe(40);
-    expect(s.players.p2.cash).toBe(40);
+    expect(s.players.p1.cash).toBe(DEFAULT_STARTING_CASH);
+    expect(s.players.p2.cash).toBe(DEFAULT_STARTING_CASH);
   });
 
   it("loan flags start unset", () => {

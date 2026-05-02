@@ -91,10 +91,13 @@ describe("investment modifiers", () => {
   });
 
   it("market buy bonus returns extra cards and consumes the flag", () => {
+    // Grain elevator is the cheap-tier `+1 extra` modifier; corn futures
+    // post-rebalance returns +2 and isn't the right card to assert on
+    // for this single-card test.
     const p = player([
       {
         instanceId: "i1",
-        cardId: "inv_corn_futures",
+        cardId: "inv_grain_elevator",
         status: "active",
         usedThisRound: false,
       },
