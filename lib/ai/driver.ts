@@ -8,14 +8,44 @@
  */
 
 import { reduce } from "@/lib/engine/reducer";
-import type { GameState } from "@/lib/engine/state";
+import type { GameState, Player } from "@/lib/engine/state";
+import { totalFeesForPlayer } from "@/lib/rules/fees";
 import {
   pickActionPhaseMove,
   pickFeePayment,
   pickMarketMove,
 } from "./bot";
+import { ownedBarrels } from "./evaluators";
 
 const MAX_AUTOMATIC_STEPS = 200;
+
+/**
+ * Should the bot take a distressed loan before paying fees?
+ *
+ * Yes when ALL of:
+ *   - the loan is available (never used, no debt outstanding)
+ *   - they can't cover rent on cash alone
+ *   - they own at least one barrel worth aging (age + 1 < max useful age)
+ *
+ * The default fee-payment AI silently skips barrels it can't pay for —
+ * those barrels then don't age that round. A bot that consistently
+ * skips fees never gets aged barrels, never sells, and gets stuck at $0
+ * forever. The loan ($10 in, $15 out next Phase 1) lets the bot age
+ * its way to a real sale that clears the debt. Taking it once per
+ * game is the difference between a frozen opponent and a real one.
+ */
+function shouldTakeLoan(state: GameState, p: Player): boolean {
+  if (p.loanUsed) return false;
+  if (p.loanRemaining > 0) return false;
+  const owed = totalFeesForPlayer(state, p.id);
+  if (p.cash >= owed) return false;
+  // Need at least one barrel worth keeping alive — otherwise the loan is
+  // just deferred pain. "Worth aging" = exists and not already at the
+  // stale 12y+ ceiling.
+  const barrels = ownedBarrels(state, p.id);
+  if (barrels.length === 0) return false;
+  return barrels.some(({ barrel }) => barrel.age < 12);
+}
 
 export function driveBots(initial: GameState): GameState {
   let state = initial;
@@ -36,6 +66,16 @@ export function driveBots(initial: GameState): GameState {
         if (!nextUnresolved) return state;
         const p = state.players[nextUnresolved];
         if (p.kind === "human") return state;
+        // Take a one-time loan before paying if the bot is short on cash
+        // and has barrels worth keeping alive. Without this, bots silently
+        // skip rent → barrels never age → no sales → stuck at $0 forever.
+        if (shouldTakeLoan(state, p)) {
+          state = reduce(state, {
+            t: "TAKE_DISTRESSED_LOAN",
+            playerId: p.id,
+          });
+          continue;
+        }
         state = reduce(state, {
           t: "PAY_FEES",
           playerId: p.id,

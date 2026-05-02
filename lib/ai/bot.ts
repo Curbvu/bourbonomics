@@ -153,13 +153,22 @@ export function pickActionPhaseMove(
   const cost = actionCostNow(state);
 
   // Sell: the most valuable old barrel if possible and we can afford the action.
-  for (const { barrel } of ownedBarrels(state, playerId)) {
+  // Selling also frees a rickhouse slot, which means avoiding next round's
+  // rent on that barrel — that saved rent counts toward the score so a
+  // break-even or even slightly-negative cash sale can still be the right
+  // move when rent would have been worse.
+  const rentPerBarrelHere: Record<string, number> = {};
+  for (const h of state.rickhouses) rentPerBarrelHere[h.id] = h.barrels.length;
+  for (const { rickhouseId, barrel } of ownedBarrels(state, playerId)) {
     if (barrel.age < 2) continue;
     if (player.cash < cost) continue;
     const basePayout = estimateSalePayout(state, barrel);
     const altPick = pickBestGoldAlt(state, player, barrel);
     const payout = altPick ? altPick.payout : basePayout;
-    if (payout <= cost) continue;
+    const rentSaved = rentPerBarrelHere[rickhouseId] ?? 0;
+    const netValue = payout - cost + rentSaved;
+    // Skip only if the move loses cash AND saves no rent.
+    if (netValue <= 0) continue;
     scored.push({
       action: altPick
         ? {
@@ -173,10 +182,10 @@ export function pickActionPhaseMove(
             playerId,
             barrelId: barrel.barrelId,
           },
-      score: payout - cost,
+      score: netValue,
       reason: altPick
-        ? `sell age ${barrel.age} via Gold for ~$${payout}`
-        : `sell age ${barrel.age} for ~$${payout}`,
+        ? `sell age ${barrel.age} via Gold for ~$${payout} (rent saved ~$${rentSaved})`
+        : `sell age ${barrel.age} for ~$${payout} (rent saved ~$${rentSaved})`,
     });
   }
 
@@ -316,10 +325,12 @@ export function pickActionPhaseMove(
 }
 
 /**
- * Choose which mash bill to commit to the new barrel. Prefer the bill
- * with the best 4-year × current-demand grid cell — that's the bot's
- * baseline expected payout once aging completes. Falls back to the
- * first card in hand for unknown ids.
+ * Choose which mash bill to commit to the new barrel. Score each bill
+ * against ITS OWN middle age band at the current demand — that's the
+ * cell the bill was designed to land in for a typical hold. The old
+ * heuristic always scored at age 4, which made every premium bill
+ * (ageBands like [6, 8, 10]) look worthless and the bot would never
+ * pick one. Falls back to the first card in hand for unknown ids.
  */
 function pickBestMashBill(state: GameState, player: Player): string | null {
   if (player.bourbonHand.length === 0) return null;
@@ -328,10 +339,16 @@ function pickBestMashBill(state: GameState, player: Player): string | null {
   for (const id of player.bourbonHand) {
     const card = BOURBON_CARDS_BY_ID[id];
     if (!card) continue;
-    // Score against age 4 (a reasonable hold target) at current demand.
-    const score = lookupSalePrice(card, 4, state.demand).price;
-    if (score > bestScore) {
-      bestScore = score;
+    // Sample the bill's middle age band — what an "average" hold looks
+    // like on this card. Add a small tiebreak from the bill's grid max
+    // so high-ceiling bills win between two cards that score equally
+    // at the typical cell.
+    const middleAge = card.ageBands[1];
+    const score = lookupSalePrice(card, middleAge, state.demand).price;
+    const ceiling = Math.max(...card.grid.flatMap((row) => row));
+    const adjusted = score + ceiling * 0.05;
+    if (adjusted > bestScore) {
+      bestScore = adjusted;
       bestId = id;
     }
   }
