@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { BOURBON_CARDS_BY_ID } from "@/lib/catalogs/bourbon.generated";
-import { ageBand, demandBand } from "@/lib/rules/pricing";
+import { ageBandFor, demandBandFor } from "@/lib/rules/pricing";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useEscapeToClose } from "./useEscapeToClose";
 
@@ -84,8 +84,10 @@ export default function SaleRevealModal() {
     return null;
   }
 
-  const agBand = reveal.lookupAge >= 2 ? ageBand(reveal.lookupAge) : 0;
-  const dmBand = reveal.lookupDemand > 0 ? demandBand(reveal.lookupDemand) : 0;
+  const agBand =
+    reveal.lookupAge >= 2 ? ageBandFor(card, reveal.lookupAge) : 0;
+  const dmBand =
+    reveal.lookupDemand > 0 ? demandBandFor(card, reveal.lookupDemand) : 0;
 
   return (
     <div

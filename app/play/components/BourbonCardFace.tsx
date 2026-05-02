@@ -10,8 +10,22 @@ type HighlightCell = {
   demandBand: 0 | 1 | 2;
 };
 
-const AGE_LABELS = ["2–3", "4–7", "8+"];
-const DEMAND_LABELS = ["Low", "Mid", "High"];
+/**
+ * Build human-readable band labels from a bill's three lower-bound
+ * thresholds. Bands 0 and 1 read as `lo–(next-1)`; band 2 reads as `lo+`.
+ * Example: `[2, 4, 7]` → ["2–3", "4–6", "7+"].
+ */
+function bandLabels(thresholds: readonly [number, number, number]): string[] {
+  return [
+    thresholds[1] - thresholds[0] === 1
+      ? `${thresholds[0]}`
+      : `${thresholds[0]}–${thresholds[1] - 1}`,
+    thresholds[2] - thresholds[1] === 1
+      ? `${thresholds[1]}`
+      : `${thresholds[1]}–${thresholds[2] - 1}`,
+    `${thresholds[2]}+`,
+  ];
+}
 
 type Size = "sm" | "md" | "lg";
 
@@ -79,13 +93,15 @@ export default function BourbonCardFace({
   size?: Size;
 }) {
   const tok = SIZE_TOKENS[size];
+  const ageLabels = bandLabels(card.ageBands);
+  const demandLabels = bandLabels(card.demandBands);
   const liveDemandBand =
     highlight == null && currentDemand != null
-      ? currentDemand <= 3
-        ? 0
-        : currentDemand <= 6
+      ? currentDemand >= card.demandBands[2]
+        ? 2
+        : currentDemand >= card.demandBands[1]
           ? 1
-          : 2
+          : 0
       : null;
   const isRare = card.rarity === "Rare";
   return (
@@ -133,7 +149,7 @@ export default function BourbonCardFace({
               <th scope="col" className="sr-only">
                 Age
               </th>
-              {DEMAND_LABELS.map((label, c) => {
+              {demandLabels.map((label, c) => {
                 const live = liveDemandBand === c;
                 const hit = highlight?.demandBand === c;
                 return (
@@ -169,7 +185,7 @@ export default function BourbonCardFace({
                       : "text-amber-400/55",
                   ].join(" ")}
                 >
-                  {AGE_LABELS[r]}
+                  {ageLabels[r]}
                 </th>
                 {row.map((price, c) => {
                   const isHit =

@@ -1014,9 +1014,15 @@ function MiniBourbonCard({
 }) {
   const isRare = card.rarity === "Rare";
   const overlapMargin = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
-  // Demand band: 0..3 = Low, 4..7 = Mid, 8..12 = High. Pick the mid age
-  // row (4–7) as a representative payout for the card-face preview.
-  const demandBand = demand <= 3 ? 0 : demand <= 7 ? 1 : 2;
+  // Resolve current demand against THIS bill's bands (each card defines
+  // its own thresholds). Show a price preview from the middle age row
+  // for at-a-glance scanning.
+  const demandBand =
+    demand >= card.demandBands[2]
+      ? 2
+      : demand >= card.demandBands[1]
+        ? 1
+        : 0;
   const previewPrice = card.grid[1][demandBand];
   const baseChrome =
     "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 bg-gradient-to-b from-amber-600/90 via-amber-900/90 to-slate-950 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";

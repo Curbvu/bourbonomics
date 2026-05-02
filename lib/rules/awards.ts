@@ -18,7 +18,7 @@
 
 import type { BourbonCardDef } from "@/lib/catalogs/types";
 import type { ResourceCardInstance } from "@/lib/engine/state";
-import { ageBand } from "./pricing";
+import { ageBandFor } from "./pricing";
 
 export type AwardResult = {
   silver: boolean;
@@ -37,7 +37,10 @@ export function evaluateAward(
   const gridMax = Math.max(
     ...card.grid.flatMap((row) => row),
   );
-  const eightPlus = ageBand(ageYears) === 2;
+  // "Top age band" of THIS bill — `ageBands[2]` is the lower bound of the
+  // well-aged row. Replaces the old hard-coded 8-year check so a bill with
+  // shallower bands still resolves Gold against its own scale.
+  const eightPlus = ageBandFor(card, ageYears) === 2;
   const fourPlus = ageYears >= 4;
 
   const silver = Boolean(awards.silver) && fourPlus && salePrice >= Math.floor(gridMax * 0.7);

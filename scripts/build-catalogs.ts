@@ -42,15 +42,32 @@ function buildBourbon() {
     wheat?: RecipeBound;
     grain?: RecipeBound;
   };
+  type Triple = [number, number, number];
   const cards = doc.cards as Array<{
     id: string;
     name: string;
     rarity: string;
+    ageBands?: Triple;
+    demandBands?: Triple;
     grid: number[][];
     awards: { silver?: string; gold?: string } | null;
     brandValue?: number;
     recipe?: Recipe;
   }>;
+
+  // Defaults match the previous global lookup (Young 2–3 / Aged 4–7 /
+  // Well-Aged 8+, Low 0–3 / Mid 4–6 / High 7–12) so any bill that
+  // hasn't yet been retuned with explicit bands keeps its old behavior.
+  const DEFAULT_AGE_BANDS: Triple = [2, 4, 8];
+  const DEFAULT_DEMAND_BANDS: Triple = [0, 4, 7];
+
+  function ensureStrictlyIncreasing(label: string, t: Triple, id: string) {
+    if (t[0] >= t[1] || t[1] >= t[2]) {
+      throw new Error(
+        `Bourbon card ${id}: ${label} ${JSON.stringify(t)} must be strictly increasing`,
+      );
+    }
+  }
 
   const recipeKeys = new Set([
     "corn",
@@ -66,6 +83,28 @@ function buildBourbon() {
     if (c.rarity !== "Standard" && c.rarity !== "Rare") {
       throw new Error(`Bourbon card ${c.id} unknown rarity: ${c.rarity}`);
     }
+    // Per-bill bands. Default for cards that don't (yet) declare their
+    // own thresholds; the validator then enforces shape + monotonicity.
+    if (!c.ageBands) c.ageBands = [...DEFAULT_AGE_BANDS] as Triple;
+    if (!c.demandBands) c.demandBands = [...DEFAULT_DEMAND_BANDS] as Triple;
+    if (c.ageBands.length !== 3) {
+      throw new Error(`Bourbon card ${c.id}: ageBands must have 3 entries`);
+    }
+    if (c.demandBands.length !== 3) {
+      throw new Error(`Bourbon card ${c.id}: demandBands must have 3 entries`);
+    }
+    if (c.ageBands[0] < 2) {
+      throw new Error(
+        `Bourbon card ${c.id}: ageBands[0] is ${c.ageBands[0]} but must be ≥ 2 (global "≥2y to sell" floor)`,
+      );
+    }
+    if (c.demandBands[0] < 0) {
+      throw new Error(
+        `Bourbon card ${c.id}: demandBands[0] is ${c.demandBands[0]} but must be ≥ 0`,
+      );
+    }
+    ensureStrictlyIncreasing("ageBands", c.ageBands, c.id);
+    ensureStrictlyIncreasing("demandBands", c.demandBands, c.id);
     if (c.recipe) {
       for (const k of Object.keys(c.recipe)) {
         if (!recipeKeys.has(k)) {
