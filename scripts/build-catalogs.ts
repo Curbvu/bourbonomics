@@ -115,14 +115,16 @@ function buildBourbon() {
       }
     }
     // Default brandValue for Gold-capable cards: grid maximum + a small
-    // rarity bonus, rounded up to the nearest $5 so the trophy value
-    // visually scales with the card's strength. Cards without a Gold
-    // award never become trophies, so they don't get a brandValue.
+    // rarity bonus, rounded up to the nearest $5, with a $25 floor so a
+    // trophy is always meaningful end-game scoring even after the
+    // post-free-resources rebalance shrunk grid ceilings. Cards without
+    // a Gold award never become trophies, so they don't get a brandValue.
     if (c.awards && c.awards.gold && typeof c.brandValue !== "number") {
       const gridMax = Math.max(...c.grid.flatMap((row) => row));
       const rarityBonus = c.rarity === "Rare" ? 10 : 5;
       const raw = gridMax + rarityBonus;
-      c.brandValue = Math.ceil(raw / 5) * 5;
+      const rounded = Math.ceil(raw / 5) * 5;
+      c.brandValue = Math.max(rounded, 25);
     }
   }
 

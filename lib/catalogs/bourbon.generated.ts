@@ -12,31 +12,31 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        20
+        1,
+        2,
+        3
       ],
       [
-        20,
-        20,
-        21
+        2,
+        4,
+        5
       ],
       [
-        20,
-        20,
-        21
+        3,
+        5,
+        6
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
       4,
-      8
+      6
     ],
     "demandBands": [
-      0,
+      2,
       4,
-      7
+      6
     ]
   },
   {
@@ -45,19 +45,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        14
+        4,
+        4,
+        6
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -83,19 +83,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        16
+        5,
+        5,
+        6
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ]
     ],
     "awards": null,
@@ -116,19 +116,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        14,
-        14,
-        18
+        6,
+        6,
+        7
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ]
     ],
     "awards": null,
@@ -149,19 +149,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        8,
-        8,
-        12
+        3,
+        3,
+        5
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ]
     ],
     "awards": null,
@@ -182,19 +182,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        14
+        4,
+        4,
+        6
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -220,19 +220,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        16
+        5,
+        5,
+        6
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ]
     ],
     "awards": null,
@@ -253,19 +253,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        16,
-        16,
-        26
+        6,
+        6,
+        10
       ],
       [
-        26,
-        26,
-        27
+        10,
+        10,
+        11
       ],
       [
-        26,
-        26,
-        27
+        10,
+        10,
+        11
       ]
     ],
     "awards": {
@@ -282,7 +282,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 35
+    "brandValue": 25
   },
   {
     "id": "09",
@@ -290,31 +290,31 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        8,
-        8,
-        12
+        2,
+        3,
+        4
       ],
       [
-        16,
-        16,
-        21
+        3,
+        5,
+        7
       ],
       [
-        16,
-        16,
-        21
+        4,
+        7,
+        10
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      4,
+      3,
+      5,
       8
     ],
     "demandBands": [
-      0,
-      4,
-      7
+      3,
+      5,
+      8
     ]
   },
   {
@@ -323,19 +323,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        14
+        4,
+        4,
+        6
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ]
     ],
     "awards": {
@@ -352,7 +352,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 30
+    "brandValue": 25
   },
   {
     "id": "11",
@@ -360,19 +360,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        16
+        5,
+        5,
+        6
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ]
     ],
     "awards": null,
@@ -393,19 +393,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        16,
-        16,
-        26
+        6,
+        6,
+        10
       ],
       [
-        26,
-        26,
-        27
+        10,
+        10,
+        11
       ],
       [
-        26,
-        26,
-        27
+        10,
+        10,
+        11
       ]
     ],
     "awards": null,
@@ -426,19 +426,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        8,
-        8,
-        12
+        3,
+        3,
+        5
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ]
     ],
     "awards": null,
@@ -464,19 +464,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        14
+        4,
+        4,
+        6
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -505,19 +505,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        14,
-        14,
-        24
+        2,
+        4,
+        5
       ],
       [
-        24,
-        24,
-        25
+        3,
+        6,
+        8
       ],
       [
-        24,
-        24,
-        25
+        4,
+        8,
+        11
       ]
     ],
     "awards": null,
@@ -530,14 +530,14 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       }
     },
     "ageBands": [
-      2,
-      4,
-      8
+      3,
+      6,
+      9
     ],
     "demandBands": [
-      0,
       4,
-      7
+      6,
+      8
     ]
   },
   {
@@ -546,19 +546,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        14,
-        14,
-        18
+        6,
+        6,
+        7
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ]
     ],
     "awards": null,
@@ -584,19 +584,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        8,
-        8,
-        12
+        3,
+        3,
+        5
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ]
     ],
     "awards": null,
@@ -617,19 +617,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        14
+        4,
+        4,
+        6
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ]
     ],
     "awards": {
@@ -646,7 +646,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 30
+    "brandValue": 25
   },
   {
     "id": "19",
@@ -654,19 +654,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        16
+        5,
+        5,
+        6
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ]
     ],
     "awards": {
@@ -683,7 +683,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 30
+    "brandValue": 25
   },
   {
     "id": "20",
@@ -691,19 +691,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        14,
-        14,
-        18
+        6,
+        6,
+        7
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ]
     ],
     "awards": null,
@@ -724,19 +724,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        8,
-        8,
-        12
+        3,
+        3,
+        5
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ]
     ],
     "awards": {
@@ -753,7 +753,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 30
+    "brandValue": 25
   },
   {
     "id": "22",
@@ -761,19 +761,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        22
+        5,
+        5,
+        9
       ],
       [
-        22,
-        22,
-        23
+        9,
+        9,
+        9
       ],
       [
-        22,
-        22,
-        23
+        9,
+        9,
+        9
       ]
     ],
     "awards": null,
@@ -794,19 +794,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        14,
-        14,
-        24
+        6,
+        6,
+        10
       ],
       [
-        24,
-        24,
-        25
+        10,
+        10,
+        10
       ],
       [
-        24,
-        24,
-        25
+        10,
+        10,
+        10
       ]
     ],
     "awards": null,
@@ -827,19 +827,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        14,
-        14,
-        18
+        6,
+        6,
+        7
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ]
     ],
     "awards": null,
@@ -860,19 +860,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        8,
-        8,
-        12
+        3,
+        3,
+        5
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ]
     ],
     "awards": null,
@@ -893,19 +893,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        14
+        4,
+        4,
+        6
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -926,19 +926,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        16
+        5,
+        5,
+        6
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ]
     ],
     "awards": null,
@@ -959,19 +959,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        14,
-        14,
-        18
+        6,
+        6,
+        7
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ]
     ],
     "awards": null,
@@ -992,19 +992,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        20
+        4,
+        4,
+        8
       ],
       [
-        20,
-        20,
-        21
+        8,
+        8,
+        8
       ],
       [
-        20,
-        20,
-        21
+        8,
+        8,
+        8
       ]
     ],
     "awards": null,
@@ -1025,19 +1025,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        14
+        4,
+        4,
+        6
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ],
       [
-        18,
-        18,
-        23
+        7,
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -1058,19 +1058,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        16
+        5,
+        5,
+        6
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ]
     ],
     "awards": null,
@@ -1091,19 +1091,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        14,
-        14,
-        18
+        6,
+        6,
+        7
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ],
       [
-        22,
-        22,
-        27
+        9,
+        9,
+        11
       ]
     ],
     "awards": null,
@@ -1124,19 +1124,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        8,
-        8,
-        12
+        3,
+        3,
+        5
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ],
       [
-        16,
-        16,
-        21
+        6,
+        6,
+        8
       ]
     ],
     "awards": null,
@@ -1157,19 +1157,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        22
+        5,
+        5,
+        9
       ],
       [
-        22,
-        22,
-        23
+        9,
+        9,
+        9
       ],
       [
-        22,
-        22,
-        23
+        9,
+        9,
+        9
       ]
     ],
     "awards": {
@@ -1197,7 +1197,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 30
+    "brandValue": 25
   },
   {
     "id": "35",
@@ -1205,19 +1205,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        16
+        5,
+        5,
+        6
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ]
     ],
     "awards": null,
@@ -1238,36 +1238,34 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        35,
-        35,
-        41
+        0,
+        4,
+        7
       ],
       [
-        54,
-        54,
-        62
+        4,
+        9,
+        13
       ],
       [
-        64,
-        64,
-        72
+        6,
+        13,
+        18
       ]
     ],
     "awards": {
-      "silver": "Mash includes **≥2 rye** cards **or** barrel aged at **rickhouse-1** (limestone shell pick); **and** sell price **≥ $50** on this card **or** market demand **odd** at sale.",
-      "gold": "**1 corn + 2 rye** (max rye) **or** tri-type with rye highest count; **and** use the **8+** age band on this card **or** sell **≥ $78** (grid **maximum** **$78**)."
+      "silver": "Barrel **≥6 years** **and** demand **≥9** at sale."
     },
     "ageBands": [
-      2,
-      4,
-      8
+      3,
+      6,
+      9
     ],
     "demandBands": [
-      0,
-      4,
-      7
-    ],
-    "brandValue": 85
+      7,
+      9,
+      11
+    ]
   },
   {
     "id": "37",
@@ -1275,19 +1273,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        18,
-        18,
-        31
+        7,
+        7,
+        12
       ],
       [
-        37,
-        37,
-        52
+        15,
+        15,
+        21
       ],
       [
-        37,
-        37,
-        52
+        15,
+        15,
+        21
       ]
     ],
     "awards": {
@@ -1304,7 +1302,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 65
+    "brandValue": 35
   },
   {
     "id": "38",
@@ -1312,19 +1310,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        27,
-        27,
-        33
+        11,
+        11,
+        13
       ],
       [
-        46,
-        46,
-        54
+        18,
+        18,
+        22
       ],
       [
-        46,
-        46,
-        54
+        18,
+        18,
+        22
       ]
     ],
     "awards": {
@@ -1341,7 +1339,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 65
+    "brandValue": 35
   },
   {
     "id": "39",
@@ -1349,19 +1347,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        28,
-        28,
-        41
+        11,
+        11,
+        16
       ],
       [
-        47,
-        47,
-        62
+        19,
+        19,
+        25
       ],
       [
-        47,
-        47,
-        62
+        19,
+        19,
+        25
       ]
     ],
     "awards": {
@@ -1378,7 +1376,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 75
+    "brandValue": 35
   },
   {
     "id": "40",
@@ -1386,19 +1384,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        37,
-        37,
-        43
+        15,
+        15,
+        17
       ],
       [
-        56,
-        56,
-        64
+        22,
+        22,
+        26
       ],
       [
-        56,
-        56,
-        64
+        22,
+        22,
+        26
       ]
     ],
     "awards": {
@@ -1415,7 +1413,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 75
+    "brandValue": 40
   },
   {
     "id": "41",
@@ -1423,19 +1421,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        20,
-        20,
-        33
+        8,
+        8,
+        13
       ],
       [
-        39,
-        39,
-        47
+        16,
+        16,
+        19
       ],
       [
-        39,
-        39,
-        47
+        16,
+        16,
+        19
       ]
     ],
     "awards": {
@@ -1452,7 +1450,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 60
+    "brandValue": 30
   },
   {
     "id": "42",
@@ -1460,19 +1458,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        29,
-        29,
-        35
+        12,
+        12,
+        14
       ],
       [
-        41,
-        41,
-        56
+        16,
+        16,
+        22
       ],
       [
-        41,
-        41,
-        56
+        16,
+        16,
+        22
       ]
     ],
     "awards": {
@@ -1494,7 +1492,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 70
+    "brandValue": 35
   },
   {
     "id": "43",
@@ -1502,19 +1500,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        32,
-        32,
-        58
+        13,
+        13,
+        23
       ],
       [
-        55,
-        55,
-        61
+        22,
+        22,
+        24
       ],
       [
-        55,
-        55,
-        61
+        22,
+        22,
+        24
       ]
     ],
     "awards": {
@@ -1531,7 +1529,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 75
+    "brandValue": 35
   },
   {
     "id": "44",
@@ -1539,19 +1537,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        32,
-        32,
-        45
+        13,
+        13,
+        18
       ],
       [
-        51,
-        51,
-        66
+        20,
+        20,
+        26
       ],
       [
-        59,
-        59,
-        78
+        24,
+        24,
+        31
       ]
     ],
     "awards": {
@@ -1568,7 +1566,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 90
+    "brandValue": 45
   },
   {
     "id": "45",
@@ -1576,36 +1574,41 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        24,
-        24,
-        50
+        2,
+        4,
+        7
       ],
       [
-        47,
-        47,
-        53
+        0,
+        5,
+        9
       ],
       [
-        47,
-        47,
-        53
+        3,
+        9,
+        14
       ]
     ],
     "awards": {
-      "silver": "Mash includes **≥2 barley** and **≥1 rye** **or** **rickhouse-1** limestone pick; **and** sell **≥ $37** **or** demand **odd**.",
-      "gold": "**≥3 barley** cards **or** **≥3 grain types** with barley anchoring; **and** sell **≥ $53** (grid **maximum** **$53**)."
+      "silver": "All-rye mash **and** demand **≥7** at sale.",
+      "gold": "Barrel **≥10 years** **and** all-rye mash **and** demand **≥10** at sale (grid **maximum** **$14**)."
     },
     "ageBands": [
       2,
-      4,
+      5,
       8
     ],
     "demandBands": [
-      0,
       4,
-      7
+      7,
+      10
     ],
-    "brandValue": 65
+    "recipe": {
+      "rye": {
+        "min": 3
+      }
+    },
+    "brandValue": 25
   },
   {
     "id": "46",
@@ -1613,36 +1616,36 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        24,
-        24,
-        37
+        0,
+        5,
+        9
       ],
       [
-        43,
-        43,
-        58
+        5,
+        11,
+        16
       ],
       [
-        43,
-        43,
-        58
+        9,
+        16,
+        22
       ]
     ],
     "awards": {
-      "silver": "Mash includes **≥3 wheat** **or** **≥2 corn** and **≥2 rye**; **and** sell **≥ $42** **or** demand **odd**.",
-      "gold": "**Wheat-led** stack: **≥4 wheat** **or** **≥3 grain types** with wheat highest count; **and** sell **≥ $58** (grid **maximum** **$58**)."
+      "silver": "Barrel **≥8 years** **and** mash includes **≥2 small grains** (barley + rye + wheat).",
+      "gold": "Barrel **≥10 years** **and** mash **≥2 small grains** **and** demand **12** at sale (grid **maximum** **$22**)."
     },
     "ageBands": [
-      2,
-      4,
-      8
+      6,
+      8,
+      10
     ],
     "demandBands": [
-      0,
-      4,
-      7
+      6,
+      8,
+      12
     ],
-    "brandValue": 70
+    "brandValue": 35
   },
   {
     "id": "47",
@@ -1650,19 +1653,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        32,
-        32,
-        38
+        13,
+        13,
+        15
       ],
       [
-        51,
-        51,
-        59
+        20,
+        20,
+        24
       ],
       [
-        51,
-        51,
-        59
+        20,
+        20,
+        24
       ]
     ],
     "awards": {
@@ -1679,7 +1682,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 70
+    "brandValue": 35
   },
   {
     "id": "48",
@@ -1687,19 +1690,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        34,
-        34,
-        47
+        14,
+        14,
+        19
       ],
       [
-        53,
-        53,
-        61
+        21,
+        21,
+        24
       ],
       [
-        53,
-        53,
-        61
+        21,
+        21,
+        24
       ]
     ],
     "awards": {
@@ -1716,7 +1719,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 75
+    "brandValue": 35
   },
   {
     "id": "49",
@@ -1724,19 +1727,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        24,
-        24,
-        30
+        10,
+        10,
+        12
       ],
       [
-        36,
-        36,
-        51
+        14,
+        14,
+        20
       ],
       [
-        36,
-        36,
-        51
+        14,
+        14,
+        20
       ]
     ],
     "awards": {
@@ -1753,7 +1756,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 65
+    "brandValue": 30
   },
   {
     "id": "50",
@@ -1761,19 +1764,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        26,
-        26,
-        32
+        10,
+        10,
+        13
       ],
       [
-        45,
-        45,
-        53
+        18,
+        18,
+        21
       ],
       [
-        55,
-        55,
-        63
+        22,
+        22,
+        25
       ]
     ],
     "awards": {
@@ -1790,7 +1793,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 75
+    "brandValue": 35
   },
   {
     "id": "51",
@@ -1798,19 +1801,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        15
+        4,
+        4,
+        6
       ],
       [
-        19,
-        19,
-        24
+        8,
+        8,
+        10
       ],
       [
-        19,
-        19,
-        24
+        8,
+        8,
+        10
       ]
     ],
     "awards": null,
@@ -1831,19 +1834,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        8,
-        8,
-        12
+        3,
+        3,
+        5
       ],
       [
-        14,
-        14,
-        18
+        6,
+        6,
+        7
       ],
       [
-        14,
-        14,
-        18
+        6,
+        6,
+        7
       ]
     ],
     "awards": null,
@@ -1864,19 +1867,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        16
+        5,
+        5,
+        6
       ],
       [
-        22,
-        22,
-        28
+        9,
+        9,
+        11
       ],
       [
-        22,
-        22,
-        28
+        9,
+        9,
+        11
       ]
     ],
     "awards": {
@@ -1898,7 +1901,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 35
+    "brandValue": 25
   },
   {
     "id": "54",
@@ -1906,19 +1909,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        14
+        4,
+        4,
+        6
       ],
       [
-        18,
-        18,
-        22
+        7,
+        7,
+        9
       ],
       [
-        18,
-        18,
-        22
+        7,
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -1939,19 +1942,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        18
+        5,
+        5,
+        7
       ],
       [
-        20,
-        20,
-        26
+        8,
+        8,
+        10
       ],
       [
-        20,
-        20,
-        26
+        8,
+        8,
+        10
       ]
     ],
     "awards": {
@@ -1973,7 +1976,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 35
+    "brandValue": 25
   },
   {
     "id": "56",
@@ -1981,19 +1984,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        11,
-        11,
-        16
+        4,
+        4,
+        6
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ],
       [
-        20,
-        20,
-        25
+        8,
+        8,
+        10
       ]
     ],
     "awards": null,
@@ -2014,19 +2017,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        10,
-        14
+        4,
+        4,
+        6
       ],
       [
-        19,
-        19,
-        23
+        8,
+        8,
+        9
       ],
       [
-        19,
-        19,
-        23
+        8,
+        8,
+        9
       ]
     ],
     "awards": null,
@@ -2047,34 +2050,34 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        13,
-        13,
+        0,
+        4,
+        9
+      ],
+      [
+        5,
+        11,
         17
       ],
       [
-        21,
-        21,
-        27
-      ],
-      [
-        21,
-        21,
-        27
+        10,
+        18,
+        26
       ]
     ],
     "awards": {
-      "silver": "Mash includes **≥2 wheat** **or** barrel at **rickhouse-5**; **and** sell **≥ $20**.",
-      "gold": "Mash includes **≥3 wheat** **and** **≥1 corn**; **and** sell **≥ $27** (grid **maximum** **$27**)."
+      "silver": "Barrel **≥9 years** **and** mash includes **≥2 distinct small grains**.",
+      "gold": "Barrel **≥12 years** **and** mash **≥2 distinct small grains** **and** demand **12** at sale (grid **maximum** **$26**)."
     },
     "ageBands": [
-      2,
-      4,
-      8
+      6,
+      9,
+      12
     ],
     "demandBands": [
-      0,
-      4,
-      7
+      6,
+      9,
+      12
     ],
     "brandValue": 35
   },
@@ -2084,19 +2087,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        12,
-        12,
-        15
+        5,
+        5,
+        6
       ],
       [
-        20,
-        20,
-        26
+        8,
+        8,
+        10
       ],
       [
-        20,
-        20,
-        26
+        8,
+        8,
+        10
       ]
     ],
     "awards": {
@@ -2113,7 +2116,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 35
+    "brandValue": 25
   },
   {
     "id": "60",
@@ -2121,19 +2124,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        11,
-        11,
-        14
+        4,
+        4,
+        6
       ],
       [
-        18,
-        18,
-        24
+        7,
+        7,
+        10
       ],
       [
-        18,
-        18,
-        24
+        7,
+        7,
+        10
       ]
     ],
     "awards": null,
@@ -2154,19 +2157,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        22,
-        22,
-        32
+        9,
+        9,
+        13
       ],
       [
-        42,
-        42,
-        52
+        17,
+        17,
+        21
       ],
       [
-        52,
-        52,
-        68
+        21,
+        21,
+        27
       ]
     ],
     "awards": {
@@ -2183,7 +2186,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 80
+    "brandValue": 40
   },
   {
     "id": "62",
@@ -2191,19 +2194,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        20,
-        20,
-        26
+        8,
+        8,
+        10
       ],
       [
-        38,
-        38,
-        48
+        15,
+        15,
+        19
       ],
       [
-        48,
-        48,
-        58
+        19,
+        19,
+        23
       ]
     ],
     "awards": {
@@ -2220,7 +2223,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 70
+    "brandValue": 35
   },
   {
     "id": "63",
@@ -2228,19 +2231,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        24,
-        24,
-        30
+        10,
+        10,
+        12
       ],
       [
-        44,
-        44,
-        54
+        18,
+        18,
+        22
       ],
       [
-        54,
-        54,
-        70
+        22,
+        22,
+        28
       ]
     ],
     "awards": {
@@ -2257,7 +2260,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 80
+    "brandValue": 40
   },
   {
     "id": "64",
@@ -2265,19 +2268,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        28,
-        28,
-        34
+        11,
+        11,
+        14
       ],
       [
-        48,
-        48,
-        58
+        19,
+        19,
+        23
       ],
       [
-        60,
-        60,
-        78
+        24,
+        24,
+        31
       ]
     ],
     "awards": {
@@ -2294,7 +2297,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 90
+    "brandValue": 45
   },
   {
     "id": "65",
@@ -2302,19 +2305,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        20,
-        20,
-        28
+        8,
+        8,
+        11
       ],
       [
-        40,
-        40,
-        50
+        16,
+        16,
+        20
       ],
       [
-        50,
-        50,
-        62
+        20,
+        20,
+        25
       ]
     ],
     "awards": {
@@ -2331,7 +2334,7 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       4,
       7
     ],
-    "brandValue": 75
+    "brandValue": 35
   }
 ] as const;
 
