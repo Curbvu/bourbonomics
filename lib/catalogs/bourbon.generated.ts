@@ -50,7 +50,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         23
       ]
     ],
-    "awards": null
+    "awards": null,
+    "recipe": {
+      "barley": {
+        "min": 1
+      }
+    }
   },
   {
     "id": "03",
@@ -142,7 +147,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         23
       ]
     ],
-    "awards": null
+    "awards": null,
+    "recipe": {
+      "rye": {
+        "min": 2
+      }
+    }
   },
   {
     "id": "07",
@@ -311,7 +321,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         21
       ]
     ],
-    "awards": null
+    "awards": null,
+    "recipe": {
+      "corn": {
+        "min": 3
+      }
+    }
   },
   {
     "id": "14",
@@ -334,7 +349,15 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         23
       ]
     ],
-    "awards": null
+    "awards": null,
+    "recipe": {
+      "rye": {
+        "min": 3
+      },
+      "wheat": {
+        "max": 0
+      }
+    }
   },
   {
     "id": "15",
@@ -357,7 +380,15 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         25
       ]
     ],
-    "awards": null
+    "awards": null,
+    "recipe": {
+      "wheat": {
+        "min": 1
+      },
+      "rye": {
+        "max": 0
+      }
+    }
   },
   {
     "id": "16",
@@ -380,7 +411,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         27
       ]
     ],
-    "awards": null
+    "awards": null,
+    "recipe": {
+      "barley": {
+        "min": 2
+      }
+    }
   },
   {
     "id": "17",
@@ -810,6 +846,17 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       "silver": "Mash includes **≥2 wheat** **or** **≥1 corn** and **≥1 barley**; **and** sell price **≥ $16** on this card (grist-forward flavor).",
       "gold": "**Tri-type** mash using **three different grains** among corn / rye / wheat / barley (e.g. corn + rye + wheat)—the richest bill possible in three grain cards; **and** sell **≥ $23** on this card (grid **maximum** **$23**)."
     },
+    "recipe": {
+      "barley": {
+        "min": 1
+      },
+      "rye": {
+        "min": 1
+      },
+      "wheat": {
+        "min": 1
+      }
+    },
     "brandValue": 30
   },
   {
@@ -1021,6 +1068,11 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "awards": {
       "silver": "**High-corn** mash: **≥4 corn** cards among grains **or** **≥3 corn** with **≥1 rye**; **and** sell **≥ $40** **or** demand **odd**.",
       "gold": "**≥5 corn** cards **or** **≥4 corn** and **≥2 wheat**; **and** sell **≥ $56** (grid **maximum** **$56**)."
+    },
+    "recipe": {
+      "corn": {
+        "min": 3
+      }
     },
     "brandValue": 70
   },
@@ -1311,6 +1363,11 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       "silver": "Mash includes **≥3 corn** **or** **≥2 rye** (steady house bill); **and** sell price **≥ $20** on this card.",
       "gold": "**Tri-type** mash (corn + any two of rye/wheat/barley) **and** **4–7** or **8+** age band; **and** sell **≥ $28** (grid **maximum** **$28**)."
     },
+    "recipe": {
+      "grain": {
+        "min": 4
+      }
+    },
     "brandValue": 35
   },
   {
@@ -1360,6 +1417,11 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "awards": {
       "silver": "Barrel at **rickhouse-3** **or** mash includes **≥2 rye**; **and** sell **≥ $20**.",
       "gold": "Barrel at **rickhouse-3** **and** mash **≥2 rye**; **and** sell **≥ $26** (grid **maximum** **$26**)."
+    },
+    "recipe": {
+      "rye": {
+        "min": 2
+      }
     },
     "brandValue": 35
   },

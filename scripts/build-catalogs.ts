@@ -34,6 +34,14 @@ function writeTs(file: string, contents: string) {
 
 function buildBourbon() {
   const doc = loadYaml("bourbon_cards.yaml");
+  type RecipeBound = { min?: number; max?: number };
+  type Recipe = {
+    corn?: RecipeBound;
+    barley?: RecipeBound;
+    rye?: RecipeBound;
+    wheat?: RecipeBound;
+    grain?: RecipeBound;
+  };
   const cards = doc.cards as Array<{
     id: string;
     name: string;
@@ -41,14 +49,31 @@ function buildBourbon() {
     grid: number[][];
     awards: { silver?: string; gold?: string } | null;
     brandValue?: number;
+    recipe?: Recipe;
   }>;
 
+  const recipeKeys = new Set([
+    "corn",
+    "barley",
+    "rye",
+    "wheat",
+    "grain",
+  ]);
   for (const c of cards) {
     if (c.grid.length !== 3 || c.grid.some((row) => row.length !== 3)) {
       throw new Error(`Bourbon card ${c.id} has malformed grid`);
     }
     if (c.rarity !== "Standard" && c.rarity !== "Rare") {
       throw new Error(`Bourbon card ${c.id} unknown rarity: ${c.rarity}`);
+    }
+    if (c.recipe) {
+      for (const k of Object.keys(c.recipe)) {
+        if (!recipeKeys.has(k)) {
+          throw new Error(
+            `Bourbon card ${c.id} has unknown recipe key '${k}' (expected corn / barley / rye / wheat / grain)`,
+          );
+        }
+      }
     }
     // Default brandValue for Gold-capable cards: grid maximum + a small
     // rarity bonus, rounded up to the nearest $5 so the trophy value

@@ -78,7 +78,13 @@ export default function RickhouseRow() {
     makeBourbon.active && me
       ? me.resourceHand.filter((r) => selectedSet.has(r.instanceId))
       : [];
-  const mashOk = makeBourbon.active && validateMash(selectedMash).ok;
+  const pickedBillDef =
+    makeBourbon.active && makeBourbon.mashBillId
+      ? BOURBON_CARDS_BY_ID[makeBourbon.mashBillId]
+      : null;
+  const mashOk =
+    makeBourbon.active &&
+    validateMash(selectedMash, pickedBillDef?.recipe).ok;
   const billOk =
     makeBourbon.active &&
     !!makeBourbon.mashBillId &&

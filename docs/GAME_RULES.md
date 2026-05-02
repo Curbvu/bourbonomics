@@ -73,6 +73,21 @@ A player with **no mash bills in hand cannot make bourbon**. As an action, a pla
 
 If the Bourbon deck runs out, **reshuffle the Bourbon discard pile** to form a new deck and continue play.
 
+## Per-Bill Mash Recipes
+
+In addition to the universal mash rules (§Making Bourbon), some mash bills carry an explicit **recipe** — extra grain requirements that the mash committed at production must satisfy. Recipes only ever **tighten** the universal rules; they never loosen them.
+
+A recipe can specify a `min` count, a `max` count, or both, on each of: **corn**, **barley**, **rye**, **wheat**, and **total grain** (corn + small grains). A `max: 0` entry means the recipe **forbids** that grain (e.g. a wheated bill that excludes rye).
+
+Examples:
+
+- **High-rye** bill — recipe: `rye ≥ 3`. Three rye cards must be in the mash.
+- **Wheated** bill — recipe: `wheat ≥ 1, no rye`. Wheat is required; rye is forbidden.
+- **Four-grain** bill — recipe: `barley ≥ 1, rye ≥ 1, wheat ≥ 1`. All three small grains are required.
+- **High-corn** bill — recipe: `corn ≥ 3`.
+
+Mash bills without a printed recipe accept any legal mash. Recipes are public information once the bill is in play; the make-bourbon UI surfaces the bill's requirements live as the mash is being assembled.
+
 ---
 
 # 🃏 Hand Limit

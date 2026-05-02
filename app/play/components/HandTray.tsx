@@ -36,7 +36,12 @@ import type {
 import { HAND_LIMIT, MAX_ACTIVE_INVESTMENTS } from "@/lib/engine/state";
 import { handSize } from "@/lib/engine/checks";
 import { pickBestSellable } from "@/lib/ai/evaluators";
-import { summarizeMash, validateMash } from "@/lib/rules/mash";
+import {
+  evaluateRecipe,
+  summarizeMash,
+  validateMash,
+  type RecipeCheck,
+} from "@/lib/rules/mash";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
 import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
@@ -182,9 +187,28 @@ export default function HandTray() {
   const selectedMash = me.resourceHand.filter((r) =>
     selectedSet.has(r.instanceId),
   );
-  const mashValidation = validateMash(selectedMash);
   const mashBreakdown = summarizeMash(selectedMash);
+  // Resolve the picked bill so we can pull its (optional) recipe — both
+  // for live UI hints AND for the validator, which now enforces per-bill
+  // grain min/max alongside the universal rules.
+  const pickedBill = makeBourbon.mashBillId
+    ? BOURBON_CARDS_BY_ID[makeBourbon.mashBillId]
+    : null;
+  const pickedRecipe = pickedBill?.recipe ?? null;
+  const mashValidation = validateMash(selectedMash, pickedRecipe ?? undefined);
   const mashValid = mashValidation.ok;
+  const recipeChecks: RecipeCheck[] = pickedRecipe
+    ? evaluateRecipe(mashBreakdown, pickedRecipe)
+    : [];
+  // Resource-type "wanted" hint: when the picked bill's recipe is unmet
+  // for a given grain, every unselected card of that type in the hand
+  // pulses amber so the player can see what to click. Cleared once the
+  // shortfall is gone.
+  const wantedResourceTypes = new Set<ResourceType>(
+    recipeChecks
+      .filter((c) => c.key !== "grain" && !c.ok && c.current < c.min)
+      .map((c) => c.key as ResourceType),
+  );
 
   const bestSellable = pickBestSellable(state, me);
   const goldAlt = bestSellable?.goldAlt ?? null;
@@ -399,15 +423,23 @@ export default function HandTray() {
           {makeBourbon.active ? "Cancel ↵" : "Make ↵"}
         </ContextButton>
         {makeBourbon.active ? (
-          <MashStatusPill
-            valid={mashValid}
-            cask={mashBreakdown.cask}
-            corn={mashBreakdown.corn}
-            grain={mashBreakdown.grain}
-            total={mashBreakdown.total}
-            reason={mashValidation.ok ? null : mashValidation.reason}
-            billPicked={!!makeBourbon.mashBillId}
-          />
+          <>
+            <MashStatusPill
+              valid={mashValid}
+              cask={mashBreakdown.cask}
+              corn={mashBreakdown.corn}
+              grain={mashBreakdown.grain}
+              total={mashBreakdown.total}
+              reason={mashValidation.ok ? null : mashValidation.reason}
+              billPicked={!!makeBourbon.mashBillId}
+            />
+            {pickedRecipe ? (
+              <RecipeChecklist
+                billName={pickedBill?.name ?? "this bill"}
+                checks={recipeChecks}
+              />
+            ) : null}
+          </>
         ) : null}
 
         <ContextButton
@@ -493,6 +525,10 @@ export default function HandTray() {
               const onClick = makeMode
                 ? () => toggleMashCard(r.instanceId)
                 : () => inspectResource(r.instanceId);
+              // Surface bills' recipe shortfalls on the cards the
+              // player should be clicking next.
+              const wanted =
+                makeMode && !selected && wantedResourceTypes.has(r.resource);
               return (
                 <MiniResourceCard
                   key={r.instanceId}
@@ -501,6 +537,7 @@ export default function HandTray() {
                   indexInRow={idx}
                   makeMode={makeMode}
                   selected={selected}
+                  wanted={wanted}
                   onClick={onClick}
                 />
               );
@@ -738,6 +775,58 @@ function MashStatusPill({
   );
 }
 
+/**
+ * Live recipe checklist that appears next to MashStatusPill while the
+ * picked mash bill carries an explicit recipe. Each requirement renders
+ * as a pill — emerald when satisfied, amber when not — so the player
+ * can scan "what does this bill still need?" at a glance.
+ */
+function RecipeChecklist({
+  billName,
+  checks,
+}: {
+  billName: string;
+  checks: RecipeCheck[];
+}) {
+  if (checks.length === 0) return null;
+  return (
+    <span
+      title={`${billName} recipe — every requirement must be satisfied to barrel`}
+      className="flex flex-wrap items-center gap-1.5 rounded-md border border-amber-700/50 bg-amber-900/[0.18] px-2 py-1 font-mono text-[10px] uppercase tracking-[.08em] text-amber-200"
+    >
+      <span className="text-amber-300/80">recipe</span>
+      {checks.map((c) => (
+        <RecipePill key={c.key} check={c} />
+      ))}
+    </span>
+  );
+}
+
+function RecipePill({ check }: { check: RecipeCheck }) {
+  const label = check.label;
+  // Compact text: "rye 1/3", "wheat 0/1 max", "no rye"
+  const body =
+    check.max === 0
+      ? `no ${label}`
+      : check.max != null && check.min === 0
+        ? `${label} ${check.current}/${check.max} max`
+        : `${label} ${check.current}/${check.min}`;
+  return (
+    <span
+      className={[
+        "flex items-center gap-1 rounded border px-1.5 py-px tabular-nums",
+        check.ok
+          ? "border-emerald-500/55 bg-emerald-500/[0.15] text-emerald-200"
+          : "border-amber-500/60 bg-amber-700/[0.18] text-amber-100",
+      ].join(" ")}
+      title={check.ok ? `${label} requirement met` : check.failureReason}
+    >
+      <span aria-hidden>{check.ok ? "✓" : "•"}</span>
+      <span>{body}</span>
+    </span>
+  );
+}
+
 function VerticalCaption({ children }: { children: React.ReactNode }) {
   return (
     <span
@@ -791,6 +880,7 @@ function MiniResourceCard({
   indexInRow,
   makeMode,
   selected,
+  wanted = false,
   onClick,
 }: {
   resource: ResourceType;
@@ -798,6 +888,8 @@ function MiniResourceCard({
   indexInRow: number;
   makeMode: boolean;
   selected: boolean;
+  /** True when the picked bill's recipe still needs more of this type. */
+  wanted?: boolean;
   onClick?: () => void;
 }) {
   const chrome = RESOURCE_CHROME[resource];
@@ -806,15 +898,21 @@ function MiniResourceCard({
     "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
   const stateBorder = selected
     ? "border-amber-300 ring-2 ring-amber-300"
-    : makeMode
-      ? `${chrome.border} opacity-90`
-      : chrome.border;
+    : wanted
+      ? "border-amber-300 ring-2 ring-amber-300/80 shadow-[0_0_18px_rgba(245,158,11,.45)]"
+      : makeMode
+        ? `${chrome.border} opacity-90`
+        : chrome.border;
   const liftClass = selected
     ? "z-40 -translate-y-2"
-    : "cursor-pointer hover:z-50 hover:-translate-y-3 hover:scale-[1.08]";
-  const title = specialty
-    ? `${RESOURCE_LABEL[resource]} · ${specialty.name} — click to inspect`
-    : `${RESOURCE_LABEL[resource]} — plain resource · click to inspect`;
+    : wanted
+      ? "z-30 -translate-y-1 cursor-pointer hover:z-50 hover:-translate-y-3 hover:scale-[1.08]"
+      : "cursor-pointer hover:z-50 hover:-translate-y-3 hover:scale-[1.08]";
+  const title = wanted
+    ? `${RESOURCE_LABEL[resource]} — bill needs this · click to add to mash`
+    : specialty
+      ? `${RESOURCE_LABEL[resource]} · ${specialty.name} — click to inspect`
+      : `${RESOURCE_LABEL[resource]} — plain resource · click to inspect`;
   return (
     <button
       type="button"

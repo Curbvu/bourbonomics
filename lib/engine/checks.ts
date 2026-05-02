@@ -94,7 +94,11 @@ export function canMakeBourbon(
     mash.push(card);
   }
 
-  const valid = validateMash(mash);
+  // Pull the bill's optional recipe so per-bill grain requirements are
+  // enforced alongside the universal rules (1 cask · ≥1 corn · ≥1 grain
+  // · ≤6 cards). Recipes can only tighten — they never loosen.
+  const billDef = BOURBON_CARDS_BY_ID[mashBillId];
+  const valid = validateMash(mash, billDef.recipe);
   if (!valid.ok) return valid;
   return { ok: true };
 }

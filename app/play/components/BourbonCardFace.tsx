@@ -201,6 +201,14 @@ export default function BourbonCardFace({
         </table>
       </div>
 
+      {/* Recipe */}
+      {card.recipe ? (
+        <>
+          <SectionDivider label="Mash Recipe" size={size} />
+          <RecipeBadges recipe={card.recipe} size={size} />
+        </>
+      ) : null}
+
       {/* Awards */}
       {card.awards && (card.awards.silver || card.awards.gold) ? (
         <>
@@ -224,6 +232,46 @@ export default function BourbonCardFace({
         </>
       ) : null}
     </article>
+  );
+}
+
+function RecipeBadges({
+  recipe,
+  size,
+}: {
+  recipe: NonNullable<BourbonCardDef["recipe"]>;
+  size: Size;
+}) {
+  const text = size === "lg" ? "text-[11px]" : "text-[9px]";
+  const entries: { label: string; body: string }[] = [];
+  for (const key of ["corn", "barley", "rye", "wheat", "grain"] as const) {
+    const bound = recipe[key];
+    if (!bound) continue;
+    const label = key === "grain" ? "total grain" : key;
+    let body = "";
+    if (bound.max === 0) {
+      body = `no ${label}`;
+    } else if (bound.min != null && bound.max != null) {
+      body = `${bound.min}–${bound.max} ${label}`;
+    } else if (bound.min != null) {
+      body = `≥${bound.min} ${label}`;
+    } else if (bound.max != null) {
+      body = `≤${bound.max} ${label}`;
+    }
+    if (body) entries.push({ label, body });
+  }
+  if (entries.length === 0) return null;
+  return (
+    <ul className="flex flex-wrap gap-1.5">
+      {entries.map((e) => (
+        <li
+          key={e.label}
+          className={`rounded-md border border-amber-700/60 bg-amber-900/[0.25] px-2 py-0.5 font-mono uppercase tracking-[.12em] text-amber-100 ${text}`}
+        >
+          {e.body}
+        </li>
+      ))}
+    </ul>
   );
 }
 

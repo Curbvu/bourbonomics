@@ -8,6 +8,27 @@ export type BourbonAwards = {
   gold?: string | null;
 } | null;
 
+/**
+ * Per-resource min/max constraint for a mash bill recipe. Either bound is
+ * optional. `min: 0` is the default (no requirement); `max: 0` means the
+ * grain is forbidden by the recipe (e.g. a wheated bill excluding rye).
+ */
+export type MashRecipeBound = { min?: number; max?: number };
+
+/**
+ * Optional bill-specific mash recipe. Layered on top of the universal
+ * rules (1 cask · ≥1 corn · ≥1 small grain · ≤6 cards) — a bill's recipe
+ * can only TIGHTEN those rules, never loosen them. `grain` is the sum of
+ * (corn + barley + rye + wheat).
+ */
+export type MashRecipe = {
+  corn?: MashRecipeBound;
+  barley?: MashRecipeBound;
+  rye?: MashRecipeBound;
+  wheat?: MashRecipeBound;
+  grain?: MashRecipeBound;
+};
+
 export type BourbonCardDef = {
   id: string;
   name: string;
@@ -28,6 +49,12 @@ export type BourbonCardDef = {
    * one explicitly.
    */
   brandValue?: number;
+  /**
+   * Optional bill-specific mash requirements. When present, the mash
+   * committed at production must satisfy these on top of the universal
+   * rules. Absent on cards that accept any legal mash.
+   */
+  recipe?: MashRecipe;
 };
 
 export type InvestmentModifier =
