@@ -59,7 +59,7 @@ export default function DistilleryInspectModal() {
       <div
         role="document"
         onClick={(e) => e.stopPropagation()}
-        className="relative flex w-full max-w-[480px] flex-col gap-4 rounded-xl border-2 border-amber-500 bg-slate-900 p-6 shadow-[0_8px_32px_rgba(0,0,0,.55),0_0_0_3px_rgba(245,158,11,0.20)]"
+        className="relative flex w-full max-w-[480px] flex-col gap-4 rounded-xl border-2 border-amber-500 bg-slate-800 p-6 shadow-[0_12px_40px_rgba(0,0,0,.7),0_0_0_4px_rgba(245,158,11,0.30)]"
       >
         <button
           type="button"
@@ -90,18 +90,18 @@ export default function DistilleryInspectModal() {
           "{def.flavor}"
         </p>
 
-        <div className="flex flex-col gap-3 text-[13px] leading-snug">
-          <div className="rounded-lg border border-emerald-500/60 bg-emerald-950/40 px-3.5 py-2.5">
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-[.16em] text-emerald-300">
+        <div className="flex flex-col gap-3 text-[14px] leading-snug">
+          <div className="rounded-lg border-2 border-emerald-500 bg-emerald-950 px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,.08)]">
+            <div className="font-mono text-[11px] font-semibold uppercase tracking-[.16em] text-emerald-300">
               Starting bonus
             </div>
-            <div className="mt-1 text-emerald-50">{def.bonus_text}</div>
+            <div className="mt-1 font-medium text-white">{def.bonus_text}</div>
           </div>
-          <div className="rounded-lg border border-sky-500/60 bg-sky-950/40 px-3.5 py-2.5">
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-[.16em] text-sky-300">
+          <div className="rounded-lg border-2 border-sky-500 bg-sky-950 px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,.08)]">
+            <div className="font-mono text-[11px] font-semibold uppercase tracking-[.16em] text-sky-300">
               Ongoing perk
             </div>
-            <div className="mt-1 text-sky-50">{def.perk_text}</div>
+            <div className="mt-1 font-medium text-white">{def.perk_text}</div>
           </div>
         </div>
 
