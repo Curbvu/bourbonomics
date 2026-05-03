@@ -5,8 +5,8 @@ implementation is held to. New constraints land here first, then drive
 code, tests, and `docs/GAME_RULES.md` (the canonical rulebook).
 
 This file is for *what we want to be true*; `docs/GAME_RULES.md` is for
-*how the game plays out at the table*. Where they overlap (e.g. the
-setup round), the rulebook is the public-facing source and this file
+*how the game plays out at the table*. Where they overlap (e.g.
+Distilleries), the rulebook is the public-facing source and this file
 records the design intent that shaped it.
 
 ---
@@ -25,6 +25,13 @@ records the design intent that shaped it.
   layout; cash sits as its own section without a bordered mini-box.
 
 ## Setup & opening
+
+> **Status:** spec-only as of this writing. The constants in
+> `lib/engine/state.ts` still reflect the previous setup-round
+> experiment (`DEFAULT_STARTING_CASH = 25`, `STARTING_BOURBON_HAND = 0`,
+> `STARTING_FREE_ACTIONS = 8`). Engine work to land Distilleries +
+> roll those constants forward is pending and tracked in the
+> Conversation history below (#20).
 
 - **Distilleries — asymmetric starting identities.** Each baron is
   dealt 2 Distillery cards face-down at game start, picks 1 to keep
@@ -173,11 +180,14 @@ file, in chronological order. Useful when re-evaluating tradeoffs.
 13. Strip `≥`/`≤` symbols from rendered award text.
 14. Relax the mash bill total-cards cap to allow varieties like 3
     rye + 3 corn (cap raised 6 → 9).
-15. Round 1 = 8 free actions per player, then the game begins.
-16. Eliminate the 4 starting mash bills — players draw their own
-    opening hand during the setup round.
-17. After the setup phase, immediately advance to round 2; players
-    can't continue into paid actions in round 1.
+15. ~~Round 1 = 8 free actions per player, then the game begins.~~
+    *(Superseded by #20 — replaced by Distillery draft.)*
+16. ~~Eliminate the 4 starting mash bills — players draw their own
+    opening hand during the setup round.~~ *(Superseded by #20 —
+    starting hand of 4 mash bills restored alongside Distilleries.)*
+17. ~~After the setup phase, immediately advance to round 2; players
+    can't continue into paid actions in round 1.~~ *(Superseded by
+    #20 — no setup phase exists anymore.)*
 18. Vertically tighten the dashboard so it fits the viewport without
     scrolling.
 19. This file: enumerate the requirements above and the asks that

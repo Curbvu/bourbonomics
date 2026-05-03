@@ -2,7 +2,7 @@
 
 A solo-vs-computer implementation of the **Bourbonomics** board game — [Kentucky Straight mode](docs/GAME_RULES.md). Single-player only: you vs. 1–5 bots, all running in the browser.
 
-Round 1 is a **setup round**: every baron starts with $25 and 8 personal free actions to draw resources, draw mash bills, and barrel a first batch before the cost ladder kicks in — no one is dealt a starting bourbon hand. Round 2 onward plays under the regular economy (rent, paid laps, market draws).
+Every baron starts with $40, a 4-card mash-bill hand, and a chosen **Distillery card** — drafted 1-of-2 at game start — that grants a one-time starting bonus and a permanent ongoing perk. Eight Distilleries (Hot Mash, Heritage House, Diaspora, Speculator, Recipe Book, Distillers' Guild, Bootlegger, Cooperage) bias players toward different opening strategies.
 
 ## Rules
 
