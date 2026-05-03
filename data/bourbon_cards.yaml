@@ -54,7 +54,7 @@ cards:
     name: "Knob's End 90"
     rarity: "Standard"
     grid:
-      - [ 5, 9 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -65,7 +65,7 @@ cards:
     name: "Mammoth Cave Malt"
     rarity: "Standard"
     grid:
-      - [ 6, 10 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -76,7 +76,7 @@ cards:
     name: "Bardstown Boiler"
     rarity: "Standard"
     grid:
-      - [ 9, 11 ]
+      - [ 10, 11 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -87,7 +87,7 @@ cards:
     name: "Limestone Ledger"
     rarity: "Standard"
     grid:
-      - [ 5, 9 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -99,7 +99,7 @@ cards:
     name: "Charred Oak Exchange"
     rarity: "Standard"
     grid:
-      - [ 6, 11 ]
+      - [ 10, 11 ]
       - [ 11, 20 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -112,7 +112,7 @@ cards:
     name: "Riverbend Rye Signal"
     rarity: "Standard"
     grid:
-      - [ 9, 13 ]
+      - [ 10, 13 ]
       - [ 13, 21 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -125,7 +125,7 @@ cards:
     name: "Stave & Story"
     rarity: "Standard"
     grid:
-      - [ 5, 10 ]
+      - [ 10, 10 ]
       - [ 10, 18 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -138,7 +138,7 @@ cards:
     name: "Cooper's Quorum"
     rarity: "Standard"
     grid:
-      - [ 9, 11, 16 ]
+      - [ 10, 11, 16 ]
       - [ 11, 16, 23 ]
       - [ 16, 25, 33 ]
     awards:
@@ -206,7 +206,7 @@ cards:
     name: "Warehouse E Batch"
     rarity: "Standard"
     grid:
-      - [ 6, 10 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -218,7 +218,7 @@ cards:
     name: "Foggy Bottom Forge"
     rarity: "Standard"
     grid:
-      - [ 9, 11 ]
+      - [ 10, 11 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -230,7 +230,7 @@ cards:
     name: "Cornbread Line"
     rarity: "Standard"
     grid:
-      - [ 5, 9 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -242,7 +242,7 @@ cards:
     name: "Rye Ladder 95"
     rarity: "Standard"
     grid:
-      - [ 6, 11 ]
+      - [ 10, 11 ]
       - [ 11, 20 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -254,7 +254,7 @@ cards:
     name: "Wheat Whisper"
     rarity: "Standard"
     grid:
-      - [ 9, 13 ]
+      - [ 10, 13 ]
       - [ 13, 21 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -267,7 +267,7 @@ cards:
     name: "Barley Bastion"
     rarity: "Standard"
     grid:
-      - [ 5, 10 ]
+      - [ 10, 10 ]
       - [ 10, 18 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -280,7 +280,7 @@ cards:
     name: "Two Charring Points"
     rarity: "Standard"
     grid:
-      - [ 9, 11, 16 ]
+      - [ 10, 11, 16 ]
       - [ 11, 16, 23 ]
       - [ 16, 25, 33 ]
     awards:
@@ -338,7 +338,7 @@ cards:
     name: "Cork & Crown"
     rarity: "Standard"
     grid:
-      - [ 6, 10 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -350,7 +350,7 @@ cards:
     name: "Proof Positive 100"
     rarity: "Standard"
     grid:
-      - [ 9, 11 ]
+      - [ 10, 11 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -362,7 +362,7 @@ cards:
     name: "Sour Mash Society"
     rarity: "Standard"
     grid:
-      - [ 5, 9 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -374,7 +374,7 @@ cards:
     name: "Stillhouse Sonnet"
     rarity: "Standard"
     grid:
-      - [ 6, 10 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -385,7 +385,7 @@ cards:
     name: "Patent Still 04"
     rarity: "Standard"
     grid:
-      - [ 9, 13 ]
+      - [ 10, 13 ]
       - [ 13, 21 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -398,7 +398,7 @@ cards:
     name: "Kentucky Crosscut"
     rarity: "Standard"
     grid:
-      - [ 5, 10 ]
+      - [ 10, 10 ]
       - [ 10, 18 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -411,7 +411,7 @@ cards:
     name: "Oak Algebra"
     rarity: "Standard"
     grid:
-      - [ 6, 11 ]
+      - [ 10, 11 ]
       - [ 11, 20 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -463,7 +463,7 @@ cards:
     name: "Bluegrass Boiler"
     rarity: "Standard"
     grid:
-      - [ 6, 10 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -475,7 +475,7 @@ cards:
     name: "Rickhouse Arithmetic"
     rarity: "Standard"
     grid:
-      - [ 9, 11 ]
+      - [ 10, 11 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -487,7 +487,7 @@ cards:
     name: "Filtered Lore"
     rarity: "Standard"
     grid:
-      - [ 5, 9 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -499,7 +499,7 @@ cards:
     name: "Low Gauge Legacy"
     rarity: "Standard"
     grid:
-      - [ 6, 10 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -511,7 +511,7 @@ cards:
     name: "Steam Furnace Five"
     rarity: "Standard"
     grid:
-      - [ 9, 13 ]
+      - [ 10, 13 ]
       - [ 13, 21 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -523,7 +523,7 @@ cards:
     name: "Grist Galaxy"
     rarity: "Standard"
     grid:
-      - [ 5, 10 ]
+      - [ 10, 10 ]
       - [ 10, 18 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -536,7 +536,7 @@ cards:
     name: "Turf & Tarnish"
     rarity: "Standard"
     grid:
-      - [ 6, 11 ]
+      - [ 10, 11 ]
       - [ 11, 20 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -615,7 +615,7 @@ cards:
     name: "Barrel Thief Reserve"
     rarity: "Rare"
     grid:
-      - [ 9, 11 ]
+      - [ 10, 11 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -627,7 +627,7 @@ cards:
     name: "Ghost Warehouse"
     rarity: "Rare"
     grid:
-      - [ 5, 9 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -639,7 +639,7 @@ cards:
     name: "Double Stack Destiny"
     rarity: "Rare"
     grid:
-      - [ 6, 10 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -651,7 +651,7 @@ cards:
     name: "Crimson Corn Covenant"
     rarity: "Rare"
     grid:
-      - [ 9, 13 ]
+      - [ 10, 13 ]
       - [ 13, 21 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -664,7 +664,7 @@ cards:
     name: "Platinum Rick Proof"
     rarity: "Rare"
     grid:
-      - [ 5, 10 ]
+      - [ 10, 10 ]
       - [ 10, 18 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -677,7 +677,7 @@ cards:
     name: "Infinite Stave"
     rarity: "Rare"
     grid:
-      - [ 6, 11 ]
+      - [ 10, 11 ]
       - [ 11, 20 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -707,7 +707,7 @@ cards:
     name: "Ledger Luxe"
     rarity: "Rare"
     grid:
-      - [ 6, 10, 15 ]
+      - [ 10, 10, 15 ]
       - [ 10, 15, 21 ]
       - [ 15, 23, 31 ]
     awards:
@@ -748,7 +748,7 @@ cards:
     name: "Bonded Beyond"
     rarity: "Rare"
     grid:
-      - [ 9, 11 ]
+      - [ 10, 11 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -760,7 +760,7 @@ cards:
     name: "Oak Oracle"
     rarity: "Rare"
     grid:
-      - [ 5, 9 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -772,7 +772,7 @@ cards:
     name: "The Last Rick"
     rarity: "Rare"
     grid:
-      - [ 6, 10 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -784,7 +784,7 @@ cards:
     name: "Moonlit Mash"
     rarity: "Standard"
     grid:
-      - [ 9, 11 ]
+      - [ 10, 11 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -795,7 +795,7 @@ cards:
     name: "Backroad Batch"
     rarity: "Standard"
     grid:
-      - [ 5, 10 ]
+      - [ 10, 10 ]
       - [ 10, 18 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -807,7 +807,7 @@ cards:
     name: "Distiller's Dozen"
     rarity: "Standard"
     grid:
-      - [ 6, 11 ]
+      - [ 10, 11 ]
       - [ 11, 20 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -838,7 +838,7 @@ cards:
     name: "Frankfort Flare"
     rarity: "Standard"
     grid:
-      - [ 6, 10, 15 ]
+      - [ 10, 10, 15 ]
       - [ 10, 15, 21 ]
       - [ 15, 23, 31 ]
     awards:
@@ -879,7 +879,7 @@ cards:
     name: "Copper Cadence"
     rarity: "Standard"
     grid:
-      - [ 9, 11 ]
+      - [ 10, 11 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -890,7 +890,7 @@ cards:
     name: "Greenriver Gold"
     rarity: "Standard"
     grid:
-      - [ 5, 9 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -902,7 +902,7 @@ cards:
     name: "Heirloom 1792"
     rarity: "Standard"
     grid:
-      - [ 6, 10 ]
+      - [ 10, 10 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -914,7 +914,7 @@ cards:
     name: "The Proofsmith"
     rarity: "Standard"
     grid:
-      - [ 9, 11 ]
+      - [ 10, 11 ]
     awards: null
     ageBands: [ 2 ]
     demandBands: [ 0, 6 ]
@@ -926,7 +926,7 @@ cards:
     name: "Phoenix Cooperage"
     rarity: "Rare"
     grid:
-      - [ 5, 10 ]
+      - [ 10, 10 ]
       - [ 10, 18 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -939,7 +939,7 @@ cards:
     name: "Whisper Barrel"
     rarity: "Rare"
     grid:
-      - [ 6, 11 ]
+      - [ 10, 11 ]
       - [ 11, 20 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -952,7 +952,7 @@ cards:
     name: "Midnight Mash Bill"
     rarity: "Rare"
     grid:
-      - [ 9, 13 ]
+      - [ 10, 13 ]
       - [ 13, 21 ]
     awards: null
     ageBands: [ 2, 6 ]
@@ -965,7 +965,7 @@ cards:
     name: "Triple Crown Reserve"
     rarity: "Rare"
     grid:
-      - [ 6, 10, 15 ]
+      - [ 10, 10, 15 ]
       - [ 10, 15, 21 ]
       - [ 15, 23, 31 ]
     awards:

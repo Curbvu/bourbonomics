@@ -153,6 +153,21 @@ function buildBourbon() {
         );
       }
     }
+    // 2-year payout floor — see docs/GAME_DESIGN.md §Bourbon economy.
+    // Every printed cell (cell > 0) must pay at least $10 so a 2-year
+    // sale always clears the ~6 actions + 2 years of rent break-even.
+    // Blank cells (0 / absent) are intentional and skip the check.
+    const PAYOUT_FLOOR = 10;
+    for (let r = 0; r < c.grid.length; r += 1) {
+      for (let d = 0; d < c.grid[r].length; d += 1) {
+        const cell = c.grid[r][d];
+        if (cell > 0 && cell < PAYOUT_FLOOR) {
+          throw new Error(
+            `Bourbon card ${c.id}: grid[${r}][${d}] = ${cell} is below the $${PAYOUT_FLOOR} floor`,
+          );
+        }
+      }
+    }
     if (c.recipe) {
       for (const k of Object.keys(c.recipe)) {
         if (!recipeKeys.has(k)) {

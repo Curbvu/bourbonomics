@@ -77,6 +77,18 @@ records the design intent that shaped it.
   thresholds; `grid` shape must match. Pricing, inspect modal, and
   in-rickhouse chip pay-scale all render whatever dimensions the bill
   declares.
+- **$10 payout floor on every printed grid cell.** A 2-year sale at the
+  bill's lowest demand band must pay at least $10 — that's the
+  break-even cost a player paid to barrel and sell the bourbon:
+  ~6 actions (cask draw + corn draw + grain draw + make + age tick + sell)
+  plus 2 rounds of rickhouse rent. Sales below break-even would make
+  production a net cash drain, so the floor blocks those grids. Variance
+  above the floor is unconstrained — bills routinely pay $12 / $15 / $20+
+  in middle and high bands. Blank cells (`0`) are intentional and skip
+  the check (some sparse grids by design pay nothing in certain
+  age/demand combinations). The catalog generator enforces this on
+  every build via `PAYOUT_FLOOR = 10` in `scripts/build-catalogs.ts`,
+  so future YAML edits that drop a cell below $10 fail the build.
 
 ## Mash construction
 
@@ -202,3 +214,7 @@ file, in chronological order. Useful when re-evaluating tradeoffs.
     rather than per-card drawbacks. Full design spec lives in
     `docs/GAME_RULES.md` §Distilleries; engine implementation
     pending.
+21. **$10 payout floor on every printed bourbon-grid cell** so a 2-year
+    sale always clears the ~6 actions + 2 years of rent break-even.
+    Variance above the floor is unconstrained. Catalog generator
+    enforces the floor at build time.
