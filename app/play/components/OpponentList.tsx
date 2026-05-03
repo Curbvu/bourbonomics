@@ -49,6 +49,7 @@ export default function OpponentList() {
         return (
           <div
             key={id}
+            data-player={id}
             className="border-b border-slate-800 px-3.5 py-3.5 last:border-b-0"
           >
             {/* Row 1 — identity + cash. Clickable when this baron has

@@ -155,6 +155,7 @@ export default function DeckStack({
       title={title}
       aria-label={`${label} deck, ${count} card${count === 1 ? "" : "s"}${shutdown ? " (shut down)" : ""}`}
       aria-disabled={disabled || shutdown || undefined}
+      data-deck={label.toLowerCase()}
     >
       {/* Back card — bottom of stack, offset down-right (bigger offset
           now that the cards are larger). */}

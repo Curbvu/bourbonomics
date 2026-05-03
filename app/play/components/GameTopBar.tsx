@@ -116,6 +116,7 @@ export default function GameTopBar() {
               <button
                 type="button"
                 key={id}
+                data-player-pill={id}
                 onClick={clickable ? () => inspectDistillery(id) : undefined}
                 disabled={!clickable}
                 title={

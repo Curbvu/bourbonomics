@@ -47,9 +47,12 @@ function shouldTakeLoan(state: GameState, p: Player): boolean {
   return barrels.some(({ barrel }) => barrel.age < 12);
 }
 
-export function driveBots(initial: GameState): GameState {
+export function driveBots(
+  initial: GameState,
+  maxSteps: number = MAX_AUTOMATIC_STEPS,
+): GameState {
   let state = initial;
-  for (let steps = 0; steps < MAX_AUTOMATIC_STEPS; steps++) {
+  for (let steps = 0; steps < maxSteps; steps++) {
     if (state.phase === "gameover") return state;
 
     const current = state.players[state.currentPlayerId];

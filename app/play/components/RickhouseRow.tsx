@@ -217,6 +217,7 @@ export default function RickhouseRow() {
                       ? `Barrel mash in ${def.name}`
                       : undefined
               }
+              data-rickhouse={h.id}
               className={[
                 "flex flex-col gap-1.5 rounded-lg border bg-slate-900/60 px-3 py-1.5 transition-all",
                 targetable
