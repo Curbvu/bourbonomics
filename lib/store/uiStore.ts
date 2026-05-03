@@ -55,15 +55,6 @@ export type UiStore = {
   cancelAuditDiscard: () => void;
 
   /**
-   * Round number whose post-market recap the player has dismissed.
-   * The MarketRecapPanel renders during the next round's fees phase
-   * (i.e. round = N + 1 when this stores N) and hides itself once
-   * dismissed. Cleared implicitly by comparing against current round.
-   */
-  dismissedMarketRecapForRound: number | null;
-  dismissMarketRecap: (round: number) => void;
-
-  /**
    * Currently open inspect target. Five kinds, dispatched to two modals:
    *   - "bill" / "barrel" → BourbonInspectModal (full grid + awards).
    *   - "resource" / "operations" / "investment" → HandInspectModal
@@ -184,10 +175,6 @@ export const useUiStore = create<UiStore>((set) => ({
         operationsInstanceIds: [],
       },
     }),
-
-  dismissedMarketRecapForRound: null,
-  dismissMarketRecap: (round) =>
-    set({ dismissedMarketRecapForRound: round }),
 
   inspect: null,
   inspectBill: (cardId) => set({ inspect: { kind: "bill", cardId } }),

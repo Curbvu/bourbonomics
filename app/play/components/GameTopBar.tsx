@@ -102,6 +102,7 @@ export default function GameTopBar() {
             const idx = paletteIndex(p.seatIndex);
             const isYou = id === humanId;
             const isCurrent = state.currentPlayerId === id;
+            const isFirstPasser = state.firstPasserId === id;
             const borderClass = isYou
               ? PLAYER_BORDER_CLASS[idx]
               : isCurrent
@@ -120,12 +121,14 @@ export default function GameTopBar() {
                 onClick={clickable ? () => inspectDistillery(id) : undefined}
                 disabled={!clickable}
                 title={
-                  clickable
-                    ? `${p.name} — ${distilleryName} · click to view distillery`
-                    : p.name
+                  isFirstPasser
+                    ? `${p.name} — ${distilleryName ?? "?"} · passed first this round → leads next round`
+                    : clickable
+                      ? `${p.name} — ${distilleryName} · click to view distillery`
+                      : p.name
                 }
                 className={[
-                  "flex items-center gap-2.5 rounded-lg border-2 px-4 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-all",
+                  "relative flex items-center gap-2.5 rounded-lg border-2 px-4 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-all",
                   borderClass,
                   bgClass,
                   isCurrent
@@ -137,6 +140,15 @@ export default function GameTopBar() {
                 ].join(" ")}
                 aria-current={isCurrent ? "true" : undefined}
               >
+                {isFirstPasser ? (
+                  <span
+                    aria-label="Passed first this round — leads next round"
+                    className="pointer-events-none absolute -top-2 -right-2 flex items-center gap-0.5 rounded-full border border-amber-400 bg-amber-500 px-1.5 py-px font-mono text-[8.5px] font-bold uppercase tracking-[.10em] text-slate-950 shadow-[0_2px_4px_rgba(0,0,0,.5)]"
+                  >
+                    1<span className="lowercase tracking-normal">st</span>
+                    <span className="ml-0.5">pass</span>
+                  </span>
+                ) : null}
                 <PlayerSwatch
                   seatIndex={p.seatIndex}
                   logoId={p.logoId}

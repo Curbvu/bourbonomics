@@ -6,7 +6,7 @@
  * Vertical structure (top → bottom):
  *
  *   [TopBar + Phase sub-bar]              ← rendered by app/play/page.tsx
- *   contextual decision panel (FeesPanel / GameOverPanel / MarketRecapPanel)
+ *   contextual decision panel (GameOverPanel only — fees + market are modals)
  *   ──────────────────────────────────────────────
  *   ┌──────────────────────────┐  ┌────────────┐
  *   │ RickhouseRow             │  │ RightRail  │
@@ -36,14 +36,13 @@ import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
 import BourbonInspectModal from "./BourbonInspectModal";
 import CardDrawOverlay from "./CardDrawOverlay";
-import FeesPanel from "./FeesPanel";
+import FeesModal from "./FeesModal";
 import BotActionAnimator from "./BotActionAnimator";
 import DistilleryDraftModal from "./DistilleryDraftModal";
 import DistilleryInspectModal from "./DistilleryInspectModal";
 import GameOverPanel from "./GameOverPanel";
 import HandInspectModal from "./HandInspectModal";
 import HandTray from "./HandTray";
-import MarketRecapPanel from "./MarketRecapPanel";
 import MarketRevealModal from "./MarketRevealModal";
 import RickhouseRow from "./RickhouseRow";
 import RightRail from "./RightRail";
@@ -62,10 +61,8 @@ export default function GameBoard() {
           between sibling blocks. */}
       <div className="flex flex-1 flex-col gap-[14px] px-[22px] pb-[14px] pt-[14px]">
         {state.phase === "gameover" ? <GameOverPanel /> : null}
-        {state.phase === "fees" ? <MarketRecapPanel /> : null}
-        {state.phase === "fees" ? <FeesPanel /> : null}
-        {/* Phase 3 (market) is fully owned by MarketRevealModal — no inline
-            decision panel needed; the modal auto-draws and forces a choice. */}
+        {/* Phase 1 (fees) and Phase 3 (market) are both modal-driven — see
+            FeesModal and MarketRevealModal below. No inline decision panels. */}
 
         {/* Main grid — rickhouses left (1fr), right rail right (380px). */}
         <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -102,6 +99,7 @@ export default function GameBoard() {
       {/* Modal-style overlays (always mounted, render conditionally). */}
       <SaleRevealModal />
       <CardDrawOverlay />
+      <FeesModal />
       <MarketRevealModal />
       <DistilleryDraftModal />
       <DistilleryInspectModal />

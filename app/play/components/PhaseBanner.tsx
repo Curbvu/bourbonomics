@@ -55,6 +55,12 @@ export default function PhaseBanner({
   const escalationOvershoot = Math.max(0, rawTier - 3);
   const dynamicLastLabel =
     escalating && rawTier > 3 ? `$${rawTier}` : "$3+";
+  // Last-free-lap warning: someone has passed but the free window is still
+  // open. The current lap is the LAST free lap — once it ends, costs jump
+  // to $1. Pulse the FREE chip and surface a banner so the player feels the
+  // pressure to use a free action.
+  const lastFreeLap =
+    state.actionPhase.freeWindowActive && state.firstPasserId !== null;
 
   // Accumulated fees inline under the Fees cell.
   const humanId = state.playerOrder.find((id) => state.players[id].kind === "human");
@@ -154,6 +160,7 @@ export default function PhaseBanner({
                 <div className="flex items-center gap-1">
                   {COST_TIERS.map((label, idx) => {
                     const isLast = idx === COST_TIERS.length - 1;
+                    const isFree = idx === 0;
                     const chipLabel = isLast ? dynamicLastLabel : label;
                     const chipState =
                       idx === paid ? "next" : idx < paid ? "spent" : "future";
@@ -164,6 +171,9 @@ export default function PhaseBanner({
                         caret={idx > 0}
                         state={chipState}
                         escalating={isLast && escalating && chipState === "next"}
+                        lastFreeWarning={
+                          isFree && lastFreeLap && chipState === "next"
+                        }
                       />
                     );
                   })}
@@ -174,6 +184,19 @@ export default function PhaseBanner({
                     >
                       <span aria-hidden>↑</span>
                       <span>+{escalationOvershoot}</span>
+                    </span>
+                  ) : null}
+                  {lastFreeLap ? (
+                    <span
+                      className="last-free-banner ml-2 inline-flex items-center gap-1 rounded-full border border-amber-400 bg-amber-500/[0.18] px-2 py-px font-mono text-[9.5px] font-bold uppercase tracking-[.12em] text-amber-200"
+                      style={{
+                        animation:
+                          "lastFreeBannerIn .4s ease-out both, lastFreePulse 1.6s ease-in-out infinite .4s",
+                      }}
+                      title="A baron has passed — once this lap ends, free actions are gone and the next lap costs $1."
+                    >
+                      <span aria-hidden>⚠</span>
+                      <span>last free lap</span>
                     </span>
                   ) : null}
                 </div>
@@ -314,6 +337,7 @@ function CostChip({
   caret,
   state,
   escalating = false,
+  lastFreeWarning = false,
 }: {
   label: string;
   caret: boolean;
@@ -324,15 +348,23 @@ function CostChip({
    * animated escalation glow so the player sees costs running away.
    */
   escalating?: boolean;
+  /**
+   * When true and state === "next", this is the FREE chip on the lap
+   * during which the free window will close. Pulse in amber so the
+   * player feels the urgency to use it before it's gone.
+   */
+  lastFreeWarning?: boolean;
 }) {
   const cls =
     state === "next" && escalating
       ? "border-rose-500 bg-rose-500 text-slate-950 shadow-[0_0_0_3px_rgba(244,63,94,.25)] animate-[escalate_1.2s_ease-in-out_infinite] motion-reduce:animate-none"
-      : state === "next"
-        ? "border-amber-500 bg-amber-500 text-slate-950 shadow-[0_0_0_3px_rgba(245,158,11,.18)] transition-shadow duration-300"
-        : state === "spent"
-          ? "border-slate-700 bg-slate-800 text-slate-500 line-through"
-          : "border-slate-700 bg-transparent text-slate-300";
+      : state === "next" && lastFreeWarning
+        ? "last-free-pulse border-amber-300 bg-amber-400 text-slate-950"
+        : state === "next"
+          ? "border-amber-500 bg-amber-500 text-slate-950 shadow-[0_0_0_3px_rgba(245,158,11,.18)] transition-shadow duration-300"
+          : state === "spent"
+            ? "border-slate-700 bg-slate-800 text-slate-500 line-through"
+            : "border-slate-700 bg-transparent text-slate-300";
   return (
     <>
       {caret && (
@@ -348,6 +380,11 @@ function CostChip({
       )}
       <span
         className={`rounded-md border px-2.5 py-[5px] font-mono text-[13px] font-bold leading-none transition-colors duration-300 ${cls}`}
+        style={
+          lastFreeWarning && state === "next"
+            ? { animation: "lastFreePulse 1.6s ease-in-out infinite" }
+            : undefined
+        }
       >
         {label}
       </span>

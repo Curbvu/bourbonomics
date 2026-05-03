@@ -59,15 +59,18 @@ export default function OpponentList() {
                 ? DISTILLERY_CARDS_BY_ID[p.chosenDistilleryId]?.name ?? null
                 : null;
               const clickable = !!distName;
+              const isFirstPasser = state.firstPasserId === id;
               return (
                 <button
                   type="button"
                   onClick={clickable ? () => inspectDistillery(id) : undefined}
                   disabled={!clickable}
                   title={
-                    clickable
-                      ? `${p.name} — ${distName} · click to view distillery`
-                      : p.name
+                    isFirstPasser
+                      ? `${p.name} — passed first this round → leads next round`
+                      : clickable
+                        ? `${p.name} — ${distName} · click to view distillery`
+                        : p.name
                   }
                   className={[
                     "flex w-full items-center gap-2.5 rounded text-left transition-colors",
@@ -82,8 +85,17 @@ export default function OpponentList() {
                     size="md"
                   />
                   <div className="flex flex-col leading-tight">
-                    <span className="font-display text-base font-semibold text-amber-100">
+                    <span className="flex items-center gap-1.5 font-display text-base font-semibold text-amber-100">
                       {p.name}
+                      {isFirstPasser ? (
+                        <span
+                          aria-label="Passed first this round — leads next round"
+                          className="rounded-full border border-amber-400 bg-amber-500 px-1.5 py-px font-mono text-[8.5px] font-bold uppercase tracking-[.10em] leading-none text-slate-950"
+                        >
+                          1<span className="lowercase tracking-normal">st</span>
+                          <span className="ml-0.5">pass</span>
+                        </span>
+                      ) : null}
                     </span>
                     {distName ? (
                       <span className="-mt-0.5 font-display text-[10.5px] italic leading-tight text-amber-200/80">
