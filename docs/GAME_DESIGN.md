@@ -85,14 +85,36 @@ records the design intent that shaped it.
   average across the 26-card common pool lands at ~$15**, deliberately
   fat for early-game tragedy-of-the-commons economics: early sales
   bankroll more production → rickhouses fill → rent climbs → late entry
-  is brutal. Variance above the floor on richer tiers (uncommon → rare
-  → epic → legendary) is unconstrained; their wider grids and bigger
-  ceilings carry the long-tail upside. Blank cells (`0`) are
-  intentional and skip the check (some sparse grids by design pay
-  nothing in certain age/demand combinations). The catalog generator
-  enforces the floor on every build via `PAYOUT_FLOOR = 12` in
-  `scripts/build-catalogs.ts` — future YAML edits that drop a printed
-  cell below $12 fail the build with a clear error message.
+  is brutal. Blank cells (`0`) are intentional and skip the check
+  (some sparse grids by design pay nothing in certain age/demand
+  combinations). The catalog generator enforces the floor on every
+  build via `PAYOUT_FLOOR = 12` in `scripts/build-catalogs.ts` —
+  future YAML edits that drop a printed cell below $12 fail the build
+  with a clear error message.
+- **Non-common bills follow a formula.** Every uncommon / rare / epic
+  / legendary bill's grid is built per row from the design owner's
+  formula:
+  - **Row floor** (lowest demand cell at this age) = `max($12, age × 2)`.
+    A 4-year row floors at $12; a 6-year at $12; an 8-year at $16; a
+    10-year at $20; a 15-year at $30.
+  - **Row average target** = `max($15, $15 + (age − 2) × $3 + (ingredients − 3) × $3)`.
+    A 4-year row with the baseline 3-card mash averages $21; an 8-year
+    row averages $33; a 10-year averages $39; a 15-year averages $54.
+    Adding mandatory recipe grain (e.g. a `rye ≥ 2` bill is a 4-card
+    mash) bumps the row average by $3 per extra card.
+  - **3-cell rows** distribute as roughly `[F, 2F, 3.75F]` and then
+    renormalise so the row's arithmetic mean exactly hits the target.
+    Reference: 8-year, 4-ingredient → `[16, 32, 60]` avg $36.
+  - **2-cell rows** = `[F, 2M − F]` so the arithmetic mean = M.
+  - **1-cell rows** = `max(F, M)`.
+  - Older age bands within the same bill compound the bonus — row-2 of
+    a 3×3 epic with `ageBands: [4, 7, 10]` pays $20 / $34 / $63 vs
+    row-0's $12 / $18 / $33. That's the "with more age, increase more"
+    behaviour: each year of additional aging widens the spread between
+    low and high demand on the same card.
+  - Implemented as a one-shot rebuild via `scripts/formula-rebalance-bourbons.ts`
+    (deleted after running). Commons are exempt — they keep their
+    six-pattern $15-average distribution.
 
 ## Mash construction
 
@@ -226,3 +248,9 @@ file, in chronological order. Useful when re-evaluating tradeoffs.
     for tragedy-of-the-commons early-game economics. Floor-respecting
     pattern set across the 26 commons; richer tiers had any sub-$12
     printed cells lifted to $12.
+23. **Non-common bills rebuilt to a formula** — row floor `max($12,
+    age × 2)`, row average `$15 + (age − 2) × $3 + (extra
+    ingredients) × $3`, 3-cell rows shaped roughly `[F, 2F, 3.75F]`
+    and renormalised to the target average. Older age bands within
+    the same card compound the bonus, so a 15-year legendary row pays
+    $30 / $46 / $86 while its 8-year row pays $16 / $29 / $54.

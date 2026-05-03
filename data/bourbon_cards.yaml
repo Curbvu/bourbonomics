@@ -99,8 +99,8 @@ cards:
     name: "Charred Oak Exchange"
     rarity: "Standard"
     grid:
-      - [ 12, 12 ]
-      - [ 12, 20 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -112,8 +112,8 @@ cards:
     name: "Riverbend Rye Signal"
     rarity: "Standard"
     grid:
-      - [ 12, 13 ]
-      - [ 13, 21 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -125,8 +125,8 @@ cards:
     name: "Stave & Story"
     rarity: "Standard"
     grid:
-      - [ 12, 12 ]
       - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -138,9 +138,9 @@ cards:
     name: "Cooper's Quorum"
     rarity: "Standard"
     grid:
-      - [ 12, 12, 16 ]
-      - [ 12, 16, 23 ]
-      - [ 16, 25, 33 ]
+      - [ 12, 13, 22 ]
+      - [ 12, 21, 39 ]
+      - [ 16, 29, 54 ]
     awards:
       silver: Sell at demand **≥5** **and** mash satisfies the bill recipe.
     ageBands: [ 2, 5, 8 ]
@@ -159,9 +159,9 @@ cards:
     name: "Mash Bill No. 7"
     rarity: "Standard"
     grid:
-      - [ 18, 21, 25 ]
-      - [ 21, 28, 34 ]
-      - [ 26, 34, 43 ]
+      - [ 12, 18, 33 ]
+      - [ 14, 26, 50 ]
+      - [ 20, 34, 63 ]
     awards:
       silver: Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies
         the recipe.
@@ -182,9 +182,9 @@ cards:
     name: "High Rickhouse Select"
     rarity: "Standard"
     grid:
-      - [ 25, 41, 58 ]
-      - [ 33, 58, 81 ]
-      - [ 49, 81, 114 ]
+      - [ 16, 29, 54 ]
+      - [ 20, 34, 63 ]
+      - [ 30, 46, 86 ]
     awards:
       silver: Barrel **≥10 years** **and** demand **≥7** at sale **and** mash
         satisfies the recipe.
@@ -242,8 +242,8 @@ cards:
     name: "Rye Ladder 95"
     rarity: "Standard"
     grid:
-      - [ 12, 12 ]
-      - [ 12, 20 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -254,8 +254,8 @@ cards:
     name: "Wheat Whisper"
     rarity: "Standard"
     grid:
-      - [ 12, 13 ]
-      - [ 13, 21 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -267,8 +267,8 @@ cards:
     name: "Barley Bastion"
     rarity: "Standard"
     grid:
-      - [ 12, 12 ]
       - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -280,9 +280,9 @@ cards:
     name: "Two Charring Points"
     rarity: "Standard"
     grid:
-      - [ 12, 12, 16 ]
-      - [ 12, 16, 23 ]
-      - [ 16, 25, 33 ]
+      - [ 12, 13, 22 ]
+      - [ 12, 21, 39 ]
+      - [ 16, 29, 54 ]
     awards:
       silver: Sell at demand **≥5** **and** mash satisfies the bill recipe.
     ageBands: [ 2, 5, 8 ]
@@ -297,9 +297,9 @@ cards:
     name: "Angel's Trace"
     rarity: "Standard"
     grid:
-      - [ 12, 13, 18 ]
-      - [ 13, 18, 25 ]
-      - [ 18, 26, 34 ]
+      - [ 12, 13, 22 ]
+      - [ 12, 21, 39 ]
+      - [ 16, 29, 54 ]
     awards:
       silver: Sell at demand **≥5** **and** mash satisfies the bill recipe.
     ageBands: [ 2, 5, 8 ]
@@ -315,9 +315,9 @@ cards:
     name: "Bonded & Bold"
     rarity: "Standard"
     grid:
-      - [ 15, 18, 21 ]
-      - [ 18, 25, 31 ]
-      - [ 23, 31, 39 ]
+      - [ 12, 18, 33 ]
+      - [ 14, 26, 50 ]
+      - [ 20, 34, 63 ]
     awards:
       silver: Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies
         the recipe.
@@ -385,8 +385,8 @@ cards:
     name: "Patent Still 04"
     rarity: "Standard"
     grid:
-      - [ 12, 13 ]
-      - [ 13, 21 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -398,8 +398,8 @@ cards:
     name: "Kentucky Crosscut"
     rarity: "Standard"
     grid:
-      - [ 12, 12 ]
       - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -411,8 +411,8 @@ cards:
     name: "Oak Algebra"
     rarity: "Standard"
     grid:
-      - [ 12, 12 ]
-      - [ 12, 20 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -423,9 +423,9 @@ cards:
     name: "Bottled Lightning 86"
     rarity: "Standard"
     grid:
-      - [ 12, 13, 18 ]
-      - [ 13, 18, 25 ]
-      - [ 18, 26, 34 ]
+      - [ 12, 13, 22 ]
+      - [ 12, 21, 39 ]
+      - [ 16, 29, 54 ]
     awards:
       silver: Sell at demand **≥5** **and** mash satisfies the bill recipe.
     ageBands: [ 2, 5, 8 ]
@@ -440,9 +440,9 @@ cards:
     name: "Copper Trace"
     rarity: "Standard"
     grid:
-      - [ 15, 18, 21 ]
-      - [ 18, 25, 31 ]
-      - [ 23, 31, 39 ]
+      - [ 12, 18, 33 ]
+      - [ 14, 26, 50 ]
+      - [ 20, 34, 63 ]
     awards:
       silver: Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies
         the recipe.
@@ -511,8 +511,8 @@ cards:
     name: "Steam Furnace Five"
     rarity: "Standard"
     grid:
-      - [ 12, 13 ]
-      - [ 13, 21 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -523,8 +523,8 @@ cards:
     name: "Grist Galaxy"
     rarity: "Standard"
     grid:
-      - [ 12, 12 ]
       - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -536,8 +536,8 @@ cards:
     name: "Turf & Tarnish"
     rarity: "Standard"
     grid:
-      - [ 12, 12 ]
-      - [ 12, 20 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -549,9 +549,9 @@ cards:
     name: "Copper Crossings 107"
     rarity: "Rare"
     grid:
-      - [ 12, 13, 18 ]
-      - [ 13, 18, 25 ]
-      - [ 18, 26, 34 ]
+      - [ 12, 13, 22 ]
+      - [ 12, 21, 39 ]
+      - [ 16, 29, 54 ]
     awards:
       silver: Sell at demand **≥5** **and** mash satisfies the bill recipe.
     ageBands: [ 2, 5, 8 ]
@@ -567,9 +567,9 @@ cards:
     name: "Seven Stars Odd Lot"
     rarity: "Rare"
     grid:
-      - [ 15, 18, 21 ]
-      - [ 18, 25, 31 ]
-      - [ 23, 31, 39 ]
+      - [ 12, 18, 33 ]
+      - [ 14, 26, 50 ]
+      - [ 20, 34, 63 ]
     awards:
       silver: Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies
         the recipe.
@@ -590,9 +590,9 @@ cards:
     name: "State Line BiB"
     rarity: "Rare"
     grid:
-      - [ 28, 44, 60 ]
-      - [ 36, 60, 85 ]
-      - [ 53, 85, 118 ]
+      - [ 16, 29, 54 ]
+      - [ 20, 34, 63 ]
+      - [ 30, 46, 86 ]
     awards:
       silver: Barrel **≥10 years** **and** demand **≥7** at sale **and** mash
         satisfies the recipe.
@@ -651,8 +651,8 @@ cards:
     name: "Crimson Corn Covenant"
     rarity: "Rare"
     grid:
-      - [ 12, 13 ]
-      - [ 13, 21 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -664,8 +664,8 @@ cards:
     name: "Platinum Rick Proof"
     rarity: "Rare"
     grid:
-      - [ 12, 12 ]
       - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -677,8 +677,8 @@ cards:
     name: "Infinite Stave"
     rarity: "Rare"
     grid:
-      - [ 12, 12 ]
-      - [ 12, 20 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -690,9 +690,9 @@ cards:
     name: "Crown Compass"
     rarity: "Rare"
     grid:
-      - [ 12, 13, 18 ]
-      - [ 13, 18, 25 ]
-      - [ 18, 26, 34 ]
+      - [ 12, 13, 22 ]
+      - [ 12, 21, 39 ]
+      - [ 16, 29, 54 ]
     awards:
       silver: Sell at demand **≥5** **and** mash satisfies the bill recipe.
     ageBands: [ 2, 5, 8 ]
@@ -707,9 +707,9 @@ cards:
     name: "Ledger Luxe"
     rarity: "Rare"
     grid:
-      - [ 12, 12, 15 ]
-      - [ 12, 15, 21 ]
-      - [ 15, 23, 31 ]
+      - [ 12, 13, 22 ]
+      - [ 12, 21, 39 ]
+      - [ 16, 29, 54 ]
     awards:
       silver: Sell at demand **≥5** **and** mash satisfies the bill recipe.
     ageBands: [ 2, 5, 8 ]
@@ -725,9 +725,9 @@ cards:
     name: "Wild Rickhouse"
     rarity: "Rare"
     grid:
-      - [ 16, 20, 23 ]
-      - [ 20, 26, 33 ]
-      - [ 25, 33, 41 ]
+      - [ 12, 18, 33 ]
+      - [ 14, 26, 50 ]
+      - [ 20, 34, 63 ]
     awards:
       silver: Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies
         the recipe.
@@ -795,8 +795,8 @@ cards:
     name: "Backroad Batch"
     rarity: "Standard"
     grid:
-      - [ 12, 12 ]
       - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -807,8 +807,8 @@ cards:
     name: "Distiller's Dozen"
     rarity: "Standard"
     grid:
-      - [ 12, 12 ]
-      - [ 12, 20 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -820,9 +820,9 @@ cards:
     name: "Owensboro Drift"
     rarity: "Standard"
     grid:
-      - [ 12, 13, 18 ]
-      - [ 13, 18, 25 ]
-      - [ 18, 26, 34 ]
+      - [ 12, 13, 22 ]
+      - [ 12, 21, 39 ]
+      - [ 16, 29, 54 ]
     awards:
       silver: Sell at demand **≥5** **and** mash satisfies the bill recipe.
     ageBands: [ 2, 5, 8 ]
@@ -838,9 +838,9 @@ cards:
     name: "Frankfort Flare"
     rarity: "Standard"
     grid:
-      - [ 12, 12, 15 ]
-      - [ 12, 15, 21 ]
-      - [ 15, 23, 31 ]
+      - [ 12, 13, 22 ]
+      - [ 12, 21, 39 ]
+      - [ 16, 29, 54 ]
     awards:
       silver: Sell at demand **≥5** **and** mash satisfies the bill recipe.
     recipe:
@@ -856,9 +856,9 @@ cards:
     name: "Stave Society 88"
     rarity: "Standard"
     grid:
-      - [ 16, 20, 23 ]
-      - [ 20, 26, 33 ]
-      - [ 25, 33, 41 ]
+      - [ 12, 18, 33 ]
+      - [ 14, 26, 50 ]
+      - [ 20, 34, 63 ]
     awards:
       silver: Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies
         the recipe.
@@ -926,8 +926,8 @@ cards:
     name: "Phoenix Cooperage"
     rarity: "Rare"
     grid:
-      - [ 12, 12 ]
       - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -939,8 +939,8 @@ cards:
     name: "Whisper Barrel"
     rarity: "Rare"
     grid:
-      - [ 12, 12 ]
-      - [ 12, 20 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -952,8 +952,8 @@ cards:
     name: "Midnight Mash Bill"
     rarity: "Rare"
     grid:
-      - [ 12, 13 ]
-      - [ 13, 21 ]
+      - [ 12, 18 ]
+      - [ 12, 42 ]
     awards: null
     ageBands: [ 2, 6 ]
     demandBands: [ 0, 7 ]
@@ -965,9 +965,9 @@ cards:
     name: "Triple Crown Reserve"
     rarity: "Rare"
     grid:
-      - [ 12, 12, 15 ]
-      - [ 12, 15, 21 ]
-      - [ 15, 23, 31 ]
+      - [ 12, 13, 22 ]
+      - [ 12, 21, 39 ]
+      - [ 16, 29, 54 ]
     awards:
       silver: Sell at demand **≥5** **and** mash satisfies the bill recipe.
     ageBands: [ 2, 5, 8 ]
@@ -983,9 +983,9 @@ cards:
     name: "Black River Belle"
     rarity: "Rare"
     grid:
-      - [ 16, 20, 23 ]
-      - [ 20, 26, 33 ]
-      - [ 25, 33, 41 ]
+      - [ 12, 18, 33 ]
+      - [ 14, 26, 50 ]
+      - [ 20, 34, 63 ]
     awards:
       silver: Barrel **≥7 years** **and** sell at demand **≥6** **and** mash satisfies
         the recipe.

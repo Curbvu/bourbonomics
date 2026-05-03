@@ -399,24 +399,29 @@ No single bill should dominate. A premium bill with a $32+ ceiling has hard-to-r
 
 The two cells average $15 — squarely on the common-tier target. Other commons in the pool sit at `[12, 18]`, `[14, 16]`, `[12, 16]`, `[13, 18]`, `[14, 18]`, etc., so each common has its own personality but the deck-wide average lands at $15 by design.
 
-**Charred Oak Exchange** — uncommon two-by-two, modest floor with a high-demand spike:
+**Mash Bill No. 7** — epic three-by-three; the formula at full reach:
 
-`ageBands: [2, 6]`, `demandBands: [0, 7]`
+`ageBands: [4, 7, 10]`, `demandBands: [4, 6, 8]`
 
-| Age \\ Demand | 0–6 | 7+ |
-|---|:-:|:-:|
-| 2–5 | $12 | $12 |
-| 6+  | $12 | $20 |
-
-**High Tide 12** (illustrative epic) — demand specialist with a blank low corner:
-
-`ageBands: [3, 6, 9]`, `demandBands: [7, 9, 11]`
-
-| Age \\ Demand | 7–8 | 9–10 | 11+ |
+| Age \\ Demand | 4–5 | 6–7 | 8+ |
 |---|:-:|:-:|:-:|
-| 3–5 | —   | $14 | $20 |
-| 6–8 | $14 | $22 | $32 |
-| 9+  | $18 | $32 | $44 |
+| 4–6  | $12 | $18 | $33 |
+| 7–9  | $14 | $26 | $50 |
+| 10+  | $20 | $34 | $63 |
+
+Each row's low cell scales with age (`max($12, age × 2)` → $12 / $14 / $20) and each row's average climbs $3 per year (rough). Reading the market matters here — a 10-year barrel sold into the top demand band pays **3× what it pays at low demand**.
+
+**High Rickhouse Select** — legendary; older age bands compound the bonus:
+
+`ageBands: [8, 10, 15]`, `demandBands: [4, 7, 10]`
+
+| Age \\ Demand | 4–6 | 7–9 | 10+ |
+|---|:-:|:-:|:-:|
+| 8–9   | $16 | $29 | $54 |
+| 10–14 | $20 | $34 | $63 |
+| 15+   | $30 | $46 | $86 |
+
+A 15-year barrel sold at peak demand pays $86 — vs. an 8-year sale of the same bill at low demand for $16. That's the design intent: every additional year you can afford to leave a barrel in the rickhouse widens the spread between cheap and premium sale outcomes.
 
 A blank cell ("—") means **this mash bill pays nothing** in that age-and-demand combination. Sparseness is intentional: not every recipe rewards aging or scaling. Reading a mash bill's grid — including its own thresholds — **before you attach it to a barrel** is part of the game; once committed, you can't change your mind.
 
