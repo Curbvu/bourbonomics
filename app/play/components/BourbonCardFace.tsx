@@ -172,13 +172,21 @@ export default function BourbonCardFace({
       {/* Section divider — Market Price Guide */}
       <SectionDivider label="Market Price Guide" size={size} />
 
-      {/* Price grid */}
+      {/* Price grid — top axis is market demand (0–12), left axis is
+          barrel age in years. Faint corner-cell labels remind the
+          player which is which without crowding the actual band
+          headers. */}
       <div className="flex justify-center">
         <table className="border-separate border-spacing-1 text-center">
           <thead>
             <tr>
-              <th scope="col" className="sr-only">
-                Age
+              <th
+                scope="col"
+                className="pb-1 pr-2 text-right font-mono uppercase tracking-[.16em] text-slate-500"
+                style={{ fontSize: size === "lg" ? 9 : 8 }}
+                title="Top axis = market demand · left axis = barrel age in years"
+              >
+                age \ demand
               </th>
               {demandLabels.map((label, c) => {
                 const live = liveDemandBand === c;
@@ -213,8 +221,9 @@ export default function BourbonCardFace({
                     tok.body,
                     highlight?.ageBand === r ? "text-amber-200" : "text-slate-400",
                   ].join(" ")}
+                  title={`Age ${ageLabels[r]} years`}
                 >
-                  {ageLabels[r]}
+                  {ageLabels[r]}<span className="ml-0.5 text-slate-600 normal-case">y</span>
                 </th>
                 {row.map((price, c) => {
                   const isHit =

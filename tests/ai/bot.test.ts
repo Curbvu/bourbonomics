@@ -21,6 +21,62 @@ describe("bot driver", () => {
     expect(["fees", "action", "market", "gameover"]).toContain(s.phase);
   });
 
+  it("an all-bot game produces actual barrels (the make loop fires)", () => {
+    // Regression: previously bots scored MAKE around 14 — comparable to
+    // PASS — so under the +30% price economy and demand 0 they would
+    // walk away from the make loop entirely. Hard bots should land at
+    // least one barrel each across the game; if the scoring math is off
+    // they'll sit at 0 forever.
+    const s0 = createInitialState({
+      id: "g",
+      seed: 9091,
+      seats: [
+        { name: "Alpha", kind: "bot", botDifficulty: "hard" },
+        { name: "Beta", kind: "bot", botDifficulty: "hard" },
+      ],
+    });
+    const s = driveBots(s0);
+    let barrels = 0;
+    for (const h of s.rickhouses) barrels += h.barrels.length;
+    expect(barrels).toBeGreaterThan(0);
+  });
+
+  it("bots don't drain themselves below projected rent on paid actions", () => {
+    // Regression: the cash-conservation guard. After a multi-round game
+    // a bot should not be sitting at $0 with multiple barrels worth of
+    // rent owed — that's the "burn cash on actions" failure mode.
+    const s0 = createInitialState({
+      id: "g",
+      seed: 4242,
+      seats: [
+        { name: "Alpha", kind: "bot", botDifficulty: "hard" },
+        { name: "Beta", kind: "bot", botDifficulty: "hard" },
+      ],
+    });
+    const s = driveBots(s0);
+    if (s.phase === "gameover") return; // game ended; no rent to compare against
+    // For each bot still in play with barrels, cash should leave at least
+    // some headroom against current rent. We allow a small shortfall (<= $4)
+    // because a single bad round can happen, but not catastrophic.
+    for (const id of s.playerOrder) {
+      const p = s.players[id];
+      if (p.eliminated) continue;
+      const myBarrels = s.rickhouses.reduce(
+        (n, h) => n + h.barrels.filter((b) => b.ownerId === id).length,
+        0,
+      );
+      if (myBarrels === 0) continue;
+      // Allow loan-siphon mode (cash 0 with debt is valid), and a small
+      // shortfall for normal play.
+      if (p.loanSiphonActive) continue;
+      const rentPerBarrel = s.rickhouses
+        .filter((h) => h.barrels.some((b) => b.ownerId === id))
+        .reduce((sum, h) => sum + h.barrels.length, 0);
+      // Bot shouldn't be > $4 short on rent.
+      expect(p.cash).toBeGreaterThanOrEqual(rentPerBarrel - 4);
+    }
+  });
+
   it("is deterministic — same seed yields the same end state", () => {
     const mk = () =>
       createInitialState({

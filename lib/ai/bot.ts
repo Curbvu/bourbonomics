@@ -189,50 +189,77 @@ export function pickActionPhaseMove(
     });
   }
 
-  // Make bourbon: if legal mash + open slot, a mash bill in hand, and we can pay.
+  // Make bourbon: pick a (bill, mash) PAIR that satisfies the bill's
+  // recipe, not just any 3-card mash with any bill. Previously the bot
+  // would happily score the highest-grid bill in hand and then build a
+  // generic 1+1+1 mash for it — but ~19 of 65 bills carry recipes
+  // ("rye ≥ 2", "no rye", "wheat ≥ 1", etc.), so the engine rejected
+  // every MAKE attempt with `make_invalid`. Hard bots with full hands
+  // would log dozens of failed makes and end the round at 0 barrels.
+  const openRickhouse = firstOpenRickhouse(state);
   if (
-    hasLegalMash(player) &&
+    openRickhouse &&
     player.bourbonHand.length > 0 &&
     player.cash >= cost
   ) {
-    const rickhouseId = firstOpenRickhouse(state);
-    if (rickhouseId) {
-      const mash = pickMashFromHand(player);
-      if (mash.length >= 3) {
-        const mashBillId = pickBestMashBill(state, player);
-        if (mashBillId) {
-          // Value of aging ≈ expected future sale minus expected fees.
-          const score = 14 - cost - expectedFeesNextRound(state, playerId) * 0.3;
-          scored.push({
-            action: {
-              t: "MAKE_BOURBON",
-              playerId,
-              rickhouseId,
-              resourceInstanceIds: mash,
-              mashBillId,
-            },
-            score,
-            reason: `make bourbon at ${rickhouseId} with ${mashBillId}`,
-          });
-        }
-      }
+    const pair = pickBestBillAndMash(state, player);
+    if (pair) {
+      const score = 28 - cost - expectedFeesNextRound(state, playerId) * 0.3;
+      scored.push({
+        action: {
+          t: "MAKE_BOURBON",
+          playerId,
+          rickhouseId: openRickhouse,
+          resourceInstanceIds: pair.mashInstanceIds,
+          mashBillId: pair.billId,
+        },
+        score,
+        reason: `make ${pair.billId} (${pair.mashInstanceIds.length}-card mash)`,
+      });
     }
   }
 
-  // Draw resources: valuable if hand is missing a mash ingredient; dwindles as hand grows.
+  // Draw resources: valuable if hand is missing a mash ingredient; dwindles
+  // as hand grows. The previous scoring went negative under paid laps
+  // (`3 - cost`) so a bot one resource short of a barrel would just pass
+  // instead of paying $1 to finish the mash. Now: when the bot has a bill
+  // + an open rickhouse + a missing piece, drawing that piece is "almost
+  // a make in waiting" and scores high enough to beat PASS even at $3+.
   if (player.cash >= cost) {
     const handSizeNow = player.resourceHand.length;
-    // Past 5 cards, drawing has negative value (overloaded hand).
-    const handPenalty = Math.max(0, handSizeNow - 3) * 2;
+    const handPenalty = Math.max(0, handSizeNow - 5) * 2;
+    const wantsMake = !!openRickhouse && player.bourbonHand.length > 0;
+    const hasCask = player.resourceHand.some((r) => r.resource === "cask");
+    const hasCorn = player.resourceHand.some((r) => r.resource === "corn");
+    const hasGrain = player.resourceHand.some(
+      (r) => r.resource === "rye" || r.resource === "wheat" || r.resource === "barley",
+    );
     for (const pile of ["cask", "corn", "barley", "rye", "wheat"] as const) {
       const missing = !player.resourceHand.some((r) => r.resource === pile);
-      // If the bot already has a complete mash, don't chase more resources.
-      const base = hasLegalMash(player) ? 0.5 : missing ? 3 : 1;
-      const score = base - cost - handPenalty;
+      // What does THIS draw unblock toward a make?
+      const completesMash =
+        wantsMake &&
+        ((pile === "cask" && !hasCask && hasCorn && hasGrain) ||
+          (pile === "corn" && hasCask && !hasCorn && hasGrain) ||
+          ((pile === "rye" || pile === "wheat" || pile === "barley") &&
+            hasCask &&
+            hasCorn &&
+            !hasGrain));
+      const fillsMissingPiece =
+        wantsMake &&
+        ((pile === "cask" && !hasCask) ||
+          (pile === "corn" && !hasCorn) ||
+          ((pile === "rye" || pile === "wheat" || pile === "barley") && !hasGrain));
+      let base: number;
+      if (completesMash) base = 14; // basically a primed make
+      else if (fillsMissingPiece) base = 8; // makes the make possible
+      else if (hasLegalMash(player)) base = 0.5; // already legal — extra is fluff
+      else base = missing ? 3 : 1;
+      const score = base - cost * 0.6 - handPenalty;
       scored.push({
         action: { t: "DRAW_RESOURCE", playerId, pile },
         score,
-        reason: `draw ${pile}${missing ? " (missing)" : ""}`,
+        reason: `draw ${pile}${completesMash ? " (completes)" : fillsMissingPiece ? " (needed)" : missing ? " (missing)" : ""}`,
       });
     }
   }
@@ -310,14 +337,38 @@ export function pickActionPhaseMove(
     }
   }
 
-  // Pass: gets stronger once the bot has nothing productive left to do.
+  // Pass: gets stronger when (a) nothing productive left, OR (b) the bot
+  // is running out of cash relative to next-round rent. Without (b) the
+  // bot would happily spend its last $5 on a $3 paid draw and then default
+  // on rent next round — exactly the "burn cash on actions" failure mode
+  // we saw. Now: once cash drops to ≤ projected rent + buffer, PASS is
+  // the dominant move regardless of what else is on the board.
   const sellableBarrels = ownedBarrels(state, playerId).filter((b) => b.barrel.age >= 2).length;
   const makeReady = hasLegalMash(player) && firstOpenRickhouse(state) !== null;
   const nothingProductive = sellableBarrels === 0 && !makeReady && player.resourceHand.length >= 4;
+  const projectedRent = expectedFeesNextRound(state, playerId);
+  const cashAfterAction = player.cash - cost;
+  const cashTight = cashAfterAction < projectedRent + 2; // need rent + small buffer
+  const cashCritical = cashAfterAction < projectedRent; // would default on rent
+  let passScore: number;
+  let passReason: string;
+  if (cashCritical) {
+    passScore = 30; // fold immediately — cannot afford rent if we keep spending
+    passReason = `pass — cash ${player.cash} below rent ${projectedRent} + cost ${cost}`;
+  } else if (cashTight) {
+    passScore = 12;
+    passReason = `pass — cash tight vs rent ${projectedRent}`;
+  } else if (nothingProductive) {
+    passScore = 8;
+    passReason = "pass — nothing productive";
+  } else {
+    passScore = 1 - cost * 0.2;
+    passReason = "pass";
+  }
   scored.push({
     action: { t: "PASS_ACTION", playerId },
-    score: nothingProductive ? 8 : 1 - cost * 0.2,
-    reason: "pass",
+    score: passScore,
+    reason: passReason,
   });
 
   const best = pickBest(scored, state, player.botDifficulty);
@@ -325,47 +376,155 @@ export function pickActionPhaseMove(
 }
 
 /**
- * Choose which mash bill to commit to the new barrel. Score each bill
- * against ITS OWN middle age band at the current demand — that's the
- * cell the bill was designed to land in for a typical hold. The old
- * heuristic always scored at age 4, which made every premium bill
- * (ageBands like [6, 8, 10]) look worthless and the bot would never
- * pick one. Falls back to the first card in hand for unknown ids.
+ * Pick the best (bill, mash-instance-ids) pair the player can actually
+ * legally play right now. Checks every bill in hand, builds the
+ * cheapest legal mash that satisfies the bill's recipe + universal
+ * rules, and scores by the bill's mid-age sale price at current demand.
+ *
+ * Returns null if no bill can be satisfied with the resources in hand.
  */
-function pickBestMashBill(state: GameState, player: Player): string | null {
-  if (player.bourbonHand.length === 0) return null;
-  let bestId = player.bourbonHand[0];
-  let bestScore = -Infinity;
+function pickBestBillAndMash(
+  state: GameState,
+  player: Player,
+): { billId: string; mashInstanceIds: string[] } | null {
+  let best: {
+    billId: string;
+    mashInstanceIds: string[];
+    score: number;
+  } | null = null;
   for (const id of player.bourbonHand) {
     const card = BOURBON_CARDS_BY_ID[id];
     if (!card) continue;
-    // Sample the bill's middle age band — what an "average" hold looks
-    // like on this card. Add a small tiebreak from the bill's grid max
-    // so high-ceiling bills win between two cards that score equally
-    // at the typical cell.
-    const middleAge = card.ageBands[1];
-    const score = lookupSalePrice(card, middleAge, state.demand).price;
+    const mash = tryBuildMashForBill(player, card);
+    if (!mash) continue;
+    const middleAge = card.ageBands[Math.min(1, card.ageBands.length - 1)];
     const ceiling = Math.max(...card.grid.flatMap((row) => row));
-    const adjusted = score + ceiling * 0.05;
-    if (adjusted > bestScore) {
-      bestScore = adjusted;
-      bestId = id;
+    const score =
+      lookupSalePrice(card, middleAge, state.demand).price + ceiling * 0.05;
+    if (!best || score > best.score) {
+      best = { billId: id, mashInstanceIds: mash, score };
     }
   }
-  return bestId;
+  return best ? { billId: best.billId, mashInstanceIds: best.mashInstanceIds } : null;
 }
 
-function pickMashFromHand(player: Player): string[] {
+/**
+ * Build the smallest legal mash for a specific bill from the player's
+ * resource hand. Honors per-grain mins/maxes (max=0 = forbidden), the
+ * universal "1 cask + ≥1 corn + ≥1 small grain + ≤MAX_MASH_CARDS" rule,
+ * and the optional `recipe.grain` total-grain constraint.
+ *
+ * Returns null when the hand can't satisfy the bill — the bot will
+ * fall back to drawing more resources or picking a different bill.
+ */
+function tryBuildMashForBill(
+  player: Player,
+  card: import("@/lib/catalogs/types").BourbonCardDef,
+): string[] | null {
   const cask = player.resourceHand.find((r) => r.resource === "cask");
-  const corn = player.resourceHand.find((r) => r.resource === "corn");
-  const grain = player.resourceHand.find(
-    (r) => r.resource === "rye" || r.resource === "wheat" || r.resource === "barley",
-  );
-  const picks: string[] = [];
-  if (cask) picks.push(cask.instanceId);
-  if (corn) picks.push(corn.instanceId);
-  if (grain) picks.push(grain.instanceId);
-  return picks;
+  if (!cask) return null;
+
+  type Grain = "corn" | "barley" | "rye" | "wheat";
+  const recipe = card.recipe;
+  const minOf = (k: Grain): number => recipe?.[k]?.min ?? 0;
+  const maxOf = (k: Grain): number | null => {
+    const m = recipe?.[k]?.max;
+    return typeof m === "number" ? m : null;
+  };
+  const grainMin = recipe?.grain?.min ?? 0; // total grain (corn + small grains)
+  const grainMax = typeof recipe?.grain?.max === "number" ? recipe.grain.max : null;
+
+  // Per-grain targets. Universal rules require ≥1 corn and ≥1 small
+  // grain regardless of recipe.
+  const target: Record<Grain, number> = {
+    corn: Math.max(1, minOf("corn")),
+    barley: minOf("barley"),
+    rye: minOf("rye"),
+    wheat: minOf("wheat"),
+  };
+
+  // If the recipe didn't already require a small grain, add one we have
+  // (and aren't forbidden by max=0).
+  if (target.barley + target.rye + target.wheat < 1) {
+    for (const g of ["rye", "wheat", "barley"] as const) {
+      if (maxOf(g) === 0) continue;
+      const have = player.resourceHand.some(
+        (r) => r.resource === g && r.instanceId !== cask.instanceId,
+      );
+      if (have) {
+        target[g] = 1;
+        break;
+      }
+    }
+  }
+
+  // Hard universal rule: at least one small grain must end up in the
+  // mash. If we still have 0 small-grain target after the bump above —
+  // either because every small grain is forbidden by recipe or because
+  // the hand simply contains none — abort and let the bot draw more.
+  if (target.barley + target.rye + target.wheat < 1) return null;
+
+  // Refuse forbidden grains hard.
+  for (const g of ["corn", "barley", "rye", "wheat"] as const) {
+    if (maxOf(g) === 0 && target[g] > 0) return null; // recipe contradicts itself
+  }
+
+  // Bump corn (or available small grain) to satisfy a `grain` total min.
+  let totalGrain =
+    target.corn + target.barley + target.rye + target.wheat;
+  while (totalGrain < grainMin) {
+    // Greedy: add to the grain with the most slack vs. its max + most
+    // copies in hand. Try corn first since it's almost always available.
+    let added = false;
+    for (const g of ["corn", "rye", "wheat", "barley"] as const) {
+      const cap = maxOf(g);
+      if (cap !== null && target[g] >= cap) continue;
+      const inHand = player.resourceHand.filter(
+        (r) => r.resource === g && r.instanceId !== cask.instanceId,
+      ).length;
+      if (inHand <= target[g]) continue;
+      target[g] += 1;
+      totalGrain += 1;
+      added = true;
+      break;
+    }
+    if (!added) return null;
+  }
+
+  // Verify hand has enough of each.
+  const handByType: Record<Grain, number> = {
+    corn: 0,
+    barley: 0,
+    rye: 0,
+    wheat: 0,
+  };
+  for (const r of player.resourceHand) {
+    if (r.instanceId === cask.instanceId) continue;
+    if (r.resource === "cask") continue;
+    handByType[r.resource as Grain] += 1;
+  }
+  for (const g of ["corn", "barley", "rye", "wheat"] as const) {
+    if (handByType[g] < target[g]) return null;
+  }
+
+  // Universal cap: 1 cask + grain total ≤ MAX_MASH_CARDS (= 9 currently).
+  const total = 1 + target.corn + target.barley + target.rye + target.wheat;
+  if (total > 9) return null;
+  if (grainMax !== null && totalGrain > grainMax) return null;
+
+  // Allocate actual instances from hand.
+  const used: string[] = [cask.instanceId];
+  const remaining: Record<Grain, number> = { ...target };
+  for (const r of player.resourceHand) {
+    if (r.instanceId === cask.instanceId) continue;
+    if (r.resource === "cask") continue;
+    const g = r.resource as Grain;
+    if (remaining[g] > 0) {
+      used.push(r.instanceId);
+      remaining[g] -= 1;
+    }
+  }
+  return used;
 }
 
 // ---------- Fees ----------
