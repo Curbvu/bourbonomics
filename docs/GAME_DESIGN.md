@@ -26,12 +26,14 @@ records the design intent that shaped it.
 
 ## Setup & opening
 
-> **Status:** spec-only as of this writing. The constants in
-> `lib/engine/state.ts` still reflect the previous setup-round
-> experiment (`DEFAULT_STARTING_CASH = 25`, `STARTING_BOURBON_HAND = 0`,
-> `STARTING_FREE_ACTIONS = 8`). Engine work to land Distilleries +
-> roll those constants forward is pending and tracked in the
-> Conversation history below (#20).
+> **Status:** Implemented. `DEFAULT_STARTING_CASH = 40`,
+> `STARTING_BOURBON_HAND = 4`, `STARTING_DEMAND = 0`. Distillery draft
+> phase + per-player perks live at the top of `reducer.ts` /
+> `phases.ts` / `checks.ts` / `fees.ts`. UI flow runs through
+> `DistilleryDraftModal` (deal-2-pick-1 with "Start {x}" double-commit)
+> and `DistilleryInspectModal` (clickable name in top bar / hand /
+> opponent panel). The Recipe Book "draw 2 keep 1 on bourbon draw"
+> perk is the lone stub — needs a multi-step UI before it can land.
 
 - **Distilleries — asymmetric starting identities.** Each baron is
   dealt 2 Distillery cards face-down at game start, picks 1 to keep

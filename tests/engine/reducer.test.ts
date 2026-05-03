@@ -1,12 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "@/lib/engine/setup";
 import { reduce } from "@/lib/engine/reducer";
-import {
-  DEFAULT_STARTING_CASH,
-  STARTING_FREE_ACTIONS,
-} from "@/lib/engine/state";
+import { DEFAULT_STARTING_CASH } from "@/lib/engine/state";
+import { pastDistilleryDraft } from "@/tests/helpers/state";
 
+/** Fresh game advanced past the Distillery draft (most tests want round-1 action). */
 function newGame() {
+  return pastDistilleryDraft(
+    createInitialState({
+      id: "g1",
+      seed: 1,
+      seats: [
+        { name: "Alice", kind: "human" },
+        { name: "Bob", kind: "bot", botDifficulty: "easy" },
+      ],
+    }),
+  );
+}
+
+/** Raw initial state — keeps `phase: "distillery_draft"` for tests that need to assert it. */
+function rawNewGame() {
   return createInitialState({
     id: "g1",
     seed: 1,
@@ -26,8 +39,8 @@ describe("reducer — initial state", () => {
     expect(s.players.p2.investments).toEqual([]);
   });
 
-  it("each player gets the configured starting cash", () => {
-    const s = newGame();
+  it("each player gets the configured starting cash (post-distillery-bonus delta is checked elsewhere)", () => {
+    const s = rawNewGame();
     expect(s.players.p1.cash).toBe(DEFAULT_STARTING_CASH);
     expect(s.players.p2.cash).toBe(DEFAULT_STARTING_CASH);
   });
@@ -39,30 +52,21 @@ describe("reducer — initial state", () => {
     expect(s.players.p1.loanUsed).toBe(false);
   });
 
-  it("round 1 seeds STARTING_FREE_ACTIONS per player as the setup budget", () => {
-    const s = newGame();
-    expect(s.actionPhase.freeActionsRemainingByPlayer.p1).toBe(
-      STARTING_FREE_ACTIONS,
-    );
-    expect(s.actionPhase.freeActionsRemainingByPlayer.p2).toBe(
-      STARTING_FREE_ACTIONS,
-    );
+  it("game starts in the distillery_draft phase with 2 cards dealt to each baron", () => {
+    const s = rawNewGame();
+    expect(s.phase).toBe("distillery_draft");
+    expect(s.players.p1.dealtDistilleryIds?.length).toBe(2);
+    expect(s.players.p2.dealtDistilleryIds?.length).toBe(2);
+    expect(s.players.p1.chosenDistilleryId).toBeUndefined();
   });
 
-  it("a setup-round action decrements that player's free counter and skips the cash charge", () => {
-    let s = newGame();
-    const me = s.currentPlayerId;
-    const cashBefore = s.players[me].cash;
-    const freeBefore = s.actionPhase.freeActionsRemainingByPlayer[me];
-    // DRAW_RESOURCE is the cheapest non-pass action — costs nothing but
-    // a free-action credit during the setup round.
-    s = reduce(s, { t: "DRAW_RESOURCE", playerId: me, pile: "cask" });
-    expect(s.actionPhase.freeActionsRemainingByPlayer[me]).toBe(
-      freeBefore - 1,
-    );
-    expect(s.players[me].cash).toBe(cashBefore);
+  it("DISTILLERY_CONFIRM locks the chosen card", () => {
+    let s = rawNewGame();
+    const dealt = s.players.p1.dealtDistilleryIds!;
+    const chosen = dealt[0];
+    s = reduce(s, { t: "DISTILLERY_CONFIRM", playerId: "p1", chosenId: chosen });
+    expect(s.players.p1.chosenDistilleryId).toBe(chosen);
   });
-
 });
 
 describe("reducer — action phase paid-action ladder", () => {

@@ -1,12 +1,21 @@
 /**
- * New-game construction: builds a fresh GameState ready for Round 1's action phase.
+ * New-game construction: builds a fresh GameState ready for the
+ * Distillery draft (which precedes round 1's action phase).
  *
- * Per current rules there is no opening draft / auction. Phase 1 is skipped in
- * Round 1 (no barrels yet to age), so the new game starts in the action phase.
+ * Setup order:
+ *   1. Shuffle every deck deterministically from the seed.
+ *   2. Deal each baron 4 mash bills (STARTING_BOURBON_HAND).
+ *   3. Deal each baron DISTILLERY_DEAL_COUNT (= 2) Distillery cards
+ *      face-down. The "deal-2-pick-1" draft resolves via
+ *      DISTILLERY_CONFIRM actions; on the first confirmation the
+ *      starting bonuses apply and play moves to round 1's action
+ *      phase. Phase 1 is still skipped in round 1 because no one
+ *      has barrels yet.
  */
 
 import {
   buildBourbonDeck,
+  buildDistilleryDeck,
   buildInvestmentDeck,
   buildMarketDeck,
   buildOperationsDeck,
@@ -18,10 +27,10 @@ import { RICKHOUSES } from "./rickhouses";
 import { createRng } from "./rng";
 import type { BotDifficulty, GameState, Player, PlayerKind } from "./state";
 import {
+  DISTILLERY_DEAL_COUNT,
   STARTING_BOURBON_HAND,
   DEFAULT_STARTING_CASH,
   STARTING_DEMAND,
-  STARTING_FREE_ACTIONS,
 } from "./state";
 
 export type SeatSpec = {
@@ -58,11 +67,12 @@ export function createInitialState(config: NewGameConfig): GameState {
   const investmentDeck = buildInvestmentDeck(rng);
   const operationsDeck = buildOperationsDeck(rng);
   const marketDeck = buildMarketDeck(rng);
+  let distilleryDeck = buildDistilleryDeck(rng);
 
-  // Players. Each player draws STARTING_BOURBON_HAND mash bills into their
-  // starting bourbon hand. The bourbon deck is small enough (and the seat
-  // count bounded at 6) that we can drain it in order without worrying
-  // about reshuffles here.
+  // Players. Each player draws STARTING_BOURBON_HAND mash bills and is
+  // dealt DISTILLERY_DEAL_COUNT distillery cards face-down. The
+  // distillery draft resolves through DISTILLERY_CONFIRM dispatches
+  // before the action phase begins.
   const players: Record<string, Player> = {};
   const playerOrder: string[] = [];
   config.seats.forEach((seat, idx) => {
@@ -74,6 +84,13 @@ export function createInitialState(config: NewGameConfig): GameState {
       if (card == null) break;
       bourbonHand.push(card);
       bourbonDeck = rest;
+    }
+    const dealtDistilleryIds: string[] = [];
+    for (let i = 0; i < DISTILLERY_DEAL_COUNT; i += 1) {
+      const [card, rest] = drawTop(distilleryDeck);
+      if (card == null) break;
+      dealtDistilleryIds.push(card);
+      distilleryDeck = rest;
     }
     players[id] = {
       id,
@@ -96,6 +113,9 @@ export function createInitialState(config: NewGameConfig): GameState {
       loanSiphonActive: false,
       loanUsed: false,
       pendingAuditOverage: null,
+      dealtDistilleryIds,
+      chosenDistilleryId: undefined,
+      perkUsedThisRound: {},
     };
   });
 
@@ -106,14 +126,16 @@ export function createInitialState(config: NewGameConfig): GameState {
   }));
 
   const state: GameState = {
-    version: 7,
+    version: 8,
     id: config.id,
     createdAt,
     seed: config.seed,
     rngState: rng.state,
     round: 1,
-    // Round 1 skips Phase 1 fees; the game starts directly in the action phase.
-    phase: "action",
+    // Game starts in the Distillery draft. Once every baron has
+    // confirmed, the reducer transitions to "action" (round 1 still
+    // skips Phase 1 fees because no one has barrels).
+    phase: "distillery_draft",
     startPlayerId: playerOrder[0],
     firstPasserId: null,
     players,
@@ -134,6 +156,7 @@ export function createInitialState(config: NewGameConfig): GameState {
       operationsDiscard: [],
       marketDeck,
       marketDiscard: [],
+      distilleryDeck,
     },
     demand: STARTING_DEMAND,
     actionPhase: {
@@ -143,13 +166,6 @@ export function createInitialState(config: NewGameConfig): GameState {
       passedPlayerIds: [],
       actionsThisLapPlayerIds: [],
       auditCalledThisRound: false,
-      // Round 1 is the "setup" round — every player gets a generous
-      // free-action budget so they can stock resources, draw bills, and
-      // barrel a few mashes without paying. Subsequent rounds reset to 0
-      // in resetActionPhase.
-      freeActionsRemainingByPlayer: Object.fromEntries(
-        playerOrder.map((id) => [id, STARTING_FREE_ACTIONS]),
-      ),
     },
     feesPhase: {
       resolvedPlayerIds: [],

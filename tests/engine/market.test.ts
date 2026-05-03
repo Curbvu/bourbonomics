@@ -4,23 +4,26 @@ import { reduce } from "@/lib/engine/reducer";
 import { feesForPlayer } from "@/lib/rules/fees";
 import { createInitialState } from "@/lib/engine/setup";
 import type { GameState } from "@/lib/engine/state";
+import { pastDistilleryDraft } from "@/tests/helpers/state";
 
 function gs(): {
   state: GameState;
   human: string;
   bot: string;
 } {
-  const state = createInitialState({
-    id: "g",
-    seed: 7,
-    seats: [
-      { name: "Alice", kind: "human" },
-      { name: "Bob", kind: "bot", botDifficulty: "easy" },
-    ],
-  });
+  const state = pastDistilleryDraft(
+    createInitialState({
+      id: "g",
+      seed: 7,
+      seats: [
+        { name: "Alice", kind: "human" },
+        { name: "Bob", kind: "bot", botDifficulty: "easy" },
+      ],
+    }),
+  );
   const [human, bot] = state.playerOrder;
-  // Setup round no longer deals an opening hand — seed a couple of mash
-  // bills directly so tests that need `bourbonHand[0]` keep working.
+  // Bourbon hand is dealt at game start (4 bills), but a couple of
+  // tests rely on a known cardId at index 0 — push fixed ids on top.
   state.players[human].bourbonHand.push("01", "02");
   state.players[bot].bourbonHand.push("03", "04");
   return { state, human, bot };

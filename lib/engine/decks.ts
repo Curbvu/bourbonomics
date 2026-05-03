@@ -15,6 +15,7 @@ import {
   INVESTMENT_CARDS_BY_ID,
 } from "@/lib/catalogs/investment.generated";
 import { MARKET_CARDS, MARKET_CARDS_BY_ID } from "@/lib/catalogs/market.generated";
+import { DISTILLERY_CARDS } from "@/lib/catalogs/distillery.generated";
 import { OPERATIONS_CARDS } from "@/lib/catalogs/operations.generated";
 import { SPECIALTY_RESOURCES } from "@/lib/catalogs/resource.generated";
 import type { ResourceType } from "@/lib/catalogs/types";
@@ -171,6 +172,17 @@ export function buildMarketDeck(rng: Rng): string[] {
   for (const c of MARKET_CARDS) {
     for (let i = 0; i < c.deckCopies; i++) ids.push(c.id);
   }
+  return shuffle(rng, ids);
+}
+
+/**
+ * Distillery draft deck. One copy of every Distillery card. Each baron
+ * draws 2 face-down at game start; the unkept card returns to the deck
+ * and the deck is reshuffled before the next baron drafts (handled in
+ * setup, not here).
+ */
+export function buildDistilleryDeck(rng: Rng): string[] {
+  const ids = DISTILLERY_CARDS.map((c) => c.id);
   return shuffle(rng, ids);
 }
 

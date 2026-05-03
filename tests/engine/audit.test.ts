@@ -8,16 +8,19 @@ import { reduce } from "@/lib/engine/reducer";
 import { handSize } from "@/lib/engine/checks";
 import { HAND_LIMIT } from "@/lib/engine/state";
 import type { GameState } from "@/lib/engine/state";
+import { pastDistilleryDraft } from "@/tests/helpers/state";
 
 function gs() {
-  return createInitialState({
-    id: "g1",
-    seed: 1,
-    seats: [
-      { name: "Alice", kind: "human" },
-      { name: "Bob", kind: "bot", botDifficulty: "easy" },
-    ],
-  });
+  return pastDistilleryDraft(
+    createInitialState({
+      id: "g1",
+      seed: 1,
+      seats: [
+        { name: "Alice", kind: "human" },
+        { name: "Bob", kind: "bot", botDifficulty: "easy" },
+      ],
+    }),
+  );
 }
 
 /** Stuff player p1 with N mash bills directly into their hand (bypassing draw). */

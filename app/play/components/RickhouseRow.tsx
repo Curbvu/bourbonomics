@@ -116,13 +116,9 @@ export default function RickhouseRow() {
     !!humanId &&
     state.currentPlayerId === humanId &&
     state.phase === "action";
-  const humanFreeRemaining = humanId
-    ? state.actionPhase.freeActionsRemainingByPlayer?.[humanId] ?? 0
-    : 0;
-  const actionCost =
-    humanFreeRemaining > 0 || state.actionPhase.freeWindowActive
-      ? 0
-      : state.actionPhase.paidLapTier;
+  const actionCost = state.actionPhase.freeWindowActive
+    ? 0
+    : state.actionPhase.paidLapTier;
   const canAffordAction = !!me && me.cash >= actionCost;
   const auditPending = !!me && (me.pendingAuditOverage ?? 0) > 0;
   const sellingAllowed =

@@ -19,16 +19,19 @@ import { pickBestGoldAlt } from "@/lib/ai/evaluators";
 import { BOURBON_CARDS_BY_ID } from "@/lib/engine/decks";
 import { lookupSalePrice } from "@/lib/rules/pricing";
 import type { BarrelInstance, GameState } from "@/lib/engine/state";
+import { pastDistilleryDraft } from "@/tests/helpers/state";
 
 function gs(): GameState {
-  return createInitialState({
-    id: "g1",
-    seed: 4242,
-    seats: [
-      { name: "A", kind: "human" },
-      { name: "B", kind: "bot", botDifficulty: "easy" },
-    ],
-  });
+  return pastDistilleryDraft(
+    createInitialState({
+      id: "g1",
+      seed: 4242,
+      seats: [
+        { name: "A", kind: "human" },
+        { name: "B", kind: "bot", botDifficulty: "easy" },
+      ],
+    }),
+  );
 }
 
 function placeBarrel(state: GameState, mashBillId: string, age: number): string {

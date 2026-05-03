@@ -89,14 +89,13 @@ describe("integration — full round loop", () => {
         { name: "B", kind: "bot", botDifficulty: "easy" },
       ],
     });
-    // The lap-cost ladder this test exercises only matters in round 2+;
-    // round 1 is the setup round (free actions, auto-end when exhausted).
-    // Jump straight to round-2 action phase with empty free budgets so
-    // we're observing the table-wide free window + paid laps in isolation.
-    s.round = 2;
-    for (const id of Object.keys(s.actionPhase.freeActionsRemainingByPlayer)) {
-      s.actionPhase.freeActionsRemainingByPlayer[id] = 0;
+    // Game now starts in `distillery_draft`; jump straight to round-1
+    // action phase by faking both barons' picks so this test can focus
+    // on the lap-cost ladder mechanic in isolation.
+    for (const id of s.playerOrder) {
+      s.players[id].chosenDistilleryId = s.players[id].dealtDistilleryIds?.[0];
     }
+    s.phase = "action";
 
     const startingCashA = s.players.p1.cash;
     // Lap 1: p1 draws (free), p2 passes (first pass — free window closes at end of this lap).

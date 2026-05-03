@@ -25,6 +25,7 @@ import { applyMakeOps, applySellOps } from "@/lib/modifiers/resource";
 import { resolveOperationsEffect } from "@/lib/modifiers/operations";
 import type { ResourceType } from "@/lib/catalogs/types";
 import type { Action, ResourcePileName } from "./actions";
+import { DISTILLERY_CARDS_BY_ID } from "@/lib/catalogs/distillery.generated";
 import {
   BOURBON_CARDS_BY_ID,
   INVESTMENT_CARDS_BY_ID,
@@ -32,6 +33,7 @@ import {
   drawTop,
   mintInstanceId,
 } from "./decks";
+import { shuffle } from "./rng";
 import {
   advanceToNextPlayer,
   checkWinConditions,
@@ -53,6 +55,7 @@ import {
   canSellBourbon,
   canAffordCurrentAction,
   currentActionCost,
+  distilleryPerkOf,
   findBarrel,
   handSize,
   isPlayersTurn,
@@ -112,8 +115,148 @@ function apply(state: GameState, action: Action): void {
       return marketDraw(state, action);
     case "MARKET_KEEP":
       return marketKeep(state, action);
+    case "DISTILLERY_CONFIRM":
+      return distilleryConfirm(state, action);
     case "ADVANCE":
       return advance(state);
+  }
+}
+
+// ---------- Distillery draft (pre-round-1) ----------
+
+function distilleryConfirm(
+  state: GameState,
+  action: Extract<Action, { t: "DISTILLERY_CONFIRM" }>,
+): void {
+  if (state.phase !== "distillery_draft") {
+    return errorEvent(state, "not_in_distillery_draft");
+  }
+  const p = state.players[action.playerId];
+  if (!p || p.eliminated) return errorEvent(state, "no_player");
+  if (p.chosenDistilleryId) {
+    return errorEvent(state, "already_chose_distillery");
+  }
+  const dealt = p.dealtDistilleryIds ?? [];
+  if (!dealt.includes(action.chosenId)) {
+    return errorEvent(state, "chosen_not_in_dealt");
+  }
+  const def = DISTILLERY_CARDS_BY_ID[action.chosenId];
+  if (!def) return errorEvent(state, "unknown_distillery");
+
+  // Lock the choice and return the unchosen card to the deck (which we
+  // reshuffle so the next dealer draws fairly). For 1-of-2 draft, the
+  // RNG state is rolled forward by the shuffle so the game still
+  // determinizes by seed.
+  p.chosenDistilleryId = action.chosenId;
+  for (const id of dealt) {
+    if (id !== action.chosenId) state.market.distilleryDeck.push(id);
+  }
+  // Ephemeral RNG seeded off current rngState — keeps the reducer pure
+  // by not stashing the rng across calls.
+  const rng = createRng(state.rngState);
+  state.market.distilleryDeck = shuffle(rng, state.market.distilleryDeck);
+  state.rngState = rng.state;
+  // Setup-round bonuses resolve immediately (cash, mash bills, resources, ops).
+  applyDistilleryBonuses(state, p.id, def);
+  logEvent(state, "distillery_chosen", {
+    playerId: p.id,
+    distilleryId: def.id,
+    name: def.name,
+  });
+
+  // Once every active baron has chosen, transition to round 1's action phase.
+  const allDone = state.playerOrder.every(
+    (id) => state.players[id].eliminated || state.players[id].chosenDistilleryId,
+  );
+  if (allDone) {
+    state.phase = "action";
+    state.currentPlayerId = state.startPlayerId;
+    logEvent(state, "phase_change", { phase: "action", round: state.round });
+  }
+}
+
+function applyDistilleryBonuses(
+  state: GameState,
+  playerId: string,
+  def: import("@/lib/catalogs/types").DistilleryCardDef,
+): void {
+  const p = state.players[playerId];
+  for (const bonus of def.bonuses) {
+    switch (bonus.kind) {
+      case "cash":
+        p.cash += bonus.amount;
+        logEvent(state, "distillery_bonus_cash", {
+          playerId,
+          amount: bonus.amount,
+        });
+        break;
+      case "mash_bills": {
+        const drawn: string[] = [];
+        for (let i = 0; i < bonus.count; i += 1) {
+          if (state.market.bourbonDeck.length === 0) reshuffleBourbonDiscard(state);
+          if (state.market.bourbonDeck.length === 0) break;
+          const [top, rest] = drawTop(state.market.bourbonDeck);
+          state.market.bourbonDeck = rest;
+          if (top) {
+            p.bourbonHand.push(top);
+            drawn.push(top);
+          }
+        }
+        logEvent(state, "distillery_bonus_mash_bills", { playerId, count: drawn.length });
+        break;
+      }
+      case "resources": {
+        for (const grp of bonus.cards) {
+          for (let i = 0; i < grp.count; i += 1) {
+            const pile = state.market[grp.resource];
+            if (pile.length === 0) break;
+            const card = pile[pile.length - 1];
+            pile.pop();
+            p.resourceHand.push(card);
+          }
+        }
+        logEvent(state, "distillery_bonus_resources", {
+          playerId,
+          cards: bonus.cards,
+        });
+        break;
+      }
+      case "operations": {
+        for (let i = 0; i < bonus.count; i += 1) {
+          if (state.market.operationsDeck.length === 0) {
+            // Reshuffle ops discard if needed.
+            if (state.market.operationsDiscard.length > 0) {
+              const rng = createRng(state.rngState);
+              state.market.operationsDeck = shuffle(rng, state.market.operationsDiscard);
+              state.market.operationsDiscard = [];
+              state.rngState = rng.state;
+            }
+          }
+          if (state.market.operationsDeck.length === 0) break;
+          const [top, rest] = drawTop(state.market.operationsDeck);
+          state.market.operationsDeck = rest;
+          if (top) {
+            p.operations.push({
+              instanceId: mintInstanceId("ops"),
+              cardId: top,
+            });
+          }
+        }
+        logEvent(state, "distillery_bonus_operations", { playerId, count: bonus.count });
+        break;
+      }
+      case "peek_market": {
+        // The Speculator's peek bonus is a one-shot reveal — log the
+        // top N market-deck card ids so the UI can surface them. Not
+        // game-state-changing on its own; the modal reads the log.
+        const peek = state.market.marketDeck.slice(0, bonus.count);
+        logEvent(state, "distillery_bonus_peek_market", {
+          playerId,
+          cardIds: peek,
+        });
+        break;
+      }
+    }
   }
 }
 
@@ -231,16 +374,6 @@ function takeDistressedLoan(
 
 function chargeActionCost(state: GameState, playerId: string): boolean {
   const p = state.players[playerId];
-  // Setup-round budget overrides everything: while the player has
-  // free-action credits the action is free and the counter ticks down
-  // instead of cash. Defensive `?.` because pre-migration save loads
-  // can momentarily lack the field before persistence.ts patches it.
-  const freeBudget = state.actionPhase.freeActionsRemainingByPlayer;
-  const freeRemaining = freeBudget?.[playerId] ?? 0;
-  if (freeRemaining > 0 && freeBudget) {
-    freeBudget[playerId] = freeRemaining - 1;
-    return true;
-  }
   const baseCost = currentActionCost(state, playerId);
   // The "first paid action this round" scope triggers on the first paid action a player takes.
   const firstPaidThisRound = !state.actionPhase.freeWindowActive && !p.hasTakenPaidActionThisRound;
@@ -433,9 +566,20 @@ function makeBourbon(
     action.mashBillId,
   );
   if (!check.ok) return errorEvent(state, "make_invalid", { reason: check.reason });
-  if (!chargeActionCost(state, action.playerId)) return errorEvent(state, "afford");
-
   const player = state.players[action.playerId];
+  const perk = distilleryPerkOf(state, action.playerId);
+  // Hot Mash: first MAKE_BOURBON each round bypasses the lap-cost ladder.
+  const useFreeMake =
+    perk?.kind === "free_make_per_round" &&
+    !player.perkUsedThisRound?.freeMake;
+  if (useFreeMake) {
+    if (!player.perkUsedThisRound) player.perkUsedThisRound = {};
+    player.perkUsedThisRound.freeMake = true;
+    logEvent(state, "perk_free_make", { playerId: player.id });
+  } else if (!chargeActionCost(state, action.playerId)) {
+    return errorEvent(state, "afford");
+  }
+
   const mash: ResourceCardInstance[] = [];
   for (const id of action.resourceInstanceIds) {
     const idx = player.resourceHand.findIndex((r) => r.instanceId === id);
@@ -444,12 +588,34 @@ function makeBourbon(
     player.resourceHand.splice(idx, 1);
   }
 
+  // Cooperage: once per round, one cask card from the mash returns to
+  // the player's hand instead of being spent on the barrel.
+  if (
+    perk?.kind === "free_cask_reuse_per_round" &&
+    !player.perkUsedThisRound?.caskReuse
+  ) {
+    const caskIdx = mash.findIndex((r) => r.resource === "cask");
+    if (caskIdx !== -1) {
+      const returned = mash.splice(caskIdx, 1)[0];
+      player.resourceHand.push(returned);
+      if (!player.perkUsedThisRound) player.perkUsedThisRound = {};
+      player.perkUsedThisRound.caskReuse = true;
+      logEvent(state, "perk_cask_reuse", {
+        playerId: player.id,
+        instanceId: returned.instanceId,
+      });
+    }
+  }
+
   // Detach the mash bill from the player's hand — it's now locked to the
   // new barrel for the barrel's life.
   const billIdx = player.bourbonHand.indexOf(action.mashBillId);
   if (billIdx === -1) return errorEvent(state, "bourbon_not_in_hand");
   player.bourbonHand.splice(billIdx, 1);
 
+  // Heritage House: barrels enter the rickhouse at a non-zero age.
+  const startingAge =
+    perk?.kind === "barrel_age_bonus" ? perk.extra : 0;
   const rickhouse = state.rickhouses.find((r) => r.id === action.rickhouseId)!;
   const barrelId = mintInstanceId("barrel");
   rickhouse.barrels.push({
@@ -458,7 +624,7 @@ function makeBourbon(
     rickhouseId: rickhouse.id,
     mash,
     mashBillId: action.mashBillId,
-    age: 0,
+    age: startingAge,
     barreledOnRound: state.round,
   });
   logEvent(state, "make_bourbon", {
@@ -639,10 +805,22 @@ function sellBourbon(
   }
 
   // Demand drops per sale — usually 1, but a market card (Speculator
-  // Frenzy) can accelerate the decay for one round.
-  const decay = state.currentRoundEffects.demandDecayPerSale ?? 1;
-  state.demand -= decay;
-  clampDemand(state);
+  // Frenzy) can accelerate the decay for one round. The Speculator
+  // Distillery's `first_sale_no_demand_drop` perk skips the decay
+  // entirely on this player's first sale of the round.
+  const sellerPerk = distilleryPerkOf(state, action.playerId);
+  const sellerSpeculatorEligible =
+    sellerPerk?.kind === "first_sale_no_demand_drop" &&
+    !player.perkUsedThisRound?.speculatorFirstSale;
+  if (sellerSpeculatorEligible) {
+    if (!player.perkUsedThisRound) player.perkUsedThisRound = {};
+    player.perkUsedThisRound.speculatorFirstSale = true;
+    logEvent(state, "perk_speculator_first_sale", { playerId: player.id });
+  } else {
+    const decay = state.currentRoundEffects.demandDecayPerSale ?? 1;
+    state.demand -= decay;
+    clampDemand(state);
+  }
   // Bump the per-round sale counter so firstSaleOnly boosts deactivate
   // after the first sale.
   state.currentRoundEffects.salesThisRound =
@@ -775,6 +953,31 @@ function resolveOperations(
     resolved: outcome.resolved,
     summary: outcome.summary,
   });
+  // Distillers' Guild: each Operations card resolved triggers a free
+  // replacement draw immediately (no action cost, doesn't advance turn).
+  const opsPerk = distilleryPerkOf(state, action.playerId);
+  if (opsPerk?.kind === "draw_replacement_on_ops") {
+    if (state.market.operationsDeck.length === 0 && state.market.operationsDiscard.length > 0) {
+      const rng = createRng(state.rngState);
+      state.market.operationsDeck = shuffle(rng, state.market.operationsDiscard);
+      state.market.operationsDiscard = [];
+      state.rngState = rng.state;
+    }
+    if (state.market.operationsDeck.length > 0) {
+      const [top, rest] = drawTop(state.market.operationsDeck);
+      state.market.operationsDeck = rest;
+      if (top) {
+        player.operations.push({
+          instanceId: mintInstanceId("ops"),
+          cardId: top,
+        });
+        logEvent(state, "perk_draw_replacement_ops", {
+          playerId: player.id,
+          cardId: top,
+        });
+      }
+    }
+  }
   postActionAdvance(state, action.playerId);
 }
 

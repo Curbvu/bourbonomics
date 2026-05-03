@@ -136,6 +136,22 @@ export type ActionMarketKeep = {
   keptCardId: string;
 };
 
+// ---------- Distillery draft (pre-round-1) ----------
+
+/**
+ * Pick + commit one of the two dealt Distillery cards. The unchosen
+ * card returns to the deck (which is reshuffled) and the chosen
+ * card's bonuses resolve immediately. When every baron has confirmed,
+ * the reducer transitions out of `distillery_draft` into round 1's
+ * action phase.
+ */
+export type ActionDistilleryConfirm = {
+  t: "DISTILLERY_CONFIRM";
+  playerId: string;
+  /** Must be one of the two ids in the player's `dealtDistilleryIds`. */
+  chosenId: string;
+};
+
 // ---------- Phase transition (reducer-driven) ----------
 
 export type ActionAdvance = { t: "ADVANCE" };
@@ -158,6 +174,7 @@ export type Action =
   | ActionTakeDistressedLoan
   | ActionMarketDraw
   | ActionMarketKeep
+  | ActionDistilleryConfirm
   | ActionAdvance;
 
 export type ActionKind = Action["t"];

@@ -23,16 +23,9 @@ export const OPERATIONS_CARDS: readonly OperationsCardDef[] = [
   {
     "id": "angels_share_cash",
     "categoryId": "cash_liquidity",
-    "title": "Angels’ share (cash)",
+    "title": "Angels' share (cash)",
     "concept": "Evaporation in your favor.",
     "effect": "Gain **$2** per **year token** on your **oldest** barrelled bourbon (**max $10**). *(Typical **1–2** tokens → median-friendly; cap stops runaway tail on this card—tail lives elsewhere.)*"
-  },
-  {
-    "id": "bridge_loan",
-    "categoryId": "cash_liquidity",
-    "title": "Bridge loan",
-    "concept": "Short-term paper.",
-    "effect": "Gain **$8** now; at **end of your next turn**, pay **$5** to the bank **or** discard **1 resource**. *(Net often **~$3–$4** after the bill; spike is the upfront **$8**.)*"
   },
   {
     "id": "tour_bus_tips",
@@ -42,32 +35,11 @@ export const OPERATIONS_CARDS: readonly OperationsCardDef[] = [
     "effect": "Gain **$3** **+$1** per **distinct rickhouse** where you have at least one barrel (**max $3 + 6**). *(Median case **~$4–$5** with **1–2** houses; **right tail** when you span many regions.)*"
   },
   {
-    "id": "sandbag_the_leak",
-    "categoryId": "rickhouse_fees",
-    "title": "Sandbag the leak",
-    "concept": "Emergency repair.",
-    "effect": "Keep this card in your hand. Waive all fees at one rickhouse when you use this card. You can still place a year token on a barrel in that rickhouse."
-  },
-  {
     "id": "stack_swap",
     "categoryId": "rickhouse_fees",
     "title": "Stack swap",
     "concept": "Crew rotates barrels for you.",
-    "effect": "Add +1 year token to one of your barrelled bourbons (for no fee)."
-  },
-  {
-    "id": "freeze_rent",
-    "categoryId": "rickhouse_fees",
-    "title": "Freeze rent",
-    "concept": "One-month abatement.",
-    "effect": "Keep this card in your hand. Your **rickhouse fees** are a maximum of $2 across all rickhouses this turn."
-  },
-  {
-    "id": "inspector_delay",
-    "categoryId": "rickhouse_fees",
-    "title": "Inspector delay",
-    "concept": "Paperwork shuffle.",
-    "effect": "**Next turn only**, ignore **double-fee** consequences from partial fee payment (if you use that rule path). **Gain $4** now. *(Cash now + insurance = tail when bankruptcy rules hurt.)*"
+    "effect": "Add **+1 year token** to one of your barrelled bourbons (no fee paid)."
   },
   {
     "id": "cooper_on_call",
@@ -75,13 +47,6 @@ export const OPERATIONS_CARDS: readonly OperationsCardDef[] = [
     "title": "Cooper on call",
     "concept": "Emergency repair staves.",
     "effect": "Swap a cask in one of your rickhouses for a cask in your hand."
-  },
-  {
-    "id": "extra_dray",
-    "categoryId": "market_hand",
-    "title": "Extra dray",
-    "concept": "Truck showed up early.",
-    "effect": "Keep this card in your hand. When using this card, all your “buy from market” action **this turn** gives **+1** card (**4** total) without looking at the top card of the pile."
   },
   {
     "id": "mulligan_mash",
@@ -123,7 +88,7 @@ export const OPERATIONS_CARDS: readonly OperationsCardDef[] = [
     "categoryId": "bourbon_sale_moment",
     "title": "Broker call",
     "concept": "Better quote.",
-    "effect": "On your **next sale this turn**, after you see Bourbon Card options, you may **discard 1** resource to **draw 1** replacement Bourbon Card from the deck. **Gain $2** when you sell (even if you don’t replace)."
+    "effect": "On your **next sale this turn**, after you see Bourbon Card options, you may **discard 1** resource to **draw 1** replacement Bourbon Card from the deck. **Gain $2** when you sell (even if you don't replace)."
   },
   {
     "id": "sticker_shock",
@@ -133,41 +98,6 @@ export const OPERATIONS_CARDS: readonly OperationsCardDef[] = [
     "effect": "On your **next sale this turn**, **+$4** revenue; **market demand** still drops normally. *(Tail when your sale price was already high.)*"
   },
   {
-    "id": "bad_headlines",
-    "categoryId": "dice_demand",
-    "title": "Bad headlines",
-    "concept": "Tariffs, taxes, trends.",
-    "effect": "**Before** the market-demand roll, **−1** demand (floor **0**). **Gain $3**. *(Spite + cash.)*"
-  },
-  {
-    "id": "weather_window",
-    "categoryId": "dice_demand",
-    "title": "Weather window",
-    "concept": "Perfect season.",
-    "effect": "Reroll **one** demand die **once** this turn (second result stands). **Gain $2** now."
-  },
-  {
-    "id": "lucky_seven",
-    "categoryId": "dice_demand",
-    "title": "Lucky seven",
-    "concept": "Superstition pays.",
-    "effect": "If your roll for demand has sum **7**, **+1** **extra** demand after the normal rule **and** **gain $8**. Otherwise **gain $2**. *(Rare spike = **right tail**.)*"
-  },
-  {
-    "id": "lobby_the_chamber",
-    "categoryId": "dice_demand",
-    "title": "Lobby the chamber",
-    "concept": "Industry association pushes.",
-    "effect": "**After** the market-demand roll at end of turn, **+1** demand (cap at table max, e.g. **12**). **Gain $5** now. *(Strong when demand was already high.)*"
-  },
-  {
-    "id": "spite_proof",
-    "categoryId": "soft_interaction",
-    "title": "Spite proof",
-    "concept": "Steal the story.",
-    "effect": "Choose a player: they **reveal** a random resource from hand; you **name** Cask/Corn/Grain—if it matches, **gain $5**; if not, **gain $2**."
-  },
-  {
     "id": "county_fair_booth",
     "categoryId": "soft_interaction",
     "title": "County fair booth",
@@ -175,39 +105,11 @@ export const OPERATIONS_CARDS: readonly OperationsCardDef[] = [
     "effect": "Each player gains **$1**; you **gain $3** more (**$4** total to you)."
   },
   {
-    "id": "round_on_you",
-    "categoryId": "soft_interaction",
-    "title": "Round on you",
-    "concept": "Kentucky hospitality.",
-    "effect": "**Gain $3** now. Each other player may **give** you **$1**; for each who does, you **owe $1** back at **start of your next turn** (binding if you want teeth)."
-  },
-  {
-    "id": "union_rumor",
-    "categoryId": "soft_interaction",
-    "title": "Union rumor",
-    "concept": "Slow their line.",
-    "effect": "Choose a player: their **first** action **next turn** costs **+$1** on the action track (if you use cross-turn modifiers). **Gain $3** now."
-  },
-  {
     "id": "smoke_break",
     "categoryId": "cleanup_recovery",
     "title": "Smoke break",
     "concept": "Pause the line.",
     "effect": "**End your action phase now**; **gain $3** if you already took **3+** actions this turn, otherwise **gain $1**."
-  },
-  {
-    "id": "audit_clean",
-    "categoryId": "cleanup_recovery",
-    "title": "Audit clean",
-    "concept": "Books square.",
-    "effect": "Remove **one** “debt” or “owe end of turn” marker from an operations/investment effect (if you use markers). **Gain $3**."
-  },
-  {
-    "id": "second_glance",
-    "categoryId": "cleanup_recovery",
-    "title": "Second glance",
-    "concept": "Reread the rulebook.",
-    "effect": "**Discard** this card to **undo** **one** non-sale action you took **this turn** (return components—tune for abuse). **Gain $2** now. *(Effective value can be **very** high when undo saves a blunder—**tail** comes from situational upside.)*"
   },
   {
     "id": "distillers_bonus",

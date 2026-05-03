@@ -10,7 +10,9 @@
  * chips. The human player isn't shown here — they live in the HandTray.
  */
 
+import { DISTILLERY_CARDS_BY_ID } from "@/lib/catalogs/distillery.generated";
 import { useGameStore } from "@/lib/store/gameStore";
+import { useUiStore } from "@/lib/store/uiStore";
 import {
   PLAYER_BG_CLASS,
   PLAYER_TEXT_CLASS,
@@ -20,6 +22,7 @@ import PlayerSwatch from "./PlayerSwatch";
 
 export default function OpponentList() {
   const state = useGameStore((s) => s.state)!;
+  const inspectDistillery = useUiStore((s) => s.inspectDistillery);
   const humanId = state.playerOrder.find(
     (id) => state.players[id].kind === "human",
   );
@@ -48,21 +51,52 @@ export default function OpponentList() {
             key={id}
             className="border-b border-slate-800 px-3.5 py-3.5 last:border-b-0"
           >
-            {/* Row 1 — identity + cash */}
-            <div className="flex items-center gap-2.5">
-              <PlayerSwatch
-                seatIndex={p.seatIndex}
-                logoId={p.logoId}
-                size="md"
-              />
-              <span className="font-display text-base font-semibold text-amber-100">
-                {p.name}
-              </span>
-              <span className="flex-1" />
-              <span className="font-mono text-[13px] font-bold tabular-nums text-emerald-500">
-                ${p.cash}
-              </span>
-            </div>
+            {/* Row 1 — identity + cash. Clickable when this baron has
+                drafted a Distillery so the player can scan their perk. */}
+            {(() => {
+              const distName = p.chosenDistilleryId
+                ? DISTILLERY_CARDS_BY_ID[p.chosenDistilleryId]?.name ?? null
+                : null;
+              const clickable = !!distName;
+              return (
+                <button
+                  type="button"
+                  onClick={clickable ? () => inspectDistillery(id) : undefined}
+                  disabled={!clickable}
+                  title={
+                    clickable
+                      ? `${p.name} — ${distName} · click to view distillery`
+                      : p.name
+                  }
+                  className={[
+                    "flex w-full items-center gap-2.5 rounded text-left transition-colors",
+                    clickable
+                      ? "cursor-pointer hover:text-amber-100"
+                      : "cursor-default",
+                  ].join(" ")}
+                >
+                  <PlayerSwatch
+                    seatIndex={p.seatIndex}
+                    logoId={p.logoId}
+                    size="md"
+                  />
+                  <div className="flex flex-col leading-tight">
+                    <span className="font-display text-base font-semibold text-amber-100">
+                      {p.name}
+                    </span>
+                    {distName ? (
+                      <span className="-mt-0.5 font-display text-[10.5px] italic leading-tight text-amber-200/80">
+                        {distName}
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="flex-1" />
+                  <span className="font-mono text-[13px] font-bold tabular-nums text-emerald-500">
+                    ${p.cash}
+                  </span>
+                </button>
+              );
+            })()}
 
             {/* Row 2 — stat line */}
             <div className="mt-1.5 flex gap-3.5 font-mono text-[11px] tabular-nums text-slate-500">

@@ -37,6 +37,8 @@ import { useUiStore } from "@/lib/store/uiStore";
 import BourbonInspectModal from "./BourbonInspectModal";
 import CardDrawOverlay from "./CardDrawOverlay";
 import FeesPanel from "./FeesPanel";
+import DistilleryDraftModal from "./DistilleryDraftModal";
+import DistilleryInspectModal from "./DistilleryInspectModal";
 import GameOverPanel from "./GameOverPanel";
 import HandInspectModal from "./HandInspectModal";
 import HandTray from "./HandTray";
@@ -100,6 +102,8 @@ export default function GameBoard() {
       <SaleRevealModal />
       <CardDrawOverlay />
       <MarketRevealModal />
+      <DistilleryDraftModal />
+      <DistilleryInspectModal />
       <BourbonInspectModal />
       <HandInspectModal />
     </div>

@@ -56,6 +56,36 @@ export function driveBots(initial: GameState): GameState {
     const needsHuman = current?.kind === "human" && !current.eliminated;
 
     switch (state.phase) {
+      case "distillery_draft": {
+        // Confirm distilleries for every bot that hasn't yet chosen,
+        // independent of seat order. The draft isn't turn-based — each
+        // baron decides simultaneously — so a human in seat 1 should not
+        // block a bot in seat 2 from auto-picking. Choice is intentionally
+        // simple (always the first dealt card) so seeded games stay
+        // deterministic; smarter draft AI is a follow-up.
+        const nextBot = state.playerOrder.find(
+          (id) =>
+            !state.players[id].eliminated &&
+            !state.players[id].chosenDistilleryId &&
+            state.players[id].kind === "bot",
+        );
+        if (nextBot) {
+          const p = state.players[nextBot];
+          const dealt = p.dealtDistilleryIds ?? [];
+          if (dealt.length === 0) return state;
+          state = reduce(state, {
+            t: "DISTILLERY_CONFIRM",
+            playerId: p.id,
+            chosenId: dealt[0],
+          });
+          continue;
+        }
+        // No bot left to confirm — either the human still owes a pick
+        // (return so the modal renders) or everyone's done and the
+        // reducer has already advanced the phase.
+        return state;
+      }
+
       case "fees": {
         // Fees resolve per-player in seat order.
         const nextUnresolved = state.playerOrder.find(

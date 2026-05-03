@@ -8,16 +8,19 @@ import { createInitialState } from "@/lib/engine/setup";
 import { reduce } from "@/lib/engine/reducer";
 import { checkWinConditions } from "@/lib/engine/phases";
 import type { GameState } from "@/lib/engine/state";
+import { pastDistilleryDraft } from "@/tests/helpers/state";
 
 function gs(): GameState {
-  return createInitialState({
-    id: "g1",
-    seed: 1337,
-    seats: [
-      { name: "Alice", kind: "human" },
-      { name: "Bob", kind: "bot", botDifficulty: "easy" },
-    ],
-  });
+  return pastDistilleryDraft(
+    createInitialState({
+      id: "g1",
+      seed: 1337,
+      seats: [
+        { name: "Alice", kind: "human" },
+        { name: "Bob", kind: "bot", botDifficulty: "easy" },
+      ],
+    }),
+  );
 }
 
 describe("final round — trigger + scoring", () => {

@@ -18,16 +18,19 @@ import {
   DISTRESSED_LOAN_REPAYMENT,
   type GameState,
 } from "@/lib/engine/state";
+import { pastDistilleryDraft } from "@/tests/helpers/state";
 
 function gs(): GameState {
-  return createInitialState({
-    id: "g1",
-    seed: 1,
-    seats: [
-      { name: "Alice", kind: "human" },
-      { name: "Bob", kind: "bot", botDifficulty: "easy" },
-    ],
-  });
+  return pastDistilleryDraft(
+    createInitialState({
+      id: "g1",
+      seed: 1,
+      seats: [
+        { name: "Alice", kind: "human" },
+        { name: "Bob", kind: "bot", botDifficulty: "easy" },
+      ],
+    }),
+  );
 }
 
 /** Force the engine into Phase 1 of a chosen round. */

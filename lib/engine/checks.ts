@@ -3,7 +3,8 @@
  * bad dispatches) and by the bot (to enumerate legal moves).
  */
 
-import type { BourbonCardDef } from "@/lib/catalogs/types";
+import type { BourbonCardDef, DistilleryPerk } from "@/lib/catalogs/types";
+import { DISTILLERY_CARDS_BY_ID } from "@/lib/catalogs/distillery.generated";
 import { BOURBON_CARDS_BY_ID } from "./decks";
 import type { RickhouseId } from "./rickhouses";
 import type {
@@ -13,6 +14,21 @@ import type {
   ResourceCardInstance,
 } from "./state";
 import { validateMash } from "@/lib/rules/mash";
+
+/**
+ * Resolve the chosen Distillery perk for a player, or null if they
+ * haven't drafted yet (still in `distillery_draft` phase) or if the
+ * card id doesn't resolve.
+ */
+export function distilleryPerkOf(
+  state: GameState,
+  playerId: string,
+): DistilleryPerk | null {
+  const p = state.players[playerId];
+  if (!p?.chosenDistilleryId) return null;
+  const def = DISTILLERY_CARDS_BY_ID[p.chosenDistilleryId];
+  return def?.perk ?? null;
+}
 
 export function isActivePlayer(state: GameState, playerId: string): boolean {
   const p = state.players[playerId];
@@ -27,41 +43,34 @@ export function isPlayersTurn(state: GameState, playerId: string): boolean {
  * Cost the given player would pay for their next action right now.
  *
  * Resolution order:
- *   1. Per-player setup-round budget (`freeActionsRemainingByPlayer`) —
- *      while > 0, the player is in their seeded free-action window and
- *      pays nothing regardless of the table-wide ladder.
- *   2. Table-wide free window (every player's first action of the round).
- *   3. Lap-cost ladder (`paidLapTier`).
+ *   1. Table-wide free window (every player's first action of the round).
+ *   2. Lap-cost ladder (`paidLapTier`).
+ *   3. The Bootlegger Distillery perk subtracts $1 (floor 0).
  *
- * Pass `playerId` for the per-player resolution; omit (or pass null) to
- * get the table-wide ladder cost only — useful for UI elements that
- * preview the global tier without picking a player.
+ * Pass `playerId` for the per-player resolution (so the Bootlegger
+ * perk applies); omit (or pass null) to get the table-wide ladder cost
+ * only — useful for UI elements that preview the global tier without
+ * picking a player.
  */
 export function currentActionCost(
   state: GameState,
   playerId?: string | null,
 ): number {
-  if (
-    playerId &&
-    (state.actionPhase.freeActionsRemainingByPlayer?.[playerId] ?? 0) > 0
-  ) {
-    return 0;
+  let base = state.actionPhase.freeWindowActive
+    ? 0
+    : state.actionPhase.paidLapTier;
+  if (playerId) {
+    const perk = distilleryPerkOf(state, playerId);
+    if (perk?.kind === "paid_action_discount") {
+      base = Math.max(0, base - perk.amount);
+    }
   }
-  if (state.actionPhase.freeWindowActive) return 0;
-  return state.actionPhase.paidLapTier;
+  return base;
 }
 
 export function canAffordCurrentAction(state: GameState, playerId: string): boolean {
   const cost = currentActionCost(state, playerId);
   return state.players[playerId].cash >= cost;
-}
-
-/** True if `playerId` is currently spending from their setup-round free-action budget. */
-export function hasFreeActionRemaining(
-  state: GameState,
-  playerId: string,
-): boolean {
-  return (state.actionPhase.freeActionsRemainingByPlayer?.[playerId] ?? 0) > 0;
 }
 
 export function findBarrel(

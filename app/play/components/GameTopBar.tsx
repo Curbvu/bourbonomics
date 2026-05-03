@@ -25,6 +25,8 @@ import { useEffect, useState } from "react";
 
 import { useGameStore } from "@/lib/store/gameStore";
 import PhaseBanner from "./PhaseBanner";
+import { DISTILLERY_CARDS_BY_ID } from "@/lib/catalogs/distillery.generated";
+import { useUiStore } from "@/lib/store/uiStore";
 import {
   PLAYER_BORDER_CLASS,
   PLAYER_TINT_CLASS,
@@ -35,6 +37,7 @@ import PlayerSwatch from "./PlayerSwatch";
 export default function GameTopBar() {
   const state = useGameStore((s) => s.state)!;
   const clear = useGameStore((s) => s.clear);
+  const inspectDistillery = useUiStore((s) => s.inspectDistillery);
   const humanId = state.playerOrder.find((id) => state.players[id].kind === "human");
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -105,16 +108,31 @@ export default function GameTopBar() {
                 ? "border-amber-500/60"
                 : "border-slate-800";
             const bgClass = isYou ? PLAYER_TINT_CLASS[idx] : "bg-slate-900";
+            const distilleryName = p.chosenDistilleryId
+              ? DISTILLERY_CARDS_BY_ID[p.chosenDistilleryId]?.name ?? null
+              : null;
+            const clickable = !!distilleryName;
             return (
-              <div
+              <button
+                type="button"
                 key={id}
+                onClick={clickable ? () => inspectDistillery(id) : undefined}
+                disabled={!clickable}
+                title={
+                  clickable
+                    ? `${p.name} — ${distilleryName} · click to view distillery`
+                    : p.name
+                }
                 className={[
-                  "flex items-center gap-2.5 rounded-lg border-2 px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-shadow",
+                  "flex items-center gap-2.5 rounded-lg border-2 px-4 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-all",
                   borderClass,
                   bgClass,
                   isCurrent
                     ? "shadow-[0_0_14px_rgba(245,158,11,.30),inset_0_1px_0_rgba(255,255,255,.05)]"
                     : "",
+                  clickable
+                    ? "cursor-pointer hover:-translate-y-[1px] hover:border-amber-400 hover:shadow-[0_0_0_2px_rgba(251,191,36,.25)]"
+                    : "cursor-default",
                 ].join(" ")}
                 aria-current={isCurrent ? "true" : undefined}
               >
@@ -123,15 +141,22 @@ export default function GameTopBar() {
                   logoId={p.logoId}
                   size="md"
                 />
-                <span
-                  className={`text-[16px] text-slate-100 ${isYou ? "font-semibold" : "font-medium"}`}
-                >
-                  {p.name}
-                </span>
+                <div className="flex flex-col leading-tight">
+                  <span
+                    className={`text-[16px] text-slate-100 ${isYou ? "font-semibold" : "font-medium"}`}
+                  >
+                    {p.name}
+                  </span>
+                  {distilleryName ? (
+                    <span className="-mt-0.5 font-display text-[10px] italic leading-tight text-amber-200/80">
+                      {distilleryName}
+                    </span>
+                  ) : null}
+                </div>
                 <span className="font-mono text-[15px] font-bold tabular-nums text-emerald-300 drop-shadow-[0_1px_2px_rgba(0,0,0,.5)]">
                   ${p.cash}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>

@@ -9,6 +9,7 @@ import type { ResourceType } from "@/lib/catalogs/types";
 import type { RickhouseId } from "./rickhouses";
 
 export type Phase =
+  | "distillery_draft" // Pre-round 1: each baron drafts 1 of 2 dealt Distillery cards
   | "fees" // Phase 1
   | "action" // Phase 2
   | "market" // Phase 3
@@ -153,6 +154,24 @@ export type Player = {
    * Cleared once the discard is resolved.
    */
   pendingAuditOverage: number | null;
+  /**
+   * Distillery draft state. `dealtDistilleryIds` holds the two cards
+   * dealt face-down to this baron at game start; `chosenDistilleryId`
+   * is set once they confirm their pick (and the unchosen card returns
+   * to the deck). Both are optional for save-format back-compat.
+   */
+  dealtDistilleryIds?: string[];
+  chosenDistilleryId?: string;
+  /**
+   * Per-round perk-usage flags. Reset to all-false at the start of
+   * each round. Drives once-per-round perks like Hot Mash's free MAKE
+   * and Cooperage's cask reuse.
+   */
+  perkUsedThisRound?: {
+    freeMake?: boolean;
+    caskReuse?: boolean;
+    speculatorFirstSale?: boolean;
+  };
 };
 
 // ---------- Rickhouses ----------
@@ -188,6 +207,13 @@ export type Market = {
   /** Phase 3 market cards. Reshuffled from `marketDiscard` when empty. */
   marketDeck: string[];
   marketDiscard: string[];
+  /**
+   * Distillery draft pile. Holds undealt + returned-after-pick cards
+   * during the `distillery_draft` phase. Empty after every baron has
+   * confirmed their Distillery (the unchosen cards have already been
+   * shuffled back in for subsequent dealers).
+   */
+  distilleryDeck: string[];
 };
 
 // ---------- Action phase bookkeeping ----------
@@ -205,16 +231,6 @@ export type ActionPhaseState = {
   actionsThisLapPlayerIds: string[];
   /** True after any player calls Audit this round. Reset at round start. */
   auditCalledThisRound: boolean;
-  /**
-   * Per-player free-action budget for the current round. Round 1 seeds
-   * each player with `STARTING_FREE_ACTIONS` (the "setup" round so
-   * everyone can stock resources, draw bills, and barrel a few mashes
-   * without paying); subsequent rounds reset to 0 and the lap-cost
-   * ladder runs normally. While `freeActionsRemainingByPlayer[pid] > 0`
-   * any action that player takes costs $0 and decrements the counter
-   * regardless of `freeWindowActive` / `paidLapTier`.
-   */
-  freeActionsRemainingByPlayer: Record<string, number>;
 };
 
 export type FeesPhaseState = {
@@ -336,7 +352,7 @@ export type GameState = {
    *        until $15 is cleared. DISCARD_AND_DRAW_BOURBON action retired
    *        (mash bills draw freely; Audit handles overflow).
    */
-  version: 7;
+  version: 8;
   id: string;
   createdAt: number;
 
@@ -395,10 +411,10 @@ export type GameState = {
 
 // ---------- Constants ----------
 
-export const STARTING_DEMAND = 6;
+export const STARTING_DEMAND = 0;
 export const MAX_DEMAND = 12;
 export const MIN_DEMAND = 0;
-export const DEFAULT_STARTING_CASH = 25;
+export const DEFAULT_STARTING_CASH = 40;
 /** Number of Gold Bourbons a player must unlock to trigger the final round. */
 export const TRIPLE_CROWN_GOLDS = 3;
 export const MAX_ACTIVE_INVESTMENTS = 3;
@@ -415,19 +431,16 @@ export const MARKET_DRAW_COUNT = 2;
  */
 export const HAND_LIMIT = 10;
 /**
- * Bourbon cards each player is dealt at game-creation time. Now `0`
- * because round 1 is the "setup" round (8 free actions per player) —
- * the first thing every player does is draw their own opening hand of
- * mash bills using those free actions, which gives them agency over
- * what shapes their early game.
+ * Bourbon cards each player is dealt at game-creation time. The
+ * Distillery draft handles the asymmetric opening — every baron always
+ * starts with this base hand, plus whatever their chosen Distillery's
+ * `mash_bills` bonus adds on top.
  */
-export const STARTING_BOURBON_HAND = 0;
+export const STARTING_BOURBON_HAND = 4;
 /**
- * Per-player free actions granted in round 1 — the "setup" round. Each
- * player can spend these on any action (draw, make, implement, sell)
- * without paying the lap cost; once the budget is exhausted the player
- * either passes or starts paying. Subsequent rounds get 0.
+ * Number of Distillery cards dealt face-down to each baron at game
+ * start. The baron picks 1 to keep; the other returns to the deck.
  */
-export const STARTING_FREE_ACTIONS = 8;
+export const DISTILLERY_DEAL_COUNT = 2;
 /** Default brandValue applied at scoring for a Gold Bourbon if the catalog has no override. */
 export const DEFAULT_GOLD_BRAND_VALUE = 25;

@@ -401,6 +401,95 @@ function buildMarket() {
   writeTs("market.generated.ts", body);
 }
 
+// ---------- Distillery cards ----------
+
+function buildDistilleries() {
+  const doc = loadYaml("distillery_cards.yaml");
+  type Bonus =
+    | { kind: "cash"; amount: number }
+    | { kind: "mash_bills"; count: number }
+    | { kind: "resources"; cards: { resource: string; count: number }[] }
+    | { kind: "operations"; count: number }
+    | { kind: "peek_market"; count: number };
+  type Perk =
+    | { kind: "free_make_per_round" }
+    | { kind: "barrel_age_bonus"; extra: number }
+    | { kind: "solo_rickhouse_no_rent" }
+    | { kind: "first_sale_no_demand_drop" }
+    | { kind: "draw_two_keep_one_bourbon" }
+    | { kind: "draw_replacement_on_ops" }
+    | { kind: "paid_action_discount"; amount: number }
+    | { kind: "free_cask_reuse_per_round" };
+  const cards = doc.cards as Array<{
+    id: string;
+    name: string;
+    flavor: string;
+    bonus_text: string;
+    perk_text: string;
+    bonuses: Bonus[];
+    perk: Perk;
+  }>;
+
+  const knownBonusKinds = new Set([
+    "cash",
+    "mash_bills",
+    "resources",
+    "operations",
+    "peek_market",
+  ]);
+  const knownPerkKinds = new Set([
+    "free_make_per_round",
+    "barrel_age_bonus",
+    "solo_rickhouse_no_rent",
+    "first_sale_no_demand_drop",
+    "draw_two_keep_one_bourbon",
+    "draw_replacement_on_ops",
+    "paid_action_discount",
+    "free_cask_reuse_per_round",
+  ]);
+  const validResources = new Set(["cask", "corn", "barley", "rye", "wheat"]);
+  const seenIds = new Set<string>();
+  for (const c of cards) {
+    if (!c.id || seenIds.has(c.id)) {
+      throw new Error(`Distillery card has missing or duplicate id: ${c.id}`);
+    }
+    seenIds.add(c.id);
+    if (!c.name || !c.flavor || !c.bonus_text || !c.perk_text) {
+      throw new Error(`Distillery card ${c.id} missing one of name / flavor / bonus_text / perk_text`);
+    }
+    if (!Array.isArray(c.bonuses) || c.bonuses.length === 0) {
+      throw new Error(`Distillery card ${c.id} must have ≥1 bonus`);
+    }
+    for (const b of c.bonuses) {
+      if (!knownBonusKinds.has(b.kind)) {
+        throw new Error(`Distillery card ${c.id} unknown bonus kind: ${b.kind}`);
+      }
+      if (b.kind === "resources") {
+        for (const r of b.cards) {
+          if (!validResources.has(r.resource)) {
+            throw new Error(`Distillery card ${c.id} bonus has invalid resource: ${r.resource}`);
+          }
+          if (!(r.count > 0)) {
+            throw new Error(`Distillery card ${c.id} resource bonus needs count > 0`);
+          }
+        }
+      }
+    }
+    if (!c.perk || !knownPerkKinds.has(c.perk.kind)) {
+      throw new Error(`Distillery card ${c.id} unknown perk kind: ${c.perk?.kind}`);
+    }
+  }
+
+  const body =
+    `import type { DistilleryCardDef } from "./types";\n\n` +
+    `export const DISTILLERY_CARDS: readonly DistilleryCardDef[] = ${JSON.stringify(cards, null, 2)} as const;\n\n` +
+    `export const DISTILLERY_CARDS_BY_ID: Readonly<Record<string, DistilleryCardDef>> = Object.freeze(\n` +
+    `  Object.fromEntries(DISTILLERY_CARDS.map((c) => [c.id, c]))\n` +
+    `);\n`;
+
+  writeTs("distillery.generated.ts", body);
+}
+
 // ---------- Main ----------
 
 buildBourbon();
@@ -408,5 +497,6 @@ buildInvestment();
 buildOperations();
 buildResources();
 buildMarket();
+buildDistilleries();
 
 console.log("catalog build complete");

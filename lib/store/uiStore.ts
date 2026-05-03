@@ -77,12 +77,14 @@ export type UiStore = {
     | { kind: "resource"; instanceId: string }
     | { kind: "operations"; instanceId: string }
     | { kind: "investment"; instanceId: string }
+    | { kind: "distillery"; playerId: string }
     | null;
   inspectBill: (cardId: string) => void;
   inspectBarrel: (barrelId: string) => void;
   inspectResource: (instanceId: string) => void;
   inspectOperations: (instanceId: string) => void;
   inspectInvestment: (instanceId: string) => void;
+  inspectDistillery: (playerId: string) => void;
   closeInspect: () => void;
 
   /**
@@ -197,6 +199,8 @@ export const useUiStore = create<UiStore>((set) => ({
     set({ inspect: { kind: "operations", instanceId } }),
   inspectInvestment: (instanceId) =>
     set({ inspect: { kind: "investment", instanceId } }),
+  inspectDistillery: (playerId) =>
+    set({ inspect: { kind: "distillery", playerId } }),
   closeInspect: () => set({ inspect: null }),
 
   implement: { active: false },

@@ -261,6 +261,56 @@ export type MarketCardDef = {
 
 export type ResourceType = "cask" | "corn" | "barley" | "rye" | "wheat";
 
+// ---------- Distillery cards ----------
+//
+// Asymmetric starting identities (Age-of-Empires-style civs). Each baron
+// is dealt 2 face-down at game start, picks 1, returns the other.
+// Each card has one or more `bonuses` (one-time, applied at draft
+// confirmation) and exactly one `perk` (permanent, applies for the
+// rest of the game). See docs/GAME_RULES.md §Distilleries for the
+// design and balance rationale.
+
+export type DistilleryBonus =
+  | { kind: "cash"; amount: number }
+  | { kind: "mash_bills"; count: number }
+  | { kind: "resources"; cards: { resource: ResourceType; count: number }[] }
+  | { kind: "operations"; count: number }
+  /**
+   * Reveal the top N cards of the Market deck to the player as a
+   * one-time peek. Rearrange UX is deferred — current build just
+   * shows the top of the deck in the draft modal so the Speculator's
+   * bonus has a visible payoff.
+   */
+  | { kind: "peek_market"; count: number };
+
+export type DistilleryPerk =
+  /** Once per round, the player's first MAKE_BOURBON action costs $0. */
+  | { kind: "free_make_per_round" }
+  /** Newly placed barrels enter the rickhouse at age `extra` instead of 0. */
+  | { kind: "barrel_age_bonus"; extra: number }
+  /** Skip rent on any of this player's barrels in a rickhouse where they're the only baron. */
+  | { kind: "solo_rickhouse_no_rent" }
+  /** First SELL_BOURBON each round doesn't decrement global demand. */
+  | { kind: "first_sale_no_demand_drop" }
+  /** DRAW_BOURBON action draws 2 and the player keeps 1 (UI pending — currently a no-op stub). */
+  | { kind: "draw_two_keep_one_bourbon" }
+  /** RESOLVE_OPERATIONS triggers a free DRAW_OPERATIONS afterward. */
+  | { kind: "draw_replacement_on_ops" }
+  /** Paid action cost reduced by `amount` (floor 0). Stacks with the table-wide free window. */
+  | { kind: "paid_action_discount"; amount: number }
+  /** Once per round, MAKE_BOURBON returns one cask card from the mash to the player's hand. */
+  | { kind: "free_cask_reuse_per_round" };
+
+export type DistilleryCardDef = {
+  id: string;
+  name: string;
+  flavor: string;
+  bonus_text: string;
+  perk_text: string;
+  bonuses: DistilleryBonus[];
+  perk: DistilleryPerk;
+};
+
 export type ResourceEngineStatus = "modeled" | "partial" | "pending";
 
 export type ResourceWhen = {

@@ -134,13 +134,12 @@ export function resetActionPhase(state: GameState): void {
     passedPlayerIds: [],
     actionsThisLapPlayerIds: [],
     auditCalledThisRound: false,
-    // Round 2+ has no free-action budget — only the initial setup round
-    // (seeded in setup.ts) gets the generous starting allocation.
-    freeActionsRemainingByPlayer: Object.fromEntries(
-      state.playerOrder.map((id) => [id, 0]),
-    ),
   };
   state.firstPasserId = null;
+  // Reset per-round perk-usage flags (free-make, cask reuse, first-sale boon).
+  for (const id of state.playerOrder) {
+    state.players[id].perkUsedThisRound = {};
+  }
 }
 
 /** Advance to the next non-eliminated player (clockwise from currentPlayerId). */
@@ -176,30 +175,6 @@ export function onLapEnd(state: GameState): void {
 export function maybeEndActionPhase(state: GameState): boolean {
   const alive = activePlayerCount(state);
   if (alive === 0) return false;
-  // Setup-round (round 1) exit: as soon as every baron has spent their
-  // free-action budget, the action phase ends automatically — players
-  // don't get to roll into the paid-lap ladder mid-setup. This is
-  // intentional: round 1 is the warmup, not a place to grind paid
-  // actions. We keep the existing pass-driven exit below for round 2+
-  // and as a safety net (a player can still pass to end early).
-  const budget = state.actionPhase.freeActionsRemainingByPlayer;
-  if (
-    state.round === 1 &&
-    budget &&
-    state.playerOrder.every(
-      (id) => state.players[id].eliminated || (budget[id] ?? 0) === 0,
-    )
-  ) {
-    if (
-      state.finalRoundTriggered &&
-      state.finalRoundEndsOnRound === state.round
-    ) {
-      enterScoringPhase(state);
-    } else {
-      enterMarketPhase(state);
-    }
-    return true;
-  }
   if (state.actionPhase.consecutivePasses >= alive) {
     // Final-round exception: skip Phase 3 and go straight to scoring.
     if (

@@ -85,12 +85,9 @@ export default function BourbonInspectModal() {
     const isMine = barrel.barrel.ownerId === humanId;
     const isMyTurn =
       state.currentPlayerId === humanId && state.phase === "action";
-    const myFreeRemaining =
-      state.actionPhase.freeActionsRemainingByPlayer?.[humanId] ?? 0;
-    const cost =
-      myFreeRemaining > 0 || state.actionPhase.freeWindowActive
-        ? 0
-        : state.actionPhase.paidLapTier;
+    const cost = state.actionPhase.freeWindowActive
+      ? 0
+      : state.actionPhase.paidLapTier;
     const canAfford = me.cash >= cost;
     const auditPending =
       me.pendingAuditOverage != null && me.pendingAuditOverage > 0;

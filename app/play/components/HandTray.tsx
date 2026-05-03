@@ -25,6 +25,7 @@
 import { useEffect } from "react";
 
 import { BOURBON_CARDS_BY_ID } from "@/lib/catalogs/bourbon.generated";
+import { DISTILLERY_CARDS_BY_ID } from "@/lib/catalogs/distillery.generated";
 import { INVESTMENT_CARDS_BY_ID } from "@/lib/catalogs/investment.generated";
 import { OPERATIONS_CARDS_BY_ID } from "@/lib/catalogs/operations.generated";
 import { SPECIALTY_RESOURCES_BY_ID } from "@/lib/catalogs/resource.generated";
@@ -72,6 +73,7 @@ export default function HandTray() {
   const inspectResource = useUiStore((s) => s.inspectResource);
   const inspectOperations = useUiStore((s) => s.inspectOperations);
   const inspectInvestment = useUiStore((s) => s.inspectInvestment);
+  const inspectDistillery = useUiStore((s) => s.inspectDistillery);
   const implementMode = useUiStore((s) => s.implement);
   const startImplement = useUiStore((s) => s.startImplement);
   const cancelImplement = useUiStore((s) => s.cancelImplement);
@@ -141,12 +143,9 @@ export default function HandTray() {
   const cappedHandSize = handSize(me);
   const isMyActionTurn =
     state.currentPlayerId === humanId && state.phase === "action";
-  const freeRemaining =
-    state.actionPhase.freeActionsRemainingByPlayer?.[humanId] ?? 0;
-  const cost =
-    freeRemaining > 0 || state.actionPhase.freeWindowActive
-      ? 0
-      : state.actionPhase.paidLapTier;
+  const cost = state.actionPhase.freeWindowActive
+    ? 0
+    : state.actionPhase.paidLapTier;
   const canAfford = me.cash >= cost;
   const overHandLimit = cappedHandSize > HAND_LIMIT;
   const auditPending =
@@ -370,31 +369,61 @@ export default function HandTray() {
         {/* Identity / hand-size readout — small companion block to the
             big cash card below. Sits compact so the cash card is the
             visual anchor of the action row. */}
-        <div className="flex min-w-0 flex-shrink-0 flex-col gap-0.5 rounded-lg border border-slate-800 bg-slate-950/60 px-3.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.04)]">
-          <div className="flex items-center gap-2">
-            <PlayerSwatch
-              seatIndex={me.seatIndex}
-              logoId={me.logoId}
-              size="sm"
-            />
-            <span className="font-display text-[14px] font-semibold leading-tight text-amber-100">
-              Your hand
-            </span>
-          </div>
-          <span
-            className={[
-              "font-mono text-[10px] uppercase tracking-[.12em]",
-              overHandLimit ? "text-rose-400" : "text-slate-500",
-            ].join(" ")}
-            title={
-              overHandLimit
-                ? `Over hand limit (${cappedHandSize}/${HAND_LIMIT}). An Audit will force a discard.`
-                : `Cards in hand: ${cappedHandSize}/${HAND_LIMIT}`
-            }
-          >
-            {traySize} cards · {cappedHandSize}/{HAND_LIMIT}
-          </span>
-        </div>
+        {(() => {
+          const distilleryName = me.chosenDistilleryId
+            ? DISTILLERY_CARDS_BY_ID[me.chosenDistilleryId]?.name ?? null
+            : null;
+          const clickable = !!distilleryName;
+          return (
+            <button
+              type="button"
+              onClick={clickable ? () => inspectDistillery(humanId) : undefined}
+              disabled={!clickable}
+              title={
+                clickable
+                  ? `Your distillery — ${distilleryName} · click to view bonus + perk`
+                  : "Your hand"
+              }
+              className={[
+                "flex min-w-0 flex-shrink-0 flex-col gap-0.5 rounded-lg border bg-slate-950/60 px-3.5 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-all",
+                clickable
+                  ? "cursor-pointer border-slate-700 hover:-translate-y-[1px] hover:border-amber-400 hover:shadow-[0_0_0_2px_rgba(251,191,36,.20)]"
+                  : "cursor-default border-slate-800",
+              ].join(" ")}
+            >
+              <div className="flex items-center gap-2">
+                <PlayerSwatch
+                  seatIndex={me.seatIndex}
+                  logoId={me.logoId}
+                  size="sm"
+                />
+                <div className="flex flex-col leading-tight">
+                  <span className="font-display text-[14px] font-semibold leading-tight text-amber-100">
+                    Your hand
+                  </span>
+                  {distilleryName ? (
+                    <span className="-mt-0.5 font-display text-[10px] italic leading-tight text-amber-200/80">
+                      {distilleryName}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <span
+                className={[
+                  "font-mono text-[10px] uppercase tracking-[.12em]",
+                  overHandLimit ? "text-rose-400" : "text-slate-500",
+                ].join(" ")}
+                title={
+                  overHandLimit
+                    ? `Over hand limit (${cappedHandSize}/${HAND_LIMIT}). An Audit will force a discard.`
+                    : `Cards in hand: ${cappedHandSize}/${HAND_LIMIT}`
+                }
+              >
+                {traySize} cards · {cappedHandSize}/{HAND_LIMIT}
+              </span>
+            </button>
+          );
+        })()}
 
         {/* Loan / audit-pending status badges */}
         {auditPending ? (

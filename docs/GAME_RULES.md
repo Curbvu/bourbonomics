@@ -45,7 +45,7 @@ Deal each player **4 Bourbon cards** (mash bills) as their starting hand. Mash b
 
 Then deal each player **2 Distillery cards face-down**. Each baron secretly looks at both, picks one to keep face-up in front of them, and returns the other to the Distillery deck (which is then reshuffled). The chosen Distillery's **starting bonus** resolves immediately — adjust cash, draw extra cards, or place starting resources as the card prints. The **ongoing perk** stays in play for the rest of the game.
 
-Set the market demand to **6**. This number will rise and fall throughout the game and directly affects how valuable your bourbon is when you sell it.
+Set the market demand to **0**. The market opens cold — every bill's lowest demand band is what fires at demand 0, so early sales are at the floor of each bill's grid. Demand rises through Market cards (Phase 3) over the course of the game; barons who can wait for the swell get paid for it.
 
 Round 1 then begins under normal action-phase rules. Phase 1 (rent) is still skipped because no one has barrels yet, but otherwise the round plays exactly like every other — clockwise turns, free first action per player, then the lap-cost ladder kicks in once someone passes.
 
@@ -329,11 +329,11 @@ If you have a 7-year barrel queued to sell, the boom is golden — but if you do
 
 # 📊 Market Demand
 
-Market demand ranges from 0 to 12 and begins at 6.
+Market demand ranges from 0 to 12 and **begins at 0** — the market opens cold and rises through Market cards (Phase 3). At demand 0 every bill's **lowest demand band** is what fires (since every bill's `demandBands[0]` is 0 or close to it), so early sales sit at the floor of each grid. The richer mid/high columns kick in only once demand swells past each bill's middle and top thresholds.
 
-Each time a player sells bourbon, demand decreases by 1. High demand leads to better prices, while low demand reduces profits.
+Each time a player sells bourbon, demand decreases by 1. High demand leads to better prices, while low demand reduces profits — and demand 0 reduces them to whatever the bill prints in its lowest column.
 
-Managing demand—either by timing your sales or shaping the market—is one of the most important skills in the game.
+Managing demand — either by timing your sales or shaping the market through Market cards — is one of the most important skills in the game.
 
 ## Demand Bands
 

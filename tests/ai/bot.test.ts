@@ -50,11 +50,13 @@ describe("bot driver", () => {
       ],
     });
     const s = driveBots(s0);
-    // Game starts in Round 1 action phase, with the human (p1) up first.
-    // The driver should stop on the human's turn.
-    expect(s.phase).toBe("action");
-    expect(s.currentPlayerId).toBe("p1");
+    // The driver should stop at the Distillery draft for the human —
+    // they need to pick before round 1's action phase begins.
+    expect(s.phase).toBe("distillery_draft");
     expect(s.players.p1.kind).toBe("human");
+    expect(s.players.p1.chosenDistilleryId).toBeUndefined();
+    // The bot should already have confirmed (auto-pick = first dealt).
+    expect(s.players.p2.chosenDistilleryId).toBeDefined();
   });
 
   it("market phase: drives a bot through draw + keep when it's the current player", () => {
