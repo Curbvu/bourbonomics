@@ -59,7 +59,7 @@ export default function DistilleryInspectModal() {
       <div
         role="document"
         onClick={(e) => e.stopPropagation()}
-        className="relative flex w-full max-w-[480px] flex-col gap-4 rounded-xl border-2 border-amber-700 bg-gradient-to-b from-amber-700/30 via-amber-900/40 to-slate-950 p-6 shadow-[0_8px_32px_rgba(0,0,0,.55)]"
+        className="relative flex w-full max-w-[480px] flex-col gap-4 rounded-xl border-2 border-amber-500 bg-slate-900 p-6 shadow-[0_8px_32px_rgba(0,0,0,.55),0_0_0_3px_rgba(245,158,11,0.20)]"
       >
         <button
           type="button"
@@ -86,22 +86,22 @@ export default function DistilleryInspectModal() {
           </div>
         </header>
 
-        <p className="font-display text-[13px] italic leading-snug text-amber-200/85">
-          {def.flavor}
+        <p className="font-display text-[14px] italic leading-snug text-amber-100">
+          "{def.flavor}"
         </p>
 
-        <div className="flex flex-col gap-3 text-[12.5px] leading-snug">
-          <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/[0.08] px-3 py-2">
-            <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-emerald-300">
+        <div className="flex flex-col gap-3 text-[13px] leading-snug">
+          <div className="rounded-lg border border-emerald-500/60 bg-emerald-950/40 px-3.5 py-2.5">
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[.16em] text-emerald-300">
               Starting bonus
             </div>
-            <div className="mt-1 text-emerald-100/95">{def.bonus_text}</div>
+            <div className="mt-1 text-emerald-50">{def.bonus_text}</div>
           </div>
-          <div className="rounded-lg border border-sky-500/40 bg-sky-500/[0.08] px-3 py-2">
-            <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-sky-300">
+          <div className="rounded-lg border border-sky-500/60 bg-sky-950/40 px-3.5 py-2.5">
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[.16em] text-sky-300">
               Ongoing perk
             </div>
-            <div className="mt-1 text-sky-100/95">{def.perk_text}</div>
+            <div className="mt-1 text-sky-50">{def.perk_text}</div>
           </div>
         </div>
 
