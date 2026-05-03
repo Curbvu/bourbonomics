@@ -12,8 +12,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        5
+        4,
+        7
       ]
     ],
     "awards": null,
@@ -24,7 +24,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Last knob in the rack.",
+    "description": "Bottled barrel-proof, sold at 90. The end of a long dump day."
   },
   {
     "id": "02",
@@ -32,8 +34,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        6
+        5,
+        8
       ]
     ],
     "awards": null,
@@ -44,7 +46,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Aged in the dark.",
+    "description": "Limestone water, malted barley, and one very large echo."
   },
   {
     "id": "03",
@@ -52,8 +56,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        7
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -64,7 +68,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Where the steam never sleeps.",
+    "description": "Bardstown's main street, bottled. Workhorse pour at weeknight pricing."
   },
   {
     "id": "04",
@@ -72,8 +78,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        5
+        4,
+        7
       ]
     ],
     "awards": null,
@@ -84,7 +90,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Filtered through Kentucky.",
+    "description": "Hard water, soft mouthfeel, accountant's clarity. Pays out exactly as advertised."
   },
   {
     "id": "05",
@@ -92,12 +100,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        7
+        5,
+        9
       ],
       [
-        7,
-        12
+        9,
+        16
       ]
     ],
     "awards": null,
@@ -109,7 +117,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Trade in the burn.",
+    "description": "A blender's standby — char level four, vanilla up front, tannin on the back."
   },
   {
     "id": "06",
@@ -117,12 +127,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        8
+        7,
+        10
       ],
       [
-        8,
-        13
+        10,
+        17
       ]
     ],
     "awards": null,
@@ -134,7 +144,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "When the rye whistles, drink.",
+    "description": "Spicy rye-forward bend with a citrus undercurrent. Reads the river before the sale."
   },
   {
     "id": "07",
@@ -142,12 +154,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        6
+        4,
+        8
       ],
       [
-        6,
-        11
+        8,
+        14
       ]
     ],
     "awards": null,
@@ -159,7 +171,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "One barrel, one tale.",
+    "description": "Each stave numbered, each pour narrated. Sells well to people who like provenance."
   },
   {
     "id": "08",
@@ -167,19 +181,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
         7,
-        10
+        9,
+        13
       ],
       [
-        7,
-        10,
-        14
+        9,
+        13,
+        18
       ],
       [
-        10,
-        15,
-        20
+        13,
+        20,
+        26
       ]
     ],
     "awards": {
@@ -206,7 +220,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       "wheat": {
         "min": 1
       }
-    }
+    },
+    "slogan": "Five staves agreed.",
+    "description": "Built by hand, voted on by committee. The cooperage's house pour."
   },
   {
     "id": "09",
@@ -214,19 +230,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        11,
-        13,
-        15
-      ],
-      [
-        13,
+        14,
         17,
-        21
+        20
       ],
       [
-        16,
+        17,
+        22,
+        27
+      ],
+      [
         21,
-        26
+        27,
+        34
       ]
     ],
     "awards": {
@@ -252,7 +268,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 35
+    "slogan": "Lucky number, regular price.",
+    "description": "Reliable corn-rye-malt at 70/20/10. The seventh recipe, the first they kept.",
+    "brandValue": 40
   },
   {
     "id": "10",
@@ -260,19 +278,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        15,
-        25,
-        35
-      ],
-      [
         20,
-        35,
-        50
+        33,
+        46
       ],
       [
-        30,
-        50,
-        70
+        26,
+        46,
+        65
+      ],
+      [
+        39,
+        65,
+        91
       ]
     ],
     "awards": {
@@ -301,7 +319,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 75
+    "slogan": "Top of the rack, top of the bill.",
+    "description": "Pulled from the seventh story. Hotter summers, faster aging, premium ask.",
+    "brandValue": 100
   },
   {
     "id": "11",
@@ -309,8 +329,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        6
+        5,
+        8
       ]
     ],
     "awards": null,
@@ -321,7 +341,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "E for excellent. Or extra.",
+    "description": "Whatever the rickhouse manager grabbed last. Consistent enough to bottle a label."
   },
   {
     "id": "12",
@@ -329,8 +351,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        7
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -341,7 +363,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Distilled in the river fog.",
+    "description": "Bottled when the cooper couldn't see the next building. Tastes like the morning after."
   },
   {
     "id": "13",
@@ -349,8 +373,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        5
+        4,
+        7
       ]
     ],
     "awards": null,
@@ -361,7 +385,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Sweet, hot, simple.",
+    "description": "Eighty percent corn, twenty percent everything else. Pairs with most porches."
   },
   {
     "id": "14",
@@ -369,12 +395,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        7
+        5,
+        9
       ],
       [
-        7,
-        12
+        9,
+        16
       ]
     ],
     "awards": null,
@@ -386,7 +412,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Climb to the spice.",
+    "description": "Ninety-five percent rye — pepper, mint, and a long ladder down the throat."
   },
   {
     "id": "15",
@@ -394,12 +422,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        8
+        7,
+        10
       ],
       [
-        8,
-        13
+        10,
+        17
       ]
     ],
     "awards": null,
@@ -411,7 +439,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Soft, slow, certain.",
+    "description": "Wheated mash bill that doesn't argue. Says what it means and means what it sips."
   },
   {
     "id": "16",
@@ -419,12 +449,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        6
+        4,
+        8
       ],
       [
-        6,
-        11
+        8,
+        14
       ]
     ],
     "awards": null,
@@ -436,7 +466,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Holding the malt line.",
+    "description": "Barley-heavy pot still that refuses to be subtle. Smoky, biscuit-y, decisive."
   },
   {
     "id": "17",
@@ -444,19 +476,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
         7,
-        10
+        9,
+        13
       ],
       [
-        7,
-        10,
-        14
+        9,
+        13,
+        18
       ],
       [
-        10,
-        15,
-        20
+        13,
+        20,
+        26
       ]
     ],
     "awards": {
@@ -477,7 +509,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       "rye": {
         "min": 2
       }
-    }
+    },
+    "slogan": "Twice toasted, never burnt.",
+    "description": "Char two on the staves, char three on the heads. Caramelized either way."
   },
   {
     "id": "18",
@@ -485,19 +519,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        6,
         8,
-        11
+        10,
+        14
       ],
       [
-        8,
-        11,
-        15
+        10,
+        14,
+        20
       ],
       [
-        11,
-        16,
-        21
+        14,
+        21,
+        27
       ]
     ],
     "awards": {
@@ -518,7 +552,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       "rye": {
         "min": 2
       }
-    }
+    },
+    "slogan": "What evaporated, signed in.",
+    "description": "The barrel left a watermark in the air. The bottle preserves what was almost lost."
   },
   {
     "id": "19",
@@ -526,19 +562,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        9,
-        11,
-        13
-      ],
-      [
-        11,
-        15,
-        19
+        12,
+        14,
+        17
       ],
       [
         14,
-        19,
-        24
+        20,
+        25
+      ],
+      [
+        18,
+        25,
+        31
       ]
     ],
     "awards": {
@@ -564,7 +600,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 30
+    "slogan": "Four years, one distillery, one season.",
+    "description": "Bottled-in-bond, hundred proof, no compromise. Federally bossy, deliciously honest.",
+    "brandValue": 40
   },
   {
     "id": "20",
@@ -572,8 +610,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        6
+        5,
+        8
       ]
     ],
     "awards": null,
@@ -584,7 +622,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Sealed with intent.",
+    "description": "Crown over Kentucky cork — table-side bourbon for people who like a little ceremony."
   },
   {
     "id": "21",
@@ -592,8 +632,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        7
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -604,7 +644,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "A century in a glass.",
+    "description": "Hundred proof, hundred percent confident. The expression that audits itself."
   },
   {
     "id": "22",
@@ -612,8 +654,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        5
+        4,
+        7
       ]
     ],
     "awards": null,
@@ -624,7 +666,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Membership, one barrel.",
+    "description": "Backset starter, multi-batch consistency. The same yeast strain since the first run."
   },
   {
     "id": "23",
@@ -632,8 +676,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        6
+        5,
+        8
       ]
     ],
     "awards": null,
@@ -644,7 +688,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Fourteen lines of distillate.",
+    "description": "Slow strip, slower spirit. Lyrical mouthfeel for the contemplative pour."
   },
   {
     "id": "24",
@@ -652,12 +698,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        8
+        7,
+        10
       ],
       [
-        8,
-        13
+        10,
+        17
       ]
     ],
     "awards": null,
@@ -669,7 +715,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Column-built, hand-finished.",
+    "description": "Continuous distillation that never broke a sweat. Number four in the rotation, first in efficiency."
   },
   {
     "id": "25",
@@ -677,12 +725,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        6
+        4,
+        8
       ],
       [
-        6,
-        11
+        8,
+        14
       ]
     ],
     "awards": null,
@@ -694,7 +742,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Cut against the grain.",
+    "description": "Saws the difference between high-rye and high-corn. A blender's secret weapon."
   },
   {
     "id": "26",
@@ -702,12 +752,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        7
+        5,
+        9
       ],
       [
-        7,
-        12
+        9,
+        16
       ]
     ],
     "awards": null,
@@ -719,7 +769,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Solve for time.",
+    "description": "Years × surface area = flavor. We did the work; you taste the answer."
   },
   {
     "id": "27",
@@ -727,19 +779,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        6,
         8,
-        11
+        10,
+        14
       ],
       [
-        8,
-        11,
-        15
+        10,
+        14,
+        20
       ],
       [
-        11,
-        16,
-        21
+        14,
+        21,
+        27
       ]
     ],
     "awards": {
@@ -760,7 +812,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 2
       }
     },
-    "tier": "rare"
+    "tier": "rare",
+    "slogan": "Eighty-six proof, no warning.",
+    "description": "The 1986 batch that got loose. Bright, hot, slightly afraid of itself."
   },
   {
     "id": "28",
@@ -768,19 +822,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        9,
-        11,
-        13
-      ],
-      [
-        11,
-        15,
-        19
+        12,
+        14,
+        17
       ],
       [
         14,
-        19,
-        24
+        20,
+        25
+      ],
+      [
+        18,
+        25,
+        31
       ]
     ],
     "awards": {
@@ -806,7 +860,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       }
     },
     "tier": "epic",
-    "brandValue": 30
+    "slogan": "Distilled through the still's memory.",
+    "description": "Pot still residue carries forward; this expression honors the lineage in micrograms.",
+    "brandValue": 40
   },
   {
     "id": "29",
@@ -814,8 +870,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        6
+        5,
+        8
       ]
     ],
     "awards": null,
@@ -826,7 +882,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Bottled where the music plays.",
+    "description": "Distilled in earshot of three festivals a year. Spirited, slightly off-tempo, very listenable."
   },
   {
     "id": "30",
@@ -834,8 +892,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        7
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -846,7 +904,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Floors, years, dollars — sum it.",
+    "description": "Floor seven, year nine, sale price elsewhere. The math that built the brand."
   },
   {
     "id": "31",
@@ -854,8 +914,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        5
+        4,
+        7
       ]
     ],
     "awards": null,
@@ -866,7 +926,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Strain truth from rumor.",
+    "description": "Charcoal-mellowed Lincoln-county style. The story stays; the harshness doesn't."
   },
   {
     "id": "32",
@@ -874,8 +936,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        6
+        5,
+        8
       ]
     ],
     "awards": null,
@@ -886,7 +948,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Cut at the lowest legal proof.",
+    "description": "Entered the barrel at 110, came out at less. Patient distilling, generous pour."
   },
   {
     "id": "33",
@@ -894,12 +958,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        8
+        7,
+        10
       ],
       [
-        8,
-        13
+        10,
+        17
       ]
     ],
     "awards": null,
@@ -911,7 +975,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Five furnaces, one fire.",
+    "description": "Steam-heated cooker bank, batch number five. Cooks hot, sells warmer."
   },
   {
     "id": "34",
@@ -919,12 +985,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        6
+        4,
+        8
       ],
       [
-        6,
-        11
+        8,
+        14
       ]
     ],
     "awards": null,
@@ -936,7 +1002,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Nine grains, one nebula.",
+    "description": "Multi-grain mash that reads like an astronomy chart. Heavy bottle, dense flavor, infinite finish."
   },
   {
     "id": "35",
@@ -944,12 +1012,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        7
+        5,
+        9
       ],
       [
-        7,
-        12
+        9,
+        16
       ]
     ],
     "awards": null,
@@ -961,7 +1029,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Polished by the field.",
+    "description": "Earthy on entry, mineral on the way out. The bottle they keep behind the bar for the regulars."
   },
   {
     "id": "36",
@@ -969,19 +1039,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        6,
         8,
-        11
+        10,
+        14
       ],
       [
-        8,
-        11,
-        15
+        10,
+        14,
+        20
       ],
       [
-        11,
-        16,
-        21
+        14,
+        21,
+        27
       ]
     ],
     "awards": {
@@ -1002,7 +1072,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 2
       }
     },
-    "tier": "rare"
+    "tier": "rare",
+    "slogan": "Where the still meets the spirit.",
+    "description": "Cask strength 107 proof. Three-still serial blend with copper notes throughout."
   },
   {
     "id": "37",
@@ -1010,19 +1082,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        9,
-        11,
-        13
-      ],
-      [
-        11,
-        15,
-        19
+        12,
+        14,
+        17
       ],
       [
         14,
-        19,
-        24
+        20,
+        25
+      ],
+      [
+        18,
+        25,
+        31
       ]
     ],
     "awards": {
@@ -1048,7 +1120,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 35
+    "slogan": "Seven barrels, not one matches.",
+    "description": "An accidental small-batch from seven mismatched racks. Better than the recipe.",
+    "brandValue": 45
   },
   {
     "id": "38",
@@ -1056,19 +1130,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        17,
-        27,
-        37
-      ],
-      [
         22,
-        37,
-        52
+        35,
+        48
       ],
       [
-        32,
-        52,
-        72
+        29,
+        48,
+        68
+      ],
+      [
+        42,
+        68,
+        94
       ]
     ],
     "awards": {
@@ -1097,7 +1171,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 85
+    "slogan": "Bottled-in-bond, distilled-on-the-line.",
+    "description": "Straddles the Kentucky-Tennessee line. Bottled-in-bond, regulated to a fault, blessed by both auditors.",
+    "brandValue": 105
   },
   {
     "id": "39",
@@ -1105,8 +1181,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        5,
-        7
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -1117,7 +1193,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Stolen straight from the bung.",
+    "description": "Bottled at the moment the warehouse manager dipped the thief. Unfiltered honesty."
   },
   {
     "id": "40",
@@ -1125,8 +1203,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        3,
-        5
+        4,
+        7
       ]
     ],
     "awards": null,
@@ -1137,7 +1215,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "We forgot it was here.",
+    "description": "Found in a sealed rickhouse during inventory. Eighteen years undocumented, fully aged, mostly evaporated."
   },
   {
     "id": "41",
@@ -1145,8 +1225,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        4,
-        6
+        5,
+        8
       ]
     ],
     "awards": null,
@@ -1157,7 +1237,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Two ricks, one fate.",
+    "description": "Aged in two adjacent rickhouses simultaneously. Microclimate split that nobody can reproduce."
   },
   {
     "id": "42",
@@ -1165,12 +1247,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        5,
-        8
+        7,
+        10
       ],
       [
-        8,
-        13
+        10,
+        17
       ]
     ],
     "awards": null,
@@ -1182,7 +1264,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Heirloom corn, holy water.",
+    "description": "Bloody Butcher dent corn — the kind your grandfather grew. Tastes like a promise."
   },
   {
     "id": "43",
@@ -1190,12 +1274,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        3,
-        6
+        4,
+        8
       ],
       [
-        6,
-        11
+        8,
+        14
       ]
     ],
     "awards": null,
@@ -1207,7 +1291,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Cask strength, monocle optional.",
+    "description": "The expression for the boardroom. Cask strength, single rick, signed by the master distiller."
   },
   {
     "id": "44",
@@ -1215,12 +1301,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        4,
-        7
+        5,
+        9
       ],
       [
-        7,
-        12
+        9,
+        16
       ]
     ],
     "awards": null,
@@ -1232,7 +1318,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Aged forever, by definition.",
+    "description": "Solera-method bourbon: every bottle contains some of the first. Mathematically immortal."
   },
   {
     "id": "45",
@@ -1240,19 +1328,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        6,
         8,
-        11
+        10,
+        14
       ],
       [
-        8,
-        11,
-        15
+        10,
+        14,
+        20
       ],
       [
-        11,
-        16,
-        21
+        14,
+        21,
+        27
       ]
     ],
     "awards": {
@@ -1273,7 +1361,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 2
       }
     },
-    "tier": "rare"
+    "tier": "rare",
+    "slogan": "True north, true proof.",
+    "description": "Navigated by demand. The bottle that always points to the highest price."
   },
   {
     "id": "46",
@@ -1281,19 +1371,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        4,
-        6,
-        9
+        5,
+        8,
+        12
       ],
       [
-        6,
-        9,
-        13
+        8,
+        12,
+        17
       ],
       [
-        9,
-        14,
-        19
+        12,
+        18,
+        25
       ]
     ],
     "awards": {
@@ -1314,7 +1404,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 2
       }
     },
-    "tier": "rare"
+    "tier": "rare",
+    "slogan": "The premium line, audited.",
+    "description": "Distilled for collectors who want a paper trail. Provenance, proof, and a foil seal."
   },
   {
     "id": "47",
@@ -1322,19 +1414,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        10,
-        12,
-        14
-      ],
-      [
-        12,
+        13,
         16,
-        20
+        18
       ],
       [
-        15,
+        16,
+        21,
+        26
+      ],
+      [
         20,
-        25
+        26,
+        33
       ]
     ],
     "awards": {
@@ -1360,7 +1452,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 35
+    "slogan": "Aged in the elements.",
+    "description": "No climate control, no roof leaks fixed. Whatever Kentucky did to it, you taste.",
+    "brandValue": 45
   },
   {
     "id": "48",
@@ -1368,8 +1462,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        5,
-        7
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -1380,7 +1474,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Four years isn't enough.",
+    "description": "Bottled-in-bond at twelve, when most are tired. The rare BiB that earns its prefix."
   },
   {
     "id": "49",
@@ -1388,8 +1484,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        3,
-        5
+        4,
+        7
       ]
     ],
     "awards": null,
@@ -1400,7 +1496,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Reads the cask, foretells the price.",
+    "description": "Master cooper's pick — the staves were chosen for tone before they were assembled."
   },
   {
     "id": "50",
@@ -1408,8 +1506,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        4,
-        6
+        5,
+        8
       ]
     ],
     "awards": null,
@@ -1420,7 +1518,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Shutdown distillery, final pull.",
+    "description": "Last barrel to leave the warehouse before the auction. Bottled, sealed, sold."
   },
   {
     "id": "51",
@@ -1428,8 +1528,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        7
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -1440,7 +1540,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Cooked under a watching moon.",
+    "description": "Late-shift batch run between midnight and three. Tastes like discipline."
   },
   {
     "id": "52",
@@ -1448,12 +1550,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        6
+        4,
+        8
       ],
       [
-        6,
-        11
+        8,
+        14
       ]
     ],
     "awards": null,
@@ -1465,7 +1567,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Off the bourbon trail.",
+    "description": "Made by a distillery the maps forgot. Word of mouth carries it now."
   },
   {
     "id": "53",
@@ -1473,12 +1577,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        7
+        5,
+        9
       ],
       [
-        7,
-        12
+        9,
+        16
       ]
     ],
     "awards": null,
@@ -1490,7 +1594,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Twelve barrels, hand-picked.",
+    "description": "The master distiller's personal selection from one season's run. Assertive, balanced, a little vain."
   },
   {
     "id": "54",
@@ -1498,19 +1604,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        6,
         8,
-        11
+        10,
+        14
       ],
       [
-        8,
-        11,
-        15
+        10,
+        14,
+        20
       ],
       [
-        11,
-        16,
-        21
+        14,
+        21,
+        27
       ]
     ],
     "awards": {
@@ -1531,7 +1637,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 2
       }
     },
-    "tier": "rare"
+    "tier": "rare",
+    "slogan": "Floats down the Ohio.",
+    "description": "Western-Kentucky workhorse with river-cooled water. Smoother than the locals admit."
   },
   {
     "id": "55",
@@ -1539,19 +1647,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        6,
-        9
+        5,
+        8,
+        12
       ],
       [
-        6,
-        9,
-        13
+        8,
+        12,
+        17
       ],
       [
-        9,
-        14,
-        19
+        12,
+        18,
+        25
       ]
     ],
     "awards": {
@@ -1572,7 +1680,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       5,
       8
     ],
-    "tier": "rare"
+    "tier": "rare",
+    "slogan": "Capital pour, no apologies.",
+    "description": "Distilled within sight of the dome. Politicians' choice; everyone else's secret."
   },
   {
     "id": "56",
@@ -1580,19 +1690,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        10,
-        12,
-        14
-      ],
-      [
-        12,
+        13,
         16,
-        20
+        18
       ],
       [
-        15,
+        16,
+        21,
+        26
+      ],
+      [
         20,
-        25
+        26,
+        33
       ]
     ],
     "awards": {
@@ -1618,7 +1728,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 30
+    "slogan": "Members only, ages eight.",
+    "description": "Cooperage co-op release — the staves were milled by the membership. Quietly excellent.",
+    "brandValue": 40
   },
   {
     "id": "57",
@@ -1626,8 +1738,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        7
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -1638,7 +1750,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Beat of the still.",
+    "description": "A pot still rhythm in every sip — three notes on entry, two on the back."
   },
   {
     "id": "58",
@@ -1646,8 +1760,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
-        5
+        4,
+        7
       ]
     ],
     "awards": null,
@@ -1658,7 +1772,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Western water, eastern aging.",
+    "description": "Greenriver-distilled, central-Kentucky aged. Best of two basins in one bottle."
   },
   {
     "id": "59",
@@ -1666,8 +1782,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
-        6
+        5,
+        8
       ]
     ],
     "awards": null,
@@ -1678,7 +1794,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "The year, the recipe, the reverence.",
+    "description": "Reconstructed from a 1792 distillery's recovered notes. Historical accuracy, modern char."
   },
   {
     "id": "60",
@@ -1686,8 +1804,8 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        5,
-        7
+        7,
+        9
       ]
     ],
     "awards": null,
@@ -1698,7 +1816,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       6
     ],
-    "tier": "common"
+    "tier": "common",
+    "slogan": "Forged at one hundred.",
+    "description": "Hundred proof, hundred questions answered. The bartender's reference bottle."
   },
   {
     "id": "61",
@@ -1706,12 +1826,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        3,
-        6
+        4,
+        8
       ],
       [
-        6,
-        11
+        8,
+        14
       ]
     ],
     "awards": null,
@@ -1723,7 +1843,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Burned, rebuilt, better.",
+    "description": "Cooperage that burned in '78 and reopened in '79. Every cask carries the memory."
   },
   {
     "id": "62",
@@ -1731,12 +1853,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        4,
-        7
+        5,
+        9
       ],
       [
-        7,
-        12
+        9,
+        16
       ]
     ],
     "awards": null,
@@ -1748,7 +1870,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "It speaks if you listen.",
+    "description": "Single-barrel release, ultra-low proof. Subtle to the point of evasion. Worth the lean-in."
   },
   {
     "id": "63",
@@ -1756,12 +1880,12 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        5,
-        8
+        7,
+        10
       ],
       [
-        8,
-        13
+        10,
+        17
       ]
     ],
     "awards": null,
@@ -1773,7 +1897,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       0,
       7
     ],
-    "tier": "uncommon"
+    "tier": "uncommon",
+    "slogan": "Cooked in the dark hours.",
+    "description": "Third-shift mash that nobody wanted to claim. Turned out to be the year's best."
   },
   {
     "id": "64",
@@ -1781,19 +1907,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        4,
-        6,
-        9
+        5,
+        8,
+        12
       ],
       [
-        6,
-        9,
-        13
+        8,
+        12,
+        17
       ],
       [
-        9,
-        14,
-        19
+        12,
+        18,
+        25
       ]
     ],
     "awards": {
@@ -1814,7 +1940,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
       "rye": {
         "min": 2
       }
-    }
+    },
+    "slogan": "Three races, three wins, three glasses.",
+    "description": "Stored under three rickhouses, blended for the fall classic. Win, place, show."
   },
   {
     "id": "65",
@@ -1822,19 +1950,19 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        10,
-        12,
-        14
-      ],
-      [
-        12,
+        13,
         16,
-        20
+        18
       ],
       [
-        15,
+        16,
+        21,
+        26
+      ],
+      [
         20,
-        25
+        26,
+        33
       ]
     ],
     "awards": {
@@ -1860,7 +1988,9 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
         "min": 1
       }
     },
-    "brandValue": 35
+    "slogan": "Dark water, bright finish.",
+    "description": "Distilled along the Black River, finished in former sherry casks. Belle of the dinner table.",
+    "brandValue": 45
   }
 ] as const;
 

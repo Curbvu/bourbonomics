@@ -145,9 +145,29 @@ export default function BourbonCardFace({
           >
             {card.name}
           </h3>
+          {card.slogan ? (
+            <p
+              className={`mt-0.5 font-display italic leading-snug ${chrome.label} opacity-95 ${tok.eyebrow}`}
+              style={{ fontSize: size === "lg" ? 13 : size === "md" ? 11 : 9 }}
+            >
+              "{card.slogan}"
+            </p>
+          ) : null}
         </div>
         <TierBadge tier={tier} size={size} />
       </header>
+
+      {/* Description blurb — full prose, only visible on md/lg sizes
+          where the card has the room. Sits between the slogan and the
+          price grid, anchoring the flavor. */}
+      {card.description && size !== "sm" ? (
+        <p
+          className={`leading-snug ${chrome.titleInk} opacity-90`}
+          style={{ fontSize: size === "lg" ? 12 : 10.5 }}
+        >
+          {card.description}
+        </p>
+      ) : null}
 
       {/* Section divider — Market Price Guide */}
       <SectionDivider label="Market Price Guide" size={size} />

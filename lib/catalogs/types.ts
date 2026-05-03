@@ -82,6 +82,17 @@ export type DemandBandThresholds = readonly number[];
 export type BourbonCardDef = {
   id: string;
   name: string;
+  /**
+   * Short product-style tagline shown beneath the name in the inspect
+   * modal and on hover. Optional for back-compat — falls back to the
+   * card name when absent.
+   */
+  slogan?: string;
+  /**
+   * One-sentence flavor blurb, shown in the inspect modal under the
+   * slogan. Optional for back-compat — quietly omitted when absent.
+   */
+  description?: string;
   rarity: BourbonRarity;
   /**
    * Lower-bound thresholds for this bill's age bands, in years.

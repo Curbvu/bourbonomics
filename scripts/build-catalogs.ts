@@ -47,6 +47,8 @@ function buildBourbon() {
   const cards = doc.cards as Array<{
     id: string;
     name: string;
+    slogan?: string;
+    description?: string;
     rarity: string;
     ageBands?: Bands;
     demandBands?: Bands;

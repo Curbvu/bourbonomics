@@ -1210,8 +1210,8 @@ function MiniBourbonCard({
       <h4 className={`mt-1 line-clamp-2 font-display text-[13px] font-bold leading-tight ${chrome.titleInk} drop-shadow-[0_1px_4px_rgba(0,0,0,.35)]`}>
         {card.name}
       </h4>
-      <p className={`mt-0.5 text-[9px] italic leading-snug ${chrome.label} opacity-90`}>
-        mash bill
+      <p className={`mt-0.5 line-clamp-2 text-[9px] italic leading-snug ${chrome.label} opacity-95`}>
+        {card.slogan ? `"${card.slogan}"` : "mash bill"}
       </p>
       <div className={`mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 ${chrome.border} bg-white/10 font-mono text-[12px] font-black tabular-nums text-white shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm`}>
         ${previewPrice}
