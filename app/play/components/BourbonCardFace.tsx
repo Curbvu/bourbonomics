@@ -12,20 +12,31 @@ type HighlightCell = {
 };
 
 /**
- * Build human-readable band labels from a bill's three lower-bound
- * thresholds. Bands 0 and 1 read as `lo–(next-1)`; band 2 reads as `lo+`.
- * Example: `[2, 4, 7]` → ["2–3", "4–6", "7+"].
+ * Build human-readable band labels from a bill's lower-bound thresholds.
+ * The last band reads as `lo+`; earlier bands read as `lo–(next-1)` (or
+ * just `lo` when only one value lands in the band). Length-agnostic so
+ * common bills with 1 or 2 bands render correctly alongside full 3-band
+ * grids.
+ *
+ * Examples:
+ *   `[2]`        → ["2+"]
+ *   `[2, 6]`     → ["2–5", "6+"]
+ *   `[2, 4, 7]`  → ["2–3", "4–6", "7+"]
  */
-function bandLabels(thresholds: readonly [number, number, number]): string[] {
-  return [
-    thresholds[1] - thresholds[0] === 1
-      ? `${thresholds[0]}`
-      : `${thresholds[0]}–${thresholds[1] - 1}`,
-    thresholds[2] - thresholds[1] === 1
-      ? `${thresholds[1]}`
-      : `${thresholds[1]}–${thresholds[2] - 1}`,
-    `${thresholds[2]}+`,
-  ];
+function bandLabels(thresholds: readonly number[]): string[] {
+  return thresholds.map((lo, i) => {
+    if (i === thresholds.length - 1) return `${lo}+`;
+    const hi = thresholds[i + 1] - 1;
+    return hi === lo ? `${lo}` : `${lo}–${hi}`;
+  });
+}
+
+/** Highest band index whose lower-bound is ≤ value. Length-agnostic. */
+function resolveBandIndex(thresholds: readonly number[], value: number): number {
+  for (let i = thresholds.length - 1; i >= 0; i -= 1) {
+    if (value >= thresholds[i]) return i;
+  }
+  return 0;
 }
 
 type Size = "sm" | "md" | "lg";
@@ -98,11 +109,7 @@ export default function BourbonCardFace({
   const demandLabels = bandLabels(card.demandBands);
   const liveDemandBand =
     highlight == null && currentDemand != null
-      ? currentDemand >= card.demandBands[2]
-        ? 2
-        : currentDemand >= card.demandBands[1]
-          ? 1
-          : 0
+      ? resolveBandIndex(card.demandBands, currentDemand)
       : null;
   const tier = tierOrCommon(card.tier);
   const chrome = TIER_CHROME[tier];
@@ -272,9 +279,9 @@ function RecipeBadges({
     } else if (bound.min != null && bound.max != null) {
       body = `${bound.min}–${bound.max} ${label}`;
     } else if (bound.min != null) {
-      body = `≥${bound.min} ${label}`;
+      body = `${bound.min} ${label}`;
     } else if (bound.max != null) {
-      body = `≤${bound.max} ${label}`;
+      body = `${bound.max} ${label} max`;
     }
     if (body) entries.push({ label, body });
   }
@@ -392,7 +399,10 @@ function Medal({ tier }: { tier: "silver" | "gold" }) {
 // text reads as gameplay copy, not engine plumbing.
 
 function renderAwardText(text: string): ReactNode {
-  const expanded = expandRickhouseRefs(text);
+  // Strip ≥/≤ from award copy — context already implies "at least/at most",
+  // and the bare number reads cleaner. Award authors can keep typing the
+  // symbols in YAML; we drop them here at render time.
+  const expanded = expandRickhouseRefs(text).replace(/[≥≤]/g, "");
   const parts: ReactNode[] = [];
   const re = /\*\*([^*]+)\*\*/g;
   let lastIdx = 0;

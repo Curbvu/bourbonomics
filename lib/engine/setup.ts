@@ -21,12 +21,15 @@ import {
   STARTING_BOURBON_HAND,
   DEFAULT_STARTING_CASH,
   STARTING_DEMAND,
+  STARTING_FREE_ACTIONS,
 } from "./state";
 
 export type SeatSpec = {
   name: string;
   kind: PlayerKind;
   botDifficulty?: BotDifficulty;
+  /** Bourbon-themed icon id chosen for this seat. Optional — falls back to seatIndex-derived logo. */
+  logoId?: string;
 };
 
 export type NewGameConfig = {
@@ -78,6 +81,7 @@ export function createInitialState(config: NewGameConfig): GameState {
       kind: seat.kind,
       botDifficulty: seat.botDifficulty,
       seatIndex: idx,
+      logoId: seat.logoId,
       cash: startingCash,
       resourceHand: [],
       bourbonHand,
@@ -139,6 +143,13 @@ export function createInitialState(config: NewGameConfig): GameState {
       passedPlayerIds: [],
       actionsThisLapPlayerIds: [],
       auditCalledThisRound: false,
+      // Round 1 is the "setup" round — every player gets a generous
+      // free-action budget so they can stock resources, draw bills, and
+      // barrel a few mashes without paying. Subsequent rounds reset to 0
+      // in resetActionPhase.
+      freeActionsRemainingByPlayer: Object.fromEntries(
+        playerOrder.map((id) => [id, STARTING_FREE_ACTIONS]),
+      ),
     },
     feesPhase: {
       resolvedPlayerIds: [],

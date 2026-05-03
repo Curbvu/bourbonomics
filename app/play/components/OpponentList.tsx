@@ -16,6 +16,7 @@ import {
   PLAYER_TEXT_CLASS,
   paletteIndex,
 } from "./playerColors";
+import PlayerSwatch from "./PlayerSwatch";
 
 export default function OpponentList() {
   const state = useGameStore((s) => s.state)!;
@@ -49,12 +50,11 @@ export default function OpponentList() {
           >
             {/* Row 1 — identity + cash */}
             <div className="flex items-center gap-2.5">
-              <span
-                className={`grid h-[22px] w-[22px] place-items-center rounded-full font-mono text-[10px] font-bold leading-none text-white ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
-                aria-hidden
-              >
-                {p.name[0]?.toUpperCase()}
-              </span>
+              <PlayerSwatch
+                seatIndex={p.seatIndex}
+                logoId={p.logoId}
+                size="md"
+              />
               <span className="font-display text-base font-semibold text-amber-100">
                 {p.name}
               </span>

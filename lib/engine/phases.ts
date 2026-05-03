@@ -134,6 +134,11 @@ export function resetActionPhase(state: GameState): void {
     passedPlayerIds: [],
     actionsThisLapPlayerIds: [],
     auditCalledThisRound: false,
+    // Round 2+ has no free-action budget — only the initial setup round
+    // (seeded in setup.ts) gets the generous starting allocation.
+    freeActionsRemainingByPlayer: Object.fromEntries(
+      state.playerOrder.map((id) => [id, 0]),
+    ),
   };
   state.firstPasserId = null;
 }

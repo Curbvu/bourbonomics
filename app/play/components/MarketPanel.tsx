@@ -61,9 +61,13 @@ export default function MarketPanel() {
     (id) => state.players[id].kind === "human",
   );
   const me = humanId ? state.players[humanId] : null;
-  const cost = state.actionPhase.freeWindowActive
-    ? 0
-    : state.actionPhase.paidLapTier;
+  const humanFreeRemaining = humanId
+    ? state.actionPhase.freeActionsRemainingByPlayer[humanId] ?? 0
+    : 0;
+  const cost =
+    humanFreeRemaining > 0 || state.actionPhase.freeWindowActive
+      ? 0
+      : state.actionPhase.paidLapTier;
   const canAfford = !!me && me.cash >= cost;
   const drawable =
     !!humanId &&

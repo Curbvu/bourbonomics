@@ -27,7 +27,7 @@
 
 import { BOURBON_CARDS_BY_ID } from "@/lib/catalogs/bourbon.generated";
 import { pickBestGoldAlt } from "@/lib/ai/evaluators";
-import { lookupSalePrice } from "@/lib/rules/pricing";
+import { demandBandFor, lookupSalePrice } from "@/lib/rules/pricing";
 import { validateMash } from "@/lib/rules/mash";
 import type { RickhouseId } from "@/lib/engine/rickhouses";
 import {
@@ -38,6 +38,8 @@ import {
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
 import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
+import { logoFor } from "./playerLogos";
+import { TIER_CHROME, tierOrCommon } from "./tierStyles";
 
 const TOTAL_SLOTS = RICKHOUSES.reduce((n, r) => n + r.capacity, 0);
 
@@ -114,9 +116,13 @@ export default function RickhouseRow() {
     !!humanId &&
     state.currentPlayerId === humanId &&
     state.phase === "action";
-  const actionCost = state.actionPhase.freeWindowActive
-    ? 0
-    : state.actionPhase.paidLapTier;
+  const humanFreeRemaining = humanId
+    ? state.actionPhase.freeActionsRemainingByPlayer[humanId] ?? 0
+    : 0;
+  const actionCost =
+    humanFreeRemaining > 0 || state.actionPhase.freeWindowActive
+      ? 0
+      : state.actionPhase.paidLapTier;
   const canAffordAction = !!me && me.cash >= actionCost;
   const auditPending = !!me && (me.pendingAuditOverage ?? 0) > 0;
   const sellingAllowed =
@@ -243,13 +249,15 @@ export default function RickhouseRow() {
 
               <div className="flex flex-wrap gap-2">
                 {h.barrels.map((b) => {
-                  const seatIdx = paletteIndex(
-                    state.players[b.ownerId]?.seatIndex ?? 0,
-                  );
+                  const ownerPlayer = state.players[b.ownerId];
+                  const seatIdx = paletteIndex(ownerPlayer?.seatIndex ?? 0);
+                  const ownerLogo = logoFor(ownerPlayer?.logoId, ownerPlayer?.seatIndex ?? 0);
                   const isMine = !!humanId && b.ownerId === humanId;
                   const ageOk = b.age >= 2;
                   const sellable = isMine && ageOk && sellingAllowed;
                   const card = BOURBON_CARDS_BY_ID[b.mashBillId];
+                  const tier = tierOrCommon(card?.tier);
+                  const tierChrome = TIER_CHROME[tier];
                   // Pricing helpers throw on age < 2 (the engine's sale path
                   // never gets there). Skip the lookup entirely for aging
                   // barrels so a freshly-made age-0 chip doesn't crash the
@@ -262,7 +270,30 @@ export default function RickhouseRow() {
                     isMine && me && ageOk ? pickBestGoldAlt(state, me, b) : null;
                   const projectedPrice = altPick ? altPick.payout : basePrice;
                   const isRare = card?.rarity === "Rare";
-                  const showPrice = isMine && ageOk;
+                  // Pay scale — row of 3 prices for the resolved age
+                  // band, with the cell at the current demand band marked
+                  // as the live one. For aging barrels the engine's age
+                  // resolver throws, so fall back to the lowest age row
+                  // (what the barrel will pay once it ages into ageBands[0]).
+                  let ageRowIndex = 0;
+                  if (card && ageOk) {
+                    for (let i = card.ageBands.length - 1; i >= 0; i -= 1) {
+                      if (card.ageBands[i] <= b.age) {
+                        ageRowIndex = i;
+                        break;
+                      }
+                    }
+                  }
+                  const payScaleRow: readonly number[] = card
+                    ? card.grid[ageRowIndex]
+                    : [0];
+                  const liveDemandBand = card
+                    ? demandBandFor(card, state.demand)
+                    : 0;
+                  // Live cell shows the alt-boosted payout when applicable;
+                  // the printed grid value is preserved as a tooltip.
+                  const liveCellPrice =
+                    altPick && ageOk ? altPick.payout : payScaleRow[liveDemandBand];
                   // In sell mode, the barrel becomes the click target;
                   // outside it, click-to-inspect is the only path —
                   // accidental sells are gone.
@@ -284,20 +315,27 @@ export default function RickhouseRow() {
                     : `${state.players[b.ownerId]?.name ?? "?"} · ${
                         card?.name ?? b.mashBillId
                       }${isRare ? " (Rare)" : ""} · age ${b.age} · click to inspect`;
-                  // Card-sized barrel chip with the bill's name on a
-                  // header strip in the owner's colour, age centered,
-                  // and a price badge for sellable own barrels. Sell
-                  // mode adds an amber outline + glow to the player's
-                  // own aged barrels and dims everyone else's so the
-                  // legal targets are unmistakable.
+                  // Card-sized barrel chip painted with the bourbon's
+                  // tier chrome (gradient + border colour) so rarity
+                  // reads at a glance. A slim owner stripe along the
+                  // top carries the player's logo + the barrel age,
+                  // and the price badge anchors the bottom-right when
+                  // the barrel is sellable. Sell mode adds an amber
+                  // outline + glow to the player's own aged barrels
+                  // and dims everyone else's.
                   const chipClass = [
-                    "group relative flex h-[88px] w-[108px] flex-col overflow-hidden rounded-md border bg-slate-950/70 text-left transition-all",
+                    "group relative flex h-[124px] w-[120px] flex-col overflow-hidden rounded-md border-2 text-left transition-all",
+                    tierChrome.gradient,
+                    tierChrome.glow,
+                    tier === "epic" || tier === "legendary" ? tierChrome.shimmer : "",
                     sellTarget
                       ? "border-amber-400 outline outline-2 outline-amber-300/80 outline-offset-1 shadow-[0_0_18px_rgba(245,158,11,.45)] hover:-translate-y-0.5 hover:border-amber-300"
                       : sellMode.active
-                        ? "border-slate-800 opacity-60"
-                        : "border-slate-700 hover:-translate-y-0.5 hover:border-amber-500/60",
-                  ].join(" ");
+                        ? `${tierChrome.borderSoft} opacity-60`
+                        : `${tierChrome.border} hover:-translate-y-0.5 hover:brightness-110`,
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
                   // Suppress click during make-bourbon mode — that
                   // mode's click target is the rickhouse card itself.
                   const clickable = !makeBourbon.active;
@@ -323,51 +361,82 @@ export default function RickhouseRow() {
                       disabled={!clickable}
                       className={chipClass}
                     >
-                      {/* Owner color header strip with bill name */}
+                      {/* Owner stripe: logo on the left, age on the right */}
                       <div
-                        className={`flex items-center gap-1 px-1.5 py-0.5 text-white ${PLAYER_BG_CLASS[seatIdx]}`}
+                        className={`flex items-center justify-between px-1.5 py-[3px] text-white ${PLAYER_BG_CLASS[seatIdx]}`}
                       >
                         <span
-                          className="line-clamp-1 flex-1 font-display text-[11px] font-semibold leading-tight tracking-[.01em]"
+                          className="text-[12px] leading-none"
+                          aria-hidden
+                          title={ownerPlayer?.name ?? "?"}
+                        >
+                          {ownerLogo.glyph}
+                        </span>
+                        <span className="font-mono text-[11px] font-bold leading-none tabular-nums">
+                          {b.age}
+                          <span className="text-[9px] opacity-80">y</span>
+                        </span>
+                      </div>
+                      {/* Body: bill name + pay scale (current demand cell highlighted) */}
+                      <div className="relative flex flex-1 flex-col px-1.5 pb-1 pt-1">
+                        <span
+                          className={`line-clamp-2 text-center font-display text-[11px] font-semibold leading-tight tracking-[.01em] ${tierChrome.titleInk}`}
                           title={card?.name}
                         >
                           {card?.name ?? b.mashBillId}
                         </span>
+                        {/* Pay scale — what this barrel pays at low/mid/high
+                            demand for its current age band (or the band it
+                            will first hit). The live demand cell ALWAYS glows;
+                            aging barrels use a sky tint to mark the value
+                            as future-facing, with a "matures in Xy" line in
+                            place of the lo/mid/hi labels. */}
+                        <div className="mt-auto flex items-stretch gap-[3px]">
+                          {payScaleRow.map((printed, bandIdx) => {
+                            const isLive = bandIdx === liveDemandBand;
+                            const cellPrice =
+                              isLive && altPick && ageOk ? liveCellPrice : printed;
+                            const liveStyle = !ageOk
+                              ? "bg-sky-400 text-slate-950 shadow-[0_0_10px_rgba(56,189,248,.55)]"
+                              : altPick
+                                ? "bg-amber-300 text-slate-950 shadow-[0_0_10px_rgba(252,211,77,.65)]"
+                                : "bg-emerald-400 text-slate-950 shadow-[0_0_10px_rgba(52,211,153,.65)]";
+                            const bandLo = card?.demandBands[bandIdx] ?? 0;
+                            const bandHi =
+                              bandIdx === payScaleRow.length - 1
+                                ? "+"
+                                : `–${(card?.demandBands[bandIdx + 1] ?? 0) - 1}`;
+                            return (
+                              <span
+                                key={bandIdx}
+                                title={`Demand ${bandLo}${bandHi} · $${printed}`}
+                                className={[
+                                  "flex flex-1 items-center justify-center rounded-[3px] py-[3px] font-mono font-bold leading-none tabular-nums",
+                                  isLive
+                                    ? `text-[13px] ${liveStyle}`
+                                    : "text-[11px] bg-slate-900/70 text-slate-300 ring-1 ring-inset ring-slate-700",
+                                ].join(" ")}
+                              >
+                                ${cellPrice}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        {ageOk ? null : (
+                          <div
+                            className="mt-[2px] text-center font-mono text-[9px] uppercase tracking-[.10em] text-sky-300/90"
+                            title={`Sellable in ${(card?.ageBands[0] ?? 2) - b.age}y at the live $${liveCellPrice} cell`}
+                          >
+                            matures in {(card?.ageBands[0] ?? 2) - b.age}y
+                          </div>
+                        )}
                         {isRare ? (
                           <span
-                            className="text-[9px] leading-none text-amber-200"
+                            className={`pointer-events-none absolute left-1 top-0.5 text-[11px] leading-none ${tierChrome.label}`}
                             aria-hidden
+                            title="Rare bill"
                           >
                             ★
-                          </span>
-                        ) : null}
-                      </div>
-                      {/* Body: age centered + price badge */}
-                      <div className="relative flex flex-1 items-center justify-center">
-                        <span className="font-mono text-[20px] font-bold leading-none tabular-nums text-amber-100">
-                          {b.age}
-                          <span className="ml-0.5 text-[11px] text-slate-400">
-                            y
-                          </span>
-                        </span>
-                        {showPrice ? (
-                          <span
-                            className={[
-                              "absolute bottom-1 right-1 rounded px-1 py-px font-mono text-[9px] font-bold leading-none tabular-nums",
-                              altPick
-                                ? "bg-amber-300/95 text-slate-950"
-                                : "bg-emerald-400/90 text-slate-950",
-                            ].join(" ")}
-                          >
-                            ${projectedPrice}
-                          </span>
-                        ) : null}
-                        {!sellable && clickable ? (
-                          <span
-                            className="absolute bottom-1 left-1 rounded border border-slate-600 bg-slate-900/80 px-1 font-mono text-[8px] font-bold uppercase tracking-[.05em] text-slate-300 opacity-0 transition-opacity group-hover:opacity-100"
-                            aria-hidden
-                          >
-                            info
                           </span>
                         ) : null}
                       </div>
@@ -378,7 +447,7 @@ export default function RickhouseRow() {
                   <div
                     key={`empty-${i}`}
                     className={[
-                      "flex h-[88px] w-[108px] items-center justify-center rounded-md border border-dashed font-mono text-[9px] uppercase tracking-[.12em]",
+                      "flex h-[124px] w-[120px] items-center justify-center rounded-md border border-dashed font-mono text-[10px] uppercase tracking-[.12em]",
                       targetable
                         ? "border-amber-400/70 text-amber-300/70"
                         : "border-slate-700 text-slate-700",

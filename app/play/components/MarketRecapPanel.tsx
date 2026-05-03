@@ -21,7 +21,7 @@ import { useMemo } from "react";
 import { MARKET_CARDS_BY_ID } from "@/lib/engine/decks";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
-import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
+import PlayerSwatch from "./PlayerSwatch";
 
 type RecapEntry = {
   playerId: string;
@@ -105,7 +105,6 @@ export default function MarketRecapPanel() {
       <ol className="space-y-1.5">
         {entries.map((entry) => {
           const player = state.players[entry.playerId];
-          const seatIdx = paletteIndex(player?.seatIndex ?? 0);
           const cardName =
             entry.cardId && MARKET_CARDS_BY_ID[entry.cardId]
               ? MARKET_CARDS_BY_ID[entry.cardId].title
@@ -149,12 +148,11 @@ export default function MarketRecapPanel() {
               key={entry.playerId}
               className="flex items-center gap-2 font-mono text-[11px]"
             >
-              <span
-                className={`grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold leading-none text-white ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
-                aria-hidden
-              >
-                {player?.name?.[0]?.toUpperCase() ?? "?"}
-              </span>
+              <PlayerSwatch
+                seatIndex={player?.seatIndex ?? 0}
+                logoId={player?.logoId}
+                size="sm"
+              />
               <span className="font-semibold text-amber-100">
                 {player?.name ?? entry.playerId}
               </span>

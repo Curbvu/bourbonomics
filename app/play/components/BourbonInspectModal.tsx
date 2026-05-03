@@ -26,7 +26,7 @@ import { HAND_LIMIT } from "@/lib/engine/state";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
 import BourbonCardFace from "./BourbonCardFace";
-import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
+import PlayerSwatch from "./PlayerSwatch";
 
 export default function BourbonInspectModal() {
   const inspect = useUiStore((s) => s.inspect);
@@ -85,9 +85,12 @@ export default function BourbonInspectModal() {
     const isMine = barrel.barrel.ownerId === humanId;
     const isMyTurn =
       state.currentPlayerId === humanId && state.phase === "action";
-    const cost = state.actionPhase.freeWindowActive
-      ? 0
-      : state.actionPhase.paidLapTier;
+    const myFreeRemaining =
+      state.actionPhase.freeActionsRemainingByPlayer[humanId] ?? 0;
+    const cost =
+      myFreeRemaining > 0 || state.actionPhase.freeWindowActive
+        ? 0
+        : state.actionPhase.paidLapTier;
     const canAfford = me.cash >= cost;
     const auditPending =
       me.pendingAuditOverage != null && me.pendingAuditOverage > 0;
@@ -135,12 +138,10 @@ export default function BourbonInspectModal() {
   };
 
   // ── Footer summary lines ──────────────────────────────────────────────
-  const ownerName = barrel
-    ? state.players[barrel.barrel.ownerId]?.name ?? "—"
+  const ownerPlayer = barrel
+    ? state.players[barrel.barrel.ownerId] ?? null
     : null;
-  const ownerSeatIdx = barrel
-    ? paletteIndex(state.players[barrel.barrel.ownerId]?.seatIndex ?? 0)
-    : null;
+  const ownerName = ownerPlayer?.name ?? (barrel ? "—" : null);
   const billGoldAware = card.awards?.gold != null;
   const billBrandValue = billGoldAware ? brandValueFor(cardId) : 0;
   const heldByMe =
@@ -198,12 +199,13 @@ export default function BourbonInspectModal() {
         </div>
 
         {/* Barrel context */}
-        {barrel && ownerName != null && ownerSeatIdx != null ? (
+        {barrel && ownerName != null && ownerPlayer != null ? (
           <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/70 p-3 font-mono text-[11px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)]">
             <div className="flex items-center gap-2">
-              <span
-                className={`block h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[ownerSeatIdx]}`}
-                aria-hidden
+              <PlayerSwatch
+                seatIndex={ownerPlayer.seatIndex}
+                logoId={ownerPlayer.logoId}
+                size="sm"
               />
               <span className="font-semibold text-amber-100">
                 {barrel.barrel.ownerId === humanId

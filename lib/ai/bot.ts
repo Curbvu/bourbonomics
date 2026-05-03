@@ -150,7 +150,7 @@ export function pickActionPhaseMove(
   }
 
   const scored: ScoredAction[] = [];
-  const cost = actionCostNow(state);
+  const cost = actionCostNow(state, playerId);
 
   // Sell: the most valuable old barrel if possible and we can afford the action.
   // Selling also frees a rickhouse slot, which means avoiding next round's

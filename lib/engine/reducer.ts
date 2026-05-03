@@ -231,7 +231,17 @@ function takeDistressedLoan(
 
 function chargeActionCost(state: GameState, playerId: string): boolean {
   const p = state.players[playerId];
-  const baseCost = currentActionCost(state);
+  // Setup-round budget overrides everything: while the player has
+  // free-action credits the action is free and the counter ticks down
+  // instead of cash.
+  const freeRemaining =
+    state.actionPhase.freeActionsRemainingByPlayer[playerId] ?? 0;
+  if (freeRemaining > 0) {
+    state.actionPhase.freeActionsRemainingByPlayer[playerId] =
+      freeRemaining - 1;
+    return true;
+  }
+  const baseCost = currentActionCost(state, playerId);
   // The "first paid action this round" scope triggers on the first paid action a player takes.
   const firstPaidThisRound = !state.actionPhase.freeWindowActive && !p.hasTakenPaidActionThisRound;
   const { cost, consume } = applyActionCostDiscount(p, baseCost, firstPaidThisRound);

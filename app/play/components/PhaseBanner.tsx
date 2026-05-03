@@ -68,6 +68,22 @@ export default function PhaseBanner({
   // Round 1 has no fees at all (rules skip Phase 1). Show nothing in that case.
   const hasFeesThisRound = state.round > 1 && humanFees.length > 0;
 
+  // Per-player free-action budget — non-zero only in the round 1 setup
+  // window. We surface the human's remaining count in place of the
+  // FREE→$1→$2→$3+ ladder so it's immediately legible: "you have N/8".
+  const humanFreeRemaining = humanId
+    ? state.actionPhase.freeActionsRemainingByPlayer[humanId] ?? 0
+    : 0;
+  const humanFreeMax = humanId
+    ? Math.max(
+        humanFreeRemaining,
+        // Defensive: if seed wasn't ever recorded (older saves), fall
+        // back to the current remaining as the cap.
+        state.round === 1 ? 8 : 0,
+      )
+    : 0;
+  const inSetupRound = humanFreeRemaining > 0 || (state.round === 1 && humanFreeMax > 0);
+
   return (
     <div
       className={
@@ -148,35 +164,53 @@ export default function PhaseBanner({
                   className="ml-2 mr-1 h-[24px] w-px bg-amber-700 opacity-50"
                   aria-hidden
                 />
-                <span className="font-mono text-[12px] uppercase tracking-[.14em] text-slate-400">
-                  next costs
-                </span>
-                <div className="flex items-center gap-1">
-                  {COST_TIERS.map((label, idx) => {
-                    const isLast = idx === COST_TIERS.length - 1;
-                    const chipLabel = isLast ? dynamicLastLabel : label;
-                    const chipState =
-                      idx === paid ? "next" : idx < paid ? "spent" : "future";
-                    return (
-                      <CostChip
-                        key={label}
-                        label={chipLabel}
-                        caret={idx > 0}
-                        state={chipState}
-                        escalating={isLast && escalating && chipState === "next"}
-                      />
-                    );
-                  })}
-                  {escalationOvershoot > 0 ? (
-                    <span
-                      className="ml-1 inline-flex animate-pulse items-center gap-0.5 rounded-full border border-rose-500/70 bg-rose-700/[0.30] px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-[.10em] text-rose-100"
-                      title={`Lap tier has overrun the $3+ cap by ${escalationOvershoot} ${escalationOvershoot === 1 ? "lap" : "laps"} — every action this lap costs $${rawTier}`}
-                    >
-                      <span aria-hidden>↑</span>
-                      <span>+{escalationOvershoot}</span>
+                {inSetupRound ? (
+                  <span
+                    className="inline-flex items-center gap-2 rounded-md border border-emerald-500/60 bg-emerald-700/[0.20] px-2 py-1 font-mono text-[11px] uppercase tracking-[.14em] text-emerald-100"
+                    title="Round 1 setup — every action is free until your budget runs out, then the regular cost ladder kicks in."
+                  >
+                    <span aria-hidden>★</span>
+                    <span>setup round</span>
+                    <span className="rounded bg-emerald-500/40 px-1.5 py-px font-mono text-[12px] font-bold tabular-nums text-emerald-50">
+                      {humanFreeRemaining}/{humanFreeMax}
                     </span>
-                  ) : null}
-                </div>
+                    <span className="text-[10px] tracking-[.10em] text-emerald-200/85">
+                      free actions
+                    </span>
+                  </span>
+                ) : (
+                  <>
+                    <span className="font-mono text-[12px] uppercase tracking-[.14em] text-slate-400">
+                      next costs
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {COST_TIERS.map((label, idx) => {
+                        const isLast = idx === COST_TIERS.length - 1;
+                        const chipLabel = isLast ? dynamicLastLabel : label;
+                        const chipState =
+                          idx === paid ? "next" : idx < paid ? "spent" : "future";
+                        return (
+                          <CostChip
+                            key={label}
+                            label={chipLabel}
+                            caret={idx > 0}
+                            state={chipState}
+                            escalating={isLast && escalating && chipState === "next"}
+                          />
+                        );
+                      })}
+                      {escalationOvershoot > 0 ? (
+                        <span
+                          className="ml-1 inline-flex animate-pulse items-center gap-0.5 rounded-full border border-rose-500/70 bg-rose-700/[0.30] px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-[.10em] text-rose-100"
+                          title={`Lap tier has overrun the $3+ cap by ${escalationOvershoot} ${escalationOvershoot === 1 ? "lap" : "laps"} — every action this lap costs $${rawTier}`}
+                        >
+                          <span aria-hidden>↑</span>
+                          <span>+{escalationOvershoot}</span>
+                        </span>
+                      ) : null}
+                    </div>
+                  </>
+                )}
                 {/* Demand lives in the action sub-bar — the strategic
                     centrepiece of the action phase. 12 discrete cells
                     fill across a blue→amber gradient as demand rises. */}

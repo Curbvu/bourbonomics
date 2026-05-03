@@ -23,14 +23,45 @@ export function isPlayersTurn(state: GameState, playerId: string): boolean {
   return state.currentPlayerId === playerId;
 }
 
-export function currentActionCost(state: GameState): number {
+/**
+ * Cost the given player would pay for their next action right now.
+ *
+ * Resolution order:
+ *   1. Per-player setup-round budget (`freeActionsRemainingByPlayer`) —
+ *      while > 0, the player is in their seeded free-action window and
+ *      pays nothing regardless of the table-wide ladder.
+ *   2. Table-wide free window (every player's first action of the round).
+ *   3. Lap-cost ladder (`paidLapTier`).
+ *
+ * Pass `playerId` for the per-player resolution; omit (or pass null) to
+ * get the table-wide ladder cost only — useful for UI elements that
+ * preview the global tier without picking a player.
+ */
+export function currentActionCost(
+  state: GameState,
+  playerId?: string | null,
+): number {
+  if (
+    playerId &&
+    (state.actionPhase.freeActionsRemainingByPlayer[playerId] ?? 0) > 0
+  ) {
+    return 0;
+  }
   if (state.actionPhase.freeWindowActive) return 0;
   return state.actionPhase.paidLapTier;
 }
 
 export function canAffordCurrentAction(state: GameState, playerId: string): boolean {
-  const cost = currentActionCost(state);
+  const cost = currentActionCost(state, playerId);
   return state.players[playerId].cash >= cost;
+}
+
+/** True if `playerId` is currently spending from their setup-round free-action budget. */
+export function hasFreeActionRemaining(
+  state: GameState,
+  playerId: string,
+): boolean {
+  return (state.actionPhase.freeActionsRemainingByPlayer[playerId] ?? 0) > 0;
 }
 
 export function findBarrel(
@@ -104,7 +135,7 @@ export function canMakeBourbon(
 
   // Pull the bill's optional recipe so per-bill grain requirements are
   // enforced alongside the universal rules (1 cask · ≥1 corn · ≥1 grain
-  // · ≤6 cards). Recipes can only tighten — they never loosen.
+  // · ≤MAX_MASH_CARDS). Recipes can only tighten — they never loosen.
   const billDef = BOURBON_CARDS_BY_ID[mashBillId];
   const valid = validateMash(mash, billDef.recipe);
   if (!valid.ok) return valid;

@@ -42,20 +42,32 @@ function buildBourbon() {
     wheat?: RecipeBound;
     grain?: RecipeBound;
   };
-  type Triple = [number, number, number];
+  type Bands = number[];
   type Tier = "common" | "uncommon" | "rare" | "epic" | "legendary";
   const cards = doc.cards as Array<{
     id: string;
     name: string;
     rarity: string;
-    ageBands?: Triple;
-    demandBands?: Triple;
+    ageBands?: Bands;
+    demandBands?: Bands;
     grid: number[][];
     awards: { silver?: string; gold?: string } | null;
     brandValue?: number;
     recipe?: Recipe;
     tier?: Tier;
   }>;
+
+  // Per-tier MAX grid dimensions [maxAgeBands, maxDemandBands]. Common
+  // bills are deliberately simple (2×2 ceiling) so the workhorse cards
+  // present a small number of market states; rarer tiers earn the right
+  // to a richer pricing surface.
+  const MAX_GRID_BY_TIER: Record<Tier, [number, number]> = {
+    common: [2, 2],
+    uncommon: [2, 3],
+    rare: [3, 3],
+    epic: [3, 3],
+    legendary: [3, 3],
+  };
 
   /**
    * Auto-derive the visual tier from grid max + awards when the YAML
@@ -77,17 +89,19 @@ function buildBourbon() {
     return "common";
   }
 
-  // Defaults match the previous global lookup (Young 2–3 / Aged 4–7 /
-  // Well-Aged 8+, Low 0–3 / Mid 4–6 / High 7–12) so any bill that
-  // hasn't yet been retuned with explicit bands keeps its old behavior.
-  const DEFAULT_AGE_BANDS: Triple = [2, 4, 8];
-  const DEFAULT_DEMAND_BANDS: Triple = [0, 4, 7];
+  // Default thresholds for cards that don't declare their own. Reused
+  // for any axis still on the legacy 3-band defaults; new cards should
+  // size their bands explicitly to match their grid shape.
+  const DEFAULT_AGE_BANDS: Bands = [2, 4, 8];
+  const DEFAULT_DEMAND_BANDS: Bands = [0, 4, 7];
 
-  function ensureStrictlyIncreasing(label: string, t: Triple, id: string) {
-    if (t[0] >= t[1] || t[1] >= t[2]) {
-      throw new Error(
-        `Bourbon card ${id}: ${label} ${JSON.stringify(t)} must be strictly increasing`,
-      );
+  function ensureStrictlyIncreasing(label: string, t: Bands, id: string) {
+    for (let i = 1; i < t.length; i += 1) {
+      if (t[i - 1] >= t[i]) {
+        throw new Error(
+          `Bourbon card ${id}: ${label} ${JSON.stringify(t)} must be strictly increasing`,
+        );
+      }
     }
   }
 
@@ -99,21 +113,18 @@ function buildBourbon() {
     "grain",
   ]);
   for (const c of cards) {
-    if (c.grid.length !== 3 || c.grid.some((row) => row.length !== 3)) {
-      throw new Error(`Bourbon card ${c.id} has malformed grid`);
-    }
     if (c.rarity !== "Standard" && c.rarity !== "Rare") {
       throw new Error(`Bourbon card ${c.id} unknown rarity: ${c.rarity}`);
     }
     // Per-bill bands. Default for cards that don't (yet) declare their
     // own thresholds; the validator then enforces shape + monotonicity.
-    if (!c.ageBands) c.ageBands = [...DEFAULT_AGE_BANDS] as Triple;
-    if (!c.demandBands) c.demandBands = [...DEFAULT_DEMAND_BANDS] as Triple;
-    if (c.ageBands.length !== 3) {
-      throw new Error(`Bourbon card ${c.id}: ageBands must have 3 entries`);
+    if (!c.ageBands) c.ageBands = [...DEFAULT_AGE_BANDS];
+    if (!c.demandBands) c.demandBands = [...DEFAULT_DEMAND_BANDS];
+    if (c.ageBands.length < 1 || c.ageBands.length > 3) {
+      throw new Error(`Bourbon card ${c.id}: ageBands length must be 1–3`);
     }
-    if (c.demandBands.length !== 3) {
-      throw new Error(`Bourbon card ${c.id}: demandBands must have 3 entries`);
+    if (c.demandBands.length < 1 || c.demandBands.length > 3) {
+      throw new Error(`Bourbon card ${c.id}: demandBands length must be 1–3`);
     }
     if (c.ageBands[0] < 2) {
       throw new Error(
@@ -127,6 +138,19 @@ function buildBourbon() {
     }
     ensureStrictlyIncreasing("ageBands", c.ageBands, c.id);
     ensureStrictlyIncreasing("demandBands", c.demandBands, c.id);
+    // Grid shape must match the band counts.
+    if (c.grid.length !== c.ageBands.length) {
+      throw new Error(
+        `Bourbon card ${c.id}: grid has ${c.grid.length} rows but ageBands has ${c.ageBands.length} entries`,
+      );
+    }
+    for (const row of c.grid) {
+      if (row.length !== c.demandBands.length) {
+        throw new Error(
+          `Bourbon card ${c.id}: grid row length ${row.length} ≠ demandBands length ${c.demandBands.length}`,
+        );
+      }
+    }
     if (c.recipe) {
       for (const k of Object.keys(c.recipe)) {
         if (!recipeKeys.has(k)) {
@@ -149,6 +173,12 @@ function buildBourbon() {
       c.brandValue = Math.max(rounded, 25);
     }
     if (!c.tier) c.tier = deriveTier(c);
+    const [maxAge, maxDemand] = MAX_GRID_BY_TIER[c.tier];
+    if (c.ageBands.length > maxAge || c.demandBands.length > maxDemand) {
+      throw new Error(
+        `Bourbon card ${c.id} (${c.tier}): grid ${c.ageBands.length}×${c.demandBands.length} exceeds tier max ${maxAge}×${maxDemand}`,
+      );
+    }
   }
 
   const body =

@@ -39,7 +39,7 @@ export type MashRecipeBound = { min?: number; max?: number };
 
 /**
  * Optional bill-specific mash recipe. Layered on top of the universal
- * rules (1 cask · ≥1 corn · ≥1 small grain · ≤6 cards) — a bill's recipe
+ * rules (1 cask · ≥1 corn · ≥1 small grain · cards ≤ MAX_MASH_CARDS) — a bill's recipe
  * can only TIGHTEN those rules, never loosen them. `grain` is the sum of
  * (corn + barley + rye + wheat).
  */
@@ -52,44 +52,53 @@ export type MashRecipe = {
 };
 
 /**
- * Lower-bound thresholds for the three age bands of a mash bill, in years.
- * Strictly increasing, and `[0]` MUST be ≥ 2 so the lowest age band still
- * respects the global "barrel must age ≥2 years before sale" rule.
+ * Lower-bound thresholds for a mash bill's age bands, in years. Length is
+ * 1–3, capped per tier (see `MAX_GRID_BY_TIER` in the catalog generator):
+ * common bills are simple (1–2 bands), rarer bills earn more bands. The
+ * array is strictly increasing, and `[0]` MUST be ≥ 2 so the lowest age
+ * band still respects the global "barrel must age ≥2 years before sale"
+ * rule.
  *
- * Example: `[2, 4, 6]` → row 0 covers 2–3, row 1 covers 4–5, row 2 covers 6+.
+ * Examples:
+ *   `[2]`        → single row covering all sellable ages (≥2y).
+ *   `[2, 5]`    → row 0 covers 2–4, row 1 covers 5+.
+ *   `[2, 4, 6]` → row 0 covers 2–3, row 1 covers 4–5, row 2 covers 6+.
  */
-export type AgeBandThresholds = [number, number, number];
+export type AgeBandThresholds = readonly number[];
 
 /**
- * Lower-bound thresholds for the three demand bands of a mash bill, against
- * the global 0–12 demand value. Strictly increasing; `[0]` MUST be ≥ 0.
+ * Lower-bound thresholds for a mash bill's demand bands, against the
+ * global 0–12 demand value. Length is 1–3, capped per tier. Strictly
+ * increasing; `[0]` MUST be ≥ 0. Demand below the first threshold falls
+ * into col 0 (the lowest band) — there is no "off the table" state.
  *
- * Example: `[3, 6, 9]` → col 0 covers demand 3–5, col 1 covers 6–8, col 2
- * covers 9+. Demand below the first threshold falls into col 0 (the lowest
- * band) — there is no "off the table" state.
+ * Examples:
+ *   `[0]`        → single column; demand doesn't matter for this bill.
+ *   `[0, 6]`     → col 0 covers 0–5, col 1 covers 6+.
+ *   `[3, 6, 9]`  → col 0 covers 3–5, col 1 covers 6–8, col 2 covers 9+.
  */
-export type DemandBandThresholds = [number, number, number];
+export type DemandBandThresholds = readonly number[];
 
 export type BourbonCardDef = {
   id: string;
   name: string;
   rarity: BourbonRarity;
   /**
-   * Lower-bound thresholds for this bill's three age bands, in years.
-   * Strictly increasing; ageBands[0] ≥ 2.
+   * Lower-bound thresholds for this bill's age bands, in years.
+   * Length 1–3, strictly increasing; ageBands[0] ≥ 2.
    */
   ageBands: AgeBandThresholds;
   /**
-   * Lower-bound thresholds for this bill's three demand bands, against
-   * the global 0–12 demand value. Strictly increasing.
+   * Lower-bound thresholds for this bill's demand bands, against the
+   * global 0–12 demand value. Length 1–3, strictly increasing.
    */
   demandBands: DemandBandThresholds;
-  /** 3×3 price grid. Outer: age band 0/1/2. Inner: demand band 0/1/2. */
-  grid: [
-    [number, number, number],
-    [number, number, number],
-    [number, number, number],
-  ];
+  /**
+   * Variable-size price grid. Outer length matches `ageBands.length`,
+   * each inner row's length matches `demandBands.length`. Cell value
+   * is the printed sale price for (age band, demand band).
+   */
+  grid: readonly (readonly number[])[];
   awards: BourbonAwards;
   /**
    * Brand value awarded at game end if this mash bill is unlocked as a

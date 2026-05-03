@@ -6,7 +6,7 @@
  * Spec: design_handoff_bourbon_blend/README.md §TopBar.
  *
  *   ┌───────────────────────────────────────────────────────────────────┐
- *   │ [B] Bourbonomics  | year N |  baron pills    | bourbon · market | Quit
+ *   │ [B] Bourbonomics  | year N |       baron pills        | Quit
  *   │     distillery · turn N
  *   ├───────────────────────────────────────────────────────────────────┤
  *   │ ✓ Fees · 2 Action — next costs FREE > $1 > $2 > $3+ · 3 Market    │
@@ -26,11 +26,11 @@ import { useEffect, useState } from "react";
 import { useGameStore } from "@/lib/store/gameStore";
 import PhaseBanner from "./PhaseBanner";
 import {
-  PLAYER_BG_CLASS,
   PLAYER_BORDER_CLASS,
   PLAYER_TINT_CLASS,
   paletteIndex,
 } from "./playerColors";
+import PlayerSwatch from "./PlayerSwatch";
 
 export default function GameTopBar() {
   const state = useGameStore((s) => s.state)!;
@@ -47,9 +47,6 @@ export default function GameTopBar() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [confirmOpen]);
-
-  const bourbonDeckCount = state.market.bourbonDeck.length;
-  const marketDeckCount = state.market.marketDeck.length;
 
   const quit = () => {
     clear(); // persistence subscriber wipes localStorage on null state
@@ -82,15 +79,15 @@ export default function GameTopBar() {
           </div>
         </div>
 
-        <span className="mx-1.5 h-[40px] w-px bg-slate-800" aria-hidden />
+        <span className="mx-1.5 h-[60px] w-px bg-slate-800" aria-hidden />
 
-        {/* Year indicator — large prominent number; year IS the turn,
-            so the top-bar wordmark only needs "distillery" beside it. */}
-        <div className="flex items-baseline gap-2.5">
-          <span className="font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-slate-400">
+        {/* Year indicator — the dominant number on the top bar. Year IS
+            the turn, so the wordmark only needs "distillery" beside it. */}
+        <div className="flex items-baseline gap-3">
+          <span className="font-mono text-[14px] font-semibold uppercase tracking-[.20em] text-slate-400">
             year
           </span>
-          <span className="font-display text-[34px] font-bold leading-none tabular-nums text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,.5)]">
+          <span className="font-display text-[60px] font-bold leading-[0.85] tabular-nums text-amber-300 drop-shadow-[0_3px_6px_rgba(0,0,0,.55)]">
             {state.round}
           </span>
         </div>
@@ -121,9 +118,10 @@ export default function GameTopBar() {
                 ].join(" ")}
                 aria-current={isCurrent ? "true" : undefined}
               >
-                <span
-                  className={`block h-3 w-3 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[idx]}`}
-                  aria-hidden
+                <PlayerSwatch
+                  seatIndex={p.seatIndex}
+                  logoId={p.logoId}
+                  size="md"
                 />
                 <span
                   className={`text-[16px] text-slate-100 ${isYou ? "font-semibold" : "font-medium"}`}
@@ -136,26 +134,6 @@ export default function GameTopBar() {
               </div>
             );
           })}
-        </div>
-
-        {/* Deck pulse */}
-        <div className="flex items-center gap-3.5">
-          <div className="flex items-center gap-1">
-            <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-              bourbon
-            </span>
-            <span className="font-mono text-xs font-semibold tabular-nums text-amber-300">
-              {bourbonDeckCount}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-              market
-            </span>
-            <span className="font-mono text-xs font-semibold tabular-nums text-slate-200">
-              {marketDeckCount}
-            </span>
-          </div>
         </div>
 
         {/* Quit Game */}

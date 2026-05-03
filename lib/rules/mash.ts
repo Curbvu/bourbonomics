@@ -5,19 +5,27 @@
  *   - exactly 1 cask
  *   - ≥1 corn
  *   - ≥1 grain (barley, rye, or wheat)
- *   - total resource cards ≤ 6
+ *   - total resource cards ≤ MAX_MASH_CARDS (currently 9)
  *
- * Per-bill rules (optional MashRecipe on the bourbon card): a recipe can
- * tighten the universal rules with min/max bounds for individual grains
- * or the total grain count. Recipes can never *loosen* the universal
- * rules — a bill that didn't list a corn min still needs ≥1 corn, and a
- * bill that allowed wheat would still cap total cards at 6.
+ * The total-cards cap is intentionally generous so players can pursue
+ * variety mashes — e.g. 3 rye + 3 corn + 1 wheat + 1 cask (8 cards) or
+ * even fuller stacks. Bill-specific recipes (MashRecipe on the bourbon
+ * card) can tighten the universal rules with min/max bounds for
+ * individual grains or the total grain count. Recipes can never *loosen*
+ * the universal rules.
  */
 
 import type { MashRecipe, MashRecipeBound, ResourceType } from "@/lib/catalogs/types";
 import type { ResourceCardInstance } from "@/lib/engine/state";
 
 const GRAIN_TYPES: ResourceType[] = ["barley", "rye", "wheat"];
+
+/**
+ * Hard cap on total resource cards (cask + grains) in a single mash.
+ * Sized to comfortably fit variety bills like 3+3+1+1 or 4+3+1 stacks
+ * without letting the mash inflate past the table's economy.
+ */
+export const MAX_MASH_CARDS = 9;
 
 export type MashBreakdown = {
   cask: number;
@@ -61,8 +69,11 @@ export function validateMash(
   const b = summarizeMash(mash);
 
   if (b.total === 0) return { ok: false, reason: "Mash is empty" };
-  if (b.total > 6)
-    return { ok: false, reason: `Mash has ${b.total} cards (max 6)` };
+  if (b.total > MAX_MASH_CARDS)
+    return {
+      ok: false,
+      reason: `Mash has ${b.total} cards (max ${MAX_MASH_CARDS})`,
+    };
   if (b.cask !== 1)
     return {
       ok: false,

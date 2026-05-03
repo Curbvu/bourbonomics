@@ -87,6 +87,13 @@ export type Player = {
   kind: PlayerKind;
   botDifficulty?: BotDifficulty;
   seatIndex: number;
+  /**
+   * Bourbon-centric icon identifier picked at game setup; the player's
+   * visual identity across the dashboard. Optional for save-file
+   * back-compat — UI falls back to a deterministic logo derived from
+   * `seatIndex` when missing.
+   */
+  logoId?: string;
   cash: number;
   resourceHand: ResourceCardInstance[];
   bourbonHand: string[]; // bourbon card ids drawn / held
@@ -198,6 +205,16 @@ export type ActionPhaseState = {
   actionsThisLapPlayerIds: string[];
   /** True after any player calls Audit this round. Reset at round start. */
   auditCalledThisRound: boolean;
+  /**
+   * Per-player free-action budget for the current round. Round 1 seeds
+   * each player with `STARTING_FREE_ACTIONS` (the "setup" round so
+   * everyone can stock resources, draw bills, and barrel a few mashes
+   * without paying); subsequent rounds reset to 0 and the lap-cost
+   * ladder runs normally. While `freeActionsRemainingByPlayer[pid] > 0`
+   * any action that player takes costs $0 and decrements the counter
+   * regardless of `freeWindowActive` / `paidLapTier`.
+   */
+  freeActionsRemainingByPlayer: Record<string, number>;
 };
 
 export type FeesPhaseState = {
@@ -381,7 +398,7 @@ export type GameState = {
 export const STARTING_DEMAND = 6;
 export const MAX_DEMAND = 12;
 export const MIN_DEMAND = 0;
-export const DEFAULT_STARTING_CASH = 15;
+export const DEFAULT_STARTING_CASH = 25;
 /** Number of Gold Bourbons a player must unlock to trigger the final round. */
 export const TRIPLE_CROWN_GOLDS = 3;
 export const MAX_ACTIVE_INVESTMENTS = 3;
@@ -399,5 +416,12 @@ export const MARKET_DRAW_COUNT = 2;
 export const HAND_LIMIT = 10;
 /** Number of Bourbon cards each player is dealt in setup. */
 export const STARTING_BOURBON_HAND = 4;
+/**
+ * Per-player free actions granted in round 1 — the "setup" round. Each
+ * player can spend these on any action (draw, make, implement, sell)
+ * without paying the lap cost; once the budget is exhausted the player
+ * either passes or starts paying. Subsequent rounds get 0.
+ */
+export const STARTING_FREE_ACTIONS = 8;
 /** Default brandValue applied at scoring for a Gold Bourbon if the catalog has no override. */
 export const DEFAULT_GOLD_BRAND_VALUE = 25;

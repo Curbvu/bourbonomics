@@ -160,6 +160,6 @@ export function totalInvestmentValue(player: Player): number {
   return n;
 }
 
-export function actionCostNow(state: GameState): number {
-  return currentActionCost(state);
+export function actionCostNow(state: GameState, playerId?: string): number {
+  return currentActionCost(state, playerId);
 }

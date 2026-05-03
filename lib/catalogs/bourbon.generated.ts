@@ -12,30 +12,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
         3,
-        4
-      ],
-      [
-        3,
-        4,
         5
-      ],
-      [
-        5,
-        6,
-        7
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -46,30 +32,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
         4,
-        5
-      ],
-      [
-        4,
-        5,
         6
-      ],
-      [
-        6,
-        7,
-        8
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -80,30 +52,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
         5,
-        6
-      ],
-      [
-        5,
-        6,
         7
-      ],
-      [
-        7,
-        8,
-        9
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -114,30 +72,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
         3,
-        4
-      ],
-      [
-        3,
-        4,
         5
-      ],
-      [
-        5,
-        6,
-        7
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -149,29 +93,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        5,
         7
       ],
       [
-        5,
         7,
-        9
-      ],
-      [
-        7,
-        9,
         12
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -183,29 +118,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         5,
-        6,
         8
       ],
       [
-        6,
         8,
-        10
-      ],
-      [
-        8,
-        10,
         13
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -217,29 +143,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        4,
         6
       ],
       [
-        4,
         6,
-        8
-      ],
-      [
-        6,
-        8,
         11
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -392,30 +309,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
         4,
-        5
-      ],
-      [
-        4,
-        5,
         6
-      ],
-      [
-        6,
-        7,
-        8
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -426,30 +329,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
         5,
-        6
-      ],
-      [
-        5,
-        6,
         7
-      ],
-      [
-        7,
-        8,
-        9
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -460,30 +349,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
         3,
-        4
-      ],
-      [
-        3,
-        4,
         5
-      ],
-      [
-        5,
-        6,
-        7
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -495,29 +370,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        5,
         7
       ],
       [
-        5,
         7,
-        9
-      ],
-      [
-        7,
-        9,
         12
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -529,29 +395,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         5,
-        6,
         8
       ],
       [
-        6,
         8,
-        10
-      ],
-      [
-        8,
-        10,
         13
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -563,29 +420,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        4,
         6
       ],
       [
-        4,
         6,
-        8
-      ],
-      [
-        6,
-        8,
         11
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -724,30 +572,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
         4,
-        5
-      ],
-      [
-        4,
-        5,
         6
-      ],
-      [
-        6,
-        7,
-        8
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -758,30 +592,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
         5,
-        6
-      ],
-      [
-        5,
-        6,
         7
-      ],
-      [
-        7,
-        8,
-        9
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -792,30 +612,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
         3,
-        4
-      ],
-      [
-        3,
-        4,
         5
-      ],
-      [
-        5,
-        6,
-        7
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -826,30 +632,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
         4,
-        5
-      ],
-      [
-        4,
-        5,
         6
-      ],
-      [
-        6,
-        7,
-        8
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -861,29 +653,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         5,
-        6,
         8
       ],
       [
-        6,
         8,
-        10
-      ],
-      [
-        8,
-        10,
         13
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -895,29 +678,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        4,
         6
       ],
       [
-        4,
         6,
-        8
-      ],
-      [
-        6,
-        8,
         11
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -929,29 +703,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        5,
         7
       ],
       [
-        5,
         7,
-        9
-      ],
-      [
-        7,
-        9,
         12
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -1049,30 +814,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
         4,
-        5
-      ],
-      [
-        4,
-        5,
         6
-      ],
-      [
-        6,
-        7,
-        8
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -1083,30 +834,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
         5,
-        6
-      ],
-      [
-        5,
-        6,
         7
-      ],
-      [
-        7,
-        8,
-        9
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -1117,30 +854,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
         3,
-        4
-      ],
-      [
-        3,
-        4,
         5
-      ],
-      [
-        5,
-        6,
-        7
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -1151,30 +874,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
         4,
-        5
-      ],
-      [
-        4,
-        5,
         6
-      ],
-      [
-        6,
-        7,
-        8
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -1186,29 +895,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         5,
-        6,
         8
       ],
       [
-        6,
         8,
-        10
-      ],
-      [
-        8,
-        10,
         13
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -1220,29 +920,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        4,
         6
       ],
       [
-        4,
         6,
-        8
-      ],
-      [
-        6,
-        8,
         11
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -1254,29 +945,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        5,
         7
       ],
       [
-        5,
         7,
-        9
-      ],
-      [
-        7,
-        9,
         12
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -1423,30 +1105,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        4,
         5,
-        6
-      ],
-      [
-        5,
-        6,
         7
-      ],
-      [
-        7,
-        8,
-        9
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -1457,30 +1125,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        2,
         3,
-        4
-      ],
-      [
-        3,
-        4,
         5
-      ],
-      [
-        5,
-        6,
-        7
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -1491,30 +1145,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        3,
         4,
-        5
-      ],
-      [
-        4,
-        5,
         6
-      ],
-      [
-        6,
-        7,
-        8
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -1526,29 +1166,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         5,
-        6,
         8
       ],
       [
-        6,
         8,
-        10
-      ],
-      [
-        8,
-        10,
         13
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -1560,29 +1191,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        4,
         6
       ],
       [
-        4,
         6,
-        8
-      ],
-      [
-        6,
-        8,
         11
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -1594,29 +1216,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        5,
         7
       ],
       [
-        5,
         7,
-        9
-      ],
-      [
-        7,
-        9,
         12
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -1755,30 +1368,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        4,
         5,
-        6
-      ],
-      [
-        5,
-        6,
         7
-      ],
-      [
-        7,
-        8,
-        9
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -1789,30 +1388,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        2,
         3,
-        4
-      ],
-      [
-        3,
-        4,
         5
-      ],
-      [
-        5,
-        6,
-        7
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -1823,30 +1408,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Rare",
     "grid": [
       [
-        3,
         4,
-        5
-      ],
-      [
-        4,
-        5,
         6
-      ],
-      [
-        6,
-        7,
-        8
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -1857,30 +1428,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
         5,
-        6
-      ],
-      [
-        5,
-        6,
         7
-      ],
-      [
-        7,
-        8,
-        9
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -1892,29 +1449,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        4,
         6
       ],
       [
-        4,
         6,
-        8
-      ],
-      [
-        6,
-        8,
         11
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -1926,29 +1474,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        5,
         7
       ],
       [
-        5,
         7,
-        9
-      ],
-      [
-        7,
-        9,
         12
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -2087,30 +1626,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
         5,
-        6
-      ],
-      [
-        5,
-        6,
         7
-      ],
-      [
-        7,
-        8,
-        9
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -2121,30 +1646,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        2,
         3,
-        4
-      ],
-      [
-        3,
-        4,
         5
-      ],
-      [
-        5,
-        6,
-        7
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -2155,30 +1666,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        3,
         4,
-        5
-      ],
-      [
-        4,
-        5,
         6
-      ],
-      [
-        6,
-        7,
-        8
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -2189,30 +1686,16 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "rarity": "Standard",
     "grid": [
       [
-        4,
         5,
-        6
-      ],
-      [
-        5,
-        6,
         7
-      ],
-      [
-        7,
-        8,
-        9
       ]
     ],
     "awards": null,
     "ageBands": [
-      2,
-      3,
-      4
+      2
     ],
     "demandBands": [
       0,
-      4,
       6
     ],
     "tier": "common"
@@ -2224,29 +1707,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         3,
-        4,
         6
       ],
       [
-        4,
         6,
-        8
-      ],
-      [
-        6,
-        8,
         11
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -2258,29 +1732,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         4,
-        5,
         7
       ],
       [
-        5,
         7,
-        9
-      ],
-      [
-        7,
-        9,
         12
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"
@@ -2292,29 +1757,20 @@ export const BOURBON_CARDS: readonly BourbonCardDef[] = [
     "grid": [
       [
         5,
-        6,
         8
       ],
       [
-        6,
         8,
-        10
-      ],
-      [
-        8,
-        10,
         13
       ]
     ],
     "awards": null,
     "ageBands": [
       2,
-      4,
       6
     ],
     "demandBands": [
       0,
-      4,
       7
     ],
     "tier": "uncommon"

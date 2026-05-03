@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 
 import type { BotDifficulty } from "@/lib/engine/state";
 import { useGameStore } from "@/lib/store/gameStore";
+import { PLAYER_LOGOS } from "@/app/play/components/playerLogos";
+import {
+  PLAYER_BG_CLASS,
+  PLAYER_BORDER_CLASS,
+  paletteIndex,
+} from "@/app/play/components/playerColors";
 
 const BOT_NAMES = ["Clyde", "Dell", "Mara", "Rix", "Ode"];
 
@@ -19,6 +25,7 @@ export default function NewGameForm() {
   const newGame = useGameStore((s) => s.newGame);
 
   const [humanName, setHumanName] = useState("You");
+  const [humanLogoId, setHumanLogoId] = useState(PLAYER_LOGOS[0].id);
   const [bots, setBots] = useState<BotSeat[]>([
     { enabled: true, name: BOT_NAMES[0], difficulty: "normal" },
     { enabled: true, name: BOT_NAMES[1], difficulty: "easy" },
@@ -32,6 +39,10 @@ export default function NewGameForm() {
   const totalSeats = 1 + enabledBots.length;
   const canStart = totalSeats >= 2 && totalSeats <= 6;
 
+  // Bots take logos in order, skipping the human's pick — keeps every
+  // seat visually distinct without making the human pick for them.
+  const remainingLogos = PLAYER_LOGOS.filter((l) => l.id !== humanLogoId);
+
   const start = () => {
     if (!canStart) return;
     const seed = seedInput
@@ -41,11 +52,13 @@ export default function NewGameForm() {
       id: `g-${Date.now()}`,
       seed,
       seats: [
-        { name: humanName.trim() || "You", kind: "human" },
-        ...enabledBots.map((b) => ({
+        { name: humanName.trim() || "You", kind: "human", logoId: humanLogoId },
+        ...enabledBots.map((b, i) => ({
           name: b.name.trim() || "Bot",
           kind: "bot" as const,
           botDifficulty: b.difficulty,
+          logoId:
+            remainingLogos[i % remainingLogos.length]?.id ?? PLAYER_LOGOS[0].id,
         })),
       ],
     });
@@ -66,6 +79,37 @@ export default function NewGameForm() {
           onChange={(e) => setHumanName(e.target.value)}
           className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-amber-500 focus:outline-none"
         />
+      </div>
+
+      <div className="mb-5">
+        <label className="mb-2 block text-xs uppercase tracking-wide text-slate-400">
+          Your logo
+        </label>
+        <div className="grid grid-cols-6 gap-2 sm:grid-cols-12">
+          {PLAYER_LOGOS.map((logo) => {
+            const selected = logo.id === humanLogoId;
+            const bgClass = PLAYER_BG_CLASS[paletteIndex(0)];
+            const borderClass = PLAYER_BORDER_CLASS[paletteIndex(0)];
+            return (
+              <button
+                key={logo.id}
+                type="button"
+                onClick={() => setHumanLogoId(logo.id)}
+                title={`${logo.name} — ${logo.blurb}`}
+                aria-pressed={selected}
+                aria-label={logo.name}
+                className={[
+                  "grid h-11 w-11 place-items-center rounded-md border-2 text-2xl leading-none transition-all",
+                  selected
+                    ? `${bgClass} ${borderClass} text-white shadow-[0_0_0_3px_rgba(99,102,241,.30)]`
+                    : "border-slate-700 bg-slate-950 text-slate-200 hover:border-slate-500",
+                ].join(" ")}
+              >
+                {logo.glyph}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="mb-5">
@@ -130,7 +174,8 @@ export default function NewGameForm() {
           ))}
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Total barons: {totalSeats} (min 2, max 6)
+          Total barons: {totalSeats} (min 2, max 6) · Bots are auto-assigned
+          unique logos.
         </p>
       </div>
 

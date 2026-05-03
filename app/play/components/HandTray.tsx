@@ -38,13 +38,14 @@ import { handSize } from "@/lib/engine/checks";
 import { pickBestSellable } from "@/lib/ai/evaluators";
 import {
   evaluateRecipe,
+  MAX_MASH_CARDS,
   summarizeMash,
   validateMash,
   type RecipeCheck,
 } from "@/lib/rules/mash";
 import { useGameStore } from "@/lib/store/gameStore";
 import { useUiStore } from "@/lib/store/uiStore";
-import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
+import PlayerSwatch from "./PlayerSwatch";
 import {
   HAND_CARD_OVERLAP,
   RESOURCE_CHROME,
@@ -131,7 +132,6 @@ export default function HandTray() {
 
   if (!humanId) return null;
   const me = state.players[humanId];
-  const seatIdx = paletteIndex(me.seatIndex);
 
   const traySize =
     me.resourceHand.length +
@@ -141,9 +141,12 @@ export default function HandTray() {
   const cappedHandSize = handSize(me);
   const isMyActionTurn =
     state.currentPlayerId === humanId && state.phase === "action";
-  const cost = state.actionPhase.freeWindowActive
-    ? 0
-    : state.actionPhase.paidLapTier;
+  const freeRemaining =
+    state.actionPhase.freeActionsRemainingByPlayer[humanId] ?? 0;
+  const cost =
+    freeRemaining > 0 || state.actionPhase.freeWindowActive
+      ? 0
+      : state.actionPhase.paidLapTier;
   const canAfford = me.cash >= cost;
   const overHandLimit = cappedHandSize > HAND_LIMIT;
   const auditPending =
@@ -364,28 +367,15 @@ export default function HandTray() {
     >
       {/* ─── Row 1: identity + every action button in a single line ─── */}
       <div className="flex flex-shrink-0 items-center gap-3 overflow-x-auto">
-        {/* CASH — its own block, first in the action row. Loudest
-            element on the screen since it gates every paid action and
-            most strategic decisions. */}
-        <div
-          className="flex flex-shrink-0 flex-col items-start gap-0.5 rounded-lg border border-emerald-500/45 bg-emerald-900/[0.20] px-5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.05),0_2px_12px_rgba(16,185,129,.18)]"
-          title="Cash on hand — pays action costs, rent, and investment capital."
-        >
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-[.22em] text-emerald-300/85">
-            Cash
-          </span>
-          <span className="font-display text-[44px] font-bold leading-[0.95] tabular-nums text-emerald-300 drop-shadow-[0_2px_4px_rgba(0,0,0,.55)]">
-            ${me.cash}
-          </span>
-        </div>
-
-        {/* Identity / hand-size readout — second block. Separate from
-            cash so each section reads as one thing. */}
+        {/* Identity / hand-size readout — small companion block to the
+            big cash card below. Sits compact so the cash card is the
+            visual anchor of the action row. */}
         <div className="flex min-w-0 flex-shrink-0 flex-col gap-0.5 rounded-lg border border-slate-800 bg-slate-950/60 px-3.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.04)]">
           <div className="flex items-center gap-2">
-            <span
-              className={`block h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${PLAYER_BG_CLASS[seatIdx]}`}
-              aria-hidden
+            <PlayerSwatch
+              seatIndex={me.seatIndex}
+              logoId={me.logoId}
+              size="sm"
             />
             <span className="font-display text-[14px] font-semibold leading-tight text-amber-100">
               Your hand
@@ -523,10 +513,34 @@ export default function HandTray() {
         </button>
       </div>
 
-      {/* ─── Row 2: cards (resources / bourbon / play) ─── */}
+      {/* ─── Row 2: cards (cash / resources / bourbon / play / active) ─── */}
       {/* Every section uses the same accordion-fan layout so the player
-          scans one visual idiom across resources, bourbon, and play. */}
+          scans one visual idiom across resources, bourbon, and play.
+          Cash sits as the FIRST section — sized like a card area, with
+          a very large dollar number — so the player's bankroll is the
+          visual anchor of the whole hand row. */}
       <div className="flex items-stretch gap-[14px] overflow-x-auto">
+        {/* Cash — fills its section, no inner box framing */}
+        <div className="flex flex-shrink-0 items-stretch gap-2">
+          <VerticalCaption>cash</VerticalCaption>
+          <div
+            className="flex h-[148px] w-[160px] flex-col items-center justify-center gap-1 px-3"
+            title="Cash on hand — pays action costs, rent, and investment capital."
+          >
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[.22em] text-emerald-300/85">
+              Cash
+            </span>
+            <span className="font-display text-[76px] font-bold leading-none tabular-nums text-emerald-300 drop-shadow-[0_3px_6px_rgba(0,0,0,.55)]">
+              ${me.cash}
+            </span>
+            <span className="font-mono text-[9px] uppercase tracking-[.18em] text-emerald-400/60">
+              on hand
+            </span>
+          </div>
+        </div>
+
+        <Divider />
+
         {/* Resources */}
         <div className="flex flex-shrink-0 items-stretch gap-2">
           <VerticalCaption>resources</VerticalCaption>
@@ -687,15 +701,21 @@ export default function HandTray() {
           </div>
         </div>
 
+        {/* Spacer — pushes the Active section to the far right. The
+            cash / resources / bourbon / play sections (the player's
+            "hand") absorb all the slack so they can breathe and the
+            fixed-size active investment slots anchor the right edge. */}
+        <span className="flex-1" aria-hidden />
+
         <Divider />
 
         {/* Active investments — built upgrades that persist on the
-            table. Lives at the right of the hand row so the player can
-            always see what they've capitalised. Three explicit slots
-            (matching MAX_ACTIVE_INVESTMENTS) render side-by-side: an
-            implemented investment fills its slot; unfilled slots show
-            a dashed empty placeholder so the cap is visible at a
-            glance. Clicking a built card opens the inspect modal. */}
+            table. Pinned to the FAR RIGHT of the hand row since the
+            cap is fixed (MAX_ACTIVE_INVESTMENTS = 3 explicit slots);
+            no need for it to consume hand-row real estate. Each
+            unfilled slot renders as a dashed empty placeholder so the
+            cap is visible at a glance. Clicking a built card opens
+            the inspect modal. */}
         <div className="flex flex-shrink-0 items-stretch gap-2">
           <VerticalCaption>active</VerticalCaption>
           <div className="flex flex-col items-start gap-1">
@@ -822,7 +842,7 @@ function MashStatusPill({
         {mashOk ? "✓" : "·"}
       </span>
       <span className="tabular-nums">
-        {cask}c · {corn}🌽 · {grain}g · {total}/6
+        {cask}c · {corn}🌽 · {grain}g · {total}/{MAX_MASH_CARDS}
       </span>
       <span
         className={[
@@ -1025,14 +1045,9 @@ function MiniResourceCard({
           ✓
         </span>
       ) : null}
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline">
         <span
-          className={`text-[8px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}
-        >
-          Resource
-        </span>
-        <span
-          className={`text-[7px] uppercase tracking-wide ${chrome.label} opacity-80`}
+          className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}
         >
           {RESOURCE_LABEL[resource]}
         </span>
@@ -1100,15 +1115,18 @@ function MiniBourbonCard({
   const chrome = TIER_CHROME[tier];
   const overlapMargin = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
   // Resolve current demand against THIS bill's bands (each card defines
-  // its own thresholds). Show a price preview from the middle age row
-  // for at-a-glance scanning.
-  const demandBand =
-    demand >= card.demandBands[2]
-      ? 2
-      : demand >= card.demandBands[1]
-        ? 1
-        : 0;
-  const previewPrice = card.grid[1][demandBand];
+  // its own thresholds, length 1–3). Show a price preview from the
+  // middle age row when the bill has 3 age bands; otherwise just take
+  // the last available row (the most aged the card cares about).
+  let demandBand = 0;
+  for (let i = card.demandBands.length - 1; i >= 0; i -= 1) {
+    if (demand >= card.demandBands[i]) {
+      demandBand = i;
+      break;
+    }
+  }
+  const previewRow = card.grid[Math.min(1, card.grid.length - 1)];
+  const previewPrice = previewRow[Math.min(demandBand, previewRow.length - 1)];
   const baseChrome =
     "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
   const stateBorder = auditSelected

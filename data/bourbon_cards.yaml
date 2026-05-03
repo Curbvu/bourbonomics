@@ -26,78 +26,67 @@ cards:
     name: "Knob's End 90"
     rarity: "Standard"
     grid:
-      - [ 2, 3, 4 ]
-      - [ 3, 4, 5 ]
-      - [ 5, 6, 7 ]
+      - [ 3, 5 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "02"
     name: "Mammoth Cave Malt"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 5 ]
-      - [ 4, 5, 6 ]
-      - [ 6, 7, 8 ]
+      - [ 4, 6 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "03"
     name: "Bardstown Boiler"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 6 ]
-      - [ 5, 6, 7 ]
-      - [ 7, 8, 9 ]
+      - [ 5, 7 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "04"
     name: "Limestone Ledger"
     rarity: "Standard"
     grid:
-      - [ 2, 3, 4 ]
-      - [ 3, 4, 5 ]
-      - [ 5, 6, 7 ]
+      - [ 3, 5 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "05"
     name: "Charred Oak Exchange"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 7 ]
-      - [ 5, 7, 9 ]
-      - [ 7, 9, 12 ]
+      - [ 4, 7 ]
+      - [ 7, 12 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "06"
     name: "Riverbend Rye Signal"
     rarity: "Standard"
     grid:
-      - [ 5, 6, 8 ]
-      - [ 6, 8, 10 ]
-      - [ 8, 10, 13 ]
+      - [ 5, 8 ]
+      - [ 8, 13 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "07"
     name: "Stave & Story"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 6 ]
-      - [ 4, 6, 8 ]
-      - [ 6, 8, 11 ]
+      - [ 3, 6 ]
+      - [ 6, 11 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "08"
     name: "Cooper's Quorum"
@@ -160,67 +149,58 @@ cards:
     name: "Warehouse E Batch"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 5 ]
-      - [ 4, 5, 6 ]
-      - [ 6, 7, 8 ]
+      - [ 4, 6 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "12"
     name: "Foggy Bottom Forge"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 6 ]
-      - [ 5, 6, 7 ]
-      - [ 7, 8, 9 ]
+      - [ 5, 7 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "13"
     name: "Cornbread Line"
     rarity: "Standard"
     grid:
-      - [ 2, 3, 4 ]
-      - [ 3, 4, 5 ]
-      - [ 5, 6, 7 ]
+      - [ 3, 5 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "14"
     name: "Rye Ladder 95"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 7 ]
-      - [ 5, 7, 9 ]
-      - [ 7, 9, 12 ]
+      - [ 4, 7 ]
+      - [ 7, 12 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "15"
     name: "Wheat Whisper"
     rarity: "Standard"
     grid:
-      - [ 5, 6, 8 ]
-      - [ 6, 8, 10 ]
-      - [ 8, 10, 13 ]
+      - [ 5, 8 ]
+      - [ 8, 13 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "16"
     name: "Barley Bastion"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 6 ]
-      - [ 4, 6, 8 ]
-      - [ 6, 8, 11 ]
+      - [ 3, 6 ]
+      - [ 6, 11 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "17"
     name: "Two Charring Points"
@@ -274,78 +254,67 @@ cards:
     name: "Cork & Crown"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 5 ]
-      - [ 4, 5, 6 ]
-      - [ 6, 7, 8 ]
+      - [ 4, 6 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "21"
     name: "Proof Positive 100"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 6 ]
-      - [ 5, 6, 7 ]
-      - [ 7, 8, 9 ]
+      - [ 5, 7 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "22"
     name: "Sour Mash Society"
     rarity: "Standard"
     grid:
-      - [ 2, 3, 4 ]
-      - [ 3, 4, 5 ]
-      - [ 5, 6, 7 ]
+      - [ 3, 5 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "23"
     name: "Stillhouse Sonnet"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 5 ]
-      - [ 4, 5, 6 ]
-      - [ 6, 7, 8 ]
+      - [ 4, 6 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "24"
     name: "Patent Still 04"
     rarity: "Standard"
     grid:
-      - [ 5, 6, 8 ]
-      - [ 6, 8, 10 ]
-      - [ 8, 10, 13 ]
+      - [ 5, 8 ]
+      - [ 8, 13 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "25"
     name: "Kentucky Crosscut"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 6 ]
-      - [ 4, 6, 8 ]
-      - [ 6, 8, 11 ]
+      - [ 3, 6 ]
+      - [ 6, 11 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "26"
     name: "Oak Algebra"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 7 ]
-      - [ 5, 7, 9 ]
-      - [ 7, 9, 12 ]
+      - [ 4, 7 ]
+      - [ 7, 12 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "27"
     name: "Bottled Lightning 86"
@@ -384,78 +353,67 @@ cards:
     name: "Bluegrass Boiler"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 5 ]
-      - [ 4, 5, 6 ]
-      - [ 6, 7, 8 ]
+      - [ 4, 6 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "30"
     name: "Rickhouse Arithmetic"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 6 ]
-      - [ 5, 6, 7 ]
-      - [ 7, 8, 9 ]
+      - [ 5, 7 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "31"
     name: "Filtered Lore"
     rarity: "Standard"
     grid:
-      - [ 2, 3, 4 ]
-      - [ 3, 4, 5 ]
-      - [ 5, 6, 7 ]
+      - [ 3, 5 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "32"
     name: "Low Gauge Legacy"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 5 ]
-      - [ 4, 5, 6 ]
-      - [ 6, 7, 8 ]
+      - [ 4, 6 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "33"
     name: "Steam Furnace Five"
     rarity: "Standard"
     grid:
-      - [ 5, 6, 8 ]
-      - [ 6, 8, 10 ]
-      - [ 8, 10, 13 ]
+      - [ 5, 8 ]
+      - [ 8, 13 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "34"
     name: "Grist Galaxy"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 6 ]
-      - [ 4, 6, 8 ]
-      - [ 6, 8, 11 ]
+      - [ 3, 6 ]
+      - [ 6, 11 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "35"
     name: "Turf & Tarnish"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 7 ]
-      - [ 5, 7, 9 ]
-      - [ 7, 9, 12 ]
+      - [ 4, 7 ]
+      - [ 7, 12 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "36"
     name: "Copper Crossings 107"
@@ -514,67 +472,58 @@ cards:
     name: "Barrel Thief Reserve"
     rarity: "Rare"
     grid:
-      - [ 4, 5, 6 ]
-      - [ 5, 6, 7 ]
-      - [ 7, 8, 9 ]
+      - [ 5, 7 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "40"
     name: "Ghost Warehouse"
     rarity: "Rare"
     grid:
-      - [ 2, 3, 4 ]
-      - [ 3, 4, 5 ]
-      - [ 5, 6, 7 ]
+      - [ 3, 5 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "41"
     name: "Double Stack Destiny"
     rarity: "Rare"
     grid:
-      - [ 3, 4, 5 ]
-      - [ 4, 5, 6 ]
-      - [ 6, 7, 8 ]
+      - [ 4, 6 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "42"
     name: "Crimson Corn Covenant"
     rarity: "Rare"
     grid:
-      - [ 5, 6, 8 ]
-      - [ 6, 8, 10 ]
-      - [ 8, 10, 13 ]
+      - [ 5, 8 ]
+      - [ 8, 13 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "43"
     name: "Platinum Rick Proof"
     rarity: "Rare"
     grid:
-      - [ 3, 4, 6 ]
-      - [ 4, 6, 8 ]
-      - [ 6, 8, 11 ]
+      - [ 3, 6 ]
+      - [ 6, 11 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "44"
     name: "Infinite Stave"
     rarity: "Rare"
     grid:
-      - [ 4, 5, 7 ]
-      - [ 5, 7, 9 ]
-      - [ 7, 9, 12 ]
+      - [ 4, 7 ]
+      - [ 7, 12 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "45"
     name: "Crown Compass"
@@ -628,67 +577,57 @@ cards:
     name: "Bonded Beyond"
     rarity: "Rare"
     grid:
-      - [ 4, 5, 6 ]
-      - [ 5, 6, 7 ]
-      - [ 7, 8, 9 ]
+      - [ 5, 7 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "49"
     name: "Oak Oracle"
     rarity: "Rare"
     grid:
-      - [ 2, 3, 4 ]
-      - [ 3, 4, 5 ]
-      - [ 5, 6, 7 ]
+      - [ 3, 5 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "50"
     name: "The Last Rick"
     rarity: "Rare"
     grid:
-      - [ 3, 4, 5 ]
-      - [ 4, 5, 6 ]
-      - [ 6, 7, 8 ]
+      - [ 4, 6 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "51"
     name: "Moonlit Mash"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 6 ]
-      - [ 5, 6, 7 ]
-      - [ 7, 8, 9 ]
+      - [ 5, 7 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "52"
     name: "Backroad Batch"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 6 ]
-      - [ 4, 6, 8 ]
-      - [ 6, 8, 11 ]
+      - [ 3, 6 ]
+      - [ 6, 11 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "53"
     name: "Distiller's Dozen"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 7 ]
-      - [ 5, 7, 9 ]
-      - [ 7, 9, 12 ]
+      - [ 4, 7 ]
+      - [ 7, 12 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "54"
     name: "Owensboro Drift"
@@ -742,78 +681,67 @@ cards:
     name: "Copper Cadence"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 6 ]
-      - [ 5, 6, 7 ]
-      - [ 7, 8, 9 ]
+      - [ 5, 7 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "58"
     name: "Greenriver Gold"
     rarity: "Standard"
     grid:
-      - [ 2, 3, 4 ]
-      - [ 3, 4, 5 ]
-      - [ 5, 6, 7 ]
+      - [ 3, 5 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "59"
     name: "Heirloom 1792"
     rarity: "Standard"
     grid:
-      - [ 3, 4, 5 ]
-      - [ 4, 5, 6 ]
-      - [ 6, 7, 8 ]
+      - [ 4, 6 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "60"
     name: "The Proofsmith"
     rarity: "Standard"
     grid:
-      - [ 4, 5, 6 ]
-      - [ 5, 6, 7 ]
-      - [ 7, 8, 9 ]
+      - [ 5, 7 ]
     awards: null
-    ageBands: [ 2, 3, 4 ]
-    demandBands: [ 0, 4, 6 ]
+    ageBands: [ 2 ]
+    demandBands: [ 0, 6 ]
     tier: common
   - id: "61"
     name: "Phoenix Cooperage"
     rarity: "Rare"
     grid:
-      - [ 3, 4, 6 ]
-      - [ 4, 6, 8 ]
-      - [ 6, 8, 11 ]
+      - [ 3, 6 ]
+      - [ 6, 11 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "62"
     name: "Whisper Barrel"
     rarity: "Rare"
     grid:
-      - [ 4, 5, 7 ]
-      - [ 5, 7, 9 ]
-      - [ 7, 9, 12 ]
+      - [ 4, 7 ]
+      - [ 7, 12 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "63"
     name: "Midnight Mash Bill"
     rarity: "Rare"
     grid:
-      - [ 5, 6, 8 ]
-      - [ 6, 8, 10 ]
-      - [ 8, 10, 13 ]
+      - [ 5, 8 ]
+      - [ 8, 13 ]
     awards: null
-    ageBands: [ 2, 4, 6 ]
-    demandBands: [ 0, 4, 7 ]
+    ageBands: [ 2, 6 ]
+    demandBands: [ 0, 7 ]
     tier: uncommon
   - id: "64"
     name: "Triple Crown Reserve"

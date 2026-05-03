@@ -100,8 +100,8 @@ export default function DeckStack({
   label,
   count,
   tone = "default",
-  width = 56,
-  height = 78,
+  width = 80,
+  height = 112,
   onClick,
   disabled = false,
   title,
@@ -130,9 +130,9 @@ export default function DeckStack({
     <div
       style={{ width, height }}
       className={[
-        "relative flex-shrink-0 rounded-md transition-[transform,opacity,filter] duration-150",
+        "group relative flex-shrink-0 rounded-lg transition-[transform,opacity,filter,box-shadow] duration-200",
         interactive
-          ? "cursor-pointer hover:-translate-y-0.5 hover:ring-2 hover:ring-amber-400/60"
+          ? "cursor-pointer hover:-translate-y-1 hover:scale-[1.04]"
           : "",
         disabled && !shutdown ? "cursor-not-allowed opacity-40 grayscale" : "",
         shutdown ? "cursor-not-allowed" : "",
@@ -156,14 +156,15 @@ export default function DeckStack({
       aria-label={`${label} deck, ${count} card${count === 1 ? "" : "s"}${shutdown ? " (shut down)" : ""}`}
       aria-disabled={disabled || shutdown || undefined}
     >
-      {/* Back card — bottom of stack, offset down-right */}
+      {/* Back card — bottom of stack, offset down-right (bigger offset
+          now that the cards are larger). */}
       <div
-        className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-md border border-slate-800 bg-slate-950"
+        className="absolute inset-0 translate-x-[5px] translate-y-[5px] rounded-lg border border-slate-800 bg-slate-950"
         aria-hidden
       />
       {/* Middle card — half-step offset */}
       <div
-        className="absolute inset-0 translate-x-[1.5px] translate-y-[1.5px] rounded-md border border-slate-800 bg-slate-900"
+        className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-lg border border-slate-800 bg-slate-900"
         aria-hidden
       />
       {/* Face card — tone-specific, with inset top highlight. When the
@@ -171,16 +172,26 @@ export default function DeckStack({
           diagonal hatch + 🚫 glyph so it reads as "no draws this round" */}
       <div
         className={[
-          "absolute inset-0 flex flex-col items-center justify-center gap-0.5 rounded-md border shadow-[inset_0_1px_0_rgba(255,255,255,.05)]",
+          "absolute inset-0 flex flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border-2 shadow-[inset_0_1px_0_rgba(255,255,255,.07)]",
           shutdown
             ? "border-rose-600 bg-rose-900/40 grayscale-[40%]"
             : `${t.face} ${t.border}`,
-        ].join(" ")}
+          interactive ? "deck-shimmer" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
       >
+        {/* Top hairline gloss (extra polish). */}
+        {!shutdown ? (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+            aria-hidden
+          />
+        ) : null}
         {/* Tone glyph (faint, top-left). Hidden when shutdown. */}
         {!shutdown && t.glyph ? (
           <span
-            className={`pointer-events-none absolute left-1.5 top-1 font-mono text-[10px] opacity-50 ${t.label}`}
+            className={`pointer-events-none absolute left-2 top-1.5 font-mono text-[14px] opacity-55 ${t.label}`}
             aria-hidden
           >
             {t.glyph}
@@ -188,7 +199,7 @@ export default function DeckStack({
         ) : null}
         <span
           className={[
-            "font-mono text-[9px] font-semibold uppercase tracking-[.14em]",
+            "font-mono text-[11px] font-semibold uppercase tracking-[.18em]",
             shutdown ? "text-rose-300" : t.label,
           ].join(" ")}
         >
@@ -196,12 +207,23 @@ export default function DeckStack({
         </span>
         <span
           className={[
-            "font-mono text-xl font-bold tabular-nums leading-none",
+            "font-mono text-[28px] font-bold tabular-nums leading-none drop-shadow-[0_2px_3px_rgba(0,0,0,.45)]",
             shutdown ? "text-rose-200/60 line-through" : t.ink,
           ].join(" ")}
         >
           {count}
         </span>
+        {/* Pulse ring + "DRAW" hint when the deck is interactive — the
+            shimmer keyframe (deck-shimmer / deck-pulse in globals.css)
+            keeps the eye drawn to actionable piles. */}
+        {interactive ? (
+          <span
+            className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full border border-amber-300/70 bg-amber-300/10 px-1.5 py-px font-mono text-[8px] font-bold uppercase tracking-[.14em] text-amber-200 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            aria-hidden
+          >
+            draw ↵
+          </span>
+        ) : null}
         {shutdown ? (
           <>
             {/* Diagonal hatch overlay */}
@@ -214,13 +236,13 @@ export default function DeckStack({
               aria-hidden
             />
             <span
-              className="pointer-events-none absolute inset-0 grid place-items-center text-2xl text-rose-300 drop-shadow"
+              className="pointer-events-none absolute inset-0 grid place-items-center text-3xl text-rose-300 drop-shadow"
               aria-hidden
               title="Shut down — no draws this round"
             >
               🚫
             </span>
-            <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 font-mono text-[8px] font-bold uppercase tracking-[.12em] text-rose-300">
+            <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 font-mono text-[9px] font-bold uppercase tracking-[.14em] text-rose-300">
               shut down
             </span>
           </>

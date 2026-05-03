@@ -30,17 +30,33 @@ describe("mash validation", () => {
     expect(validateMash([r("cask"), r("corn")]).ok).toBe(false);
   });
 
-  it("rejects > 6 cards", () => {
-    const seven = [
+  it("accepts a 7-card variety mash (3 corn + 3 rye + cask)", () => {
+    const sevenCard = [
       r("cask"),
       r("corn"),
       r("corn"),
+      r("corn"),
       r("rye"),
       r("rye"),
-      r("wheat"),
-      r("wheat"),
+      r("rye"),
     ];
-    expect(validateMash(seven).ok).toBe(false);
+    expect(validateMash(sevenCard).ok).toBe(true);
+  });
+
+  it("rejects > 9 cards", () => {
+    const ten = [
+      r("cask"),
+      r("corn"),
+      r("corn"),
+      r("corn"),
+      r("rye"),
+      r("rye"),
+      r("rye"),
+      r("wheat"),
+      r("wheat"),
+      r("barley"),
+    ];
+    expect(validateMash(ten).ok).toBe(false);
   });
 
   it("accepts the canonical examples from rules", () => {
