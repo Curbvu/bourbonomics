@@ -89,9 +89,11 @@ describe("integration — full round loop", () => {
         { name: "B", kind: "bot", botDifficulty: "easy" },
       ],
     });
-    // Round 1 hands every player 8 free setup actions, which masks the
-    // lap-cost ladder this test is about. Drain them to zero so we're
-    // observing the table-wide free window + paid laps in isolation.
+    // The lap-cost ladder this test exercises only matters in round 2+;
+    // round 1 is the setup round (free actions, auto-end when exhausted).
+    // Jump straight to round-2 action phase with empty free budgets so
+    // we're observing the table-wide free window + paid laps in isolation.
+    s.round = 2;
     for (const id of Object.keys(s.actionPhase.freeActionsRemainingByPlayer)) {
       s.actionPhase.freeActionsRemainingByPlayer[id] = 0;
     }

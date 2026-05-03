@@ -56,7 +56,7 @@ export default function GameTopBar() {
   return (
     <header className="border-b border-slate-800 bg-slate-950">
       {/* ─── Main row ─── */}
-      <div className="flex items-center gap-4 px-[22px] py-3">
+      <div className="flex items-center gap-4 px-[22px] py-2">
         {/* Brand mark + wordmark */}
         <div className="flex items-center gap-2.5">
           <div
@@ -79,7 +79,7 @@ export default function GameTopBar() {
           </div>
         </div>
 
-        <span className="mx-1.5 h-[60px] w-px bg-slate-800" aria-hidden />
+        <span className="mx-1.5 h-[44px] w-px bg-slate-800" aria-hidden />
 
         {/* Year indicator — the dominant number on the top bar. Year IS
             the turn, so the wordmark only needs "distillery" beside it. */}
@@ -87,7 +87,7 @@ export default function GameTopBar() {
           <span className="font-mono text-[14px] font-semibold uppercase tracking-[.20em] text-slate-400">
             year
           </span>
-          <span className="font-display text-[60px] font-bold leading-[0.85] tabular-nums text-amber-300 drop-shadow-[0_3px_6px_rgba(0,0,0,.55)]">
+          <span className="font-display text-[44px] font-bold leading-[0.85] tabular-nums text-amber-300 drop-shadow-[0_3px_6px_rgba(0,0,0,.55)]">
             {state.round}
           </span>
         </div>

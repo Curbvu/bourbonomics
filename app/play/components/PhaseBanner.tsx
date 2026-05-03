@@ -109,7 +109,7 @@ export default function PhaseBanner({
           <div
             key={p.k}
             className={[
-              "flex min-w-0 items-center gap-3 px-4 py-4",
+              "flex min-w-0 items-center gap-3 px-4 py-2",
               expandActive ? "flex-[3]" : "flex-1",
               i < PHASES.length - 1 ? "border-r border-slate-800" : "",
               active ? "bg-amber-700/[0.18]" : "",

@@ -357,7 +357,7 @@ export default function HandTray() {
   return (
     <section
       className={[
-        "hand-scrollbar flex flex-col gap-2 border-t border-slate-800 bg-slate-950 px-[22px] py-3",
+        "hand-scrollbar flex flex-col gap-1.5 border-t border-slate-800 bg-slate-950 px-[22px] py-2",
         // Lift above the make-bourbon dim overlay so the chips remain
         // interactive while the rest of the dashboard is blurred out.
         makeBourbon.active ? "relative z-40" : "",
@@ -524,13 +524,13 @@ export default function HandTray() {
         <div className="flex flex-shrink-0 items-stretch gap-2">
           <VerticalCaption>cash</VerticalCaption>
           <div
-            className="flex h-[148px] w-[160px] flex-col items-center justify-center gap-1 px-3"
+            className="flex h-[128px] w-[160px] flex-col items-center justify-center gap-1 px-3"
             title="Cash on hand — pays action costs, rent, and investment capital."
           >
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[.22em] text-emerald-300/85">
               Cash
             </span>
-            <span className="font-display text-[76px] font-bold leading-none tabular-nums text-emerald-300 drop-shadow-[0_3px_6px_rgba(0,0,0,.55)]">
+            <span className="font-display text-[60px] font-bold leading-none tabular-nums text-emerald-300 drop-shadow-[0_3px_6px_rgba(0,0,0,.55)]">
               ${me.cash}
             </span>
             <span className="font-mono text-[9px] uppercase tracking-[.18em] text-emerald-400/60">
@@ -951,7 +951,7 @@ function EmptyInvestmentSlot() {
   return (
     <div
       aria-label="Empty investment slot"
-      className="flex h-[148px] w-[112px] flex-shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-700 bg-slate-950/40 font-mono text-[9px] uppercase tracking-[.18em] text-slate-600"
+      className="flex h-[128px] w-[112px] flex-shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-700 bg-slate-950/40 font-mono text-[9px] uppercase tracking-[.18em] text-slate-600"
     >
       <span aria-hidden className="text-2xl text-slate-700">+</span>
       <span>Empty slot</span>
@@ -999,7 +999,7 @@ function MiniResourceCard({
   const chrome = RESOURCE_CHROME[resource];
   const overlapMargin = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
   const baseChrome =
-    "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
+    "relative flex h-[128px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
   const stateBorder = selected
     ? "border-amber-300 ring-2 ring-amber-300"
     : wanted
@@ -1128,7 +1128,7 @@ function MiniBourbonCard({
   const previewRow = card.grid[Math.min(1, card.grid.length - 1)];
   const previewPrice = previewRow[Math.min(demandBand, previewRow.length - 1)];
   const baseChrome =
-    "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
+    "relative flex h-[128px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
   const stateBorder = auditSelected
     ? "border-rose-400 ring-2 ring-rose-400"
     : auditMode
@@ -1222,7 +1222,7 @@ function MiniOperationsCard({
 }) {
   const interactive = !!onClick;
   const baseChrome =
-    "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 bg-gradient-to-b from-violet-600/90 via-violet-900/90 to-slate-950 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
+    "relative flex h-[128px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 bg-gradient-to-b from-violet-600/90 via-violet-900/90 to-slate-950 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
   const overlapMargin = indexInRow === 0 ? "" : "-ml-9";
   const stateBorder = auditSelected
     ? "border-rose-400 ring-2 ring-rose-400"
@@ -1312,7 +1312,7 @@ function MiniInvestmentCard({
   const interactive = !!onClick;
   const isRare = rarity === "Rare";
   const baseChrome =
-    "relative flex h-[148px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
+    "relative flex h-[128px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
   const gradient = isActive
     ? "bg-gradient-to-b from-emerald-700/70 via-emerald-900/80 to-slate-950"
     : "bg-gradient-to-b from-emerald-600/90 via-emerald-900/90 to-slate-950";

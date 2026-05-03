@@ -163,7 +163,7 @@ export default function RickhouseRow() {
 
   return (
     <section className={sectionClass}>
-      <div className="mb-2.5 flex items-baseline justify-between gap-3">
+      <div className="mb-1.5 flex items-baseline justify-between gap-3">
         <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-slate-400">
           Rickhouses · {RICKHOUSES.length} regions · {TOTAL_SLOTS} slots
           {mashValid ? (
@@ -222,7 +222,7 @@ export default function RickhouseRow() {
                       : undefined
               }
               className={[
-                "flex flex-col gap-2 rounded-lg border bg-slate-900/60 px-3.5 py-2.5 transition-all",
+                "flex flex-col gap-1.5 rounded-lg border bg-slate-900/60 px-3 py-1.5 transition-all",
                 targetable
                   ? "cursor-pointer border-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,.15)] hover:-translate-y-0.5 hover:shadow-[0_0_0_3px_rgba(245,158,11,.35)]"
                   : makeBourbon.active && freeSlots === 0
@@ -247,7 +247,7 @@ export default function RickhouseRow() {
                 ) : null}
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {h.barrels.map((b) => {
                   const ownerPlayer = state.players[b.ownerId];
                   const seatIdx = paletteIndex(ownerPlayer?.seatIndex ?? 0);
@@ -324,7 +324,7 @@ export default function RickhouseRow() {
                   // outline + glow to the player's own aged barrels
                   // and dims everyone else's.
                   const chipClass = [
-                    "group relative flex h-[124px] w-[120px] flex-col overflow-hidden rounded-md border-2 text-left transition-all",
+                    "group relative flex h-[104px] w-[120px] flex-col overflow-hidden rounded-md border-2 text-left transition-all",
                     tierChrome.gradient,
                     tierChrome.glow,
                     tier === "epic" || tier === "legendary" ? tierChrome.shimmer : "",
@@ -447,7 +447,7 @@ export default function RickhouseRow() {
                   <div
                     key={`empty-${i}`}
                     className={[
-                      "flex h-[124px] w-[120px] items-center justify-center rounded-md border border-dashed font-mono text-[10px] uppercase tracking-[.12em]",
+                      "flex h-[104px] w-[120px] items-center justify-center rounded-md border border-dashed font-mono text-[10px] uppercase tracking-[.12em]",
                       targetable
                         ? "border-amber-400/70 text-amber-300/70"
                         : "border-slate-700 text-slate-700",
