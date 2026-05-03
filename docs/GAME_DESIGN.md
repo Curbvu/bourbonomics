@@ -26,18 +26,26 @@ records the design intent that shaped it.
 
 ## Setup & opening
 
-- **Round 1 is a setup round.** Phase 1 (rent) is skipped and every
-  baron is granted **8 personal free actions** to spend on draws,
-  makes, implements, sells — anything legal — before the cost ladder
-  applies. Free actions are per-player, not shared.
-- **No starting bourbon hand.** `STARTING_BOURBON_HAND = 0`. Every
-  baron uses their setup actions to draw their own opening mash bills.
-- **Auto-advance out of setup.** As soon as every player has
-  exhausted their 8 free actions, the action phase ends automatically
-  — players cannot continue into the paid-lap ladder during round 1.
-  Passing still ends a baron's setup turn early as a manual exit.
-- **Starting cash: $25.** Replaces the prior $40 baseline; the smaller
-  bankroll reinforces that round 1's free actions are the runway.
+- **Distilleries — asymmetric starting identities.** Each baron is
+  dealt 2 Distillery cards face-down at game start, picks 1 to keep
+  face-up, returns the other. The chosen card grants a one-time
+  **starting bonus** and a permanent **ongoing perk**. Eight cards in
+  the initial pool span production rusher / patient ager / spreader /
+  market manipulator / mash-bill specialist / Operations player /
+  cash baron / cooperage. No penalties — pure positive identities.
+  See `docs/GAME_RULES.md` §Distilleries for the full pool.
+- **Starting cash: $40.** Restored after the brief $25 experiment.
+  Distilleries handle differentiation and immediate ramp; the larger
+  bankroll keeps paid-action flexibility healthy.
+- **Starting bourbon hand: 4 mash bills.** Restored — Distilleries can
+  add to it (e.g. The Recipe Book grants +2) but the base deal is back.
+- **No setup round.** Round 1 plays under normal action-phase rules
+  from the start. Phase 1 (rent) is skipped because no one has
+  barrels yet, but the lap-cost ladder fires the moment someone
+  passes.
+- **No round-1 free-action budget.** The previous "8 free actions"
+  experiment is removed — Distilleries replace it as the source of
+  early-game asymmetry.
 
 ## Bourbon cards (mash bills)
 
@@ -109,10 +117,10 @@ records the design intent that shaped it.
 - **No deck-count widgets next to Quit.** The right side of the top
   bar shows only Quit; bourbon/market deck sizes are not first-class
   identity for the player.
-- **Cost ladder swaps for setup pill in round 1.** While the human
-  has any free actions remaining, the FREE → $1 → $2 → $3+ chip is
-  replaced by a "★ setup round N/8 free actions" pill so the
-  mechanic is unmistakable.
+- **Cost ladder is always visible.** The FREE → $1 → $2 → $3+ chip
+  is the canonical action-cost display from round 1 onward. (The
+  previous "setup round N/8" pill was removed alongside the setup
+  round itself.)
 
 ## Hand tray
 
@@ -174,3 +182,11 @@ file, in chronological order. Useful when re-evaluating tradeoffs.
     scrolling.
 19. This file: enumerate the requirements above and the asks that
     produced them.
+20. **Distillery identity cards** (Age-of-Empires-style asymmetric
+    civs). Replaces the round-1 setup mechanic entirely — every
+    baron drafts 1 of 2 dealt Distilleries that grants a starting
+    bonus + permanent ongoing perk. Eight cards in the pool spanning
+    eight strategic archetypes; balance via cross-pulling perks
+    rather than per-card drawbacks. Full design spec lives in
+    `docs/GAME_RULES.md` §Distilleries; engine implementation
+    pending.

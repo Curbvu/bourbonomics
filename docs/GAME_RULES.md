@@ -37,21 +37,112 @@ Triggering the third Gold doesn't immediately end play — every player, includi
 
 # 🎬 Setup
 
-Each player starts with **$25** in initial capital. No one starts with investments in play, and **no one is dealt a starting bourbon hand** — every baron's opening mash bills are drawn during the setup round (see below).
+Each player starts with **$40** in initial capital. No one starts with investments in play.
 
-Shuffle all decks separately: the resource piles (Cask, Corn, Grain), the Bourbon cards, the Investment cards, the Operations cards, and the Market cards.
+Shuffle all decks separately: the resource piles (Cask, Corn, Grain), the Bourbon cards, the Investment cards, the Operations cards, the Market cards, and the **Distillery cards** (see §Distilleries).
+
+Deal each player **4 Bourbon cards** (mash bills) as their starting hand. Mash bills are kept hidden from other players until played onto a barrel.
+
+Then deal each player **2 Distillery cards face-down**. Each baron secretly looks at both, picks one to keep face-up in front of them, and returns the other to the Distillery deck (which is then reshuffled). The chosen Distillery's **starting bonus** resolves immediately — adjust cash, draw extra cards, or place starting resources as the card prints. The **ongoing perk** stays in play for the rest of the game.
 
 Set the market demand to **6**. This number will rise and fall throughout the game and directly affects how valuable your bourbon is when you sell it.
 
-## 🚀 Round 1 — the Setup Round
+Round 1 then begins under normal action-phase rules. Phase 1 (rent) is still skipped because no one has barrels yet, but otherwise the round plays exactly like every other — clockwise turns, free first action per player, then the lap-cost ladder kicks in once someone passes.
 
-Round 1 is a dedicated **setup round**: Phase 1 (rent) is skipped and every baron is granted **8 free actions** to spend however they like before the regular cost ladder kicks in. Use them to draw resources, draw mash bills, implement an investment, or even barrel a first mash — there is no $1/$2/$3+ ladder while you have free actions remaining.
+---
 
-- Free actions are **per player**, not shared. Each baron's counter ticks down independently.
-- Once a baron's 8 free actions are spent (or they pass) they exit setup and may continue to act under the normal lap-cost ladder.
-- After everyone finishes setup, Phase 3 (market) resolves as usual and round 2 begins with rent and the regular economy.
+# 🏭 Distilleries
 
-This replaces the old "deal 4 mash bills + start with $40" opening — you now choose what to draw and when, instead of being handed a fixed hand.
+Every baron runs a different distillery. Distillery cards are asymmetric starting identities — think Age of Empires civilizations — that bias the player toward a particular strategy from turn 1 and grant a permanent perk for the rest of the game.
+
+## How the deal works
+
+After cash and mash bills are dealt, each player is handed **2 Distillery cards face-down**. The baron secretly reads both, **keeps 1**, and returns the other to the deck, which is then reshuffled. The kept card sits **face-up** in front of the baron for the entire game so every opponent can see who they're up against.
+
+Each Distillery prints two effects:
+
+- A **Starting Bonus** that resolves once, immediately at setup. This may add cash, deal extra cards, or place starting resources in the baron's hand.
+- An **Ongoing Perk** that applies for the whole game.
+
+There are no penalties — Distilleries only grant advantages. Balance comes from perks pulling players in different strategic directions, not from drawbacks.
+
+## The card pool
+
+Eight Distilleries form the initial pool. A 4-player game still sees ~10 of the 16 dealt cards, so the deal-2-pick-1 draft has meaningful variance.
+
+### 🔥 The Hot Mash
+*"First barrel down, last one finished — speed wins quarters."*
+
+- **Starting Bonus:** Begin with **1 Cask, 1 Corn, and 1 Rye** in hand — a complete legal mash, ready to barrel on your first action.
+- **Ongoing Perk:** Once per round, your **first MAKE_BOURBON** action costs $0 regardless of the lap-cost ladder.
+
+**Plays as:** production rusher. Wants to barrel early and often, ideally with the free Make landing in a paid lap.
+
+### 🏛️ The Heritage House
+*"Time is the only ingredient nobody can hurry."*
+
+- **Starting Bonus:** Begin with **$10 extra cash** ($50 total). The bankroll is for surviving the long aging window.
+- **Ongoing Perk:** Each barrel you place enters the rickhouse at **age 1 instead of age 0** — one free year of aging on every barrel for the rest of the game.
+
+**Plays as:** patient ager. Skips the awkward "barrel made, can't sell yet" round and reaches premium age bands faster.
+
+### 🌐 The Diaspora
+*"Six warehouses, six microclimates. Let everyone else fight over one."*
+
+- **Starting Bonus:** Begin with **$5 extra cash** ($45 total) and **1 extra mash bill** (5 total).
+- **Ongoing Perk:** You pay **$0 rent** on barrels in any rickhouse where you are the only baron present.
+
+**Plays as:** rickhouse spreader. Rewarded for being everywhere first; punished if opponents crowd into your warehouses.
+
+### 📈 The Speculator
+*"Demand is rumor with a publication date."*
+
+- **Starting Bonus:** At setup, peek at the **top 3 Market cards** and rearrange them in any order before play begins.
+- **Ongoing Perk:** Your **first sale each round does not reduce** the global demand counter. Subsequent sales decay demand normally.
+
+**Plays as:** market manipulator. Sets up demand swings in advance and protects market price across multiple sales in a round.
+
+### 📚 The Recipe Book
+*"Every great whiskey starts with a number on a notepad."*
+
+- **Starting Bonus:** Begin with **2 extra mash bills** (6 total) and may inspect the **top 3 of the Bourbon deck**.
+- **Ongoing Perk:** Whenever you take a `DRAW_BOURBON` action, **draw 2 and keep 1** — the other returns to the bottom of the Bourbon deck.
+
+**Plays as:** mash bill specialist. Hand-picks bills that match a planned recipe strategy, hits Gold/Silver criteria more reliably.
+
+### ⚙️ The Distillers' Guild
+*"We have a process for that. Several, actually."*
+
+- **Starting Bonus:** Begin with **2 Operations cards** already in hand.
+- **Ongoing Perk:** When you resolve an Operations card, **immediately draw 1 replacement Operations card**.
+
+**Plays as:** Operations player. Keeps the engine churning — a perpetual stream of one-shot effects to disrupt opponents and shape rounds.
+
+### 💰 The Bootlegger
+*"Money makes barrels. Barrels make more money. Repeat."*
+
+- **Starting Bonus:** Begin with **$10 extra cash** ($50 total).
+- **Ongoing Perk:** Your paid actions cost **$1 less** than the current lap tier (with a $0 floor — the $1 lap is free for you, $2 is $1, $3+ is $2+).
+
+**Plays as:** cash baron. Loops paid actions cheaper than anyone else, ramps Investments aggressively in the mid-game.
+
+### 🪵 The Cooperage
+*"Wood is wisdom. We know what wood remembers."*
+
+- **Starting Bonus:** Begin with **3 Cask cards** in hand.
+- **Ongoing Perk:** Once per round, when you make a bourbon, **one Cask card from the mash returns to your hand** instead of being spent.
+
+**Plays as:** cask specialist. Effectively gets a free cask per round of production; especially strong with bills that allow large mashes.
+
+## Balance notes (playtest priorities)
+
+These three perks are the most likely to swing balance. Watch for them across early playtests:
+
+- **The Heritage House** — "barrels start at age 1" stacks across every barrel placed, all game. Risk: combined with the $10 cash cushion, snowballs into early premium-age sales while opponents are still waiting out a year. If it dominates, drop the bonus to $5 or restrict the perk to "first 3 barrels only."
+- **The Bootlegger** — straight $1 discount on paid actions compounds badly inside long action phases. Risk: a player who loops 6+ paid actions per round captures double-digit dollars over the game. If it dominates, cap the perk at "first 3 paid actions per round."
+- **The Hot Mash** — "free MAKE per round" is a paid-action exemption disguised as a perk. Risk: in late rounds when Make would cost $3+, this is huge. The $6 starting mash also lets them barrel on turn 1 before anyone else has resources. If it dominates, change the perk to "first MAKE per round costs $1 less" instead of free.
+
+The other five (Diaspora, Speculator, Recipe Book, Distillers' Guild, Cooperage) are situational — their value depends heavily on board state, deck flow, or other players' choices, which keeps them honest. They're more likely to feel weak in some games than overpowered.
 
 ---
 
@@ -159,7 +250,7 @@ This is the heart of the game.
 
 Players take turns in clockwise order. Once around the table is a "loop". On your turn, you may take one action or pass. The phase continues looping around the table until all players pass.
 
-At the beginning of the phase, all actions are free. This continues until the first player decides to pass. (In round 1 — the setup round — each baron also has a personal **8 free actions** budget that overrides the cost ladder until exhausted; see the Setup section.)
+At the beginning of the phase, all actions are free. This continues until the first player decides to pass.
 
 When that pass happens, two things take effect:
 
@@ -379,6 +470,8 @@ You gather resources, make bourbon, let it age, sell it into the market, and the
 ---
 
 # 🧠 Strategy Notes
+
+**Read your Distillery first.** Your starting bonus and ongoing perk shape every decision in round 1 — which mash bills you target, which rickhouse you barrel into first, whether you push paid actions or sit on cash. A Bootlegger and a Heritage House should never have the same opening move.
 
 Early in the game, your focus should be on getting bourbon into rickhouses as quickly as possible so it can begin aging.
 
