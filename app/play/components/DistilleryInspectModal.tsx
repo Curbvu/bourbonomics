@@ -50,7 +50,7 @@ export default function DistilleryInspectModal() {
       role="dialog"
       aria-modal="true"
       aria-label={`${player.name} distillery — ${def.name}`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-6"
       onClick={close}
       onKeyDown={(e) => {
         if (e.key === "Escape") close();
