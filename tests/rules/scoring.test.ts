@@ -85,7 +85,9 @@ describe("scoring — scorePlayer", () => {
 
   it("cards in hand and unsold barrels score $0", () => {
     const s = gs();
-    // bourbonHand started with 4 cards; verify it adds $0 to score.
+    // Push a few mash bills into hand so the assertion that they score $0
+    // is meaningful (the setup round no longer deals an opening hand).
+    s.players.p1.bourbonHand.push("01", "02", "03");
     expect(s.players.p1.bourbonHand.length).toBeGreaterThan(0);
     const score = scorePlayer(s.players.p1);
     expect(score.total).toBe(DEFAULT_STARTING_CASH);

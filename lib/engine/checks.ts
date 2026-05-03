@@ -43,7 +43,7 @@ export function currentActionCost(
 ): number {
   if (
     playerId &&
-    (state.actionPhase.freeActionsRemainingByPlayer[playerId] ?? 0) > 0
+    (state.actionPhase.freeActionsRemainingByPlayer?.[playerId] ?? 0) > 0
   ) {
     return 0;
   }
@@ -61,7 +61,7 @@ export function hasFreeActionRemaining(
   state: GameState,
   playerId: string,
 ): boolean {
-  return (state.actionPhase.freeActionsRemainingByPlayer[playerId] ?? 0) > 0;
+  return (state.actionPhase.freeActionsRemainingByPlayer?.[playerId] ?? 0) > 0;
 }
 
 export function findBarrel(

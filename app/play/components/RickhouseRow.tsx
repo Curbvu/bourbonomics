@@ -117,7 +117,7 @@ export default function RickhouseRow() {
     state.currentPlayerId === humanId &&
     state.phase === "action";
   const humanFreeRemaining = humanId
-    ? state.actionPhase.freeActionsRemainingByPlayer[humanId] ?? 0
+    ? state.actionPhase.freeActionsRemainingByPlayer?.[humanId] ?? 0
     : 0;
   const actionCost =
     humanFreeRemaining > 0 || state.actionPhase.freeWindowActive

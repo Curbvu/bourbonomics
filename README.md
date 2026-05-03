@@ -2,6 +2,8 @@
 
 A solo-vs-computer implementation of the **Bourbonomics** board game — [Kentucky Straight mode](docs/GAME_RULES.md). Single-player only: you vs. 1–5 bots, all running in the browser.
 
+Round 1 is a **setup round**: every baron starts with $25 and 8 personal free actions to draw resources, draw mash bills, and barrel a first batch before the cost ladder kicks in — no one is dealt a starting bourbon hand. Round 2 onward plays under the regular economy (rent, paid laps, market draws).
+
 ## Rules
 
 [`docs/GAME_RULES.md`](docs/GAME_RULES.md) is the canonical rulebook. When game behavior changes, update the rulebook first.

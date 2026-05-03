@@ -233,12 +233,12 @@ function chargeActionCost(state: GameState, playerId: string): boolean {
   const p = state.players[playerId];
   // Setup-round budget overrides everything: while the player has
   // free-action credits the action is free and the counter ticks down
-  // instead of cash.
-  const freeRemaining =
-    state.actionPhase.freeActionsRemainingByPlayer[playerId] ?? 0;
-  if (freeRemaining > 0) {
-    state.actionPhase.freeActionsRemainingByPlayer[playerId] =
-      freeRemaining - 1;
+  // instead of cash. Defensive `?.` because pre-migration save loads
+  // can momentarily lack the field before persistence.ts patches it.
+  const freeBudget = state.actionPhase.freeActionsRemainingByPlayer;
+  const freeRemaining = freeBudget?.[playerId] ?? 0;
+  if (freeRemaining > 0 && freeBudget) {
+    freeBudget[playerId] = freeRemaining - 1;
     return true;
   }
   const baseCost = currentActionCost(state, playerId);

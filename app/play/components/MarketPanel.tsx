@@ -62,7 +62,7 @@ export default function MarketPanel() {
   );
   const me = humanId ? state.players[humanId] : null;
   const humanFreeRemaining = humanId
-    ? state.actionPhase.freeActionsRemainingByPlayer[humanId] ?? 0
+    ? state.actionPhase.freeActionsRemainingByPlayer?.[humanId] ?? 0
     : 0;
   const cost =
     humanFreeRemaining > 0 || state.actionPhase.freeWindowActive

@@ -37,13 +37,21 @@ Triggering the third Gold doesn't immediately end play — every player, includi
 
 # 🎬 Setup
 
-Each player starts with **$40** in initial capital. No one starts with investments in play.
+Each player starts with **$25** in initial capital. No one starts with investments in play, and **no one is dealt a starting bourbon hand** — every baron's opening mash bills are drawn during the setup round (see below).
 
 Shuffle all decks separately: the resource piles (Cask, Corn, Grain), the Bourbon cards, the Investment cards, the Operations cards, and the Market cards.
 
-Deal each player 4 Bourbon cards (called "mash bills") as their starting hand. Mash bills are kept hidden from other players until played onto a barrel.
-
 Set the market demand to **6**. This number will rise and fall throughout the game and directly affects how valuable your bourbon is when you sell it.
+
+## 🚀 Round 1 — the Setup Round
+
+Round 1 is a dedicated **setup round**: Phase 1 (rent) is skipped and every baron is granted **8 free actions** to spend however they like before the regular cost ladder kicks in. Use them to draw resources, draw mash bills, implement an investment, or even barrel a first mash — there is no $1/$2/$3+ ladder while you have free actions remaining.
+
+- Free actions are **per player**, not shared. Each baron's counter ticks down independently.
+- Once a baron's 8 free actions are spent (or they pass) they exit setup and may continue to act under the normal lap-cost ladder.
+- After everyone finishes setup, Phase 3 (market) resolves as usual and round 2 begins with rent and the regular economy.
+
+This replaces the old "deal 4 mash bills + start with $40" opening — you now choose what to draw and when, instead of being handed a fixed hand.
 
 ---
 
@@ -151,7 +159,7 @@ This is the heart of the game.
 
 Players take turns in clockwise order. Once around the table is a "loop". On your turn, you may take one action or pass. The phase continues looping around the table until all players pass.
 
-At the beginning of the phase, all actions are free. This continues until the first player decides to pass.
+At the beginning of the phase, all actions are free. This continues until the first player decides to pass. (In round 1 — the setup round — each baron also has a personal **8 free actions** budget that overrides the cost ladder until exhausted; see the Setup section.)
 
 When that pass happens, two things take effect:
 

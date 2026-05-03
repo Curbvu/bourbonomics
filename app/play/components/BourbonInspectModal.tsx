@@ -86,7 +86,7 @@ export default function BourbonInspectModal() {
     const isMyTurn =
       state.currentPlayerId === humanId && state.phase === "action";
     const myFreeRemaining =
-      state.actionPhase.freeActionsRemainingByPlayer[humanId] ?? 0;
+      state.actionPhase.freeActionsRemainingByPlayer?.[humanId] ?? 0;
     const cost =
       myFreeRemaining > 0 || state.actionPhase.freeWindowActive
         ? 0

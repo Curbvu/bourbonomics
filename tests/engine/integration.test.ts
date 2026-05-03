@@ -121,6 +121,9 @@ describe("integration — full round loop", () => {
         { name: "B", kind: "bot", botDifficulty: "easy" },
       ],
     });
+    // Setup round no longer deals an opening bourbon hand — seed a few
+    // mash bills directly so the recipe-finder below has options.
+    s.players.p1.bourbonHand.push("01", "02", "03", "04");
     // Give p1 a known mash by drawing during the free window. The market piles are shuffled so we
     // just draw from each required pile until p1 has 1 cask + 1 corn + 1 rye.
     function pullUntil(resource: "cask" | "corn" | "rye") {

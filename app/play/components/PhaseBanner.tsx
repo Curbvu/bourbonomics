@@ -72,7 +72,7 @@ export default function PhaseBanner({
   // window. We surface the human's remaining count in place of the
   // FREE→$1→$2→$3+ ladder so it's immediately legible: "you have N/8".
   const humanFreeRemaining = humanId
-    ? state.actionPhase.freeActionsRemainingByPlayer[humanId] ?? 0
+    ? state.actionPhase.freeActionsRemainingByPlayer?.[humanId] ?? 0
     : 0;
   const humanFreeMax = humanId
     ? Math.max(

@@ -19,6 +19,10 @@ function gs(): {
     ],
   });
   const [human, bot] = state.playerOrder;
+  // Setup round no longer deals an opening hand — seed a couple of mash
+  // bills directly so tests that need `bourbonHand[0]` keep working.
+  state.players[human].bourbonHand.push("01", "02");
+  state.players[bot].bourbonHand.push("03", "04");
   return { state, human, bot };
 }
 

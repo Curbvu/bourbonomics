@@ -414,8 +414,14 @@ export const MARKET_DRAW_COUNT = 2;
  * to this number.
  */
 export const HAND_LIMIT = 10;
-/** Number of Bourbon cards each player is dealt in setup. */
-export const STARTING_BOURBON_HAND = 4;
+/**
+ * Bourbon cards each player is dealt at game-creation time. Now `0`
+ * because round 1 is the "setup" round (8 free actions per player) —
+ * the first thing every player does is draw their own opening hand of
+ * mash bills using those free actions, which gives them agency over
+ * what shapes their early game.
+ */
+export const STARTING_BOURBON_HAND = 0;
 /**
  * Per-player free actions granted in round 1 — the "setup" round. Each
  * player can spend these on any action (draw, make, implement, sell)

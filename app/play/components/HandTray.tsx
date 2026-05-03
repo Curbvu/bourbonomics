@@ -142,7 +142,7 @@ export default function HandTray() {
   const isMyActionTurn =
     state.currentPlayerId === humanId && state.phase === "action";
   const freeRemaining =
-    state.actionPhase.freeActionsRemainingByPlayer[humanId] ?? 0;
+    state.actionPhase.freeActionsRemainingByPlayer?.[humanId] ?? 0;
   const cost =
     freeRemaining > 0 || state.actionPhase.freeWindowActive
       ? 0
