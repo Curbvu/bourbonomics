@@ -153,11 +153,14 @@ function buildBourbon() {
         );
       }
     }
-    // 2-year payout floor — see docs/GAME_DESIGN.md §Bourbon economy.
-    // Every printed cell (cell > 0) must pay at least $10 so a 2-year
-    // sale always clears the ~6 actions + 2 years of rent break-even.
+    // 2-year payout floor — see docs/GAME_DESIGN.md §Bourbon cards.
+    // Every printed cell (cell > 0) must pay at least $12. A 2-year
+    // common averages $15 across its grid: the floor is the cheapest
+    // print, average lands above for tragedy-of-the-commons economics
+    // (early sales are fat enough to bankroll more production →
+    // rickhouses fill → rent climbs → late entry is brutal).
     // Blank cells (0 / absent) are intentional and skip the check.
-    const PAYOUT_FLOOR = 10;
+    const PAYOUT_FLOOR = 12;
     for (let r = 0; r < c.grid.length; r += 1) {
       for (let d = 0; d < c.grid[r].length; d += 1) {
         const cell = c.grid[r][d];

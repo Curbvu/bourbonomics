@@ -77,18 +77,22 @@ records the design intent that shaped it.
   thresholds; `grid` shape must match. Pricing, inspect modal, and
   in-rickhouse chip pay-scale all render whatever dimensions the bill
   declares.
-- **$10 payout floor on every printed grid cell.** A 2-year sale at the
-  bill's lowest demand band must pay at least $10 — that's the
-  break-even cost a player paid to barrel and sell the bourbon:
-  ~6 actions (cask draw + corn draw + grain draw + make + age tick + sell)
-  plus 2 rounds of rickhouse rent. Sales below break-even would make
-  production a net cash drain, so the floor blocks those grids. Variance
-  above the floor is unconstrained — bills routinely pay $12 / $15 / $20+
-  in middle and high bands. Blank cells (`0`) are intentional and skip
-  the check (some sparse grids by design pay nothing in certain
-  age/demand combinations). The catalog generator enforces this on
-  every build via `PAYOUT_FLOOR = 10` in `scripts/build-catalogs.ts`,
-  so future YAML edits that drop a cell below $10 fail the build.
+- **$12 payout floor + ~$15 average on commons.** Every printed grid
+  cell pays at least $12 — that's the break-even cost a player paid to
+  barrel and sell a bourbon (~6 actions + 2 rounds of rickhouse rent),
+  rounded up to leave a small margin. Common (1×2) bills are
+  redistributed across six floor-respecting patterns whose **aggregate
+  average across the 26-card common pool lands at ~$15**, deliberately
+  fat for early-game tragedy-of-the-commons economics: early sales
+  bankroll more production → rickhouses fill → rent climbs → late entry
+  is brutal. Variance above the floor on richer tiers (uncommon → rare
+  → epic → legendary) is unconstrained; their wider grids and bigger
+  ceilings carry the long-tail upside. Blank cells (`0`) are
+  intentional and skip the check (some sparse grids by design pay
+  nothing in certain age/demand combinations). The catalog generator
+  enforces the floor on every build via `PAYOUT_FLOOR = 12` in
+  `scripts/build-catalogs.ts` — future YAML edits that drop a printed
+  cell below $12 fail the build with a clear error message.
 
 ## Mash construction
 
@@ -218,3 +222,7 @@ file, in chronological order. Useful when re-evaluating tradeoffs.
     sale always clears the ~6 actions + 2 years of rent break-even.
     Variance above the floor is unconstrained. Catalog generator
     enforces the floor at build time.
+22. **Floor raised to $12 + commons redistributed to ~$15 average**
+    for tragedy-of-the-commons early-game economics. Floor-respecting
+    pattern set across the 26 commons; richer tiers had any sub-$12
+    printed cells lifted to $12.

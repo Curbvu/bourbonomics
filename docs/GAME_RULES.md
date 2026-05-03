@@ -369,11 +369,13 @@ A common bill might just print `[$10, $14]` on a single age row — at low deman
 
 The lowest age band is always indexed at the bill's first threshold — a barrel that just turned 2 sells using row 0, regardless of what the bill's age thresholds are. The global "must be ≥ 2 years old to sell" floor still applies, and a bill's first age threshold may not be set below 2.
 
-## $10 Payout Floor
+## $12 Payout Floor
 
-**Every printed grid cell pays at least $10.** That figure is the rough break-even for barrelling and selling a single bourbon: ~6 actions (cask draw + corn draw + grain draw + make + age tick + sell) plus 2 rounds of rickhouse rent. A sale below that would make production a net cash drain, so the floor exists by design and the catalog generator enforces it on every build.
+**Every printed grid cell pays at least $12.** That figure is the break-even cost a player paid to barrel and sell a single bourbon — roughly 6 actions (cask draw + corn draw + grain draw + make + age tick + sell) plus 2 rounds of rickhouse rent — rounded up so the cheapest print still clears with a small margin. The catalog generator enforces the floor on every build.
 
-Variance above the floor is unconstrained — bills routinely pay $12 / $15 / $20+ in mid and high bands. **Blank cells (`—`) are not subject to the floor.** Some sparse grids deliberately pay nothing in certain age/demand combinations as a design lever — the floor only applies to printed cells.
+**Common bills average ~$15 across their grids.** That's deliberate: the early-phase economy is supposed to be lush, not lean. A baron who barrels and sells a 2-year common bankrolls another make, which fills another rickhouse slot, which raises rent for everyone, which makes late entry harder. **It's a tragedy of the commons** — the players who get into production first compound the advantage, and the cards are priced to make sure the first sale is genuinely worth racing toward.
+
+Variance above the floor is unconstrained — uncommon / rare / epic / legendary bills routinely pay $20+ in mid and high bands. **Blank cells (`—`) are not subject to the floor.** Some sparse grids deliberately pay nothing in certain age/demand combinations as a design lever — the floor only applies to printed cells.
 
 ## Design Intent
 
@@ -387,22 +389,24 @@ No single bill should dominate. A premium bill with a $32+ ceiling has hard-to-r
 
 ## Examples
 
-**Backroad Batch** — workhorse common with a single age row:
+**Knob's End 90** — workhorse common with a single age row:
 
 `ageBands: [2]`, `demandBands: [0, 6]`
 
 | Age \\ Demand | 0–5 | 6+ |
 |---|:-:|:-:|
-| 2+ | $10 | $13 |
+| 2+ | $13 | $17 |
 
-**Charred Oak Exchange** — uncommon two-by-two, narrow but reliable:
+The two cells average $15 — squarely on the common-tier target. Other commons in the pool sit at `[12, 18]`, `[14, 16]`, `[12, 16]`, `[13, 18]`, `[14, 18]`, etc., so each common has its own personality but the deck-wide average lands at $15 by design.
+
+**Charred Oak Exchange** — uncommon two-by-two, modest floor with a high-demand spike:
 
 `ageBands: [2, 6]`, `demandBands: [0, 7]`
 
 | Age \\ Demand | 0–6 | 7+ |
 |---|:-:|:-:|
-| 2–5 | $10 | $13 |
-| 6+  | $13 | $20 |
+| 2–5 | $12 | $12 |
+| 6+  | $12 | $20 |
 
 **High Tide 12** (illustrative epic) — demand specialist with a blank low corner:
 
