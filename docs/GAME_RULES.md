@@ -345,7 +345,21 @@ Demand still **decreases by 1 per sale**, regardless of which bill was used.
 
 # 📈 Mash Bill Pricing
 
-Every mash bill prints a 3×3 grid (three age bands down, three demand bands across) **plus its own thresholds for those bands**. There is no shared age table or demand table — `[2, 4, 6]` on one bill and `[6, 8, 10]` on another are both legal and describe very different cards.
+Every mash bill prints a price grid **plus its own thresholds** for the age and demand bands that grid covers. There is no shared age table or demand table — `[2, 4, 6]` on one bill and `[6, 8, 10]` on another are both legal and describe very different cards.
+
+## Tier-sized grids
+
+Grid dimensions scale with rarity, so simpler bills present a smaller pricing surface and rarer bills earn a richer one:
+
+| Tier | Max grid (age × demand) |
+|---|---|
+| common | 1 × 2 (sometimes 2 × 2) |
+| uncommon | 2 × 2 |
+| rare | 2 × 3 (often 3 × 3) |
+| epic | 3 × 3 |
+| legendary | 3 × 3 |
+
+A common bill might just print `[$10, $14]` on a single age row — at low demand it pays $10, at high demand $14, end of story. A legendary three-by-three pays attention to both axes and rewards careful timing across both.
 
 ## Reading a Bill
 
@@ -355,49 +369,52 @@ Every mash bill prints a 3×3 grid (three age bands down, three demand bands acr
 
 The lowest age band is always indexed at the bill's first threshold — a barrel that just turned 2 sells using row 0, regardless of what the bill's age thresholds are. The global "must be ≥ 2 years old to sell" floor still applies, and a bill's first age threshold may not be set below 2.
 
+## $10 Payout Floor
+
+**Every printed grid cell pays at least $10.** That figure is the rough break-even for barrelling and selling a single bourbon: ~6 actions (cask draw + corn draw + grain draw + make + age tick + sell) plus 2 rounds of rickhouse rent. A sale below that would make production a net cash drain, so the floor exists by design and the catalog generator enforces it on every build.
+
+Variance above the floor is unconstrained — bills routinely pay $12 / $15 / $20+ in mid and high bands. **Blank cells (`—`) are not subject to the floor.** Some sparse grids deliberately pay nothing in certain age/demand combinations as a design lever — the floor only applies to printed cells.
+
 ## Design Intent
 
 Three principles drive the numbers across the bill pool:
 
-- **The lowest-band corner of any bill rarely pays.** Mistiming a sale into both the bill's lowest age band and lowest demand band should usually be a loss or break-even, not a profit. Most bills carry blanks here.
-- **The middle band is the default outcome.** A typical sale lands in some middle cell and is modestly profitable — enough to cover the rent the barrel accumulated, with a little left over.
+- **Every printed cell clears break-even.** With the $10 floor in place, no sale of a 2-year barrel ever loses you cash net of production cost. Bills express their character above the floor, not below it.
+- **The middle band is the default outcome.** A typical sale lands in some middle cell and is comfortably profitable — covers the rent the barrel accumulated and pays a real margin.
 - **The top-right cell is the reward for good timing.** The jump from middle to highest demand band is large (often 50–100% per cell) so reading the market is meaningful. The jump from middle to highest age band is gentler (30–60% per cell) so rent eats much of the gain from extreme aging.
 
-No single bill should dominate. A premium bill with a $22 ceiling has hard-to-reach band thresholds; a workhorse bill with a $6 ceiling has easy ones. Risk and reward are balanced across the pool.
+No single bill should dominate. A premium bill with a $32+ ceiling has hard-to-reach band thresholds; a workhorse bill with a $14 ceiling has easy ones. Risk and reward are balanced across the pool.
 
 ## Examples
 
-**Backroad Batch** — workhorse with shallow bands and modest payouts:
+**Backroad Batch** — workhorse common with a single age row:
 
-`ageBands: [2, 4, 6]`, `demandBands: [2, 4, 6]`
+`ageBands: [2]`, `demandBands: [0, 6]`
 
-| Age \\ Demand | 2–3 | 4–5 | 6+ |
-|---|:-:|:-:|:-:|
-| 2–3 | $1 | $2 | $3 |
-| 4–5 | $2 | $4 | $5 |
-| 6+  | $3 | $5 | $6 |
+| Age \\ Demand | 0–5 | 6+ |
+|---|:-:|:-:|
+| 2+ | $10 | $13 |
 
-**Cask 1849 Reserve** — patient bill that pays nothing young, big late:
+**Charred Oak Exchange** — uncommon two-by-two, narrow but reliable:
 
-`ageBands: [6, 8, 10]`, `demandBands: [6, 8, 12]`
+`ageBands: [2, 6]`, `demandBands: [0, 7]`
 
-| Age \\ Demand | 6–7 | 8–11 | 12 |
-|---|:-:|:-:|:-:|
-| 6–7  | —   | $5  | $9  |
-| 8–9  | $5  | $11 | $16 |
-| 10+  | $9  | $16 | $22 |
+| Age \\ Demand | 0–6 | 7+ |
+|---|:-:|:-:|
+| 2–5 | $10 | $13 |
+| 6+  | $13 | $20 |
 
-**High Tide 12** — demand specialist, blank below demand 7:
+**High Tide 12** (illustrative epic) — demand specialist with a blank low corner:
 
 `ageBands: [3, 6, 9]`, `demandBands: [7, 9, 11]`
 
 | Age \\ Demand | 7–8 | 9–10 | 11+ |
 |---|:-:|:-:|:-:|
-| 3–5 | —  | $4  | $7  |
-| 6–8 | $4 | $9  | $13 |
-| 9+  | $6 | $13 | $18 |
+| 3–5 | —   | $14 | $20 |
+| 6–8 | $14 | $22 | $32 |
+| 9+  | $18 | $32 | $44 |
 
-A blank cell ("—") means **this mash bill pays nothing** in that age-and-demand combination. Sparseness is intentional: every mash bill has gaps, and not every recipe rewards aging or scaling. Reading a mash bill's grid — including its own thresholds — **before you attach it to a barrel** is part of the game; once committed, you can't change your mind.
+A blank cell ("—") means **this mash bill pays nothing** in that age-and-demand combination. Sparseness is intentional: not every recipe rewards aging or scaling. Reading a mash bill's grid — including its own thresholds — **before you attach it to a barrel** is part of the game; once committed, you can't change your mind.
 
 If you sell into a cell with no printed price, you simply collect nothing for that sale (the bill is still discarded or returned-to-hand normally per any award).
 
