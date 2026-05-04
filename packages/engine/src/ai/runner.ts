@@ -39,8 +39,22 @@ export function playFullBotGame(
   return state;
 }
 
+/**
+ * Single-step the orchestrator: pick the next action and apply it.
+ * Returns null if the game has ended. Useful for UIs that want a "step"
+ * button or per-frame animation.
+ */
+export function stepOrchestrator(
+  state: GameState,
+): { state: GameState; action: GameAction } | null {
+  if (isGameOver(state)) return null;
+  const action = nextOrchestratorAction(state);
+  const next = applyOrchestratorStep(state, action);
+  return { state: next, action };
+}
+
 /** Decide what the orchestrator does next given the current phase. */
-function nextOrchestratorAction(state: GameState): GameAction {
+export function nextOrchestratorAction(state: GameState): GameAction {
   switch (state.phase) {
     case "demand": {
       const [roll] = roll2d6(state.rngState);
