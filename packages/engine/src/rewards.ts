@@ -1,4 +1,4 @@
-import type { AwardCondition, MashBill } from "./types.js";
+import type { AwardCondition, MashBill } from "./types";
 
 /**
  * Look up the reward for selling a barrel of the given age into the given

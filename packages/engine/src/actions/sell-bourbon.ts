@@ -1,8 +1,8 @@
 import type { Draft } from "immer";
-import type { GameAction, GameState, MashBill, ValidationResult } from "../types.js";
-import { drawWithReshuffle } from "../deck.js";
-import { awardConditionMet, computeReward } from "../rewards.js";
-import { endPlayerTurn, isCurrentPlayer } from "../state.js";
+import type { GameAction, GameState, MashBill, ValidationResult } from "../types";
+import { drawWithReshuffle } from "../deck";
+import { awardConditionMet, computeReward } from "../rewards";
+import { endPlayerTurn, isCurrentPlayer } from "../state";
 
 type SellBourbonAction = Extract<GameAction, { type: "SELL_BOURBON" }>;
 

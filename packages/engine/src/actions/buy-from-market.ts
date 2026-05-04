@@ -1,8 +1,8 @@
 import type { Draft } from "immer";
-import type { Card, GameAction, GameState, ValidationResult } from "../types.js";
-import { capitalUnits } from "../cards.js";
-import { drawWithReshuffle } from "../deck.js";
-import { endPlayerTurn, isCurrentPlayer } from "../state.js";
+import type { Card, GameAction, GameState, ValidationResult } from "../types";
+import { capitalUnits } from "../cards";
+import { drawWithReshuffle } from "../deck";
+import { endPlayerTurn, isCurrentPlayer } from "../state";
 
 type BuyFromMarketAction = Extract<GameAction, { type: "BUY_FROM_MARKET" }>;
 

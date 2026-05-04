@@ -6,10 +6,10 @@ import type {
   MashBill,
   PlayerState,
   Rickhouse,
-} from "../types.js";
-import { capitalUnits, resourceUnits, suppliesResource } from "../cards.js";
-import { computeReward } from "../rewards.js";
-import { getPlayerBarrels } from "../state.js";
+} from "../types";
+import { capitalUnits, resourceUnits, suppliesResource } from "../cards";
+import { computeReward } from "../rewards";
+import { getPlayerBarrels } from "../state";
 
 // ---------------------------------------------------------------
 // Heuristic bot — chooses one action for the current player.

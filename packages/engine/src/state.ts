@@ -1,5 +1,5 @@
 import type { Draft } from "immer";
-import type { Barrel, Card, GameState, MashBill, PlayerState } from "./types.js";
+import type { Barrel, Card, GameState, MashBill, PlayerState } from "./types";
 
 export function findPlayer(state: GameState, id: string): PlayerState | undefined {
   return state.players.find((p) => p.id === id);

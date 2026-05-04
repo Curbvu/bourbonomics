@@ -1,14 +1,14 @@
 import { produce, type Draft } from "immer";
-import type { GameAction, GameState, ScoreResult, ValidationResult } from "./types.js";
-import { applyRollDemand, validateRollDemand } from "./actions/demand.js";
-import { applyDrawHand, validateDrawHand } from "./actions/draw.js";
-import { applyMakeBourbon, validateMakeBourbon } from "./actions/make-bourbon.js";
-import { applyAgeBourbon, validateAgeBourbon } from "./actions/age-bourbon.js";
-import { applySellBourbon, validateSellBourbon } from "./actions/sell-bourbon.js";
-import { applyBuyFromMarket, validateBuyFromMarket } from "./actions/buy-from-market.js";
-import { applyDrawMashBill, validateDrawMashBill } from "./actions/draw-deck.js";
-import { applyTrade, validateTrade } from "./actions/trade.js";
-import { applyPassTurn, validatePassTurn } from "./actions/pass-turn.js";
+import type { GameAction, GameState, ScoreResult, ValidationResult } from "./types";
+import { applyRollDemand, validateRollDemand } from "./actions/demand";
+import { applyDrawHand, validateDrawHand } from "./actions/draw";
+import { applyMakeBourbon, validateMakeBourbon } from "./actions/make-bourbon";
+import { applyAgeBourbon, validateAgeBourbon } from "./actions/age-bourbon";
+import { applySellBourbon, validateSellBourbon } from "./actions/sell-bourbon";
+import { applyBuyFromMarket, validateBuyFromMarket } from "./actions/buy-from-market";
+import { applyDrawMashBill, validateDrawMashBill } from "./actions/draw-deck";
+import { applyTrade, validateTrade } from "./actions/trade";
+import { applyPassTurn, validatePassTurn } from "./actions/pass-turn";
 
 export class IllegalActionError extends Error {
   constructor(

@@ -1,11 +1,11 @@
-import type { GameConfig, GameState, PlayerState } from "./types.js";
+import type { GameConfig, GameState, PlayerState } from "./types";
 import {
   defaultMarketSupply,
   defaultMashBillCatalog,
   defaultRickhouses,
   defaultStarterCards,
-} from "./defaults.js";
-import { shuffleCards } from "./deck.js";
+} from "./defaults";
+import { shuffleCards } from "./deck";
 
 const DEFAULT_HAND_SIZE = 8;
 const DEFAULT_DEMAND = 6;

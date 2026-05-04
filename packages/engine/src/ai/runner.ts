@@ -1,7 +1,7 @@
-import type { GameAction, GameState } from "../types.js";
-import { applyAction, isGameOver } from "../engine.js";
-import { roll2d6 } from "../rng.js";
-import { chooseAction } from "./bot.js";
+import type { GameAction, GameState } from "../types";
+import { applyAction, isGameOver } from "../engine";
+import { roll2d6 } from "../rng";
+import { chooseAction } from "./bot";
 
 /**
  * Drive a game where every player is a bot. Returns the final state.

@@ -1,7 +1,7 @@
 import type { Draft } from "immer";
-import type { GameAction, GameState, ValidationResult } from "../types.js";
-import { drawWithReshuffle } from "../deck.js";
-import { runCleanupPhase } from "../state.js";
+import type { GameAction, GameState, ValidationResult } from "../types";
+import { drawWithReshuffle } from "../deck";
+import { runCleanupPhase } from "../state";
 
 type DrawHandAction = Extract<GameAction, { type: "DRAW_HAND" }>;
 

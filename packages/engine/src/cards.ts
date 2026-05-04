@@ -1,4 +1,4 @@
-import type { Card, MashBill, MashBillRecipe, ResourceSubtype } from "./types.js";
+import type { Card, MashBill, MashBillRecipe, ResourceSubtype } from "./types";
 
 // ----- Resource & Capital Card Factories -----
 

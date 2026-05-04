@@ -1,4 +1,4 @@
-import { nextRng } from "./rng.js";
+import { nextRng } from "./rng";
 
 /**
  * Convention: the "top" of a deck is the END of the array (index length-1).

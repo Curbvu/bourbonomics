@@ -1,5 +1,5 @@
-import type { Card, MashBill, Rickhouse } from "./types.js";
-import { makeCapitalCard, makeMashBill, makeResourceCard } from "./cards.js";
+import type { Card, MashBill, Rickhouse } from "./types";
+import { makeCapitalCard, makeMashBill, makeResourceCard } from "./cards";
 
 // ============================================================
 // Rickhouses — six KY Bourbon Trail regions, total capacity 26.

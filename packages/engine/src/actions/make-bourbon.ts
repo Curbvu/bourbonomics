@@ -7,9 +7,9 @@ import type {
   MashBill,
   ResourceSubtype,
   ValidationResult,
-} from "../types.js";
-import { resourceUnits, suppliesResource } from "../cards.js";
-import { endPlayerTurn, isCurrentPlayer } from "../state.js";
+} from "../types";
+import { resourceUnits, suppliesResource } from "../cards";
+import { endPlayerTurn, isCurrentPlayer } from "../state";
 
 type MakeBourbonAction = Extract<GameAction, { type: "MAKE_BOURBON" }>;
 

@@ -1,6 +1,6 @@
 import type { Draft } from "immer";
-import type { Card, GameAction, GameState, ValidationResult } from "../types.js";
-import { endPlayerTurn, isCurrentPlayer } from "../state.js";
+import type { Card, GameAction, GameState, ValidationResult } from "../types";
+import { endPlayerTurn, isCurrentPlayer } from "../state";
 
 type TradeAction = Extract<GameAction, { type: "TRADE" }>;
 

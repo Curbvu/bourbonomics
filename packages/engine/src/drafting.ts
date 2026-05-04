@@ -1,5 +1,5 @@
-import type { Card, MashBill, ResourceSubtype, ValidationResult } from "./types.js";
-import { makeCapitalCard, makeResourceCard } from "./cards.js";
+import type { Card, MashBill, ResourceSubtype, ValidationResult } from "./types";
+import { makeCapitalCard, makeResourceCard } from "./cards";
 
 const DEFAULT_STARTER_SIZE = 14;
 

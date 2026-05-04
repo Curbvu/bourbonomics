@@ -1,6 +1,6 @@
 import type { Draft } from "immer";
-import type { GameAction, GameState, ValidationResult } from "../types.js";
-import { endPlayerTurn, isCurrentPlayer } from "../state.js";
+import type { GameAction, GameState, ValidationResult } from "../types";
+import { endPlayerTurn, isCurrentPlayer } from "../state";
 
 type PassTurnAction = Extract<GameAction, { type: "PASS_TURN" }>;
 

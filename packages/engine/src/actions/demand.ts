@@ -1,5 +1,5 @@
 import type { Draft } from "immer";
-import type { GameAction, GameState, ValidationResult } from "../types.js";
+import type { GameAction, GameState, ValidationResult } from "../types";
 
 type RollDemandAction = Extract<GameAction, { type: "ROLL_DEMAND" }>;
 

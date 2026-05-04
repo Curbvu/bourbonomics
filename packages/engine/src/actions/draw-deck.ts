@@ -1,6 +1,6 @@
 import type { Draft } from "immer";
-import type { Card, GameAction, GameState, ValidationResult } from "../types.js";
-import { endPlayerTurn, isCurrentPlayer } from "../state.js";
+import type { Card, GameAction, GameState, ValidationResult } from "../types";
+import { endPlayerTurn, isCurrentPlayer } from "../state";
 
 type DrawMashBillAction = Extract<GameAction, { type: "DRAW_MASH_BILL" }>;
 

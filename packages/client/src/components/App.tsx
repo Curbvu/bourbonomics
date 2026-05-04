@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
+"use client";
+
+import { useState } from "react";
 import {
-  computeFinalScores,
   defaultMashBillCatalog,
   initializeGame,
-  isGameOver,
   type GameState,
 } from "@bourbonomics/engine";
-import { GameView } from "./components/GameView";
+import { GameView } from "./GameView";
 
 interface SetupConfig {
   numBots: number;
@@ -36,7 +36,6 @@ export function App() {
         seed: config.seed,
         players,
         bourbonDeck: catalog.slice(0, config.bourbonDeckSize),
-        // Each player gets 2 starting bills from the catalog (no recipe).
         startingMashBills: players.map((_, i) => [
           catalog[(i * 2) % catalog.length]!,
           catalog[(i * 2 + 1) % catalog.length]!,
@@ -46,7 +45,7 @@ export function App() {
   };
 
   return (
-    <main className="min-h-full flex flex-col">
+    <main className="min-h-screen flex flex-col">
       <header className="border-b border-neutral-800 px-6 py-4">
         <h1 className="text-xl font-semibold tracking-tight">
           🥃 Bourbonomics 2.0 — Bot Match Viewer
@@ -65,10 +64,7 @@ export function App() {
             onStart={() => startGame(setup)}
           />
         ) : (
-          <GameView
-            initialState={game}
-            onReset={() => setGame(null)}
-          />
+          <GameView initialState={game} onReset={() => setGame(null)} />
         )}
       </div>
     </main>
@@ -117,7 +113,10 @@ function SetupForm({
             max={8}
             value={setup.bourbonDeckSize}
             onChange={(e) =>
-              onChange({ ...setup, bourbonDeckSize: clampInt(e.target.value, 2, 8) })
+              onChange({
+                ...setup,
+                bourbonDeckSize: clampInt(e.target.value, 2, 8),
+              })
             }
             className="w-full rounded bg-neutral-800 border border-neutral-700 px-3 py-2"
           />
@@ -133,7 +132,13 @@ function SetupForm({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
       <span className="block text-xs uppercase tracking-wide text-neutral-400 mb-1">
