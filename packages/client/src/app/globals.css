@@ -1,16 +1,713 @@
 @import "tailwindcss";
 
-html,
-body {
-  height: 100%;
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* Map Tailwind font tokens onto the next/font CSS variables defined in
+     app/layout.tsx. `font-sans` -> Inter, `font-mono` -> JetBrains Mono,
+     `font-display` -> Cormorant Garamond (the new game-board face). */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jb);
+  --font-display: var(--font-cormorant);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
 }
 
 body {
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+@keyframes bourbon-sale-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bourbon-sale-card {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) rotate(-2deg) translateY(14px);
+    filter: blur(5px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03) rotate(0.6deg) translateY(0);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg) translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes bourbon-sale-shine {
+  0% {
+    transform: translateX(-120%) skewX(-12deg);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateX(220%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+.bourbon-sale-backdrop {
+  animation: bourbon-sale-backdrop 0.35s ease-out both;
+}
+
+.bourbon-sale-card {
+  animation: bourbon-sale-card 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bourbon-sale-shine {
+  animation: bourbon-sale-shine 1.1s ease-in-out 0.15s both;
+}
+
+@keyframes bourbon-sale-title-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.bourbon-sale-title-reveal {
+  animation: bourbon-sale-title-reveal 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+}
+
+@keyframes bourbon-sale-grid-veil {
+  from {
+    opacity: 0.92;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.bourbon-sale-grid-veil {
+  animation: bourbon-sale-grid-veil 0.55s ease-out both;
+}
+
+@keyframes bourbon-sale-reveal-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 1px rgba(251, 191, 36, 0.35),
+      0 0 0 0 rgba(251, 191, 36, 0.35);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px rgba(253, 224, 71, 0.65),
+      0 0 22px 3px rgba(251, 191, 36, 0.45);
+  }
+}
+
+.bourbon-sale-reveal-pulse {
+  animation: bourbon-sale-reveal-pulse 0.95s ease-in-out 2;
+}
+
+@keyframes bourbon-sale-cell-pop {
+  0% {
+    transform: scale(0.82);
+    opacity: 0.35;
+    filter: blur(2px);
+  }
+  55% {
+    transform: scale(1.06);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.bourbon-sale-cell-pop {
+  animation: bourbon-sale-cell-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes bourbon-sale-payout-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.bourbon-sale-payout-rise {
+  animation: bourbon-sale-payout-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes bourbon-sale-countdown-tick {
+  0% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.bourbon-sale-countdown-tick {
+  animation: bourbon-sale-countdown-tick 0.35s ease-out both;
+}
+
+/* Resource hand chips — tier accents (respect reduced motion below). */
+@keyframes resource-hand-tier-special {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(99, 102, 241, 0.22),
+      inset 0 0 0 1px rgba(99, 102, 241, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(129, 140, 248, 0.38),
+      0 0 22px rgba(99, 102, 241, 0.2),
+      inset 0 0 0 1px rgba(165, 180, 252, 0.22);
+  }
+}
+
+@keyframes resource-hand-tier-strong {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(245, 158, 11, 0.35),
+      inset 0 0 0 1px rgba(251, 191, 36, 0.18);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(251, 191, 36, 0.45),
+      0 0 28px rgba(245, 158, 11, 0.28),
+      inset 0 0 0 1px rgba(253, 224, 71, 0.28);
+  }
+}
+
+@keyframes resource-hand-tier-global {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(6, 182, 212, 0.28),
+      inset 0 0 0 1px rgba(34, 211, 238, 0.14);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(34, 211, 238, 0.5),
+      0 0 24px rgba(6, 182, 212, 0.3),
+      inset 0 0 0 1px rgba(103, 232, 249, 0.22);
+  }
+}
+
+@keyframes resource-hand-tier-bad {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(190, 18, 60, 0.18),
+      inset 0 0 0 1px rgba(244, 63, 94, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(244, 63, 94, 0.32),
+      0 0 18px rgba(190, 18, 60, 0.18),
+      inset 0 0 0 1px rgba(251, 113, 133, 0.18);
+  }
+}
+
+@keyframes resource-hand-selected {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.07);
+  }
+}
+
+.resource-hand-tier-special {
+  animation: resource-hand-tier-special 2.6s ease-in-out infinite;
+}
+
+.resource-hand-tier-strong {
+  animation: resource-hand-tier-strong 1.85s ease-in-out infinite;
+}
+
+.resource-hand-tier-global {
+  animation: resource-hand-tier-global 2.2s ease-in-out infinite;
+}
+
+.resource-hand-tier-bad {
+  animation: resource-hand-tier-bad 2.9s ease-in-out infinite;
+}
+
+.resource-hand-selected {
+  animation: resource-hand-selected 1.05s ease-in-out infinite;
+}
+
+@keyframes resource-mash-tier-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.35);
+  }
+}
+
+@keyframes resource-mash-tier-gold {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.45);
+  }
+}
+
+@keyframes resource-mash-tier-cyan {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.42);
+  }
+}
+
+@keyframes resource-mash-tier-rose {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.14);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(251, 113, 133, 0.32);
+  }
+}
+
+.resource-mash-tier-special {
+  animation: resource-mash-tier-pulse 2.8s ease-in-out infinite;
+}
+
+.resource-mash-tier-strong {
+  animation: resource-mash-tier-gold 2s ease-in-out infinite;
+}
+
+.resource-mash-tier-global {
+  animation: resource-mash-tier-cyan 2.3s ease-in-out infinite;
+}
+
+.resource-mash-tier-bad {
+  animation: resource-mash-tier-rose 2.7s ease-in-out infinite;
+}
+
+/* ----------------------------------------------------------------------
+   Card-draw overlay (Hearthstone-style reveal)
+   Sequence: fly in from below → flip face-up → hover with shimmer → drift to hand.
+   Total ~1500ms. Triggered by CardDrawOverlay when a human draw event appears.
+   ---------------------------------------------------------------------- */
+
+@keyframes card-draw-stage-fade {
+  /* Fade in and HOLD — the overlay stays visible until the user clicks to
+     dismiss. Was previously a fade-in-out cycle on a 1.5s auto-dismiss
+     timer; that gave the player no time to read the card. */
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+@keyframes card-draw-card {
+  /* Phase 1: explode in from below, flipped face-down */
+  0% {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 220px)) scale(0.35) rotateY(180deg);
+    filter: blur(10px) brightness(0.7);
+  }
+  35% {
+    opacity: 1;
+    transform: translate(-50%, calc(-50% + 60px)) scale(0.85) rotateY(60deg);
+    filter: blur(3px) brightness(1.05);
+  }
+  /* Phase 2: arrive face-up, slight overshoot */
+  60% {
+    opacity: 1;
+    transform: translate(-50%, calc(-50% - 8px)) scale(1.08) rotateY(0deg);
+    filter: blur(0) brightness(1.15);
+  }
+  /* Phase 3: settle and HOLD. animation-fill-mode: both keeps the card
+     pinned at this state until the component unmounts (i.e. the player
+     clicks to dismiss). No fly-out animation. */
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotateY(0deg);
+    filter: blur(0) brightness(1);
+  }
+}
+
+@keyframes card-draw-glow {
+  /* Pulse in, then HOLD at a slightly muted level so the aura keeps
+     framing the card while the player reads it. */
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  40% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+@keyframes card-draw-shine {
+  0% {
+    transform: translateX(-130%) skewX(-18deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.55;
+  }
+  85% {
+    transform: translateX(220%) skewX(-18deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(220%) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes card-draw-spark {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.4);
+  }
+}
+
+.card-draw-stage {
+  animation: card-draw-stage-fade 0.4s ease-out both;
+}
+
+.card-draw-card {
+  /* Flip-in over ~800ms then hold (animation-fill-mode: both pins it at
+     the final keyframe until the component unmounts). */
+  animation: card-draw-card 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: 50% 50%;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity, filter;
+}
+
+.card-draw-glow {
+  animation: card-draw-glow 0.85s ease-out both;
+}
+
+/* The shine sweep and spark are one-shot flair — they fire during the
+   flip-in and quietly fade. Their original keyframes already end at
+   opacity 0, which is the right behaviour here. */
+
+.card-draw-shine {
+  animation: card-draw-shine 0.85s ease-in-out 0.15s both;
+  pointer-events: none;
+}
+
+.card-draw-spark {
+  animation: card-draw-spark 0.85s ease-out both;
+  pointer-events: none;
+}
+
+/* ----------------------------------------------------------------------
+   Market reveal — same flip-in vocabulary as card-draw, but the cards
+   STAY on screen once they arrive (no fly-out) because the player still
+   has to choose one of the two. Used by MarketRevealModal.
+   ---------------------------------------------------------------------- */
+
+@keyframes market-reveal-card {
+  /* Phase 1: fly in from below, flipped face-down */
+  0% {
+    opacity: 0;
+    transform: translateY(180px) scale(0.45) rotateY(180deg);
+    filter: blur(8px) brightness(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(40px) scale(0.85) rotateY(60deg);
+    filter: blur(2px) brightness(1.05);
+  }
+  /* Phase 2: arrive face-up, slight overshoot */
+  40% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.05) rotateY(0deg);
+    filter: blur(0) brightness(1.1);
+  }
+  /* Phase 3: settle and stay */
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateY(0deg);
+    filter: blur(0) brightness(1);
+  }
+}
+
+.market-reveal-card {
+  animation: market-reveal-card 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: 50% 50%;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity, filter;
+}
+
+/* Backdrop / aura companions for the market reveal — fade IN and HOLD at
+   the final visible state. The regular card-draw companions (`card-draw-
+   stage`, `card-draw-glow`) intentionally fade back to opacity 0 because
+   they belong to an auto-dismissing overlay; reusing them here made the
+   market modal disappear after 1.5s before the player could click. */
+
+@keyframes market-reveal-stage-fade {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+.market-reveal-stage {
+  animation: market-reveal-stage-fade 0.4s ease-out both;
+}
+
+@keyframes market-reveal-glow {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.market-reveal-glow {
+  animation: market-reveal-glow 0.6s ease-out both;
+}
+
+/* ----------------------------------------------------------------------
+   Thin amber scrollbar for the HandTray. Only visible when its content
+   actually overflows the viewport; sits flush at the bottom of the
+   tray rather than the chunky default grey.
+   ---------------------------------------------------------------------- */
+
+.hand-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 158, 11, 0.4) transparent;
+}
+
+.hand-scrollbar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.hand-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hand-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.35);
+  border-radius: 3px;
+}
+
+.hand-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.65);
+}
+
+/* ----------------------------------------------------------------------
+   Rare-card shimmer. Sweeps a faint diagonal highlight across the card
+   face on a slow loop so Rare bourbons / investments visually shimmer
+   in the player's hand. Reduced-motion users get a static card.
+   ---------------------------------------------------------------------- */
+
+@keyframes rare-shimmer {
+  0% {
+    transform: translateX(-140%) skewX(-15deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.55;
+  }
+  60% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateX(220%) skewX(-15deg);
+    opacity: 0;
+  }
+}
+
+.rare-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.rare-shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 45%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.35) 55%,
+    transparent 100%
+  );
+  animation: rare-shimmer 3.4s ease-in-out infinite;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* ----------------------------------------------------------------------
+   Action-cost ladder escalation pulse. Used by PhaseBanner's $3+ chip
+   when the lap tier has met or exceeded the cap — costs are now running
+   away, so the chip glows in rose with a continuous pulse to convey
+   urgency. Reduced-motion users get a static rose chip instead.
+   ---------------------------------------------------------------------- */
+
+@keyframes escalate {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(244, 63, 94, 0.18),
+      0 0 0 0 rgba(244, 63, 94, 0);
+    transform: translateY(0);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(244, 63, 94, 0.45),
+      0 0 18px 2px rgba(244, 63, 94, 0.35);
+    transform: translateY(-1px);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   "Last free lap" warning pulse. Used by PhaseBanner's FREE chip + the
+   accompanying inline banner once a player has passed during the free
+   window — the lap is about to close and every action next lap will
+   start charging $1+. Amber pulse so it reads as warning, not panic.
+   ---------------------------------------------------------------------- */
+
+@keyframes lastFreePulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(245, 158, 11, 0.20),
+      0 0 0 0 rgba(245, 158, 11, 0);
+  }
+  50% {
+    box-shadow:
+      0 0 0 5px rgba(245, 158, 11, 0.55),
+      0 0 16px 2px rgba(245, 158, 11, 0.40);
+  }
+}
+
+@keyframes lastFreeBannerIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rare-shimmer::after {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+  .resource-hand-tier-special,
+  .resource-hand-tier-strong,
+  .resource-hand-tier-global,
+  .resource-hand-tier-bad,
+  .resource-hand-selected,
+  .resource-mash-tier-special,
+  .resource-mash-tier-strong,
+  .resource-mash-tier-global,
+  .resource-mash-tier-bad,
+  .card-draw-stage,
+  .card-draw-card,
+  .card-draw-glow,
+  .card-draw-shine,
+  .card-draw-spark,
+  .market-reveal-card,
+  .market-reveal-stage,
+  .market-reveal-glow,
+  .last-free-pulse,
+  .last-free-banner {
+    animation: none !important;
+  }
+
+  /* Neutralise all app-wide transitions / animations when the user prefers reduced motion. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

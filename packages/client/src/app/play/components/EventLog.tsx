@@ -1,40 +1,43 @@
 "use client";
 
+/**
+ * Log tab — streaming engine action history.
+ */
+
 import { useEffect, useRef } from "react";
 import type { GameAction } from "@bourbonomics/engine";
 
-export interface LogEntry {
-  seq: number;
-  action: GameAction;
-  round: number;
-  phase: string;
-}
+import { useGameStore } from "@/lib/store/game";
 
-export function ActionLog({ entries }: { entries: LogEntry[] }) {
+export default function EventLog() {
+  const { log } = useGameStore();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
-  }, [entries]);
+  }, [log.length]);
 
   return (
-    <div ref={ref} className="font-mono text-[11px] space-y-1 leading-snug">
-      {entries.length === 0 && (
-        <div className="text-neutral-500 italic">
-          No actions yet — press Step or Auto to begin.
-        </div>
+    <div ref={ref} className="h-full overflow-auto p-4">
+      {log.length === 0 ? (
+        <p className="font-mono text-[11px] italic text-slate-500">
+          No actions yet — press Step or Auto in the phase strip.
+        </p>
+      ) : (
+        <ul className="space-y-1 font-mono text-[11px] leading-snug">
+          {log.map((e) => (
+            <li key={e.seq} className="flex gap-2">
+              <span className="w-9 text-right tabular-nums text-slate-600">
+                R{e.round}
+              </span>
+              <span className="w-20 shrink-0 truncate text-slate-400">
+                {e.action.type}
+              </span>
+              <span className="flex-1 text-slate-300">{describe(e.action)}</span>
+            </li>
+          ))}
+        </ul>
       )}
-      {entries.map((e) => (
-        <div key={e.seq} className="flex gap-2">
-          <span className="text-neutral-600 tabular-nums w-9 text-right shrink-0">
-            R{e.round}
-          </span>
-          <span className="text-neutral-400 w-20 shrink-0 truncate">
-            {e.action.type}
-          </span>
-          <span className="text-neutral-300 flex-1">{describe(e.action)}</span>
-        </div>
-      ))}
     </div>
   );
 }
@@ -42,7 +45,7 @@ export function ActionLog({ entries }: { entries: LogEntry[] }) {
 function describe(a: GameAction): string {
   switch (a.type) {
     case "ROLL_DEMAND":
-      return `roll = ${a.roll[0]} + ${a.roll[1]}`;
+      return `roll ${a.roll[0]} + ${a.roll[1]}`;
     case "DRAW_HAND":
       return a.playerId;
     case "MAKE_BOURBON":

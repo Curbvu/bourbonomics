@@ -30,7 +30,7 @@ describe("MAKE_BOURBON — happy path", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_main",
+      rickhouseId: "rh_central",
     });
 
     const p1 = state.players.find((p) => p.id === "p1")!;
@@ -43,7 +43,7 @@ describe("MAKE_BOURBON — happy path", () => {
     expect(state.allBarrels).toHaveLength(1);
     const barrel = state.allBarrels[0]!;
     expect(barrel.ownerId).toBe("p1");
-    expect(barrel.rickhouseId).toBe("rh_main");
+    expect(barrel.rickhouseId).toBe("rh_central");
     expect(barrel.attachedMashBill.id).toBe(mbId);
     expect(barrel.age).toBe(0);
     expect(barrel.agingCards).toHaveLength(0);
@@ -60,7 +60,7 @@ describe("MAKE_BOURBON — happy path", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_main",
+      rickhouseId: "rh_central",
     });
     expect(state.currentPlayerIndex).toBe(1);
   });
@@ -78,7 +78,7 @@ describe("MAKE_BOURBON — universal recipe rules", () => {
         playerId: "p1",
         cardIds: ["card_p1_corn_0", "card_p1_rye_1"],
         mashBillId: mbId,
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
       }),
     ).toThrow(/cask/);
   });
@@ -94,7 +94,7 @@ describe("MAKE_BOURBON — universal recipe rules", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_cask_1", "card_p1_corn_2", "card_p1_rye_3"],
         mashBillId: mbId,
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
       }),
     ).toThrow(/cask/);
   });
@@ -110,7 +110,7 @@ describe("MAKE_BOURBON — universal recipe rules", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_rye_1"],
         mashBillId: mbId,
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
       }),
     ).toThrow(/corn/);
   });
@@ -126,7 +126,7 @@ describe("MAKE_BOURBON — universal recipe rules", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
         mashBillId: mbId,
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
       }),
     ).toThrow(/grain/);
   });
@@ -163,7 +163,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2", "card_p1_rye_3"],
         mashBillId: highRye.id,
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
       }),
     ).toThrow(/rye/);
 
@@ -185,7 +185,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
         "card_p1_rye_4",
       ],
       mashBillId: highRye.id,
-      rickhouseId: "rh_main",
+      rickhouseId: "rh_central",
     });
     expect(state.allBarrels).toHaveLength(1);
   });
@@ -216,7 +216,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_wheat_2", "card_p1_rye_3"],
         mashBillId: wheated.id,
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
       }),
     ).toThrow(/rye/);
     // Wheat present, no rye → ok
@@ -226,7 +226,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_wheat_2"],
       mashBillId: wheated.id,
-      rickhouseId: "rh_main",
+      rickhouseId: "rh_central",
     });
     expect(state.allBarrels).toHaveLength(1);
   });
@@ -256,7 +256,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2", "card_p1_barley_3"],
         mashBillId: fourGrain.id,
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
       }),
     ).toThrow(/wheat/);
 
@@ -278,7 +278,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
         "card_p1_wheat_4",
       ],
       mashBillId: fourGrain.id,
-      rickhouseId: "rh_main",
+      rickhouseId: "rh_central",
     });
     expect(state.allBarrels).toHaveLength(1);
   });
@@ -324,7 +324,7 @@ describe("MAKE_BOURBON — rickhouse capacity, mash bill, hand integrity", () =>
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
         mashBillId: "mb_ghost_0",
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
       }),
     ).toThrow(/mash bill/);
   });
@@ -340,7 +340,7 @@ describe("MAKE_BOURBON — rickhouse capacity, mash bill, hand integrity", () =>
         playerId: "p1",
         cardIds: ["card_p1_cask_99", "card_p1_corn_1", "card_p1_rye_2"],
         mashBillId: mbId,
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
       }),
     ).toThrow(/not in your hand/);
   });
@@ -356,7 +356,7 @@ describe("MAKE_BOURBON — rickhouse capacity, mash bill, hand integrity", () =>
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_cask_0", "card_p1_corn_1"],
         mashBillId: mbId,
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
       }),
     ).toThrow(/duplicate/);
   });
@@ -372,7 +372,7 @@ describe("MAKE_BOURBON — rickhouse capacity, mash bill, hand integrity", () =>
         playerId: "p2",
         cardIds: ["card_p2_cask_0", "card_p2_corn_1", "card_p2_rye_2"],
         mashBillId: mbId,
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
       }),
     ).toThrow(/not your turn/);
   });
@@ -394,7 +394,7 @@ describe("MAKE_BOURBON — failed batch trash + 3:1 conversion", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_main",
+      rickhouseId: "rh_central",
       trashCardId: "card_p1_cap1_3",
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
@@ -422,7 +422,7 @@ describe("MAKE_BOURBON — failed batch trash + 3:1 conversion", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
       mashBillId: mbId,
-      rickhouseId: "rh_main",
+      rickhouseId: "rh_central",
       conversions: [
         {
           spendCardIds: ["card_p1_cap1_2", "card_p1_cap1_3", "card_p1_cap1_4"],
@@ -447,7 +447,7 @@ describe("MAKE_BOURBON — failed batch trash + 3:1 conversion", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
         mashBillId: mbId,
-        rickhouseId: "rh_main",
+        rickhouseId: "rh_central",
         conversions: [
           {
             spendCardIds: ["card_p1_cap1_2", "card_p1_cap1_3"],
@@ -477,7 +477,7 @@ describe("AGE_BOURBON", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_main",
+      rickhouseId: "rh_central",
     });
     const barrelId = state.allBarrels[0]!.id;
     // p2 passes — they're out for the round
@@ -508,7 +508,7 @@ describe("AGE_BOURBON", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_main",
+      rickhouseId: "rh_central",
     });
     const barrelId = state.allBarrels[0]!.id;
     state = giveHand(state, "p2", [cap("p2", 0)]);
@@ -532,7 +532,7 @@ describe("AGE_BOURBON", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_main",
+      rickhouseId: "rh_central",
     });
     const barrelId = state.allBarrels[0]!.id;
     // p2 passes
@@ -609,7 +609,7 @@ describe("PASS_TURN + cleanup", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_main",
+      rickhouseId: "rh_central",
     });
     const barrelId = state.allBarrels[0]!.id;
     state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });

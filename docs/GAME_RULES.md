@@ -2,7 +2,7 @@
 
 ## Become the Bourbon Baron
 
-Welcome to *Bourbonomics*, a deckbuilding strategy game about building a bourbon empire through patience, timing, and the discipline of inventory management. Designed for **2-4 players**.
+Welcome to *Bourbonomics*, a deckbuilding strategy game about building a bourbon empire through patience, timing, and the discipline of inventory management. Designed for **2-6 players**.
 
 Each player owns a distillery and competes to earn the most reputation. Barons draft mash bills, manage a personal deck of resource cards, produce bourbon, age it over time, and sell it at the perfect moment to convert tied-up inventory into reputation.
 
@@ -18,9 +18,8 @@ The game ends when **the last mash bill is drawn from the Bourbon deck**. Drawin
 
 The player with the **most reputation** at the end of the game wins. Tiebreakers (in order):
 
-1. Fewest cards remaining in deck (leaner engine wins).
-2. Most barrels sold over the course of the game.
-3. Shared victory.
+1. Most barrels sold over the course of the game.
+2. Shared victory.
 
 ## Why the Final Round Matters
 
@@ -75,7 +74,7 @@ Mash bills are recipes that determine each barrel's reputation reward when sold.
 
 Mash bills are committed **at production, not at sale**. When you make bourbon, you choose one mash bill from your hand and place it face-up on the new barrel. Once placed, the mash bill is **locked to that barrel for its lifetime** and becomes public information.
 
-When a barrel is sold, the attached mash bill's grid determines the reputation reward based on the barrel's age and the current demand. The mash bill is then discarded with the barrel (unless it carries an award that returns or removes it — see §Bourbon Awards).
+When a barrel is sold, the attached mash bill's grid determines the reputation reward based on the barrel's age and the current demand. The mash bill is then discarded and cannot be reused (unless it carries an award that returns or removes it — see §Bourbon Awards).
 
 A player with **no mash bills in hand cannot make bourbon**. As an action, a player may draw a mash bill from the Bourbon deck.
 
@@ -106,11 +105,22 @@ There is no maximum hand size during a turn (mid-sale draws can temporarily expa
 
 A player's deck contains a mix of:
 - **Resource cards** (cask, corn, grain — including premium variants like 2-rye).
-- **Capital cards** (currency for market purchases).
+- **Operations cards**
+- **Capital cards** (currency for market purchases and investments).
 
-Mash bills are *not* part of the deck. They live in the player's hand and are managed separately. The 14-card starter deck contains only resource and capital cards.
+Mash bills are *not* part of the deck. They live in the player's hand and are managed separately. The 14-card starter deck contains only resource, operations and capital cards.
 
 Decks grow during the game through market purchases. Decks shrink through trashing (see §Trashing Cards) and temporary commitment to aging barrels (see §Aging).
+
+## Card Types
+### Resource cards
+Resources cards are cask, corn, wheat, rye and barley. These are needed to make bourbon. Better resource cards can be purchased from the market
+
+### Operations cards
+These cards convey one-off effects during that turn
+
+### Capital cards
+These cards can be used to purchase other cards and make investments. They cannot be used to make Bourbon
 
 ---
 
@@ -120,8 +130,9 @@ Each round consists of four phases:
 
 1. **Demand Phase** — Roll 2d6; if higher than current demand, demand +1.
 2. **Draw Phase** — Each player draws 8 cards from their personal deck.
-3. **Action Phase** — Players take turns spending cards as actions until all hands are exhausted.
-4. **Cleanup Phase** — Unused cards go to discard, per-round flags reset (barrels become eligible to age again), and the next round begins. If the final round was triggered, the game ends here instead.
+3. **Age Phase** - All Bourbons on the board are aged, players place a card on top of their Bourbons to denote aging.
+4. **Action Phase** — Players take turns spending cards as actions until all hands are exhausted.
+5. **Cleanup Phase** — Unused cards go to discard, per-round flags reset (barrels become eligible to age again), and the next round begins. If the final round was triggered, the game ends here instead.
 
 ---
 
@@ -141,7 +152,21 @@ Each player draws **8 cards** from their personal deck. If the deck runs out, sh
 
 ---
 
-# 🎯 Phase 3: Action Phase
+# 🎴 Phase 3: Age Phase
+
+Players place a card on each Bourbon in the rickhouse to denote aging. Players to not need to age every Bourbon but it is highly recommended as this is the primary means to win the game. 
+
+### Age Bourbon
+
+Choose a barrel in the rickhouse. Take one card from your hand and place it face-down on top of that barrel. The card is committed to aging and cannot be used until the barrel is sold.
+
+The number of cards on top of a barrel = its age (in years). A barrel may only be aged once per round (one card per barrel per round, unless there is a card that allows otherwise).
+
+When the barrel is sold, all cards committed to its aging return to the player's discard pile.
+
+---
+
+# 🎯 Phase 4: Action Phase
 
 Players take turns clockwise. On your turn, you take one action. The phase continues until **all players have exhausted their hands** (or passed).
 
@@ -150,44 +175,70 @@ A player whose hand is empty is "out" for the round and skipped on subsequent tu
 ## Available Actions
 
 Each action requires spending one or more cards from your hand. Spent cards go to your discard pile unless otherwise noted.
-
-### Make Bourbon
-
-Spend at least **1 cask + 1 corn + 1 grain** from your hand to produce bourbon. Choose one mash bill from your hand and attach it face-up to the new barrel. Place the barrel in the rickhouse (which has shared 26-slot capacity).
-
-You may include additional grain or corn to satisfy mash bill recipe requirements. Only one cask may be used per barrel.
-
-The cards spent on production go to your discard pile. The mash bill remains attached to the barrel.
-
-### Age Bourbon
-
-Choose a barrel you own that's currently aging. Take one card from your hand and place it face-down on top of that barrel. The card is committed to aging and cannot be used until the barrel is sold.
-
-The number of cards on top of a barrel = its age (in years). A barrel may only be aged once per round (one card per barrel per round).
-
-When the barrel is sold, all cards committed to its aging return to the player's discard pile.
-
-### Sell Bourbon
-
-Sell any barrel that is at least **2 years old**. Reference the attached mash bill's grid using the barrel's age and the current demand to determine the reputation reward.
-
-The reward can be split between two outcomes (in any combination):
-- **Advance reputation track** by N.
-- **Draw N cards** immediately into your hand. These cards can be used later in the same action phase.
-
-After resolving, demand decreases by 1. The barrel is removed from the rickhouse. The mash bill is discarded (unless it carries an award). All aging cards return to the player's discard pile.
+Players can: 
+* Purchase cards from the market
+* Make Bourbon
+* Implement an investment
+* Sell Bourbon
+* Draw Mash Bill
 
 ### Buy from the Market
 
-Spend capital cards from your hand totaling at least the cost of a card in the Market Conveyor. Most basic cards cost 1 capital; premium cards may cost more.
+Spend cards and from your hand totaling at least the cost of a card in the Market. Most basic cards cost 1; premium cards may cost more. Capital cards apply the number listed towards the purchase price. All other cards count as "1". 
 
 Both the **spent card(s)** and the **purchased card** go to your discard pile.
 
-After purchase, refill the Market Conveyor by drawing a new card from the supply deck.
+After purchase, refill the Market by drawing a new card from the supply deck.
+
+For example, a +3 capital card costs 4. You can either discard 4 cards, or if you have a +2 capital card, then use that plus another 2 card, or if you have a +3 capital card, then use that plus another card. 
+
+Cards can only be purchased one at a time. There is no bundling. If you overpay, the rest of the value is gone. For example, using a +3 capital card to purchase a card worth 2 does not result in being able to purchase a 1 value card or carry over to another purchase. 
+
+### Make Bourbon
+
+Assemble the requirements for your mash from your hand to produce bourbon. Place all ingredients and the mash bill in the rickhouse in the middle of the board. This means your barrel is aging
+
+The cards spent on production stay with your bourbon "face-up". They do not count towards the "age" of the Bourbon. These resources remain locked until the Bourbon is sold. The mash bill remains attached to the barrel.
+
+### Sell Bourbon
+
+Sell Bourbon
+
+Sell any barrel that is at least 2 years old. Reference the attached mash bill’s grid using the barrel’s age and the current demand to determine the total reward (N).
+
+You may allocate this reward between two outcomes, in any combination:
+
+Gain Reputation: Advance your reputation track by any amount of N.
+Gain Purchasing Power: Spend any amount of N as purchasing power to buy cards from the market and/or implement investments, following normal costs.
+
+All purchases made this way are resolved immediately as part of the Sell action.
+
+Any unused portion is automatically converted into reputation.
+
+After resolving the sale:
+
+Reduce demand by 1.
+Discard the mash bill (unless an award says otherwise).
+Return all aging and ingredient cards to your discard pile.
+Remove the barrel from the rickhouse.
+
+### Implement Investment
+The 3 investment cards are displayed face up. Players may "implement one" buy paying the required amount of capital. Capital cards have the listed amount of value, every other card is worth 1. Once implemented, the investment sits in front of the player and conveys bonus abilities throughout the game. A player can have max 3 investments. A player may replace an investment, they do not get any benefits from the discarded investment. Discarded investments are put to the bottom of the deck. 
+
+If none of the investments are to the players liking, they can pay one card, to draw the top investment from the deck. They can then choose to implement. If player chooses to not implement, then another player can pay the listed amount to implement. This is determined in clockwise order. If another player implements, they do not consume an additional action, the game resumes from the original player. If no one implements, it will return to the bottom of the deck.
+
+#### Investment examples
+Warehouse - allows you to commit a card in your hand to be used in future rounds. This card sits "in the warehouse". This can be any card
+Distillery Expansion - allows you to draw +1 card in your hand
+Corn Futures - on your turn, if there is a corn card available in the market, you can use this investment as +1 card toward the purchase of corn. For basic corn, this is enough. For premium corn, this counts as +1 toward the purchase. Can only be used for corn
+Wheat Futures
+Rye Futures
+Expert Cooper
+
 
 ### Draw a Mash Bill
 
-Spend any 1 card from your hand to draw the top mash bill from the Bourbon deck into your hand. Drawing the **last** mash bill triggers the final round.
+3 mash bills are shown face up. Players can play the listed capital cost to acquire a mash bill. If a mash bill is drawn, replace it with the top mash bill from the mash bill deck. Players can also spend any 1 capital/card from your hand to draw the top mash bill from the Bourbon deck into your hand. Once all the mash bills are gone (including the face up ones) then the final round begin.
 
 ### Trade
 
@@ -197,15 +248,15 @@ Trading costs **one action card from each player** (each player spends one card 
 
 Trading is only allowed during the action phase, not during the final round.
 
-### 3:1 Conversion
+### 2:1 Conversion
 
-If you cannot make bourbon due to a missing resource type, you may discard 3 cards from your hand to count as 1 resource of any basic type (cask, corn, or grain) for the purpose of a single bourbon production. Only basic resource types can be created this way; premium cards cannot be produced through conversion.
+If you cannot make bourbon due to a missing resource type, you may use 2 cards from your hand to count as 1 resource of any basic type (cask, corn, or grain) for the purpose of a single bourbon production. Only basic resource types can be created this way; premium cards cannot be produced through conversion.
 
-The 3 discarded cards plus the cards used to make bourbon all go to your discard pile.
+The 2 cards plus the cards used to make bourbon all are committed to your Bourbon. 
 
 ### Trash a Card (via Production)
 
-When making bourbon, you may **discard one additional card from your hand and remove it from the game permanently**. This represents a failed batch — the card is destroyed, not discarded. This is optional and limited to one per production action.
+You may trash 1 card from your hand at the cost of 1 card. The trash card is removed permanently from the game. The card used to trash your card is placed in the discard pile
 
 ### Pass Turn
 
@@ -235,15 +286,15 @@ If a sale qualifies for both Silver and Gold, Gold takes precedence.
 
 # 🏚️ The Rickhouse
 
-There is **one shared rickhouse** with a total capacity of **26 barrels**. Every player's aging bourbon lives there. Once a barrel is placed it stays until it's sold.
+There is **one shared rickhouse**. Every player's aging bourbon lives there. Once a barrel is placed it stays until it's sold.
 
-The rickhouse does not charge rent in this version of the game. The aging cost is the cards committed to barrels, not cash payments.
+The aging cost is the cards committed to barrels.
 
 ---
 
 # 📊 Market Demand
 
-Demand ranges from **0 to 12**. It begins at 6.
+Demand ranges from **0 to 12**. It begins at 0.
 
 - **Rises by 1** at the start of each round if 2d6 rolls higher than current demand.
 - **Falls by 1** each time a barrel is sold (floored at 0).
@@ -252,20 +303,20 @@ Demand affects every sale. The mash bill's grid uses the current demand to deter
 
 ## Demand Bands
 
-Each mash bill defines its own demand band thresholds (always three, increasing). Some bills favor low demand; others require high demand to pay out at all. Reading a mash bill's demand bands before attaching it to a barrel is part of the game.
+Each mash bill defines its own demand band thresholds. Some bills favor low demand; others require high demand to pay out at all. Reading a mash bill's demand bands before attaching it to a barrel is part of the game.
 
 ---
 
 # 📈 Mash Bill Pricing
 
-Every mash bill prints a 3×3 grid (three age bands × three demand bands) plus its own thresholds for those bands. There is no shared lookup table; each bill defines its own scale.
+Every mash bill prints a grid based on age and demand. More premium bourbons will have more complex grids. Common barrels will typically have a simple 1x2 grid. There is no shared lookup table; each bill defines its own scale.
 
 To read a sale:
 1. Find the highest age threshold ≤ the barrel's age — that's the row.
 2. Find the highest demand threshold ≤ current demand — that's the column.
 3. The cell is the reputation reward.
 
-Blank cells (`—`) reward 0 reputation. The barrel still sells (and demand still drops by 1), but the player gains nothing.
+Every bourbon produces some reputation. The barrel still sells (and demand still drops by 1), but the player gains nothing.
 
 ## Example
 

@@ -2,15 +2,27 @@ import type { Card, MashBill, Rickhouse } from "./types";
 import { makeCapitalCard, makeMashBill, makeResourceCard } from "./cards";
 
 // ============================================================
-// Rickhouse — one shared rickhouse, capacity 26.
+// Rickhouses — six KY Bourbon Trail regions, total capacity 26.
+// (Visual + mechanical: matches the v1 UI layout.)
 // ============================================================
 
-export const DEFAULT_RICKHOUSE_ID = "rh_main";
-export const DEFAULT_RICKHOUSE_CAPACITY = 26;
+export const RICKHOUSE_DISPLAY_ORDER = [
+  "rh_western",
+  "rh_northern",
+  "rh_central",
+  "rh_louisville",
+  "rh_bardstown",
+  "rh_lexington",
+] as const;
 
 export function defaultRickhouses(): Rickhouse[] {
   return [
-    { id: DEFAULT_RICKHOUSE_ID, name: "Rickhouse", capacity: DEFAULT_RICKHOUSE_CAPACITY },
+    { id: "rh_western", name: "Western", capacity: 3 },
+    { id: "rh_northern", name: "Northern", capacity: 3 },
+    { id: "rh_central", name: "Central", capacity: 4 },
+    { id: "rh_louisville", name: "Louisville", capacity: 5 },
+    { id: "rh_bardstown", name: "Bardstown", capacity: 6 },
+    { id: "rh_lexington", name: "Lexington", capacity: 5 },
   ];
 }
 
