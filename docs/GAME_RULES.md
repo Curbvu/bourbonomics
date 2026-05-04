@@ -153,7 +153,7 @@ Each action requires spending one or more cards from your hand. Spent cards go t
 
 ### Make Bourbon
 
-Spend at least **1 cask + 1 corn + 1 grain** from your hand to produce bourbon. Choose one mash bill from your hand and attach it face-up to the new barrel. Place the barrel in any rickhouse with available capacity.
+Spend at least **1 cask + 1 corn + 1 grain** from your hand to produce bourbon. Choose one mash bill from your hand and attach it face-up to the new barrel. Place the barrel in the rickhouse (which has shared 26-slot capacity).
 
 You may include additional grain or corn to satisfy mash bill recipe requirements. Only one cask may be used per barrel.
 
@@ -233,22 +233,11 @@ If a sale qualifies for both Silver and Gold, Gold takes precedence.
 
 ---
 
-# 🏚️ Rickhouses
+# 🏚️ The Rickhouse
 
-There are **six rickhouses**, each with a fixed capacity:
+There is **one shared rickhouse** with a total capacity of **26 barrels**. Every player's aging bourbon lives there. Once a barrel is placed it stays until it's sold.
 
-| Region     | Capacity |
-|------------|:--------:|
-| Northern   | 3        |
-| Louisville | 5        |
-| Central    | 4        |
-| Lexington  | 5        |
-| Bardstown  | 6        |
-| Western    | 3        |
-
-Total capacity: **26 barrels**. Rickhouses are shared among all players. Once a barrel is placed, it stays in that rickhouse until sold.
-
-Rickhouses do not charge rent in this version of the game. The aging cost is the cards committed to barrels, not cash payments.
+The rickhouse does not charge rent in this version of the game. The aging cost is the cards committed to barrels, not cash payments.
 
 ---
 

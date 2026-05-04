@@ -18,16 +18,20 @@ export function ActionLog({ entries }: { entries: LogEntry[] }) {
   }, [entries]);
 
   return (
-    <div ref={ref} className="h-full overflow-auto font-mono text-xs space-y-1">
+    <div ref={ref} className="font-mono text-[11px] space-y-1 leading-snug">
       {entries.length === 0 && (
-        <div className="text-neutral-500 italic">No actions yet — press Step or Auto.</div>
+        <div className="text-neutral-500 italic">
+          No actions yet — press Step or Auto to begin.
+        </div>
       )}
       {entries.map((e) => (
-        <div key={e.seq} className="flex gap-2 leading-snug">
-          <span className="text-neutral-600 tabular-nums w-10 text-right">
+        <div key={e.seq} className="flex gap-2">
+          <span className="text-neutral-600 tabular-nums w-9 text-right shrink-0">
             R{e.round}
           </span>
-          <span className="text-neutral-400 w-16">{e.action.type}</span>
+          <span className="text-neutral-400 w-20 shrink-0 truncate">
+            {e.action.type}
+          </span>
           <span className="text-neutral-300 flex-1">{describe(e.action)}</span>
         </div>
       ))}
@@ -42,11 +46,13 @@ function describe(a: GameAction): string {
     case "DRAW_HAND":
       return a.playerId;
     case "MAKE_BOURBON":
-      return `${a.playerId} → ${a.cardIds.length} cards into ${a.rickhouseId}`;
+      return `${a.playerId} → barrel from ${a.cardIds.length} cards`;
     case "AGE_BOURBON":
       return `${a.playerId} ages ${shortBarrel(a.barrelId)}`;
     case "SELL_BOURBON":
-      return `${a.playerId} sells ${shortBarrel(a.barrelId)} for ${a.reputationSplit + a.cardDrawSplit}`;
+      return `${a.playerId} sells ${shortBarrel(a.barrelId)} for ${
+        a.reputationSplit + a.cardDrawSplit
+      }`;
     case "BUY_FROM_MARKET":
       return `${a.playerId} buys slot ${a.marketSlotIndex}`;
     case "DRAW_MASH_BILL":

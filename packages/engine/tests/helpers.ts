@@ -70,7 +70,7 @@ export function placeBarrel(
   ownerId: string,
   mashBill: { id: string; defId: string; name: string; ageBands: readonly [number, number, number]; demandBands: readonly [number, number, number]; rewardGrid: readonly (readonly (number | null)[])[]; recipe?: unknown; silverAward?: unknown; goldAward?: unknown },
   age: number,
-  rickhouseId = "rh_central",
+  rickhouseId = "rh_main",
 ): GameState {
   const barrelIndex = state.allBarrels.length;
   const barrelId = `barrel_test_${barrelIndex}`;

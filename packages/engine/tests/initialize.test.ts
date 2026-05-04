@@ -10,7 +10,7 @@ describe("initializeGame", () => {
     expect(state.phase).toBe("demand");
     expect(state.demand).toBe(6);
     expect(state.players).toHaveLength(2);
-    expect(state.rickhouses).toHaveLength(6);
+    expect(state.rickhouses).toHaveLength(1);
     expect(state.marketConveyor.length).toBeLessThanOrEqual(6);
     expect(state.finalRoundTriggered).toBe(false);
   });
@@ -47,11 +47,11 @@ describe("initializeGame", () => {
     expect(a.players[0]!.deck.map((c) => c.id)).not.toEqual(b.players[0]!.deck.map((c) => c.id));
   });
 
-  it("uses the canonical six rickhouses with capacity totaling 26", () => {
+  it("uses one shared rickhouse with capacity 26", () => {
     const state = makeTestGame();
     expect(state.rickhouses).toEqual(defaultRickhouses());
-    const total = state.rickhouses.reduce((acc, r) => acc + r.capacity, 0);
-    expect(total).toBe(26);
+    expect(state.rickhouses).toHaveLength(1);
+    expect(state.rickhouses[0]!.capacity).toBe(26);
   });
 
   it("respects custom starting demand and hand size", () => {
