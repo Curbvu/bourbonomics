@@ -2,436 +2,253 @@
 
 ## Become the Bourbon Baron
 
-Welcome to *Bourbonomics*, an economic strategy game about building a bourbon empire in a shifting and often unpredictable market.
+Welcome to *Bourbonomics*, a deckbuilding strategy game about building a bourbon empire through patience, timing, and the discipline of inventory management.
 
-Each player owns a distillery and tries to grow their business into the most valuable bourbon empire. Barons source ingredients, produce bourbon, age it over time, and sell it at the perfect moment. Along the way, you'll invest in your distillery, improve operations, adapt to market conditions, and try to outmaneuver your competitors.
+Each player owns a distillery and competes to earn the most reputation. Barons draft mash bills, manage a personal deck of resource cards, produce bourbon, age it over time, and sell it at the perfect moment to convert tied-up inventory into reputation.
 
-The challenge isn't just making bourbon—it's knowing **when** to make it, **where** to store it, and **when** to sell.
+The challenge isn't just making bourbon — it's knowing **when** to make it, **how long** to age it, and **what to give up** while you wait.
 
 ---
 
 # 🏆 Winning the Game
 
-The game ends when a player **unlocks** their third Gold Bourbon. Unlocking the third Gold does not end the round immediately — it announces that the **current round is the final round**.
+The game ends when **the last mash bill is drawn from the Bourbon deck**. Drawing the final mash bill triggers the final round — all players, including the triggering player, complete the current round normally. After the action phase ends, scoring occurs immediately.
 
-The action phase continues normally for all players, including the triggering player. All standard actions are allowed: production, sales, drawing cards, calling audits, installing investments, and playing Operations cards. The paid-action pivot and audit rules apply as usual.
+The player with the **most reputation** at the end of the game wins. Tiebreakers (in order):
 
-After the action phase ends, scoring occurs immediately. The Market Phase is skipped in the final round — there is no next round for market effects to apply to.
-
-## Scoring
-
-Each player calculates their final score by totaling the following:
-
-- **Cash:** Face value (each $1 in cash = $1 in score).
-- **Active Investments:** Each active investment scores its printed installation cost.
-- **Unlocked Gold Bourbons:** Each scores its listed Brand Value.
-- **Cards in hand (mash bills, Investments not yet installed, Operations cards):** Score $0.
-
-The highest total wins. Ties are broken first by number of unlocked Gold Bourbons, then by remaining cash. If still tied, the win is shared.
+1. Fewest cards remaining in deck (leaner engine wins).
+2. Most barrels sold over the course of the game.
+3. Shared victory.
 
 ## Why the Final Round Matters
 
-Triggering the third Gold doesn't immediately end play — every player, including the triggerer, takes their full set of actions in the final round. Most players will use the final round to liquidate barrels at current demand. Because each sale lowers demand by 1, selling order matters enormously: the first player to sell in the final round gets peak prices, while later sellers may face a crashed market. Smart play earlier in the game (pre-selling barrels, banking cash) sets up a strong position for this final scramble.
+The final round is when the most dramatic plays happen. Players race to liquidate aged barrels, push final reputation gains, and time their sales against fluctuating demand. Cards committed to barrels that don't sell in the final round are lost — there is no next round for them to return to.
 
 ---
 
 # 🎬 Setup
 
-Each player starts with **$40** in initial capital. No one starts with investments in play.
+## Step 1: Mash Bill Draft
 
-Shuffle all decks separately: the resource piles (Cask, Corn, Grain), the Bourbon cards, the Investment cards, the Operations cards, the Market cards, and the **Distillery cards** (see §Distilleries).
+Each player drafts **3 mash bills** from a shared pool. The exact draft procedure is up to the group, but a snake draft (1-2-3-3-2-1) is recommended for fairness. These mash bills are the player's permanent recipes for the game, though more can be drawn during play.
 
-Deal each player **4 Bourbon cards** (mash bills) as their starting hand. Mash bills are kept hidden from other players until played onto a barrel.
+## Step 2: Starter Deck Draft
 
-Then deal each player **2 Distillery cards face-down**. Each baron secretly looks at both, picks one to keep face-up in front of them, and returns the other to the Distillery deck (which is then reshuffled). The chosen Distillery's **starting bonus** resolves immediately — adjust cash, draw extra cards, or place starting resources as the card prints. The **ongoing perk** stays in play for the rest of the game.
+Each player builds a personal **14-card starter deck** by selecting from the communal pool of "plain" cards. Players may choose any combination of:
 
-Set the market demand to **0**. The market opens cold — every bill's lowest demand band is what fires at demand 0, so early sales are at the floor of each bill's grid. Demand rises through Market cards (Phase 3) over the course of the game; barons who can wait for the swell get paid for it.
+- **Cask cards**
+- **Corn cards**
+- **Grain cards** (rye, barley, wheat — depending on the pool)
+- **Capital cards**
 
-Round 1 then begins under normal action-phase rules. Phase 1 (rent) is still skipped because no one has barrels yet, but otherwise the round plays exactly like every other — clockwise turns, free first action per player, then the lap-cost ladder kicks in once someone passes.
+A typical balanced starter might be 3 cask, 4 corn, 3 grain, 2 capital, plus 2 of the player's choice — but players are free to specialize. A player who plans to focus on high-rye bourbon might draft more rye-leaning grain cards. A player planning to invest aggressively might draft extra capital. The draft itself is the first strategic decision of the game.
 
----
+All cards in the starter deck are "plain" — basic versions of each type. Premium cards (like 2-rye) are only available through the market during play.
 
-# 🏭 Distilleries
+## Step 3: First Hand
 
-Every baron runs a different distillery. Distillery cards are asymmetric starting identities — think Age of Empires civilizations — that bias the player toward a particular strategy from turn 1 and grant a permanent perk for the rest of the game.
+After all players have drafted their starter decks, each player shuffles and draws **8 cards** as their opening hand. Play begins.
 
-## How the deal works
+## Step 4: Board Setup
 
-After cash and mash bills are dealt, each player is handed **2 Distillery cards face-down**. The baron secretly reads both, **keeps 1**, and returns the other to the deck, which is then reshuffled. The kept card sits **face-up** in front of the baron for the entire game so every opponent can see who they're up against.
-
-Each Distillery prints two effects:
-
-- A **Starting Bonus** that resolves once, immediately at setup. This may add cash, deal extra cards, or place starting resources in the baron's hand.
-- An **Ongoing Perk** that applies for the whole game.
-
-There are no penalties — Distilleries only grant advantages. Balance comes from perks pulling players in different strategic directions, not from drawbacks.
-
-## The card pool
-
-Eight Distilleries form the initial pool. A 4-player game still sees ~10 of the 16 dealt cards, so the deal-2-pick-1 draft has meaningful variance.
-
-### 🔥 The Hot Mash
-*"First barrel down, last one finished — speed wins quarters."*
-
-- **Starting Bonus:** Begin with **1 Cask, 1 Corn, and 1 Rye** in hand — a complete legal mash, ready to barrel on your first action.
-- **Ongoing Perk:** Once per round, your **first MAKE_BOURBON** action costs $0 regardless of the lap-cost ladder.
-
-**Plays as:** production rusher. Wants to barrel early and often, ideally with the free Make landing in a paid lap.
-
-### 🏛️ The Heritage House
-*"Time is the only ingredient nobody can hurry."*
-
-- **Starting Bonus:** Begin with **$10 extra cash** ($50 total). The bankroll is for surviving the long aging window.
-- **Ongoing Perk:** Each barrel you place enters the rickhouse at **age 1 instead of age 0** — one free year of aging on every barrel for the rest of the game.
-
-**Plays as:** patient ager. Skips the awkward "barrel made, can't sell yet" round and reaches premium age bands faster.
-
-### 🌐 The Diaspora
-*"Six warehouses, six microclimates. Let everyone else fight over one."*
-
-- **Starting Bonus:** Begin with **$5 extra cash** ($45 total) and **1 extra mash bill** (5 total).
-- **Ongoing Perk:** You pay **$0 rent** on barrels in any rickhouse where you are the only baron present.
-
-**Plays as:** rickhouse spreader. Rewarded for being everywhere first; punished if opponents crowd into your warehouses.
-
-### 📈 The Speculator
-*"Demand is rumor with a publication date."*
-
-- **Starting Bonus:** At setup, peek at the **top 3 Market cards** and rearrange them in any order before play begins.
-- **Ongoing Perk:** Your **first sale each round does not reduce** the global demand counter. Subsequent sales decay demand normally.
-
-**Plays as:** market manipulator. Sets up demand swings in advance and protects market price across multiple sales in a round.
-
-### 📚 The Recipe Book
-*"Every great whiskey starts with a number on a notepad."*
-
-- **Starting Bonus:** Begin with **2 extra mash bills** (6 total) and may inspect the **top 3 of the Bourbon deck**.
-- **Ongoing Perk:** Whenever you take a `DRAW_BOURBON` action, **draw 2 and keep 1** — the other returns to the bottom of the Bourbon deck.
-
-**Plays as:** mash bill specialist. Hand-picks bills that match a planned recipe strategy, hits Gold/Silver criteria more reliably.
-
-### ⚙️ The Distillers' Guild
-*"We have a process for that. Several, actually."*
-
-- **Starting Bonus:** Begin with **2 Operations cards** already in hand.
-- **Ongoing Perk:** When you resolve an Operations card, **immediately draw 1 replacement Operations card**.
-
-**Plays as:** Operations player. Keeps the engine churning — a perpetual stream of one-shot effects to disrupt opponents and shape rounds.
-
-### 💰 The Bootlegger
-*"Money makes barrels. Barrels make more money. Repeat."*
-
-- **Starting Bonus:** Begin with **$10 extra cash** ($50 total).
-- **Ongoing Perk:** Your paid actions cost **$1 less** than the current lap tier (with a $0 floor — the $1 lap is free for you, $2 is $1, $3+ is $2+).
-
-**Plays as:** cash baron. Loops paid actions cheaper than anyone else, ramps Investments aggressively in the mid-game.
-
-### 🪵 The Cooperage
-*"Wood is wisdom. We know what wood remembers."*
-
-- **Starting Bonus:** Begin with **3 Cask cards** in hand.
-- **Ongoing Perk:** Once per round, when you make a bourbon, **one Cask card from the mash returns to your hand** instead of being spent.
-
-**Plays as:** cask specialist. Effectively gets a free cask per round of production; especially strong with bills that allow large mashes.
-
-## Balance notes (playtest priorities)
-
-These three perks are the most likely to swing balance. Watch for them across early playtests:
-
-- **The Heritage House** — "barrels start at age 1" stacks across every barrel placed, all game. Risk: combined with the $10 cash cushion, snowballs into early premium-age sales while opponents are still waiting out a year. If it dominates, drop the bonus to $5 or restrict the perk to "first 3 barrels only."
-- **The Bootlegger** — straight $1 discount on paid actions compounds badly inside long action phases. Risk: a player who loops 6+ paid actions per round captures double-digit dollars over the game. If it dominates, cap the perk at "first 3 paid actions per round."
-- **The Hot Mash** — "free MAKE per round" is a paid-action exemption disguised as a perk. Risk: in late rounds when Make would cost $3+, this is huge. The $6 starting mash also lets them barrel on turn 1 before anyone else has resources. If it dominates, change the perk to "first MAKE per round costs $1 less" instead of free.
-
-The other five (Diaspora, Speculator, Recipe Book, Distillers' Guild, Cooperage) are situational — their value depends heavily on board state, deck flow, or other players' choices, which keeps them honest. They're more likely to feel weak in some games than overpowered.
+- Set up the **Market Conveyor**: 6 cards face-up from the market supply deck.
+- Set the **Demand Track** to **6** (starting position).
+- Each player begins with **0 reputation**.
+- Place the Bourbon deck (mash bills), Investment deck, and Operations deck face-down within reach.
+- Roll for first player or use any agreed method to determine turn order.
 
 ---
 
 # 🗺️ Understanding the Board
 
-The game revolves around three main areas: the **market**, the **rickhouses**, and the **business decks**.
+The game revolves around five shared elements: **the Market Conveyor**, **the Bourbon deck**, **the Investment deck**, **the Operations deck**, and **the Rickhouses**.
 
-The market consists of three face-down piles: casks, corn, and grain. These represent the raw materials you'll use to produce bourbon.
-
-Rickhouses are shared storage locations where your bourbon ages. Each rickhouse has limited capacity, so space becomes competitive over time.
-
-The business decks contain Investment cards (long-term upgrades), Operations cards (short-term advantages), and the **Bourbon deck** of mash bills (the brands that decide how much each barrel sells for — see §Mash Bills).
-
-Lastly there are the Market cards, which are drawn at the end of each round.
+Each player additionally manages their **personal deck**, **hand**, **discard pile**, **active investments**, **aging barrels**, and **reputation track**.
 
 ---
 
 # 📜 Mash Bills
 
-Bourbon cards are called **mash bills** — recipes that determine each barrel's sale price based on its age and current market demand.
+Mash bills are recipes that determine each barrel's reputation reward when sold. Players draft 3 at game start; more can be drawn during play.
 
-Mash bills are committed **at production, not at sale**. When you make bourbon, you choose one mash bill from your hand and place it face-up on the new barrel. Once placed, the mash bill is **locked to that barrel for its lifetime** and becomes public information that any player may inspect.
+Mash bills are committed **at production, not at sale**. When you make bourbon, you choose one mash bill from your hand and place it face-up on the new barrel. Once placed, the mash bill is **locked to that barrel for its lifetime** and becomes public information.
 
-When the barrel is sold, the attached mash bill's grid determines the payout based on the barrel's age and the current demand band.
+When a barrel is sold, the attached mash bill's grid determines the reputation reward based on the barrel's age and the current demand. The mash bill is then discarded with the barrel (unless it carries an award that returns or removes it — see §Bourbon Awards).
 
-Each mash bill defines **its own age and demand band thresholds** (always three of each, increasing) in addition to its 3×3 grid of sale prices. A workhorse bill might use shallow bands (e.g. age `2 / 4 / 6`, demand `2 / 4 / 6`); a premium bill might use deep ones (e.g. age `6 / 8 / 10`, demand `6 / 8 / 12`). A barrel's sale price is always read from the **attached bill's** thresholds against its current age and the global market demand — there is no shared lookup table. See §Mash Bill Pricing for the mechanics.
+A player with **no mash bills in hand cannot make bourbon**. As an action, a player may draw a mash bill from the Bourbon deck.
 
-A player with **no mash bills in hand cannot make bourbon**. As an action, a player may draw a mash bill from the Bourbon deck. There is no swap-and-replace; mash bills accumulate freely until the 10-card hand limit is enforced via an Audit.
+If the Bourbon deck is exhausted, the **final round trigger** activates. The deck is *not* reshuffled.
 
-If the Bourbon deck runs out, **reshuffle the Bourbon discard pile** to form a new deck and continue play.
+## Per-Bill Recipes
 
-## Per-Bill Mash Recipes
-
-In addition to the universal mash rules (§Making Bourbon), some mash bills carry an explicit **recipe** — extra grain requirements that the mash committed at production must satisfy. Recipes only ever **tighten** the universal rules; they never loosen them.
-
-A recipe can specify a `min` count, a `max` count, or both, on each of: **corn**, **barley**, **rye**, **wheat**, and **total grain** (corn + small grains). A `max: 0` entry means the recipe **forbids** that grain (e.g. a wheated bill that excludes rye).
+Some mash bills carry an explicit recipe — extra grain requirements that the mash committed at production must satisfy. Recipes only ever **tighten** the universal rules (1 cask + 1 corn + 1 grain minimum); they never loosen them.
 
 Examples:
+- **High-rye** bill — recipe: `rye ≥ 3`.
+- **Wheated** bill — recipe: `wheat ≥ 1, no rye`.
+- **Four-grain** bill — recipe: `barley ≥ 1, rye ≥ 1, wheat ≥ 1`.
 
-- **High-rye** bill — recipe: `rye ≥ 3`. Three rye cards must be in the mash.
-- **Wheated** bill — recipe: `wheat ≥ 1, no rye`. Wheat is required; rye is forbidden.
-- **Four-grain** bill — recipe: `barley ≥ 1, rye ≥ 1, wheat ≥ 1`. All three small grains are required.
-- **High-corn** bill — recipe: `corn ≥ 3`.
-
-Mash bills without a printed recipe accept any legal mash. Recipes are public information once the bill is in play; the make-bourbon UI surfaces the bill's requirements live as the mash is being assembled.
+Mash bills without a printed recipe accept any legal mash. Recipes are public information once the bill is in play.
 
 ---
 
-# 🃏 Hand Limit
+# 🃏 Hand and Deck
 
-A player's hand may contain a mix of **mash bills, Investment cards, and Operations cards**. The soft hand limit is **10 cards total** across all card types.
+## Hand Size
 
-The limit is **soft** because nothing prevents you from temporarily exceeding it. Instead, the limit is enforced by a player-triggered mechanism called the **Audit** (see next section).
+Each player draws **8 cards** at the start of every round. This is the **starting hand size**. Investments can increase this number permanently for a player.
 
----
+There is no maximum hand size during a turn (mid-sale draws and other effects can temporarily expand a hand). At the end of each round, all unused cards in hand are placed in the discard pile, unless an investment allows otherwise.
 
-# 🔍 The Audit
+## Deck Composition
 
-As their action on their turn, a player may **call an Audit**.
+A player's deck contains a mix of:
+- **Resource cards** (cask, corn, grain — including premium variants like 2-rye).
+- **Capital cards** (currency for market purchases and investments).
 
-When an Audit is called, **all players** (including the auditor) holding **more than 10 cards** in hand must immediately discard down to 10. The discarding player chooses which cards to discard. Discarded cards go to their appropriate discard piles — mash bills to the Bourbon discard, Investments to the Investment discard, Operations to the Operations discard.
+Mash bills, Operations cards, and Investment cards are *not* part of the deck. They live in the player's hand or in play and are managed separately. The 14-card starter deck contains only resource and capital cards.
 
-Players already at 10 or fewer cards are unaffected.
-
-**Only one Audit may be called per round.** After an Audit is called, no further Audits may be called until the next round. The auditor's action is consumed by the Audit, regardless of whether any opponents had to discard.
-
-*Thematically, think of this as a regulatory inspection — distillery audits are part of the bourbon business.*
+Decks grow during the game through market purchases. Decks shrink through trashing (see §Trashing Cards) and temporary commitment to aging barrels (see §Aging).
 
 ---
 
 # 🔄 How a Round Works
 
-Each round represents a year and is played in three phases: **Rickhouse Fees**, **Action Phase**, and **Market Phase**.
+Each round consists of four phases:
+
+1. **Demand Phase** — Roll 2d6; if higher than current demand, demand +1.
+2. **Draw Phase** — Each player draws 8 cards from their personal deck.
+3. **Action Phase** — Players take turns spending cards as actions until all hands are exhausted.
+4. **Cleanup Phase** — Unused cards go to discard. Market refreshes if needed.
 
 ---
 
-# 💸 Phase 1: Rickhouse Fees
+# 🎲 Phase 1: Demand Phase
 
-Skip this phase in the first round.
+At the start of each round, **roll 2d6**. If the result is **greater than** the current demand, demand increases by 1 (capped at 12). Otherwise, demand remains unchanged.
 
-**Phase 1 sequence:** (a) any outstanding loan repayment is taken from the baron's cash first; (b) the baron may then take a Distressed Distiller's Loan if eligible; (c) rent is calculated and paid.
+This is the only way demand rises. Sales reduce demand by 1 each (floored at 0).
 
-For each barrel you have aging in a rickhouse, you must pay rent. The rent is equal to the total number of barrels in that rickhouse, including those owned by other players.
-
-If you pay the rent, your bourbon ages by one year. If you cannot pay, that barrel simply does not age this round. There are no additional penalties, but losing time can be costly.
-
-## 🪙 Distressed Distiller's Loan
-
-A baron who is short on cash at the start of Phase 1 may take a one-time **Distressed Distiller's Loan** from the bank. The loan is intentionally harsh — the **$5 interest is a real cost**, not a soft bridge — and lingering debt freezes the baron out of cash flow until it clears.
-
-- **Eligibility:** At the start of Phase 1 (after any outstanding repayment is taken), the baron's available cash must be **less than the rent they owe this round**. The loan may be used **once per game** per baron — no stacking, no second loan, ever.
-- **Loan amount:** **$10**, taken from the bank into the baron's cash pool immediately.
-- **Repayment:** **$15** (the loan plus $5 interest), paid off the top at the **start of the next Phase 1**, before any rent is calculated.
-- **The interest is a permanent score hit.** Even when paid in full on time, the loan permanently reduces the baron's final score by **$5** — that interest leaves their cash pool and never returns. Taking the loan is always a bet that surviving this round is worth $5 of end-game value.
-- **Lingering debt is a punishment.** If the baron cannot repay $15 in full at the start of next Phase 1, they pay whatever cash they have toward the loan; the remaining debt does not compound, but **all future income goes to the bank first**. Every dollar earned (sales, operations effects, investment payouts) is automatically siphoned to the loan until the full **$15** is settled. The baron is effectively frozen out of cash flow for the duration — they cannot spend on actions, capital, or rent until the bank is paid in full, and they may not take another loan.
-- **Tracking:** Place a "Loan" token in front of the baron while the loan is outstanding so the table remembers.
-
-The loan is an emergency bridge — enough to cover a tight Phase 1 and keep barrels aging — but never a free expansion of capital.
+The bell-curve probability of 2d6 means demand naturally tends toward the middle of its range, with rare booms and crashes.
 
 ---
 
-# 🎯 Phase 2: Action Phase
+# 🎴 Phase 2: Draw Phase
 
-This is the heart of the game.
+Each player draws **8 cards** from their personal deck. If the deck runs out, shuffle the discard pile to form a new deck and continue drawing.
 
-Players take turns in clockwise order. Once around the table is a "loop". On your turn, you may take one action or pass. The phase continues looping around the table until all players pass.
-
-At the beginning of the phase, all actions are free. This continues until the first player decides to pass.
-
-When that pass happens, two things take effect:
-
-- The remaining players in that loop each still get a **free action** — the rest of the current loop is free.
-- The passing player becomes the **paid-action pivot**: their seat is the marker where each new cost tier begins.
-
-When play returns to the pivot, the **next loop starts and costs $1 per action**. Each subsequent return to the pivot advances the cost to **$2**, then **$3**, and so on — one full loop per cost tier.
-
-If the pivot player chooses to re-enter the action phase on a paid loop, they pay the current loop's cost just like everyone else. Passing first does not exempt you from paid actions if you come back in.
-
-The phase ends once all players pass in the same loop. The pivot player (the first to pass) also becomes the starting player for the next round.
+Investments may modify the draw amount. Apply those effects during this phase.
 
 ---
 
-# 🎲 Actions
+# 🎯 Phase 3: Action Phase
 
-On your turn, you choose one action from the list below.
+Players take turns clockwise. On your turn, you spend one card from your hand to take an action. The phase continues until **all players have exhausted their hands**.
 
-You might **draw a resource card** from the market — a cask, corn, or grain — to build toward a mash.
+A player whose hand is empty is "out" for the round and skipped on subsequent turns.
 
-You could **draw a card from a business deck**: a mash bill from the **Bourbon deck**, an **Investment** card, or an **Operations** card. Each of these is its own action — you pick one deck per turn. Mash bills accumulate in your hand freely; the 10-card hand limit is only enforced when someone calls an Audit.
+## Available Actions
 
-You can **make bourbon**. To do this, you must combine at least one cask, one corn, and one grain, then choose one mash bill from your hand and place it face-up on the new barrel as you place it in an available rickhouse slot. The mash bill is locked to that barrel and becomes public information. You can add additional grains or corn to improve your mix, but you may only use one cask per barrel. A player with no mash bills in hand cannot make bourbon.
+Each action requires spending one card from your hand. The spent card goes to your discard pile unless otherwise noted.
 
-You can **sell bourbon** if the barrel is at least two years old. When you sell, refer to the mash bill attached to that barrel and determine the payout based on the bourbon's age and the current market demand. If the barrel satisfies the requirements of one of your already-unlocked Gold Bourbons, you may apply that Gold Bourbon's payout instead — this is free and always optional (see §Bourbon Awards). The mash bill is then discarded with the barrel; the exceptions are when its Silver award returns it to your hand, or its Gold award unlocks a new Gold Bourbon for you.
+### Make Bourbon
 
-You may **implement an investment**. This requires paying the cost printed on the card. Once paid, the investment is placed in front of you and becomes active immediately. Each player may have no more than **three active investments at any time** — choose which long-term advantages matter most.
+Spend at least **1 cask + 1 corn + 1 grain** from your hand to produce bourbon. Choose one mash bill from your hand and attach it face-up to the new barrel. Place the barrel in any rickhouse with available capacity.
 
-You may **play an Operations card**, which provides an immediate effect.
+You may include additional grain or corn to satisfy mash bill recipe requirements. Only one cask may be used per barrel.
 
-You may **call an Audit**, which forces every player holding more than 10 cards to discard down to 10. See the Audit section for full rules.
+The cards spent on production go to your discard pile. The mash bill remains attached to the barrel.
 
-You may **pass**. The first player to pass becomes the paid-action pivot for the rest of the round (see §Phase 2: Action Phase).
+### Age Bourbon
 
-At any time, players may **trade** freely. Trading does not require an action and can involve any combination of resources, cards, bourbon, or even investments.
+Choose a barrel you own that's currently aging. Take one card from your hand and place it face-down on top of that barrel. The card is committed to aging and cannot be used until the barrel is sold.
+
+The number of cards on top of a barrel = its age (in years). A barrel may only be aged once per round (one card per barrel per round).
+
+When the barrel is sold, all cards committed to its aging return to the player's discard pile.
+
+### Sell Bourbon
+
+Sell any barrel that is at least **2 years old**. Reference the attached mash bill's grid using the barrel's age and the current demand to determine the reputation reward.
+
+The reward can be split between two outcomes (in any combination):
+- **Advance reputation track** by N.
+- **Draw N cards** immediately into your hand. These cards can be used later in the same action phase.
+
+After resolving, demand decreases by 1. The barrel is removed from the rickhouse. The mash bill is discarded (unless it carries an award). All aging cards return to the player's discard pile.
+
+### Buy from the Market
+
+Spend cards from your hand equal to the cost of a card in the Market Conveyor. Most basic cards cost 1 capital; premium cards may cost more. Some require capital specifically.
+
+Both the **spent card(s)** and the **purchased card** go to your discard pile.
+
+After purchase, refill the Market Conveyor by drawing a new card from the supply deck.
+
+### Implement an Investment
+
+Spend capital cards equal to the printed cost of an Investment card you hold. Place the Investment in front of you; it is now active. Each player may have a maximum of **3 active investments at any time**.
+
+Investment cards are drawn separately (see §Drawing from Other Decks).
+
+### Play an Operations Card
+
+Operations cards are one-shot effects. Spend an Operations card from your hand to resolve its effect, then discard it.
+
+### Draw from Other Decks
+
+Spend any 1 card to draw 1 card from one of:
+- The **Bourbon deck** (mash bills) — drawing the final mash bill triggers the final round.
+- The **Investment deck**.
+- The **Operations deck**.
+
+Drawn mash bills, investments, or operations cards go to your hand. Investments and operations are not part of your personal deck.
+
+### Trade
+
+Players may trade cards with each other. Both sides must give at least one card. **Traded cards go to the recipient's discard pile**, not their hand.
+
+Trading costs **one action from each player** (each player spends one card from hand, both going to discard, in addition to the cards being traded).
+
+Trading is only allowed during the action phase, not during the final round.
+
+### 3:1 Conversion
+
+If you cannot make bourbon due to a missing resource type, you may discard 3 cards from your hand to count as 1 resource of any basic type (cask, corn, or grain) for the purpose of a single bourbon production. Only basic resource types can be created this way; premium cards cannot be produced through conversion.
+
+The 3 discarded cards plus the cards used to make bourbon all go to your discard pile.
+
+### Trash a Card (via Production)
+
+When making bourbon, you may **discard one additional card from your hand and remove it from the game permanently**. This represents a failed batch — the card is destroyed, not discarded. This is optional and limited to one per production action.
+
+Some investments grant additional trashing options.
 
 ---
 
-# 🥃 The Bourbon Cycle
+# 🥇 Bourbon Awards
 
-The core of the game follows a simple rhythm.
+Some mash bills grant special awards when their bourbon is sold.
 
-First, you gather resources from the market. Then you combine them to create bourbon and place it into a rickhouse. Over time, as you pay rent, your bourbon ages. Once it reaches at least two years, you may sell it for profit.
+## Silver — Bill Returns to Hand
 
-The longer you wait, the more valuable it can become—but the market may not cooperate.
+A Silver award returns the mash bill to the player's hand instead of being discarded. The bill can be attached to a future barrel.
 
----
+## Gold — Permanent Recipe
 
-# 📉 Phase 3: Market Phase
+A Gold award removes the mash bill from circulation and places it face-up in front of the player as a permanent unlocked recipe. The unlocked Gold Bourbon may be applied as a free option at sale time on any future barrel that meets its requirements, providing its reputation reward instead of (or in addition to, depending on the bill) the attached mash bill's normal reward.
 
-After all players have finished the action phase, the market shifts.
+Gold awards do not trigger the final round in this version of the game — only the exhaustion of the Bourbon deck does.
 
-Each player, in turn, draws two Market cards. From those two, you choose one to resolve and discard the other.
+## Award Precedence
 
-The deck is intentionally **mixed**: roughly equal portions of cards that help the broad market, cards that hurt it, and **conditional** cards whose effect depends on board state — plus a small handful of neutral events. A typical "draw 2, pick 1" is therefore often a choice between two imperfect options, not a clear win. Reading the cards against your own position — and your opponents' — is the heart of the phase.
-
-Most market effects apply during the **next round** and last for only one round. A smaller number are **persistent** for several rounds; persistent cards print their duration and continue to fire at the start of each subsequent round until they expire.
-
-Some cards are **conditional** — they target specific players or board states (the player with the most barrels, every barrel in a particular rickhouse, sales of barrels above a certain age, sales that land in a bill's top demand band, etc.) — and so a card you choose to play can hurt you as easily as an opponent if the board shifts.
-
-If the Market deck runs out, **reshuffle the discard pile** to form a new deck and continue play.
-
-**Final Round Exception:** The Market Phase is skipped in the final round (the round in which a player unlocks their third Gold Bourbon). After the action phase ends, scoring occurs immediately.
-
----
-
-### Example
-
-You draw two cards:
-- **Connoisseur boom** — *Demand +3 next round, but the boost only applies to sales of barrels aged 6+ years.*
-- **Cooperage strike** — *Cask pile is locked next round.*
-
-If you have a 7-year barrel queued to sell, the boom is golden — but if you don't, that +3 is locked away from you and the strike at least denies casks to everyone equally. The right pick depends on what's in your rickhouses, not on which card looks better in the abstract.
-
----
-
-# 📊 Market Demand
-
-Market demand ranges from 0 to 12 and **begins at 0** — the market opens cold and rises through Market cards (Phase 3). At demand 0 every bill's **lowest demand band** is what fires (since every bill's `demandBands[0]` is 0 or close to it), so early sales sit at the floor of each grid. The richer mid/high columns kick in only once demand swells past each bill's middle and top thresholds.
-
-Each time a player sells bourbon, demand decreases by 1. High demand leads to better prices, while low demand reduces profits — and demand 0 reduces them to whatever the bill prints in its lowest column.
-
-Managing demand — either by timing your sales or shaping the market through Market cards — is one of the most important skills in the game.
-
-## Demand Bands
-
-Market demand always ranges 0–12, but **demand bands are defined per mash bill**, not globally. Each bill prints three demand thresholds (e.g. `3 / 6 / 9`, or `6 / 8 / 12`). At sale time the engine finds the highest band whose threshold is ≤ the current demand, and reads the price from the matching column of that bill's grid.
-
-Some Market cards talk about demand in absolute terms (e.g. "demand +2", "if demand is above 6") — those still operate on the global 0–12 value. Other cards reference a bill's own bands (e.g. "sales in the highest demand band get +$2") — those resolve against whichever bill is on the barrel being sold.
-
-Demand still **decreases by 1 per sale**, regardless of which bill was used.
-
-# 📈 Mash Bill Pricing
-
-Every mash bill prints a price grid **plus its own thresholds** for the age and demand bands that grid covers. There is no shared age table or demand table — `[2, 4, 6]` on one bill and `[6, 8, 10]` on another are both legal and describe very different cards.
-
-## Tier-sized grids
-
-Grid dimensions scale with rarity, so simpler bills present a smaller pricing surface and rarer bills earn a richer one:
-
-| Tier | Max grid (age × demand) |
-|---|---|
-| common | 1 × 2 (sometimes 2 × 2) |
-| uncommon | 2 × 2 |
-| rare | 2 × 3 (often 3 × 3) |
-| epic | 3 × 3 |
-| legendary | 3 × 3 |
-
-A common bill might just print `[$10, $14]` on a single age row — at low demand it pays $10, at high demand $14, end of story. A legendary three-by-three pays attention to both axes and rewards careful timing across both.
-
-## Reading a Bill
-
-1. Take the barrel's age. Find the highest of the bill's age thresholds that is ≤ the age — that's the row.
-2. Take the current global market demand. Find the highest of the bill's demand thresholds that is ≤ the demand — that's the column.
-3. The cell at that row × column is the sale price. Blank cells (`—`) pay $0.
-
-The lowest age band is always indexed at the bill's first threshold — a barrel that just turned 2 sells using row 0, regardless of what the bill's age thresholds are. The global "must be ≥ 2 years old to sell" floor still applies, and a bill's first age threshold may not be set below 2.
-
-## $12 Payout Floor
-
-**Every printed grid cell pays at least $12.** That figure is the break-even cost a player paid to barrel and sell a single bourbon — roughly 6 actions (cask draw + corn draw + grain draw + make + age tick + sell) plus 2 rounds of rickhouse rent — rounded up so the cheapest print still clears with a small margin. The catalog generator enforces the floor on every build.
-
-**Common bills average ~$15 across their grids.** That's deliberate: the early-phase economy is supposed to be lush, not lean. A baron who barrels and sells a 2-year common bankrolls another make, which fills another rickhouse slot, which raises rent for everyone, which makes late entry harder. **It's a tragedy of the commons** — the players who get into production first compound the advantage, and the cards are priced to make sure the first sale is genuinely worth racing toward.
-
-Variance above the floor is unconstrained — uncommon / rare / epic / legendary bills routinely pay $20+ in mid and high bands. **Blank cells (`—`) are not subject to the floor.** Some sparse grids deliberately pay nothing in certain age/demand combinations as a design lever — the floor only applies to printed cells.
-
-## Design Intent
-
-Three principles drive the numbers across the bill pool:
-
-- **Every printed cell clears break-even.** With the $10 floor in place, no sale of a 2-year barrel ever loses you cash net of production cost. Bills express their character above the floor, not below it.
-- **The middle band is the default outcome.** A typical sale lands in some middle cell and is comfortably profitable — covers the rent the barrel accumulated and pays a real margin.
-- **The top-right cell is the reward for good timing.** The jump from middle to highest demand band is large (often 50–100% per cell) so reading the market is meaningful. The jump from middle to highest age band is gentler (30–60% per cell) so rent eats much of the gain from extreme aging.
-
-No single bill should dominate. A premium bill with a $32+ ceiling has hard-to-reach band thresholds; a workhorse bill with a $14 ceiling has easy ones. Risk and reward are balanced across the pool.
-
-## Examples
-
-**Knob's End 90** — workhorse common with a single age row:
-
-`ageBands: [2]`, `demandBands: [0, 6]`
-
-| Age \\ Demand | 0–5 | 6+ |
-|---|:-:|:-:|
-| 2+ | $13 | $17 |
-
-The two cells average $15 — squarely on the common-tier target. Other commons in the pool sit at `[12, 18]`, `[14, 16]`, `[12, 16]`, `[13, 18]`, `[14, 18]`, etc., so each common has its own personality but the deck-wide average lands at $15 by design.
-
-**Mash Bill No. 7** — epic three-by-three; the formula at full reach:
-
-`ageBands: [4, 7, 10]`, `demandBands: [4, 6, 8]`
-
-| Age \\ Demand | 4–5 | 6–7 | 8+ |
-|---|:-:|:-:|:-:|
-| 4–6  | $12 | $18 | $33 |
-| 7–9  | $14 | $26 | $50 |
-| 10+  | $20 | $34 | $63 |
-
-Each row's low cell scales with age (`max($12, age × 2)` → $12 / $14 / $20) and each row's average climbs $3 per year (rough). Reading the market matters here — a 10-year barrel sold into the top demand band pays **3× what it pays at low demand**.
-
-**High Rickhouse Select** — legendary; older age bands compound the bonus:
-
-`ageBands: [8, 10, 15]`, `demandBands: [4, 7, 10]`
-
-| Age \\ Demand | 4–6 | 7–9 | 10+ |
-|---|:-:|:-:|:-:|
-| 8–9   | $16 | $29 | $54 |
-| 10–14 | $20 | $34 | $63 |
-| 15+   | $30 | $46 | $86 |
-
-A 15-year barrel sold at peak demand pays $86 — vs. an 8-year sale of the same bill at low demand for $16. That's the design intent: every additional year you can afford to leave a barrel in the rickhouse widens the spread between cheap and premium sale outcomes.
-
-A blank cell ("—") means **this mash bill pays nothing** in that age-and-demand combination. Sparseness is intentional: not every recipe rewards aging or scaling. Reading a mash bill's grid — including its own thresholds — **before you attach it to a barrel** is part of the game; once committed, you can't change your mind.
-
-If you sell into a cell with no printed price, you simply collect nothing for that sale (the bill is still discarded or returned-to-hand normally per any award).
+If a sale qualifies for both Silver and Gold, Gold takes precedence.
 
 ---
 
 # 🏚️ Rickhouses
 
-There are **six rickhouses**, each tied to a Kentucky bourbon region. They are shared by all players: once you place a barrel, it stays there permanently. Because rent is based on the total number of barrels in a location, crowded rickhouses become expensive. Choosing where to store your bourbon is often just as important as when to sell it.
+There are **six rickhouses**, each with a fixed capacity:
 
 | Region     | Capacity |
 |------------|:--------:|
@@ -442,68 +259,83 @@ There are **six rickhouses**, each tied to a Kentucky bourbon region. They are s
 | Bardstown  | 6        |
 | Western    | 3        |
 
-Capacity is the maximum number of barrels (across all players) that can age in that rickhouse at any time. Total slots on the board: **26**.
+Total capacity: **26 barrels**. Rickhouses are shared among all players. Once a barrel is placed, it stays in that rickhouse until sold.
+
+Rickhouses do not charge rent in this version of the game. The aging cost is the cards committed to barrels, not cash payments.
 
 ---
 
-# 🥇 Bourbon Awards
+# 📊 Market Demand
 
-Some mash bills grant special awards when the bourbon they're attached to is sold. There are two tiers — Silver and Gold — and they behave very differently.
+Demand ranges from **0 to 12**. It begins at 6.
 
-## Silver — Bill Returns to Hand
+- **Rises by 1** at the start of each round if 2d6 rolls higher than current demand.
+- **Falls by 1** each time a barrel is sold (floored at 0).
 
-A **Silver award** returns the mash bill to the player's hand instead of being discarded with the barrel. The player can attach it to a future barrel like any other mash bill in their hand. Silver bills count toward the 10-card hand limit.
+Demand affects every sale. The mash bill's grid uses the current demand to determine the reputation reward.
 
-## Gold — Unlocked Gold Bourbon
+## Demand Bands
 
-A **Gold award** is a different beast. The mash bill itself is **removed from circulation** — the printed card is set face-up in front of the player as an **unlocked Gold Bourbon**, representing a permanent mastered bourbon style.
+Each mash bill defines its own demand band thresholds (always three, increasing). Some bills favor low demand; others require high demand to pay out at all. Reading a mash bill's demand bands before attaching it to a barrel is part of the game.
 
-An unlocked Gold Bourbon:
+---
 
-- Is **not** part of the player's hand and **does not** count toward the 10-card hand limit.
-- Cannot be attached to future barrels and cannot be discarded.
-- Counts toward the **win condition** — unlocking the third Gold Bourbon triggers the final round.
-- Scores its **listed Brand Value** at game end.
+# 📈 Mash Bill Pricing
 
-The mash bill that earned the Gold is *not* returned to the hand. It lives in front of the player as the Gold Bourbon for the rest of the game.
+Every mash bill prints a 3×3 grid (three age bands × three demand bands) plus its own thresholds for those bands. There is no shared lookup table; each bill defines its own scale.
 
-### Reusing an Unlocked Gold Bourbon
+To read a sale:
+1. Find the highest age threshold ≤ the barrel's age — that's the row.
+2. Find the highest demand threshold ≤ current demand — that's the column.
+3. The cell is the reputation reward.
 
-Once unlocked, a Gold Bourbon may be applied as a **free option at sale time**. When a player sells any barrel whose age, mash composition, and demand satisfy that Gold Bourbon's listed requirements, they may choose to apply the Gold Bourbon's payout/effect **instead of** the attached mash bill's normal payout.
+Blank cells (`—`) reward 0 reputation. The barrel still sells (and demand still drops by 1), but the player gains nothing.
 
-- Applying an unlocked Gold Bourbon at sale time costs nothing and is never required.
-- The barrel's attached mash bill is still discarded with the barrel as normal (unless that bill itself carries a Silver award).
-- A Gold Bourbon may be applied to any number of qualifying sales over the course of the game.
+## Example
 
-If the barrel doesn't satisfy any of your unlocked Gold Bourbons' requirements, the sale resolves using the attached mash bill's grid as usual.
+**Backroad Batch** — workhorse bill:
 
-## Award Precedence
+`ageBands: [2, 4, 6]`, `demandBands: [2, 4, 6]`
 
-A given mash bill prints both Silver and Gold criteria; whichever is met by the sale is the award that fires. Gold takes precedence over Silver when both qualify — the bill is unlocked as a Gold Bourbon rather than returned to hand.
+| Age \ Demand | 2–3 | 4–5 | 6+ |
+|---|:-:|:-:|:-:|
+| 2–3 | 1 | 2 | 3 |
+| 4–5 | 2 | 4 | 5 |
+| 6+  | 3 | 5 | 6 |
 
-## Design Guidance for Card Authors
+A 5-year barrel sold at demand 7 yields **5 reputation**, which the player splits between the reputation track and card draws.
 
-When designing a mash bill with a Gold award, the qualification bar should be intentionally hard to reach. As a rule of thumb, Gold typically requires a bourbon that is 10+ years aged AND uses at least 2 grain cards in its mash bill. Pair that with a strong demand band requirement and Gold stays rare and meaningful — it is both the win-condition trigger and a source of repeatable end-game value, so it should feel earned. Silver criteria can be looser (e.g. a single specialty grain, or one demand band lower) so that mid-game play has reachable upside without trivializing Gold.
+---
+
+# 🃏 Trashing Cards
+
+Cards can be permanently removed from a player's deck (trashed) through:
+
+1. **Failed Batch (universal):** When making bourbon, discard one additional card from hand to trash it.
+2. **Investments:** Certain investments grant trashing as an action or trigger.
+3. **Operations cards:** Some Operations cards include trashing effects.
+
+Trashed cards are removed from the game — they do not return to the deck, discard pile, or any other zone.
 
 ---
 
 # 🔁 The Core Loop
 
-At its heart, the game follows this rhythm:
+You draft mash bills. You build a starter deck. You draw 8 cards each round. You make bourbon. You age it by locking cards on top. You sell when demand favors you. You take reputation, or cards, or both. You buy from the market when needed. You time your endgame.
 
-You gather resources, make bourbon, let it age, sell it into the market, and then adapt to whatever changes come next.
+The mash bill deck is the doomsday clock. Drawing mash bills accelerates the end.
 
 ---
 
-# 🧠 Strategy Notes
+# 🧠 Strategic Identities
 
-**Read your Distillery first.** Your starting bonus and ongoing perk shape every decision in round 1 — which mash bills you target, which rickhouse you barrel into first, whether you push paid actions or sit on cash. A Bootlegger and a Heritage House should never have the same opening move.
+Three viable strategies emerge from the rules:
 
-Early in the game, your focus should be on getting bourbon into rickhouses as quickly as possible so it can begin aging.
+- **The Volume Distiller** — Wide deck, frequent production, sells at moderate ages. Wins by raw output.
+- **The Patient Curator** — Lean deck, deep aging, sells into peak demand. Wins by big single sales.
+- **The Speedrunner** — Drains the mash bill deck quickly to end the game on their terms. Wins by triggering the endgame before others perfect their engines.
 
-In the middle of the game, you'll need to balance production, investment, and timing. Watch the market carefully—selling at the wrong moment can undo several rounds of work.
-
-In the late game, everything comes down to timing. A well-timed sale or a smart market choice can be the difference between winning and losing.
+Each strategy has counters. Volume Distillers crash demand on Patient Curators. Patient Curators outscore Volume Distillers in single sales. Speedrunners shortcut both.
 
 ---
 
@@ -511,4 +343,4 @@ In the late game, everything comes down to timing. A well-timed sale or a smart 
 
 Bourbonomics isn't about making bourbon.
 
-It's about knowing when the world is ready to buy it.
+It's about knowing what to lock up, what to let go, and when the world is ready to pay.
