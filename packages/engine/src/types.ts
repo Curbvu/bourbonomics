@@ -8,12 +8,7 @@
 // Cards
 // -----------------------------
 
-export type CardType =
-  | "resource"
-  | "capital"
-  | "mashbill"
-  | "investment"
-  | "operations";
+export type CardType = "resource" | "capital" | "mashbill";
 
 export type ResourceSubtype = "cask" | "corn" | "rye" | "barley" | "wheat";
 export type GrainSubtype = "rye" | "barley" | "wheat";
@@ -24,15 +19,13 @@ export const GRAIN_SUBTYPES: GrainSubtype[] = ["rye", "barley", "wheat"];
 export interface Card {
   id: string;                         // unique instance id
   cardDefId: string;                  // references the catalog definition
-  type: "resource" | "capital";       // mashbill/investment/operations have their own types
+  type: "resource" | "capital";       // mash bills have their own type
   subtype?: ResourceSubtype;          // for resource cards
   premium?: boolean;                  // true for cards like 2-rye
   resourceCount?: number;             // 1 for plain, 2 for 2-rye, etc.
   capitalValue?: number;              // for capital cards
   /** Optional: subtypes this card may stand in for (e.g. "any grain" specialty). */
   aliases?: ResourceSubtype[];
-  /** Reputation gained when this card is discarded as part of a normal action. */
-  discardReputationBonus?: number;
   /** Capital cost to acquire this card from the market. */
   cost?: number;
 }
@@ -75,46 +68,6 @@ export interface MashBill {
 }
 
 // -----------------------------
-// Investments
-// -----------------------------
-
-export type InvestmentEffect =
-  | { kind: "hand_size_plus"; amount: number }
-  | { kind: "free_trash_per_round"; amount: number }
-  | { kind: "carry_over_cards"; amount: number }
-  | { kind: "demand_plus_per_round"; amount: number }
-  | { kind: "capital_to_reputation"; capitalCost: number; reputationGained: number; perRound: number }
-  | { kind: "free_age_per_round" }
-  | { kind: "draw_mashbill_per_round"; amount: number };
-
-export interface Investment {
-  id: string;
-  defId: string;
-  name: string;
-  flavorText?: string;
-  capitalCost: number;
-  effect: InvestmentEffect;
-}
-
-// -----------------------------
-// Operations
-// -----------------------------
-
-export type OperationsEffect =
-  | { kind: "demand_delta"; amount: number }
-  | { kind: "trash_opponent_hand_card" }
-  | { kind: "steal_from_discard"; amount: number }
-  | { kind: "draw_cards"; amount: number };
-
-export interface OperationsCard {
-  id: string;
-  defId: string;
-  name: string;
-  flavorText?: string;
-  effect: OperationsEffect;
-}
-
-// -----------------------------
 // Barrels & Rickhouses
 // -----------------------------
 
@@ -147,6 +100,8 @@ export interface Rickhouse {
 export interface PlayerState {
   id: string;
   name: string;
+  /** AI-controlled? Defaults to false (human). */
+  isBot?: boolean;
 
   // Personal deck zones (resource + capital cards only).
   hand: Card[];
@@ -156,19 +111,13 @@ export interface PlayerState {
 
   // Out-of-deck holdings.
   mashBills: MashBill[];                    // in hand, not yet committed
-  unlockedGoldBourbons: MashBill[];         // permanent recipes
-  activeInvestments: Investment[];          // in play (max 3)
-  heldInvestments: Investment[];            // drawn but not implemented
-  heldOperations: OperationsCard[];         // drawn but not played
+  unlockedGoldBourbons: MashBill[];         // permanent recipes from Gold awards
 
   // Counters.
   reputation: number;
   handSize: number;                         // default 8
   barrelsSold: number;
 
-  // Per-round counters (reset at cleanup).
-  freeTrashRemaining: number;
-  capitalConvertedThisRound: number;
   outForRound: boolean;                     // hand exhausted in current action phase
 }
 
@@ -208,12 +157,6 @@ export interface GameState {
   bourbonDeck: MashBill[];
   bourbonDiscard: MashBill[];
 
-  investmentDeck: Investment[];
-  investmentDiscard: Investment[];
-
-  operationsDeck: OperationsCard[];
-  operationsDiscard: OperationsCard[];
-
   demand: number;                           // 0..12
   demandRolls: { round: number; roll: [number, number]; result: "rise" | "hold" }[];
 
@@ -235,7 +178,7 @@ export interface GameState {
 
 export interface GameConfig {
   seed: number;
-  players: { id: string; name: string }[];
+  players: { id: string; name: string; isBot?: boolean }[];
   /** Pre-built starter decks per player (alternative to running the draft). */
   starterDecks?: Card[][];
   /** Pre-drafted mash bills per player (alternative to running the draft). */
@@ -244,8 +187,6 @@ export interface GameConfig {
   bourbonDeck?: MashBill[];
   /** Cards that populate the market supply (some go straight to the conveyor). */
   marketSupply?: Card[];
-  investments?: Investment[];
-  operations?: OperationsCard[];
   /** Override default rickhouse list. */
   rickhouses?: Rickhouse[];
   /** Initial demand (default 6 per rules). */
@@ -291,21 +232,7 @@ export type GameAction =
       marketSlotIndex: number;
       spendCardIds: string[];
     }
-  | {
-      type: "IMPLEMENT_INVESTMENT";
-      playerId: string;
-      investmentId: string;
-      capitalCardIds: string[];
-    }
-  | {
-      type: "PLAY_OPERATIONS";
-      playerId: string;
-      operationsCardId: string;
-      targetData?: Record<string, unknown>;
-    }
   | { type: "DRAW_MASH_BILL"; playerId: string; spendCardId: string }
-  | { type: "DRAW_INVESTMENT"; playerId: string; spendCardId: string }
-  | { type: "DRAW_OPERATIONS"; playerId: string; spendCardId: string }
   | {
       type: "TRADE";
       player1Id: string;
@@ -315,8 +242,7 @@ export type GameAction =
       player1ActionCardId: string;
       player2ActionCardId: string;
     }
-  | { type: "PASS_TURN"; playerId: string }
-  | { type: "END_PHASE" };
+  | { type: "PASS_TURN"; playerId: string };
 
 // -----------------------------
 // Engine API

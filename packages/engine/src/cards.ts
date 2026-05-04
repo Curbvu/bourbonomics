@@ -1,13 +1,4 @@
-import type {
-  Card,
-  Investment,
-  InvestmentEffect,
-  MashBill,
-  MashBillRecipe,
-  OperationsCard,
-  OperationsEffect,
-  ResourceSubtype,
-} from "./types.js";
+import type { Card, MashBill, MashBillRecipe, ResourceSubtype } from "./types.js";
 
 // ----- Resource & Capital Card Factories -----
 
@@ -69,46 +60,6 @@ export function makeMashBill(spec: MashBillSpec, instanceIndex: number): MashBil
     recipe: spec.recipe,
     silverAward: spec.silverAward,
     goldAward: spec.goldAward,
-  };
-}
-
-// ----- Investment Factory -----
-
-interface InvestmentSpec {
-  defId: string;
-  name: string;
-  flavorText?: string;
-  capitalCost: number;
-  effect: InvestmentEffect;
-}
-
-export function makeInvestment(spec: InvestmentSpec, instanceIndex: number): Investment {
-  return {
-    id: `inv_${spec.defId}_${instanceIndex}`,
-    defId: spec.defId,
-    name: spec.name,
-    flavorText: spec.flavorText,
-    capitalCost: spec.capitalCost,
-    effect: spec.effect,
-  };
-}
-
-// ----- Operations Factory -----
-
-interface OperationsSpec {
-  defId: string;
-  name: string;
-  flavorText?: string;
-  effect: OperationsEffect;
-}
-
-export function makeOperations(spec: OperationsSpec, instanceIndex: number): OperationsCard {
-  return {
-    id: `op_${spec.defId}_${instanceIndex}`,
-    defId: spec.defId,
-    name: spec.name,
-    flavorText: spec.flavorText,
-    effect: spec.effect,
   };
 }
 

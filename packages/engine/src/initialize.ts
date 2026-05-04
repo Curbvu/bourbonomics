@@ -1,9 +1,7 @@
 import type { GameConfig, GameState, PlayerState } from "./types.js";
 import {
-  defaultInvestments,
   defaultMarketSupply,
   defaultMashBillCatalog,
-  defaultOperations,
   defaultRickhouses,
   defaultStarterCards,
 } from "./defaults.js";
@@ -33,20 +31,16 @@ export function initializeGame(config: GameConfig): GameState {
     return {
       id: p.id,
       name: p.name,
+      isBot: p.isBot ?? false,
       hand: [],
       deck: shuffled,
       discard: [],
       trashed: [],
       mashBills: startingMash.slice(),
       unlockedGoldBourbons: [],
-      activeInvestments: [],
-      heldInvestments: [],
-      heldOperations: [],
       reputation: 0,
       handSize: startingHandSize,
       barrelsSold: 0,
-      freeTrashRemaining: 0,
-      capitalConvertedThisRound: 0,
       outForRound: false,
     };
   });
@@ -61,16 +55,9 @@ export function initializeGame(config: GameConfig): GameState {
   const supplyShuffle = shuffleCards(supplySeed, rngState);
   rngState = supplyShuffle.rngState;
   const conveyorCount = Math.min(MARKET_CONVEYOR_SIZE, supplyShuffle.shuffled.length);
-  // Take from the top (end) of the shuffled pile and put face-up in conveyor order.
   const conveyorSrc = supplyShuffle.shuffled.slice(supplyShuffle.shuffled.length - conveyorCount);
   const marketConveyor = conveyorSrc.slice().reverse();
   const marketSupplyDeck = supplyShuffle.shuffled.slice(0, supplyShuffle.shuffled.length - conveyorCount);
-
-  // Investments + operations
-  const invShuffle = shuffleCards(config.investments ?? defaultInvestments(), rngState);
-  rngState = invShuffle.rngState;
-  const opsShuffle = shuffleCards(config.operations ?? defaultOperations(), rngState);
-  rngState = opsShuffle.rngState;
 
   return {
     seed: config.seed,
@@ -86,10 +73,6 @@ export function initializeGame(config: GameConfig): GameState {
     marketDiscard: [],
     bourbonDeck: bourbonShuffle.shuffled,
     bourbonDiscard: [],
-    investmentDeck: invShuffle.shuffled,
-    investmentDiscard: [],
-    operationsDeck: opsShuffle.shuffled,
-    operationsDiscard: [],
     demand: startingDemand,
     demandRolls: [],
     finalRoundTriggered: false,

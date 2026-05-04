@@ -6,19 +6,7 @@ import { applyMakeBourbon, validateMakeBourbon } from "./actions/make-bourbon.js
 import { applyAgeBourbon, validateAgeBourbon } from "./actions/age-bourbon.js";
 import { applySellBourbon, validateSellBourbon } from "./actions/sell-bourbon.js";
 import { applyBuyFromMarket, validateBuyFromMarket } from "./actions/buy-from-market.js";
-import {
-  applyDrawInvestment,
-  applyDrawMashBill,
-  applyDrawOperations,
-  validateDrawInvestment,
-  validateDrawMashBill,
-  validateDrawOperations,
-} from "./actions/draw-deck.js";
-import {
-  applyImplementInvestment,
-  validateImplementInvestment,
-} from "./actions/implement-investment.js";
-import { applyPlayOperations, validatePlayOperations } from "./actions/play-operations.js";
+import { applyDrawMashBill, validateDrawMashBill } from "./actions/draw-deck.js";
 import { applyTrade, validateTrade } from "./actions/trade.js";
 import { applyPassTurn, validatePassTurn } from "./actions/pass-turn.js";
 
@@ -51,19 +39,10 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateBuyFromMarket(state, action);
     case "DRAW_MASH_BILL":
       return validateDrawMashBill(state, action);
-    case "DRAW_INVESTMENT":
-      return validateDrawInvestment(state, action);
-    case "DRAW_OPERATIONS":
-      return validateDrawOperations(state, action);
-    case "IMPLEMENT_INVESTMENT":
-      return validateImplementInvestment(state, action);
-    case "PLAY_OPERATIONS":
-      return validatePlayOperations(state, action);
     case "TRADE":
       return validateTrade(state, action);
     case "PASS_TURN":
       return validatePassTurn(state, action);
-    // Subsequent phases register their actions here.
     default:
       return { legal: false, reason: `unhandled action type: ${(action as { type: string }).type}` };
   }
@@ -109,18 +88,6 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
       return;
     case "DRAW_MASH_BILL":
       applyDrawMashBill(draft, action);
-      return;
-    case "DRAW_INVESTMENT":
-      applyDrawInvestment(draft, action);
-      return;
-    case "DRAW_OPERATIONS":
-      applyDrawOperations(draft, action);
-      return;
-    case "IMPLEMENT_INVESTMENT":
-      applyImplementInvestment(draft, action);
-      return;
-    case "PLAY_OPERATIONS":
-      applyPlayOperations(draft, action);
       return;
     case "TRADE":
       applyTrade(draft, action);

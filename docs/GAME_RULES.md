@@ -8,6 +8,8 @@ Each player owns a distillery and competes to earn the most reputation. Barons d
 
 The challenge isn't just making bourbon — it's knowing **when** to make it, **how long** to age it, and **what to give up** while you wait.
 
+> **Scope note (v2.0 alpha).** This rulebook covers the implemented core: drafting, the round loop, production, aging, selling, market buying, trading, and the doomsday-deck endgame. Investment cards, Operations cards, and a Distillery starting bonus are deferred to a later release; see [`IMPLEMENTATION_GUIDE.md`](IMPLEMENTATION_GUIDE.md) for the planned scope.
+
 ---
 
 # 🏆 Winning the Game
@@ -41,7 +43,7 @@ Each player builds a personal **14-card starter deck** by selecting from the com
 - **Grain cards** (rye, barley, wheat — depending on the pool)
 - **Capital cards**
 
-A typical balanced starter might be 3 cask, 4 corn, 3 grain, 2 capital, plus 2 of the player's choice — but players are free to specialize. A player who plans to focus on high-rye bourbon might draft more rye-leaning grain cards. A player planning to invest aggressively might draft extra capital. The draft itself is the first strategic decision of the game.
+A typical balanced starter might be 3 cask, 4 corn, 3 grain, 2 capital, plus 2 of the player's choice — but players are free to specialize. A player who plans to focus on high-rye bourbon might draft more rye-leaning grain cards. The draft itself is the first strategic decision of the game.
 
 All cards in the starter deck are "plain" — basic versions of each type. Premium cards (like 2-rye) are only available through the market during play.
 
@@ -54,16 +56,16 @@ After all players have drafted their starter decks, each player shuffles and dra
 - Set up the **Market Conveyor**: 6 cards face-up from the market supply deck.
 - Set the **Demand Track** to **6** (starting position).
 - Each player begins with **0 reputation**.
-- Place the Bourbon deck (mash bills), Investment deck, and Operations deck face-down within reach.
+- Place the Bourbon deck (mash bills) face-down within reach.
 - Roll for first player or use any agreed method to determine turn order.
 
 ---
 
 # 🗺️ Understanding the Board
 
-The game revolves around five shared elements: **the Market Conveyor**, **the Bourbon deck**, **the Investment deck**, **the Operations deck**, and **the Rickhouses**.
+The game revolves around three shared elements: **the Market Conveyor**, **the Bourbon deck**, and **the Rickhouses**.
 
-Each player additionally manages their **personal deck**, **hand**, **discard pile**, **active investments**, **aging barrels**, and **reputation track**.
+Each player additionally manages their **personal deck**, **hand**, **discard pile**, **aging barrels**, and **reputation track**.
 
 ---
 
@@ -96,17 +98,17 @@ Mash bills without a printed recipe accept any legal mash. Recipes are public in
 
 ## Hand Size
 
-Each player draws **8 cards** at the start of every round. This is the **starting hand size**. Investments can increase this number permanently for a player.
+Each player draws **8 cards** at the start of every round.
 
-There is no maximum hand size during a turn (mid-sale draws and other effects can temporarily expand a hand). At the end of each round, all unused cards in hand are placed in the discard pile, unless an investment allows otherwise.
+There is no maximum hand size during a turn (mid-sale draws can temporarily expand a hand). At the end of each round, all unused cards in hand are placed in the discard pile.
 
 ## Deck Composition
 
 A player's deck contains a mix of:
 - **Resource cards** (cask, corn, grain — including premium variants like 2-rye).
-- **Capital cards** (currency for market purchases and investments).
+- **Capital cards** (currency for market purchases).
 
-Mash bills, Operations cards, and Investment cards are *not* part of the deck. They live in the player's hand or in play and are managed separately. The 14-card starter deck contains only resource and capital cards.
+Mash bills are *not* part of the deck. They live in the player's hand and are managed separately. The 14-card starter deck contains only resource and capital cards.
 
 Decks grow during the game through market purchases. Decks shrink through trashing (see §Trashing Cards) and temporary commitment to aging barrels (see §Aging).
 
@@ -137,19 +139,17 @@ The bell-curve probability of 2d6 means demand naturally tends toward the middle
 
 Each player draws **8 cards** from their personal deck. If the deck runs out, shuffle the discard pile to form a new deck and continue drawing.
 
-Investments may modify the draw amount. Apply those effects during this phase.
-
 ---
 
 # 🎯 Phase 3: Action Phase
 
-Players take turns clockwise. On your turn, you spend one card from your hand to take an action. The phase continues until **all players have exhausted their hands**.
+Players take turns clockwise. On your turn, you take one action. The phase continues until **all players have exhausted their hands** (or passed).
 
 A player whose hand is empty is "out" for the round and skipped on subsequent turns.
 
 ## Available Actions
 
-Each action requires spending one card from your hand. The spent card goes to your discard pile unless otherwise noted.
+Each action requires spending one or more cards from your hand. Spent cards go to your discard pile unless otherwise noted.
 
 ### Make Bourbon
 
@@ -179,36 +179,21 @@ After resolving, demand decreases by 1. The barrel is removed from the rickhouse
 
 ### Buy from the Market
 
-Spend cards from your hand equal to the cost of a card in the Market Conveyor. Most basic cards cost 1 capital; premium cards may cost more. Some require capital specifically.
+Spend capital cards from your hand totaling at least the cost of a card in the Market Conveyor. Most basic cards cost 1 capital; premium cards may cost more.
 
 Both the **spent card(s)** and the **purchased card** go to your discard pile.
 
 After purchase, refill the Market Conveyor by drawing a new card from the supply deck.
 
-### Implement an Investment
+### Draw a Mash Bill
 
-Spend capital cards equal to the printed cost of an Investment card you hold. Place the Investment in front of you; it is now active. Each player may have a maximum of **3 active investments at any time**.
-
-Investment cards are drawn separately (see §Drawing from Other Decks).
-
-### Play an Operations Card
-
-Operations cards are one-shot effects. Spend an Operations card from your hand to resolve its effect, then discard it.
-
-### Draw from Other Decks
-
-Spend any 1 card to draw 1 card from one of:
-- The **Bourbon deck** (mash bills) — drawing the final mash bill triggers the final round.
-- The **Investment deck**.
-- The **Operations deck**.
-
-Drawn mash bills, investments, or operations cards go to your hand. Investments and operations are not part of your personal deck.
+Spend any 1 card from your hand to draw the top mash bill from the Bourbon deck into your hand. Drawing the **last** mash bill triggers the final round.
 
 ### Trade
 
 Players may trade cards with each other. Both sides must give at least one card. **Traded cards go to the recipient's discard pile**, not their hand.
 
-Trading costs **one action from each player** (each player spends one card from hand, both going to discard, in addition to the cards being traded).
+Trading costs **one action card from each player** (each player spends one card from hand, both going to discard, in addition to the cards being traded).
 
 Trading is only allowed during the action phase, not during the final round.
 
@@ -222,7 +207,9 @@ The 3 discarded cards plus the cards used to make bourbon all go to your discard
 
 When making bourbon, you may **discard one additional card from your hand and remove it from the game permanently**. This represents a failed batch — the card is destroyed, not discarded. This is optional and limited to one per production action.
 
-Some investments grant additional trashing options.
+### Pass Turn
+
+You may end your turn voluntarily. Cards remaining in your hand stay there for the rest of the action phase but are discarded during cleanup. Once you pass, you are out for the round and skipped on subsequent turns.
 
 ---
 
@@ -236,7 +223,7 @@ A Silver award returns the mash bill to the player's hand instead of being disca
 
 ## Gold — Permanent Recipe
 
-A Gold award removes the mash bill from circulation and places it face-up in front of the player as a permanent unlocked recipe. The unlocked Gold Bourbon may be applied as a free option at sale time on any future barrel that meets its requirements, providing its reputation reward instead of (or in addition to, depending on the bill) the attached mash bill's normal reward.
+A Gold award removes the mash bill from circulation and places it face-up in front of the player as a permanent unlocked recipe. The unlocked Gold Bourbon may be applied as a free option at sale time on any future barrel, providing its reputation reward instead of the attached mash bill's normal reward.
 
 Gold awards do not trigger the final round in this version of the game — only the exhaustion of the Bourbon deck does.
 
@@ -309,11 +296,7 @@ A 5-year barrel sold at demand 7 yields **5 reputation**, which the player split
 
 # 🃏 Trashing Cards
 
-Cards can be permanently removed from a player's deck (trashed) through:
-
-1. **Failed Batch (universal):** When making bourbon, discard one additional card from hand to trash it.
-2. **Investments:** Certain investments grant trashing as an action or trigger.
-3. **Operations cards:** Some Operations cards include trashing effects.
+Cards can be permanently removed from a player's deck (trashed) via the **Failed Batch** option on Make Bourbon: when producing a barrel, discard one additional card from hand and remove it from the game.
 
 Trashed cards are removed from the game — they do not return to the deck, discard pile, or any other zone.
 

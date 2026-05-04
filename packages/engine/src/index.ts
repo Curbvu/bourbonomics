@@ -8,3 +8,5 @@ export * from "./drafting.js";
 export * from "./state.js";
 export * from "./initialize.js";
 export * from "./engine.js";
+export * from "./ai/bot.js";
+export * from "./ai/runner.js";

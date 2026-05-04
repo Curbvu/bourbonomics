@@ -79,39 +79,18 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
 }
 
 /**
- * Cleanup: apply round-end investment effects, discard remaining hand cards,
- * reset per-round counters, and advance to the next round (or end the game
- * if the final round was triggered).
+ * Cleanup: discard remaining hand cards, reset per-round flags, and advance
+ * to the next round (or end the game if the final round was triggered).
  */
 export function runCleanupPhase(draft: Draft<GameState>): void {
   draft.phase = "cleanup";
 
   for (const p of draft.players) {
-    // Honor "carry_over_cards" investments: keep up to N cards in hand.
-    let carryOver = 0;
-    for (const inv of p.activeInvestments) {
-      if (inv.effect.kind === "carry_over_cards") carryOver += inv.effect.amount;
-    }
-    if (carryOver > 0 && p.hand.length > carryOver) {
-      // Keep the first `carryOver` cards in hand; discard the rest.
-      const kept = p.hand.slice(0, carryOver);
-      const dumped = p.hand.slice(carryOver);
-      p.hand = kept;
-      p.discard.push(...dumped);
-    } else if (carryOver === 0 && p.hand.length > 0) {
+    if (p.hand.length > 0) {
       p.discard.push(...p.hand);
       p.hand = [];
     }
-    // (If carryOver >= p.hand.length, hand stays as-is.)
-
     p.outForRound = false;
-    p.capitalConvertedThisRound = 0;
-    // Refresh free-trash slots from any active investments granting them.
-    let freeTrash = 0;
-    for (const inv of p.activeInvestments) {
-      if (inv.effect.kind === "free_trash_per_round") freeTrash += inv.effect.amount;
-    }
-    p.freeTrashRemaining = freeTrash;
   }
 
   for (const b of draft.allBarrels) {
