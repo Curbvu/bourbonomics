@@ -10,6 +10,9 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "npm run dev -w @bourbonomics/client",
+    "build": "npm run build -w @bourbonomics/client",
+    "preview": "npm run preview -w @bourbonomics/client",
     "test": "npm test --workspaces --if-present",
     "test:engine": "npm test -w @bourbonomics/engine",
     "typecheck": "npm run typecheck --workspaces --if-present"
