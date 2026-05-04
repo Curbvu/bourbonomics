@@ -2,13 +2,13 @@
 
 ## Become the Bourbon Baron
 
-Welcome to *Bourbonomics*, a deckbuilding strategy game about building a bourbon empire through patience, timing, and the discipline of inventory management.
+Welcome to *Bourbonomics*, a deckbuilding strategy game about building a bourbon empire through patience, timing, and the discipline of inventory management. Designed for **2-4 players**.
 
 Each player owns a distillery and competes to earn the most reputation. Barons draft mash bills, manage a personal deck of resource cards, produce bourbon, age it over time, and sell it at the perfect moment to convert tied-up inventory into reputation.
 
 The challenge isn't just making bourbon — it's knowing **when** to make it, **how long** to age it, and **what to give up** while you wait.
 
-> **Scope note (v2.0 alpha).** This rulebook covers the implemented core: drafting, the round loop, production, aging, selling, market buying, trading, and the doomsday-deck endgame. Investment cards, Operations cards, and a Distillery starting bonus are deferred to a later release; see [`IMPLEMENTATION_GUIDE.md`](IMPLEMENTATION_GUIDE.md) for the planned scope.
+> **Scope note (v2.0 alpha).** This rulebook covers the implemented core: drafting, the round loop, production, aging, selling, market buying, trading, and the doomsday-deck endgame. Investment cards, Operations cards, and a Distillery starting bonus are deferred to a later release; see [`IMPLEMENTATION_GUIDE.md`](IMPLEMENTATION_GUIDE.md) for the planned scope. The current build is **computer-only** — every player slot is filled by a heuristic bot. A human-controlled player slot will land alongside the UI work.
 
 ---
 
@@ -121,7 +121,7 @@ Each round consists of four phases:
 1. **Demand Phase** — Roll 2d6; if higher than current demand, demand +1.
 2. **Draw Phase** — Each player draws 8 cards from their personal deck.
 3. **Action Phase** — Players take turns spending cards as actions until all hands are exhausted.
-4. **Cleanup Phase** — Unused cards go to discard. Market refreshes if needed.
+4. **Cleanup Phase** — Unused cards go to discard, per-round flags reset (barrels become eligible to age again), and the next round begins. If the final round was triggered, the game ends here instead.
 
 ---
 
