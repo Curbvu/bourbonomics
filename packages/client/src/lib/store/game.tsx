@@ -36,10 +36,10 @@ import {
 
 // Storage key is versioned and bumped whenever the engine schema or
 // canonical catalog changes (so legacy saves don't crash on hydrate).
-// Current bump: dev-branch named bourbon catalog (Knob's End 90, etc.)
-// replaced the generic Backroad Batch / Quick Pour / etc.
-const STORAGE_KEY = "bourbonomics:v2.1.3-game";
-const AUTOPLAY_KEY = "bourbonomics:v2.1.3-autoplay";
+// Current bump: bourbon catalog grew from 8 → 20 named bills so the
+// face-up market row stays stocked after the opening deal.
+const STORAGE_KEY = "bourbonomics:v2.1.4-game";
+const AUTOPLAY_KEY = "bourbonomics:v2.1.4-autoplay";
 const AUTO_STEP_MS = 280;
 
 export interface NewGameSeat {
