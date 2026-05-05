@@ -23,6 +23,7 @@ import type {
   ResourceSubtype,
 } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
+import ActionBar from "./ActionBar";
 import PlayerSwatch from "./PlayerSwatch";
 import {
   CAPITAL_CHROME,
@@ -48,6 +49,9 @@ export default function HandTray() {
 
   return (
     <div className="border-t border-slate-800 bg-slate-950/90">
+      {/* Action bar — controls for the human seat during the action phase. */}
+      <ActionBar />
+
       {/* Identity + reputation strip */}
       <div className="flex items-center gap-4 border-b border-slate-900 px-[22px] py-2.5">
         <div className="flex items-center gap-2">

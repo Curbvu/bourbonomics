@@ -17,6 +17,17 @@ Authoritative checklist of explicit asks the user has made for v2.1.
 Implementation must respect every item on this list; new asks are
 added at the top.
 
+- **Action bar above the HandTray** during the action phase. Single
+  horizontal strip of buttons (Make / Age / Sell / Rush / Buy market /
+  Draw bill / Trade / Pass) on the human's turn, each with its own
+  enabled/disabled tooltip explaining why. Wiring in flight: Pass Turn
+  and Draw Mash Bill are one-click; Make/Sell/Rush/Buy/Trade need
+  multi-step pickers that follow in subsequent iterations. Bots still
+  play their action turns automatically via Step / Auto.
+- **MarketCenter is content-sized, not stretched.** The three sub-
+  sections (Mash bills / Operations / Investments) no longer claim
+  `flex-1` of the column height — they paint just the height their
+  content needs, so the dead band below them is gone.
 - **Interactive draw-phase modal.** Round-loop draw is human-driven
   too: when phase===`draw` and autoplay is OFF, a modal pops with the
   source deck + a "Draw cards ↵" button. Click → resource cards fan

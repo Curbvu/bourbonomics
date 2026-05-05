@@ -77,8 +77,10 @@ export default function MarketCenter() {
         </div>
       </section>
 
-      {/* Three subsections, each with 3 face-up + 1 draw-from-pile */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-1.5 lg:grid-cols-3">
+      {/* Three subsections, each with 3 face-up + 1 draw-from-pile.
+          Content-sized — no flex-1 stretch — so the section never paints
+          dead space below itself. */}
+      <div className="grid grid-cols-1 gap-1.5 lg:grid-cols-3">
         <Subsection
           title="Mash bills"
           tag={state.finalRoundTriggered ? "final round" : undefined}
@@ -141,7 +143,7 @@ function Subsection({
   return (
     <section
       className={[
-        "flex min-h-0 flex-col rounded-lg border bg-slate-950/40 p-1.5",
+        "flex flex-col rounded-lg border bg-slate-950/40 p-1.5",
         muted ? "border-slate-800/60 opacity-80" : "border-slate-800",
       ].join(" ")}
     >
