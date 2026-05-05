@@ -9,30 +9,34 @@
  *
  * Flow:
  *   1. Modal pops with a "Roll dice ↵" button.
- *   2. Click → dice spin in place for ~700ms then settle on the rolled
- *      values. The roll is determined by the engine's seeded RNG (same
- *      function the runner uses), so result is reproducible.
+ *   2. Click → both dice DROP from above the modal, tumble on the way
+ *      down, land with a bounce, and settle on the rolled values. The
+ *      roll is determined by the engine's seeded RNG (same function the
+ *      runner uses), so result is reproducible.
  *   3. After a brief reveal, the ROLL_DEMAND action is dispatched and
  *      the modal closes.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { roll2d6 } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 
 type RollState =
   | { kind: "idle" }
-  | { kind: "rolling"; values: [number, number]; resultRng: number }
-  | { kind: "reveal"; values: [number, number]; resultRng: number };
+  | { kind: "rolling"; values: [number, number] }
+  | { kind: "settled"; values: [number, number] };
 
-const SPIN_MS = 700;
-const REVEAL_MS = 700;
+const DROP_MS = 1050;     // matches die-drop keyframe
+const SETTLE_MS = 700;    // dwell on the result before dispatching
 
 export default function DemandRollModal() {
   const { state, autoplay, dispatch } = useGameStore();
   const [phase, setPhase] = useState<RollState>({ kind: "idle" });
   const [tickValues, setTickValues] = useState<[number, number]>([1, 1]);
+  // Guard against React strict-mode running effects twice in dev — one
+  // dispatch per round, max.
+  const dispatchedRef = useRef<number>(-1);
 
   // Reset whenever the round changes — fresh roll each round.
   const round = state?.round ?? 0;
@@ -40,33 +44,38 @@ export default function DemandRollModal() {
     setPhase({ kind: "idle" });
   }, [round]);
 
-  // While "rolling" — flicker random faces every 80ms.
+  // While rolling — flicker random faces during the drop, then snap to
+  // the resolved values right before the settle phase.
   useEffect(() => {
     if (phase.kind !== "rolling") return;
     const id = window.setInterval(() => {
-      setTickValues([1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)] as [number, number]);
+      setTickValues([
+        1 + Math.floor(Math.random() * 6),
+        1 + Math.floor(Math.random() * 6),
+      ] as [number, number]);
     }, 80);
     const stop = window.setTimeout(() => {
       window.clearInterval(id);
       setTickValues(phase.values);
-      setPhase({ kind: "reveal", values: phase.values, resultRng: phase.resultRng });
-    }, SPIN_MS);
+      setPhase({ kind: "settled", values: phase.values });
+    }, DROP_MS - 80);
     return () => {
       window.clearInterval(id);
       window.clearTimeout(stop);
     };
   }, [phase]);
 
-  // After reveal, dispatch the action.
+  // After the dice settle, dispatch ROLL_DEMAND once per round.
   useEffect(() => {
-    if (phase.kind !== "reveal") return;
+    if (phase.kind !== "settled") return;
+    if (dispatchedRef.current === round) return;
     const id = window.setTimeout(() => {
-      // Advance the rng-state to match what runner.ts would have done.
+      dispatchedRef.current = round;
       dispatch({ type: "ROLL_DEMAND", roll: phase.values });
       setPhase({ kind: "idle" });
-    }, REVEAL_MS);
+    }, SETTLE_MS);
     return () => window.clearTimeout(id);
-  }, [phase, dispatch]);
+  }, [phase, dispatch, round]);
 
   if (!state) return null;
   if (state.phase !== "demand") return null;
@@ -74,14 +83,15 @@ export default function DemandRollModal() {
 
   const startRoll = () => {
     if (phase.kind !== "idle") return;
-    const [values, nextRng] = roll2d6(state.rngState);
-    setPhase({ kind: "rolling", values, resultRng: nextRng });
+    if (dispatchedRef.current === round) return;
+    const [values] = roll2d6(state.rngState);
+    setPhase({ kind: "rolling", values });
   };
 
   const sum = tickValues[0] + tickValues[1];
   const willRise = sum > state.demand;
   const isAnimating = phase.kind === "rolling";
-  const isRevealing = phase.kind === "reveal";
+  const isSettled = phase.kind === "settled";
 
   return (
     <div
@@ -108,7 +118,7 @@ export default function DemandRollModal() {
           </div>
           <div className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
             current demand · <span className="text-amber-200 tabular-nums">{state.demand}/12</span>
-            {isRevealing ? (
+            {isSettled ? (
               <>
                 {" · result "}
                 <span className="text-amber-200 tabular-nums">{sum}</span>
@@ -121,10 +131,11 @@ export default function DemandRollModal() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <Die value={tickValues[0]} animating={isAnimating} />
-          <span className="font-display text-3xl font-bold text-amber-300/70">+</span>
-          <Die value={tickValues[1]} animating={isAnimating} />
+        {/* Dice stage — fixed-height tray so falling dice have somewhere
+            to drop from / land into. */}
+        <div className="relative h-[140px] w-[260px]">
+          <DieStage value={tickValues[0]} animating={isAnimating} runId={`${round}-a-${phase.kind}`} offsetX={-72} />
+          <DieStage value={tickValues[1]} animating={isAnimating} runId={`${round}-b-${phase.kind}`} offsetX={72} />
         </div>
 
         <button
@@ -158,7 +169,43 @@ const PIPS: Record<number, [number, number][]> = {
   6: [[1, 1], [3, 1], [1, 2], [3, 2], [1, 3], [3, 3]],
 };
 
-function Die({ value, animating }: { value: number; animating: boolean }) {
+function DieStage({
+  value,
+  animating,
+  runId,
+  offsetX,
+}: {
+  value: number;
+  animating: boolean;
+  runId: string;
+  offsetX: number;
+}) {
+  return (
+    <div
+      className="absolute bottom-0 left-1/2 flex h-[100px] w-[100px] flex-col items-center"
+      style={{ transform: `translateX(calc(-50% + ${offsetX}px))` }}
+    >
+      {/* Impact shadow on the floor */}
+      {animating ? (
+        <div
+          key={`shadow-${runId}`}
+          className="animate-die-impact pointer-events-none absolute -bottom-2 h-[8px] w-[88px] rounded-full bg-black/60 blur-md"
+          aria-hidden
+        />
+      ) : null}
+      {/* The die itself — wraps the drop in a separate element from the
+          tumble so they can layer cleanly. */}
+      <div
+        key={`drop-${runId}`}
+        className={animating ? "animate-die-drop" : ""}
+      >
+        <Die value={value} wobble={animating} />
+      </div>
+    </div>
+  );
+}
+
+function Die({ value, wobble }: { value: number; wobble: boolean }) {
   const v = Math.min(6, Math.max(1, value));
   const pips = PIPS[v]!;
   return (
@@ -166,7 +213,7 @@ function Die({ value, animating }: { value: number; animating: boolean }) {
       aria-label={`Die showing ${v}`}
       className={[
         "relative grid h-[88px] w-[88px] grid-cols-3 grid-rows-3 gap-1.5 rounded-xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-amber-200 p-2.5 shadow-[0_8px_22px_rgba(0,0,0,.5),inset_0_1px_0_rgba(255,255,255,.7)]",
-        animating ? "animate-die-tumble" : "",
+        wobble ? "animate-die-tumble" : "",
       ].join(" ")}
     >
       {[1, 2, 3].map((row) =>

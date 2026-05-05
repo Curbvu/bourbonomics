@@ -190,20 +190,36 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(id);
   }, [autoplay, state, step]);
 
-  // During setup phases the round-loop banner (with Step / Auto controls)
-  // is hidden — the modal owns the screen. Auto-resolve bot picks so the
-  // human sees their modal without having to advance manually.
+  // Auto-resolve bot turns during phases the human doesn't drive directly:
+  //   - distillery_selection / starter_deck_draft: the human's modal is
+  //     gated by `awaitingHumanInput`; bots get auto-stepped here.
+  //   - draw: bots auto-draw their hands so the human's draw modal can
+  //     appear (and so the round can progress after the human draws).
+  // Demand and action phases stay manual: the human triggers them via
+  // their respective modals / Step button.
   useEffect(() => {
     if (!state) return;
     if (isGameOver(state)) return;
     const isSetupPhase =
       state.phase === "distillery_selection" ||
       state.phase === "starter_deck_draft";
-    if (!isSetupPhase) return;
+    const isDrawPhase = state.phase === "draw";
+    if (!isSetupPhase && !isDrawPhase) return;
     if (awaitingHumanInput(state)) return;
-    // Small delay so consecutive bot picks have a visible animation beat
-    // rather than collapsing to a single frame.
-    const id = window.setTimeout(step, 220);
+    if (isDrawPhase) {
+      // Pause auto-stepping until the human has drawn — once they have,
+      // resume so any remaining bots draw and the action phase begins.
+      const human = state.players.find((p) => !p.isBot);
+      if (human && !state.playerIdsCompletedPhase.includes(human.id)) {
+        // Auto-step bots that come BEFORE the human in the draw order
+        // (none, with current ordering — but harmless if order changes).
+        const nextDrawer = state.players.find(
+          (p) => !state.playerIdsCompletedPhase.includes(p.id),
+        );
+        if (!nextDrawer || !nextDrawer.isBot) return;
+      }
+    }
+    const id = window.setTimeout(step, 180);
     return () => window.clearTimeout(id);
   }, [state, step]);
 

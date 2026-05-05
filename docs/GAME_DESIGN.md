@@ -17,6 +17,19 @@ Authoritative checklist of explicit asks the user has made for v2.1.
 Implementation must respect every item on this list; new asks are
 added at the top.
 
+- **Interactive draw-phase modal.** Round-loop draw is human-driven
+  too: when phase===`draw` and autoplay is OFF, a modal pops with the
+  source deck + a "Draw cards ↵" button. Click → resource cards fan
+  out of the deck on a staggered arc into the player's hand (and a
+  violet ops card if one is queued). Bots auto-resolve their draws in
+  the background via the store's auto-step effect so the human's modal
+  is never blocked. Single-dispatch guard prevents React strict-mode
+  double draws.
+- **Dice physically drop and roll.** The 2d6 demand modal now uses a
+  two-phase animation: each die drops from above the modal, tumbling
+  on the way down, lands with a bounce + brief settle wobble, then
+  holds on its rolled face. Soft impact shadow grows underneath on
+  landing. Built from `die-drop` + `die-impact` keyframes.
 - **Interactive 2d6 demand roll modal.** When the round enters the
   Demand phase and autoplay is OFF, a modal pops with two physical
   dice + a "Roll dice ↵" button. Click → dice tumble in place ~700ms,

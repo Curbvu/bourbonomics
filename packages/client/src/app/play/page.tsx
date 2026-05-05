@@ -2,6 +2,7 @@
 
 import DemandRollModal from "./components/DemandRollModal";
 import DistilleryDraftModal from "./components/DistilleryDraftModal";
+import DrawPhaseModal from "./components/DrawPhaseModal";
 import GameBoard from "./components/GameBoard";
 import GameErrorBoundary from "./components/ErrorBoundary";
 import GameTopBar from "./components/GameTopBar";
@@ -36,6 +37,7 @@ export default function PlayPage() {
       <DistilleryDraftModal />
       <StarterDeckDraftModal />
       <DemandRollModal />
+      <DrawPhaseModal />
     </main>
   );
 }
