@@ -1,16 +1,13 @@
 import type { GameAction, GameState } from "../types";
 import { applyAction, isGameOver } from "../engine";
 import { roll2d6 } from "../rng";
-import { chooseAction } from "./bot";
+import { chooseAction, chooseDistillery } from "./bot";
 
 /**
  * Drive a game where every player is a bot. Returns the final state.
  *
- * The orchestrator advances the engine deterministically:
- *   - During the demand phase, it rolls 2d6 from state.rngState.
- *   - During the draw phase, it issues DRAW_HAND for every player in turn.
- *   - During the action phase, it asks the current player's bot to choose.
- *   - The game ends when the engine reports phase === "ended".
+ * The orchestrator advances the engine deterministically through every phase
+ * including distillery selection.
  *
  * `maxActions` is a safety cap to prevent runaway loops if a bot keeps emitting
  * no-op actions; default is generous (10,000) for any reasonable game length.
@@ -56,17 +53,22 @@ export function stepOrchestrator(
 /** Decide what the orchestrator does next given the current phase. */
 export function nextOrchestratorAction(state: GameState): GameAction {
   switch (state.phase) {
+    case "distillery_selection": {
+      const nextPickerId = state.distillerySelectionOrder[state.distillerySelectionCursor];
+      if (!nextPickerId) {
+        throw new Error("distillery selection has no remaining pickers");
+      }
+      return chooseDistillery(state, nextPickerId);
+    }
     case "demand": {
       const [roll] = roll2d6(state.rngState);
       return { type: "ROLL_DEMAND", roll };
     }
     case "draw": {
-      // Find the next player who hasn't drawn yet.
       const next = state.players.find(
         (p) => !state.playerIdsCompletedPhase.includes(p.id),
       );
       if (!next) {
-        // Shouldn't happen — the engine auto-advances on the last DRAW_HAND.
         throw new Error("draw phase has no remaining players");
       }
       return { type: "DRAW_HAND", playerId: next.id };
@@ -86,9 +88,6 @@ export function nextOrchestratorAction(state: GameState): GameAction {
 /** Apply the action, plus any out-of-band rng-state updates the action needs. */
 function applyOrchestratorStep(state: GameState, action: GameAction): GameState {
   if (action.type === "ROLL_DEMAND") {
-    // ROLL_DEMAND consumes a 2d6 from the RNG, but the engine reducer only
-    // sees the roll value — we have to advance state.rngState ourselves so
-    // subsequent rolls don't reuse the same state.
     const [, nextRng] = roll2d6(state.rngState);
     return applyAction({ ...state, rngState: nextRng }, action);
   }

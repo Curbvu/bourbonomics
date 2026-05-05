@@ -39,8 +39,18 @@ export function getPlayerBarrels(state: GameState, playerId: string): Barrel[] {
   return state.allBarrels.filter((b) => b.ownerId === playerId);
 }
 
-export function rickhouseUsage(state: GameState, rickhouseId: string): number {
-  return state.allBarrels.filter((b) => b.rickhouseId === rickhouseId).length;
+export function playerRickhouseFull(state: GameState, playerId: string): boolean {
+  const player = findPlayer(state, playerId);
+  if (!player) return false;
+  const occupied = state.allBarrels.filter((b) => b.ownerId === playerId).length;
+  return occupied >= player.rickhouseSlots.length && player.rickhouseSlots.length > 0;
+}
+
+export function emptySlotsFor(state: GameState, playerId: string): string[] {
+  const player = findPlayer(state, playerId);
+  if (!player) return [];
+  const taken = new Set(state.allBarrels.filter((b) => b.ownerId === playerId).map((b) => b.slotId));
+  return player.rickhouseSlots.filter((s) => !taken.has(s.id)).map((s) => s.id);
 }
 
 /**
@@ -81,6 +91,10 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
 /**
  * Cleanup: discard remaining hand cards, reset per-round flags, and advance
  * to the next round (or end the game if the final round was triggered).
+ *
+ * Operations cards are NOT discarded at end of round — they persist across
+ * rounds until played. The pendingRushBarrelId likewise persists until the
+ * affected player resolves it.
  */
 export function runCleanupPhase(draft: Draft<GameState>): void {
   draft.phase = "cleanup";
@@ -91,10 +105,14 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
       p.hand = [];
     }
     p.outForRound = false;
+    p.demandSurgeActive = false;
+    p.brokerFreeTradeUsed = false;
   }
 
   for (const b of draft.allBarrels) {
     b.agedThisRound = false;
+    b.inspectedThisRound = false;
+    b.extraAgesAvailable = 0;
   }
 
   if (draft.finalRoundTriggered) {

@@ -1,13 +1,15 @@
 import { initializeGame } from "../src/initialize.js";
 import { defaultMashBillCatalog } from "../src/defaults.js";
+import { defaultDistilleryPool } from "../src/distilleries.js";
 import { applyAction } from "../src/engine.js";
-import type { Card, GameConfig, GameState } from "../src/types.js";
+import type { Card, Distillery, GameConfig, GameState } from "../src/types.js";
 
 /**
  * Build a deterministic test game.
  *
- * Defaults: 2 players, seed=1, default starter decks (14 cards each), each
- * player drafted 3 mash bills, the rest in the bourbon deck.
+ * Defaults: 2 players, seed=1, default starter decks (16 cards each), each
+ * player drafted 3 mash bills, and Vanilla distilleries pre-assigned so tests
+ * skip distillery_selection and land directly in the demand phase.
  */
 export function makeTestGame(overrides: Partial<GameConfig> = {}): GameState {
   const baseConfig: GameConfig = {
@@ -19,8 +21,6 @@ export function makeTestGame(overrides: Partial<GameConfig> = {}): GameState {
     ...overrides,
   };
 
-  // Pre-allocate 3 mash bills per player from the default catalog so engine
-  // tests have meaningful starting hands without running the draft.
   if (!baseConfig.startingMashBills) {
     const catalog = defaultMashBillCatalog();
     baseConfig.startingMashBills = baseConfig.players.map((_, i) =>
@@ -30,6 +30,17 @@ export function makeTestGame(overrides: Partial<GameConfig> = {}): GameState {
       const drafted = baseConfig.players.length * 3;
       baseConfig.bourbonDeck = catalog.slice(drafted);
     }
+  }
+
+  if (!baseConfig.startingDistilleries) {
+    const pool = defaultDistilleryPool();
+    const vanilla = pool.find((d) => d.bonus === "vanilla")!;
+    // Give every test player a distinct Vanilla-equivalent distillery so
+    // selection state is fully resolved without changing slot counts.
+    baseConfig.startingDistilleries = baseConfig.players.map((_, i) => ({
+      ...vanilla,
+      id: `dist_test_vanilla_${i}`,
+    }));
   }
 
   return initializeGame(baseConfig);
@@ -62,16 +73,26 @@ export function giveHand(state: GameState, playerId: string, cards: Card[]): Gam
 }
 
 /**
- * Inject a fully-aged barrel directly into state. Used by sale/aging tests so
- * we don't have to grind through N rounds to get a saleable barrel.
+ * Inject a fully-aged barrel directly into one of the player's slots. Used by
+ * sale/aging tests so we don't have to grind through N rounds to get a
+ * saleable barrel.
  */
 export function placeBarrel(
   state: GameState,
   ownerId: string,
   mashBill: { id: string; defId: string; name: string; ageBands: readonly [number, number, number]; demandBands: readonly [number, number, number]; rewardGrid: readonly (readonly (number | null)[])[]; recipe?: unknown; silverAward?: unknown; goldAward?: unknown },
   age: number,
-  rickhouseId = "rh_central",
+  slotId?: string,
 ): GameState {
+  const owner = state.players.find((p) => p.id === ownerId);
+  if (!owner) throw new Error(`placeBarrel: unknown player ${ownerId}`);
+  let targetSlot = slotId;
+  if (!targetSlot) {
+    const taken = new Set(state.allBarrels.filter((b) => b.ownerId === ownerId).map((b) => b.slotId));
+    const free = owner.rickhouseSlots.find((s) => !taken.has(s.id));
+    if (!free) throw new Error(`placeBarrel: ${ownerId} has no free slots`);
+    targetSlot = free.id;
+  }
   const barrelIndex = state.allBarrels.length;
   const barrelId = `barrel_test_${barrelIndex}`;
   const agingCards: Card[] = Array.from({ length: age }, (_, i) => ({
@@ -88,14 +109,26 @@ export function placeBarrel(
       {
         id: barrelId,
         ownerId,
-        rickhouseId,
+        slotId: targetSlot,
         attachedMashBill: mashBill as never,
         productionCardDefIds: [],
         agingCards,
         age,
         productionRound: state.round,
         agedThisRound: false,
+        inspectedThisRound: false,
+        extraAgesAvailable: 0,
       },
     ],
   };
+}
+
+/** Convenience: get a player's first empty slot id. */
+export function firstEmptySlot(state: GameState, playerId: string): string {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) throw new Error(`firstEmptySlot: unknown player ${playerId}`);
+  const taken = new Set(state.allBarrels.filter((b) => b.ownerId === playerId).map((b) => b.slotId));
+  const free = player.rickhouseSlots.find((s) => !taken.has(s.id));
+  if (!free) throw new Error(`firstEmptySlot: ${playerId} has no free slots`);
+  return free.id;
 }

@@ -1,119 +1,156 @@
 "use client";
 
 /**
- * Rickhouse grid — six region cards laid out 3 columns × 2 rows on lg+
- * screens, dropping to 2 columns on md.
+ * Per-player rickhouse panel — one card per player, slots split by tier.
  *
- * Same chrome as v1's RickhouseRow but stripped down for v2: no make /
- * sell click-targeting (bots play themselves), barrel chips show owner
- * colour + age + mash bill name only.
+ * Bonded slots are inviolable; upper-tier slots can be affected by ops
+ * cards. The bot plays both seats so click-targeting isn't needed.
  */
 
-import type { Barrel, GameState } from "@bourbonomics/engine";
+import type { Barrel, GameState, RickhouseSlot } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
-
-const REGION_DISPLAY_ORDER = [
-  "rh_western",
-  "rh_northern",
-  "rh_central",
-  "rh_louisville",
-  "rh_bardstown",
-  "rh_lexington",
-] as const;
 
 export default function RickhouseRow() {
   const { state } = useGameStore();
   if (!state) return null;
 
-  const totalSlots = state.rickhouses.reduce((n, r) => n + r.capacity, 0);
-
-  // Per-player barrel totals across all rickhouses, used for the heading tally.
-  const totals: Record<string, number> = {};
-  for (const p of state.players) totals[p.id] = 0;
-  for (const b of state.allBarrels) {
-    totals[b.ownerId] = (totals[b.ownerId] ?? 0) + 1;
-  }
-
-  const tallyParts = state.players.map((p) => {
-    const label = p.id === "human" ? "you" : p.name.toLowerCase();
-    return `${label} ${totals[p.id]}`;
-  });
-
   return (
     <section>
       <div className="mb-1.5 flex items-baseline justify-between gap-3">
         <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-slate-400">
-          Rickhouses · {state.rickhouses.length} regions · {totalSlots} slots
+          Rickhouses · {state.players.length} distilleries
         </h2>
         <span className="font-mono text-[10px] uppercase tracking-[.12em] tabular-nums text-slate-500">
-          {tallyParts.join(" · ")}
+          {state.players
+            .map((p) => {
+              const used = state.allBarrels.filter((b) => b.ownerId === p.id).length;
+              const cap = p.rickhouseSlots.length;
+              return `${(p.id === "human" ? "you" : p.name.toLowerCase())} ${used}/${cap}`;
+            })
+            .join(" · ")}
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-[minmax(0,3fr)_minmax(0,3fr)_minmax(0,4fr)]">
-        {REGION_DISPLAY_ORDER.map((id) => {
-          const h = state.rickhouses.find((r) => r.id === id);
-          if (!h) return null;
-          const barrels = state.allBarrels.filter((b) => b.rickhouseId === id);
-          const filled = barrels.length;
-          const yoursHere = barrels.filter((b) => b.ownerId === "human").length;
-          return (
-            <div
-              key={h.id}
-              className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2.5 transition-shadow"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <h3 className="font-display text-[18px] font-semibold leading-none text-slate-100">
-                  {h.name}
-                </h3>
-                <span className="font-mono text-[11px] tabular-nums text-slate-500">
-                  {filled}/{h.capacity}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {barrels.map((b) => (
-                  <BarrelChip
-                    key={b.id}
-                    barrel={b}
-                    state={state}
-                  />
-                ))}
-                {Array.from({ length: h.capacity - filled }).map((_, i) => (
-                  <div
-                    key={`empty-${i}`}
-                    className="grid h-[60px] w-[80px] place-items-center rounded border border-dashed border-slate-700/60 bg-slate-950/30 font-mono text-[9px] uppercase tracking-[.18em] text-slate-700"
-                  >
-                    empty
-                  </div>
-                ))}
-              </div>
-              {yoursHere > 0 && (
-                <div className="font-mono text-[10px] uppercase tracking-[.12em] text-indigo-300">
-                  +{yoursHere} you
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {state.players.map((p, i) => (
+          <PlayerRickhouse key={p.id} state={state} playerId={p.id} seatIndex={i} />
+        ))}
       </div>
     </section>
   );
 }
 
-function BarrelChip({ barrel, state }: { barrel: Barrel; state: GameState }) {
-  const ownerIndex = state.players.findIndex((p) => p.id === barrel.ownerId);
-  const palIdx = paletteIndex(ownerIndex < 0 ? 0 : ownerIndex);
+function PlayerRickhouse({
+  state,
+  playerId,
+  seatIndex,
+}: {
+  state: GameState;
+  playerId: string;
+  seatIndex: number;
+}) {
+  const player = state.players.find((p) => p.id === playerId)!;
+  const palIdx = paletteIndex(seatIndex);
+  const myBarrels = state.allBarrels.filter((b) => b.ownerId === playerId);
+  const bondedSlots = player.rickhouseSlots.filter((s) => s.tier === "bonded");
+  const upperSlots = player.rickhouseSlots.filter((s) => s.tier === "upper");
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <h3 className="font-display text-[16px] font-semibold leading-none text-slate-100">
+            {player.name}
+          </h3>
+          <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
+            {player.distillery?.name ?? "no distillery"}
+          </span>
+        </div>
+        <span className="font-mono text-[11px] tabular-nums text-slate-500">
+          {myBarrels.length}/{player.rickhouseSlots.length}
+        </span>
+      </div>
+
+      <SlotTier
+        label="Upper"
+        slots={upperSlots}
+        barrels={myBarrels}
+        state={state}
+        palIdx={palIdx}
+      />
+      <SlotTier
+        label="Bonded"
+        slots={bondedSlots}
+        barrels={myBarrels}
+        state={state}
+        palIdx={palIdx}
+      />
+    </div>
+  );
+}
+
+function SlotTier({
+  label,
+  slots,
+  barrels,
+  state,
+  palIdx,
+}: {
+  label: string;
+  slots: RickhouseSlot[];
+  barrels: Barrel[];
+  state: GameState;
+  palIdx: number;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="font-mono text-[9px] uppercase tracking-[.18em] text-slate-500">
+        {label}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {slots.map((s) => {
+          const barrel = barrels.find((b) => b.slotId === s.id);
+          if (!barrel) {
+            return (
+              <div
+                key={s.id}
+                className="grid h-[60px] w-[80px] place-items-center rounded border border-dashed border-slate-700/60 bg-slate-950/30 font-mono text-[9px] uppercase tracking-[.18em] text-slate-700"
+              >
+                empty
+              </div>
+            );
+          }
+          return <BarrelChip key={barrel.id} barrel={barrel} state={state} palIdx={palIdx} />;
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BarrelChip({
+  barrel,
+  state,
+  palIdx,
+}: {
+  barrel: Barrel;
+  state: GameState;
+  palIdx: number;
+}) {
   const owner = state.players.find((p) => p.id === barrel.ownerId);
+  const ringHints: string[] = [];
+  if (barrel.agedThisRound) ringHints.push("aged this round");
+  if (barrel.inspectedThisRound) ringHints.push("under inspection");
+  if (barrel.extraAgesAvailable > 0) ringHints.push("rushed shipment");
   return (
     <div
       title={`${owner?.name ?? "?"} · ${barrel.attachedMashBill.name} · age ${barrel.age}${
-        barrel.agedThisRound ? " (aged this round)" : ""
+        ringHints.length ? " (" + ringHints.join(", ") + ")" : ""
       }`}
       className={[
         "relative flex h-[60px] w-[80px] flex-col items-center justify-center overflow-hidden rounded text-white shadow-inner",
         PLAYER_BG_CLASS[palIdx]!,
-        barrel.agedThisRound ? "ring-2 ring-amber-300/70" : "",
+        barrel.inspectedThisRound ? "ring-2 ring-rose-300/70" : barrel.agedThisRound ? "ring-2 ring-amber-300/70" : "",
       ].join(" ")}
     >
       <span className="font-display text-[20px] font-bold leading-none">

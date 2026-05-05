@@ -5,9 +5,11 @@ import type {
   GameAction,
   GameState,
   MashBill,
+  PlayerState,
   ResourceSubtype,
   ValidationResult,
 } from "../types";
+import { isWheatedBill } from "../types";
 import { resourceUnits, suppliesResource } from "../cards";
 import { endPlayerTurn, isCurrentPlayer } from "../state";
 
@@ -31,6 +33,31 @@ function totalGrain(t: ResourceTotals): number {
   return t.rye + t.barley + t.wheat;
 }
 
+/**
+ * Returns the recipe minimums for this player + bill, after distillery bonuses.
+ * Wheated Baron knocks 1 off the wheat min on wheated bills (floor 0; the
+ * universal min-1-grain still applies separately).
+ */
+function effectiveRecipeMins(
+  player: PlayerState,
+  bill: MashBill,
+): { minCorn: number; minRye: number; minBarley: number; minWheat: number; maxRye: number; maxWheat: number; minTotalGrain: number } {
+  const recipe = bill.recipe ?? {};
+  let minWheat = recipe.minWheat ?? 0;
+  if (player.distillery?.bonus === "wheated_baron" && isWheatedBill(bill)) {
+    minWheat = Math.max(0, minWheat - 1);
+  }
+  return {
+    minCorn: Math.max(1, recipe.minCorn ?? 0),
+    minRye: recipe.minRye ?? 0,
+    minBarley: recipe.minBarley ?? 0,
+    minWheat,
+    maxRye: recipe.maxRye ?? Infinity,
+    maxWheat: recipe.maxWheat ?? Infinity,
+    minTotalGrain: recipe.minTotalGrain ?? 0,
+  };
+}
+
 export function validateMakeBourbon(
   state: GameState,
   action: MakeBourbonAction,
@@ -43,19 +70,28 @@ export function validateMakeBourbon(
   if (!isCurrentPlayer(state, action.playerId)) {
     return { legal: false, reason: "it is not your turn" };
   }
+  if (player.pendingRushBarrelId) {
+    return { legal: false, reason: "you must resolve a forced Rush to Market first" };
+  }
 
   const mashBill = player.mashBills.find((m) => m.id === action.mashBillId);
   if (!mashBill) {
     return { legal: false, reason: `mash bill ${action.mashBillId} not in hand` };
   }
 
-  const rickhouse = state.rickhouses.find((r) => r.id === action.rickhouseId);
-  if (!rickhouse) {
-    return { legal: false, reason: `rickhouse ${action.rickhouseId} does not exist` };
+  // Slot must belong to player and be empty.
+  const slot = player.rickhouseSlots.find((s) => s.id === action.slotId);
+  if (!slot) {
+    return { legal: false, reason: `slot ${action.slotId} is not on your distillery card` };
   }
-  const used = state.allBarrels.filter((b) => b.rickhouseId === action.rickhouseId).length;
-  if (used >= rickhouse.capacity) {
-    return { legal: false, reason: `rickhouse ${rickhouse.name} is full` };
+  const slotOccupied = state.allBarrels.some((b) => b.slotId === action.slotId);
+  if (slotOccupied) {
+    return { legal: false, reason: `slot ${action.slotId} is already occupied` };
+  }
+  // Personal rickhouse full check (informational — slot occupancy already covers it).
+  const used = state.allBarrels.filter((b) => b.ownerId === player.id).length;
+  if (used >= player.rickhouseSlots.length) {
+    return { legal: false, reason: "your rickhouse is full" };
   }
 
   // ---- Card-id integrity (uniqueness, hand membership) ----
@@ -83,18 +119,8 @@ export function validateMakeBourbon(
     }
   }
 
-  if (action.trashCardId) {
-    if (productionIds.includes(action.trashCardId)) {
-      return { legal: false, reason: "trash card cannot also be in the production list" };
-    }
-    if (allConversionIds.includes(action.trashCardId)) {
-      return { legal: false, reason: "trash card cannot also be in a conversion" };
-    }
-  }
-
   const handIds = new Set(player.hand.map((c) => c.id));
   const allSpent = [...productionIds, ...allConversionIds];
-  if (action.trashCardId) allSpent.push(action.trashCardId);
   for (const id of allSpent) {
     if (!handIds.has(id)) {
       return { legal: false, reason: `card ${id} is not in your hand` };
@@ -130,30 +156,28 @@ export function validateMakeBourbon(
   const grain = totalGrain(totals);
   if (grain < 1) return { legal: false, reason: "need at least 1 grain" };
 
-  // ---- Per-bill recipe ----
-  const recipe = mashBill.recipe;
-  if (recipe) {
-    if (recipe.minCorn !== undefined && totals.corn < recipe.minCorn) {
-      return { legal: false, reason: `recipe requires corn >= ${recipe.minCorn}` };
-    }
-    if (recipe.minRye !== undefined && totals.rye < recipe.minRye) {
-      return { legal: false, reason: `recipe requires rye >= ${recipe.minRye}` };
-    }
-    if (recipe.minBarley !== undefined && totals.barley < recipe.minBarley) {
-      return { legal: false, reason: `recipe requires barley >= ${recipe.minBarley}` };
-    }
-    if (recipe.minWheat !== undefined && totals.wheat < recipe.minWheat) {
-      return { legal: false, reason: `recipe requires wheat >= ${recipe.minWheat}` };
-    }
-    if (recipe.maxRye !== undefined && totals.rye > recipe.maxRye) {
-      return { legal: false, reason: `recipe forbids rye > ${recipe.maxRye}` };
-    }
-    if (recipe.maxWheat !== undefined && totals.wheat > recipe.maxWheat) {
-      return { legal: false, reason: `recipe forbids wheat > ${recipe.maxWheat}` };
-    }
-    if (recipe.minTotalGrain !== undefined && grain < recipe.minTotalGrain) {
-      return { legal: false, reason: `recipe requires total grain >= ${recipe.minTotalGrain}` };
-    }
+  // ---- Per-bill recipe (with distillery bonus applied) ----
+  const mins = effectiveRecipeMins(player, mashBill);
+  if (totals.corn < mins.minCorn) {
+    return { legal: false, reason: `recipe requires corn >= ${mins.minCorn}` };
+  }
+  if (totals.rye < mins.minRye) {
+    return { legal: false, reason: `recipe requires rye >= ${mins.minRye}` };
+  }
+  if (totals.barley < mins.minBarley) {
+    return { legal: false, reason: `recipe requires barley >= ${mins.minBarley}` };
+  }
+  if (totals.wheat < mins.minWheat) {
+    return { legal: false, reason: `recipe requires wheat >= ${mins.minWheat}` };
+  }
+  if (totals.rye > mins.maxRye) {
+    return { legal: false, reason: `recipe forbids rye > ${mins.maxRye}` };
+  }
+  if (totals.wheat > mins.maxWheat) {
+    return { legal: false, reason: `recipe forbids wheat > ${mins.maxWheat}` };
+  }
+  if (grain < mins.minTotalGrain) {
+    return { legal: false, reason: `recipe requires total grain >= ${mins.minTotalGrain}` };
   }
 
   return { legal: true };
@@ -206,17 +230,14 @@ export function applyMakeBourbon(
   const cardById = new Map(player.hand.map((c) => [c.id, c as Card]));
   const productionCardDefIds = action.cardIds.map((id) => cardById.get(id)!.cardDefId);
 
-  // Partition hand: trashed | spent (production+conversion) | remaining.
+  // Partition hand: spent (production+conversion) | remaining.
   const conversionIds = new Set((action.conversions ?? []).flatMap((c) => c.spendCardIds));
   const productionIds = new Set(action.cardIds);
-  const trashId = action.trashCardId;
 
   const newHand: Card[] = [];
   const spent: Card[] = [];
   for (const card of player.hand) {
-    if (card.id === trashId) {
-      player.trashed.push(card);
-    } else if (productionIds.has(card.id) || conversionIds.has(card.id)) {
+    if (productionIds.has(card.id) || conversionIds.has(card.id)) {
       spent.push(card);
     } else {
       newHand.push(card);
@@ -231,13 +252,15 @@ export function applyMakeBourbon(
   draft.allBarrels.push({
     id: barrelId,
     ownerId: player.id,
-    rickhouseId: action.rickhouseId,
+    slotId: action.slotId,
     attachedMashBill: mashBill,
     productionCardDefIds,
     agingCards: [],
     age: 0,
     productionRound: draft.round,
     agedThisRound: false,
+    inspectedThisRound: false,
+    extraAgesAvailable: 0,
   });
 
   endPlayerTurn(draft, action.playerId);

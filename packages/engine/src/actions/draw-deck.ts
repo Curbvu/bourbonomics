@@ -13,6 +13,9 @@ function checkSpend(state: GameState, action: DrawMashBillAction): ValidationRes
   if (!isCurrentPlayer(state, action.playerId)) {
     return { legal: false, reason: "it is not your turn" };
   }
+  if (player.pendingRushBarrelId) {
+    return { legal: false, reason: "you must resolve a forced Rush to Market first" };
+  }
   if (!player.hand.find((c) => c.id === action.spendCardId)) {
     return { legal: false, reason: `card ${action.spendCardId} is not in your hand` };
   }

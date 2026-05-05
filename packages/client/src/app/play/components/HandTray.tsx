@@ -3,14 +3,13 @@
 /**
  * HandTray — bottom strip below the main grid.
  *
- * v1 surfaced action affordances here (Make / Sell / Implement / Audit /
- * Pass). v2 is computer-only, so this strip shows the focused player's
- * hand + key counters. Step/Auto/Reset live in the phase strip above.
+ * v1 surfaced action affordances here. v2 is computer-only, so this strip
+ * shows the focused player's hand, ops cards, and key counters. Step/Auto/
+ * Reset live in the phase strip above.
  */
 
-import type { Card, GameState, PlayerState } from "@bourbonomics/engine";
+import type { Card, GameState, OperationsCard, PlayerState } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
-import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
 import PlayerSwatch from "./PlayerSwatch";
 
 export default function HandTray() {
@@ -50,6 +49,20 @@ export default function HandTray() {
           )}
         </div>
       </div>
+
+      {/* Ops hand row */}
+      {focused.operationsHand.length > 0 && (
+        <div className="flex items-center gap-3 border-t border-slate-900 px-[22px] py-2">
+          <span className="font-mono text-[10px] uppercase tracking-[.18em] text-violet-300">
+            Ops · {focused.operationsHand.length}
+          </span>
+          <div className="flex flex-1 flex-wrap gap-1.5">
+            {focused.operationsHand.map((c) => (
+              <OpsCardChip key={c.id} card={c} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats row */}
       <div className="grid grid-cols-12 items-center gap-4 border-t border-slate-900 px-[22px] py-3">
@@ -109,11 +122,10 @@ export default function HandTray() {
           <div className="mb-1 font-mono text-[10px] uppercase tracking-[.18em] text-slate-500">
             Deck breakdown
           </div>
-          <div className="grid grid-cols-4 gap-2 font-mono text-[10px] uppercase tracking-[.08em] text-slate-500">
+          <div className="grid grid-cols-3 gap-2 font-mono text-[10px] uppercase tracking-[.08em] text-slate-500">
             <Stat label="hand" value={focused.hand.length} />
             <Stat label="deck" value={focused.deck.length} />
             <Stat label="disc" value={focused.discard.length} />
-            <Stat label="trash" value={focused.trashed.length} />
           </div>
           <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[.08em] text-slate-500">
             🛢 sold:{" "}
@@ -147,6 +159,17 @@ function HandCard({ card }: { card: Card }) {
       className={`rounded border px-2 py-1 font-mono text-[11px] font-medium ${accent}`}
     >
       {label}
+    </div>
+  );
+}
+
+function OpsCardChip({ card }: { card: OperationsCard }) {
+  return (
+    <div
+      title={card.description}
+      className="rounded border border-violet-700/50 bg-violet-950/40 px-2 py-1 font-mono text-[11px] font-medium text-violet-200"
+    >
+      {card.name}
     </div>
   );
 }

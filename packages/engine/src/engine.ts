@@ -5,10 +5,16 @@ import { applyDrawHand, validateDrawHand } from "./actions/draw";
 import { applyMakeBourbon, validateMakeBourbon } from "./actions/make-bourbon";
 import { applyAgeBourbon, validateAgeBourbon } from "./actions/age-bourbon";
 import { applySellBourbon, validateSellBourbon } from "./actions/sell-bourbon";
+import { applyRushToMarket, validateRushToMarket } from "./actions/rush-to-market";
 import { applyBuyFromMarket, validateBuyFromMarket } from "./actions/buy-from-market";
 import { applyDrawMashBill, validateDrawMashBill } from "./actions/draw-deck";
 import { applyTrade, validateTrade } from "./actions/trade";
 import { applyPassTurn, validatePassTurn } from "./actions/pass-turn";
+import { applySelectDistillery, validateSelectDistillery } from "./actions/select-distillery";
+import {
+  applyPlayOperationsCard,
+  validatePlayOperationsCard,
+} from "./actions/play-operations-card";
 
 export class IllegalActionError extends Error {
   constructor(
@@ -25,6 +31,8 @@ export class IllegalActionError extends Error {
  */
 export function validateAction(state: GameState, action: GameAction): ValidationResult {
   switch (action.type) {
+    case "SELECT_DISTILLERY":
+      return validateSelectDistillery(state, action);
     case "ROLL_DEMAND":
       return validateRollDemand(state, action);
     case "DRAW_HAND":
@@ -35,12 +43,16 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateAgeBourbon(state, action);
     case "SELL_BOURBON":
       return validateSellBourbon(state, action);
+    case "RUSH_TO_MARKET":
+      return validateRushToMarket(state, action);
     case "BUY_FROM_MARKET":
       return validateBuyFromMarket(state, action);
     case "DRAW_MASH_BILL":
       return validateDrawMashBill(state, action);
     case "TRADE":
       return validateTrade(state, action);
+    case "PLAY_OPERATIONS_CARD":
+      return validatePlayOperationsCard(state, action);
     case "PASS_TURN":
       return validatePassTurn(state, action);
     default:
@@ -68,6 +80,9 @@ export function applyAction(state: GameState, action: GameAction): GameState {
 
 function dispatch(draft: Draft<GameState>, action: GameAction): void {
   switch (action.type) {
+    case "SELECT_DISTILLERY":
+      applySelectDistillery(draft, action);
+      return;
     case "ROLL_DEMAND":
       applyRollDemand(draft, action);
       return;
@@ -83,6 +98,9 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
     case "SELL_BOURBON":
       applySellBourbon(draft, action);
       return;
+    case "RUSH_TO_MARKET":
+      applyRushToMarket(draft, action);
+      return;
     case "BUY_FROM_MARKET":
       applyBuyFromMarket(draft, action);
       return;
@@ -91,6 +109,9 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
       return;
     case "TRADE":
       applyTrade(draft, action);
+      return;
+    case "PLAY_OPERATIONS_CARD":
+      applyPlayOperationsCard(draft, action);
       return;
     case "PASS_TURN":
       applyPassTurn(draft, action);

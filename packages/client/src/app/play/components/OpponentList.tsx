@@ -2,12 +2,9 @@
 
 /**
  * Barons tab — at-a-glance status for every player at the table.
- * v1 hid the human row; v2 surfaces all seats since the human seat is
- * also bot-driven for now.
  */
 
 import { useGameStore } from "@/lib/store/game";
-import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
 import PlayerSwatch from "./PlayerSwatch";
 
 export default function OpponentList() {
@@ -50,22 +47,23 @@ export default function OpponentList() {
                 </span>
               </span>
             </div>
-            <div className="grid grid-cols-4 gap-1.5 font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
+            <div className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
+              🏠 {p.distillery?.name ?? "—"}
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
               <Stat label="hand" value={p.hand.length} />
               <Stat label="deck" value={p.deck.length} />
               <Stat label="discard" value={p.discard.length} />
-              <Stat label="trashed" value={p.trashed.length} />
             </div>
             <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
               <span>
-                <span className="text-slate-300">📜 {p.mashBills.length}</span>{" "}
-                bills
+                <span className="text-slate-300">📜 {p.mashBills.length}</span> bills
               </span>
               <span>
-                <span className="text-amber-300">
-                  🥇 {p.unlockedGoldBourbons.length}
-                </span>{" "}
-                gold
+                <span className="text-violet-300">🃏 {p.operationsHand.length}</span> ops
+              </span>
+              <span>
+                <span className="text-amber-300">🥇 {p.unlockedGoldBourbons.length}</span> gold
               </span>
               <span>
                 <span className="text-slate-300">🛢 {p.barrelsSold}</span> sold

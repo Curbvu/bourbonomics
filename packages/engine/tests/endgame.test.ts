@@ -136,7 +136,11 @@ describe("Integration smoke test — minimal full game", () => {
         1,
       ),
     ];
-    let state = makeTestGame({ startingMashBills: [[bills[0]!], [bills[1]!]], bourbonDeck: [] });
+    let state = makeTestGame({
+      startingMashBills: [[bills[0]!], [bills[1]!]],
+      bourbonDeck: [],
+      startingDemand: 6,
+    });
 
     // Round 1
     state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
@@ -148,7 +152,7 @@ describe("Integration smoke test — minimal full game", () => {
     expect(state.phase).toBe("demand");
 
     // Round 2: place a saleable barrel for p1 and have them sell it for some rep.
-    state = placeBarrel(state, "p1", bills[0]!, 5, "rh_central");
+    state = placeBarrel(state, "p1", bills[0]!, 5);
     state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p2" });

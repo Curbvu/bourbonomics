@@ -44,6 +44,8 @@ export default function EventLog() {
 
 function describe(a: GameAction): string {
   switch (a.type) {
+    case "SELECT_DISTILLERY":
+      return `${a.playerId} picks distillery ${a.distilleryId}`;
     case "ROLL_DEMAND":
       return `roll ${a.roll[0]} + ${a.roll[1]}`;
     case "DRAW_HAND":
@@ -56,12 +58,16 @@ function describe(a: GameAction): string {
       return `${a.playerId} sells ${shortBarrel(a.barrelId)} for ${
         a.reputationSplit + a.cardDrawSplit
       }`;
+    case "RUSH_TO_MARKET":
+      return `${a.playerId} rushes ${shortBarrel(a.barrelId)}`;
     case "BUY_FROM_MARKET":
       return `${a.playerId} buys slot ${a.marketSlotIndex}`;
     case "DRAW_MASH_BILL":
       return `${a.playerId} draws a mash bill`;
     case "TRADE":
       return `${a.player1Id} ↔ ${a.player2Id}`;
+    case "PLAY_OPERATIONS_CARD":
+      return `${a.playerId} plays ${a.defId}`;
     case "PASS_TURN":
       return `${a.playerId} passes`;
     default:

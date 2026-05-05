@@ -11,27 +11,32 @@ describe("chooseAction", () => {
     expect(chooseAction(state, "p1").type).toBe("PASS_TURN");
   });
 
-  it("returns PASS_TURN when player's hand is empty", () => {
+  it("returns PASS_TURN when player's hand and operations hand are empty", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state);
     state = {
       ...state,
       players: state.players.map((p) =>
-        p.id === "p1" ? { ...p, hand: [] } : p,
+        p.id === "p1" ? { ...p, hand: [], operationsHand: [] } : p,
       ),
     };
     expect(chooseAction(state, "p1").type).toBe("PASS_TURN");
   });
 
-  it("prefers MAKE_BOURBON over passing when production is possible", () => {
+  it("picks a legal action when production is possible", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
-    // Default starter deck shuffles so we may or may not have cask+corn+grain
-    // in the opening hand; force a known production-ready hand.
     const action = chooseAction(state, "p1");
-    // Either it makes bourbon or it does something legal (sell/age/buy/draw).
-    // The point: it's not PASS_TURN unless the engine truly has no good option.
-    expect(["MAKE_BOURBON", "AGE_BOURBON", "SELL_BOURBON", "BUY_FROM_MARKET", "PASS_TURN"]).toContain(action.type);
+    // It's not PASS_TURN unless the engine truly has no good option.
+    expect([
+      "MAKE_BOURBON",
+      "AGE_BOURBON",
+      "SELL_BOURBON",
+      "BUY_FROM_MARKET",
+      "DRAW_MASH_BILL",
+      "PLAY_OPERATIONS_CARD",
+      "PASS_TURN",
+    ]).toContain(action.type);
   });
 });
 

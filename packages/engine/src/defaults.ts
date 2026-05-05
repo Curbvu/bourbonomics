@@ -1,45 +1,22 @@
-import type { Card, MashBill, Rickhouse } from "./types";
+import type { Card, MashBill } from "./types";
 import { makeCapitalCard, makeMashBill, makeResourceCard } from "./cards";
 
 // ============================================================
-// Rickhouses — six KY Bourbon Trail regions, total capacity 26.
-// (Visual + mechanical: matches the v1 UI layout.)
+// Default starter deck — 16 plain cards.
+// 4 cask + 4 corn + 4 grain (2 rye, 1 barley, 1 wheat) + 4 capital.
 // ============================================================
 
-export const RICKHOUSE_DISPLAY_ORDER = [
-  "rh_western",
-  "rh_northern",
-  "rh_central",
-  "rh_louisville",
-  "rh_bardstown",
-  "rh_lexington",
-] as const;
-
-export function defaultRickhouses(): Rickhouse[] {
-  return [
-    { id: "rh_western", name: "Western", capacity: 3 },
-    { id: "rh_northern", name: "Northern", capacity: 3 },
-    { id: "rh_central", name: "Central", capacity: 4 },
-    { id: "rh_louisville", name: "Louisville", capacity: 5 },
-    { id: "rh_bardstown", name: "Bardstown", capacity: 6 },
-    { id: "rh_lexington", name: "Lexington", capacity: 5 },
-  ];
-}
-
-// ============================================================
-// Default starter deck — 14 plain cards.
-// 3 cask + 4 corn + 4 grain (2 rye, 1 barley, 1 wheat) + 3 capital.
-// ============================================================
+export const STARTER_DECK_SIZE = 16;
 
 export function defaultStarterCards(playerLabel: string): Card[] {
   const cards: Card[] = [];
   let idx = 0;
-  for (let i = 0; i < 3; i++) cards.push(makeResourceCard("cask", playerLabel, idx++));
+  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("cask", playerLabel, idx++));
   for (let i = 0; i < 4; i++) cards.push(makeResourceCard("corn", playerLabel, idx++));
   for (let i = 0; i < 2; i++) cards.push(makeResourceCard("rye", playerLabel, idx++));
   cards.push(makeResourceCard("barley", playerLabel, idx++));
   cards.push(makeResourceCard("wheat", playerLabel, idx++));
-  for (let i = 0; i < 3; i++) cards.push(makeCapitalCard(playerLabel, idx++));
+  for (let i = 0; i < 4; i++) cards.push(makeCapitalCard(playerLabel, idx++));
   return cards;
 }
 

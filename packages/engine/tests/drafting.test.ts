@@ -78,21 +78,21 @@ describe("starter deck composition", () => {
   });
 
   it("totalCards sums correctly", () => {
-    expect(totalCards(DEFAULT_BALANCED_COMPOSITION)).toBe(14);
+    expect(totalCards(DEFAULT_BALANCED_COMPOSITION)).toBe(16);
     expect(totalCards({})).toBe(0);
   });
 
-  it("buildStarterDeck produces 14 cards in subtype order", () => {
+  it("buildStarterDeck produces 16 cards in subtype order", () => {
     const cards = buildStarterDeck(DEFAULT_BALANCED_COMPOSITION, "alice");
-    expect(cards).toHaveLength(14);
+    expect(cards).toHaveLength(16);
     const subtypes = cards.map((c) => c.subtype ?? c.type);
-    // Order: cask×3, corn×4, rye×2, barley×1, wheat×1, then 3 capital
-    expect(subtypes.slice(0, 3).every((s) => s === "cask")).toBe(true);
-    expect(subtypes.slice(3, 7).every((s) => s === "corn")).toBe(true);
-    expect(subtypes.slice(7, 9).every((s) => s === "rye")).toBe(true);
-    expect(subtypes[9]).toBe("barley");
-    expect(subtypes[10]).toBe("wheat");
-    expect(subtypes.slice(11, 14).every((s) => s === "capital")).toBe(true);
+    // Order: cask×4, corn×4, rye×2, barley×1, wheat×1, then 4 capital
+    expect(subtypes.slice(0, 4).every((s) => s === "cask")).toBe(true);
+    expect(subtypes.slice(4, 8).every((s) => s === "corn")).toBe(true);
+    expect(subtypes.slice(8, 10).every((s) => s === "rye")).toBe(true);
+    expect(subtypes[10]).toBe("barley");
+    expect(subtypes[11]).toBe("wheat");
+    expect(subtypes.slice(12, 16).every((s) => s === "capital")).toBe(true);
   });
 
   it("buildStarterDeck rejects compositions with the wrong total", () => {

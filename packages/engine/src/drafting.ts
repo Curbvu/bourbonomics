@@ -1,7 +1,7 @@
 import type { Card, MashBill, ResourceSubtype, ValidationResult } from "./types";
 import { makeCapitalCard, makeResourceCard } from "./cards";
 
-const DEFAULT_STARTER_SIZE = 14;
+const DEFAULT_STARTER_SIZE = 16;
 
 /**
  * Snake-draft player index sequence. With 3 players and 3 picks each, returns:
@@ -135,12 +135,12 @@ export function buildStarterDeck(
   return cards;
 }
 
-/** A reasonable balanced default: 3 cask + 4 corn + 4 grain (2 rye/1 barley/1 wheat) + 3 capital. */
+/** A reasonable balanced default: 4 cask + 4 corn + 4 grain (2 rye/1 barley/1 wheat) + 4 capital. */
 export const DEFAULT_BALANCED_COMPOSITION: StarterDeckComposition = {
-  cask: 3,
+  cask: 4,
   corn: 4,
   rye: 2,
   barley: 1,
   wheat: 1,
-  capital: 3,
+  capital: 4,
 };

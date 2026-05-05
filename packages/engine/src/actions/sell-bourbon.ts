@@ -20,6 +20,9 @@ export function validateSellBourbon(
   if (!isCurrentPlayer(state, action.playerId)) {
     return { legal: false, reason: "it is not your turn" };
   }
+  if (player.pendingRushBarrelId) {
+    return { legal: false, reason: "you must resolve a forced Rush to Market first" };
+  }
 
   const barrel = state.allBarrels.find((b) => b.id === action.barrelId);
   if (!barrel) return { legal: false, reason: `barrel ${action.barrelId} not found` };
@@ -137,8 +140,12 @@ export function applySellBourbon(
   draft.allBarrels.splice(barrelIdx, 1);
   player.barrelsSold += 1;
 
-  // Demand drops by 1 (floor 0).
-  if (draft.demand > 0) draft.demand -= 1;
+  // Demand drops by 1 unless Demand Surge absorbs it.
+  if (player.demandSurgeActive) {
+    player.demandSurgeActive = false;
+  } else if (draft.demand > 0) {
+    draft.demand -= 1;
+  }
 
   endPlayerTurn(draft, action.playerId);
 }

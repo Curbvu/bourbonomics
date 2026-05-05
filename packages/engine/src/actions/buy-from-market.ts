@@ -20,6 +20,9 @@ export function validateBuyFromMarket(
   if (!isCurrentPlayer(state, action.playerId)) {
     return { legal: false, reason: "it is not your turn" };
   }
+  if (player.pendingRushBarrelId) {
+    return { legal: false, reason: "you must resolve a forced Rush to Market first" };
+  }
 
   const purchased = state.marketConveyor[action.marketSlotIndex];
   if (!purchased) {

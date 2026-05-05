@@ -6,7 +6,7 @@ type PassTurnAction = Extract<GameAction, { type: "PASS_TURN" }>;
 
 /**
  * Voluntarily end your turn. Any cards still in hand go to your discard pile
- * and you are marked out for the rest of the round.
+ * at cleanup, and you are marked out for the rest of the round.
  *
  * The rules don't list "pass" as an action per se, but they do say that
  * "unused cards" go to discard at cleanup — implying a player can stop acting
@@ -27,6 +27,9 @@ export function validatePassTurn(
   if (player.outForRound) {
     return { legal: false, reason: "you are already out for the round" };
   }
+  if (player.pendingRushBarrelId) {
+    return { legal: false, reason: "you must resolve a forced Rush to Market first" };
+  }
   return { legal: true };
 }
 
@@ -35,8 +38,6 @@ export function applyPassTurn(
   action: PassTurnAction,
 ): void {
   const player = draft.players.find((p) => p.id === action.playerId)!;
-  // Mark out — but leave the hand intact so runCleanupPhase can apply
-  // carry_over_cards investments before the discard sweep.
   player.outForRound = true;
   endPlayerTurn(draft, action.playerId);
 }

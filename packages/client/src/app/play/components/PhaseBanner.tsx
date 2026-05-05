@@ -10,6 +10,7 @@
 import { useGameStore } from "@/lib/store/game";
 
 const PHASES = [
+  { k: "distillery_selection", l: "Distillery" },
   { k: "demand", l: "Demand" },
   { k: "draw", l: "Draw" },
   { k: "action", l: "Action" },

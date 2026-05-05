@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { applyAction, IllegalActionError } from "../src/engine.js";
+import { applyAction } from "../src/engine.js";
 import { makeResourceCard, makeCapitalCard, makeMashBill } from "../src/cards.js";
-import { advanceToActionPhase, giveHand, makeTestGame } from "./helpers.js";
+import { advanceToActionPhase, firstEmptySlot, giveHand, makeTestGame } from "./helpers.js";
 
 const cask = (label: string, i = 0) => makeResourceCard("cask", label, i);
 const corn = (label: string, i = 0) => makeResourceCard("corn", label, i);
@@ -25,12 +25,13 @@ describe("MAKE_BOURBON — happy path", () => {
       rye("p1", 2),
       cap("p1", 3),
     ]);
+    const slotId = firstEmptySlot(state, "p1");
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_central",
+      slotId,
     });
 
     const p1 = state.players.find((p) => p.id === "p1")!;
@@ -43,7 +44,7 @@ describe("MAKE_BOURBON — happy path", () => {
     expect(state.allBarrels).toHaveLength(1);
     const barrel = state.allBarrels[0]!;
     expect(barrel.ownerId).toBe("p1");
-    expect(barrel.rickhouseId).toBe("rh_central");
+    expect(barrel.slotId).toBe(slotId);
     expect(barrel.attachedMashBill.id).toBe(mbId);
     expect(barrel.age).toBe(0);
     expect(barrel.agingCards).toHaveLength(0);
@@ -60,7 +61,7 @@ describe("MAKE_BOURBON — happy path", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_central",
+      slotId: firstEmptySlot(state, "p1"),
     });
     expect(state.currentPlayerIndex).toBe(1);
   });
@@ -78,7 +79,7 @@ describe("MAKE_BOURBON — universal recipe rules", () => {
         playerId: "p1",
         cardIds: ["card_p1_corn_0", "card_p1_rye_1"],
         mashBillId: mbId,
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p1"),
       }),
     ).toThrow(/cask/);
   });
@@ -94,7 +95,7 @@ describe("MAKE_BOURBON — universal recipe rules", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_cask_1", "card_p1_corn_2", "card_p1_rye_3"],
         mashBillId: mbId,
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p1"),
       }),
     ).toThrow(/cask/);
   });
@@ -110,7 +111,7 @@ describe("MAKE_BOURBON — universal recipe rules", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_rye_1"],
         mashBillId: mbId,
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p1"),
       }),
     ).toThrow(/corn/);
   });
@@ -126,7 +127,7 @@ describe("MAKE_BOURBON — universal recipe rules", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
         mashBillId: mbId,
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p1"),
       }),
     ).toThrow(/grain/);
   });
@@ -163,7 +164,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2", "card_p1_rye_3"],
         mashBillId: highRye.id,
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p1"),
       }),
     ).toThrow(/rye/);
 
@@ -185,7 +186,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
         "card_p1_rye_4",
       ],
       mashBillId: highRye.id,
-      rickhouseId: "rh_central",
+      slotId: firstEmptySlot(state, "p1"),
     });
     expect(state.allBarrels).toHaveLength(1);
   });
@@ -216,7 +217,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_wheat_2", "card_p1_rye_3"],
         mashBillId: wheated.id,
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p1"),
       }),
     ).toThrow(/rye/);
     // Wheat present, no rye → ok
@@ -226,7 +227,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_wheat_2"],
       mashBillId: wheated.id,
-      rickhouseId: "rh_central",
+      slotId: firstEmptySlot(state, "p1"),
     });
     expect(state.allBarrels).toHaveLength(1);
   });
@@ -256,7 +257,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2", "card_p1_barley_3"],
         mashBillId: fourGrain.id,
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p1"),
       }),
     ).toThrow(/wheat/);
 
@@ -278,40 +279,40 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
         "card_p1_wheat_4",
       ],
       mashBillId: fourGrain.id,
-      rickhouseId: "rh_central",
+      slotId: firstEmptySlot(state, "p1"),
     });
     expect(state.allBarrels).toHaveLength(1);
   });
 });
 
-describe("MAKE_BOURBON — rickhouse capacity, mash bill, hand integrity", () => {
-  it("rejects when the chosen rickhouse is full", () => {
-    let state = makeTestGame({
-      rickhouses: [{ id: "rh_solo", name: "Solo", capacity: 1 }],
-    });
+describe("MAKE_BOURBON — slot, mash bill, hand integrity", () => {
+  it("rejects when the chosen slot is already occupied", () => {
+    let state = makeTestGame();
     const mbId = p1MashBillId(state);
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2)]);
+    const slotId = firstEmptySlot(state, "p1");
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_solo",
+      slotId,
     });
     // p2's turn now; reset back to p1 with a second mash bill + hand
     state = giveHand(state, "p1", [cask("p1", 5), corn("p1", 6), rye("p1", 7)]);
     state = { ...state, currentPlayerIndex: 0 };
     const mb2 = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
+    // Re-target the now-occupied slot to assert the rejection.
     expect(() =>
       applyAction(state, {
         type: "MAKE_BOURBON",
         playerId: "p1",
         cardIds: ["card_p1_cask_5", "card_p1_corn_6", "card_p1_rye_7"],
         mashBillId: mb2,
-        rickhouseId: "rh_solo",
+        slotId,
       }),
-    ).toThrow(/full/);
+    ).toThrow(/occupied/);
   });
 
   it("rejects an unknown mash bill", () => {
@@ -324,7 +325,7 @@ describe("MAKE_BOURBON — rickhouse capacity, mash bill, hand integrity", () =>
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
         mashBillId: "mb_ghost_0",
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p1"),
       }),
     ).toThrow(/mash bill/);
   });
@@ -340,7 +341,7 @@ describe("MAKE_BOURBON — rickhouse capacity, mash bill, hand integrity", () =>
         playerId: "p1",
         cardIds: ["card_p1_cask_99", "card_p1_corn_1", "card_p1_rye_2"],
         mashBillId: mbId,
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p1"),
       }),
     ).toThrow(/not in your hand/);
   });
@@ -356,7 +357,7 @@ describe("MAKE_BOURBON — rickhouse capacity, mash bill, hand integrity", () =>
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_cask_0", "card_p1_corn_1"],
         mashBillId: mbId,
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p1"),
       }),
     ).toThrow(/duplicate/);
   });
@@ -372,39 +373,13 @@ describe("MAKE_BOURBON — rickhouse capacity, mash bill, hand integrity", () =>
         playerId: "p2",
         cardIds: ["card_p2_cask_0", "card_p2_corn_1", "card_p2_rye_2"],
         mashBillId: mbId,
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p2"),
       }),
     ).toThrow(/not your turn/);
   });
 });
 
-describe("MAKE_BOURBON — failed batch trash + 3:1 conversion", () => {
-  it("trashCardId removes the card from the game", () => {
-    let state = makeTestGame();
-    const mbId = p1MashBillId(state);
-    state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [
-      cask("p1", 0),
-      corn("p1", 1),
-      rye("p1", 2),
-      cap("p1", 3),
-    ]);
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
-      mashBillId: mbId,
-      rickhouseId: "rh_central",
-      trashCardId: "card_p1_cap1_3",
-    });
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.trashed.map((c) => c.id)).toEqual(["card_p1_cap1_3"]);
-    expect(p1.hand).toHaveLength(0);
-    expect(p1.discard.map((c) => c.id).sort()).toEqual(
-      ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"].sort(),
-    );
-  });
-
+describe("MAKE_BOURBON — 3:1 conversion", () => {
   it("3:1 conversion produces a missing basic resource", () => {
     let state = makeTestGame();
     const mbId = p1MashBillId(state);
@@ -422,7 +397,7 @@ describe("MAKE_BOURBON — failed batch trash + 3:1 conversion", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
       mashBillId: mbId,
-      rickhouseId: "rh_central",
+      slotId: firstEmptySlot(state, "p1"),
       conversions: [
         {
           spendCardIds: ["card_p1_cap1_2", "card_p1_cap1_3", "card_p1_cap1_4"],
@@ -447,7 +422,7 @@ describe("MAKE_BOURBON — failed batch trash + 3:1 conversion", () => {
         playerId: "p1",
         cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
         mashBillId: mbId,
-        rickhouseId: "rh_central",
+        slotId: firstEmptySlot(state, "p1"),
         conversions: [
           {
             spendCardIds: ["card_p1_cap1_2", "card_p1_cap1_3"],
@@ -464,7 +439,6 @@ describe("AGE_BOURBON", () => {
     let state = makeTestGame();
     const mbId = p1MashBillId(state);
     state = advanceToActionPhase(state);
-    // p1 gets enough cards to stay in the round after aging
     state = giveHand(state, "p1", [
       cask("p1", 0),
       corn("p1", 1),
@@ -477,13 +451,11 @@ describe("AGE_BOURBON", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_central",
+      slotId: firstEmptySlot(state, "p1"),
     });
     const barrelId = state.allBarrels[0]!.id;
-    // p2 passes — they're out for the round
     state = giveHand(state, "p2", []);
     state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
-    // back to p1 — age the barrel
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
@@ -508,7 +480,7 @@ describe("AGE_BOURBON", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_central",
+      slotId: firstEmptySlot(state, "p1"),
     });
     const barrelId = state.allBarrels[0]!.id;
     state = giveHand(state, "p2", [cap("p2", 0)]);
@@ -532,20 +504,17 @@ describe("AGE_BOURBON", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_central",
+      slotId: firstEmptySlot(state, "p1"),
     });
     const barrelId = state.allBarrels[0]!.id;
-    // p2 passes
     state = giveHand(state, "p2", [cap("p2", 0)]);
     state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
-    // back to p1 — first age succeeds
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
       barrelId,
       cardId: "card_p1_cap1_3",
     });
-    // p2 already out, so p1 again
     expect(state.currentPlayerIndex).toBe(0);
     expect(() =>
       applyAction(state, {
@@ -566,13 +535,11 @@ describe("PASS_TURN + cleanup", () => {
     state = giveHand(state, "p2", [cap("p2", 0)]);
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    // Hand is still intact mid-round; the discard sweep happens at cleanup.
     expect(p1.hand).toHaveLength(2);
     expect(p1.outForRound).toBe(true);
     expect(state.currentPlayerIndex).toBe(1);
     expect(state.phase).toBe("action");
 
-    // After p2 also passes, cleanup runs and p1's hand goes to discard.
     state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
     expect(state.phase).toBe("demand");
     const p1AfterCleanup = state.players.find((p) => p.id === "p1")!;
@@ -583,9 +550,6 @@ describe("PASS_TURN + cleanup", () => {
   });
 
   it("when both players have nothing in hand, the first PASS_TURN wraps the round", () => {
-    // After advance, both have hand=8. We then strip both hands. p2's hand is
-    // empty too, so endPlayerTurn(p1) sees actionPhaseComplete and runs cleanup
-    // immediately. (A second PASS_TURN would be illegal — phase is now "demand".)
     let state = makeTestGame();
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", []);
@@ -609,7 +573,7 @@ describe("PASS_TURN + cleanup", () => {
       playerId: "p1",
       cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
       mashBillId: mbId,
-      rickhouseId: "rh_central",
+      slotId: firstEmptySlot(state, "p1"),
     });
     const barrelId = state.allBarrels[0]!.id;
     state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
@@ -619,7 +583,6 @@ describe("PASS_TURN + cleanup", () => {
       barrelId,
       cardId: "card_p1_cap1_3",
     });
-    // p2 already out; p1 has empty hand, so cleanup runs.
     expect(state.phase).toBe("demand");
     expect(state.round).toBe(2);
     expect(state.allBarrels[0]!.agedThisRound).toBe(false);

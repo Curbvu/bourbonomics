@@ -3,6 +3,8 @@ export * from "./rng";
 export * from "./deck";
 export * from "./cards";
 export * from "./defaults";
+export * from "./distilleries";
+export * from "./operations";
 export * from "./rewards";
 export * from "./drafting";
 export * from "./state";

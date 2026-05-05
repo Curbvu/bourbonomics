@@ -16,13 +16,19 @@ export function validateAgeBourbon(
   if (!isCurrentPlayer(state, action.playerId)) {
     return { legal: false, reason: "it is not your turn" };
   }
+  if (player.pendingRushBarrelId) {
+    return { legal: false, reason: "you must resolve a forced Rush to Market first" };
+  }
 
   const barrel = state.allBarrels.find((b) => b.id === action.barrelId);
   if (!barrel) return { legal: false, reason: `barrel ${action.barrelId} not found` };
   if (barrel.ownerId !== action.playerId) {
     return { legal: false, reason: "you do not own that barrel" };
   }
-  if (barrel.agedThisRound) {
+  if (barrel.inspectedThisRound) {
+    return { legal: false, reason: "barrel is under regulatory inspection this round" };
+  }
+  if (barrel.agedThisRound && barrel.extraAgesAvailable <= 0) {
     return { legal: false, reason: "barrel has already been aged this round" };
   }
 
@@ -43,7 +49,13 @@ export function applyAgeBourbon(
   const barrel = draft.allBarrels.find((b) => b.id === action.barrelId)!;
   barrel.agingCards.push(card!);
   barrel.age = barrel.agingCards.length;
-  barrel.agedThisRound = true;
+
+  if (!barrel.agedThisRound) {
+    barrel.agedThisRound = true;
+  } else {
+    // This consumed one of the bonus ages granted by Rushed Shipment.
+    barrel.extraAgesAvailable = Math.max(0, barrel.extraAgesAvailable - 1);
+  }
 
   endPlayerTurn(draft, action.playerId);
 }
