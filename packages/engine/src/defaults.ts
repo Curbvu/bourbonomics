@@ -172,16 +172,16 @@ export function defaultMarketSupply(): Card[] {
   const cards: Card[] = [];
   let idx = 0;
   // Premium resource cards (2x of a single subtype)
-  for (let i = 0; i < 3; i++) cards.push(makeResourceCard("rye", "supply", idx++, true, 2));
-  for (let i = 0; i < 3; i++) cards.push(makeResourceCard("corn", "supply", idx++, true, 2));
-  for (let i = 0; i < 2; i++) cards.push(makeResourceCard("wheat", "supply", idx++, true, 2));
-  for (let i = 0; i < 2; i++) cards.push(makeResourceCard("barley", "supply", idx++, true, 2));
+  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("rye", "supply", idx++, true, 2));
+  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("corn", "supply", idx++, true, 2));
+  for (let i = 0; i < 3; i++) cards.push(makeResourceCard("wheat", "supply", idx++, true, 2));
+  for (let i = 0; i < 3; i++) cards.push(makeResourceCard("barley", "supply", idx++, true, 2));
   // High-value capital
-  for (let i = 0; i < 4; i++) cards.push(makeCapitalCard("supply", idx++, 2));
-  for (let i = 0; i < 2; i++) cards.push(makeCapitalCard("supply", idx++, 3));
+  for (let i = 0; i < 5; i++) cards.push(makeCapitalCard("supply", idx++, 2));
+  for (let i = 0; i < 3; i++) cards.push(makeCapitalCard("supply", idx++, 3));
   // Plain backups
-  for (let i = 0; i < 3; i++) cards.push(makeResourceCard("corn", "supply", idx++));
-  for (let i = 0; i < 3; i++) cards.push(makeResourceCard("rye", "supply", idx++));
-  for (let i = 0; i < 3; i++) cards.push(makeCapitalCard("supply", idx++));
+  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("corn", "supply", idx++));
+  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("rye", "supply", idx++));
+  for (let i = 0; i < 4; i++) cards.push(makeCapitalCard("supply", idx++));
   return cards;
 }

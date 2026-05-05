@@ -10,7 +10,7 @@ describe("initializeGame", () => {
     expect(state.phase).toBe("demand");
     expect(state.demand).toBe(0);
     expect(state.players).toHaveLength(2);
-    expect(state.marketConveyor.length).toBeLessThanOrEqual(6);
+    expect(state.marketConveyor.length).toBeLessThanOrEqual(10);
     expect(state.finalRoundTriggered).toBe(false);
   });
 

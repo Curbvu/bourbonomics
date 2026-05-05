@@ -9,11 +9,17 @@
 
 import type { ResourceSubtype } from "@bourbonomics/engine";
 
-export const HAND_CARD_W = 112;
-export const HAND_CARD_H = 148;
+/**
+ * Single source of truth for the table-card silhouette. Hand, market
+ * conveyor, mash-bill row, ops row, and draw-pile tiles all use this so
+ * every card on screen reads as the same physical object.
+ */
+export const CARD_SIZE_CLASS = "h-[112px] w-[80px]";
+export const HAND_CARD_W = 80;
+export const HAND_CARD_H = 112;
 
 /** Negative left margin used to overlap mini cards into an accordion fan. */
-export const HAND_CARD_OVERLAP = "-ml-9";
+export const HAND_CARD_OVERLAP = "-ml-7";
 
 export type CardChrome = {
   gradient: string;

@@ -34,8 +34,11 @@ import {
   type ScoreResult,
 } from "@bourbonomics/engine";
 
-const STORAGE_KEY = "bourbonomics:v2-game";
-const AUTOPLAY_KEY = "bourbonomics:v2-autoplay";
+// Bumped to v2.1 when the starter-deck-draft phase + per-player rickhouse
+// model landed; bumped again when the market conveyor grew to 10. Old
+// saves are silently dropped on hydrate.
+const STORAGE_KEY = "bourbonomics:v2.1.2-game";
+const AUTOPLAY_KEY = "bourbonomics:v2.1.2-autoplay";
 const AUTO_STEP_MS = 280;
 
 export interface NewGameSeat {

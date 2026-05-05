@@ -6,7 +6,7 @@ import { endPlayerTurn, isCurrentPlayer } from "../state";
 
 type BuyFromMarketAction = Extract<GameAction, { type: "BUY_FROM_MARKET" }>;
 
-const MARKET_CONVEYOR_SIZE = 6;
+const MARKET_CONVEYOR_SIZE = 10;
 
 export function validateBuyFromMarket(
   state: GameState,

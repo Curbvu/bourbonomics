@@ -1,26 +1,44 @@
 "use client";
 
 /**
- * Top bar for the game-board dashboard, with a phase sub-bar.
- * Visual structure mirrors v1's GameTopBar; player cash → reputation,
- * 3-phase cost ladder → 4-phase v2 strip, "tap a pile" hint → Step/Auto.
+ * Top bar — single row holds brand + year, an inline stylised phase
+ * strip, the Step / Auto / Quit controls, and the demand chip + bourbon
+ * counter. The barons block was folded into the per-player rickhouse
+ * panels (RickhouseRow), so the player chips no longer live up here.
  */
 
 import { useEffect, useState } from "react";
 
+import type { GamePhase } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
-import PhaseBanner from "./PhaseBanner";
-import {
-  PLAYER_BORDER_CLASS,
-  PLAYER_TINT_CLASS,
-  paletteIndex,
-} from "./playerColors";
-import PlayerSwatch from "./PlayerSwatch";
+
+type DisplayPhase = "demand" | "draw" | "age" | "action" | "cleanup";
+
+const PHASES: { k: DisplayPhase; l: string }[] = [
+  { k: "demand", l: "Demand" },
+  { k: "draw", l: "Draw" },
+  { k: "age", l: "Age" },
+  { k: "action", l: "Action" },
+  { k: "cleanup", l: "Cleanup" },
+];
+
+function visiblePhase(phase: GamePhase): DisplayPhase | null {
+  switch (phase) {
+    case "demand":
+      return "demand";
+    case "draw":
+      return "draw";
+    case "action":
+      return "action";
+    case "cleanup":
+      return "cleanup";
+    default:
+      return null;
+  }
+}
 
 export default function GameTopBar() {
-  const { state, seatMeta, clear } = useGameStore();
-  if (!state) return null;
-  const humanId = "human";
+  const { state, autoplay, setAutoplay, step, clear } = useGameStore();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -32,19 +50,24 @@ export default function GameTopBar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [confirmOpen]);
 
+  if (!state) return null;
   const quit = () => {
     clear();
     setConfirmOpen(false);
   };
 
+  const active = visiblePhase(state.phase);
+  const inSetup =
+    state.phase === "distillery_selection" || state.phase === "starter_deck_draft";
+  const showRoundChrome = state.phase !== "ended" && !inSetup && active != null;
+
   return (
     <header className="border-b border-slate-800 bg-slate-950">
-      {/* ─── Main row ─── */}
-      <div className="flex items-center gap-4 px-[22px] py-2">
-        {/* Brand mark + wordmark */}
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3 px-[18px] py-2">
+        {/* Brand */}
+        <div className="flex flex-shrink-0 items-center gap-2">
           <div
-            className="grid h-7 w-7 place-items-center rounded-md border border-amber-700 font-display text-lg font-bold text-amber-100"
+            className="grid h-7 w-7 place-items-center rounded-md border border-amber-700 font-display text-base font-bold text-amber-100"
             style={{
               background: "linear-gradient(135deg, #d97706, #92400e)",
               boxShadow: "0 1px 0 rgba(255,255,255,.15) inset",
@@ -53,103 +76,65 @@ export default function GameTopBar() {
           >
             B
           </div>
-          <div className="flex flex-col leading-tight">
-            <span className="font-display text-[17px] font-semibold tracking-[.01em] text-amber-100">
+          <div className="hidden flex-col leading-tight md:flex">
+            <span className="font-display text-[15px] font-semibold tracking-[.01em] text-amber-100">
               Bourbonomics
             </span>
-            <span className="-mt-0.5 font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-              distillery
+            <span className="-mt-0.5 font-mono text-[9px] uppercase tracking-[.12em] text-slate-500">
+              year {state.round}
             </span>
           </div>
         </div>
 
-        <span className="mx-1.5 h-[44px] w-px bg-slate-800" aria-hidden />
+        <span className="mx-1 h-[28px] w-px bg-slate-800" aria-hidden />
 
-        {/* Year indicator */}
-        <div className="flex items-baseline gap-3">
-          <span className="font-mono text-[14px] font-semibold uppercase tracking-[.20em] text-slate-400">
-            year
-          </span>
-          <span className="font-display text-[44px] font-bold leading-[0.85] tabular-nums text-amber-300 drop-shadow-[0_3px_6px_rgba(0,0,0,.55)]">
-            {state.round}
-          </span>
-        </div>
+        {/* Inline phase strip */}
+        {showRoundChrome ? (
+          <PhaseStrip activeKey={active} />
+        ) : inSetup ? (
+          <SetupBanner phase={state.phase as "distillery_selection" | "starter_deck_draft"} />
+        ) : (
+          <span className="flex-1" aria-hidden />
+        )}
 
-        {/* Centered baron pills */}
-        <div className="flex flex-1 justify-center gap-2">
-          {state.players.map((p, i) => {
-            const idx = paletteIndex(i);
-            const isYou = p.id === humanId;
-            const isCurrent =
-              state.phase === "action" && i === state.currentPlayerIndex;
-            const borderClass = isYou
-              ? PLAYER_BORDER_CLASS[idx]!
-              : isCurrent
-                ? "border-amber-500/60"
-                : "border-slate-800";
-            const bgClass = isYou ? PLAYER_TINT_CLASS[idx]! : "bg-slate-900";
-            const meta = seatMeta.find((m) => m.id === p.id);
-            return (
-              <div
-                key={p.id}
-                data-player-pill={p.id}
-                title={p.name}
-                className={[
-                  "relative flex items-center gap-2.5 rounded-lg border-2 px-4 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-all",
-                  borderClass,
-                  bgClass,
-                  isCurrent
-                    ? "shadow-[0_0_14px_rgba(245,158,11,.30),inset_0_1px_0_rgba(255,255,255,.05)]"
-                    : "",
-                ].join(" ")}
-                aria-current={isCurrent ? "true" : undefined}
-              >
-                <PlayerSwatch
-                  seatIndex={i}
-                  logoId={meta?.logoId}
-                  size="md"
-                />
-                <div className="flex flex-col leading-tight">
-                  <span
-                    className={`text-[16px] text-slate-100 ${isYou ? "font-semibold" : "font-medium"}`}
-                  >
-                    {p.name}
-                  </span>
-                  <span className="-mt-0.5 font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-                    {p.barrelsSold} sold · {p.mashBills.length} bills
-                  </span>
-                </div>
-                <span className="font-mono text-[15px] font-bold tabular-nums text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,.5)]">
-                  {p.reputation}
-                  <span className="ml-0.5 text-[10px] font-medium text-amber-300/70">
-                    rep
-                  </span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        {/* Right cluster: demand chip + bourbon counter + controls */}
+        {showRoundChrome ? (
+          <>
+            <DemandChip value={state.demand} />
+            <BourbonChip remaining={state.bourbonDeck.length} finalRound={state.finalRoundTriggered} />
+            <span className="mx-1 h-[28px] w-px bg-slate-800" aria-hidden />
+            <button
+              type="button"
+              onClick={step}
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-slate-200 transition-colors hover:border-amber-500/60 hover:bg-slate-800 hover:text-amber-200"
+            >
+              Step
+            </button>
+            <button
+              type="button"
+              onClick={() => setAutoplay(!autoplay)}
+              className={[
+                "rounded border px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.05em] transition-colors",
+                autoplay
+                  ? "border-amber-500 bg-amber-500 text-slate-950 hover:bg-amber-400"
+                  : "border-slate-700 bg-slate-900 text-slate-200 hover:border-amber-500/60 hover:text-amber-200",
+              ].join(" ")}
+            >
+              {autoplay ? "Pause" : "Auto"}
+            </button>
+          </>
+        ) : null}
 
-        {/* Quit Game */}
-        <span className="mx-1 h-[26px] w-px bg-slate-800" aria-hidden />
         <button
           type="button"
           onClick={() => setConfirmOpen(true)}
           title="Quit this game and return to the main menu"
           className="rounded border border-rose-500/60 bg-rose-700/[0.20] px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-rose-100 transition-colors hover:bg-rose-700/[0.35]"
         >
-          Quit ↵
+          Quit
         </button>
       </div>
 
-      {/* ─── Phase sub-bar ─── */}
-      {state.phase !== "ended" ? (
-        <div className="border-t border-slate-800 bg-slate-900/40 px-[22px] py-2">
-          <PhaseBanner subBar />
-        </div>
-      ) : null}
-
-      {/* Quit confirmation modal */}
       {confirmOpen ? (
         <div
           role="dialog"
@@ -193,5 +178,152 @@ export default function GameTopBar() {
         </div>
       ) : null}
     </header>
+  );
+}
+
+// -----------------------------
+// Inline phase strip
+// -----------------------------
+
+function PhaseStrip({ activeKey }: { activeKey: DisplayPhase }) {
+  const activeIdx = PHASES.findIndex((p) => p.k === activeKey);
+  return (
+    <div
+      role="navigation"
+      aria-label="Round phases"
+      className="flex flex-1 items-center gap-1 overflow-hidden rounded-md border border-slate-800 bg-slate-900/40 px-1 py-1"
+    >
+      {PHASES.map((p, i) => {
+        const isActive = i === activeIdx;
+        const isPast = activeIdx > i;
+        return (
+          <PhaseChip
+            key={p.k}
+            label={p.l}
+            index={i + 1}
+            isActive={isActive}
+            isPast={isPast}
+            isLast={i === PHASES.length - 1}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function PhaseChip({
+  label,
+  index,
+  isActive,
+  isPast,
+  isLast,
+}: {
+  label: string;
+  index: number;
+  isActive: boolean;
+  isPast: boolean;
+  isLast: boolean;
+}) {
+  return (
+    <>
+      <div
+        className={[
+          "flex items-center gap-1.5 rounded px-2 py-1 transition-colors",
+          isActive
+            ? "bg-amber-700/[0.25] shadow-[inset_0_0_0_1px_rgba(245,158,11,.45)]"
+            : "",
+        ].join(" ")}
+        aria-current={isActive ? "step" : undefined}
+      >
+        <span
+          className={[
+            "grid h-5 w-5 flex-shrink-0 place-items-center rounded-full font-mono text-[10px] font-bold leading-none",
+            isActive
+              ? "bg-amber-400 text-slate-950 shadow-[0_0_10px_rgba(251,191,36,.55)]"
+              : isPast
+                ? "bg-slate-700 text-slate-300"
+                : "border border-slate-700 text-slate-500",
+          ].join(" ")}
+          aria-hidden
+        >
+          {isPast ? "✓" : index}
+        </span>
+        <span
+          className={[
+            "font-mono text-[11px] uppercase tracking-[.12em]",
+            isActive
+              ? "font-bold text-amber-100"
+              : isPast
+                ? "font-semibold text-slate-300"
+                : "font-medium text-slate-500",
+          ].join(" ")}
+        >
+          {label}
+        </span>
+      </div>
+      {!isLast ? (
+        <span
+          className={[
+            "h-px w-3 flex-shrink-0",
+            isPast ? "bg-amber-500/50" : "bg-slate-700",
+          ].join(" ")}
+          aria-hidden
+        />
+      ) : null}
+    </>
+  );
+}
+
+function SetupBanner({ phase }: { phase: "distillery_selection" | "starter_deck_draft" }) {
+  const label =
+    phase === "distillery_selection"
+      ? "Setup · pick your distillery"
+      : "Setup · build your starter deck";
+  return (
+    <div className="flex flex-1 items-center justify-center font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
+      {label}
+    </div>
+  );
+}
+
+function DemandChip({ value }: { value: number }) {
+  const tone =
+    value >= 9 ? "text-amber-300" : value >= 6 ? "text-amber-200" : value >= 3 ? "text-sky-300" : "text-slate-400";
+  return (
+    <div
+      title={`Market demand ${value} of 12`}
+      className="flex items-baseline gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2 py-1"
+    >
+      <span className="font-mono text-[9px] uppercase tracking-[.16em] text-slate-500">
+        demand
+      </span>
+      <span className={`font-mono text-[14px] font-bold tabular-nums ${tone}`}>
+        {value}/12
+      </span>
+    </div>
+  );
+}
+
+function BourbonChip({ remaining, finalRound }: { remaining: number; finalRound: boolean }) {
+  return (
+    <div
+      title="Bourbon deck remaining (the doomsday clock)"
+      className={[
+        "flex items-baseline gap-1.5 rounded border px-2 py-1",
+        finalRound ? "border-amber-500 bg-amber-700/[0.20]" : "border-slate-800 bg-slate-900/60",
+      ].join(" ")}
+    >
+      <span className="font-mono text-[9px] uppercase tracking-[.16em] text-slate-500">
+        bourbon
+      </span>
+      <span className="font-mono text-[14px] font-bold tabular-nums text-amber-300">
+        {remaining}
+      </span>
+      {finalRound ? (
+        <span className="ml-1 rounded bg-amber-500 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] text-slate-950">
+          final
+        </span>
+      ) : null}
+    </div>
   );
 }

@@ -3,24 +3,22 @@
 /**
  * Center column — the public face of the table.
  *
- * Top: Market conveyor (6 face-up cards available for purchase) plus the
- * doomsday clock + demand chip.
+ * Top: Market conveyor (10 face-up cards available for purchase).
  *
- * Below: three sub-sections side by side — Mash bills (with the next 3
- * face-up bills previewed from the bourbon deck), Operations (deck count
- * + the 8 ops card types), and Investments (placeholder until the
- * mechanic ships in v2.2).
+ * Below: three subsections — Mash bills, Operations, Investments. Each
+ * shows 3 face-up cards plus a face-down "draw from pile" tile with a
+ * remaining-cards counter. Investments is a placeholder until v2.2.
  *
- * Every card uses the dev-branch portrait silhouette via handCardStyles
- * so the visual idiom matches the HandTray.
+ * **Every card on the table is the exact same fixed silhouette
+ * (CARD_W × CARD_H).** The hand uses a slightly larger size; market
+ * tiles run a bit smaller for density.
  */
 
-import type { Card, MashBill, OperationsCardDefId, ResourceSubtype } from "@bourbonomics/engine";
-import { operationsCardSpecs } from "@bourbonomics/engine";
-import { useMemo } from "react";
+import type { Card, MashBill, OperationsCard, ResourceSubtype } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import {
   CAPITAL_CHROME,
+  CARD_SIZE_CLASS,
   OPS_CHROME,
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
@@ -28,81 +26,82 @@ import {
 } from "./handCardStyles";
 import { TIER_CHROME, tierOrCommon } from "./tierStyles";
 
-const CONVEYOR_SIZE = 6;
+const CONVEYOR_SIZE = 10;
+const FACEUP_PER_SECTION = 3;
 
 export default function MarketCenter() {
   const { state } = useGameStore();
-  const opsCatalog = useMemo(() => operationsCardSpecs(), []);
   if (!state) return null;
 
-  // Top 3 of the bourbon deck (engine convention: top is end of array).
-  const faceUpBills = state.bourbonDeck.slice(-3).reverse();
+  const faceUpBills = state.bourbonDeck.slice(-FACEUP_PER_SECTION).reverse();
+  const remainingBills = Math.max(0, state.bourbonDeck.length - faceUpBills.length);
+  const faceUpOps = state.operationsDeck.slice(-FACEUP_PER_SECTION).reverse();
+  const remainingOps = Math.max(0, state.operationsDeck.length - faceUpOps.length);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+    <div className="flex h-full min-h-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50 p-2">
       {/* Market conveyor */}
       <section>
-        <div className="mb-2 flex items-baseline justify-between">
-          <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-slate-300">
+        <div className="mb-1 flex items-baseline justify-between">
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-slate-300">
             Market conveyor
           </h2>
-          <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+          <span className="font-mono text-[9px] uppercase tracking-[.12em] text-slate-500">
             supply {state.marketSupplyDeck.length} · demand{" "}
             <span className="text-amber-300 tabular-nums">{state.demand}</span>/12
           </span>
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        <div className="flex flex-wrap gap-1">
           {state.marketConveyor.map((c) => (
             <ConveyorCard key={c.id} card={c} />
           ))}
           {Array.from({
             length: Math.max(0, CONVEYOR_SIZE - state.marketConveyor.length),
           }).map((_, i) => (
-            <EmptyMarketSlot key={`empty-${i}`} />
+            <EmptySlot key={`empty-${i}`} />
           ))}
         </div>
       </section>
 
-      {/* Sub-sections: Mash bills · Operations · Investments */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        {/* Mash bills */}
+      {/* Three subsections, each with 3 face-up + 1 draw-from-pile */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-1.5 lg:grid-cols-3">
         <Subsection
           title="Mash bills"
-          subtitle={`bourbon deck · ${state.bourbonDeck.length} left`}
           tag={state.finalRoundTriggered ? "final round" : undefined}
         >
-          {faceUpBills.length === 0 ? (
-            <EmptyState>bourbon supply exhausted</EmptyState>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {faceUpBills.map((b) => (
-                <MashBillTile key={b.id} bill={b} />
-              ))}
-            </div>
-          )}
-        </Subsection>
-
-        {/* Operations */}
-        <Subsection
-          title="Operations"
-          subtitle={`ops deck · ${state.operationsDeck.length} · discard ${state.operationsDiscard.length}`}
-        >
-          <div className="flex flex-wrap gap-2">
-            {opsCatalog.map((spec) => (
-              <OpsTypeTile key={spec.defId} defId={spec.defId} name={spec.name} description={spec.description} />
+          <FaceUpRow
+            faceUp={faceUpBills.map((b) => (
+              <MashBillTile key={b.id} bill={b} />
             ))}
-          </div>
+            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpBills.length)}
+            pileLabel="Bourbon deck"
+            pileRemaining={remainingBills}
+            pileTone="amber"
+          />
         </Subsection>
 
-        {/* Investments — placeholder until the mechanic ships. */}
-        <Subsection title="Investments" subtitle="coming in v2.2" muted>
-          <div className="flex flex-1 items-center justify-center py-6 text-center font-mono text-[11px] italic leading-relaxed text-slate-500">
-            <span>
-              Investment cards are designed but not yet implemented.
-              <br />
-              See <code className="text-slate-400">PLANNED_MECHANICS.md</code>.
-            </span>
-          </div>
+        <Subsection title="Operations">
+          <FaceUpRow
+            faceUp={faceUpOps.map((c) => (
+              <OpsCardTile key={c.id} card={c} />
+            ))}
+            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpOps.length)}
+            pileLabel="Ops deck"
+            pileRemaining={remainingOps}
+            pileSubLabel={`discard ${state.operationsDiscard.length}`}
+            pileTone="violet"
+          />
+        </Subsection>
+
+        <Subsection title="Investments" muted>
+          <FaceUpRow
+            faceUp={[]}
+            placeholders={FACEUP_PER_SECTION}
+            pileLabel="Coming v2.2"
+            pileRemaining={0}
+            pileTone="slate"
+            mutedPile
+          />
         </Subsection>
       </div>
     </div>
@@ -115,13 +114,11 @@ export default function MarketCenter() {
 
 function Subsection({
   title,
-  subtitle,
   tag,
   muted = false,
   children,
 }: {
   title: string;
-  subtitle?: string;
   tag?: string;
   muted?: boolean;
   children: React.ReactNode;
@@ -129,46 +126,64 @@ function Subsection({
   return (
     <section
       className={[
-        "flex min-h-[140px] flex-col rounded-lg border bg-slate-950/40 p-3",
+        "flex min-h-0 flex-col rounded-lg border bg-slate-950/40 p-1.5",
         muted ? "border-slate-800/60 opacity-80" : "border-slate-800",
       ].join(" ")}
     >
-      <header className="mb-2 flex items-baseline justify-between gap-2">
-        <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-slate-300">
+      <header className="mb-1 flex items-baseline justify-between gap-2">
+        <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-slate-300">
           {title}
         </h3>
-        <div className="flex items-baseline gap-2">
-          {tag ? (
-            <span className="rounded border border-amber-500 bg-amber-700/[0.20] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[.10em] text-amber-200">
-              {tag}
-            </span>
-          ) : null}
-          {subtitle ? (
-            <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
-              {subtitle}
-            </span>
-          ) : null}
-        </div>
+        {tag ? (
+          <span className="rounded border border-amber-500 bg-amber-700/[0.20] px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[.10em] text-amber-200">
+            {tag}
+          </span>
+        ) : null}
       </header>
-      <div className="flex flex-1 flex-col">{children}</div>
+      <div className="flex flex-1 items-start">{children}</div>
     </section>
   );
 }
 
-function EmptyState({ children }: { children: React.ReactNode }) {
+function FaceUpRow({
+  faceUp,
+  placeholders,
+  pileLabel,
+  pileRemaining,
+  pileSubLabel,
+  pileTone,
+  mutedPile = false,
+}: {
+  faceUp: React.ReactNode[];
+  placeholders: number;
+  pileLabel: string;
+  pileRemaining: number;
+  pileSubLabel?: string;
+  pileTone: "amber" | "violet" | "slate";
+  mutedPile?: boolean;
+}) {
   return (
-    <div className="flex flex-1 items-center justify-center text-center font-mono text-[11px] italic text-slate-500">
-      {children}
+    <div className="flex flex-wrap items-start gap-1">
+      {faceUp}
+      {Array.from({ length: placeholders }).map((_, i) => (
+        <EmptySlot key={`empty-${i}`} />
+      ))}
+      <DrawPile
+        label={pileLabel}
+        remaining={pileRemaining}
+        subLabel={pileSubLabel}
+        tone={pileTone}
+        muted={mutedPile}
+      />
     </div>
   );
 }
 
 // -----------------------------
-// Card tiles
+// Card tiles — all share CARD_SIZE_CLASS
 // -----------------------------
 
-const baseTile =
-  "relative flex h-[140px] w-[100px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-transform duration-150 hover:-translate-y-1 hover:scale-[1.05]";
+const baseTile = `relative flex flex-shrink-0 flex-col overflow-hidden rounded-md border-2 p-1.5 text-left shadow-[0_4px_12px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-transform duration-150 hover:-translate-y-0.5 hover:scale-[1.04] ${CARD_SIZE_CLASS}`;
 
 function ConveyorCard({ card }: { card: Card }) {
   if (card.type === "capital") {
@@ -181,23 +196,22 @@ function ConveyorCard({ card }: { card: Card }) {
       >
         <Sheen />
         <div className="flex items-baseline justify-between">
-          <span className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+          <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
             Capital
           </span>
           <CostChip value={card.cost ?? value} chrome={chrome} />
         </div>
         <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
-          <span className="font-display text-[34px] font-bold leading-none tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
+          <span className="font-display text-[20px] font-bold leading-none tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
             ${value}
           </span>
-          <span className={`mt-1 font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label}`}>
+          <span className={`mt-0.5 font-mono text-[7.5px] uppercase tracking-[.16em] ${chrome.label}`}>
             spend
           </span>
         </div>
       </div>
     );
   }
-  // Resource card
   const subtype = card.subtype as ResourceSubtype;
   const chrome = RESOURCE_CHROME[subtype];
   const count = card.resourceCount ?? 1;
@@ -208,16 +222,16 @@ function ConveyorCard({ card }: { card: Card }) {
     >
       <Sheen />
       <div className="flex items-baseline justify-between">
-        <span className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {RESOURCE_LABEL[subtype]}
         </span>
         <CostChip value={card.cost ?? 1} chrome={chrome} />
       </div>
-      <h4 className={`mt-1 font-display text-[12px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
-        {count > 1 ? `${count}× ${RESOURCE_LABEL[subtype]}` : RESOURCE_LABEL[subtype]}
+      <h4 className={`mt-0.5 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+        {count > 1 ? `${count}×` : ""} {RESOURCE_LABEL[subtype]}
       </h4>
       <div
-        className={`mt-auto grid h-10 w-10 self-center place-items-center rounded-full border-2 bg-white/10 text-xl shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
+        className={`mt-auto grid h-7 w-7 self-center place-items-center rounded-full border-2 bg-white/10 text-base shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
       >
         {RESOURCE_GLYPH[subtype]}
       </div>
@@ -225,9 +239,11 @@ function ConveyorCard({ card }: { card: Card }) {
   );
 }
 
-function EmptyMarketSlot() {
+function EmptySlot() {
   return (
-    <div className="grid h-[140px] w-[100px] place-items-center rounded-lg border-2 border-dashed border-slate-800 bg-slate-950/30 font-mono text-[9px] uppercase tracking-[.18em] text-slate-700">
+    <div
+      className={`grid place-items-center rounded-md border-2 border-dashed border-slate-800 bg-slate-950/30 font-mono text-[8px] uppercase tracking-[.18em] text-slate-700 ${CARD_SIZE_CLASS}`}
+    >
       empty
     </div>
   );
@@ -247,23 +263,23 @@ function MashBillTile({ bill }: { bill: MashBill }) {
     >
       <Sheen />
       <div className="flex items-baseline justify-between">
-        <span className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {chrome.label_text}
         </span>
         {bill.goldAward ? (
-          <span className="text-[10px]" aria-hidden>🥇</span>
+          <span className="text-[9px]" aria-hidden>🥇</span>
         ) : bill.silverAward ? (
-          <span className="text-[10px]" aria-hidden>🥈</span>
+          <span className="text-[9px]" aria-hidden>🥈</span>
         ) : null}
       </div>
-      <h4 className={`mt-1 line-clamp-2 font-display text-[12px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
+      <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
         {bill.name}
       </h4>
       <div className="mt-auto flex items-baseline justify-center gap-1">
-        <span className={`font-display text-[20px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
+        <span className={`font-display text-[14px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
           {floor}–{peak}
         </span>
-        <span className={`font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label}`}>
+        <span className={`font-mono text-[7.5px] uppercase tracking-[.16em] ${chrome.label}`}>
           rep
         </span>
       </div>
@@ -271,36 +287,99 @@ function MashBillTile({ bill }: { bill: MashBill }) {
   );
 }
 
-function OpsTypeTile({
-  defId,
-  name,
-  description,
-}: {
-  defId: OperationsCardDefId;
-  name: string;
-  description: string;
-}) {
+function OpsCardTile({ card }: { card: OperationsCard }) {
   const chrome = OPS_CHROME;
   return (
     <div
-      title={`${name} — ${description}`}
+      title={`${card.name} — ${card.description}`}
       className={[baseTile, chrome.gradient, chrome.border].join(" ")}
     >
       <Sheen />
       <div className="flex items-baseline justify-between">
-        <span className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           Ops
         </span>
       </div>
-      <h4 className={`mt-1 line-clamp-3 font-display text-[11px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
-        {name}
+      <h4 className={`mt-0.5 line-clamp-3 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+        {card.name}
       </h4>
       <div
-        className={`mt-auto grid h-10 w-10 self-center place-items-center rounded-full border-2 bg-white/10 text-xl font-bold ${chrome.border} ${chrome.ink}`}
+        className={`mt-auto grid h-7 w-7 self-center place-items-center rounded-full border-2 bg-white/10 text-base font-bold ${chrome.border} ${chrome.ink}`}
         aria-hidden
-        data-def-id={defId}
       >
         ⚡
+      </div>
+    </div>
+  );
+}
+
+function DrawPile({
+  label,
+  remaining,
+  subLabel,
+  tone,
+  muted = false,
+}: {
+  label: string;
+  remaining: number;
+  subLabel?: string;
+  tone: "amber" | "violet" | "slate";
+  muted?: boolean;
+}) {
+  const toneChrome =
+    tone === "amber"
+      ? {
+          border: "border-amber-500/70",
+          gradient:
+            "bg-[linear-gradient(160deg,rgba(120,53,15,.65)_0%,rgba(15,23,42,.95)_75%)]",
+          label: "text-amber-300",
+          ink: "text-amber-100",
+        }
+      : tone === "violet"
+        ? {
+            border: "border-violet-500/70",
+            gradient:
+              "bg-[linear-gradient(160deg,rgba(76,29,149,.65)_0%,rgba(15,23,42,.95)_75%)]",
+            label: "text-violet-300",
+            ink: "text-violet-100",
+          }
+        : {
+            border: "border-slate-600/70",
+            gradient:
+              "bg-[linear-gradient(160deg,rgba(51,65,85,.6)_0%,rgba(15,23,42,.95)_75%)]",
+            label: "text-slate-400",
+            ink: "text-slate-200",
+          };
+  return (
+    <div
+      title={`${label} · ${remaining} card${remaining === 1 ? "" : "s"} remaining`}
+      className={[
+        baseTile,
+        toneChrome.gradient,
+        toneChrome.border,
+        muted ? "opacity-60" : "",
+      ].join(" ")}
+      aria-label={label}
+    >
+      <Sheen />
+      <div className="pointer-events-none absolute inset-2 rounded border border-white/10" aria-hidden />
+      <div className="flex items-baseline justify-between">
+        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${toneChrome.label}`}>
+          Draw
+        </span>
+      </div>
+      <div className="mt-auto flex flex-col items-center gap-0.5">
+        <span className={`font-display text-[20px] font-bold leading-none tabular-nums ${toneChrome.ink}`}>
+          {remaining}
+        </span>
+        <span className={`font-mono text-[7.5px] uppercase tracking-[.14em] text-center ${toneChrome.label}`}>
+          {label}
+        </span>
+        {subLabel ? (
+          <span className={`font-mono text-[7px] uppercase tracking-[.12em] ${toneChrome.label} opacity-70`}>
+            {subLabel}
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -309,7 +388,7 @@ function OpsTypeTile({
 function CostChip({ value, chrome }: { value: number; chrome: { borderSoft: string; ink: string } }) {
   return (
     <span
-      className={`rounded border px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] ${chrome.borderSoft} ${chrome.ink}`}
+      className={`rounded border px-0.5 py-px font-mono text-[7.5px] font-bold uppercase tracking-[.10em] ${chrome.borderSoft} ${chrome.ink}`}
     >
       {value}¢
     </span>

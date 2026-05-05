@@ -17,6 +17,35 @@ Authoritative checklist of explicit asks the user has made for v2.1.
 Implementation must respect every item on this list; new asks are
 added at the top.
 
+- **Every card on screen renders at the SAME fixed silhouette** — hand,
+  market conveyor, mash bills (face-up + draw pile), ops cards, and
+  empty slots. Single source of truth: `CARD_SIZE_CLASS` in
+  `handCardStyles.ts`. Current value: `h-[112px] w-[80px]`. Increasing
+  one tile means increasing them all.
+- **"Mash bill" and "bourbon" are the same card.** UI labels use
+  "mash bills" everywhere; rules-doc copy may use either interchangeably.
+- **Right rail is the Action Log only.** Player ("baron") status moved
+  into each player's rickhouse panel; the rail collapses to a single
+  panel showing the live action log so the user can see what bots are
+  doing each turn. No tabs.
+- **Each rickhouse panel folds in the player's full status.** Identity,
+  reputation, distillery name, slot tally, hand/deck/discard counts,
+  and bills/ops/gold/sold counters all live inside the player's
+  rickhouse card — replacing the standalone Barons sidebar.
+- **Rickhouse slots render as a single horizontal row** with a
+  labelled vertical divider between Upper and Bonded. Bonded slots
+  carry an amber-tinted dashed border so the inviolable tier is
+  visually distinct from upper slots.
+- **Phase strip is inlined into the top bar.** No standalone sub-bar;
+  the round-loop chrome (5 phase chips + demand + bourbon counter +
+  Step / Auto controls) lives in a single header row alongside the
+  brand and Quit button. Setup phases swap in a "Setup · pick your
+  distillery" / "build your starter deck" banner instead.
+- **Market: 10 face-up cards in the conveyor.** Below the conveyor,
+  three subsections (Mash bills, Operations, Investments) each render
+  3 face-up cards plus a face-down "draw from pile" tile that shows the
+  remaining deck count. Investments is a placeholder until v2.2.
+  Engine: `MARKET_CONVEYOR_SIZE = 10`. Rules updated to match.
 - **Rickhouses sit in a top row spanning the full canvas width.**
   Below them, the Market Center takes the full middle width with the
   Right rail (320px) at its right edge. Per-player rickhouse panels

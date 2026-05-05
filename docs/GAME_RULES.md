@@ -87,7 +87,7 @@ After all players have drafted their starter decks, each player shuffles and dra
 
 ## Step 5: Board Setup
 
-- Set up the **Market Conveyor**: 6 cards face-up from the market supply deck.
+- Set up the **Market Conveyor**: 10 cards face-up from the market supply deck.
 - Shuffle and place the **Operations Deck** face-down in the center. Deal each player **2 Operations cards** face-down as their starting operations hand.
 - Set the **Demand Track** to **0** (starting position).
 - Each player begins with **0 reputation**.
@@ -101,7 +101,7 @@ After all players have drafted their starter decks, each player shuffles and dra
 
 ## Shared Elements (Center of Table)
 
-- **Market Conveyor** — 6 face-up cards available for purchase
+- **Market Conveyor** — 10 face-up cards available for purchase
 - **Bourbon Deck** — the doomsday clock; 3 face-up mash bills beside it
 - **Demand Track** — a shared strip tracking current demand (0–12)
 - **Operations Deck** — face-down stack; source of operations cards
@@ -607,7 +607,7 @@ After all players have drafted their starter decks, each player shuffles and dra
 
 ## Step 5: Board Setup
 
-- Set up the **Market Conveyor**: 6 cards face-up from the market supply deck.
+- Set up the **Market Conveyor**: 10 cards face-up from the market supply deck.
 - Shuffle and place the **Operations Deck** face-down in the center. Deal each player **2 Operations cards** face-down as their starting operations hand.
 - Set the **Demand Track** to **0** (starting position).
 - Each player begins with **0 reputation**.
@@ -621,7 +621,7 @@ After all players have drafted their starter decks, each player shuffles and dra
 
 ## Shared Elements (Center of Table)
 
-- **Market Conveyor** — 6 face-up cards available for purchase
+- **Market Conveyor** — 10 face-up cards available for purchase
 - **Bourbon Deck** — the doomsday clock; 3 face-up mash bills beside it
 - **Demand Track** — a shared strip tracking current demand (0–12)
 - **Operations Deck** — face-down stack; source of operations cards

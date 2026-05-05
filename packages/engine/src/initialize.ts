@@ -18,7 +18,7 @@ import { makeResourceCard } from "./cards";
 const DEFAULT_HAND_SIZE = 8;
 const DEFAULT_DEMAND = 0;
 const DEFAULT_STARTING_OPS_CARDS = 2;
-const MARKET_CONVEYOR_SIZE = 6;
+const MARKET_CONVEYOR_SIZE = 10;
 
 /**
  * Build a fresh GameState. Setup phases are skipped per-player when the

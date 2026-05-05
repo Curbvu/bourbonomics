@@ -26,6 +26,7 @@ import { useGameStore } from "@/lib/store/game";
 import PlayerSwatch from "./PlayerSwatch";
 import {
   CAPITAL_CHROME,
+  CARD_SIZE_CLASS,
   HAND_CARD_OVERLAP,
   OPS_CHROME,
   RESOURCE_CHROME,
@@ -117,7 +118,7 @@ export default function HandTray() {
         <Divider />
 
         {/* Mash bills */}
-        <Section caption="bourbon" count={focused.mashBills.length}>
+        <Section caption="mash bills" count={focused.mashBills.length}>
           {focused.mashBills.length === 0 ? (
             <EmptyPill>no mash bills</EmptyPill>
           ) : (
@@ -241,8 +242,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 // Mini cards
 // -----------------------------
 
-const baseCardChrome =
-  "relative flex h-[128px] w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 p-2 text-left shadow-[0_8px_20px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200";
+const baseCardChrome = `relative flex flex-shrink-0 flex-col overflow-hidden rounded-md border-2 p-1.5 text-left shadow-[0_4px_12px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200 ${CARD_SIZE_CLASS}`;
 
 const liftClass =
   "cursor-default hover:z-50 hover:-translate-y-3 hover:scale-[1.08]";
