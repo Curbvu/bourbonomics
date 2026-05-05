@@ -10,9 +10,11 @@ import type {
 } from "../types";
 import { isWheatedBill } from "../types";
 import { capitalUnits, resourceUnits, suppliesResource } from "../cards";
+import { computeCompositionBuffs } from "../composition";
 import { computeReward } from "../rewards";
-import { DEFAULT_BALANCED_COMPOSITION } from "../drafting";
 import { emptySlotsFor, getPlayerBarrels } from "../state";
+
+const RICKHOUSE_SLOT_HARD_CAP = 6;
 
 // ---------------------------------------------------------------
 // Heuristic bot.
@@ -46,7 +48,7 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
     return chooseDistilleryAction(state, playerId);
   }
   if (state.phase === "starter_deck_draft") {
-    return chooseStarterDeckAction(playerId);
+    return chooseStarterPassAction(playerId);
   }
 
   const player = state.players.find((p) => p.id === playerId);
@@ -99,11 +101,12 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
 // -----------------------------
 
 const DISTILLERY_PREFERENCE: Distillery["bonus"][] = [
-  "warehouse",      // capacity is always useful
-  "old_line",       // also +1 slot — same arithmetic as warehouse
-  "broker",         // free trade is high-value when player count is high
-  "high_rye",       // a free 2-rye accelerates rye strategies
-  "wheated_baron",  // fine in the right meta
+  "old_line",       // pre-aged sale-ready barrel is the strongest tempo
+  "warehouse",      // +1 slot + first-sale-min-age is high-ceiling
+  "high_rye",       // pre-aged + 2 free 2-rye + bill bonus
+  "wheated_baron",  // pre-aged + lower single-grain threshold
+  "broker",         // capital-rich, final-round trade liquidity
+  "connoisseur",    // diversified scoring; harder to pilot
   "vanilla",        // last resort
 ];
 
@@ -111,18 +114,14 @@ export function chooseDistillery(state: GameState, playerId: string): GameAction
   return chooseDistilleryAction(state, playerId);
 }
 
-export function chooseStarterDeck(playerId: string): GameAction {
-  return chooseStarterDeckAction(playerId);
+export function chooseStarterPass(playerId: string): GameAction {
+  return chooseStarterPassAction(playerId);
 }
 
-function chooseStarterDeckAction(playerId: string): GameAction {
-  // Bots take the balanced default composition. Future: pick based on the
-  // distillery bonus (e.g. extra rye for High-Rye House).
-  return {
-    type: "COMPOSE_STARTER_DECK",
-    playerId,
-    composition: { ...DEFAULT_BALANCED_COMPOSITION },
-  };
+function chooseStarterPassAction(playerId: string): GameAction {
+  // v2.4: bots accept their dealt hand as-is and pass the trade window.
+  // Smart trading + safety-valve usage will land in Change 6.
+  return { type: "STARTER_PASS", playerId };
 }
 
 function chooseDistilleryAction(state: GameState, playerId: string): GameAction {
@@ -377,9 +376,11 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
   }
 
   // Rickhouse Expansion Permit: take it whenever we're not already at
-  // the cap and our rickhouse is currently full (slot pressure).
+  // the cap and our rickhouse is currently full (slot pressure). The
+  // distillery may impose a stricter cap (Broker = 4).
   const rep = playable.find((c) => c.defId === "rickhouse_expansion_permit");
-  if (rep && player.rickhouseSlots.length < 6) {
+  const slotCap = player.distillery?.maxSlots ?? RICKHOUSE_SLOT_HARD_CAP;
+  if (rep && player.rickhouseSlots.length < slotCap) {
     const occupied = state.allBarrels.filter((b) => b.ownerId === player.id).length;
     if (occupied >= player.rickhouseSlots.length) {
       return {
@@ -421,14 +422,25 @@ function chooseDemandDirection(state: GameState, player: PlayerState): "up" | "d
 // -----------------------------
 
 function chooseSale(state: GameState, player: PlayerState): GameAction | null {
-  const barrels = getPlayerBarrels(state, player.id).filter((b) => b.age >= 2);
+  // v2.4 first-sale-min-age constraint (Warehouse): until the first
+  // sale resolves, only barrels at or above that age are legal.
+  const firstSaleMin = player.distillery?.firstSaleMinAge ?? 0;
+  const minAge = !player.firstSaleResolved && firstSaleMin > 2 ? firstSaleMin : 2;
+  const barrels = getPlayerBarrels(state, player.id).filter((b) => b.age >= minAge);
   if (barrels.length === 0) return null;
 
   let best: { barrelId: string; reward: number; age: number } | null = null;
   for (const b of barrels) {
-    const reward = computeReward(b.attachedMashBill, b.age, state.demand);
-    if (best === null || reward > best.reward) {
-      best = { barrelId: b.id, reward, age: b.age };
+    // v2.4: include composition's bonus reputation in the EV — a 5-rep
+    // grid sale that also fires cask_3 + all_grains is worth +3 more.
+    const composition = computeCompositionBuffs(b, player.distillery);
+    const grid = computeReward(b.attachedMashBill, b.age, state.demand, {
+      demandBandOffset: b.demandBandOffset + composition.gridDemandBandOffset,
+      gridRepOffset: b.gridRepOffset,
+    });
+    const evReward = grid + composition.bonusRep;
+    if (best === null || evReward > best.reward) {
+      best = { barrelId: b.id, reward: grid, age: b.age };
     }
   }
   if (!best) return null;
@@ -483,8 +495,8 @@ function chooseMakeBourbon(state: GameState, player: PlayerState): GameAction | 
   };
 }
 
-function pickSlot(state: GameState, _player: PlayerState): string | null {
-  const empties = emptySlotsFor(state, _player.id);
+function pickSlot(state: GameState, player: PlayerState): string | null {
+  const empties = emptySlotsFor(state, player.id);
   if (empties.length === 0) return null;
   // v2.2: rickhouse tiers removed — all slots are equivalent. Pick the
   // first available empty slot in deterministic order.

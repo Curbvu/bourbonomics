@@ -80,6 +80,10 @@ export function giveHand(state: GameState, playerId: string, cards: Card[]): Gam
  * Inject a fully-aged barrel directly into one of the player's slots. Used by
  * sale/aging tests so we don't have to grind through N rounds to get a
  * saleable barrel.
+ *
+ * Pass `productionCards` to override the default empty production pile, and
+ * `agingCards` to override the auto-generated corn aging cards (in which
+ * case `age` is ignored — barrel.age becomes `agingCards.length`).
  */
 export function placeBarrel(
   state: GameState,
@@ -87,6 +91,7 @@ export function placeBarrel(
   mashBill: { id: string; defId: string; name: string; ageBands: readonly [number, number, number]; demandBands: readonly [number, number, number]; rewardGrid: readonly (readonly (number | null)[])[]; recipe?: unknown; silverAward?: unknown; goldAward?: unknown },
   age: number,
   slotId?: string,
+  options: { productionCards?: Card[]; agingCards?: Card[] } = {},
 ): GameState {
   const owner = state.players.find((p) => p.id === ownerId);
   if (!owner) throw new Error(`placeBarrel: unknown player ${ownerId}`);
@@ -99,13 +104,14 @@ export function placeBarrel(
   }
   const barrelIndex = state.allBarrels.length;
   const barrelId = `barrel_test_${barrelIndex}`;
-  const agingCards: Card[] = Array.from({ length: age }, (_, i) => ({
+  const agingCards: Card[] = options.agingCards ?? Array.from({ length: age }, (_, i) => ({
     id: `agingcard_${ownerId}_${barrelIndex}_${i}`,
     cardDefId: "corn",
     type: "resource",
     subtype: "corn",
     resourceCount: 1,
   }));
+  const effectiveAge = options.agingCards ? options.agingCards.length : age;
   return {
     ...state,
     allBarrels: [
@@ -116,9 +122,9 @@ export function placeBarrel(
         slotId: targetSlot,
         attachedMashBill: mashBill as never,
         productionCardDefIds: [],
-        productionCards: [],
+        productionCards: options.productionCards ?? [],
         agingCards,
-        age,
+        age: effectiveAge,
         productionRound: state.round,
         agedThisRound: false,
         inspectedThisRound: false,

@@ -1,4 +1,4 @@
-import type { Card, InvestmentCard, MashBill } from "./types";
+import type { Card, InvestmentCard, MashBill, StarterBillKey } from "./types";
 import {
   makeCapitalCard,
   makeMashBill,
@@ -6,6 +6,63 @@ import {
   makePremiumResource,
   makeResourceCard,
 } from "./cards";
+
+// ============================================================
+// Starter mash bills (v2.4) — NOT part of the Bourbon deck. Used
+// only for distillery starting barrels. Three "basic" bills cover
+// the workhorse, high-rye, and wheated lanes; pre-aged starting
+// barrels ship with one of these attached.
+// ============================================================
+
+export function buildStarterMashBill(key: StarterBillKey, instance: number): MashBill {
+  const specs: Record<StarterBillKey, Parameters<typeof makeMashBill>[0]> = {
+    workhorse: {
+      defId: "starter_workhorse",
+      name: "Backroad Batch",
+      slogan: "Built for the long haul.",
+      flavorText: "A ship-it-anyway corn-rye workhorse. The bill the founder cooked first.",
+      tier: "common",
+      ageBands: [2, 4, 6],
+      demandBands: [2, 4, 6],
+      rewardGrid: [
+        [1, 2, 3],
+        [2, 3, 4],
+        [3, 4, 5],
+      ],
+    },
+    high_rye_basic: {
+      defId: "starter_high_rye",
+      name: "House High-Rye",
+      slogan: "Pepper, pepper, pepper.",
+      flavorText: "The estate's standing high-rye recipe. Pungent and predictable.",
+      tier: "common",
+      ageBands: [2, 4, 6],
+      demandBands: [3, 5, 7],
+      rewardGrid: [
+        [1, 2, 3],
+        [2, 4, 5],
+        [3, 5, 6],
+      ],
+      recipe: { minRye: 2 },
+    },
+    wheated_basic: {
+      defId: "starter_wheated",
+      name: "Soft Front",
+      slogan: "Smooth from the first drop.",
+      flavorText: "House wheated bill — the gentle pour.",
+      tier: "common",
+      ageBands: [2, 4, 6],
+      demandBands: [2, 4, 6],
+      rewardGrid: [
+        [1, 2, 3],
+        [2, 3, 5],
+        [3, 4, 6],
+      ],
+      recipe: { minWheat: 1, maxRye: 0 },
+    },
+  };
+  return makeMashBill(specs[key], instance);
+}
 
 // ============================================================
 // Investment catalog — display-only stub for v2.1. The mechanic ships

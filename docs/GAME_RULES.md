@@ -40,21 +40,43 @@ Each player selects a **Distillery Card** — a large-format player board that r
 
 Distillery cards are selected in reverse snake order (last player picks first). Each distillery has a unique starting bonus tied to a specific card or permanent ability. No two players may select the same distillery.
 
-### Distillery Bonuses
+### Distillery Profiles
 
-Each distillery bonus maps directly to a physical game element — a card, an extra slot, or a permanent rule modifier. Examples:
+Under v2.4 each distillery is a full asymmetric opening package: a **starting state** (pre-aged barrel and/or starter-pool tweak), a **permanent ability**, and a **constraint** that gives the distillery its identity.
 
-- **Warehouse Distillery** — start with 1 extra rickhouse slot (5 total instead of the default 4).
-- **High-Rye House** — start with 1 free 2-rye premium card already in your starter deck.
-- **Wheated Baron** — your wheated mash bills cost 1 fewer grain card to produce (minimum 1).
-- **The Broker** — once per round, you may trade without spending an action. *(Vestigial under v2.2: with full-turn actions, no trade ever ends your turn, so the bonus is currently inert. It remains in code for forward compatibility.)*
-- **Old-Line Distillery** — start with 1 extra rickhouse slot (5 total instead of the default 4). Same arithmetic as the Warehouse Distillery; distinct flavor.
+**Warehouse Distillery — "The Capacity King"**
+- *Starting state:* +1 rickhouse slot (5 total). No pre-aged barrel.
+- *Permanent ability:* — *(Reserved for upper-tier targeting protection — currently inert under v2.2's flat-rickhouse model.)*
+- *Constraint:* Your **first sale** must be a barrel aged 4+ years.
 
-Specific distillery cards and their bonuses are defined in the distillery card set. Bonuses are public information from the moment of selection.
+**High-Rye House — "The Specialist"**
+- *Starting state:* 1 pre-aged barrel (age 1) with a basic high-rye bill attached. Your starter hand is dealt 2 free 2-rye premium cards on top of the standard 16.
+- *Permanent ability:* +1 reputation when selling any high-rye bill (regardless of composition).
+- *Constraint:* Wheat cards count as 0 toward your composition-buff thresholds.
+
+**Wheated Baron — "The Smooth Operator"**
+- *Starting state:* 1 pre-aged barrel (age 1) with a basic wheated bill attached.
+- *Permanent ability:* Wheated mash bills cost 1 fewer grain card to produce (minimum 1). Your "3+ single grain" composition buff fires at **2+** instead of 3+.
+- *Constraint:* Rye cards count as 0 toward your composition-buff thresholds.
+
+**Old-Line Distillery — "The Heritage Brand"**
+- *Starting state:* 1 pre-aged barrel (age 2) with a workhorse bill — sale-ready in round 1. +1 rickhouse slot (5 total).
+- *Permanent ability:* — *(Reserved for an expanded bonded warehouse — currently inert under v2.2's flat-rickhouse model.)*
+- *Constraint:* Your starter hand has 1 fewer capital card.
+
+**The Broker — "The Dealmaker"**
+- *Starting state:* Your starter hand has 2 extra capital cards.
+- *Permanent ability:* You may trade in the **final round** (other players cannot trade with each other in that round, but they can trade with you).
+- *Constraint:* Your maximum rickhouse capacity is 4 (Rickhouse Expansion Permit cannot raise it).
+
+**Connoisseur Estate — "The Diversified"**
+- *Starting state:* Draft 4 mash bills during setup instead of 3.
+- *Permanent ability:* Your "all four grain types" composition buff fires when **3 of 4** distinct grain types are present, and grants **+3 reputation** instead of +2.
+- *Constraint:* Your maximum mash-bill hand size is 4.
 
 ### The Vanilla Distillery
 
-A player may choose the **Vanilla Distillery** instead of a named distillery. The Vanilla Distillery has no starting bonus and no special rules. It is intended as a challenge option for experienced players or for competitive play where bonus asymmetry is unwanted.
+A player may choose the **Vanilla Distillery** instead of a named distillery. The Vanilla Distillery has no starting state, no permanent ability, and no constraint. It is intended as a challenge option for experienced players or for competitive play where asymmetry is unwanted.
 
 ---
 
@@ -64,18 +86,26 @@ Each player drafts **3 mash bills** from a shared pool. The exact draft procedur
 
 ---
 
-## Step 3: Starter Deck Draft
+## Step 3: Starter Hand Deal
 
-Each player builds a personal **16-card starter deck** by selecting from the communal pool of "plain" cards. Players may choose any combination of:
+Build the **starter pool** with the following composition per player:
 
-- **Cask cards**
-- **Corn cards**
-- **Grain cards** (rye, barley, wheat — depending on the pool)
-- **Capital cards**
+- 6 cask cards
+- 4 corn cards
+- 4 grain cards (mixed: 2 rye, 1 barley, 1 wheat)
+- 2 capital cards
 
-A typical balanced starter might be 4 cask, 4 corn, 4 grain, 2 capital, plus 2 of the player's choice — but players are free to specialize. A player who plans to focus on high-rye bourbon might draft more rye-leaning grain cards. The draft itself is the first strategic decision of the game.
+For a 4-player game, this is a 64-card pool: 24 cask, 16 corn, 16 grain (8 rye / 4 barley / 4 wheat), 8 capital. Scale proportionally for other player counts.
 
-All cards in the starter deck are "plain" — basic versions of each type. Premium cards (like 2-rye) are only available through the market during play, or through a distillery bonus.
+Shuffle the pool. Deal each player **16 cards face-up**. All hands remain face-up throughout the trade window so other players can evaluate offers.
+
+**Trade Window.** Players have **3 minutes** to negotiate **1-for-1 card trades** with any other player. Both players in a trade must agree. Trades are public. The trade window has no turn order — any pair of players may trade at any moment. A single trade exchanges exactly one card from each side; multi-card swaps are not allowed (run multiple trades instead).
+
+**Stuck Hand Safety Valve.** Once during the trade window, a player may return up to 3 cards from their hand to the undealt pool and draw the same number of replacements off the top of the pool. The safety valve is one-shot per player per game.
+
+**Finalize.** When the trade window ends — either the timer expires or every player has signaled "pass" — each player shuffles their final 16-card starter hand to form their starter deck. The pool's undealt remainder is set aside.
+
+All cards in the starter pool are "plain" — basic versions of each type. Premium cards (like 2-rye) enter the game only through the market during play or through a distillery bonus.
 
 ---
 
@@ -330,6 +360,8 @@ While producing a barrel, you may also discard one extra card from your hand and
 
 Sell any of your barrels that is at least 2 years old. Reference the attached mash bill's grid using the barrel's age and the current demand to determine the total reward (N).
 
+Apply any **Composition Buffs** (see §Composition Buffs) before allocating the reward. Composition buffs may shift the grid-lookup demand band, add flat reputation or purchasing power on top of N, or cancel this sale's demand drop.
+
 You may allocate N across two outcomes, in any combination, with the total spent ≤ N:
 
 - **Gain Reputation** — advance your reputation track.
@@ -506,6 +538,26 @@ The persistent infrastructure card. Expensive because it's permanent.
 
 ---
 
+# 🧪 Composition Buffs
+
+When you sell a barrel, examine the cards committed to it — the mash bill ingredients used at production plus every aging card placed on the barrel during its lifetime. For each composition threshold met, apply the listed buff to the sale. Buffs stack with each other and with the mash bill's grid reward.
+
+| Composition Threshold | Buff |
+|---|---|
+| 3+ cask cards committed | +1 reputation |
+| 3+ corn cards committed | +1 purchasing power |
+| 3+ of a single grain type (rye, wheat, or barley) | Treat current demand as +1 for this sale's grid lookup |
+| 2+ capital cards committed | Demand does not drop from this sale |
+| All four grain types present (rye, wheat, barley, *and* the bill's primary grain — corn) | +2 reputation |
+
+Apply the demand-band buff *before* the grid lookup; apply flat reputation and purchasing-power buffs *after* the grid lookup, on top of N. The skip-demand-drop buff overrides the normal post-sale demand drop. None of these buffs change which Bourbon Award (Silver / Gold) the sale qualifies for — awards still read the grid value as printed plus any persistent barrel offsets.
+
+**Premium resources count by their full unit value.** A 2-rye card counts as 2 rye for composition thresholds (so a single 2-rye plus a single 1-rye reaches the 3+ rye threshold). Capital cards count as 1 each toward the 2+ capital threshold regardless of their printed capital value.
+
+Composition is calculated **at sale time only**, not continuously while the barrel ages. The committed cards are revealed as a pile when the barrel sells.
+
+---
+
 # 🥇 Bourbon Awards
 
 Some mash bills grant special awards when their bourbon is sold.
@@ -611,6 +663,7 @@ It's about knowing what to lock up, what to let go, and when the world is ready 
 
 # 📜 Changelog
 
+- **v2.4** — Composition Buffs added: cards committed to barrels grant sale-time bonuses based on composition thresholds (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all-four-grains). Starter deck setup replaced with random deal of 16 face-up cards from a shared pool plus a 3-minute 1-for-1 trading window and a once-per-player stuck-hand swap. Distillery cards rebuilt as full asymmetric opening packages — each has a starting state (often a pre-aged barrel), a permanent ability (sale mods, composition mods), and a constraint. Connoisseur Estate added as a 7th distillery option (Vanilla still selectable). Bot heuristics updated for the new rules.
 - **v2.2.x** — Rickhouse bonded/upper tier distinction removed. Every slot is equivalent; ops cards (Regulatory Inspection, Barrel Broker, Blend) that used to be tier-gated now operate on any slot. Old-Line Distillery retains its +1 slot but no longer carries the "bonded warehouse" flavor (same arithmetic as Warehouse).
 - **v2.2** — Action Phase restructured: players now take full turns rather than one action per turn. Start player rotates each round, with the last player of round N becoming the first player of round N+1. Operations cards are now acquired through purchase only (no starting hand, no per-round draw).
 - **v2.1** — Operations cards added (8 effects), Rush to Market and Distressed Sale Notice removed, ops bought from face-up market.

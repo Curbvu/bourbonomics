@@ -77,19 +77,47 @@ describe("Distillery selection", () => {
     expect(p3.rickhouseSlots).toHaveLength(5);
   });
 
-  it("High-Rye House inserts a 2-rye into the player's deck", () => {
+  it("High-Rye House delivers a free 2-rye via the v2.4 starter trade window", () => {
+    // p3 picks first under reverse-snake; the other two players still
+    // need distilleries before the starter phase begins. Walk all the
+    // way through so the 2-rye lands in p3's finalized deck.
     let state = makeSelectionGame();
     const highRye = state.distilleryPool.find((d) => d.bonus === "high_rye")!;
-    const initialDeckSize = state.players.find((p) => p.id === "p3")!.deck.length;
     state = applyAction(state, {
       type: "SELECT_DISTILLERY",
       playerId: "p3",
       distilleryId: highRye.id,
     });
-    const p3 = state.players.find((p) => p.id === "p3")!;
-    expect(p3.deck.length).toBe(initialDeckSize + 1);
-    expect(p3.deck.some((c) => c.subtype === "rye" && c.premium && c.resourceCount === 2)).toBe(
-      true,
+    // p2 and p1 take whatever's left; we don't care which.
+    state = applyAction(state, {
+      type: "SELECT_DISTILLERY",
+      playerId: "p2",
+      distilleryId: state.distilleryPool[0]!.id,
+    });
+    state = applyAction(state, {
+      type: "SELECT_DISTILLERY",
+      playerId: "p1",
+      distilleryId: state.distilleryPool[0]!.id,
+    });
+
+    // After the random deal, p3's starter hand holds the two bonus
+    // 2-rye cards (16 dealt + 2 bonus = 18).
+    const p3Mid = state.players.find((p) => p.id === "p3")!;
+    expect(p3Mid.starterHand).toHaveLength(18);
+    const ryePremiumsMid = p3Mid.starterHand.filter(
+      (c) => c.subtype === "rye" && c.premium && c.resourceCount === 2,
     );
+    expect(ryePremiumsMid.length).toBe(2);
+
+    // After every drafter passes, the starter hand shuffles into the deck.
+    for (const id of ["p3", "p2", "p1"]) {
+      state = applyAction(state, { type: "STARTER_PASS", playerId: id });
+    }
+    const p3Final = state.players.find((p) => p.id === "p3")!;
+    expect(p3Final.deck).toHaveLength(18);
+    const ryePremiumsFinal = p3Final.deck.filter(
+      (c) => c.subtype === "rye" && c.premium && c.resourceCount === 2,
+    );
+    expect(ryePremiumsFinal.length).toBe(2);
   });
 });

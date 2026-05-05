@@ -1,7 +1,7 @@
 import type { GameAction, GameState, PlayerState } from "../types";
 import { applyAction, isGameOver } from "../engine";
 import { roll2d6 } from "../rng";
-import { chooseAction, chooseDistillery, chooseStarterDeck } from "./bot";
+import { chooseAction, chooseDistillery, chooseStarterPass } from "./bot";
 
 /**
  * Drive a game where every player is a bot. Returns the final state.
@@ -72,13 +72,18 @@ export function nextOrchestratorAction(state: GameState): GameAction | null {
       return chooseDistillery(state, nextPickerId);
     }
     case "starter_deck_draft": {
-      const nextPickerId = state.starterDeckDraftOrder[state.starterDeckDraftCursor];
-      if (!nextPickerId) {
-        throw new Error("starter-deck draft has no remaining pickers");
+      // v2.4: trade window has no per-player turn order. Walk drafters
+      // in seat order; the first bot who hasn't passed yet acts. If
+      // the next non-passed drafter is a human, the orchestrator
+      // pauses for input.
+      const nextActor = state.starterDeckDraftOrder
+        .map((id) => state.players.find((p) => p.id === id))
+        .find((p): p is PlayerState => p !== undefined && !p.starterPassed);
+      if (!nextActor) {
+        throw new Error("starter-deck draft has no remaining drafters");
       }
-      const picker = state.players.find((p) => p.id === nextPickerId);
-      if (picker && picker.isBot === false) return null;
-      return chooseStarterDeck(nextPickerId);
+      if (nextActor.isBot === false) return null;
+      return chooseStarterPass(nextActor.id);
     }
     case "demand": {
       const [roll] = roll2d6(state.rngState);
@@ -115,9 +120,10 @@ export function awaitingHumanInput(state: GameState): PlayerState | null {
     const picker = id ? state.players.find((p) => p.id === id) : undefined;
     if (picker && picker.isBot === false) return picker;
   } else if (state.phase === "starter_deck_draft") {
-    const id = state.starterDeckDraftOrder[state.starterDeckDraftCursor];
-    const picker = id ? state.players.find((p) => p.id === id) : undefined;
-    if (picker && picker.isBot === false) return picker;
+    const nextActor = state.starterDeckDraftOrder
+      .map((id) => state.players.find((p) => p.id === id))
+      .find((p): p is PlayerState => p !== undefined && !p.starterPassed);
+    if (nextActor && nextActor.isBot === false) return nextActor;
   }
   return null;
 }

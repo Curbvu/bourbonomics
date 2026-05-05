@@ -14,10 +14,9 @@ import { applyDrawMashBill, validateDrawMashBill } from "./actions/draw-deck";
 import { applyTrade, validateTrade } from "./actions/trade";
 import { applyPassTurn, validatePassTurn } from "./actions/pass-turn";
 import { applySelectDistillery, validateSelectDistillery } from "./actions/select-distillery";
-import {
-  applyComposeStarterDeck,
-  validateComposeStarterDeck,
-} from "./actions/compose-starter-deck";
+import { applyStarterTrade, validateStarterTrade } from "./actions/starter-trade";
+import { applyStarterSwap, validateStarterSwap } from "./actions/starter-swap";
+import { applyStarterPass, validateStarterPass } from "./actions/starter-pass";
 import {
   applyPlayOperationsCard,
   validatePlayOperationsCard,
@@ -40,8 +39,12 @@ export function validateAction(state: GameState, action: GameAction): Validation
   switch (action.type) {
     case "SELECT_DISTILLERY":
       return validateSelectDistillery(state, action);
-    case "COMPOSE_STARTER_DECK":
-      return validateComposeStarterDeck(state, action);
+    case "STARTER_TRADE":
+      return validateStarterTrade(state, action);
+    case "STARTER_SWAP":
+      return validateStarterSwap(state, action);
+    case "STARTER_PASS":
+      return validateStarterPass(state, action);
     case "ROLL_DEMAND":
       return validateRollDemand(state, action);
     case "DRAW_HAND":
@@ -92,8 +95,14 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
     case "SELECT_DISTILLERY":
       applySelectDistillery(draft, action);
       return;
-    case "COMPOSE_STARTER_DECK":
-      applyComposeStarterDeck(draft, action);
+    case "STARTER_TRADE":
+      applyStarterTrade(draft, action);
+      return;
+    case "STARTER_SWAP":
+      applyStarterSwap(draft, action);
+      return;
+    case "STARTER_PASS":
+      applyStarterPass(draft, action);
       return;
     case "ROLL_DEMAND":
       applyRollDemand(draft, action);

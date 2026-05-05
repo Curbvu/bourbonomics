@@ -11,9 +11,6 @@ export function validateTrade(
   if (state.phase !== "action") {
     return { legal: false, reason: `phase is "${state.phase}", expected "action"` };
   }
-  if (state.finalRoundTriggered) {
-    return { legal: false, reason: "trades are not allowed during the final round" };
-  }
   if (action.player1Id === action.player2Id) {
     return { legal: false, reason: "cannot trade with yourself" };
   }
@@ -21,6 +18,15 @@ export function validateTrade(
   const p2 = state.players.find((p) => p.id === action.player2Id);
   if (!p1) return { legal: false, reason: `unknown player ${action.player1Id}` };
   if (!p2) return { legal: false, reason: `unknown player ${action.player2Id}` };
+  // v2.4 Broker exception: trades are illegal in the final round
+  // unless one side is The Broker (who keeps trade liquidity open).
+  if (state.finalRoundTriggered) {
+    const brokerSide =
+      p1.distillery?.bonus === "broker" || p2.distillery?.bonus === "broker";
+    if (!brokerSide) {
+      return { legal: false, reason: "trades are not allowed during the final round" };
+    }
+  }
   if (!isCurrentPlayer(state, action.player1Id)) {
     return { legal: false, reason: "trade must be initiated by the player whose turn it is" };
   }

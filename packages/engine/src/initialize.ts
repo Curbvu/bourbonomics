@@ -1,3 +1,4 @@
+import { produce, type Draft } from "immer";
 import type {
   Card,
   Distillery,
@@ -12,7 +13,12 @@ import {
 import { defaultDistilleryPool, buildRickhouseSlots } from "./distilleries";
 import { defaultOperationsDeck } from "./operations";
 import { shuffleCards } from "./deck";
-import { makeResourceCard } from "./cards";
+import {
+  applyDistilleryStarterModifications,
+  enterStarterDeckDraftPhase,
+  placeStartingBarrel,
+  topUpMashBillsForDistillery,
+} from "./starter-pool";
 
 const DEFAULT_HAND_SIZE = 8;
 const DEFAULT_DEMAND = 0;
@@ -22,12 +28,15 @@ const MARKET_CONVEYOR_SIZE = 10;
  * Build a fresh GameState. Setup phases are skipped per-player when the
  * relevant config field is supplied:
  *   - `startingDistilleries[i]` skips the distillery pick for player i
- *   - `starterDecks[i]`         skips the starter-deck draft for player i
+ *   - `starterDecks[i]`         skips the starter-deck random deal for player i
  *
  * If every player has both pre-assigned, the game lands directly in the
  * demand phase. Otherwise the engine walks distillery_selection →
- * starter_deck_draft → demand, resolving picks via SELECT_DISTILLERY and
- * COMPOSE_STARTER_DECK actions in reverse-snake order.
+ * starter_deck_draft → demand. Distillery picks resolve via
+ * SELECT_DISTILLERY in reverse-snake order; the starter draft phase
+ * deals 16 face-up cards to each remaining drafter at phase entry and
+ * resolves via STARTER_TRADE / STARTER_SWAP / STARTER_PASS until every
+ * drafter has passed.
  */
 export function initializeGame(config: GameConfig): GameState {
   let rngState = config.seed;
@@ -35,19 +44,22 @@ export function initializeGame(config: GameConfig): GameState {
   const startingDemand = config.startingDemand ?? DEFAULT_DEMAND;
 
   // Players. A player whose starter deck wasn't pre-built starts with an
-  // empty deck and joins the starter_deck_draft phase to compose theirs.
+  // empty deck and joins the starter_deck_draft phase for the v2.4
+  // random-deal-and-trading window.
   const players: PlayerState[] = config.players.map((p, i) => {
     const distillery = config.startingDistilleries?.[i] ?? null;
     const explicitDeck = config.starterDecks?.[i];
 
     let deck: Card[] = [];
     if (explicitDeck) {
-      // Apply High-Rye House bonus to the supplied deck before shuffle.
-      const deckWithBonus =
-        distillery?.bonus === "high_rye"
-          ? [...explicitDeck, makeResourceCard("rye", p.id, 999, true, 2)]
-          : explicitDeck;
-      const shuffled = shuffleCards(deckWithBonus, rngState);
+      // Pre-built starter decks bypass the trade window entirely. Apply
+      // any post-deal distillery modifications now (idempotent — the
+      // starter draft path won't see this player) and shuffle.
+      const seedDeck = explicitDeck.slice();
+      if (distillery) {
+        applyDistilleryStarterModifications(seedDeck as unknown as Draft<Card[]>, p, distillery);
+      }
+      const shuffled = shuffleCards(seedDeck, rngState);
       deck = shuffled.shuffled;
       rngState = shuffled.rngState;
     }
@@ -65,9 +77,13 @@ export function initializeGame(config: GameConfig): GameState {
       mashBills: startingMash.slice(),
       unlockedGoldBourbons: [],
       operationsHand: [],
+      starterHand: [],
+      starterPassed: false,
+      starterSwapUsed: false,
       reputation: 0,
       handSize: startingHandSize,
       barrelsSold: 0,
+      firstSaleResolved: false,
       outForRound: false,
       demandSurgeActive: false,
       brokerFreeTradeUsed: false,
@@ -129,7 +145,7 @@ export function initializeGame(config: GameConfig): GameState {
   else if (starterDeckDraftOrder.length > 0) phase = "starter_deck_draft";
   else phase = "demand";
 
-  return {
+  const initialState: GameState = {
     seed: config.seed,
     rngState,
     round: 1,
@@ -141,7 +157,7 @@ export function initializeGame(config: GameConfig): GameState {
     distillerySelectionOrder,
     distillerySelectionCursor: 0,
     starterDeckDraftOrder,
-    starterDeckDraftCursor: 0,
+    starterUndealtPool: [],
     allBarrels: [],
     marketConveyor,
     marketSupplyDeck,
@@ -159,6 +175,29 @@ export function initializeGame(config: GameConfig): GameState {
     idCounter: 1,
     actionHistory: [],
   };
+
+  // If every player's distillery is pre-assigned (no `distillery_selection`
+  // phase), the per-distillery starting barrel placement happens here
+  // since SELECT_DISTILLERY won't run for them. Same for entering
+  // `starter_deck_draft` from init: deal random hands now so the
+  // phase is ready for trade actions.
+  const skipsDistillerySelection = distillerySelectionOrder.length === 0;
+  if (skipsDistillerySelection || phase === "starter_deck_draft") {
+    return produce(initialState, (draft: Draft<GameState>) => {
+      if (skipsDistillerySelection) {
+        for (const player of draft.players) {
+          if (player.distillery) {
+            placeStartingBarrel(draft, player, player.distillery);
+            topUpMashBillsForDistillery(draft, player, player.distillery);
+          }
+        }
+      }
+      if (phase === "starter_deck_draft") {
+        enterStarterDeckDraftPhase(draft);
+      }
+    });
+  }
+  return initialState;
 }
 
 /** Helper for tests / programmatic auto-pick: assign distilleries from the pool head. */

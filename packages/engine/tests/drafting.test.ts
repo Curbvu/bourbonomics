@@ -1,12 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   autoDraftMashBills,
-  buildStarterDeck,
-  DEFAULT_BALANCED_COMPOSITION,
   executeMashBillDraft,
   snakeDraftOrder,
-  totalCards,
-  validateStarterComposition,
 } from "../src/drafting.js";
 import { defaultMashBillCatalog } from "../src/defaults.js";
 
@@ -70,32 +66,3 @@ describe("autoDraftMashBills", () => {
   });
 });
 
-describe("starter deck composition", () => {
-  it("validates totals", () => {
-    expect(validateStarterComposition(DEFAULT_BALANCED_COMPOSITION).legal).toBe(true);
-    expect(validateStarterComposition({ cask: 5 }).legal).toBe(false);
-    expect(validateStarterComposition({ cask: -1, corn: 15 }).legal).toBe(false);
-  });
-
-  it("totalCards sums correctly", () => {
-    expect(totalCards(DEFAULT_BALANCED_COMPOSITION)).toBe(16);
-    expect(totalCards({})).toBe(0);
-  });
-
-  it("buildStarterDeck produces 16 cards in subtype order", () => {
-    const cards = buildStarterDeck(DEFAULT_BALANCED_COMPOSITION, "alice");
-    expect(cards).toHaveLength(16);
-    const subtypes = cards.map((c) => c.subtype ?? c.type);
-    // Order: cask×4, corn×4, rye×2, barley×1, wheat×1, then 4 capital
-    expect(subtypes.slice(0, 4).every((s) => s === "cask")).toBe(true);
-    expect(subtypes.slice(4, 8).every((s) => s === "corn")).toBe(true);
-    expect(subtypes.slice(8, 10).every((s) => s === "rye")).toBe(true);
-    expect(subtypes[10]).toBe("barley");
-    expect(subtypes[11]).toBe("wheat");
-    expect(subtypes.slice(12, 16).every((s) => s === "capital")).toBe(true);
-  });
-
-  it("buildStarterDeck rejects compositions with the wrong total", () => {
-    expect(() => buildStarterDeck({ cask: 1 }, "x")).toThrow();
-  });
-});

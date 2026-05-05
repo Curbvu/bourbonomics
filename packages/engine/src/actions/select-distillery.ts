@@ -1,8 +1,13 @@
 import type { Draft } from "immer";
 import type { Distillery, GameAction, GameState, ValidationResult } from "../types";
 import { buildRickhouseSlots } from "../distilleries";
-import { makeResourceCard } from "../cards";
 import { shuffleCards } from "../deck";
+import {
+  applyDistilleryStarterModifications,
+  enterStarterDeckDraftPhase,
+  placeStartingBarrel,
+  topUpMashBillsForDistillery,
+} from "../starter-pool";
 
 type SelectDistilleryAction = Extract<GameAction, { type: "SELECT_DISTILLERY" }>;
 
@@ -43,25 +48,29 @@ export function applySelectDistillery(
   player.distillery = distillery;
   player.rickhouseSlots = buildRickhouseSlots(player.id, distillery);
 
-  // High-Rye House bonus: insert a 2-rye into the player's deck and reshuffle.
-  if (distillery.bonus === "high_rye") {
-    const bonus = makeResourceCard("rye", player.id, 999, true, 2);
-    const combined = [...player.deck, bonus];
-    const { shuffled, rngState } = shuffleCards(combined, draft.rngState);
+  // Place the v2.4 pre-aged starting barrel (if any).
+  placeStartingBarrel(draft, player, distillery);
+  // Top up mash bills if the distillery drafts more than the default 3
+  // (Connoisseur Estate: 4).
+  topUpMashBillsForDistillery(draft, player, distillery);
+
+  // If this player's deck was pre-built (config.starterDecks[i]), they
+  // skip the starter trade window — apply post-deal distillery
+  // modifications to that deck now and reshuffle. Players who'll go
+  // through the trade window have those modifications applied when
+  // the phase begins (see enterStarterDeckDraftPhase).
+  const willEnterStarterDraft = draft.starterDeckDraftOrder.includes(player.id);
+  if (!willEnterStarterDraft) {
+    applyDistilleryStarterModifications(player.deck, player, distillery);
+    const { shuffled, rngState } = shuffleCards(player.deck, draft.rngState);
     player.deck = shuffled;
     draft.rngState = rngState;
   }
 
   draft.distillerySelectionCursor += 1;
   if (draft.distillerySelectionCursor >= draft.distillerySelectionOrder.length) {
-    // All players have picked their distillery — fall through to the next
-    // setup phase (starter-deck draft if anyone still needs to compose,
-    // else straight into the round loop). Defensive `?? []`: legacy saved
-    // states from before the starter-deck phase landed may not have the
-    // order array yet.
-    const starterOrderLen = draft.starterDeckDraftOrder?.length ?? 0;
-    if (starterOrderLen > 0) {
-      draft.phase = "starter_deck_draft";
+    if (draft.starterDeckDraftOrder.length > 0) {
+      enterStarterDeckDraftPhase(draft);
     } else {
       draft.phase = "demand";
     }

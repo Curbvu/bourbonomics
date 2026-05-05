@@ -40,6 +40,15 @@ export function validateDrawMashBill(
     }
   }
 
+  // v2.4 Connoisseur Estate: optional mash-bill hand cap.
+  const handCap = player.distillery?.maxMashBillHandSize;
+  if (handCap !== undefined && player.mashBills.length >= handCap) {
+    return {
+      legal: false,
+      reason: `${player.distillery!.name} caps mash-bill hand at ${handCap}`,
+    };
+  }
+
   if (action.mashBillId) {
     // Targeted face-up pick.
     const bill = state.bourbonFaceUp.find((b) => b.id === action.mashBillId);

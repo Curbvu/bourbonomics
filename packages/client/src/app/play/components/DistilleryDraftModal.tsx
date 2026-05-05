@@ -19,22 +19,29 @@ import type { Distillery, DistilleryBonus } from "@bourbonomics/engine";
 
 const BONUS_LABELS: Record<DistilleryBonus, { perk: string }> = {
   warehouse: {
-    perk: "Start with 1 extra rickhouse slot — 5 total instead of the default 4.",
+    perk: "+1 rickhouse slot. Constraint: first sale must be a barrel aged 4+ years.",
   },
   high_rye: {
-    perk: "Begin with a free 2-rye premium card already in your starter deck.",
+    perk:
+      "Pre-aged high-rye barrel + 2 free 2-rye in your hand. +1 rep on every high-rye sale. Wheat counts as 0 toward composition.",
   },
   wheated_baron: {
-    perk: "Wheated mash bills cost 1 fewer grain card to produce (min 1 grain).",
-  },
-  broker: {
-    perk: "Vestigial under v2.2 — no trade ever ends a turn, so the bonus is currently inert.",
+    perk:
+      "Pre-aged wheated barrel. Wheated bills cost 1 fewer grain. Single-grain composition buff fires at 2+. Rye counts as 0.",
   },
   old_line: {
-    perk: "Start with 1 extra rickhouse slot — 5 total instead of the default 4.",
+    perk: "Pre-aged workhorse barrel — sale-ready in round 1. Starter pool has 1 fewer capital.",
+  },
+  broker: {
+    perk:
+      "Starter pool has 2 extra capital. May still trade in the final round. Rickhouse cap fixed at 4 (no expansion).",
+  },
+  connoisseur: {
+    perk:
+      "Drafts 4 mash bills (cap 4 in hand). All-grains composition buff fires at 3-of-4 distinct grain types and grants +3 rep.",
   },
   vanilla: {
-    perk: "No starting bonus. The challenge option for experienced players.",
+    perk: "No starting bonus, no constraint. Pure symmetric play.",
   },
 };
 

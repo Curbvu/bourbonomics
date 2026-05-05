@@ -101,8 +101,21 @@ function describe(
         </>
       );
     }
-    case "COMPOSE_STARTER_DECK":
-      return <>{who(a.playerId)} built their 16-card starter deck.</>;
+    case "STARTER_TRADE":
+      return (
+        <>
+          {who(a.player1Id)} traded a card with {who(a.player2Id)}.
+        </>
+      );
+    case "STARTER_SWAP":
+      return (
+        <>
+          {who(a.playerId)} swapped {a.cardIds.length} card
+          {a.cardIds.length === 1 ? "" : "s"} from the pool.
+        </>
+      );
+    case "STARTER_PASS":
+      return <>{who(a.playerId)} accepted their starter hand.</>;
     case "ROLL_DEMAND": {
       const sum = a.roll[0] + a.roll[1];
       return (

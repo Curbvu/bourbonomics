@@ -154,11 +154,13 @@ export function validatePlayOperationsCard(
     }
 
     case "rickhouse_expansion_permit": {
-      if (player.rickhouseSlots.length >= RICKHOUSE_SLOT_HARD_CAP) {
-        return {
-          legal: false,
-          reason: `rickhouse already at the ${RICKHOUSE_SLOT_HARD_CAP}-slot cap`,
-        };
+      const cap = player.distillery?.maxSlots ?? RICKHOUSE_SLOT_HARD_CAP;
+      if (player.rickhouseSlots.length >= cap) {
+        const note =
+          player.distillery?.maxSlots !== undefined
+            ? `${player.distillery.name} cannot expand past ${cap} slots`
+            : `rickhouse already at the ${cap}-slot cap`;
+        return { legal: false, reason: note };
       }
       return { legal: true };
     }

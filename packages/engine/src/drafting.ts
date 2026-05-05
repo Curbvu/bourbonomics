@@ -1,13 +1,16 @@
-import type {
-  Card,
-  MashBill,
-  ResourceSubtype,
-  StarterDeckComposition,
-  ValidationResult,
-} from "./types";
-import { makeCapitalCard, makeResourceCard } from "./cards";
+import type { MashBill } from "./types";
 
-export const DEFAULT_STARTER_SIZE = 16;
+// ============================================================
+// Mash-bill snake-draft helpers.
+//
+// Setup Step 2 deals N×3 mash bills face-up and players snake-draft
+// (1-2-3-3-2-1, etc.). These pure helpers encode the snake-order
+// math so a UI / runner can drive the draft externally.
+//
+// Starter-deck composition helpers were retired in v2.4 when the
+// starter draft was replaced by the random deal + trading window
+// (see `starter-pool.ts`).
+// ============================================================
 
 /**
  * Snake-draft player index sequence. With 3 players and 3 picks each, returns:
@@ -72,72 +75,3 @@ export function autoDraftMashBills(
   const indices = new Array<number>(total).fill(0); // always pick the first
   return executeMashBillDraft(pool, numPlayers, indices);
 }
-
-// ---- Starter Deck Composition ----
-
-export function totalCards(composition: StarterDeckComposition): number {
-  return (
-    (composition.cask ?? 0) +
-    (composition.corn ?? 0) +
-    (composition.rye ?? 0) +
-    (composition.barley ?? 0) +
-    (composition.wheat ?? 0) +
-    (composition.capital ?? 0)
-  );
-}
-
-export function validateStarterComposition(
-  composition: StarterDeckComposition,
-  expectedSize: number = DEFAULT_STARTER_SIZE,
-): ValidationResult {
-  const t = totalCards(composition);
-  if (t !== expectedSize) {
-    return { legal: false, reason: `composition totals ${t}, expected ${expectedSize}` };
-  }
-  for (const key of Object.keys(composition) as (keyof StarterDeckComposition)[]) {
-    const v = composition[key] ?? 0;
-    if (v < 0 || !Number.isInteger(v)) {
-      return { legal: false, reason: `${key} must be a non-negative integer (got ${v})` };
-    }
-  }
-  return { legal: true };
-}
-
-const RESOURCE_ORDER: ResourceSubtype[] = ["cask", "corn", "rye", "barley", "wheat"];
-
-/**
- * Build a starter deck from a composition spec. Card IDs are deterministic
- * (rooted in ownerLabel) so tests can reference them.
- */
-export function buildStarterDeck(
-  composition: StarterDeckComposition,
-  ownerLabel: string,
-  expectedSize: number = DEFAULT_STARTER_SIZE,
-): Card[] {
-  const check = validateStarterComposition(composition, expectedSize);
-  if (!check.legal) {
-    throw new Error(`buildStarterDeck: ${check.reason}`);
-  }
-  const cards: Card[] = [];
-  let idx = 0;
-  for (const subtype of RESOURCE_ORDER) {
-    const count = composition[subtype] ?? 0;
-    for (let i = 0; i < count; i++) {
-      cards.push(makeResourceCard(subtype, ownerLabel, idx++));
-    }
-  }
-  for (let i = 0; i < (composition.capital ?? 0); i++) {
-    cards.push(makeCapitalCard(ownerLabel, idx++));
-  }
-  return cards;
-}
-
-/** A reasonable balanced default: 4 cask + 4 corn + 4 grain (2 rye/1 barley/1 wheat) + 4 capital. */
-export const DEFAULT_BALANCED_COMPOSITION: StarterDeckComposition = {
-  cask: 4,
-  corn: 4,
-  rye: 2,
-  barley: 1,
-  wheat: 1,
-  capital: 4,
-};

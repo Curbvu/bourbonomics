@@ -153,12 +153,46 @@ export function isWheatedBill(bill: MashBill): boolean {
 // -----------------------------
 
 export type DistilleryBonus =
-  | "warehouse"        // +1 rickhouse slot at init (5 instead of 4)
-  | "high_rye"         // 1 free 2-rye premium card in starter deck
-  | "wheated_baron"    // wheated mash bills cost 1 fewer grain (min 1 grain still required)
-  | "broker"           // once per round, Trade does not consume the turn (vestigial under v2.2)
-  | "old_line"         // +1 rickhouse slot at init (5 instead of 4) — same arithmetic as warehouse
-  | "vanilla";         // no bonus
+  | "warehouse"
+  | "high_rye"
+  | "wheated_baron"
+  | "broker"
+  | "old_line"
+  | "connoisseur"
+  | "vanilla";
+
+/** Identifier for a basic starter mash bill (NOT in the Bourbon deck). */
+export type StarterBillKey = "workhorse" | "high_rye_basic" | "wheated_basic";
+
+export interface DistilleryStarterBarrel {
+  /** Age in years (number of aging cards equivalent) at game start. */
+  age: number;
+  /** Which basic mash bill the pre-aged barrel ships with. */
+  basicBillKey: StarterBillKey;
+}
+
+export interface DistilleryStarterPoolMods {
+  /** Free 2-rye premium cards added to the dealt starter hand. */
+  bonusTwoRye?: number;
+  /** Net change to capital cards in the dealt starter hand (negative removes). */
+  capitalDelta?: number;
+}
+
+export interface DistilleryCompositionMods {
+  /** Subtypes that count as 0 toward this player's composition thresholds. */
+  excludeFromComposition?: ResourceSubtype[];
+  /** Threshold (units) for the "3+ single grain" buff. Default 3. */
+  singleGrainThreshold?: number;
+  /** Distinct grain types (corn + rye + barley + wheat) needed for the all-grains buff. Default 4. */
+  allGrainsDistinctThreshold?: number;
+  /** Reputation gained when the all-grains buff fires. Default 2. */
+  allGrainsRep?: number;
+}
+
+export interface DistillerySaleMods {
+  /** +N reputation when selling a bill matching `kind` (regardless of composition). */
+  bonusRepOnBill?: { kind: "high_rye" | "wheated"; rep: number };
+}
 
 export interface Distillery {
   id: string;
@@ -166,8 +200,24 @@ export interface Distillery {
   name: string;
   flavorText?: string;
   bonus: DistilleryBonus;
-  /** Total number of rickhouse slots a player gets if they pick this distillery. */
+  /** Total starting rickhouse slots a player gets if they pick this distillery. */
   slots: number;
+  /** Hard cap on rickhouse slots (blocks Rickhouse Expansion Permit above this). Default 6. */
+  maxSlots?: number;
+  /** Pre-aged starting barrel placed in the rickhouse at game start. */
+  startingBarrel?: DistilleryStarterBarrel;
+  /** Modifications to the dealt starter hand. */
+  starterPoolMods?: DistilleryStarterPoolMods;
+  /** Composition-buff modifications applied at sale time. */
+  compositionMods?: DistilleryCompositionMods;
+  /** Sale-time modifiers tied to the attached mash bill. */
+  saleMods?: DistillerySaleMods;
+  /** First sale's barrel must be at least this many years old. */
+  firstSaleMinAge?: number;
+  /** Number of mash bills drafted during setup (default 3). */
+  mashBillDraftSize?: number;
+  /** Maximum mash bills held in hand. */
+  maxMashBillHandSize?: number;
 }
 
 // -----------------------------
@@ -286,10 +336,23 @@ export interface PlayerState {
   /** Operations cards held in hand. Persist across rounds; played as a free action. */
   operationsHand: OperationsCard[];
 
+  /**
+   * Face-up dealt hand during the `starter_deck_draft` phase (v2.4
+   * Random Deal + Trading window). Empty outside that phase. Cards
+   * here are publicly visible to other players for trade evaluation.
+   */
+  starterHand: Card[];
+  /** True once the player has passed during the trade window. */
+  starterPassed: boolean;
+  /** True once the player has used their stuck-hand swap (one-shot per game). */
+  starterSwapUsed: boolean;
+
   // Counters.
   reputation: number;
   handSize: number;                         // default 8
   barrelsSold: number;
+  /** True after the first SELL_BOURBON resolves. Drives Old-Line's first-sale age constraint. */
+  firstSaleResolved: boolean;
 
   outForRound: boolean;                     // hand exhausted in current action phase
 
@@ -333,16 +396,6 @@ export type GamePhase =
   | "cleanup"
   | "ended";
 
-/** Composition of plain card counts that build a starter deck. */
-export interface StarterDeckComposition {
-  cask?: number;
-  corn?: number;
-  rye?: number;
-  barley?: number;
-  wheat?: number;
-  capital?: number;
-}
-
 export interface GameState {
   /** Original seed (for replays). */
   seed: number;
@@ -368,10 +421,19 @@ export interface GameState {
   /** Index into distillerySelectionOrder pointing at the next picker. */
   distillerySelectionCursor: number;
 
-  /** Player ids in the order they compose starter decks (reverse snake). */
+  /**
+   * Player ids who need a starter deck (reverse-snake seat order).
+   * Under v2.4 the order is informational only — the random deal +
+   * trade window has no per-player turn order. Phase ends when every
+   * player in this list has set `starterPassed: true`.
+   */
   starterDeckDraftOrder: string[];
-  /** Index into starterDeckDraftOrder pointing at the next composer. */
-  starterDeckDraftCursor: number;
+  /**
+   * Undealt remainder of the starter pool (v2.4). Used by the
+   * stuck-hand safety valve (`STARTER_SWAP`) to draw replacement
+   * cards. Empty when the phase isn't running.
+   */
+  starterUndealtPool: Card[];
 
   /** Every barrel in play. Owner is barrel.ownerId; slot is barrel.slotId. */
   allBarrels: Barrel[];
@@ -472,7 +534,30 @@ export type PlayOperationsCardParams =
 
 export type GameAction =
   | { type: "SELECT_DISTILLERY"; playerId: string; distilleryId: string }
-  | { type: "COMPOSE_STARTER_DECK"; playerId: string; composition: StarterDeckComposition }
+  | {
+      // v2.4 Random Deal + Trading: a 1-for-1 swap between two players
+      // during the `starter_deck_draft` trade window. Each side must
+      // offer exactly one card from their `starterHand`.
+      type: "STARTER_TRADE";
+      player1Id: string;
+      player2Id: string;
+      player1CardId: string;
+      player2CardId: string;
+    }
+  | {
+      // v2.4 Stuck-Hand safety valve: the player returns up to 3 cards
+      // from their `starterHand` to `starterUndealtPool` and draws the
+      // same number of replacements off the pool's top. Once per game.
+      type: "STARTER_SWAP";
+      playerId: string;
+      cardIds: string[];
+    }
+  | {
+      // v2.4 Pass: the player commits their `starterHand` as final.
+      // The phase ends once every drafter has passed.
+      type: "STARTER_PASS";
+      playerId: string;
+    }
   | { type: "ROLL_DEMAND"; roll: [number, number] }
   | { type: "DRAW_HAND"; playerId: string }
   | {
