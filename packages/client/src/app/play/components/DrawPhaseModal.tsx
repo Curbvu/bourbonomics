@@ -155,14 +155,22 @@ function CardFan({
             <div
               key={i}
               className="absolute left-1/2 top-1/2"
-              style={{
-                transform: `translate(calc(-50% + ${finalX}px), calc(-50% + ${finalY}px)) rotate(${finalRot}deg)`,
-                transition: isDrawing
-                  ? "transform 0.7s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.4s ease-out"
-                  : "none",
-                opacity: isDrawing ? 1 : 0,
-                transitionDelay: isDrawing ? `${i * 50}ms` : "0ms",
-              }}
+              style={
+                isDrawing
+                  ? {
+                      transform: `translate(calc(-50% + ${finalX}px), calc(-50% + ${finalY}px)) rotate(${finalRot}deg)`,
+                      opacity: 1,
+                      transitionProperty: "transform, opacity",
+                      transitionDuration: "0.7s, 0.4s",
+                      transitionTimingFunction:
+                        "cubic-bezier(0.34, 1.2, 0.64, 1), ease-out",
+                      transitionDelay: `${i * 50}ms, ${i * 50}ms`,
+                    }
+                  : {
+                      transform: `translate(calc(-50% + ${finalX}px), calc(-50% + ${finalY}px)) rotate(${finalRot}deg)`,
+                      opacity: 0,
+                    }
+              }
             >
               <CardBack tone={isOps ? "violet" : "indigo"} />
             </div>
