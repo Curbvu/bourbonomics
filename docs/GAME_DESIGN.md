@@ -17,15 +17,35 @@ Authoritative checklist of explicit asks the user has made for v2.1.
 Implementation must respect every item on this list; new asks are
 added at the top.
 
+- **Interactive 2d6 demand roll modal.** When the round enters the
+  Demand phase and autoplay is OFF, a modal pops with two physical
+  dice + a "Roll dice ↵" button. Click → dice tumble in place ~700ms,
+  then settle on the engine's deterministic roll, then dispatch
+  ROLL_DEMAND. Same visual vocabulary as the distillery draft modal.
+- **Player names in the Action Log are colour-coded** by seat palette
+  (PLAYER_TEXT_CLASS) so "who did what" reads instantly. Mash bills
+  cited in log entries glow amber; ops cards glow violet.
+- **Bourbon catalog uses dev-branch named bills.** Knob's End 90,
+  Bardstown Boiler, Rye Ladder 95, Wheat Whisper, Mash Bill No. 7,
+  High Rickhouse Select, Stave & Story, Warehouse E Batch — each with
+  a slogan + tier classification. Mash bill = bourbon = same card.
+- **Investment cards display in the Investments subsection** even
+  though the mechanic ships in v2.2. `defaultInvestmentCatalog()`
+  exports 12 stub cards across cheap/medium/expensive tiers (emerald
+  / teal / amber chrome). Names ported from the dev branch.
 - **Demand chip uses the dev-branch gradient cell bar.** 12 cells in
   the top-bar Demand chip; active cells fill with a sky-blue (cool)
   → amber (hot) lerp so the player can read demand temperature at a
   glance. Source: `DemandChip` in `GameTopBar.tsx`.
-- **Action Log shares the top row with the rickhouses.** Layout is:
-  top row = rickhouses (1fr) + action log (320px); below row =
-  MarketCenter spanning the full canvas width; bottom = HandTray.
-  Frees the bottom of the canvas for the market sections to spread out
-  without vertical scroll.
+- **Dashboard layout (authoritative).** Two-column main area:
+  - **Right column (320px, full height)** = Action Log
+  - **Left column (1fr)** = Rickhouses on top (compact, content-sized)
+    then MarketCenter below (`flex-1`, fills any remaining vertical
+    space)
+  - Bottom edge = HandTray (full bleed)
+  - Top edge = GameTopBar with the inline phase strip
+  This keeps player status (rickhouses) and the market on the same
+  visual axis while the live action log is always visible at right.
 - **Every card on screen renders at the SAME fixed silhouette** — hand,
   market conveyor, mash bills (face-up + draw pile), ops cards, and
   empty slots. Single source of truth: `CARD_SIZE_CLASS` in

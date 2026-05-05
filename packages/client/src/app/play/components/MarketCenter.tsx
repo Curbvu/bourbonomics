@@ -14,7 +14,15 @@
  * tiles run a bit smaller for density.
  */
 
-import type { Card, MashBill, OperationsCard, ResourceSubtype } from "@bourbonomics/engine";
+import type {
+  Card,
+  InvestmentCard,
+  MashBill,
+  OperationsCard,
+  ResourceSubtype,
+} from "@bourbonomics/engine";
+import { defaultInvestmentCatalog } from "@bourbonomics/engine";
+import { useMemo } from "react";
 import { useGameStore } from "@/lib/store/game";
 import {
   CAPITAL_CHROME,
@@ -31,12 +39,18 @@ const FACEUP_PER_SECTION = 3;
 
 export default function MarketCenter() {
   const { state } = useGameStore();
+  // v2.1 has no in-engine investment deck — show a static catalog so the
+  // slot is themed and visible. The mechanic ships in v2.2.
+  const investmentDeck = useMemo(() => defaultInvestmentCatalog(), []);
+
   if (!state) return null;
 
   const faceUpBills = state.bourbonDeck.slice(-FACEUP_PER_SECTION).reverse();
   const remainingBills = Math.max(0, state.bourbonDeck.length - faceUpBills.length);
   const faceUpOps = state.operationsDeck.slice(-FACEUP_PER_SECTION).reverse();
   const remainingOps = Math.max(0, state.operationsDeck.length - faceUpOps.length);
+  const faceUpInvest = investmentDeck.slice(0, FACEUP_PER_SECTION);
+  const remainingInvest = Math.max(0, investmentDeck.length - faceUpInvest.length);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50 p-2">
@@ -93,14 +107,15 @@ export default function MarketCenter() {
           />
         </Subsection>
 
-        <Subsection title="Investments" muted>
+        <Subsection title="Investments" tag="preview · v2.2">
           <FaceUpRow
-            faceUp={[]}
-            placeholders={FACEUP_PER_SECTION}
-            pileLabel="Coming v2.2"
-            pileRemaining={0}
-            pileTone="slate"
-            mutedPile
+            faceUp={faceUpInvest.map((c) => (
+              <InvestmentCardTile key={c.id} card={c} />
+            ))}
+            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpInvest.length)}
+            pileLabel="Invest deck"
+            pileRemaining={remainingInvest}
+            pileTone="emerald"
           />
         </Subsection>
       </div>
@@ -159,7 +174,7 @@ function FaceUpRow({
   pileLabel: string;
   pileRemaining: number;
   pileSubLabel?: string;
-  pileTone: "amber" | "violet" | "slate";
+  pileTone: "amber" | "violet" | "slate" | "emerald";
   mutedPile?: boolean;
 }) {
   return (
@@ -258,7 +273,7 @@ function MashBillTile({ bill }: { bill: MashBill }) {
   const floor = cells.length ? Math.min(...cells) : 0;
   return (
     <div
-      title={`${bill.name} · ${chrome.label_text} · age bands ${bill.ageBands.join("/")} · demand bands ${bill.demandBands.join("/")}`}
+      title={`${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`}
       className={[baseTile, chrome.gradient, chrome.border, chrome.glow].join(" ")}
     >
       <Sheen />
@@ -275,6 +290,11 @@ function MashBillTile({ bill }: { bill: MashBill }) {
       <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
         {bill.name}
       </h4>
+      {bill.slogan ? (
+        <p className={`mt-0.5 line-clamp-2 font-display text-[8px] italic leading-snug ${chrome.label} opacity-90`}>
+          {bill.slogan}
+        </p>
+      ) : null}
       <div className="mt-auto flex items-baseline justify-center gap-1">
         <span className={`font-display text-[14px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
           {floor}–{peak}
@@ -283,6 +303,55 @@ function MashBillTile({ bill }: { bill: MashBill }) {
           rep
         </span>
       </div>
+    </div>
+  );
+}
+
+function InvestmentCardTile({ card }: { card: InvestmentCard }) {
+  const toneByTier: Record<InvestmentCard["tier"], { border: string; gradient: string; ink: string; label: string }> = {
+    cheap: {
+      border: "border-emerald-400",
+      gradient:
+        "bg-[radial-gradient(110%_70%_at_50%_-10%,rgba(16,185,129,.18),transparent_55%),linear-gradient(180deg,rgba(6,78,59,.40)_0%,rgba(15,23,42,.95)_75%)]",
+      ink: "text-emerald-50",
+      label: "text-emerald-300",
+    },
+    medium: {
+      border: "border-teal-400",
+      gradient:
+        "bg-[radial-gradient(110%_70%_at_50%_-10%,rgba(20,184,166,.20),transparent_55%),linear-gradient(180deg,rgba(15,118,110,.45)_0%,rgba(15,23,42,.95)_75%)]",
+      ink: "text-teal-50",
+      label: "text-teal-300",
+    },
+    expensive: {
+      border: "border-amber-400",
+      gradient:
+        "bg-[radial-gradient(110%_70%_at_50%_-10%,rgba(251,191,36,.22),transparent_55%),linear-gradient(180deg,rgba(146,64,14,.45)_0%,rgba(15,23,42,.95)_75%)]",
+      ink: "text-amber-50",
+      label: "text-amber-300",
+    },
+  };
+  const chrome = toneByTier[card.tier];
+  return (
+    <div
+      title={`${card.name} — ${card.short}\n\n${card.effect}`}
+      className={[baseTile, chrome.gradient, chrome.border].join(" ")}
+    >
+      <Sheen />
+      <div className="flex items-baseline justify-between">
+        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+          Invest
+        </span>
+        <span className={`rounded border border-white/30 bg-black/30 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] ${chrome.ink}`}>
+          ${card.capital}
+        </span>
+      </div>
+      <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+        {card.name}
+      </h4>
+      <p className={`mt-0.5 line-clamp-3 font-display text-[8px] italic leading-snug ${chrome.label} opacity-90`}>
+        {card.short}
+      </p>
     </div>
   );
 }
@@ -323,7 +392,7 @@ function DrawPile({
   label: string;
   remaining: number;
   subLabel?: string;
-  tone: "amber" | "violet" | "slate";
+  tone: "amber" | "violet" | "slate" | "emerald";
   muted?: boolean;
 }) {
   const toneChrome =
@@ -343,13 +412,21 @@ function DrawPile({
             label: "text-violet-300",
             ink: "text-violet-100",
           }
-        : {
-            border: "border-slate-600/70",
-            gradient:
-              "bg-[linear-gradient(160deg,rgba(51,65,85,.6)_0%,rgba(15,23,42,.95)_75%)]",
-            label: "text-slate-400",
-            ink: "text-slate-200",
-          };
+        : tone === "emerald"
+          ? {
+              border: "border-emerald-500/70",
+              gradient:
+                "bg-[linear-gradient(160deg,rgba(6,78,59,.65)_0%,rgba(15,23,42,.95)_75%)]",
+              label: "text-emerald-300",
+              ink: "text-emerald-100",
+            }
+          : {
+              border: "border-slate-600/70",
+              gradient:
+                "bg-[linear-gradient(160deg,rgba(51,65,85,.6)_0%,rgba(15,23,42,.95)_75%)]",
+              label: "text-slate-400",
+              ink: "text-slate-200",
+            };
   return (
     <div
       title={`${label} · ${remaining} card${remaining === 1 ? "" : "s"} remaining`}

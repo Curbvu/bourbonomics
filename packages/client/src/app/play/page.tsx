@@ -1,5 +1,6 @@
 "use client";
 
+import DemandRollModal from "./components/DemandRollModal";
 import DistilleryDraftModal from "./components/DistilleryDraftModal";
 import GameBoard from "./components/GameBoard";
 import GameErrorBoundary from "./components/ErrorBoundary";
@@ -17,8 +18,6 @@ export default function PlayPage() {
     <main
       className="min-h-screen text-slate-100"
       style={{
-        // Slate canvas with two soft radial gradients per design handoff
-        // §Backgrounds — amber lift top-right, indigo lift bottom-left.
         backgroundColor: "#0f172a",
         backgroundImage: `
           radial-gradient(1200px 600px at 70% -10%, rgba(180,83,9,.10), transparent 60%),
@@ -33,9 +32,10 @@ export default function PlayPage() {
         </GameErrorBoundary>
       </div>
       {/* Setup-phase modals — render unconditionally; each component
-          self-gates on phase + humanWaitingOn. */}
+          self-gates on phase + humanWaitingOn (or autoplay). */}
       <DistilleryDraftModal />
       <StarterDeckDraftModal />
+      <DemandRollModal />
     </main>
   );
 }

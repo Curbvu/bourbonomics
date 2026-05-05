@@ -40,6 +40,7 @@ interface MashBillSpec {
   defId: string;
   name: string;
   flavorText?: string;
+  slogan?: string;
   tier?: MashBillTier;
   ageBands: [number, number, number];
   demandBands: [number, number, number];
@@ -55,6 +56,7 @@ export function makeMashBill(spec: MashBillSpec, instanceIndex: number): MashBil
     defId: spec.defId,
     name: spec.name,
     flavorText: spec.flavorText,
+    slogan: spec.slogan,
     tier: spec.tier ?? "common",
     ageBands: spec.ageBands,
     demandBands: spec.demandBands,

@@ -61,6 +61,8 @@ export interface MashBill {
   defId: string;                             // references the catalog definition
   name: string;
   flavorText?: string;
+  /** Short tagline shown on the card face (≤ ~35 chars). */
+  slogan?: string;
   /** WoW-style rarity tier. Defaults to "common" when omitted. */
   tier?: MashBillTier;
   ageBands: [number, number, number];
@@ -70,6 +72,25 @@ export interface MashBill {
   recipe?: MashBillRecipe;
   silverAward?: AwardCondition;
   goldAward?: AwardCondition;
+}
+
+// -----------------------------
+// Investment Cards (display-only in v2.1; mechanic ships in v2.2)
+// -----------------------------
+
+export type InvestmentTier = "cheap" | "medium" | "expensive";
+
+export interface InvestmentCard {
+  id: string;
+  defId: string;
+  name: string;
+  /** Capital cost to implement when the mechanic ships. */
+  capital: number;
+  /** Short tagline shown on the card face. */
+  short: string;
+  /** Long description of what the card does when implemented. */
+  effect: string;
+  tier: InvestmentTier;
 }
 
 /** Mash bills with `recipe.maxRye === 0` are "wheated" for distillery-bonus purposes. */

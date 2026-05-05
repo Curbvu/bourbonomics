@@ -29,6 +29,34 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* ----------------------------------------------------------------------
+   Demand-roll dice tumble. Used by DemandRollModal while the dice are
+   spinning before they settle on the rolled values. Fast, slightly
+   wobbly rotation so each die reads as physically tumbling.
+   ---------------------------------------------------------------------- */
+
+@keyframes die-tumble {
+  0% {
+    transform: rotate(0deg) translateY(0) scale(1);
+  }
+  25% {
+    transform: rotate(-15deg) translateY(-6px) scale(1.05);
+  }
+  50% {
+    transform: rotate(20deg) translateY(0) scale(1);
+  }
+  75% {
+    transform: rotate(-10deg) translateY(-4px) scale(1.04);
+  }
+  100% {
+    transform: rotate(0deg) translateY(0) scale(1);
+  }
+}
+
+.animate-die-tumble {
+  animation: die-tumble 0.32s ease-in-out infinite;
+}
+
 @keyframes bourbon-sale-backdrop {
   from {
     opacity: 0;

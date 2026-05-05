@@ -3,13 +3,12 @@
 /**
  * GameBoard — dashboard layout container.
  *
- *   ┌──────────────────────────────────┬──────────────┐
- *   │ Rickhouses (per-player panels)   │ Action log   │
- *   │ Top row, ~1fr                    │ ~320px wide  │
- *   ├──────────────────────────────────┴──────────────┤
- *   │ MarketCenter — full canvas width                │
- *   │ (conveyor + mash bills · ops · investments)     │
- *   └─────────────────────────────────────────────────┘
+ *   ┌────────────────────────────────────┬──────────────┐
+ *   │ Rickhouses (top of left column)    │              │
+ *   │ ────────────────────────────────── │  Action log  │
+ *   │ MarketCenter (bottom of left,      │  (full       │
+ *   │ flex-1, takes spare height)        │   height)    │
+ *   └────────────────────────────────────┴──────────────┘
  *   [HandTray]              flush bottom, full bleed
  */
 
@@ -29,15 +28,17 @@ export default function GameBoard() {
       <div className="flex flex-1 flex-col gap-[12px] overflow-hidden px-[18px] pb-[12px] pt-[12px]">
         {state.phase === "ended" ? <GameOverPanel /> : null}
 
-        {/* Top row: rickhouses (wide) + action log (narrow). */}
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <RickhouseRow />
-          <RightRail />
-        </div>
+        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+          {/* Left column: rickhouses on top (compact), market below (fills). */}
+          <div className="flex min-h-0 flex-col gap-3">
+            <RickhouseRow />
+            <div className="flex min-h-0 flex-1 flex-col">
+              <MarketCenter />
+            </div>
+          </div>
 
-        {/* Below: market center spans the full canvas width. */}
-        <div className="flex min-h-0 flex-1 flex-col">
-          <MarketCenter />
+          {/* Right column: action log spans full height. */}
+          <RightRail />
         </div>
       </div>
 

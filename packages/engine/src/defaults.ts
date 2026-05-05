@@ -1,5 +1,122 @@
-import type { Card, MashBill } from "./types";
+import type { Card, InvestmentCard, MashBill } from "./types";
 import { makeCapitalCard, makeMashBill, makeResourceCard } from "./cards";
+
+// ============================================================
+// Investment catalog — display-only stub for v2.1. The mechanic ships
+// in v2.2; cards in this catalog appear in the MarketCenter Investments
+// subsection so the slot is visible and themed.
+// Names + slogans ported from the dev branch's investment_catalog.yaml.
+// ============================================================
+
+export function defaultInvestmentCatalog(): InvestmentCard[] {
+  const specs: Omit<InvestmentCard, "id">[] = [
+    {
+      defId: "grain_elevator",
+      name: "Grain Elevator",
+      capital: 2,
+      short: "Cheap market bump",
+      effect:
+        "While active, once per round your market buy draws one extra resource card on that action.",
+      tier: "cheap",
+    },
+    {
+      defId: "family_recipe",
+      name: "Family Recipe",
+      capital: 2,
+      short: "One cheaper action",
+      effect:
+        "Your very next distillery action this round costs $1 less (minimum $0).",
+      tier: "cheap",
+    },
+    {
+      defId: "tourism_board",
+      name: "Tourism Board Seat",
+      capital: 3,
+      short: "First paid action cheaper",
+      effect: "The first paid action you take each round costs $1 less.",
+      tier: "cheap",
+    },
+    {
+      defId: "rickhouse_expansion",
+      name: "Rickhouse Expansion",
+      capital: 3,
+      short: "Lighter rent each round",
+      effect:
+        "Once per round subtract $1 from your total rickhouse fees (minimum $0).",
+      tier: "cheap",
+    },
+    {
+      defId: "second_shift",
+      name: "Second Shift",
+      capital: 3,
+      short: "Standard cheap-action repeat",
+      effect: "Your very next distillery action this round costs $1 less.",
+      tier: "cheap",
+    },
+    {
+      defId: "climate_tier",
+      name: "Climate-Controlled Tier",
+      capital: 5,
+      short: "Steady aging, steadier books",
+      effect:
+        "First paid action each round costs $1 less AND once per round shave $1 off rickhouse fees.",
+      tier: "medium",
+    },
+    {
+      defId: "private_label",
+      name: "Private Label Deal",
+      capital: 6,
+      short: "Premium sale bump",
+      effect: "Once per round, your next sale gains +$2 reputation.",
+      tier: "medium",
+    },
+    {
+      defId: "master_blender",
+      name: "Master Blender",
+      capital: 7,
+      short: "Mash-bill recipe relief",
+      effect: "Your wheated and high-rye recipes need 1 fewer matching grain.",
+      tier: "medium",
+    },
+    {
+      defId: "press_circuit",
+      name: "Press Circuit",
+      capital: 10,
+      short: "Demand pumper",
+      effect:
+        "Once per round, before rolling demand you may add +1 to the result (capped at 12).",
+      tier: "expensive",
+    },
+    {
+      defId: "private_warehouse",
+      name: "Private Warehouse",
+      capital: 11,
+      short: "+1 upper-tier slot",
+      effect:
+        "Adds a permanent +1 upper-tier slot to your rickhouse.",
+      tier: "expensive",
+    },
+    {
+      defId: "barrel_cooperage",
+      name: "Barrel Cooperage",
+      capital: 12,
+      short: "Free a cask each barrel",
+      effect:
+        "Once per round, when you Make Bourbon, one cask returns to your hand instead of discard.",
+      tier: "expensive",
+    },
+    {
+      defId: "national_brand",
+      name: "National Brand",
+      capital: 12,
+      short: "Late-game scoring engine",
+      effect:
+        "At end of game, gain +1 reputation per barrel you sold (caps at +10).",
+      tier: "expensive",
+    },
+  ];
+  return specs.map((s, i) => ({ ...s, id: `inv_${s.defId}_${i}` }));
+}
 
 // ============================================================
 // Default starter deck — 16 plain cards.
@@ -26,11 +143,13 @@ export function defaultStarterCards(playerLabel: string): Card[] {
 
 export function defaultMashBillCatalog(): MashBill[] {
   return [
+    // Names + slogans inspired by the dev branch's bourbon_cards.yaml.
     makeMashBill(
       {
-        defId: "backroad_batch",
-        name: "Backroad Batch",
-        flavorText: "Honest workhorse bill. No surprises, no fireworks.",
+        defId: "knobs_end_90",
+        name: "Knob's End 90",
+        slogan: "Last knob in the rack.",
+        flavorText: "Bottled barrel-proof, sold at 90. The end of a long dump day.",
         tier: "common",
         ageBands: [2, 4, 6],
         demandBands: [2, 4, 6],
@@ -44,9 +163,10 @@ export function defaultMashBillCatalog(): MashBill[] {
     ),
     makeMashBill(
       {
-        defId: "quick_pour",
-        name: "Quick Pour",
-        flavorText: "Rewards moving young product into a hot market.",
+        defId: "bardstown_boiler",
+        name: "Bardstown Boiler",
+        slogan: "Where the steam never sleeps.",
+        flavorText: "Bardstown's main street, bottled. Workhorse pour at weeknight pricing.",
         tier: "common",
         ageBands: [2, 3, 5],
         demandBands: [4, 6, 8],
@@ -60,9 +180,10 @@ export function defaultMashBillCatalog(): MashBill[] {
     ),
     makeMashBill(
       {
-        defId: "high_rye_reserve",
-        name: "High Rye Reserve",
-        flavorText: "Spicy, demanding, and pays handsomely when it lands.",
+        defId: "rye_ladder_95",
+        name: "Rye Ladder 95",
+        slogan: "Climb to the spice.",
+        flavorText: "Ninety-five percent rye — pepper, mint, and a long ladder down the throat.",
         tier: "rare",
         ageBands: [3, 5, 7],
         demandBands: [3, 6, 9],
@@ -80,7 +201,8 @@ export function defaultMashBillCatalog(): MashBill[] {
       {
         defId: "wheat_whisper",
         name: "Wheat Whisper",
-        flavorText: "Soft, mellow, and never sees a grain of rye.",
+        slogan: "Soft, slow, certain.",
+        flavorText: "Wheated mash bill that doesn't argue.",
         tier: "uncommon",
         ageBands: [2, 4, 6],
         demandBands: [2, 5, 8],
@@ -95,9 +217,10 @@ export function defaultMashBillCatalog(): MashBill[] {
     ),
     makeMashBill(
       {
-        defId: "four_grain",
-        name: "Four Grain",
-        flavorText: "Every grain in the silo, every flavor in the glass.",
+        defId: "mash_bill_no_7",
+        name: "Mash Bill No. 7",
+        slogan: "Lucky number, regular price.",
+        flavorText: "Reliable corn-rye-malt at 70/20/10. The seventh recipe, the first standard.",
         tier: "epic",
         ageBands: [3, 5, 7],
         demandBands: [3, 5, 8],
@@ -113,9 +236,10 @@ export function defaultMashBillCatalog(): MashBill[] {
     ),
     makeMashBill(
       {
-        defId: "veteran_stock",
-        name: "Veteran Stock",
-        flavorText: "Patience required. Patience rewarded.",
+        defId: "high_rickhouse_select",
+        name: "High Rickhouse Select",
+        slogan: "Top of the rack, top of the bill.",
+        flavorText: "Pulled from the seventh story. Hotter summers, faster aging, premium ask.",
         tier: "legendary",
         ageBands: [4, 6, 8],
         demandBands: [4, 7, 10],
@@ -130,9 +254,10 @@ export function defaultMashBillCatalog(): MashBill[] {
     ),
     makeMashBill(
       {
-        defId: "boomtown_blend",
-        name: "Boomtown Blend",
-        flavorText: "Made for a thirsty city. Quiet years, quiet payouts.",
+        defId: "stave_and_story",
+        name: "Stave & Story",
+        slogan: "One barrel, one tale.",
+        flavorText: "Each stave numbered, each pour narrated.",
         tier: "uncommon",
         ageBands: [2, 4, 6],
         demandBands: [5, 7, 9],
@@ -146,9 +271,10 @@ export function defaultMashBillCatalog(): MashBill[] {
     ),
     makeMashBill(
       {
-        defId: "hollow_oak",
-        name: "Hollow Oak",
-        flavorText: "Long shelf life. Low ceiling. Reliable.",
+        defId: "warehouse_e_batch",
+        name: "Warehouse E Batch",
+        slogan: "E for excellent. Or extra.",
+        flavorText: "Whatever the rickhouse manager grabbed last. Consistent enough to ship.",
         tier: "common",
         ageBands: [2, 5, 8],
         demandBands: [2, 4, 7],
