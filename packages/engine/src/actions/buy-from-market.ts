@@ -3,7 +3,7 @@ import type { Card, GameAction, GameState, ValidationResult } from "../types";
 import { paymentValue } from "../cards";
 import { applySpendEffect } from "../card-effects";
 import { drawWithReshuffle } from "../deck";
-import { endPlayerTurn, isCurrentPlayer } from "../state";
+import { isCurrentPlayer } from "../state";
 
 type BuyFromMarketAction = Extract<GameAction, { type: "BUY_FROM_MARKET" }>;
 
@@ -109,6 +109,5 @@ export function applyBuyFromMarket(
     draft.marketDiscard = result.discard;
     draft.rngState = result.rngState;
   }
-
-  endPlayerTurn(draft, action.playerId);
+  // v2.2: buying does NOT end the player's turn.
 }

@@ -27,7 +27,7 @@ describe("Final round trigger", () => {
     expect(state.bourbonDeck).toHaveLength(0);
   });
 
-  it("triggering during round 3 means cleanup ends the game (phase=ended) — not the next round", () => {
+  it("triggering during a round means cleanup ends the game (phase=ended) — not the next round", () => {
     const onlyBill = makeMashBill(
       {
         defId: "trigger",
@@ -48,7 +48,11 @@ describe("Final round trigger", () => {
       spendCardId: "card_p1_cap1_0",
     });
     expect(state.finalRoundTriggered).toBe(true);
-    // p1 hand empty; p2 hand empty; cleanup runs — game ends, NOT next round.
+    // v2.2: DRAW_MASH_BILL does not end p1's turn — they must PASS_TURN
+    // explicitly. Once both seats pass, cleanup ends the game.
+    expect(state.phase).toBe("action");
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
     expect(state.phase).toBe("ended");
     expect(isGameOver(state)).toBe(true);
   });
@@ -142,20 +146,27 @@ describe("Integration smoke test — minimal full game", () => {
       startingDemand: 6,
     });
 
-    // Round 1
+    // Round 1 — start player is p1 (idx 0).
     state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p2" });
+    expect(state.startPlayerIndex).toBe(0);
+    expect(state.currentPlayerIndex).toBe(0);
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
     state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
     expect(state.round).toBe(2);
     expect(state.phase).toBe("demand");
+    // Start player rotated CCW: round 2 starts at p2 (idx 1) in a 2-player game.
+    expect(state.startPlayerIndex).toBe(1);
 
-    // Round 2: place a saleable barrel for p1 and have them sell it for some rep.
+    // Round 2: p1 has a saleable barrel; p2 takes their (empty) turn first
+    // because of the rotation, then p1 chains a SELL into a PASS.
     state = placeBarrel(state, "p1", bills[0]!, 5);
     state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p2" });
+    expect(state.currentPlayerIndex).toBe(1);
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
     const barrelId = state.allBarrels[0]!.id;
     const reward = 5; // demand=7 (after roll), age=5 → grid[1][2] = 5
     state = applyAction(state, {
@@ -165,14 +176,16 @@ describe("Integration smoke test — minimal full game", () => {
       reputationSplit: reward,
       cardDrawSplit: 0,
     });
+    // v2.2: SELL did not end p1's turn — they must explicitly pass.
+    expect(state.currentPlayerIndex).toBe(0);
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
     expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(reward);
     expect(state.allBarrels).toHaveLength(0);
+    expect(state.round).toBe(3);
+    // Rotated again: round 3 should start at p1 (idx 0) for a 2-player game.
+    expect(state.startPlayerIndex).toBe(0);
 
-    // Skip to a state where the bourbon deck is empty and cleanup ends the game.
-    state = { ...state, bourbonDeck: [] };
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
-    // Manually flip finalRoundTriggered to simulate end (since DRAW_MASH_BILL didn't fire).
+    // Force the final-round flag and burn through round 3 to end the game.
     state = { ...state, finalRoundTriggered: true };
     state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 3] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });

@@ -1,7 +1,7 @@
 import type { Draft } from "immer";
 import type { GameAction, GameState, ValidationResult } from "../types";
 import { ageYearsForCard, applyAgingCommitEffect } from "../card-effects";
-import { endPlayerTurn, isCurrentPlayer } from "../state";
+import { isCurrentPlayer } from "../state";
 
 type AgeBourbonAction = Extract<GameAction, { type: "AGE_BOURBON" }>;
 
@@ -59,6 +59,5 @@ export function applyAgeBourbon(
     // This consumed one of the bonus ages granted by Rushed Shipment.
     barrel.extraAgesAvailable = Math.max(0, barrel.extraAgesAvailable - 1);
   }
-
-  endPlayerTurn(draft, action.playerId);
+  // v2.2: aging does NOT end the player's turn.
 }

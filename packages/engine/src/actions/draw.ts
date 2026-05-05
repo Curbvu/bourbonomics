@@ -45,14 +45,32 @@ export function applyDrawHand(
     draft.phase = "action";
     draft.playerIdsCompletedPhase = [];
     for (const p of draft.players) {
-      p.outForRound = p.hand.length === 0;
+      // Players with no cards in hand AND no playable ops can be marked
+      // out immediately — the action loop will skip them. Players with
+      // an empty resource hand but ops in hand still get a turn (they
+      // can play ops cards as free actions before passing).
+      p.outForRound = p.hand.length === 0 && p.operationsHand.length === 0;
     }
-    const firstActive = draft.players.findIndex((p) => !p.outForRound);
-    if (firstActive === -1) {
+    if (draft.players.every((p) => p.outForRound)) {
       // No one has any cards — bounce straight through to next round (or end).
       runCleanupPhase(draft);
+      return;
+    }
+    // Action phase begins with the rotated start player. If they happen
+    // to be marked out (no cards to play at all), walk forward to the
+    // first active seat in turn order.
+    const start = draft.startPlayerIndex;
+    if (!draft.players[start]!.outForRound) {
+      draft.currentPlayerIndex = start;
     } else {
-      draft.currentPlayerIndex = firstActive;
+      const n = draft.players.length;
+      for (let step = 1; step <= n; step++) {
+        const idx = (start + step) % n;
+        if (!draft.players[idx]!.outForRound) {
+          draft.currentPlayerIndex = idx;
+          break;
+        }
+      }
     }
   }
 }

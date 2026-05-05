@@ -1,6 +1,6 @@
 import type { Draft } from "immer";
 import type { Card, GameAction, GameState, ValidationResult } from "../types";
-import { endPlayerTurn, isCurrentPlayer } from "../state";
+import { isCurrentPlayer } from "../state";
 
 type TradeAction = Extract<GameAction, { type: "TRADE" }>;
 
@@ -76,20 +76,14 @@ export function applyTrade(draft: Draft<GameState>, action: TradeAction): void {
   p2.discard.push(...p1Offered);
   p1.discard.push(...p2Offered);
 
-  // The Broker bonus: first trade of the round costs no action.
-  const brokerFreeAvailable =
-    p1.distillery?.bonus === "broker" && !p1.brokerFreeTradeUsed;
-
-  if (brokerFreeAvailable) {
+  // v2.2: trade is one of the active player's actions but does NOT end
+  // their turn — they continue with whatever cards remain. The trading
+  // partner's own turn (when it comes around) is unaffected.
+  //
+  // The Broker distillery bonus is recorded for legacy compatibility but
+  // is functionally inert under v2.2 (no main action ends a turn, so a
+  // "free" trade is no different from a regular one).
+  if (p1.distillery?.bonus === "broker" && !p1.brokerFreeTradeUsed) {
     p1.brokerFreeTradeUsed = true;
-    // Trade did not consume the turn. Mark out only if hand is empty.
-    if (p1.hand.length === 0) p1.outForRound = true;
-    if (p2.hand.length === 0) p2.outForRound = true;
-    return;
   }
-
-  // Standard trade — initiator's turn ends.
-  if (p1.hand.length === 0) p1.outForRound = true;
-  if (p2.hand.length === 0) p2.outForRound = true;
-  endPlayerTurn(draft, action.player1Id);
 }

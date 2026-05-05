@@ -21,14 +21,21 @@ import { emptySlotsFor, getPlayerBarrels } from "../state";
 // Distillery-selection phase: pick the next distillery in pool order,
 // ranked by a tiny preference table.
 //
-// Action phase priority (highest first):
+// Action phase priority (highest first). Under v2.2 the active player
+// takes their full sequence of actions in one turn — `chooseAction` is
+// invoked repeatedly by the runner until the bot returns PASS_TURN.
+// Picking the highest-value action available, executing it, and then
+// re-evaluating the new state implements a greedy turn planner without
+// any explicit lookahead.
+//
 //   1. PLAY_OPERATIONS_CARD if a high-value play is obvious.
-//   2. SELL_BOURBON if a saleable barrel pays well at current demand.
+//   2. SELL_BOURBON before MARKET buys — sale proceeds can fund a buy.
 //   3. MAKE_BOURBON if any mash bill in hand can be satisfied.
 //   4. AGE_BOURBON if there's an unaged-this-round barrel and a spare card.
 //   5. BUY_FROM_MARKET if a useful conveyor card is affordable.
-//   6. DRAW_MASH_BILL if mash-bill hand is empty (last resort — speeds endgame).
-//   7. PASS_TURN otherwise.
+//   6. BUY_OPERATIONS_CARD if a face-up ops card looks worthwhile.
+//   7. DRAW_MASH_BILL if mash-bill hand is empty (last resort — speeds endgame).
+//   8. PASS_TURN otherwise.
 // ---------------------------------------------------------------
 
 const SELL_REWARD_THRESHOLD = 3;
@@ -59,7 +66,9 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
     return { type: "PASS_TURN", playerId };
   }
 
-  // 2) Sell a barrel if it's worth it.
+  // 2) Sell a barrel if it's worth it. Sales come BEFORE buys so the
+  //    fresh purchasing-power split (cards drawn on sale) can fund a
+  //    follow-up market buy on the same turn.
   const sale = chooseSale(state, player);
   if (sale) return sale;
 
@@ -75,7 +84,11 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
   const buy = chooseBuy(state, player);
   if (buy) return buy;
 
-  // 6) Draw a mash bill if we've run out of recipes.
+  // 6) Buy an ops card if one looks affordable + worthwhile.
+  const buyOps = chooseBuyOpsCard(state, player);
+  if (buyOps) return buyOps;
+
+  // 7) Draw a mash bill if we've run out of recipes.
   const draw = chooseDrawMashBill(state, player);
   if (draw) return draw;
 
@@ -657,6 +670,111 @@ function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
     spendCardIds: spend,
   };
 }
+
+// -----------------------------
+// BUY_OPERATIONS_CARD
+// -----------------------------
+
+const FACEUP_OPS_SIZE = 3;
+
+/**
+ * Buy a face-up ops card if (a) the bot can pay for it, (b) it doesn't
+ * already hold a copy of the same defId in hand, and (c) the card is one
+ * the bot's heuristic actually knows how to play. Prefer the cheapest
+ * affordable card so we don't drain hand value on a single buy.
+ */
+function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | null {
+  if (state.operationsDeck.length === 0) return null;
+  const heldDefIds = new Set(player.operationsHand.map((c) => c.defId));
+
+  // The face-up row is the last FACEUP_OPS_SIZE cards of operationsDeck,
+  // exposed in UI order [top, top-1, top-2].
+  const totalSpend = player.hand.reduce((acc, c) => acc + paymentForOpsBuy(c), 0);
+
+  let best: { uiSlot: number; cost: number; rank: number } | null = null;
+  for (let ui = 0; ui < FACEUP_OPS_SIZE; ui++) {
+    const idx = state.operationsDeck.length - 1 - ui;
+    if (idx < 0) break;
+    const card = state.operationsDeck[idx];
+    if (!card) continue;
+    if (heldDefIds.has(card.defId)) continue;
+    if (!OPS_BOT_PLAYABLE.has(card.defId)) continue;
+    if (card.cost > totalSpend) continue;
+    const rank = OPS_BUY_PREFERENCE.indexOf(card.defId);
+    const effectiveRank = rank === -1 ? OPS_BUY_PREFERENCE.length : rank;
+    if (
+      !best ||
+      effectiveRank < best.rank ||
+      (effectiveRank === best.rank && card.cost < best.cost)
+    ) {
+      best = { uiSlot: ui, cost: card.cost, rank: effectiveRank };
+    }
+  }
+  if (!best) return null;
+
+  // Pay with the cheapest combination of resource cards first, falling
+  // back to capital cards. We never overpay by a capital card if a
+  // pile of resource cards already covers it.
+  const sorted = [...player.hand].sort((a, b) => paymentForOpsBuy(a) - paymentForOpsBuy(b));
+  const spend: string[] = [];
+  let paid = 0;
+  for (const c of sorted) {
+    spend.push(c.id);
+    paid += paymentForOpsBuy(c);
+    if (paid >= best.cost) break;
+  }
+  if (paid < best.cost) return null;
+
+  return {
+    type: "BUY_OPERATIONS_CARD",
+    playerId: player.id,
+    opsSlotIndex: best.uiSlot,
+    spendCardIds: spend,
+  };
+}
+
+function paymentForOpsBuy(card: Card): number {
+  return card.type === "capital" ? card.capitalValue ?? 1 : 1;
+}
+
+/**
+ * Heuristic ranking for ops cards the bot is willing to BUY. Cards
+ * whose play target the bot can't pick (e.g. Barrel Broker — needs
+ * cross-player negotiation) are intentionally excluded.
+ */
+const OPS_BUY_PREFERENCE: OperationsCard["defId"][] = [
+  "demand_surge",       // straight protection on a planned sale
+  "market_manipulation",
+  "bourbon_boom",
+  "rushed_shipment",
+  "kentucky_connection",
+  "market_corner",
+  "blend",
+  "cash_out",
+  "regulatory_inspection",
+  "glut",
+  "insider_buyer",
+  "bottling_run",
+  "allocation",
+  "rickhouse_expansion_permit",
+];
+
+const OPS_BOT_PLAYABLE = new Set<OperationsCard["defId"]>([
+  "demand_surge",
+  "market_manipulation",
+  "bourbon_boom",
+  "rushed_shipment",
+  "kentucky_connection",
+  "market_corner",
+  "blend",
+  "cash_out",
+  "regulatory_inspection",
+  "glut",
+  "insider_buyer",
+  "bottling_run",
+  "allocation",
+  "rickhouse_expansion_permit",
+]);
 
 // -----------------------------
 // DRAW_MASH_BILL

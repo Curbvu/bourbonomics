@@ -122,6 +122,7 @@ export function initializeGame(config: GameConfig): GameState {
     rngState,
     round: 1,
     phase,
+    startPlayerIndex: 0,
     currentPlayerIndex: 0,
     players,
     distilleryPool,

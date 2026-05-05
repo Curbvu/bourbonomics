@@ -12,7 +12,7 @@ import type {
 import { isWheatedBill } from "../types";
 import { resourceUnits, suppliesResource } from "../cards";
 import { applyProductionCommitEffect } from "../card-effects";
-import { endPlayerTurn, isCurrentPlayer } from "../state";
+import { isCurrentPlayer } from "../state";
 
 type MakeBourbonAction = Extract<GameAction, { type: "MAKE_BOURBON" }>;
 
@@ -280,6 +280,6 @@ export function applyMakeBourbon(
   for (const card of productionCards) {
     applyProductionCommitEffect(draft, player, barrel, card);
   }
-
-  endPlayerTurn(draft, action.playerId);
+  // v2.2: production does NOT end the player's turn — the active player
+  // continues taking actions until they pass or run out of legal plays.
 }

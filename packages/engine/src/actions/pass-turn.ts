@@ -5,12 +5,14 @@ import { endPlayerTurn, isCurrentPlayer } from "../state";
 type PassTurnAction = Extract<GameAction, { type: "PASS_TURN" }>;
 
 /**
- * Voluntarily end your turn. Any cards still in hand go to your discard pile
- * at cleanup, and you are marked out for the rest of the round.
+ * Voluntarily end your full turn. Any resource / capital cards still in
+ * hand are held until the Cleanup Phase, when they hit the discard pile.
+ * Operations cards in hand carry across rounds. Once you end your turn
+ * you do not act again until the next round.
  *
- * The rules don't list "pass" as an action per se, but they do say that
- * "unused cards" go to discard at cleanup — implying a player can stop acting
- * with cards still in hand. PASS_TURN makes that explicit.
+ * Under v2.2, no main action ends a turn implicitly — only PASS_TURN
+ * (the "End Turn" action) does. A bot whose hand is empty also emits
+ * PASS_TURN as its terminal action.
  */
 export function validatePassTurn(
   state: GameState,
@@ -34,10 +36,5 @@ export function applyPassTurn(
   draft: Draft<GameState>,
   action: PassTurnAction,
 ): void {
-  const player = draft.players.find((p) => p.id === action.playerId)!;
-  player.outForRound = true;
-  // Insider Buyer's half-cost is a "this turn" effect — drop it on
-  // turn end so an unused discount can't carry forward.
-  player.pendingHalfCostMarketBuy = false;
   endPlayerTurn(draft, action.playerId);
 }

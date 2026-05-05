@@ -147,9 +147,7 @@ describe("PLAY_OPERATIONS_CARD — Rushed Shipment", () => {
       barrelId,
       cardId: "card_p1_cap1_0",
     });
-    // p1 still has 1 card and an extra age — make p2 pass first to give them another turn.
-    state = giveHand(state, "p2", []);
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
+    // v2.2: AGE doesn't end the turn — p1 chains into the bonus age.
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",

@@ -54,7 +54,7 @@ describe("MAKE_BOURBON — happy path", () => {
     expect(barrel.productionRound).toBe(1);
   });
 
-  it("advances the turn to the next player", () => {
+  it("does NOT end the turn (v2.2: only PASS_TURN ends a turn)", () => {
     let state = makeTestGame();
     const mbId = p1MashBillId(state);
     state = advanceToActionPhase(state);
@@ -66,6 +66,8 @@ describe("MAKE_BOURBON — happy path", () => {
       mashBillId: mbId,
       slotId: firstEmptySlot(state, "p1"),
     });
+    expect(state.currentPlayerIndex).toBe(0);
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
     expect(state.currentPlayerIndex).toBe(1);
   });
 });
@@ -461,8 +463,7 @@ describe("AGE_BOURBON", () => {
       slotId: firstEmptySlot(state, "p1"),
     });
     const barrelId = state.allBarrels[0]!.id;
-    state = giveHand(state, "p2", []);
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
+    // v2.2: MAKE doesn't end p1's turn — they can chain into AGE.
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
@@ -490,6 +491,9 @@ describe("AGE_BOURBON", () => {
       slotId: firstEmptySlot(state, "p1"),
     });
     const barrelId = state.allBarrels[0]!.id;
+    // Hand off to p2 explicitly so the validator hits the ownership
+    // check rather than the "not your turn" check.
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
     state = giveHand(state, "p2", [cap("p2", 0)]);
     expect(() =>
       applyAction(state, {
@@ -514,8 +518,7 @@ describe("AGE_BOURBON", () => {
       slotId: firstEmptySlot(state, "p1"),
     });
     const barrelId = state.allBarrels[0]!.id;
-    state = giveHand(state, "p2", [cap("p2", 0)]);
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
+    // v2.2: MAKE doesn't end the turn — p1 chains directly into AGE.
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
@@ -556,13 +559,15 @@ describe("PASS_TURN + cleanup", () => {
     );
   });
 
-  it("when both players have nothing in hand, the first PASS_TURN wraps the round", () => {
+  it("when both players have nothing in hand, sequential PASS_TURNs wrap the round", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", []);
     state = giveHand(state, "p2", []);
     state = { ...state, currentPlayerIndex: 0 };
+    // Each player must explicitly pass — actions don't end turns under v2.2.
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
     expect(state.round).toBe(2);
     expect(state.phase).toBe("demand");
     for (const p of state.players) expect(p.outForRound).toBe(false);
@@ -583,13 +588,15 @@ describe("PASS_TURN + cleanup", () => {
       slotId: firstEmptySlot(state, "p1"),
     });
     const barrelId = state.allBarrels[0]!.id;
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
+    // v2.2: MAKE doesn't end p1's turn — they chain into AGE before passing.
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
       barrelId,
       cardId: "card_p1_cap1_3",
     });
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
     expect(state.phase).toBe("demand");
     expect(state.round).toBe(2);
     expect(state.allBarrels[0]!.agedThisRound).toBe(false);

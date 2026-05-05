@@ -1,6 +1,6 @@
 import type { Draft } from "immer";
 import type { Card, GameAction, GameState, ValidationResult } from "../types";
-import { endPlayerTurn, isCurrentPlayer } from "../state";
+import { isCurrentPlayer } from "../state";
 
 type DrawMashBillAction = Extract<GameAction, { type: "DRAW_MASH_BILL" }>;
 
@@ -49,6 +49,5 @@ export function applyDrawMashBill(
     draft.finalRoundTriggered = true;
     draft.finalRoundTriggerPlayerIndex = draft.currentPlayerIndex;
   }
-
-  endPlayerTurn(draft, action.playerId);
+  // v2.2: drawing a mash bill does NOT end the player's turn.
 }

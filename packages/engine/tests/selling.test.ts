@@ -197,7 +197,8 @@ describe("SELL_BOURBON — happy path", () => {
       cardDrawSplit: 0,
     });
     expect(state.demand).toBe(0);
-    // p2 sells next; demand stays at 0.
+    // Hand off to p2 — selling no longer ends the turn.
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p2",

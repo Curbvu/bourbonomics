@@ -9,7 +9,7 @@ import type { Draft } from "immer";
 import { collectSaleSignals } from "../card-effects";
 import { drawWithReshuffle } from "../deck";
 import { awardConditionMet, computeReward } from "../rewards";
-import { endPlayerTurn, isCurrentPlayer } from "../state";
+import { isCurrentPlayer } from "../state";
 
 type SellBourbonAction = Extract<GameAction, { type: "SELL_BOURBON" }>;
 
@@ -176,6 +176,5 @@ export function applySellBourbon(
   } else if (draft.demand > 0) {
     draft.demand -= 1;
   }
-
-  endPlayerTurn(draft, action.playerId);
+  // v2.2: selling does NOT end the player's turn.
 }
