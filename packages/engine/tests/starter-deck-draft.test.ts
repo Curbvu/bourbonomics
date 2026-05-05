@@ -5,12 +5,14 @@ import { defaultDistilleryPool } from "../src/distilleries.js";
 import { defaultMashBillCatalog } from "../src/defaults.js";
 import { STARTER_HAND_SIZE } from "../src/starter-pool.js";
 
-function makeDraftGame(distilleryBonuses?: Array<"vanilla" | "old_line" | "high_rye">) {
+function makeDraftGame(
+  distilleryBonuses?: Array<"vanilla" | "high_rye" | "wheated_baron" | "connoisseur">,
+) {
   const pool = defaultDistilleryPool();
   const catalog = defaultMashBillCatalog();
   // Default: two Vanilla distilleries so the dealt hands are exactly
-  // STARTER_HAND_SIZE — the per-distillery starter mods (Old-Line: -1
-  // capital; High-Rye: +2 2-rye) have dedicated tests below.
+  // STARTER_HAND_SIZE — the per-distillery starter mods (e.g. High-Rye's
+  // +2 2-rye) have dedicated tests below.
   const bonuses = distilleryBonuses ?? ["vanilla", "vanilla"];
   const startingDistilleries = bonuses.map(
     (b, i) => ({ ...pool.find((d) => d.bonus === b)!, id: `dist_test_${b}_${i}` }),
@@ -56,11 +58,6 @@ describe("starter_deck_draft phase — random deal", () => {
     expect(ryePremiums.length).toBe(2);
   });
 
-  it("applies Old-Line distillery modifications post-deal (one fewer capital in hand)", () => {
-    const state = makeDraftGame(["vanilla", "old_line"]);
-    const p2 = state.players.find((p) => p.id === "p2")!;
-    expect(p2.starterHand.length).toBe(STARTER_HAND_SIZE - 1);
-  });
 });
 
 describe("STARTER_TRADE", () => {
@@ -123,11 +120,11 @@ describe("STARTER_SWAP — stuck-hand safety valve", () => {
       // dealing remainder available for swap replacements).
       const pool = defaultDistilleryPool();
       const catalog = defaultMashBillCatalog();
-      const bonuses: Array<"vanilla" | "old_line" | "warehouse" | "broker"> = [
+      const bonuses: Array<"vanilla" | "high_rye" | "wheated_baron" | "connoisseur"> = [
         "vanilla",
-        "old_line",
-        "warehouse",
-        "broker",
+        "high_rye",
+        "wheated_baron",
+        "connoisseur",
       ];
       const distilleries = bonuses.map(
         (b, i) => ({ ...pool.find((d) => d.bonus === b)!, id: `dist_test_${b}_${i}` }),
@@ -178,7 +175,7 @@ describe("STARTER_SWAP — stuck-hand safety valve", () => {
   it("rejects a second swap by the same player", () => {
     const pool = defaultDistilleryPool();
     const catalog = defaultMashBillCatalog();
-    const distilleries = ["vanilla", "old_line", "warehouse", "broker"].map(
+    const distilleries = ["vanilla", "high_rye", "wheated_baron", "connoisseur"].map(
       (b, i) =>
         ({ ...pool.find((d) => d.bonus === b)!, id: `dist_test_${b}_${i}` }),
     );

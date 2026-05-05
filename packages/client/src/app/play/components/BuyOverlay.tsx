@@ -15,10 +15,11 @@
  */
 
 import { useGameStore } from "@/lib/store/game";
-import type {
-  Card,
-  GameState,
-  OperationsCard,
+import {
+  paymentValue,
+  type Card,
+  type GameState,
+  type OperationsCard,
 } from "@bourbonomics/engine";
 import { formatMoney, MoneyText } from "./money";
 
@@ -38,10 +39,7 @@ export default function BuyOverlay() {
   const selectedCards = human.hand.filter((c) =>
     buyMode.spendCardIds.includes(c.id),
   );
-  const paid = selectedCards.reduce(
-    (acc, c) => acc + (c.type === "capital" ? c.capitalValue ?? 1 : 1),
-    0,
-  );
+  const paid = selectedCards.reduce((acc, c) => acc + paymentValue(c), 0);
 
   const canConfirm = target != null && cost != null && paid >= cost;
   const overpaid = target != null && cost != null && paid > cost;

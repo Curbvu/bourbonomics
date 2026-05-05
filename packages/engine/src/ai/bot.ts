@@ -101,11 +101,8 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
 // -----------------------------
 
 const DISTILLERY_PREFERENCE: Distillery["bonus"][] = [
-  "old_line",       // pre-aged sale-ready barrel is the strongest tempo
-  "warehouse",      // +1 slot + first-sale-min-age is high-ceiling
   "high_rye",       // pre-aged + 2 free 2-rye + bill bonus
   "wheated_baron",  // pre-aged + lower single-grain threshold
-  "broker",         // capital-rich, final-round trade liquidity
   "connoisseur",    // diversified scoring; harder to pilot
   "vanilla",        // last resort
 ];
@@ -422,11 +419,7 @@ function chooseDemandDirection(state: GameState, player: PlayerState): "up" | "d
 // -----------------------------
 
 function chooseSale(state: GameState, player: PlayerState): GameAction | null {
-  // v2.4 first-sale-min-age constraint (Warehouse): until the first
-  // sale resolves, only barrels at or above that age are legal.
-  const firstSaleMin = player.distillery?.firstSaleMinAge ?? 0;
-  const minAge = !player.firstSaleResolved && firstSaleMin > 2 ? firstSaleMin : 2;
-  const barrels = getPlayerBarrels(state, player.id).filter((b) => b.age >= minAge);
+  const barrels = getPlayerBarrels(state, player.id).filter((b) => b.age >= 2);
   if (barrels.length === 0) return null;
 
   let best: { barrelId: string; reward: number; age: number } | null = null;

@@ -18,14 +18,8 @@ export function validateTrade(
   const p2 = state.players.find((p) => p.id === action.player2Id);
   if (!p1) return { legal: false, reason: `unknown player ${action.player1Id}` };
   if (!p2) return { legal: false, reason: `unknown player ${action.player2Id}` };
-  // v2.4 Broker exception: trades are illegal in the final round
-  // unless one side is The Broker (who keeps trade liquidity open).
   if (state.finalRoundTriggered) {
-    const brokerSide =
-      p1.distillery?.bonus === "broker" || p2.distillery?.bonus === "broker";
-    if (!brokerSide) {
-      return { legal: false, reason: "trades are not allowed during the final round" };
-    }
+    return { legal: false, reason: "trades are not allowed during the final round" };
   }
   if (!isCurrentPlayer(state, action.player1Id)) {
     return { legal: false, reason: "trade must be initiated by the player whose turn it is" };
@@ -85,11 +79,4 @@ export function applyTrade(draft: Draft<GameState>, action: TradeAction): void {
   // v2.2: trade is one of the active player's actions but does NOT end
   // their turn — they continue with whatever cards remain. The trading
   // partner's own turn (when it comes around) is unaffected.
-  //
-  // The Broker distillery bonus is recorded for legacy compatibility but
-  // is functionally inert under v2.2 (no main action ends a turn, so a
-  // "free" trade is no different from a regular one).
-  if (p1.distillery?.bonus === "broker" && !p1.brokerFreeTradeUsed) {
-    p1.brokerFreeTradeUsed = true;
-  }
 }

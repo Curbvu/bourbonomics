@@ -18,8 +18,12 @@ export const CARD_SIZE_CLASS = "h-[140px] w-[100px]";
 export const HAND_CARD_W = 100;
 export const HAND_CARD_H = 140;
 
-/** Negative left margin used to overlap mini cards into an accordion fan. */
-export const HAND_CARD_OVERLAP = "-ml-12";
+/**
+ * Per-card horizontal offset between siblings inside a hand row.
+ * Empty string = no overlap; rows now spread out with a gap supplied
+ * by the accordion container instead of stacking via negative margins.
+ */
+export const HAND_CARD_OVERLAP = "";
 
 export type CardChrome = {
   gradient: string;

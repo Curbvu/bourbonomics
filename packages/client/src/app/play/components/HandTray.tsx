@@ -14,13 +14,14 @@
  * input.
  */
 
-import type {
-  Card,
-  GameState,
-  MashBill,
-  OperationsCard,
-  PlayerState,
-  ResourceSubtype,
+import {
+  paymentValue,
+  type Card,
+  type GameState,
+  type MashBill,
+  type OperationsCard,
+  type PlayerState,
+  type ResourceSubtype,
 } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import ActionBar from "./ActionBar";
@@ -29,6 +30,7 @@ import AgeOverlay from "./AgeOverlay";
 import DrawBillOverlay from "./DrawBillOverlay";
 import MakeOverlay from "./MakeOverlay";
 import PlayerSwatch from "./PlayerSwatch";
+import { CornerCost, CornerValue } from "./cardCorners";
 import {
   CAPITAL_CHROME,
   CARD_SIZE_CLASS,
@@ -335,16 +337,15 @@ function EmptyPill({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Accordion fan — children overlap horizontally; hovering lifts the
- * card and pops it to z-50 so it can be read in full. The container
- * shrinks to fit the available row width (no horizontal scrollbar);
- * if the hand grows past what fits, rightmost cards clip into the
- * neighbouring section but stay hover-readable.
+ * Spread row — children sit side-by-side with a small gap so every
+ * card is fully readable without hover. The outer wrapper allows the
+ * row to overflow horizontally when the hand grows past the available
+ * width (rather than crushing the cards into an accordion fan).
  */
 function CardAccordion({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-w-0 flex-1 items-end py-2 pl-2 pr-3">
-      <div className="flex min-w-0 items-end">{children}</div>
+    <div className="flex min-w-0 flex-1 items-end overflow-x-auto py-2 pl-2 pr-3">
+      <div className="flex min-w-0 items-end gap-2">{children}</div>
     </div>
   );
 }
@@ -385,6 +386,8 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
   const chrome = RESOURCE_CHROME[subtype];
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
   const count = card.resourceCount ?? 1;
+  const value = paymentValue(card);
+  const cost = card.cost ?? 1;
   const inBuyMode = buyMode != null;
   const inAgeMode = ageMode != null;
   const inDrawBillMode = drawBillMode != null;
@@ -434,6 +437,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
       }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >
+      <CornerValue value={value} />
       {isSelected ? (
         <span
           className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
@@ -441,17 +445,19 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
         >
           ✓
         </span>
-      ) : null}
+      ) : (
+        <CornerCost cost={cost} />
+      )}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
         aria-hidden
       />
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-center px-7">
         <span className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           {RESOURCE_LABEL[subtype]}
         </span>
         {count > 1 ? (
-          <span className={`rounded border px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] ${chrome.borderSoft} ${chrome.ink}`}>
+          <span className={`ml-1 rounded border px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] ${chrome.borderSoft} ${chrome.ink}`}>
             ×{count}
           </span>
         ) : null}
@@ -480,7 +486,8 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     makeMode,
     toggleMakeSpend,
   } = useGameStore();
-  const value = card.capitalValue ?? 1;
+  const value = paymentValue(card);
+  const cost = card.cost ?? card.capitalValue ?? 1;
   const chrome = CAPITAL_CHROME;
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
   const inBuyMode = buyMode != null;
@@ -529,19 +536,22 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
       }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >
+      <CornerValue value={value} />
       {isSelected ? (
         <span
-          className="pointer-events-none absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
+          className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
           aria-hidden
         >
           ✓
         </span>
-      ) : null}
+      ) : (
+        <CornerCost cost={cost} />
+      )}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
         aria-hidden
       />
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-center px-7">
         <span className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           Capital
         </span>

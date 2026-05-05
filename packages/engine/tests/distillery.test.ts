@@ -41,18 +41,17 @@ describe("Distillery selection", () => {
 
   it("assigns the distillery, builds rickhouse slots, and advances the cursor", () => {
     let state = makeSelectionGame();
-    const oldLine = state.distilleryPool.find((d) => d.bonus === "old_line")!;
+    const wheated = state.distilleryPool.find((d) => d.bonus === "wheated_baron")!;
     state = applyAction(state, {
       type: "SELECT_DISTILLERY",
       playerId: "p3",
-      distilleryId: oldLine.id,
+      distilleryId: wheated.id,
     });
     const p3 = state.players.find((p) => p.id === "p3")!;
-    expect(p3.distillery?.bonus).toBe("old_line");
-    // v2.2: rickhouse tiers removed — Old-Line just grants +1 slot.
-    expect(p3.rickhouseSlots).toHaveLength(5);
+    expect(p3.distillery?.bonus).toBe("wheated_baron");
+    expect(p3.rickhouseSlots).toHaveLength(4);
     expect(state.distillerySelectionCursor).toBe(1);
-    expect(state.distilleryPool.find((d) => d.id === oldLine.id)).toBeUndefined();
+    expect(state.distilleryPool.find((d) => d.id === wheated.id)).toBeUndefined();
   });
 
   it("falls through to starter_deck_draft once every player has picked a distillery", () => {
@@ -63,18 +62,6 @@ describe("Distillery selection", () => {
     }
     expect(state.phase).toBe("starter_deck_draft");
     expect(state.players.every((p) => p.distillery !== null)).toBe(true);
-  });
-
-  it("Warehouse Distillery grants 5 slots (one extra over the default 4)", () => {
-    let state = makeSelectionGame();
-    const warehouse = state.distilleryPool.find((d) => d.bonus === "warehouse")!;
-    state = applyAction(state, {
-      type: "SELECT_DISTILLERY",
-      playerId: "p3",
-      distilleryId: warehouse.id,
-    });
-    const p3 = state.players.find((p) => p.id === "p3")!;
-    expect(p3.rickhouseSlots).toHaveLength(5);
   });
 
   it("High-Rye House delivers a free 2-rye via the v2.4 starter trade window", () => {

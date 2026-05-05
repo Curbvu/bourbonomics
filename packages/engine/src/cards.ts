@@ -159,12 +159,14 @@ export function capitalUnits(card: Card): number {
 
 /**
  * Value of a card when used to pay a market cost.
- *   - Capital cards pay their face value (capitalValue, default 1).
- *   - Resource cards pay 1¢ each (regardless of resourceCount).
+ *   - Explicit `card.value` always wins (lets expansion cards override).
+ *   - Capital cards otherwise pay their face value (capitalValue, default 1).
+ *   - Resource cards otherwise pay 1¢ each (regardless of resourceCount).
  *
  * Used by BUY_FROM_MARKET and BUY_OPERATIONS_CARD validation.
  */
 export function paymentValue(card: Card): number {
+  if (card.value != null) return card.value;
   if (card.type === "capital") return card.capitalValue ?? 1;
   return 1;
 }

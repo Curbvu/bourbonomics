@@ -75,6 +75,13 @@ export interface LogEntry {
   seq: number;
   action: GameAction;
   round: number;
+  /**
+   * Optional snapshot data captured at dispatch time so the EventLog
+   * can describe ephemeral effects after the fact.
+   *   - `drawn`: cards added to a player's hand by this action
+   *     (DRAW_HAND, occasionally DRAW_MASH_BILL or buy-side draws).
+   */
+  drawn?: Card[];
 }
 
 /**
@@ -346,6 +353,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         seq,
         action: result.action,
         round: result.state.round,
+        drawn: captureDrawn(prev.state, result.state, result.action),
       };
       const lastPurchase = capturePurchase(prev, result.action, seq);
       return {
@@ -364,7 +372,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (!prev.state) return prev;
       const next = applyAction(prev.state, action);
       const seq = prev.seqCounter + 1;
-      const entry: LogEntry = { seq, action, round: next.round };
+      const entry: LogEntry = {
+        seq,
+        action,
+        round: next.round,
+        drawn: captureDrawn(prev.state, next, action),
+      };
       const lastPurchase = capturePurchase(prev, action, seq);
       return {
         ...prev,
@@ -884,6 +897,27 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+/**
+ * For actions that move cards into a player's hand (DRAW_HAND, and
+ * the implicit reshuffle on a DRAW_HAND), compute the delta so the
+ * EventLog can render WHAT was drawn — by id stable across renders.
+ * Returns undefined when the action is not a draw-style action so the
+ * field can be omitted from the LogEntry entirely.
+ */
+function captureDrawn(
+  prev: GameState,
+  next: GameState,
+  action: GameAction,
+): Card[] | undefined {
+  if (action.type !== "DRAW_HAND") return undefined;
+  const before = prev.players.find((p) => p.id === action.playerId);
+  const after = next.players.find((p) => p.id === action.playerId);
+  if (!before || !after) return undefined;
+  const beforeIds = new Set(before.hand.map((c) => c.id));
+  const drawn = after.hand.filter((c) => !beforeIds.has(c.id));
+  return drawn.length > 0 ? drawn : undefined;
 }
 
 /**

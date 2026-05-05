@@ -68,17 +68,6 @@ export function validateSellBourbon(
     return { legal: false, reason: `barrel must be aged at least ${MIN_SELL_AGE} years` };
   }
 
-  // v2.4 Old-Line constraint: first sale must clear the distillery's
-  // first-sale minimum age. After `firstSaleResolved` flips on apply,
-  // subsequent sales pass through.
-  const firstSaleMin = player.distillery?.firstSaleMinAge;
-  if (firstSaleMin && !player.firstSaleResolved && barrel.age < firstSaleMin) {
-    return {
-      legal: false,
-      reason: `your first sale must be a barrel aged ${firstSaleMin}+ years (this one is age ${barrel.age})`,
-    };
-  }
-
   const reward = chooseRewardBill(
     state,
     action,
@@ -243,8 +232,6 @@ export function applySellBourbon(
   // Remove the barrel.
   draft.allBarrels.splice(barrelIdx, 1);
   player.barrelsSold += 1;
-  // Mark first sale resolved (clears Old-Line's first-sale-min-age gate).
-  player.firstSaleResolved = true;
 
   // Demand drops by 1 unless Demand Surge absorbs it, a sale-effect
   // (Heirloom Wheat's `skip_demand_drop`) cancels the drop, or the

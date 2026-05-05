@@ -2,7 +2,7 @@
 
 ## Become the Bourbon Baron
 
-Welcome to *Bourbonomics*, a deckbuilding strategy game about building a bourbon empire through patience, timing, and the discipline of inventory management. Recommended for **2–4 players**; supported for 5–6.
+Welcome to *Bourbonomics*, a deckbuilding strategy game about building a bourbon empire through patience, timing, and the discipline of inventory management. Designed for **2–4 players**.
 
 Each player owns a distillery and competes to earn the most reputation. Barons select a distillery, draft mash bills, manage a personal deck of resource cards, produce bourbon, age it over time, and sell it at the perfect moment to convert tied-up inventory into reputation.
 
@@ -42,12 +42,7 @@ Distillery cards are selected in reverse snake order (last player picks first). 
 
 ### Distillery Profiles
 
-Under v2.4 each distillery is a full asymmetric opening package: a **starting state** (pre-aged barrel and/or starter-pool tweak), a **permanent ability**, and a **constraint** that gives the distillery its identity.
-
-**Warehouse Distillery — "The Capacity King"**
-- *Starting state:* +1 rickhouse slot (5 total). No pre-aged barrel.
-- *Permanent ability:* — *(Reserved for upper-tier targeting protection — currently inert under v2.2's flat-rickhouse model.)*
-- *Constraint:* Your **first sale** must be a barrel aged 4+ years.
+Each distillery is a full asymmetric opening package: a **starting state** (pre-aged barrel and/or starter-pool tweak), a **permanent ability**, and a **constraint** that gives the distillery its identity.
 
 **High-Rye House — "The Specialist"**
 - *Starting state:* 1 pre-aged barrel (age 1) with a basic high-rye bill attached. Your starter hand is dealt 2 free 2-rye premium cards on top of the standard 16.
@@ -59,16 +54,6 @@ Under v2.4 each distillery is a full asymmetric opening package: a **starting st
 - *Permanent ability:* Wheated mash bills cost 1 fewer grain card to produce (minimum 1). Your "3+ single grain" composition buff fires at **2+** instead of 3+.
 - *Constraint:* Rye cards count as 0 toward your composition-buff thresholds.
 
-**Old-Line Distillery — "The Heritage Brand"**
-- *Starting state:* 1 pre-aged barrel (age 2) with a workhorse bill — sale-ready in round 1. +1 rickhouse slot (5 total).
-- *Permanent ability:* — *(Reserved for an expanded bonded warehouse — currently inert under v2.2's flat-rickhouse model.)*
-- *Constraint:* Your starter hand has 1 fewer capital card.
-
-**The Broker — "The Dealmaker"**
-- *Starting state:* Your starter hand has 2 extra capital cards.
-- *Permanent ability:* You may trade in the **final round** (other players cannot trade with each other in that round, but they can trade with you).
-- *Constraint:* Your maximum rickhouse capacity is 4 (Rickhouse Expansion Permit cannot raise it).
-
 **Connoisseur Estate — "The Diversified"**
 - *Starting state:* Draft 4 mash bills during setup instead of 3.
 - *Permanent ability:* Your "all four grain types" composition buff fires when **3 of 4** distinct grain types are present, and grants **+3 reputation** instead of +2.
@@ -77,6 +62,8 @@ Under v2.4 each distillery is a full asymmetric opening package: a **starting st
 ### The Vanilla Distillery
 
 A player may choose the **Vanilla Distillery** instead of a named distillery. The Vanilla Distillery has no starting state, no permanent ability, and no constraint. It is intended as a challenge option for experienced players or for competitive play where asymmetry is unwanted.
+
+> **Roster note (v2.5).** Three earlier distilleries — Warehouse, Old-Line, and The Broker — were retired in this revision. Warehouse and Old-Line were defined around the bonded/upper-tier rickhouse split, which the v2.2 cleanup removed; what remained were stub abilities. The Broker hinged on a final-round trading carve-out that asked the rules to bend for one card. They will return when each one earns a real, engine-supported ability rather than a placeholder.
 
 ---
 
@@ -151,13 +138,13 @@ Each player owns their rickhouse outright — it is printed on their distillery 
 
 ## Rickhouse Layout
 
-Each distillery card has **4 barrel slots** by default — a single, flat row of equivalent slots. The Warehouse Distillery and Old-Line Distillery bonuses each add one more (5 total).
+Each distillery card has **4 barrel slots** by default — a single, flat row of equivalent slots.
 
 > **v2.2 cleanup.** Earlier drafts split the rickhouse into a "bonded warehouse" lower tier (inviolable) and an "upper tier" (vulnerable to certain ops cards). That distinction has been removed. Every slot is the same; ops cards that used to target only the upper tier (Regulatory Inspection, Barrel Broker, Blend) now operate on any slot. The simpler model is easier to teach and removes a layer of placement strategy that wasn't pulling its weight.
 
 ## Rickhouse Capacity
 
-A player's rickhouse capacity is the total number of slots on their distillery card. Default capacity is 4. The Warehouse and Old-Line distillery bonuses each raise this to 5. The Rickhouse Expansion Permit operations card raises it further, to a maximum of 6.
+A player's rickhouse capacity is the total number of slots on their distillery card. Default capacity is 4. The Rickhouse Expansion Permit operations card raises it further, to a maximum of 6.
 
 When **your** rickhouse is full, you cannot Make Bourbon until you sell a barrel and free a slot. Other players are unaffected by the state of your rickhouse.
 
@@ -643,13 +630,13 @@ The mash bill supply is the doomsday clock. Drawing mash bills accelerates the e
 
 # 🎲 Player Count Notes
 
-Bourbonomics is designed and balanced for **2–4 players**.
+Bourbonomics is designed and balanced for **2–4 players**. The current roster ships four distilleries (High-Rye House, Wheated Baron, Connoisseur Estate, Vanilla), so a 4-player game can seat one of each with no duplicates.
 
 - **2 players** — fastest game, highest variance. Demand swings more dramatically with fewer sales to anchor it. Each player has more room to breathe in their own rickhouse and the game rewards sharp, tactical play over long-arc planning.
 - **3 players** — the sweet spot. Demand pressure is meaningful, operations cards create genuine table moments, and the doomsday clock moves at a satisfying pace.
 - **4 players** — the fullest experience. Operations cards spark real drama, the demand track is actively contested, and the final round tends to be the most chaotic and memorable.
 
-**5–6 players** are supported but the game plays differently at those counts. Downtime between turns increases noticeably (full-turn actions amplify this), and the demand track moves unpredictably under the weight of more sales. Recommended only for groups already comfortable with the rules who want a longer, louder experience.
+5+ player counts are not supported in the current build; additional distilleries are needed before that scales cleanly.
 
 ---
 
@@ -663,7 +650,8 @@ It's about knowing what to lock up, what to let go, and when the world is ready 
 
 # 📜 Changelog
 
-- **v2.4** — Composition Buffs added: cards committed to barrels grant sale-time bonuses based on composition thresholds (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all-four-grains). Starter deck setup replaced with random deal of 16 face-up cards from a shared pool plus a 3-minute 1-for-1 trading window and a once-per-player stuck-hand swap. Distillery cards rebuilt as full asymmetric opening packages — each has a starting state (often a pre-aged barrel), a permanent ability (sale mods, composition mods), and a constraint. Connoisseur Estate added as a 7th distillery option (Vanilla still selectable). Bot heuristics updated for the new rules.
-- **v2.2.x** — Rickhouse bonded/upper tier distinction removed. Every slot is equivalent; ops cards (Regulatory Inspection, Barrel Broker, Blend) that used to be tier-gated now operate on any slot. Old-Line Distillery retains its +1 slot but no longer carries the "bonded warehouse" flavor (same arithmetic as Warehouse).
+- **v2.5** — Distillery roster trimmed. Warehouse, Old-Line, and The Broker were removed: the first two carried abilities that v2.2's flat-rickhouse cleanup had already neutralised, and Broker's final-round trading carve-out asked the rules to bend around one card. Trading is now flatly illegal in the final round, no exceptions. The roster ships with High-Rye House, Wheated Baron, Connoisseur Estate, and Vanilla; retired distilleries can return when each one has a real, engine-supported ability.
+- **v2.4** — Composition Buffs added: cards committed to barrels grant sale-time bonuses based on composition thresholds (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all-four-grains). Starter deck setup replaced with random deal of 16 face-up cards from a shared pool plus a 3-minute 1-for-1 trading window and a once-per-player stuck-hand swap. Distillery cards rebuilt as full asymmetric opening packages — each has a starting state (often a pre-aged barrel), a permanent ability (sale mods, composition mods), and a constraint. Bot heuristics updated for the new rules.
+- **v2.2.x** — Rickhouse bonded/upper tier distinction removed. Every slot is equivalent; ops cards (Regulatory Inspection, Barrel Broker, Blend) that used to be tier-gated now operate on any slot.
 - **v2.2** — Action Phase restructured: players now take full turns rather than one action per turn. Start player rotates each round, with the last player of round N becoming the first player of round N+1. Operations cards are now acquired through purchase only (no starting hand, no per-round draw).
 - **v2.1** — Operations cards added (8 effects), Rush to Market and Distressed Sale Notice removed, ops bought from face-up market.

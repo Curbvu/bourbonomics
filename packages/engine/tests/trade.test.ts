@@ -117,32 +117,3 @@ describe("TRADE", () => {
   });
 });
 
-describe("TRADE — Broker bonus (vestigial under v2.2)", () => {
-  it("first trade still flips brokerFreeTradeUsed for telemetry, but no main action ends a turn anymore", () => {
-    const broker = defaultDistilleryPool().find((d) => d.bonus === "broker")!;
-    const vanilla = defaultDistilleryPool().find((d) => d.bonus === "vanilla")!;
-    let state = makeTestGame({
-      startingDistilleries: [broker, { ...vanilla, id: "dist_test_vanilla_2" }],
-    });
-    state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [
-      makeResourceCard("rye", "p1", 0),
-      makeCapitalCard("p1", 1),
-    ]);
-    state = giveHand(state, "p2", [
-      makeResourceCard("wheat", "p2", 0),
-      makeCapitalCard("p2", 1),
-    ]);
-    state = applyAction(state, {
-      type: "TRADE",
-      player1Id: "p1",
-      player2Id: "p2",
-      player1Cards: ["card_p1_rye_0"],
-      player2Cards: ["card_p2_wheat_0"],
-    });
-    expect(state.currentPlayerIndex).toBe(0);
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.brokerFreeTradeUsed).toBe(true);
-    expect(p1.hand.map((c) => c.id)).toEqual(["card_p1_cap1_1"]);
-  });
-});

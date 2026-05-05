@@ -14,19 +14,16 @@ import type { Distillery, RickhouseSlot } from "./types";
 // ============================================================
 
 const DEFAULT_SLOTS = 4;
-const EXTRA_SLOT = 5;
 
 interface DistillerySpec extends Omit<Distillery, "id"> {}
 
+// Roster trimmed to fully-fleshed distilleries only. Warehouse,
+// Old-Line, and The Broker were retired in v2.5 — their abilities
+// were either inert under the flat-rickhouse model (Warehouse,
+// Old-Line) or carved out an awkward asymmetry into the final round
+// (The Broker). They can return when each one earns a real,
+// engine-supported ability.
 const SPECS: DistillerySpec[] = [
-  {
-    defId: "warehouse",
-    name: "Warehouse Distillery",
-    flavorText: "The Capacity King — more space, more patience.",
-    bonus: "warehouse",
-    slots: EXTRA_SLOT,
-    firstSaleMinAge: 4,
-  },
   {
     defId: "high_rye_house",
     name: "High-Rye House",
@@ -49,24 +46,6 @@ const SPECS: DistillerySpec[] = [
       excludeFromComposition: ["rye"],
       singleGrainThreshold: 2,
     },
-  },
-  {
-    defId: "old_line",
-    name: "Old-Line Distillery",
-    flavorText: "The Heritage Brand — sale-ready out of the gate.",
-    bonus: "old_line",
-    slots: EXTRA_SLOT,
-    startingBarrel: { age: 2, basicBillKey: "workhorse" },
-    starterPoolMods: { capitalDelta: -1 },
-  },
-  {
-    defId: "the_broker",
-    name: "The Broker",
-    flavorText: "The Dealmaker — final-round trade is on the house.",
-    bonus: "broker",
-    slots: DEFAULT_SLOTS,
-    maxSlots: DEFAULT_SLOTS, // capped, no Rickhouse Expansion Permit
-    starterPoolMods: { capitalDelta: 2 },
   },
   {
     defId: "connoisseur",

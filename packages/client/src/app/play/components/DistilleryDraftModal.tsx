@@ -18,9 +18,6 @@ import { useGameStore } from "@/lib/store/game";
 import type { Distillery, DistilleryBonus } from "@bourbonomics/engine";
 
 const BONUS_LABELS: Record<DistilleryBonus, { perk: string }> = {
-  warehouse: {
-    perk: "+1 rickhouse slot. Constraint: first sale must be a barrel aged 4+ years.",
-  },
   high_rye: {
     perk:
       "Pre-aged high-rye barrel + 2 free 2-rye in your hand. +1 rep on every high-rye sale. Wheat counts as 0 toward composition.",
@@ -28,13 +25,6 @@ const BONUS_LABELS: Record<DistilleryBonus, { perk: string }> = {
   wheated_baron: {
     perk:
       "Pre-aged wheated barrel. Wheated bills cost 1 fewer grain. Single-grain composition buff fires at 2+. Rye counts as 0.",
-  },
-  old_line: {
-    perk: "Pre-aged workhorse barrel — sale-ready in round 1. Starter pool has 1 fewer capital.",
-  },
-  broker: {
-    perk:
-      "Starter pool has 2 extra capital. May still trade in the final round. Rickhouse cap fixed at 4 (no expansion).",
   },
   connoisseur: {
     perk:

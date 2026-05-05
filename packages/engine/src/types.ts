@@ -26,8 +26,13 @@ export interface Card {
   capitalValue?: number;              // for capital cards
   /** Optional: subtypes this card may stand in for (e.g. "any grain" specialty). */
   aliases?: ResourceSubtype[];
-  /** Capital cost to acquire this card from the market. */
+  /** Capital cost to acquire this card from the market. Defaults to 1. */
   cost?: number;
+  /** How many B$ this card pays when spent at the market. Defaults to 1
+   *  for resource cards and to `capitalValue ?? 1` for capital cards. The
+   *  field exists so future expansion cards (e.g. "premium grain pays
+   *  B$2") can override the default without rewriting the spend rules. */
+  value?: number;
   /** Optional themed name shown in place of the auto-generated label. */
   displayName?: string;
   /** Optional one-line flavor used by the inspect modal. */
@@ -153,11 +158,8 @@ export function isWheatedBill(bill: MashBill): boolean {
 // -----------------------------
 
 export type DistilleryBonus =
-  | "warehouse"
   | "high_rye"
   | "wheated_baron"
-  | "broker"
-  | "old_line"
   | "connoisseur"
   | "vanilla";
 
@@ -212,8 +214,6 @@ export interface Distillery {
   compositionMods?: DistilleryCompositionMods;
   /** Sale-time modifiers tied to the attached mash bill. */
   saleMods?: DistillerySaleMods;
-  /** First sale's barrel must be at least this many years old. */
-  firstSaleMinAge?: number;
   /** Number of mash bills drafted during setup (default 3). */
   mashBillDraftSize?: number;
   /** Maximum mash bills held in hand. */
@@ -351,16 +351,12 @@ export interface PlayerState {
   reputation: number;
   handSize: number;                         // default 8
   barrelsSold: number;
-  /** True after the first SELL_BOURBON resolves. Drives Old-Line's first-sale age constraint. */
-  firstSaleResolved: boolean;
 
   outForRound: boolean;                     // hand exhausted in current action phase
 
   // Per-round flags driven by ops cards / distillery bonuses.
   /** Set by Demand Surge — next sale this round does not drop demand. */
   demandSurgeActive: boolean;
-  /** Set by The Broker bonus — true once the free trade has been used this round. */
-  brokerFreeTradeUsed: boolean;
   /**
    * Set by Insider Buyer — your next BUY_FROM_MARKET this turn pays
    * half the printed cost (rounded up, min 1¢). Cleared after one

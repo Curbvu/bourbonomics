@@ -39,8 +39,14 @@ export default function GameBoard() {
             </div>
           </div>
 
-          {/* Right column: action log spans full height. */}
-          <RightRail />
+          {/* Right column: action log matches the left column's height
+              exactly — the rail is absolutely positioned so its log
+              content can never push the grid row taller. */}
+          <div className="relative min-h-0">
+            <div className="absolute inset-0">
+              <RightRail />
+            </div>
+          </div>
         </div>
       </div>
 

@@ -14,14 +14,15 @@
  * tiles run a bit smaller for density.
  */
 
-import type {
-  Card,
-  InvestmentCard,
-  MashBill,
-  OperationsCard,
-  ResourceSubtype,
+import {
+  defaultInvestmentCatalog,
+  paymentValue,
+  type Card,
+  type InvestmentCard,
+  type MashBill,
+  type OperationsCard,
+  type ResourceSubtype,
 } from "@bourbonomics/engine";
-import { defaultInvestmentCatalog } from "@bourbonomics/engine";
 import { useMemo } from "react";
 import { useGameStore } from "@/lib/store/game";
 import {
@@ -33,6 +34,7 @@ import {
   RESOURCE_LABEL,
 } from "./handCardStyles";
 import { TIER_CHROME, tierOrCommon } from "./tierStyles";
+import { CornerCost, CornerValue } from "./cardCorners";
 import { MoneyText } from "./money";
 
 const CONVEYOR_SIZE = 10;
@@ -256,11 +258,7 @@ function useMarketBuyState(
   // resource cards pay 1¢ each — same rules the engine enforces.
   const human = state?.players.find((p) => !p.isBot);
   const wallet = human
-    ? human.hand.reduce(
-        (acc, c) =>
-          acc + (c.type === "capital" ? c.capitalValue ?? 1 : 1),
-        0,
-      )
+    ? human.hand.reduce((acc, c) => acc + paymentValue(c), 0)
     : 0;
   const affordable = wallet >= cost;
   const buyClass = !inBuyMode
@@ -287,13 +285,13 @@ function useMarketBuyState(
 
 function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
   const cost = card.cost ?? (card.type === "capital" ? card.capitalValue ?? 1 : 1);
+  const value = paymentValue(card);
   const { buyClass, onClickCard, setInspect } = useMarketBuyState(
     "conveyor",
     slotIndex,
     cost,
   );
   if (card.type === "capital") {
-    const value = card.capitalValue ?? 1;
     const chrome = CAPITAL_CHROME;
     const titleLabel = card.displayName ?? "Capital";
     return (
@@ -304,8 +302,9 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
         className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
       >
         <Sheen />
+        <CornerValue value={value} />
         <CornerCost cost={cost} />
-        <div className="flex items-baseline justify-between pr-7">
+        <div className="flex items-baseline justify-center px-7">
           <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
             Capital
           </span>
@@ -336,12 +335,13 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
     <button
       type="button"
       onClick={onClickCard(() => setInspect({ kind: "resource", card }))}
-      title={`${titleLabel} · cost B$${cost}`}
+      title={`${titleLabel} · pays B$${value} · cost B$${cost}`}
       className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
     >
       <Sheen />
+      <CornerValue value={value} />
       <CornerCost cost={cost} />
-      <div className="flex items-baseline justify-between pr-7">
+      <div className="flex items-baseline justify-center px-7">
         <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {RESOURCE_LABEL[subtype]}
         </span>
@@ -669,21 +669,6 @@ function PileBody({
   );
 }
 
-/**
- * Unified cost chip — appears in the top-right corner of EVERY card
- * (resource, capital, mash bill, ops, investment) so the player has
- * one consistent place to read "what does this cost to acquire?"
- */
-function CornerCost({ cost }: { cost: number }) {
-  return (
-    <span
-      className="absolute right-1 top-1 z-10 grid h-5 min-w-[26px] place-items-center rounded-full border border-amber-400/70 bg-slate-950/85 px-1 font-mono text-[10px] font-bold text-amber-200 shadow-[0_2px_6px_rgba(0,0,0,.45)]"
-      aria-label={`cost B$${cost}`}
-    >
-      <MoneyText n={cost} />
-    </span>
-  );
-}
 
 function Sheen() {
   return (

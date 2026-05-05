@@ -14,10 +14,18 @@
  */
 
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
-import type { GameAction, GameState } from "@bourbonomics/engine";
+import type {
+  Barrel,
+  Card,
+  GameAction,
+  GameState,
+  ResourceSubtype,
+} from "@bourbonomics/engine";
 
-import { useGameStore } from "@/lib/store/game";
+import { useGameStore, type LogEntry } from "@/lib/store/game";
+import { bourbonColor } from "./bourbonColor";
 import { PLAYER_TEXT_CLASS, paletteIndex } from "./playerColors";
+import { RESOURCE_LABEL } from "./handCardStyles";
 
 interface PlayerInfo {
   name: string;
@@ -73,7 +81,7 @@ export default function EventLog() {
               <span className="w-7 flex-shrink-0 font-mono text-[10px] uppercase tracking-[.10em] tabular-nums text-slate-600">
                 R{e.round}
               </span>
-              <span className="flex-1">{describe(e.action, playerById, state)}</span>
+              <span className="flex-1">{describe(e, playerById, state)}</span>
             </li>
           ))}
         </ul>
@@ -83,10 +91,11 @@ export default function EventLog() {
 }
 
 function describe(
-  a: GameAction,
+  e: LogEntry,
   playerById: Map<string, PlayerInfo>,
   state: GameState | null,
 ): ReactNode {
+  const a = e.action;
   const who = (id: string): ReactNode => {
     const info = playerById.get(id);
     if (!info) return id;
@@ -124,12 +133,47 @@ function describe(
         </>
       );
     }
-    case "DRAW_HAND":
-      return <>{who(a.playerId)} drew their round hand.</>;
-    case "MAKE_BOURBON":
-      return <>{who(a.playerId)} made a barrel of bourbon ({a.cardIds.length} cards).</>;
-    case "AGE_BOURBON":
-      return <>{who(a.playerId)} aged a barrel.</>;
+    case "DRAW_HAND": {
+      const isHuman = !state?.players.find((p) => p.id === a.playerId)?.isBot;
+      const drawn = e.drawn;
+      // Bots' hands are private — reveal the contents only for the human.
+      if (!isHuman || !drawn || drawn.length === 0) {
+        return <>{who(a.playerId)} drew their round hand.</>;
+      }
+      return (
+        <>
+          {who(a.playerId)} drew {drawn.length} card{drawn.length === 1 ? "" : "s"}:{" "}
+          {summarizeCards(drawn)}.
+        </>
+      );
+    }
+    case "MAKE_BOURBON": {
+      const barrel = findBarrelBySlot(state, a.playerId, a.slotId);
+      const billName = barrel?.attachedMashBill.name ?? "a barrel";
+      const age = barrel?.age ?? 0;
+      return (
+        <>
+          {who(a.playerId)} made{" "}
+          <em className="not-italic text-amber-200">{billName}</em> ({a.cardIds.length} cards) ·{" "}
+          <ColorChip age={age} />
+        </>
+      );
+    }
+    case "AGE_BOURBON": {
+      const barrel = state?.allBarrels.find((b) => b.id === a.barrelId);
+      const billName = barrel?.attachedMashBill.name ?? "a barrel";
+      const age = barrel?.age ?? 0;
+      return (
+        <>
+          {who(a.playerId)} aged{" "}
+          <em className="not-italic text-amber-200">{billName}</em> to{" "}
+          <span className="font-mono tabular-nums text-amber-100">
+            {age} yr{age === 1 ? "" : "s"}
+          </span>{" "}
+          · <ColorChip age={age} />
+        </>
+      );
+    }
     case "SELL_BOURBON":
       return (
         <>
@@ -164,6 +208,70 @@ function describe(
     default:
       return JSON.stringify(a);
   }
+}
+
+function findBarrelBySlot(
+  state: GameState | null,
+  playerId: string,
+  slotId: string,
+): Barrel | undefined {
+  if (!state) return undefined;
+  return state.allBarrels.find((b) => b.ownerId === playerId && b.slotId === slotId);
+}
+
+function ColorChip({ age }: { age: number }) {
+  const c = bourbonColor(age);
+  return (
+    <span className={`font-mono text-[10px] uppercase tracking-[.10em] ${c.textClass}`}>
+      {c.name}
+    </span>
+  );
+}
+
+/**
+ * Compact summary for a hand-draw payload — groups cards by subtype /
+ * capital tier so a 5-card draw reads as "2× corn, 1× rye, B$2 capital"
+ * instead of one entry per card.
+ */
+function summarizeCards(cards: Card[]): ReactNode {
+  const resources = new Map<ResourceSubtype, number>();
+  let capitalSum = 0;
+  let capitalCount = 0;
+  for (const c of cards) {
+    if (c.type === "capital") {
+      capitalSum += c.capitalValue ?? 1;
+      capitalCount += 1;
+    } else if (c.type === "resource" && c.subtype) {
+      const n = c.resourceCount ?? 1;
+      resources.set(c.subtype, (resources.get(c.subtype) ?? 0) + n);
+    }
+  }
+  const parts: ReactNode[] = [];
+  for (const [sub, n] of resources) {
+    parts.push(
+      <span key={`r-${sub}`} className="text-slate-100">
+        {n}× {RESOURCE_LABEL[sub]}
+      </span>,
+    );
+  }
+  if (capitalCount > 0) {
+    parts.push(
+      <span key="cap" className="text-emerald-300">
+        {capitalCount === 1 ? "B$" : `${capitalCount}× B$`}
+        {capitalSum}
+      </span>,
+    );
+  }
+  return interleave(parts, ", ");
+}
+
+function interleave(nodes: ReactNode[], sep: string): ReactNode {
+  const out: ReactNode[] = [];
+  nodes.forEach((n, i) => {
+    if (i > 0) out.push(<span key={`s-${i}`}>{sep}</span>);
+    out.push(n);
+  });
+  return <>{out}</>;
 }
 
 function prettyOps(defId: string): string {

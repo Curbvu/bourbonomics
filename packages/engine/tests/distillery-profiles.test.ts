@@ -32,14 +32,14 @@ function gameWithDistilleries(bonuses: Distillery["bonus"][]) {
 
 describe("Distillery profiles — Starting state", () => {
   it("places a pre-aged starter barrel for distilleries that ship one", () => {
-    const state = gameWithDistilleries(["high_rye", "wheated_baron", "old_line"]);
-    expect(state.allBarrels).toHaveLength(3);
+    const state = gameWithDistilleries(["high_rye", "wheated_baron"]);
+    expect(state.allBarrels).toHaveLength(2);
     const ages = state.allBarrels.map((b) => b.age).sort();
-    expect(ages).toEqual([1, 1, 2]); // high_rye=1, wheated=1, old_line=2
+    expect(ages).toEqual([1, 1]); // high_rye=1, wheated=1
   });
 
-  it("does not place a starter barrel for Vanilla / Warehouse / Connoisseur", () => {
-    const state = gameWithDistilleries(["vanilla", "warehouse", "connoisseur"]);
+  it("does not place a starter barrel for Vanilla / Connoisseur", () => {
+    const state = gameWithDistilleries(["vanilla", "connoisseur"]);
     expect(state.allBarrels).toHaveLength(0);
   });
 
@@ -149,40 +149,6 @@ describe("Distillery profiles — Permanent abilities", () => {
 });
 
 describe("Distillery profiles — Constraints", () => {
-  it("Warehouse first sale must be a barrel aged 4+ years", () => {
-    let state = makeTestGame({
-      startingDemand: 6,
-      startingDistilleries: [pickDistillery("warehouse"), pickDistillery("vanilla")],
-    });
-    state = advanceToActionPhase(state, [1, 1]);
-    const bill = makeMashBill(
-      {
-        defId: "wh_test",
-        name: "WH Test",
-        ageBands: [2, 4, 6],
-        demandBands: [2, 4, 6],
-        rewardGrid: [
-          [1, 2, 3],
-          [2, 4, 5],
-          [3, 5, 6],
-        ],
-      },
-      0,
-    );
-    state = placeBarrel(state, "p1", bill, 3); // age 3 — too young
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
-    const barrelId = state.allBarrels[0]!.id;
-    expect(() =>
-      applyAction(state, {
-        type: "SELL_BOURBON",
-        playerId: "p1",
-        barrelId,
-        reputationSplit: 2,
-        cardDrawSplit: 0,
-      }),
-    ).toThrow(/first sale must be a barrel aged 4\+ years/);
-  });
-
   it("Connoisseur cannot draw a 5th mash bill (hand cap of 4)", () => {
     // Start with a Connoisseur game where p1 already has 4 bills.
     const catalog = defaultMashBillCatalog();
@@ -205,40 +171,4 @@ describe("Distillery profiles — Constraints", () => {
     ).toThrow(/caps mash-bill hand at 4/);
   });
 
-  it("The Broker cannot expand rickhouse via Rickhouse Expansion Permit", () => {
-    // Plant a Rickhouse Expansion Permit in p1's hand.
-    let state = makeTestGame({
-      startingDistilleries: [pickDistillery("broker"), pickDistillery("vanilla")],
-    });
-    state = advanceToActionPhase(state, [1, 1]);
-    const opsCard: Card[] = []; void opsCard;
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1"
-          ? {
-              ...p,
-              operationsHand: [
-                {
-                  id: "ops_rep_1",
-                  defId: "rickhouse_expansion_permit",
-                  name: "Rickhouse Expansion Permit",
-                  description: "+1 slot",
-                  cost: 6,
-                  drawnInRound: 1,
-                },
-              ],
-            }
-          : p,
-      ),
-    };
-    expect(() =>
-      applyAction(state, {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: "p1",
-        cardId: "ops_rep_1",
-        defId: "rickhouse_expansion_permit",
-      }),
-    ).toThrow(/cannot expand past 4 slots/);
-  });
 });
