@@ -186,6 +186,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(id);
   }, [autoplay, state, step]);
 
+  // During setup phases the round-loop banner (with Step / Auto controls)
+  // is hidden — the modal owns the screen. Auto-resolve bot picks so the
+  // human sees their modal without having to advance manually.
+  useEffect(() => {
+    if (!state) return;
+    if (isGameOver(state)) return;
+    const isSetupPhase =
+      state.phase === "distillery_selection" ||
+      state.phase === "starter_deck_draft";
+    if (!isSetupPhase) return;
+    if (awaitingHumanInput(state)) return;
+    // Small delay so consecutive bot picks have a visible animation beat
+    // rather than collapsing to a single frame.
+    const id = window.setTimeout(step, 220);
+    return () => window.clearTimeout(id);
+  }, [state, step]);
+
   const newGame = useCallback((cfg: NewGameConfig) => {
     const catalog = defaultMashBillCatalog();
     const seats = [cfg.human, ...cfg.bots];

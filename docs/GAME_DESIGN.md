@@ -17,6 +17,15 @@ Authoritative checklist of explicit asks the user has made for v2.1.
 Implementation must respect every item on this list; new asks are
 added at the top.
 
+- **Rickhouses sit in a top row spanning the full canvas width.**
+  Below them, the Market Center takes the full middle width with the
+  Right rail (320px) at its right edge. Per-player rickhouse panels
+  wrap into 2–6 columns depending on viewport.
+- **Bots auto-resolve setup picks without user input.** During
+  `distillery_selection` and `starter_deck_draft` the round-loop
+  banner (Step / Auto controls) is hidden, so the store auto-steps
+  any bot pick on a 220ms beat. Stops automatically when it hits the
+  human's turn — the corresponding modal then takes over.
 - **WoW-style tier colour system on mash bills.** Mash bills are
   classed `common | uncommon | rare | epic | legendary` and rendered
   with the canonical WoW palette: white/slate, green, blue, purple,

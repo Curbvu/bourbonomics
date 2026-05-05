@@ -3,12 +3,13 @@
 /**
  * GameBoard — dashboard layout container.
  *
- * Three-column main grid (top section):
- *   ┌────────────────┬────────────────────┬───────────────┐
- *   │ Rickhouses     │ Market center      │ Right rail    │
- *   │ (per-player)   │ (conveyor + bills) │ (Barons / Log)│
- *   └────────────────┴────────────────────┴───────────────┘
- *   [HandTray]              flush bottom, full bleed
+ *   ┌─────────────────────────────────────────────────┐
+ *   │ Rickhouses (full-width top row, per-player)     │
+ *   ├──────────────────────────────────┬──────────────┤
+ *   │ MarketCenter (wide middle)       │ Right rail   │
+ *   │  conveyor + bills + ops + invest │ (Barons/Log) │
+ *   └──────────────────────────────────┴──────────────┘
+ *   [HandTray]                  flush bottom, full bleed
  */
 
 import { useGameStore } from "@/lib/store/game";
@@ -27,11 +28,11 @@ export default function GameBoard() {
       <div className="flex flex-1 flex-col gap-[14px] px-[22px] pb-[14px] pt-[14px]">
         {state.phase === "ended" ? <GameOverPanel /> : null}
 
-        {/* Main grid — 3 columns: rickhouses · market center · right rail */}
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_320px]">
-          <div className="flex min-h-0 flex-col">
-            <RickhouseRow />
-          </div>
+        {/* Top: rickhouses spanning the full width. */}
+        <RickhouseRow />
+
+        {/* Bottom: market center (wide) + right rail (320px). */}
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="flex min-h-0 flex-col">
             <MarketCenter />
           </div>
