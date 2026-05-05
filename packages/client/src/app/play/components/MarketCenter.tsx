@@ -33,20 +33,29 @@ import {
   RESOURCE_LABEL,
 } from "./handCardStyles";
 import { TIER_CHROME, tierOrCommon } from "./tierStyles";
+import { MoneyText } from "./money";
 
 const CONVEYOR_SIZE = 10;
 const FACEUP_PER_SECTION = 3;
 
 export default function MarketCenter() {
-  const { state } = useGameStore();
+  const { state, drawBillMode, setDrawBillTarget } = useGameStore();
   // v2.1 has no in-engine investment deck — show a static catalog so the
   // slot is themed and visible. The mechanic ships in v2.2.
   const investmentDeck = useMemo(() => defaultInvestmentCatalog(), []);
 
   if (!state) return null;
 
-  const faceUpBills = state.bourbonDeck.slice(-FACEUP_PER_SECTION).reverse();
-  const remainingBills = Math.max(0, state.bourbonDeck.length - faceUpBills.length);
+  // v2.2: face-up bourbon row lives in its own engine slot.
+  const faceUpBills = state.bourbonFaceUp;
+  const remainingBills = state.bourbonDeck.length;
+  // Draw-bill mode wires the bourbon section as a click target during
+  // step 1 (pick the bourbon — face-up tile or blind deck top).
+  const drawStep1 =
+    drawBillMode != null &&
+    !drawBillMode.blind &&
+    !drawBillMode.pickedMashBillId;
+  const blindPicked = drawBillMode != null && drawBillMode.blind;
   const faceUpOps = state.operationsDeck.slice(-FACEUP_PER_SECTION).reverse();
   const remainingOps = Math.max(0, state.operationsDeck.length - faceUpOps.length);
   const faceUpInvest = investmentDeck.slice(0, FACEUP_PER_SECTION);
@@ -55,7 +64,7 @@ export default function MarketCenter() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50 p-2.5">
       {/* Market conveyor */}
-      <section>
+      <section data-market-conveyor="true">
         <div className="mb-1.5 flex items-baseline justify-between">
           <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-slate-300">
             Market conveyor
@@ -81,45 +90,55 @@ export default function MarketCenter() {
           Cards inside each section spread with justify-between so the
           column width gets used (no dead space on the right edge). */}
       <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
-        <Subsection
-          title="Mash bills"
-          tag={state.finalRoundTriggered ? "final round" : undefined}
-        >
-          <FaceUpRow
-            faceUp={faceUpBills.map((b) => (
-              <MashBillTile key={b.id} bill={b} />
-            ))}
-            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpBills.length)}
-            pileLabel="Bourbon deck"
-            pileRemaining={remainingBills}
-            pileTone="amber"
-          />
-        </Subsection>
+        <div data-bourbon-row="true" className="contents">
+          <Subsection
+            title="Mash bills"
+            tag={state.finalRoundTriggered ? "final round" : undefined}
+          >
+            <FaceUpRow
+              faceUp={faceUpBills.map((b) => (
+                <MashBillTile key={b.id} bill={b} />
+              ))}
+              placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpBills.length)}
+              pileLabel="Bourbon deck"
+              pileRemaining={remainingBills}
+              pileTone="amber"
+              pileInteractive={drawStep1 && remainingBills > 0}
+              pilePicked={blindPicked}
+              onClickPile={() => setDrawBillTarget({ blind: true })}
+              pileClickTitle="Draw the top mash bill blind (1 card sacrifice)"
+            />
+          </Subsection>
+        </div>
 
-        <Subsection title="Operations">
-          <FaceUpRow
-            faceUp={faceUpOps.map((c, i) => (
-              <OpsCardTile key={c.id} card={c} slotIndex={i} />
-            ))}
-            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpOps.length)}
-            pileLabel="Ops deck"
-            pileRemaining={remainingOps}
-            pileSubLabel={`discard ${state.operationsDiscard.length}`}
-            pileTone="violet"
-          />
-        </Subsection>
+        <div data-ops-row="true" className="contents">
+          <Subsection title="Operations">
+            <FaceUpRow
+              faceUp={faceUpOps.map((c, i) => (
+                <OpsCardTile key={c.id} card={c} slotIndex={i} />
+              ))}
+              placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpOps.length)}
+              pileLabel="Ops deck"
+              pileRemaining={remainingOps}
+              pileSubLabel={`discard ${state.operationsDiscard.length}`}
+              pileTone="violet"
+            />
+          </Subsection>
+        </div>
 
-        <Subsection title="Investments" tag="preview · v2.2">
-          <FaceUpRow
-            faceUp={faceUpInvest.map((c) => (
-              <InvestmentCardTile key={c.id} card={c} />
-            ))}
-            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpInvest.length)}
-            pileLabel="Invest deck"
-            pileRemaining={remainingInvest}
-            pileTone="emerald"
-          />
-        </Subsection>
+        <div data-investments-row="true" className="contents">
+          <Subsection title="Investments" tag="preview · v2.2">
+            <FaceUpRow
+              faceUp={faceUpInvest.map((c) => (
+                <InvestmentCardTile key={c.id} card={c} />
+              ))}
+              placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpInvest.length)}
+              pileLabel="Invest deck"
+              pileRemaining={remainingInvest}
+              pileTone="emerald"
+            />
+          </Subsection>
+        </div>
       </div>
     </div>
   );
@@ -170,6 +189,10 @@ function FaceUpRow({
   pileSubLabel,
   pileTone,
   mutedPile = false,
+  pileInteractive = false,
+  pilePicked = false,
+  onClickPile,
+  pileClickTitle,
 }: {
   faceUp: React.ReactNode[];
   placeholders: number;
@@ -178,6 +201,10 @@ function FaceUpRow({
   pileSubLabel?: string;
   pileTone: "amber" | "violet" | "slate" | "emerald";
   mutedPile?: boolean;
+  pileInteractive?: boolean;
+  pilePicked?: boolean;
+  onClickPile?: () => void;
+  pileClickTitle?: string;
 }) {
   return (
     <div className="flex w-full flex-wrap items-stretch justify-between gap-2">
@@ -191,6 +218,10 @@ function FaceUpRow({
         subLabel={pileSubLabel}
         tone={pileTone}
         muted={mutedPile}
+        interactive={pileInteractive}
+        picked={pilePicked}
+        onClick={onClickPile}
+        clickTitle={pileClickTitle}
       />
     </div>
   );
@@ -269,7 +300,7 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
       <button
         type="button"
         onClick={onClickCard(() => setInspect({ kind: "capital", card }))}
-        title={`${titleLabel} · pays $${value} · costs ${cost}¢ to buy`}
+        title={`${titleLabel} · pays B$${value} · costs B$${cost} to buy`}
         className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
       >
         <Sheen />
@@ -285,9 +316,10 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
           </h4>
         ) : null}
         <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
-          <span className="font-display text-[24px] font-bold leading-none tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
-            ${value}
-          </span>
+          <MoneyText
+            n={value}
+            className="font-display text-[24px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
+          />
           <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
             spend
           </span>
@@ -304,7 +336,7 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
     <button
       type="button"
       onClick={onClickCard(() => setInspect({ kind: "resource", card }))}
-      title={`${titleLabel} · cost ${cost}¢`}
+      title={`${titleLabel} · cost B$${cost}`}
       className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
     >
       <Sheen />
@@ -342,25 +374,43 @@ function EmptySlot() {
 }
 
 function MashBillTile({ bill }: { bill: MashBill }) {
-  const { setInspect } = useGameStore();
+  const { setInspect, drawBillMode, setDrawBillTarget } = useGameStore();
   const tier = tierOrCommon(bill.tier);
   const chrome = TIER_CHROME[tier];
   const cells: number[] = [];
   for (const row of bill.rewardGrid) for (const c of row) if (c !== null) cells.push(c);
   const peak = cells.length ? Math.max(...cells) : 0;
   const floor = cells.length ? Math.min(...cells) : 0;
-  // Mash bills aren't bought from the conveyor — Draw Mash Bill costs 1
-  // card. Show "1" in the corner so the cost chip is consistent with
-  // every other card.
+  // In draw-bill step 1, the face-up bourbon row becomes click targets.
+  const inDrawStep1 =
+    drawBillMode != null &&
+    !drawBillMode.blind &&
+    !drawBillMode.pickedMashBillId;
+  const isPickedDraw =
+    drawBillMode != null && drawBillMode.pickedMashBillId === bill.id;
+  const drawRing = isPickedDraw
+    ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+    : inDrawStep1
+      ? "ring-2 ring-amber-300/70 hover:ring-amber-200"
+      : "";
+  const onClick = () => {
+    if (inDrawStep1) setDrawBillTarget({ mashBillId: bill.id });
+    else setInspect({ kind: "mashbill", bill });
+  };
   return (
     <button
       type="button"
-      onClick={() => setInspect({ kind: "mashbill", bill })}
-      title={`${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`}
-      className={[baseTile, chrome.gradient, chrome.border, chrome.glow].join(" ")}
+      data-bourbon-row="true"
+      onClick={onClick}
+      title={
+        inDrawStep1
+          ? `Pick ${bill.name} — costs B$${bill.cost ?? 2}`
+          : `${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`
+      }
+      className={[baseTile, chrome.gradient, chrome.border, chrome.glow, drawRing].join(" ")}
     >
       <Sheen />
-      <CornerCost cost={1} />
+      <CornerCost cost={bill.cost ?? 2} />
       <div className="flex items-baseline justify-between pr-7">
         <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {chrome.label_text}
@@ -487,12 +537,20 @@ function DrawPile({
   subLabel,
   tone,
   muted = false,
+  interactive = false,
+  picked = false,
+  onClick,
+  clickTitle,
 }: {
   label: string;
   remaining: number;
   subLabel?: string;
   tone: "amber" | "violet" | "slate" | "emerald";
   muted?: boolean;
+  interactive?: boolean;
+  picked?: boolean;
+  onClick?: () => void;
+  clickTitle?: string;
 }) {
   const toneChrome =
     tone === "amber"
@@ -526,18 +584,67 @@ function DrawPile({
               label: "text-slate-400",
               ink: "text-slate-200",
             };
+  const ringClass = picked
+    ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+    : interactive
+      ? "ring-2 ring-amber-300/70 hover:ring-amber-200"
+      : "";
+  const titleText =
+    interactive && clickTitle
+      ? clickTitle
+      : `${label} · ${remaining} card${remaining === 1 ? "" : "s"} remaining`;
+  const baseClass = [
+    baseTile,
+    interactive ? "" : "cursor-default hover:translate-y-0 hover:scale-100",
+    toneChrome.gradient,
+    toneChrome.border,
+    muted ? "opacity-60" : "",
+    ringClass,
+  ].join(" ");
+  if (interactive && onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title={titleText}
+        data-bourbon-row="true"
+        className={baseClass}
+        aria-label={label}
+      >
+        <PileBody
+          toneChrome={toneChrome}
+          remaining={remaining}
+          label={label}
+          subLabel={subLabel}
+        />
+      </button>
+    );
+  }
   return (
-    <div
-      title={`${label} · ${remaining} card${remaining === 1 ? "" : "s"} remaining`}
-      className={[
-        baseTile,
-        "cursor-default hover:translate-y-0 hover:scale-100",
-        toneChrome.gradient,
-        toneChrome.border,
-        muted ? "opacity-60" : "",
-      ].join(" ")}
-      aria-label={label}
-    >
+    <div title={titleText} className={baseClass} aria-label={label}>
+      <PileBody
+        toneChrome={toneChrome}
+        remaining={remaining}
+        label={label}
+        subLabel={subLabel}
+      />
+    </div>
+  );
+}
+
+function PileBody({
+  toneChrome,
+  remaining,
+  label,
+  subLabel,
+}: {
+  toneChrome: { border: string; gradient: string; label: string; ink: string };
+  remaining: number;
+  label: string;
+  subLabel?: string;
+}) {
+  return (
+    <>
       <Sheen />
       <div className="pointer-events-none absolute inset-2 rounded border border-white/10" aria-hidden />
       <div className="flex items-baseline justify-between">
@@ -558,7 +665,7 @@ function DrawPile({
           </span>
         ) : null}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -570,10 +677,10 @@ function DrawPile({
 function CornerCost({ cost }: { cost: number }) {
   return (
     <span
-      className="absolute right-1 top-1 z-10 grid h-5 min-w-[20px] place-items-center rounded-full border border-amber-400/70 bg-slate-950/85 px-1 font-mono text-[10px] font-bold tabular-nums text-amber-200 shadow-[0_2px_6px_rgba(0,0,0,.45)]"
-      aria-label={`cost ${cost} cents`}
+      className="absolute right-1 top-1 z-10 grid h-5 min-w-[26px] place-items-center rounded-full border border-amber-400/70 bg-slate-950/85 px-1 font-mono text-[10px] font-bold text-amber-200 shadow-[0_2px_6px_rgba(0,0,0,.45)]"
+      aria-label={`cost B$${cost}`}
     >
-      {cost}
+      <MoneyText n={cost} />
     </span>
   );
 }

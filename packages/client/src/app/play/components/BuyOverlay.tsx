@@ -20,6 +20,7 @@ import type {
   GameState,
   OperationsCard,
 } from "@bourbonomics/engine";
+import { formatMoney, MoneyText } from "./money";
 
 const FACEUP_OPS_SIZE = 3;
 
@@ -49,7 +50,7 @@ export default function BuyOverlay() {
   if (!target) {
     prompt = "Pick a card from the market or operations row.";
   } else if (cost != null && paid < cost) {
-    prompt = `Tag ${cost - paid}¢ more from your hand (resource cards = 1¢, capital pays its face value).`;
+    prompt = `Tag ${formatMoney(cost - paid)} more from your hand (resource = ${formatMoney(1)}, capital pays its face value).`;
   } else if (overpaid) {
     prompt = "You're spending more than the cost — confirm or untag a card.";
   } else {
@@ -68,17 +69,12 @@ export default function BuyOverlay() {
         {cost != null ? (
           <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-300">
             cost{" "}
-            <span className="font-bold text-amber-200 tabular-nums">
-              {cost}¢
-            </span>{" "}
+            <MoneyText n={cost} className="font-bold text-amber-200" />{" "}
             · paid{" "}
-            <span
-              className={`font-bold tabular-nums ${
-                paid >= cost ? "text-emerald-300" : "text-rose-300"
-              }`}
-            >
-              {paid}¢
-            </span>
+            <MoneyText
+              n={paid}
+              className={`font-bold ${paid >= cost ? "text-emerald-300" : "text-rose-300"}`}
+            />
             {selectedCards.length ? (
               <span className="text-slate-500">
                 {" "}
@@ -156,7 +152,7 @@ function targetLabel(t: TargetView): string {
   }
   const card = t.card as Card;
   if (card.displayName) return card.displayName;
-  if (t.type === "conveyor-capital") return `Capital $${card.capitalValue ?? 1}`;
+  if (t.type === "conveyor-capital") return `Capital ${formatMoney(card.capitalValue ?? 1)}`;
   const sub = card.subtype ?? "";
   const subCap = sub ? sub[0]!.toUpperCase() + sub.slice(1) : "Resource";
   const count = card.resourceCount && card.resourceCount > 1 ? `${card.resourceCount}× ` : "";

@@ -32,14 +32,10 @@ describe("initializeGame", () => {
     }
   });
 
-  it("gives each player a personal rickhouse with 2 bonded + 2 upper slots by default (Vanilla)", () => {
+  it("gives each player a personal rickhouse with 4 slots by default (Vanilla)", () => {
     const state = makeTestGame();
     for (const p of state.players) {
       expect(p.rickhouseSlots).toHaveLength(4);
-      const bonded = p.rickhouseSlots.filter((s) => s.tier === "bonded");
-      const upper = p.rickhouseSlots.filter((s) => s.tier === "upper");
-      expect(bonded).toHaveLength(2);
-      expect(upper).toHaveLength(2);
     }
   });
 

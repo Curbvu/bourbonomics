@@ -5,9 +5,15 @@
  * English, uses player display names instead of bare IDs. Each player's
  * name is tinted with their seat-palette colour (PLAYER_TEXT_CLASS) so
  * "who did what" is readable at a glance.
+ *
+ * The scroll viewport is capped (so the log never grows unboundedly on
+ * narrow layouts where the rail stacks beneath the board) and snaps to
+ * the bottom on every new entry so the most recent action is always in
+ * view. Snap uses `useLayoutEffect` so the scroll happens after DOM
+ * mutation but before paint — no flash of "stuck near the top".
  */
 
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import type { GameAction, GameState } from "@bourbonomics/engine";
 
 import { useGameStore } from "@/lib/store/game";
@@ -36,12 +42,23 @@ export default function EventLog() {
     return m;
   }, [state]);
 
-  useEffect(() => {
-    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
+  // Snap to the bottom on every new entry — pre-paint so we never
+  // momentarily render the user "stuck" near the previous scroll top.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
   }, [log.length]);
 
   return (
-    <div ref={ref} className="h-full overflow-auto p-3">
+    <div
+      ref={ref}
+      // Fixed cap (60vh) so the log never grows the page on narrow
+      // layouts where RightRail stacks under the board. On wide layouts
+      // the parent grid row height already constrains this — the cap
+      // just guarantees a hard ceiling either way.
+      className="max-h-[60vh] overflow-y-auto p-3 lg:h-full lg:max-h-none"
+    >
       {log.length === 0 ? (
         <p className="text-left font-mono text-[11px] italic text-slate-500">
           No actions yet.

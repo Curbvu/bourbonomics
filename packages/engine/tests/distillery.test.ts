@@ -49,9 +49,8 @@ describe("Distillery selection", () => {
     });
     const p3 = state.players.find((p) => p.id === "p3")!;
     expect(p3.distillery?.bonus).toBe("old_line");
+    // v2.2: rickhouse tiers removed — Old-Line just grants +1 slot.
     expect(p3.rickhouseSlots).toHaveLength(5);
-    expect(p3.rickhouseSlots.filter((s) => s.tier === "bonded")).toHaveLength(3);
-    expect(p3.rickhouseSlots.filter((s) => s.tier === "upper")).toHaveLength(2);
     expect(state.distillerySelectionCursor).toBe(1);
     expect(state.distilleryPool.find((d) => d.id === oldLine.id)).toBeUndefined();
   });
@@ -66,7 +65,7 @@ describe("Distillery selection", () => {
     expect(state.players.every((p) => p.distillery !== null)).toBe(true);
   });
 
-  it("Warehouse Distillery grants 5 slots (3 upper)", () => {
+  it("Warehouse Distillery grants 5 slots (one extra over the default 4)", () => {
     let state = makeSelectionGame();
     const warehouse = state.distilleryPool.find((d) => d.bonus === "warehouse")!;
     state = applyAction(state, {
@@ -76,7 +75,6 @@ describe("Distillery selection", () => {
     });
     const p3 = state.players.find((p) => p.id === "p3")!;
     expect(p3.rickhouseSlots).toHaveLength(5);
-    expect(p3.rickhouseSlots.filter((s) => s.tier === "upper")).toHaveLength(3);
   });
 
   it("High-Rye House inserts a 2-rye into the player's deck", () => {

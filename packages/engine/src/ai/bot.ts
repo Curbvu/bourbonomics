@@ -7,7 +7,6 @@ import type {
   MashBill,
   OperationsCard,
   PlayerState,
-  RickhouseSlot,
 } from "../types";
 import { isWheatedBill } from "../types";
 import { capitalUnits, resourceUnits, suppliesResource } from "../cards";
@@ -101,7 +100,7 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
 
 const DISTILLERY_PREFERENCE: Distillery["bonus"][] = [
   "warehouse",      // capacity is always useful
-  "old_line",       // bonded slots are inviolable
+  "old_line",       // also +1 slot — same arithmetic as warehouse
   "broker",         // free trade is high-value when player count is high
   "high_rye",       // a free 2-rye accelerates rye strategies
   "wheated_baron",  // fine in the right meta
@@ -231,7 +230,7 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
     }
   }
 
-  // Regulatory Inspection: target an opponent's most-aged upper-tier barrel.
+  // Regulatory Inspection: target an opponent's most-aged barrel.
   const ri = playable.find((c) => c.defId === "regulatory_inspection");
   if (ri) {
     let targetId: string | null = null;
@@ -239,9 +238,6 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
     for (const b of state.allBarrels) {
       if (b.ownerId === player.id) continue;
       if (b.inspectedThisRound) continue;
-      const owner = state.players.find((p) => p.id === b.ownerId)!;
-      const slot = owner.rickhouseSlots.find((s) => s.id === b.slotId);
-      if (!slot || slot.tier !== "upper") continue;
       if (b.age >= bestAge) {
         bestAge = b.age;
         targetId = b.id;
@@ -258,13 +254,10 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
     }
   }
 
-  // Blend: only if we have two underperforming non-bonded barrels.
+  // Blend: combine any two of our barrels.
   const bl = playable.find((c) => c.defId === "blend");
   if (bl) {
-    const myBarrels = getPlayerBarrels(state, player.id).filter((b) => {
-      const slot = player.rickhouseSlots.find((s) => s.id === b.slotId);
-      return slot?.tier === "upper";
-    });
+    const myBarrels = getPlayerBarrels(state, player.id);
     if (myBarrels.length >= 2) {
       return {
         type: "PLAY_OPERATIONS_CARD",
@@ -490,21 +483,12 @@ function chooseMakeBourbon(state: GameState, player: PlayerState): GameAction | 
   };
 }
 
-function pickSlot(state: GameState, player: PlayerState): string | null {
-  const empties = emptySlotsFor(state, player.id);
+function pickSlot(state: GameState, _player: PlayerState): string | null {
+  const empties = emptySlotsFor(state, _player.id);
   if (empties.length === 0) return null;
-  // Prefer bonded slots (inviolable) when there's a choice.
-  const bondedFirst = empties.sort((a, b) => {
-    const aBonded = isBondedSlot(player.rickhouseSlots, a) ? 0 : 1;
-    const bBonded = isBondedSlot(player.rickhouseSlots, b) ? 0 : 1;
-    return aBonded - bBonded;
-  });
-  return bondedFirst[0]!;
-}
-
-function isBondedSlot(slots: RickhouseSlot[], slotId: string): boolean {
-  const s = slots.find((x) => x.id === slotId);
-  return s?.tier === "bonded";
+  // v2.2: rickhouse tiers removed — all slots are equivalent. Pick the
+  // first available empty slot in deterministic order.
+  return empties[0]!;
 }
 
 function peakReward(mb: MashBill): number {
@@ -782,14 +766,39 @@ const OPS_BOT_PLAYABLE = new Set<OperationsCard["defId"]>([
 
 function chooseDrawMashBill(state: GameState, player: PlayerState): GameAction | null {
   if (player.mashBills.length > 0) return null;
-  if (state.bourbonDeck.length === 0) return null;
-  const spendCard =
-    player.hand.find((c) => c.type === "capital" && (c.capitalValue ?? 1) === 1) ??
-    player.hand[0];
-  if (!spendCard) return null;
-  return {
-    type: "DRAW_MASH_BILL",
-    playerId: player.id,
-    spendCardId: spendCard.id,
-  };
+  if (state.bourbonDeck.length === 0 && state.bourbonFaceUp.length === 0) return null;
+  // Prefer the blind draw (cheapest — pay any 1 card) when the deck has
+  // bills left. Falls back to a face-up pick once the deck is exhausted.
+  if (state.bourbonDeck.length > 0) {
+    const spendCard =
+      player.hand.find((c) => c.type === "capital" && (c.capitalValue ?? 1) === 1) ??
+      player.hand[0];
+    if (!spendCard) return null;
+    return {
+      type: "DRAW_MASH_BILL",
+      playerId: player.id,
+      spendCardIds: [spendCard.id],
+    };
+  }
+  // Face-up only — pick the cheapest face-up bill we can pay for.
+  const sorted = [...player.hand].sort((a, b) => paymentForOpsBuy(b) - paymentForOpsBuy(a));
+  for (const bill of state.bourbonFaceUp) {
+    const cost = bill.cost ?? 2;
+    const spend: string[] = [];
+    let paid = 0;
+    for (const c of sorted) {
+      spend.push(c.id);
+      paid += c.type === "capital" ? c.capitalValue ?? 1 : 1;
+      if (paid >= cost) break;
+    }
+    if (paid >= cost) {
+      return {
+        type: "DRAW_MASH_BILL",
+        playerId: player.id,
+        mashBillId: bill.id,
+        spendCardIds: spend,
+      };
+    }
+  }
+  return null;
 }

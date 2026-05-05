@@ -15,16 +15,25 @@ describe("Final round trigger", () => {
       },
       0,
     );
+    // With v2.2 face-up bourbon row, a single starting bill gets dealt
+    // to the face-up row and the deck starts empty. The face-up pick is
+    // what triggers the final round.
     let state = makeTestGame({ bourbonDeck: [onlyBill] });
     state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
+    state = giveHand(state, "p1", [
+      makeCapitalCard("p1", 0),
+      makeCapitalCard("p1", 1),
+    ]);
+    expect(state.bourbonFaceUp).toHaveLength(1);
     state = applyAction(state, {
       type: "DRAW_MASH_BILL",
       playerId: "p1",
-      spendCardId: "card_p1_cap1_0",
+      mashBillId: state.bourbonFaceUp[0]!.id,
+      spendCardIds: ["card_p1_cap1_0", "card_p1_cap1_1"],
     });
     expect(state.finalRoundTriggered).toBe(true);
     expect(state.bourbonDeck).toHaveLength(0);
+    expect(state.bourbonFaceUp).toHaveLength(0);
   });
 
   it("triggering during a round means cleanup ends the game (phase=ended) — not the next round", () => {
@@ -40,12 +49,16 @@ describe("Final round trigger", () => {
     );
     let state = makeTestGame({ bourbonDeck: [onlyBill] });
     state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
+    state = giveHand(state, "p1", [
+      makeCapitalCard("p1", 0),
+      makeCapitalCard("p1", 1),
+    ]);
     state = giveHand(state, "p2", []);
     state = applyAction(state, {
       type: "DRAW_MASH_BILL",
       playerId: "p1",
-      spendCardId: "card_p1_cap1_0",
+      mashBillId: state.bourbonFaceUp[0]!.id,
+      spendCardIds: ["card_p1_cap1_0", "card_p1_cap1_1"],
     });
     expect(state.finalRoundTriggered).toBe(true);
     // v2.2: DRAW_MASH_BILL does not end p1's turn — they must PASS_TURN

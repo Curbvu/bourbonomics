@@ -80,13 +80,10 @@ describe("PLAY_OPERATIONS_CARD — Market Manipulation", () => {
 });
 
 describe("PLAY_OPERATIONS_CARD — Regulatory Inspection", () => {
-  it("blocks aging on a targeted upper-tier barrel", () => {
+  it("blocks aging on the targeted barrel", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
-    // Place barrel in p1's first upper-tier slot.
-    const upperSlot = state.players.find((p) => p.id === "p1")!.rickhouseSlots
-      .find((s) => s.tier === "upper")!.id;
-    state = placeBarrel(state, "p1", bill(), 1, upperSlot);
+    state = placeBarrel(state, "p1", bill(), 1);
     const { state: s, cardId } = giveOpsCard(state, "p1", "regulatory_inspection");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
@@ -105,24 +102,6 @@ describe("PLAY_OPERATIONS_CARD — Regulatory Inspection", () => {
         cardId: "card_p1_cap1_0",
       }),
     ).toThrow(/regulatory inspection/);
-  });
-
-  it("rejects targeting a bonded-tier barrel", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state, [1, 1]);
-    const bondedSlot = state.players.find((p) => p.id === "p1")!.rickhouseSlots
-      .find((s) => s.tier === "bonded")!.id;
-    state = placeBarrel(state, "p1", bill(), 1, bondedSlot);
-    const { state: s, cardId } = giveOpsCard(state, "p1", "regulatory_inspection");
-    expect(() =>
-      applyAction(s, {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: "p1",
-        cardId,
-        defId: "regulatory_inspection",
-        targetBarrelId: state.allBarrels[0]!.id,
-      }),
-    ).toThrow(/upper-tier/);
   });
 });
 
@@ -205,14 +184,12 @@ describe("PLAY_OPERATIONS_CARD — Market Corner", () => {
 });
 
 describe("PLAY_OPERATIONS_CARD — Blend", () => {
-  it("merges two upper-tier barrels into one with combined cards", () => {
+  it("merges two of your barrels into one with combined cards", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
-    const upperSlots = state.players.find((p) => p.id === "p1")!.rickhouseSlots.filter(
-      (s) => s.tier === "upper",
-    );
-    state = placeBarrel(state, "p1", bill(), 2, upperSlots[0]!.id);
-    state = placeBarrel(state, "p1", bill(), 4, upperSlots[1]!.id);
+    const slots = state.players.find((p) => p.id === "p1")!.rickhouseSlots;
+    state = placeBarrel(state, "p1", bill(), 2, slots[0]!.id);
+    state = placeBarrel(state, "p1", bill(), 4, slots[1]!.id);
     const ids = state.allBarrels.filter((b) => b.ownerId === "p1").map((b) => b.id);
     const { state: s, cardId } = giveOpsCard(state, "p1", "blend");
     state = applyAction(s, {
@@ -226,28 +203,6 @@ describe("PLAY_OPERATIONS_CARD — Blend", () => {
     const survivors = state.allBarrels.filter((b) => b.ownerId === "p1");
     expect(survivors).toHaveLength(1);
     expect(survivors[0]!.age).toBe(6); // 2 + 4 aging cards combined
-  });
-
-  it("rejects blending bonded-tier barrels", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state, [1, 1]);
-    const slots = state.players.find((p) => p.id === "p1")!.rickhouseSlots;
-    const bondedSlot = slots.find((s) => s.tier === "bonded")!.id;
-    const upperSlot = slots.find((s) => s.tier === "upper")!.id;
-    state = placeBarrel(state, "p1", bill(), 2, bondedSlot);
-    state = placeBarrel(state, "p1", bill(), 4, upperSlot);
-    const ids = state.allBarrels.filter((b) => b.ownerId === "p1").map((b) => b.id);
-    const { state: s, cardId } = giveOpsCard(state, "p1", "blend");
-    expect(() =>
-      applyAction(s, {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: "p1",
-        cardId,
-        defId: "blend",
-        barrel1Id: ids[0]!,
-        barrel2Id: ids[1]!,
-      }),
-    ).toThrow(/bonded/);
   });
 });
 
@@ -489,7 +444,7 @@ describe("PLAY_OPERATIONS_CARD — Allocation", () => {
 });
 
 describe("PLAY_OPERATIONS_CARD — Rickhouse Expansion Permit", () => {
-  it("adds a permanent upper-tier slot to the player's rickhouse", () => {
+  it("adds a permanent slot to the player's rickhouse", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
     const before = state.players.find((p) => p.id === "p1")!.rickhouseSlots.length;
@@ -502,7 +457,6 @@ describe("PLAY_OPERATIONS_CARD — Rickhouse Expansion Permit", () => {
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.rickhouseSlots.length).toBe(before + 1);
-    expect(p1.rickhouseSlots.at(-1)?.tier).toBe("upper");
   });
 });
 

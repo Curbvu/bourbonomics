@@ -58,11 +58,7 @@ export function validatePlayOperationsCard(
     case "regulatory_inspection": {
       const target = state.allBarrels.find((b) => b.id === action.targetBarrelId);
       if (!target) return { legal: false, reason: `barrel ${action.targetBarrelId} not found` };
-      const owner = state.players.find((p) => p.id === target.ownerId)!;
-      const slot = owner.rickhouseSlots.find((s) => s.id === target.slotId);
-      if (!slot || slot.tier !== "upper") {
-        return { legal: false, reason: "Regulatory Inspection targets upper-tier slots only" };
-      }
+      // v2.2: rickhouse tiers removed — any barrel can be inspected.
       return { legal: true };
     }
 
@@ -91,8 +87,8 @@ export function validatePlayOperationsCard(
         return { legal: false, reason: "cannot Barrel Broker to yourself" };
       }
       const targetSlot = targetPlayer.rickhouseSlots.find((s) => s.id === action.targetSlotId);
-      if (!targetSlot || targetSlot.tier !== "upper") {
-        return { legal: false, reason: "target slot must be on the recipient's upper tier" };
+      if (!targetSlot) {
+        return { legal: false, reason: "target slot is not on the recipient's distillery" };
       }
       const slotOccupied = state.allBarrels.some((b) => b.slotId === action.targetSlotId);
       if (slotOccupied) {
@@ -129,11 +125,8 @@ export function validatePlayOperationsCard(
       if (b1.ownerId !== player.id || b2.ownerId !== player.id) {
         return { legal: false, reason: "Blend requires two of your own barrels" };
       }
-      const slot1 = player.rickhouseSlots.find((s) => s.id === b1.slotId);
-      const slot2 = player.rickhouseSlots.find((s) => s.id === b2.slotId);
-      if (slot1?.tier === "bonded" || slot2?.tier === "bonded") {
-        return { legal: false, reason: "Blend cannot use bonded-warehouse barrels" };
-      }
+      // v2.2: rickhouse tiers removed — any two of your barrels are
+      // legal blend inputs.
       return { legal: true };
     }
 
@@ -413,7 +406,6 @@ export function applyPlayOperationsCard(
       const newSlot: RickhouseSlot = {
         id: `slot_${player.id}_perm_${draft.idCounter++}`,
         ownerId: player.id,
-        tier: "upper",
       };
       player.rickhouseSlots.push(newSlot);
       break;

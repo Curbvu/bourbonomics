@@ -77,10 +77,20 @@ export function initializeGame(config: GameConfig): GameState {
     };
   });
 
-  // Bourbon deck (mash bills NOT already drafted to players)
+  // Bourbon deck (mash bills NOT already drafted to players). After
+  // shuffle we deal the top 3 bills to a face-up row beside the deck;
+  // the rest stay face-down. "Top of deck" is the array tail.
   const bourbonSeed = config.bourbonDeck ?? defaultMashBillCatalog();
   const bourbonShuffle = shuffleCards(bourbonSeed, rngState);
   rngState = bourbonShuffle.rngState;
+  const bourbonShuffled = bourbonShuffle.shuffled;
+  const FACEUP_BOURBON_SIZE = 3;
+  const faceUpCount = Math.min(FACEUP_BOURBON_SIZE, bourbonShuffled.length);
+  // Pop from the tail (top) so the face-up row reflects the deck order.
+  const bourbonFaceUp = bourbonShuffled.splice(
+    bourbonShuffled.length - faceUpCount,
+    faceUpCount,
+  );
 
   // Operations deck. Players start with empty operations hands — they
   // acquire ops cards by purchasing them from the face-up market row
@@ -136,7 +146,8 @@ export function initializeGame(config: GameConfig): GameState {
     marketConveyor,
     marketSupplyDeck,
     marketDiscard: [],
-    bourbonDeck: bourbonShuffle.shuffled,
+    bourbonDeck: bourbonShuffled,
+    bourbonFaceUp,
     bourbonDiscard: [],
     operationsDeck,
     operationsDiscard: [],

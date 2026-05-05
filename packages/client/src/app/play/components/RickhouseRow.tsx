@@ -7,7 +7,7 @@
  * player's full status (reputation, distillery name, hand/deck/discard
  * counts, bills/ops/gold/sold counters) on top of the slot grid.
  *
- * Slots split by tier: bonded (inviolable) vs upper. Visual tells
+ * v2.2: bonded/upper tier distinction removed — flat single-row slot grid. Visual tells
  * highlight the current player (action phase) and the round-end rank
  * once the game is over.
  */
@@ -22,7 +22,7 @@ export default function RickhouseRow() {
   if (!state) return null;
 
   return (
-    <section className="flex flex-col gap-1.5">
+    <section data-rickhouse-row="true" className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-slate-400">
           Rickhouses · {state.players.length} distilleries
@@ -60,11 +60,14 @@ function PlayerRickhouse({
   const player = state.players.find((p) => p.id === playerId)!;
   const palIdx = paletteIndex(seatIndex);
   const myBarrels = state.allBarrels.filter((b) => b.ownerId === playerId);
-  const bondedSlots = player.rickhouseSlots.filter((s) => s.tier === "bonded");
-  const upperSlots = player.rickhouseSlots.filter((s) => s.tier === "upper");
+  const allSlots = player.rickhouseSlots;
   const isCurrent = state.phase === "action" && state.players[state.currentPlayerIndex]?.id === playerId;
   const meta = seatMeta.find((m) => m.id === playerId);
   const rank = scores?.find((s) => s.playerId === playerId)?.rank;
+  // Barrels in this row are clickable in age mode iff they belong to the
+  // human player and are currently ageable (not inspected, not already
+  // aged this round unless a Rushed Shipment bonus is available).
+  const isHumanRow = !player.isBot;
 
   return (
     <div
@@ -103,13 +106,13 @@ function PlayerRickhouse({
         </div>
       </header>
 
-      {/* Single-row slot grid: upper · | · bonded */}
+      {/* v2.2: flat single-row slot grid (no bonded/upper distinction). */}
       <SlotRow
-        upperSlots={upperSlots}
-        bondedSlots={bondedSlots}
+        slots={allSlots}
         barrels={myBarrels}
         state={state}
         palIdx={palIdx}
+        isHumanRow={isHumanRow}
       />
 
       {/* Counters strip */}
@@ -137,17 +140,17 @@ function PlayerRickhouse({
 }
 
 function SlotRow({
-  upperSlots,
-  bondedSlots,
+  slots,
   barrels,
   state,
   palIdx,
+  isHumanRow,
 }: {
-  upperSlots: RickhouseSlot[];
-  bondedSlots: RickhouseSlot[];
+  slots: RickhouseSlot[];
   barrels: Barrel[];
   state: GameState;
   palIdx: number;
+  isHumanRow: boolean;
 }) {
   const renderSlot = (s: RickhouseSlot) => {
     const barrel = barrels.find((b) => b.slotId === s.id);
@@ -155,74 +158,102 @@ function SlotRow({
       return (
         <div
           key={s.id}
-          className={[
-            "grid h-[42px] w-[52px] place-items-center rounded border border-dashed font-mono text-[8px] uppercase tracking-[.16em]",
-            s.tier === "bonded"
-              ? "border-amber-700/40 bg-amber-950/20 text-amber-700/60"
-              : "border-slate-700/60 bg-slate-950/30 text-slate-700",
-          ].join(" ")}
-          title={`${s.tier} slot · empty`}
+          className="grid h-[42px] w-[52px] place-items-center rounded border border-dashed border-slate-700/60 bg-slate-950/30 font-mono text-[8px] uppercase tracking-[.16em] text-slate-700"
+          title="empty slot"
         >
           empty
         </div>
       );
     }
-    return <BarrelChip key={barrel.id} barrel={barrel} state={state} palIdx={palIdx} />;
+    return (
+      <BarrelChip
+        key={barrel.id}
+        barrel={barrel}
+        state={state}
+        palIdx={palIdx}
+        isHumanRow={isHumanRow}
+      />
+    );
   };
 
-  return (
-    <div className="flex items-center gap-1">
-      {upperSlots.map(renderSlot)}
-      {/* Delimiter between upper and bonded — labeled, hairline divider */}
-      <div
-        className="mx-1 flex h-[42px] flex-col items-center justify-center"
-        aria-hidden
-      >
-        <span className="-mb-0.5 font-mono text-[7px] font-bold uppercase tracking-[.16em] text-amber-500/80">
-          bond
-        </span>
-        <div className="h-full w-px bg-amber-700/50" />
-      </div>
-      {bondedSlots.map(renderSlot)}
-    </div>
-  );
+  return <div className="flex items-center gap-1">{slots.map(renderSlot)}</div>;
 }
 
 function BarrelChip({
   barrel,
   state,
   palIdx,
+  isHumanRow,
 }: {
   barrel: Barrel;
   state: GameState;
   palIdx: number;
+  isHumanRow: boolean;
 }) {
+  const { ageMode, setAgeBarrel } = useGameStore();
   const owner = state.players.find((p) => p.id === barrel.ownerId);
   const ringHints: string[] = [];
   if (barrel.agedThisRound) ringHints.push("aged this round");
   if (barrel.inspectedThisRound) ringHints.push("under inspection");
   if (barrel.extraAgesAvailable > 0) ringHints.push("rushed shipment");
+
+  // Age-mode interactivity: in age mode, the human's ageable barrels
+  // light up as click targets. Clicking sets `pickedBarrelId` in the
+  // store; AgeOverlay reads it and prompts the user to pick a hand card.
+  const inAgeMode = ageMode != null && isHumanRow;
+  const ageable =
+    inAgeMode &&
+    !barrel.inspectedThisRound &&
+    (!barrel.agedThisRound || barrel.extraAgesAvailable > 0);
+  const isAgePicked = inAgeMode && ageMode!.pickedBarrelId === barrel.id;
+
+  const ringClass = isAgePicked
+    ? "ring-4 ring-amber-300 shadow-[0_0_18px_rgba(252,211,77,.6)]"
+    : ageable
+      ? "ring-2 ring-sky-400/70 hover:ring-sky-200"
+      : barrel.inspectedThisRound
+        ? "ring-2 ring-rose-300/70"
+        : barrel.agedThisRound
+          ? "ring-2 ring-amber-300/70"
+          : "";
+
+  const baseClass = [
+    "relative flex h-[42px] w-[56px] flex-col items-center justify-center overflow-hidden rounded text-white shadow-inner transition-shadow",
+    PLAYER_BG_CLASS[palIdx]!,
+    ringClass,
+  ].join(" ");
+  const titleText = `${owner?.name ?? "?"} · ${barrel.attachedMashBill.name} · age ${barrel.age}${
+    ringHints.length ? " (" + ringHints.join(", ") + ")" : ""
+  }${ageable ? " — click to age this barrel" : ""}`;
+
+  if (ageable) {
+    return (
+      <button
+        type="button"
+        title={titleText}
+        onClick={() => setAgeBarrel(barrel.id)}
+        className={`${baseClass} cursor-pointer`}
+      >
+        <BarrelChipInner barrel={barrel} />
+      </button>
+    );
+  }
   return (
-    <div
-      title={`${owner?.name ?? "?"} · ${barrel.attachedMashBill.name} · age ${barrel.age}${
-        ringHints.length ? " (" + ringHints.join(", ") + ")" : ""
-      }`}
-      className={[
-        "relative flex h-[42px] w-[56px] flex-col items-center justify-center overflow-hidden rounded text-white shadow-inner",
-        PLAYER_BG_CLASS[palIdx]!,
-        barrel.inspectedThisRound
-          ? "ring-2 ring-rose-300/70"
-          : barrel.agedThisRound
-            ? "ring-2 ring-amber-300/70"
-            : "",
-      ].join(" ")}
-    >
+    <div title={titleText} className={baseClass}>
+      <BarrelChipInner barrel={barrel} />
+    </div>
+  );
+}
+
+function BarrelChipInner({ barrel }: { barrel: Barrel }) {
+  return (
+    <>
       <span className="font-display text-[15px] font-bold leading-none">{barrel.age}</span>
       <span className="mt-px font-mono text-[7px] uppercase tracking-[.10em] opacity-80">yrs</span>
       <span className="absolute inset-x-0 bottom-0 truncate bg-black/30 px-0.5 text-center font-mono text-[7px] uppercase tracking-[.04em]">
         {barrel.attachedMashBill.name}
       </span>
-    </div>
+    </>
   );
 }
 

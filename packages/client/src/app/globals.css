@@ -802,3 +802,47 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ----------------------------------------------------------------------
+   Draw-bill mini-game focus dimming.
+
+   When `body[data-draw-mode]` is set, fade everything out except the
+   region the player needs to interact with this step:
+
+     pick-bourbon  — the bourbon row + deck pile only
+     pick-payment  — the player's hand only
+
+   Implementation: dim the page wholesale, then re-brighten the
+   focal region. Cards mark themselves with `data-bourbon-row="true"`
+   or live inside `[data-hand-tray]`. Anything else fades to ~25%.
+   ---------------------------------------------------------------------- */
+
+body[data-draw-mode] {
+  --draw-dim: 0.22;
+}
+
+body[data-draw-mode="pick-bourbon"] [data-hand-tray] {
+  opacity: var(--draw-dim);
+  filter: saturate(40%);
+  pointer-events: none;
+  transition: opacity 180ms ease, filter 180ms ease;
+}
+
+body[data-draw-mode="pick-payment"] [data-bourbon-row="true"] {
+  opacity: var(--draw-dim);
+  filter: saturate(40%);
+  pointer-events: none;
+  transition: opacity 180ms ease, filter 180ms ease;
+}
+
+/* The market conveyor + ops + investments + rickhouse are dimmed in BOTH
+   steps — they're never the focus during draw-bill. */
+body[data-draw-mode] [data-market-conveyor],
+body[data-draw-mode] [data-ops-row],
+body[data-draw-mode] [data-investments-row],
+body[data-draw-mode] [data-rickhouse-row] {
+  opacity: var(--draw-dim);
+  filter: saturate(40%);
+  pointer-events: none;
+  transition: opacity 180ms ease, filter 180ms ease;
+}

@@ -20,6 +20,7 @@ import {
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
 } from "./handCardStyles";
+import { MoneyText } from "./money";
 
 const FLIGHT_MS = 850;
 
@@ -94,9 +95,10 @@ function FlightFace({ card }: { card: Card }) {
           Capital
         </span>
         <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
-          <span className="font-display text-[24px] font-bold leading-none tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
-            ${value}
-          </span>
+          <MoneyText
+            n={value}
+            className="font-display text-[24px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
+          />
           <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
             spend
           </span>

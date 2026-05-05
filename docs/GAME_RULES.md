@@ -44,11 +44,11 @@ Distillery cards are selected in reverse snake order (last player picks first). 
 
 Each distillery bonus maps directly to a physical game element — a card, an extra slot, or a permanent rule modifier. Examples:
 
-- **Warehouse Distillery** — start with 1 extra rickhouse slot (5 total). The extra slot is on the upper tier and is not part of your bonded warehouse.
+- **Warehouse Distillery** — start with 1 extra rickhouse slot (5 total instead of the default 4).
 - **High-Rye House** — start with 1 free 2-rye premium card already in your starter deck.
 - **Wheated Baron** — your wheated mash bills cost 1 fewer grain card to produce (minimum 1).
 - **The Broker** — once per round, you may trade without spending an action. *(Vestigial under v2.2: with full-turn actions, no trade ever ends your turn, so the bonus is currently inert. It remains in code for forward compatibility.)*
-- **Old-Line Distillery** — your bonded warehouse holds 3 barrels instead of 2.
+- **Old-Line Distillery** — start with 1 extra rickhouse slot (5 total instead of the default 4). Same arithmetic as the Warehouse Distillery; distinct flavor.
 
 Specific distillery cards and their bonuses are defined in the distillery card set. Bonuses are public information from the moment of selection.
 
@@ -121,17 +121,13 @@ Each player owns their rickhouse outright — it is printed on their distillery 
 
 ## Rickhouse Layout
 
-Each distillery card has **4 barrel slots** by default, arranged across two tiers:
+Each distillery card has **4 barrel slots** by default — a single, flat row of equivalent slots. The Warehouse Distillery and Old-Line Distillery bonuses each add one more (5 total).
 
-**Bonded Warehouse (lower tier) — 2 slots**
-Your bonded warehouse is inviolable. No operations card, trade agreement, or game effect can remove, reduce, or interfere with these 2 slots. They represent your core licensed operation and are always available for production.
-
-**Upper Tier — 2 slots**
-Your upper tier slots are standard production space. These slots can be affected by certain operations cards (see §Operations Cards). The Warehouse Distillery bonus adds a third upper tier slot.
+> **v2.2 cleanup.** Earlier drafts split the rickhouse into a "bonded warehouse" lower tier (inviolable) and an "upper tier" (vulnerable to certain ops cards). That distinction has been removed. Every slot is the same; ops cards that used to target only the upper tier (Regulatory Inspection, Barrel Broker, Blend) now operate on any slot. The simpler model is easier to teach and removes a layer of placement strategy that wasn't pulling its weight.
 
 ## Rickhouse Capacity
 
-A player's rickhouse capacity is the total number of slots on their distillery card. Default capacity is 4. The Warehouse Distillery bonus raises this to 5. Investment cards (planned) may raise it further, to a maximum of 6.
+A player's rickhouse capacity is the total number of slots on their distillery card. Default capacity is 4. The Warehouse and Old-Line distillery bonuses each raise this to 5. The Rickhouse Expansion Permit operations card raises it further, to a maximum of 6.
 
 When **your** rickhouse is full, you cannot Make Bourbon until you sell a barrel and free a slot. Other players are unaffected by the state of your rickhouse.
 
@@ -141,8 +137,8 @@ A full personal rickhouse is a self-imposed constraint — the consequence of am
 
 Players do not directly interfere with each other's rickhouse slots in the base game. However:
 
-- Certain **Operations cards** can affect neighboring players' upper tier slots (see §Operations Cards).
-- Players may informally agree to **rickhouse leasing** as part of a Trade — one player offers use of an empty upper tier slot to another for a negotiated card payment. Leasing is entirely voluntary, governed by the Trade rules, and has no dedicated mechanic. The leaseholder places their barrel in the owner's upper tier slot; the owner's bonded warehouse is never part of any lease agreement.
+- Certain **Operations cards** can affect any of your barrels — see §Operations Cards.
+- Players may informally agree to **rickhouse leasing** as part of a Trade — one player offers use of an empty slot to another for a negotiated card payment. Leasing is entirely voluntary, governed by the Trade rules, and has no dedicated mechanic.
 
 ---
 
@@ -413,9 +409,9 @@ The single most important gap in the base game's demand system. Rare and powerfu
 ---
 
 **Regulatory Inspection**
-*Target one of any player's upper tier barrel slots. That barrel may not be aged this round.*
+*Target a barrel of any player. That barrel may not be aged this round.*
 
-Represents a real-world regulatory hold. Targets the upper tier only — bonded warehouse barrels are legally protected and cannot be inspected. The affected barrel ages normally next round.
+Represents a real-world regulatory hold. The affected barrel ages normally next round.
 
 ---
 
@@ -427,9 +423,9 @@ Accelerates a barrel's timeline at the cost of two hand cards instead of one. Po
 ---
 
 **Barrel Broker**
-*Arrange a Secondary Market sale. One of your barrels transfers to another player's empty upper tier slot at a negotiated card payment agreed between both players. The receiving player inherits the barrel at its current age and attached mash bill. Demand does not drop.*
+*Arrange a Secondary Market sale. One of your barrels transfers to another player's empty rickhouse slot at a negotiated card payment agreed between both players. The receiving player inherits the barrel at its current age and attached mash bill. Demand does not drop.*
 
-Enables a private economy alongside the public market. Both players must agree to terms. The barrel's bonded status does not transfer — it occupies the recipient's upper tier only.
+Enables a private economy alongside the public market. Both players must agree to terms.
 
 ---
 
@@ -443,7 +439,7 @@ Represents cornering a scarce resource before opponents can buy it. The acquired
 **Blend**
 *Combine two of your own barrels into one. The blended barrel takes the higher age, the higher-value mash bill, and all ingredient and aging cards from both barrels. The lower-value mash bill is discarded. The merged barrel occupies one slot; the freed slot is immediately available.*
 
-One of the most powerful operations cards. Best used when one barrel is aging well and another is underperforming. Both barrels must be in your rickhouse and neither can be in the bonded warehouse.
+One of the most powerful operations cards. Best used when one barrel is aging well and another is underperforming. Both barrels must be in your rickhouse.
 
 ---
 
@@ -504,7 +500,7 @@ Aggressive clock acceleration. Two mash bills for one ops card pulls the doomsda
 ---
 
 **Rickhouse Expansion Permit** (cost 6)
-*Permanently gain 1 additional upper-tier rickhouse slot for the rest of the game (maximum 6 total slots).*
+*Permanently gain 1 additional rickhouse slot for the rest of the game (maximum 6 total slots).*
 
 The persistent infrastructure card. Expensive because it's permanent.
 
@@ -615,5 +611,6 @@ It's about knowing what to lock up, what to let go, and when the world is ready 
 
 # 📜 Changelog
 
+- **v2.2.x** — Rickhouse bonded/upper tier distinction removed. Every slot is equivalent; ops cards (Regulatory Inspection, Barrel Broker, Blend) that used to be tier-gated now operate on any slot. Old-Line Distillery retains its +1 slot but no longer carries the "bonded warehouse" flavor (same arithmetic as Warehouse).
 - **v2.2** — Action Phase restructured: players now take full turns rather than one action per turn. Start player rotates each round, with the last player of round N becoming the first player of round N+1. Operations cards are now acquired through purchase only (no starting hand, no per-round draw).
 - **v2.1** — Operations cards added (8 effects), Rush to Market and Distressed Sale Notice removed, ops bought from face-up market.

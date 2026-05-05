@@ -106,8 +106,8 @@ function ConveyorCard({ card }: { card: Card }) {
       <span className="font-display text-[14px] font-semibold leading-tight text-center text-amber-100">
         {label}
       </span>
-      <span className="font-mono text-[10px] font-bold tabular-nums text-amber-300">
-        {card.cost ?? 1}¢
+      <span className="font-mono text-[10px] font-bold text-amber-300">
+        B${card.cost ?? 1}
       </span>
     </div>
   );

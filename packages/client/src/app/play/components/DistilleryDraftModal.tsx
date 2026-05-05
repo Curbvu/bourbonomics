@@ -19,7 +19,7 @@ import type { Distillery, DistilleryBonus } from "@bourbonomics/engine";
 
 const BONUS_LABELS: Record<DistilleryBonus, { perk: string }> = {
   warehouse: {
-    perk: "Start with 1 extra rickhouse slot — 5 total, with the bonus on the upper tier.",
+    perk: "Start with 1 extra rickhouse slot — 5 total instead of the default 4.",
   },
   high_rye: {
     perk: "Begin with a free 2-rye premium card already in your starter deck.",
@@ -28,10 +28,10 @@ const BONUS_LABELS: Record<DistilleryBonus, { perk: string }> = {
     perk: "Wheated mash bills cost 1 fewer grain card to produce (min 1 grain).",
   },
   broker: {
-    perk: "Once per round, the Trade action does not consume your turn.",
+    perk: "Vestigial under v2.2 — no trade ever ends a turn, so the bonus is currently inert.",
   },
   old_line: {
-    perk: "Your bonded warehouse holds 3 slots instead of 2.",
+    perk: "Start with 1 extra rickhouse slot — 5 total instead of the default 4.",
   },
   vanilla: {
     perk: "No starting bonus. The challenge option for experienced players.",
@@ -186,7 +186,7 @@ function DistilleryCardTile({
             Rickhouse layout
           </div>
           <div className="mt-1 text-sky-100/95">
-            {def.bondedSlots} bonded · {def.upperSlots} upper · {def.bondedSlots + def.upperSlots} slots total
+            {def.slots} {def.slots === 1 ? "slot" : "slots"} total
           </div>
         </div>
       </div>

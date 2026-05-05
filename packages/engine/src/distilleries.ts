@@ -3,6 +3,11 @@ import type { Distillery, DistilleryBonus, RickhouseSlot } from "./types";
 // ============================================================
 // Distillery catalog. Each distillery card maps to a concrete
 // game element (extra slot, recipe discount, etc.).
+//
+// v2.2 update: bonded/upper tier distinction has been removed.
+// Every rickhouse is a flat row of slots. The Warehouse and
+// Old-Line distilleries simply add a slot (5 instead of the
+// default 4); they no longer sit in any tier.
 // ============================================================
 
 interface DistillerySpec {
@@ -10,9 +15,11 @@ interface DistillerySpec {
   name: string;
   flavorText?: string;
   bonus: DistilleryBonus;
-  bondedSlots: number;
-  upperSlots: number;
+  slots: number;
 }
+
+const DEFAULT_SLOTS = 4;
+const EXTRA_SLOT = 5;
 
 const SPECS: DistillerySpec[] = [
   {
@@ -20,48 +27,42 @@ const SPECS: DistillerySpec[] = [
     name: "Warehouse Distillery",
     flavorText: "More space, more patience.",
     bonus: "warehouse",
-    bondedSlots: 2,
-    upperSlots: 3,
+    slots: EXTRA_SLOT,
   },
   {
     defId: "high_rye_house",
     name: "High-Rye House",
     flavorText: "Spice from day one — start with a 2-rye in the bank.",
     bonus: "high_rye",
-    bondedSlots: 2,
-    upperSlots: 2,
+    slots: DEFAULT_SLOTS,
   },
   {
     defId: "wheated_baron",
     name: "Wheated Baron",
     flavorText: "Soft mash, lean recipe.",
     bonus: "wheated_baron",
-    bondedSlots: 2,
-    upperSlots: 2,
+    slots: DEFAULT_SLOTS,
   },
   {
     defId: "the_broker",
     name: "The Broker",
     flavorText: "First trade of the round is on the house.",
     bonus: "broker",
-    bondedSlots: 2,
-    upperSlots: 2,
+    slots: DEFAULT_SLOTS,
   },
   {
     defId: "old_line",
     name: "Old-Line Distillery",
-    flavorText: "Three bonded slots — built for steady output.",
+    flavorText: "An extra rack — built for steady output.",
     bonus: "old_line",
-    bondedSlots: 3,
-    upperSlots: 2,
+    slots: EXTRA_SLOT,
   },
   {
     defId: "vanilla",
     name: "Vanilla Distillery",
     flavorText: "No bonus. The challenge option.",
     bonus: "vanilla",
-    bondedSlots: 2,
-    upperSlots: 2,
+    slots: DEFAULT_SLOTS,
   },
 ];
 
@@ -72,19 +73,15 @@ export function defaultDistilleryPool(): Distillery[] {
     name: spec.name,
     flavorText: spec.flavorText,
     bonus: spec.bonus,
-    bondedSlots: spec.bondedSlots,
-    upperSlots: spec.upperSlots,
+    slots: spec.slots,
   }));
 }
 
 /** Build the per-player rickhouse slot list from a chosen distillery. */
 export function buildRickhouseSlots(playerId: string, distillery: Distillery): RickhouseSlot[] {
   const slots: RickhouseSlot[] = [];
-  for (let i = 0; i < distillery.bondedSlots; i++) {
-    slots.push({ id: `slot_${playerId}_bonded_${i}`, ownerId: playerId, tier: "bonded" });
-  }
-  for (let i = 0; i < distillery.upperSlots; i++) {
-    slots.push({ id: `slot_${playerId}_upper_${i}`, ownerId: playerId, tier: "upper" });
+  for (let i = 0; i < distillery.slots; i++) {
+    slots.push({ id: `slot_${playerId}_${i}`, ownerId: playerId });
   }
   return slots;
 }

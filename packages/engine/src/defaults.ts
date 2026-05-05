@@ -107,9 +107,9 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       name: "Private Warehouse",
       capital: 11,
       cost: 16,
-      short: "+1 upper-tier slot",
+      short: "+1 rickhouse slot",
       effect:
-        "Adds a permanent +1 upper-tier slot to your rickhouse.",
+        "Adds a permanent +1 slot to your rickhouse.",
       tier: "expensive",
     },
     {

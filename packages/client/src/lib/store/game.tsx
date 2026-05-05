@@ -101,6 +101,50 @@ export interface BuyMode {
 }
 
 /**
+ * Interactive Age mode. Aging is conceptually the "Age Phase" of a round
+ * (one card committed per barrel) — distinct from the main turn actions.
+ * The picker has two slots: which of your barrels to age, and which one
+ * card from hand to commit on top of it.
+ */
+export interface AgeMode {
+  pickedBarrelId: string | null;
+  pickedCardId: string | null;
+}
+
+/**
+ * Interactive Draw-a-Mash-Bill mode. Two-step picker:
+ *
+ *   step 1 — `pickedMashBillId` is null. The player either clicks a
+ *            face-up bill (sets the id and advances to step 2) or
+ *            clicks the deck-top "blind" target (sets `blind: true`).
+ *   step 2 — the player tags pay cards. Blind draws need exactly 1
+ *            card; face-up picks need cards summing to ≥ the bill's
+ *            cost (capital cards pay face value).
+ *
+ * Confirm dispatches DRAW_MASH_BILL with either `mashBillId` set
+ * (face-up) or omitted (blind).
+ */
+export interface DrawBillMode {
+  /** id of the picked face-up bill, or null when in step 1 / blind. */
+  pickedMashBillId: string | null;
+  /** True when the player chose the blind top-of-deck target. */
+  blind: boolean;
+  spendCardIds: string[];
+}
+
+/**
+ * Interactive Make-Bourbon mode. Two-step picker: pick a mash bill from
+ * your hand, then tag the resource cards to spend on production. The
+ * target slot is auto-picked (first free) since v2.2 collapsed rickhouse
+ * tiers — there's no reason for the player to choose between equivalent
+ * empty slots.
+ */
+export interface MakeMode {
+  pickedMashBillId: string | null;
+  spendCardIds: string[];
+}
+
+/**
  * Last-purchased card snapshot. Bumped by every BUY_FROM_MARKET dispatch
  * (human or bot) and consumed by `PurchaseFlight` to drive the fly-down
  * animation. `seq` is the unique key — same card bought twice still
@@ -138,6 +182,31 @@ export interface GameStore {
   setBuyTarget: (target: { source: "conveyor" | "operations"; slotIndex: number }) => void;
   toggleBuySpend: (cardId: string) => void;
   confirmBuy: () => void;
+  /** Interactive age state, null when not aging. */
+  ageMode: AgeMode | null;
+  startAgeMode: () => void;
+  cancelAgeMode: () => void;
+  setAgeBarrel: (barrelId: string) => void;
+  setAgeCard: (cardId: string) => void;
+  confirmAge: () => void;
+  /** Interactive draw-bill state, null when not drawing. */
+  drawBillMode: DrawBillMode | null;
+  startDrawBillMode: () => void;
+  cancelDrawBillMode: () => void;
+  /** Step 1: pick a face-up bill OR pick the blind top-of-deck target. */
+  setDrawBillTarget: (target: { mashBillId: string } | { blind: true }) => void;
+  /** Step 2: toggle a pay card. */
+  toggleDrawBillSpend: (cardId: string) => void;
+  /** Back from step 2 → step 1. */
+  resetDrawBillTarget: () => void;
+  confirmDrawBill: () => void;
+  /** Interactive make-bourbon state, null when not making. */
+  makeMode: MakeMode | null;
+  startMakeMode: () => void;
+  cancelMakeMode: () => void;
+  setMakeMashBill: (mashBillId: string) => void;
+  toggleMakeSpend: (cardId: string) => void;
+  confirmMake: () => void;
   /** Animation trigger — most recent purchase snapshot. */
   lastPurchase: LastPurchase | null;
   newGame: (cfg: NewGameConfig) => void;
@@ -164,6 +233,25 @@ const Ctx = createContext<GameStore>({
   setBuyTarget: noop,
   toggleBuySpend: noop,
   confirmBuy: noop,
+  ageMode: null,
+  startAgeMode: noop,
+  cancelAgeMode: noop,
+  setAgeBarrel: noop,
+  setAgeCard: noop,
+  confirmAge: noop,
+  drawBillMode: null,
+  startDrawBillMode: noop,
+  cancelDrawBillMode: noop,
+  setDrawBillTarget: noop,
+  toggleDrawBillSpend: noop,
+  resetDrawBillTarget: noop,
+  confirmDrawBill: noop,
+  makeMode: null,
+  startMakeMode: noop,
+  cancelMakeMode: noop,
+  setMakeMashBill: noop,
+  toggleMakeSpend: noop,
+  confirmMake: noop,
   lastPurchase: null,
   newGame: noop,
   step: noop,
@@ -189,6 +277,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [autoplay, setAutoplayState] = useState(false);
   const [inspect, setInspect] = useState<InspectPayload | null>(null);
   const [buyMode, setBuyMode] = useState<BuyMode | null>(null);
+  const [ageMode, setAgeMode] = useState<AgeMode | null>(null);
+  const [drawBillMode, setDrawBillMode] = useState<DrawBillMode | null>(null);
+  const [makeMode, setMakeMode] = useState<MakeMode | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   // Load from localStorage on mount.
@@ -313,6 +404,36 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Age-mode helpers — mirrors the buy flow but with two single-select
+  // slots: which of your barrels gets the year, and which one card from
+  // hand gets committed face-down on top.
+  const startAgeMode = useCallback(() => {
+    setAgeMode({ pickedBarrelId: null, pickedCardId: null });
+    setBuyMode(null);
+    setInspect(null);
+  }, []);
+
+  const cancelAgeMode = useCallback(() => {
+    setAgeMode(null);
+  }, []);
+
+  const setAgeBarrel = useCallback((barrelId: string) => {
+    setAgeMode((prev) =>
+      prev ? { ...prev, pickedBarrelId: barrelId } : prev,
+    );
+  }, []);
+
+  const setAgeCard = useCallback((cardId: string) => {
+    setAgeMode((prev) => {
+      if (!prev) return prev;
+      // Single-select toggle: clicking the same card again clears it.
+      return {
+        ...prev,
+        pickedCardId: prev.pickedCardId === cardId ? null : cardId,
+      };
+    });
+  }, []);
+
   const confirmBuy = useCallback(() => {
     if (!buyMode || !buyMode.pickedTarget) return;
     const human = store.state?.players.find((p) => !p.isBot);
@@ -335,6 +456,156 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setBuyMode(null);
     dispatch(action);
   }, [buyMode, store.state, dispatch]);
+
+  const confirmAge = useCallback(() => {
+    if (!ageMode || !ageMode.pickedBarrelId || !ageMode.pickedCardId) return;
+    const human = store.state?.players.find((p) => !p.isBot);
+    if (!human) return;
+    const action: GameAction = {
+      type: "AGE_BOURBON",
+      playerId: human.id,
+      barrelId: ageMode.pickedBarrelId,
+      cardId: ageMode.pickedCardId,
+    };
+    setAgeMode(null);
+    dispatch(action);
+  }, [ageMode, store.state, dispatch]);
+
+  // Draw-bill mode helpers — two-step picker. Step 1 picks the bourbon
+  // (face-up bill or blind top-of-deck); step 2 tags pay cards.
+  const startDrawBillMode = useCallback(() => {
+    setDrawBillMode({ pickedMashBillId: null, blind: false, spendCardIds: [] });
+    setBuyMode(null);
+    setAgeMode(null);
+    setMakeMode(null);
+    setInspect(null);
+  }, []);
+
+  const cancelDrawBillMode = useCallback(() => {
+    setDrawBillMode(null);
+  }, []);
+
+  const setDrawBillTarget = useCallback(
+    (target: { mashBillId: string } | { blind: true }) => {
+      setDrawBillMode((prev) => {
+        if (!prev) return prev;
+        if ("blind" in target) {
+          return { pickedMashBillId: null, blind: true, spendCardIds: [] };
+        }
+        return {
+          pickedMashBillId: target.mashBillId,
+          blind: false,
+          spendCardIds: [],
+        };
+      });
+    },
+    [],
+  );
+
+  const toggleDrawBillSpend = useCallback((cardId: string) => {
+    setDrawBillMode((prev) => {
+      if (!prev) return prev;
+      const has = prev.spendCardIds.includes(cardId);
+      return {
+        ...prev,
+        spendCardIds: has
+          ? prev.spendCardIds.filter((id) => id !== cardId)
+          : [...prev.spendCardIds, cardId],
+      };
+    });
+  }, []);
+
+  const resetDrawBillTarget = useCallback(() => {
+    setDrawBillMode((prev) =>
+      prev
+        ? { pickedMashBillId: null, blind: false, spendCardIds: [] }
+        : prev,
+    );
+  }, []);
+
+  const confirmDrawBill = useCallback(() => {
+    if (!drawBillMode) return;
+    if (!drawBillMode.blind && !drawBillMode.pickedMashBillId) return;
+    if (drawBillMode.spendCardIds.length === 0) return;
+    const human = store.state?.players.find((p) => !p.isBot);
+    if (!human) return;
+    const action: GameAction = drawBillMode.pickedMashBillId
+      ? {
+          type: "DRAW_MASH_BILL",
+          playerId: human.id,
+          mashBillId: drawBillMode.pickedMashBillId,
+          spendCardIds: drawBillMode.spendCardIds,
+        }
+      : {
+          type: "DRAW_MASH_BILL",
+          playerId: human.id,
+          spendCardIds: drawBillMode.spendCardIds,
+        };
+    setDrawBillMode(null);
+    dispatch(action);
+  }, [drawBillMode, store.state, dispatch]);
+
+  // Make-mode helpers — two-step picker: (1) pick a mash bill from your
+  // hand, (2) tag the production cards. Slot is auto-picked (first free)
+  // since v2.2 collapsed rickhouse tiers.
+  const startMakeMode = useCallback(() => {
+    setMakeMode({ pickedMashBillId: null, spendCardIds: [] });
+    setBuyMode(null);
+    setAgeMode(null);
+    setDrawBillMode(null);
+    setInspect(null);
+  }, []);
+
+  const cancelMakeMode = useCallback(() => {
+    setMakeMode(null);
+  }, []);
+
+  const setMakeMashBill = useCallback((mashBillId: string) => {
+    setMakeMode((prev) => {
+      if (!prev) return prev;
+      // Picking a different bill clears the in-progress card tags so
+      // recipe constraints don't get tangled across bill switches.
+      return prev.pickedMashBillId === mashBillId
+        ? { ...prev, pickedMashBillId: null }
+        : { pickedMashBillId: mashBillId, spendCardIds: [] };
+    });
+  }, []);
+
+  const toggleMakeSpend = useCallback((cardId: string) => {
+    setMakeMode((prev) => {
+      if (!prev) return prev;
+      const has = prev.spendCardIds.includes(cardId);
+      return {
+        ...prev,
+        spendCardIds: has
+          ? prev.spendCardIds.filter((id) => id !== cardId)
+          : [...prev.spendCardIds, cardId],
+      };
+    });
+  }, []);
+
+  const confirmMake = useCallback(() => {
+    if (!makeMode || !makeMode.pickedMashBillId) return;
+    const human = store.state?.players.find((p) => !p.isBot);
+    if (!human || !store.state) return;
+    // Auto-pick the first free slot — all slots are equivalent in v2.2.
+    const occupied = new Set(
+      store.state.allBarrels
+        .filter((b) => b.ownerId === human.id)
+        .map((b) => b.slotId),
+    );
+    const freeSlot = human.rickhouseSlots.find((s) => !occupied.has(s.id));
+    if (!freeSlot) return;
+    const action: GameAction = {
+      type: "MAKE_BOURBON",
+      playerId: human.id,
+      cardIds: makeMode.spendCardIds,
+      mashBillId: makeMode.pickedMashBillId,
+      slotId: freeSlot.id,
+    };
+    setMakeMode(null);
+    dispatch(action);
+  }, [makeMode, store.state, dispatch]);
 
   // Autoplay loop — paused while waiting on human input.
   useEffect(() => {
@@ -368,6 +639,48 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setBuyMode(null);
     }
   }, [store.state, buyMode]);
+
+  // Same bail-out for age mode.
+  useEffect(() => {
+    if (!ageMode) return;
+    const state = store.state;
+    if (!state || state.phase !== "action") {
+      setAgeMode(null);
+      return;
+    }
+    const current = state.players[state.currentPlayerIndex];
+    if (!current || current.isBot) {
+      setAgeMode(null);
+    }
+  }, [store.state, ageMode]);
+
+  // Same bail-out for draw-bill mode.
+  useEffect(() => {
+    if (!drawBillMode) return;
+    const state = store.state;
+    if (!state || state.phase !== "action") {
+      setDrawBillMode(null);
+      return;
+    }
+    const current = state.players[state.currentPlayerIndex];
+    if (!current || current.isBot) {
+      setDrawBillMode(null);
+    }
+  }, [store.state, drawBillMode]);
+
+  // Same bail-out for make mode.
+  useEffect(() => {
+    if (!makeMode) return;
+    const state = store.state;
+    if (!state || state.phase !== "action") {
+      setMakeMode(null);
+      return;
+    }
+    const current = state.players[state.currentPlayerIndex];
+    if (!current || current.isBot) {
+      setMakeMode(null);
+    }
+  }, [store.state, makeMode]);
 
   // Auto-resolve bot turns during phases the human doesn't drive directly:
   //   - distillery_selection / starter_deck_draft: the human's modal is
@@ -454,6 +767,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setAutoplayState(false);
     setInspect(null);
     setBuyMode(null);
+    setAgeMode(null);
+    setDrawBillMode(null);
+    setMakeMode(null);
   }, []);
 
   const clear = useCallback(() => {
@@ -461,6 +777,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setAutoplayState(false);
     setInspect(null);
     setBuyMode(null);
+    setAgeMode(null);
+    setDrawBillMode(null);
+    setMakeMode(null);
   }, []);
 
   const setAutoplay = useCallback((on: boolean) => {
@@ -496,6 +815,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setBuyTarget,
       toggleBuySpend,
       confirmBuy,
+      ageMode,
+      startAgeMode,
+      cancelAgeMode,
+      setAgeBarrel,
+      setAgeCard,
+      confirmAge,
+      drawBillMode,
+      startDrawBillMode,
+      cancelDrawBillMode,
+      setDrawBillTarget,
+      toggleDrawBillSpend,
+      resetDrawBillTarget,
+      confirmDrawBill,
+      makeMode,
+      startMakeMode,
+      cancelMakeMode,
+      setMakeMashBill,
+      toggleMakeSpend,
+      confirmMake,
       lastPurchase: store.lastPurchase,
       newGame,
       step,
@@ -515,6 +853,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setBuyTarget,
       toggleBuySpend,
       confirmBuy,
+      ageMode,
+      startAgeMode,
+      cancelAgeMode,
+      setAgeBarrel,
+      setAgeCard,
+      confirmAge,
+      drawBillMode,
+      startDrawBillMode,
+      cancelDrawBillMode,
+      setDrawBillTarget,
+      toggleDrawBillSpend,
+      resetDrawBillTarget,
+      confirmDrawBill,
+      makeMode,
+      startMakeMode,
+      cancelMakeMode,
+      setMakeMashBill,
+      toggleMakeSpend,
+      confirmMake,
       newGame,
       step,
       dispatch,

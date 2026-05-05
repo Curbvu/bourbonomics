@@ -22,7 +22,9 @@ export default function RightRail() {
           live
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      {/* EventLog owns its own scroll viewport (capped at 60vh on narrow
+          layouts; flex-1 fills the rail on wide layouts). */}
+      <div className="flex min-h-0 flex-1 flex-col">
         <EventLog />
       </div>
     </aside>

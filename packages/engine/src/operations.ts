@@ -160,7 +160,7 @@ const SPECS: OpsCardSpec[] = [
     defId: "regulatory_inspection",
     name: "Regulatory Inspection",
     description:
-      "Target an upper-tier barrel of any player. That barrel may not be aged this round.",
+      "Target a barrel of any player. That barrel may not be aged this round.",
     cost: 5,
     copies: 3,
     implemented: true,
@@ -169,7 +169,7 @@ const SPECS: OpsCardSpec[] = [
     defId: "barrel_broker",
     name: "Barrel Broker",
     description:
-      "Transfer one of your barrels to another player's empty upper-tier slot for a card payment.",
+      "Transfer one of your barrels to another player's empty rickhouse slot for a card payment.",
     cost: 6,
     copies: 2,
     implemented: true,
@@ -178,7 +178,7 @@ const SPECS: OpsCardSpec[] = [
     defId: "blend",
     name: "Blend",
     description:
-      "Combine two of your own non-bonded barrels into one. Higher age, higher-value mash bill, all cards.",
+      "Combine two of your own barrels into one. Higher age, higher-value mash bill, all cards.",
     cost: 6,
     copies: 2,
     implemented: true,
@@ -208,7 +208,7 @@ const SPECS: OpsCardSpec[] = [
     defId: "rickhouse_expansion_permit",
     name: "Rickhouse Expansion Permit",
     description:
-      "Permanently gain 1 additional upper-tier rickhouse slot (max 6 total).",
+      "Permanently gain 1 additional rickhouse slot (max 6 total).",
     cost: 6,
     copies: 2,
     implemented: true,

@@ -29,6 +29,7 @@ import {
   RESOURCE_LABEL,
 } from "./handCardStyles";
 import { TIER_CHROME, tierOrCommon, type TierChrome } from "./tierStyles";
+import { formatMoney, MoneyText } from "./money";
 
 export default function CardInspectModal() {
   const { inspect, setInspect } = useGameStore();
@@ -135,7 +136,7 @@ function ResourceDetail({ card }: { card: Card }) {
           Use
         </span>
         <p className="mt-1 text-[13px] leading-snug text-slate-100">
-          Spend as part of a mash to make a barrel, or pay it as 1¢ toward any market purchase.
+          Spend as part of a mash to make a barrel, or pay it as {formatMoney(1)} toward any market purchase.
         </p>
       </div>
     </article>
@@ -166,9 +167,10 @@ function CapitalDetail({ card }: { card: Card }) {
         </h3>
       ) : null}
       <div className="flex flex-col items-center gap-1 py-3">
-        <span className={`font-display text-[64px] font-bold leading-none tabular-nums drop-shadow-[0_3px_8px_rgba(0,0,0,.45)] ${chrome.ink}`}>
-          ${value}
-        </span>
+        <MoneyText
+          n={value}
+          className={`font-display text-[64px] font-bold leading-none drop-shadow-[0_3px_8px_rgba(0,0,0,.45)] ${chrome.ink}`}
+        />
         <span className={`font-mono text-[11px] uppercase tracking-[.18em] ${chrome.label}`}>
           spend at the market
         </span>
@@ -184,7 +186,7 @@ function CapitalDetail({ card }: { card: Card }) {
           Use
         </span>
         <p className="mt-1 text-[13px] leading-snug text-slate-100">
-          Pays {value}¢ toward any market purchase. Goes to the discard
+          Pays {formatMoney(value)} toward any market purchase. Goes to the discard
           pile after the action; reshuffles into your deck on cleanup.
         </p>
       </div>
@@ -288,10 +290,10 @@ function whenLabel(when: string): string {
 function DetailCornerCost({ cost }: { cost: number }) {
   return (
     <span
-      className="absolute right-2 top-2 z-10 grid h-7 min-w-[28px] place-items-center rounded-full border border-amber-400/70 bg-slate-950/85 px-1.5 font-mono text-[12px] font-bold tabular-nums text-amber-200 shadow-[0_2px_8px_rgba(0,0,0,.55)]"
-      aria-label={`cost ${cost} cents`}
+      className="absolute right-2 top-2 z-10 grid h-7 min-w-[34px] place-items-center rounded-full border border-amber-400/70 bg-slate-950/85 px-1.5 font-mono text-[12px] font-bold text-amber-200 shadow-[0_2px_8px_rgba(0,0,0,.55)]"
+      aria-label={`cost B$${cost}`}
     >
-      {cost}¢
+      <MoneyText n={cost} />
     </span>
   );
 }

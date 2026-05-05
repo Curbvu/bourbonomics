@@ -25,6 +25,9 @@ import type {
 import { useGameStore } from "@/lib/store/game";
 import ActionBar from "./ActionBar";
 import BuyOverlay from "./BuyOverlay";
+import AgeOverlay from "./AgeOverlay";
+import DrawBillOverlay from "./DrawBillOverlay";
+import MakeOverlay from "./MakeOverlay";
 import PlayerSwatch from "./PlayerSwatch";
 import {
   CAPITAL_CHROME,
@@ -36,6 +39,7 @@ import {
   RESOURCE_LABEL,
 } from "./handCardStyles";
 import { TIER_CHROME, tierOrCommon } from "./tierStyles";
+import { MoneyText } from "./money";
 
 export default function HandTray() {
   const { state, seatMeta } = useGameStore();
@@ -54,10 +58,19 @@ export default function HandTray() {
   });
 
   return (
-    <div className="border-t border-slate-800 bg-slate-950/90">
+    <div data-hand-tray="true" className="border-t border-slate-800 bg-slate-950/90">
       {/* Interactive Buy mode — sticky bar above the action bar; only
           paints when the player has clicked Buy market. */}
       <BuyOverlay />
+      {/* Interactive Age mode — same idiom; only paints when the player
+          has clicked "Age barrel" and is picking a barrel + pay-card. */}
+      <AgeOverlay />
+      {/* Interactive Draw-bill mode — single-select card-pay picker;
+          blind draw of the top mash bill. */}
+      <DrawBillOverlay />
+      {/* Interactive Make mode — pick a mash bill, then tag the cards
+          to commit. */}
+      <MakeOverlay />
       {/* Action bar — controls for the human seat during the action phase. */}
       <ActionBar />
 
@@ -357,20 +370,51 @@ const liftClass =
   "cursor-pointer hover:z-50 hover:-translate-y-3 hover:scale-[1.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300";
 
 function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
-  const { setInspect, buyMode, toggleBuySpend } = useGameStore();
+  const {
+    setInspect,
+    buyMode,
+    toggleBuySpend,
+    ageMode,
+    setAgeCard,
+    drawBillMode,
+    toggleDrawBillSpend,
+    makeMode,
+    toggleMakeSpend,
+  } = useGameStore();
   const subtype = card.subtype as ResourceSubtype;
   const chrome = RESOURCE_CHROME[subtype];
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
   const count = card.resourceCount ?? 1;
   const inBuyMode = buyMode != null;
-  const isSelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
-  const buyClass = !inBuyMode
+  const inAgeMode = ageMode != null;
+  const inDrawBillMode = drawBillMode != null;
+  const inMakeMode = makeMode != null;
+  const isBuySelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
+  const isAgeSelected = inAgeMode && ageMode!.pickedCardId === card.id;
+  const isDrawSelected =
+    inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
+  const isMakeSelected = inMakeMode && makeMode!.spendCardIds.includes(card.id);
+  const isSelected = isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected;
+  const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode;
+  // In draw-bill step 1 (no target picked yet), hand cards are NOT
+  // tag-clickable — only the bourbon row is. Click should fall through
+  // to inspect.
+  const drawStep1 =
+    inDrawBillMode &&
+    !drawBillMode!.blind &&
+    !drawBillMode!.pickedMashBillId;
+  const buyClass = !inAnyPicker || drawStep1
     ? ""
     : isSelected
       ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : "ring-2 ring-emerald-400/60";
+      : inAgeMode || inDrawBillMode
+        ? "ring-2 ring-sky-400/60"
+        : "ring-2 ring-emerald-400/60";
   const onClick = () => {
-    if (inBuyMode) toggleBuySpend(card.id);
+    if (inMakeMode) toggleMakeSpend(card.id);
+    else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
+    else if (inAgeMode) setAgeCard(card.id);
+    else if (inBuyMode) toggleBuySpend(card.id);
     else setInspect({ kind: "resource", card });
   };
   return (
@@ -378,13 +422,19 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
       type="button"
       onClick={onClick}
       title={
-        inBuyMode
-          ? `${isSelected ? "Unselect" : "Select"} this card to pay 1¢`
-          : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""}`
+        inMakeMode
+          ? `${isMakeSelected ? "Unselect" : "Tag"} this card for production`
+          : inDrawBillMode
+            ? `${isDrawSelected ? "Unselect" : "Sacrifice"} this card to draw the top mash bill`
+            : inAgeMode
+              ? `${isAgeSelected ? "Unselect" : "Commit"} this card to age the picked barrel`
+              : inBuyMode
+                ? `${isBuySelected ? "Unselect" : "Select"} this card to pay B$1`
+                : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""}`
       }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >
-      {inBuyMode && isSelected ? (
+      {isSelected ? (
         <span
           className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
           aria-hidden
@@ -419,19 +469,47 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
 }
 
 function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
-  const { setInspect, buyMode, toggleBuySpend } = useGameStore();
+  const {
+    setInspect,
+    buyMode,
+    toggleBuySpend,
+    ageMode,
+    setAgeCard,
+    drawBillMode,
+    toggleDrawBillSpend,
+    makeMode,
+    toggleMakeSpend,
+  } = useGameStore();
   const value = card.capitalValue ?? 1;
   const chrome = CAPITAL_CHROME;
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
   const inBuyMode = buyMode != null;
-  const isSelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
-  const buyClass = !inBuyMode
+  const inAgeMode = ageMode != null;
+  const inDrawBillMode = drawBillMode != null;
+  const inMakeMode = makeMode != null;
+  const isBuySelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
+  const isAgeSelected = inAgeMode && ageMode!.pickedCardId === card.id;
+  const isDrawSelected =
+    inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
+  const isMakeSelected = inMakeMode && makeMode!.spendCardIds.includes(card.id);
+  const isSelected = isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected;
+  const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode;
+  const drawStep1 =
+    inDrawBillMode &&
+    !drawBillMode!.blind &&
+    !drawBillMode!.pickedMashBillId;
+  const buyClass = !inAnyPicker || drawStep1
     ? ""
     : isSelected
       ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : "ring-2 ring-emerald-400/60";
+      : inAgeMode || inDrawBillMode
+        ? "ring-2 ring-sky-400/60"
+        : "ring-2 ring-emerald-400/60";
   const onClick = () => {
-    if (inBuyMode) toggleBuySpend(card.id);
+    if (inMakeMode) toggleMakeSpend(card.id);
+    else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
+    else if (inAgeMode) setAgeCard(card.id);
+    else if (inBuyMode) toggleBuySpend(card.id);
     else setInspect({ kind: "capital", card });
   };
   return (
@@ -439,13 +517,19 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
       type="button"
       onClick={onClick}
       title={
-        inBuyMode
-          ? `${isSelected ? "Unselect" : "Select"} this $${value} capital card to spend`
-          : `Capital · pays $${value} at the market`
+        inMakeMode
+          ? `${isMakeSelected ? "Unselect" : "Tag"} this B$${value} capital for production (counts as 1 in conversion only)`
+          : inDrawBillMode
+            ? `${isDrawSelected ? "Unselect" : "Sacrifice"} this B$${value} capital to draw the top mash bill`
+            : inAgeMode
+              ? `${isAgeSelected ? "Unselect" : "Commit"} this B$${value} capital to age the picked barrel`
+              : inBuyMode
+                ? `${isBuySelected ? "Unselect" : "Select"} this B$${value} capital card to spend`
+                : `Capital · pays B$${value} at the market`
       }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >
-      {inBuyMode && isSelected ? (
+      {isSelected ? (
         <span
           className="pointer-events-none absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
           aria-hidden
@@ -463,9 +547,10 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
         </span>
       </div>
       <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
-        <span className="font-display text-[34px] font-bold leading-none tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
-          ${value}
-        </span>
+        <MoneyText
+          n={value}
+          className="font-display text-[34px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
+        />
         <span className={`mt-1 font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label}`}>
           spend
         </span>
@@ -475,10 +560,17 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
 }
 
 function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number }) {
-  const { setInspect } = useGameStore();
+  const { setInspect, makeMode, setMakeMashBill } = useGameStore();
   const tier = tierOrCommon(bill.tier);
   const chrome = TIER_CHROME[tier];
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
+  const inMakeMode = makeMode != null;
+  const isMakePicked = inMakeMode && makeMode!.pickedMashBillId === bill.id;
+  const makeRing = !inMakeMode
+    ? ""
+    : isMakePicked
+      ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+      : "ring-2 ring-emerald-400/60";
   // Compact reward range from the grid for a single glance.
   const cells: number[] = [];
   for (const row of bill.rewardGrid) {
@@ -486,12 +578,20 @@ function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number
   }
   const peak = cells.length ? Math.max(...cells) : 0;
   const floor = cells.length ? Math.min(...cells) : 0;
+  const onClick = () => {
+    if (inMakeMode) setMakeMashBill(bill.id);
+    else setInspect({ kind: "mashbill", bill });
+  };
   return (
     <button
       type="button"
-      onClick={() => setInspect({ kind: "mashbill", bill })}
-      title={`${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`}
-      className={[baseCardChrome, chrome.gradient, chrome.border, chrome.glow, overlap, liftClass].join(" ")}
+      onClick={onClick}
+      title={
+        inMakeMode
+          ? `${isMakePicked ? "Unselect" : "Pick"} this mash bill for production`
+          : `${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`
+      }
+      className={[baseCardChrome, chrome.gradient, chrome.border, chrome.glow, overlap, liftClass, makeRing].join(" ")}
     >
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"

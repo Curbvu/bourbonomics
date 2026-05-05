@@ -14,8 +14,12 @@
  * passes to the next seat.
  *
  *   ✓ Make Bourbon       — auto-plan minimum-legal mash from hand
- *   ✓ Age Bourbon        — first eligible barrel + cheapest hand card
+ *   ✓ Age barrel         — interactive picker (barrel + pay-card); separate
+ *                          chrome because aging is a *phase* activity, not
+ *                          one of the regular Action Phase actions
  *   ✓ Sell Bourbon       — highest-reward 2yo+ barrel, take all rep
+ *   ✓ Draw bill          — interactive picker (sacrifice card → top-of-deck
+ *                          blind draw)
  *   ✓ Buy from Market    — most-expensive affordable conveyor card
  *   ✓ Draw a Mash Bill   — auto-spend the cheapest hand card
  *   ✓ Trade              — first eligible partner, swap the cheapest cards
@@ -24,27 +28,33 @@
  */
 
 import type {
-  Card,
   GameAction,
   GameState,
-  GrainSubtype,
   MashBill,
   OperationsCard,
   PlayerState,
-  ResourceSubtype,
 } from "@bourbonomics/engine";
-import {
-  computeReward,
-  isWheatedBill,
-  resourceUnits,
-  suppliesResource,
-  validateAction,
-} from "@bourbonomics/engine";
+import { computeReward, validateAction } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 
 export default function ActionBar() {
-  const { state, dispatch, autoplay, buyMode, startBuyMode, cancelBuyMode } =
-    useGameStore();
+  const {
+    state,
+    dispatch,
+    autoplay,
+    buyMode,
+    startBuyMode,
+    cancelBuyMode,
+    ageMode,
+    startAgeMode,
+    cancelAgeMode,
+    drawBillMode,
+    startDrawBillMode,
+    cancelDrawBillMode,
+    makeMode,
+    startMakeMode,
+    cancelMakeMode,
+  } = useGameStore();
   if (!state) return null;
   if (state.phase !== "action") return null;
 
@@ -54,16 +64,25 @@ export default function ActionBar() {
   const isHumanTurn = state.players[state.currentPlayerIndex]?.id === human.id;
   const disabledByTurn = !isHumanTurn || autoplay;
   const inBuyMode = buyMode != null;
+  const inAgeMode = ageMode != null;
+  const inDrawBillMode = drawBillMode != null;
+  const inMakeMode = makeMode != null;
 
-  const make = bestMakeBourbon(state, human);
-  const age = bestAgeBourbon(state, human);
   const sell = bestSellBourbon(state, human);
+  const makeEntry = canEnterMakeMode(state, human);
   // Bare-minimum BUY action for the gating tooltip — checks that the
   // human has *some* legal purchase available before we let them enter
   // buying mode. The actual chosen card / payment comes from the
   // interactive overlay.
   const buyEntry = canEnterBuyMode(state, human);
-  const drawBill = bestDrawMashBill(state, human);
+  // Age is a "phase activity" — it has its own picker (AgeOverlay) for
+  // selecting which barrel + which pay-card to commit. The bar gates
+  // entry on whether the player has at least one ageable barrel and at
+  // least one card in hand.
+  const ageEntry = canEnterAgeMode(state, human);
+  // Draw-bill picker gating — needs at least one card in hand and at
+  // least one mash bill in the bourbon deck.
+  const drawBillEntry = canEnterDrawBillMode(state, human);
   const trade = bestTrade(state, human);
   const ops = bestPlayOps(state, human);
   const pass: GameAction = { type: "PASS_TURN", playerId: human.id };
@@ -76,21 +95,41 @@ export default function ActionBar() {
         </span>
         <span className="mx-1 h-[20px] w-px bg-slate-800" aria-hidden />
 
-        <SmartButton
-          label="Make"
-          action={make}
-          state={state}
-          dispatch={dispatch}
-          disabledByTurn={disabledByTurn}
-          tooltipIdle="Make a barrel of bourbon — auto-plans a minimum-legal mash."
+        {/* Age is the lone "phase" control — separate chrome (sky/blue)
+            and labeled with a barrel glyph so the player reads it as a
+            distinct concept from the regular Action Phase actions. */}
+        <PhaseButton
+          label="🛢 Age barrel"
+          inMode={inAgeMode}
+          enabled={!disabledByTurn && ageEntry.canAge}
+          tooltip={
+            disabledByTurn
+              ? "Wait for your turn"
+              : inAgeMode
+                ? "Cancel the in-progress aging"
+                : ageEntry.reason ??
+                  "Pick a barrel in your Rickhouse, then a card in hand to commit."
+          }
+          onStart={startAgeMode}
+          onCancel={cancelAgeMode}
         />
-        <SmartButton
-          label="Age"
-          action={age}
-          state={state}
-          dispatch={dispatch}
-          disabledByTurn={disabledByTurn}
-          tooltipIdle="Age your first eligible barrel using your cheapest card."
+        <span className="mx-1 h-[20px] w-px bg-slate-800" aria-hidden />
+
+        <PickerButton
+          label="Make"
+          inMode={inMakeMode}
+          enabled={!disabledByTurn && makeEntry.canMake}
+          tooltip={
+            disabledByTurn
+              ? "Wait for your turn"
+              : inMakeMode
+                ? "Cancel the in-progress production"
+                : makeEntry.reason ??
+                  "Pick a mash bill, then tag the cards to commit."
+          }
+          onStart={startMakeMode}
+          onCancel={cancelMakeMode}
+          cancelLabel="Cancel make"
         />
         <SmartButton
           label="Sell"
@@ -113,13 +152,21 @@ export default function ActionBar() {
           onStart={startBuyMode}
           onCancel={cancelBuyMode}
         />
-        <SmartButton
+        <PickerButton
           label="Draw bill"
-          action={drawBill}
-          state={state}
-          dispatch={dispatch}
-          disabledByTurn={disabledByTurn}
-          tooltipIdle="Draw the top mash bill — spends your cheapest card."
+          inMode={inDrawBillMode}
+          enabled={!disabledByTurn && drawBillEntry.canDraw}
+          tooltip={
+            disabledByTurn
+              ? "Wait for your turn"
+              : inDrawBillMode
+                ? "Cancel the in-progress draw"
+                : drawBillEntry.reason ??
+                  "Pick a card to sacrifice; you'll draw the top mash bill blind."
+          }
+          onStart={startDrawBillMode}
+          onCancel={cancelDrawBillMode}
+          cancelLabel="Cancel draw"
         />
         <SmartButton
           label="Trade"
@@ -152,6 +199,153 @@ export default function ActionBar() {
       </div>
     </div>
   );
+}
+
+function PhaseButton({
+  label,
+  inMode,
+  enabled,
+  tooltip,
+  onStart,
+  onCancel,
+}: {
+  label: string;
+  inMode: boolean;
+  enabled: boolean;
+  tooltip: string;
+  onStart: () => void;
+  onCancel: () => void;
+}) {
+  if (inMode) {
+    return (
+      <button
+        type="button"
+        onClick={onCancel}
+        title={tooltip}
+        className="rounded-md border border-rose-500 bg-rose-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-rose-100 transition-colors hover:border-rose-400 hover:bg-rose-800/40"
+      >
+        Cancel age
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      disabled={!enabled}
+      onClick={enabled ? onStart : undefined}
+      title={tooltip}
+      className={
+        enabled
+          ? "rounded-md border border-sky-500/70 bg-sky-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-sky-100 transition-colors hover:border-sky-300 hover:bg-sky-800/40"
+          : "rounded-md border border-slate-800 bg-slate-950/60 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-slate-600 cursor-not-allowed"
+      }
+    >
+      {label}
+    </button>
+  );
+}
+
+/**
+ * Picker-style action button — same emerald chrome as a `SmartButton` so
+ * it reads as a regular Action Phase action, but instead of dispatching
+ * on click it opens an interactive picker (AgeOverlay / DrawBillOverlay /
+ * BuyOverlay style). Cancellable while the picker is open.
+ */
+function PickerButton({
+  label,
+  inMode,
+  enabled,
+  tooltip,
+  onStart,
+  onCancel,
+  cancelLabel,
+}: {
+  label: string;
+  inMode: boolean;
+  enabled: boolean;
+  tooltip: string;
+  onStart: () => void;
+  onCancel: () => void;
+  cancelLabel: string;
+}) {
+  if (inMode) {
+    return (
+      <button
+        type="button"
+        onClick={onCancel}
+        title={tooltip}
+        className="rounded-md border border-rose-500 bg-rose-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-rose-100 transition-colors hover:border-rose-400 hover:bg-rose-800/40"
+      >
+        {cancelLabel}
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      disabled={!enabled}
+      onClick={enabled ? onStart : undefined}
+      title={tooltip}
+      className={
+        enabled
+          ? "rounded-md border border-emerald-700/60 bg-emerald-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-emerald-100 transition-colors hover:border-emerald-400 hover:bg-emerald-800/40"
+          : "rounded-md border border-slate-800 bg-slate-950/60 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-slate-600 cursor-not-allowed"
+      }
+    >
+      {label}
+    </button>
+  );
+}
+
+function canEnterDrawBillMode(
+  state: GameState,
+  player: PlayerState,
+): { canDraw: boolean; reason?: string } {
+  if (player.hand.length === 0) {
+    return { canDraw: false, reason: "Your hand is empty — nothing to sacrifice." };
+  }
+  if (state.bourbonDeck.length === 0) {
+    return { canDraw: false, reason: "Bourbon deck is empty — no bills left to draw." };
+  }
+  return { canDraw: true };
+}
+
+function canEnterMakeMode(
+  state: GameState,
+  player: PlayerState,
+): { canMake: boolean; reason?: string } {
+  if (player.mashBills.length === 0) {
+    return { canMake: false, reason: "No mash bills in hand — draw one first." };
+  }
+  if (player.hand.length === 0) {
+    return { canMake: false, reason: "Your hand is empty — nothing to commit." };
+  }
+  const occupied = new Set(
+    state.allBarrels.filter((b) => b.ownerId === player.id).map((b) => b.slotId),
+  );
+  if (player.rickhouseSlots.every((s) => occupied.has(s.id))) {
+    return { canMake: false, reason: "Your rickhouse is full." };
+  }
+  return { canMake: true };
+}
+
+function canEnterAgeMode(
+  state: GameState,
+  player: PlayerState,
+): { canAge: boolean; reason?: string } {
+  if (player.hand.length === 0) {
+    return { canAge: false, reason: "Your hand is empty — nothing to commit." };
+  }
+  const ageable = state.allBarrels.some(
+    (b) =>
+      b.ownerId === player.id &&
+      !b.inspectedThisRound &&
+      (!b.agedThisRound || b.extraAgesAvailable > 0),
+  );
+  if (!ageable) {
+    return { canAge: false, reason: "No ageable barrels in your Rickhouse." };
+  }
+  return { canAge: true };
 }
 
 function BuyButton({
@@ -255,51 +449,6 @@ function SmartButton({
 // Buttons are enabled iff the action is non-null AND validateAction is legal.
 // =============================================================================
 
-function bestMakeBourbon(state: GameState, player: PlayerState): GameAction | null {
-  if (player.mashBills.length === 0) return null;
-  const slotId = firstEmptySlotId(state, player.id);
-  if (!slotId) return null;
-
-  // Try mash bills in order of peak reward so the auto-make uses the
-  // best available recipe.
-  const billsByPeak = [...player.mashBills].sort((a, b) => peakReward(b) - peakReward(a));
-  for (const bill of billsByPeak) {
-    const cardIds = planMash(player, bill);
-    if (cardIds) {
-      return {
-        type: "MAKE_BOURBON",
-        playerId: player.id,
-        cardIds,
-        mashBillId: bill.id,
-        slotId,
-      };
-    }
-  }
-  return null;
-}
-
-function bestAgeBourbon(state: GameState, player: PlayerState): GameAction | null {
-  if (player.hand.length === 0) return null;
-  const barrel = state.allBarrels.find(
-    (b) =>
-      b.ownerId === player.id &&
-      !b.inspectedThisRound &&
-      (!b.agedThisRound || b.extraAgesAvailable > 0),
-  );
-  if (!barrel) return null;
-  const card =
-    player.hand.find((c) => c.type === "capital" && (c.capitalValue ?? 1) === 1) ??
-    player.hand.find((c) => (c.resourceCount ?? 1) === 1) ??
-    player.hand[0];
-  if (!card) return null;
-  return {
-    type: "AGE_BOURBON",
-    playerId: player.id,
-    barrelId: barrel.id,
-    cardId: card.id,
-  };
-}
-
 function bestSellBourbon(state: GameState, player: PlayerState): GameAction | null {
   const saleable = state.allBarrels.filter(
     (b) => b.ownerId === player.id && b.age >= 2,
@@ -359,14 +508,9 @@ function planOpsTarget(
       };
     }
     case "regulatory_inspection": {
-      // Lock down an opponent's most-valuable upper-tier barrel.
+      // Lock down an opponent's most-valuable barrel.
       const candidate = state.allBarrels
         .filter((b) => b.ownerId !== player.id)
-        .filter((b) => {
-          const owner = state.players.find((p) => p.id === b.ownerId);
-          const slot = owner?.rickhouseSlots.find((s) => s.id === b.slotId);
-          return slot?.tier === "upper";
-        })
         .sort((a, b) => peakReward(b.attachedMashBill) - peakReward(a.attachedMashBill))[0];
       if (!candidate) return null;
       return {
@@ -416,13 +560,9 @@ function planOpsTarget(
       };
     }
     case "blend": {
-      // Combine our two highest-peak non-bonded barrels.
+      // Combine our two highest-peak barrels.
       const eligible = state.allBarrels
         .filter((b) => b.ownerId === player.id)
-        .filter((b) => {
-          const slot = player.rickhouseSlots.find((s) => s.id === b.slotId);
-          return slot?.tier !== "bonded";
-        })
         .sort((a, b) => peakReward(b.attachedMashBill) - peakReward(a.attachedMashBill));
       if (eligible.length < 2) return null;
       return {
@@ -471,28 +611,10 @@ function canEnterBuyMode(
   if (totalCapital < cheapest) {
     return {
       canBuy: false,
-      reason: `Cheapest market card costs ${cheapest}¢ — you have ${totalCapital}¢`,
+      reason: `Cheapest market card costs B$${cheapest} — you have B$${totalCapital}`,
     };
   }
   return { canBuy: true };
-}
-
-function bestDrawMashBill(state: GameState, player: PlayerState): GameAction | null {
-  if (state.bourbonDeck.length === 0) return null;
-  if (player.hand.length === 0) return null;
-  // Prefer the cheapest capital, fall back to any card.
-  const candidates = [...player.hand].sort((a, b) => {
-    const av = a.type === "capital" ? (a.capitalValue ?? 1) : 99;
-    const bv = b.type === "capital" ? (b.capitalValue ?? 1) : 99;
-    return av - bv;
-  });
-  const spend = candidates[0];
-  if (!spend) return null;
-  return {
-    type: "DRAW_MASH_BILL",
-    playerId: player.id,
-    spendCardId: spend.id,
-  };
 }
 
 function bestTrade(state: GameState, player: PlayerState): GameAction | null {
@@ -515,119 +637,10 @@ function bestTrade(state: GameState, player: PlayerState): GameAction | null {
 // Internal helpers
 // -----------------------------------------------------------------------------
 
-function firstEmptySlotId(state: GameState, playerId: string): string | null {
-  const player = state.players.find((p) => p.id === playerId);
-  if (!player) return null;
-  const occupied = new Set(
-    state.allBarrels.filter((b) => b.ownerId === playerId).map((b) => b.slotId),
-  );
-  // Prefer bonded slots when free (inviolable).
-  const ordered = [...player.rickhouseSlots].sort((a, b) => {
-    const aB = a.tier === "bonded" ? 0 : 1;
-    const bB = b.tier === "bonded" ? 0 : 1;
-    return aB - bB;
-  });
-  for (const s of ordered) if (!occupied.has(s.id)) return s.id;
-  return null;
-}
-
 function peakReward(bill: MashBill): number {
   let max = 0;
   for (const row of bill.rewardGrid) {
     for (const cell of row) if (cell !== null && cell > max) max = cell;
   }
   return max;
-}
-
-/**
- * Greedy minimum-legal mash planner — copies the bot's logic so the
- * action-bar Make button reaches the same plan a bot turn would.
- */
-function planMash(player: PlayerState, mb: MashBill): string[] | null {
-  const recipe = mb.recipe ?? {};
-  const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  const minRye = recipe.minRye ?? 0;
-  const minBarley = recipe.minBarley ?? 0;
-  let minWheat = recipe.minWheat ?? 0;
-  if (player.distillery?.bonus === "wheated_baron" && isWheatedBill(mb)) {
-    minWheat = Math.max(0, minWheat - 1);
-  }
-  const maxRye = recipe.maxRye ?? Infinity;
-  const maxWheat = recipe.maxWheat ?? Infinity;
-
-  const used = new Set<string>();
-
-  const cask = player.hand.find((c) => suppliesResource(c, "cask"));
-  if (!cask) return null;
-  used.add(cask.id);
-
-  const cornCards = takeBySubtype(player.hand, "corn", minCorn, used);
-  if (cornCards === null) return null;
-
-  const ryeCards = takeBySubtype(player.hand, "rye", minRye, used);
-  if (ryeCards === null) return null;
-  const barleyCards = takeBySubtype(player.hand, "barley", minBarley, used);
-  if (barleyCards === null) return null;
-  const wheatCards = takeBySubtype(player.hand, "wheat", minWheat, used);
-  if (wheatCards === null) return null;
-
-  let totalGrain =
-    sumUnits(ryeCards, "rye") +
-    sumUnits(barleyCards, "barley") +
-    sumUnits(wheatCards, "wheat");
-  const extras: Card[] = [];
-  if (totalGrain < 1) {
-    const candidates: GrainSubtype[] = ["rye", "barley", "wheat"];
-    let added = false;
-    for (const sub of candidates) {
-      if (sub === "rye" && maxRye === 0) continue;
-      if (sub === "wheat" && maxWheat === 0) continue;
-      const taken = takeBySubtype(player.hand, sub, 1, used);
-      if (taken && taken.length > 0) {
-        extras.push(...taken);
-        totalGrain += sumUnits(taken, sub);
-        added = true;
-        break;
-      }
-    }
-    if (!added) return null;
-  }
-  if (sumUnits(ryeCards, "rye") > maxRye) return null;
-  if (sumUnits(wheatCards, "wheat") > maxWheat) return null;
-
-  return [
-    cask.id,
-    ...cornCards.map((c) => c.id),
-    ...ryeCards.map((c) => c.id),
-    ...barleyCards.map((c) => c.id),
-    ...wheatCards.map((c) => c.id),
-    ...extras.map((c) => c.id),
-  ];
-}
-
-function takeBySubtype(
-  hand: Card[],
-  subtype: ResourceSubtype,
-  minUnits: number,
-  used: Set<string>,
-): Card[] | null {
-  if (minUnits <= 0) return [];
-  const taken: Card[] = [];
-  let count = 0;
-  const candidates = hand
-    .filter((c) => !used.has(c.id) && c.subtype === subtype)
-    .sort((a, b) => (a.resourceCount ?? 1) - (b.resourceCount ?? 1));
-  for (const c of candidates) {
-    taken.push(c);
-    used.add(c.id);
-    count += c.resourceCount ?? 1;
-    if (count >= minUnits) break;
-  }
-  return count >= minUnits ? taken : null;
-}
-
-function sumUnits(cards: Card[], subtype: ResourceSubtype): number {
-  let n = 0;
-  for (const c of cards) n += resourceUnits(c, subtype);
-  return n;
 }

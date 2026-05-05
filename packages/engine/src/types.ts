@@ -108,6 +108,18 @@ export interface MashBill {
   recipe?: MashBillRecipe;
   silverAward?: AwardCondition;
   goldAward?: AwardCondition;
+  /**
+   * Capital cost to pick this bill from the face-up bourbon row. When
+   * omitted, defaults to `DEFAULT_MASH_BILL_COST` (see `cards.ts`).
+   * Capital cards pay at printed value; other cards count as B$1.
+   */
+  cost?: number;
+}
+
+/** Default cost for face-up mash bill picks when `cost` is unspecified. */
+export const DEFAULT_MASH_BILL_COST = 2;
+export function mashBillCost(bill: MashBill): number {
+  return bill.cost ?? DEFAULT_MASH_BILL_COST;
 }
 
 // -----------------------------
@@ -141,11 +153,11 @@ export function isWheatedBill(bill: MashBill): boolean {
 // -----------------------------
 
 export type DistilleryBonus =
-  | "warehouse"        // +1 upper rickhouse slot at init
+  | "warehouse"        // +1 rickhouse slot at init (5 instead of 4)
   | "high_rye"         // 1 free 2-rye premium card in starter deck
   | "wheated_baron"    // wheated mash bills cost 1 fewer grain (min 1 grain still required)
-  | "broker"           // once per round, Trade does not consume the turn
-  | "old_line"         // bonded warehouse holds 3 slots instead of 2
+  | "broker"           // once per round, Trade does not consume the turn (vestigial under v2.2)
+  | "old_line"         // +1 rickhouse slot at init (5 instead of 4) — same arithmetic as warehouse
   | "vanilla";         // no bonus
 
 export interface Distillery {
@@ -154,10 +166,8 @@ export interface Distillery {
   name: string;
   flavorText?: string;
   bonus: DistilleryBonus;
-  /** Default number of bonded slots a player gets if they pick this distillery. */
-  bondedSlots: number;
-  /** Default number of upper-tier slots. */
-  upperSlots: number;
+  /** Total number of rickhouse slots a player gets if they pick this distillery. */
+  slots: number;
 }
 
 // -----------------------------
@@ -201,12 +211,9 @@ export interface OperationsCard {
 // Barrels & Rickhouse Slots
 // -----------------------------
 
-export type RickhouseTier = "bonded" | "upper";
-
 export interface RickhouseSlot {
-  id: string;          // e.g. "slot_p1_bonded_0"
+  id: string;          // e.g. "slot_p1_0"
   ownerId: string;
-  tier: RickhouseTier;
 }
 
 export interface Barrel {
@@ -374,6 +381,8 @@ export interface GameState {
   marketDiscard: Card[];                    // for reshuffle on exhaustion
 
   bourbonDeck: MashBill[];
+  /** Face-up bourbon row beside the deck. Up to 3 bills. */
+  bourbonFaceUp: MashBill[];
   bourbonDiscard: MashBill[];
 
   /** Shared operations deck. */
@@ -501,7 +510,22 @@ export type GameAction =
       /** Same payment rules as BUY_FROM_MARKET. */
       spendCardIds: string[];
     }
-  | { type: "DRAW_MASH_BILL"; playerId: string; spendCardId: string }
+  | {
+      type: "DRAW_MASH_BILL";
+      playerId: string;
+      /**
+       * When set: pick the face-up bill with this id. Pay sum-of-cards
+       * ≥ `mashBillCost(bill)` (capital cards pay face value).
+       * When omitted: blind draw from the top of the bourbon deck. Pay
+       * exactly 1 card from your hand.
+       */
+      mashBillId?: string;
+      /**
+       * Cards to spend. Blind draw needs exactly 1; face-up needs sum
+       * ≥ the bill's cost.
+       */
+      spendCardIds: string[];
+    }
   | {
       type: "TRADE";
       player1Id: string;
