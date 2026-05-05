@@ -16,9 +16,6 @@ export function validateAgeBourbon(
   if (!isCurrentPlayer(state, action.playerId)) {
     return { legal: false, reason: "it is not your turn" };
   }
-  if (player.pendingRushBarrelId) {
-    return { legal: false, reason: "you must resolve a forced Rush to Market first" };
-  }
 
   const barrel = state.allBarrels.find((b) => b.id === action.barrelId);
   if (!barrel) return { legal: false, reason: `barrel ${action.barrelId} not found` };

@@ -88,7 +88,7 @@ After all players have drafted their starter decks, each player shuffles and dra
 ## Step 5: Board Setup
 
 - Set up the **Market Conveyor**: 10 cards face-up from the market supply deck.
-- Shuffle and place the **Operations Deck** face-down in the center. Deal each player **2 Operations cards** face-down as their starting operations hand.
+- Shuffle and place the **Operations Deck** face-down in the center. Reveal the **top 3 Operations cards** face-up beside it — this is the active ops market. Players begin with an **empty operations hand**; ops cards are purchased from the face-up row during the Action Phase using resource and capital cards (see §Operations Cards).
 - Set the **Demand Track** to **0** (starting position).
 - Each player begins with **0 reputation**.
 - Place the Bourbon deck (mash bills) face-down within reach.
@@ -173,7 +173,7 @@ Mash bills without a printed recipe accept any legal mash. Recipes are public in
 
 ## Hand Size
 
-Each player draws **8 cards** from their resource deck at the start of every round, plus **1 Operations card** from the Operations deck (see §Operations Cards).
+Each player draws **8 cards** from their resource deck at the start of every round. Operations cards are **not auto-dealt** — they are purchased from the face-up ops market during the Action Phase (see §Operations Cards).
 
 There is no maximum hand size during a turn (mid-sale draws can temporarily expand a hand). At the end of each round, all unused resource and capital cards in hand are placed in the discard pile. Unplayed Operations cards are **held** — they do not discard at end of round and may be played in a future round.
 
@@ -202,7 +202,7 @@ Capital cards are spent as currency. They cannot be used to make bourbon. The nu
 In every other context — conversion, trading, aging — a capital card counts as a single card, the same as any other.
 
 ### Operations Cards
-Operations cards are a separate card type drawn from the Operations deck. They are played from hand as a free action during the Action Phase and represent market moves, regulatory events, and competitive plays. See §Operations Cards for full rules.
+Operations cards are a separate card type sold from the **face-up ops market** in the center of the table. Players buy them with resource and capital cards on their action turn (the cost is printed in the top-right corner of every card). Once held, an ops card is played as a **free action** during the Action Phase. See §Operations Cards for full rules.
 
 ---
 
@@ -211,7 +211,7 @@ Operations cards are a separate card type drawn from the Operations deck. They a
 Each round consists of five phases:
 
 1. **Demand Phase** — Roll 2d6; if higher than current demand, demand +1.
-2. **Draw Phase** — Each player draws 8 resource cards and 1 Operations card.
+2. **Draw Phase** — Each player draws 8 resource cards. (Operations cards are bought from the market, not drawn.)
 3. **Age Phase** — Players may place a card on top of each of their barrels to advance its age.
 4. **Action Phase** — Players take turns spending cards as actions until all hands are exhausted.
 5. **Cleanup Phase** — Unused resource cards go to discard, per-round flags reset, and the next round begins. If the final round was triggered, the game ends here and scoring occurs.
@@ -232,7 +232,7 @@ The bell-curve probability of 2d6 means demand naturally tends toward the middle
 
 Each player draws **8 cards** from their personal resource deck. If the deck runs out, shuffle the discard pile to form a new deck and continue drawing.
 
-Each player also draws **1 Operations card** from the shared Operations deck and adds it to their operations hand. Operations cards are held across rounds until played.
+Operations cards are **not auto-drawn**. Each round, the face-up Operations row at the center of the table refills from the top of the Ops deck — players acquire ops cards by purchasing them on their action turn (see §Operations Cards). Once held, an ops card stays in the player's operations hand until played.
 
 ---
 
@@ -263,10 +263,9 @@ A player whose hand is empty is "out" for the round and skipped on subsequent tu
 Each action requires spending one or more cards from your hand. Spent cards go to your discard pile unless otherwise noted.
 
 Players can:
-- Buy from the Market
+- Buy from the Market (resource or operations card)
 - Make Bourbon
 - Sell Bourbon
-- Rush to Market
 - Draw a Mash Bill
 - Trade
 - Convert (3:1)
@@ -275,13 +274,18 @@ Players can:
 
 ### Buy from the Market
 
-Spend cards from your hand totaling at least the cost of a card in the Market. Most basic cards cost 1; premium cards may cost more. A capital card contributes its printed value toward the purchase price; every other card counts as 1.
+There are **two market rows** to buy from:
 
-Both the **spent card(s)** and the **purchased card** go to your discard pile. After purchase, refill the Market by drawing a new card from the supply deck.
+- The **Market Conveyor** (10 face-up resource and capital cards).
+- The **Operations row** (top 3 face-up cards from the Ops deck). Operations cards bought here go straight into your operations hand and can be played as a free action on a later turn.
 
-For example, a card with cost 4 can be bought by discarding any 4 cards from hand, or by combining a +2 capital with two other cards, or by combining a +3 capital with one other card.
+Spend cards from your hand totaling at least the **cost printed on the top-right corner** of the card you want. Capital cards pay their printed value (e.g. $2). **Resource cards pay 1¢ each** and may be combined with capital cards in the same purchase.
 
-Cards can only be purchased one at a time. There is no bundling and no carryover. If you overpay, the excess value is lost — using a +3 capital to buy a 2-cost card does not let you spend the leftover 1 on another card.
+Both the **spent card(s)** and (for conveyor purchases) the **purchased card** go to your discard pile. Operations cards bought from the Operations row go to your **operations hand** instead. After any purchase, the empty slot is refilled from the corresponding deck.
+
+For example, a card with cost 4¢ can be bought by spending any four resource cards from hand, by combining a $2 capital with two resource cards, by combining a $3 capital with one resource card, or any other combination summing to ≥ 4¢.
+
+Cards can only be purchased one at a time. There is no bundling and no carryover. If you overpay, the excess value is lost — using a $3 capital to buy a 2¢ card does not let you spend the leftover 1¢ on another card.
 
 ### Make Bourbon
 
@@ -313,16 +317,6 @@ After resolving the sale:
 - Discard the mash bill, unless an award says otherwise (see §Bourbon Awards).
 - Return all aging cards and ingredient cards on the barrel to your discard pile.
 - Remove the barrel from your rickhouse.
-
-### Rush to Market
-
-Sell one of your barrels that is only **1 year old** — below the normal minimum age. This is a distress sale and carries penalties:
-
-- The reputation reward is **half the normal grid value**, rounded down (minimum 1).
-- **Demand does not drop** after a Rush to Market sale.
-- The purchasing power option is **not available** — the full (halved) reward converts directly to reputation.
-
-All other sale resolution steps apply normally. Rush to Market is the primary comeback mechanism for players who are hand-starved or locked into a bad position. It frees cards from a barrel at significant cost.
 
 ### Draw a Mash Bill
 
@@ -365,16 +359,16 @@ End your turn voluntarily. Resource cards remaining in your hand are held until 
 
 # 🃏 Operations Cards
 
-Operations cards represent market moves, regulatory events, competitive pressure, and moments of opportunism. They are drawn from a shared Operations deck — one per player per round — and held across rounds until played.
+Operations cards represent market moves, regulatory events, competitive pressure, and moments of opportunism. They are sold from a **face-up Operations row** at the center of the table — players acquire them by purchasing on their action turn (resource and capital cards both pay; cost is printed in the top-right corner) and hold them across rounds until played.
 
 ## How Operations Cards Work
 
-- Drawn at the start of each round during the Draw Phase (1 card per player).
+- Bought from the face-up Ops row (3 cards visible) on your turn. The empty slot refills from the top of the Ops deck after each purchase.
 - Held in a separate operations hand. There is no limit to how many you may hold.
 - Played during **your turn in the Action Phase**, before or after your main action. Playing an Operations card is free and does not consume your action.
 - Each Operations card is **one-time use** and is discarded after play unless the card states otherwise.
 - Operations cards cannot be traded.
-- Operations cards are **not** played during the final round, except those already triggered before the final round began.
+- Operations cards are **not** played during the final round, except those already in your hand before the final round began.
 
 ## Operations Card Examples
 
@@ -400,13 +394,6 @@ Represents a real-world regulatory hold. Targets the upper tier only — bonded 
 *Age one of your barrels twice this round instead of once. Place 2 aging cards on a single barrel during the Age Phase.*
 
 Accelerates a barrel's timeline at the cost of two hand cards instead of one. Powerful in the late game when a barrel is close to a valuable age band.
-
----
-
-**Distressed Sale Notice**
-*Force a player with a full rickhouse to immediately Rush to Market on one of their barrels of your choice. That player resolves the Rush to Market sale on their next turn.*
-
-Aggressive. Targets players overextended in production. The forced barrel is chosen by the playing player; the affected player resolves the sale.
 
 ---
 
@@ -464,7 +451,7 @@ Demand ranges from **0 to 12**. It begins at 0.
 
 - **Rises by 1** at the start of each round if 2d6 rolls higher than the current demand.
 - **Falls by 1** each time a barrel is sold via Sell Bourbon (floored at 0).
-- **Unaffected** by Rush to Market sales.
+- Unaffected by certain operations cards (e.g., Demand Surge nullifies the next sale's demand drop).
 - **Can be moved** by certain Operations cards.
 
 Demand affects every sale. The mash bill's grid uses the current demand to determine the reputation reward.
@@ -608,7 +595,7 @@ After all players have drafted their starter decks, each player shuffles and dra
 ## Step 5: Board Setup
 
 - Set up the **Market Conveyor**: 10 cards face-up from the market supply deck.
-- Shuffle and place the **Operations Deck** face-down in the center. Deal each player **2 Operations cards** face-down as their starting operations hand.
+- Shuffle and place the **Operations Deck** face-down in the center. Reveal the **top 3 Operations cards** face-up beside it — this is the active ops market. Players begin with an **empty operations hand**; ops cards are purchased from the face-up row during the Action Phase using resource and capital cards (see §Operations Cards).
 - Set the **Demand Track** to **0** (starting position).
 - Each player begins with **0 reputation**.
 - Place the Bourbon deck (mash bills) face-down within reach.
@@ -695,7 +682,7 @@ Mash bills without a printed recipe accept any legal mash. Recipes are public in
 
 ## Hand Size
 
-Each player draws **8 cards** from their resource deck at the start of every round, plus **1 Operations card** from the Operations deck (see §Operations Cards).
+Each player draws **8 cards** from their resource deck at the start of every round. Operations cards are **not auto-dealt** — they are purchased from the face-up ops market during the Action Phase (see §Operations Cards).
 
 There is no maximum hand size during a turn (mid-sale draws can temporarily expand a hand). At the end of each round, all unused resource and capital cards in hand are placed in the discard pile. Unplayed Operations cards are **held** — they do not discard at end of round and may be played in a future round.
 
@@ -724,7 +711,7 @@ Capital cards are spent as currency. They cannot be used to make bourbon. The nu
 In every other context — conversion, trading, aging — a capital card counts as a single card, the same as any other.
 
 ### Operations Cards
-Operations cards are a separate card type drawn from the Operations deck. They are played from hand as a free action during the Action Phase and represent market moves, regulatory events, and competitive plays. See §Operations Cards for full rules.
+Operations cards are a separate card type sold from the **face-up ops market** in the center of the table. Players buy them with resource and capital cards on their action turn (the cost is printed in the top-right corner of every card). Once held, an ops card is played as a **free action** during the Action Phase. See §Operations Cards for full rules.
 
 ---
 
@@ -733,7 +720,7 @@ Operations cards are a separate card type drawn from the Operations deck. They a
 Each round consists of five phases:
 
 1. **Demand Phase** — Roll 2d6; if higher than current demand, demand +1.
-2. **Draw Phase** — Each player draws 8 resource cards and 1 Operations card.
+2. **Draw Phase** — Each player draws 8 resource cards. (Operations cards are bought from the market, not drawn.)
 3. **Age Phase** — Players may place a card on top of each of their barrels to advance its age.
 4. **Action Phase** — Players take turns spending cards as actions until all hands are exhausted.
 5. **Cleanup Phase** — Unused resource cards go to discard, per-round flags reset, and the next round begins. If the final round was triggered, the game ends here and scoring occurs.
@@ -754,7 +741,7 @@ The bell-curve probability of 2d6 means demand naturally tends toward the middle
 
 Each player draws **8 cards** from their personal resource deck. If the deck runs out, shuffle the discard pile to form a new deck and continue drawing.
 
-Each player also draws **1 Operations card** from the shared Operations deck and adds it to their operations hand. Operations cards are held across rounds until played.
+Operations cards are **not auto-drawn**. Each round, the face-up Operations row at the center of the table refills from the top of the Ops deck — players acquire ops cards by purchasing them on their action turn (see §Operations Cards). Once held, an ops card stays in the player's operations hand until played.
 
 ---
 
@@ -785,10 +772,9 @@ A player whose hand is empty is "out" for the round and skipped on subsequent tu
 Each action requires spending one or more cards from your hand. Spent cards go to your discard pile unless otherwise noted.
 
 Players can:
-- Buy from the Market
+- Buy from the Market (resource or operations card)
 - Make Bourbon
 - Sell Bourbon
-- Rush to Market
 - Draw a Mash Bill
 - Trade
 - Convert (3:1)
@@ -796,13 +782,18 @@ Players can:
 
 ### Buy from the Market
 
-Spend cards from your hand totaling at least the cost of a card in the Market. Most basic cards cost 1; premium cards may cost more. A capital card contributes its printed value toward the purchase price; every other card counts as 1.
+There are **two market rows** to buy from:
 
-Both the **spent card(s)** and the **purchased card** go to your discard pile. After purchase, refill the Market by drawing a new card from the supply deck.
+- The **Market Conveyor** (10 face-up resource and capital cards).
+- The **Operations row** (top 3 face-up cards from the Ops deck). Operations cards bought here go straight into your operations hand and can be played as a free action on a later turn.
 
-For example, a card with cost 4 can be bought by discarding any 4 cards from hand, or by combining a +2 capital with two other cards, or by combining a +3 capital with one other card.
+Spend cards from your hand totaling at least the **cost printed on the top-right corner** of the card you want. Capital cards pay their printed value (e.g. $2). **Resource cards pay 1¢ each** and may be combined with capital cards in the same purchase.
 
-Cards can only be purchased one at a time. There is no bundling and no carryover. If you overpay, the excess value is lost — using a +3 capital to buy a 2-cost card does not let you spend the leftover 1 on another card.
+Both the **spent card(s)** and (for conveyor purchases) the **purchased card** go to your discard pile. Operations cards bought from the Operations row go to your **operations hand** instead. After any purchase, the empty slot is refilled from the corresponding deck.
+
+For example, a card with cost 4¢ can be bought by spending any four resource cards from hand, by combining a $2 capital with two resource cards, by combining a $3 capital with one resource card, or any other combination summing to ≥ 4¢.
+
+Cards can only be purchased one at a time. There is no bundling and no carryover. If you overpay, the excess value is lost — using a $3 capital to buy a 2¢ card does not let you spend the leftover 1¢ on another card.
 
 ### Make Bourbon
 
@@ -830,16 +821,6 @@ After resolving the sale:
 - Discard the mash bill, unless an award says otherwise (see §Bourbon Awards).
 - Return all aging cards and ingredient cards on the barrel to your discard pile.
 - Remove the barrel from your rickhouse.
-
-### Rush to Market
-
-Sell one of your barrels that is only **1 year old** — below the normal minimum age. This is a distress sale and carries penalties:
-
-- The reputation reward is **half the normal grid value**, rounded down (minimum 1).
-- **Demand does not drop** after a Rush to Market sale.
-- The purchasing power option is **not available** — the full (halved) reward converts directly to reputation.
-
-All other sale resolution steps apply normally. Rush to Market is the primary comeback mechanism for players who are hand-starved or locked into a bad position. It frees cards from a barrel at significant cost.
 
 ### Draw a Mash Bill
 
@@ -907,13 +888,6 @@ Accelerates a barrel's timeline at the cost of two hand cards instead of one. Po
 
 ---
 
-**Distressed Sale Notice**
-*Force a player with a full rickhouse to immediately Rush to Market on one of their barrels of your choice. That player resolves the Rush to Market sale on their next turn.*
-
-Aggressive. Targets players overextended in production. The forced barrel is chosen by the playing player; the affected player resolves the sale.
-
----
-
 **Barrel Broker**
 *Arrange a Secondary Market sale. One of your barrels transfers to another player's empty upper tier slot at a negotiated card payment agreed between both players. The receiving player inherits the barrel at its current age and attached mash bill. Demand does not drop.*
 
@@ -968,7 +942,7 @@ Demand ranges from **0 to 12**. It begins at 0.
 
 - **Rises by 1** at the start of each round if 2d6 rolls higher than the current demand.
 - **Falls by 1** each time a barrel is sold via Sell Bourbon (floored at 0).
-- **Unaffected** by Rush to Market sales.
+- Unaffected by certain operations cards (e.g., Demand Surge nullifies the next sale's demand drop).
 - **Can be moved** by certain Operations cards.
 
 Demand affects every sale. The mash bill's grid uses the current demand to determine the reputation reward.

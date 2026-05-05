@@ -63,14 +63,13 @@ describe("DRAW_HAND", () => {
     expect(p1.discard).toHaveLength(0);
   });
 
-  it("also adds 1 operations card to the player's operations hand each round", () => {
+  it("does NOT auto-deal an operations card on draw — ops are bought from market", () => {
     let state = makeTestGame();
     const initialOps = state.players[0]!.operationsHand.length;
     state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.operationsHand.length).toBe(initialOps + 1);
-    expect(p1.operationsHand[p1.operationsHand.length - 1]!.drawnInRound).toBe(1);
+    expect(p1.operationsHand.length).toBe(initialOps);
   });
 
   it("rejects double-draw by the same player", () => {

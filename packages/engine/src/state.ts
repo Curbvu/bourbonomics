@@ -93,8 +93,7 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
  * to the next round (or end the game if the final round was triggered).
  *
  * Operations cards are NOT discarded at end of round — they persist across
- * rounds until played. The pendingRushBarrelId likewise persists until the
- * affected player resolves it.
+ * rounds until played.
  */
 export function runCleanupPhase(draft: Draft<GameState>): void {
   draft.phase = "cleanup";

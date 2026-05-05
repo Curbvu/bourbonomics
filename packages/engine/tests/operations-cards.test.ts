@@ -31,6 +31,7 @@ function giveOpsCard(
     defId,
     name: defId,
     description: "test card",
+    cost: 4,
     drawnInRound,
   };
   return {
@@ -185,40 +186,7 @@ describe("PLAY_OPERATIONS_CARD — Demand Surge", () => {
   });
 });
 
-describe("PLAY_OPERATIONS_CARD — Distressed Sale Notice", () => {
-  it("forces the target to Rush to Market on their next turn", () => {
-    let state = makeTestGame({ startingDemand: 6 });
-    state = advanceToActionPhase(state, [1, 1]);
-    // Fill p2's rickhouse with a 1yo barrel (and 3 dummies to reach capacity 4).
-    for (let i = 0; i < 4; i++) {
-      state = placeBarrel(state, "p2", bill(), i === 0 ? 1 : 3);
-    }
-    const targetBarrelId = state.allBarrels.find((b) => b.ownerId === "p2" && b.age === 1)!.id;
-    const { state: s, cardId } = giveOpsCard(state, "p1", "distressed_sale_notice");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "distressed_sale_notice",
-      targetPlayerId: "p2",
-      targetBarrelId,
-    });
-    expect(state.players.find((p) => p.id === "p2")!.pendingRushBarrelId).toBe(targetBarrelId);
-    // p1 still has their action — pass the turn so we get to p2.
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
-    // p2 now must Rush to Market — any other action is rejected.
-    state = giveHand(state, "p2", [makeCapitalCard("p2", 0)]);
-    expect(() =>
-      applyAction(state, { type: "PASS_TURN", playerId: "p2" }),
-    ).toThrow(/forced Rush/);
-    state = applyAction(state, {
-      type: "RUSH_TO_MARKET",
-      playerId: "p2",
-      barrelId: targetBarrelId,
-    });
-    expect(state.players.find((p) => p.id === "p2")!.pendingRushBarrelId).toBeNull();
-  });
-});
+// Distressed Sale Notice was removed alongside the Rush to Market mechanic.
 
 describe("PLAY_OPERATIONS_CARD — Market Corner", () => {
   it("takes a face-up market card into hand without paying", () => {

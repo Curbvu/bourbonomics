@@ -1,5 +1,11 @@
 import type { Card, InvestmentCard, MashBill } from "./types";
-import { makeCapitalCard, makeMashBill, makeResourceCard } from "./cards";
+import {
+  makeCapitalCard,
+  makeMashBill,
+  makePremiumCapital,
+  makePremiumResource,
+  makeResourceCard,
+} from "./cards";
 
 // ============================================================
 // Investment catalog — display-only stub for v2.1. The mechanic ships
@@ -14,6 +20,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "grain_elevator",
       name: "Grain Elevator",
       capital: 2,
+      cost: 4,
       short: "Cheap market bump",
       effect:
         "While active, once per round your market buy draws one extra resource card on that action.",
@@ -23,6 +30,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "family_recipe",
       name: "Family Recipe",
       capital: 2,
+      cost: 4,
       short: "One cheaper action",
       effect:
         "Your very next distillery action this round costs $1 less (minimum $0).",
@@ -32,6 +40,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "tourism_board",
       name: "Tourism Board Seat",
       capital: 3,
+      cost: 5,
       short: "First paid action cheaper",
       effect: "The first paid action you take each round costs $1 less.",
       tier: "cheap",
@@ -40,6 +49,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "rickhouse_expansion",
       name: "Rickhouse Expansion",
       capital: 3,
+      cost: 6,
       short: "Lighter rent each round",
       effect:
         "Once per round subtract $1 from your total rickhouse fees (minimum $0).",
@@ -49,6 +59,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "second_shift",
       name: "Second Shift",
       capital: 3,
+      cost: 5,
       short: "Standard cheap-action repeat",
       effect: "Your very next distillery action this round costs $1 less.",
       tier: "cheap",
@@ -57,6 +68,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "climate_tier",
       name: "Climate-Controlled Tier",
       capital: 5,
+      cost: 8,
       short: "Steady aging, steadier books",
       effect:
         "First paid action each round costs $1 less AND once per round shave $1 off rickhouse fees.",
@@ -66,6 +78,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "private_label",
       name: "Private Label Deal",
       capital: 6,
+      cost: 9,
       short: "Premium sale bump",
       effect: "Once per round, your next sale gains +$2 reputation.",
       tier: "medium",
@@ -74,6 +87,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "master_blender",
       name: "Master Blender",
       capital: 7,
+      cost: 10,
       short: "Mash-bill recipe relief",
       effect: "Your wheated and high-rye recipes need 1 fewer matching grain.",
       tier: "medium",
@@ -82,6 +96,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "press_circuit",
       name: "Press Circuit",
       capital: 10,
+      cost: 14,
       short: "Demand pumper",
       effect:
         "Once per round, before rolling demand you may add +1 to the result (capped at 12).",
@@ -91,6 +106,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "private_warehouse",
       name: "Private Warehouse",
       capital: 11,
+      cost: 16,
       short: "+1 upper-tier slot",
       effect:
         "Adds a permanent +1 upper-tier slot to your rickhouse.",
@@ -100,6 +116,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "barrel_cooperage",
       name: "Barrel Cooperage",
       capital: 12,
+      cost: 17,
       short: "Free a cask each barrel",
       effect:
         "Once per round, when you Make Bourbon, one cask returns to your hand instead of discard.",
@@ -109,6 +126,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       defId: "national_brand",
       name: "National Brand",
       capital: 12,
+      cost: 18,
       short: "Late-game scoring engine",
       effect:
         "At end of game, gain +1 reputation per barrel you sold (caps at +10).",
@@ -491,15 +509,123 @@ export function defaultMashBillCatalog(): MashBill[] {
 export function defaultMarketSupply(): Card[] {
   const cards: Card[] = [];
   let idx = 0;
-  // Premium resource cards (2x of a single subtype)
-  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("rye", "supply", idx++, true, 2));
-  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("corn", "supply", idx++, true, 2));
-  for (let i = 0; i < 3; i++) cards.push(makeResourceCard("wheat", "supply", idx++, true, 2));
-  for (let i = 0; i < 3; i++) cards.push(makeResourceCard("barley", "supply", idx++, true, 2));
-  // High-value capital
-  for (let i = 0; i < 5; i++) cards.push(makeCapitalCard("supply", idx++, 2));
-  for (let i = 0; i < 3; i++) cards.push(makeCapitalCard("supply", idx++, 3));
-  // Plain backups
+
+  // ── Themed premium resources ────────────────────────────────────────
+  // Each variant has a distinct name so the conveyor reads as a varied
+  // shelf rather than a row of "2× corn" tiles. Costs reflect impact:
+  // wildcard grain pays 1 unit but stands in for any grain (recipe
+  // flexibility); 3× corn pays a chunk in one card; toasted cask
+  // doubles as production AND aging fuel.
+
+  // Toasted Cask — a 2× cask, ideal for early production + late aging.
+  for (let i = 0; i < 3; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "toasted_cask",
+        displayName: "Toasted Cask",
+        flavor: "Charred deeper. Counts as two casks.",
+        subtype: "cask",
+        resourceCount: 2,
+        cost: 3,
+        index: idx++,
+      }),
+    );
+
+  // High-Rye Bushel — 2× rye in a single card.
+  for (let i = 0; i < 3; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "high_rye_bushel",
+        displayName: "High-Rye Bushel",
+        flavor: "Twice the spice in one bag.",
+        subtype: "rye",
+        resourceCount: 2,
+        cost: 3,
+        index: idx++,
+      }),
+    );
+
+  // Wheated Bale — 2× wheat for soft-grained recipes.
+  for (let i = 0; i < 3; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "wheated_bale",
+        displayName: "Wheated Bale",
+        flavor: "Soft, slow, generous.",
+        subtype: "wheat",
+        resourceCount: 2,
+        cost: 3,
+        index: idx++,
+      }),
+    );
+
+  // Heritage Barley — 2× barley, prized for malting.
+  for (let i = 0; i < 2; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "heritage_barley",
+        displayName: "Heritage Barley",
+        flavor: "Heirloom strain, double yield.",
+        subtype: "barley",
+        resourceCount: 2,
+        cost: 3,
+        index: idx++,
+      }),
+    );
+
+  // Bumper Corn — 3× corn in a single card. The breadwinner.
+  for (let i = 0; i < 2; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "bumper_corn",
+        displayName: "Bumper Corn",
+        flavor: "Triple-bin yield. The breadwinner.",
+        subtype: "corn",
+        resourceCount: 3,
+        cost: 4,
+        index: idx++,
+      }),
+    );
+
+  // Wildcard Grain — 1 unit but satisfies any grain requirement (rye,
+  // barley, OR wheat). Recipe flex card; pays its weight in unlocking.
+  for (let i = 0; i < 3; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "wildcard_grain",
+        displayName: "Wildcard Grain",
+        flavor: "Substitutes for rye, barley, or wheat.",
+        subtype: "rye",
+        aliases: ["barley", "wheat"],
+        resourceCount: 1,
+        cost: 3,
+        index: idx++,
+      }),
+    );
+
+  // ── Themed capital ─────────────────────────────────────────────────
+  for (let i = 0; i < 4; i++)
+    cards.push(
+      makePremiumCapital({
+        defId: "cellar_stipend",
+        displayName: "Cellar Stipend",
+        flavor: "Two coins for the cooper.",
+        capitalValue: 2,
+        index: idx++,
+      }),
+    );
+  for (let i = 0; i < 3; i++)
+    cards.push(
+      makePremiumCapital({
+        defId: "brand_loan",
+        displayName: "Brand Loan",
+        flavor: "Three on credit, due in glory.",
+        capitalValue: 3,
+        index: idx++,
+      }),
+    );
+
+  // ── Plain backups (refill the conveyor late-game) ──────────────────
   for (let i = 0; i < 4; i++) cards.push(makeResourceCard("corn", "supply", idx++));
   for (let i = 0; i < 4; i++) cards.push(makeResourceCard("rye", "supply", idx++));
   for (let i = 0; i < 4; i++) cards.push(makeCapitalCard("supply", idx++));

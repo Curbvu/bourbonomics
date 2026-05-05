@@ -13,9 +13,11 @@
  */
 
 import { useGameStore } from "@/lib/store/game";
+import CardInspectModal from "./CardInspectModal";
 import GameOverPanel from "./GameOverPanel";
 import HandTray from "./HandTray";
 import MarketCenter from "./MarketCenter";
+import PurchaseFlight from "./PurchaseFlight";
 import RickhouseRow from "./RickhouseRow";
 import RightRail from "./RightRail";
 
@@ -44,6 +46,14 @@ export default function GameBoard() {
 
       {/* HandTray bleeds to canvas edges. */}
       <HandTray />
+
+      {/* Click-any-card inspect modal — mounts at top level so it sits
+          above every panel. Renders only when `inspect` is set. */}
+      <CardInspectModal />
+
+      {/* Purchase animation — fires on every BUY_FROM_MARKET (bot or
+          human) and self-clears when the keyframe finishes. */}
+      <PurchaseFlight />
     </div>
   );
 }

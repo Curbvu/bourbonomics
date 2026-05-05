@@ -70,9 +70,6 @@ export function validateMakeBourbon(
   if (!isCurrentPlayer(state, action.playerId)) {
     return { legal: false, reason: "it is not your turn" };
   }
-  if (player.pendingRushBarrelId) {
-    return { legal: false, reason: "you must resolve a forced Rush to Market first" };
-  }
 
   const mashBill = player.mashBills.find((m) => m.id === action.mashBillId);
   if (!mashBill) {

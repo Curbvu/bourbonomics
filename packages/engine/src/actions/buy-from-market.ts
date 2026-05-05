@@ -1,6 +1,6 @@
 import type { Draft } from "immer";
 import type { Card, GameAction, GameState, ValidationResult } from "../types";
-import { capitalUnits } from "../cards";
+import { paymentValue } from "../cards";
 import { drawWithReshuffle } from "../deck";
 import { endPlayerTurn, isCurrentPlayer } from "../state";
 
@@ -19,9 +19,6 @@ export function validateBuyFromMarket(
   if (!player) return { legal: false, reason: `unknown player ${action.playerId}` };
   if (!isCurrentPlayer(state, action.playerId)) {
     return { legal: false, reason: "it is not your turn" };
-  }
-  if (player.pendingRushBarrelId) {
-    return { legal: false, reason: "you must resolve a forced Rush to Market first" };
   }
 
   const purchased = state.marketConveyor[action.marketSlotIndex];
@@ -48,19 +45,14 @@ export function validateBuyFromMarket(
       return { legal: false, reason: `card ${id} is not in your hand` };
     }
     const card = player.hand.find((c) => c.id === id)!;
-    if (card.type !== "capital") {
-      return {
-        legal: false,
-        reason: `${id} is not a capital card — market purchases require capital`,
-      };
-    }
-    totalCapital += capitalUnits(card);
+    // Capital cards pay their face value; resource cards pay 1¢ each.
+    totalCapital += paymentValue(card);
   }
 
   if (totalCapital < cost) {
     return {
       legal: false,
-      reason: `spent capital is ${totalCapital}, need ${cost}`,
+      reason: `spent value is ${totalCapital}¢, need ${cost}¢`,
     };
   }
 

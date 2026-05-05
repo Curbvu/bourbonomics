@@ -27,9 +27,6 @@ export function validatePassTurn(
   if (player.outForRound) {
     return { legal: false, reason: "you are already out for the round" };
   }
-  if (player.pendingRushBarrelId) {
-    return { legal: false, reason: "you must resolve a forced Rush to Market first" };
-  }
   return { legal: true };
 }
 

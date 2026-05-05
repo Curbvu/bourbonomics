@@ -110,10 +110,10 @@ function describe(
           reputation.
         </>
       );
-    case "RUSH_TO_MARKET":
-      return <>{who(a.playerId)} rushed a 1-year barrel to market.</>;
     case "BUY_FROM_MARKET":
       return <>{who(a.playerId)} bought a card from the market.</>;
+    case "BUY_OPERATIONS_CARD":
+      return <>{who(a.playerId)} bought an operations card.</>;
     case "DRAW_MASH_BILL":
       return <>{who(a.playerId)} drew a mash bill.</>;
     case "TRADE":

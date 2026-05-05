@@ -28,6 +28,10 @@ export interface Card {
   aliases?: ResourceSubtype[];
   /** Capital cost to acquire this card from the market. */
   cost?: number;
+  /** Optional themed name shown in place of the auto-generated label. */
+  displayName?: string;
+  /** Optional one-line flavor used by the inspect modal. */
+  flavor?: string;
 }
 
 // -----------------------------
@@ -84,8 +88,10 @@ export interface InvestmentCard {
   id: string;
   defId: string;
   name: string;
-  /** Capital cost to implement when the mechanic ships. */
+  /** Capital cost to implement when the mechanic ships in v2.2. */
   capital: number;
+  /** Up-front market price (top-right corner chip). */
+  cost: number;
   /** Short tagline shown on the card face. */
   short: string;
   /** Long description of what the card does when implemented. */
@@ -130,7 +136,6 @@ export type OperationsCardDefId =
   | "market_manipulation"
   | "regulatory_inspection"
   | "rushed_shipment"
-  | "distressed_sale_notice"
   | "barrel_broker"
   | "market_corner"
   | "blend"
@@ -141,6 +146,8 @@ export interface OperationsCard {
   defId: OperationsCardDefId;
   name: string;
   description: string;
+  /** Up-front market price (top-right corner chip). */
+  cost: number;
   /** Round in which the card was added to the player's operations hand. */
   drawnInRound: number;
 }
@@ -216,8 +223,6 @@ export interface PlayerState {
   demandSurgeActive: boolean;
   /** Set by The Broker bonus — true once the free trade has been used this round. */
   brokerFreeTradeUsed: boolean;
-  /** Set by Distressed Sale Notice — must Rush to Market this barrel on next turn. */
-  pendingRushBarrelId: string | null;
 }
 
 // -----------------------------
@@ -322,8 +327,6 @@ export interface GameConfig {
   startingDemand?: number;
   /** Override starting hand size (default 8). */
   startingHandSize?: number;
-  /** Number of operations cards each player starts with. Default 2 per rules. */
-  startingOperationsCardCount?: number;
 }
 
 // -----------------------------
@@ -341,7 +344,6 @@ export type PlayOperationsCardParams =
   | { defId: "market_manipulation"; direction: "up" | "down" }
   | { defId: "regulatory_inspection"; targetBarrelId: string }
   | { defId: "rushed_shipment"; targetBarrelId: string }
-  | { defId: "distressed_sale_notice"; targetPlayerId: string; targetBarrelId: string }
   | {
       defId: "barrel_broker";
       sourceBarrelId: string;
@@ -376,15 +378,21 @@ export type GameAction =
       goldBourbonId?: string;             // optionally apply a permanent Gold recipe
     }
   | {
-      type: "RUSH_TO_MARKET";
-      playerId: string;
-      barrelId: string;
-      goldBourbonId?: string;
-    }
-  | {
       type: "BUY_FROM_MARKET";
       playerId: string;
       marketSlotIndex: number;
+      /**
+       * Cards spent from hand to pay the cost. Capital cards pay their
+       * `capitalValue`; resource cards pay 1¢ each.
+       */
+      spendCardIds: string[];
+    }
+  | {
+      type: "BUY_OPERATIONS_CARD";
+      playerId: string;
+      /** Index into the face-up operations row (0..2). */
+      opsSlotIndex: number;
+      /** Same payment rules as BUY_FROM_MARKET. */
       spendCardIds: string[];
     }
   | { type: "DRAW_MASH_BILL"; playerId: string; spendCardId: string }

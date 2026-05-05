@@ -5,8 +5,11 @@ import { applyDrawHand, validateDrawHand } from "./actions/draw";
 import { applyMakeBourbon, validateMakeBourbon } from "./actions/make-bourbon";
 import { applyAgeBourbon, validateAgeBourbon } from "./actions/age-bourbon";
 import { applySellBourbon, validateSellBourbon } from "./actions/sell-bourbon";
-import { applyRushToMarket, validateRushToMarket } from "./actions/rush-to-market";
 import { applyBuyFromMarket, validateBuyFromMarket } from "./actions/buy-from-market";
+import {
+  applyBuyOperationsCard,
+  validateBuyOperationsCard,
+} from "./actions/buy-operations-card";
 import { applyDrawMashBill, validateDrawMashBill } from "./actions/draw-deck";
 import { applyTrade, validateTrade } from "./actions/trade";
 import { applyPassTurn, validatePassTurn } from "./actions/pass-turn";
@@ -49,10 +52,10 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateAgeBourbon(state, action);
     case "SELL_BOURBON":
       return validateSellBourbon(state, action);
-    case "RUSH_TO_MARKET":
-      return validateRushToMarket(state, action);
     case "BUY_FROM_MARKET":
       return validateBuyFromMarket(state, action);
+    case "BUY_OPERATIONS_CARD":
+      return validateBuyOperationsCard(state, action);
     case "DRAW_MASH_BILL":
       return validateDrawMashBill(state, action);
     case "TRADE":
@@ -107,11 +110,11 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
     case "SELL_BOURBON":
       applySellBourbon(draft, action);
       return;
-    case "RUSH_TO_MARKET":
-      applyRushToMarket(draft, action);
-      return;
     case "BUY_FROM_MARKET":
       applyBuyFromMarket(draft, action);
+      return;
+    case "BUY_OPERATIONS_CARD":
+      applyBuyOperationsCard(draft, action);
       return;
     case "DRAW_MASH_BILL":
       applyDrawMashBill(draft, action);

@@ -24,6 +24,7 @@ import type {
 } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import ActionBar from "./ActionBar";
+import BuyOverlay from "./BuyOverlay";
 import PlayerSwatch from "./PlayerSwatch";
 import {
   CAPITAL_CHROME,
@@ -44,11 +45,19 @@ export default function HandTray() {
   const playerIndex = state.players.findIndex((p) => p.id === focused.id);
   const meta = seatMeta.find((m) => m.id === focused.id);
 
-  const resources = focused.hand.filter((c) => c.type === "resource");
-  const capitals = focused.hand.filter((c) => c.type === "capital");
+  // Capital is a resource — render them in a single mixed row, sorted
+  // so the row reads consistently (capital first, then by subtype).
+  const handCards = [...focused.hand].sort((a, b) => {
+    const order = (c: typeof a) =>
+      c.type === "capital" ? 0 : SUBTYPE_ORDER[c.subtype ?? "cask"] ?? 99;
+    return order(a) - order(b);
+  });
 
   return (
     <div className="border-t border-slate-800 bg-slate-950/90">
+      {/* Interactive Buy mode — sticky bar above the action bar; only
+          paints when the player has clicked Buy market. */}
+      <BuyOverlay />
       {/* Action bar — controls for the human seat during the action phase. */}
       <ActionBar />
 
@@ -91,33 +100,28 @@ export default function HandTray() {
 
       {/* Card sections */}
       <div className="flex items-stretch gap-[14px] overflow-x-auto px-[22px] py-3">
-        {/* Resources */}
-        <Section caption="resources" count={resources.length}>
-          {resources.length === 0 ? (
-            <EmptyPill>no resources</EmptyPill>
+        {/* Resources (capital folded in — capital is a resource). */}
+        <Section caption="resources" count={handCards.length}>
+          {handCards.length === 0 ? (
+            <EmptyPill>no cards</EmptyPill>
           ) : (
             <CardAccordion>
-              {resources.map((c, i) => (
-                <ResourceCard key={c.id} card={c} indexInRow={i} />
-              ))}
+              {handCards.map((c, i) =>
+                c.type === "capital" ? (
+                  <CapitalCard key={c.id} card={c} indexInRow={i} />
+                ) : (
+                  <ResourceCard key={c.id} card={c} indexInRow={i} />
+                ),
+              )}
             </CardAccordion>
           )}
         </Section>
 
         <Divider />
 
-        {/* Capital */}
-        <Section caption="capital" count={capitals.length}>
-          {capitals.length === 0 ? (
-            <EmptyPill>no capital</EmptyPill>
-          ) : (
-            <CardAccordion>
-              {capitals.map((c, i) => (
-                <CapitalCard key={c.id} card={c} indexInRow={i} />
-              ))}
-            </CardAccordion>
-          )}
-        </Section>
+        {/* Deck pile — sits where the dev-branch "Cash" widget used to live.
+            Two stacked counters: face-down deck and discard. */}
+        <DeckPile deckCount={focused.deck.length} discardCount={focused.discard.length} />
 
         <Divider />
 
@@ -149,6 +153,91 @@ export default function HandTray() {
           )}
         </Section>
       </div>
+    </div>
+  );
+}
+
+/** Stable ordering inside the mixed Resources row. */
+const SUBTYPE_ORDER: Record<string, number> = {
+  cask: 1,
+  corn: 2,
+  rye: 3,
+  barley: 4,
+  wheat: 5,
+};
+
+/**
+ * Two-card silhouette showing the player's deck + discard counts in the
+ * dev-branch "cash" position. Self-contained — no clicks. The visuals
+ * are intentionally minimal: a stacked deck back + the running totals.
+ */
+function DeckPile({ deckCount, discardCount }: { deckCount: number; discardCount: number }) {
+  return (
+    <div className="flex flex-shrink-0 items-stretch gap-3">
+      <div className="flex flex-col items-end justify-between py-1">
+        <VerticalCaption>deck</VerticalCaption>
+      </div>
+      <div className="flex items-end gap-2">
+        <PileTile label="Deck" count={deckCount} accent="emerald" />
+        <PileTile label="Discard" count={discardCount} accent="amber" />
+      </div>
+    </div>
+  );
+}
+
+function PileTile({
+  label,
+  count,
+  accent,
+}: {
+  label: string;
+  count: number;
+  accent: "emerald" | "amber";
+}) {
+  const palette =
+    accent === "emerald"
+      ? {
+          border: "border-emerald-500/70",
+          gradient:
+            "bg-[linear-gradient(160deg,rgba(6,78,59,.65)_0%,rgba(15,23,42,.95)_75%)]",
+          ink: "text-emerald-100",
+          label: "text-emerald-300",
+        }
+      : {
+          border: "border-amber-500/70",
+          gradient:
+            "bg-[linear-gradient(160deg,rgba(120,53,15,.65)_0%,rgba(15,23,42,.95)_75%)]",
+          ink: "text-amber-100",
+          label: "text-amber-300",
+        };
+  return (
+    <div
+      title={`${label} · ${count} card${count === 1 ? "" : "s"}`}
+      className={[
+        "relative flex flex-col items-center justify-between overflow-hidden rounded-md border-2 p-1.5 ring-1 ring-white/10",
+        palette.border,
+        palette.gradient,
+        CARD_SIZE_CLASS,
+      ].join(" ")}
+    >
+      {/* Faux stacked-cards depth */}
+      <span
+        className={`pointer-events-none absolute inset-2 rounded border ${palette.border} opacity-60`}
+        aria-hidden
+      />
+      <span
+        className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent`}
+        aria-hidden
+      />
+      <span className={`mt-0.5 font-mono text-[9px] font-semibold uppercase tracking-[.18em] ${palette.label}`}>
+        {label}
+      </span>
+      <span className={`font-display text-[40px] font-bold leading-none tabular-nums drop-shadow-[0_3px_6px_rgba(0,0,0,.55)] ${palette.ink}`}>
+        {count}
+      </span>
+      <span className={`mb-0.5 font-mono text-[8px] uppercase tracking-[.14em] ${palette.label}`}>
+        cards
+      </span>
     </div>
   );
 }
@@ -249,18 +338,44 @@ function Stat({ label, value }: { label: string; value: number }) {
 const baseCardChrome = `relative flex flex-shrink-0 flex-col overflow-hidden rounded-md border-2 p-1.5 text-left shadow-[0_4px_12px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200 ${CARD_SIZE_CLASS}`;
 
 const liftClass =
-  "cursor-default hover:z-50 hover:-translate-y-3 hover:scale-[1.08]";
+  "cursor-pointer hover:z-50 hover:-translate-y-3 hover:scale-[1.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300";
 
 function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
+  const { setInspect, buyMode, toggleBuySpend } = useGameStore();
   const subtype = card.subtype as ResourceSubtype;
   const chrome = RESOURCE_CHROME[subtype];
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
   const count = card.resourceCount ?? 1;
+  const inBuyMode = buyMode != null;
+  const isSelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
+  const buyClass = !inBuyMode
+    ? ""
+    : isSelected
+      ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+      : "ring-2 ring-emerald-400/60";
+  const onClick = () => {
+    if (inBuyMode) toggleBuySpend(card.id);
+    else setInspect({ kind: "resource", card });
+  };
   return (
-    <div
-      title={`${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""}`}
-      className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass].join(" ")}
+    <button
+      type="button"
+      onClick={onClick}
+      title={
+        inBuyMode
+          ? `${isSelected ? "Unselect" : "Select"} this card to pay 1¢`
+          : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""}`
+      }
+      className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >
+      {inBuyMode && isSelected ? (
+        <span
+          className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
+          aria-hidden
+        >
+          ✓
+        </span>
+      ) : null}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
         aria-hidden
@@ -283,19 +398,45 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
       >
         {RESOURCE_GLYPH[subtype]}
       </div>
-    </div>
+    </button>
   );
 }
 
 function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
+  const { setInspect, buyMode, toggleBuySpend } = useGameStore();
   const value = card.capitalValue ?? 1;
   const chrome = CAPITAL_CHROME;
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
+  const inBuyMode = buyMode != null;
+  const isSelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
+  const buyClass = !inBuyMode
+    ? ""
+    : isSelected
+      ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+      : "ring-2 ring-emerald-400/60";
+  const onClick = () => {
+    if (inBuyMode) toggleBuySpend(card.id);
+    else setInspect({ kind: "capital", card });
+  };
   return (
-    <div
-      title={`Capital · pays $${value} at the market`}
-      className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass].join(" ")}
+    <button
+      type="button"
+      onClick={onClick}
+      title={
+        inBuyMode
+          ? `${isSelected ? "Unselect" : "Select"} this $${value} capital card to spend`
+          : `Capital · pays $${value} at the market`
+      }
+      className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >
+      {inBuyMode && isSelected ? (
+        <span
+          className="pointer-events-none absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
+          aria-hidden
+        >
+          ✓
+        </span>
+      ) : null}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
         aria-hidden
@@ -313,11 +454,12 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
           spend
         </span>
       </div>
-    </div>
+    </button>
   );
 }
 
 function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number }) {
+  const { setInspect } = useGameStore();
   const tier = tierOrCommon(bill.tier);
   const chrome = TIER_CHROME[tier];
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
@@ -329,7 +471,9 @@ function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number
   const peak = cells.length ? Math.max(...cells) : 0;
   const floor = cells.length ? Math.min(...cells) : 0;
   return (
-    <div
+    <button
+      type="button"
+      onClick={() => setInspect({ kind: "mashbill", bill })}
       title={`${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`}
       className={[baseCardChrome, chrome.gradient, chrome.border, chrome.glow, overlap, liftClass].join(" ")}
     >
@@ -359,15 +503,18 @@ function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number
           rep
         </span>
       </div>
-    </div>
+    </button>
   );
 }
 
 function OpsCard({ card, indexInRow }: { card: OperationsCard; indexInRow: number }) {
+  const { setInspect } = useGameStore();
   const chrome = OPS_CHROME;
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
   return (
-    <div
+    <button
+      type="button"
+      onClick={() => setInspect({ kind: "operations", card })}
       title={`${card.name} — ${card.description}`}
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass].join(" ")}
     >
@@ -386,6 +533,6 @@ function OpsCard({ card, indexInRow }: { card: OperationsCard; indexInRow: numbe
       <div className={`mt-auto grid h-10 w-10 self-center place-items-center rounded-full border-2 bg-white/10 text-xl font-bold ${chrome.border} ${chrome.ink}`}>
         ⚡
       </div>
-    </div>
+    </button>
   );
 }

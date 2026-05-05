@@ -43,13 +43,10 @@ describe("initializeGame", () => {
     }
   });
 
-  it("deals 2 starting operations cards per player", () => {
+  it("starts every player with an empty operations hand (ops are bought from market)", () => {
     const state = makeTestGame();
     for (const p of state.players) {
-      expect(p.operationsHand).toHaveLength(2);
-      for (const c of p.operationsHand) {
-        expect(c.drawnInRound).toBe(0);
-      }
+      expect(p.operationsHand).toHaveLength(0);
     }
   });
 

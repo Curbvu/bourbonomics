@@ -71,29 +71,6 @@ export function validatePlayOperationsCard(
       return { legal: true };
     }
 
-    case "distressed_sale_notice": {
-      const targetPlayer = state.players.find((p) => p.id === action.targetPlayerId);
-      if (!targetPlayer) {
-        return { legal: false, reason: `unknown target player ${action.targetPlayerId}` };
-      }
-      if (targetPlayer.id === player.id) {
-        return { legal: false, reason: "cannot target yourself" };
-      }
-      // Target must have a full rickhouse.
-      const occupied = state.allBarrels.filter((b) => b.ownerId === targetPlayer.id).length;
-      if (occupied < targetPlayer.rickhouseSlots.length) {
-        return { legal: false, reason: "target player's rickhouse is not full" };
-      }
-      const target = state.allBarrels.find((b) => b.id === action.targetBarrelId);
-      if (!target || target.ownerId !== targetPlayer.id) {
-        return {
-          legal: false,
-          reason: `barrel ${action.targetBarrelId} is not in ${targetPlayer.id}'s rickhouse`,
-        };
-      }
-      return { legal: true };
-    }
-
     case "barrel_broker": {
       const sourceBarrel = state.allBarrels.find((b) => b.id === action.sourceBarrelId);
       if (!sourceBarrel) {
@@ -188,12 +165,6 @@ export function applyPlayOperationsCard(
     case "rushed_shipment": {
       const target = draft.allBarrels.find((b) => b.id === action.targetBarrelId)!;
       target.extraAgesAvailable += 1;
-      break;
-    }
-
-    case "distressed_sale_notice": {
-      const targetPlayer = draft.players.find((p) => p.id === action.targetPlayerId)!;
-      targetPlayer.pendingRushBarrelId = action.targetBarrelId;
       break;
     }
 

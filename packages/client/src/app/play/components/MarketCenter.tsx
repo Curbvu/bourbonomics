@@ -53,10 +53,10 @@ export default function MarketCenter() {
   const remainingInvest = Math.max(0, investmentDeck.length - faceUpInvest.length);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50 p-2">
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50 p-2.5">
       {/* Market conveyor */}
       <section>
-        <div className="mb-1 flex items-baseline justify-between">
+        <div className="mb-1.5 flex items-baseline justify-between">
           <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-slate-300">
             Market conveyor
           </h2>
@@ -65,9 +65,9 @@ export default function MarketCenter() {
             <span className="text-amber-300 tabular-nums">{state.demand}</span>/12
           </span>
         </div>
-        <div className="flex flex-wrap gap-1">
-          {state.marketConveyor.map((c) => (
-            <ConveyorCard key={c.id} card={c} />
+        <div className="flex flex-wrap items-stretch justify-between gap-2">
+          {state.marketConveyor.map((c, i) => (
+            <ConveyorCard key={c.id} card={c} slotIndex={i} />
           ))}
           {Array.from({
             length: Math.max(0, CONVEYOR_SIZE - state.marketConveyor.length),
@@ -78,9 +78,9 @@ export default function MarketCenter() {
       </section>
 
       {/* Three subsections, each with 3 face-up + 1 draw-from-pile.
-          Content-sized — no flex-1 stretch — so the section never paints
-          dead space below itself. */}
-      <div className="grid grid-cols-1 gap-1.5 lg:grid-cols-3">
+          Cards inside each section spread with justify-between so the
+          column width gets used (no dead space on the right edge). */}
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
         <Subsection
           title="Mash bills"
           tag={state.finalRoundTriggered ? "final round" : undefined}
@@ -98,8 +98,8 @@ export default function MarketCenter() {
 
         <Subsection title="Operations">
           <FaceUpRow
-            faceUp={faceUpOps.map((c) => (
-              <OpsCardTile key={c.id} card={c} />
+            faceUp={faceUpOps.map((c, i) => (
+              <OpsCardTile key={c.id} card={c} slotIndex={i} />
             ))}
             placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpOps.length)}
             pileLabel="Ops deck"
@@ -143,11 +143,11 @@ function Subsection({
   return (
     <section
       className={[
-        "flex flex-col rounded-lg border bg-slate-950/40 p-1.5",
+        "flex flex-col rounded-lg border bg-slate-950/40 p-2",
         muted ? "border-slate-800/60 opacity-80" : "border-slate-800",
       ].join(" ")}
     >
-      <header className="mb-1 flex items-baseline justify-between gap-2">
+      <header className="mb-1.5 flex items-baseline justify-between gap-2">
         <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-slate-300">
           {title}
         </h3>
@@ -180,7 +180,7 @@ function FaceUpRow({
   mutedPile?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-start gap-1">
+    <div className="flex w-full flex-wrap items-stretch justify-between gap-2">
       {faceUp}
       {Array.from({ length: placeholders }).map((_, i) => (
         <EmptySlot key={`empty-${i}`} />
@@ -200,66 +200,141 @@ function FaceUpRow({
 // Card tiles — all share CARD_SIZE_CLASS
 // -----------------------------
 
-const baseTile = `relative flex flex-shrink-0 flex-col overflow-hidden rounded-md border-2 p-1.5 text-left shadow-[0_4px_12px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-transform duration-150 hover:-translate-y-0.5 hover:scale-[1.04] ${CARD_SIZE_CLASS}`;
+const baseTile = `relative flex flex-shrink-0 flex-col overflow-hidden rounded-md border-2 p-1.5 text-left shadow-[0_4px_12px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-transform duration-150 cursor-pointer hover:-translate-y-1 hover:scale-[1.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${CARD_SIZE_CLASS}`;
 
-function ConveyorCard({ card }: { card: Card }) {
+/**
+ * Visual modifiers + click target for a conveyor card while the human
+ * is in interactive buy mode. Returns the per-card class additions and
+ * the click handler — when in buy mode the card picks the slot, when
+ * not it opens the inspect modal.
+ */
+function useMarketBuyState(
+  source: "conveyor" | "operations",
+  slotIndex: number,
+  cost: number,
+) {
+  const { state, buyMode, setBuyTarget, setInspect } = useGameStore();
+  const inBuyMode = buyMode != null;
+  const picked = buyMode?.pickedTarget;
+  const isPicked =
+    inBuyMode &&
+    picked != null &&
+    picked.source === source &&
+    picked.slotIndex === slotIndex;
+  // Wallet for affordability dimming: capital cards pay face value,
+  // resource cards pay 1¢ each — same rules the engine enforces.
+  const human = state?.players.find((p) => !p.isBot);
+  const wallet = human
+    ? human.hand.reduce(
+        (acc, c) =>
+          acc + (c.type === "capital" ? c.capitalValue ?? 1 : 1),
+        0,
+      )
+    : 0;
+  const affordable = wallet >= cost;
+  const buyClass = !inBuyMode
+    ? ""
+    : isPicked
+      ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+      : affordable
+        ? "ring-2 ring-emerald-400/60"
+        : "opacity-40 saturate-50";
+  return {
+    inBuyMode,
+    affordable,
+    buyClass,
+    onClickCard: (payload: () => void) => () => {
+      if (inBuyMode) {
+        if (affordable) setBuyTarget({ source, slotIndex });
+      } else {
+        payload();
+      }
+    },
+    setInspect,
+  };
+}
+
+function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
+  const cost = card.cost ?? (card.type === "capital" ? card.capitalValue ?? 1 : 1);
+  const { buyClass, onClickCard, setInspect } = useMarketBuyState(
+    "conveyor",
+    slotIndex,
+    cost,
+  );
   if (card.type === "capital") {
     const value = card.capitalValue ?? 1;
     const chrome = CAPITAL_CHROME;
+    const titleLabel = card.displayName ?? "Capital";
     return (
-      <div
-        title={`Capital · pays $${value} · costs ${card.cost ?? value} to buy`}
-        className={[baseTile, chrome.gradient, chrome.border].join(" ")}
+      <button
+        type="button"
+        onClick={onClickCard(() => setInspect({ kind: "capital", card }))}
+        title={`${titleLabel} · pays $${value} · costs ${cost}¢ to buy`}
+        className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
       >
         <Sheen />
-        <div className="flex items-baseline justify-between">
+        <CornerCost cost={cost} />
+        <div className="flex items-baseline justify-between pr-7">
           <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
             Capital
           </span>
-          <CostChip value={card.cost ?? value} chrome={chrome} />
         </div>
+        {card.displayName ? (
+          <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+            {card.displayName}
+          </h4>
+        ) : null}
         <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
-          <span className="font-display text-[20px] font-bold leading-none tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
+          <span className="font-display text-[24px] font-bold leading-none tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
             ${value}
           </span>
-          <span className={`mt-0.5 font-mono text-[7.5px] uppercase tracking-[.16em] ${chrome.label}`}>
+          <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
             spend
           </span>
         </div>
-      </div>
+      </button>
     );
   }
   const subtype = card.subtype as ResourceSubtype;
   const chrome = RESOURCE_CHROME[subtype];
   const count = card.resourceCount ?? 1;
+  const titleLabel = card.displayName ?? `${count > 1 ? `${count}× ` : ""}${RESOURCE_LABEL[subtype]}`;
+  const isWildcard = (card.aliases?.length ?? 0) > 0;
   return (
-    <div
-      title={`${RESOURCE_LABEL[subtype]}${count > 1 ? ` ×${count}` : ""} · cost ${card.cost ?? 1}`}
-      className={[baseTile, chrome.gradient, chrome.border].join(" ")}
+    <button
+      type="button"
+      onClick={onClickCard(() => setInspect({ kind: "resource", card }))}
+      title={`${titleLabel} · cost ${cost}¢`}
+      className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
     >
       <Sheen />
-      <div className="flex items-baseline justify-between">
+      <CornerCost cost={cost} />
+      <div className="flex items-baseline justify-between pr-7">
         <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {RESOURCE_LABEL[subtype]}
         </span>
-        <CostChip value={card.cost ?? 1} chrome={chrome} />
       </div>
-      <h4 className={`mt-0.5 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
-        {count > 1 ? `${count}×` : ""} {RESOURCE_LABEL[subtype]}
+      <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+        {titleLabel}
       </h4>
+      {isWildcard ? (
+        <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.10em] ${chrome.label} opacity-90`}>
+          wildcard
+        </span>
+      ) : null}
       <div
-        className={`mt-auto grid h-7 w-7 self-center place-items-center rounded-full border-2 bg-white/10 text-base shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
+        className={`mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 bg-white/10 text-lg shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
       >
         {RESOURCE_GLYPH[subtype]}
       </div>
-    </div>
+    </button>
   );
 }
 
 function EmptySlot() {
   return (
     <div
-      className={`grid place-items-center rounded-md border-2 border-dashed border-slate-800 bg-slate-950/30 font-mono text-[8px] uppercase tracking-[.18em] text-slate-700 ${CARD_SIZE_CLASS}`}
+      className={`grid flex-shrink-0 cursor-default place-items-center rounded-md border-2 border-dashed border-slate-800 bg-slate-950/30 font-mono text-[8px] uppercase tracking-[.18em] text-slate-700 ${CARD_SIZE_CLASS}`}
     >
       empty
     </div>
@@ -267,19 +342,26 @@ function EmptySlot() {
 }
 
 function MashBillTile({ bill }: { bill: MashBill }) {
+  const { setInspect } = useGameStore();
   const tier = tierOrCommon(bill.tier);
   const chrome = TIER_CHROME[tier];
   const cells: number[] = [];
   for (const row of bill.rewardGrid) for (const c of row) if (c !== null) cells.push(c);
   const peak = cells.length ? Math.max(...cells) : 0;
   const floor = cells.length ? Math.min(...cells) : 0;
+  // Mash bills aren't bought from the conveyor — Draw Mash Bill costs 1
+  // card. Show "1" in the corner so the cost chip is consistent with
+  // every other card.
   return (
-    <div
+    <button
+      type="button"
+      onClick={() => setInspect({ kind: "mashbill", bill })}
       title={`${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`}
       className={[baseTile, chrome.gradient, chrome.border, chrome.glow].join(" ")}
     >
       <Sheen />
-      <div className="flex items-baseline justify-between">
+      <CornerCost cost={1} />
+      <div className="flex items-baseline justify-between pr-7">
         <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {chrome.label_text}
         </span>
@@ -298,18 +380,19 @@ function MashBillTile({ bill }: { bill: MashBill }) {
         </p>
       ) : null}
       <div className="mt-auto flex items-baseline justify-center gap-1">
-        <span className={`font-display text-[14px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
+        <span className={`font-display text-[16px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
           {floor}–{peak}
         </span>
-        <span className={`font-mono text-[7.5px] uppercase tracking-[.16em] ${chrome.label}`}>
+        <span className={`font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
           rep
         </span>
       </div>
-    </div>
+    </button>
   );
 }
 
 function InvestmentCardTile({ card }: { card: InvestmentCard }) {
+  const { setInspect } = useGameStore();
   const toneByTier: Record<InvestmentCard["tier"], { border: string; gradient: string; ink: string; label: string }> = {
     cheap: {
       border: "border-emerald-400",
@@ -335,52 +418,66 @@ function InvestmentCardTile({ card }: { card: InvestmentCard }) {
   };
   const chrome = toneByTier[card.tier];
   return (
-    <div
+    <button
+      type="button"
+      onClick={() => setInspect({ kind: "investment", card })}
       title={`${card.name} — ${card.short}\n\n${card.effect}`}
       className={[baseTile, chrome.gradient, chrome.border].join(" ")}
     >
       <Sheen />
-      <div className="flex items-baseline justify-between">
+      <CornerCost cost={card.cost} />
+      <div className="flex items-baseline justify-between pr-7">
         <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           Invest
         </span>
-        <span className={`rounded border border-white/30 bg-black/30 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] ${chrome.ink}`}>
-          ${card.capital}
-        </span>
       </div>
-      <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+      <h4 className={`mt-0.5 line-clamp-2 font-display text-[11px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
         {card.name}
       </h4>
-      <p className={`mt-0.5 line-clamp-3 font-display text-[8px] italic leading-snug ${chrome.label} opacity-90`}>
+      <p className={`mt-0.5 line-clamp-3 font-display text-[9px] italic leading-snug ${chrome.label} opacity-90`}>
         {card.short}
       </p>
-    </div>
+    </button>
   );
 }
 
-function OpsCardTile({ card }: { card: OperationsCard }) {
+function OpsCardTile({
+  card,
+  slotIndex,
+}: {
+  card: OperationsCard;
+  slotIndex: number;
+}) {
+  const { buyClass, onClickCard, setInspect } = useMarketBuyState(
+    "operations",
+    slotIndex,
+    card.cost,
+  );
   const chrome = OPS_CHROME;
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClickCard(() => setInspect({ kind: "operations", card }))}
       title={`${card.name} — ${card.description}`}
-      className={[baseTile, chrome.gradient, chrome.border].join(" ")}
+      className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
     >
       <Sheen />
-      <div className="flex items-baseline justify-between">
+      <CornerCost cost={card.cost} />
+      <div className="flex items-baseline justify-between pr-7">
         <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           Ops
         </span>
       </div>
-      <h4 className={`mt-0.5 line-clamp-3 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+      <h4 className={`mt-0.5 line-clamp-3 font-display text-[11px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
         {card.name}
       </h4>
       <div
-        className={`mt-auto grid h-7 w-7 self-center place-items-center rounded-full border-2 bg-white/10 text-base font-bold ${chrome.border} ${chrome.ink}`}
+        className={`mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 bg-white/10 text-lg font-bold ${chrome.border} ${chrome.ink}`}
         aria-hidden
       >
         ⚡
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -434,6 +531,7 @@ function DrawPile({
       title={`${label} · ${remaining} card${remaining === 1 ? "" : "s"} remaining`}
       className={[
         baseTile,
+        "cursor-default hover:translate-y-0 hover:scale-100",
         toneChrome.gradient,
         toneChrome.border,
         muted ? "opacity-60" : "",
@@ -464,12 +562,18 @@ function DrawPile({
   );
 }
 
-function CostChip({ value, chrome }: { value: number; chrome: { borderSoft: string; ink: string } }) {
+/**
+ * Unified cost chip — appears in the top-right corner of EVERY card
+ * (resource, capital, mash bill, ops, investment) so the player has
+ * one consistent place to read "what does this cost to acquire?"
+ */
+function CornerCost({ cost }: { cost: number }) {
   return (
     <span
-      className={`rounded border px-0.5 py-px font-mono text-[7.5px] font-bold uppercase tracking-[.10em] ${chrome.borderSoft} ${chrome.ink}`}
+      className="absolute right-1 top-1 z-10 grid h-5 min-w-[20px] place-items-center rounded-full border border-amber-400/70 bg-slate-950/85 px-1 font-mono text-[10px] font-bold tabular-nums text-amber-200 shadow-[0_2px_6px_rgba(0,0,0,.45)]"
+      aria-label={`cost ${cost} cents`}
     >
-      {value}¢
+      {cost}
     </span>
   );
 }

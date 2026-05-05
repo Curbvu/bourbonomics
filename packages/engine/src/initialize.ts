@@ -3,7 +3,6 @@ import type {
   Distillery,
   GameConfig,
   GameState,
-  OperationsCard,
   PlayerState,
 } from "./types";
 import {
@@ -12,12 +11,11 @@ import {
 } from "./defaults";
 import { defaultDistilleryPool, buildRickhouseSlots } from "./distilleries";
 import { defaultOperationsDeck } from "./operations";
-import { drawCards, shuffleCards } from "./deck";
+import { shuffleCards } from "./deck";
 import { makeResourceCard } from "./cards";
 
 const DEFAULT_HAND_SIZE = 8;
 const DEFAULT_DEMAND = 0;
-const DEFAULT_STARTING_OPS_CARDS = 2;
 const MARKET_CONVEYOR_SIZE = 10;
 
 /**
@@ -35,7 +33,6 @@ export function initializeGame(config: GameConfig): GameState {
   let rngState = config.seed;
   const startingHandSize = config.startingHandSize ?? DEFAULT_HAND_SIZE;
   const startingDemand = config.startingDemand ?? DEFAULT_DEMAND;
-  const startingOpsCount = config.startingOperationsCardCount ?? DEFAULT_STARTING_OPS_CARDS;
 
   // Players. A player whose starter deck wasn't pre-built starts with an
   // empty deck and joins the starter_deck_draft phase to compose theirs.
@@ -74,7 +71,6 @@ export function initializeGame(config: GameConfig): GameState {
       outForRound: false,
       demandSurgeActive: false,
       brokerFreeTradeUsed: false,
-      pendingRushBarrelId: null,
     };
   });
 
@@ -83,16 +79,13 @@ export function initializeGame(config: GameConfig): GameState {
   const bourbonShuffle = shuffleCards(bourbonSeed, rngState);
   rngState = bourbonShuffle.rngState;
 
-  // Operations deck. Shuffle once then deal `startingOpsCount` to each player.
+  // Operations deck. Players start with empty operations hands — they
+  // acquire ops cards by purchasing them from the face-up market row
+  // (BUY_OPERATIONS_CARD) using their resource / capital cards.
   const opsSeed = config.operationsDeck ?? defaultOperationsDeck();
   const opsShuffle = shuffleCards(opsSeed, rngState);
   rngState = opsShuffle.rngState;
-  let operationsDeck = opsShuffle.shuffled;
-  for (const p of players) {
-    const drawResult = drawCards<OperationsCard>(operationsDeck, startingOpsCount);
-    p.operationsHand = drawResult.drawn.map((c) => ({ ...c, drawnInRound: 0 }));
-    operationsDeck = drawResult.remaining;
-  }
+  const operationsDeck = opsShuffle.shuffled;
 
   // Market supply: 6 to conveyor, rest stay in supply deck face-down.
   const supplySeed = config.marketSupply ?? defaultMarketSupply();

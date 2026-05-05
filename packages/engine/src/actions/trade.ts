@@ -24,9 +24,6 @@ export function validateTrade(
   if (!isCurrentPlayer(state, action.player1Id)) {
     return { legal: false, reason: "trade must be initiated by the player whose turn it is" };
   }
-  if (p1.pendingRushBarrelId) {
-    return { legal: false, reason: "you must resolve a forced Rush to Market first" };
-  }
   if (p2.outForRound) {
     return { legal: false, reason: `${p2.id} is out for the round and cannot trade` };
   }

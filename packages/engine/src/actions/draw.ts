@@ -1,6 +1,6 @@
 import type { Draft } from "immer";
-import type { GameAction, GameState, OperationsCard, ValidationResult } from "../types";
-import { drawCards, drawWithReshuffle } from "../deck";
+import type { GameAction, GameState, ValidationResult } from "../types";
+import { drawWithReshuffle } from "../deck";
 import { runCleanupPhase } from "../state";
 
 type DrawHandAction = Extract<GameAction, { type: "DRAW_HAND" }>;
@@ -36,16 +36,8 @@ export function applyDrawHand(
   player.discard = result.discard;
   draft.rngState = result.rngState;
 
-  // Also draw 1 operations card if the deck has any. Tag it with the round
-  // it entered the player's hand so we can gate final-round playability.
-  if (draft.operationsDeck.length > 0) {
-    const opsResult = drawCards<OperationsCard>(draft.operationsDeck.slice(), 1);
-    if (opsResult.drawn.length > 0) {
-      const drawn = opsResult.drawn[0]!;
-      player.operationsHand.push({ ...drawn, drawnInRound: draft.round });
-      draft.operationsDeck = opsResult.remaining;
-    }
-  }
+  // Operations cards are NOT auto-drawn each round — players buy them
+  // from the face-up ops row in the market (BUY_OPERATIONS_CARD).
 
   draft.playerIdsCompletedPhase.push(action.playerId);
 

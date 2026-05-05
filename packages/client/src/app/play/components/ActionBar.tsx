@@ -24,11 +24,11 @@ import type {
   GameState,
   GrainSubtype,
   MashBill,
+  OperationsCard,
   PlayerState,
   ResourceSubtype,
 } from "@bourbonomics/engine";
 import {
-  capitalUnits,
   computeReward,
   isWheatedBill,
   resourceUnits,
@@ -38,7 +38,8 @@ import {
 import { useGameStore } from "@/lib/store/game";
 
 export default function ActionBar() {
-  const { state, dispatch, autoplay } = useGameStore();
+  const { state, dispatch, autoplay, buyMode, startBuyMode, cancelBuyMode } =
+    useGameStore();
   if (!state) return null;
   if (state.phase !== "action") return null;
 
@@ -47,14 +48,19 @@ export default function ActionBar() {
 
   const isHumanTurn = state.players[state.currentPlayerIndex]?.id === human.id;
   const disabledByTurn = !isHumanTurn || autoplay;
+  const inBuyMode = buyMode != null;
 
   const make = bestMakeBourbon(state, human);
   const age = bestAgeBourbon(state, human);
   const sell = bestSellBourbon(state, human);
-  const rush = bestRushToMarket(state, human);
-  const buy = bestBuyFromMarket(state, human);
+  // Bare-minimum BUY action for the gating tooltip — checks that the
+  // human has *some* legal purchase available before we let them enter
+  // buying mode. The actual chosen card / payment comes from the
+  // interactive overlay.
+  const buyEntry = canEnterBuyMode(state, human);
   const drawBill = bestDrawMashBill(state, human);
   const trade = bestTrade(state, human);
+  const ops = bestPlayOps(state, human);
   const pass: GameAction = { type: "PASS_TURN", playerId: human.id };
 
   return (
@@ -89,21 +95,18 @@ export default function ActionBar() {
           disabledByTurn={disabledByTurn}
           tooltipIdle="Sell your highest-reward 2yo+ barrel for full reputation."
         />
-        <SmartButton
-          label="Rush"
-          action={rush}
-          state={state}
-          dispatch={dispatch}
-          disabledByTurn={disabledByTurn}
-          tooltipIdle="Rush a 1yo barrel for half reputation; demand does not drop."
-        />
-        <SmartButton
-          label="Buy market"
-          action={buy}
-          state={state}
-          dispatch={dispatch}
-          disabledByTurn={disabledByTurn}
-          tooltipIdle="Buy the most-expensive market card you can afford."
+        <BuyButton
+          inBuyMode={inBuyMode}
+          enabled={!disabledByTurn && buyEntry.canBuy}
+          tooltip={
+            disabledByTurn
+              ? "Wait for your turn"
+              : inBuyMode
+                ? "Cancel the in-progress purchase"
+                : buyEntry.reason ?? "Pick a market card and tag the capital cards to spend."
+          }
+          onStart={startBuyMode}
+          onCancel={cancelBuyMode}
         />
         <SmartButton
           label="Draw bill"
@@ -121,6 +124,14 @@ export default function ActionBar() {
           disabledByTurn={disabledByTurn}
           tooltipIdle="Swap your cheapest card with the first available partner's."
         />
+        <SmartButton
+          label="Play ops"
+          action={ops}
+          state={state}
+          dispatch={dispatch}
+          disabledByTurn={disabledByTurn}
+          tooltipIdle="Play the first ops card in your hand with a sensible target. Free action."
+        />
 
         <span className="flex-1" />
 
@@ -135,6 +146,48 @@ export default function ActionBar() {
         />
       </div>
     </div>
+  );
+}
+
+function BuyButton({
+  inBuyMode,
+  enabled,
+  tooltip,
+  onStart,
+  onCancel,
+}: {
+  inBuyMode: boolean;
+  enabled: boolean;
+  tooltip: string;
+  onStart: () => void;
+  onCancel: () => void;
+}) {
+  if (inBuyMode) {
+    return (
+      <button
+        type="button"
+        onClick={onCancel}
+        title={tooltip}
+        className="rounded-md border border-rose-500 bg-rose-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-rose-100 transition-colors hover:border-rose-400 hover:bg-rose-800/40"
+      >
+        Cancel buy
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      disabled={!enabled}
+      onClick={enabled ? onStart : undefined}
+      title={tooltip}
+      className={
+        enabled
+          ? "rounded-md border border-emerald-700/60 bg-emerald-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-emerald-100 transition-colors hover:border-emerald-400 hover:bg-emerald-800/40"
+          : "rounded-md border border-slate-800 bg-slate-950/60 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-slate-600 cursor-not-allowed"
+      }
+    >
+      Buy market
+    </button>
   );
 }
 
@@ -262,49 +315,161 @@ function bestSellBourbon(state: GameState, player: PlayerState): GameAction | nu
   };
 }
 
-function bestRushToMarket(state: GameState, player: PlayerState): GameAction | null {
-  const oneYear = state.allBarrels.find(
-    (b) => b.ownerId === player.id && b.age === 1,
-  );
-  if (!oneYear) return null;
-  return {
-    type: "RUSH_TO_MARKET",
-    playerId: player.id,
-    barrelId: oneYear.id,
-  };
+/**
+ * Walks the human's operations hand and returns the first card whose
+ * "auto-best target" makes a legal action. Each ops def has its own
+ * heuristic for picking targets; cards that need cross-player payment
+ * (Barrel Broker) are skipped because there's no sensible default.
+ *
+ * Playing an ops card does NOT consume the action — we keep the turn
+ * open so the player can chain Make/Sell/etc.
+ */
+function bestPlayOps(state: GameState, player: PlayerState): GameAction | null {
+  for (const card of player.operationsHand) {
+    const action = planOpsTarget(state, player, card);
+    if (action && validateAction(state, action).legal) return action;
+  }
+  return null;
 }
 
-function bestBuyFromMarket(state: GameState, player: PlayerState): GameAction | null {
-  const totalCapital = player.hand.reduce((acc, c) => acc + capitalUnits(c), 0);
-  if (totalCapital === 0) return null;
-
-  let best: { slotIndex: number; cost: number } | null = null;
-  for (let i = 0; i < state.marketConveyor.length; i++) {
-    const card = state.marketConveyor[i]!;
-    const cost = card.cost ?? 1;
-    if (cost > totalCapital) continue;
-    if (!best || cost > best.cost) best = { slotIndex: i, cost };
+function planOpsTarget(
+  state: GameState,
+  player: PlayerState,
+  card: OperationsCard,
+): GameAction | null {
+  switch (card.defId) {
+    case "market_manipulation": {
+      // Push demand UP if we have ageable barrels (selling soon); DOWN
+      // otherwise so the next demand step doesn't push us out of buying
+      // range. Either is legal — only direction varies.
+      const hasAgedBarrels = state.allBarrels.some(
+        (b) => b.ownerId === player.id && b.age >= 1,
+      );
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: card.id,
+        defId: "market_manipulation",
+        direction: hasAgedBarrels ? "up" : "down",
+      };
+    }
+    case "regulatory_inspection": {
+      // Lock down an opponent's most-valuable upper-tier barrel.
+      const candidate = state.allBarrels
+        .filter((b) => b.ownerId !== player.id)
+        .filter((b) => {
+          const owner = state.players.find((p) => p.id === b.ownerId);
+          const slot = owner?.rickhouseSlots.find((s) => s.id === b.slotId);
+          return slot?.tier === "upper";
+        })
+        .sort((a, b) => peakReward(b.attachedMashBill) - peakReward(a.attachedMashBill))[0];
+      if (!candidate) return null;
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: card.id,
+        defId: "regulatory_inspection",
+        targetBarrelId: candidate.id,
+      };
+    }
+    case "rushed_shipment": {
+      // Extra age on our most-valuable still-aging barrel.
+      const ours = state.allBarrels
+        .filter((b) => b.ownerId === player.id && b.age < 3)
+        .sort((a, b) => peakReward(b.attachedMashBill) - peakReward(a.attachedMashBill))[0];
+      if (!ours) return null;
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: card.id,
+        defId: "rushed_shipment",
+        targetBarrelId: ours.id,
+      };
+    }
+    case "barrel_broker":
+      // Needs cross-player payment selection — skip auto-pick.
+      return null;
+    case "market_corner": {
+      // Grab the most-expensive market card straight to hand (free).
+      let bestIdx = -1;
+      let bestCost = -1;
+      for (let i = 0; i < state.marketConveyor.length; i++) {
+        const c = state.marketConveyor[i]!;
+        const cost = c.cost ?? 1;
+        if (cost > bestCost) {
+          bestIdx = i;
+          bestCost = cost;
+        }
+      }
+      if (bestIdx < 0) return null;
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: card.id,
+        defId: "market_corner",
+        marketSlotIndex: bestIdx,
+      };
+    }
+    case "blend": {
+      // Combine our two highest-peak non-bonded barrels.
+      const eligible = state.allBarrels
+        .filter((b) => b.ownerId === player.id)
+        .filter((b) => {
+          const slot = player.rickhouseSlots.find((s) => s.id === b.slotId);
+          return slot?.tier !== "bonded";
+        })
+        .sort((a, b) => peakReward(b.attachedMashBill) - peakReward(a.attachedMashBill));
+      if (eligible.length < 2) return null;
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: card.id,
+        defId: "blend",
+        barrel1Id: eligible[0]!.id,
+        barrel2Id: eligible[1]!.id,
+      };
+    }
+    case "demand_surge":
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: card.id,
+        defId: "demand_surge",
+      };
+    default:
+      return null;
   }
-  if (!best) return null;
+}
 
-  // Spend cheapest capital cards meeting the cost.
-  const capitalCards = player.hand
+/**
+ * Interactive Buy gating — return whether the human has *any* legal
+ * purchase, plus a reason string when they don't. Picking the actual
+ * slot + payment is left to the BuyOverlay.
+ */
+function canEnterBuyMode(
+  state: GameState,
+  player: PlayerState,
+): { canBuy: boolean; reason?: string } {
+  if (state.marketConveyor.length === 0) {
+    return { canBuy: false, reason: "Market conveyor is empty" };
+  }
+  const totalCapital = player.hand
     .filter((c) => c.type === "capital")
-    .sort((a, b) => (a.capitalValue ?? 1) - (b.capitalValue ?? 1));
-  const spendCardIds: string[] = [];
-  let paid = 0;
-  for (const c of capitalCards) {
-    spendCardIds.push(c.id);
-    paid += capitalUnits(c);
-    if (paid >= best.cost) break;
+    .reduce((acc, c) => acc + (c.capitalValue ?? 1), 0);
+  if (totalCapital === 0) {
+    return { canBuy: false, reason: "Need at least one capital card to spend" };
   }
-  if (paid < best.cost) return null;
-  return {
-    type: "BUY_FROM_MARKET",
-    playerId: player.id,
-    marketSlotIndex: best.slotIndex,
-    spendCardIds,
-  };
+  const cheapest = state.marketConveyor.reduce(
+    (lo, c) => Math.min(lo, c.cost ?? 1),
+    Infinity,
+  );
+  if (totalCapital < cheapest) {
+    return {
+      canBuy: false,
+      reason: `Cheapest market card costs ${cheapest}¢ — you have ${totalCapital}¢`,
+    };
+  }
+  return { canBuy: true };
 }
 
 function bestDrawMashBill(state: GameState, player: PlayerState): GameAction | null {

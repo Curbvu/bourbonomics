@@ -13,7 +13,7 @@ import { isWheatedBill } from "../types";
 import { capitalUnits, resourceUnits, suppliesResource } from "../cards";
 import { computeReward } from "../rewards";
 import { DEFAULT_BALANCED_COMPOSITION } from "../drafting";
-import { emptySlotsFor, getPlayerBarrels, playerRickhouseFull } from "../state";
+import { emptySlotsFor, getPlayerBarrels } from "../state";
 
 // ---------------------------------------------------------------
 // Heuristic bot.
@@ -22,15 +22,13 @@ import { emptySlotsFor, getPlayerBarrels, playerRickhouseFull } from "../state";
 // ranked by a tiny preference table.
 //
 // Action phase priority (highest first):
-//   0. RUSH_TO_MARKET if there's a forced rush pending.
 //   1. PLAY_OPERATIONS_CARD if a high-value play is obvious.
 //   2. SELL_BOURBON if a saleable barrel pays well at current demand.
 //   3. MAKE_BOURBON if any mash bill in hand can be satisfied.
 //   4. AGE_BOURBON if there's an unaged-this-round barrel and a spare card.
-//   5. RUSH_TO_MARKET on a 1yo barrel if rickhouse is full.
-//   6. BUY_FROM_MARKET if a useful conveyor card is affordable.
-//   7. DRAW_MASH_BILL if mash-bill hand is empty (last resort — speeds endgame).
-//   8. PASS_TURN otherwise.
+//   5. BUY_FROM_MARKET if a useful conveyor card is affordable.
+//   6. DRAW_MASH_BILL if mash-bill hand is empty (last resort — speeds endgame).
+//   7. PASS_TURN otherwise.
 // ---------------------------------------------------------------
 
 const SELL_REWARD_THRESHOLD = 3;
@@ -48,16 +46,6 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return { type: "PASS_TURN", playerId };
   if (state.phase !== "action") return { type: "PASS_TURN", playerId };
-
-  // 0) Resolve a forced rush before anything else — it's mandatory.
-  if (player.pendingRushBarrelId) {
-    const barrel = state.allBarrels.find((b) => b.id === player.pendingRushBarrelId);
-    if (barrel) {
-      return { type: "RUSH_TO_MARKET", playerId, barrelId: barrel.id };
-    }
-    // Stale pointer — clear by passing.
-    return { type: "PASS_TURN", playerId };
-  }
 
   if (player.hand.length === 0 && player.operationsHand.length === 0) {
     return { type: "PASS_TURN", playerId };
@@ -83,15 +71,11 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
   const age = chooseAge(state, player);
   if (age) return age;
 
-  // 5) Voluntary Rush to Market when the rickhouse is locked up by 1yos.
-  const rush = chooseVoluntaryRush(state, player);
-  if (rush) return rush;
-
-  // 6) Buy a useful card from the market.
+  // 5) Buy a useful card from the market.
   const buy = chooseBuy(state, player);
   if (buy) return buy;
 
-  // 7) Draw a mash bill if we've run out of recipes.
+  // 6) Draw a mash bill if we've run out of recipes.
   const draw = chooseDrawMashBill(state, player);
   if (draw) return draw;
 
@@ -258,26 +242,6 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
         defId: "regulatory_inspection",
         targetBarrelId: targetId,
       };
-    }
-  }
-
-  // Distressed Sale Notice: target an opponent with a full rickhouse holding a 1yo barrel.
-  const dsn = playable.find((c) => c.defId === "distressed_sale_notice");
-  if (dsn) {
-    for (const opp of state.players) {
-      if (opp.id === player.id) continue;
-      if (!playerRickhouseFull(state, opp.id)) continue;
-      const oneYear = state.allBarrels.find((b) => b.ownerId === opp.id && b.age === 1);
-      if (oneYear) {
-        return {
-          type: "PLAY_OPERATIONS_CARD",
-          playerId: player.id,
-          cardId: dsn.id,
-          defId: "distressed_sale_notice",
-          targetPlayerId: opp.id,
-          targetBarrelId: oneYear.id,
-        };
-      }
     }
   }
 
@@ -537,16 +501,6 @@ function chooseAge(state: GameState, player: PlayerState): GameAction | null {
   };
 }
 
-// -----------------------------
-// RUSH_TO_MARKET (voluntary)
-// -----------------------------
-
-function chooseVoluntaryRush(state: GameState, player: PlayerState): GameAction | null {
-  if (!playerRickhouseFull(state, player.id)) return null;
-  const oneYear = getPlayerBarrels(state, player.id).find((b) => b.age === 1);
-  if (!oneYear) return null;
-  return { type: "RUSH_TO_MARKET", playerId: player.id, barrelId: oneYear.id };
-}
 
 // -----------------------------
 // BUY_FROM_MARKET

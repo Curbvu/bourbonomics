@@ -50,21 +50,33 @@ describe("BUY_FROM_MARKET", () => {
         marketSlotIndex: slotIdx,
         spendCardIds: ["card_p1_cap1_0"],
       }),
-    ).toThrow(/spent capital is 1.*need 2/);
+    ).toThrow(/spent value is 1.*need 2/);
   });
 
-  it("rejects spending non-capital cards", () => {
-    let state = makeTestGame();
+  it("accepts resource cards as payment (1¢ each)", () => {
+    let state = makeTestGame({
+      marketSupply: [
+        ...Array.from({ length: 5 }, (_, i) => makeCapitalCard("supply", i, 1)),
+        makeResourceCard("rye", "supply", 100, true, 2), // cost 2
+        makeCapitalCard("supply", 200, 1),
+      ],
+    });
     state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [makeResourceCard("corn", "p1", 0)]);
-    expect(() =>
-      applyAction(state, {
-        type: "BUY_FROM_MARKET",
-        playerId: "p1",
-        marketSlotIndex: 0,
-        spendCardIds: ["card_p1_corn_0"],
-      }),
-    ).toThrow(/capital/);
+    const slotIdx = state.marketConveyor.findIndex((c) => c.cost === 2);
+    expect(slotIdx).toBeGreaterThanOrEqual(0);
+    state = giveHand(state, "p1", [
+      makeResourceCard("corn", "p1", 0),
+      makeResourceCard("corn", "p1", 1),
+    ]);
+    state = applyAction(state, {
+      type: "BUY_FROM_MARKET",
+      playerId: "p1",
+      marketSlotIndex: slotIdx,
+      spendCardIds: ["card_p1_corn_0", "card_p1_corn_1"],
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    // Both resource cards moved to discard (paid 1¢ each → 2¢ total).
+    expect(p1.discard).toHaveLength(3); // 2 spent + 1 purchased card
   });
 
   it("rejects an out-of-range or empty market slot", () => {

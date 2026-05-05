@@ -20,6 +20,64 @@ export function makeResourceCard(
   };
 }
 
+/**
+ * Premium resource factory with a themed name + optional aliases. Used
+ * by the market supply to mint named premiums (e.g. "Toasted Cask",
+ * "Wildcard Grain") so the buy options are visually distinct rather
+ * than a row of "2× corn" tiles.
+ */
+export function makePremiumResource(spec: {
+  defId: string;
+  displayName: string;
+  flavor?: string;
+  subtype: ResourceSubtype;
+  resourceCount: number;
+  cost: number;
+  aliases?: ResourceSubtype[];
+  ownerLabel?: string;
+  index: number;
+}): Card {
+  const owner = spec.ownerLabel ?? "supply";
+  return {
+    id: `card_${owner}_${spec.defId}_${spec.index}`,
+    cardDefId: spec.defId,
+    type: "resource",
+    subtype: spec.subtype,
+    premium: true,
+    resourceCount: spec.resourceCount,
+    aliases: spec.aliases,
+    cost: spec.cost,
+    displayName: spec.displayName,
+    flavor: spec.flavor,
+  };
+}
+
+/**
+ * Capital factory with a themed display name. Identical pricing to
+ * `makeCapitalCard` but with a distinct on-card label so the market
+ * supply can mint variants like "Cellar Stipend" / "Brand Loan".
+ */
+export function makePremiumCapital(spec: {
+  defId: string;
+  displayName: string;
+  flavor?: string;
+  capitalValue: number;
+  cost?: number;
+  ownerLabel?: string;
+  index: number;
+}): Card {
+  const owner = spec.ownerLabel ?? "supply";
+  return {
+    id: `card_${owner}_${spec.defId}_${spec.index}`,
+    cardDefId: spec.defId,
+    type: "capital",
+    capitalValue: spec.capitalValue,
+    cost: spec.cost ?? spec.capitalValue,
+    displayName: spec.displayName,
+    flavor: spec.flavor,
+  };
+}
+
 export function makeCapitalCard(
   ownerLabel: string,
   index: number,
@@ -86,4 +144,16 @@ export function suppliesResource(card: Card, subtype: ResourceSubtype): boolean 
 /** Total capital contributed by a card (capital cards only). */
 export function capitalUnits(card: Card): number {
   return card.type === "capital" ? card.capitalValue ?? 1 : 0;
+}
+
+/**
+ * Value of a card when used to pay a market cost.
+ *   - Capital cards pay their face value (capitalValue, default 1).
+ *   - Resource cards pay 1¢ each (regardless of resourceCount).
+ *
+ * Used by BUY_FROM_MARKET and BUY_OPERATIONS_CARD validation.
+ */
+export function paymentValue(card: Card): number {
+  if (card.type === "capital") return card.capitalValue ?? 1;
+  return 1;
 }
