@@ -71,6 +71,33 @@ const SPECS: OpsCardSpec[] = [
     copies: 3,
     implemented: true,
   },
+  {
+    defId: "forced_cure",
+    name: "Forced Cure",
+    description:
+      "Place an extra aging card on one of your barrels for one extra year this round.",
+    cost: 4,
+    copies: 2,
+    implemented: true,
+  },
+  {
+    defId: "mash_futures",
+    name: "Mash Futures",
+    description:
+      "Pre-play. Your next Make Bourbon needs 1 fewer grain card (minimum 1 grain still required).",
+    cost: 3,
+    copies: 2,
+    implemented: true,
+  },
+  {
+    defId: "coopers_contract",
+    name: "Cooper's Contract",
+    description:
+      "Pre-play. Your next Make Bourbon may use 0 cask cards instead of the required 1.",
+    cost: 2,
+    copies: 2,
+    implemented: true,
+  },
 
   // ── Market & economy ────────────────────────────────────────────
   {
@@ -152,6 +179,25 @@ const SPECS: OpsCardSpec[] = [
     name: "Blend",
     description:
       "Combine two of your own non-bonded barrels into one. Higher age, higher-value mash bill, all cards.",
+    cost: 6,
+    copies: 2,
+    implemented: true,
+  },
+
+  // ── Sale amplifiers / persistent buffs ─────────────────────────
+  {
+    defId: "rating_boost",
+    name: "Rating Boost",
+    description: "Pre-play. Your next Sell Bourbon gains +2 reputation.",
+    cost: 4,
+    copies: 2,
+    implemented: true,
+  },
+  {
+    defId: "master_distiller",
+    name: "Master Distiller",
+    description:
+      "Choose one of your barrels. For the rest of the game, that barrel reads its grid as if demand were 2 higher.",
     cost: 6,
     copies: 2,
     implemented: true,

@@ -35,27 +35,51 @@ function totalGrain(t: ResourceTotals): number {
 }
 
 /**
- * Returns the recipe minimums for this player + bill, after distillery bonuses.
- * Wheated Baron knocks 1 off the wheat min on wheated bills (floor 0; the
- * universal min-1-grain still applies separately).
+ * Returns the recipe minimums for this player + bill, after distillery
+ * bonuses AND any pre-played production discount (Mash Futures relaxes
+ * a grain min by 1; Cooper's Contract is handled separately at the
+ * universal-cask check).
+ *
+ * Wheated Baron knocks 1 off the wheat min on wheated bills (floor 0;
+ * the universal min-1-grain still applies separately).
  */
 function effectiveRecipeMins(
   player: PlayerState,
   bill: MashBill,
 ): { minCorn: number; minRye: number; minBarley: number; minWheat: number; maxRye: number; maxWheat: number; minTotalGrain: number } {
   const recipe = bill.recipe ?? {};
+  let minRye = recipe.minRye ?? 0;
+  let minBarley = recipe.minBarley ?? 0;
   let minWheat = recipe.minWheat ?? 0;
   if (player.distillery?.bonus === "wheated_baron" && isWheatedBill(bill)) {
     minWheat = Math.max(0, minWheat - 1);
   }
+  if (player.pendingMakeDiscount === "grain") {
+    // Mash Futures: knock 1 off the largest grain min that's > 0. If
+    // every grain min is 0 we still apply a -1 to minTotalGrain below.
+    const candidates: ("rye" | "barley" | "wheat")[] = ["rye", "barley", "wheat"];
+    let bestKind: typeof candidates[number] | null = null;
+    let bestVal = 0;
+    if (minRye > bestVal) { bestKind = "rye"; bestVal = minRye; }
+    if (minBarley > bestVal) { bestKind = "barley"; bestVal = minBarley; }
+    if (minWheat > bestVal) { bestKind = "wheat"; bestVal = minWheat; }
+    if (bestKind === "rye") minRye = Math.max(0, minRye - 1);
+    else if (bestKind === "barley") minBarley = Math.max(0, minBarley - 1);
+    else if (bestKind === "wheat") minWheat = Math.max(0, minWheat - 1);
+  }
+  let minTotalGrain = recipe.minTotalGrain ?? 0;
+  if (player.pendingMakeDiscount === "grain") {
+    // Floor 1 — the universal "at least 1 grain" rule still holds.
+    minTotalGrain = Math.max(1, minTotalGrain - 1);
+  }
   return {
     minCorn: Math.max(1, recipe.minCorn ?? 0),
-    minRye: recipe.minRye ?? 0,
-    minBarley: recipe.minBarley ?? 0,
+    minRye,
+    minBarley,
     minWheat,
     maxRye: recipe.maxRye ?? Infinity,
     maxWheat: recipe.maxWheat ?? Infinity,
-    minTotalGrain: recipe.minTotalGrain ?? 0,
+    minTotalGrain,
   };
 }
 
@@ -144,10 +168,17 @@ export function validateMakeBourbon(
     addConversionToTotals(totals, conv.resourceType);
   }
 
-  if (totals.caskSources !== 1) {
+  // Cooper's Contract relaxes the cask requirement to 0-or-1; otherwise
+  // the universal rule is exactly 1 cask source per barrel.
+  const allowZeroCask = player.pendingMakeDiscount === "cask";
+  const minCaskSources = allowZeroCask ? 0 : 1;
+  const maxCaskSources = 1;
+  if (totals.caskSources < minCaskSources || totals.caskSources > maxCaskSources) {
     return {
       legal: false,
-      reason: `must use exactly 1 cask source per barrel (got ${totals.caskSources})`,
+      reason: allowZeroCask
+        ? `must use 0 or 1 cask source per barrel (got ${totals.caskSources})`
+        : `must use exactly 1 cask source per barrel (got ${totals.caskSources})`,
     };
   }
   if (totals.corn < 1) return { legal: false, reason: "need at least 1 corn" };
@@ -271,6 +302,7 @@ export function applyMakeBourbon(
     inspectedThisRound: false,
     extraAgesAvailable: 0,
     gridRepOffset: 0,
+    demandBandOffset: 0,
   });
 
   // Fire on_commit_production effects for each production card.
@@ -280,6 +312,10 @@ export function applyMakeBourbon(
   for (const card of productionCards) {
     applyProductionCommitEffect(draft, player, barrel, card);
   }
+  // Pre-played production discount (Mash Futures / Cooper's Contract)
+  // is consumed by this make, regardless of whether it actually changed
+  // the recipe outcome.
+  player.pendingMakeDiscount = null;
   // v2.2: production does NOT end the player's turn — the active player
   // continues taking actions until they pass or run out of legal plays.
 }

@@ -72,6 +72,8 @@ export function initializeGame(config: GameConfig): GameState {
       demandSurgeActive: false,
       brokerFreeTradeUsed: false,
       pendingHalfCostMarketBuy: false,
+      pendingMakeDiscount: null,
+      pendingRatingBoost: 0,
     };
   });
 

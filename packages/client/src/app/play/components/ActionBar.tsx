@@ -8,14 +8,19 @@
  * pickers can land in a future iteration; this gets every action wired
  * end-to-end with a single click so the human seat actually plays.
  *
+ * v2.2: the active player keeps the cursor across every main action —
+ * Make/Age/Sell/Buy/Draw/Trade no longer end the turn. The player taps
+ * actions in any order until they tap "End turn", at which point play
+ * passes to the next seat.
+ *
  *   ✓ Make Bourbon       — auto-plan minimum-legal mash from hand
  *   ✓ Age Bourbon        — first eligible barrel + cheapest hand card
  *   ✓ Sell Bourbon       — highest-reward 2yo+ barrel, take all rep
- *   ✓ Rush to Market     — first 1yo barrel
  *   ✓ Buy from Market    — most-expensive affordable conveyor card
  *   ✓ Draw a Mash Bill   — auto-spend the cheapest hand card
  *   ✓ Trade              — first eligible partner, swap the cheapest cards
- *   ✓ Pass Turn          — one-click dispatch
+ *   ✓ Play ops           — first ops in hand with a sensible target (free)
+ *   ✓ End Turn           — voluntary turn-end; held cards discard at cleanup
  */
 
 import type {
@@ -136,12 +141,12 @@ export default function ActionBar() {
         <span className="flex-1" />
 
         <SmartButton
-          label="Pass ↵"
+          label="End turn ↵"
           action={pass}
           state={state}
           dispatch={dispatch}
           disabledByTurn={disabledByTurn}
-          tooltipIdle="End your turn for the round."
+          tooltipIdle="End your turn for the round. Cards in hand are held for cleanup."
           primary
         />
       </div>

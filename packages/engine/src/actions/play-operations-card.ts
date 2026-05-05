@@ -169,6 +169,45 @@ export function validatePlayOperationsCard(
       }
       return { legal: true };
     }
+
+    case "forced_cure": {
+      const target = state.allBarrels.find((b) => b.id === action.targetBarrelId);
+      if (!target) return { legal: false, reason: `barrel ${action.targetBarrelId} not found` };
+      if (target.ownerId !== player.id) {
+        return { legal: false, reason: "Forced Cure targets one of your own barrels" };
+      }
+      return { legal: true };
+    }
+
+    case "mash_futures":
+    case "coopers_contract": {
+      if (player.pendingMakeDiscount != null) {
+        return {
+          legal: false,
+          reason: "you already have a pre-played production discount queued",
+        };
+      }
+      return { legal: true };
+    }
+
+    case "rating_boost": {
+      if (player.pendingRatingBoost > 0) {
+        return {
+          legal: false,
+          reason: "a Rating Boost is already queued for your next sale",
+        };
+      }
+      return { legal: true };
+    }
+
+    case "master_distiller": {
+      const target = state.allBarrels.find((b) => b.id === action.targetBarrelId);
+      if (!target) return { legal: false, reason: `barrel ${action.targetBarrelId} not found` };
+      if (target.ownerId !== player.id) {
+        return { legal: false, reason: "Master Distiller targets one of your own barrels" };
+      }
+      return { legal: true };
+    }
   }
 }
 
@@ -377,6 +416,35 @@ export function applyPlayOperationsCard(
         tier: "upper",
       };
       player.rickhouseSlots.push(newSlot);
+      break;
+    }
+
+    case "forced_cure": {
+      const target = draft.allBarrels.find((b) => b.id === action.targetBarrelId)!;
+      target.extraAgesAvailable += 1;
+      break;
+    }
+
+    case "mash_futures": {
+      player.pendingMakeDiscount = "grain";
+      break;
+    }
+
+    case "coopers_contract": {
+      player.pendingMakeDiscount = "cask";
+      break;
+    }
+
+    case "rating_boost": {
+      // Stacks: a player who somehow held two could queue +4. Validate
+      // currently rejects a second copy, so this is just defensive.
+      player.pendingRatingBoost += 2;
+      break;
+    }
+
+    case "master_distiller": {
+      const target = draft.allBarrels.find((b) => b.id === action.targetBarrelId)!;
+      target.demandBandOffset += 2;
       break;
     }
   }

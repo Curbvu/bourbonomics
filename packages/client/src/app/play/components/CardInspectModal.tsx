@@ -11,9 +11,10 @@
  * detail (recipe constraints, reward grid, awards, full effect text).
  */
 
-import { useEffect } from "react";
+import { Fragment, useEffect } from "react";
 import type {
   Card,
+  CardEffect,
   InvestmentCard,
   MashBill,
   OperationsCard,
@@ -27,7 +28,7 @@ import {
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
 } from "./handCardStyles";
-import { TIER_CHROME, tierOrCommon } from "./tierStyles";
+import { TIER_CHROME, tierOrCommon, type TierChrome } from "./tierStyles";
 
 export default function CardInspectModal() {
   const { inspect, setInspect } = useGameStore();
@@ -128,6 +129,7 @@ function ResourceDetail({ card }: { card: Card }) {
           “{card.flavor}”
         </p>
       ) : null}
+      <EffectBlurb effect={card.effect} />
       <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
         <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
           Use
@@ -176,6 +178,7 @@ function CapitalDetail({ card }: { card: Card }) {
           “{card.flavor}”
         </p>
       ) : null}
+      <EffectBlurb effect={card.effect} />
       <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
         <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
           Use
@@ -189,6 +192,98 @@ function CapitalDetail({ card }: { card: Card }) {
   );
 }
 
+/**
+ * Human-readable description of any themed-card effect descriptor.
+ * Walks composite trees so every leaf gets its own line. Returned as
+ * a panel; renders nothing when there is no effect.
+ */
+function EffectBlurb({ effect }: { effect: CardEffect | undefined }) {
+  if (!effect) return null;
+  const lines = describeEffect(effect);
+  if (lines.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-amber-500/40 bg-amber-700/[0.12] p-3">
+      <span className="font-mono text-[10px] uppercase tracking-[.15em] text-amber-300">
+        Effect
+      </span>
+      <ul className="mt-1 space-y-0.5 text-[12.5px] leading-snug text-amber-50">
+        {lines.map((line, i) => (
+          <li key={i}>• {line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function describeEffect(effect: CardEffect): string[] {
+  if (effect.kind === "composite") {
+    return effect.effects.flatMap((e) => describeEffect(e));
+  }
+  switch (effect.kind) {
+    case "draw_cards":
+      return [
+        `Draw ${effect.n} card${effect.n === 1 ? "" : "s"} ${whenLabel(effect.when)}.`,
+      ];
+    case "rep_on_sale_flat":
+      return [`Gain +${effect.rep} reputation on sale.`];
+    case "rep_on_sale_if_age_gte":
+      return [
+        `Gain +${effect.rep} reputation on sale if barrel age ≥ ${effect.age}.`,
+      ];
+    case "rep_on_sale_if_demand_gte":
+      return [
+        `Gain +${effect.rep} reputation on sale if demand ≥ ${effect.demand}.`,
+      ];
+    case "rep_on_commit_aging":
+      return [`Gain +${effect.rep} reputation when used as an aging card.`];
+    case "rep_on_market_spend":
+      return [
+        `Gain +${effect.rep} reputation each time this card pays a market purchase.`,
+      ];
+    case "bump_demand":
+      return [
+        `Demand ${effect.delta >= 0 ? "+" : ""}${effect.delta} when committed at production.`,
+      ];
+    case "skip_demand_drop":
+      return ["Demand does not drop when this barrel sells."];
+    case "barrel_starts_aged":
+      return [
+        `Barrel starts at age ${effect.age} when this is committed at production.`,
+      ];
+    case "aging_card_doubled":
+      return [`Adds ${effect.years} years of aging instead of the usual 1.`];
+    case "grid_demand_band_offset":
+      return [
+        `Sale grid reads ${effect.offset > 0 ? "+" : ""}${effect.offset} demand band${
+          Math.abs(effect.offset) === 1 ? "" : "s"
+        }.`,
+      ];
+    case "grid_rep_offset":
+      return [
+        `+${effect.offset} reputation at every grid band for the rest of the barrel's life.`,
+      ];
+    case "returns_to_hand_on_sale":
+      return ["Returns to your hand when the barrel sells (instead of discard)."];
+    default:
+      return [];
+  }
+}
+
+function whenLabel(when: string): string {
+  switch (when) {
+    case "on_commit_production":
+      return "when committed at production";
+    case "on_commit_aging":
+      return "when used as an aging card";
+    case "on_sale":
+      return "on sale";
+    case "on_spend":
+      return "when spent at the market";
+    default:
+      return when;
+  }
+}
+
 /** Corner cost chip used at the top-right of every detail panel. */
 function DetailCornerCost({ cost }: { cost: number }) {
   return (
@@ -198,6 +293,81 @@ function DetailCornerCost({ cost }: { cost: number }) {
     >
       {cost}¢
     </span>
+  );
+}
+
+/**
+ * Format a band index as a human range. For ageBands [2,4,6] the cells
+ * cover age ≥2/<4, ≥4/<6, ≥6+ — so labels read "2–3y", "4–5y", "6+y".
+ * Demand bands work the same way without the year suffix.
+ */
+function bandLabel(
+  bands: readonly [number, number, number],
+  idx: number,
+  suffix = "",
+): string {
+  const lo = bands[idx]!;
+  const next = bands[idx + 1];
+  if (next == null) return `${lo}+${suffix}`;
+  return next - 1 === lo ? `${lo}${suffix}` : `${lo}–${next - 1}${suffix}`;
+}
+
+/**
+ * Reward grid with self-documenting axes — top row is the demand band
+ * each column covers, left column is the age band each row covers. The
+ * raw `ageBands` / `demandBands` chips at the bottom are gone since the
+ * same information is now legible from the matrix itself.
+ */
+function RewardMatrix({ bill, chrome }: { bill: MashBill; chrome: TierChrome }) {
+  const ageLabels = [0, 1, 2].map((i) => bandLabel(bill.ageBands, i, "y"));
+  const demandLabels = [0, 1, 2].map((i) => bandLabel(bill.demandBands, i));
+  return (
+    <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
+      <div
+        className="grid items-center gap-x-2 gap-y-2"
+        style={{ gridTemplateColumns: "auto repeat(3, minmax(0, 1fr))" }}
+      >
+        {/* Header row: empty corner + demand band labels */}
+        <div
+          className={`flex items-center justify-end pr-1 font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label} opacity-80`}
+        >
+          <span aria-hidden>↓ age · demand →</span>
+        </div>
+        {demandLabels.map((label, ci) => (
+          <div
+            key={`dh-${ci}`}
+            className={`grid place-items-center font-mono text-[10px] font-semibold uppercase tracking-[.1em] tabular-nums ${chrome.label}`}
+          >
+            {label}
+          </div>
+        ))}
+
+        {/* Body rows: age band label + 3 reward cells */}
+        {bill.rewardGrid.map((row, ri) => (
+          <Fragment key={`row-${ri}`}>
+            <div
+              className={`grid place-items-center pr-1 font-mono text-[10px] font-semibold uppercase tracking-[.1em] tabular-nums ${chrome.label} text-right`}
+            >
+              {ageLabels[ri]}
+            </div>
+            {row.map((cell, ci) => (
+              <div
+                key={`${ri}-${ci}`}
+                className="grid place-items-center rounded border border-white/10 bg-slate-950/70 py-2"
+              >
+                <span
+                  className={`font-display text-[18px] font-bold tabular-nums ${
+                    cell == null ? "text-slate-600" : chrome.titleInk
+                  }`}
+                >
+                  {cell == null ? "—" : cell}
+                </span>
+              </div>
+            ))}
+          </Fragment>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -251,29 +421,11 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
         </p>
       ) : null}
 
-      <div className="grid grid-cols-3 gap-2 rounded-lg border border-white/10 bg-slate-950/55 p-3">
-        {bill.rewardGrid.map((row, ri) =>
-          row.map((cell, ci) => (
-            <div
-              key={`${ri}-${ci}`}
-              className="grid place-items-center rounded border border-white/10 bg-slate-950/70 py-2"
-            >
-              <span className={`font-display text-[18px] font-bold tabular-nums ${chrome.titleInk}`}>
-                {cell == null ? "—" : cell}
-              </span>
-            </div>
-          )),
-        )}
-      </div>
-      <div className="flex items-baseline justify-between font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
-        <span>
-          rep range{" "}
-          <span className={chrome.titleInk}>
-            {floor}–{peak}
-          </span>
-        </span>
-        <span>
-          age {bill.ageBands.join("/")}y · demand {bill.demandBands.join("/")}
+      <RewardMatrix bill={bill} chrome={chrome} />
+      <div className="font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
+        rep range{" "}
+        <span className={chrome.titleInk}>
+          {floor}–{peak}
         </span>
       </div>
 

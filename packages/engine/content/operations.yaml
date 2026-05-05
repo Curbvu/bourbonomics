@@ -140,7 +140,7 @@ cards:
     description: During the Age Phase, place an extra aging card on a barrel for one extra year.
     cost: 4
     copies: 2
-    implemented: design  # Same effect shape as Rushed Shipment; tune-only difference.
+    implemented: true
     tags: [aging]
 
   - defId: rickhouse_lease
@@ -156,7 +156,7 @@ cards:
     description: Pre-play. Your next Make Bourbon needs 1 fewer grain card.
     cost: 3
     copies: 2
-    implemented: design
+    implemented: true
     tags: [production, pre-played]
 
   - defId: coopers_contract
@@ -164,7 +164,7 @@ cards:
     description: Pre-play. Your next Make Bourbon needs 1 fewer cask card.
     cost: 2
     copies: 2
-    implemented: design
+    implemented: true
     tags: [production, pre-played]
 
   # ─── Market & economy ─────────────────────────────────────────────
@@ -246,7 +246,7 @@ cards:
     description: Choose one of your barrels. Until end of game, it reads its grid as if demand were 2 higher.
     cost: 6
     copies: 2
-    implemented: design
+    implemented: true
     tags: [endgame, persistent]
 
   - defId: bourbon_hall_of_fame
@@ -342,10 +342,10 @@ cards:
 
   - defId: rating_boost
     name: Rating Boost
-    description: After your Sell Bourbon, gain 2 additional reputation.
+    description: Pre-play. Your next Sell Bourbon gains +2 reputation.
     cost: 4
     copies: 2
-    implemented: design
+    implemented: true
     tags: [payoff]
 
   - defId: flagship_brand

@@ -87,8 +87,10 @@ function chooseRewardBill(
   }
   const barrel = state.allBarrels.find((b) => b.id === action.barrelId)!;
   const signals = collectSaleSignals(barrel, { demand: state.demand });
+  // Master Distiller bakes a permanent demand-band offset onto the
+  // barrel; it stacks additively with any sale-card offsets (Toasted Oak).
   const value = computeReward(bill, barrel.age, state.demand, {
-    demandBandOffset: signals.gridDemandBandOffset,
+    demandBandOffset: signals.gridDemandBandOffset + barrel.demandBandOffset,
     gridRepOffset: barrel.gridRepOffset,
   });
   return { legal: true, value, bill };
@@ -112,12 +114,18 @@ export function applySellBourbon(
     ? player.unlockedGoldBourbons.find((m) => m.id === action.goldBourbonId)!
     : attached;
   const reward = computeReward(billForReward, barrel.age, draft.demand, {
-    demandBandOffset: signals.gridDemandBandOffset,
+    demandBandOffset: signals.gridDemandBandOffset + barrel.demandBandOffset,
     gridRepOffset: barrel.gridRepOffset,
   });
 
-  // Apply reputation gain (player-driven split + flat sale-effect bonuses).
-  player.reputation += action.reputationSplit + signals.bonusRep;
+  // Apply reputation gain. Three components stack on top of the
+  // player-driven split: themed-card flat bonuses, themed-card
+  // conditional bonuses (already in `signals.bonusRep`), and the
+  // pre-played Rating Boost flag (Pre-played ops).
+  const ratingBoost = player.pendingRatingBoost;
+  player.reputation += action.reputationSplit + signals.bonusRep + ratingBoost;
+  // Consume the boost — one-shot per sale.
+  if (ratingBoost > 0) player.pendingRatingBoost = 0;
 
   // Mid-action card draw: drawn cards go straight into hand.
   // `bonusDraw` from sale effects (e.g. Six-Row Barley) stacks here.

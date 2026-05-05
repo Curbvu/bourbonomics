@@ -124,6 +124,7 @@ export function placeBarrel(
         inspectedThisRound: false,
         extraAgesAvailable: 0,
         gridRepOffset: 0,
+        demandBandOffset: 0,
       },
     ],
   };

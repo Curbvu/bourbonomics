@@ -170,6 +170,7 @@ export type OperationsCardDefId =
   | "glut"
   | "regulatory_inspection"
   | "rushed_shipment"
+  | "forced_cure"
   | "barrel_broker"
   | "market_corner"
   | "insider_buyer"
@@ -178,6 +179,10 @@ export type OperationsCardDefId =
   | "cash_out"
   | "allocation"
   | "rickhouse_expansion_permit"
+  | "mash_futures"
+  | "coopers_contract"
+  | "rating_boost"
+  | "master_distiller"
   | "blend"
   | "demand_surge";
 
@@ -240,6 +245,12 @@ export interface Barrel {
    * fires at production commit and must outlast the spent card.
    */
   gridRepOffset: number;
+  /**
+   * Persistent demand-band offset applied at sale time
+   * (Master Distiller — barrel reads grid as if demand were N higher).
+   * Stacks additively with sale-card `grid_demand_band_offset` signals.
+   */
+  demandBandOffset: number;
 }
 
 // -----------------------------
@@ -286,6 +297,19 @@ export interface PlayerState {
    * purchase or when your turn ends.
    */
   pendingHalfCostMarketBuy: boolean;
+  /**
+   * Pre-played production discount that applies to the player's next
+   * MAKE_BOURBON. Set by Mash Futures (`grain` — minimum total grain
+   * relaxed by 1, floor 1) or Cooper's Contract (`cask` — the
+   * cask-required-exactly-1 rule relaxes to allow 0). Cleared after
+   * one production. Persists across rounds until used.
+   */
+  pendingMakeDiscount: "grain" | "cask" | null;
+  /**
+   * Set by Rating Boost — your next SELL_BOURBON gains an additional
+   * +N reputation on top of the grid reward. Persists until consumed.
+   */
+  pendingRatingBoost: number;
 }
 
 // -----------------------------
@@ -415,6 +439,7 @@ export type PlayOperationsCardParams =
   | { defId: "glut" }
   | { defId: "regulatory_inspection"; targetBarrelId: string }
   | { defId: "rushed_shipment"; targetBarrelId: string }
+  | { defId: "forced_cure"; targetBarrelId: string }
   | {
       defId: "barrel_broker";
       sourceBarrelId: string;
@@ -429,6 +454,10 @@ export type PlayOperationsCardParams =
   | { defId: "cash_out" }
   | { defId: "allocation" }
   | { defId: "rickhouse_expansion_permit" }
+  | { defId: "mash_futures" }
+  | { defId: "coopers_contract" }
+  | { defId: "rating_boost" }
+  | { defId: "master_distiller"; targetBarrelId: string }
   | { defId: "blend"; barrel1Id: string; barrel2Id: string }
   | { defId: "demand_surge" };
 

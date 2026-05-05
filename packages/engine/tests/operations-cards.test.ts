@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
-import { makeMashBill, makeCapitalCard } from "../src/cards.js";
+import { makeMashBill, makeCapitalCard, makeResourceCard } from "../src/cards.js";
 import type { OperationsCard, OperationsCardDefId } from "../src/types.js";
 import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel } from "./helpers.js";
 
@@ -503,5 +503,181 @@ describe("PLAY_OPERATIONS_CARD — Rickhouse Expansion Permit", () => {
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.rickhouseSlots.length).toBe(before + 1);
     expect(p1.rickhouseSlots.at(-1)?.tier).toBe("upper");
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Forced Cure", () => {
+  it("grants a bonus age slot on a barrel (same shape as Rushed Shipment)", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p1", bill(), 0);
+    const barrelId = state.allBarrels[0]!.id;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "forced_cure");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "forced_cure",
+      targetBarrelId: barrelId,
+    });
+    expect(state.allBarrels[0]!.extraAgesAvailable).toBe(1);
+  });
+
+  it("rejects targeting an opponent's barrel", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p2", bill(), 0);
+    const barrelId = state.allBarrels[0]!.id;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "forced_cure");
+    expect(() =>
+      applyAction(s, {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: "p1",
+        cardId,
+        defId: "forced_cure",
+        targetBarrelId: barrelId,
+      }),
+    ).toThrow(/your own/);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Mash Futures", () => {
+  it("relaxes a recipe grain min by 1 on the next MAKE", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state);
+    // Build a bill that requires 2 rye, drafted onto p1.
+    const stiffBill = makeMashBill(
+      {
+        defId: "stiff_rye",
+        name: "Stiff Rye",
+        ageBands: [2, 4, 6],
+        demandBands: [2, 4, 6],
+        rewardGrid: [[1, 2, 3], [2, 4, 5], [3, 5, 6]],
+        recipe: { minRye: 2 },
+      },
+      0,
+    );
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1"
+          ? { ...p, mashBills: [...p.mashBills, stiffBill] }
+          : p,
+      ),
+    };
+    const { state: s, cardId } = giveOpsCard(state, "p1", "mash_futures");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "mash_futures",
+    });
+    expect(state.players.find((p) => p.id === "p1")!.pendingMakeDiscount).toBe("grain");
+    // Hand: cask + corn + 1 rye (only 1 rye but discount knocks the min from 2 → 1).
+    state = giveHand(state, "p1", [
+      makeResourceCard("cask", "p1", 0),
+      makeResourceCard("corn", "p1", 1),
+      makeResourceCard("rye", "p1", 2),
+    ]);
+    const slot = state.players[0]!.rickhouseSlots[0]!.id;
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
+      mashBillId: stiffBill.id,
+      slotId: slot,
+    });
+    // Discount consumed.
+    expect(state.players.find((p) => p.id === "p1")!.pendingMakeDiscount).toBeNull();
+    expect(state.allBarrels).toHaveLength(1);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Cooper's Contract", () => {
+  it("lets a MAKE proceed with 0 cask cards", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "coopers_contract");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "coopers_contract",
+    });
+    expect(state.players.find((p) => p.id === "p1")!.pendingMakeDiscount).toBe("cask");
+    // Caskless mash — corn + rye only.
+    state = giveHand(state, "p1", [
+      makeResourceCard("corn", "p1", 0),
+      makeResourceCard("rye", "p1", 1),
+    ]);
+    const mbId = state.players[0]!.mashBills[0]!.id;
+    const slot = state.players[0]!.rickhouseSlots[0]!.id;
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      cardIds: ["card_p1_corn_0", "card_p1_rye_1"],
+      mashBillId: mbId,
+      slotId: slot,
+    });
+    expect(state.allBarrels).toHaveLength(1);
+    expect(state.players.find((p) => p.id === "p1")!.pendingMakeDiscount).toBeNull();
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Rating Boost", () => {
+  it("grants +2 rep on the next sale", () => {
+    let state = makeTestGame({ startingDemand: 5 });
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p1", bill(), 4);
+    const barrelId = state.allBarrels[0]!.id;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "rating_boost");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "rating_boost",
+    });
+    expect(state.players.find((p) => p.id === "p1")!.pendingRatingBoost).toBe(2);
+    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    // age 4, demand 5: row 1, col 1, reward 4. +2 from Rating Boost = 6 net.
+    state = applyAction(state, {
+      type: "SELL_BOURBON",
+      playerId: "p1",
+      barrelId,
+      reputationSplit: 4,
+      cardDrawSplit: 0,
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    expect(p1.reputation).toBe(beforeRep + 4 + 2);
+    // Boost consumed.
+    expect(p1.pendingRatingBoost).toBe(0);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Master Distiller", () => {
+  it("permanently shifts the targeted barrel's demand-band reading at sale", () => {
+    let state = makeTestGame({ startingDemand: 4 });
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p1", bill(), 4);
+    const barrelId = state.allBarrels[0]!.id;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "master_distiller");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "master_distiller",
+      targetBarrelId: barrelId,
+    });
+    expect(state.allBarrels[0]!.demandBandOffset).toBe(2);
+    // age 4, demand 4: base row 1, col 1 = 4. With +2 band offset col
+    // shifts up to col 2 (capped) → reward 5.
+    state = applyAction(state, {
+      type: "SELL_BOURBON",
+      playerId: "p1",
+      barrelId,
+      reputationSplit: 5,
+      cardDrawSplit: 0,
+    });
+    expect(state.allBarrels).toHaveLength(0);
   });
 });
