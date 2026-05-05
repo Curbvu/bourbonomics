@@ -17,13 +17,15 @@ Authoritative checklist of explicit asks the user has made for v2.1.
 Implementation must respect every item on this list; new asks are
 added at the top.
 
-- **Action bar above the HandTray** during the action phase. Single
-  horizontal strip of buttons (Make / Age / Sell / Rush / Buy market /
-  Draw bill / Trade / Pass) on the human's turn, each with its own
-  enabled/disabled tooltip explaining why. Wiring in flight: Pass Turn
-  and Draw Mash Bill are one-click; Make/Sell/Rush/Buy/Trade need
-  multi-step pickers that follow in subsequent iterations. Bots still
-  play their action turns automatically via Step / Auto.
+- **All 8 ActionBar buttons are wired end-to-end (one-click).** Every
+  action computes its own "best legal play" inline (auto-plan minimum
+  mash, pick the highest-reward saleable barrel, spend the cheapest
+  capital, etc.) and dispatches via `validateAction`. Buttons sit
+  enabled when legal and carry the validator's `reason` as the
+  disabled tooltip. Multi-step pickers (manual mash/barrel/partner
+  selection for player override) can layer on top later — the
+  baseline is "click → the smart thing happens." Bots still play
+  their own turns via Step / Auto.
 - **MarketCenter is content-sized, not stretched.** The three sub-
   sections (Mash bills / Operations / Investments) no longer claim
   `flex-1` of the column height — they paint just the height their
