@@ -3,13 +3,11 @@
 /**
  * v2 game store, exposed via a React Context provider.
  *
- * Wraps `@bourbonomics/engine` and orchestrates a bot-vs-bot match with a
- * Step / Auto control loop. State is persisted to localStorage between
- * route navigations so the homescreen → /play flow preserves the active
- * game.
- *
- * The "human" seat from the new-game form is treated as another bot
- * internally — matches the user's "computer-only" scope for now.
+ * Wraps `@bourbonomics/engine` and orchestrates a bot match with a Step /
+ * Auto control loop. The human seat is *interactive* during the setup
+ * phases (distillery selection + starter-deck draft) — when it's their
+ * turn, autoplay pauses and a modal collects their input. Action-phase
+ * play remains bot-driven for now.
  */
 
 import {
@@ -23,6 +21,8 @@ import {
   type ReactNode,
 } from "react";
 import {
+  applyAction,
+  awaitingHumanInput,
   computeFinalScores,
   defaultMashBillCatalog,
   initializeGame,
@@ -30,6 +30,7 @@ import {
   stepOrchestrator,
   type GameAction,
   type GameState,
+  type PlayerState,
   type ScoreResult,
 } from "@bourbonomics/engine";
 
@@ -65,8 +66,12 @@ export interface GameStore {
   autoplay: boolean;
   /** Cosmetic — seat metadata captured at new-game time. */
   seatMeta: { id: string; logoId?: string; difficulty?: string }[];
+  /** Player on the clock for human input, or null. */
+  humanWaitingOn: PlayerState | null;
   newGame: (cfg: NewGameConfig) => void;
   step: () => void;
+  /** Submit an action directly (used by setup-phase modals). */
+  dispatch: (action: GameAction) => void;
   setAutoplay: (on: boolean) => void;
   clear: () => void;
 }
@@ -78,8 +83,10 @@ const Ctx = createContext<GameStore>({
   scores: null,
   autoplay: false,
   seatMeta: [],
+  humanWaitingOn: null,
   newGame: noop,
   step: noop,
+  dispatch: noop,
   setAutoplay: noop,
   clear: noop,
 });
@@ -137,24 +144,36 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }, [state, log, seatMeta, autoplay, hydrated]);
 
+  const recordAction = useCallback((action: GameAction, round: number) => {
+    seqRef.current += 1;
+    const entry: LogEntry = { seq: seqRef.current, action, round };
+    setLog((prevLog) => [...prevLog, entry].slice(-400));
+  }, []);
+
   const step = useCallback(() => {
     setState((prev) => {
       if (!prev) return prev;
       if (isGameOver(prev)) return prev;
       const result = stepOrchestrator(prev);
-      if (!result) return prev;
-      seqRef.current += 1;
-      const entry: LogEntry = {
-        seq: seqRef.current,
-        action: result.action,
-        round: result.state.round,
-      };
-      setLog((prevLog) => [...prevLog, entry].slice(-400));
+      if (!result) return prev; // awaiting human input
+      recordAction(result.action, result.state.round);
       return result.state;
     });
-  }, []);
+  }, [recordAction]);
 
-  // Autoplay loop.
+  const dispatch = useCallback(
+    (action: GameAction) => {
+      setState((prev) => {
+        if (!prev) return prev;
+        const next = applyAction(prev, action);
+        recordAction(action, next.round);
+        return next;
+      });
+    },
+    [recordAction],
+  );
+
+  // Autoplay loop — paused while waiting on human input.
   useEffect(() => {
     if (!autoplay) return;
     if (!state) return;
@@ -162,6 +181,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setAutoplayState(false);
       return;
     }
+    if (awaitingHumanInput(state)) return;
     const id = window.setTimeout(step, AUTO_STEP_MS);
     return () => window.clearTimeout(id);
   }, [autoplay, state, step]);
@@ -172,7 +192,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const players = seats.map((s, i) => ({
       id: i === 0 ? "human" : `bot${i}`,
       name: s.name,
-      isBot: true, // computer-only for now
+      // The human seat is interactive during setup; bots play themselves.
+      isBot: i !== 0,
     }));
     const meta = seats.map((s, i) => ({
       id: i === 0 ? "human" : `bot${i}`,
@@ -194,6 +215,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       players,
       startingMashBills,
       bourbonDeck,
+      // No starterDecks / startingDistilleries → engine enters setup phases.
     });
     setState(fresh);
     setLog([]);
@@ -219,6 +241,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [state],
   );
 
+  const humanWaitingOn = useMemo(
+    () => (state ? awaitingHumanInput(state) : null),
+    [state],
+  );
+
   const value = useMemo<GameStore>(
     () => ({
       state,
@@ -226,12 +253,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       scores,
       autoplay,
       seatMeta,
+      humanWaitingOn,
       newGame,
       step,
+      dispatch,
       setAutoplay,
       clear,
     }),
-    [state, log, scores, autoplay, seatMeta, newGame, step, setAutoplay, clear],
+    [state, log, scores, autoplay, seatMeta, humanWaitingOn, newGame, step, dispatch, setAutoplay, clear],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

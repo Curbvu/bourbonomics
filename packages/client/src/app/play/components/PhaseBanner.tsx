@@ -1,28 +1,62 @@
 "use client";
 
 /**
- * Phase strip — second band on the dashboard, immediately below the top bar.
- * v1 had 3 phases (Fees / Action / Market) plus a cost ladder; v2 has 4
- * phases (Demand / Draw / Action / Cleanup) and no cost ladder, so the
- * action cell expands to host the demand bar + Step/Auto controls.
+ * Phase strip — round-loop band.
+ *
+ * Per the rules each round has 5 phases: Demand, Draw, Age, Action, Cleanup.
+ * Distillery selection and Starter-deck draft are opening-only setup steps;
+ * during those, this strip stays hidden and the corresponding modal handles
+ * the input.
+ *
+ * The Age phase is folded into the Action phase in the engine — players
+ * spend AGE_BOURBON actions during the action band — so when phase==="action"
+ * we visually highlight both Age and Action together so the rules-stated
+ * 5-phase loop reads correctly to the player.
  */
 
+import type { GamePhase } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 
-const PHASES = [
-  { k: "distillery_selection", l: "Distillery" },
+type DisplayPhaseKey = "demand" | "draw" | "age" | "action" | "cleanup";
+
+const PHASES: { k: DisplayPhaseKey; l: string }[] = [
   { k: "demand", l: "Demand" },
   { k: "draw", l: "Draw" },
+  { k: "age", l: "Age" },
   { k: "action", l: "Action" },
   { k: "cleanup", l: "Cleanup" },
-] as const;
+];
+
+function visiblePhase(phase: GamePhase): DisplayPhaseKey | null {
+  switch (phase) {
+    case "demand":
+      return "demand";
+    case "draw":
+      return "draw";
+    // The engine folds aging into the action phase as an AGE_BOURBON action.
+    // We highlight "action" here; the "age" cell is rendered statically as
+    // part of the rules-stated 5-phase loop.
+    case "action":
+      return "action";
+    case "cleanup":
+      return "cleanup";
+    default:
+      return null;
+  }
+}
 
 export default function PhaseBanner({ subBar = false }: { subBar?: boolean }) {
   const { state, autoplay, setAutoplay, step } = useGameStore();
   if (!state) return null;
   if (state.phase === "ended") return null;
+  // Hide the round-loop banner during opening-only setup phases — the
+  // distillery / starter-deck modals own the screen there.
+  if (state.phase === "setup") return null;
+  if (state.phase === "distillery_selection") return null;
+  if (state.phase === "starter_deck_draft") return null;
 
-  const currentIndex = PHASES.findIndex((p) => p.k === state.phase);
+  const active = visiblePhase(state.phase);
+  const currentIndex = active ? PHASES.findIndex((p) => p.k === active) : -1;
 
   return (
     <div
@@ -35,9 +69,9 @@ export default function PhaseBanner({ subBar = false }: { subBar?: boolean }) {
       aria-label="Round phases"
     >
       {PHASES.map((p, i) => {
-        const active = p.k === state.phase;
-        const past = currentIndex > i;
-        const expandActive = active && p.k === "action";
+        const isActive = p.k === active;
+        const isPast = currentIndex > i;
+        const expandActive = isActive && p.k === "action";
         return (
           <div
             key={p.k}
@@ -45,32 +79,32 @@ export default function PhaseBanner({ subBar = false }: { subBar?: boolean }) {
               "flex min-w-0 items-center gap-3 px-4 py-2",
               expandActive ? "flex-[3]" : "flex-1",
               i < PHASES.length - 1 ? "border-r border-slate-800" : "",
-              active ? "bg-amber-700/[0.18]" : "",
+              isActive ? "bg-amber-700/[0.18]" : "",
             ]
               .filter(Boolean)
               .join(" ")}
-            aria-current={active ? "step" : undefined}
+            aria-current={isActive ? "step" : undefined}
           >
             <span
               className={[
                 "grid h-[30px] w-[30px] flex-shrink-0 place-items-center rounded-full font-mono text-[13px] font-bold leading-none",
-                active
+                isActive
                   ? "bg-amber-500 text-slate-950"
-                  : past
+                  : isPast
                     ? "bg-slate-700 text-slate-300"
                     : "border-2 border-slate-700 text-slate-400",
               ].join(" ")}
               aria-hidden
             >
-              {past ? "✓" : i + 1}
+              {isPast ? "✓" : i + 1}
             </span>
 
             <span
               className={[
                 "flex-shrink-0 text-[17px]",
-                active
+                isActive
                   ? "font-semibold text-amber-100"
-                  : past
+                  : isPast
                     ? "font-medium text-slate-300"
                     : "font-medium text-slate-500",
               ].join(" ")}
@@ -156,18 +190,18 @@ function DemandBar({ value }: { value: number }) {
       <div className="flex flex-1 gap-[4px]" aria-hidden>
         {Array.from({ length: 12 }).map((_, i) => {
           const cellNum = i + 1;
-          const active = cellNum <= value;
+          const isActive = cellNum <= value;
           return (
             <div
               key={i}
               className={[
                 "h-[22px] flex-1 rounded-[4px] border transition-colors duration-200",
-                active
+                isActive
                   ? "text-slate-950"
                   : "border-slate-800 bg-slate-900",
               ].join(" ")}
               style={
-                active
+                isActive
                   ? {
                       backgroundColor: cellColor(i),
                       borderColor: cellColor(i),

@@ -54,7 +54,13 @@ export function applySelectDistillery(
 
   draft.distillerySelectionCursor += 1;
   if (draft.distillerySelectionCursor >= draft.distillerySelectionOrder.length) {
-    // All players have picked — transition into the round loop.
-    draft.phase = "demand";
+    // All players have picked their distillery — fall through to the next
+    // setup phase (starter-deck draft if anyone still needs to compose,
+    // else straight into the round loop).
+    if (draft.starterDeckDraftOrder.length > 0) {
+      draft.phase = "starter_deck_draft";
+    } else {
+      draft.phase = "demand";
+    }
   }
 }

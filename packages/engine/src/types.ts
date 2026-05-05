@@ -201,11 +201,22 @@ export interface PlayerState {
 export type GamePhase =
   | "setup"
   | "distillery_selection"
+  | "starter_deck_draft"
   | "demand"
   | "draw"
   | "action"
   | "cleanup"
   | "ended";
+
+/** Composition of plain card counts that build a starter deck. */
+export interface StarterDeckComposition {
+  cask?: number;
+  corn?: number;
+  rye?: number;
+  barley?: number;
+  wheat?: number;
+  capital?: number;
+}
 
 export interface GameState {
   /** Original seed (for replays). */
@@ -225,6 +236,11 @@ export interface GameState {
   distillerySelectionOrder: string[];
   /** Index into distillerySelectionOrder pointing at the next picker. */
   distillerySelectionCursor: number;
+
+  /** Player ids in the order they compose starter decks (reverse snake). */
+  starterDeckDraftOrder: string[];
+  /** Index into starterDeckDraftOrder pointing at the next composer. */
+  starterDeckDraftCursor: number;
 
   /** Every barrel in play. Owner is barrel.ownerId; slot is barrel.slotId. */
   allBarrels: Barrel[];
@@ -313,6 +329,7 @@ export type PlayOperationsCardParams =
 
 export type GameAction =
   | { type: "SELECT_DISTILLERY"; playerId: string; distilleryId: string }
+  | { type: "COMPOSE_STARTER_DECK"; playerId: string; composition: StarterDeckComposition }
   | { type: "ROLL_DEMAND"; roll: [number, number] }
   | { type: "DRAW_HAND"; playerId: string }
   | {

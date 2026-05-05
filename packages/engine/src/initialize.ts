@@ -9,7 +9,6 @@ import type {
 import {
   defaultMarketSupply,
   defaultMashBillCatalog,
-  defaultStarterCards,
 } from "./defaults";
 import { defaultDistilleryPool, buildRickhouseSlots } from "./distilleries";
 import { defaultOperationsDeck } from "./operations";
@@ -22,10 +21,15 @@ const DEFAULT_STARTING_OPS_CARDS = 2;
 const MARKET_CONVEYOR_SIZE = 6;
 
 /**
- * Build a fresh GameState. If `startingDistilleries` is provided, the game
- * skips the selection phase and lands directly in the demand phase. Otherwise
- * the game starts in `distillery_selection` and resolves picks in reverse-
- * snake order via SELECT_DISTILLERY.
+ * Build a fresh GameState. Setup phases are skipped per-player when the
+ * relevant config field is supplied:
+ *   - `startingDistilleries[i]` skips the distillery pick for player i
+ *   - `starterDecks[i]`         skips the starter-deck draft for player i
+ *
+ * If every player has both pre-assigned, the game lands directly in the
+ * demand phase. Otherwise the engine walks distillery_selection →
+ * starter_deck_draft → demand, resolving picks via SELECT_DISTILLERY and
+ * COMPOSE_STARTER_DECK actions in reverse-snake order.
  */
 export function initializeGame(config: GameConfig): GameState {
   let rngState = config.seed;
@@ -33,17 +37,24 @@ export function initializeGame(config: GameConfig): GameState {
   const startingDemand = config.startingDemand ?? DEFAULT_DEMAND;
   const startingOpsCount = config.startingOperationsCardCount ?? DEFAULT_STARTING_OPS_CARDS;
 
-  // Players (with shuffled starter decks; distillery may be assigned now or later)
+  // Players. A player whose starter deck wasn't pre-built starts with an
+  // empty deck and joins the starter_deck_draft phase to compose theirs.
   const players: PlayerState[] = config.players.map((p, i) => {
     const distillery = config.startingDistilleries?.[i] ?? null;
-    const startingDeck = config.starterDecks?.[i] ?? defaultStarterCards(p.id);
-    // Apply High-Rye House bonus: prepend a free 2-rye to the starter deck before shuffle.
-    const deckWithBonus =
-      distillery?.bonus === "high_rye"
-        ? [...startingDeck, makeResourceCard("rye", p.id, 999, true, 2)]
-        : startingDeck;
-    const { shuffled, rngState: nextRng } = shuffleCards(deckWithBonus, rngState);
-    rngState = nextRng;
+    const explicitDeck = config.starterDecks?.[i];
+
+    let deck: Card[] = [];
+    if (explicitDeck) {
+      // Apply High-Rye House bonus to the supplied deck before shuffle.
+      const deckWithBonus =
+        distillery?.bonus === "high_rye"
+          ? [...explicitDeck, makeResourceCard("rye", p.id, 999, true, 2)]
+          : explicitDeck;
+      const shuffled = shuffleCards(deckWithBonus, rngState);
+      deck = shuffled.shuffled;
+      rngState = shuffled.rngState;
+    }
+
     const startingMash = config.startingMashBills?.[i] ?? [];
     return {
       id: p.id,
@@ -52,7 +63,7 @@ export function initializeGame(config: GameConfig): GameState {
       distillery,
       rickhouseSlots: distillery ? buildRickhouseSlots(p.id, distillery) : [],
       hand: [],
-      deck: shuffled,
+      deck,
       discard: [],
       mashBills: startingMash.slice(),
       unlockedGoldBourbons: [],
@@ -97,14 +108,20 @@ export function initializeGame(config: GameConfig): GameState {
     (d) => !players.some((p) => p.distillery && p.distillery.defId === d.defId),
   );
 
-  // Reverse snake selection order (last player picks first).
+  // Reverse-snake order for setup phases (last seat picks first).
   const distillerySelectionOrder = players
     .filter((p) => !p.distillery)
     .map((p) => p.id)
     .reverse();
+  const starterDeckDraftOrder = players
+    .filter((_, i) => !config.starterDecks?.[i])
+    .map((p) => p.id)
+    .reverse();
 
-  const phase: GameState["phase"] =
-    distillerySelectionOrder.length > 0 ? "distillery_selection" : "demand";
+  let phase: GameState["phase"];
+  if (distillerySelectionOrder.length > 0) phase = "distillery_selection";
+  else if (starterDeckDraftOrder.length > 0) phase = "starter_deck_draft";
+  else phase = "demand";
 
   return {
     seed: config.seed,
@@ -116,6 +133,8 @@ export function initializeGame(config: GameConfig): GameState {
     distilleryPool,
     distillerySelectionOrder,
     distillerySelectionCursor: 0,
+    starterDeckDraftOrder,
+    starterDeckDraftCursor: 0,
     allBarrels: [],
     marketConveyor,
     marketSupplyDeck,

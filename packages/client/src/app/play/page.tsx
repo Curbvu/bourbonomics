@@ -1,9 +1,11 @@
 "use client";
 
+import DistilleryDraftModal from "./components/DistilleryDraftModal";
 import GameBoard from "./components/GameBoard";
 import GameErrorBoundary from "./components/ErrorBoundary";
 import GameTopBar from "./components/GameTopBar";
 import MainMenu from "./components/MainMenu";
+import StarterDeckDraftModal from "./components/StarterDeckDraftModal";
 import { useGameStore } from "@/lib/store/game";
 
 export default function PlayPage() {
@@ -30,6 +32,10 @@ export default function PlayPage() {
           <GameBoard />
         </GameErrorBoundary>
       </div>
+      {/* Setup-phase modals — render unconditionally; each component
+          self-gates on phase + humanWaitingOn. */}
+      <DistilleryDraftModal />
+      <StarterDeckDraftModal />
     </main>
   );
 }

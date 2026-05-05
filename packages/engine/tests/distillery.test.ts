@@ -56,13 +56,13 @@ describe("Distillery selection", () => {
     expect(state.distilleryPool.find((d) => d.id === oldLine.id)).toBeUndefined();
   });
 
-  it("transitions to demand phase once every player has picked", () => {
+  it("falls through to starter_deck_draft once every player has picked a distillery", () => {
     let state = makeSelectionGame();
     for (const playerId of state.distillerySelectionOrder) {
       const distId = state.distilleryPool[0]!.id;
       state = applyAction(state, { type: "SELECT_DISTILLERY", playerId, distilleryId: distId });
     }
-    expect(state.phase).toBe("demand");
+    expect(state.phase).toBe("starter_deck_draft");
     expect(state.players.every((p) => p.distillery !== null)).toBe(true);
   });
 

@@ -12,6 +12,7 @@ import type {
 import { isWheatedBill } from "../types";
 import { capitalUnits, resourceUnits, suppliesResource } from "../cards";
 import { computeReward } from "../rewards";
+import { DEFAULT_BALANCED_COMPOSITION } from "../drafting";
 import { emptySlotsFor, getPlayerBarrels, playerRickhouseFull } from "../state";
 
 // ---------------------------------------------------------------
@@ -39,6 +40,9 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
   // Setup phase: distillery picks come through the runner, but expose a helper.
   if (state.phase === "distillery_selection") {
     return chooseDistilleryAction(state, playerId);
+  }
+  if (state.phase === "starter_deck_draft") {
+    return chooseStarterDeckAction(playerId);
   }
 
   const player = state.players.find((p) => p.id === playerId);
@@ -109,6 +113,20 @@ const DISTILLERY_PREFERENCE: Distillery["bonus"][] = [
 
 export function chooseDistillery(state: GameState, playerId: string): GameAction {
   return chooseDistilleryAction(state, playerId);
+}
+
+export function chooseStarterDeck(playerId: string): GameAction {
+  return chooseStarterDeckAction(playerId);
+}
+
+function chooseStarterDeckAction(playerId: string): GameAction {
+  // Bots take the balanced default composition. Future: pick based on the
+  // distillery bonus (e.g. extra rye for High-Rye House).
+  return {
+    type: "COMPOSE_STARTER_DECK",
+    playerId,
+    composition: { ...DEFAULT_BALANCED_COMPOSITION },
+  };
 }
 
 function chooseDistilleryAction(state: GameState, playerId: string): GameAction {

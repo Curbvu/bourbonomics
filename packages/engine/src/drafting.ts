@@ -1,7 +1,13 @@
-import type { Card, MashBill, ResourceSubtype, ValidationResult } from "./types";
+import type {
+  Card,
+  MashBill,
+  ResourceSubtype,
+  StarterDeckComposition,
+  ValidationResult,
+} from "./types";
 import { makeCapitalCard, makeResourceCard } from "./cards";
 
-const DEFAULT_STARTER_SIZE = 16;
+export const DEFAULT_STARTER_SIZE = 16;
 
 /**
  * Snake-draft player index sequence. With 3 players and 3 picks each, returns:
@@ -68,15 +74,6 @@ export function autoDraftMashBills(
 }
 
 // ---- Starter Deck Composition ----
-
-export interface StarterDeckComposition {
-  cask?: number;
-  corn?: number;
-  rye?: number;
-  barley?: number;
-  wheat?: number;
-  capital?: number;
-}
 
 export function totalCards(composition: StarterDeckComposition): number {
   return (

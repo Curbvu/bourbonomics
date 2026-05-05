@@ -1,8 +1,8 @@
 import { initializeGame } from "../src/initialize.js";
-import { defaultMashBillCatalog } from "../src/defaults.js";
+import { defaultMashBillCatalog, defaultStarterCards } from "../src/defaults.js";
 import { defaultDistilleryPool } from "../src/distilleries.js";
 import { applyAction } from "../src/engine.js";
-import type { Card, Distillery, GameConfig, GameState } from "../src/types.js";
+import type { Card, GameConfig, GameState } from "../src/types.js";
 
 /**
  * Build a deterministic test game.
@@ -41,6 +41,10 @@ export function makeTestGame(overrides: Partial<GameConfig> = {}): GameState {
       ...vanilla,
       id: `dist_test_vanilla_${i}`,
     }));
+  }
+
+  if (!baseConfig.starterDecks) {
+    baseConfig.starterDecks = baseConfig.players.map((p) => defaultStarterCards(p.id));
   }
 
   return initializeGame(baseConfig);

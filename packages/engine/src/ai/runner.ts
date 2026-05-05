@@ -1,7 +1,7 @@
-import type { GameAction, GameState } from "../types";
+import type { GameAction, GameState, PlayerState } from "../types";
 import { applyAction, isGameOver } from "../engine";
 import { roll2d6 } from "../rng";
-import { chooseAction, chooseDistillery } from "./bot";
+import { chooseAction, chooseDistillery, chooseStarterDeck } from "./bot";
 
 /**
  * Drive a game where every player is a bot. Returns the final state.
@@ -22,6 +22,11 @@ export function playFullBotGame(
 
   while (!isGameOver(state) && count < maxActions) {
     const action = nextOrchestratorAction(state);
+    if (!action) {
+      throw new Error(
+        `playFullBotGame stalled: phase=${state.phase} requires human input`,
+      );
+    }
     state = applyOrchestratorStep(state, action);
     if (onAction) onAction(state, action);
     count++;
@@ -38,27 +43,42 @@ export function playFullBotGame(
 
 /**
  * Single-step the orchestrator: pick the next action and apply it.
- * Returns null if the game has ended. Useful for UIs that want a "step"
- * button or per-frame animation.
+ * Returns null if the game has ended OR if the next pick belongs to a human.
  */
 export function stepOrchestrator(
   state: GameState,
 ): { state: GameState; action: GameAction } | null {
   if (isGameOver(state)) return null;
   const action = nextOrchestratorAction(state);
+  if (!action) return null;
   const next = applyOrchestratorStep(state, action);
   return { state: next, action };
 }
 
-/** Decide what the orchestrator does next given the current phase. */
-export function nextOrchestratorAction(state: GameState): GameAction {
+/**
+ * Decide what the orchestrator does next given the current phase.
+ * Returns null if the next pick belongs to a non-bot player who hasn't
+ * submitted yet.
+ */
+export function nextOrchestratorAction(state: GameState): GameAction | null {
   switch (state.phase) {
     case "distillery_selection": {
       const nextPickerId = state.distillerySelectionOrder[state.distillerySelectionCursor];
       if (!nextPickerId) {
         throw new Error("distillery selection has no remaining pickers");
       }
+      const picker = state.players.find((p) => p.id === nextPickerId);
+      if (picker && picker.isBot === false) return null;
       return chooseDistillery(state, nextPickerId);
+    }
+    case "starter_deck_draft": {
+      const nextPickerId = state.starterDeckDraftOrder[state.starterDeckDraftCursor];
+      if (!nextPickerId) {
+        throw new Error("starter-deck draft has no remaining pickers");
+      }
+      const picker = state.players.find((p) => p.id === nextPickerId);
+      if (picker && picker.isBot === false) return null;
+      return chooseStarterDeck(nextPickerId);
     }
     case "demand": {
       const [roll] = roll2d6(state.rngState);
@@ -83,6 +103,23 @@ export function nextOrchestratorAction(state: GameState): GameAction {
     case "ended":
       throw new Error(`orchestrator cannot step from phase="${state.phase}"`);
   }
+}
+
+/**
+ * If `state` is in a setup phase that expects human input, returns the
+ * `PlayerState` of the player on the clock. Otherwise null.
+ */
+export function awaitingHumanInput(state: GameState): PlayerState | null {
+  if (state.phase === "distillery_selection") {
+    const id = state.distillerySelectionOrder[state.distillerySelectionCursor];
+    const picker = id ? state.players.find((p) => p.id === id) : undefined;
+    if (picker && picker.isBot === false) return picker;
+  } else if (state.phase === "starter_deck_draft") {
+    const id = state.starterDeckDraftOrder[state.starterDeckDraftCursor];
+    const picker = id ? state.players.find((p) => p.id === id) : undefined;
+    if (picker && picker.isBot === false) return picker;
+  }
+  return null;
 }
 
 /** Apply the action, plus any out-of-band rng-state updates the action needs. */
