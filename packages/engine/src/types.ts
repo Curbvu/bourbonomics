@@ -134,10 +134,18 @@ export interface Distillery {
 
 export type OperationsCardDefId =
   | "market_manipulation"
+  | "bourbon_boom"
+  | "glut"
   | "regulatory_inspection"
   | "rushed_shipment"
   | "barrel_broker"
   | "market_corner"
+  | "insider_buyer"
+  | "kentucky_connection"
+  | "bottling_run"
+  | "cash_out"
+  | "allocation"
+  | "rickhouse_expansion_permit"
   | "blend"
   | "demand_surge";
 
@@ -223,6 +231,12 @@ export interface PlayerState {
   demandSurgeActive: boolean;
   /** Set by The Broker bonus — true once the free trade has been used this round. */
   brokerFreeTradeUsed: boolean;
+  /**
+   * Set by Insider Buyer — your next BUY_FROM_MARKET this turn pays
+   * half the printed cost (rounded up, min 1¢). Cleared after one
+   * purchase or when your turn ends.
+   */
+  pendingHalfCostMarketBuy: boolean;
 }
 
 // -----------------------------
@@ -342,6 +356,8 @@ export interface ConvertSpec {
 /** Discriminator for ops card plays. Each variant carries the params it needs. */
 export type PlayOperationsCardParams =
   | { defId: "market_manipulation"; direction: "up" | "down" }
+  | { defId: "bourbon_boom" }
+  | { defId: "glut" }
   | { defId: "regulatory_inspection"; targetBarrelId: string }
   | { defId: "rushed_shipment"; targetBarrelId: string }
   | {
@@ -352,6 +368,12 @@ export type PlayOperationsCardParams =
       paymentCardIds: string[];
     }
   | { defId: "market_corner"; marketSlotIndex: number }
+  | { defId: "insider_buyer" }
+  | { defId: "kentucky_connection" }
+  | { defId: "bottling_run" }
+  | { defId: "cash_out" }
+  | { defId: "allocation" }
+  | { defId: "rickhouse_expansion_permit" }
   | { defId: "blend"; barrel1Id: string; barrel2Id: string }
   | { defId: "demand_surge" };
 

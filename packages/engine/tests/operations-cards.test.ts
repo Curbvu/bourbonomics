@@ -285,3 +285,225 @@ describe("Operations cards in the final round", () => {
     expect(next.demand).toBe(7);
   });
 });
+
+describe("PLAY_OPERATIONS_CARD — Bourbon Boom", () => {
+  it("raises demand by 2, capped at 12", () => {
+    let state = makeTestGame({ startingDemand: 11 });
+    state = advanceToActionPhase(state, [1, 1]);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "bourbon_boom");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "bourbon_boom",
+    });
+    expect(state.demand).toBe(12);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Glut", () => {
+  it("drops demand by 2, floored at 0", () => {
+    let state = makeTestGame({ startingDemand: 1 });
+    state = advanceToActionPhase(state, [1, 1]);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "glut");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "glut",
+    });
+    expect(state.demand).toBe(0);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Insider Buyer", () => {
+  it("sweeps the conveyor and refills 10 fresh cards", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const initialIds = state.marketConveyor.map((c) => c.id);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "insider_buyer");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "insider_buyer",
+    });
+    expect(state.marketConveyor).toHaveLength(10);
+    // None of the original conveyor cards should still occupy the row
+    // (they all went to discard before the redeal pulled fresh ones).
+    const overlap = state.marketConveyor.filter((c) => initialIds.includes(c.id));
+    // Some overlap is possible if the supply reshuffled the discard back in,
+    // but a full match would suggest the sweep didn't actually happen.
+    expect(overlap.length).toBeLessThan(initialIds.length);
+  });
+
+  it("grants a one-shot half-cost discount on the next BUY_FROM_MARKET", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "insider_buyer");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "insider_buyer",
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    expect(p1.pendingHalfCostMarketBuy).toBe(true);
+
+    // Try to buy a 4¢ card with $2 capital — should succeed under the
+    // half-cost rule (ceil(4/2) = 2¢).
+    const target = state.marketConveyor.find((c) => (c.cost ?? 1) === 4);
+    if (!target) return; // skip if seed didn't surface a 4¢ card
+    const slotIdx = state.marketConveyor.findIndex((c) => c.id === target.id);
+    state = giveHand(state, "p1", [makeCapitalCard("p1", 999, 2)]);
+    state = applyAction(state, {
+      type: "BUY_FROM_MARKET",
+      playerId: "p1",
+      marketSlotIndex: slotIdx,
+      spendCardIds: ["card_p1_cap2_999"],
+    });
+    const p1After = state.players.find((p) => p.id === "p1")!;
+    // Discount consumed.
+    expect(p1After.pendingHalfCostMarketBuy).toBe(false);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Kentucky Connection", () => {
+  it("draws 2 cards into the player's hand", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const before = state.players.find((p) => p.id === "p1")!.hand.length;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "kentucky_connection");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "kentucky_connection",
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    expect(p1.hand.length).toBe(before + 2);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Bottling Run", () => {
+  it("every player draws 1 card", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const before = state.players.map((p) => p.hand.length);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "bottling_run");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "bottling_run",
+    });
+    state.players.forEach((p, i) => {
+      expect(p.hand.length).toBe((before[i] ?? 0) + 1);
+    });
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Cash Out", () => {
+  it("converts every resource card in hand into $1 capital cards in discard", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    // Seed a known hand: 3 corn + 1 capital. Cash Out should clear the
+    // 3 corn and mint 3 new $1 capital cards into discard.
+    state = giveHand(state, "p1", [
+      makeCapitalCard("p1", 200, 1),
+      // 3 resource cards from helpers — use makeCapitalCard for slot,
+      // then mutate type via giveHand alternative. We'll just use
+      // makeCapitalCard for the keep-card and the helper's resources.
+    ]);
+    // Append 3 resource cards directly to the hand for simplicity.
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1"
+          ? {
+              ...p,
+              hand: [
+                ...p.hand,
+                {
+                  id: "card_p1_corn_t0",
+                  cardDefId: "corn",
+                  type: "resource",
+                  subtype: "corn",
+                  resourceCount: 1,
+                  cost: 1,
+                },
+                {
+                  id: "card_p1_corn_t1",
+                  cardDefId: "corn",
+                  type: "resource",
+                  subtype: "corn",
+                  resourceCount: 1,
+                  cost: 1,
+                },
+                {
+                  id: "card_p1_corn_t2",
+                  cardDefId: "corn",
+                  type: "resource",
+                  subtype: "corn",
+                  resourceCount: 1,
+                  cost: 1,
+                },
+              ],
+            }
+          : p,
+      ),
+    };
+    const { state: s, cardId } = giveOpsCard(state, "p1", "cash_out");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "cash_out",
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    // Hand keeps the original capital card; resources are gone.
+    expect(p1.hand.every((c) => c.type === "capital")).toBe(true);
+    // Discard now has the 3 spent corn cards + 3 freshly minted $1 capitals.
+    const mintedCapitals = p1.discard.filter(
+      (c) => c.type === "capital" && c.id.startsWith("card_p1_cap"),
+    );
+    expect(mintedCapitals.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Allocation", () => {
+  it("draws 2 mash bills from the deck into the player's hand for free", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const beforeBills = state.players.find((p) => p.id === "p1")!.mashBills.length;
+    const beforeDeck = state.bourbonDeck.length;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "allocation");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "allocation",
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    expect(p1.mashBills.length).toBe(beforeBills + 2);
+    expect(state.bourbonDeck.length).toBe(beforeDeck - 2);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Rickhouse Expansion Permit", () => {
+  it("adds a permanent upper-tier slot to the player's rickhouse", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const before = state.players.find((p) => p.id === "p1")!.rickhouseSlots.length;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "rickhouse_expansion_permit");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "rickhouse_expansion_permit",
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    expect(p1.rickhouseSlots.length).toBe(before + 1);
+    expect(p1.rickhouseSlots.at(-1)?.tier).toBe("upper");
+  });
+});

@@ -1,0 +1,275 @@
+# ============================================================
+# Bourbonomics — Themed Resource Card Catalog (Source of Truth)
+# ============================================================
+#
+# Every premium resource and capital card in the market supply lives
+# here. Plain commons (single-subtype, 1¢) are minted procedurally by
+# `defaultMarketSupply()` and are NOT listed here — only the themed
+# variants with names, costs, and effects.
+#
+# Effects fire at one of two discrete moments:
+#   - on_commit  — when the card is spent into a barrel
+#                  (production = MAKE_BOURBON; aging = AGE_BOURBON)
+#   - on_sale    — when the barrel is sold (SELL_BOURBON)
+#
+# Capital cards may also fire on_spend when used in a market purchase.
+# No turn-by-turn tracking, no upkeep, no triggers between commit/sale.
+#
+# Each card has:
+#   defId         — engine identifier (snake_case, stable across tunings)
+#   displayName   — on-card label
+#   subtype       — cask | corn | rye | barley | wheat   (resources)
+#   resourceCount — how many units it supplies (counts-as)
+#   capitalValue  — only on capital cards: face value when paid
+#   cost          — market price in card-units (1 capital ≥ printed value, others = 1)
+#   rarity        — common | uncommon | rare      (drives market mix)
+#   copies        — number of copies in the supply deck
+#   effect        — { kind, when, ...params } | null
+#   implemented   — true | design  (whether the engine resolves the effect)
+#   flavor        — short tagline for the inspect modal
+#
+# When implemented: design, the card is minted into the supply with its
+# stat line (resourceCount, capitalValue, cost) but the **effect itself
+# does nothing yet**. The visual chrome + name still varies the market;
+# wiring the effect is a follow-up.
+
+# ────────────────────────────────────────────────────────────────────
+# Distribution intent
+#   commons   — majority of the deck (basic 1-of-subtype, no effect)
+#   uncommons — meaningful minority (themed premiums with effects)
+#   rares     — very rare (the 5 marked `rarity: rare` below; 1 copy each)
+# ────────────────────────────────────────────────────────────────────
+
+cards:
+  # ─── Barley · Engine acceleration ────────────────────────────────
+  - defId: two_row_barley
+    displayName: Two-Row Barley
+    flavor: A leaner stalk, cycles your hand.
+    subtype: barley
+    resourceCount: 1
+    cost: 3
+    rarity: uncommon
+    copies: 2
+    effect: { kind: draw_cards, when: on_commit_production, n: 1 }
+    implemented: design
+
+  - defId: malted_barley
+    displayName: Malted Barley
+    flavor: Sweet conversion mid-aging.
+    subtype: barley
+    resourceCount: 1
+    cost: 3
+    rarity: uncommon
+    copies: 2
+    effect: { kind: draw_cards, when: on_commit_aging, n: 1 }
+    implemented: design
+
+  - defId: heritage_barley
+    displayName: Heritage Barley
+    flavor: Heirloom strain, double yield.
+    subtype: barley
+    resourceCount: 2
+    cost: 5
+    rarity: uncommon
+    copies: 2
+    effect: { kind: draw_cards, when: on_commit_production, n: 1 }
+    implemented: design  # Stat line is wired; the draw effect is not.
+
+  - defId: six_row_barley
+    displayName: Six-Row Barley
+    flavor: Endless rows, endless cards.
+    subtype: barley
+    resourceCount: 2
+    cost: 7
+    rarity: rare
+    copies: 1
+    effect:
+      kind: composite
+      effects:
+        - { kind: draw_cards, when: on_commit_production, n: 2 }
+        - { kind: draw_cards, when: on_sale, n: 1 }
+    implemented: design
+
+  # ─── Wheat · Time manipulation ───────────────────────────────────
+  - defId: soft_red_wheat
+    displayName: Soft Red Wheat
+    flavor: A barrel born already aging.
+    subtype: wheat
+    resourceCount: 1
+    cost: 4
+    rarity: uncommon
+    copies: 2
+    effect: { kind: barrel_starts_aged, when: on_commit_production, age: 1 }
+    implemented: design
+
+  - defId: winter_wheat
+    displayName: Winter Wheat
+    flavor: Two winters in one season.
+    subtype: wheat
+    resourceCount: 1
+    cost: 4
+    rarity: uncommon
+    copies: 2
+    effect: { kind: aging_card_doubled, when: on_commit_aging, years: 2 }
+    implemented: design
+
+  - defId: white_wheat
+    displayName: White Wheat
+    flavor: Patient grain rewards a long sleep.
+    subtype: wheat
+    resourceCount: 2
+    cost: 5
+    rarity: uncommon
+    copies: 2
+    effect: { kind: rep_on_sale_if_age_gte, when: on_sale, age: 5, rep: 1 }
+    implemented: design
+
+  - defId: heirloom_wheat
+    displayName: Heirloom Wheat
+    flavor: A pre-aged barrel that holds the line.
+    subtype: wheat
+    resourceCount: 2
+    cost: 7
+    rarity: rare
+    copies: 1
+    effect:
+      kind: composite
+      effects:
+        - { kind: barrel_starts_aged, when: on_commit_production, age: 2 }
+        - { kind: skip_demand_drop, when: on_sale }
+    implemented: design
+
+  # ─── Rye · Reputation amplification ──────────────────────────────
+  - defId: heritage_rye
+    displayName: Heritage Rye
+    flavor: Twice the spice, twice the bag.
+    subtype: rye
+    resourceCount: 2
+    cost: 4
+    rarity: uncommon
+    copies: 2
+    effect: null
+    implemented: true  # Plain efficiency baseline — no effect to wire.
+
+  - defId: spicy_rye
+    displayName: Spicy Rye
+    flavor: The pepper that lingers in the bottle.
+    subtype: rye
+    resourceCount: 1
+    cost: 4
+    rarity: uncommon
+    copies: 2
+    effect: { kind: rep_on_sale_flat, when: on_sale, rep: 1 }
+    implemented: design
+
+  - defId: high_proof_rye
+    displayName: High-Proof Rye
+    flavor: Hot demand, hot rye.
+    subtype: rye
+    resourceCount: 2
+    cost: 5
+    rarity: uncommon
+    copies: 2
+    effect: { kind: rep_on_sale_if_demand_gte, when: on_sale, demand: 7, rep: 2 }
+    implemented: design
+
+  - defId: distillers_reserve_rye
+    displayName: Distiller's Reserve Rye
+    flavor: Three bushels, every word a headline.
+    subtype: rye
+    resourceCount: 3
+    cost: 8
+    rarity: rare
+    copies: 1
+    effect:
+      kind: composite
+      effects:
+        - { kind: bump_demand, when: on_commit_production, delta: 1 }
+        - { kind: rep_on_sale_flat, when: on_sale, rep: 2 }
+    implemented: design
+
+  # ─── Cask · Quality ──────────────────────────────────────────────
+  - defId: toasted_oak
+    displayName: Toasted Oak
+    flavor: Reads the demand grid one band higher.
+    subtype: cask
+    resourceCount: 1
+    cost: 5
+    rarity: uncommon
+    copies: 2
+    effect: { kind: grid_demand_band_offset, when: on_sale, offset: 1 }
+    implemented: design
+
+  - defId: heavy_char
+    displayName: Heavy Char
+    flavor: Older barrels open up under the burn.
+    subtype: cask
+    resourceCount: 1
+    cost: 4
+    rarity: uncommon
+    copies: 2
+    effect: { kind: rep_on_sale_if_age_gte, when: on_sale, age: 4, rep: 2 }
+    implemented: design
+
+  - defId: used_bourbon_cask
+    displayName: Used Bourbon Cask
+    flavor: A second life — back to your hand.
+    subtype: cask
+    resourceCount: 1
+    cost: 4
+    rarity: uncommon
+    copies: 2
+    effect: { kind: returns_to_hand_on_sale, when: on_sale }
+    implemented: design
+
+  - defId: single_barrel_cask
+    displayName: Single Barrel Cask
+    flavor: Every band of this barrel pays one more.
+    subtype: cask
+    resourceCount: 1
+    cost: 7
+    rarity: rare
+    copies: 1
+    effect: { kind: grid_rep_offset, when: on_commit_production, offset: 1 }
+    implemented: design
+
+  # ─── Capital · Leverage ──────────────────────────────────────────
+  - defId: capital_two
+    displayName: Cellar Stipend
+    flavor: Two coins for the cooper.
+    capitalValue: 2
+    cost: 3
+    rarity: uncommon
+    copies: 4
+    effect: null
+    implemented: true
+
+  - defId: capital_three
+    displayName: Brand Loan
+    flavor: Three on credit, due in glory.
+    capitalValue: 3
+    cost: 6
+    rarity: uncommon
+    copies: 3
+    effect: null
+    implemented: true
+
+  - defId: bourbon_bond
+    displayName: Bourbon Bond
+    flavor: Pay it forward — gain reputation now.
+    capitalValue: 2
+    cost: 5
+    rarity: uncommon
+    copies: 2
+    effect: { kind: rep_on_commit_aging, when: on_commit_aging, rep: 1 }
+    implemented: design
+
+  - defId: lenders_note
+    displayName: Lender's Note
+    flavor: A reputation discount on every spend.
+    capitalValue: 4
+    cost: 8
+    rarity: rare
+    copies: 1
+    effect: { kind: rep_on_market_spend, when: on_spend, rep: 1 }
+    implemented: design

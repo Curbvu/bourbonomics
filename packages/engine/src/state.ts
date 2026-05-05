@@ -106,6 +106,7 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
     p.outForRound = false;
     p.demandSurgeActive = false;
     p.brokerFreeTradeUsed = false;
+    p.pendingHalfCostMarketBuy = false;
   }
 
   for (const b of draft.allBarrels) {

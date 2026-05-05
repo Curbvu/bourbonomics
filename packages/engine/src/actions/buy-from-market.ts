@@ -28,7 +28,12 @@ export function validateBuyFromMarket(
       reason: `market slot ${action.marketSlotIndex} is empty or out of range`,
     };
   }
-  const cost = purchased.cost ?? 1;
+  // Insider Buyer halves the printed cost for one purchase this turn
+  // (rounded up, minimum 1¢).
+  const printedCost = purchased.cost ?? 1;
+  const cost = player.pendingHalfCostMarketBuy
+    ? Math.max(1, Math.ceil(printedCost / 2))
+    : printedCost;
 
   const spendIds = action.spendCardIds;
   if (spendIds.length === 0) {
@@ -82,6 +87,9 @@ export function applyBuyFromMarket(
 
   // The bought card itself goes to the player's discard.
   player.discard.push(purchased);
+
+  // Consume the Insider Buyer half-cost flag (one shot).
+  player.pendingHalfCostMarketBuy = false;
 
   // Refill conveyor (draw 1 from supply if room + cards available).
   if (draft.marketConveyor.length < MARKET_CONVEYOR_SIZE && draft.marketSupplyDeck.length > 0) {

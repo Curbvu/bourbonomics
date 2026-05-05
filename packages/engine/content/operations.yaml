@@ -1,0 +1,400 @@
+# ============================================================
+# Bourbonomics — Operations Card Catalog (Source of Truth)
+# ============================================================
+#
+# This is the canonical, human-editable catalog of operations cards.
+# The engine reads from `packages/engine/src/operations.ts`, which is a
+# manually-maintained TypeScript mirror of this file. When you edit a
+# card here, mirror the change in `operations.ts` and re-run tests.
+#
+# Each card has:
+#   defId        — engine identifier (snake_case, stable across tunings)
+#   name         — display label
+#   description  — one-line table-facing rule text
+#   cost         — market price in card-units (1 capital ≥ printed value, others = 1)
+#   copies       — number of copies of this card in the shared Ops deck
+#   implemented  — true | design  (whether the engine resolves it today)
+#   tags         — informal grouping for the design doc
+#
+# When `implemented: design`, the card is documented but is *not* minted
+# into the deck. Add support in the engine and flip the flag.
+
+cards:
+  # ─── Demand manipulation ──────────────────────────────────────────
+  - defId: market_manipulation
+    name: Market Manipulation
+    description: Move the Demand Track up or down by 1.
+    cost: 3
+    copies: 3
+    implemented: true
+    tags: [demand]
+
+  - defId: bourbon_boom
+    name: Bourbon Boom
+    description: Demand increases by 2 immediately (capped at 12).
+    cost: 4
+    copies: 2
+    implemented: true
+    tags: [demand, bookend]
+
+  - defId: glut
+    name: Glut
+    description: Demand decreases by 2 immediately (floored at 0).
+    cost: 3
+    copies: 2
+    implemented: true
+    tags: [demand, flood]
+
+  - defId: rumor_mill
+    name: Rumor Mill
+    description: The next 2d6 demand roll this round is treated as 11.
+    cost: 2
+    copies: 2
+    implemented: design
+    tags: [demand]
+
+  - defId: industry_report
+    name: Industry Report
+    description: During the Demand Phase, re-roll the 2d6. The new result stands.
+    cost: 1
+    copies: 2
+    implemented: design
+    tags: [demand]
+
+  - defId: tariff_notice
+    name: Tariff Notice
+    description: Roll the next demand roll with 3d6, dropping the lowest.
+    cost: 4
+    copies: 2
+    implemented: design
+    tags: [demand]
+
+  # ─── Counter-play to flooding ─────────────────────────────────────
+  - defId: aged_in_bond
+    name: Aged in Bond
+    description: After another player sells, that sale does not reduce demand.
+    cost: 5
+    copies: 2
+    implemented: design
+    tags: [reactive, flood-defense]
+
+  - defId: long_tail
+    name: Long Tail
+    description: For the rest of this round, your sales do not reduce demand.
+    cost: 3
+    copies: 2
+    implemented: design  # Mechanically equivalent to Demand Surge — kept for variety later.
+    tags: [flood-enable]
+
+  - defId: demand_surge
+    name: Demand Surge
+    description: The Demand Track does not drop when you sell your next barrel this round.
+    cost: 4
+    copies: 2
+    implemented: true
+    tags: [flood-enable]
+
+  - defId: smugglers_run
+    name: Smuggler's Run
+    description: After your next sale, demand reduction does not apply (one sale only).
+    cost: 3
+    copies: 2
+    implemented: design
+    tags: [flood-enable]
+
+  - defId: distributors_pledge
+    name: Distributor's Pledge
+    description: After another player sells, demand reduction is reduced by 1.
+    cost: 3
+    copies: 2
+    implemented: design
+    tags: [reactive, flood-defense]
+
+  - defId: speculators_eye
+    name: Speculator's Eye
+    description: Look at the top 3 cards of the Operations deck. Keep 1, discard the rest.
+    cost: 2
+    copies: 2
+    implemented: design
+    tags: [info]
+
+  # ─── Production and aging ─────────────────────────────────────────
+  - defId: distillers_touch
+    name: Distiller's Touch
+    description: During Make Bourbon, treat 1 hand card as any basic resource.
+    cost: 2
+    copies: 3
+    implemented: design
+    tags: [production]
+
+  - defId: rushed_shipment
+    name: Rushed Shipment
+    description: Age one of your barrels twice this round instead of once.
+    cost: 4
+    copies: 3
+    implemented: true
+    tags: [aging]
+
+  - defId: forced_cure
+    name: Forced Cure
+    description: During the Age Phase, place an extra aging card on a barrel for one extra year.
+    cost: 4
+    copies: 2
+    implemented: design  # Same effect shape as Rushed Shipment; tune-only difference.
+    tags: [aging]
+
+  - defId: rickhouse_lease
+    name: Rickhouse Lease
+    description: Until end of round, you may produce in another player's upper-tier slot.
+    cost: 3
+    copies: 2
+    implemented: design
+    tags: [production, social]
+
+  - defId: mash_futures
+    name: Mash Futures
+    description: Pre-play. Your next Make Bourbon needs 1 fewer grain card.
+    cost: 3
+    copies: 2
+    implemented: design
+    tags: [production, pre-played]
+
+  - defId: coopers_contract
+    name: Cooper's Contract
+    description: Pre-play. Your next Make Bourbon needs 1 fewer cask card.
+    cost: 2
+    copies: 2
+    implemented: design
+    tags: [production, pre-played]
+
+  # ─── Market & economy ─────────────────────────────────────────────
+  - defId: market_corner
+    name: Market Corner
+    description: Take one face-up market card into your hand without paying its cost.
+    cost: 5
+    copies: 3
+    implemented: true
+    tags: [market]
+
+  - defId: insider_buyer
+    name: Insider Buyer
+    description: Discard the entire 10-card market conveyor and refill from supply.
+    cost: 3
+    copies: 2
+    implemented: true
+    tags: [market]
+
+  - defId: kentucky_connection
+    name: Kentucky Connection
+    description: Draw 2 cards from your resource deck.
+    cost: 2
+    copies: 3
+    implemented: true
+    tags: [draw]
+
+  - defId: bottling_run
+    name: Bottling Run
+    description: Every player draws 1 card from their resource deck.
+    cost: 3
+    copies: 2
+    implemented: true
+    tags: [draw, social]
+
+  - defId: cash_out
+    name: Cash Out
+    description: Discard every resource card in your hand. Gain that many $1 capital cards in your discard.
+    cost: 1
+    copies: 3
+    implemented: true
+    tags: [reset]
+
+  - defId: line_of_credit
+    name: Line of Credit
+    description: Draw 4 from your resource deck. At end of next round, return 4 cards to the bottom of your deck.
+    cost: 3
+    copies: 2
+    implemented: design
+    tags: [draw, debt]
+
+  - defId: auction_house
+    name: Auction House
+    description: Choose a face-up mash bill — acquire it free, OR remove and discard it.
+    cost: 4
+    copies: 2
+    implemented: design
+    tags: [market, mashbill]
+
+  # ─── Endgame & clock control ──────────────────────────────────────
+  - defId: allocation
+    name: Allocation
+    description: Draw 2 mash bills from the Bourbon deck without paying their normal cost.
+    cost: 4
+    copies: 2
+    implemented: true
+    tags: [endgame, mashbill]
+
+  - defId: distillery_tour
+    name: Distillery Tour
+    description: During Cleanup, peek at the top of the Bourbon deck. If it's the last card, push the final-round trigger by one round.
+    cost: 3
+    copies: 1
+    implemented: design
+    tags: [endgame]
+
+  - defId: master_distiller
+    name: Master Distiller
+    description: Choose one of your barrels. Until end of game, it reads its grid as if demand were 2 higher.
+    cost: 6
+    copies: 2
+    implemented: design
+    tags: [endgame, persistent]
+
+  - defId: bourbon_hall_of_fame
+    name: Bourbon Hall of Fame
+    description: Choose one of your prior-sold barrels. Gain reputation equal to that barrel's age at sale ÷ 2 (rounded up, max 5).
+    cost: 5
+    copies: 2
+    implemented: design
+    tags: [endgame, retroactive]
+
+  # ─── Defensive & reactive ─────────────────────────────────────────
+  - defId: regulatory_inspection
+    name: Regulatory Inspection
+    description: Target an upper-tier barrel of any player. That barrel may not be aged this round.
+    cost: 5
+    copies: 3
+    implemented: true
+    tags: [defensive]
+
+  - defId: quality_control
+    name: Quality Control
+    description: After another player's Make Bourbon, they discard one extra hand card.
+    cost: 2
+    copies: 2
+    implemented: design
+    tags: [reactive]
+
+  - defId: federal_inspector
+    name: Federal Inspector
+    description: After another player's Sell Bourbon, that sale yields 2 fewer reputation (minimum 1).
+    cost: 5
+    copies: 2
+    implemented: design
+    tags: [reactive]
+
+  - defId: barrel_broker
+    name: Barrel Broker
+    description: Transfer one of your barrels to another player's empty upper-tier slot for a card payment.
+    cost: 6
+    copies: 2
+    implemented: true
+    tags: [social, transfer]
+
+  - defId: blend
+    name: Blend
+    description: Combine two of your own non-bonded barrels into one. Higher age, higher-value mash bill, all cards.
+    cost: 6
+    copies: 2
+    implemented: true
+    tags: [production, late-game]
+
+  # ─── Flood-defense instruments ────────────────────────────────────
+  - defId: forward_contract
+    name: Forward Contract
+    description: Lock in current demand on a 2yo+ barrel; it auto-sells at end of next round's Age Phase.
+    cost: 4
+    copies: 2
+    implemented: design
+    tags: [hedge]
+
+  - defId: bonded_storage
+    name: Bonded Storage
+    description: Until end of next round, this barrel sells at the highest demand reached during the bonded window.
+    cost: 3
+    copies: 2
+    implemented: design
+    tags: [hedge]
+
+  - defId: allocation_letter
+    name: Allocation Letter
+    description: Set a 4yo+ barrel aside; sell at any later round at the demand of any round since allocation.
+    cost: 5
+    copies: 2
+    implemented: design
+    tags: [hedge, premium]
+
+  - defId: warehouse_receipt
+    name: Warehouse Receipt
+    description: This 3yo+ barrel cannot be sold this round. End of round, draw 1 resource card and 1 ops card.
+    cost: 2
+    copies: 2
+    implemented: design
+    tags: [hedge]
+
+  # ─── Risk and reputation ──────────────────────────────────────────
+  - defId: quality_audit
+    name: Quality Control Audit
+    description: Choose any opponent. They reveal one mash bill from their hand of your choice.
+    cost: 3
+    copies: 2
+    implemented: design
+    tags: [info]
+
+  - defId: rating_boost
+    name: Rating Boost
+    description: After your Sell Bourbon, gain 2 additional reputation.
+    cost: 4
+    copies: 2
+    implemented: design
+    tags: [payoff]
+
+  - defId: flagship_brand
+    name: Flagship Brand
+    description: Choose one of your 4yo+ barrels. Its sale yields +1 rep but does not trigger awards.
+    cost: 5
+    copies: 2
+    implemented: design
+    tags: [persistent]
+
+  # ─── Insurance & liquidity ────────────────────────────────────────
+  - defId: crop_insurance
+    name: Crop Insurance
+    description: After an opponent's effect trashes a card from your zones, recover it to discard.
+    cost: 2
+    copies: 2
+    implemented: design
+    tags: [insurance]
+
+  # ─── Premium financial instruments ────────────────────────────────
+  - defId: ten_year_note
+    name: Ten-Year Note
+    description: A 6yo+ barrel stops aging. On sale it scores at age + 2.
+    cost: 6
+    copies: 1
+    implemented: design
+    tags: [premium, persistent]
+
+  - defId: distillery_bond
+    name: Distillery Bond
+    description: Once per round for the rest of the game, discard 1 hand card to draw the top mash bill.
+    cost: 5
+    copies: 2
+    implemented: design
+    tags: [premium, persistent]
+
+  - defId: master_vault
+    name: Master Vault
+    description: Two of your barrels are immune to demand reduction until they sell.
+    cost: 7
+    copies: 1
+    implemented: design
+    tags: [premium, hedge, persistent]
+
+  # ─── Persistent infrastructure ────────────────────────────────────
+  - defId: rickhouse_expansion_permit
+    name: Rickhouse Expansion Permit
+    description: Permanently gain 1 additional upper-tier rickhouse slot (max 6 total).
+    cost: 6
+    copies: 2
+    implemented: true
+    tags: [persistent, infrastructure]

@@ -71,6 +71,7 @@ export function initializeGame(config: GameConfig): GameState {
       outForRound: false,
       demandSurgeActive: false,
       brokerFreeTradeUsed: false,
+      pendingHalfCostMarketBuy: false,
     };
   });
 

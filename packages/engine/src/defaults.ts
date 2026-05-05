@@ -507,59 +507,52 @@ export function defaultMashBillCatalog(): MashBill[] {
 // ============================================================
 
 export function defaultMarketSupply(): Card[] {
+  // Mirrors `packages/engine/content/resources.yaml`. See that file for
+  // per-card design notes, flavor, and effect stubs. Distribution
+  // intent: commons majority, uncommons meaningful minority, rares very
+  // rare (1 copy each).
+  //
+  // Card *effects* (draw-on-commit, rep-on-sale, etc.) are stubbed in
+  // the YAML but NOT yet resolved by the engine — the data + names +
+  // costs ship now so the market reads as a varied shelf, and the
+  // mechanic wiring lands in a follow-up commit.
   const cards: Card[] = [];
   let idx = 0;
 
-  // ── Themed premium resources ────────────────────────────────────────
-  // Each variant has a distinct name so the conveyor reads as a varied
-  // shelf rather than a row of "2× corn" tiles. Costs reflect impact:
-  // wildcard grain pays 1 unit but stands in for any grain (recipe
-  // flexibility); 3× corn pays a chunk in one card; toasted cask
-  // doubles as production AND aging fuel.
+  // ── Commons (majority): 1-of-subtype basics + $1 capitals ────────
+  for (let i = 0; i < 6; i++) cards.push(makeResourceCard("cask", "supply", idx++));
+  for (let i = 0; i < 6; i++) cards.push(makeResourceCard("corn", "supply", idx++));
+  for (let i = 0; i < 6; i++) cards.push(makeResourceCard("rye", "supply", idx++));
+  for (let i = 0; i < 5; i++) cards.push(makeResourceCard("barley", "supply", idx++));
+  for (let i = 0; i < 5; i++) cards.push(makeResourceCard("wheat", "supply", idx++));
+  for (let i = 0; i < 6; i++) cards.push(makeCapitalCard("supply", idx++));
 
-  // Toasted Cask — a 2× cask, ideal for early production + late aging.
-  for (let i = 0; i < 3; i++)
+  // ── Uncommons (minority): named themed premiums ─────────────────
+  // Barley · Engine acceleration
+  for (let i = 0; i < 2; i++)
     cards.push(
       makePremiumResource({
-        defId: "toasted_cask",
-        displayName: "Toasted Cask",
-        flavor: "Charred deeper. Counts as two casks.",
-        subtype: "cask",
-        resourceCount: 2,
+        defId: "two_row_barley",
+        displayName: "Two-Row Barley",
+        flavor: "A leaner stalk, cycles your hand.",
+        subtype: "barley",
+        resourceCount: 1,
         cost: 3,
         index: idx++,
       }),
     );
-
-  // High-Rye Bushel — 2× rye in a single card.
-  for (let i = 0; i < 3; i++)
+  for (let i = 0; i < 2; i++)
     cards.push(
       makePremiumResource({
-        defId: "high_rye_bushel",
-        displayName: "High-Rye Bushel",
-        flavor: "Twice the spice in one bag.",
-        subtype: "rye",
-        resourceCount: 2,
+        defId: "malted_barley",
+        displayName: "Malted Barley",
+        flavor: "Sweet conversion mid-aging.",
+        subtype: "barley",
+        resourceCount: 1,
         cost: 3,
         index: idx++,
       }),
     );
-
-  // Wheated Bale — 2× wheat for soft-grained recipes.
-  for (let i = 0; i < 3; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "wheated_bale",
-        displayName: "Wheated Bale",
-        flavor: "Soft, slow, generous.",
-        subtype: "wheat",
-        resourceCount: 2,
-        cost: 3,
-        index: idx++,
-      }),
-    );
-
-  // Heritage Barley — 2× barley, prized for malting.
   for (let i = 0; i < 2; i++)
     cards.push(
       makePremiumResource({
@@ -568,42 +561,126 @@ export function defaultMarketSupply(): Card[] {
         flavor: "Heirloom strain, double yield.",
         subtype: "barley",
         resourceCount: 2,
-        cost: 3,
+        cost: 5,
         index: idx++,
       }),
     );
 
-  // Bumper Corn — 3× corn in a single card. The breadwinner.
+  // Wheat · Time manipulation
   for (let i = 0; i < 2; i++)
     cards.push(
       makePremiumResource({
-        defId: "bumper_corn",
-        displayName: "Bumper Corn",
-        flavor: "Triple-bin yield. The breadwinner.",
-        subtype: "corn",
-        resourceCount: 3,
+        defId: "soft_red_wheat",
+        displayName: "Soft Red Wheat",
+        flavor: "A barrel born already aging.",
+        subtype: "wheat",
+        resourceCount: 1,
+        cost: 4,
+        index: idx++,
+      }),
+    );
+  for (let i = 0; i < 2; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "winter_wheat",
+        displayName: "Winter Wheat",
+        flavor: "Two winters in one season.",
+        subtype: "wheat",
+        resourceCount: 1,
+        cost: 4,
+        index: idx++,
+      }),
+    );
+  for (let i = 0; i < 2; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "white_wheat",
+        displayName: "White Wheat",
+        flavor: "Patient grain rewards a long sleep.",
+        subtype: "wheat",
+        resourceCount: 2,
+        cost: 5,
+        index: idx++,
+      }),
+    );
+
+  // Rye · Reputation amplification
+  for (let i = 0; i < 2; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "heritage_rye",
+        displayName: "Heritage Rye",
+        flavor: "Twice the spice, twice the bag.",
+        subtype: "rye",
+        resourceCount: 2,
+        cost: 4,
+        index: idx++,
+      }),
+    );
+  for (let i = 0; i < 2; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "spicy_rye",
+        displayName: "Spicy Rye",
+        flavor: "The pepper that lingers in the bottle.",
+        subtype: "rye",
+        resourceCount: 1,
+        cost: 4,
+        index: idx++,
+      }),
+    );
+  for (let i = 0; i < 2; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "high_proof_rye",
+        displayName: "High-Proof Rye",
+        flavor: "Hot demand, hot rye.",
+        subtype: "rye",
+        resourceCount: 2,
+        cost: 5,
+        index: idx++,
+      }),
+    );
+
+  // Cask · Quality
+  for (let i = 0; i < 2; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "toasted_oak",
+        displayName: "Toasted Oak",
+        flavor: "Reads the demand grid one band higher.",
+        subtype: "cask",
+        resourceCount: 1,
+        cost: 5,
+        index: idx++,
+      }),
+    );
+  for (let i = 0; i < 2; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "heavy_char",
+        displayName: "Heavy Char",
+        flavor: "Older barrels open up under the burn.",
+        subtype: "cask",
+        resourceCount: 1,
+        cost: 4,
+        index: idx++,
+      }),
+    );
+  for (let i = 0; i < 2; i++)
+    cards.push(
+      makePremiumResource({
+        defId: "used_bourbon_cask",
+        displayName: "Used Bourbon Cask",
+        flavor: "A second life — back to your hand.",
+        subtype: "cask",
+        resourceCount: 1,
         cost: 4,
         index: idx++,
       }),
     );
 
-  // Wildcard Grain — 1 unit but satisfies any grain requirement (rye,
-  // barley, OR wheat). Recipe flex card; pays its weight in unlocking.
-  for (let i = 0; i < 3; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "wildcard_grain",
-        displayName: "Wildcard Grain",
-        flavor: "Substitutes for rye, barley, or wheat.",
-        subtype: "rye",
-        aliases: ["barley", "wheat"],
-        resourceCount: 1,
-        cost: 3,
-        index: idx++,
-      }),
-    );
-
-  // ── Themed capital ─────────────────────────────────────────────────
+  // Capital · Leverage
   for (let i = 0; i < 4; i++)
     cards.push(
       makePremiumCapital({
@@ -624,10 +701,73 @@ export function defaultMarketSupply(): Card[] {
         index: idx++,
       }),
     );
+  for (let i = 0; i < 2; i++)
+    cards.push(
+      makePremiumCapital({
+        defId: "bourbon_bond",
+        displayName: "Bourbon Bond",
+        flavor: "Pay it forward — gain reputation now.",
+        capitalValue: 2,
+        cost: 5,
+        index: idx++,
+      }),
+    );
 
-  // ── Plain backups (refill the conveyor late-game) ──────────────────
-  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("corn", "supply", idx++));
-  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("rye", "supply", idx++));
-  for (let i = 0; i < 4; i++) cards.push(makeCapitalCard("supply", idx++));
+  // ── Rares (very rare): 1 copy each ──────────────────────────────
+  cards.push(
+    makePremiumResource({
+      defId: "six_row_barley",
+      displayName: "Six-Row Barley",
+      flavor: "Endless rows, endless cards.",
+      subtype: "barley",
+      resourceCount: 2,
+      cost: 7,
+      index: idx++,
+    }),
+  );
+  cards.push(
+    makePremiumResource({
+      defId: "heirloom_wheat",
+      displayName: "Heirloom Wheat",
+      flavor: "A pre-aged barrel that holds the line.",
+      subtype: "wheat",
+      resourceCount: 2,
+      cost: 7,
+      index: idx++,
+    }),
+  );
+  cards.push(
+    makePremiumResource({
+      defId: "distillers_reserve_rye",
+      displayName: "Distiller's Reserve Rye",
+      flavor: "Three bushels, every word a headline.",
+      subtype: "rye",
+      resourceCount: 3,
+      cost: 8,
+      index: idx++,
+    }),
+  );
+  cards.push(
+    makePremiumResource({
+      defId: "single_barrel_cask",
+      displayName: "Single Barrel Cask",
+      flavor: "Every band of this barrel pays one more.",
+      subtype: "cask",
+      resourceCount: 1,
+      cost: 7,
+      index: idx++,
+    }),
+  );
+  cards.push(
+    makePremiumCapital({
+      defId: "lenders_note",
+      displayName: "Lender's Note",
+      flavor: "A reputation discount on every spend.",
+      capitalValue: 4,
+      cost: 8,
+      index: idx++,
+    }),
+  );
+
   return cards;
 }

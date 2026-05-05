@@ -7,16 +7,22 @@ describe("BUY_FROM_MARKET", () => {
   it("happy path: purchase a card, both go to discard, conveyor refills", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 100, 1), makeCapitalCard("p1", 101, 1)]);
-    const initialConveyor = state.marketConveyor.length;
+    // Hand the player enough $1 capital to cover whatever happens to be
+    // in the front of the conveyor (the supply mix tunes over time).
     const purchased = state.marketConveyor[0]!;
     const cost = purchased.cost ?? 1;
+    const bills = Array.from({ length: cost }, (_, i) =>
+      makeCapitalCard("p1", 100 + i, 1),
+    );
+    state = giveHand(state, "p1", bills);
+    const initialConveyor = state.marketConveyor.length;
+    const spendCardIds = bills.map((b) => b.id);
 
     state = applyAction(state, {
       type: "BUY_FROM_MARKET",
       playerId: "p1",
       marketSlotIndex: 0,
-      spendCardIds: cost <= 1 ? ["card_p1_cap1_100"] : ["card_p1_cap1_100", "card_p1_cap1_101"],
+      spendCardIds,
     });
 
     const p1 = state.players.find((p) => p.id === "p1")!;

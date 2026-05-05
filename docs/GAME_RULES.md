@@ -425,6 +425,62 @@ Allows a high-demand sale without paying the demand cost. Particularly powerful 
 
 ---
 
+**Bourbon Boom** (cost 4)
+*Demand increases by 2 immediately (capped at 12).*
+
+The bookend setup card. Powerful enough to anchor a combo before a big sale, expensive enough that you can't run two of them in the same turn.
+
+---
+
+**Glut** (cost 3)
+*Demand decreases by 2 immediately (floored at 0).*
+
+The flood-amplifier or the flood-defender, depending on who's holding it. Useful right before your own buy turn or right after an opponent's sell.
+
+---
+
+**Insider Buyer** (cost 3)
+*Discard the entire 10-card market conveyor and refill from supply. Your next Buy from the Market this turn pays half the printed cost (rounded up, minimum 1¢).*
+
+Powerful market reset. Useful when the conveyor is stale or hostile, or when you want to break opponents' planned purchases. The half-cost rider lasts only this turn — if you don't follow it with a buy, the discount is lost.
+
+---
+
+**Kentucky Connection** (cost 2)
+*Draw 2 cards from your resource deck.*
+
+Mid-round draw is rare and valuable. Cheap because it doesn't disrupt opponents — pure personal optimization.
+
+---
+
+**Bottling Run** (cost 3)
+*Every player (including you) draws 1 card from their resource deck.*
+
+Pro-social with selfish edge. Everyone draws, but you played the card on a turn that benefits you most.
+
+---
+
+**Cash Out** (cost 1)
+*Discard every resource card in your hand. For each card discarded, gain 1 capital ($1) card in your discard pile.*
+
+Cheap reset. Convert mismatched grain into purchasing power for next round.
+
+---
+
+**Allocation** (cost 4)
+*Draw 2 mash bills from the Bourbon deck without paying their normal cost.*
+
+Aggressive clock acceleration. Two mash bills for one ops card pulls the doomsday trigger forward by 2.
+
+---
+
+**Rickhouse Expansion Permit** (cost 6)
+*Permanently gain 1 additional upper-tier rickhouse slot for the rest of the game (maximum 6 total slots).*
+
+The persistent infrastructure card. Expensive because it's permanent.
+
+---
+
 # 🥇 Bourbon Awards
 
 Some mash bills grant special awards when their bourbon is sold.
@@ -913,6 +969,62 @@ One of the most powerful operations cards. Best used when one barrel is aging we
 *The Demand Track does not drop when you sell your next barrel this round.*
 
 Allows a high-demand sale without paying the demand cost. Particularly powerful when multiple players are timing sales against a peak demand moment.
+
+---
+
+**Bourbon Boom** (cost 4)
+*Demand increases by 2 immediately (capped at 12).*
+
+The bookend setup card. Powerful enough to anchor a combo before a big sale, expensive enough that you can't run two of them in the same turn.
+
+---
+
+**Glut** (cost 3)
+*Demand decreases by 2 immediately (floored at 0).*
+
+The flood-amplifier or the flood-defender, depending on who's holding it. Useful right before your own buy turn or right after an opponent's sell.
+
+---
+
+**Insider Buyer** (cost 3)
+*Discard the entire 10-card market conveyor and refill from supply. Your next Buy from the Market this turn pays half the printed cost (rounded up, minimum 1¢).*
+
+Powerful market reset. Useful when the conveyor is stale or hostile, or when you want to break opponents' planned purchases. The half-cost rider lasts only this turn — if you don't follow it with a buy, the discount is lost.
+
+---
+
+**Kentucky Connection** (cost 2)
+*Draw 2 cards from your resource deck.*
+
+Mid-round draw is rare and valuable. Cheap because it doesn't disrupt opponents — pure personal optimization.
+
+---
+
+**Bottling Run** (cost 3)
+*Every player (including you) draws 1 card from their resource deck.*
+
+Pro-social with selfish edge. Everyone draws, but you played the card on a turn that benefits you most.
+
+---
+
+**Cash Out** (cost 1)
+*Discard every resource card in your hand. For each card discarded, gain 1 capital ($1) card in your discard pile.*
+
+Cheap reset. Convert mismatched grain into purchasing power for next round.
+
+---
+
+**Allocation** (cost 4)
+*Draw 2 mash bills from the Bourbon deck without paying their normal cost.*
+
+Aggressive clock acceleration. Two mash bills for one ops card pulls the doomsday trigger forward by 2.
+
+---
+
+**Rickhouse Expansion Permit** (cost 6)
+*Permanently gain 1 additional upper-tier rickhouse slot for the rest of the game (maximum 6 total slots).*
+
+The persistent infrastructure card. Expensive because it's permanent.
 
 ---
 

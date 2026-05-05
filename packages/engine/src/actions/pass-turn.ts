@@ -36,5 +36,8 @@ export function applyPassTurn(
 ): void {
   const player = draft.players.find((p) => p.id === action.playerId)!;
   player.outForRound = true;
+  // Insider Buyer's half-cost is a "this turn" effect — drop it on
+  // turn end so an unused discount can't carry forward.
+  player.pendingHalfCostMarketBuy = false;
   endPlayerTurn(draft, action.playerId);
 }

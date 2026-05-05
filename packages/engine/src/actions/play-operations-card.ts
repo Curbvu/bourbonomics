@@ -4,8 +4,10 @@ import type {
   GameAction,
   GameState,
   OperationsCard,
+  RickhouseSlot,
   ValidationResult,
 } from "../types";
+import { makeCapitalCard } from "../cards";
 import { drawWithReshuffle } from "../deck";
 import { isCurrentPlayer } from "../state";
 
@@ -13,6 +15,8 @@ type PlayOperationsCardAction = Extract<GameAction, { type: "PLAY_OPERATIONS_CAR
 
 const DEMAND_MIN = 0;
 const DEMAND_MAX = 12;
+const MARKET_CONVEYOR_SIZE = 10;
+const RICKHOUSE_SLOT_HARD_CAP = 6;
 
 export function validatePlayOperationsCard(
   state: GameState,
@@ -134,7 +138,37 @@ export function validatePlayOperationsCard(
     }
 
     case "demand_surge":
+    case "bourbon_boom":
+    case "glut":
+    case "insider_buyer":
+    case "kentucky_connection":
+    case "bottling_run":
       return { legal: true };
+
+    case "cash_out": {
+      const hasResources = player.hand.some((c) => c.type === "resource");
+      if (!hasResources) {
+        return { legal: false, reason: "no resource cards in hand to cash out" };
+      }
+      return { legal: true };
+    }
+
+    case "allocation": {
+      if (state.bourbonDeck.length === 0) {
+        return { legal: false, reason: "the bourbon deck is empty" };
+      }
+      return { legal: true };
+    }
+
+    case "rickhouse_expansion_permit": {
+      if (player.rickhouseSlots.length >= RICKHOUSE_SLOT_HARD_CAP) {
+        return {
+          legal: false,
+          reason: `rickhouse already at the ${RICKHOUSE_SLOT_HARD_CAP}-slot cap`,
+        };
+      }
+      return { legal: true };
+    }
   }
 }
 
@@ -240,6 +274,109 @@ export function applyPlayOperationsCard(
 
     case "demand_surge": {
       player.demandSurgeActive = true;
+      break;
+    }
+
+    case "bourbon_boom": {
+      draft.demand = Math.min(DEMAND_MAX, draft.demand + 2);
+      break;
+    }
+
+    case "glut": {
+      draft.demand = Math.max(DEMAND_MIN, draft.demand - 2);
+      break;
+    }
+
+    case "insider_buyer": {
+      // Sweep the conveyor into the market discard, then deal a fresh
+      // 10 from the supply (drawing through reshuffle if needed).
+      draft.marketDiscard.push(...draft.marketConveyor);
+      draft.marketConveyor = [];
+      const want = MARKET_CONVEYOR_SIZE;
+      const result = drawWithReshuffle(
+        draft.marketSupplyDeck.slice(),
+        draft.marketDiscard.slice(),
+        want,
+        draft.rngState,
+      );
+      draft.marketConveyor.push(...result.drawn);
+      draft.marketSupplyDeck = result.deck;
+      draft.marketDiscard = result.discard;
+      draft.rngState = result.rngState;
+      // Bonus from the spec: the next BUY_FROM_MARKET this turn pays
+      // half the printed cost (rounded up, min 1¢). Cleared on the
+      // purchase, on PASS_TURN, or in cleanup.
+      player.pendingHalfCostMarketBuy = true;
+      break;
+    }
+
+    case "kentucky_connection": {
+      const result = drawWithReshuffle(
+        player.deck.slice(),
+        player.discard.slice(),
+        2,
+        draft.rngState,
+      );
+      player.hand.push(...result.drawn);
+      player.deck = result.deck;
+      player.discard = result.discard;
+      draft.rngState = result.rngState;
+      break;
+    }
+
+    case "bottling_run": {
+      // Each player draws 1 from their own deck (with reshuffle).
+      for (const p of draft.players) {
+        const result = drawWithReshuffle(
+          p.deck.slice(),
+          p.discard.slice(),
+          1,
+          draft.rngState,
+        );
+        p.hand.push(...result.drawn);
+        p.deck = result.deck;
+        p.discard = result.discard;
+        draft.rngState = result.rngState;
+      }
+      break;
+    }
+
+    case "cash_out": {
+      // Discard every resource card from hand; mint $1 capital cards
+      // (one per discarded resource) into the discard pile.
+      const kept: Card[] = [];
+      const discarded: Card[] = [];
+      for (const c of player.hand) {
+        if (c.type === "resource") discarded.push(c);
+        else kept.push(c);
+      }
+      player.hand = kept;
+      player.discard.push(...discarded);
+      for (let i = 0; i < discarded.length; i++) {
+        player.discard.push(
+          makeCapitalCard(player.id, draft.idCounter++, 1),
+        );
+      }
+      break;
+    }
+
+    case "allocation": {
+      // Take the top 2 mash bills (or however many remain) into hand.
+      const take = Math.min(2, draft.bourbonDeck.length);
+      for (let i = 0; i < take; i++) {
+        const bill = draft.bourbonDeck.pop();
+        if (bill) player.mashBills.push(bill);
+      }
+      break;
+    }
+
+    case "rickhouse_expansion_permit": {
+      const newSlot: RickhouseSlot = {
+        id: `slot_${player.id}_perm_${draft.idCounter++}`,
+        ownerId: player.id,
+        tier: "upper",
+      };
+      player.rickhouseSlots.push(newSlot);
       break;
     }
   }

@@ -388,3 +388,216 @@ file, in chronological order. Useful when re-evaluating tradeoffs.
     and renormalised to the target average. Older age bands within
     the same card compound the bonus, so a 15-year legendary row pays
     $30 / $46 / $86 while its 8-year row pays $16 / $29 / $54.
+
+---
+
+## Operations Card Catalog (v2.2)
+
+**Source of truth.** The canonical catalog lives in
+`packages/engine/content/operations.yaml`. Each card carries a `defId`,
+display copy, `cost`, `copies` (deck count), and an `implemented`
+boolean. The engine reads from a TypeScript mirror at
+`packages/engine/src/operations.ts`; both files must stay in sync. A
+build-time generator is a future TODO — until then, edit both.
+
+**Acquisition.** Players begin with empty operations hands. Three ops
+cards sit face-up beside the Operations deck (the "ops market"); on
+your action turn you may buy one with the same payment model as a
+conveyor card (`BUY_OPERATIONS_CARD` action). Capital pays its printed
+value; resource cards pay 1¢ each. Once held, an ops card stays in
+your operations hand across rounds until played as a free action.
+
+**Pricing model.** Costs are denominated in card-units, calibrated to
+the existing economy. Personal optimizations sit at 1–2¢; targeted
+disruption at 3–5¢; persistent or table-warping plays at 6–7¢.
+
+### Implemented today (15 cards in deck)
+
+| defId                          | name                          | cost | copies | tag |
+| ------------------------------ | ----------------------------- | :--: | :----: | --- |
+| `market_manipulation`          | Market Manipulation           | 3    | 3      | demand |
+| `bourbon_boom`                 | Bourbon Boom                  | 4    | 2      | demand / bookend |
+| `glut`                         | Glut                          | 3    | 2      | demand / flood |
+| `demand_surge`                 | Demand Surge                  | 4    | 2      | flood-enable |
+| `rushed_shipment`              | Rushed Shipment               | 4    | 3      | aging |
+| `regulatory_inspection`        | Regulatory Inspection         | 5    | 3      | defensive |
+| `barrel_broker`                | Barrel Broker                 | 6    | 2      | social / transfer |
+| `market_corner`                | Market Corner                 | 5    | 3      | market |
+| `insider_buyer`                | Insider Buyer                 | 3    | 2      | market |
+| `kentucky_connection`          | Kentucky Connection           | 2    | 3      | draw |
+| `bottling_run`                 | Bottling Run                  | 3    | 2      | draw / social |
+| `cash_out`                     | Cash Out                      | 1    | 3      | reset |
+| `allocation`                   | Allocation                    | 4    | 2      | endgame / mashbill |
+| `blend`                        | Blend                         | 6    | 2      | production / late-game |
+| `rickhouse_expansion_permit`   | Rickhouse Expansion Permit    | 6    | 2      | persistent / infrastructure |
+
+### Design-only (catalogued, not yet wired)
+
+These appear in the YAML but are skipped by `defaultOperationsDeck()`
+because the engine has no event-trigger plumbing yet for reactive
+plays, persistent per-barrel buffs, or pre-played production effects.
+Implementing them is the next iteration.
+
+- **Reactive (post-opponent action):** `aged_in_bond`,
+  `distributors_pledge`, `quality_control`, `federal_inspector`,
+  `crop_insurance`. Need an event-trigger system that lets a card
+  hook another player's resolved action.
+- **Pre-played personal effects:** `mash_futures`, `coopers_contract`,
+  `forward_contract`, `bonded_storage`, `allocation_letter`,
+  `warehouse_receipt`. Need persistent per-player flags and per-barrel
+  metadata.
+- **Persistent barrel buffs:** `master_distiller`, `flagship_brand`,
+  `ten_year_note`, `master_vault`. Need durable per-barrel modifiers
+  that participate in sale-resolution math.
+- **Demand modifiers (deferred):** `rumor_mill`, `industry_report`,
+  `tariff_notice`. Triggered during the demand phase, which today is
+  a single `ROLL_DEMAND` action with no pre-roll modification window.
+- **Information / bookkeeping:** `speculators_eye`, `quality_audit`,
+  `distillery_tour`, `bourbon_hall_of_fame`, `auction_house`,
+  `line_of_credit`, `distillery_bond`, `rating_boost`,
+  `rickhouse_lease`, `long_tail`, `smugglers_run`, `forced_cure`,
+  `distillers_touch`. Each needs a small bespoke addition; tracking
+  here so we don't lose the design intent.
+
+24. **Operations cards are bought, never dealt.** No starting
+    operations hand; no per-round draw. Players acquire ops cards by
+    purchasing from the 3-card face-up ops market, paying with
+    resource and capital cards from their hand. Costs printed in the
+    top-right corner of every card mirror the unified market UI.
+
+---
+
+## Premium Card Themes (design notes)
+
+Captured from a 2026-05-05 brainstorm. These are themes — not literal
+card lists — that anchor how each grain (and capital) should *feel*
+when a player picks it up. The detailed card spec lives in the next
+section; this is the why.
+
+### Barley premiums — Engine acceleration
+- **Theme:** more cards, faster cycling, deck efficiency.
+- **Examples:** draw 2 on production, restock hand, reduce future
+  production cost.
+- **Rare:** chain effects that turn one action into multiple.
+
+### Wheat premiums — Time manipulation
+- **Theme:** aging bonuses, demand locks, barrel protection.
+- **Examples:** barrel starts aged, immune to one demand crash, sells
+  at peak demand.
+- **Rare:** barrels that age themselves without committed cards.
+
+### Rye premiums — Reputation amplification
+- **Theme:** payoff multipliers, demand spikes, grid bonuses.
+- **Examples:** +1 reputation on sale, double sale value at high
+  demand, force demand to rise.
+- **Rare:** game-winning single-sale payouts at peak conditions.
+
+### Cask premiums — Quality
+- **Theme:** barrel-permanent buffs, grid modifications.
+- **Examples:** +1 to all grid bands, reusable casks, age caps and
+  floors.
+- **Rare:** casks that turn ordinary mash bills into premium ones.
+
+### Capital premiums — Leverage
+- **Theme:** purchasing power scaling, end-game scoring, financial
+  conversion.
+- **Examples:** pay extra into market, convert capital to reputation,
+  fund mash bill draws.
+- **Rare:** capital that compounds value across rounds.
+
+---
+
+## Themed Resource Card Catalog (v2.2.x)
+
+**Source of truth.** The canonical catalog lives in
+`packages/engine/content/resources.yaml`. The runtime mix is minted in
+`packages/engine/src/defaults.ts` `defaultMarketSupply()` — **stat
+lines + names + costs are wired**, but **gameplay effects are stubbed
+and not yet resolved**. Effects ship in a follow-up commit alongside
+the per-card dispatch hooks in MAKE_BOURBON / AGE_BOURBON / SELL_BOURBON.
+
+**Effect timing (when implemented).** Two discrete moments:
+- `on_commit_production` — fires at MAKE_BOURBON when the card enters
+  a barrel as production fuel.
+- `on_commit_aging` — fires at AGE_BOURBON when the card lands on a
+  barrel as an aging card.
+- `on_sale` — fires at SELL_BOURBON when the barrel resolves.
+- `on_spend` (capital only) — fires when the card is spent in any
+  market purchase.
+
+No turn-by-turn tracking, no upkeep, no triggers between commit and
+sale. The rickhouse always shows what's committed and what will fire
+when each barrel sells.
+
+**Distribution intent.** Commons (basic 1-of-subtype + $1 capital)
+make up the majority of the supply; uncommons are a meaningful
+minority; rares are very rare (1 copy each).
+
+### Barley — Engine acceleration
+
+| defId                     | name                  | rsrc | cost | rarity   | copies | effect                                                          |
+| ------------------------- | --------------------- | :--: | :--: | -------- | :----: | --------------------------------------------------------------- |
+| `two_row_barley`          | Two-Row Barley        | 1    | 3    | uncommon |   2    | draw 1 on production commit                                     |
+| `malted_barley`           | Malted Barley         | 1    | 3    | uncommon |   2    | draw 1 on aging commit                                          |
+| `heritage_barley`         | Heritage Barley       | 2    | 5    | uncommon |   2    | draw 1 on production commit                                     |
+| `six_row_barley`          | Six-Row Barley        | 2    | 7    | rare     |   1    | draw 2 on production commit + 1 on sale                         |
+
+### Wheat — Time manipulation
+
+| defId                     | name                  | rsrc | cost | rarity   | copies | effect                                                          |
+| ------------------------- | --------------------- | :--: | :--: | -------- | :----: | --------------------------------------------------------------- |
+| `soft_red_wheat`          | Soft Red Wheat        | 1    | 4    | uncommon |   2    | barrel starts at age 1 (production commit)                      |
+| `winter_wheat`            | Winter Wheat          | 1    | 4    | uncommon |   2    | this aging card adds 2 years instead of 1                       |
+| `white_wheat`             | White Wheat           | 2    | 5    | uncommon |   2    | +1 rep on sale if barrel age ≥ 5                                |
+| `heirloom_wheat`          | Heirloom Wheat        | 2    | 7    | rare     |   1    | barrel starts at age 2 + skip demand drop on sale               |
+
+### Rye — Reputation amplification
+
+| defId                     | name                       | rsrc | cost | rarity   | copies | effect                                                          |
+| ------------------------- | -------------------------- | :--: | :--: | -------- | :----: | --------------------------------------------------------------- |
+| `heritage_rye`            | Heritage Rye               | 2    | 4    | uncommon |   2    | none (efficiency baseline) — **fully wired**                    |
+| `spicy_rye`               | Spicy Rye                  | 1    | 4    | uncommon |   2    | +1 rep on sale                                                  |
+| `high_proof_rye`          | High-Proof Rye             | 2    | 5    | uncommon |   2    | +2 rep on sale if demand ≥ 7                                    |
+| `distillers_reserve_rye`  | Distiller's Reserve Rye    | 3    | 8    | rare     |   1    | demand +1 on production commit + 2 rep on sale                  |
+
+### Cask — Quality
+
+| defId                     | name                  | rsrc | cost | rarity   | copies | effect                                                          |
+| ------------------------- | --------------------- | :--: | :--: | -------- | :----: | --------------------------------------------------------------- |
+| `toasted_oak`             | Toasted Oak           | 1    | 5    | uncommon |   2    | sale grid reads +1 demand band higher                           |
+| `heavy_char`              | Heavy Char            | 1    | 4    | uncommon |   2    | +2 rep on sale if barrel age ≥ 4                                |
+| `used_bourbon_cask`       | Used Bourbon Cask     | 1    | 4    | uncommon |   2    | returns to hand on sale instead of discard                      |
+| `single_barrel_cask`      | Single Barrel Cask    | 1    | 7    | rare     |   1    | +1 rep at every grid band for the rest of the barrel's life     |
+
+### Capital — Leverage
+
+| defId             | name             | pays | cost | rarity   | copies | effect                                                          |
+| ----------------- | ---------------- | :--: | :--: | -------- | :----: | --------------------------------------------------------------- |
+| `capital_two`     | Cellar Stipend   | 2    | 3    | uncommon |   4    | none — **fully wired**                                          |
+| `capital_three`   | Brand Loan       | 3    | 6    | uncommon |   3    | none — **fully wired**                                          |
+| `bourbon_bond`    | Bourbon Bond     | 2    | 5    | uncommon |   2    | +1 rep on aging commit                                          |
+| `lenders_note`    | Lender's Note    | 4    | 8    | rare     |   1    | +1 rep on any market spend                                      |
+
+### Implementation status
+
+**Wired today:**
+- All stat lines (counts-as / pays-as / cost / display name / flavor /
+  aliases) are minted into the supply correctly.
+- The Heritage Rye + Capital cards have no effect to resolve; they're
+  fully done.
+
+**Pending follow-up commits:**
+- Per-card effect dispatch in MAKE_BOURBON (production commit hooks).
+- Per-card effect dispatch in AGE_BOURBON (aging commit hooks).
+- Per-card effect dispatch in SELL_BOURBON (sale hooks), including
+  per-barrel grid offsets (Single Barrel Cask) and demand-band offsets
+  (Toasted Oak).
+- New Card.effect data field (typed effect descriptor) to drive the
+  inspect modal even before mechanics ship.
+- BUY_FROM_MARKET hook for `on_spend` capital effects (Lender's Note).
+
+25. **Effects fire at commit-time or sale-time only.** No upkeep, no
+    turn-by-turn tracking. Production commit + aging commit + sale
+    are the only resolution windows. Capital `on_spend` is a third
+    window scoped to market purchases. This keeps state reviewable —
+    the rickhouse always shows what's committed and what will fire.
