@@ -34,11 +34,12 @@ import {
   type ScoreResult,
 } from "@bourbonomics/engine";
 
-// Bumped to v2.1 when the starter-deck-draft phase + per-player rickhouse
-// model landed; bumped again when the market conveyor grew to 10. Old
-// saves are silently dropped on hydrate.
-const STORAGE_KEY = "bourbonomics:v2.1.2-game";
-const AUTOPLAY_KEY = "bourbonomics:v2.1.2-autoplay";
+// Storage key is versioned and bumped whenever the engine schema or
+// canonical catalog changes (so legacy saves don't crash on hydrate).
+// Current bump: dev-branch named bourbon catalog (Knob's End 90, etc.)
+// replaced the generic Backroad Batch / Quick Pour / etc.
+const STORAGE_KEY = "bourbonomics:v2.1.3-game";
+const AUTOPLAY_KEY = "bourbonomics:v2.1.3-autoplay";
 const AUTO_STEP_MS = 280;
 
 export interface NewGameSeat {

@@ -326,7 +326,7 @@ function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number
   const floor = cells.length ? Math.min(...cells) : 0;
   return (
     <div
-      title={`${bill.name} · ${chrome.label_text} · age bands ${bill.ageBands.join("/")} · demand bands ${bill.demandBands.join("/")}`}
+      title={`${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`}
       className={[baseCardChrome, chrome.gradient, chrome.border, chrome.glow, overlap, liftClass].join(" ")}
     >
       <div
@@ -334,19 +334,24 @@ function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number
         aria-hidden
       />
       <div className="flex items-baseline justify-between">
-        <span className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {chrome.label_text}
         </span>
-        {bill.goldAward ? <span className="text-[10px]" aria-hidden>🥇</span> : bill.silverAward ? <span className="text-[10px]" aria-hidden>🥈</span> : null}
+        {bill.goldAward ? <span className="text-[9px]" aria-hidden>🥇</span> : bill.silverAward ? <span className="text-[9px]" aria-hidden>🥈</span> : null}
       </div>
-      <h4 className={`mt-1 line-clamp-2 font-display text-[13px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
+      <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
         {bill.name}
       </h4>
+      {bill.slogan ? (
+        <p className={`mt-0.5 line-clamp-2 font-display text-[8px] italic leading-snug ${chrome.label} opacity-90`}>
+          {bill.slogan}
+        </p>
+      ) : null}
       <div className="mt-auto flex items-baseline justify-center gap-1">
-        <span className={`font-display text-[20px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
+        <span className={`font-display text-[14px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
           {floor}–{peak}
         </span>
-        <span className={`font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label}`}>
+        <span className={`font-mono text-[7.5px] uppercase tracking-[.16em] ${chrome.label}`}>
           rep
         </span>
       </div>
