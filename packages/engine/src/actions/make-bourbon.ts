@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import { isWheatedBill } from "../types";
 import { resourceUnits, suppliesResource } from "../cards";
+import { applyProductionCommitEffect } from "../card-effects";
 import { endPlayerTurn, isCurrentPlayer } from "../state";
 
 type MakeBourbonAction = Extract<GameAction, { type: "MAKE_BOURBON" }>;
@@ -223,25 +224,35 @@ export function applyMakeBourbon(
   const mashIdx = player.mashBills.findIndex((m) => m.id === action.mashBillId);
   const mashBill = player.mashBills.splice(mashIdx, 1)[0]! as MashBill;
 
-  // Capture production card-def ids before mutating hand.
+  // Capture production card-def ids + the actual Card objects before
+  // mutating hand. Production cards stay LOCKED with the barrel until
+  // sale — they don't go to discard at production time. That's both
+  // the rule and what lets sale-time effects (e.g. returns_to_hand,
+  // grid offsets) read the cards under the barrel.
   const cardById = new Map(player.hand.map((c) => [c.id, c as Card]));
   const productionCardDefIds = action.cardIds.map((id) => cardById.get(id)!.cardDefId);
+  const productionCards: Card[] = action.cardIds.map((id) => cardById.get(id)!);
 
-  // Partition hand: spent (production+conversion) | remaining.
+  // Partition hand: production (→ barrel) | conversion (→ discard) | remaining.
   const conversionIds = new Set((action.conversions ?? []).flatMap((c) => c.spendCardIds));
   const productionIds = new Set(action.cardIds);
 
   const newHand: Card[] = [];
-  const spent: Card[] = [];
+  const conversionSpent: Card[] = [];
   for (const card of player.hand) {
-    if (productionIds.has(card.id) || conversionIds.has(card.id)) {
-      spent.push(card);
+    if (productionIds.has(card.id)) {
+      // production cards already captured above
+    } else if (conversionIds.has(card.id)) {
+      conversionSpent.push(card);
     } else {
       newHand.push(card);
     }
   }
   player.hand = newHand;
-  player.discard.push(...spent);
+  // Conversion cards (3:1 spends) go to discard immediately — they
+  // are not "locked with the barrel" since they were converted, not
+  // committed in their own right. Effects do NOT fire for them.
+  player.discard.push(...conversionSpent);
 
   // Mint the barrel.
   const barrelId = `barrel_${draft.idCounter}`;
@@ -252,13 +263,23 @@ export function applyMakeBourbon(
     slotId: action.slotId,
     attachedMashBill: mashBill,
     productionCardDefIds,
+    productionCards,
     agingCards: [],
     age: 0,
     productionRound: draft.round,
     agedThisRound: false,
     inspectedThisRound: false,
     extraAgesAvailable: 0,
+    gridRepOffset: 0,
   });
+
+  // Fire on_commit_production effects for each production card.
+  // Resolved AFTER the barrel is in `allBarrels` so effects can read
+  // the live barrel reference.
+  const barrel = draft.allBarrels[draft.allBarrels.length - 1]!;
+  for (const card of productionCards) {
+    applyProductionCommitEffect(draft, player, barrel, card);
+  }
 
   endPlayerTurn(draft, action.playerId);
 }

@@ -37,9 +37,9 @@ describe("MAKE_BOURBON — happy path", () => {
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.mashBills.find((m) => m.id === mbId)).toBeUndefined();
     expect(p1.hand.map((c) => c.id)).toEqual(["card_p1_cap1_3"]);
-    expect(p1.discard.map((c) => c.id).sort()).toEqual(
-      ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"].sort(),
-    );
+    // Production cards are now LOCKED with the barrel until sale
+    // (they used to land in discard at production time).
+    expect(p1.discard.map((c) => c.id)).toEqual([]);
 
     expect(state.allBarrels).toHaveLength(1);
     const barrel = state.allBarrels[0]!;
@@ -48,6 +48,9 @@ describe("MAKE_BOURBON — happy path", () => {
     expect(barrel.attachedMashBill.id).toBe(mbId);
     expect(barrel.age).toBe(0);
     expect(barrel.agingCards).toHaveLength(0);
+    expect(barrel.productionCards.map((c) => c.id).sort()).toEqual(
+      ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"].sort(),
+    );
     expect(barrel.productionRound).toBe(1);
   });
 
@@ -407,7 +410,11 @@ describe("MAKE_BOURBON — 3:1 conversion", () => {
     });
     expect(state.allBarrels).toHaveLength(1);
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.discard).toHaveLength(5); // all 5 cards used
+    // Production cards (cask + corn) live on the barrel; conversion
+    // spends (3 capitals) go to discard immediately.
+    const barrel = state.allBarrels[0]!;
+    expect(barrel.productionCards).toHaveLength(2);
+    expect(p1.discard).toHaveLength(3);
     expect(p1.hand).toHaveLength(0);
   });
 

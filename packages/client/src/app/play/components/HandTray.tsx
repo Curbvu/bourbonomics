@@ -98,10 +98,21 @@ export default function HandTray() {
         </div>
       </div>
 
-      {/* Card sections */}
-      <div className="flex items-stretch gap-[14px] overflow-x-auto px-[22px] py-3">
-        {/* Resources (capital folded in — capital is a resource). */}
-        <Section caption="resources" count={handCards.length}>
+      {/* Card sections — laid out left-to-right with the deck pile
+          anchored at the far-left, and the (mixed) Resources accordion
+          taking the remaining space. No horizontal scrollbar: the
+          accordion clips overflow and the cards fan tighter via
+          HAND_CARD_OVERLAP. */}
+      <div className="flex items-stretch gap-[14px] overflow-hidden px-[22px] py-3">
+        {/* Deck pile — far left. Two stacked counters: deck + discard. */}
+        <DeckPile deckCount={focused.deck.length} discardCount={focused.discard.length} />
+
+        <Divider />
+
+        {/* Resources (capital folded in — capital is a resource). Takes
+            the remaining space; flex-1 + min-w-0 lets it shrink instead
+            of overflowing the row. */}
+        <Section caption="resources" count={handCards.length} grow>
           {handCards.length === 0 ? (
             <EmptyPill>no cards</EmptyPill>
           ) : (
@@ -116,12 +127,6 @@ export default function HandTray() {
             </CardAccordion>
           )}
         </Section>
-
-        <Divider />
-
-        {/* Deck pile — sits where the dev-branch "Cash" widget used to live.
-            Two stacked counters: face-down deck and discard. */}
-        <DeckPile deckCount={focused.deck.length} discardCount={focused.discard.length} />
 
         <Divider />
 
@@ -259,14 +264,22 @@ function focusedPlayer(state: GameState): PlayerState | null {
 function Section({
   caption,
   count,
+  grow = false,
   children,
 }: {
   caption: string;
   count?: number;
+  /** When true, the section expands to absorb the remaining row width. */
+  grow?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-shrink-0 items-stretch gap-2">
+    <div
+      className={[
+        "flex items-stretch gap-2",
+        grow ? "min-w-0 flex-1" : "flex-shrink-0",
+      ].join(" ")}
+    >
       <div className="flex flex-col items-end justify-between py-1">
         <VerticalCaption>{caption}</VerticalCaption>
         {count !== undefined ? (
@@ -309,13 +322,16 @@ function EmptyPill({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Accordion fan — children overlap horizontally; hovering lifts the card
- * and pops it to z-50 so it can be read in full.
+ * Accordion fan — children overlap horizontally; hovering lifts the
+ * card and pops it to z-50 so it can be read in full. The container
+ * shrinks to fit the available row width (no horizontal scrollbar);
+ * if the hand grows past what fits, rightmost cards clip into the
+ * neighbouring section but stay hover-readable.
  */
 function CardAccordion({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex max-w-[440px] items-end overflow-x-auto py-2 pl-2 pr-3">
-      <div className="flex items-end">{children}</div>
+    <div className="flex min-w-0 flex-1 items-end py-2 pl-2 pr-3">
+      <div className="flex min-w-0 items-end">{children}</div>
     </div>
   );
 }

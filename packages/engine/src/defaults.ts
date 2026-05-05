@@ -508,14 +508,13 @@ export function defaultMashBillCatalog(): MashBill[] {
 
 export function defaultMarketSupply(): Card[] {
   // Mirrors `packages/engine/content/resources.yaml`. See that file for
-  // per-card design notes, flavor, and effect stubs. Distribution
-  // intent: commons majority, uncommons meaningful minority, rares very
-  // rare (1 copy each).
+  // per-card design notes. Distribution intent: commons majority,
+  // uncommons meaningful minority, rares very rare (1 copy each).
   //
-  // Card *effects* (draw-on-commit, rep-on-sale, etc.) are stubbed in
-  // the YAML but NOT yet resolved by the engine — the data + names +
-  // costs ship now so the market reads as a varied shelf, and the
-  // mechanic wiring lands in a follow-up commit.
+  // Themed-card effects are wired here via `card.effect` and resolved
+  // by `src/card-effects.ts` at the appropriate commit/sale/spend
+  // window (see `Barrel.productionCards` / `Barrel.gridRepOffset` for
+  // the persistent state used by sale-time math).
   const cards: Card[] = [];
   let idx = 0;
 
@@ -538,6 +537,7 @@ export function defaultMarketSupply(): Card[] {
         subtype: "barley",
         resourceCount: 1,
         cost: 3,
+        effect: { kind: "draw_cards", when: "on_commit_production", n: 1 },
         index: idx++,
       }),
     );
@@ -550,6 +550,7 @@ export function defaultMarketSupply(): Card[] {
         subtype: "barley",
         resourceCount: 1,
         cost: 3,
+        effect: { kind: "draw_cards", when: "on_commit_aging", n: 1 },
         index: idx++,
       }),
     );
@@ -562,6 +563,7 @@ export function defaultMarketSupply(): Card[] {
         subtype: "barley",
         resourceCount: 2,
         cost: 5,
+        effect: { kind: "draw_cards", when: "on_commit_production", n: 1 },
         index: idx++,
       }),
     );
@@ -576,6 +578,7 @@ export function defaultMarketSupply(): Card[] {
         subtype: "wheat",
         resourceCount: 1,
         cost: 4,
+        effect: { kind: "barrel_starts_aged", when: "on_commit_production", age: 1 },
         index: idx++,
       }),
     );
@@ -588,6 +591,7 @@ export function defaultMarketSupply(): Card[] {
         subtype: "wheat",
         resourceCount: 1,
         cost: 4,
+        effect: { kind: "aging_card_doubled", when: "on_commit_aging", years: 2 },
         index: idx++,
       }),
     );
@@ -600,6 +604,7 @@ export function defaultMarketSupply(): Card[] {
         subtype: "wheat",
         resourceCount: 2,
         cost: 5,
+        effect: { kind: "rep_on_sale_if_age_gte", when: "on_sale", age: 5, rep: 1 },
         index: idx++,
       }),
     );
@@ -626,6 +631,7 @@ export function defaultMarketSupply(): Card[] {
         subtype: "rye",
         resourceCount: 1,
         cost: 4,
+        effect: { kind: "rep_on_sale_flat", when: "on_sale", rep: 1 },
         index: idx++,
       }),
     );
@@ -638,6 +644,7 @@ export function defaultMarketSupply(): Card[] {
         subtype: "rye",
         resourceCount: 2,
         cost: 5,
+        effect: { kind: "rep_on_sale_if_demand_gte", when: "on_sale", demand: 7, rep: 2 },
         index: idx++,
       }),
     );
@@ -652,6 +659,7 @@ export function defaultMarketSupply(): Card[] {
         subtype: "cask",
         resourceCount: 1,
         cost: 5,
+        effect: { kind: "grid_demand_band_offset", when: "on_sale", offset: 1 },
         index: idx++,
       }),
     );
@@ -664,6 +672,7 @@ export function defaultMarketSupply(): Card[] {
         subtype: "cask",
         resourceCount: 1,
         cost: 4,
+        effect: { kind: "rep_on_sale_if_age_gte", when: "on_sale", age: 4, rep: 2 },
         index: idx++,
       }),
     );
@@ -676,6 +685,7 @@ export function defaultMarketSupply(): Card[] {
         subtype: "cask",
         resourceCount: 1,
         cost: 4,
+        effect: { kind: "returns_to_hand_on_sale", when: "on_sale" },
         index: idx++,
       }),
     );
@@ -709,6 +719,7 @@ export function defaultMarketSupply(): Card[] {
         flavor: "Pay it forward — gain reputation now.",
         capitalValue: 2,
         cost: 5,
+        effect: { kind: "rep_on_commit_aging", when: "on_commit_aging", rep: 1 },
         index: idx++,
       }),
     );
@@ -722,6 +733,13 @@ export function defaultMarketSupply(): Card[] {
       subtype: "barley",
       resourceCount: 2,
       cost: 7,
+      effect: {
+        kind: "composite",
+        effects: [
+          { kind: "draw_cards", when: "on_commit_production", n: 2 },
+          { kind: "draw_cards", when: "on_sale", n: 1 },
+        ],
+      },
       index: idx++,
     }),
   );
@@ -733,6 +751,13 @@ export function defaultMarketSupply(): Card[] {
       subtype: "wheat",
       resourceCount: 2,
       cost: 7,
+      effect: {
+        kind: "composite",
+        effects: [
+          { kind: "barrel_starts_aged", when: "on_commit_production", age: 2 },
+          { kind: "skip_demand_drop", when: "on_sale" },
+        ],
+      },
       index: idx++,
     }),
   );
@@ -744,6 +769,13 @@ export function defaultMarketSupply(): Card[] {
       subtype: "rye",
       resourceCount: 3,
       cost: 8,
+      effect: {
+        kind: "composite",
+        effects: [
+          { kind: "bump_demand", when: "on_commit_production", delta: 1 },
+          { kind: "rep_on_sale_flat", when: "on_sale", rep: 2 },
+        ],
+      },
       index: idx++,
     }),
   );
@@ -755,6 +787,7 @@ export function defaultMarketSupply(): Card[] {
       subtype: "cask",
       resourceCount: 1,
       cost: 7,
+      effect: { kind: "grid_rep_offset", when: "on_commit_production", offset: 1 },
       index: idx++,
     }),
   );
@@ -765,6 +798,7 @@ export function defaultMarketSupply(): Card[] {
       flavor: "A reputation discount on every spend.",
       capitalValue: 4,
       cost: 8,
+      effect: { kind: "rep_on_market_spend", when: "on_spend", rep: 1 },
       index: idx++,
     }),
   );

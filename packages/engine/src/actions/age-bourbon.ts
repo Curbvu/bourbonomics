@@ -1,5 +1,6 @@
 import type { Draft } from "immer";
 import type { GameAction, GameState, ValidationResult } from "../types";
+import { ageYearsForCard, applyAgingCommitEffect } from "../card-effects";
 import { endPlayerTurn, isCurrentPlayer } from "../state";
 
 type AgeBourbonAction = Extract<GameAction, { type: "AGE_BOURBON" }>;
@@ -45,7 +46,12 @@ export function applyAgeBourbon(
 
   const barrel = draft.allBarrels.find((b) => b.id === action.barrelId)!;
   barrel.agingCards.push(card!);
-  barrel.age = barrel.agingCards.length;
+  // Most aging cards add 1 year. Winter Wheat (aging_card_doubled)
+  // adds more — `ageYearsForCard` reads the card's effect descriptor.
+  barrel.age += ageYearsForCard(card!);
+
+  // Fire any on_commit_aging effects (draw, +rep, etc.).
+  applyAgingCommitEffect(draft, player, card!);
 
   if (!barrel.agedThisRound) {
     barrel.agedThisRound = true;

@@ -1,5 +1,12 @@
+import type {
+  Card,
+  GameAction,
+  GameState,
+  MashBill,
+  ValidationResult,
+} from "../types";
 import type { Draft } from "immer";
-import type { GameAction, GameState, MashBill, ValidationResult } from "../types";
+import { collectSaleSignals } from "../card-effects";
 import { drawWithReshuffle } from "../deck";
 import { awardConditionMet, computeReward } from "../rewards";
 import { endPlayerTurn, isCurrentPlayer } from "../state";
@@ -79,7 +86,11 @@ function chooseRewardBill(
     bill = gold;
   }
   const barrel = state.allBarrels.find((b) => b.id === action.barrelId)!;
-  const value = computeReward(bill, barrel.age, state.demand);
+  const signals = collectSaleSignals(barrel, { demand: state.demand });
+  const value = computeReward(bill, barrel.age, state.demand, {
+    demandBandOffset: signals.gridDemandBandOffset,
+    gridRepOffset: barrel.gridRepOffset,
+  });
   return { legal: true, value, bill };
 }
 
@@ -92,20 +103,30 @@ export function applySellBourbon(
   const barrel = draft.allBarrels[barrelIdx]!;
   const attached = barrel.attachedMashBill;
 
+  // Collect themed-card sale signals BEFORE any mutation so the
+  // computed reward + bonus rep + return-to-hand list match what
+  // validation accepted.
+  const signals = collectSaleSignals(barrel, { demand: draft.demand });
+
   const billForReward = action.goldBourbonId
     ? player.unlockedGoldBourbons.find((m) => m.id === action.goldBourbonId)!
     : attached;
-  const reward = computeReward(billForReward, barrel.age, draft.demand);
+  const reward = computeReward(billForReward, barrel.age, draft.demand, {
+    demandBandOffset: signals.gridDemandBandOffset,
+    gridRepOffset: barrel.gridRepOffset,
+  });
 
-  // Apply reputation gain.
-  player.reputation += action.reputationSplit;
+  // Apply reputation gain (player-driven split + flat sale-effect bonuses).
+  player.reputation += action.reputationSplit + signals.bonusRep;
 
   // Mid-action card draw: drawn cards go straight into hand.
-  if (action.cardDrawSplit > 0) {
+  // `bonusDraw` from sale effects (e.g. Six-Row Barley) stacks here.
+  const drawCount = action.cardDrawSplit + signals.bonusDraw;
+  if (drawCount > 0) {
     const result = drawWithReshuffle(
       player.deck.slice(),
       player.discard.slice(),
-      action.cardDrawSplit,
+      drawCount,
       draft.rngState,
     );
     player.hand.push(...result.drawn);
@@ -114,8 +135,17 @@ export function applySellBourbon(
     draft.rngState = result.rngState;
   }
 
-  // Aging cards return to discard.
-  player.discard.push(...barrel.agingCards);
+  // Cards under the barrel return home: those flagged
+  // `returns_to_hand_on_sale` go back to hand; everything else hits
+  // the discard pile.
+  const allBarrelCards: Card[] = [...barrel.productionCards, ...barrel.agingCards];
+  for (const c of allBarrelCards) {
+    if (signals.returnsToHand.has(c.id)) {
+      player.hand.push(c);
+    } else {
+      player.discard.push(c);
+    }
+  }
 
   // Award resolution against the ATTACHED bill (not the optional gold one used).
   const goldEligible =
@@ -137,9 +167,12 @@ export function applySellBourbon(
   draft.allBarrels.splice(barrelIdx, 1);
   player.barrelsSold += 1;
 
-  // Demand drops by 1 unless Demand Surge absorbs it.
+  // Demand drops by 1 unless Demand Surge absorbs it OR a sale-effect
+  // (Heirloom Wheat's `skip_demand_drop`) cancels the drop.
   if (player.demandSurgeActive) {
     player.demandSurgeActive = false;
+  } else if (signals.skipDemandDrop) {
+    // No-op — themed card cancelled the drop.
   } else if (draft.demand > 0) {
     draft.demand -= 1;
   }

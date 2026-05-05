@@ -266,6 +266,125 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
 
   // Barrel Broker is omitted — needs cross-player negotiation we don't model.
 
+  // ── New v2.2.x ops cards ──────────────────────────────────────────
+
+  // Bourbon Boom: same trigger as Market Manipulation up — a saleable
+  // barrel benefits from higher demand.
+  const boom = playable.find((c) => c.defId === "bourbon_boom");
+  if (boom) {
+    const direction = chooseDemandDirection(state, player);
+    if (direction === "up") {
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: boom.id,
+        defId: "bourbon_boom",
+      };
+    }
+  }
+
+  // Glut: only useful if pushing demand DOWN helps us (e.g. a low-band
+  // bill we plan to sell into). Same heuristic as Market Manipulation
+  // down.
+  const glut = playable.find((c) => c.defId === "glut");
+  if (glut) {
+    const direction = chooseDemandDirection(state, player);
+    if (direction === "down") {
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: glut.id,
+        defId: "glut",
+      };
+    }
+  }
+
+  // Insider Buyer: refresh the conveyor when at least one card is too
+  // expensive AND we're not blocked on capital.
+  const ib = playable.find((c) => c.defId === "insider_buyer");
+  if (ib) {
+    const totalCapital = player.hand.reduce((acc, c) => acc + capitalUnits(c), 0);
+    const cheapestVisible = state.marketConveyor.reduce(
+      (lo, c) => Math.min(lo, c.cost ?? 1),
+      Infinity,
+    );
+    if (totalCapital >= cheapestVisible) {
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: ib.id,
+        defId: "insider_buyer",
+      };
+    }
+  }
+
+  // Kentucky Connection: free draws are always good while we can use
+  // them — fire it if our hand has room (under handSize).
+  const kc = playable.find((c) => c.defId === "kentucky_connection");
+  if (kc && player.hand.length < player.handSize) {
+    return {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: player.id,
+      cardId: kc.id,
+      defId: "kentucky_connection",
+    };
+  }
+
+  // Bottling Run: helps everyone but us first — fire when our hand is
+  // small (we benefit relatively most when behind on cards).
+  const br = playable.find((c) => c.defId === "bottling_run");
+  if (br && player.hand.length <= 3) {
+    return {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: player.id,
+      cardId: br.id,
+      defId: "bottling_run",
+    };
+  }
+
+  // Cash Out: convert junk grain to capital when our hand is mostly
+  // resources we won't use this round.
+  const co = playable.find((c) => c.defId === "cash_out");
+  if (co) {
+    const resourceCount = player.hand.filter((c) => c.type === "resource").length;
+    const capitalCount = player.hand.filter((c) => c.type === "capital").length;
+    if (resourceCount >= 3 && capitalCount === 0) {
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: co.id,
+        defId: "cash_out",
+      };
+    }
+  }
+
+  // Allocation: free mash bills are always strong if our recipe hand
+  // is thin AND the bourbon deck has cards.
+  const al = playable.find((c) => c.defId === "allocation");
+  if (al && state.bourbonDeck.length > 0 && player.mashBills.length < 2) {
+    return {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: player.id,
+      cardId: al.id,
+      defId: "allocation",
+    };
+  }
+
+  // Rickhouse Expansion Permit: take it whenever we're not already at
+  // the cap and our rickhouse is currently full (slot pressure).
+  const rep = playable.find((c) => c.defId === "rickhouse_expansion_permit");
+  if (rep && player.rickhouseSlots.length < 6) {
+    const occupied = state.allBarrels.filter((b) => b.ownerId === player.id).length;
+    if (occupied >= player.rickhouseSlots.length) {
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: rep.id,
+        defId: "rickhouse_expansion_permit",
+      };
+    }
+  }
+
   return null;
 }
 

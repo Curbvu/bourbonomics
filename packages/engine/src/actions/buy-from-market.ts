@@ -1,6 +1,7 @@
 import type { Draft } from "immer";
 import type { Card, GameAction, GameState, ValidationResult } from "../types";
 import { paymentValue } from "../cards";
+import { applySpendEffect } from "../card-effects";
 import { drawWithReshuffle } from "../deck";
 import { endPlayerTurn, isCurrentPlayer } from "../state";
 
@@ -74,7 +75,8 @@ export function applyBuyFromMarket(
   // Remove the purchased card from the conveyor and queue refill.
   draft.marketConveyor.splice(action.marketSlotIndex, 1);
 
-  // Move spent cards from hand → discard.
+  // Move spent cards from hand → discard, firing any on_spend
+  // effects (e.g. Lender's Note → +1 reputation per use) along the way.
   const spendSet = new Set(action.spendCardIds);
   const newHand: Card[] = [];
   const spent: Card[] = [];
@@ -83,6 +85,7 @@ export function applyBuyFromMarket(
     else newHand.push(card);
   }
   player.hand = newHand;
+  for (const c of spent) applySpendEffect(player, c);
   player.discard.push(...spent);
 
   // The bought card itself goes to the player's discard.

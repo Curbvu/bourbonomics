@@ -1,4 +1,11 @@
-import type { Card, MashBill, MashBillRecipe, MashBillTier, ResourceSubtype } from "./types";
+import type {
+  Card,
+  CardEffect,
+  MashBill,
+  MashBillRecipe,
+  MashBillTier,
+  ResourceSubtype,
+} from "./types";
 
 // ----- Resource & Capital Card Factories -----
 
@@ -34,6 +41,7 @@ export function makePremiumResource(spec: {
   resourceCount: number;
   cost: number;
   aliases?: ResourceSubtype[];
+  effect?: CardEffect;
   ownerLabel?: string;
   index: number;
 }): Card {
@@ -49,6 +57,7 @@ export function makePremiumResource(spec: {
     cost: spec.cost,
     displayName: spec.displayName,
     flavor: spec.flavor,
+    effect: spec.effect,
   };
 }
 
@@ -63,6 +72,7 @@ export function makePremiumCapital(spec: {
   flavor?: string;
   capitalValue: number;
   cost?: number;
+  effect?: CardEffect;
   ownerLabel?: string;
   index: number;
 }): Card {
@@ -75,6 +85,7 @@ export function makePremiumCapital(spec: {
     cost: spec.cost ?? spec.capitalValue,
     displayName: spec.displayName,
     flavor: spec.flavor,
+    effect: spec.effect,
   };
 }
 

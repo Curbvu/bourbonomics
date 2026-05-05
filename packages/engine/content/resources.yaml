@@ -51,7 +51,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: draw_cards, when: on_commit_production, n: 1 }
-    implemented: design
+    implemented: true
 
   - defId: malted_barley
     displayName: Malted Barley
@@ -62,7 +62,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: draw_cards, when: on_commit_aging, n: 1 }
-    implemented: design
+    implemented: true
 
   - defId: heritage_barley
     displayName: Heritage Barley
@@ -73,7 +73,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: draw_cards, when: on_commit_production, n: 1 }
-    implemented: design  # Stat line is wired; the draw effect is not.
+    implemented: true
 
   - defId: six_row_barley
     displayName: Six-Row Barley
@@ -88,7 +88,7 @@ cards:
       effects:
         - { kind: draw_cards, when: on_commit_production, n: 2 }
         - { kind: draw_cards, when: on_sale, n: 1 }
-    implemented: design
+    implemented: true
 
   # ─── Wheat · Time manipulation ───────────────────────────────────
   - defId: soft_red_wheat
@@ -100,7 +100,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: barrel_starts_aged, when: on_commit_production, age: 1 }
-    implemented: design
+    implemented: true
 
   - defId: winter_wheat
     displayName: Winter Wheat
@@ -111,7 +111,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: aging_card_doubled, when: on_commit_aging, years: 2 }
-    implemented: design
+    implemented: true
 
   - defId: white_wheat
     displayName: White Wheat
@@ -122,7 +122,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: rep_on_sale_if_age_gte, when: on_sale, age: 5, rep: 1 }
-    implemented: design
+    implemented: true
 
   - defId: heirloom_wheat
     displayName: Heirloom Wheat
@@ -137,7 +137,7 @@ cards:
       effects:
         - { kind: barrel_starts_aged, when: on_commit_production, age: 2 }
         - { kind: skip_demand_drop, when: on_sale }
-    implemented: design
+    implemented: true
 
   # ─── Rye · Reputation amplification ──────────────────────────────
   - defId: heritage_rye
@@ -160,7 +160,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: rep_on_sale_flat, when: on_sale, rep: 1 }
-    implemented: design
+    implemented: true
 
   - defId: high_proof_rye
     displayName: High-Proof Rye
@@ -171,7 +171,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: rep_on_sale_if_demand_gte, when: on_sale, demand: 7, rep: 2 }
-    implemented: design
+    implemented: true
 
   - defId: distillers_reserve_rye
     displayName: Distiller's Reserve Rye
@@ -186,7 +186,7 @@ cards:
       effects:
         - { kind: bump_demand, when: on_commit_production, delta: 1 }
         - { kind: rep_on_sale_flat, when: on_sale, rep: 2 }
-    implemented: design
+    implemented: true
 
   # ─── Cask · Quality ──────────────────────────────────────────────
   - defId: toasted_oak
@@ -198,7 +198,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: grid_demand_band_offset, when: on_sale, offset: 1 }
-    implemented: design
+    implemented: true
 
   - defId: heavy_char
     displayName: Heavy Char
@@ -209,7 +209,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: rep_on_sale_if_age_gte, when: on_sale, age: 4, rep: 2 }
-    implemented: design
+    implemented: true
 
   - defId: used_bourbon_cask
     displayName: Used Bourbon Cask
@@ -220,7 +220,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: returns_to_hand_on_sale, when: on_sale }
-    implemented: design
+    implemented: true
 
   - defId: single_barrel_cask
     displayName: Single Barrel Cask
@@ -231,7 +231,7 @@ cards:
     rarity: rare
     copies: 1
     effect: { kind: grid_rep_offset, when: on_commit_production, offset: 1 }
-    implemented: design
+    implemented: true
 
   # ─── Capital · Leverage ──────────────────────────────────────────
   - defId: capital_two
@@ -262,7 +262,7 @@ cards:
     rarity: uncommon
     copies: 2
     effect: { kind: rep_on_commit_aging, when: on_commit_aging, rep: 1 }
-    implemented: design
+    implemented: true
 
   - defId: lenders_note
     displayName: Lender's Note
@@ -272,4 +272,4 @@ cards:
     rarity: rare
     copies: 1
     effect: { kind: rep_on_market_spend, when: on_spend, rep: 1 }
-    implemented: design
+    implemented: true

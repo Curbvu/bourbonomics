@@ -32,7 +32,39 @@ export interface Card {
   displayName?: string;
   /** Optional one-line flavor used by the inspect modal. */
   flavor?: string;
+  /** Themed-card effect descriptor; resolved at commit/sale/spend time. */
+  effect?: CardEffect;
 }
+
+// -----------------------------
+// Themed-card effect system
+// -----------------------------
+// Effects fire at one of four discrete moments and are otherwise pure
+// data — no upkeep between firings. The resolver lives in
+// `src/card-effects.ts` and is hooked from MAKE_BOURBON,
+// AGE_BOURBON, SELL_BOURBON, and BUY_FROM_MARKET.
+
+export type CardEffectWhen =
+  | "on_commit_production"
+  | "on_commit_aging"
+  | "on_sale"
+  | "on_spend";
+
+export type CardEffect =
+  | { kind: "draw_cards"; when: CardEffectWhen; n: number }
+  | { kind: "rep_on_sale_flat"; when: "on_sale"; rep: number }
+  | { kind: "rep_on_sale_if_age_gte"; when: "on_sale"; age: number; rep: number }
+  | { kind: "rep_on_sale_if_demand_gte"; when: "on_sale"; demand: number; rep: number }
+  | { kind: "rep_on_commit_aging"; when: "on_commit_aging"; rep: number }
+  | { kind: "rep_on_market_spend"; when: "on_spend"; rep: number }
+  | { kind: "bump_demand"; when: "on_commit_production"; delta: number }
+  | { kind: "skip_demand_drop"; when: "on_sale" }
+  | { kind: "barrel_starts_aged"; when: "on_commit_production"; age: number }
+  | { kind: "aging_card_doubled"; when: "on_commit_aging"; years: number }
+  | { kind: "grid_demand_band_offset"; when: "on_sale"; offset: number }
+  | { kind: "grid_rep_offset"; when: "on_commit_production"; offset: number }
+  | { kind: "returns_to_hand_on_sale"; when: "on_sale" }
+  | { kind: "composite"; effects: CardEffect[] };
 
 // -----------------------------
 // Mash Bills
@@ -178,11 +210,22 @@ export interface Barrel {
   /** Slot in the owning player's rickhouse. */
   slotId: string;
   attachedMashBill: MashBill;
-  /** card-def ids spent at production (audit only; cards are already in discard). */
+  /** card-def ids spent at production (audit / display). */
   productionCardDefIds: string[];
+  /**
+   * Production cards committed to the barrel. Locked with the barrel
+   * until sale per the rules — at sale they go to discard (or hand,
+   * if a card has the `returns_to_hand_on_sale` effect).
+   */
+  productionCards: Card[];
   /** Face-down cards committed to aging. Returned to discard on sale. */
   agingCards: Card[];
-  /** Equals agingCards.length. */
+  /**
+   * Effective age of the barrel for grid lookup. Equals
+   * `agingCards.length` plus any commit-time age bonuses from cards
+   * like Soft Red Wheat (barrel_starts_aged) and Winter Wheat
+   * (aging_card_doubled).
+   */
   age: number;
   productionRound: number;
   /** Reset to false at start of each round. */
@@ -191,6 +234,12 @@ export interface Barrel {
   inspectedThisRound: boolean;
   /** Set by Rushed Shipment — barrel may be aged once more this round. */
   extraAgesAvailable: number;
+  /**
+   * Persistent rep adder applied to every grid cell at sale time
+   * (Single Barrel Cask). Stored on the barrel because the effect
+   * fires at production commit and must outlast the spent card.
+   */
+  gridRepOffset: number;
 }
 
 // -----------------------------
@@ -271,6 +320,12 @@ export interface GameState {
 
   round: number;
   phase: GamePhase;
+  /**
+   * Seat of the round's first player. Rotates one seat counter-clockwise
+   * after each cleanup, so the player who acted last in round N becomes
+   * the first player in round N+1 (the "bookend" — see GAME_RULES.md).
+   */
+  startPlayerIndex: number;
   currentPlayerIndex: number;
 
   players: PlayerState[];
