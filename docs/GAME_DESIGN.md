@@ -11,6 +11,47 @@ records the design intent that shaped it.
 
 ---
 
+## User-Requested Customizations (v2.1+)
+
+Authoritative checklist of explicit asks the user has made for v2.1.
+Implementation must respect every item on this list; new asks are
+added at the top.
+
+- **WoW-style tier colour system on mash bills.** Mash bills are
+  classed `common | uncommon | rare | epic | legendary` and rendered
+  with the canonical WoW palette: white/slate, green, blue, purple,
+  orange. Tier drives card border, gradient, and outer glow on
+  every render surface (HandTray, MarketCenter mash-bill row,
+  inspect modals). Source of truth: `tierStyles.ts` in the client.
+- **Centralize the Market into the play canvas.** The Market lives
+  in the **center column** of the dashboard, not in the right rail.
+  Below the market, three subsections list the available **mash
+  bills, operations cards, and investment cards** (investment is a
+  placeholder until the mechanic ships in v2.2). Right rail keeps
+  Barons + Log only.
+- **Stylized portrait cards everywhere a card is shown.** Resources,
+  capital, mash bills, and ops cards all use the dev-branch portrait
+  silhouette (112×128 in the hand, 100×140 on the table) with a
+  type-coloured gradient, glyph, and accordion-fan hover lift.
+  Centralised in `handCardStyles.ts`.
+- **Round phase strip shows 5 phases: Demand → Draw → Age → Action
+  → Cleanup.** Distillery selection and starter-deck draft are
+  opening-only setup phases; they don't appear in the round-loop
+  banner. Banner self-hides during setup and the modals own the
+  canvas.
+- **Distillery draft + starter-deck draft are interactive for the
+  human seat.** A modal pops on the human's turn during each setup
+  phase. Distillery: pick from the shared pool (no duplicates).
+  Starter deck: compose 16 cards from the six plain types via +/-
+  controls, with a live 16-slot preview that lights up as you fill
+  it. Bots auto-resolve the same actions through the runner.
+- **No vertical or horizontal scroll on the dashboard.** The play
+  page must fit a single 1280×720+ viewport — top bar, phase
+  sub-bar, rickhouse grid, market center, right rail, and hand tray
+  all visible at once.
+
+---
+
 ## Layout & viewport
 
 - **No vertical or horizontal scroll on the dashboard.** The play page

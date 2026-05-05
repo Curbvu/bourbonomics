@@ -77,13 +77,8 @@ export const OPS_CHROME: CardChrome = {
   label: "text-violet-200",
 };
 
-export const BOURBON_CHROME: CardChrome = {
-  gradient: "bg-gradient-to-b from-amber-500/40 via-amber-900/50 to-slate-950",
-  border: "border-amber-400",
-  borderSoft: "border-amber-500/40",
-  ink: "text-amber-50",
-  label: "text-amber-200",
-};
+// Mash bills use TIER_CHROME from `tierStyles.ts` (WoW palette per tier),
+// not a single bourbon chrome.
 
 export const RESOURCE_GLYPH: Record<ResourceSubtype, string> = {
   cask: "◯",

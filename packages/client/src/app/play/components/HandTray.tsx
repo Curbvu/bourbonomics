@@ -25,7 +25,6 @@ import type {
 import { useGameStore } from "@/lib/store/game";
 import PlayerSwatch from "./PlayerSwatch";
 import {
-  BOURBON_CHROME,
   CAPITAL_CHROME,
   HAND_CARD_OVERLAP,
   OPS_CHROME,
@@ -33,6 +32,7 @@ import {
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
 } from "./handCardStyles";
+import { TIER_CHROME, tierOrCommon } from "./tierStyles";
 
 export default function HandTray() {
   const { state, seatMeta } = useGameStore();
@@ -314,7 +314,8 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
 }
 
 function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number }) {
-  const chrome = BOURBON_CHROME;
+  const tier = tierOrCommon(bill.tier);
+  const chrome = TIER_CHROME[tier];
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
   // Compact reward range from the grid for a single glance.
   const cells: number[] = [];
@@ -325,8 +326,8 @@ function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number
   const floor = cells.length ? Math.min(...cells) : 0;
   return (
     <div
-      title={`${bill.name} · age bands ${bill.ageBands.join("/")} · demand bands ${bill.demandBands.join("/")}`}
-      className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass].join(" ")}
+      title={`${bill.name} · ${chrome.label_text} · age bands ${bill.ageBands.join("/")} · demand bands ${bill.demandBands.join("/")}`}
+      className={[baseCardChrome, chrome.gradient, chrome.border, chrome.glow, overlap, liftClass].join(" ")}
     >
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
@@ -334,15 +335,15 @@ function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number
       />
       <div className="flex items-baseline justify-between">
         <span className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
-          Mash bill
+          {chrome.label_text}
         </span>
         {bill.goldAward ? <span className="text-[10px]" aria-hidden>🥇</span> : bill.silverAward ? <span className="text-[10px]" aria-hidden>🥈</span> : null}
       </div>
-      <h4 className={`mt-1 line-clamp-2 font-display text-[13px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+      <h4 className={`mt-1 line-clamp-2 font-display text-[13px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
         {bill.name}
       </h4>
       <div className="mt-auto flex items-baseline justify-center gap-1">
-        <span className={`font-display text-[20px] font-bold leading-none tabular-nums ${chrome.ink}`}>
+        <span className={`font-display text-[20px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
           {floor}–{peak}
         </span>
         <span className={`font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label}`}>

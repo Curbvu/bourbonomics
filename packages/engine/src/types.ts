@@ -53,11 +53,16 @@ export interface AwardCondition {
   minReward?: number;
 }
 
+/** WoW-style rarity tiers. Drives card chrome (border, gradient, glow). */
+export type MashBillTier = "common" | "uncommon" | "rare" | "epic" | "legendary";
+
 export interface MashBill {
   id: string;                                // unique instance id
   defId: string;                             // references the catalog definition
   name: string;
   flavorText?: string;
+  /** WoW-style rarity tier. Defaults to "common" when omitted. */
+  tier?: MashBillTier;
   ageBands: [number, number, number];
   demandBands: [number, number, number];
   /** 3x3 grid; null cells reward 0 reputation (printed as "—"). */

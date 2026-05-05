@@ -1,4 +1,4 @@
-import type { Card, MashBill, MashBillRecipe, ResourceSubtype } from "./types";
+import type { Card, MashBill, MashBillRecipe, MashBillTier, ResourceSubtype } from "./types";
 
 // ----- Resource & Capital Card Factories -----
 
@@ -40,6 +40,7 @@ interface MashBillSpec {
   defId: string;
   name: string;
   flavorText?: string;
+  tier?: MashBillTier;
   ageBands: [number, number, number];
   demandBands: [number, number, number];
   rewardGrid: (number | null)[][];
@@ -54,6 +55,7 @@ export function makeMashBill(spec: MashBillSpec, instanceIndex: number): MashBil
     defId: spec.defId,
     name: spec.name,
     flavorText: spec.flavorText,
+    tier: spec.tier ?? "common",
     ageBands: spec.ageBands,
     demandBands: spec.demandBands,
     rewardGrid: spec.rewardGrid,

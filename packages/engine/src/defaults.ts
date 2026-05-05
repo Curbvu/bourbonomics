@@ -31,6 +31,7 @@ export function defaultMashBillCatalog(): MashBill[] {
         defId: "backroad_batch",
         name: "Backroad Batch",
         flavorText: "Honest workhorse bill. No surprises, no fireworks.",
+        tier: "common",
         ageBands: [2, 4, 6],
         demandBands: [2, 4, 6],
         rewardGrid: [
@@ -46,6 +47,7 @@ export function defaultMashBillCatalog(): MashBill[] {
         defId: "quick_pour",
         name: "Quick Pour",
         flavorText: "Rewards moving young product into a hot market.",
+        tier: "common",
         ageBands: [2, 3, 5],
         demandBands: [4, 6, 8],
         rewardGrid: [
@@ -61,6 +63,7 @@ export function defaultMashBillCatalog(): MashBill[] {
         defId: "high_rye_reserve",
         name: "High Rye Reserve",
         flavorText: "Spicy, demanding, and pays handsomely when it lands.",
+        tier: "rare",
         ageBands: [3, 5, 7],
         demandBands: [3, 6, 9],
         rewardGrid: [
@@ -78,6 +81,7 @@ export function defaultMashBillCatalog(): MashBill[] {
         defId: "wheat_whisper",
         name: "Wheat Whisper",
         flavorText: "Soft, mellow, and never sees a grain of rye.",
+        tier: "uncommon",
         ageBands: [2, 4, 6],
         demandBands: [2, 5, 8],
         rewardGrid: [
@@ -94,6 +98,7 @@ export function defaultMashBillCatalog(): MashBill[] {
         defId: "four_grain",
         name: "Four Grain",
         flavorText: "Every grain in the silo, every flavor in the glass.",
+        tier: "epic",
         ageBands: [3, 5, 7],
         demandBands: [3, 5, 8],
         rewardGrid: [
@@ -111,6 +116,7 @@ export function defaultMashBillCatalog(): MashBill[] {
         defId: "veteran_stock",
         name: "Veteran Stock",
         flavorText: "Patience required. Patience rewarded.",
+        tier: "legendary",
         ageBands: [4, 6, 8],
         demandBands: [4, 7, 10],
         rewardGrid: [
@@ -127,6 +133,7 @@ export function defaultMashBillCatalog(): MashBill[] {
         defId: "boomtown_blend",
         name: "Boomtown Blend",
         flavorText: "Made for a thirsty city. Quiet years, quiet payouts.",
+        tier: "uncommon",
         ageBands: [2, 4, 6],
         demandBands: [5, 7, 9],
         rewardGrid: [
@@ -142,6 +149,7 @@ export function defaultMashBillCatalog(): MashBill[] {
         defId: "hollow_oak",
         name: "Hollow Oak",
         flavorText: "Long shelf life. Low ceiling. Reliable.",
+        tier: "common",
         ageBands: [2, 5, 8],
         demandBands: [2, 4, 7],
         rewardGrid: [

@@ -1,30 +1,24 @@
 "use client";
 
 /**
- * Right rail — tabbed sidebar to the right of the rickhouse grid.
- *
- * Three tabs:
- *   Market — bourbon-deck doomsday, market conveyor, supply count
- *   Barons — players' status (OpponentList)
- *   Log    — recent engine actions (EventLog)
+ * Right rail — sidebar for player status + log. Market lives in the
+ * center column (see MarketCenter.tsx) per the design log.
  */
 
 import { useState } from "react";
 
 import EventLog from "./EventLog";
-import MarketPanel from "./MarketPanel";
 import OpponentList from "./OpponentList";
 
-type Tab = "market" | "barons" | "log";
+type Tab = "barons" | "log";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "market", label: "market" },
   { id: "barons", label: "barons" },
   { id: "log", label: "log" },
 ];
 
 export default function RightRail() {
-  const [tab, setTab] = useState<Tab>("market");
+  const [tab, setTab] = useState<Tab>("barons");
   return (
     <aside className="flex h-full flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-900/70">
       <div
@@ -58,7 +52,6 @@ export default function RightRail() {
       </div>
 
       <div role="tabpanel" aria-label={tab} className="flex-1 overflow-y-auto">
-        {tab === "market" ? <MarketPanel /> : null}
         {tab === "barons" ? <OpponentList /> : null}
         {tab === "log" ? <EventLog /> : null}
       </div>
