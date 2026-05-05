@@ -17,6 +17,15 @@ Authoritative checklist of explicit asks the user has made for v2.1.
 Implementation must respect every item on this list; new asks are
 added at the top.
 
+- **Demand chip uses the dev-branch gradient cell bar.** 12 cells in
+  the top-bar Demand chip; active cells fill with a sky-blue (cool)
+  → amber (hot) lerp so the player can read demand temperature at a
+  glance. Source: `DemandChip` in `GameTopBar.tsx`.
+- **Action Log shares the top row with the rickhouses.** Layout is:
+  top row = rickhouses (1fr) + action log (320px); below row =
+  MarketCenter spanning the full canvas width; bottom = HandTray.
+  Frees the bottom of the canvas for the market sections to spread out
+  without vertical scroll.
 - **Every card on screen renders at the SAME fixed silhouette** — hand,
   market conveyor, mash bills (face-up + draw pile), ops cards, and
   empty slots. Single source of truth: `CARD_SIZE_CLASS` in

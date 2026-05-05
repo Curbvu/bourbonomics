@@ -287,17 +287,55 @@ function SetupBanner({ phase }: { phase: "distillery_selection" | "starter_deck_
 }
 
 function DemandChip({ value }: { value: number }) {
-  const tone =
-    value >= 9 ? "text-amber-300" : value >= 6 ? "text-amber-200" : value >= 3 ? "text-sky-300" : "text-slate-400";
+  // Sky-blue (cool) → amber (hot) gradient across 12 cells. Matches the
+  // dev branch's full-width demand bar, compressed for the top bar.
+  const cellColor = (i: number) => {
+    const t = i / 11;
+    const r = Math.round(56 + (251 - 56) * t);
+    const g = Math.round(189 + (191 - 189) * t);
+    const b = Math.round(248 + (36 - 248) * t);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+  const valueClass =
+    value >= 9
+      ? "text-amber-300"
+      : value >= 6
+        ? "text-amber-200"
+        : value >= 3
+          ? "text-sky-300"
+          : "text-slate-400";
   return (
     <div
       title={`Market demand ${value} of 12`}
-      className="flex items-baseline gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2 py-1"
+      className="flex items-center gap-2 rounded border border-slate-800 bg-slate-900/60 px-2 py-1"
     >
       <span className="font-mono text-[9px] uppercase tracking-[.16em] text-slate-500">
         demand
       </span>
-      <span className={`font-mono text-[14px] font-bold tabular-nums ${tone}`}>
+      <div className="flex items-center gap-[2px]" aria-hidden>
+        {Array.from({ length: 12 }).map((_, i) => {
+          const cellNum = i + 1;
+          const isActive = cellNum <= value;
+          return (
+            <div
+              key={i}
+              className={[
+                "h-[14px] w-[6px] rounded-[2px] border transition-colors duration-200",
+                isActive ? "" : "border-slate-800 bg-slate-900",
+              ].join(" ")}
+              style={
+                isActive
+                  ? {
+                      backgroundColor: cellColor(i),
+                      borderColor: cellColor(i),
+                    }
+                  : undefined
+              }
+            />
+          );
+        })}
+      </div>
+      <span className={`font-mono text-[13px] font-bold tabular-nums ${valueClass}`}>
         {value}/12
       </span>
     </div>
