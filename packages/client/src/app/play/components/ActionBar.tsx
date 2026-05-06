@@ -331,9 +331,15 @@ function canEnterAgeMode(
   if (player.hand.length === 0) {
     return { canAge: false, reason: "Your hand is empty — nothing to commit." };
   }
+  // Mirrors `validateAgeBourbon` so the button greys out the moment
+  // every barrel would be rejected: ready / construction barrels still
+  // being built, barrels that just finished this round (first age N+1),
+  // inspected ones, or barrels that already aged this round.
   const ageable = state.allBarrels.some(
     (b) =>
       b.ownerId === player.id &&
+      b.phase === "aging" &&
+      !(b.completedInRound != null && state.round <= b.completedInRound) &&
       !b.inspectedThisRound &&
       (!b.agedThisRound || b.extraAgesAvailable > 0),
   );

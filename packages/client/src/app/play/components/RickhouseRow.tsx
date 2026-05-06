@@ -214,9 +214,17 @@ function BarrelChip({
   // Age-mode interactivity: in age mode, the human's ageable barrels
   // light up as click targets. Clicking sets `pickedBarrelId` in the
   // store; AgeOverlay reads it and prompts the user to pick a hand card.
+  // Mirrors the engine's `validateAgeBourbon` checks so highlighting and
+  // legality stay in lockstep — barrels that the engine would reject
+  // (still under construction, just-completed this round, inspected,
+  // already aged) never light up.
   const inAgeMode = ageMode != null && isHumanRow;
+  const completedThisRound =
+    barrel.completedInRound != null && state.round <= barrel.completedInRound;
   const ageable =
     inAgeMode &&
+    barrel.phase === "aging" &&
+    !completedThisRound &&
     !barrel.inspectedThisRound &&
     (!barrel.agedThisRound || barrel.extraAgesAvailable > 0);
   const isAgePicked = inAgeMode && ageMode!.pickedBarrelId === barrel.id;
