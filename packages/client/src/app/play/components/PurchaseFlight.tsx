@@ -5,10 +5,13 @@
  *
  * Reads `lastPurchase` from the store (bumped by every BUY_FROM_MARKET
  * dispatch — bot or human). Spawns an absolutely-positioned card
- * silhouette that slides + fades from the top of the viewport (where the
- * market lives) toward the bottom-right (where the player's deck +
- * discard counter live in the HandTray strip). Auto-clears after the
- * animation completes; the next purchase remounts on a fresh `seq` key.
+ * silhouette that slides + fades from a start point near the market
+ * row to the **discard pile** (bottom-left, marked with
+ * `data-purchase-target="discard"` in HandTray). The discard tile
+ * pulses on landing so the player sees the pile actually grow.
+ *
+ * Falls back to a fixed bottom-left translate when no target element
+ * is mounted yet (e.g. during the very first paint).
  */
 
 import { useEffect, useState } from "react";
@@ -23,18 +26,37 @@ import {
 import { MoneyText } from "./money";
 
 const FLIGHT_MS = 850;
+const START_TOP = 120;
+const CARD_W = 100;
+const CARD_H = 140;
 
 export default function PurchaseFlight() {
   const { lastPurchase } = useGameStore();
   // Local mirror so we keep painting through the animation even after
   // the store moves on to the next purchase.
-  const [active, setActive] = useState<{ card: Card; key: number } | null>(
-    null,
-  );
+  const [active, setActive] = useState<
+    { card: Card; key: number; dx: number; dy: number } | null
+  >(null);
 
   useEffect(() => {
     if (!lastPurchase) return;
-    setActive({ card: lastPurchase.card, key: lastPurchase.seq });
+    // Measure the discard tile so the card lands exactly on it. Falls
+    // back to a sensible bottom-left translate if the DOM isn't ready.
+    const target = document.querySelector<HTMLElement>(
+      '[data-purchase-target="discard"]',
+    );
+    let dx = -window.innerWidth * 0.4;
+    let dy = window.innerHeight * 0.7;
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      const startX = window.innerWidth / 2 - CARD_W / 2;
+      const startY = START_TOP;
+      const endX = rect.left + rect.width / 2 - CARD_W / 2;
+      const endY = rect.top + rect.height / 2 - CARD_H / 2;
+      dx = endX - startX;
+      dy = endY - startY;
+    }
+    setActive({ card: lastPurchase.card, key: lastPurchase.seq, dx, dy });
     const id = window.setTimeout(() => setActive(null), FLIGHT_MS);
     return () => window.clearTimeout(id);
   }, [lastPurchase]);
@@ -49,7 +71,14 @@ export default function PurchaseFlight() {
     >
       <div
         className="absolute h-[140px] w-[100px] purchase-flight-card"
-        style={{ left: "calc(50% - 50px)", top: "120px" }}
+        style={
+          {
+            left: `calc(50% - ${CARD_W / 2}px)`,
+            top: `${START_TOP}px`,
+            "--dx": `${active.dx}px`,
+            "--dy": `${active.dy}px`,
+          } as React.CSSProperties
+        }
       >
         <FlightFace card={active.card} />
       </div>
@@ -66,7 +95,7 @@ export default function PurchaseFlight() {
             opacity: 0.95;
           }
           100% {
-            transform: translate(40vw, 70vh) scale(0.35) rotate(18deg);
+            transform: translate(var(--dx), var(--dy)) scale(0.35) rotate(-12deg);
             opacity: 0;
           }
         }

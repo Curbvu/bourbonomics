@@ -14,6 +14,7 @@
  * input.
  */
 
+import { useEffect, useRef, useState } from "react";
 import {
   paymentValue,
   type Card,
@@ -195,6 +196,18 @@ const SUBTYPE_ORDER: Record<string, number> = {
  * are intentionally minimal: a stacked deck back + the running totals.
  */
 function DeckPile({ deckCount, discardCount }: { deckCount: number; discardCount: number }) {
+  // Pulse the discard tile whenever its count grows (purchases land
+  // here, sales drop spent + aging cards, etc.). Tracking the count
+  // — not `lastPurchase.seq` — keeps the pulse focused on this
+  // player's pile and naturally ignores bot purchases.
+  const [pulseKey, setPulseKey] = useState(0);
+  const prevCountRef = useRef(discardCount);
+  useEffect(() => {
+    if (discardCount > prevCountRef.current) {
+      setPulseKey((k) => k + 1);
+    }
+    prevCountRef.current = discardCount;
+  }, [discardCount]);
   return (
     <div className="flex flex-shrink-0 items-stretch gap-3">
       <div className="flex flex-col items-end justify-between py-1">
@@ -202,7 +215,13 @@ function DeckPile({ deckCount, discardCount }: { deckCount: number; discardCount
       </div>
       <div className="flex items-end gap-2">
         <PileTile label="Deck" count={deckCount} accent="emerald" />
-        <PileTile label="Discard" count={discardCount} accent="amber" />
+        <PileTile
+          label="Discard"
+          count={discardCount}
+          accent="amber"
+          purchaseTarget
+          pulseKey={pulseKey}
+        />
       </div>
     </div>
   );
@@ -212,10 +231,16 @@ function PileTile({
   label,
   count,
   accent,
+  purchaseTarget = false,
+  pulseKey,
 }: {
   label: string;
   count: number;
   accent: "emerald" | "amber";
+  /** Marks this tile as the destination for `PurchaseFlight`. */
+  purchaseTarget?: boolean;
+  /** Bumped (via `lastPurchase.seq`) every time a card lands here. */
+  pulseKey?: number;
 }) {
   const palette =
     accent === "emerald"
@@ -235,6 +260,7 @@ function PileTile({
         };
   return (
     <div
+      data-purchase-target={purchaseTarget ? "discard" : undefined}
       title={`${label} · ${count} card${count === 1 ? "" : "s"}`}
       className={[
         "relative flex flex-col items-center justify-between overflow-hidden rounded-md border-2 p-1.5 ring-1 ring-white/10",
@@ -252,15 +278,50 @@ function PileTile({
         className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent`}
         aria-hidden
       />
+      {/* Pulse overlay — flashes on every fresh `pulseKey`. Re-keying
+          the element re-runs the keyframe so back-to-back purchases
+          each get their own flash. */}
+      {pulseKey != null ? (
+        <span
+          key={`pulse-${pulseKey}`}
+          className="pointer-events-none absolute inset-0 rounded-md ring-4 ring-amber-300/0 pile-pulse"
+          aria-hidden
+        />
+      ) : null}
       <span className={`mt-0.5 font-mono text-[9px] font-semibold uppercase tracking-[.18em] ${palette.label}`}>
         {label}
       </span>
-      <span className={`font-display text-[40px] font-bold leading-none tabular-nums drop-shadow-[0_3px_6px_rgba(0,0,0,.55)] ${palette.ink}`}>
+      <span
+        key={pulseKey != null ? `count-${pulseKey}` : undefined}
+        className={[
+          "font-display text-[40px] font-bold leading-none tabular-nums drop-shadow-[0_3px_6px_rgba(0,0,0,.55)]",
+          palette.ink,
+          pulseKey != null ? "pile-count-bump" : "",
+        ].join(" ")}
+      >
         {count}
       </span>
       <span className={`mb-0.5 font-mono text-[8px] uppercase tracking-[.14em] ${palette.label}`}>
         cards
       </span>
+      <style>{`
+        @keyframes pile-pulse-kf {
+          0% { box-shadow: 0 0 0 0 rgba(252, 211, 77, 0); transform: scale(1); }
+          30% { box-shadow: 0 0 24px 6px rgba(252, 211, 77, 0.55); transform: scale(1.04); }
+          100% { box-shadow: 0 0 0 0 rgba(252, 211, 77, 0); transform: scale(1); }
+        }
+        .pile-pulse {
+          animation: pile-pulse-kf 720ms ease-out 380ms both;
+        }
+        @keyframes pile-count-bump-kf {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.18); color: rgb(253, 230, 138); }
+          100% { transform: scale(1); }
+        }
+        .pile-count-bump {
+          animation: pile-count-bump-kf 520ms ease-out 480ms both;
+        }
+      `}</style>
     </div>
   );
 }

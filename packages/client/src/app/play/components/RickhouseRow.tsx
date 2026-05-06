@@ -438,18 +438,28 @@ function BarrelChipInner({
           rep
         </span>
       </div>
-      {/* Recipe + composition pips.
+      {/* Mash pips (production-only, recipe legibility).
           - **Required** ingredients (from the attached bill's recipe +
             the universal min) appear as **hollow rings** in the
-            subtype's colour. As cards are committed they "fill in".
-          - **Committed** cards beyond the recipe minimum appear as
-            extra **filled** pips (they don't satisfy a requirement
-            but they still count toward composition buffs at sale).
-          - Aging-pile cards render as filled pips with a white ring
-            so production-vs-aging composition is still legible. */}
+            subtype's colour. As production cards are committed they
+            "fill in".
+          - **Committed** production cards beyond the recipe minimum
+            appear as extra **filled** pips. */}
       <div className="mt-1 flex min-h-[14px] flex-wrap items-end justify-center gap-[3px] rounded bg-black/35 px-1 py-0.5">
-        {renderRecipePips(barrel)}
+        {renderMashPips(barrel)}
       </div>
+      {/* Aging row (years committed). Visually distinct from the mash
+          row above — amber whisky dots on a slightly tinted track —
+          so production-pile vs aging-pile can never be misread as the
+          same composition. Hidden when the barrel hasn't aged. */}
+      {barrel.agingCards.length > 0 || barrel.phase === "aging" ? (
+        <div
+          className="mt-0.5 flex min-h-[12px] items-center justify-center gap-[3px] rounded bg-amber-950/40 px-1 py-0.5"
+          title={`Aged ${barrel.age} year${barrel.age === 1 ? "" : "s"}`}
+        >
+          {renderAgingPips(barrel)}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -544,30 +554,29 @@ function recipeMinimums(barrel: Barrel): Tally | null {
   return minimums;
 }
 
-function renderRecipePips(barrel: Barrel) {
-  const allCommitted = [...barrel.productionCards, ...barrel.agingCards];
-  const committed = tallySubtypes(allCommitted);
-  const agingCount = tallySubtypes(barrel.agingCards);
+/**
+ * Mash pips — production-pile only. Aging cards have their own row
+ * below (renderAgingPips) so the two phases never share a track and
+ * a player can read recipe progress without filtering out aging dots.
+ */
+function renderMashPips(barrel: Barrel) {
+  const committed = tallySubtypes(barrel.productionCards);
   const required = recipeMinimums(barrel);
 
   const pips: React.ReactNode[] = [];
   for (const sub of SUBTYPE_ORDER) {
     const have = committed[sub];
     const need = required ? required[sub] : 0;
-    const aging = agingCount[sub];
     const slots = Math.max(have, need);
     for (let i = 0; i < slots; i++) {
       const isFilled = i < have;
-      // Aging-pile pips fill from the END of the committed range so
-      // construction (production) cards visually appear first.
-      const isAging = isFilled && i >= have - aging;
       pips.push(
         <span
           key={`${sub}-${i}`}
           className={[
             "inline-block h-2 w-2 rounded-full",
             isFilled
-              ? `${PIP_COLORS[sub]} ${isAging ? "ring-1 ring-white/60" : ""}`
+              ? PIP_COLORS[sub]
               : `bg-transparent ring-2 ${PIP_RING[sub]}`,
           ].join(" ")}
           aria-hidden
@@ -584,6 +593,41 @@ function renderRecipePips(barrel: Barrel) {
     );
   }
   return <>{pips}</>;
+}
+
+/**
+ * Aging pips — one amber dot per year aged on this barrel. Dedicated
+ * row in its own track so it can't be confused with the mash row's
+ * recipe pips. Skinnier and a different color (whisky amber) than the
+ * mash pips for unmistakable visual separation.
+ */
+function renderAgingPips(barrel: Barrel) {
+  const years = barrel.age;
+  if (years <= 0) {
+    return (
+      <span className="font-mono text-[7px] uppercase tracking-[.10em] text-amber-300/60">
+        not aged
+      </span>
+    );
+  }
+  const pips: React.ReactNode[] = [];
+  for (let i = 0; i < years; i++) {
+    pips.push(
+      <span
+        key={`aging-${i}`}
+        className="inline-block h-1.5 w-3 rounded-full bg-amber-300 shadow-[0_0_4px_rgba(252,211,77,.55)]"
+        aria-hidden
+      />,
+    );
+  }
+  return (
+    <>
+      {pips}
+      <span className="ml-1 font-mono text-[8px] font-semibold uppercase tracking-[.10em] text-amber-200/85 tabular-nums">
+        {years}y
+      </span>
+    </>
+  );
 }
 
 function Stat({ label, value }: { label: string; value: number }) {
