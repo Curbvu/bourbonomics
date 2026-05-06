@@ -250,24 +250,21 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Payoff matrix — reward cells coloured on a heat scale (low / mid /
- * high) so the player can read where the bill peaks at a glance.
+ * Payoff matrix — neutral cells with the **award** as the visual
+ * accent. Cells that can trigger Silver get a slate gradient; Gold
+ * cells get a bright amber gradient + glow + 🥇 corner badge. A
+ * cell qualifies when *some* combination of (age, demand) within
+ * the band satisfies the award's `minAge`/`minDemand`, and the
+ * cell's reward satisfies `minReward`. Gold takes precedence.
  *
- * Cells that can trigger an award (Silver / Gold) get a medal badge
- * in the top-right corner plus a coloured ring. A cell qualifies
- * when *some* combination of (age, demand) within the band satisfies
- * the award's `minAge`/`minDemand`, and the cell's reward satisfies
- * `minReward`. Gold takes precedence over Silver if both fire.
+ * v2.7.2 dropped the per-cell heat tint — it competed with the
+ * award marker and read as in-game amber chrome.
  */
 function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean }) {
   const cellPad = large ? "h-16" : "h-12";
   const cellText = large ? "text-[26px]" : "text-[20px]";
   const headerText = large ? "text-[12px]" : "text-[11px]";
   const cornerText = large ? "text-[10px]" : "text-[9px]";
-  const peak = bill.rewardGrid.flat().reduce<number>(
-    (m, c) => (c != null && c > m ? c : m),
-    1,
-  );
 
   return (
     <div className="rounded-lg border border-slate-700/60 bg-slate-950/65 p-2.5">
@@ -319,14 +316,9 @@ function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean
                   <div
                     key={`${ri}-${ci}`}
                     className={[
-                      "relative grid place-items-center rounded-md",
+                      "relative grid place-items-center rounded-md border border-white/10",
                       cellPad,
-                      rewardHeatBg(cell, peak),
-                      award === "gold"
-                        ? "ring-2 ring-amber-200 shadow-[0_0_10px_rgba(252,211,77,.55)]"
-                        : award === "silver"
-                          ? "ring-2 ring-slate-200/85"
-                          : "border border-white/10",
+                      awardCellBg(award, cell),
                     ].join(" ")}
                     title={`age ${ageLabel} × demand ${
                       nextDemand != null ? `${demandLo}–${nextDemand - 1}` : `${demandLo}+`
@@ -338,7 +330,13 @@ function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean
                       className={[
                         "font-display font-bold leading-none tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,.5)]",
                         cellText,
-                        cell == null ? "text-slate-600" : "text-white",
+                        cell == null
+                          ? "text-slate-600"
+                          : award === "gold"
+                            ? "text-slate-950"
+                            : award === "silver"
+                              ? "text-slate-950"
+                              : "text-white",
                       ].join(" ")}
                     >
                       {cell ?? "—"}
@@ -346,7 +344,7 @@ function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean
                     {award ? (
                       <span
                         aria-hidden
-                        className="pointer-events-none absolute right-0.5 top-0.5 text-[11px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.7)]"
+                        className="pointer-events-none absolute right-0.5 top-0.5 text-[11px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.55)]"
                       >
                         {award === "gold" ? "🥇" : "🥈"}
                       </span>
@@ -379,13 +377,20 @@ function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean
   );
 }
 
-/** Heat-scale background for a reward cell, scaled vs the bill's peak. */
-function rewardHeatBg(cell: number | null, peak: number): string {
+/**
+ * Cell background — neutral by default, gold/silver gradient when the
+ * cell can trigger an award. v2.7.2 dropped the reward-heat tint
+ * (it competed with the award marker) so the matrix reads as plain
+ * cells with conspicuous medal cells punching out.
+ */
+function awardCellBg(award: "gold" | "silver" | null, cell: number | null): string {
   if (cell == null) return "bg-slate-900/40";
-  const ratio = cell / Math.max(1, peak);
-  if (ratio >= 0.85) return "bg-amber-500/55";
-  if (ratio >= 0.6) return "bg-amber-700/45";
-  if (ratio >= 0.35) return "bg-amber-900/40";
+  if (award === "gold") {
+    return "bg-gradient-to-b from-amber-300 to-amber-500 shadow-[0_0_10px_rgba(252,211,77,.4)]";
+  }
+  if (award === "silver") {
+    return "bg-gradient-to-b from-slate-300 to-slate-400";
+  }
   return "bg-slate-900/55";
 }
 
