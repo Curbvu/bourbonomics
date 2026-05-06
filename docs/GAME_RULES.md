@@ -152,7 +152,7 @@ Plan during others' turns. Target pace: ~3 minutes per round at 4 players.
 ### Available Actions
 
 - **Make Bourbon** — commit cards from your hand to a Staged or Building slot.
-- **Sell Bourbon** — sell an aging barrel ≥ 2 years old.
+- **Sell Bourbon** — spend 1 card from hand; sell an aging barrel ≥ 2 years old.
 - **Buy from the Market** — spend cards to acquire a market card.
 - **Buy Operations Card** — same, but for the ops market.
 - **Draw a Mash Bill** — pay cost; bill lands directly in one of your open slots as Staged.
@@ -231,6 +231,8 @@ Discard one of your **Staged** or **Building** slots. All committed cards return
 
 Sell any of your **aging** barrels that is **at least 2 years old**.
 
+**Cost: 1 card from hand.** Selling a barrel requires spending 1 card from your hand — any resource or capital card. The spent card goes to your discard (not trashed, not locked with the barrel). This is the sell-action card; it is one of the ~7 cards a baseline barrel consumes across its full lifecycle.
+
 Read the attached mash bill's grid using `(barrel age, current demand)` to get N. Apply [§Composition Buffs](#-composition-buffs) — buffs may shift the grid lookup or stack flat reputation/purchasing power on top.
 
 Allocate N across two outcomes (any combination summing to ≤ N):
@@ -279,7 +281,7 @@ When the deck **and** face-up row are both empty, the **final round trigger** ac
 
 ## Trade
 
-Two players exchange cards by mutual consent. Each side must offer at least one card. **Traded cards land in the recipient's discard pile** (not their hand). Trade is one of the active player's actions but does NOT end your turn.
+Two players exchange cards by mutual consent. Each side must offer at least one card. **Traded cards land in the recipient's hand**, not their discard. They are immediately available to play on subsequent turns (or this turn, if you are the active player receiving them as part of your own trade action). Trade is one of the active player's actions but does NOT end your turn.
 
 **Mash bills cannot be traded.** Bills are slot-bound and public — they only move via game actions (Draw a Mash Bill, Sell Bourbon's Gold-Convert option, Blend, Barrel Broker), never by player-to-player negotiation.
 
@@ -578,6 +580,9 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 
 # 📜 Changelog
 
+- **v2.7.1** —
+  - **Trade clarified:** traded cards land in the recipient's hand (not discard), making them immediately available on subsequent turns. Corrects an earlier draft that sent traded cards to discard and made the trade action mechanically inert until the next round.
+  - **Sell Bourbon now explicitly costs 1 card from hand** (any resource or capital card), spent to discard. This formalizes part of the intended cards-in-to-rep-out economy: a baseline barrel sale consumes ~7 cards across its full lifecycle (bill draw + cask + corn + grain + 2 aging cards + sell-action card) for a minimum 1 rep payout, establishing the 7:1 floor ratio that scales toward ~2:1 at peak play.
 - **v2.7** — **Make Bourbon per-slot turn cap removed** (a player can now commit to the same slot as many times as they want on a single turn; recipe-completion fires after every commit). **Mash bill catalog recalibrated** into three difficulty/payoff tiers (Tier 1 starter / Tier 2 mid / Tier 3 specialty) with peak rewards and Gold awards scaled per tier. **Distillery profiles temporarily disabled** behind a `DISTILLERIES_ENABLED` feature flag — every game runs as Vanilla while the roster is rebuilt; engine code preserved. New **Bourbon Cards gallery** on the home screen — a read-only browser of every mash bill, sorted by tier. **Resource card economy overhaul** — market resources collapse onto four pricing bands (Common $1 / Double $3 / Specialty $3 / Double Specialty $6) with a uniform Specialty bonus (+1 rep on sale); capitals collapse onto a $1 / $3 / $5 ladder.
 - **v2.6** — **Slot-Bound Mash Bills.** Mash bills no longer enter a player's hand. Bills are drawn directly into an open rickhouse slot and remain public for their lifetime in that slot. Drawing a bill requires an open slot — slot capacity now gates the doomsday clock. New 4-phase slot lifecycle: **Open → Staged → Building → Aging**. `Make Bourbon`'s "attach a bill" sub-step is removed; the action only commits cards. Silver award reworked to "bill stays in slot" (slot becomes Staged, ready for fresh commits). Gold award reworked to three mutually exclusive options on trigger: **Convert** (replace another slot's recipe with the Gold bill, provided that slot's already-committed cards satisfy the Gold recipe), **Keep** (Silver-style retention in the now-empty selling slot), or **Decline** (bill to bourbon discard, slot opens fully). Connoisseur Estate constraint reframed as "maximum slotted bills is 4" (replaces the old mash-bill hand cap). Allocation, Barrel Broker, and Blend ops cards updated for slot-bound bills. Trashing bills is free for Staged slots, action-cost for Building slots (subsumed by Abandon Barrel). Over-committing past a recipe minimum is allowed but earns no bonus — the reward grid is keyed off `(age, demand)` only.
 - **v2.5** — **Incremental Mash Commitment.** Production redesigned: barrels are built across multiple turns via repeated `Make Bourbon` actions. Recipes auto-complete the moment the cumulative committed pile satisfies them; completed barrels first age the round after completion. New `Abandon Barrel` action returns committed cards to discard. **Convert (3:1) removed** — incremental commitment makes stranded resources less common. Distillery roster trimmed: Warehouse, Old-Line, and The Broker retired (their abilities were inert or carved out an awkward final-round asymmetry). Trading is now flatly illegal in the final round, no exceptions. Player count narrowed to 2–4.
