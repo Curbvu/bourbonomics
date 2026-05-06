@@ -25,10 +25,13 @@ describe("initializeGame", () => {
     }
   });
 
-  it("gives each player exactly 3 starting mash bills (default)", () => {
+  it("v2.6: places the helper's 1 starting mash bill into a slot as a 'ready' barrel", () => {
     const state = makeTestGame();
     for (const p of state.players) {
-      expect(p.mashBills).toHaveLength(3);
+      const ready = state.allBarrels.filter(
+        (b) => b.ownerId === p.id && b.phase === "ready",
+      );
+      expect(ready).toHaveLength(1);
     }
   });
 

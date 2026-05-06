@@ -24,6 +24,7 @@ import {
   firstEmptySlot,
   giveHand,
   makeTestGame,
+  slotForBill,
 } from "./helpers.js";
 
 const cask = (label: string, i = 0) => makeResourceCard("cask", label, i);
@@ -52,17 +53,15 @@ const fourGrainBill = makeMashBill(
 describe("incremental commitment — basics", () => {
   it("a partial Start Barrel leaves the barrel in construction phase", () => {
     let state = makeTestGame();
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
+    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1)]);
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
-      slotId: firstEmptySlot(state, "p1"),
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
-      mashBillId: mbId,
-    });
-    expect(state.allBarrels).toHaveLength(1);
+      slotId: slotForBill(state, "p1", mbId),
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],    });
+    expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(1);
     expect(state.allBarrels[0]!.phase).toBe("construction");
     expect(state.allBarrels[0]!.completedInRound).toBeNull();
     expect(state.allBarrels[0]!.attachedMashBill?.id).toBe(mbId);
@@ -71,16 +70,14 @@ describe("incremental commitment — basics", () => {
 
   it("a construction barrel cannot be aged", () => {
     let state = makeTestGame();
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
+    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), cap("p1", 2)]);
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
-      slotId: firstEmptySlot(state, "p1"),
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
-      mashBillId: mbId,
-    });
+      slotId: slotForBill(state, "p1", mbId),
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],    });
     const barrelId = state.allBarrels[0]!.id;
     expect(() =>
       applyAction(state, {
@@ -94,17 +91,15 @@ describe("incremental commitment — basics", () => {
 
   it("a barrel completed in round N first ages in round N+1", () => {
     let state = makeTestGame();
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
+    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2)]);
     state = giveHand(state, "p2", []);
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
-      slotId: firstEmptySlot(state, "p1"),
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
-      mashBillId: mbId,
-    });
+      slotId: slotForBill(state, "p1", mbId),
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],    });
     const barrel = state.allBarrels[0]!;
     expect(barrel.phase).toBe("aging");
     expect(barrel.completedInRound).toBe(1);
@@ -136,7 +131,7 @@ describe("incremental commitment — basics", () => {
 
   it("once-per-turn-per-barrel commit limit holds", () => {
     let state = makeTestGame();
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
+    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [
       cask("p1", 0),
@@ -144,15 +139,13 @@ describe("incremental commitment — basics", () => {
       cap("p1", 2),
       cap("p1", 3),
     ]);
-    const slotId = firstEmptySlot(state, "p1");
+    const slotId = slotForBill(state, "p1", mbId);
     // First commit — opens the barrel.
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
       slotId,
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
-      mashBillId: mbId,
-    });
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],    });
     // Second commit on the same turn — must reject.
     expect(() =>
       applyAction(state, {
@@ -165,99 +158,10 @@ describe("incremental commitment — basics", () => {
   });
 });
 
-describe("incremental commitment — mash bill attachment", () => {
-  it("can be attached at Start with no other cards", () => {
-    let state = makeTestGame();
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
-    state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", []);
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId: firstEmptySlot(state, "p1"),
-      cardIds: [],
-      mashBillId: mbId,
-    });
-    const barrel = state.allBarrels[0]!;
-    expect(barrel.phase).toBe("construction");
-    expect(barrel.attachedMashBill?.id).toBe(mbId);
-    expect(barrel.productionCards).toHaveLength(0);
-  });
-
-  it("can be attached on a later commit if not attached at start", () => {
-    let state = makeTestGame();
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
-    state = advanceToActionPhase(state);
-    // Open with cards, no bill.
-    state = giveHand(state, "p1", [cask("p1", 0)]);
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId: firstEmptySlot(state, "p1"),
-      cardIds: ["card_p1_cask_0"],
-    });
-    const barrel = state.allBarrels[0]!;
-    expect(barrel.attachedMashBill).toBeNull();
-
-    // Next round (per-turn gate clears after PASS_TURN), attach the bill.
-    state = advanceToNextRound(state, {
-      seedDecks: { p1: [corn("p1", 1)] },
-    });
-    state = { ...state, currentPlayerIndex: 0 };
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId: barrel.slotId,
-      cardIds: [],
-      mashBillId: mbId,
-    });
-    expect(state.allBarrels[0]!.attachedMashBill?.id).toBe(mbId);
-  });
-
-  it("cannot re-attach a different mash bill once one is attached", () => {
-    let state = makeTestGame();
-    const p1Bills = state.players.find((p) => p.id === "p1")!.mashBills;
-    const billA = p1Bills[0]!.id;
-    const billB = p1Bills[1]!.id;
-    state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [cask("p1", 0)]);
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId: firstEmptySlot(state, "p1"),
-      cardIds: ["card_p1_cask_0"],
-      mashBillId: billA,
-    });
-    const slotId = state.allBarrels[0]!.slotId;
-    state = advanceToNextRound(state, {
-      seedDecks: { p1: [corn("p1", 1)] },
-    });
-    state = { ...state, currentPlayerIndex: 0 };
-    expect(() =>
-      applyAction(state, {
-        type: "MAKE_BOURBON",
-        playerId: "p1",
-        slotId,
-        cardIds: [],
-        mashBillId: billB,
-      }),
-    ).toThrow(/already has a mash bill/);
-  });
-
-  it("a barrel cannot complete without a bill, even if the universal pile is full", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2)]);
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId: firstEmptySlot(state, "p1"),
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
-    });
-    expect(state.allBarrels[0]!.phase).toBe("construction");
-    expect(state.allBarrels[0]!.completedInRound).toBeNull();
-  });
-});
+// v2.6: the v2.5 "mash bill attachment" describe block was deleted —
+// bills are now bound to slots from the moment they are drawn, so
+// attach-at-start / attach-later / re-attach-rejection are not testable
+// behaviors. Their invariants are structurally guaranteed by the model.
 
 describe("incremental commitment — Wheated Baron discount on cumulative pile", () => {
   it("applies to the cumulative committed pile, not a single commit", () => {
@@ -293,14 +197,12 @@ describe("incremental commitment — Wheated Baron discount on cumulative pile",
     // Round 1: open with cask + corn (no wheat yet) — should NOT complete.
     state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1)]);
     state = giveHand(state, "p2", []);
-    const openSlot = firstEmptySlot(state, "p1");
+    const openSlot = slotForBill(state, "p1", wheatedBill.id);
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
       slotId: openSlot,
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
-      mashBillId: wheatedBill.id,
-    });
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],    });
     let testBarrel = state.allBarrels.find((b) => b.slotId === openSlot)!;
     expect(testBarrel.phase).toBe("construction");
 
@@ -325,23 +227,21 @@ describe("incremental commitment — Wheated Baron discount on cumulative pile",
 describe("incremental commitment — ABANDON_BARREL", () => {
   it("returns committed cards to the player's discard and frees the slot", () => {
     let state = makeTestGame();
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
+    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1)]);
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
-      slotId: firstEmptySlot(state, "p1"),
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
-      mashBillId: mbId,
-    });
+      slotId: slotForBill(state, "p1", mbId),
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],    });
     const barrelId = state.allBarrels[0]!.id;
     state = applyAction(state, {
       type: "ABANDON_BARREL",
       playerId: "p1",
       barrelId,
     });
-    expect(state.allBarrels).toHaveLength(0);
+    expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(0);
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.discard.map((c) => c.id).sort()).toEqual(
       ["card_p1_cask_0", "card_p1_corn_1"].sort(),
@@ -350,16 +250,14 @@ describe("incremental commitment — ABANDON_BARREL", () => {
 
   it("rejects abandoning an aging-phase barrel", () => {
     let state = makeTestGame();
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
+    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2)]);
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
-      slotId: firstEmptySlot(state, "p1"),
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
-      mashBillId: mbId,
-    });
+      slotId: slotForBill(state, "p1", mbId),
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],    });
     expect(state.allBarrels[0]!.phase).toBe("aging");
     expect(() =>
       applyAction(state, {
@@ -367,7 +265,7 @@ describe("incremental commitment — ABANDON_BARREL", () => {
         playerId: "p1",
         barrelId: state.allBarrels[0]!.id,
       }),
-    ).toThrow(/under-construction/);
+    ).toThrow(/aging barrels cannot/);
   });
 });
 
@@ -392,15 +290,13 @@ describe("incremental commitment — full lifecycle integration", () => {
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
-      slotId: firstEmptySlot(state, "p1"),
+      slotId: slotForBill(state, "p1", fourGrainBill.id),
       cardIds: [
         "card_p1_cask_0",
         "card_p1_corn_1",
         "card_p1_rye_2",
         "card_p1_barley_3",
-      ],
-      mashBillId: fourGrainBill.id,
-    });
+      ],    });
     const barrelId = state.allBarrels[0]!.id;
     expect(state.allBarrels[0]!.phase).toBe("construction");
 

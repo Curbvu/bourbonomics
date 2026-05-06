@@ -13,6 +13,7 @@ import {
   giveHand,
   makeTestGame,
   placeBarrel,
+  slotForBill,
 } from "./helpers.js";
 
 // ============================================================
@@ -88,13 +89,11 @@ describe("Card effect — draw_cards on_commit_production", () => {
     const filler = makeResourceCard("corn", "p1", 99);
     state = giveHandAndDeck(state, "p1", [cask, barley, corn], [filler]);
 
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
+    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
-      cardIds: [cask.id, barley.id, corn.id],
-      mashBillId: mbId,
-      slotId: firstEmptySlot(state, "p1"),
+      cardIds: [cask.id, barley.id, corn.id],      slotId: slotForBill(state, "p1", mbId),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     // Spent 3 cards into barrel; drew 1 from deck → hand has the drawn filler.
@@ -128,13 +127,11 @@ describe("Card effect — bump_demand on_commit_production", () => {
     });
     state = giveHand(state, "p1", [cask, corn, rye]);
 
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
+    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
-      cardIds: [cask.id, corn.id, rye.id],
-      mashBillId: mbId,
-      slotId: firstEmptySlot(state, "p1"),
+      cardIds: [cask.id, corn.id, rye.id],      slotId: slotForBill(state, "p1", mbId),
     });
     expect(state.demand).toBe(6);
   });
@@ -159,15 +156,13 @@ describe("Card effect — barrel_starts_aged on_commit_production", () => {
     });
     state = giveHand(state, "p1", [cask, corn, wheat]);
 
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
+    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
-      cardIds: [cask.id, corn.id, wheat.id],
-      mashBillId: mbId,
-      slotId: firstEmptySlot(state, "p1"),
+      cardIds: [cask.id, corn.id, wheat.id],      slotId: slotForBill(state, "p1", mbId),
     });
-    const barrel = state.allBarrels.find((b) => b.ownerId === "p1")!;
+    const barrel = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!;
     expect(barrel.age).toBe(1);
   });
 });
@@ -191,15 +186,13 @@ describe("Card effect — grid_rep_offset on_commit_production", () => {
     const rye = makeResourceCard("rye", "p1", 2);
     state = giveHand(state, "p1", [cask, corn, rye]);
 
-    const mbId = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
+    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
-      cardIds: [cask.id, corn.id, rye.id],
-      mashBillId: mbId,
-      slotId: firstEmptySlot(state, "p1"),
+      cardIds: [cask.id, corn.id, rye.id],      slotId: slotForBill(state, "p1", mbId),
     });
-    const barrel = state.allBarrels.find((b) => b.ownerId === "p1")!;
+    const barrel = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!;
     expect(barrel.gridRepOffset).toBe(1);
   });
 });
@@ -213,7 +206,7 @@ describe("Card effect — draw_cards on_commit_aging", () => {
     let state = makeTestGame({ startingDemand: 5 });
     state = advanceToActionPhase(state);
     state = placeBarrel(state, "p1", standardBill(), 0);
-    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1")!.id;
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
     // Malted Barley: aging-commit draw 1.
     const aging = makePremiumResource({
       defId: "malted_barley",
@@ -245,7 +238,7 @@ describe("Card effect — aging_card_doubled on_commit_aging", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state);
     state = placeBarrel(state, "p1", standardBill(), 0);
-    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1")!.id;
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
     const winter = makePremiumResource({
       defId: "winter_wheat",
       displayName: "Winter Wheat",
@@ -273,7 +266,7 @@ describe("Card effect — rep_on_commit_aging", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state);
     state = placeBarrel(state, "p1", standardBill(), 0);
-    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1")!.id;
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
     const bond = makePremiumCapital({
       defId: "bourbon_bond",
       displayName: "Bourbon Bond",
@@ -333,7 +326,7 @@ describe("Card effect — rep_on_sale_flat", () => {
       effect: { kind: "rep_on_sale_flat", when: "on_sale", rep: 1 },
     };
     state = placeBarrelWithProductionCard(state, "p1", 4, spicy);
-    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1")!.id;
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
     const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
     // Standard bill at age 4, demand 5: row 1, col 1 → reward 4.
     state = applyAction(state, {
@@ -363,7 +356,7 @@ describe("Card effect — rep_on_sale_if_age_gte", () => {
       effect: { kind: "rep_on_sale_if_age_gte", when: "on_sale", age: 4, rep: 2 },
     };
     state = placeBarrelWithProductionCard(state, "p1", 5, heavyChar);
-    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1")!.id;
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
     const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
     // age 5 → row 1 (band 4-5), demand 5 → col 1, reward 4. +2 from heavy_char.
     state = applyAction(state, {
@@ -390,7 +383,7 @@ describe("Card effect — rep_on_sale_if_age_gte", () => {
       effect: { kind: "rep_on_sale_if_age_gte", when: "on_sale", age: 4, rep: 2 },
     };
     state = placeBarrelWithProductionCard(state, "p1", 3, heavyChar);
-    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1")!.id;
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
     const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
     // age 3 → row 0, demand 5 → col 1 (band 4-5), reward = 2. No bonus.
     state = applyAction(state, {
@@ -419,7 +412,7 @@ describe("Card effect — rep_on_sale_if_demand_gte", () => {
       effect: { kind: "rep_on_sale_if_demand_gte", when: "on_sale", demand: 7, rep: 2 },
     };
     state = placeBarrelWithProductionCard(state, "p1", 5, highProof);
-    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1")!.id;
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
     const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
     // age 5 → row 1 (band 4-5), demand 7 → col 2 (band 6+), reward = 5. +2 from high_proof.
     state = applyAction(state, {
@@ -448,7 +441,7 @@ describe("Card effect — grid_demand_band_offset on_sale", () => {
       effect: { kind: "grid_demand_band_offset", when: "on_sale", offset: 1 },
     };
     state = placeBarrelWithProductionCard(state, "p1", 4, toastedOak);
-    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1")!.id;
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
     // age 4 → row 1; demand 4 → col 1 (reward 4). With offset, col 2 (reward 5).
     state = applyAction(state, {
       type: "SELL_BOURBON",
@@ -481,7 +474,7 @@ describe("Card effect — skip_demand_drop on_sale", () => {
       },
     };
     state = placeBarrelWithProductionCard(state, "p1", 4, heirloom);
-    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1")!.id;
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
@@ -507,7 +500,7 @@ describe("Card effect — returns_to_hand_on_sale", () => {
       effect: { kind: "returns_to_hand_on_sale", when: "on_sale" },
     };
     state = placeBarrelWithProductionCard(state, "p1", 4, usedCask);
-    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1")!.id;
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",

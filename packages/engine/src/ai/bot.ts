@@ -362,10 +362,11 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
     }
   }
 
-  // Allocation: free mash bills are always strong if our recipe hand
-  // is thin AND the bourbon deck has cards.
+  // Allocation: free mash bills are always strong if we have at least
+  // one open slot AND the bourbon deck has cards. v2.6: bills land
+  // directly in slots, so the trigger is "we have room to receive".
   const al = playable.find((c) => c.defId === "allocation");
-  if (al && state.bourbonDeck.length > 0 && player.mashBills.length < 2) {
+  if (al && state.bourbonDeck.length > 0 && emptySlotsFor(state, player.id).length > 0) {
     return {
       type: "PLAY_OPERATIONS_CARD",
       playerId: player.id,
@@ -425,23 +426,25 @@ function chooseDemandDirection(state: GameState, player: PlayerState): "up" | "d
 
 function chooseSale(state: GameState, player: PlayerState): GameAction | null {
   const barrels = getPlayerBarrels(state, player.id).filter(
-    (b) => b.phase === "aging" && b.attachedMashBill && b.age >= 2,
+    (b) => b.phase === "aging" && b.age >= 2,
   );
   if (barrels.length === 0) return null;
 
-  let best: { barrelId: string; reward: number; age: number } | null = null;
+  let best:
+    | { barrelId: string; reward: number; age: number; bill: MashBill }
+    | null = null;
   for (const b of barrels) {
     // v2.4: include composition's bonus reputation in the EV — a 5-rep
     // grid sale that also fires cask_3 + all_grains is worth +3 more.
     const composition = computeCompositionBuffs(b, player.distillery);
-    const bill = b.attachedMashBill!;
+    const bill = b.attachedMashBill;
     const grid = computeReward(bill, b.age, state.demand, {
       demandBandOffset: b.demandBandOffset + composition.gridDemandBandOffset,
       gridRepOffset: b.gridRepOffset,
     });
     const evReward = grid + composition.bonusRep;
     if (best === null || evReward > best.reward) {
-      best = { barrelId: b.id, reward: grid, age: b.age };
+      best = { barrelId: b.id, reward: grid, age: b.age, bill };
     }
   }
   if (!best) return null;
@@ -453,117 +456,156 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
     (finalRound && best.reward > 0);
   if (!passesThreshold) return null;
 
+  // v2.6 Gold-award choice. The bot's preference order:
+  //   1. Convert into the highest-peak slot we own whose committed
+  //      cards already satisfy the Gold bill's recipe (free upgrade).
+  //   2. Keep — bill stays in the now-empty slot for re-use.
+  //   3. (Decline only if neither above applies, which currently never
+  //      happens since "keep" is always legal.)
+  let goldChoice: "convert" | "keep" | "decline" | undefined;
+  let goldConvertTargetSlotId: string | undefined;
+  const goldEligible =
+    best.bill.goldAward != null &&
+    best.bill.goldAward.minAge !== undefined &&
+    best.age >= (best.bill.goldAward.minAge ?? 0) &&
+    state.demand >= (best.bill.goldAward.minDemand ?? 0) &&
+    best.reward >= (best.bill.goldAward.minReward ?? 0);
+  if (goldEligible) {
+    const convertTarget = pickGoldConvertTarget(state, player, best.barrelId, best.bill);
+    if (convertTarget) {
+      goldChoice = "convert";
+      goldConvertTargetSlotId = convertTarget;
+    } else {
+      goldChoice = "keep";
+    }
+  }
+
   return {
     type: "SELL_BOURBON",
     playerId: player.id,
     barrelId: best.barrelId,
     reputationSplit: best.reward,
     cardDrawSplit: 0,
+    ...(goldChoice ? { goldChoice } : {}),
+    ...(goldConvertTargetSlotId ? { goldConvertTargetSlotId } : {}),
   };
 }
 
+/**
+ * v2.6 Gold Convert target picker. Walks the seller's other slots and
+ * finds one whose currently-committed cards already satisfy the Gold
+ * bill's recipe. Returns the slot id with the highest current peak
+ * (most upside from being relabeled with a Gold recipe), or null if
+ * no slot qualifies.
+ */
+function pickGoldConvertTarget(
+  state: GameState,
+  player: PlayerState,
+  sellingBarrelId: string,
+  goldBill: MashBill,
+): string | null {
+  const candidates = state.allBarrels.filter(
+    (b) => b.id !== sellingBarrelId && b.ownerId === player.id,
+  );
+  let best: { slotId: string; existingPeak: number } | null = null;
+  for (const b of candidates) {
+    if (!recipeSatisfiedByPile(player, goldBill, b.productionCards)) continue;
+    const existingPeak = peakReward(b.attachedMashBill);
+    if (!best || existingPeak < best.existingPeak) {
+      // We want to OVERWRITE the lowest-peak existing bill — that's
+      // the slot where converting to Gold gives the biggest upside.
+      best = { slotId: b.slotId, existingPeak };
+    }
+  }
+  return best?.slotId ?? null;
+}
+
+/**
+ * Predicate: does `pile` satisfy `bill`'s recipe under the universal
+ * rules? Mirrors the engine's check in sell-bourbon.ts.
+ */
+function recipeSatisfiedByPile(
+  player: PlayerState,
+  bill: MashBill,
+  pile: Card[],
+): boolean {
+  const recipe = bill.recipe ?? {};
+  let cask = 0,
+    corn = 0,
+    rye = 0,
+    barley = 0,
+    wheat = 0;
+  for (const c of pile) {
+    if (c.type !== "resource") continue;
+    if (c.subtype === "cask") cask += c.resourceCount ?? 1;
+    if (c.subtype === "corn") corn += c.resourceCount ?? 1;
+    if (c.subtype === "rye") rye += c.resourceCount ?? 1;
+    if (c.subtype === "barley") barley += c.resourceCount ?? 1;
+    if (c.subtype === "wheat") wheat += c.resourceCount ?? 1;
+  }
+  const minCorn = Math.max(1, recipe.minCorn ?? 0);
+  let minWheat = recipe.minWheat ?? 0;
+  if (player.distillery?.bonus === "wheated_baron" && isWheatedBill(bill)) {
+    minWheat = Math.max(0, minWheat - 1);
+  }
+  if (cask !== 1) return false;
+  if (corn < minCorn) return false;
+  if (rye < (recipe.minRye ?? 0)) return false;
+  if (barley < (recipe.minBarley ?? 0)) return false;
+  if (wheat < minWheat) return false;
+  if (recipe.maxRye !== undefined && rye > recipe.maxRye) return false;
+  if (recipe.maxWheat !== undefined && wheat > recipe.maxWheat) return false;
+  const grain = rye + barley + wheat;
+  if (grain < Math.max(recipe.minTotalGrain ?? 0, 1)) return false;
+  return true;
+}
+
 // -----------------------------
-// MAKE_BOURBON  (v2.5 incremental commitment)
+// MAKE_BOURBON  (v2.6 slot-bound bills)
 // -----------------------------
 
 /**
- * Bot strategy: prefer committing to an existing under-construction
- * barrel that's closest to completion before opening a new one. Cap
- * concurrent under-construction barrels at floor(slots / 2) so we
- * always leave at least half the rickhouse for aging-phase barrels.
+ * Bot strategy: bills live on slots already, so MAKE_BOURBON only
+ * commits cards. Prefer the slot closest to completion (most cards
+ * already committed); fall back to a "ready" slot whose bill we can
+ * meaningfully advance with our current hand.
  *
  * Greedy and deliberately simple — the user explicitly asked us not
  * to over-engineer the v1 heuristic. Tune later.
  */
 function chooseMakeBourbon(state: GameState, player: PlayerState): GameAction | null {
-  // 1) Try to commit to an existing under-construction barrel first.
   const myBarrels = getPlayerBarrels(state, player.id);
-  const inProgress = myBarrels.filter(
-    (b) => b.phase === "construction" && !b.committedThisTurn,
+  const candidates = myBarrels.filter(
+    (b) =>
+      (b.phase === "ready" || b.phase === "construction") &&
+      !b.committedThisTurn,
   );
-  // Sort by closest to completion (most cards already committed).
-  inProgress.sort((a, b) => b.productionCards.length - a.productionCards.length);
-  for (const barrel of inProgress) {
-    const plan = planCommitForBarrel(player, barrel);
-    if (plan) {
+  // Construction-phase first (closer to completion), then ready slots
+  // ranked by their bill's peak reward.
+  candidates.sort((a, b) => {
+    if (a.phase !== b.phase) return a.phase === "construction" ? -1 : 1;
+    if (a.phase === "construction") {
+      return b.productionCards.length - a.productionCards.length;
+    }
+    return peakReward(b.attachedMashBill) - peakReward(a.attachedMashBill);
+  });
+
+  for (const barrel of candidates) {
+    const cardIds = planCardsTowardRecipe(
+      player,
+      barrel.attachedMashBill,
+      barrel.productionCards,
+    );
+    if (cardIds.length > 0) {
       return {
         type: "MAKE_BOURBON",
         playerId: player.id,
         slotId: barrel.slotId,
-        cardIds: plan.cardIds,
-        ...(plan.mashBillId ? { mashBillId: plan.mashBillId } : {}),
+        cardIds,
       };
     }
   }
-
-  // 2) Otherwise consider opening a new barrel — only if we have a bill
-  //    in hand AND we're below the concurrent-construction cap.
-  if (player.mashBills.length === 0) return null;
-  const slotId = pickSlot(state, player);
-  if (!slotId) return null;
-  const constructionCap = Math.max(1, Math.floor(player.rickhouseSlots.length / 2));
-  if (inProgress.length >= constructionCap) return null;
-
-  // Pick the bill with the highest peak reward AND at least one
-  // ingredient we can commit toward today.
-  let best: { mashBillId: string; cardIds: string[]; peak: number } | null = null;
-  for (const mb of player.mashBills) {
-    const cardIds = planOpeningCommit(player, mb);
-    if (cardIds.length === 0) continue;
-    const peak = peakReward(mb);
-    if (!best || peak > best.peak) {
-      best = { mashBillId: mb.id, cardIds, peak };
-    }
-  }
-  if (!best) return null;
-  return {
-    type: "MAKE_BOURBON",
-    playerId: player.id,
-    slotId,
-    cardIds: best.cardIds,
-    mashBillId: best.mashBillId,
-  };
-}
-
-interface CommitPlan {
-  cardIds: string[];
-  mashBillId?: string;
-}
-
-/**
- * For an existing under-construction barrel, return the cards from
- * the player's hand that should be committed THIS TURN to advance
- * toward completion. Skip cards that would over-fill `maxRye` /
- * `maxWheat`. If the barrel has no bill attached and the player
- * holds one whose recipe is plausible given the existing pile,
- * attach it as part of the same commit.
- */
-function planCommitForBarrel(
-  player: PlayerState,
-  barrel: { productionCards: Card[]; attachedMashBill: MashBill | null },
-): CommitPlan | null {
-  const bill =
-    barrel.attachedMashBill ??
-    player.mashBills.find((mb) => billPlausibleForPile(player, mb, barrel.productionCards)) ??
-    null;
-  if (!bill) return null;
-
-  const cardIds = planCardsTowardRecipe(player, bill, barrel.productionCards);
-  if (cardIds.length === 0 && barrel.attachedMashBill) return null;
-  // If the barrel had no bill, attaching counts as "doing something" —
-  // a 0-card commit + a fresh bill is still a legal MAKE_BOURBON.
-  return {
-    cardIds,
-    ...(barrel.attachedMashBill ? {} : { mashBillId: bill.id }),
-  };
-}
-
-/**
- * For a fresh opening, return the cards we'd commit immediately on
- * Start. Empty list means "nothing useful in hand" — caller skips.
- */
-function planOpeningCommit(player: PlayerState, bill: MashBill): string[] {
-  return planCardsTowardRecipe(player, bill, []);
+  return null;
 }
 
 /**
@@ -670,21 +712,6 @@ function tallyPile(cards: Card[]) {
   return t;
 }
 
-function billPlausibleForPile(player: PlayerState, bill: MashBill, pile: Card[]): boolean {
-  const t = tallyPile(pile);
-  const recipe = bill.recipe ?? {};
-  if (recipe.maxRye !== undefined && t.rye > recipe.maxRye) return false;
-  if (recipe.maxWheat !== undefined && t.wheat > recipe.maxWheat) return false;
-  return true;
-}
-
-function pickSlot(state: GameState, player: PlayerState): string | null {
-  const empties = emptySlotsFor(state, player.id);
-  if (empties.length === 0) return null;
-  // v2.2: rickhouse tiers removed — all slots are equivalent. Pick the
-  // first available empty slot in deterministic order.
-  return empties[0]!;
-}
 
 function peakReward(mb: MashBill): number {
   let max = 0;
@@ -901,8 +928,15 @@ const OPS_BOT_PLAYABLE = new Set<OperationsCard["defId"]>([
 // -----------------------------
 
 function chooseDrawMashBill(state: GameState, player: PlayerState): GameAction | null {
-  if (player.mashBills.length > 0) return null;
+  // v2.6: only worth drawing when we actually have an open slot to
+  // receive the bill AND the bourbon deck/face-up still has bills.
+  if (emptySlotsFor(state, player.id).length === 0) return null;
   if (state.bourbonDeck.length === 0 && state.bourbonFaceUp.length === 0) return null;
+  // Don't double-draw: skip if we already hold a "ready" slot waiting
+  // for resources.
+  const myBarrels = getPlayerBarrels(state, player.id);
+  const hasReady = myBarrels.some((b) => b.phase === "ready");
+  if (hasReady) return null;
   // Prefer the blind draw (cheapest — pay any 1 card) when the deck has
   // bills left. Falls back to a face-up pick once the deck is exhausted.
   if (state.bourbonDeck.length > 0) {

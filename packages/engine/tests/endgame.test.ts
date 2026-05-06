@@ -180,7 +180,7 @@ describe("Integration smoke test — minimal full game", () => {
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p2" });
     expect(state.currentPlayerIndex).toBe(1);
     state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     const reward = 5; // demand=7 (after roll), age=5 → grid[1][2] = 5
     state = applyAction(state, {
       type: "SELL_BOURBON",
@@ -193,7 +193,9 @@ describe("Integration smoke test — minimal full game", () => {
     expect(state.currentPlayerIndex).toBe(0);
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
     expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(reward);
-    expect(state.allBarrels).toHaveLength(0);
+    // v2.6: filter to aging-phase — the helper seeds 1 ready barrel
+    // per player which persists through the sale.
+    expect(state.allBarrels.filter((b) => b.phase === "aging")).toHaveLength(0);
     expect(state.round).toBe(3);
     // Rotated again: round 3 should start at p1 (idx 0) for a 2-player game.
     expect(state.startPlayerIndex).toBe(0);

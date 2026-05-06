@@ -3,13 +3,14 @@ import type { GameAction, GameState, ValidationResult } from "../types";
 import { isCurrentPlayer } from "../state";
 
 // ============================================================
-// ABANDON_BARREL — v2.5.
+// ABANDON_BARREL — v2.6.
 //
-// Discard an under-construction barrel. All committed production
-// cards return to the player's discard pile, the slot is freed, and
-// the (possibly attached) mash bill is also discarded into the
-// shared bourbon discard. Aging-phase barrels cannot be abandoned —
-// once a barrel finishes construction it can only leave via SELL.
+// Discard a "ready" or "construction" barrel. All committed production
+// cards return to the player's discard pile, the slot becomes fully
+// open, and the attached mash bill is sent to the shared bourbon
+// discard pile. Subsumes the v2.5 "trash a committed slot" flow.
+// Aging-phase barrels cannot be abandoned — once a barrel finishes
+// construction it can only leave via SELL.
 // ============================================================
 
 type AbandonBarrelAction = Extract<GameAction, { type: "ABANDON_BARREL" }>;
@@ -33,8 +34,8 @@ export function validateAbandonBarrel(
   if (barrel.ownerId !== player.id) {
     return { legal: false, reason: "you do not own that barrel" };
   }
-  if (barrel.phase !== "construction") {
-    return { legal: false, reason: "only under-construction barrels can be abandoned" };
+  if (barrel.phase === "aging") {
+    return { legal: false, reason: "aging barrels cannot be abandoned (sell instead)" };
   }
   return { legal: true };
 }
@@ -55,12 +56,9 @@ export function applyAbandonBarrel(
     player.discard.push(card);
   }
 
-  // The mash bill, if attached, is discarded to the shared bourbon
-  // discard pile. The bill is gone from the player's resources but
-  // stays in circulation for the doomsday clock + face-up row.
-  if (barrel.attachedMashBill) {
-    draft.bourbonDiscard.push(barrel.attachedMashBill);
-  }
+  // v2.6: bill is always present. Discard to the shared bourbon
+  // discard pile so it stays in circulation for the doomsday clock.
+  draft.bourbonDiscard.push(barrel.attachedMashBill);
 
   // Free the slot.
   draft.allBarrels.splice(idx, 1);

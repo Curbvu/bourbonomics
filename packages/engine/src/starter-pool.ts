@@ -162,19 +162,74 @@ export function applyDistilleryStarterModifications(
 }
 
 /**
- * Top up the player's mash-bill hand to `distillery.mashBillDraftSize`
- * by drawing from the top of the Bourbon deck (Connoisseur Estate
- * gets a 4th bill). Called at distillery binding time.
+ * v2.6: place a freshly-drawn bill into one of the player's open slots
+ * as a "ready" barrel (bill present, no committed cards). Returns the
+ * created barrel id, or null if the player has no open slot. Used by
+ * setup, DRAW_MASH_BILL, and the Allocation ops card.
  */
-export function topUpMashBillsForDistillery(
+export function placeBillInSlot(
+  draft: Draft<GameState>,
+  player: Draft<PlayerState>,
+  bill: import("./types").MashBill,
+  slotId?: string,
+): string | null {
+  const taken = new Set(
+    draft.allBarrels.filter((b) => b.ownerId === player.id).map((b) => b.slotId),
+  );
+  const targetSlot = slotId
+    ? player.rickhouseSlots.find((s) => s.id === slotId && !taken.has(s.id))
+    : player.rickhouseSlots.find((s) => !taken.has(s.id));
+  if (!targetSlot) return null;
+
+  const barrelId = `barrel_${draft.idCounter++}`;
+  const barrel: Barrel = {
+    id: barrelId,
+    ownerId: player.id,
+    slotId: targetSlot.id,
+    // v2.6: bill present, no commits — barrel is "ready" until cards
+    // arrive via MAKE_BOURBON. Does not age in this state.
+    phase: "ready",
+    completedInRound: null,
+    attachedMashBill: bill,
+    productionCardDefIds: [],
+    productionCards: [],
+    agingCards: [],
+    age: 0,
+    productionRound: draft.round,
+    agedThisRound: false,
+    committedThisTurn: false,
+    inspectedThisRound: false,
+    extraAgesAvailable: 0,
+    gridRepOffset: 0,
+    demandBandOffset: 0,
+  };
+  draft.allBarrels.push(barrel);
+  return barrelId;
+}
+
+/**
+ * v2.6: top up the player's slotted bills to `distillery.mashBillDraftSize`
+ * (default 3, Connoisseur Estate 4) by drawing from the bourbon deck and
+ * placing each bill into an open slot as a "ready" barrel. Called at
+ * distillery binding time. Stops early if the bourbon deck runs out or
+ * the player runs out of open slots.
+ */
+export function topUpSlottedBillsForDistillery(
   draft: Draft<GameState>,
   player: Draft<PlayerState>,
   distillery: Distillery,
 ): void {
   const target = distillery.mashBillDraftSize ?? 3;
-  while (player.mashBills.length < target && draft.bourbonDeck.length > 0) {
+  while (
+    draft.allBarrels.filter((b) => b.ownerId === player.id).length < target &&
+    draft.bourbonDeck.length > 0
+  ) {
     const extra = draft.bourbonDeck.pop()!;
-    player.mashBills.push(extra);
+    if (placeBillInSlot(draft, player, extra) == null) {
+      // No open slot — return the bill to the bottom of the deck.
+      draft.bourbonDeck.unshift(extra);
+      break;
+    }
   }
 }
 

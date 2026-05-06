@@ -27,19 +27,7 @@ export type FocusZone =
   | "rickhouse-self"
   | "rickhouse-others";
 
-const ALL_ZONES: FocusZone[] = [
-  "hand-resources",
-  "hand-bills",
-  "hand-ops",
-  "market-conveyor",
-  "market-mash-bills",
-  "market-ops",
-  "market-investments",
-  "rickhouse-self",
-  "rickhouse-others",
-];
-
-export function useFocusedZones(): Set<FocusZone> | null {
+function useFocusedZones(): Set<FocusZone> | null {
   const { makeMode, ageMode, drawBillMode, buyMode } = useGameStore();
 
   if (makeMode) {
@@ -82,6 +70,3 @@ export function useZoneFocusClass(zone: FocusZone): string {
   }
   return "transition-[opacity,filter] duration-300 opacity-30 saturate-50 pointer-events-none";
 }
-
-/** Test-only — exported so future zones don't drift from the master list. */
-export const __ALL_ZONES_FOR_TESTING = ALL_ZONES;

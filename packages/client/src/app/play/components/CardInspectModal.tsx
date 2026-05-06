@@ -11,8 +11,9 @@
  * detail (recipe constraints, reward grid, awards, full effect text).
  */
 
-import { Fragment, useEffect } from "react";
+import { Fragment, useEffect, type ReactNode } from "react";
 import type {
+  AwardCondition,
   Barrel,
   Card,
   CardEffect,
@@ -380,6 +381,246 @@ function RewardMatrix({ bill, chrome }: { bill: MashBill; chrome: TierChrome }) 
   );
 }
 
+/**
+ * Ornamental section divider — double horizontal lines flanking a small
+ * uppercase label. Used to break the mash-bill detail into Recipe /
+ * Rewards / Awards bands so the modal reads like a whiskey label.
+ */
+function SectionHeading({ label, tone }: { label: string; tone: string }) {
+  return (
+    <div className="flex items-center gap-3 pt-1">
+      <span
+        className={`h-px flex-1 bg-current opacity-25 ${tone}`}
+        aria-hidden
+      />
+      <span
+        className={`font-mono text-[10px] font-bold uppercase tracking-[.32em] ${tone}`}
+      >
+        {label}
+      </span>
+      <span
+        className={`h-px flex-1 bg-current opacity-25 ${tone}`}
+        aria-hidden
+      />
+    </div>
+  );
+}
+
+/**
+ * Decorative corner glyph — small ✦ pinned in each corner of the mash-bill
+ * detail panel so it reads as a stamped label rather than a plain rectangle.
+ */
+function CornerOrnament({
+  pos,
+  tone,
+}: {
+  pos: "tl" | "tr" | "bl" | "br";
+  tone: string;
+}) {
+  const place = {
+    tl: "left-1.5 top-1.5",
+    tr: "right-1.5 top-1.5",
+    bl: "left-1.5 bottom-1.5",
+    br: "right-1.5 bottom-1.5",
+  }[pos];
+  return (
+    <span
+      className={`pointer-events-none absolute font-display text-[14px] leading-none opacity-50 ${place} ${tone}`}
+      aria-hidden
+    >
+      ✦
+    </span>
+  );
+}
+
+interface RecipeChipSpec {
+  /**
+   * Either a plain string (e.g. "✦" wild placeholder, "◯" cask) or a
+   * grain-icon React node from `RESOURCE_GLYPH` — both render through
+   * the same JSX child slot.
+   */
+  glyph: ReactNode;
+  label: string;
+  count?: number;
+  tint: string;
+  forbidden?: boolean;
+  wild?: boolean;
+}
+
+/**
+ * Decorative recipe display — renders the bill's grain composition as
+ * colored chips with the same glyph + palette used everywhere else.
+ * Always rendered (commons with no constraints show "any grain"); a
+ * forbidden grain shows the chip with a struck-through ✕ overlay.
+ */
+function RecipeGrid({ bill }: { bill: MashBill }) {
+  const r = bill.recipe ?? {};
+  const items: RecipeChipSpec[] = [];
+
+  // Universal: 1 cask
+  items.push({
+    glyph: RESOURCE_GLYPH.cask,
+    label: "Cask",
+    tint: RESOURCE_CHROME.cask.label,
+  });
+
+  // Universal: ≥1 corn (mins of 0 still imply 1 by the universal rule).
+  const minCorn = Math.max(1, r.minCorn ?? 0);
+  items.push({
+    glyph: RESOURCE_GLYPH.corn,
+    label: "Corn",
+    count: minCorn,
+    tint: RESOURCE_CHROME.corn.label,
+  });
+
+  if ((r.minRye ?? 0) > 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.rye,
+      label: "Rye",
+      count: r.minRye,
+      tint: RESOURCE_CHROME.rye.label,
+    });
+  }
+  if ((r.minBarley ?? 0) > 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.barley,
+      label: "Barley",
+      count: r.minBarley,
+      tint: RESOURCE_CHROME.barley.label,
+    });
+  }
+  if ((r.minWheat ?? 0) > 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.wheat,
+      label: "Wheat",
+      count: r.minWheat,
+      tint: RESOURCE_CHROME.wheat.label,
+    });
+  }
+
+  // Wild grain — when no specific grain is required, the universal
+  // rule still demands ≥1 grain of any kind. Surface that explicitly
+  // so commons don't feel under-specified.
+  const namedGrain =
+    (r.minRye ?? 0) + (r.minBarley ?? 0) + (r.minWheat ?? 0);
+  const minTotal = r.minTotalGrain ?? 0;
+  const wildGrain =
+    namedGrain === 0 ? 1 : Math.max(0, minTotal - namedGrain);
+  if (wildGrain > 0) {
+    items.push({
+      glyph: "✦",
+      label: "Any grain",
+      count: wildGrain,
+      tint: "text-slate-300",
+      wild: true,
+    });
+  }
+
+  // Caps — `0` reads as forbidden, positive caps as a ceiling.
+  if (r.maxRye === 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.rye,
+      label: "No rye",
+      tint: RESOURCE_CHROME.rye.label,
+      forbidden: true,
+    });
+  } else if (r.maxRye != null) {
+    items.push({
+      glyph: RESOURCE_GLYPH.rye,
+      label: `≤${r.maxRye} rye`,
+      tint: RESOURCE_CHROME.rye.label,
+    });
+  }
+  if (r.maxWheat === 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.wheat,
+      label: "No wheat",
+      tint: RESOURCE_CHROME.wheat.label,
+      forbidden: true,
+    });
+  } else if (r.maxWheat != null) {
+    items.push({
+      glyph: RESOURCE_GLYPH.wheat,
+      label: `≤${r.maxWheat} wheat`,
+      tint: RESOURCE_CHROME.wheat.label,
+    });
+  }
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-slate-950/60 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.05)]">
+      <div className="flex flex-wrap items-center justify-center gap-1.5">
+        {items.map((item, i) => (
+          <span
+            key={i}
+            className={[
+              "inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-slate-950/70 px-2 py-1 font-mono text-[11px] uppercase tracking-[.10em] shadow-[inset_0_1px_0_rgba(255,255,255,.06)]",
+              item.forbidden ? "opacity-70" : "",
+            ].join(" ")}
+          >
+            <span
+              className={`relative inline-block text-[14px] leading-none ${item.tint}`}
+            >
+              {item.glyph}
+              {item.forbidden ? (
+                <span
+                  className="absolute inset-0 grid place-items-center text-[15px] font-bold leading-none text-rose-300"
+                  aria-hidden
+                >
+                  ✕
+                </span>
+              ) : null}
+            </span>
+            <span
+              className={item.wild ? "text-slate-300" : "text-slate-100"}
+            >
+              {item.count && item.count > 1 ? `${item.count}× ` : ""}
+              {item.label}
+            </span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Award badges — gold/silver ribbons that show the qualifying conditions
+ * (age / demand / reward minimums) so the player knows when the bill
+ * actually pays out the medal bonus.
+ */
+function AwardRow({
+  tone,
+  condition,
+}: {
+  tone: "gold" | "silver";
+  condition: AwardCondition;
+}) {
+  const bits: string[] = [];
+  if (condition.minAge != null) bits.push(`age ≥ ${condition.minAge}y`);
+  if (condition.minDemand != null) bits.push(`demand ≥ ${condition.minDemand}`);
+  if (condition.minReward != null) bits.push(`reward ≥ ${condition.minReward}`);
+  const styles =
+    tone === "gold"
+      ? "border-amber-300/80 bg-gradient-to-b from-amber-300/25 via-amber-700/15 to-slate-950/80 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,.18)]"
+      : "border-slate-300/70 bg-gradient-to-b from-slate-300/20 via-slate-500/10 to-slate-950/80 text-slate-100";
+  return (
+    <div
+      className={`flex items-center gap-2.5 rounded-lg border-2 px-3 py-1.5 ${styles}`}
+    >
+      <span className="text-[20px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.5)]" aria-hidden>
+        {tone === "gold" ? "🥇" : "🥈"}
+      </span>
+      <span className="font-mono text-[10px] font-bold uppercase tracking-[.22em]">
+        {tone}
+      </span>
+      <span className="opacity-50" aria-hidden>·</span>
+      <span className="text-[11.5px] tabular-nums">
+        {bits.length ? bits.join(" · ") : "any qualifying sale"}
+      </span>
+    </div>
+  );
+}
+
 function MashBillDetail({ bill }: { bill: MashBill }) {
   const tier = tierOrCommon(bill.tier);
   const chrome = TIER_CHROME[tier];
@@ -387,66 +628,103 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
   for (const row of bill.rewardGrid) for (const c of row) if (c !== null) cells.push(c);
   const peak = cells.length ? Math.max(...cells) : 0;
   const floor = cells.length ? Math.min(...cells) : 0;
-  const recipe = bill.recipe ?? {};
-  const recipeBits: string[] = [];
-  if (recipe.minCorn) recipeBits.push(`≥${recipe.minCorn} corn`);
-  if (recipe.minRye) recipeBits.push(`≥${recipe.minRye} rye`);
-  if (recipe.minBarley) recipeBits.push(`≥${recipe.minBarley} barley`);
-  if (recipe.minWheat) recipeBits.push(`≥${recipe.minWheat} wheat`);
-  if (recipe.maxRye === 0) recipeBits.push("no rye");
-  else if (recipe.maxRye != null) recipeBits.push(`≤${recipe.maxRye} rye`);
-  if (recipe.maxWheat === 0) recipeBits.push("no wheat");
-  else if (recipe.maxWheat != null) recipeBits.push(`≤${recipe.maxWheat} wheat`);
+  const hasAwards = bill.goldAward != null || bill.silverAward != null;
   return (
     <article
       className={[
-        "relative flex flex-col gap-3 rounded-xl border-2 p-5 shadow-[0_12px_32px_rgba(0,0,0,.55)]",
+        "relative flex flex-col gap-3 overflow-hidden rounded-xl border-2 p-5 pb-6 shadow-[0_12px_32px_rgba(0,0,0,.55)]",
         chrome.gradient,
         chrome.border,
         chrome.glow,
       ].join(" ")}
     >
+      {/* Inner ornamental frame — sits inside the outer rarity border to
+          give the modal a bottle-label feel without competing with the
+          colored tier ring. */}
+      <span
+        className="pointer-events-none absolute inset-2 rounded-lg border border-white/10"
+        aria-hidden
+      />
+      <CornerOrnament pos="tl" tone={chrome.label} />
+      <CornerOrnament pos="tr" tone={chrome.label} />
+      <CornerOrnament pos="bl" tone={chrome.label} />
+      <CornerOrnament pos="br" tone={chrome.label} />
+
       <DetailCornerCost cost={1} />
-      <header className="flex items-baseline justify-between pr-12">
-        <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+
+      {/* Tier ribbon — uses the rarity-specific pill chrome (gold ribbon
+          for legendary, etc.) so the badge alone tells the player what
+          they're looking at. */}
+      <header className="relative flex items-center justify-between pr-12">
+        <span
+          className={`rounded border-2 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[.24em] shadow-[inset_0_1px_0_rgba(255,255,255,.18)] ${chrome.pill}`}
+        >
           {chrome.label_text}
         </span>
-        <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.12em] text-slate-300">
-          {bill.goldAward ? <span aria-hidden>🥇 gold</span> : null}
-          {bill.silverAward ? <span aria-hidden>🥈 silver</span> : null}
-        </span>
       </header>
-      <h3 className={`font-display text-2xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
-        {bill.name}
-      </h3>
+
+      {/* Title with flanking flourishes */}
+      <div className="flex items-center justify-center gap-3 px-4 text-center">
+        <span
+          className={`text-[14px] leading-none ${chrome.label} opacity-50`}
+          aria-hidden
+        >
+          ❦
+        </span>
+        <h3
+          className={`font-display text-[26px] font-bold leading-[1.05] drop-shadow-[0_1px_4px_rgba(0,0,0,.55)] ${chrome.titleInk}`}
+        >
+          {bill.name}
+        </h3>
+        <span
+          className={`text-[14px] leading-none ${chrome.label} opacity-50`}
+          aria-hidden
+        >
+          ❦
+        </span>
+      </div>
+
       {bill.slogan ? (
-        <p className={`font-display text-[13px] italic leading-snug ${chrome.label} opacity-95`}>
+        <p
+          className={`text-center font-display text-[13px] italic leading-snug ${chrome.label} opacity-95`}
+        >
           “{bill.slogan}”
         </p>
       ) : null}
       {bill.flavorText ? (
-        <p className="text-[12px] italic leading-snug text-slate-300/85">
+        <p className="text-center text-[12px] italic leading-snug text-slate-300/85">
           {bill.flavorText}
         </p>
       ) : null}
 
+      {/* Recipe — always shown so even unconstrained commons display the
+          universal cask + corn + grain mash. */}
+      <SectionHeading label="Recipe" tone={chrome.label} />
+      <RecipeGrid bill={bill} />
+
+      {/* Rewards — the same age × demand grid, now grouped under its own
+          ornamental heading. */}
+      <SectionHeading label="Rewards" tone={chrome.label} />
       <RewardMatrix bill={bill} chrome={chrome} />
-      <div className="font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
+      <div className="text-center font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
         rep range{" "}
-        <span className={chrome.titleInk}>
+        <span className={`font-bold ${chrome.titleInk}`}>
           {floor}–{peak}
         </span>
       </div>
 
-      {recipeBits.length > 0 ? (
-        <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
-          <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
-            Recipe
-          </span>
-          <p className="mt-1 text-[12.5px] leading-snug text-slate-100">
-            cask + {recipeBits.join(" · ")}
-          </p>
-        </div>
+      {hasAwards ? (
+        <>
+          <SectionHeading label="Awards" tone={chrome.label} />
+          <div className="flex flex-col gap-1.5">
+            {bill.goldAward ? (
+              <AwardRow tone="gold" condition={bill.goldAward} />
+            ) : null}
+            {bill.silverAward ? (
+              <AwardRow tone="silver" condition={bill.silverAward} />
+            ) : null}
+          </div>
+        </>
       ) : null}
     </article>
   );

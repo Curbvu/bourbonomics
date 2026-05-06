@@ -22,12 +22,15 @@ export function makeTestGame(overrides: Partial<GameConfig> = {}): GameState {
   };
 
   if (!baseConfig.startingMashBills) {
+    // v2.6: by default give each player 1 starting bill in slot 0 so
+    // tests that want to MAKE_BOURBON have a "ready" target. Tests
+    // that don't want a ready barrel can override with [] explicitly.
     const catalog = defaultMashBillCatalog();
     baseConfig.startingMashBills = baseConfig.players.map((_, i) =>
-      catalog.slice(i * 3, i * 3 + 3),
+      catalog.slice(i, i + 1),
     );
     if (!baseConfig.bourbonDeck) {
-      const drafted = baseConfig.players.length * 3;
+      const drafted = baseConfig.players.length;
       baseConfig.bourbonDeck = catalog.slice(drafted);
     }
   }
@@ -37,9 +40,13 @@ export function makeTestGame(overrides: Partial<GameConfig> = {}): GameState {
     const vanilla = pool.find((d) => d.bonus === "vanilla")!;
     // Give every test player a distinct Vanilla-equivalent distillery so
     // selection state is fully resolved without changing slot counts.
+    // v2.6: pin mashBillDraftSize to 0 so tests that supply
+    // `startingMashBills` get exactly that count of slotted bills (no
+    // auto top-up from the bourbon deck).
     baseConfig.startingDistilleries = baseConfig.players.map((_, i) => ({
       ...vanilla,
       id: `dist_test_vanilla_${i}`,
+      mashBillDraftSize: 0,
     }));
   }
 
@@ -192,4 +199,21 @@ export function firstEmptySlot(state: GameState, playerId: string): string {
   const free = player.rickhouseSlots.find((s) => !taken.has(s.id));
   if (!free) throw new Error(`firstEmptySlot: ${playerId} has no free slots`);
   return free.id;
+}
+
+/**
+ * v2.6: get the slot id holding the player's barrel attached to the
+ * given mash bill. Tests use this to dispatch MAKE_BOURBON against a
+ * specific bill that was draft-placed during setup.
+ */
+export function slotForBill(state: GameState, playerId: string, billId: string): string {
+  const barrel = state.allBarrels.find(
+    (b) => b.ownerId === playerId && b.attachedMashBill.id === billId,
+  );
+  if (!barrel) {
+    throw new Error(
+      `slotForBill: no barrel for player ${playerId} with bill ${billId}`,
+    );
+  }
+  return barrel.slotId;
 }

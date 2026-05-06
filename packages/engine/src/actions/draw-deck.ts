@@ -1,17 +1,24 @@
 import type { Draft } from "immer";
-import type { Card, GameAction, GameState, ValidationResult } from "../types";
+import type { Card, GameAction, GameState, MashBill, ValidationResult } from "../types";
 import { mashBillCost } from "../types";
 import { paymentValue } from "../cards";
-import { isCurrentPlayer } from "../state";
+import { emptySlotsFor, isCurrentPlayer, slottedBillCount } from "../state";
+import { placeBillInSlot } from "../starter-pool";
 
 type DrawMashBillAction = Extract<GameAction, { type: "DRAW_MASH_BILL" }>;
 
 const FACEUP_BOURBON_SIZE = 3;
 
 /**
- * Validate either a blind draw (top of bourbon deck for any 1 card) or
- * a targeted face-up pick (one of the 3 face-up bills, paying its cost
- * with cards summing to ≥ that value — capital cards pay face value).
+ * v2.6 — DRAW_MASH_BILL routes the drawn bill straight into one of the
+ * player's open rickhouse slots as a "ready" barrel. Without an open
+ * slot, the action is illegal: slot capacity is the gating resource on
+ * the doomsday clock.
+ *
+ * Two flavors as before:
+ *   - targeted face-up pick: pick one of the 3 face-up bills, pay
+ *     ≥ `mashBillCost(bill)` with hand cards (capital cards pay face).
+ *   - blind draw: pop the top of the bourbon deck for exactly 1 card.
  */
 export function validateDrawMashBill(
   state: GameState,
@@ -26,6 +33,19 @@ export function validateDrawMashBill(
     return { legal: false, reason: "it is not your turn" };
   }
 
+  // v2.6: drawing a bill requires an open slot to land it in.
+  if (emptySlotsFor(state, player.id).length === 0) {
+    return { legal: false, reason: "no open slot to receive the bill" };
+  }
+  // v2.6 Connoisseur Estate: cap slotted bills at maxSlottedBills.
+  const billCap = player.distillery?.maxSlottedBills;
+  if (billCap !== undefined && slottedBillCount(state, player.id) >= billCap) {
+    return {
+      legal: false,
+      reason: `${player.distillery!.name} caps slotted bills at ${billCap}`,
+    };
+  }
+
   const spendIds = action.spendCardIds;
   if (spendIds.length === 0) {
     return { legal: false, reason: "must spend at least one card" };
@@ -38,15 +58,6 @@ export function validateDrawMashBill(
     if (!handIds.has(id)) {
       return { legal: false, reason: `card ${id} is not in your hand` };
     }
-  }
-
-  // v2.4 Connoisseur Estate: optional mash-bill hand cap.
-  const handCap = player.distillery?.maxMashBillHandSize;
-  if (handCap !== undefined && player.mashBills.length >= handCap) {
-    return {
-      legal: false,
-      reason: `${player.distillery!.name} caps mash-bill hand at ${handCap}`,
-    };
   }
 
   if (action.mashBillId) {
@@ -103,10 +114,10 @@ export function applyDrawMashBill(
   player.hand = newHand;
   player.discard.push(...spent);
 
-  let acquired: import("../types").MashBill;
+  let acquired: MashBill;
   if (action.mashBillId) {
     const idx = draft.bourbonFaceUp.findIndex((b) => b.id === action.mashBillId);
-    [acquired] = draft.bourbonFaceUp.splice(idx, 1) as [import("../types").MashBill];
+    [acquired] = draft.bourbonFaceUp.splice(idx, 1) as [MashBill];
     // Refill the face-up row from the top of the deck if any remain
     // and we're under the cap.
     while (
@@ -120,7 +131,10 @@ export function applyDrawMashBill(
     // Blind draw — top of deck = end of array.
     acquired = draft.bourbonDeck.pop()!;
   }
-  player.mashBills.push(acquired);
+
+  // v2.6: bill goes directly into an open slot as a "ready" barrel.
+  // Validation guaranteed at least one open slot exists.
+  placeBillInSlot(draft, player, acquired);
 
   // Final-round trigger: deck empty AND face-up empty.
   if (

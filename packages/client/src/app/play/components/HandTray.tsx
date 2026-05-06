@@ -110,7 +110,7 @@ export default function HandTray() {
           <Stat label="deck" value={focused.deck.length} />
           <Stat label="disc" value={focused.discard.length} />
           <Stat label="sold" value={focused.barrelsSold} />
-          <Stat label="🥇" value={focused.unlockedGoldBourbons.length} />
+          {/* v2.6: unlockedGoldBourbons removed — Gold awards now manipulate slots. */}
         </div>
       </div>
 
@@ -146,20 +146,9 @@ export default function HandTray() {
 
         <Divider />
 
-        {/* Mash bills */}
-        <Section caption="mash bills" count={focused.mashBills.length} zone="hand-bills">
-          {focused.mashBills.length === 0 ? (
-            <EmptyPill>no mash bills</EmptyPill>
-          ) : (
-            <CardAccordion>
-              {focused.mashBills.map((m, i) => (
-                <MashBillCard key={m.id} bill={m} indexInRow={i} />
-              ))}
-            </CardAccordion>
-          )}
-        </Section>
-
-        <Divider />
+        {/* v2.6: bills no longer live in the hand. They're slot-bound
+            from the moment they're drawn and rendered on each
+            rickhouse slot in `RickhouseRow`. */}
 
         {/* Operations — pending future release: hand display kept for
             visual consistency but rendered fully greyscale + dim with

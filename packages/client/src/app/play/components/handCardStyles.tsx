@@ -7,7 +7,9 @@
  * Visual idiom ported from the dev branch.
  */
 
+import type { ReactNode } from "react";
 import type { ResourceSubtype } from "@bourbonomics/engine";
+import { BarleyIcon, CornIcon, RyeIcon, WheatIcon } from "./GrainIcon";
 
 /**
  * Single source of truth for the table-card silhouette. Hand, market
@@ -46,13 +48,14 @@ export type CardChrome = {
 //                                    from ops which is violet/purple)
 export const RESOURCE_CHROME: Record<ResourceSubtype, CardChrome> = {
   cask: {
-    // Warm wood brown — built from amber → stone instead of slate so
-    // the body really reads as oak, not "dark-blue with an amber hat".
-    gradient: "bg-gradient-to-b from-amber-700/95 via-[#5a2f12]/95 to-stone-950",
-    border: "border-amber-500",
-    borderSoft: "border-amber-600/45",
+    // Charred-oak barrel brown — pulls every step away from amber/orange so
+    // the body reads as wood, not "tinted hot-amber". Top is rich oak, mid
+    // is charred oak, foot is deep char near-black.
+    gradient: "bg-gradient-to-b from-[#6b4423]/95 via-[#3d2417]/95 to-[#1a0f06]",
+    border: "border-[#a07142]",
+    borderSoft: "border-[#a07142]/45",
     ink: "text-amber-50",
-    label: "text-amber-200",
+    label: "text-amber-200/90",
   },
   corn: {
     gradient: "bg-gradient-to-b from-yellow-300/95 via-amber-700/90 to-slate-950",
@@ -109,12 +112,21 @@ export const OPS_CHROME: CardChrome = {
 // Mash bills use TIER_CHROME from `tierStyles.ts` (WoW palette per tier),
 // not a single bourbon chrome.
 
-export const RESOURCE_GLYPH: Record<ResourceSubtype, string> = {
+/**
+ * Glyph used to identify each resource subtype on every card surface.
+ * Cask stays as a unicode ◯ since it's not a grain (and its rendering as
+ * a plain text glyph already plays nicely with the same `text-...`
+ * tinting used by the SVG grain icons). The four grains are inline SVG
+ * components from `GrainIcon.tsx` — one source of truth, picked up
+ * automatically by HandTray, MarketCenter, CardInspectModal,
+ * StarterDeckDraftModal, and PurchaseFlight.
+ */
+export const RESOURCE_GLYPH: Record<ResourceSubtype, ReactNode> = {
   cask: "◯",
-  corn: "◆",
-  barley: "★",
-  rye: "▲",
-  wheat: "▼",
+  corn: <CornIcon />,
+  barley: <BarleyIcon />,
+  rye: <RyeIcon />,
+  wheat: <WheatIcon />,
 };
 
 export const RESOURCE_LABEL: Record<ResourceSubtype, string> = {

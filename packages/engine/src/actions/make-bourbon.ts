@@ -1,12 +1,10 @@
 import type { Draft } from "immer";
 import type {
-  Barrel,
   Card,
   GameAction,
   GameState,
   MashBill,
   PlayerState,
-  ResourceSubtype,
   ValidationResult,
 } from "../types";
 import { isWheatedBill } from "../types";
@@ -15,21 +13,24 @@ import { applyProductionCommitEffect } from "../card-effects";
 import { isCurrentPlayer } from "../state";
 
 // ============================================================
-// MAKE_BOURBON — v2.5 incremental commitment.
+// MAKE_BOURBON — v2.6 slot-bound bills.
 //
-// One action that does both jobs: opens a new under-construction
-// barrel in an empty slot, OR commits more cards to an existing
-// under-construction barrel owned by the same player. The mash bill
-// may be attached at open time or any later commitment, but only
-// once. The barrel auto-transitions to `phase: "aging"` the moment
-// its committed pile satisfies (a) the universal rule of exactly 1
-// cask + ≥1 corn + ≥1 grain AND (b) the attached bill's recipe
-// (with distillery + pre-played discounts applied to the cumulative
-// pile). Cards committed during construction are locked with the
-// barrel until sale, identical to the old all-at-once production
-// model. Once-per-turn-per-barrel: a player cannot rapid-fire commit
-// to the same barrel within one turn. Aging-phase barrels are
-// immutable to MAKE_BOURBON.
+// Commits ≥1 card from the player's hand to a slot that already holds
+// a bill (slots are opened by DRAW_MASH_BILL, not by this action).
+// The barrel transitions:
+//   - "ready"       (bill, 0 cards)  →  "construction" on first commit
+//   - "construction" (bill, ≥1 card) →  "aging"        when the cumulative
+//                                       pile satisfies (a) the universal
+//                                       rule of exactly 1 cask + ≥1 corn
+//                                       + ≥1 grain AND (b) the bill's
+//                                       recipe (with distillery + pre-
+//                                       played discounts applied).
+// Cards committed during construction are locked until sale.
+// Once-per-turn-per-barrel: a player cannot rapid-fire commit to the
+// same barrel within one turn. Aging-phase barrels are immutable to
+// MAKE_BOURBON. Failed Batch (the optional discard-and-trash) is
+// available the FIRST time a slot transitions ready → construction;
+// subsequent commits to the same slot don't re-arm it.
 // ============================================================
 
 type MakeBourbonAction = Extract<GameAction, { type: "MAKE_BOURBON" }>;
@@ -182,52 +183,29 @@ export function validateMakeBourbon(
     return { legal: false, reason: `slot ${action.slotId} is not on your distillery card` };
   }
 
+  // v2.6: MAKE_BOURBON commits to an existing barrel (ready or
+  // construction). Open slots aren't valid targets — the player must
+  // first DRAW_MASH_BILL into the slot to seed a "ready" barrel.
   const existingBarrel = state.allBarrels.find((b) => b.slotId === action.slotId);
-  const opening = existingBarrel == null;
-
-  if (existingBarrel) {
-    if (existingBarrel.ownerId !== player.id) {
-      return { legal: false, reason: `slot ${action.slotId} holds another player's barrel` };
-    }
-    if (existingBarrel.phase !== "construction") {
-      return { legal: false, reason: "that barrel has already finished construction" };
-    }
-    if (existingBarrel.committedThisTurn) {
-      return { legal: false, reason: "you already committed to this barrel this turn" };
-    }
+  if (!existingBarrel) {
+    return {
+      legal: false,
+      reason: `slot ${action.slotId} is open — draw a bill into it first`,
+    };
+  }
+  if (existingBarrel.ownerId !== player.id) {
+    return { legal: false, reason: `slot ${action.slotId} holds another player's barrel` };
+  }
+  if (existingBarrel.phase === "aging") {
+    return { legal: false, reason: "that barrel has already finished construction" };
+  }
+  if (existingBarrel.committedThisTurn) {
+    return { legal: false, reason: "you already committed to this barrel this turn" };
   }
 
-  // Action must do *something*: commit ≥1 card OR attach a new bill.
-  const newBillRequested = action.mashBillId != null;
   const cardCount = action.cardIds.length;
-  if (cardCount === 0 && !newBillRequested) {
-    return { legal: false, reason: "must commit at least one card or attach a mash bill" };
-  }
-  if (opening && cardCount === 0 && !newBillRequested) {
-    // Already covered above; explicit for opening clarity.
-    return { legal: false, reason: "starting a barrel requires committing at least one card or attaching a mash bill" };
-  }
-
-  // Personal rickhouse full check (only blocks opening — committing to
-  // an existing barrel doesn't take a new slot).
-  if (opening) {
-    const used = state.allBarrels.filter((b) => b.ownerId === player.id).length;
-    if (used >= player.rickhouseSlots.length) {
-      return { legal: false, reason: "your rickhouse is full" };
-    }
-  }
-
-  // ---- Mash bill attach validation ----
-  let mashBillToAttach: MashBill | null = null;
-  if (newBillRequested) {
-    const bill = player.mashBills.find((m) => m.id === action.mashBillId);
-    if (!bill) {
-      return { legal: false, reason: `mash bill ${action.mashBillId} not in hand` };
-    }
-    if (existingBarrel?.attachedMashBill != null) {
-      return { legal: false, reason: "this barrel already has a mash bill attached" };
-    }
-    mashBillToAttach = bill;
+  if (cardCount === 0) {
+    return { legal: false, reason: "must commit at least one card" };
   }
 
   // ---- Card integrity ----
@@ -244,9 +222,7 @@ export function validateMakeBourbon(
   // ---- Cumulative resource totals (existing pile + this commit) ----
   const cardById = new Map(player.hand.map((c) => [c.id, c]));
   const totals = emptyTotals();
-  if (existingBarrel) {
-    for (const card of existingBarrel.productionCards) tallyCard(totals, card);
-  }
+  for (const card of existingBarrel.productionCards) tallyCard(totals, card);
   for (const id of action.cardIds) {
     const card = cardById.get(id)!;
     if (card.type !== "resource" && card.type !== "capital") {
@@ -259,15 +235,12 @@ export function validateMakeBourbon(
   if (totals.caskSources > 1) {
     return { legal: false, reason: "barrel can hold at most 1 cask source" };
   }
-  const billForLimits = existingBarrel?.attachedMashBill ?? mashBillToAttach;
-  if (billForLimits) {
-    const mins = effectiveRecipeMins(player, billForLimits);
-    if (totals.rye > mins.maxRye) {
-      return { legal: false, reason: `recipe forbids rye > ${mins.maxRye}` };
-    }
-    if (totals.wheat > mins.maxWheat) {
-      return { legal: false, reason: `recipe forbids wheat > ${mins.maxWheat}` };
-    }
+  const mins = effectiveRecipeMins(player, existingBarrel.attachedMashBill);
+  if (totals.rye > mins.maxRye) {
+    return { legal: false, reason: `recipe forbids rye > ${mins.maxRye}` };
+  }
+  if (totals.wheat > mins.maxWheat) {
+    return { legal: false, reason: `recipe forbids wheat > ${mins.maxWheat}` };
   }
 
   return { legal: true };
@@ -282,45 +255,15 @@ export function applyMakeBourbon(
   const newCards: Card[] = action.cardIds.map((id) => cardById.get(id)!);
   const newCardIds = new Set(action.cardIds);
 
-  // Detach mash bill if this action attaches one.
-  let billToAttach: MashBill | null = null;
-  if (action.mashBillId != null) {
-    const idx = player.mashBills.findIndex((m) => m.id === action.mashBillId);
-    if (idx >= 0) {
-      billToAttach = player.mashBills.splice(idx, 1)[0]! as MashBill;
-    }
-  }
-
   // Remove committed cards from the player's hand.
   player.hand = player.hand.filter((c) => !newCardIds.has(c.id));
 
-  // Locate or mint the barrel.
-  let barrel = draft.allBarrels.find((b) => b.slotId === action.slotId);
-  if (!barrel) {
-    const barrelId = `barrel_${draft.idCounter}`;
-    draft.idCounter += 1;
-    draft.allBarrels.push({
-      id: barrelId,
-      ownerId: player.id,
-      slotId: action.slotId,
-      phase: "construction",
-      completedInRound: null,
-      attachedMashBill: billToAttach,
-      productionCardDefIds: [],
-      productionCards: [],
-      agingCards: [],
-      age: 0,
-      productionRound: draft.round,
-      agedThisRound: false,
-      committedThisTurn: false,
-      inspectedThisRound: false,
-      extraAgesAvailable: 0,
-      gridRepOffset: 0,
-      demandBandOffset: 0,
-    });
-    barrel = draft.allBarrels[draft.allBarrels.length - 1]!;
-  } else if (billToAttach && barrel.attachedMashBill == null) {
-    barrel.attachedMashBill = billToAttach;
+  // v2.6: the slot already holds a "ready" or "construction" barrel.
+  // Validation guarantees we're committing to an existing one.
+  const barrel = draft.allBarrels.find((b) => b.slotId === action.slotId)!;
+  // Transition ready → construction on first commit.
+  if (barrel.phase === "ready") {
+    barrel.phase = "construction";
   }
 
   // Append the newly committed cards to the production pile.
@@ -339,19 +282,17 @@ export function applyMakeBourbon(
   // Once-per-turn-per-barrel gate.
   barrel.committedThisTurn = true;
 
-  // Completion check. A barrel can only complete with a bill attached.
-  if (barrel.attachedMashBill != null) {
-    const totals = emptyTotals();
-    for (const card of barrel.productionCards) tallyCard(totals, card);
-    const result = recipeSatisfied(player, barrel.attachedMashBill, totals);
-    if (result.ok) {
-      barrel.phase = "aging";
-      barrel.completedInRound = draft.round;
-      // Pre-played production discount is consumed at the moment of
-      // completion — not at every individual commit. If the barrel
-      // never completes, the discount stays armed for a future build.
-      player.pendingMakeDiscount = null;
-    }
+  // Completion check.
+  const totals = emptyTotals();
+  for (const card of barrel.productionCards) tallyCard(totals, card);
+  const result = recipeSatisfied(player, barrel.attachedMashBill, totals);
+  if (result.ok) {
+    barrel.phase = "aging";
+    barrel.completedInRound = draft.round;
+    // Pre-played production discount is consumed at the moment of
+    // completion — not at every individual commit. If the barrel
+    // never completes, the discount stays armed for a future build.
+    player.pendingMakeDiscount = null;
   }
   // v2.2: production does NOT end the player's turn — the active player
   // continues taking actions until they pass or run out of legal plays.

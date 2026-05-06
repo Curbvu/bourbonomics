@@ -6,7 +6,7 @@ import {
   applyDistilleryStarterModifications,
   enterStarterDeckDraftPhase,
   placeStartingBarrel,
-  topUpMashBillsForDistillery,
+  topUpSlottedBillsForDistillery,
 } from "../starter-pool";
 
 type SelectDistilleryAction = Extract<GameAction, { type: "SELECT_DISTILLERY" }>;
@@ -50,9 +50,9 @@ export function applySelectDistillery(
 
   // Place the v2.4 pre-aged starting barrel (if any).
   placeStartingBarrel(draft, player, distillery);
-  // Top up mash bills if the distillery drafts more than the default 3
-  // (Connoisseur Estate: 4).
-  topUpMashBillsForDistillery(draft, player, distillery);
+  // v2.6: top up slotted bills (3 by default; Connoisseur Estate: 4).
+  // Each drafted bill lands in an open slot as a "ready" barrel.
+  topUpSlottedBillsForDistillery(draft, player, distillery);
 
   // If this player's deck was pre-built (config.starterDecks[i]), they
   // skip the starter trade window — apply post-deal distillery

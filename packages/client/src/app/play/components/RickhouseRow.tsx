@@ -93,8 +93,9 @@ function PlayerRickhouse({
         </div>
         <span className="flex-1" />
         <span className="text-amber-300/80">{myBarrels.length}/{player.rickhouseSlots.length}</span>
-        <span className="text-slate-300">📜{player.mashBills.length}</span>
-        <span className="text-amber-300">🥇{player.unlockedGoldBourbons.length}</span>
+        {/* v2.6: bills are slot-bound — the slot count above already
+            includes them. unlockedGoldBourbons removed (Gold awards
+            now manipulate slots). */}
         <span className="text-slate-300">🛢{player.barrelsSold}</span>
         <span className="font-display text-[18px] font-bold normal-case tabular-nums tracking-normal text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,.45)]">
           {player.reputation}

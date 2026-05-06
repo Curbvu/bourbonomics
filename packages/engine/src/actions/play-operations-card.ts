@@ -9,7 +9,8 @@ import type {
 } from "../types";
 import { makeCapitalCard } from "../cards";
 import { drawWithReshuffle } from "../deck";
-import { isCurrentPlayer } from "../state";
+import { emptySlotsFor, isCurrentPlayer, slottedBillCount } from "../state";
+import { placeBillInSlot } from "../starter-pool";
 
 type PlayOperationsCardAction = Extract<GameAction, { type: "PLAY_OPERATIONS_CARD" }>;
 
@@ -98,9 +99,25 @@ export function validatePlayOperationsCard(
       if (!targetSlot) {
         return { legal: false, reason: "target slot is not on the recipient's distillery" };
       }
+      // v2.6: target slot must be FULLY OPEN — no bill, no commits.
+      // A "ready" slot already holds a bill, so it isn't a valid drop
+      // target for a transferred barrel.
       const slotOccupied = state.allBarrels.some((b) => b.slotId === action.targetSlotId);
       if (slotOccupied) {
-        return { legal: false, reason: "target slot is already occupied" };
+        return { legal: false, reason: "target slot already holds a bill or barrel" };
+      }
+      // v2.6: recipient's slotted-bill cap (Connoisseur Estate) gates
+      // incoming transfers too — a transferred barrel arrives with its
+      // bill attached.
+      const recipientCap = targetPlayer.distillery?.maxSlottedBills;
+      if (
+        recipientCap !== undefined &&
+        slottedBillCount(state, targetPlayer.id) >= recipientCap
+      ) {
+        return {
+          legal: false,
+          reason: `${targetPlayer.distillery!.name} caps slotted bills at ${recipientCap}`,
+        };
       }
       // Payment cards must be in target player's hand.
       const targetHand = new Set(targetPlayer.hand.map((c) => c.id));
@@ -156,6 +173,9 @@ export function validatePlayOperationsCard(
     }
 
     case "allocation": {
+      // v2.6: still legal even with zero open slots (the card is
+      // consumed but has no effect). Per the spec: "If you have zero
+      // open slots, this card has no effect (still consumed)."
       if (state.bourbonDeck.length === 0) {
         return { legal: false, reason: "the bourbon deck is empty" };
       }
@@ -413,11 +433,24 @@ export function applyPlayOperationsCard(
     }
 
     case "allocation": {
-      // Take the top 2 mash bills (or however many remain) into hand.
-      const take = Math.min(2, draft.bourbonDeck.length);
+      // v2.6: draw up to 2 bills, one per open slot. Capped at the
+      // player's open-slot count AND respects the slotted-bill cap
+      // (Connoisseur Estate). Each drawn bill becomes a "ready"
+      // barrel in an open slot.
+      const billCap = player.distillery?.maxSlottedBills;
+      const slottedCount = draft.allBarrels.filter((b) => b.ownerId === player.id).length;
+      const slotsRoom = emptySlotsFor(draft, player.id).length;
+      const billCapRoom =
+        billCap !== undefined ? Math.max(0, billCap - slottedCount) : Infinity;
+      const take = Math.min(2, draft.bourbonDeck.length, slotsRoom, billCapRoom);
       for (let i = 0; i < take; i++) {
         const bill = draft.bourbonDeck.pop();
-        if (bill) player.mashBills.push(bill);
+        if (!bill) break;
+        if (placeBillInSlot(draft, player, bill) == null) {
+          // No open slot left — return bill to bottom of deck.
+          draft.bourbonDeck.unshift(bill);
+          break;
+        }
       }
       break;
     }

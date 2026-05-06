@@ -32,7 +32,7 @@ export const PLAYER_LOGOS: readonly PlayerLogo[] = [
   { id: "baron", name: "Baron", glyph: "🎩", blurb: "The bourbon baron themselves." },
 ] as const;
 
-export const PLAYER_LOGOS_BY_ID: Record<string, PlayerLogo> = PLAYER_LOGOS.reduce(
+const PLAYER_LOGOS_BY_ID: Record<string, PlayerLogo> = PLAYER_LOGOS.reduce(
   (acc, logo) => {
     acc[logo.id] = logo;
     return acc;
@@ -41,7 +41,7 @@ export const PLAYER_LOGOS_BY_ID: Record<string, PlayerLogo> = PLAYER_LOGOS.reduc
 );
 
 /** Default logo derived from a seat index — used when a player has no chosen logo (older saves). */
-export function defaultLogoForSeat(seatIndex: number): PlayerLogo {
+function defaultLogoForSeat(seatIndex: number): PlayerLogo {
   const n = PLAYER_LOGOS.length;
   const i = ((seatIndex % n) + n) % n;
   return PLAYER_LOGOS[i]!;

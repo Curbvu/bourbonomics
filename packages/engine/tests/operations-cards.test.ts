@@ -20,6 +20,47 @@ const bill = () =>
     100,
   );
 
+/**
+ * v2.6 helper: seed a "ready" slot with the given bill so a test that
+ * needs to MAKE_BOURBON against a specific recipe has somewhere to
+ * commit cards.
+ */
+function placeReadySlot(
+  state: ReturnType<typeof makeTestGame>,
+  ownerId: string,
+  mashBill: ReturnType<typeof makeMashBill>,
+): ReturnType<typeof makeTestGame> {
+  const owner = state.players.find((p) => p.id === ownerId)!;
+  const taken = new Set(state.allBarrels.filter((b) => b.ownerId === ownerId).map((b) => b.slotId));
+  const free = owner.rickhouseSlots.find((s) => !taken.has(s.id));
+  if (!free) throw new Error(`placeReadySlot: ${ownerId} has no open slot`);
+  return {
+    ...state,
+    allBarrels: [
+      ...state.allBarrels,
+      {
+        id: `barrel_test_ready_${state.allBarrels.length}`,
+        ownerId,
+        slotId: free.id,
+        phase: "ready",
+        completedInRound: null,
+        attachedMashBill: mashBill,
+        productionCardDefIds: [],
+        productionCards: [],
+        agingCards: [],
+        age: 0,
+        productionRound: state.round,
+        agedThisRound: false,
+        committedThisTurn: false,
+        inspectedThisRound: false,
+        extraAgesAvailable: 0,
+        gridRepOffset: 0,
+        demandBandOffset: 0,
+      },
+    ],
+  };
+}
+
 function giveOpsCard(
   state: ReturnType<typeof makeTestGame>,
   playerId: string,
@@ -90,15 +131,15 @@ describe("PLAY_OPERATIONS_CARD — Regulatory Inspection", () => {
       playerId: "p1",
       cardId,
       defId: "regulatory_inspection",
-      targetBarrelId: state.allBarrels[0]!.id,
+      targetBarrelId: state.allBarrels.find((b) => b.phase === "aging")!.id,
     });
-    expect(state.allBarrels[0]!.inspectedThisRound).toBe(true);
+    expect(state.allBarrels.find((b) => b.phase === "aging")!.inspectedThisRound).toBe(true);
     state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
     expect(() =>
       applyAction(state, {
         type: "AGE_BOURBON",
         playerId: "p1",
-        barrelId: state.allBarrels[0]!.id,
+        barrelId: state.allBarrels.find((b) => b.phase === "aging")!.id,
         cardId: "card_p1_cap1_0",
       }),
     ).toThrow(/regulatory inspection/);
@@ -110,7 +151,7 @@ describe("PLAY_OPERATIONS_CARD — Rushed Shipment", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
     state = placeBarrel(state, "p1", bill(), 0);
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     const { state: s, cardId } = giveOpsCard(state, "p1", "rushed_shipment");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
@@ -133,7 +174,7 @@ describe("PLAY_OPERATIONS_CARD — Rushed Shipment", () => {
       barrelId,
       cardId: "card_p1_cap1_1",
     });
-    expect(state.allBarrels[0]!.age).toBe(2);
+    expect(state.allBarrels.find((b) => b.phase === "aging")!.age).toBe(2);
   });
 });
 
@@ -154,7 +195,7 @@ describe("PLAY_OPERATIONS_CARD — Demand Surge", () => {
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
-      barrelId: state.allBarrels[0]!.id,
+      barrelId: state.allBarrels.find((b) => b.phase === "aging")!.id,
       reputationSplit: 5,
       cardDrawSplit: 0,
     });
@@ -185,12 +226,14 @@ describe("PLAY_OPERATIONS_CARD — Market Corner", () => {
 
 describe("PLAY_OPERATIONS_CARD — Blend", () => {
   it("merges two of your barrels into one with combined cards", () => {
-    let state = makeTestGame();
+    // v2.6: opt out of the helper's default 1 ready barrel so we get a
+    // clean rickhouse for the two test-placed aging barrels.
+    let state = makeTestGame({ startingMashBills: [[], []] });
     state = advanceToActionPhase(state, [1, 1]);
     const slots = state.players.find((p) => p.id === "p1")!.rickhouseSlots;
     state = placeBarrel(state, "p1", bill(), 2, slots[0]!.id);
     state = placeBarrel(state, "p1", bill(), 4, slots[1]!.id);
-    const ids = state.allBarrels.filter((b) => b.ownerId === "p1").map((b) => b.id);
+    const ids = state.allBarrels.filter((b) => b.ownerId === "p1" && b.phase === "aging").map((b) => b.id);
     const { state: s, cardId } = giveOpsCard(state, "p1", "blend");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
@@ -425,21 +468,26 @@ describe("PLAY_OPERATIONS_CARD — Cash Out", () => {
 });
 
 describe("PLAY_OPERATIONS_CARD — Allocation", () => {
-  it("draws 2 mash bills from the deck into the player's hand for free", () => {
+  it("v2.6: draws up to 2 mash bills from the deck into the player's open slots as 'ready' barrels", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
-    const beforeBills = state.players.find((p) => p.id === "p1")!.mashBills.length;
+    const p1Id = "p1";
+    const beforeSlotted = state.allBarrels.filter((b) => b.ownerId === p1Id).length;
     const beforeDeck = state.bourbonDeck.length;
-    const { state: s, cardId } = giveOpsCard(state, "p1", "allocation");
+    // p1 has 4 slots, 3 occupied by drafted ready barrels — 1 open. So
+    // Allocation lands at most 1 bill (capped by open-slot count).
+    const { state: s, cardId } = giveOpsCard(state, p1Id, "allocation");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
+      playerId: p1Id,
       cardId,
       defId: "allocation",
     });
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.mashBills.length).toBe(beforeBills + 2);
-    expect(state.bourbonDeck.length).toBe(beforeDeck - 2);
+    const afterSlotted = state.allBarrels.filter((b) => b.ownerId === p1Id).length;
+    const drawn = afterSlotted - beforeSlotted;
+    expect(drawn).toBeGreaterThan(0);
+    expect(drawn).toBeLessThanOrEqual(2);
+    expect(state.bourbonDeck.length).toBe(beforeDeck - drawn);
   });
 });
 
@@ -465,7 +513,7 @@ describe("PLAY_OPERATIONS_CARD — Forced Cure", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
     state = placeBarrel(state, "p1", bill(), 0);
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     const { state: s, cardId } = giveOpsCard(state, "p1", "forced_cure");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
@@ -474,14 +522,14 @@ describe("PLAY_OPERATIONS_CARD — Forced Cure", () => {
       defId: "forced_cure",
       targetBarrelId: barrelId,
     });
-    expect(state.allBarrels[0]!.extraAgesAvailable).toBe(1);
+    expect(state.allBarrels.find((b) => b.phase === "aging")!.extraAgesAvailable).toBe(1);
   });
 
   it("rejects targeting an opponent's barrel", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
     state = placeBarrel(state, "p2", bill(), 0);
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     const { state: s, cardId } = giveOpsCard(state, "p1", "forced_cure");
     expect(() =>
       applyAction(s, {
@@ -511,14 +559,9 @@ describe("PLAY_OPERATIONS_CARD — Mash Futures", () => {
       },
       0,
     );
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1"
-          ? { ...p, mashBills: [...p.mashBills, stiffBill] }
-          : p,
-      ),
-    };
+    // v2.6: bills live on slots — seed the stiff bill as a "ready" barrel.
+    state = placeReadySlot(state, "p1", stiffBill);
+    const stiffSlot = state.allBarrels[state.allBarrels.length - 1]!.slotId;
     const { state: s, cardId } = giveOpsCard(state, "p1", "mash_futures");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
@@ -537,13 +580,11 @@ describe("PLAY_OPERATIONS_CARD — Mash Futures", () => {
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
-      mashBillId: stiffBill.id,
-      slotId: slot,
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],      slotId: slot,
     });
     // Discount consumed.
     expect(state.players.find((p) => p.id === "p1")!.pendingMakeDiscount).toBeNull();
-    expect(state.allBarrels).toHaveLength(1);
+    expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(1);
   });
 });
 
@@ -559,21 +600,20 @@ describe("PLAY_OPERATIONS_CARD — Cooper's Contract", () => {
       defId: "coopers_contract",
     });
     expect(state.players.find((p) => p.id === "p1")!.pendingMakeDiscount).toBe("cask");
-    // Caskless mash — corn + rye only.
+    // Caskless mash — corn + rye only. v2.6: bills live on slots, so
+    // we commit to the player's first ready barrel.
     state = giveHand(state, "p1", [
       makeResourceCard("corn", "p1", 0),
       makeResourceCard("rye", "p1", 1),
     ]);
-    const mbId = state.players[0]!.mashBills[0]!.id;
-    const slot = state.players[0]!.rickhouseSlots[0]!.id;
+    const readyBarrel = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!;
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
       cardIds: ["card_p1_corn_0", "card_p1_rye_1"],
-      mashBillId: mbId,
-      slotId: slot,
+      slotId: readyBarrel.slotId,
     });
-    expect(state.allBarrels).toHaveLength(1);
+    expect(state.allBarrels.find((b) => b.slotId === readyBarrel.slotId)!.phase).toBe("aging");
     expect(state.players.find((p) => p.id === "p1")!.pendingMakeDiscount).toBeNull();
   });
 });
@@ -583,7 +623,7 @@ describe("PLAY_OPERATIONS_CARD — Rating Boost", () => {
     let state = makeTestGame({ startingDemand: 5 });
     state = advanceToActionPhase(state, [1, 1]);
     state = placeBarrel(state, "p1", bill(), 4);
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     const { state: s, cardId } = giveOpsCard(state, "p1", "rating_boost");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
@@ -613,7 +653,7 @@ describe("PLAY_OPERATIONS_CARD — Master Distiller", () => {
     let state = makeTestGame({ startingDemand: 4 });
     state = advanceToActionPhase(state, [1, 1]);
     state = placeBarrel(state, "p1", bill(), 4);
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     const { state: s, cardId } = giveOpsCard(state, "p1", "master_distiller");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
@@ -622,7 +662,7 @@ describe("PLAY_OPERATIONS_CARD — Master Distiller", () => {
       defId: "master_distiller",
       targetBarrelId: barrelId,
     });
-    expect(state.allBarrels[0]!.demandBandOffset).toBe(2);
+    expect(state.allBarrels.find((b) => b.phase === "aging")!.demandBandOffset).toBe(2);
     // age 4, demand 4: base row 1, col 1 = 4. With +2 band offset col
     // shifts up to col 2 (capped) → reward 5.
     state = applyAction(state, {
@@ -632,6 +672,6 @@ describe("PLAY_OPERATIONS_CARD — Master Distiller", () => {
       reputationSplit: 5,
       cardDrawSplit: 0,
     });
-    expect(state.allBarrels).toHaveLength(0);
+    expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(0);
   });
 });

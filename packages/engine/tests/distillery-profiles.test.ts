@@ -33,20 +33,28 @@ function gameWithDistilleries(bonuses: Distillery["bonus"][]) {
 describe("Distillery profiles — Starting state", () => {
   it("places a pre-aged starter barrel for distilleries that ship one", () => {
     const state = gameWithDistilleries(["high_rye", "wheated_baron"]);
-    expect(state.allBarrels).toHaveLength(2);
-    const ages = state.allBarrels.map((b) => b.age).sort();
+    const aging = state.allBarrels.filter((b) => b.phase === "aging");
+    expect(aging).toHaveLength(2);
+    const ages = aging.map((b) => b.age).sort();
     expect(ages).toEqual([1, 1]); // high_rye=1, wheated=1
   });
 
-  it("does not place a starter barrel for Vanilla / Connoisseur", () => {
+  it("v2.6: Vanilla / Connoisseur don't ship a pre-aged starter barrel — only ready bills in slots", () => {
     const state = gameWithDistilleries(["vanilla", "connoisseur"]);
-    expect(state.allBarrels).toHaveLength(0);
+    // No aging-phase starter barrels.
+    const aging = state.allBarrels.filter((b) => b.phase === "aging");
+    expect(aging).toHaveLength(0);
   });
 
-  it("Connoisseur Estate drafts a 4th mash bill from the bourbon deck on bind", () => {
+  it("v2.6: Connoisseur Estate drafts 4 bills directly into slots (no open slots at start)", () => {
     const state = gameWithDistilleries(["connoisseur", "vanilla"]);
     const conn = state.players[0]!;
-    expect(conn.mashBills).toHaveLength(4);
+    const slottedBills = state.allBarrels.filter((b) => b.ownerId === conn.id);
+    expect(slottedBills).toHaveLength(4);
+    // All four slots are taken — no open slots.
+    const taken = new Set(slottedBills.map((b) => b.slotId));
+    const openSlots = conn.rickhouseSlots.filter((s) => !taken.has(s.id));
+    expect(openSlots).toHaveLength(0);
   });
 });
 
@@ -149,8 +157,9 @@ describe("Distillery profiles — Permanent abilities", () => {
 });
 
 describe("Distillery profiles — Constraints", () => {
-  it("Connoisseur cannot draw a 5th mash bill (hand cap of 4)", () => {
-    // Start with a Connoisseur game where p1 already has 4 bills.
+  it("v2.6: Connoisseur Estate cannot draw a 5th mash bill (slotted-bill cap of 4)", () => {
+    // Connoisseur drafts 4 bills into 4 slots at setup. With every slot
+    // bound, the player has no open slot — DRAW_MASH_BILL is illegal.
     const catalog = defaultMashBillCatalog();
     let state = initializeGame({
       seed: 1,
@@ -168,7 +177,7 @@ describe("Distillery profiles — Constraints", () => {
         playerId: "p1",
         spendCardIds: [state.players[0]!.hand[0]!.id],
       }),
-    ).toThrow(/caps mash-bill hand at 4/);
+    ).toThrow(/no open slot/);
   });
 
 });

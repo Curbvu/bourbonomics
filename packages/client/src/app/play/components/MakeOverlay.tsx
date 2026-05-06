@@ -25,60 +25,49 @@ export default function MakeOverlay() {
   const human = state.players.find((p) => !p.isBot);
   if (!human) return null;
 
-  const bill = makeMode.pickedMashBillId
-    ? human.mashBills.find((m) => m.id === makeMode.pickedMashBillId)
-    : null;
+  // v2.6 slot-bound bills: bills live on slots already. The picker
+  // chooses which of the player's "ready" or "construction" slots to
+  // commit cards to; bills are NOT pickable from hand anymore.
+  const myBarrels = state.allBarrels.filter((b) => b.ownerId === human.id);
+  const slotsTotal = human.rickhouseSlots.length;
+  const slotsUsed = myBarrels.length;
+  const slotsFree = slotsTotal - slotsUsed;
+  // Prefer a construction-phase slot already in progress; otherwise
+  // pick the first ready slot.
+  const targetBarrel =
+    myBarrels.find((b) => b.phase === "construction" && !b.committedThisTurn) ??
+    myBarrels.find((b) => b.phase === "ready" && !b.committedThisTurn) ??
+    null;
+  const targetSlotId = targetBarrel?.slotId ?? null;
+  const effectiveBill = targetBarrel?.attachedMashBill ?? null;
   const tagged = human.hand.filter((c) =>
     makeMode.spendCardIds.includes(c.id),
   );
 
-  const slotsTotal = human.rickhouseSlots.length;
-  const myBarrels = state.allBarrels.filter((b) => b.ownerId === human.id);
-  const slotsUsed = myBarrels.length;
-  const slotsFree = slotsTotal - slotsUsed;
-  // v2.5: prefer continuing an under-construction barrel (one not yet
-  // touched this turn) before opening a new one.
-  const targetBarrel =
-    myBarrels.find((b) => b.phase === "construction" && !b.committedThisTurn) ?? null;
-  const targetSlotId = (() => {
-    if (targetBarrel) return targetBarrel.slotId;
-    const occupied = new Set(myBarrels.map((b) => b.slotId));
-    return human.rickhouseSlots.find((s) => !occupied.has(s.id))?.id ?? null;
-  })();
-  const billAlreadyOnBarrel = targetBarrel?.attachedMashBill != null;
-  const effectiveBill = billAlreadyOnBarrel ? targetBarrel!.attachedMashBill : bill;
-
   // Pre-flight validation against the engine.
-  const validation = targetSlotId
-    ? validateAction(state, {
-        type: "MAKE_BOURBON",
-        playerId: human.id,
-        slotId: targetSlotId,
-        cardIds: makeMode.spendCardIds,
-        ...(bill && !billAlreadyOnBarrel ? { mashBillId: bill.id } : {}),
-      })
-    : null;
+  const validation =
+    targetSlotId && makeMode.spendCardIds.length > 0
+      ? validateAction(state, {
+          type: "MAKE_BOURBON",
+          playerId: human.id,
+          slotId: targetSlotId,
+          cardIds: makeMode.spendCardIds,
+        })
+      : null;
 
   const canConfirm = validation?.legal === true;
 
   let prompt: string;
-  if (slotsFree === 0 && !targetBarrel) {
-    prompt = "Your rickhouse is full — sell or abandon a barrel before making another.";
-  } else if (!effectiveBill && human.mashBills.length === 0) {
-    prompt = "No mash bills in hand. Draw one or commit cards to a barrel without a bill.";
-  } else if (!effectiveBill) {
-    prompt = targetBarrel
-      ? "Pick a mash bill to attach to the in-progress barrel (or just commit cards)."
-      : "Pick a mash bill from your hand (or skip and just commit cards).";
-  } else if (tagged.length === 0 && (billAlreadyOnBarrel || !bill)) {
-    prompt = `Tag cards to commit (recipe: ${recipeSummary(effectiveBill, human)}).`;
+  if (!targetBarrel) {
+    prompt = "No ready slots — draw a mash bill into an open slot first.";
   } else if (tagged.length === 0) {
-    prompt = `Tag cards to commit, or attach the bill alone (recipe: ${recipeSummary(effectiveBill, human)}).`;
+    prompt = `Tag cards to commit to ${effectiveBill!.name} (recipe: ${recipeSummary(effectiveBill!, human)}).`;
   } else if (validation && !validation.legal) {
     prompt = validation.reason ?? "This commit isn't legal yet.";
   } else {
     prompt = "Ready to make. Confirm to dispatch.";
   }
+  void slotsFree;
 
   return (
     <div className="border-t border-amber-700/60 bg-gradient-to-b from-amber-950/50 to-slate-950 px-[18px] py-2">
@@ -87,11 +76,11 @@ export default function MakeOverlay() {
           Making
         </span>
         <span className="font-display text-[13px] font-semibold text-amber-100">
-          {bill ? bill.name : "no bill picked"}
+          {effectiveBill ? effectiveBill.name : "no ready slot"}
         </span>
-        {bill ? (
+        {effectiveBill ? (
           <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-400">
-            recipe: {recipeSummary(bill, human)}
+            recipe: {recipeSummary(effectiveBill, human)}
           </span>
         ) : null}
         {tagged.length > 0 ? (

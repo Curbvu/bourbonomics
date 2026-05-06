@@ -219,7 +219,7 @@ describe("SELL_BOURBON — composition buffs", () => {
       ],
     });
     state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     // Composition triggers: cask_3 (+1 rep), corn_3 (+1 draw).
     // No single_grain_3 (only 1 rye), no all_grains (no barley/wheat).
     state = applyAction(state, {
@@ -255,7 +255,7 @@ describe("SELL_BOURBON — composition buffs", () => {
           : p,
       ),
     };
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
@@ -285,7 +285,7 @@ describe("SELL_BOURBON — composition buffs", () => {
       ],
     });
     state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     // Without the buff: age 5 / demand 4 → middle row, middle col = 4.
     // With the buff: read as demand 5 → still middle col (band [4..6)).
     // To prove it shifts, target a barrel where the bump crosses a band.
@@ -315,7 +315,7 @@ describe("SELL_BOURBON — composition buffs", () => {
     });
     state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
     const before = state.demand;
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
@@ -335,7 +335,7 @@ describe("SELL_BOURBON — composition buffs", () => {
       agingCards: [r("barley", 10), r("wheat", 11), r("corn", 12), r("corn", 13), r("corn", 14)],
     });
     state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     // Triggers: corn_3 (4 corn), all_grains (corn+rye+barley+wheat each ≥1).
     // No cask_3 (1 cask), no single_grain_3 (only 1 of each grain), no capital_2.
     state = applyAction(state, {
@@ -358,7 +358,7 @@ describe("SELL_BOURBON — composition buffs", () => {
     });
     state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
     state = { ...state, demand: 3 };
-    const barrelId = state.allBarrels[0]!.id;
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     // Without buff: row 1 col 0 = 2. With single_grain_3 (4+ rye): col 1 = 4.
     // A split of 4 should validate; a split of 2 should fail (legal under
     // the unbuffed grid but rejected once composition is applied).

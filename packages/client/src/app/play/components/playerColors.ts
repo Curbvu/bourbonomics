@@ -42,15 +42,6 @@ export const PLAYER_BORDER_CLASS = [
   "border-violet-500",
 ] as const;
 
-export const PLAYER_TINT_CLASS = [
-  "bg-indigo-500/12",
-  "bg-rose-500/12",
-  "bg-emerald-500/12",
-  "bg-amber-500/12",
-  "bg-sky-500/12",
-  "bg-violet-500/12",
-] as const;
-
 export const PLAYER_TEXT_CLASS = [
   "text-indigo-300",
   "text-rose-300",

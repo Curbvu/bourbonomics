@@ -47,14 +47,14 @@ import {
 
 // Storage key is versioned and bumped whenever the engine schema or
 // canonical catalog changes (so legacy saves don't crash on hydrate).
-// Current bump: removed RUSH_TO_MARKET + pendingRushBarrelId from the
-// engine, ops cards now bought from market with a `cost` field, and
-// premium resources gained displayName/flavor/aliases.
-// v2.4 changed the GameState shape (added starterHand / starterUndealtPool /
-// firstSaleResolved, removed starterDeckDraftCursor). Bumping the storage
-// version drops any pre-v2.4 saves so they don't crash the renderer.
-const STORAGE_KEY = "bourbonomics:v2.4.0-game";
-const AUTOPLAY_KEY = "bourbonomics:v2.4.0-autoplay";
+// v2.6 bump: mash bills are now slot-bound — `player.mashBills` and
+// `player.unlockedGoldBourbons` are removed from PlayerState; barrels
+// gained a "ready" phase; SELL_BOURBON's action shape changed
+// (`goldBourbonId` → `goldChoice` + `goldConvertTargetSlotId`); and
+// MAKE_BOURBON dropped its `mashBillId` parameter. Old saves would
+// hydrate without slot-bound bills, so we drop them.
+const STORAGE_KEY = "bourbonomics:v2.6.0-game";
+const AUTOPLAY_KEY = "bourbonomics:v2.6.0-autoplay";
 const AUTO_STEP_MS = 280;
 
 export interface NewGameSeat {

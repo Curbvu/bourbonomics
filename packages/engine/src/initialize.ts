@@ -16,8 +16,9 @@ import { shuffleCards } from "./deck";
 import {
   applyDistilleryStarterModifications,
   enterStarterDeckDraftPhase,
+  placeBillInSlot,
   placeStartingBarrel,
-  topUpMashBillsForDistillery,
+  topUpSlottedBillsForDistillery,
 } from "./starter-pool";
 
 const DEFAULT_HAND_SIZE = 8;
@@ -64,7 +65,6 @@ export function initializeGame(config: GameConfig): GameState {
       rngState = shuffled.rngState;
     }
 
-    const startingMash = config.startingMashBills?.[i] ?? [];
     return {
       id: p.id,
       name: p.name,
@@ -74,8 +74,6 @@ export function initializeGame(config: GameConfig): GameState {
       hand: [],
       deck,
       discard: [],
-      mashBills: startingMash.slice(),
-      unlockedGoldBourbons: [],
       operationsHand: [],
       starterHand: [],
       starterPassed: false,
@@ -176,17 +174,29 @@ export function initializeGame(config: GameConfig): GameState {
 
   // If every player's distillery is pre-assigned (no `distillery_selection`
   // phase), the per-distillery starting barrel placement happens here
-  // since SELECT_DISTILLERY won't run for them. Same for entering
-  // `starter_deck_draft` from init: deal random hands now so the
-  // phase is ready for trade actions.
+  // since SELECT_DISTILLERY won't run for them. v2.6 also places any
+  // pre-supplied `startingMashBills[i]` directly into open slots as
+  // "ready" barrels (formerly went to `player.mashBills` hand). Same
+  // for entering `starter_deck_draft` from init: deal random hands now
+  // so the phase is ready for trade actions.
   const skipsDistillerySelection = distillerySelectionOrder.length === 0;
-  if (skipsDistillerySelection || phase === "starter_deck_draft") {
+  const anyStartingMashBills =
+    (config.startingMashBills ?? []).some((bills) => bills.length > 0);
+  if (skipsDistillerySelection || phase === "starter_deck_draft" || anyStartingMashBills) {
     return produce(initialState, (draft: Draft<GameState>) => {
       if (skipsDistillerySelection) {
         for (const player of draft.players) {
           if (player.distillery) {
             placeStartingBarrel(draft, player, player.distillery);
-            topUpMashBillsForDistillery(draft, player, player.distillery);
+            // v2.6: place any pre-supplied starting bills BEFORE
+            // top-up, so the top-up only fills remaining open slots.
+            const preBills = config.startingMashBills?.[
+              draft.players.findIndex((p) => p.id === player.id)
+            ] ?? [];
+            for (const bill of preBills) {
+              placeBillInSlot(draft, player, bill);
+            }
+            topUpSlottedBillsForDistillery(draft, player, player.distillery);
           }
         }
       }

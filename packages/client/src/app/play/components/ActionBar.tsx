@@ -30,8 +30,6 @@
 import type {
   GameAction,
   GameState,
-  MashBill,
-  OperationsCard,
   PlayerState,
 } from "@bourbonomics/engine";
 import { computeReward, paymentValue, validateAction } from "@bourbonomics/engine";
@@ -84,7 +82,6 @@ export default function ActionBar() {
   // least one mash bill in the bourbon deck.
   const drawBillEntry = canEnterDrawBillMode(state, human);
   const trade = bestTrade(state, human);
-  const ops = bestPlayOps(state, human);
   const pass: GameAction = { type: "PASS_TURN", playerId: human.id };
 
   return (
@@ -314,7 +311,12 @@ function canEnterMakeMode(
   state: GameState,
   player: PlayerState,
 ): { canMake: boolean; reason?: string } {
-  if (player.mashBills.length === 0) {
+  // v2.6: bills are slot-bound. "Has any bill to commit to?" maps to
+  // "owns any non-aging-phase barrel" (ready or construction).
+  const hasCommittableSlot = state.allBarrels.some(
+    (b) => b.ownerId === player.id && b.phase !== "aging",
+  );
+  if (!hasCommittableSlot) {
     return { canMake: false, reason: "No mash bills in hand — draw one first." };
   }
   if (player.hand.length === 0) {
@@ -474,126 +476,6 @@ function bestSellBourbon(state: GameState, player: PlayerState): GameAction | nu
 }
 
 /**
- * Walks the human's operations hand and returns the first card whose
- * "auto-best target" makes a legal action. Each ops def has its own
- * heuristic for picking targets; cards that need cross-player payment
- * (Barrel Broker) are skipped because there's no sensible default.
- *
- * Playing an ops card does NOT consume the action — we keep the turn
- * open so the player can chain Make/Sell/etc.
- */
-function bestPlayOps(state: GameState, player: PlayerState): GameAction | null {
-  for (const card of player.operationsHand) {
-    const action = planOpsTarget(state, player, card);
-    if (action && validateAction(state, action).legal) return action;
-  }
-  return null;
-}
-
-function planOpsTarget(
-  state: GameState,
-  player: PlayerState,
-  card: OperationsCard,
-): GameAction | null {
-  switch (card.defId) {
-    case "market_manipulation": {
-      // Push demand UP if we have ageable barrels (selling soon); DOWN
-      // otherwise so the next demand step doesn't push us out of buying
-      // range. Either is legal — only direction varies.
-      const hasAgedBarrels = state.allBarrels.some(
-        (b) => b.ownerId === player.id && b.age >= 1,
-      );
-      return {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: player.id,
-        cardId: card.id,
-        defId: "market_manipulation",
-        direction: hasAgedBarrels ? "up" : "down",
-      };
-    }
-    case "regulatory_inspection": {
-      // Lock down an opponent's most-valuable barrel.
-      const candidate = state.allBarrels
-        .filter((b) => b.ownerId !== player.id)
-        .filter((b) => b.attachedMashBill != null)
-        .sort((a, b) => peakReward(b.attachedMashBill!) - peakReward(a.attachedMashBill!))[0];
-      if (!candidate) return null;
-      return {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: player.id,
-        cardId: card.id,
-        defId: "regulatory_inspection",
-        targetBarrelId: candidate.id,
-      };
-    }
-    case "rushed_shipment": {
-      // Extra age on our most-valuable still-aging barrel.
-      const ours = state.allBarrels
-        .filter((b) => b.ownerId === player.id && b.age < 3)
-        .filter((b) => b.attachedMashBill != null)
-        .sort((a, b) => peakReward(b.attachedMashBill!) - peakReward(a.attachedMashBill!))[0];
-      if (!ours) return null;
-      return {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: player.id,
-        cardId: card.id,
-        defId: "rushed_shipment",
-        targetBarrelId: ours.id,
-      };
-    }
-    case "barrel_broker":
-      // Needs cross-player payment selection — skip auto-pick.
-      return null;
-    case "market_corner": {
-      // Grab the most-expensive market card straight to hand (free).
-      let bestIdx = -1;
-      let bestCost = -1;
-      for (let i = 0; i < state.marketConveyor.length; i++) {
-        const c = state.marketConveyor[i]!;
-        const cost = c.cost ?? 1;
-        if (cost > bestCost) {
-          bestIdx = i;
-          bestCost = cost;
-        }
-      }
-      if (bestIdx < 0) return null;
-      return {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: player.id,
-        cardId: card.id,
-        defId: "market_corner",
-        marketSlotIndex: bestIdx,
-      };
-    }
-    case "blend": {
-      // Combine our two highest-peak barrels.
-      const eligible = state.allBarrels
-        .filter((b) => b.ownerId === player.id)
-        .filter((b) => b.attachedMashBill != null)
-        .sort((a, b) => peakReward(b.attachedMashBill!) - peakReward(a.attachedMashBill!));
-      if (eligible.length < 2) return null;
-      return {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: player.id,
-        cardId: card.id,
-        defId: "blend",
-        barrel1Id: eligible[0]!.id,
-        barrel2Id: eligible[1]!.id,
-      };
-    }
-    case "demand_surge":
-      return {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: player.id,
-        cardId: card.id,
-        defId: "demand_surge",
-      };
-    default:
-      return null;
-  }
-}
-
-/**
  * Interactive Buy gating — return whether the human has *any* legal
  * purchase, plus a reason string when they don't. Picking the actual
  * slot + payment is left to the BuyOverlay.
@@ -639,16 +521,4 @@ function bestTrade(state: GameState, player: PlayerState): GameAction | null {
     player1Cards: [player.hand[0]!.id],
     player2Cards: [partner.hand[0]!.id],
   };
-}
-
-// -----------------------------------------------------------------------------
-// Internal helpers
-// -----------------------------------------------------------------------------
-
-function peakReward(bill: MashBill): number {
-  let max = 0;
-  for (const row of bill.rewardGrid) {
-    for (const cell of row) if (cell !== null && cell > max) max = cell;
-  }
-  return max;
 }

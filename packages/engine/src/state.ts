@@ -1,5 +1,5 @@
 import type { Draft } from "immer";
-import type { Barrel, Card, GameState, MashBill, PlayerState } from "./types";
+import type { Barrel, Card, GameState, PlayerState } from "./types";
 
 export function findPlayer(state: GameState, id: string): PlayerState | undefined {
   return state.players.find((p) => p.id === id);
@@ -27,10 +27,6 @@ export function findCardInHand(player: PlayerState, cardId: string): Card | unde
   return player.hand.find((c) => c.id === cardId);
 }
 
-export function findMashBillInHand(player: PlayerState, mashBillId: string): MashBill | undefined {
-  return player.mashBills.find((m) => m.id === mashBillId);
-}
-
 export function findBarrel(state: GameState, barrelId: string): Barrel | undefined {
   return state.allBarrels.find((b) => b.id === barrelId);
 }
@@ -46,11 +42,21 @@ export function playerRickhouseFull(state: GameState, playerId: string): boolean
   return occupied >= player.rickhouseSlots.length && player.rickhouseSlots.length > 0;
 }
 
+/**
+ * v2.6 "open slot" — a slot id that holds NO barrel at all. Distinct
+ * from a "ready" slot (bill present, no commits) which is taken from
+ * a draw-target perspective. DRAW_MASH_BILL targets open slots only.
+ */
 export function emptySlotsFor(state: GameState, playerId: string): string[] {
   const player = findPlayer(state, playerId);
   if (!player) return [];
   const taken = new Set(state.allBarrels.filter((b) => b.ownerId === playerId).map((b) => b.slotId));
   return player.rickhouseSlots.filter((s) => !taken.has(s.id)).map((s) => s.id);
+}
+
+/** Number of slots currently bound to a bill (any phase: ready / construction / aging). */
+export function slottedBillCount(state: GameState, playerId: string): number {
+  return state.allBarrels.filter((b) => b.ownerId === playerId).length;
 }
 
 /**

@@ -227,8 +227,15 @@ export interface Distillery {
   saleMods?: DistillerySaleMods;
   /** Number of mash bills drafted during setup (default 3). */
   mashBillDraftSize?: number;
-  /** Maximum mash bills held in hand. */
-  maxMashBillHandSize?: number;
+  /**
+   * v2.6: cap on the number of slots that may hold a bill at once. When
+   * set, this distillery cannot draw additional bills past the cap even
+   * after buying a Rickhouse Expansion Permit — extra slots become
+   * overflow space for transferred completed barrels (Barrel Broker,
+   * Blend) but cannot receive a freshly-drawn bill. Connoisseur Estate
+   * uses this to enforce its 4-bill ceiling.
+   */
+  maxSlottedBills?: number;
 }
 
 // -----------------------------
@@ -280,14 +287,20 @@ export interface RickhouseSlot {
 }
 
 /**
- * Lifecycle phase. v2.5+ barrels are built incrementally via repeated
- * `MAKE_BOURBON` actions:
- *   - "construction" — recipe not yet satisfied. Barrel does NOT age.
- *     Cards may still be committed; mash bill may be attached (once).
+ * Lifecycle phase. v2.6 introduces slot-bound mash bills, so a slot can
+ * hold a barrel in any of three phases:
+ *   - "ready" — bill present, no committed cards. The slot is taken (it
+ *     can't be drawn into) but no production has started. Barrel does
+ *     NOT age. Trashing a "ready" barrel is a free action.
+ *   - "construction" — bill + ≥1 committed card, recipe not yet
+ *     satisfied. Barrel does NOT age. Trashing requires ABANDON_BARREL.
  *   - "aging" — recipe satisfied. Barrel ages from the round AFTER it
  *     completed (`completedInRound + 1`).
+ *
+ * A slot with NO barrel is "open" — drawable into. There is no "open"
+ * BarrelPhase because no Barrel record exists for an open slot.
  */
-export type BarrelPhase = "construction" | "aging";
+export type BarrelPhase = "ready" | "construction" | "aging";
 
 export interface Barrel {
   id: string;
@@ -305,12 +318,12 @@ export interface Barrel {
    */
   completedInRound: number | null;
   /**
-   * Mash bill attached to the barrel. May be null while under
-   * construction; becomes non-null at the moment of attachment and
-   * stays attached for the lifetime of the barrel. A barrel cannot
-   * complete (transition to aging) without an attached mash bill.
+   * Mash bill bound to this slot. v2.6: bills are slot-bound from the
+   * moment they're drawn (or drafted at setup), so every Barrel record
+   * has a non-null bill. Pre-aged starter barrels (High-Rye House,
+   * Wheated Baron) ship with their starter bill already attached.
    */
-  attachedMashBill: MashBill | null;
+  attachedMashBill: MashBill;
   /** card-def ids spent at production (audit / display). */
   productionCardDefIds: string[];
   /**
@@ -376,8 +389,9 @@ export interface PlayerState {
   discard: Card[];
 
   // Out-of-deck holdings.
-  mashBills: MashBill[];                    // in hand, not yet committed
-  unlockedGoldBourbons: MashBill[];         // permanent recipes from Gold awards
+  // v2.6: bills are slot-bound, not held in hand. Recipes a player owns
+  // are derivable from `state.allBarrels[*].attachedMashBill` for the
+  // barrels they own.
   /** Operations cards held in hand. Persist across rounds; played as a free action. */
   operationsHand: OperationsCard[];
 
@@ -596,36 +610,46 @@ export type GameAction =
   | { type: "ROLL_DEMAND"; roll: [number, number] }
   | { type: "DRAW_HAND"; playerId: string }
   | {
-      // v2.5 incremental commitment: opens a new under-construction
-      // barrel in `slotId` if empty, OR commits more cards to an
-      // existing under-construction barrel in `slotId` owned by the
-      // player. `cardIds` may be empty when the action only attaches
-      // a mash bill. `mashBillId` is optional but may only be set on
-      // the action that first attaches the bill — once attached, the
-      // bill is locked. The barrel auto-transitions to `phase: "aging"`
-      // when its committed pile satisfies the recipe.
+      // v2.6 slot-bound bills: commits ≥1 card from the player's hand
+      // to an existing slot that already holds a bill (drawn at setup
+      // or via DRAW_MASH_BILL). The barrel auto-transitions from
+      // "ready" → "construction" → "aging" as cards accumulate. Slots
+      // are opened by DRAW_MASH_BILL, not by this action; bills are
+      // already attached when MAKE_BOURBON dispatches.
       type: "MAKE_BOURBON";
       playerId: string;
       slotId: string;
       cardIds: string[];
-      mashBillId?: string;
     }
   | {
-      // v2.5: discard an under-construction barrel and return all of
-      // its committed cards to the player's discard pile. Slot is
-      // freed. Aging-phase barrels cannot be abandoned.
+      // v2.6: discard a "ready" or "construction" barrel. All committed
+      // production cards return to the player's discard pile, the
+      // attached bill goes to the bourbon discard, and the slot becomes
+      // fully open. Aging-phase barrels cannot be abandoned.
       type: "ABANDON_BARREL";
       playerId: string;
       barrelId: string;
     }
   | { type: "AGE_BOURBON"; playerId: string; barrelId: string; cardId: string }
   | {
+      // v2.6: when the sold barrel triggers a Gold award, the player
+      // chooses one of three slot manipulations via `goldChoice`:
+      //   - "convert" → replace another slot's bill with this Gold
+      //                 bill (target's committed cards must satisfy
+      //                 the new recipe); selling slot opens fully.
+      //                 Requires `goldConvertTargetSlotId`.
+      //   - "keep"    → bill stays in the now-empty selling slot
+      //                 ("ready" barrel). Same behavior as a Silver.
+      //   - "decline" → bill goes to bourbon discard; selling slot
+      //                 opens fully.
+      // Ignored when the sale doesn't trigger a Gold award.
       type: "SELL_BOURBON";
       playerId: string;
       barrelId: string;
       reputationSplit: number;
       cardDrawSplit: number;
-      goldBourbonId?: string;             // optionally apply a permanent Gold recipe
+      goldChoice?: "convert" | "keep" | "decline";
+      goldConvertTargetSlotId?: string;
     }
   | {
       type: "BUY_FROM_MARKET";

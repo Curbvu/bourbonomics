@@ -35,9 +35,7 @@ export default function GameBoard() {
           {/* Left column: rickhouses on top (compact), market below (fills). */}
           <div className="flex min-h-0 flex-col gap-1.5">
             <RickhouseRow />
-            <div className="flex min-h-0 flex-1 flex-col">
-              <MarketCenter />
-            </div>
+            <MarketCenter />
           </div>
 
           {/* Right column: action log matches the left column's height

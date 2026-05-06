@@ -17,7 +17,6 @@ import type { MashBillTier } from "@bourbonomics/engine";
 
 export type TierChrome = {
   border: string;
-  borderSoft: string;
   titleInk: string;
   label: string;
   gradient: string;
@@ -32,7 +31,6 @@ export type TierChrome = {
 export const TIER_CHROME: Record<MashBillTier, TierChrome> = {
   common: {
     border: "border-slate-500",
-    borderSoft: "border-slate-500/40",
     titleInk: "text-slate-100",
     label: "text-slate-400",
     gradient:
@@ -43,7 +41,6 @@ export const TIER_CHROME: Record<MashBillTier, TierChrome> = {
   },
   uncommon: {
     border: "border-emerald-400",
-    borderSoft: "border-emerald-400/40",
     titleInk: "text-emerald-50",
     label: "text-emerald-300",
     gradient:
@@ -54,7 +51,6 @@ export const TIER_CHROME: Record<MashBillTier, TierChrome> = {
   },
   rare: {
     border: "border-sky-400",
-    borderSoft: "border-sky-400/40",
     titleInk: "text-sky-50",
     label: "text-sky-300",
     gradient:
@@ -65,7 +61,6 @@ export const TIER_CHROME: Record<MashBillTier, TierChrome> = {
   },
   epic: {
     border: "border-violet-400",
-    borderSoft: "border-violet-400/45",
     titleInk: "text-violet-50",
     label: "text-violet-300",
     gradient:
@@ -76,7 +71,6 @@ export const TIER_CHROME: Record<MashBillTier, TierChrome> = {
   },
   legendary: {
     border: "border-orange-400",
-    borderSoft: "border-orange-400/55",
     titleInk: "text-orange-50",
     label: "text-orange-300",
     gradient:

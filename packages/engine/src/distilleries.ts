@@ -54,7 +54,7 @@ const SPECS: DistillerySpec[] = [
     bonus: "connoisseur",
     slots: DEFAULT_SLOTS,
     mashBillDraftSize: 4,
-    maxMashBillHandSize: 4,
+    maxSlottedBills: 4,
     compositionMods: {
       allGrainsDistinctThreshold: 3,
       allGrainsRep: 3,
