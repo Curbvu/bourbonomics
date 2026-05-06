@@ -11,14 +11,21 @@
  */
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import {
   defaultMashBillCatalog,
   mashBillCost,
   type MashBill,
+  type ResourceSubtype,
 } from "@bourbonomics/engine";
-import { TIER_CHROME, tierOrCommon } from "@/app/play/components/tierStyles";
+import { TIER_CHROME, tierOrCommon, type TierChrome } from "@/app/play/components/tierStyles";
+import { MoneyText } from "@/app/play/components/money";
+import {
+  RESOURCE_CHROME,
+  RESOURCE_GLYPH,
+  RESOURCE_LABEL,
+} from "@/app/play/components/handCardStyles";
 
 type TierFilter = "all" | 1 | 2 | 3;
 
@@ -144,42 +151,57 @@ function BillCard({ bill }: { bill: MashBill }) {
   return (
     <article
       className={[
-        "h-full rounded-lg border-2 px-3 py-3",
+        "relative flex h-full flex-col rounded-xl border-2 px-4 py-4 shadow-[0_8px_24px_rgba(0,0,0,.45)]",
         chrome.border,
         chrome.gradient,
         chrome.glow,
       ].join(" ")}
     >
-      <header className="mb-2 flex items-start justify-between gap-2">
-        <div>
-          <h2 className={`font-display text-base font-semibold ${chrome.titleInk}`}>
+      {/* Top row — title + tier pill */}
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className={`font-display text-xl font-bold leading-tight ${chrome.titleInk}`}>
             {bill.name}
           </h2>
           {bill.slogan ? (
-            <p className={`mt-0.5 font-mono text-[10.5px] italic ${chrome.label}`}>
-              {bill.slogan}
+            <p className={`mt-1 font-display text-[13px] italic leading-snug ${chrome.label}`}>
+              “{bill.slogan}”
             </p>
           ) : null}
         </div>
         <span
-          className={`rounded border px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[.08em] ${ctChrome.pill}`}
+          className={`flex-shrink-0 rounded-md border-2 px-2.5 py-1 font-mono text-[12px] font-bold uppercase tracking-[.10em] ${ctChrome.pill}`}
           title={ctChrome.name}
         >
           T{ct}
         </span>
       </header>
 
-      <PayoffGrid bill={bill} />
+      {/* Payoff matrix anchored at the visual center */}
+      <div className="my-4">
+        <PayoffMatrix bill={bill} chrome={chrome} />
+      </div>
 
-      <dl className="mt-2 space-y-0.5 font-mono text-[10.5px] text-slate-300">
-        <RecipeLine bill={bill} />
-        <AwardsLine bill={bill} />
-        <div className="text-slate-500">
-          cost: <span className="text-slate-300">{mashBillCost(bill)}¢</span>
-          {" · "}
-          rarity: <span className="text-slate-300">{tierOrCommon(bill.tier)}</span>
-        </div>
-      </dl>
+      {/* Recipe chips */}
+      <div className="mt-auto">
+        <SectionLabel chrome={chrome}>Recipe</SectionLabel>
+        <RecipeChips bill={bill} chrome={chrome} />
+      </div>
+
+      {/* Awards */}
+      <div className="mt-3">
+        <SectionLabel chrome={chrome}>Awards</SectionLabel>
+        <AwardsRow bill={bill} />
+      </div>
+
+      {/* Cost footer */}
+      <footer className="mt-3 flex items-center justify-between border-t border-white/10 pt-2.5 font-mono text-[11px] uppercase tracking-[.12em] text-slate-400">
+        <span className="flex items-center gap-1.5">
+          <span className="text-slate-500">cost</span>
+          <MoneyText n={mashBillCost(bill)} className={`font-display text-[15px] font-bold ${chrome.titleInk}`} />
+        </span>
+        <span>{tierOrCommon(bill.tier)}</span>
+      </footer>
     </article>
   );
 }
@@ -199,63 +221,59 @@ function BillDetailPanel({ bill, onBack }: { bill: MashBill; onBack: () => void 
       </button>
       <article
         className={[
-          "rounded-lg border-2 px-6 py-5",
+          "rounded-xl border-2 px-7 py-6 shadow-[0_12px_32px_rgba(0,0,0,.55)]",
           chrome.border,
           chrome.gradient,
           chrome.glow,
         ].join(" ")}
       >
-        <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className={`font-display text-3xl font-bold ${chrome.titleInk}`}>
+        <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h2 className={`font-display text-4xl font-bold leading-tight ${chrome.titleInk}`}>
               {bill.name}
             </h2>
             {bill.slogan ? (
-              <p className={`mt-1 font-mono text-xs italic ${chrome.label}`}>
-                {bill.slogan}
+              <p className={`mt-2 font-display text-base italic ${chrome.label}`}>
+                “{bill.slogan}”
               </p>
             ) : null}
             {bill.flavorText ? (
-              <p className="mt-2 max-w-2xl text-sm text-slate-300">{bill.flavorText}</p>
+              <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-slate-200">{bill.flavorText}</p>
             ) : null}
           </div>
           <span
-            className={`rounded border px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-[.08em] ${ctChrome.pill}`}
+            className={`flex-shrink-0 rounded-md border-2 px-3 py-1.5 font-mono text-[13px] font-bold uppercase tracking-[.10em] ${ctChrome.pill}`}
           >
             {ctChrome.name}
           </span>
         </header>
 
-        <section className="mb-4 grid gap-4 md:grid-cols-2">
+        <section className="mb-5 grid gap-5 md:grid-cols-2">
           <div>
-            <h3 className="mb-2 font-mono text-[10px] uppercase tracking-[.12em] text-slate-400">
-              Payoff grid (rep by age × demand)
-            </h3>
-            <PayoffGrid bill={bill} large />
+            <SectionLabel chrome={chrome}>Reward — reputation by age × demand</SectionLabel>
+            <PayoffMatrix bill={bill} chrome={chrome} large />
           </div>
-          <div className="space-y-3 font-mono text-[12px] text-slate-200">
+          <div className="space-y-4">
             <div>
-              <h3 className="mb-1 font-mono text-[10px] uppercase tracking-[.12em] text-slate-400">
-                Recipe
-              </h3>
-              <RecipeLine bill={bill} verbose />
+              <SectionLabel chrome={chrome}>Recipe</SectionLabel>
+              <RecipeChips bill={bill} chrome={chrome} verbose />
             </div>
             <div>
-              <h3 className="mb-1 font-mono text-[10px] uppercase tracking-[.12em] text-slate-400">
-                Awards
-              </h3>
-              <AwardsLine bill={bill} verbose />
+              <SectionLabel chrome={chrome}>Awards</SectionLabel>
+              <AwardsRow bill={bill} verbose />
             </div>
-            <div className="text-slate-400">
-              Cost to draw: <span className="text-slate-200">{mashBillCost(bill)}¢</span>
-              {" · "}
-              Rarity: <span className="text-slate-200">{tierOrCommon(bill.tier)}</span>
+            <div className="flex items-center gap-4 border-t border-white/10 pt-3 font-mono text-[12px] uppercase tracking-[.12em] text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <span className="text-slate-500">cost to draw</span>
+                <MoneyText n={mashBillCost(bill)} className={`font-display text-lg font-bold ${chrome.titleInk}`} />
+              </span>
+              <span>{tierOrCommon(bill.tier)}</span>
             </div>
           </div>
         </section>
 
-        <section className="rounded-md border border-slate-700/60 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
-          <h3 className="mb-1 font-mono text-[10px] uppercase tracking-[.12em] text-amber-300">
+        <section className="rounded-md border border-slate-700/60 bg-slate-950/50 px-5 py-3.5 text-[14px] leading-relaxed text-slate-300">
+          <h3 className="mb-1 font-mono text-[11px] font-semibold uppercase tracking-[.15em] text-amber-300">
             About {ctChrome.name.split(" · ")[0]}
           </h3>
           <p>{ctChrome.blurb}</p>
@@ -265,132 +283,265 @@ function BillDetailPanel({ bill, onBack }: { bill: MashBill; onBack: () => void 
   );
 }
 
-function PayoffGrid({ bill, large = false }: { bill: MashBill; large?: boolean }) {
-  const headerCellSize = large ? "px-2 py-1 text-[11px]" : "px-1 py-0.5 text-[9.5px]";
-  const dataCellSize = large ? "px-2 py-1 text-[12px]" : "px-1 py-0.5 text-[10.5px]";
+function SectionLabel({ chrome, children }: { chrome: TierChrome; children: React.ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded border border-slate-700/60 bg-slate-950/40">
-      <table className="w-full border-collapse font-mono text-slate-200">
-        <thead>
-          <tr>
-            <th
-              className={`${headerCellSize} border border-slate-800 text-left uppercase tracking-[.08em] text-slate-500`}
+    <h3 className={`mb-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.15em] ${chrome.label}`}>
+      {children}
+    </h3>
+  );
+}
+
+/**
+ * Payoff matrix — reward cells coloured on a heat scale (low / mid /
+ * high) so the player can read where the bill peaks at a glance,
+ * rather than chasing tabular numbers across rows. Axis legends sit
+ * on the outside of the grid; the corner cell carries an "AGE / DEMAND"
+ * note so the matrix is self-documenting.
+ */
+function PayoffMatrix({
+  bill,
+  chrome,
+  large = false,
+}: {
+  bill: MashBill;
+  chrome: TierChrome;
+  large?: boolean;
+}) {
+  const cellPad = large ? "h-14" : "h-11";
+  const cellText = large ? "text-[24px]" : "text-[19px]";
+  const headerText = large ? "text-[12px]" : "text-[11px]";
+  const cornerText = large ? "text-[10px]" : "text-[9px]";
+  const peak = bill.rewardGrid.flat().reduce<number>(
+    (m, c) => (c != null && c > m ? c : m),
+    1,
+  );
+
+  return (
+    <div
+      className="rounded-lg border border-white/15 bg-slate-950/65 p-2.5"
+    >
+      <div
+        className="grid items-stretch gap-1"
+        style={{ gridTemplateColumns: `auto repeat(${bill.demandBands.length}, minmax(0, 1fr))` }}
+      >
+        {/* Corner — axis legend */}
+        <div
+          className={`flex items-center justify-end pr-1 font-mono ${cornerText} font-semibold uppercase leading-tight tracking-[.10em] ${chrome.label} opacity-70`}
+        >
+          <span className="text-right">
+            age ↓<br />demand →
+          </span>
+        </div>
+        {/* Header row — demand bands */}
+        {bill.demandBands.map((d, i) => {
+          const next = bill.demandBands[i + 1];
+          const label = next != null ? `${d}–${next - 1}` : `${d}+`;
+          return (
+            <div
+              key={`d-${i}`}
+              className={`grid place-items-center rounded-sm bg-slate-900/60 py-1 font-mono ${headerText} font-bold uppercase tracking-[.10em] ${chrome.label}`}
             >
-              age \ d
-            </th>
-            {bill.demandBands.map((d, i) => {
-              const next = bill.demandBands[i + 1];
-              return (
-                <th
-                  key={i}
-                  className={`${headerCellSize} border border-slate-800 text-center uppercase tracking-[.08em] text-slate-400`}
+              {label}
+            </div>
+          );
+        })}
+
+        {/* Body rows */}
+        {bill.rewardGrid.map((row, ri) => {
+          const nextAge = bill.ageBands[ri + 1];
+          const ageLabel = nextAge != null ? `${bill.ageBands[ri]}–${nextAge - 1}y` : `${bill.ageBands[ri]}+y`;
+          return (
+            <Fragment key={`r-${ri}`}>
+              <div
+                className={`grid place-items-center rounded-sm bg-slate-900/60 px-2 font-mono ${headerText} font-bold uppercase tracking-[.10em] ${chrome.label}`}
+              >
+                {ageLabel}
+              </div>
+              {row.map((cell, ci) => (
+                <div
+                  key={`${ri}-${ci}`}
+                  className={[
+                    "grid place-items-center rounded-md border border-white/10",
+                    cellPad,
+                    rewardHeatBg(cell, peak),
+                  ].join(" ")}
+                  title={`age ${ageLabel} × demand ${
+                    bill.demandBands[ci]
+                  } → ${cell ?? "—"} rep`}
                 >
-                  {next != null ? `${d}-${next - 1}` : `${d}+`}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {bill.ageBands.map((age, ri) => {
-            const nextAge = bill.ageBands[ri + 1];
-            return (
-              <tr key={ri}>
-                <th
-                  className={`${headerCellSize} border border-slate-800 text-left uppercase tracking-[.08em] text-slate-400`}
-                >
-                  {nextAge != null ? `${age}-${nextAge - 1}` : `${age}+`}
-                </th>
-                {bill.rewardGrid[ri]!.map((cell, ci) => (
-                  <td
-                    key={ci}
-                    className={`${dataCellSize} border border-slate-800 text-center font-semibold ${cell == null ? "text-slate-600" : "text-amber-200"}`}
+                  <span
+                    className={[
+                      "font-display font-bold leading-none tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,.5)]",
+                      cellText,
+                      cell == null ? "text-slate-600" : "text-white",
+                    ].join(" ")}
                   >
                     {cell ?? "—"}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  </span>
+                </div>
+              ))}
+            </Fragment>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function RecipeLine({ bill, verbose = false }: { bill: MashBill; verbose?: boolean }) {
+/** Heat-scale background for a reward cell, scaled vs the bill's peak. */
+function rewardHeatBg(cell: number | null, peak: number): string {
+  if (cell == null) return "bg-slate-900/40";
+  const ratio = cell / Math.max(1, peak);
+  if (ratio >= 0.85) return "bg-amber-500/55 ring-1 ring-amber-300/60";
+  if (ratio >= 0.6) return "bg-amber-700/45 ring-1 ring-amber-400/40";
+  if (ratio >= 0.35) return "bg-amber-900/40";
+  return "bg-slate-900/55";
+}
+
+interface RecipeChip {
+  key: string;
+  /** Display number (e.g. "1", "2") — omitted for the universal "any grain" or for forbidden chips. */
+  count?: number;
+  label: string;
+  /** Resource subtype for chrome lookup; null for forbidden chips with their own styling. */
+  subtype: ResourceSubtype | null;
+  forbidden?: boolean;
+}
+
+function buildRecipeChips(bill: MashBill, includeUniversal: boolean): RecipeChip[] {
   const r = bill.recipe ?? {};
-  const bits: string[] = [];
-  if (r.minCorn && r.minCorn > 1) bits.push(`≥${r.minCorn} corn`);
-  if (r.minRye) bits.push(`≥${r.minRye} rye`);
-  if (r.minBarley) bits.push(`≥${r.minBarley} barley`);
-  if (r.minWheat) bits.push(`≥${r.minWheat} wheat`);
-  if (r.maxRye === 0) bits.push("no rye");
-  else if (r.maxRye != null) bits.push(`≤${r.maxRye} rye`);
-  if (r.maxWheat === 0) bits.push("no wheat");
-  else if (r.maxWheat != null) bits.push(`≤${r.maxWheat} wheat`);
-  if (r.minTotalGrain) bits.push(`grain ≥${r.minTotalGrain}`);
-  if (bits.length === 0) {
-    return verbose ? (
-      <p className="text-slate-300">Universal rule only — 1 cask, ≥1 corn, ≥1 grain.</p>
-    ) : (
-      <div>recipe: <span className="text-slate-200">universal rule</span></div>
-    );
+  const chips: RecipeChip[] = [];
+  if (includeUniversal) {
+    chips.push({ key: "u-cask", count: 1, label: "Cask", subtype: "cask" });
+    chips.push({ key: "u-corn", count: r.minCorn ?? 1, label: "Corn", subtype: "corn" });
+  } else if (r.minCorn && r.minCorn > 1) {
+    chips.push({ key: "corn", count: r.minCorn, label: "Corn", subtype: "corn" });
   }
-  if (verbose) {
+  if (r.minRye) chips.push({ key: "rye", count: r.minRye, label: "Rye", subtype: "rye" });
+  if (r.minBarley) chips.push({ key: "barley", count: r.minBarley, label: "Barley", subtype: "barley" });
+  if (r.minWheat) chips.push({ key: "wheat", count: r.minWheat, label: "Wheat", subtype: "wheat" });
+  if (r.minTotalGrain) {
+    const named = (r.minRye ?? 0) + (r.minBarley ?? 0) + (r.minWheat ?? 0);
+    const wild = Math.max(0, r.minTotalGrain - named);
+    if (wild > 0) chips.push({ key: "grain", count: wild, label: "Any grain", subtype: null });
+  }
+  if (r.maxRye === 0) chips.push({ key: "no-rye", label: "No rye", subtype: "rye", forbidden: true });
+  else if (r.maxRye != null) chips.push({ key: "max-rye", count: r.maxRye, label: `max rye`, subtype: "rye" });
+  if (r.maxWheat === 0) chips.push({ key: "no-wheat", label: "No wheat", subtype: "wheat", forbidden: true });
+  else if (r.maxWheat != null) chips.push({ key: "max-wheat", count: r.maxWheat, label: `max wheat`, subtype: "wheat" });
+  return chips;
+}
+
+function RecipeChips({
+  bill,
+  chrome,
+  verbose = false,
+}: {
+  bill: MashBill;
+  chrome: TierChrome;
+  verbose?: boolean;
+}) {
+  const chips = buildRecipeChips(bill, verbose);
+  if (chips.length === 0) {
     return (
-      <ul className="ml-4 list-disc space-y-0.5 text-slate-200">
-        <li>1 cask, ≥1 corn, ≥1 grain (universal)</li>
-        {bits.map((b) => (
-          <li key={b}>{b}</li>
-        ))}
-      </ul>
+      <p className={`font-mono text-[12px] uppercase tracking-[.10em] ${chrome.label}`}>
+        Universal rule only · 1 cask · 1 corn · 1 grain
+      </p>
     );
   }
   return (
-    <div>
-      recipe: <span className="text-slate-200">{bits.join(" · ")}</span>
+    <div className="flex flex-wrap gap-1.5">
+      {chips.map((c) => (
+        <RecipeChipPill key={c.key} chip={c} />
+      ))}
     </div>
   );
 }
 
-function AwardsLine({ bill, verbose = false }: { bill: MashBill; verbose?: boolean }) {
-  const parts: string[] = [];
-  if (bill.silverAward) {
-    const cond = condText(bill.silverAward);
-    parts.push(`Silver${cond ? ` (${cond})` : ""}`);
-  }
-  if (bill.goldAward) {
-    const cond = condText(bill.goldAward);
-    parts.push(`Gold${cond ? ` (${cond})` : ""}`);
-  }
-  if (parts.length === 0) {
-    return verbose ? (
-      <p className="text-slate-400">No awards.</p>
-    ) : (
-      <div className="text-slate-500">awards: —</div>
+function RecipeChipPill({ chip }: { chip: RecipeChip }) {
+  if (chip.forbidden) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-md border border-rose-400/60 bg-rose-900/30 px-2.5 py-1 font-display text-[14px] font-semibold text-rose-100"
+        title={chip.label}
+      >
+        <span className="font-mono text-[11px] text-rose-300">✕</span>
+        <span>{chip.label}</span>
+      </span>
     );
   }
-  if (verbose) {
+  if (chip.subtype == null) {
     return (
-      <ul className="ml-4 list-disc space-y-0.5 text-slate-200">
-        {parts.map((p) => (
-          <li key={p}>{p}</li>
-        ))}
-      </ul>
+      <span className="inline-flex items-center gap-1.5 rounded-md border-2 border-slate-500 bg-slate-800/70 px-2.5 py-1 font-display text-[15px] font-bold text-slate-100">
+        <span className="font-display text-[18px] tabular-nums">{chip.count ?? 1}</span>
+        <span className="font-mono text-[10.5px] uppercase tracking-[.10em] text-slate-300">
+          {chip.label}
+        </span>
+      </span>
+    );
+  }
+  const chrome = RESOURCE_CHROME[chip.subtype];
+  return (
+    <span
+      className={[
+        "inline-flex items-center gap-1.5 rounded-md border-2 px-2.5 py-1 font-display text-[15px] font-bold",
+        chrome.border,
+        chrome.gradient,
+        chrome.ink,
+      ].join(" ")}
+    >
+      <span className="grid h-5 w-5 place-items-center rounded-full bg-white/15 text-[12px]">
+        {RESOURCE_GLYPH[chip.subtype]}
+      </span>
+      <span className="font-display text-[18px] tabular-nums">{chip.count ?? 1}</span>
+      <span className={`font-mono text-[10.5px] uppercase tracking-[.10em] ${chrome.label}`}>
+        {RESOURCE_LABEL[chip.subtype]}
+      </span>
+    </span>
+  );
+}
+
+function AwardsRow({ bill, verbose = false }: { bill: MashBill; verbose?: boolean }) {
+  const items: { kind: "silver" | "gold"; cond: string }[] = [];
+  if (bill.silverAward) items.push({ kind: "silver", cond: condText(bill.silverAward) });
+  if (bill.goldAward) items.push({ kind: "gold", cond: condText(bill.goldAward) });
+  if (items.length === 0) {
+    return (
+      <p className="font-mono text-[12px] uppercase tracking-[.10em] text-slate-500">
+        None
+      </p>
     );
   }
   return (
-    <div>
-      awards: <span className="text-slate-200">{parts.join(" · ")}</span>
+    <div className={verbose ? "flex flex-col gap-1.5" : "flex flex-wrap gap-1.5"}>
+      {items.map((i) => (
+        <span
+          key={i.kind}
+          className={[
+            "inline-flex items-center gap-1.5 rounded-md border-2 px-2.5 py-1 font-display text-[14px] font-bold",
+            i.kind === "gold"
+              ? "border-amber-300 bg-gradient-to-b from-amber-300 to-amber-600 text-slate-950"
+              : "border-slate-300 bg-gradient-to-b from-slate-300 to-slate-500 text-slate-950",
+          ].join(" ")}
+        >
+          <span className="font-mono text-[11px] uppercase tracking-[.10em]">
+            {i.kind === "gold" ? "🥇 Gold" : "🥈 Silver"}
+          </span>
+          {i.cond ? (
+            <span className="font-mono text-[11px] font-semibold uppercase tracking-[.06em] opacity-80">
+              {i.cond}
+            </span>
+          ) : null}
+        </span>
+      ))}
     </div>
   );
 }
 
 function condText(c: { minAge?: number; minDemand?: number; minReward?: number }): string {
   const bits: string[] = [];
-  if (c.minAge != null) bits.push(`age ≥${c.minAge}`);
-  if (c.minDemand != null) bits.push(`demand ≥${c.minDemand}`);
-  if (c.minReward != null) bits.push(`reward ≥${c.minReward}`);
-  return bits.join(", ");
+  if (c.minAge != null) bits.push(`age ${c.minAge}+`);
+  if (c.minDemand != null) bits.push(`demand ${c.minDemand}+`);
+  if (c.minReward != null) bits.push(`reward ${c.minReward}+`);
+  return bits.join(" · ");
 }
