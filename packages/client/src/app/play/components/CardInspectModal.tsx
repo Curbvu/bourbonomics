@@ -104,14 +104,14 @@ function ResourceDetail({ card }: { card: Card }) {
   return (
     <article
       className={[
-        "relative flex flex-col gap-3 rounded-xl border-2 p-5 shadow-[0_12px_32px_rgba(0,0,0,.55)]",
+        "relative flex flex-col gap-4 rounded-xl border-2 p-5 shadow-[0_12px_32px_rgba(0,0,0,.55)]",
         chrome.gradient,
         chrome.border,
       ].join(" ")}
     >
       <DetailCornerCost cost={cost} />
       <header className="flex items-center justify-between pr-12">
-        <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`font-mono text-[12px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           Resource
         </span>
       </header>
@@ -121,30 +121,20 @@ function ResourceDetail({ card }: { card: Card }) {
         >
           {RESOURCE_GLYPH[subtype]}
         </div>
-        <div className="flex flex-col">
-          <h3 className={`font-display text-2xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
-            {heading}
-          </h3>
-          <span className={`mt-1 font-mono text-[10px] uppercase tracking-[.12em] ${chrome.label}`}>
-            {count > 1 ? `counts as ${count} ${baseLabel.toLowerCase()}` : baseLabel.toLowerCase()}
-            {aliases.length ? ` · subs for ${aliases.join("/")}` : ""}
-          </span>
-        </div>
+        <h3 className={`font-display text-3xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+          {heading}
+        </h3>
       </div>
+      <CountsBadge subtype={subtype} count={count} aliases={aliases} chrome={chrome} />
       {card.flavor ? (
-        <p className={`font-display text-[12px] italic leading-snug ${chrome.label} opacity-95`}>
+        <p className={`font-display text-[15px] italic leading-snug ${chrome.label} opacity-95`}>
           “{card.flavor}”
         </p>
       ) : null}
-      <EffectBlurb effect={card.effect} />
-      <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
-        <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
-          Use
-        </span>
-        <p className="mt-1 text-[13px] leading-snug text-slate-100">
-          Spend as part of a mash to make a barrel, or pay it as {formatMoney(1)} toward any market purchase.
-        </p>
-      </div>
+      <EffectsByPhase effect={card.effect} />
+      <UseBox>
+        Spend as part of a mash to make a barrel, or pay it as {formatMoney(1)} toward any market purchase.
+      </UseBox>
     </article>
   );
 }
@@ -156,19 +146,19 @@ function CapitalDetail({ card }: { card: Card }) {
   return (
     <article
       className={[
-        "relative flex flex-col gap-3 rounded-xl border-2 p-5 shadow-[0_12px_32px_rgba(0,0,0,.55)]",
+        "relative flex flex-col gap-4 rounded-xl border-2 p-5 shadow-[0_12px_32px_rgba(0,0,0,.55)]",
         chrome.gradient,
         chrome.border,
       ].join(" ")}
     >
       <DetailCornerCost cost={cost} />
       <header className="flex items-center justify-between pr-12">
-        <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`font-mono text-[12px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           Capital
         </span>
       </header>
       {card.displayName ? (
-        <h3 className={`font-display text-xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+        <h3 className={`font-display text-2xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
           {card.displayName}
         </h3>
       ) : null}
@@ -177,44 +167,135 @@ function CapitalDetail({ card }: { card: Card }) {
           n={value}
           className={`font-display text-[64px] font-bold leading-none drop-shadow-[0_3px_8px_rgba(0,0,0,.45)] ${chrome.ink}`}
         />
-        <span className={`font-mono text-[11px] uppercase tracking-[.18em] ${chrome.label}`}>
+        <span className={`font-mono text-[12px] uppercase tracking-[.18em] ${chrome.label}`}>
           spend at the market
         </span>
       </div>
       {card.flavor ? (
-        <p className={`font-display text-[12px] italic leading-snug ${chrome.label} opacity-95`}>
+        <p className={`font-display text-[15px] italic leading-snug ${chrome.label} opacity-95`}>
           “{card.flavor}”
         </p>
       ) : null}
-      <EffectBlurb effect={card.effect} />
-      <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
-        <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
-          Use
-        </span>
-        <p className="mt-1 text-[13px] leading-snug text-slate-100">
-          Pays {formatMoney(value)} toward any market purchase. Goes to the discard
-          pile after the action; reshuffles into your deck on cleanup.
-        </p>
-      </div>
+      <EffectsByPhase effect={card.effect} />
+      <UseBox>
+        Pays {formatMoney(value)} toward any market purchase. Goes to the discard
+        pile after the action; reshuffles into your deck on cleanup.
+      </UseBox>
     </article>
   );
 }
 
 /**
- * Human-readable description of any themed-card effect descriptor.
- * Walks composite trees so every leaf gets its own line. Returned as
- * a panel; renders nothing when there is no effect.
+ * Standardized "counts as N X" badge — one prominent, consistent line
+ * for the resource arithmetic so a Double / Specialty's headline stat
+ * is unambiguous at a glance. Aliases (cards that sub for multiple
+ * subtypes) get folded into the same row.
  */
-function EffectBlurb({ effect }: { effect: CardEffect | undefined }) {
-  if (!effect) return null;
-  const lines = describeEffect(effect);
-  if (lines.length === 0) return null;
+function CountsBadge({
+  subtype,
+  count,
+  aliases,
+  chrome,
+}: {
+  subtype: ResourceSubtype;
+  count: number;
+  aliases: ResourceSubtype[];
+  chrome: { border: string; ink: string; label: string };
+}) {
+  const baseLabel = RESOURCE_LABEL[subtype];
   return (
-    <div className="rounded-lg border border-amber-500/40 bg-amber-700/[0.12] p-3">
-      <span className="font-mono text-[10px] uppercase tracking-[.15em] text-amber-300">
-        Effect
+    <div
+      className={[
+        "rounded-lg border-2 bg-slate-950/45 px-4 py-3 text-center",
+        chrome.border,
+      ].join(" ")}
+    >
+      <div className={`font-display text-[22px] font-bold leading-tight ${chrome.ink}`}>
+        Counts as {count} {baseLabel}
+      </div>
+      {aliases.length ? (
+        <div className={`mt-1 font-mono text-[11px] uppercase tracking-[.14em] ${chrome.label}`}>
+          subs for {aliases.map((a) => RESOURCE_LABEL[a]).join(" / ")}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Standardized "Use" panel — every card type renders the same shape so
+ * readers always know where to look for "what does spending this do".
+ */
+function UseBox({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-slate-950/60 p-4">
+      <span className="font-mono text-[11px] uppercase tracking-[.15em] text-slate-400">
+        Use
       </span>
-      <ul className="mt-1 space-y-0.5 text-[12.5px] leading-snug text-amber-50">
+      <p className="mt-1.5 text-[15px] leading-snug text-slate-100">{children}</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Effect rendering
+// ---------------------------------------------------------------
+//
+// A card's effect (or each leaf of a composite tree) fires at exactly
+// one phase: when committed at production, when used as an aging card,
+// when the barrel sells, or when spent at the market. The detail modal
+// groups every leaf by its phase and renders one labeled box per phase
+// — so the player can see at a glance which moments the card matters
+// at, with the same chrome regardless of card type.
+
+type EffectPhase = "on_commit_production" | "on_commit_aging" | "on_sale" | "on_spend";
+
+const PHASE_ORDER: EffectPhase[] = [
+  "on_commit_production",
+  "on_commit_aging",
+  "on_sale",
+  "on_spend",
+];
+
+const PHASE_LABEL: Record<EffectPhase, string> = {
+  on_commit_production: "Mash effect",
+  on_commit_aging: "Age effect",
+  on_sale: "Bourbon effect",
+  on_spend: "Market effect",
+};
+
+const PHASE_HINT: Record<EffectPhase, string> = {
+  on_commit_production: "fires when this card is committed to a mash",
+  on_commit_aging: "fires when this card is placed on a barrel as an aging year",
+  on_sale: "fires when the barrel this card was committed to sells",
+  on_spend: "fires every time this card pays toward a market purchase",
+};
+
+function EffectsByPhase({ effect }: { effect: CardEffect | undefined }) {
+  if (!effect) return null;
+  const grouped = groupEffectByPhase(effect);
+  if (grouped.size === 0) return null;
+  return (
+    <div className="flex flex-col gap-2.5">
+      {PHASE_ORDER.filter((p) => grouped.has(p)).map((phase) => (
+        <EffectBox key={phase} phase={phase} lines={grouped.get(phase)!} />
+      ))}
+    </div>
+  );
+}
+
+function EffectBox({ phase, lines }: { phase: EffectPhase; lines: string[] }) {
+  return (
+    <div className="rounded-lg border border-amber-500/45 bg-amber-700/[0.13] p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-mono text-[12px] font-semibold uppercase tracking-[.15em] text-amber-300">
+          {PHASE_LABEL[phase]}
+        </span>
+        <span className="font-mono text-[10px] italic uppercase tracking-[.12em] text-amber-200/65">
+          {PHASE_HINT[phase]}
+        </span>
+      </div>
+      <ul className="mt-2 space-y-1 text-[15px] leading-snug text-amber-50">
         {lines.map((line, i) => (
           <li key={i}>• {line}</li>
         ))}
@@ -223,72 +304,67 @@ function EffectBlurb({ effect }: { effect: CardEffect | undefined }) {
   );
 }
 
-function describeEffect(effect: CardEffect): string[] {
-  if (effect.kind === "composite") {
-    return effect.effects.flatMap((e) => describeEffect(e));
-  }
-  switch (effect.kind) {
-    case "draw_cards":
-      return [
-        `Draw ${effect.n} card${effect.n === 1 ? "" : "s"} ${whenLabel(effect.when)}.`,
-      ];
-    case "rep_on_sale_flat":
-      return [`Gain +${effect.rep} reputation on sale.`];
-    case "rep_on_sale_if_age_gte":
-      return [
-        `Gain +${effect.rep} reputation on sale if barrel age ≥ ${effect.age}.`,
-      ];
-    case "rep_on_sale_if_demand_gte":
-      return [
-        `Gain +${effect.rep} reputation on sale if demand ≥ ${effect.demand}.`,
-      ];
-    case "rep_on_commit_aging":
-      return [`Gain +${effect.rep} reputation when used as an aging card.`];
-    case "rep_on_market_spend":
-      return [
-        `Gain +${effect.rep} reputation each time this card pays a market purchase.`,
-      ];
-    case "bump_demand":
-      return [
-        `Demand ${effect.delta >= 0 ? "+" : ""}${effect.delta} when committed at production.`,
-      ];
-    case "skip_demand_drop":
-      return ["Demand does not drop when this barrel sells."];
-    case "barrel_starts_aged":
-      return [
-        `Barrel starts at age ${effect.age} when this is committed at production.`,
-      ];
-    case "aging_card_doubled":
-      return [`Adds ${effect.years} years of aging instead of the usual 1.`];
-    case "grid_demand_band_offset":
-      return [
-        `Sale grid reads ${effect.offset > 0 ? "+" : ""}${effect.offset} demand band${
-          Math.abs(effect.offset) === 1 ? "" : "s"
-        }.`,
-      ];
-    case "grid_rep_offset":
-      return [
-        `+${effect.offset} reputation at every grid band for the rest of the barrel's life.`,
-      ];
-    case "returns_to_hand_on_sale":
-      return ["Returns to your hand when the barrel sells (instead of discard)."];
-    default:
-      return [];
-  }
+/**
+ * Walk a (possibly composite) effect tree and bucket every leaf by its
+ * `when` phase. Returns one entry per phase that has at least one
+ * description.
+ */
+function groupEffectByPhase(effect: CardEffect): Map<EffectPhase, string[]> {
+  const out = new Map<EffectPhase, string[]>();
+  const visit = (e: CardEffect): void => {
+    if (e.kind === "composite") {
+      for (const child of e.effects) visit(child);
+      return;
+    }
+    const phase = e.when as EffectPhase;
+    const desc = describeLeafEffect(e);
+    if (!desc) return;
+    const bucket = out.get(phase);
+    if (bucket) bucket.push(desc);
+    else out.set(phase, [desc]);
+  };
+  visit(effect);
+  return out;
 }
 
-function whenLabel(when: string): string {
-  switch (when) {
-    case "on_commit_production":
-      return "when committed at production";
-    case "on_commit_aging":
-      return "when used as an aging card";
-    case "on_sale":
-      return "on sale";
-    case "on_spend":
-      return "when spent at the market";
+/**
+ * One-line description of a single (non-composite) effect leaf. The
+ * "when" framing is owned by the surrounding EffectBox so these lines
+ * stay short and read like card text rather than full sentences with
+ * "on sale, …" prefixes.
+ */
+function describeLeafEffect(effect: CardEffect): string | null {
+  switch (effect.kind) {
+    case "draw_cards":
+      return `Draw ${effect.n} card${effect.n === 1 ? "" : "s"}.`;
+    case "rep_on_sale_flat":
+      return `Gain +${effect.rep} reputation.`;
+    case "rep_on_sale_if_age_gte":
+      return `Gain +${effect.rep} reputation if barrel age ≥ ${effect.age}.`;
+    case "rep_on_sale_if_demand_gte":
+      return `Gain +${effect.rep} reputation if demand ≥ ${effect.demand}.`;
+    case "rep_on_commit_aging":
+      return `Gain +${effect.rep} reputation.`;
+    case "rep_on_market_spend":
+      return `Gain +${effect.rep} reputation.`;
+    case "bump_demand":
+      return `Demand ${effect.delta >= 0 ? "+" : ""}${effect.delta}.`;
+    case "skip_demand_drop":
+      return "Demand does not drop from this sale.";
+    case "barrel_starts_aged":
+      return `Barrel starts at age ${effect.age}.`;
+    case "aging_card_doubled":
+      return `Adds ${effect.years} years of aging instead of the usual 1.`;
+    case "grid_demand_band_offset":
+      return `Sale grid reads ${effect.offset > 0 ? "+" : ""}${effect.offset} demand band${
+        Math.abs(effect.offset) === 1 ? "" : "s"
+      }.`;
+    case "grid_rep_offset":
+      return `+${effect.offset} reputation at every grid band for the rest of the barrel's life.`;
+    case "returns_to_hand_on_sale":
+      return "Returns to your hand instead of going to discard.";
     default:
-      return when;
+      return null;
   }
 }
 
