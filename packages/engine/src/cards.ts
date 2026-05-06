@@ -9,6 +9,41 @@ import type {
 
 // ----- Resource & Capital Card Factories -----
 
+/**
+ * Witty front-of-card copy for the plain (non-premium) starter cards.
+ * Premium variants ship with their own `displayName` + `flavor` via
+ * `makePremiumResource`, so this table only covers the basic 1-unit
+ * versions of each subtype. Keeps every card readable on its face
+ * instead of just "Cask".
+ */
+const BASIC_RESOURCE_COPY: Record<ResourceSubtype, { displayName: string; flavor: string }> = {
+  cask: {
+    displayName: "Common Cask",
+    flavor: "Charred, sealed, waiting on you.",
+  },
+  corn: {
+    displayName: "Common Corn",
+    flavor: "Does most of the work, gets none of the credit.",
+  },
+  rye: {
+    displayName: "Common Rye",
+    flavor: "Pepper for the patient.",
+  },
+  barley: {
+    displayName: "Common Barley",
+    flavor: "The quiet backbone of any mash.",
+  },
+  wheat: {
+    displayName: "Common Wheat",
+    flavor: "Soft mash, slow burn.",
+  },
+};
+
+const BASIC_CAPITAL_COPY = {
+  displayName: "Petty Cash",
+  flavor: "One dollar of trust, ready to spend.",
+};
+
 export function makeResourceCard(
   subtype: ResourceSubtype,
   ownerLabel: string,
@@ -16,7 +51,7 @@ export function makeResourceCard(
   premium = false,
   resourceCount = 1,
 ): Card {
-  return {
+  const card: Card = {
     id: `card_${ownerLabel}_${subtype}${premium ? "x" + resourceCount : ""}_${index}`,
     cardDefId: premium ? `${subtype}_x${resourceCount}` : subtype,
     type: "resource",
@@ -25,6 +60,12 @@ export function makeResourceCard(
     resourceCount,
     cost: premium ? resourceCount : 1,
   };
+  if (!premium) {
+    const copy = BASIC_RESOURCE_COPY[subtype];
+    card.displayName = copy.displayName;
+    card.flavor = copy.flavor;
+  }
+  return card;
 }
 
 /**
@@ -94,13 +135,18 @@ export function makeCapitalCard(
   index: number,
   capitalValue = 1,
 ): Card {
-  return {
+  const card: Card = {
     id: `card_${ownerLabel}_cap${capitalValue}_${index}`,
     cardDefId: capitalValue === 1 ? "capital" : `capital_x${capitalValue}`,
     type: "capital",
     capitalValue,
     cost: capitalValue,
   };
+  if (capitalValue === 1) {
+    card.displayName = BASIC_CAPITAL_COPY.displayName;
+    card.flavor = BASIC_CAPITAL_COPY.flavor;
+  }
+  return card;
 }
 
 // ----- Mash Bill Factory -----

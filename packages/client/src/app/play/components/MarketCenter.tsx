@@ -314,10 +314,15 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
             {card.displayName}
           </h4>
         ) : null}
+        {card.flavor ? (
+          <p className={`mt-0.5 line-clamp-2 font-display text-[7.5px] italic leading-snug ${chrome.label} opacity-90`}>
+            {card.flavor}
+          </p>
+        ) : null}
         <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
           <MoneyText
             n={value}
-            className="font-display text-[24px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
+            className="font-display text-[20px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
           />
           <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
             spend
@@ -349,13 +354,18 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
       <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
         {titleLabel}
       </h4>
+      {card.flavor ? (
+        <p className={`mt-0.5 line-clamp-2 font-display text-[7.5px] italic leading-snug ${chrome.label} opacity-90`}>
+          {card.flavor}
+        </p>
+      ) : null}
       {isWildcard ? (
         <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.10em] ${chrome.label} opacity-90`}>
           wildcard
         </span>
       ) : null}
       <div
-        className={`mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 bg-white/10 text-lg shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
+        className={`mt-auto grid h-8 w-8 self-center place-items-center rounded-full border-2 bg-white/10 text-base shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
       >
         {RESOURCE_GLYPH[subtype]}
       </div>

@@ -462,11 +462,16 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
           </span>
         ) : null}
       </div>
-      <h4 className={`mt-1 font-display text-[13px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
-        {count > 1 ? `${count}× ${RESOURCE_LABEL[subtype]}` : RESOURCE_LABEL[subtype]}
+      <h4 className={`mt-1 line-clamp-2 font-display text-[12px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+        {card.displayName ?? (count > 1 ? `${count}× ${RESOURCE_LABEL[subtype]}` : RESOURCE_LABEL[subtype])}
       </h4>
+      {card.flavor ? (
+        <p className={`mt-0.5 line-clamp-2 font-display text-[8.5px] italic leading-snug ${chrome.label} opacity-90`}>
+          {card.flavor}
+        </p>
+      ) : null}
       <div
-        className={`mt-auto grid h-10 w-10 self-center place-items-center rounded-full border-2 bg-white/10 text-xl shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
+        className={`mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 bg-white/10 text-lg shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
       >
         {RESOURCE_GLYPH[subtype]}
       </div>
@@ -556,10 +561,20 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
           Capital
         </span>
       </div>
+      {card.displayName ? (
+        <h4 className={`mt-0.5 line-clamp-1 font-display text-[11px] font-bold leading-tight ${chrome.ink}`}>
+          {card.displayName}
+        </h4>
+      ) : null}
+      {card.flavor ? (
+        <p className={`mt-0.5 line-clamp-2 font-display text-[8.5px] italic leading-snug ${chrome.label} opacity-90`}>
+          {card.flavor}
+        </p>
+      ) : null}
       <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
         <MoneyText
           n={value}
-          className="font-display text-[34px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
+          className="font-display text-[28px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
         />
         <span className={`mt-1 font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label}`}>
           spend
