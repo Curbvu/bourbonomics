@@ -39,6 +39,15 @@ export interface Card {
   flavor?: string;
   /** Themed-card effect descriptor; resolved at commit/sale/spend time. */
   effect?: CardEffect;
+  /**
+   * v2.7.2: marks Specialty / Double Specialty band cards. Recipes with
+   * `minSpecialty` requirements count only specialty cards of the given
+   * subtype toward the requirement. Independent of `premium` (Doubles
+   * are premium but not specialty); independent of the on-sale rep
+   * effect (the bonus is encoded via `effect`, this flag is the
+   * structural marker).
+   */
+  specialty?: boolean;
 }
 
 // -----------------------------
@@ -85,6 +94,21 @@ export interface MashBillRecipe {
   maxRye?: number;
   maxWheat?: number;
   minTotalGrain?: number;
+  /**
+   * v2.7.2: per-subtype Specialty (or Double Specialty) requirements.
+   * Counts only cards flagged `card.specialty === true`. A
+   * Double Specialty card contributes its `resourceCount` (so a Double
+   * Superior Rye = 2 toward `minSpecialty.rye`). Used by Epic and
+   * Legendary bills (and a handful of Rares) to gate top-tier payouts
+   * behind market-only premium ingredients.
+   */
+  minSpecialty?: {
+    cask?: number;
+    corn?: number;
+    rye?: number;
+    barley?: number;
+    wheat?: number;
+  };
 }
 
 /** Predicate against the resolved sale conditions. All fields are AND-ed. */

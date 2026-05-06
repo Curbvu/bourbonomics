@@ -584,6 +584,29 @@ function recipeSatisfiedByPile(
   if (recipe.maxWheat !== undefined && wheat > recipe.maxWheat) return false;
   const grain = rye + barley + wheat;
   if (grain < Math.max(recipe.minTotalGrain ?? 0, 1)) return false;
+  // v2.7.2: per-subtype Specialty requirements.
+  const sp = recipe.minSpecialty;
+  if (sp) {
+    let spCask = 0,
+      spCorn = 0,
+      spRye = 0,
+      spBarley = 0,
+      spWheat = 0;
+    for (const c of pile) {
+      if (c.type !== "resource" || !c.specialty) continue;
+      const count = c.resourceCount ?? 1;
+      if (c.subtype === "cask") spCask += count;
+      if (c.subtype === "corn") spCorn += count;
+      if (c.subtype === "rye") spRye += count;
+      if (c.subtype === "barley") spBarley += count;
+      if (c.subtype === "wheat") spWheat += count;
+    }
+    if (spCask < (sp.cask ?? 0)) return false;
+    if (spCorn < (sp.corn ?? 0)) return false;
+    if (spRye < (sp.rye ?? 0)) return false;
+    if (spBarley < (sp.barley ?? 0)) return false;
+    if (spWheat < (sp.wheat ?? 0)) return false;
+  }
   return true;
 }
 

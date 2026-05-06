@@ -90,17 +90,25 @@ describe("mash bill complexity tier — representative snapshots", () => {
     ]);
   });
 
-  it("tier 2 representative — Wheat Whisper", () => {
+  it("tier 2 representative — Wheat Whisper (wheated, mid-demand peak)", () => {
     const bill = defaultMashBillCatalog().find((b) => b.defId === "wheat_whisper")!;
     expect(bill.complexityTier).toBe(2);
-    expect(bill.recipe).toEqual({ minWheat: 1, maxRye: 0 });
+    // v2.7.2: uncommons require ≥2 named grain. Wheat Whisper is the
+    // wheated specialist — minWheat 2, no rye allowed.
+    expect(bill.recipe).toEqual({ minWheat: 2, maxRye: 0 });
     expect(peakReward(bill.rewardGrid)).toBeGreaterThanOrEqual(6);
   });
 
-  it("tier 3 representative — Mash Bill No. 7", () => {
+  it("tier 3 representative — Mash Bill No. 7 (epic, requires specialty rye)", () => {
     const bill = defaultMashBillCatalog().find((b) => b.defId === "mash_bill_no_7")!;
     expect(bill.complexityTier).toBe(3);
-    expect(bill.recipe).toEqual({ minBarley: 1, minRye: 1, minWheat: 1 });
+    // v2.7.2: epics gate top payouts behind a specialty card.
+    expect(bill.recipe).toEqual({
+      minBarley: 1,
+      minRye: 1,
+      minWheat: 1,
+      minSpecialty: { rye: 1 },
+    });
     expect(bill.goldAward).toBeDefined();
   });
 });
@@ -110,3 +118,130 @@ function peakReward(grid: (number | null)[][]): number {
   for (const row of grid) for (const cell of row) if (cell != null && cell > best) best = cell;
   return best;
 }
+
+describe("mash bill rarity ramp (v2.7.2)", () => {
+  it("commons carry no recipe constraints (universal rule only)", () => {
+    // Cornbread Line is the lone exception — minCorn: 2 still keeps it
+    // grain-unconstrained.
+    const commons = defaultMashBillCatalog().filter((b) => b.tier === "common");
+    for (const bill of commons) {
+      const r = bill.recipe ?? {};
+      expect(r.minRye ?? 0, `${bill.defId} has minRye constraint`).toBe(0);
+      expect(r.minBarley ?? 0, `${bill.defId} has minBarley constraint`).toBe(0);
+      expect(r.minWheat ?? 0, `${bill.defId} has minWheat constraint`).toBe(0);
+      expect(r.minSpecialty, `${bill.defId} has specialty constraint`).toBeUndefined();
+    }
+  });
+
+  it("uncommons require at least 2 grain (named or via minTotalGrain)", () => {
+    const uncommons = defaultMashBillCatalog().filter((b) => b.tier === "uncommon");
+    expect(uncommons.length).toBeGreaterThan(0);
+    for (const bill of uncommons) {
+      const r = bill.recipe ?? {};
+      const named = (r.minRye ?? 0) + (r.minBarley ?? 0) + (r.minWheat ?? 0);
+      const total = Math.max(named, r.minTotalGrain ?? 0);
+      expect(total, `${bill.defId} doesn't require ≥2 grain`).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("epics and legendaries require at least 1 specialty card", () => {
+    const epics = defaultMashBillCatalog().filter(
+      (b) => b.tier === "epic" || b.tier === "legendary",
+    );
+    expect(epics.length).toBeGreaterThan(0);
+    for (const bill of epics) {
+      const sp = bill.recipe?.minSpecialty ?? {};
+      const total =
+        (sp.cask ?? 0) +
+        (sp.corn ?? 0) +
+        (sp.rye ?? 0) +
+        (sp.barley ?? 0) +
+        (sp.wheat ?? 0);
+      expect(total, `${bill.defId} doesn't require any specialty`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("legendary requires ≥2 specialty units total", () => {
+    const legs = defaultMashBillCatalog().filter((b) => b.tier === "legendary");
+    expect(legs.length).toBeGreaterThan(0);
+    for (const bill of legs) {
+      const sp = bill.recipe?.minSpecialty ?? {};
+      const total =
+        (sp.cask ?? 0) +
+        (sp.corn ?? 0) +
+        (sp.rye ?? 0) +
+        (sp.barley ?? 0) +
+        (sp.wheat ?? 0);
+      expect(total, `${bill.defId} legendary needs ≥2 specialty`).toBeGreaterThanOrEqual(2);
+    }
+  });
+});
+
+describe("grain character — peak demand by dominant grain (v2.7.2)", () => {
+  /**
+   * For each bill with a clear named-grain lean (the dominant grain
+   * has ≥2 units required), the demand column where the top reward
+   * sits should align with that grain's character:
+   *   - rye-heavy   → high demand column (rightmost)
+   *   - wheat-heavy → mid demand column
+   *   - barley-heavy→ low demand column (leftmost)
+   */
+  function peakDemandColumn(bill: { rewardGrid: (number | null)[][] }): number {
+    let bestVal = -1;
+    let bestCol = 0;
+    for (const row of bill.rewardGrid) {
+      for (let ci = 0; ci < row.length; ci++) {
+        const v = row[ci];
+        if (v != null && v > bestVal) {
+          bestVal = v;
+          bestCol = ci;
+        }
+      }
+    }
+    return bestCol;
+  }
+
+  it("rye-heavy bills peak at the highest demand band", () => {
+    const ryeHeavy = defaultMashBillCatalog().filter(
+      (b) => (b.recipe?.minRye ?? 0) >= 2,
+    );
+    expect(ryeHeavy.length).toBeGreaterThan(0);
+    for (const bill of ryeHeavy) {
+      const lastCol = bill.demandBands.length - 1;
+      expect(
+        peakDemandColumn(bill),
+        `${bill.defId} (rye-heavy) doesn't peak at high demand`,
+      ).toBe(lastCol);
+    }
+  });
+
+  it("wheated bills peak in the mid demand band, not the top", () => {
+    const wheated = defaultMashBillCatalog().filter(
+      (b) => (b.recipe?.minWheat ?? 0) >= 2 && b.recipe?.maxRye === 0,
+    );
+    expect(wheated.length).toBeGreaterThan(0);
+    for (const bill of wheated) {
+      const lastCol = bill.demandBands.length - 1;
+      // Mid means: not the leftmost, not the rightmost (so ≥1 and < lastCol).
+      const peak = peakDemandColumn(bill);
+      expect(
+        peak,
+        `${bill.defId} (wheated) doesn't peak at mid demand`,
+      ).toBeGreaterThan(0);
+      expect(peak, `${bill.defId} (wheated) peaks too high`).toBeLessThan(lastCol);
+    }
+  });
+
+  it("barley-heavy bills peak at the lowest demand band", () => {
+    const barleyHeavy = defaultMashBillCatalog().filter(
+      (b) => (b.recipe?.minBarley ?? 0) >= 2,
+    );
+    expect(barleyHeavy.length).toBeGreaterThan(0);
+    for (const bill of barleyHeavy) {
+      expect(
+        peakDemandColumn(bill),
+        `${bill.defId} (barley-heavy) doesn't peak at low demand`,
+      ).toBe(0);
+    }
+  });
+});

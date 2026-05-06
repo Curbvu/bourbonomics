@@ -424,6 +424,8 @@ interface RecipeChip {
   label: string;
   subtype: ResourceSubtype | null;
   forbidden?: boolean;
+  /** v2.7.2: this chip requires a Specialty / Double Specialty card. */
+  specialty?: boolean;
 }
 
 /**
@@ -449,6 +451,25 @@ function buildRecipeChips(bill: MashBill): RecipeChip[] {
   if (minBarley) chips.push({ key: "barley", count: minBarley, label: "Barley", subtype: "barley" });
   if (minWheat) chips.push({ key: "wheat", count: minWheat, label: "Wheat", subtype: "wheat" });
   if (wildGrain > 0) chips.push({ key: "grain", count: wildGrain, label: "Any grain", subtype: null });
+  // v2.7.2: per-subtype Specialty requirements rendered as their own
+  // gold-bordered chips so the player sees "this needs a market-only
+  // premium" at a glance.
+  const sp = r.minSpecialty;
+  if (sp) {
+    const subs: ResourceSubtype[] = ["cask", "corn", "rye", "barley", "wheat"];
+    for (const s of subs) {
+      const n = sp[s];
+      if (n && n > 0) {
+        chips.push({
+          key: `sp-${s}`,
+          count: n,
+          label: `Specialty ${s.charAt(0).toUpperCase() + s.slice(1)}`,
+          subtype: s,
+          specialty: true,
+        });
+      }
+    }
+  }
   if (r.maxRye === 0) chips.push({ key: "no-rye", label: "No rye", subtype: "rye", forbidden: true });
   else if (r.maxRye != null) chips.push({ key: "max-rye", count: r.maxRye, label: "max rye", subtype: "rye" });
   if (r.maxWheat === 0) chips.push({ key: "no-wheat", label: "No wheat", subtype: "wheat", forbidden: true });
@@ -490,6 +511,29 @@ function RecipeChipPill({ chip }: { chip: RecipeChip }) {
     );
   }
   const chrome = RESOURCE_CHROME[chip.subtype];
+  if (chip.specialty) {
+    // v2.7.2: Specialty requirements wear an amber/gold border + a
+    // ★ marker so they read as "luxury upgrade" instead of plain
+    // grain. Subtype colour still bleeds through via the tinted
+    // gradient + ink so rye/wheat/cask remain distinguishable.
+    return (
+      <span
+        className={[
+          "inline-flex items-center gap-1.5 rounded-md border-2 border-amber-300 bg-amber-700/35 px-2.5 py-1 font-display text-[15px] font-bold shadow-[0_0_8px_rgba(252,211,77,.25)]",
+          chrome.ink,
+        ].join(" ")}
+        title={chip.label}
+      >
+        <span className="grid h-5 w-5 place-items-center rounded-full bg-white/15 text-[12px]">
+          {RESOURCE_GLYPH[chip.subtype]}
+        </span>
+        <span className="font-display text-[18px] tabular-nums">{chip.count ?? 1}</span>
+        <span className="font-mono text-[10.5px] font-bold uppercase tracking-[.10em] text-amber-100">
+          ★ Specialty {RESOURCE_LABEL[chip.subtype]}
+        </span>
+      </span>
+    );
+  }
   return (
     <span
       className={[

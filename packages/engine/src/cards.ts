@@ -83,6 +83,8 @@ export function makePremiumResource(spec: {
   cost: number;
   aliases?: ResourceSubtype[];
   effect?: CardEffect;
+  /** v2.7.2: marks a Specialty / Double Specialty card. */
+  specialty?: boolean;
   ownerLabel?: string;
   index: number;
 }): Card {
@@ -99,6 +101,7 @@ export function makePremiumResource(spec: {
     displayName: spec.displayName,
     flavor: spec.flavor,
     effect: spec.effect,
+    specialty: spec.specialty,
   };
 }
 

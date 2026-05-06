@@ -41,10 +41,31 @@ interface ResourceTotals {
   rye: number;
   barley: number;
   wheat: number;
+  /**
+   * v2.7.2: per-subtype Specialty unit counts. A Double Specialty
+   * card contributes its `resourceCount` (so a Double Superior Rye
+   * adds 2 to `specialtyRye`). Used to satisfy `recipe.minSpecialty`.
+   */
+  specialtyCask: number;
+  specialtyCorn: number;
+  specialtyRye: number;
+  specialtyBarley: number;
+  specialtyWheat: number;
 }
 
 function emptyTotals(): ResourceTotals {
-  return { caskSources: 0, corn: 0, rye: 0, barley: 0, wheat: 0 };
+  return {
+    caskSources: 0,
+    corn: 0,
+    rye: 0,
+    barley: 0,
+    wheat: 0,
+    specialtyCask: 0,
+    specialtyCorn: 0,
+    specialtyRye: 0,
+    specialtyBarley: 0,
+    specialtyWheat: 0,
+  };
 }
 
 function totalGrain(t: ResourceTotals): number {
@@ -56,6 +77,10 @@ function totalGrain(t: ResourceTotals): number {
  * Capital cards contribute nothing to recipe totals (they only matter
  * for sale-time composition buffs). Returns silently for non-resource
  * cards so callers can iterate uniformly across mixed piles.
+ *
+ * v2.7.2: Specialty / Double Specialty cards (`card.specialty === true`)
+ * also contribute their `resourceCount` to the per-subtype specialty
+ * tally so recipes with `minSpecialty` requirements can be checked.
  */
 function tallyCard(totals: ResourceTotals, card: Card): void {
   if (card.type !== "resource") return;
@@ -64,6 +89,13 @@ function tallyCard(totals: ResourceTotals, card: Card): void {
   totals.rye += resourceUnits(card, "rye");
   totals.barley += resourceUnits(card, "barley");
   totals.wheat += resourceUnits(card, "wheat");
+  if (card.specialty) {
+    totals.specialtyCask += resourceUnits(card, "cask");
+    totals.specialtyCorn += resourceUnits(card, "corn");
+    totals.specialtyRye += resourceUnits(card, "rye");
+    totals.specialtyBarley += resourceUnits(card, "barley");
+    totals.specialtyWheat += resourceUnits(card, "wheat");
+  }
 }
 
 /**
@@ -86,6 +118,11 @@ function effectiveRecipeMins(
   maxRye: number;
   maxWheat: number;
   minTotalGrain: number;
+  minSpecialtyCask: number;
+  minSpecialtyCorn: number;
+  minSpecialtyRye: number;
+  minSpecialtyBarley: number;
+  minSpecialtyWheat: number;
 } {
   const recipe = bill.recipe ?? {};
   let minRye = recipe.minRye ?? 0;
@@ -118,6 +155,7 @@ function effectiveRecipeMins(
   if (player.pendingMakeDiscount === "grain") {
     minTotalGrain = Math.max(1, minTotalGrain - 1);
   }
+  const sp = recipe.minSpecialty ?? {};
   return {
     minCorn: Math.max(1, recipe.minCorn ?? 0),
     minRye,
@@ -126,6 +164,11 @@ function effectiveRecipeMins(
     maxRye: recipe.maxRye ?? Infinity,
     maxWheat: recipe.maxWheat ?? Infinity,
     minTotalGrain,
+    minSpecialtyCask: sp.cask ?? 0,
+    minSpecialtyCorn: sp.corn ?? 0,
+    minSpecialtyRye: sp.rye ?? 0,
+    minSpecialtyBarley: sp.barley ?? 0,
+    minSpecialtyWheat: sp.wheat ?? 0,
   };
 }
 
@@ -162,6 +205,17 @@ function recipeSatisfied(
   if (totals.rye > mins.maxRye) return { ok: false, reason: `recipe forbids rye > ${mins.maxRye}` };
   if (totals.wheat > mins.maxWheat) return { ok: false, reason: `recipe forbids wheat > ${mins.maxWheat}` };
   if (grain < mins.minTotalGrain) return { ok: false, reason: `recipe requires total grain ≥ ${mins.minTotalGrain}` };
+  // v2.7.2: per-subtype Specialty requirements (Epic / Legendary bills).
+  if (totals.specialtyCask < mins.minSpecialtyCask)
+    return { ok: false, reason: `recipe requires ${mins.minSpecialtyCask} Specialty cask` };
+  if (totals.specialtyCorn < mins.minSpecialtyCorn)
+    return { ok: false, reason: `recipe requires ${mins.minSpecialtyCorn} Specialty corn` };
+  if (totals.specialtyRye < mins.minSpecialtyRye)
+    return { ok: false, reason: `recipe requires ${mins.minSpecialtyRye} Specialty rye` };
+  if (totals.specialtyBarley < mins.minSpecialtyBarley)
+    return { ok: false, reason: `recipe requires ${mins.minSpecialtyBarley} Specialty barley` };
+  if (totals.specialtyWheat < mins.minSpecialtyWheat)
+    return { ok: false, reason: `recipe requires ${mins.minSpecialtyWheat} Specialty wheat` };
   return { ok: true };
 }
 

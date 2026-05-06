@@ -172,13 +172,26 @@ function convertCommitsSatisfyRecipe(
     rye = 0,
     barley = 0,
     wheat = 0;
+  let spCask = 0,
+    spCorn = 0,
+    spRye = 0,
+    spBarley = 0,
+    spWheat = 0;
   for (const card of target.productionCards) {
     if (card.type !== "resource") continue;
-    if (card.subtype === "cask") caskSources += card.resourceCount ?? 1;
-    if (card.subtype === "corn") corn += card.resourceCount ?? 1;
-    if (card.subtype === "rye") rye += card.resourceCount ?? 1;
-    if (card.subtype === "barley") barley += card.resourceCount ?? 1;
-    if (card.subtype === "wheat") wheat += card.resourceCount ?? 1;
+    const count = card.resourceCount ?? 1;
+    if (card.subtype === "cask") caskSources += count;
+    if (card.subtype === "corn") corn += count;
+    if (card.subtype === "rye") rye += count;
+    if (card.subtype === "barley") barley += count;
+    if (card.subtype === "wheat") wheat += count;
+    if (card.specialty) {
+      if (card.subtype === "cask") spCask += count;
+      if (card.subtype === "corn") spCorn += count;
+      if (card.subtype === "rye") spRye += count;
+      if (card.subtype === "barley") spBarley += count;
+      if (card.subtype === "wheat") spWheat += count;
+    }
   }
   const minCorn = Math.max(1, recipe.minCorn ?? 0);
   let minRye = recipe.minRye ?? 0;
@@ -196,6 +209,13 @@ function convertCommitsSatisfyRecipe(
   if (rye < minRye || barley < minBarley || wheat < minWheat) return false;
   if (rye > maxRye || wheat > maxWheat) return false;
   if (grain < minTotal) return false;
+  // v2.7.2: per-subtype Specialty requirements.
+  const sp = recipe.minSpecialty ?? {};
+  if (spCask < (sp.cask ?? 0)) return false;
+  if (spCorn < (sp.corn ?? 0)) return false;
+  if (spRye < (sp.rye ?? 0)) return false;
+  if (spBarley < (sp.barley ?? 0)) return false;
+  if (spWheat < (sp.wheat ?? 0)) return false;
   return true;
 }
 
