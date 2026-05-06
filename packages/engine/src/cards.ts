@@ -157,8 +157,8 @@ interface MashBillSpec {
   flavorText?: string;
   slogan?: string;
   tier?: MashBillTier;
-  ageBands: [number, number, number];
-  demandBands: [number, number, number];
+  ageBands: number[];
+  demandBands: number[];
   rewardGrid: (number | null)[][];
   recipe?: MashBillRecipe;
   silverAward?: MashBill["silverAward"];

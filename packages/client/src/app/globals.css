@@ -804,6 +804,63 @@ body {
 }
 
 /* ----------------------------------------------------------------------
+   "Ready to confirm" pulse for picker confirm buttons (MAKE / AGE /
+   DRAW BILL / BUY MARKET). Fires once all prereqs have been satisfied
+   so the player's eye snaps to the action they need to take.
+   ---------------------------------------------------------------------- */
+
+@keyframes confirm-ready-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(251, 191, 36, 0.55),
+      0 6px 18px rgba(251, 191, 36, 0.30),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(251, 191, 36, 0.18),
+      0 8px 26px rgba(251, 191, 36, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    transform: translateY(-1px) scale(1.03);
+  }
+}
+
+.confirm-ready {
+  animation: confirm-ready-pulse 1.4s ease-in-out infinite;
+  will-change: transform, box-shadow;
+}
+
+/* ----------------------------------------------------------------------
+   Make-bourbon → rickhouse flight. Card-shaped element starts above the
+   MakeOverlay area and lands in the rickhouse slot via a translate set
+   from JS (see MakeFlight.tsx). The transition is what carries it.
+   ---------------------------------------------------------------------- */
+
+@keyframes make-flight-spawn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6) rotate(-2deg);
+    filter: blur(4px) brightness(1.3);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05) rotate(0.4deg);
+    filter: blur(0) brightness(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    filter: blur(0) brightness(1);
+  }
+}
+
+.make-flight-spawn {
+  animation: make-flight-spawn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ----------------------------------------------------------------------
    Draw-bill mini-game focus dimming.
 
    When `body[data-draw-mode]` is set, fade everything out except the

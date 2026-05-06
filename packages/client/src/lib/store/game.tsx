@@ -34,6 +34,7 @@ import {
   initializeGame,
   isGameOver,
   stepOrchestrator,
+  type Barrel,
   type Card,
   type GameAction,
   type GameState,
@@ -93,7 +94,8 @@ export type InspectPayload =
   | { kind: "resource" | "capital"; card: Card; ownerName?: string }
   | { kind: "mashbill"; bill: MashBill; ownerName?: string }
   | { kind: "operations"; card: OperationsCard; ownerName?: string }
-  | { kind: "investment"; card: InvestmentCard };
+  | { kind: "investment"; card: InvestmentCard }
+  | { kind: "barrel"; barrel: Barrel; ownerName?: string };
 
 /**
  * Interactive market-buy mode. While this is non-null the human is in
@@ -165,12 +167,26 @@ export interface LastPurchase {
   seq: number;
 }
 
+/**
+ * Last-bourbon-made snapshot. Mirrors `LastPurchase` but for MAKE_BOURBON
+ * — `MakeFlight` reads `slotId` and `mashBillName` to render a card-
+ * shaped element flying from the make overlay area into the target
+ * rickhouse slot.
+ */
+export interface LastMake {
+  slotId: string;
+  ownerId: string;
+  mashBillName: string;
+  seq: number;
+}
+
 interface AtomicStore {
   state: GameState | null;
   log: LogEntry[];
   seqCounter: number;
   seatMeta: { id: string; logoId?: string; difficulty?: string }[];
   lastPurchase: LastPurchase | null;
+  lastMake: LastMake | null;
 }
 
 export interface GameStore {
@@ -219,6 +235,8 @@ export interface GameStore {
   confirmMake: () => void;
   /** Animation trigger — most recent purchase snapshot. */
   lastPurchase: LastPurchase | null;
+  /** Animation trigger — most recent MAKE_BOURBON snapshot. */
+  lastMake: LastMake | null;
   newGame: (cfg: NewGameConfig) => void;
   step: () => void;
   /** Submit an action directly (used by setup-phase modals). */
@@ -263,6 +281,7 @@ const Ctx = createContext<GameStore>({
   toggleMakeSpend: noop,
   confirmMake: noop,
   lastPurchase: null,
+  lastMake: null,
   newGame: noop,
   step: noop,
   dispatch: noop,
@@ -280,6 +299,7 @@ const EMPTY_STORE: AtomicStore = {
   seqCounter: 0,
   seatMeta: [],
   lastPurchase: null,
+  lastMake: null,
 };
 
 export function GameProvider({ children }: { children: ReactNode }) {
@@ -308,6 +328,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           seqCounter: (saved.log ?? []).length,
           seatMeta: saved.seatMeta ?? [],
           lastPurchase: null,
+          lastMake: null,
         });
       }
       const auto = window.localStorage.getItem(AUTOPLAY_KEY);
@@ -356,12 +377,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
         drawn: captureDrawn(prev.state, result.state, result.action),
       };
       const lastPurchase = capturePurchase(prev, result.action, seq);
+      const lastMake = captureMake(prev, result.state, result.action, seq);
       return {
         ...prev,
         state: result.state,
         log: [...prev.log, entry].slice(-400),
         seqCounter: seq,
         lastPurchase,
+        lastMake,
       };
     });
   }, []);
@@ -379,12 +402,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
         drawn: captureDrawn(prev.state, next, action),
       };
       const lastPurchase = capturePurchase(prev, action, seq);
+      const lastMake = captureMake(prev, next, action, seq);
       return {
         ...prev,
         state: next,
         log: [...prev.log, entry].slice(-400),
         seqCounter: seq,
         lastPurchase,
+        lastMake,
       };
     });
   }, []);
@@ -601,23 +626,38 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const confirmMake = useCallback(() => {
-    if (!makeMode || !makeMode.pickedMashBillId) return;
+    if (!makeMode) return;
     const human = store.state?.players.find((p) => !p.isBot);
     if (!human || !store.state) return;
-    // Auto-pick the first free slot — all slots are equivalent in v2.2.
-    const occupied = new Set(
-      store.state.allBarrels
-        .filter((b) => b.ownerId === human.id)
-        .map((b) => b.slotId),
+    // v2.5 incremental commitment: prefer committing to an existing
+    // under-construction barrel that hasn't been touched this turn.
+    // Otherwise open a new barrel in the first empty slot.
+    const myBarrels = store.state.allBarrels.filter((b) => b.ownerId === human.id);
+    const inProgress = myBarrels.find(
+      (b) => b.phase === "construction" && !b.committedThisTurn,
     );
-    const freeSlot = human.rickhouseSlots.find((s) => !occupied.has(s.id));
-    if (!freeSlot) return;
+    let slotId: string | null = null;
+    if (inProgress) {
+      slotId = inProgress.slotId;
+    } else {
+      const occupied = new Set(myBarrels.map((b) => b.slotId));
+      const freeSlot = human.rickhouseSlots.find((s) => !occupied.has(s.id));
+      if (freeSlot) slotId = freeSlot.id;
+    }
+    if (!slotId) return;
+    // If the targeted barrel already has a bill attached, don't try
+    // to attach a second one — only include `mashBillId` for fresh
+    // attachments.
+    const targetBarrel = inProgress ?? null;
+    const billAlreadyOnBarrel = targetBarrel?.attachedMashBill != null;
     const action: GameAction = {
       type: "MAKE_BOURBON",
       playerId: human.id,
+      slotId,
       cardIds: makeMode.spendCardIds,
-      mashBillId: makeMode.pickedMashBillId,
-      slotId: freeSlot.id,
+      ...(makeMode.pickedMashBillId && !billAlreadyOnBarrel
+        ? { mashBillId: makeMode.pickedMashBillId }
+        : {}),
     };
     setMakeMode(null);
     dispatch(action);
@@ -779,6 +819,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       seqCounter: 0,
       seatMeta: meta,
       lastPurchase: null,
+      lastMake: null,
     });
     setAutoplayState(false);
     setInspect(null);
@@ -851,6 +892,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       toggleMakeSpend,
       confirmMake,
       lastPurchase: store.lastPurchase,
+      lastMake: store.lastMake,
       newGame,
       step,
       dispatch,
@@ -943,4 +985,29 @@ function capturePurchase(
   // only renders resource/capital faces), so for ops we skip the flight
   // and let the BuyOverlay closing be the visual confirmation.
   return prev.lastPurchase;
+}
+
+/**
+ * Snapshot the new barrel's slot + bill name when MAKE_BOURBON
+ * dispatches, so MakeFlight can fly a card-shaped element from the
+ * make overlay area into that slot. Reads from `next` (post-state)
+ * because the new barrel only exists after apply.
+ */
+function captureMake(
+  prev: AtomicStore,
+  next: GameState,
+  action: GameAction,
+  seq: number,
+): LastMake | null {
+  if (action.type !== "MAKE_BOURBON") return prev.lastMake;
+  const barrel = next.allBarrels.find(
+    (b) => b.ownerId === action.playerId && b.slotId === action.slotId,
+  );
+  if (!barrel) return prev.lastMake;
+  return {
+    slotId: barrel.slotId,
+    ownerId: barrel.ownerId,
+    mashBillName: barrel.attachedMashBill?.name ?? "Unnamed barrel",
+    seq,
+  };
 }

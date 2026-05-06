@@ -13,6 +13,7 @@
 
 import { Fragment, useEffect } from "react";
 import type {
+  Barrel,
   Card,
   CardEffect,
   InvestmentCard,
@@ -84,6 +85,8 @@ function Body({ inspect }: { inspect: InspectPayload }) {
       return <OperationsDetail card={inspect.card} />;
     case "investment":
       return <InvestmentDetail card={inspect.card} />;
+    case "barrel":
+      return <BarrelDetail barrel={inspect.barrel} ownerName={inspect.ownerName} />;
   }
 }
 
@@ -304,7 +307,7 @@ function DetailCornerCost({ cost }: { cost: number }) {
  * Demand bands work the same way without the year suffix.
  */
 function bandLabel(
-  bands: readonly [number, number, number],
+  bands: readonly number[],
   idx: number,
   suffix = "",
 ): string {
@@ -321,13 +324,17 @@ function bandLabel(
  * same information is now legible from the matrix itself.
  */
 function RewardMatrix({ bill, chrome }: { bill: MashBill; chrome: TierChrome }) {
-  const ageLabels = [0, 1, 2].map((i) => bandLabel(bill.ageBands, i, "y"));
-  const demandLabels = [0, 1, 2].map((i) => bandLabel(bill.demandBands, i));
+  // v2.5: grids are variable size (commons 1×2 / 2×1, legendaries up
+  // to 3×3 or wider). Iterate the actual band arrays rather than
+  // assuming 3 rows × 3 columns.
+  const ageLabels = bill.ageBands.map((_, i) => bandLabel(bill.ageBands, i, "y"));
+  const demandLabels = bill.demandBands.map((_, i) => bandLabel(bill.demandBands, i));
+  const cols = bill.demandBands.length;
   return (
     <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
       <div
         className="grid items-center gap-x-2 gap-y-2"
-        style={{ gridTemplateColumns: "auto repeat(3, minmax(0, 1fr))" }}
+        style={{ gridTemplateColumns: `auto repeat(${cols}, minmax(0, 1fr))` }}
       >
         {/* Header row: empty corner + demand band labels */}
         <div
@@ -468,9 +475,16 @@ function OperationsDetail({ card }: { card: OperationsCard }) {
         <div className={`grid h-16 w-16 flex-shrink-0 place-items-center rounded-full border-2 bg-white/10 text-2xl shadow-[inset_0_1px_4px_rgba(255,255,255,.18)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}>
           ⚡
         </div>
-        <h3 className={`font-display text-2xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
-          {card.name}
-        </h3>
+        <div className="flex flex-col gap-1">
+          <h3 className={`font-display text-2xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+            {card.name}
+          </h3>
+          {card.flavor ? (
+            <p className={`font-display text-[13px] italic leading-snug ${chrome.label}`}>
+              “{card.flavor}”
+            </p>
+          ) : null}
+        </div>
       </div>
       <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
         <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
@@ -550,5 +564,195 @@ function InvestmentDetail({ card }: { card: InvestmentCard }) {
         Preview · the investment mechanic ships in v2.2.
       </p>
     </article>
+  );
+}
+
+/**
+ * Barrel inspect view — shows everything that's "live state" on a
+ * barrel: the attached mash bill (if any) with its full reward grid,
+ * the current age + phase + completion-round, every committed card
+ * (production pile + aging pile, with the cards rendered by their
+ * subtype palette), and any persistent barrel modifiers (Single
+ * Barrel Cask grid offset, Master Distiller demand offset, Rushed
+ * Shipment extra ages).
+ */
+function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: string }) {
+  const bill = barrel.attachedMashBill;
+  const tier = tierOrCommon(bill?.tier);
+  const chrome = TIER_CHROME[tier];
+  const isAging = barrel.phase === "aging";
+  return (
+    <article
+      className={[
+        "relative flex flex-col gap-3 rounded-xl border-2 p-5 shadow-[0_12px_32px_rgba(0,0,0,.55)]",
+        chrome.gradient,
+        chrome.border,
+      ].join(" ")}
+    >
+      <header className="flex items-baseline justify-between gap-3">
+        <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+          {ownerName ? `${ownerName}'s barrel` : "Barrel"} · {chrome.label_text}
+        </span>
+        <span
+          className={
+            isAging
+              ? "rounded border border-amber-400/60 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.10em] text-amber-200"
+              : "rounded border border-sky-400/60 bg-sky-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.10em] text-sky-200"
+          }
+        >
+          {isAging ? `Aging · ${barrel.age}y` : "Building"}
+        </span>
+      </header>
+
+      <div className="flex items-start gap-4">
+        <div
+          className={`grid h-20 w-20 flex-shrink-0 place-items-center rounded-full border-2 bg-white/10 text-2xl shadow-[inset_0_1px_4px_rgba(255,255,255,.18)] backdrop-blur-sm ${chrome.border} ${chrome.titleInk}`}
+        >
+          🛢
+        </div>
+        <div className="flex flex-col">
+          <h3 className={`font-display text-2xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
+            {bill?.name ?? "In progress"}
+          </h3>
+          {bill?.slogan ? (
+            <p className={`mt-1 font-display text-[12px] italic leading-snug ${chrome.label}`}>
+              “{bill.slogan}”
+            </p>
+          ) : null}
+          {!bill ? (
+            <p className={`mt-1 font-display text-[12px] italic leading-snug ${chrome.label}`}>
+              Attach a mash bill on a future commit to start the recipe.
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Lifecycle facts */}
+      <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/10 bg-slate-950/55 p-3 font-mono text-[11px] uppercase tracking-[.10em] text-slate-400">
+        <BarrelFact label="Phase" value={isAging ? "Aging" : "Construction"} />
+        <BarrelFact label="Age" value={`${barrel.age} yr${barrel.age === 1 ? "" : "s"}`} />
+        <BarrelFact label="Built in" value={`R${barrel.productionRound}`} />
+        <BarrelFact
+          label="Completed"
+          value={barrel.completedInRound != null ? `R${barrel.completedInRound}` : "—"}
+        />
+        <BarrelFact label="Production cards" value={barrel.productionCards.length} />
+        <BarrelFact label="Aging cards" value={barrel.agingCards.length} />
+      </div>
+
+      {/* Persistent modifiers (only render rows that actually fired). */}
+      {barrel.gridRepOffset > 0 ||
+      barrel.demandBandOffset > 0 ||
+      barrel.extraAgesAvailable > 0 ||
+      barrel.inspectedThisRound ||
+      barrel.agedThisRound ? (
+        <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
+          <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
+            Modifiers
+          </span>
+          <ul className="mt-1 space-y-0.5 text-[12px] leading-snug text-slate-100">
+            {barrel.gridRepOffset > 0 ? (
+              <li>+{barrel.gridRepOffset} reputation per grid cell at sale (Single Barrel Cask)</li>
+            ) : null}
+            {barrel.demandBandOffset > 0 ? (
+              <li>Reads grid as if demand were +{barrel.demandBandOffset} (Master Distiller)</li>
+            ) : null}
+            {barrel.extraAgesAvailable > 0 ? (
+              <li>{barrel.extraAgesAvailable} bonus age this round (Rushed Shipment)</li>
+            ) : null}
+            {barrel.inspectedThisRound ? (
+              <li className="text-rose-300">Cannot age this round (Regulatory Inspection)</li>
+            ) : null}
+            {barrel.agedThisRound ? <li>Already aged this round</li> : null}
+          </ul>
+        </div>
+      ) : null}
+
+      {/* Committed pile, by pile and subtype. */}
+      <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
+        <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
+          Committed pile
+        </span>
+        <div className="mt-2 grid gap-2">
+          <CommittedRow label="Production" cards={barrel.productionCards} />
+          <CommittedRow label="Aging" cards={barrel.agingCards} />
+        </div>
+      </div>
+
+      {/* Reward grid — full lookup table for the attached bill. */}
+      {bill ? <RewardMatrix bill={bill} chrome={chrome} /> : null}
+    </article>
+  );
+}
+
+function BarrelFact({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 rounded bg-slate-950/40 px-2 py-1">
+      <span>{label}</span>
+      <span className="font-sans text-[12px] font-semibold normal-case tracking-normal tabular-nums text-slate-100">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+const COMMITTED_PIP_COLOR: Record<string, string> = {
+  cask: "bg-amber-400",
+  corn: "bg-yellow-300",
+  rye: "bg-red-400",
+  barley: "bg-teal-300",
+  wheat: "bg-cyan-300",
+};
+
+function CommittedRow({ label, cards }: { label: string; cards: Card[] }) {
+  if (cards.length === 0) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="w-20 font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+          {label}
+        </span>
+        <span className="font-mono text-[11px] italic text-slate-600">none yet</span>
+      </div>
+    );
+  }
+  // Group by subtype for a tidy summary; render a small pip per card
+  // and a count by subtype on the right so the player sees both
+  // detail and totals at once.
+  const counts = new Map<string, number>();
+  for (const c of cards) {
+    const key = c.type === "capital" ? "capital" : (c.subtype ?? "other");
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-20 font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+        {label}
+      </span>
+      <div className="flex flex-wrap items-center gap-1">
+        {cards.map((c) => {
+          const palette =
+            c.type === "resource" && c.subtype && COMMITTED_PIP_COLOR[c.subtype]
+              ? COMMITTED_PIP_COLOR[c.subtype]
+              : c.type === "capital"
+                ? "bg-emerald-300"
+                : "bg-slate-300";
+          return (
+            <span
+              key={c.id}
+              className={`h-2.5 w-2.5 rounded-full ${palette}`}
+              title={c.displayName ?? c.subtype ?? c.cardDefId}
+              aria-hidden
+            />
+          );
+        })}
+      </div>
+      <span className="ml-auto flex flex-wrap items-baseline gap-1.5 font-mono text-[10px] uppercase tracking-[.10em] text-slate-400">
+        {Array.from(counts.entries()).map(([k, n]) => (
+          <span key={k}>
+            {n}× {k}
+          </span>
+        ))}
+      </span>
+    </div>
   );
 }

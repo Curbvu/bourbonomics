@@ -23,6 +23,16 @@ export function validateAgeBourbon(
   if (barrel.ownerId !== action.playerId) {
     return { legal: false, reason: "you do not own that barrel" };
   }
+  // v2.5 incremental commitment: under-construction barrels do not age.
+  if (barrel.phase !== "aging") {
+    return { legal: false, reason: "barrel is still under construction" };
+  }
+  // A barrel completed in round N first ages in round N+1. The
+  // completion round is "the moment of finishing", not a free aging
+  // round — preserves the temporal cost of a long build.
+  if (barrel.completedInRound != null && state.round <= barrel.completedInRound) {
+    return { legal: false, reason: "barrel just finished construction — first ages next round" };
+  }
   if (barrel.inspectedThisRound) {
     return { legal: false, reason: "barrel is under regulatory inspection this round" };
   }

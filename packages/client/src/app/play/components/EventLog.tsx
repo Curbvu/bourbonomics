@@ -149,7 +149,7 @@ function describe(
     }
     case "MAKE_BOURBON": {
       const barrel = findBarrelBySlot(state, a.playerId, a.slotId);
-      const billName = barrel?.attachedMashBill.name ?? "a barrel";
+      const billName = barrel?.attachedMashBill?.name ?? "a barrel";
       const age = barrel?.age ?? 0;
       return (
         <>
@@ -161,7 +161,7 @@ function describe(
     }
     case "AGE_BOURBON": {
       const barrel = state?.allBarrels.find((b) => b.id === a.barrelId);
-      const billName = barrel?.attachedMashBill.name ?? "a barrel";
+      const billName = barrel?.attachedMashBill?.name ?? "a barrel";
       const age = barrel?.age ?? 0;
       return (
         <>

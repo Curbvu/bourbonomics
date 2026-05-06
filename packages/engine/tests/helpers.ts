@@ -63,6 +63,49 @@ export function advanceToActionPhase(
 }
 
 /**
+ * Wrap the current round by passing every still-active player's turn,
+ * then re-enter the action phase of the next round. Used by tests that
+ * need to age a barrel completed in round N — under v2.5 those barrels
+ * first age in round N+1.
+ *
+ * Pass `seedDecks` to seed each player's deck with a few cards before
+ * the round flip so the next round's DRAW_HAND doesn't auto-skip when
+ * every deck is empty (which happens often in handcrafted unit tests).
+ */
+export function advanceToNextRound(
+  state: GameState,
+  options: {
+    roll?: [number, number];
+    seedDecks?: Record<string, Card[]>;
+  } = {},
+): GameState {
+  const roll = options.roll ?? [3, 3];
+  let s = state;
+  if (options.seedDecks) {
+    s = {
+      ...s,
+      players: s.players.map((p) =>
+        options.seedDecks![p.id] ? { ...p, deck: options.seedDecks![p.id]!.slice() } : p,
+      ),
+    };
+  }
+  for (const p of s.players) {
+    if (s.phase !== "action") break;
+    if (p.outForRound) continue;
+    if (s.players[s.currentPlayerIndex]!.id !== p.id) {
+      s = { ...s, currentPlayerIndex: s.players.findIndex((q) => q.id === p.id) };
+    }
+    s = applyAction(s, { type: "PASS_TURN", playerId: p.id });
+  }
+  // Now in `demand` (or `ended`). Run a full next-round setup: roll +
+  // each player draws.
+  if (s.phase === "demand") {
+    s = advanceToActionPhase(s, roll);
+  }
+  return s;
+}
+
+/**
  * Replace a player's hand and deck for deterministic testing.
  * `cards` becomes the player's hand verbatim; deck is cleared so reshuffles
  * don't re-introduce surprises.
@@ -88,7 +131,7 @@ export function giveHand(state: GameState, playerId: string, cards: Card[]): Gam
 export function placeBarrel(
   state: GameState,
   ownerId: string,
-  mashBill: { id: string; defId: string; name: string; ageBands: readonly [number, number, number]; demandBands: readonly [number, number, number]; rewardGrid: readonly (readonly (number | null)[])[]; recipe?: unknown; silverAward?: unknown; goldAward?: unknown },
+  mashBill: { id: string; defId: string; name: string; ageBands: readonly number[]; demandBands: readonly number[]; rewardGrid: readonly (readonly (number | null)[])[]; recipe?: unknown; silverAward?: unknown; goldAward?: unknown },
   age: number,
   slotId?: string,
   options: { productionCards?: Card[]; agingCards?: Card[] } = {},
@@ -120,6 +163,10 @@ export function placeBarrel(
         id: barrelId,
         ownerId,
         slotId: targetSlot,
+        // Test helpers always produce already-aging barrels. Tests
+        // that need a construction-phase barrel can override after.
+        phase: "aging",
+        completedInRound: 0,
         attachedMashBill: mashBill as never,
         productionCardDefIds: [],
         productionCards: options.productionCards ?? [],
@@ -127,6 +174,7 @@ export function placeBarrel(
         age: effectiveAge,
         productionRound: state.round,
         agedThisRound: false,
+        committedThisTurn: false,
         inspectedThisRound: false,
         extraAgesAvailable: 0,
         gridRepOffset: 0,

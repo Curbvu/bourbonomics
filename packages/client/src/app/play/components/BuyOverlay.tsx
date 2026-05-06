@@ -103,8 +103,8 @@ export default function BuyOverlay() {
           onClick={canConfirm ? confirmBuy : undefined}
           className={
             canConfirm
-              ? "rounded-md border border-amber-500 bg-gradient-to-b from-amber-500 to-amber-700 px-3.5 py-1 font-sans text-[11px] font-bold uppercase tracking-[.05em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-amber-400 hover:to-amber-600"
-              : "rounded-md border border-slate-800 bg-slate-900 px-3.5 py-1 font-sans text-[11px] font-bold uppercase tracking-[.05em] text-slate-600 cursor-not-allowed"
+              ? "confirm-ready rounded-md border border-amber-300 bg-gradient-to-b from-amber-300 to-amber-600 px-5 py-1.5 font-sans text-[13px] font-bold uppercase tracking-[.07em] text-slate-950 hover:from-amber-200 hover:to-amber-500"
+              : "rounded-md border border-slate-800 bg-slate-900 px-5 py-1.5 font-sans text-[13px] font-bold uppercase tracking-[.07em] text-slate-600 cursor-not-allowed"
           }
         >
           Confirm ↵

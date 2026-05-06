@@ -35,6 +35,8 @@ import {
 } from "./handCardStyles";
 import { TIER_CHROME, tierOrCommon } from "./tierStyles";
 import { CornerCost, CornerValue } from "./cardCorners";
+import { useZoneFocusClass } from "./pickerFocus";
+import RecipePips from "./RecipePips";
 import { MoneyText } from "./money";
 
 const CONVEYOR_SIZE = 10;
@@ -63,20 +65,25 @@ export default function MarketCenter() {
   const faceUpInvest = investmentDeck.slice(0, FACEUP_PER_SECTION);
   const remainingInvest = Math.max(0, investmentDeck.length - faceUpInvest.length);
 
+  const conveyorFocus = useZoneFocusClass("market-conveyor");
+  const mashBillsFocus = useZoneFocusClass("market-mash-bills");
+  const opsFocus = useZoneFocusClass("market-ops");
+  const investFocus = useZoneFocusClass("market-investments");
+
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50 p-2.5">
-      {/* Market conveyor */}
-      <section data-market-conveyor="true">
-        <div className="mb-1.5 flex items-baseline justify-between">
-          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-slate-300">
-            Market conveyor
-          </h2>
-          <span className="font-mono text-[9px] uppercase tracking-[.12em] text-slate-500">
-            supply {state.marketSupplyDeck.length} · demand{" "}
-            <span className="text-amber-300 tabular-nums">{state.demand}</span>/12
-          </span>
-        </div>
-        <div className="flex flex-wrap items-stretch justify-between gap-2">
+    // Top-level: every section (Market, Mash bills, Ops, Investments)
+    // is a PEER. They share the same chrome (rounded panel + side
+    // caption + cards) so nothing reads as nested under Market. The
+    // outer wrapper is a flex column that just stacks them with a
+    // tight gap.
+    <div className="flex h-full min-h-0 flex-col gap-1.5 overflow-hidden">
+      <Section
+        title="Market"
+        zone="market-conveyor"
+        focusClass={conveyorFocus}
+        dataAttr="data-market-conveyor"
+      >
+        <div className="flex flex-1 flex-wrap items-stretch justify-between gap-2">
           {state.marketConveyor.map((c, i) => (
             <ConveyorCard key={c.id} card={c} slotIndex={i} />
           ))}
@@ -86,61 +93,71 @@ export default function MarketCenter() {
             <EmptySlot key={`empty-${i}`} />
           ))}
         </div>
-      </section>
+      </Section>
 
-      {/* Three subsections, each with 3 face-up + 1 draw-from-pile.
-          Cards inside each section spread with justify-between so the
-          column width gets used (no dead space on the right edge). */}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
-        <div data-bourbon-row="true" className="contents">
-          <Subsection
-            title="Mash bills"
-            tag={state.finalRoundTriggered ? "final round" : undefined}
-          >
-            <FaceUpRow
-              faceUp={faceUpBills.map((b) => (
-                <MashBillTile key={b.id} bill={b} />
-              ))}
-              placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpBills.length)}
-              pileLabel="Bourbon deck"
-              pileRemaining={remainingBills}
-              pileTone="amber"
-              pileInteractive={drawStep1 && remainingBills > 0}
-              pilePicked={blindPicked}
-              onClickPile={() => setDrawBillTarget({ blind: true })}
-              pileClickTitle="Draw the top mash bill blind (1 card sacrifice)"
-            />
-          </Subsection>
-        </div>
+      {/* Mash bills + Ops + Investments — each is its own peer section,
+          laid out in a grid so they share the available row width. */}
+      <div className="grid grid-cols-1 gap-1.5 lg:grid-cols-3">
+        <Section
+          title="Mash bills"
+          tag={state.finalRoundTriggered ? "final round" : undefined}
+          zone="market-mash-bills"
+          focusClass={mashBillsFocus}
+          dataAttr="data-bourbon-row"
+        >
+          <FaceUpRow
+            faceUp={faceUpBills.map((b) => (
+              <MashBillTile key={b.id} bill={b} />
+            ))}
+            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpBills.length)}
+            pileLabel="Bourbon deck"
+            pileRemaining={remainingBills}
+            pileTone="amber"
+            pileInteractive={drawStep1 && remainingBills > 0}
+            pilePicked={blindPicked}
+            onClickPile={() => setDrawBillTarget({ blind: true })}
+            pileClickTitle="Draw the top mash bill blind (1 card sacrifice)"
+          />
+        </Section>
 
-        <div data-ops-row="true" className="contents">
-          <Subsection title="Operations">
-            <FaceUpRow
-              faceUp={faceUpOps.map((c, i) => (
-                <OpsCardTile key={c.id} card={c} slotIndex={i} />
-              ))}
-              placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpOps.length)}
-              pileLabel="Ops deck"
-              pileRemaining={remainingOps}
-              pileSubLabel={`discard ${state.operationsDiscard.length}`}
-              pileTone="violet"
-            />
-          </Subsection>
-        </div>
+        <Section
+          title="Operations"
+          tag="pending future release"
+          zone="market-ops"
+          focusClass={`${opsFocus} relative pointer-events-none [filter:grayscale(1)_brightness(0.5)] opacity-30`}
+          dataAttr="data-ops-row"
+          overlay={<PendingOverlay />}
+        >
+          <FaceUpRow
+            faceUp={faceUpOps.map((c, i) => (
+              <OpsCardTile key={c.id} card={c} slotIndex={i} />
+            ))}
+            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpOps.length)}
+            pileLabel="Ops deck"
+            pileRemaining={remainingOps}
+            pileSubLabel={`discard ${state.operationsDiscard.length}`}
+            pileTone="violet"
+          />
+        </Section>
 
-        <div data-investments-row="true" className="contents">
-          <Subsection title="Investments" tag="preview · v2.2">
-            <FaceUpRow
-              faceUp={faceUpInvest.map((c) => (
-                <InvestmentCardTile key={c.id} card={c} />
-              ))}
-              placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpInvest.length)}
-              pileLabel="Invest deck"
-              pileRemaining={remainingInvest}
-              pileTone="emerald"
-            />
-          </Subsection>
-        </div>
+        <Section
+          title="Investments"
+          tag="pending future release"
+          zone="market-investments"
+          focusClass={`${investFocus} relative pointer-events-none [filter:grayscale(1)_brightness(0.5)] opacity-30`}
+          dataAttr="data-investments-row"
+          overlay={<PendingOverlay />}
+        >
+          <FaceUpRow
+            faceUp={faceUpInvest.map((c) => (
+              <InvestmentCardTile key={c.id} card={c} />
+            ))}
+            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpInvest.length)}
+            pileLabel="Invest deck"
+            pileRemaining={remainingInvest}
+            pileTone="emerald"
+          />
+        </Section>
       </div>
     </div>
   );
@@ -150,36 +167,85 @@ export default function MarketCenter() {
 // Layout helpers
 // -----------------------------
 
-function Subsection({
+/**
+ * Top-level peer section in the market column. Every section (Market,
+ * Mash bills, Operations, Investments) shares the same chrome:
+ *
+ *   ┌─────────────────────────────────────────────────────┐
+ *   │ T │ ╎  [card] [card] [card] ...                     │
+ *   │ I │ ╎                                                │
+ *   │ T │ ╎                                                │
+ *   │ L │ ╎                                                │
+ *   │ E │ ╎                                                │
+ *   └─────────────────────────────────────────────────────┘
+ *
+ * The vertical title (writing-mode: vertical-rl) anchors the section
+ * without eating a full row of vertical space. A thin vertical lining
+ * (`border-r`) separates the title from the cards so each section
+ * reads as a discrete unit and the layout doesn't look nested.
+ */
+function Section({
   title,
   tag,
-  muted = false,
+  zone,
+  focusClass,
+  dataAttr,
+  overlay,
   children,
 }: {
   title: string;
   tag?: string;
-  muted?: boolean;
+  zone?: string;
+  focusClass?: string;
+  dataAttr?: string;
+  overlay?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const dataProps = dataAttr ? { [dataAttr]: "true" } : {};
   return (
     <section
+      data-zone={zone}
+      {...dataProps}
       className={[
-        "flex flex-col rounded-lg border bg-slate-950/40 p-2",
-        muted ? "border-slate-800/60 opacity-80" : "border-slate-800",
+        "relative flex items-stretch gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-1.5",
+        focusClass ?? "",
       ].join(" ")}
     >
-      <header className="mb-1.5 flex items-baseline justify-between gap-2">
-        <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-slate-300">
+      <SideCaption title={title} tag={tag} />
+      <div className="flex flex-1 items-start">{children}</div>
+      {overlay}
+    </section>
+  );
+}
+
+/**
+ * Vertical-rl section caption + a thin lining separator pinned to the
+ * left of a row. Reads bottom-to-top so the text length doesn't eat
+ * horizontal space, and the lining gives each section a clear visual
+ * anchor.
+ */
+function SideCaption({ title, tag }: { title: string; tag?: string }) {
+  return (
+    <div className="flex flex-shrink-0 items-stretch">
+      <div className="flex flex-col items-center justify-between gap-1 px-1 py-0.5">
+        <span
+          className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-slate-200"
+          style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+        >
           {title}
-        </h3>
+        </span>
         {tag ? (
-          <span className="rounded border border-amber-500 bg-amber-700/[0.20] px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[.10em] text-amber-200">
+          <span
+            className="rounded border border-amber-500 bg-amber-700/[0.20] px-1 py-0.5 font-mono text-[7.5px] font-semibold uppercase tracking-[.10em] text-amber-200"
+            style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+          >
             {tag}
           </span>
         ) : null}
-      </header>
-      <div className="flex flex-1 items-start">{children}</div>
-    </section>
+      </div>
+      {/* Vertical lining — anchors the title against the card row. */}
+      <div className="w-px self-stretch bg-slate-700/60" aria-hidden />
+    </div>
   );
 }
 
@@ -305,12 +371,12 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
         <CornerValue value={value} />
         <CornerCost cost={cost} />
         <div className="flex items-baseline justify-center px-7">
-          <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+          <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
             Capital
           </span>
         </div>
         {card.displayName ? (
-          <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+          <h4 className={`mt-0.5 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
             {card.displayName}
           </h4>
         ) : null}
@@ -347,11 +413,11 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
       <CornerValue value={value} />
       <CornerCost cost={cost} />
       <div className="flex items-baseline justify-center px-7">
-        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+        <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {RESOURCE_LABEL[subtype]}
         </span>
       </div>
-      <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+      <h4 className={`mt-0.5 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
         {titleLabel}
       </h4>
       {card.flavor ? (
@@ -422,7 +488,7 @@ function MashBillTile({ bill }: { bill: MashBill }) {
       <Sheen />
       <CornerCost cost={bill.cost ?? 2} />
       <div className="flex items-baseline justify-between pr-7">
-        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+        <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {chrome.label_text}
         </span>
         {bill.goldAward ? (
@@ -431,7 +497,7 @@ function MashBillTile({ bill }: { bill: MashBill }) {
           <span className="text-[9px]" aria-hidden>🥈</span>
         ) : null}
       </div>
-      <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
+      <h4 className={`mt-0.5 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
         {bill.name}
       </h4>
       {bill.slogan ? (
@@ -439,6 +505,7 @@ function MashBillTile({ bill }: { bill: MashBill }) {
           {bill.slogan}
         </p>
       ) : null}
+      <RecipePips bill={bill} />
       <div className="mt-auto flex items-baseline justify-center gap-1">
         <span className={`font-display text-[16px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
           {floor}–{peak}
@@ -487,11 +554,11 @@ function InvestmentCardTile({ card }: { card: InvestmentCard }) {
       <Sheen />
       <CornerCost cost={card.cost} />
       <div className="flex items-baseline justify-between pr-7">
-        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+        <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           Invest
         </span>
       </div>
-      <h4 className={`mt-0.5 line-clamp-2 font-display text-[11px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+      <h4 className={`mt-0.5 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
         {card.name}
       </h4>
       <p className={`mt-0.5 line-clamp-3 font-display text-[9px] italic leading-snug ${chrome.label} opacity-90`}>
@@ -524,15 +591,20 @@ function OpsCardTile({
       <Sheen />
       <CornerCost cost={card.cost} />
       <div className="flex items-baseline justify-between pr-7">
-        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+        <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           Ops
         </span>
       </div>
-      <h4 className={`mt-0.5 line-clamp-3 font-display text-[11px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+      <h4 className={`mt-0.5 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
         {card.name}
       </h4>
+      {card.flavor ? (
+        <p className={`mt-0.5 line-clamp-2 font-display text-[7.5px] italic leading-snug ${chrome.label} opacity-90`}>
+          {card.flavor}
+        </p>
+      ) : null}
       <div
-        className={`mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 bg-white/10 text-lg font-bold ${chrome.border} ${chrome.ink}`}
+        className={`mt-auto grid h-8 w-8 self-center place-items-center rounded-full border-2 bg-white/10 text-base font-bold ${chrome.border} ${chrome.ink}`}
         aria-hidden
       >
         ⚡
@@ -658,7 +730,7 @@ function PileBody({
       <Sheen />
       <div className="pointer-events-none absolute inset-2 rounded border border-white/10" aria-hidden />
       <div className="flex items-baseline justify-between">
-        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${toneChrome.label}`}>
+        <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${toneChrome.label}`}>
           Draw
         </span>
       </div>
@@ -686,5 +758,24 @@ function Sheen() {
       className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
       aria-hidden
     />
+  );
+}
+
+/**
+ * Diagonal "PENDING FUTURE RELEASE" sash anchored to the parent
+ * (which must be `position: relative`). The parent already greys
+ * itself out via grayscale + low opacity; this overlay makes the
+ * "feature off" status legible from across the room.
+ */
+function PendingOverlay() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden [filter:grayscale(0)] opacity-100"
+      aria-hidden
+    >
+      <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/85 px-4 py-1 font-mono text-[12px] font-bold uppercase tracking-[.18em] text-amber-200 shadow-[0_4px_18px_rgba(0,0,0,.65)]">
+        Pending future release
+      </span>
+    </div>
   );
 }

@@ -211,6 +211,10 @@ export function placeStartingBarrel(
     id: barrelId,
     ownerId: player.id,
     slotId: freeSlot.id,
+    // Pre-aged starter barrels skip construction entirely — they
+    // ship aging at age N from round 1.
+    phase: "aging",
+    completedInRound: 0,
     attachedMashBill: bill,
     productionCardDefIds: [],
     productionCards: [],
@@ -218,6 +222,7 @@ export function placeStartingBarrel(
     age: spec.age,
     productionRound: 0,
     agedThisRound: false,
+    committedThisTurn: false,
     inspectedThisRound: false,
     extraAgesAvailable: 0,
     gridRepOffset: 0,

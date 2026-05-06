@@ -1,7 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
 import { makeResourceCard, makeCapitalCard, makeMashBill } from "../src/cards.js";
-import { advanceToActionPhase, firstEmptySlot, giveHand, makeTestGame } from "./helpers.js";
+import {
+  advanceToActionPhase,
+  advanceToNextRound,
+  firstEmptySlot,
+  giveHand,
+  makeTestGame,
+} from "./helpers.js";
 
 const cask = (label: string, i = 0) => makeResourceCard("cask", label, i);
 const corn = (label: string, i = 0) => makeResourceCard("corn", label, i);
@@ -45,7 +51,7 @@ describe("MAKE_BOURBON — happy path", () => {
     const barrel = state.allBarrels[0]!;
     expect(barrel.ownerId).toBe("p1");
     expect(barrel.slotId).toBe(slotId);
-    expect(barrel.attachedMashBill.id).toBe(mbId);
+    expect(barrel.attachedMashBill?.id).toBe(mbId);
     expect(barrel.age).toBe(0);
     expect(barrel.agingCards).toHaveLength(0);
     expect(barrel.productionCards.map((c) => c.id).sort()).toEqual(
@@ -72,24 +78,27 @@ describe("MAKE_BOURBON — happy path", () => {
   });
 });
 
-describe("MAKE_BOURBON — universal recipe rules", () => {
-  it("rejects without a cask", () => {
+describe("MAKE_BOURBON — universal recipe rules (incremental)", () => {
+  // v2.5: partial commits no longer throw. The barrel exists in
+  // construction phase and stays there until the recipe is satisfied.
+  it("a commit without a cask leaves the barrel under construction", () => {
     let state = makeTestGame();
     const mbId = p1MashBillId(state);
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [corn("p1", 0), rye("p1", 1)]);
-    expect(() =>
-      applyAction(state, {
-        type: "MAKE_BOURBON",
-        playerId: "p1",
-        cardIds: ["card_p1_corn_0", "card_p1_rye_1"],
-        mashBillId: mbId,
-        slotId: firstEmptySlot(state, "p1"),
-      }),
-    ).toThrow(/cask/);
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      cardIds: ["card_p1_corn_0", "card_p1_rye_1"],
+      mashBillId: mbId,
+      slotId: firstEmptySlot(state, "p1"),
+    });
+    expect(state.allBarrels).toHaveLength(1);
+    expect(state.allBarrels[0]!.phase).toBe("construction");
+    expect(state.allBarrels[0]!.completedInRound).toBeNull();
   });
 
-  it("rejects more than one cask source", () => {
+  it("rejects committing more than one cask source", () => {
     let state = makeTestGame();
     const mbId = p1MashBillId(state);
     state = advanceToActionPhase(state);
@@ -105,41 +114,39 @@ describe("MAKE_BOURBON — universal recipe rules", () => {
     ).toThrow(/cask/);
   });
 
-  it("rejects without a corn", () => {
+  it("a commit without a corn leaves the barrel under construction", () => {
     let state = makeTestGame();
     const mbId = p1MashBillId(state);
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [cask("p1", 0), rye("p1", 1)]);
-    expect(() =>
-      applyAction(state, {
-        type: "MAKE_BOURBON",
-        playerId: "p1",
-        cardIds: ["card_p1_cask_0", "card_p1_rye_1"],
-        mashBillId: mbId,
-        slotId: firstEmptySlot(state, "p1"),
-      }),
-    ).toThrow(/corn/);
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      cardIds: ["card_p1_cask_0", "card_p1_rye_1"],
+      mashBillId: mbId,
+      slotId: firstEmptySlot(state, "p1"),
+    });
+    expect(state.allBarrels[0]!.phase).toBe("construction");
   });
 
-  it("rejects without any grain", () => {
+  it("a commit without any grain leaves the barrel under construction", () => {
     let state = makeTestGame();
     const mbId = p1MashBillId(state);
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1)]);
-    expect(() =>
-      applyAction(state, {
-        type: "MAKE_BOURBON",
-        playerId: "p1",
-        cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
-        mashBillId: mbId,
-        slotId: firstEmptySlot(state, "p1"),
-      }),
-    ).toThrow(/grain/);
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
+      mashBillId: mbId,
+      slotId: firstEmptySlot(state, "p1"),
+    });
+    expect(state.allBarrels[0]!.phase).toBe("construction");
   });
 });
 
 describe("MAKE_BOURBON — per-bill recipes", () => {
-  it("enforces high-rye recipe (rye >= 3)", () => {
+  it("high-rye recipe completes only when rye ≥ 3", () => {
     const highRye = makeMashBill(
       {
         defId: "high_rye_test",
@@ -155,6 +162,8 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
       },
       99,
     );
+    // 4 cards (cask + corn + 2 rye) — recipe NOT satisfied; barrel
+    // stays in construction.
     let state = makeTestGame({ startingMashBills: [[highRye], []], bourbonDeck: [] });
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [
@@ -163,16 +172,20 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
       rye("p1", 2),
       rye("p1", 3),
     ]);
-    expect(() =>
-      applyAction(state, {
-        type: "MAKE_BOURBON",
-        playerId: "p1",
-        cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2", "card_p1_rye_3"],
-        mashBillId: highRye.id,
-        slotId: firstEmptySlot(state, "p1"),
-      }),
-    ).toThrow(/rye/);
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2", "card_p1_rye_3"],
+      mashBillId: highRye.id,
+      slotId: firstEmptySlot(state, "p1"),
+    });
+    expect(state.allBarrels).toHaveLength(1);
+    expect(state.allBarrels[0]!.phase).toBe("construction");
 
+    // 5 cards (cask + corn + 3 rye) — recipe satisfied; barrel flips
+    // to aging phase.
+    state = makeTestGame({ startingMashBills: [[highRye], []], bourbonDeck: [] });
+    state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [
       cask("p1", 0),
       corn("p1", 1),
@@ -193,7 +206,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
       mashBillId: highRye.id,
       slotId: firstEmptySlot(state, "p1"),
     });
-    expect(state.allBarrels).toHaveLength(1);
+    expect(state.allBarrels[0]!.phase).toBe("aging");
   });
 
   it("enforces wheated recipe (wheat >= 1, no rye)", () => {
@@ -237,7 +250,7 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
     expect(state.allBarrels).toHaveLength(1);
   });
 
-  it("enforces four-grain recipe (rye + barley + wheat all >= 1)", () => {
+  it("four-grain recipe completes only when wheat is also committed", () => {
     const fourGrain = makeMashBill(
       {
         defId: "four_grain_test",
@@ -256,16 +269,17 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
     let state = makeTestGame({ startingMashBills: [[fourGrain], []], bourbonDeck: [] });
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2), barley("p1", 3)]);
-    expect(() =>
-      applyAction(state, {
-        type: "MAKE_BOURBON",
-        playerId: "p1",
-        cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2", "card_p1_barley_3"],
-        mashBillId: fourGrain.id,
-        slotId: firstEmptySlot(state, "p1"),
-      }),
-    ).toThrow(/wheat/);
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2", "card_p1_barley_3"],
+      mashBillId: fourGrain.id,
+      slotId: firstEmptySlot(state, "p1"),
+    });
+    expect(state.allBarrels[0]!.phase).toBe("construction");
 
+    state = makeTestGame({ startingMashBills: [[fourGrain], []], bourbonDeck: [] });
+    state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [
       cask("p1", 0),
       corn("p1", 1),
@@ -286,12 +300,12 @@ describe("MAKE_BOURBON — per-bill recipes", () => {
       mashBillId: fourGrain.id,
       slotId: firstEmptySlot(state, "p1"),
     });
-    expect(state.allBarrels).toHaveLength(1);
+    expect(state.allBarrels[0]!.phase).toBe("aging");
   });
 });
 
 describe("MAKE_BOURBON — slot, mash bill, hand integrity", () => {
-  it("rejects when the chosen slot is already occupied", () => {
+  it("rejects MAKE_BOURBON on a slot whose barrel has already finished construction", () => {
     let state = makeTestGame();
     const mbId = p1MashBillId(state);
     state = advanceToActionPhase(state);
@@ -304,11 +318,12 @@ describe("MAKE_BOURBON — slot, mash bill, hand integrity", () => {
       mashBillId: mbId,
       slotId,
     });
-    // p2's turn now; reset back to p1 with a second mash bill + hand
+    // First MAKE completed the barrel — phase is now "aging". Trying
+    // to commit more cards to the same slot must reject.
+    expect(state.allBarrels[0]!.phase).toBe("aging");
     state = giveHand(state, "p1", [cask("p1", 5), corn("p1", 6), rye("p1", 7)]);
     state = { ...state, currentPlayerIndex: 0 };
     const mb2 = state.players.find((p) => p.id === "p1")!.mashBills[0]!.id;
-    // Re-target the now-occupied slot to assert the rejection.
     expect(() =>
       applyAction(state, {
         type: "MAKE_BOURBON",
@@ -317,7 +332,7 @@ describe("MAKE_BOURBON — slot, mash bill, hand integrity", () => {
         mashBillId: mb2,
         slotId,
       }),
-    ).toThrow(/occupied/);
+    ).toThrow(/finished construction/);
   });
 
   it("rejects an unknown mash bill", () => {
@@ -384,77 +399,18 @@ describe("MAKE_BOURBON — slot, mash bill, hand integrity", () => {
   });
 });
 
-describe("MAKE_BOURBON — 3:1 conversion", () => {
-  it("3:1 conversion produces a missing basic resource", () => {
-    let state = makeTestGame();
-    const mbId = p1MashBillId(state);
-    state = advanceToActionPhase(state);
-    // Hand: cask + corn + 3 capital cards (no grain). Convert 3 capitals → 1 rye.
-    state = giveHand(state, "p1", [
-      cask("p1", 0),
-      corn("p1", 1),
-      cap("p1", 2),
-      cap("p1", 3),
-      cap("p1", 4),
-    ]);
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
-      mashBillId: mbId,
-      slotId: firstEmptySlot(state, "p1"),
-      conversions: [
-        {
-          spendCardIds: ["card_p1_cap1_2", "card_p1_cap1_3", "card_p1_cap1_4"],
-          resourceType: "rye",
-        },
-      ],
-    });
-    expect(state.allBarrels).toHaveLength(1);
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    // Production cards (cask + corn) live on the barrel; conversion
-    // spends (3 capitals) go to discard immediately.
-    const barrel = state.allBarrels[0]!;
-    expect(barrel.productionCards).toHaveLength(2);
-    expect(p1.discard).toHaveLength(3);
-    expect(p1.hand).toHaveLength(0);
-  });
-
-  it("rejects conversion with the wrong card count", () => {
-    let state = makeTestGame();
-    const mbId = p1MashBillId(state);
-    state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), cap("p1", 2), cap("p1", 3)]);
-    expect(() =>
-      applyAction(state, {
-        type: "MAKE_BOURBON",
-        playerId: "p1",
-        cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
-        mashBillId: mbId,
-        slotId: firstEmptySlot(state, "p1"),
-        conversions: [
-          {
-            spendCardIds: ["card_p1_cap1_2", "card_p1_cap1_3"],
-            resourceType: "rye",
-          },
-        ],
-      }),
-    ).toThrow(/3 cards/);
-  });
-});
+// 3:1 Convert was removed in v2.5 (incremental commitment makes
+// stranded resources less common — players just commit what they
+// have and add more later). Tests for the old conversion path were
+// dropped here.
 
 describe("AGE_BOURBON", () => {
   it("places a card on the barrel and increments age", () => {
     let state = makeTestGame();
     const mbId = p1MashBillId(state);
     state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [
-      cask("p1", 0),
-      corn("p1", 1),
-      rye("p1", 2),
-      cap("p1", 3),
-      cap("p1", 4),
-    ]);
+    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2)]);
+    state = giveHand(state, "p2", []);
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
@@ -463,7 +419,11 @@ describe("AGE_BOURBON", () => {
       slotId: firstEmptySlot(state, "p1"),
     });
     const barrelId = state.allBarrels[0]!.id;
-    // v2.2: MAKE doesn't end p1's turn — they can chain into AGE.
+    // v2.5: barrel completed in round 1 — first ages in round 2.
+    state = advanceToNextRound(state, {
+      seedDecks: { p1: [cap("p1", 3), cap("p1", 4)] },
+    });
+    state = { ...state, currentPlayerIndex: 0 };
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
@@ -509,7 +469,8 @@ describe("AGE_BOURBON", () => {
     let state = makeTestGame();
     const mbId = p1MashBillId(state);
     state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2), cap("p1", 3), cap("p1", 4)]);
+    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2)]);
+    state = giveHand(state, "p2", []);
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
@@ -518,7 +479,11 @@ describe("AGE_BOURBON", () => {
       slotId: firstEmptySlot(state, "p1"),
     });
     const barrelId = state.allBarrels[0]!.id;
-    // v2.2: MAKE doesn't end the turn — p1 chains directly into AGE.
+    // v2.5: barrel completed in r1 — first ages in r2.
+    state = advanceToNextRound(state, {
+      seedDecks: { p1: [cap("p1", 3), cap("p1", 4)] },
+    });
+    state = { ...state, currentPlayerIndex: 0 };
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
@@ -577,7 +542,7 @@ describe("PASS_TURN + cleanup", () => {
     let state = makeTestGame();
     const mbId = p1MashBillId(state);
     state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2), cap("p1", 3)]);
+    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2)]);
     state = giveHand(state, "p2", []);
     state = { ...state, currentPlayerIndex: 0 };
     state = applyAction(state, {
@@ -588,17 +553,22 @@ describe("PASS_TURN + cleanup", () => {
       slotId: firstEmptySlot(state, "p1"),
     });
     const barrelId = state.allBarrels[0]!.id;
-    // v2.2: MAKE doesn't end p1's turn — they chain into AGE before passing.
+    // v2.5: barrel completed in r1 — first ages in r2.
+    state = advanceToNextRound(state, {
+      seedDecks: { p1: [cap("p1", 3)] },
+    });
+    state = { ...state, currentPlayerIndex: 0 };
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
       barrelId,
       cardId: "card_p1_cap1_3",
     });
+    // p2 had no deck and was auto-marked out for the round at draw time —
+    // p1's PASS_TURN is enough to wrap the round.
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
     expect(state.phase).toBe("demand");
-    expect(state.round).toBe(2);
+    expect(state.round).toBe(3);
     expect(state.allBarrels[0]!.agedThisRound).toBe(false);
   });
 });

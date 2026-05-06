@@ -1,7 +1,7 @@
 import type { Draft } from "immer";
 import type {
+  Barrel,
   Card,
-  ConvertSpec,
   GameAction,
   GameState,
   MashBill,
@@ -14,9 +14,25 @@ import { resourceUnits, suppliesResource } from "../cards";
 import { applyProductionCommitEffect } from "../card-effects";
 import { isCurrentPlayer } from "../state";
 
-type MakeBourbonAction = Extract<GameAction, { type: "MAKE_BOURBON" }>;
+// ============================================================
+// MAKE_BOURBON — v2.5 incremental commitment.
+//
+// One action that does both jobs: opens a new under-construction
+// barrel in an empty slot, OR commits more cards to an existing
+// under-construction barrel owned by the same player. The mash bill
+// may be attached at open time or any later commitment, but only
+// once. The barrel auto-transitions to `phase: "aging"` the moment
+// its committed pile satisfies (a) the universal rule of exactly 1
+// cask + ≥1 corn + ≥1 grain AND (b) the attached bill's recipe
+// (with distillery + pre-played discounts applied to the cumulative
+// pile). Cards committed during construction are locked with the
+// barrel until sale, identical to the old all-at-once production
+// model. Once-per-turn-per-barrel: a player cannot rapid-fire commit
+// to the same barrel within one turn. Aging-phase barrels are
+// immutable to MAKE_BOURBON.
+// ============================================================
 
-const BASIC_RESOURCES: ResourceSubtype[] = ["cask", "corn", "rye", "barley", "wheat"];
+type MakeBourbonAction = Extract<GameAction, { type: "MAKE_BOURBON" }>;
 
 interface ResourceTotals {
   caskSources: number;
@@ -35,18 +51,41 @@ function totalGrain(t: ResourceTotals): number {
 }
 
 /**
- * Returns the recipe minimums for this player + bill, after distillery
- * bonuses AND any pre-played production discount (Mash Futures relaxes
- * a grain min by 1; Cooper's Contract is handled separately at the
- * universal-cask check).
+ * Tally a card's contribution to the cumulative ingredient totals.
+ * Capital cards contribute nothing to recipe totals (they only matter
+ * for sale-time composition buffs). Returns silently for non-resource
+ * cards so callers can iterate uniformly across mixed piles.
+ */
+function tallyCard(totals: ResourceTotals, card: Card): void {
+  if (card.type !== "resource") return;
+  if (suppliesResource(card, "cask")) totals.caskSources += 1;
+  totals.corn += resourceUnits(card, "corn");
+  totals.rye += resourceUnits(card, "rye");
+  totals.barley += resourceUnits(card, "barley");
+  totals.wheat += resourceUnits(card, "wheat");
+}
+
+/**
+ * Recipe minimums for this player + bill, with distillery and pre-
+ * played discounts (Mash Futures, Cooper's Contract) baked in.
  *
- * Wheated Baron knocks 1 off the wheat min on wheated bills (floor 0;
- * the universal min-1-grain still applies separately).
+ * Wheated Baron applied to wheated bills knocks 1 off `minWheat`
+ * (floor 0). The discount is computed against the cumulative pile —
+ * with incremental commitment we only check satisfaction at the
+ * moment the cumulative cards meet the (discounted) recipe.
  */
 function effectiveRecipeMins(
   player: PlayerState,
   bill: MashBill,
-): { minCorn: number; minRye: number; minBarley: number; minWheat: number; maxRye: number; maxWheat: number; minTotalGrain: number } {
+): {
+  minCorn: number;
+  minRye: number;
+  minBarley: number;
+  minWheat: number;
+  maxRye: number;
+  maxWheat: number;
+  minTotalGrain: number;
+} {
   const recipe = bill.recipe ?? {};
   let minRye = recipe.minRye ?? 0;
   let minBarley = recipe.minBarley ?? 0;
@@ -55,21 +94,27 @@ function effectiveRecipeMins(
     minWheat = Math.max(0, minWheat - 1);
   }
   if (player.pendingMakeDiscount === "grain") {
-    // Mash Futures: knock 1 off the largest grain min that's > 0. If
-    // every grain min is 0 we still apply a -1 to minTotalGrain below.
-    const candidates: ("rye" | "barley" | "wheat")[] = ["rye", "barley", "wheat"];
-    let bestKind: typeof candidates[number] | null = null;
+    // Mash Futures: knock 1 off the largest grain min that's > 0.
+    let bestKind: "rye" | "barley" | "wheat" | null = null;
     let bestVal = 0;
-    if (minRye > bestVal) { bestKind = "rye"; bestVal = minRye; }
-    if (minBarley > bestVal) { bestKind = "barley"; bestVal = minBarley; }
-    if (minWheat > bestVal) { bestKind = "wheat"; bestVal = minWheat; }
+    if (minRye > bestVal) {
+      bestKind = "rye";
+      bestVal = minRye;
+    }
+    if (minBarley > bestVal) {
+      bestKind = "barley";
+      bestVal = minBarley;
+    }
+    if (minWheat > bestVal) {
+      bestKind = "wheat";
+      bestVal = minWheat;
+    }
     if (bestKind === "rye") minRye = Math.max(0, minRye - 1);
     else if (bestKind === "barley") minBarley = Math.max(0, minBarley - 1);
     else if (bestKind === "wheat") minWheat = Math.max(0, minWheat - 1);
   }
   let minTotalGrain = recipe.minTotalGrain ?? 0;
   if (player.pendingMakeDiscount === "grain") {
-    // Floor 1 — the universal "at least 1 grain" rule still holds.
     minTotalGrain = Math.max(1, minTotalGrain - 1);
   }
   return {
@@ -81,6 +126,42 @@ function effectiveRecipeMins(
     maxWheat: recipe.maxWheat ?? Infinity,
     minTotalGrain,
   };
+}
+
+/**
+ * Returns true iff the cumulative committed pile (production cards on
+ * the barrel after this commit) satisfies the universal rule + the
+ * attached bill's recipe. Used both at validation time (to forbid
+ * over-commits past `maxRye` etc.) and at apply time (to decide
+ * whether to flip the barrel to aging).
+ */
+function recipeSatisfied(
+  player: PlayerState,
+  bill: MashBill,
+  totals: ResourceTotals,
+): { ok: boolean; reason?: string } {
+  // Universal rule: exactly 1 cask source per barrel. Cooper's
+  // Contract allows 0.
+  const allowZeroCask = player.pendingMakeDiscount === "cask";
+  const minCaskSources = allowZeroCask ? 0 : 1;
+  if (totals.caskSources < minCaskSources) {
+    return { ok: false, reason: `need ${minCaskSources} cask source` };
+  }
+  if (totals.caskSources > 1) {
+    return { ok: false, reason: "barrel can hold at most 1 cask source" };
+  }
+  if (totals.corn < 1) return { ok: false, reason: "need at least 1 corn" };
+  const grain = totalGrain(totals);
+  if (grain < 1) return { ok: false, reason: "need at least 1 grain" };
+  const mins = effectiveRecipeMins(player, bill);
+  if (totals.corn < mins.minCorn) return { ok: false, reason: `recipe requires corn ≥ ${mins.minCorn}` };
+  if (totals.rye < mins.minRye) return { ok: false, reason: `recipe requires rye ≥ ${mins.minRye}` };
+  if (totals.barley < mins.minBarley) return { ok: false, reason: `recipe requires barley ≥ ${mins.minBarley}` };
+  if (totals.wheat < mins.minWheat) return { ok: false, reason: `recipe requires wheat ≥ ${mins.minWheat}` };
+  if (totals.rye > mins.maxRye) return { ok: false, reason: `recipe forbids rye > ${mins.maxRye}` };
+  if (totals.wheat > mins.maxWheat) return { ok: false, reason: `recipe forbids wheat > ${mins.maxWheat}` };
+  if (grain < mins.minTotalGrain) return { ok: false, reason: `recipe requires total grain ≥ ${mins.minTotalGrain}` };
+  return { ok: true };
 }
 
 export function validateMakeBourbon(
@@ -96,153 +177,100 @@ export function validateMakeBourbon(
     return { legal: false, reason: "it is not your turn" };
   }
 
-  const mashBill = player.mashBills.find((m) => m.id === action.mashBillId);
-  if (!mashBill) {
-    return { legal: false, reason: `mash bill ${action.mashBillId} not in hand` };
-  }
-
-  // Slot must belong to player and be empty.
   const slot = player.rickhouseSlots.find((s) => s.id === action.slotId);
   if (!slot) {
     return { legal: false, reason: `slot ${action.slotId} is not on your distillery card` };
   }
-  const slotOccupied = state.allBarrels.some((b) => b.slotId === action.slotId);
-  if (slotOccupied) {
-    return { legal: false, reason: `slot ${action.slotId} is already occupied` };
-  }
-  // Personal rickhouse full check (informational — slot occupancy already covers it).
-  const used = state.allBarrels.filter((b) => b.ownerId === player.id).length;
-  if (used >= player.rickhouseSlots.length) {
-    return { legal: false, reason: "your rickhouse is full" };
-  }
 
-  // ---- Card-id integrity (uniqueness, hand membership) ----
-  const productionIds = action.cardIds;
-  if (productionIds.length === 0) {
-    return { legal: false, reason: "no production cards specified" };
-  }
-  if (new Set(productionIds).size !== productionIds.length) {
-    return { legal: false, reason: "duplicate card id in production list" };
-  }
+  const existingBarrel = state.allBarrels.find((b) => b.slotId === action.slotId);
+  const opening = existingBarrel == null;
 
-  const conversions = action.conversions ?? [];
-  const allConversionIds: string[] = [];
-  for (const conv of conversions) {
-    const conversionCheck = checkConversion(conv);
-    if (conversionCheck) return conversionCheck;
-    allConversionIds.push(...conv.spendCardIds);
-  }
-  if (new Set(allConversionIds).size !== allConversionIds.length) {
-    return { legal: false, reason: "a card was used in more than one conversion" };
-  }
-  for (const id of allConversionIds) {
-    if (productionIds.includes(id)) {
-      return { legal: false, reason: "a card was used in both production and a conversion" };
+  if (existingBarrel) {
+    if (existingBarrel.ownerId !== player.id) {
+      return { legal: false, reason: `slot ${action.slotId} holds another player's barrel` };
+    }
+    if (existingBarrel.phase !== "construction") {
+      return { legal: false, reason: "that barrel has already finished construction" };
+    }
+    if (existingBarrel.committedThisTurn) {
+      return { legal: false, reason: "you already committed to this barrel this turn" };
     }
   }
 
+  // Action must do *something*: commit ≥1 card OR attach a new bill.
+  const newBillRequested = action.mashBillId != null;
+  const cardCount = action.cardIds.length;
+  if (cardCount === 0 && !newBillRequested) {
+    return { legal: false, reason: "must commit at least one card or attach a mash bill" };
+  }
+  if (opening && cardCount === 0 && !newBillRequested) {
+    // Already covered above; explicit for opening clarity.
+    return { legal: false, reason: "starting a barrel requires committing at least one card or attaching a mash bill" };
+  }
+
+  // Personal rickhouse full check (only blocks opening — committing to
+  // an existing barrel doesn't take a new slot).
+  if (opening) {
+    const used = state.allBarrels.filter((b) => b.ownerId === player.id).length;
+    if (used >= player.rickhouseSlots.length) {
+      return { legal: false, reason: "your rickhouse is full" };
+    }
+  }
+
+  // ---- Mash bill attach validation ----
+  let mashBillToAttach: MashBill | null = null;
+  if (newBillRequested) {
+    const bill = player.mashBills.find((m) => m.id === action.mashBillId);
+    if (!bill) {
+      return { legal: false, reason: `mash bill ${action.mashBillId} not in hand` };
+    }
+    if (existingBarrel?.attachedMashBill != null) {
+      return { legal: false, reason: "this barrel already has a mash bill attached" };
+    }
+    mashBillToAttach = bill;
+  }
+
+  // ---- Card integrity ----
+  if (new Set(action.cardIds).size !== cardCount) {
+    return { legal: false, reason: "duplicate card id in commit list" };
+  }
   const handIds = new Set(player.hand.map((c) => c.id));
-  const allSpent = [...productionIds, ...allConversionIds];
-  for (const id of allSpent) {
+  for (const id of action.cardIds) {
     if (!handIds.has(id)) {
       return { legal: false, reason: `card ${id} is not in your hand` };
     }
   }
 
-  // ---- Resource accounting ----
+  // ---- Cumulative resource totals (existing pile + this commit) ----
   const cardById = new Map(player.hand.map((c) => [c.id, c]));
   const totals = emptyTotals();
-
-  for (const id of productionIds) {
+  if (existingBarrel) {
+    for (const card of existingBarrel.productionCards) tallyCard(totals, card);
+  }
+  for (const id of action.cardIds) {
     const card = cardById.get(id)!;
-    if (card.type !== "resource") {
-      return { legal: false, reason: `card ${id} is not a resource card` };
+    if (card.type !== "resource" && card.type !== "capital") {
+      return { legal: false, reason: `card ${id} cannot be committed to a barrel` };
     }
-    if (suppliesResource(card, "cask")) totals.caskSources += 1;
-    totals.corn += resourceUnits(card, "corn");
-    totals.rye += resourceUnits(card, "rye");
-    totals.barley += resourceUnits(card, "barley");
-    totals.wheat += resourceUnits(card, "wheat");
-  }
-  for (const conv of conversions) {
-    addConversionToTotals(totals, conv.resourceType);
+    tallyCard(totals, card);
   }
 
-  // Cooper's Contract relaxes the cask requirement to 0-or-1; otherwise
-  // the universal rule is exactly 1 cask source per barrel.
-  const allowZeroCask = player.pendingMakeDiscount === "cask";
-  const minCaskSources = allowZeroCask ? 0 : 1;
-  const maxCaskSources = 1;
-  if (totals.caskSources < minCaskSources || totals.caskSources > maxCaskSources) {
-    return {
-      legal: false,
-      reason: allowZeroCask
-        ? `must use 0 or 1 cask source per barrel (got ${totals.caskSources})`
-        : `must use exactly 1 cask source per barrel (got ${totals.caskSources})`,
-    };
+  // Hard upper limits — block over-commits that would strand the barrel.
+  if (totals.caskSources > 1) {
+    return { legal: false, reason: "barrel can hold at most 1 cask source" };
   }
-  if (totals.corn < 1) return { legal: false, reason: "need at least 1 corn" };
-  const grain = totalGrain(totals);
-  if (grain < 1) return { legal: false, reason: "need at least 1 grain" };
-
-  // ---- Per-bill recipe (with distillery bonus applied) ----
-  const mins = effectiveRecipeMins(player, mashBill);
-  if (totals.corn < mins.minCorn) {
-    return { legal: false, reason: `recipe requires corn >= ${mins.minCorn}` };
-  }
-  if (totals.rye < mins.minRye) {
-    return { legal: false, reason: `recipe requires rye >= ${mins.minRye}` };
-  }
-  if (totals.barley < mins.minBarley) {
-    return { legal: false, reason: `recipe requires barley >= ${mins.minBarley}` };
-  }
-  if (totals.wheat < mins.minWheat) {
-    return { legal: false, reason: `recipe requires wheat >= ${mins.minWheat}` };
-  }
-  if (totals.rye > mins.maxRye) {
-    return { legal: false, reason: `recipe forbids rye > ${mins.maxRye}` };
-  }
-  if (totals.wheat > mins.maxWheat) {
-    return { legal: false, reason: `recipe forbids wheat > ${mins.maxWheat}` };
-  }
-  if (grain < mins.minTotalGrain) {
-    return { legal: false, reason: `recipe requires total grain >= ${mins.minTotalGrain}` };
+  const billForLimits = existingBarrel?.attachedMashBill ?? mashBillToAttach;
+  if (billForLimits) {
+    const mins = effectiveRecipeMins(player, billForLimits);
+    if (totals.rye > mins.maxRye) {
+      return { legal: false, reason: `recipe forbids rye > ${mins.maxRye}` };
+    }
+    if (totals.wheat > mins.maxWheat) {
+      return { legal: false, reason: `recipe forbids wheat > ${mins.maxWheat}` };
+    }
   }
 
   return { legal: true };
-}
-
-function checkConversion(conv: ConvertSpec): ValidationResult | null {
-  if (conv.spendCardIds.length !== 3) {
-    return { legal: false, reason: "each 3:1 conversion must spend exactly 3 cards" };
-  }
-  if (new Set(conv.spendCardIds).size !== 3) {
-    return { legal: false, reason: "duplicate card id within a conversion" };
-  }
-  if (!BASIC_RESOURCES.includes(conv.resourceType)) {
-    return { legal: false, reason: `cannot convert to ${conv.resourceType} (basic types only)` };
-  }
-  return null;
-}
-
-function addConversionToTotals(totals: ResourceTotals, type: ResourceSubtype): void {
-  switch (type) {
-    case "cask":
-      totals.caskSources += 1;
-      break;
-    case "corn":
-      totals.corn += 1;
-      break;
-    case "rye":
-      totals.rye += 1;
-      break;
-    case "barley":
-      totals.barley += 1;
-      break;
-    case "wheat":
-      totals.wheat += 1;
-      break;
-  }
 }
 
 export function applyMakeBourbon(
@@ -250,72 +278,81 @@ export function applyMakeBourbon(
   action: MakeBourbonAction,
 ): void {
   const player = draft.players.find((p) => p.id === action.playerId)!;
-
-  // Detach the mash bill from the player's hand.
-  const mashIdx = player.mashBills.findIndex((m) => m.id === action.mashBillId);
-  const mashBill = player.mashBills.splice(mashIdx, 1)[0]! as MashBill;
-
-  // Capture production card-def ids + the actual Card objects before
-  // mutating hand. Production cards stay LOCKED with the barrel until
-  // sale — they don't go to discard at production time. That's both
-  // the rule and what lets sale-time effects (e.g. returns_to_hand,
-  // grid offsets) read the cards under the barrel.
   const cardById = new Map(player.hand.map((c) => [c.id, c as Card]));
-  const productionCardDefIds = action.cardIds.map((id) => cardById.get(id)!.cardDefId);
-  const productionCards: Card[] = action.cardIds.map((id) => cardById.get(id)!);
+  const newCards: Card[] = action.cardIds.map((id) => cardById.get(id)!);
+  const newCardIds = new Set(action.cardIds);
 
-  // Partition hand: production (→ barrel) | conversion (→ discard) | remaining.
-  const conversionIds = new Set((action.conversions ?? []).flatMap((c) => c.spendCardIds));
-  const productionIds = new Set(action.cardIds);
-
-  const newHand: Card[] = [];
-  const conversionSpent: Card[] = [];
-  for (const card of player.hand) {
-    if (productionIds.has(card.id)) {
-      // production cards already captured above
-    } else if (conversionIds.has(card.id)) {
-      conversionSpent.push(card);
-    } else {
-      newHand.push(card);
+  // Detach mash bill if this action attaches one.
+  let billToAttach: MashBill | null = null;
+  if (action.mashBillId != null) {
+    const idx = player.mashBills.findIndex((m) => m.id === action.mashBillId);
+    if (idx >= 0) {
+      billToAttach = player.mashBills.splice(idx, 1)[0]! as MashBill;
     }
   }
-  player.hand = newHand;
-  // Conversion cards (3:1 spends) go to discard immediately — they
-  // are not "locked with the barrel" since they were converted, not
-  // committed in their own right. Effects do NOT fire for them.
-  player.discard.push(...conversionSpent);
 
-  // Mint the barrel.
-  const barrelId = `barrel_${draft.idCounter}`;
-  draft.idCounter += 1;
-  draft.allBarrels.push({
-    id: barrelId,
-    ownerId: player.id,
-    slotId: action.slotId,
-    attachedMashBill: mashBill,
-    productionCardDefIds,
-    productionCards,
-    agingCards: [],
-    age: 0,
-    productionRound: draft.round,
-    agedThisRound: false,
-    inspectedThisRound: false,
-    extraAgesAvailable: 0,
-    gridRepOffset: 0,
-    demandBandOffset: 0,
-  });
+  // Remove committed cards from the player's hand.
+  player.hand = player.hand.filter((c) => !newCardIds.has(c.id));
 
-  // Fire on_commit_production effects for each production card.
-  // Resolved AFTER the barrel is in `allBarrels` so effects can read
-  // the live barrel reference.
-  const barrel = draft.allBarrels[draft.allBarrels.length - 1]!;
-  for (const card of productionCards) {
+  // Locate or mint the barrel.
+  let barrel = draft.allBarrels.find((b) => b.slotId === action.slotId);
+  if (!barrel) {
+    const barrelId = `barrel_${draft.idCounter}`;
+    draft.idCounter += 1;
+    draft.allBarrels.push({
+      id: barrelId,
+      ownerId: player.id,
+      slotId: action.slotId,
+      phase: "construction",
+      completedInRound: null,
+      attachedMashBill: billToAttach,
+      productionCardDefIds: [],
+      productionCards: [],
+      agingCards: [],
+      age: 0,
+      productionRound: draft.round,
+      agedThisRound: false,
+      committedThisTurn: false,
+      inspectedThisRound: false,
+      extraAgesAvailable: 0,
+      gridRepOffset: 0,
+      demandBandOffset: 0,
+    });
+    barrel = draft.allBarrels[draft.allBarrels.length - 1]!;
+  } else if (billToAttach && barrel.attachedMashBill == null) {
+    barrel.attachedMashBill = billToAttach;
+  }
+
+  // Append the newly committed cards to the production pile.
+  for (const card of newCards) {
+    barrel.productionCards.push(card);
+    barrel.productionCardDefIds.push(card.cardDefId);
+  }
+
+  // Fire on_commit_production effects only for the cards committed by
+  // this action (existing cards already had their effects fire when
+  // they were originally committed).
+  for (const card of newCards) {
     applyProductionCommitEffect(draft, player, barrel, card);
   }
-  // Pre-played production discount (Mash Futures / Cooper's Contract)
-  // is consumed by this make, regardless of whether it actually changed
-  // the recipe outcome.
-  player.pendingMakeDiscount = null;
+
+  // Once-per-turn-per-barrel gate.
+  barrel.committedThisTurn = true;
+
+  // Completion check. A barrel can only complete with a bill attached.
+  if (barrel.attachedMashBill != null) {
+    const totals = emptyTotals();
+    for (const card of barrel.productionCards) tallyCard(totals, card);
+    const result = recipeSatisfied(player, barrel.attachedMashBill, totals);
+    if (result.ok) {
+      barrel.phase = "aging";
+      barrel.completedInRound = draft.round;
+      // Pre-played production discount is consumed at the moment of
+      // completion — not at every individual commit. If the barrel
+      // never completes, the discount stays armed for a future build.
+      player.pendingMakeDiscount = null;
+    }
+  }
   // v2.2: production does NOT end the player's turn — the active player
   // continues taking actions until they pass or run out of legal plays.
 }

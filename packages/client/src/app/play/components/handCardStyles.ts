@@ -33,48 +33,67 @@ export type CardChrome = {
   label: string;
 };
 
+// Resource chromes — picked for maximum complementary contrast across
+// the row so a glance at the hand reads as five distinct colours, not
+// "five gradients in similar warm tones".
+//
+//   cask    — whiskey-barrel brown (warm wood)
+//   corn    — golden yellow
+//   barley  — vivid forest green   (contrasts capital's indigo)
+//   rye     — blood crimson         (contrasts wheat's cyan)
+//   wheat   — pale cyan/sky         (contrasts rye's red)
+//   capital — royal indigo          (contrasts corn's yellow, distinct
+//                                    from ops which is violet/purple)
 export const RESOURCE_CHROME: Record<ResourceSubtype, CardChrome> = {
   cask: {
-    gradient: "bg-gradient-to-b from-amber-600/90 via-amber-900/90 to-slate-950",
-    border: "border-amber-400",
-    borderSoft: "border-amber-500/40",
+    // Warm wood brown — built from amber → stone instead of slate so
+    // the body really reads as oak, not "dark-blue with an amber hat".
+    gradient: "bg-gradient-to-b from-amber-700/95 via-[#5a2f12]/95 to-stone-950",
+    border: "border-amber-500",
+    borderSoft: "border-amber-600/45",
     ink: "text-amber-50",
     label: "text-amber-200",
   },
   corn: {
-    gradient: "bg-gradient-to-b from-yellow-500/90 via-yellow-800/90 to-slate-950",
-    border: "border-yellow-300",
-    borderSoft: "border-yellow-400/40",
+    gradient: "bg-gradient-to-b from-yellow-300/95 via-amber-700/90 to-slate-950",
+    border: "border-yellow-200",
+    borderSoft: "border-yellow-300/45",
     ink: "text-yellow-50",
-    label: "text-yellow-200",
+    label: "text-yellow-100",
   },
   barley: {
-    gradient: "bg-gradient-to-b from-lime-500/90 via-lime-800/90 to-slate-950",
-    border: "border-lime-300",
-    borderSoft: "border-lime-400/40",
-    ink: "text-lime-50",
-    label: "text-lime-200",
+    // Teal — sits between capital (green) and wheat (cyan) without
+    // colliding with either, and stays a distinct hue from the warm
+    // cask/corn/rye column.
+    gradient: "bg-gradient-to-b from-teal-300/95 via-teal-800/90 to-slate-950",
+    border: "border-teal-200",
+    borderSoft: "border-teal-300/45",
+    ink: "text-teal-50",
+    label: "text-teal-200",
   },
   rye: {
-    gradient: "bg-gradient-to-b from-rose-500/90 via-rose-800/90 to-slate-950",
-    border: "border-rose-300",
-    borderSoft: "border-rose-400/40",
-    ink: "text-rose-50",
+    gradient: "bg-gradient-to-b from-red-500/95 via-rose-900/95 to-slate-950",
+    border: "border-red-300",
+    borderSoft: "border-red-400/45",
+    ink: "text-red-50",
     label: "text-rose-200",
   },
   wheat: {
-    gradient: "bg-gradient-to-b from-sky-500/90 via-sky-800/90 to-slate-950",
-    border: "border-sky-300",
-    borderSoft: "border-sky-400/40",
-    ink: "text-sky-50",
-    label: "text-sky-200",
+    gradient: "bg-gradient-to-b from-cyan-300/95 via-sky-800/90 to-slate-950",
+    border: "border-cyan-200",
+    borderSoft: "border-cyan-300/45",
+    ink: "text-cyan-50",
+    label: "text-sky-100",
   },
 };
 
 export const CAPITAL_CHROME: CardChrome = {
-  gradient: "bg-gradient-to-b from-emerald-500/90 via-emerald-800/90 to-slate-950",
+  // Money green — punchier emerald top so it pops next to the warm
+  // wood/grain row. Barley moved to teal so the two greens no longer
+  // collide.
+  gradient: "bg-gradient-to-b from-emerald-400/95 via-emerald-800/90 to-slate-950",
   border: "border-emerald-300",
-  borderSoft: "border-emerald-400/40",
+  borderSoft: "border-emerald-400/45",
   ink: "text-emerald-50",
   label: "text-emerald-200",
 };

@@ -3,6 +3,7 @@ import type { GameAction, GameState, ScoreResult, ValidationResult } from "./typ
 import { applyRollDemand, validateRollDemand } from "./actions/demand";
 import { applyDrawHand, validateDrawHand } from "./actions/draw";
 import { applyMakeBourbon, validateMakeBourbon } from "./actions/make-bourbon";
+import { applyAbandonBarrel, validateAbandonBarrel } from "./actions/abandon-barrel";
 import { applyAgeBourbon, validateAgeBourbon } from "./actions/age-bourbon";
 import { applySellBourbon, validateSellBourbon } from "./actions/sell-bourbon";
 import { applyBuyFromMarket, validateBuyFromMarket } from "./actions/buy-from-market";
@@ -51,6 +52,8 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateDrawHand(state, action);
     case "MAKE_BOURBON":
       return validateMakeBourbon(state, action);
+    case "ABANDON_BARREL":
+      return validateAbandonBarrel(state, action);
     case "AGE_BOURBON":
       return validateAgeBourbon(state, action);
     case "SELL_BOURBON":
@@ -112,6 +115,9 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
       return;
     case "MAKE_BOURBON":
       applyMakeBourbon(draft, action);
+      return;
+    case "ABANDON_BARREL":
+      applyAbandonBarrel(draft, action);
       return;
     case "AGE_BOURBON":
       applyAgeBourbon(draft, action);

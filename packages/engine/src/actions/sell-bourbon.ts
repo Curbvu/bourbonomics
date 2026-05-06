@@ -64,6 +64,12 @@ export function validateSellBourbon(
   if (barrel.ownerId !== action.playerId) {
     return { legal: false, reason: "you do not own that barrel" };
   }
+  // v2.5: under-construction barrels cannot be sold — they have no
+  // age and (possibly) no attached bill. Use ABANDON_BARREL to
+  // recover their committed cards instead.
+  if (barrel.phase !== "aging" || barrel.attachedMashBill == null) {
+    return { legal: false, reason: "barrel is still under construction" };
+  }
   if (barrel.age < MIN_SELL_AGE) {
     return { legal: false, reason: `barrel must be aged at least ${MIN_SELL_AGE} years` };
   }
@@ -146,7 +152,9 @@ export function applySellBourbon(
   const player = draft.players.find((p) => p.id === action.playerId)!;
   const barrelIdx = draft.allBarrels.findIndex((b) => b.id === action.barrelId);
   const barrel = draft.allBarrels[barrelIdx]!;
-  const attached = barrel.attachedMashBill;
+  // Validation already guarantees the barrel is in aging phase with
+  // a bill attached — non-null assertion for the strict-null compiler.
+  const attached = barrel.attachedMashBill!;
 
   // Collect themed-card sale signals BEFORE any mutation so the
   // computed reward + bonus rep + return-to-hand list match what

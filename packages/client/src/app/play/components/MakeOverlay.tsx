@@ -33,40 +33,49 @@ export default function MakeOverlay() {
   );
 
   const slotsTotal = human.rickhouseSlots.length;
-  const slotsUsed = state.allBarrels.filter((b) => b.ownerId === human.id).length;
+  const myBarrels = state.allBarrels.filter((b) => b.ownerId === human.id);
+  const slotsUsed = myBarrels.length;
   const slotsFree = slotsTotal - slotsUsed;
+  // v2.5: prefer continuing an under-construction barrel (one not yet
+  // touched this turn) before opening a new one.
+  const targetBarrel =
+    myBarrels.find((b) => b.phase === "construction" && !b.committedThisTurn) ?? null;
+  const targetSlotId = (() => {
+    if (targetBarrel) return targetBarrel.slotId;
+    const occupied = new Set(myBarrels.map((b) => b.slotId));
+    return human.rickhouseSlots.find((s) => !occupied.has(s.id))?.id ?? null;
+  })();
+  const billAlreadyOnBarrel = targetBarrel?.attachedMashBill != null;
+  const effectiveBill = billAlreadyOnBarrel ? targetBarrel!.attachedMashBill : bill;
 
-  // Pre-flight validation against the engine — gives us the same error
-  // copy the engine would surface on dispatch.
-  const occupied = new Set(
-    state.allBarrels
-      .filter((b) => b.ownerId === human.id)
-      .map((b) => b.slotId),
-  );
-  const freeSlot = human.rickhouseSlots.find((s) => !occupied.has(s.id));
-  const validation = bill && freeSlot && tagged.length > 0
+  // Pre-flight validation against the engine.
+  const validation = targetSlotId
     ? validateAction(state, {
         type: "MAKE_BOURBON",
         playerId: human.id,
+        slotId: targetSlotId,
         cardIds: makeMode.spendCardIds,
-        mashBillId: bill.id,
-        slotId: freeSlot.id,
+        ...(bill && !billAlreadyOnBarrel ? { mashBillId: bill.id } : {}),
       })
     : null;
 
   const canConfirm = validation?.legal === true;
 
   let prompt: string;
-  if (slotsFree === 0) {
-    prompt = "Your rickhouse is full — sell a barrel before making another.";
-  } else if (human.mashBills.length === 0) {
-    prompt = "No mash bills in hand. Draw one before you can make bourbon.";
-  } else if (!bill) {
-    prompt = "Pick a mash bill from your hand.";
+  if (slotsFree === 0 && !targetBarrel) {
+    prompt = "Your rickhouse is full — sell or abandon a barrel before making another.";
+  } else if (!effectiveBill && human.mashBills.length === 0) {
+    prompt = "No mash bills in hand. Draw one or commit cards to a barrel without a bill.";
+  } else if (!effectiveBill) {
+    prompt = targetBarrel
+      ? "Pick a mash bill to attach to the in-progress barrel (or just commit cards)."
+      : "Pick a mash bill from your hand (or skip and just commit cards).";
+  } else if (tagged.length === 0 && (billAlreadyOnBarrel || !bill)) {
+    prompt = `Tag cards to commit (recipe: ${recipeSummary(effectiveBill, human)}).`;
   } else if (tagged.length === 0) {
-    prompt = `Tag the cards to commit (recipe: ${recipeSummary(bill, human)}).`;
+    prompt = `Tag cards to commit, or attach the bill alone (recipe: ${recipeSummary(effectiveBill, human)}).`;
   } else if (validation && !validation.legal) {
-    prompt = validation.reason ?? "Tagged cards don't satisfy the recipe yet.";
+    prompt = validation.reason ?? "This commit isn't legal yet.";
   } else {
     prompt = "Ready to make. Confirm to dispatch.";
   }
@@ -113,8 +122,8 @@ export default function MakeOverlay() {
           onClick={canConfirm ? confirmMake : undefined}
           className={
             canConfirm
-              ? "rounded-md border border-amber-500 bg-gradient-to-b from-amber-500 to-amber-700 px-3.5 py-1 font-sans text-[11px] font-bold uppercase tracking-[.05em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-amber-400 hover:to-amber-600"
-              : "rounded-md border border-slate-800 bg-slate-900 px-3.5 py-1 font-sans text-[11px] font-bold uppercase tracking-[.05em] text-slate-600 cursor-not-allowed"
+              ? "confirm-ready rounded-md border border-amber-300 bg-gradient-to-b from-amber-300 to-amber-600 px-5 py-1.5 font-sans text-[13px] font-bold uppercase tracking-[.07em] text-slate-950 hover:from-amber-200 hover:to-amber-500"
+              : "rounded-md border border-slate-800 bg-slate-900 px-5 py-1.5 font-sans text-[13px] font-bold uppercase tracking-[.07em] text-slate-600 cursor-not-allowed"
           }
         >
           Confirm ↵

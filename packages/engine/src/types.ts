@@ -106,9 +106,20 @@ export interface MashBill {
   slogan?: string;
   /** WoW-style rarity tier. Defaults to "common" when omitted. */
   tier?: MashBillTier;
-  ageBands: [number, number, number];
-  demandBands: [number, number, number];
-  /** 3x3 grid; null cells reward 0 reputation (printed as "—"). */
+  /**
+   * Lower-edge thresholds for the row dimension of the reward grid.
+   * Variable length: simple bills (commons) might have a single
+   * threshold (1 row); legendary bills might have 4-5. The grid's
+   * row count must equal `ageBands.length`.
+   */
+  ageBands: number[];
+  /** Lower-edge thresholds for the column dimension. See `ageBands`. */
+  demandBands: number[];
+  /**
+   * 2D grid of reward values. Dimensions must match
+   * `ageBands.length × demandBands.length`. Null cells reward 0
+   * reputation (printed as "—").
+   */
   rewardGrid: (number | null)[][];
   recipe?: MashBillRecipe;
   silverAward?: AwardCondition;
@@ -251,6 +262,8 @@ export interface OperationsCard {
   defId: OperationsCardDefId;
   name: string;
   description: string;
+  /** One-line flavor tagline shown beneath the name on the card face. */
+  flavor?: string;
   /** Up-front market price (top-right corner chip). */
   cost: number;
   /** Round in which the card was added to the player's operations hand. */
@@ -266,18 +279,44 @@ export interface RickhouseSlot {
   ownerId: string;
 }
 
+/**
+ * Lifecycle phase. v2.5+ barrels are built incrementally via repeated
+ * `MAKE_BOURBON` actions:
+ *   - "construction" — recipe not yet satisfied. Barrel does NOT age.
+ *     Cards may still be committed; mash bill may be attached (once).
+ *   - "aging" — recipe satisfied. Barrel ages from the round AFTER it
+ *     completed (`completedInRound + 1`).
+ */
+export type BarrelPhase = "construction" | "aging";
+
 export interface Barrel {
   id: string;
   ownerId: string;
   /** Slot in the owning player's rickhouse. */
   slotId: string;
-  attachedMashBill: MashBill;
+  /** Lifecycle phase. See `BarrelPhase`. */
+  phase: BarrelPhase;
+  /**
+   * Round in which the barrel transitioned from construction → aging.
+   * Used to gate aging: the Age action skips the barrel until the round
+   * AFTER completion. `null` for barrels still under construction.
+   * Pre-aged starter barrels (e.g. High-Rye House) ship as
+   * `phase: "aging"` with `completedInRound: 0` so they age from r1.
+   */
+  completedInRound: number | null;
+  /**
+   * Mash bill attached to the barrel. May be null while under
+   * construction; becomes non-null at the moment of attachment and
+   * stays attached for the lifetime of the barrel. A barrel cannot
+   * complete (transition to aging) without an attached mash bill.
+   */
+  attachedMashBill: MashBill | null;
   /** card-def ids spent at production (audit / display). */
   productionCardDefIds: string[];
   /**
-   * Production cards committed to the barrel. Locked with the barrel
-   * until sale per the rules — at sale they go to discard (or hand,
-   * if a card has the `returns_to_hand_on_sale` effect).
+   * Cards committed during the construction phase (and at completion).
+   * Locked with the barrel until sale per the rules — at sale they go
+   * to discard (or hand, if a card has `returns_to_hand_on_sale`).
    */
   productionCards: Card[];
   /** Face-down cards committed to aging. Returned to discard on sale. */
@@ -292,6 +331,12 @@ export interface Barrel {
   productionRound: number;
   /** Reset to false at start of each round. */
   agedThisRound: boolean;
+  /**
+   * Reset to false at the start of every action turn. Once-per-turn-
+   * per-barrel gate on `MAKE_BOURBON` so a player cannot rapid-fire
+   * commit cards into the same barrel within a single turn.
+   */
+  committedThisTurn: boolean;
   /** Set by Regulatory Inspection — barrel cannot be aged this round. */
   inspectedThisRound: boolean;
   /** Set by Rushed Shipment — barrel may be aged once more this round. */
@@ -493,12 +538,6 @@ export interface GameConfig {
 // Actions (Discriminated Union)
 // -----------------------------
 
-/** One conversion package: 3 cards spent → 1 of `resourceType`. */
-export interface ConvertSpec {
-  spendCardIds: string[];
-  resourceType: ResourceSubtype;
-}
-
 /** Discriminator for ops card plays. Each variant carries the params it needs. */
 export type PlayOperationsCardParams =
   | { defId: "market_manipulation"; direction: "up" | "down" }
@@ -557,12 +596,27 @@ export type GameAction =
   | { type: "ROLL_DEMAND"; roll: [number, number] }
   | { type: "DRAW_HAND"; playerId: string }
   | {
+      // v2.5 incremental commitment: opens a new under-construction
+      // barrel in `slotId` if empty, OR commits more cards to an
+      // existing under-construction barrel in `slotId` owned by the
+      // player. `cardIds` may be empty when the action only attaches
+      // a mash bill. `mashBillId` is optional but may only be set on
+      // the action that first attaches the bill — once attached, the
+      // bill is locked. The barrel auto-transitions to `phase: "aging"`
+      // when its committed pile satisfies the recipe.
       type: "MAKE_BOURBON";
       playerId: string;
-      cardIds: string[];                  // resource cards spent
-      mashBillId: string;
-      slotId: string;                     // target rickhouse slot
-      conversions?: ConvertSpec[];        // 3:1 conversions inline
+      slotId: string;
+      cardIds: string[];
+      mashBillId?: string;
+    }
+  | {
+      // v2.5: discard an under-construction barrel and return all of
+      // its committed cards to the player's discard pile. Slot is
+      // freed. Aging-phase barrels cannot be abandoned.
+      type: "ABANDON_BARREL";
+      playerId: string;
+      barrelId: string;
     }
   | { type: "AGE_BOURBON"; playerId: string; barrelId: string; cardId: string }
   | {

@@ -81,7 +81,7 @@ describe("Distillery profiles — Permanent abilities", () => {
     state = giveHand(state, "p1", [makeCapitalCard("p1", 99)]);
     // High-Rye ships a starter barrel (age 1) — pick the test barrel by id.
     const barrelId = state.allBarrels.find(
-      (b) => b.ownerId === "p1" && b.attachedMashBill.defId === "hr_test",
+      (b) => b.ownerId === "p1" && b.attachedMashBill?.defId === "hr_test",
     )!.id;
     const repBefore = state.players.find((p) => p.id === "p1")!.reputation;
     const next = applyAction(state, {

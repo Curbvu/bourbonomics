@@ -58,7 +58,9 @@ export function validatePlayOperationsCard(
     case "regulatory_inspection": {
       const target = state.allBarrels.find((b) => b.id === action.targetBarrelId);
       if (!target) return { legal: false, reason: `barrel ${action.targetBarrelId} not found` };
-      // v2.2: rickhouse tiers removed — any barrel can be inspected.
+      if (target.phase !== "aging") {
+        return { legal: false, reason: "barrel is still under construction" };
+      }
       return { legal: true };
     }
 
@@ -67,6 +69,9 @@ export function validatePlayOperationsCard(
       if (!target) return { legal: false, reason: `barrel ${action.targetBarrelId} not found` };
       if (target.ownerId !== player.id) {
         return { legal: false, reason: "Rushed Shipment targets one of your own barrels" };
+      }
+      if (target.phase !== "aging") {
+        return { legal: false, reason: "barrel is still under construction" };
       }
       return { legal: true };
     }
@@ -78,6 +83,9 @@ export function validatePlayOperationsCard(
       }
       if (sourceBarrel.ownerId !== player.id) {
         return { legal: false, reason: "Barrel Broker requires one of your own barrels" };
+      }
+      if (sourceBarrel.phase !== "aging") {
+        return { legal: false, reason: "barrel is still under construction" };
       }
       const targetPlayer = state.players.find((p) => p.id === action.targetPlayerId);
       if (!targetPlayer) {
@@ -125,8 +133,9 @@ export function validatePlayOperationsCard(
       if (b1.ownerId !== player.id || b2.ownerId !== player.id) {
         return { legal: false, reason: "Blend requires two of your own barrels" };
       }
-      // v2.2: rickhouse tiers removed — any two of your barrels are
-      // legal blend inputs.
+      if (b1.phase !== "aging" || b2.phase !== "aging") {
+        return { legal: false, reason: "Blend requires two aging-phase barrels" };
+      }
       return { legal: true };
     }
 
@@ -171,6 +180,9 @@ export function validatePlayOperationsCard(
       if (target.ownerId !== player.id) {
         return { legal: false, reason: "Forced Cure targets one of your own barrels" };
       }
+      if (target.phase !== "aging") {
+        return { legal: false, reason: "barrel is still under construction" };
+      }
       return { legal: true };
     }
 
@@ -200,6 +212,9 @@ export function validatePlayOperationsCard(
       if (!target) return { legal: false, reason: `barrel ${action.targetBarrelId} not found` };
       if (target.ownerId !== player.id) {
         return { legal: false, reason: "Master Distiller targets one of your own barrels" };
+      }
+      if (target.phase !== "aging") {
+        return { legal: false, reason: "barrel is still under construction" };
       }
       return { legal: true };
     }
@@ -282,11 +297,14 @@ export function applyPlayOperationsCard(
       const b1 = draft.allBarrels[b1Idx]!;
       const b2 = draft.allBarrels[b2Idx]!;
 
-      const peak1 = peakReward(b1.attachedMashBill);
-      const peak2 = peakReward(b2.attachedMashBill);
+      // Validation guarantees both barrels are aging-phase with bills.
+      const bill1 = b1.attachedMashBill!;
+      const bill2 = b2.attachedMashBill!;
+      const peak1 = peakReward(bill1);
+      const peak2 = peakReward(bill2);
       const keepFirst = peak1 >= peak2;
-      const keptBill = keepFirst ? b1.attachedMashBill : b2.attachedMashBill;
-      const discardedBill = keepFirst ? b2.attachedMashBill : b1.attachedMashBill;
+      const keptBill = keepFirst ? bill1 : bill2;
+      const discardedBill = keepFirst ? bill2 : bill1;
 
       // Survivor occupies b1's slot; b2 is removed.
       b1.attachedMashBill = keptBill;

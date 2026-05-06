@@ -16,6 +16,7 @@ import { useGameStore } from "@/lib/store/game";
 import CardInspectModal from "./CardInspectModal";
 import GameOverPanel from "./GameOverPanel";
 import HandTray from "./HandTray";
+import MakeFlight from "./MakeFlight";
 import MarketCenter from "./MarketCenter";
 import PurchaseFlight from "./PurchaseFlight";
 import RickhouseRow from "./RickhouseRow";
@@ -27,12 +28,12 @@ export default function GameBoard() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex flex-1 flex-col gap-[12px] overflow-hidden px-[18px] pb-[12px] pt-[12px]">
+      <div className="flex flex-1 flex-col gap-[6px] overflow-hidden px-[12px] pb-[6px] pt-[6px]">
         {state.phase === "ended" ? <GameOverPanel /> : null}
 
-        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_300px]">
           {/* Left column: rickhouses on top (compact), market below (fills). */}
-          <div className="flex min-h-0 flex-col gap-3">
+          <div className="flex min-h-0 flex-col gap-1.5">
             <RickhouseRow />
             <div className="flex min-h-0 flex-1 flex-col">
               <MarketCenter />
@@ -60,6 +61,10 @@ export default function GameBoard() {
       {/* Purchase animation — fires on every BUY_FROM_MARKET (bot or
           human) and self-clears when the keyframe finishes. */}
       <PurchaseFlight />
+
+      {/* Make-bourbon animation — card flies from screen center into the
+          target rickhouse slot whenever MAKE_BOURBON dispatches. */}
+      <MakeFlight />
     </div>
   );
 }

@@ -59,9 +59,11 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
     return { type: "PASS_TURN", playerId };
   }
 
-  // 1) Play an obviously-valuable ops card.
-  const opsPlay = chooseOpsPlay(state, player);
-  if (opsPlay) return opsPlay;
+  // 1) Operations cards are pending future release — bots don't play
+  //    them and don't buy them. (Card pool still mints them so the
+  //    market chrome stays consistent; just nothing interacts.)
+  // const opsPlay = chooseOpsPlay(state, player);
+  // if (opsPlay) return opsPlay;
 
   if (player.hand.length === 0) {
     return { type: "PASS_TURN", playerId };
@@ -85,9 +87,9 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
   const buy = chooseBuy(state, player);
   if (buy) return buy;
 
-  // 6) Buy an ops card if one looks affordable + worthwhile.
-  const buyOps = chooseBuyOpsCard(state, player);
-  if (buyOps) return buyOps;
+  // 6) Ops buying disabled — pending future release.
+  // const buyOps = chooseBuyOpsCard(state, player);
+  // if (buyOps) return buyOps;
 
   // 7) Draw a mash bill if we've run out of recipes.
   const draw = chooseDrawMashBill(state, player);
@@ -394,14 +396,17 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
 
 function chooseDemandDirection(state: GameState, player: PlayerState): "up" | "down" | null {
   // Pick whichever direction increases the reward for our best barrel.
-  const barrels = getPlayerBarrels(state, player.id).filter((b) => b.age >= 2);
+  const barrels = getPlayerBarrels(state, player.id).filter(
+    (b) => b.phase === "aging" && b.attachedMashBill && b.age >= 2,
+  );
   if (barrels.length === 0) return null;
   let bestDelta = 0;
   let direction: "up" | "down" | null = null;
   for (const b of barrels) {
-    const cur = computeReward(b.attachedMashBill, b.age, state.demand);
-    const up = computeReward(b.attachedMashBill, b.age, Math.min(12, state.demand + 1));
-    const down = computeReward(b.attachedMashBill, b.age, Math.max(0, state.demand - 1));
+    const bill = b.attachedMashBill!;
+    const cur = computeReward(bill, b.age, state.demand);
+    const up = computeReward(bill, b.age, Math.min(12, state.demand + 1));
+    const down = computeReward(bill, b.age, Math.max(0, state.demand - 1));
     if (up - cur > bestDelta) {
       bestDelta = up - cur;
       direction = "up";
@@ -419,7 +424,9 @@ function chooseDemandDirection(state: GameState, player: PlayerState): "up" | "d
 // -----------------------------
 
 function chooseSale(state: GameState, player: PlayerState): GameAction | null {
-  const barrels = getPlayerBarrels(state, player.id).filter((b) => b.age >= 2);
+  const barrels = getPlayerBarrels(state, player.id).filter(
+    (b) => b.phase === "aging" && b.attachedMashBill && b.age >= 2,
+  );
   if (barrels.length === 0) return null;
 
   let best: { barrelId: string; reward: number; age: number } | null = null;
@@ -427,7 +434,8 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
     // v2.4: include composition's bonus reputation in the EV — a 5-rep
     // grid sale that also fires cask_3 + all_grains is worth +3 more.
     const composition = computeCompositionBuffs(b, player.distillery);
-    const grid = computeReward(b.attachedMashBill, b.age, state.demand, {
+    const bill = b.attachedMashBill!;
+    const grid = computeReward(bill, b.age, state.demand, {
       demandBandOffset: b.demandBandOffset + composition.gridDemandBandOffset,
       gridRepOffset: b.gridRepOffset,
     });
@@ -455,37 +463,219 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
 }
 
 // -----------------------------
-// MAKE_BOURBON
+// MAKE_BOURBON  (v2.5 incremental commitment)
 // -----------------------------
 
-interface ProductionPlan {
-  mashBill: MashBill;
-  cardIds: string[];
-  slotId: string;
-}
-
+/**
+ * Bot strategy: prefer committing to an existing under-construction
+ * barrel that's closest to completion before opening a new one. Cap
+ * concurrent under-construction barrels at floor(slots / 2) so we
+ * always leave at least half the rickhouse for aging-phase barrels.
+ *
+ * Greedy and deliberately simple — the user explicitly asked us not
+ * to over-engineer the v1 heuristic. Tune later.
+ */
 function chooseMakeBourbon(state: GameState, player: PlayerState): GameAction | null {
+  // 1) Try to commit to an existing under-construction barrel first.
+  const myBarrels = getPlayerBarrels(state, player.id);
+  const inProgress = myBarrels.filter(
+    (b) => b.phase === "construction" && !b.committedThisTurn,
+  );
+  // Sort by closest to completion (most cards already committed).
+  inProgress.sort((a, b) => b.productionCards.length - a.productionCards.length);
+  for (const barrel of inProgress) {
+    const plan = planCommitForBarrel(player, barrel);
+    if (plan) {
+      return {
+        type: "MAKE_BOURBON",
+        playerId: player.id,
+        slotId: barrel.slotId,
+        cardIds: plan.cardIds,
+        ...(plan.mashBillId ? { mashBillId: plan.mashBillId } : {}),
+      };
+    }
+  }
+
+  // 2) Otherwise consider opening a new barrel — only if we have a bill
+  //    in hand AND we're below the concurrent-construction cap.
   if (player.mashBills.length === 0) return null;
   const slotId = pickSlot(state, player);
   if (!slotId) return null;
+  const constructionCap = Math.max(1, Math.floor(player.rickhouseSlots.length / 2));
+  if (inProgress.length >= constructionCap) return null;
 
-  let best: { plan: ProductionPlan; peak: number } | null = null;
+  // Pick the bill with the highest peak reward AND at least one
+  // ingredient we can commit toward today.
+  let best: { mashBillId: string; cardIds: string[]; peak: number } | null = null;
   for (const mb of player.mashBills) {
-    const cardIds = planProductionCards(player, mb);
-    if (!cardIds) continue;
+    const cardIds = planOpeningCommit(player, mb);
+    if (cardIds.length === 0) continue;
     const peak = peakReward(mb);
     if (!best || peak > best.peak) {
-      best = { plan: { mashBill: mb, cardIds, slotId }, peak };
+      best = { mashBillId: mb.id, cardIds, peak };
     }
   }
   if (!best) return null;
   return {
     type: "MAKE_BOURBON",
     playerId: player.id,
-    cardIds: best.plan.cardIds,
-    mashBillId: best.plan.mashBill.id,
-    slotId: best.plan.slotId,
+    slotId,
+    cardIds: best.cardIds,
+    mashBillId: best.mashBillId,
   };
+}
+
+interface CommitPlan {
+  cardIds: string[];
+  mashBillId?: string;
+}
+
+/**
+ * For an existing under-construction barrel, return the cards from
+ * the player's hand that should be committed THIS TURN to advance
+ * toward completion. Skip cards that would over-fill `maxRye` /
+ * `maxWheat`. If the barrel has no bill attached and the player
+ * holds one whose recipe is plausible given the existing pile,
+ * attach it as part of the same commit.
+ */
+function planCommitForBarrel(
+  player: PlayerState,
+  barrel: { productionCards: Card[]; attachedMashBill: MashBill | null },
+): CommitPlan | null {
+  const bill =
+    barrel.attachedMashBill ??
+    player.mashBills.find((mb) => billPlausibleForPile(player, mb, barrel.productionCards)) ??
+    null;
+  if (!bill) return null;
+
+  const cardIds = planCardsTowardRecipe(player, bill, barrel.productionCards);
+  if (cardIds.length === 0 && barrel.attachedMashBill) return null;
+  // If the barrel had no bill, attaching counts as "doing something" —
+  // a 0-card commit + a fresh bill is still a legal MAKE_BOURBON.
+  return {
+    cardIds,
+    ...(barrel.attachedMashBill ? {} : { mashBillId: bill.id }),
+  };
+}
+
+/**
+ * For a fresh opening, return the cards we'd commit immediately on
+ * Start. Empty list means "nothing useful in hand" — caller skips.
+ */
+function planOpeningCommit(player: PlayerState, bill: MashBill): string[] {
+  return planCardsTowardRecipe(player, bill, []);
+}
+
+/**
+ * Return card ids from the player's hand that progress the cumulative
+ * pile (`existingPile`) toward the bill's recipe. Greedy: takes the
+ * first matching card per requirement until each min is met.
+ */
+function planCardsTowardRecipe(
+  player: PlayerState,
+  bill: MashBill,
+  existingPile: Card[],
+): string[] {
+  const recipe = bill.recipe ?? {};
+  const minCorn = Math.max(1, recipe.minCorn ?? 0);
+  const minRye = recipe.minRye ?? 0;
+  const minBarley = recipe.minBarley ?? 0;
+  let minWheat = recipe.minWheat ?? 0;
+  if (player.distillery?.bonus === "wheated_baron" && isWheatedBill(bill)) {
+    minWheat = Math.max(0, minWheat - 1);
+  }
+  const maxRye = recipe.maxRye ?? Infinity;
+  const maxWheat = recipe.maxWheat ?? Infinity;
+
+  const tally = tallyPile(existingPile);
+  const used = new Set<string>();
+  const picks: string[] = [];
+
+  // Cask first — exactly 1 needed per barrel (Cooper's Contract aside).
+  if (tally.cask < 1) {
+    const cask = player.hand.find((c) => !used.has(c.id) && suppliesResource(c, "cask"));
+    if (cask) {
+      used.add(cask.id);
+      picks.push(cask.id);
+      tally.cask += 1;
+    }
+  }
+  // Corn up to recipe min.
+  while (tally.corn < minCorn) {
+    const taken = takeBySubtype(player.hand, "corn", 1, used);
+    if (!taken || taken.length === 0) break;
+    for (const c of taken) {
+      picks.push(c.id);
+      tally.corn += resourceUnits(c, "corn");
+    }
+  }
+  // Rye / Barley / Wheat up to recipe min.
+  while (tally.rye < minRye) {
+    if (tally.rye + 1 > maxRye) break;
+    const taken = takeBySubtype(player.hand, "rye", 1, used);
+    if (!taken || taken.length === 0) break;
+    for (const c of taken) {
+      picks.push(c.id);
+      tally.rye += resourceUnits(c, "rye");
+    }
+  }
+  while (tally.barley < minBarley) {
+    const taken = takeBySubtype(player.hand, "barley", 1, used);
+    if (!taken || taken.length === 0) break;
+    for (const c of taken) {
+      picks.push(c.id);
+      tally.barley += resourceUnits(c, "barley");
+    }
+  }
+  while (tally.wheat < minWheat) {
+    if (tally.wheat + 1 > maxWheat) break;
+    const taken = takeBySubtype(player.hand, "wheat", 1, used);
+    if (!taken || taken.length === 0) break;
+    for (const c of taken) {
+      picks.push(c.id);
+      tally.wheat += resourceUnits(c, "wheat");
+    }
+  }
+  // Universal min-1-grain: if still missing, take any legal grain.
+  let grain = tally.rye + tally.barley + tally.wheat;
+  if (grain < 1) {
+    const grainKinds: GrainSubtype[] = ["rye", "barley", "wheat"];
+    for (const sub of grainKinds) {
+      if (sub === "rye" && maxRye === 0) continue;
+      if (sub === "wheat" && maxWheat === 0) continue;
+      const taken = takeBySubtype(player.hand, sub, 1, used);
+      if (taken && taken.length > 0) {
+        for (const c of taken) {
+          picks.push(c.id);
+          tally[sub] += resourceUnits(c, sub);
+          grain += resourceUnits(c, sub);
+        }
+        break;
+      }
+    }
+  }
+  return picks;
+}
+
+function tallyPile(cards: Card[]) {
+  const t = { cask: 0, corn: 0, rye: 0, barley: 0, wheat: 0 };
+  for (const c of cards) {
+    if (c.type !== "resource") continue;
+    if (suppliesResource(c, "cask")) t.cask += 1;
+    t.corn += resourceUnits(c, "corn");
+    t.rye += resourceUnits(c, "rye");
+    t.barley += resourceUnits(c, "barley");
+    t.wheat += resourceUnits(c, "wheat");
+  }
+  return t;
+}
+
+function billPlausibleForPile(player: PlayerState, bill: MashBill, pile: Card[]): boolean {
+  const t = tallyPile(pile);
+  const recipe = bill.recipe ?? {};
+  if (recipe.maxRye !== undefined && t.rye > recipe.maxRye) return false;
+  if (recipe.maxWheat !== undefined && t.wheat > recipe.maxWheat) return false;
+  return true;
 }
 
 function pickSlot(state: GameState, player: PlayerState): string | null {
@@ -506,68 +696,11 @@ function peakReward(mb: MashBill): number {
   return max;
 }
 
-function planProductionCards(player: PlayerState, mb: MashBill): string[] | null {
-  const recipe = mb.recipe ?? {};
-  const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  const minRye = recipe.minRye ?? 0;
-  const minBarley = recipe.minBarley ?? 0;
-  // Apply Wheated Baron discount when applicable.
-  let minWheat = recipe.minWheat ?? 0;
-  if (player.distillery?.bonus === "wheated_baron" && isWheatedBill(mb)) {
-    minWheat = Math.max(0, minWheat - 1);
-  }
-  const maxRye = recipe.maxRye ?? Infinity;
-  const maxWheat = recipe.maxWheat ?? Infinity;
-
-  const used = new Set<string>();
-
-  const cask = player.hand.find((c) => suppliesResource(c, "cask"));
-  if (!cask) return null;
-  used.add(cask.id);
-
-  const cornCards = takeBySubtype(player.hand, "corn", minCorn, used);
-  if (cornCards === null) return null;
-
-  const ryeCards = takeBySubtype(player.hand, "rye", minRye, used);
-  if (ryeCards === null) return null;
-  const barleyCards = takeBySubtype(player.hand, "barley", minBarley, used);
-  if (barleyCards === null) return null;
-  const wheatCards = takeBySubtype(player.hand, "wheat", minWheat, used);
-  if (wheatCards === null) return null;
-
-  let totalGrain =
-    sumUnits(ryeCards, "rye") + sumUnits(barleyCards, "barley") + sumUnits(wheatCards, "wheat");
-  const extras: Card[] = [];
-  if (totalGrain < 1) {
-    const candidates: GrainSubtype[] = ["rye", "barley", "wheat"];
-    let added = false;
-    for (const sub of candidates) {
-      if (sub === "rye" && maxRye === 0) continue;
-      if (sub === "wheat" && maxWheat === 0) continue;
-      const taken = takeBySubtype(player.hand, sub, 1, used);
-      if (taken && taken.length > 0) {
-        extras.push(...taken);
-        totalGrain += sumUnits(taken, sub);
-        added = true;
-        break;
-      }
-    }
-    if (!added) return null;
-  }
-
-  if (sumUnits(ryeCards, "rye") > maxRye) return null;
-  if (sumUnits(wheatCards, "wheat") > maxWheat) return null;
-
-  return [
-    cask.id,
-    ...cornCards.map((c) => c.id),
-    ...ryeCards.map((c) => c.id),
-    ...barleyCards.map((c) => c.id),
-    ...wheatCards.map((c) => c.id),
-    ...extras.map((c) => c.id),
-  ];
-}
-
+/**
+ * Take up to `minUnits` worth of `subtype` from `hand`, marking cards
+ * as used. Returns whatever it found (possibly empty if nothing
+ * matches) — caller decides whether the partial coverage is enough.
+ */
 function takeBySubtype(
   hand: Card[],
   subtype: "cask" | "corn" | GrainSubtype,
@@ -586,13 +719,7 @@ function takeBySubtype(
     count += c.resourceCount ?? 1;
     if (count >= minUnits) break;
   }
-  return count >= minUnits ? taken : null;
-}
-
-function sumUnits(cards: Card[], subtype: "cask" | "corn" | GrainSubtype): number {
-  let n = 0;
-  for (const c of cards) n += resourceUnits(c, subtype);
-  return n;
+  return taken.length > 0 ? taken : null;
 }
 
 // -----------------------------
@@ -602,6 +729,10 @@ function sumUnits(cards: Card[], subtype: "cask" | "corn" | GrainSubtype): numbe
 function chooseAge(state: GameState, player: PlayerState): GameAction | null {
   const barrels = getPlayerBarrels(state, player.id).filter(
     (b) =>
+      // v2.5: only aging-phase barrels are ageable, and a barrel that
+      // just finished construction this round skips its first age.
+      b.phase === "aging" &&
+      (b.completedInRound == null || b.completedInRound < state.round) &&
       !b.inspectedThisRound &&
       (!b.agedThisRound || b.extraAgesAvailable > 0) &&
       b.age < SELL_PRESSURE_AGE,

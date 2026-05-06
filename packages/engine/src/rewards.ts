@@ -26,16 +26,28 @@ export function computeReward(
   const baseCol = bandIndex(demand, mashBill.demandBands);
   if (row < 0 || baseCol < 0) return 0;
   const colOffset = options?.demandBandOffset ?? 0;
-  const col = Math.max(0, Math.min(2, baseCol + colOffset));
+  // Clamp the offset col against the grid's actual width so demand-
+  // band buffs on a narrow common-bill grid (1 or 2 cols) still
+  // resolve to a real cell.
+  const colMax = Math.max(0, mashBill.demandBands.length - 1);
+  const col = Math.max(0, Math.min(colMax, baseCol + colOffset));
   const cell = mashBill.rewardGrid[row]?.[col];
   return (cell ?? 0) + (options?.gridRepOffset ?? 0);
 }
 
-function bandIndex(value: number, bands: readonly [number, number, number]): number {
-  if (value < bands[0]!) return -1;
-  if (value < bands[1]!) return 0;
-  if (value < bands[2]!) return 1;
-  return 2;
+/**
+ * Returns the highest band index whose threshold is ≤ value, or -1
+ * if value falls below the lowest threshold. Variable length —
+ * commons may pass a single threshold; legendaries might pass four
+ * or five.
+ */
+function bandIndex(value: number, bands: readonly number[]): number {
+  let idx = -1;
+  for (let i = 0; i < bands.length; i++) {
+    if (value >= bands[i]!) idx = i;
+    else break;
+  }
+  return idx;
 }
 
 /** All present conditions must be met. Missing fields are treated as no-constraint. */

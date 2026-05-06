@@ -31,6 +31,8 @@ import DrawBillOverlay from "./DrawBillOverlay";
 import MakeOverlay from "./MakeOverlay";
 import PlayerSwatch from "./PlayerSwatch";
 import { CornerCost, CornerValue } from "./cardCorners";
+import { useZoneFocusClass, type FocusZone } from "./pickerFocus";
+import RecipePips from "./RecipePips";
 import {
   CAPITAL_CHROME,
   CARD_SIZE_CLASS,
@@ -76,36 +78,35 @@ export default function HandTray() {
       {/* Action bar — controls for the human seat during the action phase. */}
       <ActionBar />
 
-      {/* Identity + reputation strip */}
-      <div className="flex items-center gap-4 border-b border-slate-900 px-[22px] py-2.5">
+      {/* Identity + reputation strip — compacted: smaller logo, single
+          line for everything, slimmer Y padding. */}
+      <div className="flex items-center gap-3 border-b border-slate-900 px-[18px] py-1">
         <div className="flex items-center gap-2">
           <PlayerSwatch
             seatIndex={playerIndex}
             logoId={meta?.logoId}
-            size="md"
+            size="sm"
           />
-          <div className="flex flex-col leading-tight">
-            <span className="font-display text-[16px] font-semibold text-slate-100">
+          <div className="flex items-baseline gap-1.5 leading-tight">
+            <span className="font-display text-[14px] font-semibold text-slate-100">
               {focused.name}
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
-              {focused.distillery?.name ?? "no distillery"}
-              {" · "}
-              hand {focused.hand.length}/{focused.handSize}
+            <span className="font-mono text-[9px] uppercase tracking-[.12em] text-slate-500">
+              {focused.distillery?.name ?? "no distillery"} · hand {focused.hand.length}/{focused.handSize}
             </span>
           </div>
         </div>
-        <span className="mx-2 h-[26px] w-px bg-slate-800" aria-hidden />
-        <div className="flex items-baseline gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-[.18em] text-amber-300/80">
-            Reputation
+        <span className="mx-1 h-[20px] w-px bg-slate-800" aria-hidden />
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-mono text-[9px] uppercase tracking-[.18em] text-amber-300/80">
+            Rep
           </span>
-          <span className="font-display text-[34px] font-bold leading-none tabular-nums text-amber-300 drop-shadow-[0_3px_6px_rgba(0,0,0,.55)]">
+          <span className="font-display text-[22px] font-bold leading-none tabular-nums text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,.55)]">
             {focused.reputation}
           </span>
         </div>
         <span className="flex-1" />
-        <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
+        <div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[.10em] text-slate-500">
           <Stat label="deck" value={focused.deck.length} />
           <Stat label="disc" value={focused.discard.length} />
           <Stat label="sold" value={focused.barrelsSold} />
@@ -118,7 +119,7 @@ export default function HandTray() {
           taking the remaining space. No horizontal scrollbar: the
           accordion clips overflow and the cards fan tighter via
           HAND_CARD_OVERLAP. */}
-      <div className="flex items-stretch gap-[14px] overflow-hidden px-[22px] py-3">
+      <div className="flex items-stretch gap-[10px] overflow-hidden px-[14px] py-1.5">
         {/* Deck pile — far left. Two stacked counters: deck + discard. */}
         <DeckPile deckCount={focused.deck.length} discardCount={focused.discard.length} />
 
@@ -127,7 +128,7 @@ export default function HandTray() {
         {/* Resources (capital folded in — capital is a resource). Takes
             the remaining space; flex-1 + min-w-0 lets it shrink instead
             of overflowing the row. */}
-        <Section caption="resources" count={handCards.length} grow>
+        <Section caption="resources" count={handCards.length} grow zone="hand-resources">
           {handCards.length === 0 ? (
             <EmptyPill>no cards</EmptyPill>
           ) : (
@@ -146,7 +147,7 @@ export default function HandTray() {
         <Divider />
 
         {/* Mash bills */}
-        <Section caption="mash bills" count={focused.mashBills.length}>
+        <Section caption="mash bills" count={focused.mashBills.length} zone="hand-bills">
           {focused.mashBills.length === 0 ? (
             <EmptyPill>no mash bills</EmptyPill>
           ) : (
@@ -160,17 +161,29 @@ export default function HandTray() {
 
         <Divider />
 
-        {/* Operations */}
-        <Section caption="ops" count={focused.operationsHand.length}>
-          {focused.operationsHand.length === 0 ? (
-            <EmptyPill>no ops</EmptyPill>
-          ) : (
-            <CardAccordion>
-              {focused.operationsHand.map((c, i) => (
-                <OpsCard key={c.id} card={c} indexInRow={i} />
-              ))}
-            </CardAccordion>
-          )}
+        {/* Operations — pending future release: hand display kept for
+            visual consistency but rendered fully greyscale + dim with
+            an overlay sash so the "feature off" status reads at a glance. */}
+        <Section caption="ops · pending" count={focused.operationsHand.length} zone="hand-ops">
+          <div className="relative pointer-events-none [filter:grayscale(1)_brightness(0.5)] opacity-30">
+            {focused.operationsHand.length === 0 ? (
+              <EmptyPill>pending future release</EmptyPill>
+            ) : (
+              <CardAccordion>
+                {focused.operationsHand.map((c, i) => (
+                  <OpsCard key={c.id} card={c} indexInRow={i} />
+                ))}
+              </CardAccordion>
+            )}
+            <div
+              className="pointer-events-none absolute inset-0 flex items-center justify-center [filter:grayscale(0)] opacity-100"
+              aria-hidden
+            >
+              <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/85 px-2.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-amber-200 shadow-[0_3px_12px_rgba(0,0,0,.65)]">
+                Pending
+              </span>
+            </div>
+          </div>
         </Section>
       </div>
     </div>
@@ -280,19 +293,26 @@ function Section({
   caption,
   count,
   grow = false,
+  zone,
   children,
 }: {
   caption: string;
   count?: number;
   /** When true, the section expands to absorb the remaining row width. */
   grow?: boolean;
+  /** Picker-focus zone token; when set, dims when not the focused zone. */
+  zone?: FocusZone;
   children: React.ReactNode;
 }) {
+  const focusClass = useZoneFocusClass(zone ?? "hand-resources");
+  const applyFocus = zone != null;
   return (
     <div
+      data-zone={zone}
       className={[
         "flex items-stretch gap-2",
         grow ? "min-w-0 flex-1" : "flex-shrink-0",
+        applyFocus ? focusClass : "",
       ].join(" ")}
     >
       <div className="flex flex-col items-end justify-between py-1">
@@ -453,7 +473,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
         aria-hidden
       />
       <div className="flex items-baseline justify-center px-7">
-        <span className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           {RESOURCE_LABEL[subtype]}
         </span>
         {count > 1 ? (
@@ -462,7 +482,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
           </span>
         ) : null}
       </div>
-      <h4 className={`mt-1 line-clamp-2 font-display text-[12px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+      <h4 className={`mt-1 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
         {card.displayName ?? (count > 1 ? `${count}× ${RESOURCE_LABEL[subtype]}` : RESOURCE_LABEL[subtype])}
       </h4>
       {card.flavor ? (
@@ -557,12 +577,12 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
         aria-hidden
       />
       <div className="flex items-baseline justify-center px-7">
-        <span className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           Capital
         </span>
       </div>
       {card.displayName ? (
-        <h4 className={`mt-0.5 line-clamp-1 font-display text-[11px] font-bold leading-tight ${chrome.ink}`}>
+        <h4 className={`mt-0.5 line-clamp-1 font-display text-[14px] font-bold leading-tight ${chrome.ink}`}>
           {card.displayName}
         </h4>
       ) : null}
@@ -623,12 +643,12 @@ function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number
         aria-hidden
       />
       <div className="flex items-baseline justify-between">
-        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+        <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {chrome.label_text}
         </span>
         {bill.goldAward ? <span className="text-[9px]" aria-hidden>🥇</span> : bill.silverAward ? <span className="text-[9px]" aria-hidden>🥈</span> : null}
       </div>
-      <h4 className={`mt-0.5 line-clamp-2 font-display text-[10px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
+      <h4 className={`mt-0.5 line-clamp-2 font-display text-[13px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
         {bill.name}
       </h4>
       {bill.slogan ? (
@@ -636,6 +656,7 @@ function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number
           {bill.slogan}
         </p>
       ) : null}
+      <RecipePips bill={bill} />
       <div className="mt-auto flex items-baseline justify-center gap-1">
         <span className={`font-display text-[14px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
           {floor}–{peak}
@@ -664,14 +685,19 @@ function OpsCard({ card, indexInRow }: { card: OperationsCard; indexInRow: numbe
         aria-hidden
       />
       <div className="flex items-baseline justify-between">
-        <span className={`text-[9px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           Ops
         </span>
       </div>
-      <h4 className={`mt-1 line-clamp-3 font-display text-[12px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+      <h4 className={`mt-1 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
         {card.name}
       </h4>
-      <div className={`mt-auto grid h-10 w-10 self-center place-items-center rounded-full border-2 bg-white/10 text-xl font-bold ${chrome.border} ${chrome.ink}`}>
+      {card.flavor ? (
+        <p className={`mt-0.5 line-clamp-2 font-display text-[8.5px] italic leading-snug ${chrome.label} opacity-90`}>
+          {card.flavor}
+        </p>
+      ) : null}
+      <div className={`mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 bg-white/10 text-lg font-bold ${chrome.border} ${chrome.ink}`}>
         ⚡
       </div>
     </button>

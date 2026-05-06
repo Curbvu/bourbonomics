@@ -34,7 +34,7 @@ import type {
   OperationsCard,
   PlayerState,
 } from "@bourbonomics/engine";
-import { computeReward, validateAction } from "@bourbonomics/engine";
+import { computeReward, paymentValue, validateAction } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 
 export default function ActionBar() {
@@ -178,11 +178,11 @@ export default function ActionBar() {
         />
         <SmartButton
           label="Play ops"
-          action={ops}
+          action={null}
           state={state}
           dispatch={dispatch}
           disabledByTurn={disabledByTurn}
-          tooltipIdle="Play the first ops card in your hand with a sensible target. Free action."
+          tooltipIdle="Operations cards — pending future release."
         />
 
         <span className="flex-1" />
@@ -451,12 +451,16 @@ function SmartButton({
 
 function bestSellBourbon(state: GameState, player: PlayerState): GameAction | null {
   const saleable = state.allBarrels.filter(
-    (b) => b.ownerId === player.id && b.age >= 2,
+    (b) =>
+      b.ownerId === player.id &&
+      b.phase === "aging" &&
+      b.attachedMashBill != null &&
+      b.age >= 2,
   );
   if (saleable.length === 0) return null;
   let best: { id: string; reward: number } | null = null;
   for (const b of saleable) {
-    const reward = computeReward(b.attachedMashBill, b.age, state.demand);
+    const reward = computeReward(b.attachedMashBill!, b.age, state.demand);
     if (!best || reward > best.reward) best = { id: b.id, reward };
   }
   if (!best || best.reward === 0) return null;
@@ -511,7 +515,8 @@ function planOpsTarget(
       // Lock down an opponent's most-valuable barrel.
       const candidate = state.allBarrels
         .filter((b) => b.ownerId !== player.id)
-        .sort((a, b) => peakReward(b.attachedMashBill) - peakReward(a.attachedMashBill))[0];
+        .filter((b) => b.attachedMashBill != null)
+        .sort((a, b) => peakReward(b.attachedMashBill!) - peakReward(a.attachedMashBill!))[0];
       if (!candidate) return null;
       return {
         type: "PLAY_OPERATIONS_CARD",
@@ -525,7 +530,8 @@ function planOpsTarget(
       // Extra age on our most-valuable still-aging barrel.
       const ours = state.allBarrels
         .filter((b) => b.ownerId === player.id && b.age < 3)
-        .sort((a, b) => peakReward(b.attachedMashBill) - peakReward(a.attachedMashBill))[0];
+        .filter((b) => b.attachedMashBill != null)
+        .sort((a, b) => peakReward(b.attachedMashBill!) - peakReward(a.attachedMashBill!))[0];
       if (!ours) return null;
       return {
         type: "PLAY_OPERATIONS_CARD",
@@ -563,7 +569,8 @@ function planOpsTarget(
       // Combine our two highest-peak barrels.
       const eligible = state.allBarrels
         .filter((b) => b.ownerId === player.id)
-        .sort((a, b) => peakReward(b.attachedMashBill) - peakReward(a.attachedMashBill));
+        .filter((b) => b.attachedMashBill != null)
+        .sort((a, b) => peakReward(b.attachedMashBill!) - peakReward(a.attachedMashBill!));
       if (eligible.length < 2) return null;
       return {
         type: "PLAY_OPERATIONS_CARD",
@@ -598,20 +605,21 @@ function canEnterBuyMode(
   if (state.marketConveyor.length === 0) {
     return { canBuy: false, reason: "Market conveyor is empty" };
   }
-  const totalCapital = player.hand
-    .filter((c) => c.type === "capital")
-    .reduce((acc, c) => acc + (c.capitalValue ?? 1), 0);
-  if (totalCapital === 0) {
-    return { canBuy: false, reason: "Need at least one capital card to spend" };
+  // Wallet = sum of payment value across the whole hand. Capital cards
+  // pay their face value; resource cards pay B$1 each. Same rule the
+  // engine enforces in BUY_FROM_MARKET validation.
+  const wallet = player.hand.reduce((acc, c) => acc + paymentValue(c), 0);
+  if (wallet === 0) {
+    return { canBuy: false, reason: "Hand is empty — nothing to spend" };
   }
   const cheapest = state.marketConveyor.reduce(
     (lo, c) => Math.min(lo, c.cost ?? 1),
     Infinity,
   );
-  if (totalCapital < cheapest) {
+  if (wallet < cheapest) {
     return {
       canBuy: false,
-      reason: `Cheapest market card costs B$${cheapest} — you have B$${totalCapital}`,
+      reason: `Cheapest market card costs B$${cheapest} — you have B$${wallet}`,
     };
   }
   return { canBuy: true };
