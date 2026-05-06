@@ -5,7 +5,7 @@
  *
  * Reads from the engine's `defaultMashBillCatalog()` so this view never
  * drifts from in-game bills. Click a card to open the detail panel
- * (recipe constraints, payoff grid, awards, tier explanation).
+ * (recipe constraints, payoff grid, awards).
  *
  * Pure reference material — no game state mutation.
  */
@@ -17,9 +17,10 @@ import {
   defaultMashBillCatalog,
   mashBillCost,
   type MashBill,
+  type MashBillTier,
   type ResourceSubtype,
 } from "@bourbonomics/engine";
-import { TIER_CHROME, tierOrCommon, type TierChrome } from "@/app/play/components/tierStyles";
+import { TIER_CHROME, tierOrCommon } from "@/app/play/components/tierStyles";
 import { MoneyText } from "@/app/play/components/money";
 import {
   RESOURCE_CHROME,
@@ -27,35 +28,25 @@ import {
   RESOURCE_LABEL,
 } from "@/app/play/components/handCardStyles";
 
-type TierFilter = "all" | 1 | 2 | 3;
+const RARITIES: MashBillTier[] = [
+  "common",
+  "uncommon",
+  "rare",
+  "epic",
+  "legendary",
+];
 
-const COMPLEXITY_TIER_INK: Record<1 | 2 | 3, { pill: string; name: string; blurb: string }> = {
-  1: {
-    pill: "border-slate-400 bg-slate-700/40 text-slate-100",
-    name: "Tier 1 · Starter",
-    blurb:
-      "Universal rule only or one easy constraint. Forgiving payouts, low age thresholds — the bills you reach for first.",
-  },
-  2: {
-    pill: "border-amber-300 bg-amber-700/40 text-amber-50",
-    name: "Tier 2 · Mid",
-    blurb:
-      "One real constraint. Wider payoff range; best payouts at age 4+. Demand bands matter — most Silver awards live here.",
-  },
-  3: {
-    pill: "border-rose-300 bg-rose-700/40 text-rose-50",
-    name: "Tier 3 · Specialty",
-    blurb:
-      "Multi-constraint or sharply skewed demand. Best payouts gated behind age 6+. Where the Gold awards live — and where mistimed bills bleed cards.",
-  },
-};
+type RarityFilter = "all" | MashBillTier;
 
 export default function MashBillsPage() {
   const catalog = useMemo(() => defaultMashBillCatalog(), []);
-  const [filter, setFilter] = useState<TierFilter>("all");
+  const [filter, setFilter] = useState<RarityFilter>("all");
   const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
 
-  const visible = filter === "all" ? catalog : catalog.filter((b) => b.complexityTier === filter);
+  const visible =
+    filter === "all"
+      ? catalog
+      : catalog.filter((b) => tierOrCommon(b.tier) === filter);
   const selected = selectedDefId ? catalog.find((b) => b.defId === selectedDefId) ?? null : null;
 
   return (
@@ -72,8 +63,7 @@ export default function MashBillsPage() {
             Bourbon Cards
           </h1>
           <p className="mt-2 text-sm text-slate-400">
-            Every mash bill in the bourbon supply, sorted by difficulty tier.
-            Reference only — no game state changes here.
+            Every mash bill in the bourbon supply. Reference only — no game state changes here.
           </p>
         </header>
 
@@ -81,15 +71,17 @@ export default function MashBillsPage() {
           <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
             All ({catalog.length})
           </FilterPill>
-          {[1, 2, 3].map((t) => {
-            const count = catalog.filter((b) => b.complexityTier === t).length;
+          {RARITIES.map((rarity) => {
+            const count = catalog.filter((b) => tierOrCommon(b.tier) === rarity).length;
+            if (count === 0) return null;
             return (
               <FilterPill
-                key={t}
-                active={filter === t}
-                onClick={() => setFilter(t as TierFilter)}
+                key={rarity}
+                active={filter === rarity}
+                onClick={() => setFilter(rarity)}
+                rarity={rarity}
               >
-                Tier {t} ({count})
+                {TIER_CHROME[rarity].label_text} ({count})
               </FilterPill>
             );
           })}
@@ -123,19 +115,24 @@ function FilterPill({
   active,
   onClick,
   children,
+  rarity,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  rarity?: MashBillTier;
 }) {
+  const chrome = rarity ? TIER_CHROME[rarity] : null;
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "rounded-full border px-3 py-1 font-mono text-xs uppercase tracking-[.08em] transition-colors",
+        "rounded-full border-2 px-3 py-1 font-mono text-xs uppercase tracking-[.10em] transition-colors",
         active
-          ? "border-amber-400 bg-amber-500/20 text-amber-100"
+          ? chrome
+            ? `${chrome.pill}`
+            : "border-amber-400 bg-amber-500/20 text-amber-100"
           : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-500 hover:text-slate-200",
       ].join(" ")}
     >
@@ -145,71 +142,61 @@ function FilterPill({
 }
 
 function BillCard({ bill }: { bill: MashBill }) {
-  const chrome = TIER_CHROME[tierOrCommon(bill.tier)];
-  const ct = bill.complexityTier ?? 1;
-  const ctChrome = COMPLEXITY_TIER_INK[ct];
+  const rarity = tierOrCommon(bill.tier);
+  const chrome = TIER_CHROME[rarity];
   return (
-    <article
-      className={[
-        "relative flex h-full flex-col rounded-xl border-2 px-4 py-4 shadow-[0_8px_24px_rgba(0,0,0,.45)]",
-        chrome.border,
-        chrome.gradient,
-        chrome.glow,
-      ].join(" ")}
-    >
-      {/* Top row — title + tier pill */}
+    <article className="flex flex-col rounded-xl border-2 border-slate-700 bg-slate-900/60 px-4 py-4 shadow-[0_4px_16px_rgba(0,0,0,.35)]">
+      {/* Title row + rarity badge */}
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className={`font-display text-xl font-bold leading-tight ${chrome.titleInk}`}>
+          <h2 className="font-display text-xl font-bold leading-tight text-slate-100">
             {bill.name}
           </h2>
           {bill.slogan ? (
-            <p className={`mt-1 font-display text-[13px] italic leading-snug ${chrome.label}`}>
+            <p className="mt-1 font-display text-[13px] italic leading-snug text-slate-400">
               “{bill.slogan}”
             </p>
           ) : null}
         </div>
         <span
-          className={`flex-shrink-0 rounded-md border-2 px-2.5 py-1 font-mono text-[12px] font-bold uppercase tracking-[.10em] ${ctChrome.pill}`}
-          title={ctChrome.name}
+          className={`flex-shrink-0 rounded-md border-2 px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-[.10em] ${chrome.pill}`}
+          title={`Rarity: ${chrome.label_text}`}
         >
-          T{ct}
+          {chrome.label_text}
         </span>
       </header>
 
-      {/* Payoff matrix anchored at the visual center */}
+      {/* Reward matrix */}
       <div className="my-4">
-        <PayoffMatrix bill={bill} chrome={chrome} />
+        <PayoffMatrix bill={bill} />
       </div>
 
-      {/* Recipe chips */}
-      <div className="mt-auto">
-        <SectionLabel chrome={chrome}>Recipe</SectionLabel>
-        <RecipeChips bill={bill} chrome={chrome} />
-      </div>
+      {/* Recipe — always rendered as a clear vertical list of chips */}
+      <SectionLabel>Recipe</SectionLabel>
+      <RecipeChips bill={bill} />
 
-      {/* Awards */}
-      <div className="mt-3">
-        <SectionLabel chrome={chrome}>Awards</SectionLabel>
-        <AwardsRow bill={bill} />
-      </div>
+      {/* Awards — only when the bill has any */}
+      {bill.silverAward || bill.goldAward ? (
+        <div className="mt-3">
+          <SectionLabel>Awards</SectionLabel>
+          <AwardsRow bill={bill} />
+        </div>
+      ) : null}
 
       {/* Cost footer */}
-      <footer className="mt-3 flex items-center justify-between border-t border-white/10 pt-2.5 font-mono text-[11px] uppercase tracking-[.12em] text-slate-400">
+      <footer className="mt-4 flex items-center justify-between border-t border-slate-700/60 pt-2.5 font-mono text-[11px] uppercase tracking-[.12em] text-slate-400">
         <span className="flex items-center gap-1.5">
           <span className="text-slate-500">cost</span>
-          <MoneyText n={mashBillCost(bill)} className={`font-display text-[15px] font-bold ${chrome.titleInk}`} />
+          <MoneyText n={mashBillCost(bill)} className="font-display text-[15px] font-bold text-amber-200" />
         </span>
-        <span>{tierOrCommon(bill.tier)}</span>
       </footer>
     </article>
   );
 }
 
 function BillDetailPanel({ bill, onBack }: { bill: MashBill; onBack: () => void }) {
-  const chrome = TIER_CHROME[tierOrCommon(bill.tier)];
-  const ct = bill.complexityTier ?? 1;
-  const ctChrome = COMPLEXITY_TIER_INK[ct];
+  const rarity = tierOrCommon(bill.tier);
+  const chrome = TIER_CHROME[rarity];
   return (
     <div>
       <button
@@ -219,73 +206,58 @@ function BillDetailPanel({ bill, onBack }: { bill: MashBill; onBack: () => void 
       >
         ← back to gallery
       </button>
-      <article
-        className={[
-          "rounded-xl border-2 px-7 py-6 shadow-[0_12px_32px_rgba(0,0,0,.55)]",
-          chrome.border,
-          chrome.gradient,
-          chrome.glow,
-        ].join(" ")}
-      >
+      <article className="rounded-xl border-2 border-slate-700 bg-slate-900/60 px-7 py-6 shadow-[0_8px_24px_rgba(0,0,0,.45)]">
         <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h2 className={`font-display text-4xl font-bold leading-tight ${chrome.titleInk}`}>
+            <h2 className="font-display text-4xl font-bold leading-tight text-slate-100">
               {bill.name}
             </h2>
             {bill.slogan ? (
-              <p className={`mt-2 font-display text-base italic ${chrome.label}`}>
+              <p className="mt-2 font-display text-base italic text-slate-400">
                 “{bill.slogan}”
               </p>
             ) : null}
             {bill.flavorText ? (
-              <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-slate-200">{bill.flavorText}</p>
+              <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-slate-300">{bill.flavorText}</p>
             ) : null}
           </div>
           <span
-            className={`flex-shrink-0 rounded-md border-2 px-3 py-1.5 font-mono text-[13px] font-bold uppercase tracking-[.10em] ${ctChrome.pill}`}
+            className={`flex-shrink-0 rounded-md border-2 px-3 py-1.5 font-mono text-[13px] font-bold uppercase tracking-[.10em] ${chrome.pill}`}
           >
-            {ctChrome.name}
+            {chrome.label_text}
           </span>
         </header>
 
-        <section className="mb-5 grid gap-5 md:grid-cols-2">
+        <section className="grid gap-5 md:grid-cols-2">
           <div>
-            <SectionLabel chrome={chrome}>Reward — reputation by age × demand</SectionLabel>
-            <PayoffMatrix bill={bill} chrome={chrome} large />
+            <SectionLabel>Reward — reputation by age × demand</SectionLabel>
+            <PayoffMatrix bill={bill} large />
           </div>
           <div className="space-y-4">
             <div>
-              <SectionLabel chrome={chrome}>Recipe</SectionLabel>
-              <RecipeChips bill={bill} chrome={chrome} verbose />
+              <SectionLabel>Recipe</SectionLabel>
+              <RecipeChips bill={bill} />
             </div>
-            <div>
-              <SectionLabel chrome={chrome}>Awards</SectionLabel>
-              <AwardsRow bill={bill} verbose />
-            </div>
-            <div className="flex items-center gap-4 border-t border-white/10 pt-3 font-mono text-[12px] uppercase tracking-[.12em] text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <span className="text-slate-500">cost to draw</span>
-                <MoneyText n={mashBillCost(bill)} className={`font-display text-lg font-bold ${chrome.titleInk}`} />
-              </span>
-              <span>{tierOrCommon(bill.tier)}</span>
+            {bill.silverAward || bill.goldAward ? (
+              <div>
+                <SectionLabel>Awards</SectionLabel>
+                <AwardsRow bill={bill} verbose />
+              </div>
+            ) : null}
+            <div className="flex items-center gap-3 border-t border-slate-700/60 pt-3 font-mono text-[12px] uppercase tracking-[.12em] text-slate-400">
+              <span className="text-slate-500">cost to draw</span>
+              <MoneyText n={mashBillCost(bill)} className="font-display text-lg font-bold text-amber-200" />
             </div>
           </div>
-        </section>
-
-        <section className="rounded-md border border-slate-700/60 bg-slate-950/50 px-5 py-3.5 text-[14px] leading-relaxed text-slate-300">
-          <h3 className="mb-1 font-mono text-[11px] font-semibold uppercase tracking-[.15em] text-amber-300">
-            About {ctChrome.name.split(" · ")[0]}
-          </h3>
-          <p>{ctChrome.blurb}</p>
         </section>
       </article>
     </div>
   );
 }
 
-function SectionLabel({ chrome, children }: { chrome: TierChrome; children: React.ReactNode }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className={`mb-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.15em] ${chrome.label}`}>
+    <h3 className="mb-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.15em] text-slate-400">
       {children}
     </h3>
   );
@@ -293,20 +265,9 @@ function SectionLabel({ chrome, children }: { chrome: TierChrome; children: Reac
 
 /**
  * Payoff matrix — reward cells coloured on a heat scale (low / mid /
- * high) so the player can read where the bill peaks at a glance,
- * rather than chasing tabular numbers across rows. Axis legends sit
- * on the outside of the grid; the corner cell carries an "AGE / DEMAND"
- * note so the matrix is self-documenting.
+ * high) so the player can read where the bill peaks at a glance.
  */
-function PayoffMatrix({
-  bill,
-  chrome,
-  large = false,
-}: {
-  bill: MashBill;
-  chrome: TierChrome;
-  large?: boolean;
-}) {
+function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean }) {
   const cellPad = large ? "h-14" : "h-11";
   const cellText = large ? "text-[24px]" : "text-[19px]";
   const headerText = large ? "text-[12px]" : "text-[11px]";
@@ -317,16 +278,14 @@ function PayoffMatrix({
   );
 
   return (
-    <div
-      className="rounded-lg border border-white/15 bg-slate-950/65 p-2.5"
-    >
+    <div className="rounded-lg border border-slate-700/60 bg-slate-950/65 p-2.5">
       <div
         className="grid items-stretch gap-1"
         style={{ gridTemplateColumns: `auto repeat(${bill.demandBands.length}, minmax(0, 1fr))` }}
       >
         {/* Corner — axis legend */}
         <div
-          className={`flex items-center justify-end pr-1 font-mono ${cornerText} font-semibold uppercase leading-tight tracking-[.10em] ${chrome.label} opacity-70`}
+          className={`flex items-center justify-end pr-1 font-mono ${cornerText} font-semibold uppercase leading-tight tracking-[.10em] text-slate-500`}
         >
           <span className="text-right">
             age ↓<br />demand →
@@ -339,7 +298,7 @@ function PayoffMatrix({
           return (
             <div
               key={`d-${i}`}
-              className={`grid place-items-center rounded-sm bg-slate-900/60 py-1 font-mono ${headerText} font-bold uppercase tracking-[.10em] ${chrome.label}`}
+              className={`grid place-items-center rounded-sm bg-slate-900/60 py-1 font-mono ${headerText} font-bold uppercase tracking-[.10em] text-slate-300`}
             >
               {label}
             </div>
@@ -353,7 +312,7 @@ function PayoffMatrix({
           return (
             <Fragment key={`r-${ri}`}>
               <div
-                className={`grid place-items-center rounded-sm bg-slate-900/60 px-2 font-mono ${headerText} font-bold uppercase tracking-[.10em] ${chrome.label}`}
+                className={`grid place-items-center rounded-sm bg-slate-900/60 px-2 font-mono ${headerText} font-bold uppercase tracking-[.10em] text-slate-300`}
               >
                 {ageLabel}
               </div>
@@ -400,55 +359,44 @@ function rewardHeatBg(cell: number | null, peak: number): string {
 
 interface RecipeChip {
   key: string;
-  /** Display number (e.g. "1", "2") — omitted for the universal "any grain" or for forbidden chips. */
   count?: number;
   label: string;
-  /** Resource subtype for chrome lookup; null for forbidden chips with their own styling. */
   subtype: ResourceSubtype | null;
   forbidden?: boolean;
 }
 
-function buildRecipeChips(bill: MashBill, includeUniversal: boolean): RecipeChip[] {
+/**
+ * Build the full recipe as a list of chips — including the universal
+ * 1 cask + 1 corn + 1 grain so every bill renders the same shape.
+ * Recipe overrides (minCorn ≥ 2, minRye, etc.) replace or extend the
+ * universal mins as appropriate.
+ */
+function buildRecipeChips(bill: MashBill): RecipeChip[] {
   const r = bill.recipe ?? {};
+  const minCorn = Math.max(1, r.minCorn ?? 0);
+  const minRye = r.minRye ?? 0;
+  const minBarley = r.minBarley ?? 0;
+  const minWheat = r.minWheat ?? 0;
+  const namedGrain = minRye + minBarley + minWheat;
+  const minTotalGrain = Math.max(r.minTotalGrain ?? 0, namedGrain === 0 ? 1 : namedGrain);
+  const wildGrain = Math.max(0, minTotalGrain - namedGrain);
+
   const chips: RecipeChip[] = [];
-  if (includeUniversal) {
-    chips.push({ key: "u-cask", count: 1, label: "Cask", subtype: "cask" });
-    chips.push({ key: "u-corn", count: r.minCorn ?? 1, label: "Corn", subtype: "corn" });
-  } else if (r.minCorn && r.minCorn > 1) {
-    chips.push({ key: "corn", count: r.minCorn, label: "Corn", subtype: "corn" });
-  }
-  if (r.minRye) chips.push({ key: "rye", count: r.minRye, label: "Rye", subtype: "rye" });
-  if (r.minBarley) chips.push({ key: "barley", count: r.minBarley, label: "Barley", subtype: "barley" });
-  if (r.minWheat) chips.push({ key: "wheat", count: r.minWheat, label: "Wheat", subtype: "wheat" });
-  if (r.minTotalGrain) {
-    const named = (r.minRye ?? 0) + (r.minBarley ?? 0) + (r.minWheat ?? 0);
-    const wild = Math.max(0, r.minTotalGrain - named);
-    if (wild > 0) chips.push({ key: "grain", count: wild, label: "Any grain", subtype: null });
-  }
+  chips.push({ key: "cask", count: 1, label: "Cask", subtype: "cask" });
+  chips.push({ key: "corn", count: minCorn, label: "Corn", subtype: "corn" });
+  if (minRye) chips.push({ key: "rye", count: minRye, label: "Rye", subtype: "rye" });
+  if (minBarley) chips.push({ key: "barley", count: minBarley, label: "Barley", subtype: "barley" });
+  if (minWheat) chips.push({ key: "wheat", count: minWheat, label: "Wheat", subtype: "wheat" });
+  if (wildGrain > 0) chips.push({ key: "grain", count: wildGrain, label: "Any grain", subtype: null });
   if (r.maxRye === 0) chips.push({ key: "no-rye", label: "No rye", subtype: "rye", forbidden: true });
-  else if (r.maxRye != null) chips.push({ key: "max-rye", count: r.maxRye, label: `max rye`, subtype: "rye" });
+  else if (r.maxRye != null) chips.push({ key: "max-rye", count: r.maxRye, label: "max rye", subtype: "rye" });
   if (r.maxWheat === 0) chips.push({ key: "no-wheat", label: "No wheat", subtype: "wheat", forbidden: true });
-  else if (r.maxWheat != null) chips.push({ key: "max-wheat", count: r.maxWheat, label: `max wheat`, subtype: "wheat" });
+  else if (r.maxWheat != null) chips.push({ key: "max-wheat", count: r.maxWheat, label: "max wheat", subtype: "wheat" });
   return chips;
 }
 
-function RecipeChips({
-  bill,
-  chrome,
-  verbose = false,
-}: {
-  bill: MashBill;
-  chrome: TierChrome;
-  verbose?: boolean;
-}) {
-  const chips = buildRecipeChips(bill, verbose);
-  if (chips.length === 0) {
-    return (
-      <p className={`font-mono text-[12px] uppercase tracking-[.10em] ${chrome.label}`}>
-        Universal rule only · 1 cask · 1 corn · 1 grain
-      </p>
-    );
-  }
+function RecipeChips({ bill }: { bill: MashBill }) {
+  const chips = buildRecipeChips(bill);
   return (
     <div className="flex flex-wrap gap-1.5">
       {chips.map((c) => (
@@ -505,13 +453,6 @@ function AwardsRow({ bill, verbose = false }: { bill: MashBill; verbose?: boolea
   const items: { kind: "silver" | "gold"; cond: string }[] = [];
   if (bill.silverAward) items.push({ kind: "silver", cond: condText(bill.silverAward) });
   if (bill.goldAward) items.push({ kind: "gold", cond: condText(bill.goldAward) });
-  if (items.length === 0) {
-    return (
-      <p className="font-mono text-[12px] uppercase tracking-[.10em] text-slate-500">
-        None
-      </p>
-    );
-  }
   return (
     <div className={verbose ? "flex flex-col gap-1.5" : "flex flex-wrap gap-1.5"}>
       {items.map((i) => (
