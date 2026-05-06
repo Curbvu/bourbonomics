@@ -171,17 +171,9 @@ function BillCard({ bill }: { bill: MashBill }) {
         <PayoffMatrix bill={bill} />
       </div>
 
-      {/* Recipe — always rendered as a clear vertical list of chips */}
+      {/* Recipe — always rendered as a clear list of chips */}
       <SectionLabel>Recipe</SectionLabel>
       <RecipeChips bill={bill} />
-
-      {/* Awards — only when the bill has any */}
-      {bill.silverAward || bill.goldAward ? (
-        <div className="mt-3">
-          <SectionLabel>Awards</SectionLabel>
-          <AwardsRow bill={bill} />
-        </div>
-      ) : null}
 
       {/* Cost footer */}
       <footer className="mt-4 flex items-center justify-between border-t border-slate-700/60 pt-2.5 font-mono text-[11px] uppercase tracking-[.12em] text-slate-400">
@@ -238,12 +230,6 @@ function BillDetailPanel({ bill, onBack }: { bill: MashBill; onBack: () => void 
               <SectionLabel>Recipe</SectionLabel>
               <RecipeChips bill={bill} />
             </div>
-            {bill.silverAward || bill.goldAward ? (
-              <div>
-                <SectionLabel>Awards</SectionLabel>
-                <AwardsRow bill={bill} verbose />
-              </div>
-            ) : null}
             <div className="flex items-center gap-3 border-t border-slate-700/60 pt-3 font-mono text-[12px] uppercase tracking-[.12em] text-slate-400">
               <span className="text-slate-500">cost to draw</span>
               <MoneyText n={mashBillCost(bill)} className="font-display text-lg font-bold text-amber-200" />
@@ -266,10 +252,16 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 /**
  * Payoff matrix — reward cells coloured on a heat scale (low / mid /
  * high) so the player can read where the bill peaks at a glance.
+ *
+ * Cells that can trigger an award (Silver / Gold) get a medal badge
+ * in the top-right corner plus a coloured ring. A cell qualifies
+ * when *some* combination of (age, demand) within the band satisfies
+ * the award's `minAge`/`minDemand`, and the cell's reward satisfies
+ * `minReward`. Gold takes precedence over Silver if both fire.
  */
 function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean }) {
-  const cellPad = large ? "h-14" : "h-11";
-  const cellText = large ? "text-[24px]" : "text-[19px]";
+  const cellPad = large ? "h-16" : "h-12";
+  const cellText = large ? "text-[26px]" : "text-[20px]";
   const headerText = large ? "text-[12px]" : "text-[11px]";
   const cornerText = large ? "text-[10px]" : "text-[9px]";
   const peak = bill.rewardGrid.flat().reduce<number>(
@@ -308,7 +300,9 @@ function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean
         {/* Body rows */}
         {bill.rewardGrid.map((row, ri) => {
           const nextAge = bill.ageBands[ri + 1];
-          const ageLabel = nextAge != null ? `${bill.ageBands[ri]}–${nextAge - 1}y` : `${bill.ageBands[ri]}+y`;
+          const ageLo = bill.ageBands[ri]!;
+          const ageHi = nextAge ?? Infinity;
+          const ageLabel = nextAge != null ? `${ageLo}–${nextAge - 1}y` : `${ageLo}+y`;
           return (
             <Fragment key={`r-${ri}`}>
               <div
@@ -316,33 +310,71 @@ function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean
               >
                 {ageLabel}
               </div>
-              {row.map((cell, ci) => (
-                <div
-                  key={`${ri}-${ci}`}
-                  className={[
-                    "grid place-items-center rounded-md border border-white/10",
-                    cellPad,
-                    rewardHeatBg(cell, peak),
-                  ].join(" ")}
-                  title={`age ${ageLabel} × demand ${
-                    bill.demandBands[ci]
-                  } → ${cell ?? "—"} rep`}
-                >
-                  <span
+              {row.map((cell, ci) => {
+                const nextDemand = bill.demandBands[ci + 1];
+                const demandLo = bill.demandBands[ci]!;
+                const demandHi = nextDemand ?? Infinity;
+                const award = cellAward(bill, cell, ageLo, ageHi, demandLo, demandHi);
+                return (
+                  <div
+                    key={`${ri}-${ci}`}
                     className={[
-                      "font-display font-bold leading-none tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,.5)]",
-                      cellText,
-                      cell == null ? "text-slate-600" : "text-white",
+                      "relative grid place-items-center rounded-md",
+                      cellPad,
+                      rewardHeatBg(cell, peak),
+                      award === "gold"
+                        ? "ring-2 ring-amber-200 shadow-[0_0_10px_rgba(252,211,77,.55)]"
+                        : award === "silver"
+                          ? "ring-2 ring-slate-200/85"
+                          : "border border-white/10",
                     ].join(" ")}
+                    title={`age ${ageLabel} × demand ${
+                      nextDemand != null ? `${demandLo}–${nextDemand - 1}` : `${demandLo}+`
+                    } → ${cell ?? "—"} rep${
+                      award ? ` · ${award === "gold" ? "Gold" : "Silver"} eligible` : ""
+                    }`}
                   >
-                    {cell ?? "—"}
-                  </span>
-                </div>
-              ))}
+                    <span
+                      className={[
+                        "font-display font-bold leading-none tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,.5)]",
+                        cellText,
+                        cell == null ? "text-slate-600" : "text-white",
+                      ].join(" ")}
+                    >
+                      {cell ?? "—"}
+                    </span>
+                    {award ? (
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute right-0.5 top-0.5 text-[11px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.7)]"
+                      >
+                        {award === "gold" ? "🥇" : "🥈"}
+                      </span>
+                    ) : null}
+                  </div>
+                );
+              })}
             </Fragment>
           );
         })}
       </div>
+      {/* Award legend — only when the bill actually has awards. */}
+      {bill.silverAward || bill.goldAward ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 font-mono text-[10px] uppercase tracking-[.12em] text-slate-400">
+          {bill.silverAward ? (
+            <span className="flex items-center gap-1.5">
+              <span className="text-[12px]">🥈</span>
+              <span>Silver · {condText(bill.silverAward)}</span>
+            </span>
+          ) : null}
+          {bill.goldAward ? (
+            <span className="flex items-center gap-1.5">
+              <span className="text-[12px]">🥇</span>
+              <span>Gold · {condText(bill.goldAward)}</span>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -351,10 +383,39 @@ function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean
 function rewardHeatBg(cell: number | null, peak: number): string {
   if (cell == null) return "bg-slate-900/40";
   const ratio = cell / Math.max(1, peak);
-  if (ratio >= 0.85) return "bg-amber-500/55 ring-1 ring-amber-300/60";
-  if (ratio >= 0.6) return "bg-amber-700/45 ring-1 ring-amber-400/40";
+  if (ratio >= 0.85) return "bg-amber-500/55";
+  if (ratio >= 0.6) return "bg-amber-700/45";
   if (ratio >= 0.35) return "bg-amber-900/40";
   return "bg-slate-900/55";
+}
+
+/**
+ * Returns "gold", "silver", or null based on whether the cell's
+ * (age band, demand band, reward) can trigger an award. Gold wins
+ * if both fire. A cell qualifies when *some* combination of (age,
+ * demand) within the band satisfies the award's mins.
+ */
+function cellAward(
+  bill: MashBill,
+  reward: number | null,
+  ageLo: number,
+  ageHi: number,
+  demandLo: number,
+  demandHi: number,
+): "gold" | "silver" | null {
+  if (reward == null) return null;
+  const fires = (
+    cond: { minAge?: number; minDemand?: number; minReward?: number } | undefined,
+  ): boolean => {
+    if (!cond) return false;
+    if (cond.minAge != null && cond.minAge >= ageHi) return false;
+    if (cond.minDemand != null && cond.minDemand >= demandHi) return false;
+    if (cond.minReward != null && reward < cond.minReward) return false;
+    return true;
+  };
+  if (fires(bill.goldAward)) return "gold";
+  if (fires(bill.silverAward)) return "silver";
+  return null;
 }
 
 interface RecipeChip {
@@ -446,36 +507,6 @@ function RecipeChipPill({ chip }: { chip: RecipeChip }) {
         {RESOURCE_LABEL[chip.subtype]}
       </span>
     </span>
-  );
-}
-
-function AwardsRow({ bill, verbose = false }: { bill: MashBill; verbose?: boolean }) {
-  const items: { kind: "silver" | "gold"; cond: string }[] = [];
-  if (bill.silverAward) items.push({ kind: "silver", cond: condText(bill.silverAward) });
-  if (bill.goldAward) items.push({ kind: "gold", cond: condText(bill.goldAward) });
-  return (
-    <div className={verbose ? "flex flex-col gap-1.5" : "flex flex-wrap gap-1.5"}>
-      {items.map((i) => (
-        <span
-          key={i.kind}
-          className={[
-            "inline-flex items-center gap-1.5 rounded-md border-2 px-2.5 py-1 font-display text-[14px] font-bold",
-            i.kind === "gold"
-              ? "border-amber-300 bg-gradient-to-b from-amber-300 to-amber-600 text-slate-950"
-              : "border-slate-300 bg-gradient-to-b from-slate-300 to-slate-500 text-slate-950",
-          ].join(" ")}
-        >
-          <span className="font-mono text-[11px] uppercase tracking-[.10em]">
-            {i.kind === "gold" ? "🥇 Gold" : "🥈 Silver"}
-          </span>
-          {i.cond ? (
-            <span className="font-mono text-[11px] font-semibold uppercase tracking-[.06em] opacity-80">
-              {i.cond}
-            </span>
-          ) : null}
-        </span>
-      ))}
-    </div>
   );
 }
 
