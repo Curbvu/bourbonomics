@@ -157,6 +157,7 @@ interface MashBillSpec {
   flavorText?: string;
   slogan?: string;
   tier?: MashBillTier;
+  complexityTier?: MashBill["complexityTier"];
   ageBands: number[];
   demandBands: number[];
   rewardGrid: (number | null)[][];
@@ -173,6 +174,7 @@ export function makeMashBill(spec: MashBillSpec, instanceIndex: number): MashBil
     flavorText: spec.flavorText,
     slogan: spec.slogan,
     tier: spec.tier ?? "common",
+    complexityTier: spec.complexityTier,
     ageBands: spec.ageBands,
     demandBands: spec.demandBands,
     rewardGrid: spec.rewardGrid,

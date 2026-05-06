@@ -17,9 +17,34 @@ export default function Home() {
             <Link href="/rules" className="text-amber-400 hover:text-amber-300">
               the rules
             </Link>{" "}
-            for gameplay details.
+            for gameplay details, or browse the{" "}
+            <Link
+              href="/mash-bills"
+              className="text-amber-400 hover:text-amber-300"
+            >
+              Bourbon Cards
+            </Link>{" "}
+            gallery for every recipe in the supply.
           </p>
         </header>
+
+        <Link
+          href="/mash-bills"
+          className="mb-6 block rounded-lg border border-amber-700/50 bg-amber-900/20 px-5 py-4 transition-colors hover:border-amber-500 hover:bg-amber-900/30"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-display text-lg font-semibold text-amber-200">
+                Bourbon Cards
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-400">
+                Browse every mash bill — recipes, payoff grids, and tier
+                breakdowns.
+              </p>
+            </div>
+            <span className="font-mono text-xl text-amber-400">→</span>
+          </div>
+        </Link>
 
         <NewGameForm />
       </div>

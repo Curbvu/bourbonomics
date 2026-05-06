@@ -213,12 +213,22 @@ export function defaultStarterCards(playerLabel: string): Card[] {
 }
 
 // ============================================================
-// Default mash bill catalog — handful of varied bills.
+// Default mash bill catalog — v2.7 difficulty/payoff curve.
+// Pool is split roughly into thirds:
+//   Tier 1 (starters)    — universal rule only or one easy constraint.
+//                          Spread 2-3, peak ≤ 6, payout from age 2.
+//   Tier 2 (mid)         — one real constraint. Spread 3-5, peak 8-9,
+//                          best payouts at age 4+.
+//   Tier 3 (specialty)   — multi-constraint and/or skewed demand. Spread
+//                          5-8, peak 10-12, best payouts gated at age 6+.
+// Awards correlate with tier (Gold lives almost exclusively in Tier 3).
 // ============================================================
 
 export function defaultMashBillCatalog(): MashBill[] {
   return [
-    // Names + slogans inspired by the dev branch's bourbon_cards.yaml.
+    // ──────────────── Tier 1 — Starter bills ────────────────
+    // Forgiving payouts, low age thresholds, no recipe constraints
+    // beyond the universal rule. Reward range ~2-3, peak ≤ 6.
     makeMashBill(
       {
         defId: "knobs_end_90",
@@ -226,10 +236,14 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "Last knob in the rack.",
         flavorText: "Bottled barrel-proof, sold at 90. The end of a long dump day.",
         tier: "common",
-        // Common bills run a tiny grid — 2 age tiers × 1 demand tier.
+        complexityTier: 1,
+        // 2×2 — gentle payouts, low age threshold.
         ageBands: [2, 4],
-        demandBands: [3],
-        rewardGrid: [[1], [3]],
+        demandBands: [3, 6],
+        rewardGrid: [
+          [2, 3],
+          [3, 4],
+        ],
       },
       0,
     ),
@@ -240,104 +254,13 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "Where the steam never sleeps.",
         flavorText: "Bardstown's main street, bottled. Workhorse pour at weeknight pricing.",
         tier: "common",
-        // 1×2 — always 2yo+, demand drives the reward.
-        ageBands: [2],
+        complexityTier: 1,
+        // 2×2 — universal-rule starter, range 2-4.
+        ageBands: [2, 4],
         demandBands: [3, 6],
-        rewardGrid: [[2, 4]],
-      },
-      0,
-    ),
-    makeMashBill(
-      {
-        defId: "rye_ladder_95",
-        name: "Rye Ladder 95",
-        slogan: "Climb to the spice.",
-        flavorText: "Ninety-five percent rye — pepper, mint, and a long ladder down the throat.",
-        tier: "rare",
-        // 3×2 — climbs hard with age.
-        ageBands: [3, 5, 7],
-        demandBands: [3, 7],
         rewardGrid: [
-          [1, 4],
-          [3, 6],
-          [5, 9],
-        ],
-        recipe: { minRye: 3 },
-        silverAward: { minAge: 5, minDemand: 6 },
-      },
-      0,
-    ),
-    makeMashBill(
-      {
-        defId: "wheat_whisper",
-        name: "Wheat Whisper",
-        slogan: "Soft, slow, certain.",
-        flavorText: "Wheated mash bill that doesn't argue.",
-        tier: "uncommon",
-        // 1×3 — flat age, demand-driven payout.
-        ageBands: [3],
-        demandBands: [2, 5, 8],
-        rewardGrid: [[2, 4, 6]],
-        recipe: { minWheat: 1, maxRye: 0 },
-      },
-      0,
-    ),
-    makeMashBill(
-      {
-        defId: "mash_bill_no_7",
-        name: "Mash Bill No. 7",
-        slogan: "Lucky number, regular price.",
-        flavorText: "Reliable corn-rye-malt at 70/20/10. The seventh recipe, the first standard.",
-        tier: "epic",
-        // 3×3 — full grid, the top end of the "2-3 each axis" rule.
-        ageBands: [3, 5, 7],
-        demandBands: [3, 5, 8],
-        rewardGrid: [
-          [2, 3, 5],
-          [3, 5, 7],
-          [4, 6, 8],
-        ],
-        recipe: { minBarley: 1, minRye: 1, minWheat: 1 },
-        silverAward: { minAge: 5 },
-      },
-      0,
-    ),
-    makeMashBill(
-      {
-        defId: "high_rickhouse_select",
-        name: "High Rickhouse Select",
-        slogan: "Top of the rack, top of the bill.",
-        flavorText: "Pulled from the seventh story. Hotter summers, faster aging, premium ask.",
-        tier: "legendary",
-        // 4×4 — biggest grid in the catalog, only at the legendary
-        // tier (allowed shapes per the catalog rule: 3×3 / 3×4 / 4×3
-        // / 4×4). Wider age and demand spread give the bill a peak
-        // ceiling no other tier can reach.
-        ageBands: [3, 5, 7, 9],
-        demandBands: [3, 5, 8, 11],
-        rewardGrid: [
-          [1, 2, 3, 5],
-          [2, 4, 6, 8],
-          [4, 6, 9, 11],
-          [6, 9, 12, 14],
-        ],
-        goldAward: { minAge: 8, minDemand: 8, minReward: 9 },
-      },
-      0,
-    ),
-    makeMashBill(
-      {
-        defId: "stave_and_story",
-        name: "Stave & Story",
-        slogan: "One barrel, one tale.",
-        flavorText: "Each stave numbered, each pour narrated.",
-        tier: "uncommon",
-        // 2×2 — hot demand needed.
-        ageBands: [3, 6],
-        demandBands: [5, 8],
-        rewardGrid: [
-          [2, 4],
-          [3, 7],
+          [2, 3],
+          [3, 5],
         ],
       },
       0,
@@ -349,18 +272,17 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "E for excellent. Or extra.",
         flavorText: "Whatever the rickhouse manager grabbed last. Consistent enough to ship.",
         tier: "common",
-        // 2×2 — slightly richer common; rewards both age and demand.
-        ageBands: [2, 5],
+        complexityTier: 1,
+        // 2×2 — flat starter, payout from age 2.
+        ageBands: [2, 4],
         demandBands: [3, 6],
         rewardGrid: [
-          [1, 2],
+          [2, 3],
           [3, 5],
         ],
-        silverAward: { minAge: 8 },
       },
       0,
     ),
-    // ────────── Extended pool — keeps the bourbon deck stocked ──────────
     makeMashBill(
       {
         defId: "mammoth_cave_malt",
@@ -368,10 +290,15 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "Aged in the dark.",
         flavorText: "Limestone water, malted barley, and one very large echo.",
         tier: "common",
-        // 2×1 — patience pays.
+        complexityTier: 1,
+        // 2×2 — gentle aging starter; one easy constraint (rye allowed
+        // but not required).
         ageBands: [2, 4],
-        demandBands: [3],
-        rewardGrid: [[1], [3]],
+        demandBands: [3, 6],
+        rewardGrid: [
+          [2, 3],
+          [3, 4],
+        ],
       },
       0,
     ),
@@ -382,10 +309,14 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "Filtered through Kentucky.",
         flavorText: "Hard water, soft mouthfeel, accountant's clarity.",
         tier: "common",
-        // 1×2 — demand-driven flat-payout common.
-        ageBands: [2],
-        demandBands: [4, 7],
-        rewardGrid: [[2, 3]],
+        complexityTier: 1,
+        // 2×2 — universal rule only, range 2-4.
+        ageBands: [2, 4],
+        demandBands: [3, 6],
+        rewardGrid: [
+          [2, 3],
+          [3, 4],
+        ],
       },
       0,
     ),
@@ -396,10 +327,14 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "Distilled in the river fog.",
         flavorText: "Bottled when the cooper couldn't see the next building.",
         tier: "common",
-        // 2×1 — older barrels pay more.
-        ageBands: [2, 5],
-        demandBands: [4],
-        rewardGrid: [[2], [4]],
+        complexityTier: 1,
+        // 2×2 — older payouts come a notch higher; still no recipe.
+        ageBands: [2, 4],
+        demandBands: [3, 6],
+        rewardGrid: [
+          [2, 3],
+          [4, 5],
+        ],
       },
       0,
     ),
@@ -410,13 +345,60 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "Sweet, hot, simple.",
         flavorText: "Eighty percent corn, twenty percent everything else.",
         tier: "common",
-        // 2×2 — most varied common, still half the size of an uncommon.
+        complexityTier: 1,
+        // 2×2 — one easy constraint (corn-forward), gentle range.
         ageBands: [2, 4],
         demandBands: [3, 6],
         rewardGrid: [
-          [1, 3],
           [2, 4],
+          [3, 5],
         ],
+        recipe: { minCorn: 2 },
+      },
+      0,
+    ),
+
+    // ──────────────── Tier 2 — Mid bills ────────────────
+    // One real constraint (rye ≥ 2-3, wheat ≥ 1, no rye, etc.). Best
+    // payouts pushed to age 4+. Demand bands matter. Spread ~3-5.
+    // Peak 8-9. Silver awards live mostly here.
+    makeMashBill(
+      {
+        defId: "wheat_whisper",
+        name: "Wheat Whisper",
+        slogan: "Soft, slow, certain.",
+        flavorText: "Wheated mash bill that doesn't argue.",
+        tier: "uncommon",
+        complexityTier: 2,
+        // 2×3 — demand-driven payout; wheated constraint.
+        ageBands: [3, 5],
+        demandBands: [3, 5, 8],
+        rewardGrid: [
+          [2, 4, 5],
+          [3, 6, 8],
+        ],
+        recipe: { minWheat: 1, maxRye: 0 },
+        silverAward: { minAge: 5, minDemand: 6 },
+      },
+      0,
+    ),
+    makeMashBill(
+      {
+        defId: "stave_and_story",
+        name: "Stave & Story",
+        slogan: "One barrel, one tale.",
+        flavorText: "Each stave numbered, each pour narrated.",
+        tier: "uncommon",
+        complexityTier: 2,
+        // 2×3 — needs hot demand AND age to peak; mild rye gate.
+        ageBands: [3, 5],
+        demandBands: [3, 6, 8],
+        rewardGrid: [
+          [2, 3, 5],
+          [3, 5, 8],
+        ],
+        recipe: { minRye: 1 },
+        silverAward: { minAge: 5 },
       },
       0,
     ),
@@ -427,10 +409,15 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "Trade in the burn.",
         flavorText: "A blender's standby — char level four, vanilla up front.",
         tier: "uncommon",
-        // 1×3 — flat age curve, demand drives reward.
-        ageBands: [3],
+        complexityTier: 2,
+        // 2×3 — flat age curve, demand drives reward; one barley gate.
+        ageBands: [3, 5],
         demandBands: [3, 5, 8],
-        rewardGrid: [[2, 4, 6]],
+        rewardGrid: [
+          [2, 4, 6],
+          [3, 5, 8],
+        ],
+        recipe: { minBarley: 1 },
       },
       0,
     ),
@@ -441,14 +428,16 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "When the rye whistles, drink.",
         flavorText: "Spicy rye-forward bend with a citrus undercurrent.",
         tier: "uncommon",
-        // 2×2.
-        ageBands: [3, 6],
-        demandBands: [3, 7],
+        complexityTier: 2,
+        // 2×3 — meaningful rye gate, smoother demand response.
+        ageBands: [3, 5],
+        demandBands: [3, 5, 8],
         rewardGrid: [
-          [2, 4],
-          [3, 7],
+          [2, 4, 5],
+          [3, 6, 8],
         ],
         recipe: { minRye: 2 },
+        silverAward: { minAge: 5, minDemand: 5 },
       },
       0,
     ),
@@ -459,29 +448,37 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "Holding the malt line.",
         flavorText: "Barley-heavy pot still that refuses to be subtle.",
         tier: "uncommon",
-        // 3×1 — pure aging play; demand neutral.
+        complexityTier: 2,
+        // 3×2 — aging-forward; demand-modest. Barley constraint.
         ageBands: [2, 4, 6],
-        demandBands: [3],
-        rewardGrid: [[2], [4], [6]],
+        demandBands: [3, 6],
+        rewardGrid: [
+          [2, 3],
+          [4, 6],
+          [6, 8],
+        ],
         recipe: { minBarley: 2 },
+        silverAward: { minAge: 6 },
       },
       0,
     ),
     makeMashBill(
       {
-        defId: "coopers_quorum",
-        name: "Cooper's Quorum",
-        slogan: "Five staves agreed.",
-        flavorText: "Built by hand, voted on by committee. The cooperage's house pour.",
-        tier: "rare",
-        // 2×3 — committee-priced; smooth across demand.
-        ageBands: [3, 6],
-        demandBands: [3, 6, 8],
+        defId: "knob_creek_cousin",
+        name: "Knob Creek Cousin",
+        slogan: "Aging gracefully, charging accordingly.",
+        flavorText: "Two stories down from the namesake. Same patience, friendlier ask.",
+        tier: "uncommon",
+        complexityTier: 2,
+        // 2×3 — wide reward range across demand; gentle rye/barley gate.
+        ageBands: [4, 6],
+        demandBands: [3, 5, 8],
         rewardGrid: [
-          [2, 4, 5],
-          [3, 6, 8],
+          [3, 5, 7],
+          [4, 6, 9],
         ],
-        silverAward: { minAge: 5 },
+        recipe: { minRye: 1, minBarley: 1 },
+        silverAward: { minAge: 6 },
       },
       0,
     ),
@@ -492,14 +489,66 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "Twice toasted, never burnt.",
         flavorText: "Char two on the staves, char three on the heads.",
         tier: "rare",
-        // 3×2.
+        complexityTier: 2,
+        // 3×2 — age-driven, with an upper-end skew.
         ageBands: [4, 6, 8],
         demandBands: [3, 7],
         rewardGrid: [
-          [2, 4],
-          [3, 6],
+          [3, 5],
+          [4, 7],
           [5, 9],
         ],
+        silverAward: { minAge: 6 },
+      },
+      0,
+    ),
+
+    // ──────────────── Tier 3 — Specialty bills ────────────────
+    // Multi-constraint or sharply skewed demand. Best payouts gated
+    // behind age 6+. Spread ~5-8, peak 10-12. Most Gold awards live
+    // here.
+    makeMashBill(
+      {
+        defId: "rye_ladder_95",
+        name: "Rye Ladder 95",
+        slogan: "Climb to the spice.",
+        flavorText: "Ninety-five percent rye — pepper, mint, and a long ladder down the throat.",
+        tier: "rare",
+        complexityTier: 3,
+        // 3×3 — climbs hard with age; high-rye gate.
+        ageBands: [3, 5, 7],
+        demandBands: [3, 6, 8],
+        rewardGrid: [
+          [2, 4, 5],
+          [3, 6, 8],
+          [4, 8, 11],
+        ],
+        recipe: { minRye: 3 },
+        silverAward: { minAge: 5, minDemand: 6 },
+        goldAward: { minAge: 7, minDemand: 8 },
+      },
+      0,
+    ),
+    makeMashBill(
+      {
+        defId: "coopers_quorum",
+        name: "Cooper's Quorum",
+        slogan: "Five staves agreed.",
+        flavorText: "Built by hand, voted on by committee. The cooperage's house pour.",
+        tier: "rare",
+        complexityTier: 3,
+        // 3×3 — three-grain commitment; pays smoothly across demand,
+        // peaks at high age.
+        ageBands: [3, 5, 7],
+        demandBands: [3, 5, 8],
+        rewardGrid: [
+          [2, 4, 5],
+          [3, 6, 8],
+          [5, 8, 10],
+        ],
+        recipe: { minRye: 1, minBarley: 1, minWheat: 1 },
+        silverAward: { minAge: 5 },
+        goldAward: { minAge: 7, minDemand: 6 },
       },
       0,
     ),
@@ -510,14 +559,40 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "What evaporated, signed in.",
         flavorText: "The barrel left a watermark in the air. The bottle preserves what stayed.",
         tier: "rare",
-        // 2×2.
-        ageBands: [4, 7],
-        demandBands: [4, 8],
+        complexityTier: 3,
+        // 3×3 — punishingly age-locked; rewards only above demand 6.
+        ageBands: [4, 6, 8],
+        demandBands: [3, 6, 9],
         rewardGrid: [
-          [3, 5],
-          [5, 9],
+          [2, 4, 6],
+          [3, 6, 9],
+          [4, 8, 11],
         ],
+        recipe: { minWheat: 1, minBarley: 1 },
         silverAward: { minAge: 6, minDemand: 6 },
+        goldAward: { minAge: 8, minDemand: 8 },
+      },
+      0,
+    ),
+    makeMashBill(
+      {
+        defId: "mash_bill_no_7",
+        name: "Mash Bill No. 7",
+        slogan: "Lucky number, regular price.",
+        flavorText: "Reliable corn-rye-malt at 70/20/10. The seventh recipe, the first standard.",
+        tier: "epic",
+        complexityTier: 3,
+        // 3×3 — multi-grain four-way; flagship spread.
+        ageBands: [3, 5, 7],
+        demandBands: [3, 5, 8],
+        rewardGrid: [
+          [2, 4, 6],
+          [3, 6, 9],
+          [4, 8, 11],
+        ],
+        recipe: { minBarley: 1, minRye: 1, minWheat: 1 },
+        silverAward: { minAge: 5 },
+        goldAward: { minAge: 7, minDemand: 8 },
       },
       0,
     ),
@@ -528,18 +603,64 @@ export function defaultMashBillCatalog(): MashBill[] {
         slogan: "Four years, one distillery, one season.",
         flavorText: "Bottled-in-bond standard with a heavier proof.",
         tier: "epic",
-        // 3×2 — bonded character is about age, not demand swings.
-        // Pairs with Mash Bill No. 7 (3×3) so the two epics read as
-        // distinct shapes at a glance.
+        complexityTier: 3,
+        // 3×3 — age-skewed; only pays huge at age 6+ and demand 8+.
         ageBands: [4, 6, 8],
-        demandBands: [4, 8],
+        demandBands: [3, 6, 8],
         rewardGrid: [
-          [3, 6],
-          [5, 9],
-          [6, 11],
+          [2, 5, 7],
+          [3, 7, 10],
+          [4, 8, 12],
         ],
+        recipe: { minBarley: 1, minRye: 1 },
         silverAward: { minAge: 6 },
         goldAward: { minAge: 8, minDemand: 8 },
+      },
+      0,
+    ),
+    makeMashBill(
+      {
+        defId: "wheated_estate",
+        name: "Wheated Estate",
+        slogan: "Soft on the palate, sharp at the till.",
+        flavorText: "An estate-only wheated reserve. Demand a real summer to peak.",
+        tier: "epic",
+        complexityTier: 3,
+        // 3×3 — wheated specialty; sharp demand skew (low demand pays
+        // poorly, high demand pays enormously).
+        ageBands: [4, 6, 8],
+        demandBands: [4, 7, 10],
+        rewardGrid: [
+          [1, 4, 7],
+          [2, 6, 10],
+          [3, 8, 12],
+        ],
+        recipe: { minWheat: 2, maxRye: 0 },
+        silverAward: { minAge: 6, minDemand: 7 },
+        goldAward: { minAge: 8, minDemand: 10 },
+      },
+      0,
+    ),
+    makeMashBill(
+      {
+        defId: "high_rickhouse_select",
+        name: "High Rickhouse Select",
+        slogan: "Top of the rack, top of the bill.",
+        flavorText: "Pulled from the seventh story. Hotter summers, faster aging, premium ask.",
+        tier: "legendary",
+        complexityTier: 3,
+        // 4×4 — flagship four-grain; the catalog's tallest peak.
+        ageBands: [3, 5, 7, 9],
+        demandBands: [3, 5, 8, 11],
+        rewardGrid: [
+          [1, 2, 3, 5],
+          [2, 4, 6, 8],
+          [4, 6, 9, 11],
+          [6, 9, 11, 12],
+        ],
+        recipe: { minRye: 1, minBarley: 1, minWheat: 1, minTotalGrain: 4 },
+        silverAward: { minAge: 7, minDemand: 8 },
+        goldAward: { minAge: 8, minDemand: 8, minReward: 9 },
       },
       0,
     ),
@@ -547,305 +668,158 @@ export function defaultMashBillCatalog(): MashBill[] {
 }
 
 // ============================================================
-// Default market supply — premium and capital cards.
+// Default market supply — v2.7 four-band resource economy + 3-tier
+// capital ladder.
+//
+// Resources are sorted into four pricing bands. Composition buffs
+// read `resourceCount` straight through, so a Double counts as 2
+// units. Specialties carry a uniform `+1 reputation on sale` flat
+// bonus — luxury upgrades that thicken the payout rather than add
+// bulk:
+//
+//   Common ($1)             1 unit, basic
+//   Double ($3)             2 units
+//   Specialty ($3)          1 unit + on-sale +1 rep
+//   Double Specialty ($6)   2 units + on-sale +1 rep
+//
+// Capitals collapse onto $1 / $3 / $5 face values; cost == value.
+//
+// Distribution intent across the resource portion of the supply:
+//   ~50% Common, ~25% Double, ~20% Specialty, ~5% Double Specialty.
+//
+// The themed-card effects from earlier builds (draw, demand-band
+// shift, etc.) are deliberately retired — the v2.7 economy bets
+// that a uniform Specialty rule reads cleaner. The effect resolver
+// in `card-effects.ts` is unchanged; old card defs simply no longer
+// mint here.
 // ============================================================
 
+const SPECIALTY_BONUS = {
+  kind: "rep_on_sale_flat",
+  when: "on_sale",
+  rep: 1,
+} as const;
+
+interface BandCardSpec {
+  defId: string;
+  displayName: string;
+  flavor: string;
+  subtype: "cask" | "corn" | "rye" | "barley" | "wheat";
+  copies: number;
+}
+
+const DOUBLE_SPECS: BandCardSpec[] = [
+  { defId: "double_cask", displayName: "Double Cask", flavor: "Two staves stacked, one barrel filled.", subtype: "cask", copies: 2 },
+  { defId: "double_corn", displayName: "Double Corn", flavor: "Sweet load, twice the haul.", subtype: "corn", copies: 2 },
+  { defId: "double_rye", displayName: "Double Rye", flavor: "Pepper, doubled.", subtype: "rye", copies: 3 },
+  { defId: "double_barley", displayName: "Double Barley", flavor: "The malt house's overshare.", subtype: "barley", copies: 2 },
+  { defId: "double_wheat", displayName: "Double Wheat", flavor: "Smooth, then smoother.", subtype: "wheat", copies: 2 },
+];
+
+const SPECIALTY_SPECS: BandCardSpec[] = [
+  { defId: "superior_cask", displayName: "Superior Cask", flavor: "Hand-picked stave, certified char.", subtype: "cask", copies: 2 },
+  { defId: "superior_corn", displayName: "Superior Corn", flavor: "Heirloom kernels, single-farm.", subtype: "corn", copies: 2 },
+  { defId: "superior_rye", displayName: "Superior Rye", flavor: "Reserve cut, sharper edge.", subtype: "rye", copies: 2 },
+  { defId: "superior_barley", displayName: "Superior Barley", flavor: "Floor-malted, water-blessed.", subtype: "barley", copies: 2 },
+  { defId: "superior_wheat", displayName: "Superior Wheat", flavor: "Estate harvest, soft as silk.", subtype: "wheat", copies: 2 },
+];
+
+const DOUBLE_SPECIALTY_SPECS: Omit<BandCardSpec, "copies">[] = [
+  { defId: "double_superior_cask", displayName: "Double Superior Cask", flavor: "Cooper's two-stave reserve.", subtype: "cask" },
+  { defId: "double_superior_rye", displayName: "Double Superior Rye", flavor: "Headline rye, headline pour.", subtype: "rye" },
+  { defId: "double_superior_wheat", displayName: "Double Superior Wheat", flavor: "Estate wheat by the bushel.", subtype: "wheat" },
+];
+
 export function defaultMarketSupply(): Card[] {
-  // Mirrors `packages/engine/content/resources.yaml`. See that file for
-  // per-card design notes. Distribution intent: commons majority,
-  // uncommons meaningful minority, rares very rare (1 copy each).
-  //
-  // Themed-card effects are wired here via `card.effect` and resolved
-  // by `src/card-effects.ts` at the appropriate commit/sale/spend
-  // window (see `Barrel.productionCards` / `Barrel.gridRepOffset` for
-  // the persistent state used by sale-time math).
   const cards: Card[] = [];
   let idx = 0;
 
-  // ── Commons (majority): 1-of-subtype basics + $1 capitals ────────
-  for (let i = 0; i < 6; i++) cards.push(makeResourceCard("cask", "supply", idx++));
-  for (let i = 0; i < 6; i++) cards.push(makeResourceCard("corn", "supply", idx++));
-  for (let i = 0; i < 6; i++) cards.push(makeResourceCard("rye", "supply", idx++));
+  // ── Common ($1, 1 unit) — basic 5 subtypes ─────────────────────
+  for (let i = 0; i < 5; i++) cards.push(makeResourceCard("cask", "supply", idx++));
+  for (let i = 0; i < 5; i++) cards.push(makeResourceCard("corn", "supply", idx++));
+  for (let i = 0; i < 5; i++) cards.push(makeResourceCard("rye", "supply", idx++));
   for (let i = 0; i < 5; i++) cards.push(makeResourceCard("barley", "supply", idx++));
   for (let i = 0; i < 5; i++) cards.push(makeResourceCard("wheat", "supply", idx++));
+
+  // ── Double ($3, 2 units) — bulk plays.
+  for (const spec of DOUBLE_SPECS) {
+    for (let i = 0; i < spec.copies; i++) {
+      cards.push(
+        makePremiumResource({
+          defId: spec.defId,
+          displayName: spec.displayName,
+          flavor: spec.flavor,
+          subtype: spec.subtype,
+          resourceCount: 2,
+          cost: 3,
+          index: idx++,
+        }),
+      );
+    }
+  }
+
+  // ── Specialty ($3, 1 unit + Specialty bonus) — luxury upgrades.
+  //   Each committed Specialty grants +1 rep on sale.
+  for (const spec of SPECIALTY_SPECS) {
+    for (let i = 0; i < spec.copies; i++) {
+      cards.push(
+        makePremiumResource({
+          defId: spec.defId,
+          displayName: spec.displayName,
+          flavor: spec.flavor,
+          subtype: spec.subtype,
+          resourceCount: 1,
+          cost: 3,
+          effect: SPECIALTY_BONUS,
+          index: idx++,
+        }),
+      );
+    }
+  }
+
+  // ── Double Specialty ($6, 2 units + Specialty bonus) — flagship.
+  for (const spec of DOUBLE_SPECIALTY_SPECS) {
+    cards.push(
+      makePremiumResource({
+        defId: spec.defId,
+        displayName: spec.displayName,
+        flavor: spec.flavor,
+        subtype: spec.subtype,
+        resourceCount: 2,
+        cost: 6,
+        effect: SPECIALTY_BONUS,
+        index: idx++,
+      }),
+    );
+  }
+
+  // ── Capital ladder: $1 / $3 / $5 ─────────────────────────────
+  // $1 — basic Petty Cash (also serves as the Common-band capital).
   for (let i = 0; i < 6; i++) cards.push(makeCapitalCard("supply", idx++));
-
-  // ── Uncommons (minority): named themed premiums ─────────────────
-  // Barley · Engine acceleration
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "two_row_barley",
-        displayName: "Two-Row Barley",
-        flavor: "A leaner stalk, cycles your hand.",
-        subtype: "barley",
-        resourceCount: 1,
-        cost: 3,
-        effect: { kind: "draw_cards", when: "on_commit_production", n: 1 },
-        index: idx++,
-      }),
-    );
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "malted_barley",
-        displayName: "Malted Barley",
-        flavor: "Sweet conversion mid-aging.",
-        subtype: "barley",
-        resourceCount: 1,
-        cost: 3,
-        effect: { kind: "draw_cards", when: "on_commit_aging", n: 1 },
-        index: idx++,
-      }),
-    );
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "heritage_barley",
-        displayName: "Heritage Barley",
-        flavor: "Heirloom strain, double yield.",
-        subtype: "barley",
-        resourceCount: 2,
-        cost: 5,
-        effect: { kind: "draw_cards", when: "on_commit_production", n: 1 },
-        index: idx++,
-      }),
-    );
-
-  // Wheat · Time manipulation
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "soft_red_wheat",
-        displayName: "Soft Red Wheat",
-        flavor: "A barrel born already aging.",
-        subtype: "wheat",
-        resourceCount: 1,
-        cost: 4,
-        effect: { kind: "barrel_starts_aged", when: "on_commit_production", age: 1 },
-        index: idx++,
-      }),
-    );
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "winter_wheat",
-        displayName: "Winter Wheat",
-        flavor: "Two winters in one season.",
-        subtype: "wheat",
-        resourceCount: 1,
-        cost: 4,
-        effect: { kind: "aging_card_doubled", when: "on_commit_aging", years: 2 },
-        index: idx++,
-      }),
-    );
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "white_wheat",
-        displayName: "White Wheat",
-        flavor: "Patient grain rewards a long sleep.",
-        subtype: "wheat",
-        resourceCount: 2,
-        cost: 5,
-        effect: { kind: "rep_on_sale_if_age_gte", when: "on_sale", age: 5, rep: 1 },
-        index: idx++,
-      }),
-    );
-
-  // Rye · Reputation amplification
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "heritage_rye",
-        displayName: "Heritage Rye",
-        flavor: "Twice the spice, twice the bag.",
-        subtype: "rye",
-        resourceCount: 2,
-        cost: 4,
-        index: idx++,
-      }),
-    );
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "spicy_rye",
-        displayName: "Spicy Rye",
-        flavor: "The pepper that lingers in the bottle.",
-        subtype: "rye",
-        resourceCount: 1,
-        cost: 4,
-        effect: { kind: "rep_on_sale_flat", when: "on_sale", rep: 1 },
-        index: idx++,
-      }),
-    );
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "high_proof_rye",
-        displayName: "High-Proof Rye",
-        flavor: "Hot demand, hot rye.",
-        subtype: "rye",
-        resourceCount: 2,
-        cost: 5,
-        effect: { kind: "rep_on_sale_if_demand_gte", when: "on_sale", demand: 7, rep: 2 },
-        index: idx++,
-      }),
-    );
-
-  // Cask · Quality
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "toasted_oak",
-        displayName: "Toasted Oak",
-        flavor: "Reads the demand grid one band higher.",
-        subtype: "cask",
-        resourceCount: 1,
-        cost: 5,
-        effect: { kind: "grid_demand_band_offset", when: "on_sale", offset: 1 },
-        index: idx++,
-      }),
-    );
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "heavy_char",
-        displayName: "Heavy Char",
-        flavor: "Older barrels open up under the burn.",
-        subtype: "cask",
-        resourceCount: 1,
-        cost: 4,
-        effect: { kind: "rep_on_sale_if_age_gte", when: "on_sale", age: 4, rep: 2 },
-        index: idx++,
-      }),
-    );
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumResource({
-        defId: "used_bourbon_cask",
-        displayName: "Used Bourbon Cask",
-        flavor: "A second life — back to your hand.",
-        subtype: "cask",
-        resourceCount: 1,
-        cost: 4,
-        effect: { kind: "returns_to_hand_on_sale", when: "on_sale" },
-        index: idx++,
-      }),
-    );
-
-  // Capital · Leverage
+  // $3 — Brand Loan, plain face-value capital.
   for (let i = 0; i < 4; i++)
-    cards.push(
-      makePremiumCapital({
-        defId: "cellar_stipend",
-        displayName: "Cellar Stipend",
-        flavor: "Two coins for the cooper.",
-        capitalValue: 2,
-        index: idx++,
-      }),
-    );
-  for (let i = 0; i < 3; i++)
     cards.push(
       makePremiumCapital({
         defId: "brand_loan",
         displayName: "Brand Loan",
         flavor: "Three on credit, due in glory.",
         capitalValue: 3,
+        cost: 3,
         index: idx++,
       }),
     );
+  // $5 — House Backer, the big-ticket capital. Cost matches face value.
   for (let i = 0; i < 2; i++)
     cards.push(
       makePremiumCapital({
-        defId: "bourbon_bond",
-        displayName: "Bourbon Bond",
-        flavor: "Pay it forward — gain reputation now.",
-        capitalValue: 2,
+        defId: "house_backer",
+        displayName: "House Backer",
+        flavor: "Five at the till, no questions asked.",
+        capitalValue: 5,
         cost: 5,
-        effect: { kind: "rep_on_commit_aging", when: "on_commit_aging", rep: 1 },
         index: idx++,
       }),
     );
-
-  // ── Rares (very rare): 1 copy each ──────────────────────────────
-  cards.push(
-    makePremiumResource({
-      defId: "six_row_barley",
-      displayName: "Six-Row Barley",
-      flavor: "Endless rows, endless cards.",
-      subtype: "barley",
-      resourceCount: 2,
-      cost: 7,
-      effect: {
-        kind: "composite",
-        effects: [
-          { kind: "draw_cards", when: "on_commit_production", n: 2 },
-          { kind: "draw_cards", when: "on_sale", n: 1 },
-        ],
-      },
-      index: idx++,
-    }),
-  );
-  cards.push(
-    makePremiumResource({
-      defId: "heirloom_wheat",
-      displayName: "Heirloom Wheat",
-      flavor: "A pre-aged barrel that holds the line.",
-      subtype: "wheat",
-      resourceCount: 2,
-      cost: 7,
-      effect: {
-        kind: "composite",
-        effects: [
-          { kind: "barrel_starts_aged", when: "on_commit_production", age: 2 },
-          { kind: "skip_demand_drop", when: "on_sale" },
-        ],
-      },
-      index: idx++,
-    }),
-  );
-  cards.push(
-    makePremiumResource({
-      defId: "distillers_reserve_rye",
-      displayName: "Distiller's Reserve Rye",
-      flavor: "Three bushels, every word a headline.",
-      subtype: "rye",
-      resourceCount: 3,
-      cost: 8,
-      effect: {
-        kind: "composite",
-        effects: [
-          { kind: "bump_demand", when: "on_commit_production", delta: 1 },
-          { kind: "rep_on_sale_flat", when: "on_sale", rep: 2 },
-        ],
-      },
-      index: idx++,
-    }),
-  );
-  cards.push(
-    makePremiumResource({
-      defId: "single_barrel_cask",
-      displayName: "Single Barrel Cask",
-      flavor: "Every band of this barrel pays one more.",
-      subtype: "cask",
-      resourceCount: 1,
-      cost: 7,
-      effect: { kind: "grid_rep_offset", when: "on_commit_production", offset: 1 },
-      index: idx++,
-    }),
-  );
-  cards.push(
-    makePremiumCapital({
-      defId: "lenders_note",
-      displayName: "Lender's Note",
-      flavor: "A reputation discount on every spend.",
-      capitalValue: 4,
-      cost: 8,
-      effect: { kind: "rep_on_market_spend", when: "on_spend", rep: 1 },
-      index: idx++,
-    }),
-  );
 
   return cards;
 }

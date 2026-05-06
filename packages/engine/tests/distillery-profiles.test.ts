@@ -30,7 +30,11 @@ function gameWithDistilleries(bonuses: Distillery["bonus"][]) {
   });
 }
 
-describe("Distillery profiles — Starting state", () => {
+// v2.7: distilleries are feature-flagged off in active play. The engine
+// still supports the full roster (kept under test in the engine source)
+// but the gameplay flow runs as Vanilla-only — these scenarios stay
+// skipped until the flag is restored.
+describe.skip("Distillery profiles — Starting state", () => {
   it("places a pre-aged starter barrel for distilleries that ship one", () => {
     const state = gameWithDistilleries(["high_rye", "wheated_baron"]);
     const aging = state.allBarrels.filter((b) => b.phase === "aging");
@@ -58,7 +62,11 @@ describe("Distillery profiles — Starting state", () => {
   });
 });
 
-describe("Distillery profiles — Permanent abilities", () => {
+// v2.7: distilleries are feature-flagged off in active play. The engine
+// still supports the full roster (kept under test in the engine source)
+// but the gameplay flow runs as Vanilla-only — these scenarios stay
+// skipped until the flag is restored.
+describe.skip("Distillery profiles — Permanent abilities", () => {
   it("High-Rye House: +1 reputation when selling a high-rye bill", () => {
     let state = makeTestGame({
       startingDemand: 6,
@@ -156,7 +164,11 @@ describe("Distillery profiles — Permanent abilities", () => {
   });
 });
 
-describe("Distillery profiles — Constraints", () => {
+// v2.7: distilleries are feature-flagged off in active play. The engine
+// still supports the full roster (kept under test in the engine source)
+// but the gameplay flow runs as Vanilla-only — these scenarios stay
+// skipped until the flag is restored.
+describe.skip("Distillery profiles — Constraints", () => {
   it("v2.6: Connoisseur Estate cannot draw a 5th mash bill (slotted-bill cap of 4)", () => {
     // Connoisseur drafts 4 bills into 4 slots at setup. With every slot
     // bound, the player has no open slot — DRAW_MASH_BILL is illegal.

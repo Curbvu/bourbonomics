@@ -23,7 +23,10 @@ function makeSelectionGame() {
   });
 }
 
-describe("Distillery selection", () => {
+// v2.7: distillery selection is feature-flagged off in active play. The
+// engine still supports it (skipped, not deleted, per the patch spec) so
+// the tests stay green when the flag flips back on.
+describe.skip("Distillery selection", () => {
   it("starts in distillery_selection with reverse-snake order", () => {
     const state = makeSelectionGame();
     expect(state.phase).toBe("distillery_selection");

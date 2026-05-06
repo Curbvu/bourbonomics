@@ -121,11 +121,14 @@ export function applyDistilleryStarterModifications(
   if (!mods) return;
 
   if (mods.bonusTwoRye && mods.bonusTwoRye > 0) {
+    // v2.7: the legacy "2× Rye" (rye_x2) is now the standard Double Rye
+    // — same units, same cost, just consolidated under the new band.
     for (let i = 0; i < mods.bonusTwoRye; i++) {
       target.push(
         makePremiumResource({
-          defId: "rye_x2",
-          displayName: "2× Rye",
+          defId: "double_rye",
+          displayName: "Double Rye",
+          flavor: "Pepper, doubled.",
           subtype: "rye",
           resourceCount: 2,
           cost: 3,

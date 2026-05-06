@@ -29,8 +29,10 @@ import {
 import {
   applyAction,
   awaitingHumanInput,
+  buildVanillaDistilleryFor,
   computeFinalScores,
   defaultMashBillCatalog,
+  DISTILLERIES_ENABLED,
   initializeGame,
   isGameOver,
   stepOrchestrator,
@@ -804,12 +806,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
       cursor += slice.length;
     }
     const bourbonDeck = catalog.slice(cursor);
+    // v2.7: distillery selection is feature-flagged off. When the flag
+    // is false, every player is pre-assigned a Vanilla distillery so
+    // the engine skips the distillery_selection phase entirely.
+    const startingDistilleries = DISTILLERIES_ENABLED
+      ? undefined
+      : players.map((p) => buildVanillaDistilleryFor(p.id));
     const fresh = initializeGame({
       seed,
       players,
       startingMashBills,
       bourbonDeck,
-      // No starterDecks / startingDistilleries → engine enters setup phases.
+      startingDistilleries,
+      // No starterDecks → engine still runs the trade window.
     });
     setStore({
       state: fresh,

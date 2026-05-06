@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (v2.5 alpha).** Distillery selection, drafting, the round loop, incremental production, aging, selling, market, operations cards, trading, doomsday-deck endgame. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. Computer-only build today; human-controlled slots ship alongside the UI work.
+> **Scope (v2.7 alpha).** Drafting, the round loop, incremental production, aging, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is temporarily disabled** — every game runs as Vanilla. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. Computer-only build today; human-controlled slots ship alongside the UI work.
 
 ---
 
@@ -47,11 +47,9 @@ The final round is the high-drama round — players race to liquidate aged barre
 
 # 🎬 Setup
 
-### Step 1 — Distillery selection
+### Step 1 — Distillery selection (temporarily disabled in v2.7)
 
-Each player picks a distillery in **reverse snake order** (last seat picks first). A distillery is a full opening package: a starting state, a permanent ability, and a constraint.
-
-**Roster (v2.5):** High-Rye House, Wheated Baron, Connoisseur Estate, Vanilla. See [§Distillery Profiles](#distillery-profiles).
+Distillery profiles are temporarily disabled in this build. All players use the **Vanilla** setup: 4 Open slots, no pre-aged barrels, no asymmetric ability or constraint. The full roster (High-Rye House, Wheated Baron, Connoisseur Estate, plus future distilleries) will return in a later release. See [§Distillery Profiles](#distillery-profiles) for the legacy reference.
 
 ### Step 2 — Mash bill draft
 
@@ -65,7 +63,7 @@ Build the starter pool: per player, 6 cask · 4 corn · 4 grain (2 rye / 1 barle
 
 **Stuck-hand swap.** Once during the trade window, a player may return up to 3 cards to the pool and draw the same number off the top. One-shot per player per game.
 
-When the timer expires (or every player has signaled "pass"), shuffle your final 16 cards into your starter deck. Premium cards (like 2-rye) only enter via the market.
+When the timer expires (or every player has signaled "pass"), shuffle your final 16 cards into your starter deck. Premium variants — Doubles, Specialties, and Double Specialties — only enter via the market.
 
 ### Step 4 — First hand
 
@@ -318,6 +316,19 @@ Decks grow through market purchases. The effective working deck shrinks as cards
 - **Capital** — currency. The printed value is its **payment value** when buying market cards, ops cards, or mash bills. In every other context (production, trading, aging) a capital card counts as 1.
 - **Operations** — bought from the face-up ops market. Played as a free action during the action phase. One-shot unless stated otherwise.
 
+### Card Bands (v2.7)
+
+Resource cards in the market sort into four pricing bands. Doubles count as 2 units toward both recipes and composition buffs. Specialties carry a uniform luxury bonus — **+1 reputation when the barrel sells**, for each Specialty (or Double Specialty) committed to it. Capital cards collapse onto a $1 / $3 / $5 ladder; cost equals face value across the board.
+
+| Band | Cost | Units | On sale |
+|---|:-:|:-:|---|
+| **Common** (cask, corn, rye, wheat, barley) | $1 | 1 | — |
+| **Double** (double cask / corn / rye / wheat / barley) | $3 | 2 | — |
+| **Specialty** (superior cask / corn / rye / wheat / barley) | $3 | 1 | +1 reputation |
+| **Double Specialty** (double superior cask / rye / wheat) | $6 | 2 | +1 reputation |
+
+Premium variants — Doubles, Specialties, and Double Specialties — only enter play via the market. Composition-buff thresholds count Doubles and Double Specialties at their full unit value (a Double Rye contributes 2 toward the rye threshold and 2 toward the "3+ single grain" buff).
+
 ---
 
 # 🧪 Composition Buffs
@@ -334,7 +345,7 @@ When a barrel sells, examine **everything** committed to it (production cards + 
 
 Demand-band buffs apply **before** the grid lookup; flat reputation and purchasing-power buffs apply **after**, on top of N. Skip-demand-drop overrides the normal post-sale demand drop.
 
-**Premium resources count by full unit value.** A 2-rye counts as 2 toward the rye threshold. Capital cards count as 1 each toward the 2+ capital threshold regardless of printed face value.
+**Premium resources count by full unit value.** A Double Rye counts as 2 toward the rye threshold and a Double Specialty Wheat counts as 2 toward the wheat threshold. Specialties (1 unit) count as 1; the Specialty bonus (+1 reputation on sale) is separate from composition buffs and stacks on top. Capital cards count as 1 each toward the 2+ capital threshold regardless of printed face value.
 
 Composition is calculated **at sale time only**. Awards (Silver/Gold) read the grid value as printed plus persistent barrel offsets — buffs don't change award eligibility.
 
@@ -440,6 +451,8 @@ These are representative — the full deck is defined in `packages/engine/conten
 
 # 🏛️ Distillery Profiles
 
+> **v2.7: temporarily disabled.** Distillery profiles are not active in this build. Every player uses the **Vanilla** setup (4 Open slots, no pre-aged barrels, no asymmetric ability or constraint). The full roster — High-Rye House, Wheated Baron, Connoisseur Estate, plus future distilleries — will return in a later release. The reference text below is preserved so the engine and documentation stay in sync the moment the flag flips back on.
+
 Each distillery is a full asymmetric package: a **starting state**, a **permanent ability**, and a **constraint**.
 
 ### High-Rye House — "The Specialist"
@@ -472,7 +485,7 @@ Designed and balanced for **2–4 players**.
 - **3 players** — the sweet spot. Demand pressure is meaningful, ops cards make table moments, doomsday clock paces well.
 - **4 players** — fullest experience. Real drama on ops, contested demand track, the most chaotic final rounds.
 
-The current roster ships 4 distilleries (one being Vanilla), so a 4-player game can seat all four with no duplicates. **5+ players are not supported** in this build — additional distilleries needed before that scales cleanly.
+v2.7 runs every game as Vanilla while the distillery roster is disabled, so player-count notes about distillery seating no longer apply. **5+ players are not supported** in this build for balance reasons.
 
 ---
 
@@ -494,7 +507,7 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 
 # 📜 Changelog
 
-- **v2.7** — **Make Bourbon per-slot turn cap removed.** A player can now commit to the same barrel as many times as they want on a single turn; the recipe-completion check fires after every commit. The `committedThisTurn` flag and the related per-turn cleanup are gone from the engine and the bot/UI heuristics.
+- **v2.7** — **Make Bourbon per-slot turn cap removed** (a player can now commit to the same slot as many times as they want on a single turn; recipe-completion fires after every commit). **Mash bill catalog recalibrated** into three difficulty/payoff tiers (Tier 1 starter / Tier 2 mid / Tier 3 specialty) with peak rewards and Gold awards scaled per tier. **Distillery profiles temporarily disabled** behind a `DISTILLERIES_ENABLED` feature flag — every game runs as Vanilla while the roster is rebuilt; engine code preserved. New **Bourbon Cards gallery** on the home screen — a read-only browser of every mash bill, sorted by tier. **Resource card economy overhaul** — market resources collapse onto four pricing bands (Common $1 / Double $3 / Specialty $3 / Double Specialty $6) with a uniform Specialty bonus (+1 rep on sale); capitals collapse onto a $1 / $3 / $5 ladder.
 - **v2.6** — **Slot-Bound Mash Bills.** Mash bills no longer enter a player's hand. Bills are drawn directly into an open rickhouse slot and remain public for their lifetime in that slot. Drawing a bill requires an open slot — slot capacity now gates the doomsday clock. `Make Bourbon`'s "attach a bill" sub-step is removed. Silver award reworked to "bill stays in slot" (slot becomes a "ready project" rather than fully opening). Gold award reworked to three mutually exclusive options on trigger: **Convert** (replace another slot's recipe with the Gold bill, provided that slot's already-committed cards satisfy the Gold recipe), **Keep** (Silver-style retention in the now-empty selling slot), or **Decline** (bill to bourbon discard, slot opens fully). Connoisseur Estate constraint reframed as "maximum slotted bills is 4" (replaces the old mash-bill hand cap). Allocation, Barrel Broker, and Blend ops cards updated for slot-bound bills. Trashing bills is free for empty/ready slots, action-cost for committed slots (subsumed by Abandon Barrel).
 - **v2.5** — **Incremental Mash Commitment.** Production redesigned: barrels are built across multiple turns via repeated `Make Bourbon` actions. Recipes auto-complete the moment the cumulative committed pile satisfies them; completed barrels first age the round after completion. New `Abandon Barrel` action returns committed cards to discard. **Convert (3:1) removed** — incremental commitment makes stranded resources less common. Distillery roster trimmed: Warehouse, Old-Line, and The Broker retired (their abilities were inert or carved out an awkward final-round asymmetry). Trading is now flatly illegal in the final round, no exceptions. Player count narrowed to 2–4.
 - **v2.4** — Composition Buffs added (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all-four-grains). Starter deck setup replaced with random-deal + 3-minute trade window + once-per-player stuck-hand swap. Distillery cards rebuilt as full asymmetric opening packages. Bot heuristics updated.

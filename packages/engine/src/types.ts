@@ -97,6 +97,18 @@ export interface AwardCondition {
 /** WoW-style rarity tiers. Drives card chrome (border, gradient, glow). */
 export type MashBillTier = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
+/**
+ * v2.7 difficulty/payoff tier. Independent of the visual rarity `tier`:
+ *   1 — Starter bills. Universal rule only or one easy constraint.
+ *       Flat, forgiving payoff grids (small spread, low age thresholds).
+ *   2 — Mid bills. One real constraint. Wider payoff range, age thresholds
+ *       pushed out, demand bands matter more.
+ *   3 — Specialty bills. Multi-constraint recipes and/or skewed demand
+ *       curves. Best payouts gated behind age 6+. Awards (Gold) cluster
+ *       here.
+ */
+export type MashBillComplexityTier = 1 | 2 | 3;
+
 export interface MashBill {
   id: string;                                // unique instance id
   defId: string;                             // references the catalog definition
@@ -106,6 +118,8 @@ export interface MashBill {
   slogan?: string;
   /** WoW-style rarity tier. Defaults to "common" when omitted. */
   tier?: MashBillTier;
+  /** v2.7 gameplay difficulty/payoff tier (1 starter / 2 mid / 3 specialty). */
+  complexityTier?: MashBillComplexityTier;
   /**
    * Lower-edge thresholds for the row dimension of the reward grid.
    * Variable length: simple bills (commons) might have a single

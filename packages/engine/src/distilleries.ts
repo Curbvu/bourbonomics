@@ -11,7 +11,16 @@ import type { Distillery, RickhouseSlot } from "./types";
 // All ability/constraint data lives on the `Distillery` value so
 // systems can react without a `switch (bonus)` everywhere — see
 // composition.ts, sell-bourbon.ts, draw-deck.ts, and starter-pool.ts.
+//
+// v2.7: distilleries are temporarily disabled in active play. The
+// catalog and ability hooks stay live (so the data validates and so
+// existing engine paths keep working) but the client / setup flow
+// pre-assigns Vanilla to every player and skips the selection screen.
+// Flip `DISTILLERIES_ENABLED` back to true to re-expose the roster.
 // ============================================================
+
+/** Feature flag — when false, the play flow pre-assigns Vanilla to every player. */
+export const DISTILLERIES_ENABLED = false;
 
 const DEFAULT_SLOTS = 4;
 
@@ -71,6 +80,17 @@ const SPECS: DistillerySpec[] = [
 
 export function defaultDistilleryPool(): Distillery[] {
   return SPECS.map((spec, i) => ({ ...spec, id: `dist_${spec.defId}_${i}` }));
+}
+
+/**
+ * Build a fresh Vanilla Distillery for `playerId`. Used by the v2.7
+ * play flow to pre-assign every player to Vanilla while the full
+ * roster is disabled. Each call mints a unique id so multiple players
+ * can hold the "same" distillery without colliding.
+ */
+export function buildVanillaDistilleryFor(playerId: string): Distillery {
+  const spec = SPECS.find((s) => s.bonus === "vanilla")!;
+  return { ...spec, id: `dist_vanilla_${playerId}` };
 }
 
 /** Build the per-player rickhouse slot list from a chosen distillery. */
