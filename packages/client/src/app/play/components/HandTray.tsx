@@ -31,6 +31,7 @@ import DrawBillOverlay from "./DrawBillOverlay";
 import MakeOverlay from "./MakeOverlay";
 import PlayerSwatch from "./PlayerSwatch";
 import { CornerCost, CornerValue } from "./cardCorners";
+import { setMakeDragPayload } from "./dragMake";
 import { useZoneFocusClass, type FocusZone } from "./pickerFocus";
 import RecipePips from "./RecipePips";
 import {
@@ -390,6 +391,9 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     toggleDrawBillSpend,
     makeMode,
     toggleMakeSpend,
+    dragMake,
+    startDragMake,
+    endDragMake,
   } = useGameStore();
   const subtype = card.subtype as ResourceSubtype;
   const chrome = RESOURCE_CHROME[subtype];
@@ -433,6 +437,17 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     <button
       type="button"
       onClick={onClick}
+      // v2.6: hand cards are drag sources for the "drag onto a slot
+      // barrel to commit" shortcut. Only active when no picker mode
+      // is open (otherwise the click flow handles selection).
+      draggable={!inAnyPicker}
+      onDragStart={(e) => {
+        setMakeDragPayload(e, card.id);
+        startDragMake(card.id);
+      }}
+      onDragEnd={endDragMake}
+      data-bb-hand-card
+      data-drag-source={dragMake === card.id ? "active" : undefined}
       title={
         inMakeMode
           ? `${isMakeSelected ? "Unselect" : "Tag"} this card for production`
@@ -442,7 +457,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
               ? `${isAgeSelected ? "Unselect" : "Commit"} this card to age the picked barrel`
               : inBuyMode
                 ? `${isBuySelected ? "Unselect" : "Select"} this card to pay B$1`
-                : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""}`
+                : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""} — drag onto a barrel to commit, or click to inspect`
       }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >
@@ -499,6 +514,9 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     toggleDrawBillSpend,
     makeMode,
     toggleMakeSpend,
+    dragMake,
+    startDragMake,
+    endDragMake,
   } = useGameStore();
   const value = paymentValue(card);
   const cost = card.cost ?? card.capitalValue ?? 1;
@@ -537,6 +555,17 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     <button
       type="button"
       onClick={onClick}
+      // v2.6: hand cards are drag sources for the "drag onto a slot
+      // barrel to commit" shortcut (capital cards count as a free-1
+      // resource in production, same as elsewhere).
+      draggable={!inAnyPicker}
+      onDragStart={(e) => {
+        setMakeDragPayload(e, card.id);
+        startDragMake(card.id);
+      }}
+      onDragEnd={endDragMake}
+      data-bb-hand-card
+      data-drag-source={dragMake === card.id ? "active" : undefined}
       title={
         inMakeMode
           ? `${isMakeSelected ? "Unselect" : "Tag"} this B$${value} capital for production (counts as 1 in conversion only)`
@@ -546,7 +575,7 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
               ? `${isAgeSelected ? "Unselect" : "Commit"} this B$${value} capital to age the picked barrel`
               : inBuyMode
                 ? `${isBuySelected ? "Unselect" : "Select"} this B$${value} capital card to spend`
-                : `Capital · pays B$${value} at the market`
+                : `Capital · pays B$${value} at the market — drag onto a barrel to commit`
       }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >

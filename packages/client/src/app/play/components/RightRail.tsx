@@ -13,7 +13,7 @@ import EventLog from "./EventLog";
 
 export default function RightRail() {
   return (
-    <aside className="flex h-full flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-900/70">
+    <aside data-bb-zone="right-rail" className="flex h-full flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-900/70">
       <div className="flex items-baseline justify-between border-b border-slate-800 px-3 py-2">
         <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-amber-200">
           Action log

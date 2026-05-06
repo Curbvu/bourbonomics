@@ -23,7 +23,10 @@ export function validateAgeBourbon(
   if (barrel.ownerId !== action.playerId) {
     return { legal: false, reason: "you do not own that barrel" };
   }
-  // v2.5 incremental commitment: under-construction barrels do not age.
+  // Aging only starts once the recipe is fully satisfied — a barrel
+  // sitting in "ready" or "construction" phase is still being built,
+  // and the wood hasn't started doing its work. Sell or commit more
+  // cards to push it into "aging" before sending an aging card down.
   if (barrel.phase !== "aging") {
     return { legal: false, reason: "barrel is still under construction" };
   }

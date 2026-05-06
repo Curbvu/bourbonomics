@@ -20,8 +20,10 @@ import type {
   InvestmentCard,
   MashBill,
   OperationsCard,
+  PlayerState,
   ResourceSubtype,
 } from "@bourbonomics/engine";
+import { isWheatedBill } from "@bourbonomics/engine";
 import { useGameStore, type InspectPayload } from "@/lib/store/game";
 import {
   CAPITAL_CHROME,
@@ -337,36 +339,36 @@ function RewardMatrix({ bill, chrome }: { bill: MashBill; chrome: TierChrome }) 
         className="grid items-center gap-x-2 gap-y-2"
         style={{ gridTemplateColumns: `auto repeat(${cols}, minmax(0, 1fr))` }}
       >
-        {/* Header row: empty corner + demand band labels */}
+        {/* Header row: axis legend in the corner + demand band labels */}
         <div
-          className={`flex items-center justify-end pr-1 font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label} opacity-80`}
+          className={`flex items-center justify-end pr-1.5 font-mono text-[11px] uppercase tracking-[.18em] ${chrome.label} opacity-80`}
         >
           <span aria-hidden>↓ age · demand →</span>
         </div>
         {demandLabels.map((label, ci) => (
           <div
             key={`dh-${ci}`}
-            className={`grid place-items-center font-mono text-[10px] font-semibold uppercase tracking-[.1em] tabular-nums ${chrome.label}`}
+            className={`grid place-items-center font-mono text-[14px] font-semibold uppercase tracking-[.10em] tabular-nums ${chrome.label}`}
           >
             {label}
           </div>
         ))}
 
-        {/* Body rows: age band label + 3 reward cells */}
+        {/* Body rows: age band label + reward cells */}
         {bill.rewardGrid.map((row, ri) => (
           <Fragment key={`row-${ri}`}>
             <div
-              className={`grid place-items-center pr-1 font-mono text-[10px] font-semibold uppercase tracking-[.1em] tabular-nums ${chrome.label} text-right`}
+              className={`grid place-items-center pr-1.5 font-mono text-[14px] font-semibold uppercase tracking-[.10em] tabular-nums ${chrome.label} text-right`}
             >
               {ageLabels[ri]}
             </div>
             {row.map((cell, ci) => (
               <div
                 key={`${ri}-${ci}`}
-                className="grid place-items-center rounded border border-white/10 bg-slate-950/70 py-2"
+                className="grid min-h-[64px] place-items-center rounded border border-white/10 bg-slate-950/70 py-3"
               >
                 <span
-                  className={`font-display text-[18px] font-bold tabular-nums ${
+                  className={`font-display text-[40px] font-bold leading-none tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,.45)] ${
                     cell == null ? "text-slate-600" : chrome.titleInk
                   }`}
                 >
@@ -854,11 +856,226 @@ function InvestmentDetail({ card }: { card: InvestmentCard }) {
  * Barrel Cask grid offset, Master Distiller demand offset, Rushed
  * Shipment extra ages).
  */
+interface RecipeRow {
+  key: string;
+  glyph: ReactNode;
+  label: string;
+  tint: string;
+  required: number;
+  current: number;
+  /** Whether over-commit has piled extra past the requirement. */
+  over: number;
+}
+
+/**
+ * Tally the barrel's committed production cards by subtype.
+ */
+function tallyCommittedPile(cards: Card[]): {
+  cask: number;
+  corn: number;
+  rye: number;
+  barley: number;
+  wheat: number;
+} {
+  const t = { cask: 0, corn: 0, rye: 0, barley: 0, wheat: 0 };
+  for (const c of cards) {
+    if (c.type !== "resource") continue;
+    if (c.subtype === "cask") t.cask += c.resourceCount ?? 1;
+    if (c.subtype === "corn") t.corn += c.resourceCount ?? 1;
+    if (c.subtype === "rye") t.rye += c.resourceCount ?? 1;
+    if (c.subtype === "barley") t.barley += c.resourceCount ?? 1;
+    if (c.subtype === "wheat") t.wheat += c.resourceCount ?? 1;
+  }
+  return t;
+}
+
+/**
+ * Recipe-progress display for a construction-or-aging barrel. Walks
+ * the universal rule (1 cask + ≥1 corn + ≥1 grain) AND the bill's
+ * own recipe constraints, with the wheated_baron discount applied
+ * when the owner is on that distillery. Each row shows committed /
+ * required and a check mark when satisfied. Over-committing past
+ * the requirement is allowed (the engine doesn't penalise it) and
+ * surfaced as a small "+N extra" tag — the player gets no bonus
+ * from extra cards but the visual confirms they aren't broken.
+ */
+function RecipeProgress({
+  barrel,
+  owner,
+}: {
+  barrel: Barrel;
+  owner: PlayerState | undefined;
+}) {
+  const bill = barrel.attachedMashBill;
+  const recipe = bill.recipe ?? {};
+  const tally = tallyCommittedPile(barrel.productionCards);
+
+  // Wheated Baron discount: minWheat -1 (floor 0) on wheated bills.
+  let minWheat = recipe.minWheat ?? 0;
+  if (owner?.distillery?.bonus === "wheated_baron" && isWheatedBill(bill)) {
+    minWheat = Math.max(0, minWheat - 1);
+  }
+
+  const minCorn = Math.max(1, recipe.minCorn ?? 0);
+  const minRye = recipe.minRye ?? 0;
+  const minBarley = recipe.minBarley ?? 0;
+  const minTotalGrain = Math.max(recipe.minTotalGrain ?? 0, 1);
+
+  const rows: RecipeRow[] = [];
+  // Cask — always exactly 1.
+  rows.push({
+    key: "cask",
+    glyph: RESOURCE_GLYPH.cask,
+    label: "Cask",
+    tint: RESOURCE_CHROME.cask.label,
+    required: 1,
+    current: tally.cask,
+    over: Math.max(0, tally.cask - 1),
+  });
+  // Corn — universal ≥1 plus any recipe min.
+  rows.push({
+    key: "corn",
+    glyph: RESOURCE_GLYPH.corn,
+    label: "Corn",
+    tint: RESOURCE_CHROME.corn.label,
+    required: minCorn,
+    current: tally.corn,
+    over: Math.max(0, tally.corn - minCorn),
+  });
+  if (minRye > 0) {
+    rows.push({
+      key: "rye",
+      glyph: RESOURCE_GLYPH.rye,
+      label: "Rye",
+      tint: RESOURCE_CHROME.rye.label,
+      required: minRye,
+      current: tally.rye,
+      over: Math.max(0, tally.rye - minRye),
+    });
+  }
+  if (minBarley > 0) {
+    rows.push({
+      key: "barley",
+      glyph: RESOURCE_GLYPH.barley,
+      label: "Barley",
+      tint: RESOURCE_CHROME.barley.label,
+      required: minBarley,
+      current: tally.barley,
+      over: Math.max(0, tally.barley - minBarley),
+    });
+  }
+  if (minWheat > 0) {
+    rows.push({
+      key: "wheat",
+      glyph: RESOURCE_GLYPH.wheat,
+      label: "Wheat",
+      tint: RESOURCE_CHROME.wheat.label,
+      required: minWheat,
+      current: tally.wheat,
+      over: Math.max(0, tally.wheat - minWheat),
+    });
+  }
+  // "Any grain" universal: only show when the named grains don't
+  // already cover the total-grain minimum.
+  const namedGrainMins = minRye + minBarley + minWheat;
+  const totalGrainCommitted = tally.rye + tally.barley + tally.wheat;
+  if (namedGrainMins < minTotalGrain) {
+    rows.push({
+      key: "any-grain",
+      glyph: "✦",
+      label: "Any grain",
+      tint: "text-slate-300",
+      required: minTotalGrain,
+      current: totalGrainCommitted,
+      over: Math.max(0, totalGrainCommitted - minTotalGrain),
+    });
+  }
+
+  const allSatisfied = rows.every((r) => r.current >= r.required);
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
+          Recipe progress
+        </span>
+        <span
+          className={
+            allSatisfied
+              ? "rounded border border-emerald-400/60 bg-emerald-700/30 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.10em] text-emerald-200"
+              : "rounded border border-sky-400/60 bg-sky-700/30 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.10em] text-sky-200"
+          }
+        >
+          {allSatisfied ? "ready to age" : "still building"}
+        </span>
+      </div>
+      <ul className="mt-2 flex flex-col gap-1">
+        {rows.map((r) => {
+          const satisfied = r.current >= r.required;
+          const remaining = Math.max(0, r.required - r.current);
+          return (
+            <li
+              key={r.key}
+              className={[
+                "flex items-center gap-2 rounded border px-2 py-1.5 font-mono text-[11px]",
+                satisfied
+                  ? "border-emerald-400/30 bg-emerald-900/15"
+                  : "border-slate-800 bg-slate-950/60",
+              ].join(" ")}
+            >
+              <span className={`text-[16px] leading-none ${r.tint}`}>{r.glyph}</span>
+              <span className="text-[12px] uppercase tracking-[.12em] text-slate-200">
+                {r.label}
+              </span>
+              <span className="flex-1" />
+              <span className="font-sans tabular-nums text-slate-200">
+                <span className={satisfied ? "text-emerald-300" : "text-amber-200"}>
+                  {r.current}
+                </span>
+                <span className="text-slate-500"> / </span>
+                <span className="text-slate-200">{r.required}</span>
+              </span>
+              {r.over > 0 ? (
+                <span className="ml-1 rounded border border-slate-700 bg-slate-900 px-1 py-px text-[9px] uppercase tracking-[.10em] text-slate-400">
+                  +{r.over} extra
+                </span>
+              ) : satisfied ? (
+                <span aria-hidden className="text-emerald-300">✓</span>
+              ) : (
+                <span className="rounded border border-amber-500/40 bg-amber-900/20 px-1 py-px text-[9px] font-bold uppercase tracking-[.10em] text-amber-200">
+                  +{remaining} needed
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {!allSatisfied ? (
+        <p className="mt-2 text-[10.5px] italic leading-snug text-slate-400">
+          Aging starts only after every requirement is met. Over-committing past a
+          minimum is fine — but it earns no bonus.
+        </p>
+      ) : null}
+      {/* Forbidden / capped grains, surfaced separately so the row
+          stays focused on what's needed. */}
+      {recipe.maxRye === 0 || recipe.maxWheat === 0 ? (
+        <p className="mt-1 font-mono text-[9.5px] uppercase tracking-[.10em] text-rose-300/80">
+          {recipe.maxRye === 0 ? "no rye allowed" : ""}
+          {recipe.maxRye === 0 && recipe.maxWheat === 0 ? " · " : ""}
+          {recipe.maxWheat === 0 ? "no wheat allowed" : ""}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: string }) {
+  const { state } = useGameStore();
   const bill = barrel.attachedMashBill;
   const tier = tierOrCommon(bill?.tier);
   const chrome = TIER_CHROME[tier];
   const isAging = barrel.phase === "aging";
+  const owner = state?.players.find((p) => p.id === barrel.ownerId);
   return (
     <article
       className={[
@@ -875,10 +1092,16 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
           className={
             isAging
               ? "rounded border border-amber-400/60 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.10em] text-amber-200"
-              : "rounded border border-sky-400/60 bg-sky-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.10em] text-sky-200"
+              : barrel.phase === "construction"
+                ? "rounded border border-sky-400/60 bg-sky-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.10em] text-sky-200"
+                : "rounded border border-slate-500/70 bg-slate-700/40 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.10em] text-slate-200"
           }
         >
-          {isAging ? `Aging · ${barrel.age}y` : "Building"}
+          {isAging
+            ? `Aging · ${barrel.age}y`
+            : barrel.phase === "construction"
+              ? "Building"
+              : "Staged"}
         </span>
       </header>
 
@@ -907,7 +1130,16 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
 
       {/* Lifecycle facts */}
       <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/10 bg-slate-950/55 p-3 font-mono text-[11px] uppercase tracking-[.10em] text-slate-400">
-        <BarrelFact label="Phase" value={isAging ? "Aging" : "Construction"} />
+        <BarrelFact
+          label="Phase"
+          value={
+            isAging
+              ? "Aging"
+              : barrel.phase === "construction"
+                ? "Building"
+                : "Staged"
+          }
+        />
         <BarrelFact label="Age" value={`${barrel.age} yr${barrel.age === 1 ? "" : "s"}`} />
         <BarrelFact label="Built in" value={`R${barrel.productionRound}`} />
         <BarrelFact
@@ -917,6 +1149,12 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
         <BarrelFact label="Production cards" value={barrel.productionCards.length} />
         <BarrelFact label="Aging cards" value={barrel.agingCards.length} />
       </div>
+
+      {/* Recipe progress — shows what's needed, what's committed, and
+          what's still missing. Only meaningful before the barrel
+          enters aging; once aging, the recipe is locked in and the
+          reward grid below tells the value story instead. */}
+      {!isAging ? <RecipeProgress barrel={barrel} owner={owner} /> : null}
 
       {/* Persistent modifiers (only render rows that actually fired). */}
       {barrel.gridRepOffset > 0 ||

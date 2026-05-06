@@ -232,3 +232,63 @@ body[data-draw-mode] [data-rickhouse-row] {
   pointer-events: none;
   transition: opacity 180ms ease, filter 180ms ease;
 }
+
+/* ----------------------------------------------------------------------
+   v2.6 drag-and-drop "make" mode.
+   When the player picks up a hand card, every zone EXCEPT the player's
+   own rickhouse and the dragged card itself dims out of the way so the
+   eye snaps to the legal drop targets. Valid slots pulse softly; the
+   currently-hovered slot pops bigger with a sparkle overlay.
+   ---------------------------------------------------------------------- */
+
+body[data-dragging-make="true"] [data-bb-zone="market"],
+body[data-dragging-make="true"] [data-bb-zone="right-rail"],
+body[data-dragging-make="true"] [data-bb-zone="opponent-rickhouse"],
+body[data-dragging-make="true"] [data-bb-zone="action-bar"] {
+  opacity: 0.18;
+  filter: saturate(0.35) blur(0.5px);
+  pointer-events: none;
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+
+/* Other hand cards dim too (not the dragged one). */
+body[data-dragging-make="true"] [data-bb-hand-card]:not([data-drag-source="active"]) {
+  opacity: 0.32;
+  filter: saturate(0.5);
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+
+/* The dragged card itself fades a bit so it reads as "in flight". */
+body[data-dragging-make="true"] [data-drag-source="active"] {
+  opacity: 0.55;
+  filter: brightness(1.15);
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+
+/* Valid drop target — static emerald highlight, no animation. Reads
+   as "this slot will receive" without flashing or pulsing. */
+[data-drop-target="valid"] {
+  position: relative;
+  z-index: 5;
+  cursor: copy;
+  box-shadow:
+    0 0 0 2px rgba(110, 231, 183, 0.55),
+    0 0 18px 2px rgba(110, 231, 183, 0.30),
+    inset 0 0 0 1px rgba(110, 231, 183, 0.35);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+/* Hovered drop target — settles into a bigger, brighter state in a
+   single 220ms transition, then holds. No looping animation. */
+[data-drop-target="hover"] {
+  position: relative;
+  z-index: 12;
+  cursor: copy;
+  box-shadow:
+    0 0 0 5px rgba(110, 231, 183, 0.85),
+    0 0 36px 10px rgba(110, 231, 183, 0.55),
+    inset 0 0 0 2px rgba(110, 231, 183, 0.55);
+  transform: scale(1.12) translateY(-5px);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 220ms ease;
+}

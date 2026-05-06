@@ -23,7 +23,6 @@
  *   ✓ Buy from Market    — most-expensive affordable conveyor card
  *   ✓ Draw a Mash Bill   — auto-spend the cheapest hand card
  *   ✓ Trade              — first eligible partner, swap the cheapest cards
- *   ✓ Play ops           — first ops in hand with a sensible target (free)
  *   ✓ End Turn           — voluntary turn-end; held cards discard at cleanup
  */
 
@@ -85,7 +84,7 @@ export default function ActionBar() {
   const pass: GameAction = { type: "PASS_TURN", playerId: human.id };
 
   return (
-    <div className="border-t border-slate-800 bg-slate-950/95 px-[18px] py-1.5">
+    <div data-bb-zone="action-bar" className="border-t border-slate-800 bg-slate-950/95 px-[18px] py-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-500">
           {isHumanTurn ? "Your turn" : "Waiting…"}
@@ -173,14 +172,8 @@ export default function ActionBar() {
           disabledByTurn={disabledByTurn}
           tooltipIdle="Swap your cheapest card with the first available partner's."
         />
-        <SmartButton
-          label="Play ops"
-          action={null}
-          state={state}
-          dispatch={dispatch}
-          disabledByTurn={disabledByTurn}
-          tooltipIdle="Operations cards — pending future release."
-        />
+        {/* Play Ops button removed — operations cards are pending future
+            release; the placeholder button cluttered the bar. */}
 
         <span className="flex-1" />
 

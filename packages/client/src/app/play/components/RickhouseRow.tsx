@@ -13,11 +13,14 @@
  */
 
 import type { Barrel, Card, GameState, RickhouseSlot } from "@bourbonomics/engine";
+import { validateAction } from "@bourbonomics/engine";
+import { useState } from "react";
 import { useGameStore } from "@/lib/store/game";
 import { PLAYER_BG_CLASS, paletteIndex } from "./playerColors";
 import PlayerSwatch from "./PlayerSwatch";
 import { useZoneFocusClass } from "./pickerFocus";
 import { TIER_CHROME, tierOrCommon } from "./tierStyles";
+import { dragCarriesMakeCard, readMakeDragPayload } from "./dragMake";
 
 export default function RickhouseRow() {
   const { state } = useGameStore();
@@ -67,6 +70,9 @@ function PlayerRickhouse({
   return (
     <div
       data-zone={zoneAttr}
+      // v2.6 drag-and-drop: opponent rickhouses dim out of the way
+      // during a make-card drag (CSS rule keys off this attribute).
+      data-bb-zone={isHumanRow ? undefined : "opponent-rickhouse"}
       className={[
         "flex flex-col gap-1 rounded-lg border bg-slate-900/60 px-2 py-1 transition-colors",
         isCurrent ? "border-amber-500/70 bg-amber-700/[0.10]" : "border-slate-800",
@@ -166,12 +172,44 @@ function BarrelChip({
   palIdx: number;
   isHumanRow: boolean;
 }) {
-  const { ageMode, setAgeBarrel, setInspect } = useGameStore();
+  const { ageMode, setAgeBarrel, setInspect, dispatch, dragMake, endDragMake } = useGameStore();
   const owner = state.players.find((p) => p.id === barrel.ownerId);
   const ringHints: string[] = [];
   if (barrel.agedThisRound) ringHints.push("aged this round");
   if (barrel.inspectedThisRound) ringHints.push("under inspection");
   if (barrel.extraAgesAvailable > 0) ringHints.push("rushed shipment");
+
+  // v2.6 drag-and-drop: the human can drag a hand card straight onto
+  // a slot barrel to commit it (single-card MAKE_BOURBON). Only their
+  // own ready / construction slots are valid drop targets. v2.7 lets
+  // a slot accept multiple commits in one turn, so the per-turn gate
+  // is no longer part of `canDropMake`.
+  const [dragHover, setDragHover] = useState(false);
+  const canDropMake =
+    isHumanRow &&
+    state.phase === "action" &&
+    state.players[state.currentPlayerIndex]?.id === barrel.ownerId &&
+    barrel.phase !== "aging";
+  // Whether this slot would actually accept the in-flight card under
+  // the engine's rules (caps on cask / rye / wheat). The CSS pulse
+  // only fires when the engine would also accept the drop, so the
+  // player isn't lured into an illegal target.
+  const isLegalForDrag =
+    canDropMake &&
+    dragMake != null &&
+    validateAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: barrel.ownerId,
+      slotId: barrel.slotId,
+      cardIds: [dragMake],
+    }).legal;
+  const dropTargetState = !dragMake
+    ? undefined
+    : isLegalForDrag
+      ? dragHover
+        ? "hover"
+        : "valid"
+      : undefined;
 
   // Age-mode interactivity: in age mode, the human's ageable barrels
   // light up as click targets. Clicking sets `pickedBarrelId` in the
@@ -183,15 +221,21 @@ function BarrelChip({
     (!barrel.agedThisRound || barrel.extraAgesAvailable > 0);
   const isAgePicked = inAgeMode && ageMode!.pickedBarrelId === barrel.id;
 
-  const ringClass = isAgePicked
-    ? "ring-4 ring-amber-300 shadow-[0_0_18px_rgba(252,211,77,.6)]"
-    : ageable
-      ? "ring-2 ring-sky-400/70 hover:ring-sky-200"
-      : barrel.inspectedThisRound
-        ? "ring-2 ring-rose-300/70"
-        : barrel.agedThisRound
-          ? "ring-2 ring-amber-300/70"
-          : "";
+  // CSS keyframe (drop-target-active / drop-target-pulse) owns the
+  // ring + glow + sparkle when this slot is the drag target — so we
+  // skip the static ring class in that case to avoid double-styling.
+  const isDragTarget = dropTargetState != null;
+  const ringClass = isDragTarget
+    ? ""
+    : isAgePicked
+      ? "ring-4 ring-amber-300 shadow-[0_0_18px_rgba(252,211,77,.6)]"
+      : ageable
+        ? "ring-2 ring-sky-400/70 hover:ring-sky-200"
+        : barrel.inspectedThisRound
+          ? "ring-2 ring-rose-300/70"
+          : barrel.agedThisRound
+            ? "ring-2 ring-amber-300/70"
+            : "";
 
   // Match the hand's MashBillCard idiom: WoW-style tier chrome based on
   // the attached bill's rarity. Construction-phase barrels without a
@@ -207,7 +251,12 @@ function BarrelChip({
     ringClass,
   ].join(" ");
   const billLabel = barrel.attachedMashBill?.name ?? "no bill yet";
-  const phaseLabel = barrel.phase === "construction" ? " (under construction)" : "";
+  const phaseLabel =
+    barrel.phase === "construction"
+      ? " (building)"
+      : barrel.phase === "ready"
+        ? " (staged)"
+        : "";
   const titleText = `${owner?.name ?? "?"} · ${billLabel} · age ${barrel.age}${phaseLabel}${
     ringHints.length ? " (" + ringHints.join(", ") + ")" : ""
   }${ageable ? " — click to age this barrel" : ""}`;
@@ -221,12 +270,59 @@ function BarrelChip({
     if (ageable) setAgeBarrel(barrel.id);
     else setInspect({ kind: "barrel", barrel, ownerName: owner?.name });
   };
+  // Drag-and-drop handlers — gated on isLegalForDrag so opponents'
+  // slots, finished barrels, slots already touched this turn, and
+  // slots that would over-fill a recipe cap never accept the drop.
+  // The engine validates again at dispatch time as a final guard.
+  const onDragOver = (e: React.DragEvent) => {
+    if (!isLegalForDrag) return;
+    if (!dragCarriesMakeCard(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (!dragHover) setDragHover(true);
+  };
+  const onDragLeave = () => {
+    if (dragHover) setDragHover(false);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    setDragHover(false);
+    endDragMake();
+    if (!canDropMake) return;
+    const cardId = readMakeDragPayload(e);
+    if (!cardId) return;
+    e.preventDefault();
+    const action = {
+      type: "MAKE_BOURBON" as const,
+      playerId: barrel.ownerId,
+      slotId: barrel.slotId,
+      cardIds: [cardId],
+    };
+    if (!validateAction(state, action).legal) return;
+    try {
+      dispatch(action);
+    } catch {
+      // Defensive — validation passed but apply threw. Keep the UI
+      // alive; the player can try a different card.
+    }
+  };
+
   return (
     <button
       type="button"
-      title={ageable ? titleText : `${titleText} — click to inspect`}
+      title={
+        canDropMake
+          ? `${titleText} — drag a hand card here to commit, or click to inspect`
+          : ageable
+            ? titleText
+            : `${titleText} — click to inspect`
+      }
       data-slot-id={barrel.slotId}
+      data-drop-target={dropTargetState}
       onClick={onClick}
+      onDragOver={onDragOver}
+      onDragEnter={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
       className={`${baseClass} cursor-pointer hover:brightness-110`}
     >
       <BarrelChipInner barrel={barrel} chrome={chrome} palIdx={palIdx} />
@@ -241,8 +337,11 @@ function BarrelChip({
  *   1. **Owner stripe** along the top edge in the player's seat colour
  *      so you can tell whose barrel this is even when the tier chrome
  *      is the same as a neighbour's.
- *   2. **Phase + age stamp** in the top-right (where MashBillCard puts
- *      the gold/silver award icon). Reads "AGING · 4y" or "BUILDING".
+ *   2. **Phase·age stamp** in the top-right (where MashBillCard puts
+ *      the gold/silver award icon). Three states:
+ *        - "STAGED"    — bill present, no commits yet (slate badge)
+ *        - "BUILDING"  — partial commits, recipe not yet met (sky badge)
+ *        - "AGING · Ny"— recipe complete, barrel maturing (amber badge)
  *   3. **Composition pips** along the bottom showing every committed
  *      card by subtype colour (filled for production, ring-only for
  *      aging cards). Lets the player count toward composition buffs at
@@ -266,7 +365,25 @@ function BarrelChipInner({
   }
   const peak = cells.length ? Math.max(...cells) : 0;
   const floor = cells.length ? Math.min(...cells) : 0;
-  const isAging = barrel.phase === "aging";
+  const phaseStamp =
+    barrel.phase === "aging"
+      ? {
+          label: `Aging · ${barrel.age}y`,
+          className:
+            "rounded border border-amber-400/60 bg-amber-700/30 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] text-amber-200",
+        }
+      : barrel.phase === "construction"
+        ? {
+            label: "Building",
+            className:
+              "rounded border border-sky-400/60 bg-sky-700/30 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] text-sky-200",
+          }
+        : {
+            // "ready" — bill in slot, no committed cards yet.
+            label: "Staged",
+            className:
+              "rounded border border-slate-500/70 bg-slate-700/40 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] text-slate-200",
+          };
 
   return (
     <>
@@ -286,15 +403,7 @@ function BarrelChipInner({
         <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {chrome.label_text}
         </span>
-        <span
-          className={
-            isAging
-              ? "rounded border border-amber-400/60 bg-amber-700/30 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] text-amber-200"
-              : "rounded border border-sky-400/60 bg-sky-700/30 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] text-sky-200"
-          }
-        >
-          {isAging ? `Aging · ${barrel.age}y` : "Building"}
-        </span>
+        <span className={phaseStamp.className}>{phaseStamp.label}</span>
       </div>
       {/* Mash bill name — same font/size as MashBillCard. */}
       <h4 className={`mt-0.5 line-clamp-2 font-display text-[13px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>

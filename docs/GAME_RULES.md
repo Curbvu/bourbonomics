@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (v2.7 alpha).** Drafting, the round loop, incremental production, aging, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is temporarily disabled** — every game runs as Vanilla. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. Computer-only build today; human-controlled slots ship alongside the UI work.
+> **Scope (v2.7 alpha).** Drafting, the round loop, slot-bound mash bills, incremental production, aging, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is temporarily disabled** — every game runs as Vanilla. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. Computer-only build today; human-controlled slots ship alongside the UI work.
 
 ---
 
@@ -14,7 +14,7 @@ For the impatient. Read once, play once, the rest of the rulebook will make sens
 
 ### The 90-second pitch
 
-You run a bourbon distillery. You have a **rickhouse** (4 barrel slots), a **deck** (16 starter cards), and a **mash bill** or three (recipes). Each round:
+You run a bourbon distillery. You have a **rickhouse** (4 barrel slots), a **deck** (16 starter cards), and **mash bills** (recipes) that live directly in your rickhouse slots. Each round:
 
 1. **Demand rolls.** A shared market gauge ticks up or holds.
 2. **Draw 8** cards from your deck.
@@ -24,7 +24,8 @@ You run a bourbon distillery. You have a **rickhouse** (4 barrel slots), a **dec
 
 ### The core loop
 
-- **Make bourbon** by committing cards (cask + corn + grain) to a barrel and attaching a mash bill. Recipes take **multiple turns** to assemble — you commit what you have now and finish the recipe later.
+- **Mash bills are slot-bound.** Bills are drafted into your slots at setup and drawn directly into open slots during play. They never enter your hand. Every bill is public the moment it's slotted.
+- **Make bourbon** by committing cards (cask + corn + grain) from your hand to a slotted bill. Recipes take **multiple turns** to assemble — commit what you have now, finish the recipe later.
 - A barrel becomes **aging** the moment its recipe is satisfied. From the next round on, you can place 1 aging card per round on top of it.
 - **Sell** an aging barrel (age ≥ 2) and read its mash bill's grid against your barrel's age and the current demand. The grid value becomes reputation, purchasing power, or both.
 - **Buy** new cards from the 10-card market conveyor with cards from your hand (capital cards pay their face value; any other card pays 1).
@@ -53,7 +54,11 @@ Distillery profiles are temporarily disabled in this build. All players use the 
 
 ### Step 2 — Mash bill draft
 
-Each player drafts **3 mash bills** from a shared pool (snake draft recommended). These are your starting recipes. More can be drawn during play.
+Each player drafts **3 mash bills** from a shared pool (snake draft recommended). **Drafted bills land directly in your rickhouse slots** as **Staged** projects (slot occupied, no cards committed yet) — they do not enter your hand. The 4th slot stays open for a bill drawn during play.
+
+**Connoisseur Estate** drafts **4** bills, filling all 4 of its starting slots. To draw a 5th bill, Connoisseur must first sell, abandon, or trash a slot to free space.
+
+Pre-aged starter barrels (High-Rye House, Wheated Baron) occupy a slot with their bill already attached and aging cards already locked in — that bill counts as one of the player's slot occupants for setup purposes.
 
 ### Step 3 — Starter hand
 
@@ -126,7 +131,7 @@ Operations cards are NOT auto-drawn — they're bought from the ops market.
 
 For each of your **aging barrels**, you may place one face-down card from your hand on top to advance its age by 1 year. Aging is optional but it's the primary path to reputation — most bourbons need years to pay out well.
 
-**Construction barrels do not age.** They're skipped until they finish construction. See [§Make Bourbon](#make-bourbon).
+**Staged and Building barrels do not age.** A barrel only starts aging once its recipe is fully satisfied — partial pile, no aging. See [§Make Bourbon](#make-bourbon) for the slot lifecycle.
 
 A barrel may only age **once per round** unless an ops card explicitly grants more.
 
@@ -146,46 +151,51 @@ Plan during others' turns. Target pace: ~3 minutes per round at 4 players.
 
 ### Available Actions
 
-- **Make Bourbon** — commit cards to (or open) a barrel.
+- **Make Bourbon** — commit cards from your hand to a Staged or Building slot.
 - **Sell Bourbon** — sell an aging barrel ≥ 2 years old.
 - **Buy from the Market** — spend cards to acquire a market card.
 - **Buy Operations Card** — same, but for the ops market.
-- **Draw a Mash Bill** — spend cards to take a face-up bill or blind-draw.
-- **Trade** — exchange cards with another player.
-- **Abandon Barrel** — discard an under-construction barrel.
-- **Trash a Card** — permanently remove a card from your deck.
+- **Draw a Mash Bill** — pay cost; bill lands directly in one of your open slots as Staged.
+- **Trade** — exchange cards with another player. Mash bills are not tradeable.
+- **Abandon Barrel** — discard a Staged or Building slot. Bill goes to bourbon discard, committed cards go to your discard, slot opens fully.
+- **Trash a Card** — permanently remove a card from your deck (see [§Trashing](#-trashing-cards) for bills).
 - **End Turn** — voluntary; cards remaining in hand stay there until cleanup.
 
 ---
 
 ## Make Bourbon
 
-> **v2.5: Incremental Mash Commitment.** A barrel is built across multiple turns. You commit cards a few at a time, attach a mash bill once, and the barrel auto-finishes the moment your committed pile satisfies the recipe.
+> **v2.6: Slot-Bound Bills.** Bills live on slots from the moment they're drawn. `Make Bourbon` only commits cards — there is no separate "attach a bill" sub-step.
 
-A barrel has two phases:
+Each rickhouse slot lives in one of four phases:
 
-- **Construction** — recipe not yet satisfied. The barrel does NOT age. You may keep committing cards on later turns.
-- **Aging** — recipe satisfied. The barrel is locked in and ages from the round AFTER it completed.
+- **Open** — no bill in the slot. Drawable into via [§Draw a Mash Bill](#draw-a-mash-bill).
+- **Staged** — bill present, no committed cards. Visible to all players. Does NOT age.
+- **Building** — bill + ≥1 committed card, recipe not yet satisfied. Does NOT age.
+- **Aging** — recipe satisfied. Locked in. Accepts one aging card per round from the round AFTER completion.
 
 ### The action
 
-`Make Bourbon` opens a new barrel in an empty slot, OR commits more cards to one of your existing under-construction barrels. Each Make Bourbon action does at least one of:
+`Make Bourbon` commits one or more cards from your hand to one of your **Staged** or **Building** slots. The bill is already attached — you only choose the slot and the cards.
 
-- Commit one or more cards from your hand to the barrel, **and/or**
-- Attach a mash bill from your hand to the barrel (only allowed once per barrel — the bill is locked once attached).
-
-**No per-slot limit.** You can Make Bourbon to any of your Ready or Construction slots as many times as you want on a single turn. Each commit is its own action; the recipe-completion check fires after every commit, so a slot can transition Ready → Construction → Aging across multiple commits in one turn.
+**No per-slot limit.** You can Make Bourbon to any of your Staged or Building slots as many times as you want on a single turn. Each commit is its own action; the recipe-completion check fires after every commit, so a slot can transition Staged → Building → Aging across multiple commits in one turn.
 
 Committed cards (resource OR capital) are **locked with the barrel** — they don't go to discard until the barrel sells or is abandoned.
 
 ### Recipe satisfaction
 
-A barrel **completes** (transitions to aging) the moment its committed pile satisfies BOTH:
+A slot transitions **Building → Aging** the moment its committed pile satisfies BOTH:
 
 1. **Universal rule:** exactly 1 cask + ≥1 corn + ≥1 grain.
-2. **The attached bill's recipe** (if any), e.g. "rye ≥ 3" for a high-rye bill.
+2. **The slotted bill's recipe** (if any), e.g. "rye ≥ 3" for a high-rye bill.
 
-A barrel **cannot complete without an attached mash bill**, even if the universal rule is otherwise met.
+The first commit transitions the slot **Staged → Building**. The completion check fires at the end of every commit, so a single sufficient commit can take a slot all the way from Staged to Aging in one action.
+
+### Over-committing is fine, but earns no bonus
+
+You may commit **more** cards than the recipe requires (e.g. 4 rye when `rye ≥ 3`). The engine accepts the extra cards and locks them with the barrel until sale, but the reward grid only reads `(age, demand)` — over-commitment doesn't change the payout. Composition buffs read the full pile, so an extra grain card may still trip a buff threshold.
+
+Recipe **caps** (`maxRye: 0`, `maxWheat: 0`, etc.) are still enforced — those are bill-specific bans, not minimums.
 
 ### Timing
 
@@ -199,19 +209,21 @@ Recipes only ever **tighten** the universal rule, never loosen it. Examples:
 - Wheated — `wheat ≥ 1, no rye`
 - Four-grain — `barley ≥ 1, rye ≥ 1, wheat ≥ 1`
 
-Bills without a printed recipe accept any legal mash. Recipes are public information once the bill is in play.
+Bills without a printed recipe accept any legal mash. Recipes are public information from the moment the bill is slotted.
 
-### Failed Batch (optional, opening only)
+### Failed Batch (optional)
 
-When you OPEN a new barrel via Make Bourbon, you may also discard one extra card from your hand and **trash** it. One of two ways to thin your deck (see [§Trashing Cards](#-trashing-cards)). Not available on subsequent commits to the same barrel.
+The first time a slot transitions **Staged → Building** (your first commit to a freshly-drawn bill), you may also discard one extra card from your hand and **trash** it. One of two ways to thin your deck (see [§Trashing Cards](#-trashing-cards)). Not available on subsequent commits to the same slot.
 
 ---
 
 ## Abandon Barrel
 
-Discard one of your **under-construction** barrels. All committed cards return to your discard pile; the slot frees up. The attached mash bill (if any) goes to the bourbon discard.
+Discard one of your **Staged** or **Building** slots. All committed cards return to your discard pile, the attached bill goes to the **bourbon discard**, and the slot becomes fully **Open** again.
 
 **Aging-phase barrels cannot be abandoned** — once a barrel finishes construction it can only leave via Sell Bourbon.
+
+**Free vs. action cost.** Abandoning a Staged slot (no committed cards) is a **free** sub-action — you're just clearing a recipe you no longer want. Abandoning a Building slot consumes one of your turn's actions, since real cards are involved.
 
 ---
 
@@ -229,9 +241,12 @@ Any unspent N becomes reputation. Purchased cards go to discard. Purchasing powe
 
 After the sale:
 - Demand falls by 1 (floor 0).
-- Mash bill discards (unless an award returns it — see [§Bourbon Awards](#-bourbon-awards)).
 - All cards under the barrel return to your discard.
-- The barrel is removed; the slot frees up.
+- The barrel record is removed.
+- **Slot fate depends on awards** (see [§Bourbon Awards](#-bourbon-awards)):
+  - **No award** — bill goes to bourbon discard, slot becomes fully **Open**.
+  - **Silver** — bill stays in the now-empty slot as **Staged** (recipe ready to receive new commits). Slot does NOT open.
+  - **Gold** — player chooses: Convert (replace another slot's bill), Keep (Silver-style retention), or Decline (bill to discard, slot opens).
 
 ---
 
@@ -256,11 +271,17 @@ Three mash bills sit face-up beside the bourbon deck. Take one of:
 - **A face-up bill** — pay its printed cost. Capital pays printed value; others pay 1. Refill the row from the deck.
 - **The blind top** — pay any 1 card.
 
+**An open slot is required.** The drawn bill lands directly in one of your open rickhouse slots as **Staged**. If you have no open slots (all four are Staged, Building, or Aging), `Draw a Mash Bill` is illegal — you must sell, abandon, or trash a slot first to create room.
+
+This makes slot capacity the gating resource on the doomsday clock: bills can't be drawn speculatively to accelerate the clock — every draw requires an actual project.
+
 When the deck **and** face-up row are both empty, the **final round trigger** activates.
 
 ## Trade
 
 Two players exchange cards by mutual consent. Each side must offer at least one card. **Traded cards land in the recipient's discard pile** (not their hand). Trade is one of the active player's actions but does NOT end your turn.
+
+**Mash bills cannot be traded.** Bills are slot-bound and public — they only move via game actions (Draw a Mash Bill, Sell Bourbon's Gold-Convert option, Blend, Barrel Broker), never by player-to-player negotiation.
 
 Informal agreements (deferred trades, rickhouse leases) ride on Trade — they're not enforced by the rules.
 
@@ -269,6 +290,8 @@ Informal agreements (deferred trades, rickhouse leases) ride on Trade — they'r
 ## Trash a Card
 
 Spend 1 card from your hand to permanently remove 1 other card from your hand. The trashed card is removed from the game; the spent card goes to discard. (Failed Batch on Make Bourbon is the second way to trash.)
+
+**Mash bills are governed separately.** A Staged slot may be trashed for free (the bill goes to bourbon discard, slot opens). A Building slot is trashed via [§Abandon Barrel](#abandon-barrel) — same operation, same result, but using the canonical action name. Aging slots cannot be trashed; they leave only via Sell Bourbon.
 
 ## End Turn
 
@@ -280,11 +303,18 @@ Voluntary. Cards remaining in your hand stay until cleanup, when resource and ca
 
 Each player owns their rickhouse outright — printed on the distillery card. **4 slots** by default, equivalent. No shared barrel space.
 
-A slot can hold one of:
-- An **under-construction barrel** (recipe partial, not aging, can still receive commits).
-- An **aging barrel** (recipe satisfied, accepts one aging card per round).
+Each slot is in one of four phases:
 
-When **your** rickhouse is full you cannot Make Bourbon to a new slot — you have to sell, abandon, or commit to an existing under-construction barrel first.
+| Phase | Bill? | Cards? | Ages? | Drawable into? |
+|---|:-:|:-:|:-:|:-:|
+| **Open** | — | — | — | ✅ |
+| **Staged** | ✅ | — | — | — |
+| **Building** | ✅ | partial | — | — |
+| **Aging** | ✅ | recipe complete | ✅ | — |
+
+The lifecycle: `Open` → (Draw a Mash Bill) → `Staged` → (Make Bourbon, first commit) → `Building` → (Make Bourbon, recipe complete) → `Aging` → (Sell Bourbon) → `Open` (or `Staged` on Silver / Gold-Keep).
+
+When **all four** of your slots are taken (Staged, Building, or Aging), you cannot draw a new bill — you must sell, abandon, or trash to free a slot.
 
 The Rickhouse Expansion Permit ops card raises capacity to a maximum of **6**.
 
@@ -292,13 +322,33 @@ The Rickhouse Expansion Permit ops card raises capacity to a maximum of **6**.
 
 # 📜 Mash Bills
 
-Recipes that determine each barrel's reward grid. Players draft 3 at game start; more can be drawn during play.
+Recipes that determine each barrel's reward grid. **Bills are slot-bound** — they live directly on rickhouse slots and never enter a player's hand.
 
-Mash bills attach to a barrel **at any commit** during construction — once attached, locked for the barrel's lifetime and public. A barrel cannot complete without one.
+### How bills enter play
 
-When a barrel sells, the attached mash bill discards (unless an award says otherwise — see [§Bourbon Awards](#-bourbon-awards)).
+- **Setup draft** — each player drafts 3 bills (Connoisseur Estate: 4) directly into their starting slots. Standard distilleries leave the 4th slot Open for a bill drawn during play.
+- **Draw a Mash Bill action** — pay cost; bill lands in one of your Open slots as Staged.
+- **Allocation** ops card — draw up to 2 bills, capped by your Open-slot count.
+- **Barrel Broker** ops card — transfers a completed barrel (with its bill) into a recipient's Open slot.
+- **Gold Convert award** — replaces another slot's bill with the Gold one when its committed cards already satisfy the Gold recipe.
 
-A player with no mash bills in hand cannot finish a barrel; they may Draw a Mash Bill as an action to acquire one.
+### Public information
+
+A bill is **public the moment it's slotted**. Every player can read every other player's bills (recipe, reward grid, awards) at any time. There's no hidden hand of recipes.
+
+### What ends a bill's lifetime
+
+When a barrel sells, the bill's fate depends on awards (see [§Bourbon Awards](#-bourbon-awards)):
+- **No award** — bill goes to bourbon discard, slot opens.
+- **Silver / Gold-Keep** — bill stays in the now-empty slot as Staged.
+- **Gold-Convert** — bill replaces another slot's bill; selling slot opens.
+- **Gold-Decline** — bill goes to bourbon discard, slot opens.
+
+A bill also goes to the bourbon discard when its slot is abandoned (Building phase) or trashed (Staged phase).
+
+### Bills are not tradeable
+
+Bills cannot be transferred between players via Trade. They only move via the game actions listed above.
 
 ---
 
@@ -308,7 +358,9 @@ Each player draws **8 cards** at the start of every round. No max hand size duri
 
 The deck contains **resource cards** (cask, corn, grain — premium variants like 2-rye come from the market) and **capital cards** (face-value currency).
 
-Decks grow through market purchases. The effective working deck shrinks as cards lock onto aging barrels — those cards are unavailable until sale.
+**Mash bills are NOT in your hand.** They live directly on rickhouse slots and are public. Operations cards are the only non-resource/non-capital cards a player holds privately.
+
+Decks grow through market purchases. The effective working deck shrinks as cards lock onto Building or Aging barrels — those cards are unavailable until sale.
 
 ### Card types
 
@@ -353,12 +405,31 @@ Composition is calculated **at sale time only**. Awards (Silver/Gold) read the g
 
 # 🥇 Bourbon Awards
 
-Some mash bills grant special awards on sale.
+Some mash bills grant special awards on sale. Awards manipulate **slot state** rather than card draws — winning a great bourbon means the recipe sticks around or jumps to a more promising slot.
 
-- **Silver — Bill returns to hand.** The bill goes back to the player's hand instead of discard.
-- **Gold — Permanent recipe.** The bill is removed from circulation and placed face-up in front of the player. The unlocked Gold recipe may be applied as a free option at sale on any future barrel, providing its reward instead of the attached bill's. The attached bill discards normally.
+### Silver — Bill stays in slot
 
-Gold takes precedence if both qualify. Gold awards do NOT trigger the final round — only the bourbon supply running out does.
+When a barrel with a Silver-eligible bill sells:
+- All committed and aging cards distribute as normal (player's discard, mid-sale draws, etc.).
+- **The bill stays in the now-empty slot as Staged.** The slot does NOT open — it's a "ready project" awaiting fresh commits.
+
+This rewards a successful sale by keeping the recipe on the board, ready to receive cards from your next hand.
+
+### Gold — Three mutually exclusive options
+
+When a barrel with a Gold-eligible bill sells, the player chooses **one** of:
+
+- **Convert.** Replace one of your **other** slots' bill with the Gold bill, provided that slot's already-committed cards satisfy the Gold recipe. The replaced bill goes to bourbon discard. The Gold bill is then locked into the target slot. The selling slot opens fully.
+- **Keep.** The Gold bill stays in the now-empty selling slot (Silver-style retention). Slot becomes Staged.
+- **Decline.** The Gold bill goes to bourbon discard. The selling slot opens fully.
+
+**Convert constraints:**
+- Target must be one of your own slots, **not** the slot being sold.
+- Target slot must currently hold a bill (you can't Convert into an Open slot).
+- Target slot's currently committed cards must satisfy the Gold bill's recipe.
+- If no legal Convert target exists, the option is unavailable — pick Keep or Decline.
+
+Gold takes precedence if both Silver and Gold conditions are met. Gold awards do NOT trigger the final round — only the bourbon supply running out does.
 
 ---
 
@@ -439,10 +510,10 @@ These are representative — the full deck is defined in `packages/engine/conten
 | **Kentucky Connection** | 2 | Draw 2 cards. |
 | **Bottling Run** | 3 | Every player draws 1. |
 | **Cash Out** | 1 | Discard your resource cards; gain that many $1 capitals in discard. |
-| **Allocation** | 4 | Draw 2 mash bills free. |
+| **Allocation** | 4 | Draw up to 2 mash bills free, one per Open slot. If you have 0 Open slots, the card is consumed for no effect. |
 | **Regulatory Inspection** | 5 | Target an aging barrel. It cannot be aged this round. |
-| **Barrel Broker** | 6 | Transfer one of your aging barrels to another player's empty slot for a card payment. |
-| **Blend** | 6 | Combine two of your aging barrels — higher age, higher-value bill, all cards. |
+| **Barrel Broker** | 6 | Transfer one of your aging barrels to another player's **fully-Open** slot for a card payment. The barrel's bill rides with it; the recipient now owns both. |
+| **Blend** | 6 | Merge two of your aging barrels into one slot. Pick which slot survives; the other opens fully. Merged barrel keeps the higher age, higher-value bill (player's choice on tie), and all committed + aging cards. The discarded bill goes to bourbon discard. |
 | **Rating Boost** | 4 | Pre-play. Your next sale gains +2 reputation. |
 | **Master Distiller** | 6 | Choose one of your aging barrels — for the rest of the game it reads its grid as if demand were +2. |
 | **Rickhouse Expansion Permit** | 6 | Permanently +1 rickhouse slot (max 6). |
@@ -466,9 +537,9 @@ Each distillery is a full asymmetric package: a **starting state**, a **permanen
 - *Constraint:* Rye counts as 0 toward your composition-buff thresholds.
 
 ### Connoisseur Estate — "The Diversified"
-- *Starting state:* Draft 4 mash bills during setup instead of 3.
+- *Starting state:* Draft 4 mash bills during setup instead of 3 — every starting slot ships Staged. To draw a 5th bill, free a slot first.
 - *Permanent ability:* Your "all four grain types" composition buff fires at **3 of 4** distinct grains and grants **+3 reputation** (instead of +2).
-- *Constraint:* Maximum mash-bill hand size is 4.
+- *Constraint:* Maximum slotted bills is 4. Even with Rickhouse Expansion Permit, slots 5 and 6 cannot receive a freshly-drawn bill — they function only as overflow space for completed barrels transferred via Barrel Broker, Blend, or other ops effects.
 
 ### Vanilla Distillery — "The Symmetric Option"
 No starting state, no permanent ability, no constraint. Choose this for a level playing field or an introductory game.
@@ -491,9 +562,9 @@ v2.7 runs every game as Vanilla while the distillery roster is disabled, so play
 
 # 🔁 The Core Loop
 
-Pick a distillery → draft mash bills → build a starter deck → draw 8 cards a round → commit cards toward a barrel → finish the recipe → age it → sell when demand favors you → take rep, cards, or both → buy more → play ops at the right moment → manage your slots → watch the rotation for your bookend → time your endgame.
+Pick a distillery → draft mash bills directly into your slots → build a starter deck → draw 8 cards a round → commit cards toward a Staged or Building slot → finish the recipe → age it → sell when demand favors you → take rep, cards, or both → buy more → play ops at the right moment → **manage your open slots** (every drawn bill needs one) → watch the rotation for your bookend → time your endgame.
 
-The mash bill supply is the **doomsday clock**. Drawing mash bills accelerates the end.
+The mash bill supply is the **doomsday clock**. Drawing mash bills accelerates the end — and slot capacity is the natural throttle: you can't draw a bill without an Open slot to receive it.
 
 ---
 
@@ -508,7 +579,7 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 # 📜 Changelog
 
 - **v2.7** — **Make Bourbon per-slot turn cap removed** (a player can now commit to the same slot as many times as they want on a single turn; recipe-completion fires after every commit). **Mash bill catalog recalibrated** into three difficulty/payoff tiers (Tier 1 starter / Tier 2 mid / Tier 3 specialty) with peak rewards and Gold awards scaled per tier. **Distillery profiles temporarily disabled** behind a `DISTILLERIES_ENABLED` feature flag — every game runs as Vanilla while the roster is rebuilt; engine code preserved. New **Bourbon Cards gallery** on the home screen — a read-only browser of every mash bill, sorted by tier. **Resource card economy overhaul** — market resources collapse onto four pricing bands (Common $1 / Double $3 / Specialty $3 / Double Specialty $6) with a uniform Specialty bonus (+1 rep on sale); capitals collapse onto a $1 / $3 / $5 ladder.
-- **v2.6** — **Slot-Bound Mash Bills.** Mash bills no longer enter a player's hand. Bills are drawn directly into an open rickhouse slot and remain public for their lifetime in that slot. Drawing a bill requires an open slot — slot capacity now gates the doomsday clock. `Make Bourbon`'s "attach a bill" sub-step is removed. Silver award reworked to "bill stays in slot" (slot becomes a "ready project" rather than fully opening). Gold award reworked to three mutually exclusive options on trigger: **Convert** (replace another slot's recipe with the Gold bill, provided that slot's already-committed cards satisfy the Gold recipe), **Keep** (Silver-style retention in the now-empty selling slot), or **Decline** (bill to bourbon discard, slot opens fully). Connoisseur Estate constraint reframed as "maximum slotted bills is 4" (replaces the old mash-bill hand cap). Allocation, Barrel Broker, and Blend ops cards updated for slot-bound bills. Trashing bills is free for empty/ready slots, action-cost for committed slots (subsumed by Abandon Barrel).
+- **v2.6** — **Slot-Bound Mash Bills.** Mash bills no longer enter a player's hand. Bills are drawn directly into an open rickhouse slot and remain public for their lifetime in that slot. Drawing a bill requires an open slot — slot capacity now gates the doomsday clock. New 4-phase slot lifecycle: **Open → Staged → Building → Aging**. `Make Bourbon`'s "attach a bill" sub-step is removed; the action only commits cards. Silver award reworked to "bill stays in slot" (slot becomes Staged, ready for fresh commits). Gold award reworked to three mutually exclusive options on trigger: **Convert** (replace another slot's recipe with the Gold bill, provided that slot's already-committed cards satisfy the Gold recipe), **Keep** (Silver-style retention in the now-empty selling slot), or **Decline** (bill to bourbon discard, slot opens fully). Connoisseur Estate constraint reframed as "maximum slotted bills is 4" (replaces the old mash-bill hand cap). Allocation, Barrel Broker, and Blend ops cards updated for slot-bound bills. Trashing bills is free for Staged slots, action-cost for Building slots (subsumed by Abandon Barrel). Over-committing past a recipe minimum is allowed but earns no bonus — the reward grid is keyed off `(age, demand)` only.
 - **v2.5** — **Incremental Mash Commitment.** Production redesigned: barrels are built across multiple turns via repeated `Make Bourbon` actions. Recipes auto-complete the moment the cumulative committed pile satisfies them; completed barrels first age the round after completion. New `Abandon Barrel` action returns committed cards to discard. **Convert (3:1) removed** — incremental commitment makes stranded resources less common. Distillery roster trimmed: Warehouse, Old-Line, and The Broker retired (their abilities were inert or carved out an awkward final-round asymmetry). Trading is now flatly illegal in the final round, no exceptions. Player count narrowed to 2–4.
 - **v2.4** — Composition Buffs added (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all-four-grains). Starter deck setup replaced with random-deal + 3-minute trade window + once-per-player stuck-hand swap. Distillery cards rebuilt as full asymmetric opening packages. Bot heuristics updated.
 - **v2.2.x** — Rickhouse bonded/upper tier distinction removed. All slots equivalent; ops cards (Regulatory Inspection, Barrel Broker, Blend) that used to be tier-gated now operate on any aging slot.

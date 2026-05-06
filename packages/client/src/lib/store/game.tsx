@@ -235,6 +235,16 @@ export interface GameStore {
   setMakeMashBill: (mashBillId: string) => void;
   toggleMakeSpend: (cardId: string) => void;
   confirmMake: () => void;
+  /**
+   * v2.6 drag-and-drop state — the id of the hand card currently
+   * being dragged onto a slot, or `null` when no drag is in flight.
+   * Read by every zone that wants to dim itself out of the way (the
+   * market, the action log, opponent rickhouses, and even the rest
+   * of the hand) so the player's eye snaps to the legal drop targets.
+   */
+  dragMake: string | null;
+  startDragMake: (cardId: string) => void;
+  endDragMake: () => void;
   /** Animation trigger — most recent purchase snapshot. */
   lastPurchase: LastPurchase | null;
   /** Animation trigger — most recent MAKE_BOURBON snapshot. */
@@ -282,6 +292,9 @@ const Ctx = createContext<GameStore>({
   setMakeMashBill: noop,
   toggleMakeSpend: noop,
   confirmMake: noop,
+  dragMake: null,
+  startDragMake: noop,
+  endDragMake: noop,
   lastPurchase: null,
   lastMake: null,
   newGame: noop,
@@ -663,6 +676,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dispatch(action);
   }, [makeMode, store.state, dispatch]);
 
+  // ---------------------------------------------------------------
+  // v2.6 drag-and-drop state — tracks "we're carrying a hand card,
+  // looking for a slot to drop it on". Surfaced through the store
+  // so every zone can read it and dim/spotlight accordingly.
+  // ---------------------------------------------------------------
+  const [dragMake, setDragMakeState] = useState<string | null>(null);
+  const startDragMake = useCallback((cardId: string) => {
+    setDragMakeState(cardId);
+  }, []);
+  const endDragMake = useCallback(() => {
+    setDragMakeState(null);
+  }, []);
+
   // Autoplay loop — paused while waiting on human input.
   useEffect(() => {
     if (!autoplay) return;
@@ -898,6 +924,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setMakeMashBill,
       toggleMakeSpend,
       confirmMake,
+      dragMake,
+      startDragMake,
+      endDragMake,
       lastPurchase: store.lastPurchase,
       lastMake: store.lastMake,
       newGame,
@@ -937,6 +966,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setMakeMashBill,
       toggleMakeSpend,
       confirmMake,
+      dragMake,
+      startDragMake,
+      endDragMake,
       newGame,
       step,
       dispatch,

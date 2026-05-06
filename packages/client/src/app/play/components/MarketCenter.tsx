@@ -76,7 +76,7 @@ export default function MarketCenter() {
     // caption + cards) so nothing reads as nested under Market. The
     // outer wrapper is a flex column that just stacks them with a
     // tight gap.
-    <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden">
+    <div data-bb-zone="market" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden">
       <Section
         title="Market"
         zone="market-conveyor"

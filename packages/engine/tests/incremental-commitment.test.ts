@@ -68,7 +68,7 @@ describe("incremental commitment — basics", () => {
     expect(state.allBarrels[0]!.productionCards).toHaveLength(2);
   });
 
-  it("a construction barrel cannot be aged", () => {
+  it("a construction barrel cannot be aged (recipe must complete first)", () => {
     let state = makeTestGame();
     const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = advanceToActionPhase(state);
@@ -77,8 +77,10 @@ describe("incremental commitment — basics", () => {
       type: "MAKE_BOURBON",
       playerId: "p1",
       slotId: slotForBill(state, "p1", mbId),
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],    });
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
+    });
     const barrelId = state.allBarrels[0]!.id;
+    expect(state.allBarrels[0]!.phase).toBe("construction");
     expect(() =>
       applyAction(state, {
         type: "AGE_BOURBON",

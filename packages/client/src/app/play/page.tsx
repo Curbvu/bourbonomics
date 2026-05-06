@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import DemandRollModal from "./components/DemandRollModal";
 import DistilleryDraftModal from "./components/DistilleryDraftModal";
 import DrawPhaseModal from "./components/DrawPhaseModal";
@@ -11,7 +12,22 @@ import StarterDeckDraftModal from "./components/StarterDeckDraftModal";
 import { useGameStore } from "@/lib/store/game";
 
 export default function PlayPage() {
-  const { state } = useGameStore();
+  const { state, dragMake } = useGameStore();
+
+  // v2.6: surface the drag state on <body> so global CSS rules can
+  // dim non-receiving zones during a make-card drag. Cleared on the
+  // component's unmount (e.g. when the player navigates away mid-drag).
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (dragMake) {
+      document.body.dataset.draggingMake = "true";
+    } else {
+      delete document.body.dataset.draggingMake;
+    }
+    return () => {
+      delete document.body.dataset.draggingMake;
+    };
+  }, [dragMake]);
 
   if (!state) return <MainMenu />;
 
