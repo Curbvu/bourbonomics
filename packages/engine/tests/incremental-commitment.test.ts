@@ -25,6 +25,7 @@ import {
   giveHand,
   makeTestGame,
   slotForBill,
+  spendCardId,
 } from "./helpers.js";
 
 const cask = (label: string, i = 0) => makeResourceCard("cask", label, i);
@@ -353,6 +354,9 @@ describe("incremental commitment — full lifecycle integration", () => {
     // setup rounds, so the grid lookup reads age=2 / demand=6 → 3.
     // Splits MUST sum to the grid reward (3); the +2 all-grains
     // bonus is added on top automatically.
+    // v2.7.1: seed a spendable card for the sell-action cost; the
+    // earlier age action emptied the hand.
+    state = giveHand(state, "p1", [cap("p1", 99)]);
     const repBefore = state.players.find((p) => p.id === "p1")!.reputation;
     state = applyAction(state, {
       type: "SELL_BOURBON",
@@ -360,6 +364,7 @@ describe("incremental commitment — full lifecycle integration", () => {
       barrelId,
       reputationSplit: 3,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const repAfter = state.players.find((p) => p.id === "p1")!.reputation;
     // Grid 3 (rep split) + all-grains buff (+2) = 5.

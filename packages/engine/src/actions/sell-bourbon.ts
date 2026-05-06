@@ -74,6 +74,15 @@ export function validateSellBourbon(
     return { legal: false, reason: `barrel must be aged at least ${MIN_SELL_AGE} years` };
   }
 
+  // v2.7.1: selling costs 1 card from hand (any resource or capital).
+  const spend = player.hand.find((c) => c.id === action.spendCardId);
+  if (!spend) {
+    return { legal: false, reason: "selling a barrel costs 1 card from your hand" };
+  }
+  if (spend.type !== "resource" && spend.type !== "capital") {
+    return { legal: false, reason: "sell-action card must be a resource or capital card" };
+  }
+
   const reward = computeSaleReward(state, barrel, player.distillery);
 
   if (
@@ -207,6 +216,12 @@ export function applySellBourbon(
   const barrelIdx = draft.allBarrels.findIndex((b) => b.id === action.barrelId);
   const barrel = draft.allBarrels[barrelIdx]!;
   const attached = barrel.attachedMashBill;
+
+  // v2.7.1: pay the sell-action cost — 1 card from hand → discard.
+  // Validation guarantees the card exists and is resource/capital.
+  const spendIdx = player.hand.findIndex((c) => c.id === action.spendCardId);
+  const [spend] = player.hand.splice(spendIdx, 1) as [Card];
+  player.discard.push(spend);
 
   // Collect themed-card sale signals BEFORE any mutation so the
   // computed reward + bonus rep + return-to-hand list match what

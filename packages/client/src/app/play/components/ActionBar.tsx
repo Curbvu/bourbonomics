@@ -27,6 +27,7 @@
  */
 
 import type {
+  Card,
   GameAction,
   GameState,
   PlayerState,
@@ -465,13 +466,33 @@ function bestSellBourbon(state: GameState, player: PlayerState): GameAction | nu
     if (!best || reward > best.reward) best = { id: b.id, reward };
   }
   if (!best || best.reward === 0) return null;
+  // v2.7.1: selling costs 1 card from hand. Auto-pick the cheapest
+  // card to spend (mirrors the bot heuristic): plain $1 capital first,
+  // then plain resources, then premium cards last so high-value
+  // pieces stay free for production / market buys. If hand is empty,
+  // no sale is possible.
+  const spend = pickCheapestSpendCard(player);
+  if (!spend) return null;
   return {
     type: "SELL_BOURBON",
     playerId: player.id,
     barrelId: best.id,
     reputationSplit: best.reward,
     cardDrawSplit: 0,
+    spendCardId: spend.id,
   };
+}
+
+function pickCheapestSpendCard(player: PlayerState): Card | null {
+  const eligible = player.hand.filter(
+    (c) => c.type === "resource" || c.type === "capital",
+  );
+  if (eligible.length === 0) return null;
+  const score = (c: Card): number => {
+    if (c.type === "capital") return c.capitalValue ?? 1;
+    return c.premium ? 10 : 5;
+  };
+  return eligible.slice().sort((a, b) => score(a) - score(b))[0]!;
 }
 
 /**

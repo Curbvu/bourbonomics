@@ -5,7 +5,7 @@ import { defaultDistilleryPool } from "../src/distilleries.js";
 import { defaultMashBillCatalog, defaultStarterCards } from "../src/defaults.js";
 import { computeCompositionBuffs } from "../src/composition.js";
 import { makeCapitalCard, makeMashBill, makeResourceCard } from "../src/cards.js";
-import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel } from "./helpers.js";
+import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel, spendCardId } from "./helpers.js";
 import type { Card, Distillery } from "../src/types.js";
 
 const r = (sub: "cask" | "corn" | "rye" | "barley" | "wheat", n = 1) =>
@@ -106,6 +106,7 @@ describe.skip("Distillery profiles — Permanent abilities", () => {
       barrelId,
       reputationSplit: 1, // grid value
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const p1After = next.players.find((p) => p.id === "p1")!;
     // grid (1) + corn_3 composition bonus (0 rep, 1 draw) + high-rye sale mod (+1 rep).

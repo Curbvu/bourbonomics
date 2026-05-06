@@ -21,7 +21,7 @@ describe("TRADE", () => {
     return state;
   }
 
-  it("traded cards go to the recipient's discard", () => {
+  it("v2.7.1: traded cards go to the recipient's hand (immediately playable)", () => {
     let state = setupTrade();
     state = applyAction(state, {
       type: "TRADE",
@@ -33,11 +33,17 @@ describe("TRADE", () => {
     const p1 = state.players.find((p) => p.id === "p1")!;
     const p2 = state.players.find((p) => p.id === "p2")!;
 
-    expect(p2.discard.some((c) => c.id === "card_p1_rye_0")).toBe(true);
-    expect(p1.discard.some((c) => c.id === "card_p2_wheat_0")).toBe(true);
-    // Each player still has both their unspent capital cards.
-    expect(p1.hand.map((c) => c.id).sort()).toEqual(["card_p1_cap1_1", "card_p1_cap1_2"].sort());
-    expect(p2.hand.map((c) => c.id).sort()).toEqual(["card_p2_cap1_1", "card_p2_cap1_2"].sort());
+    // Discard remains empty — traded cards land in hand instead.
+    expect(p1.discard).toHaveLength(0);
+    expect(p2.discard).toHaveLength(0);
+    // Each player has their two unspent capitals AND the card they
+    // received from the trade — all in hand, immediately usable.
+    expect(p1.hand.map((c) => c.id).sort()).toEqual(
+      ["card_p1_cap1_1", "card_p1_cap1_2", "card_p2_wheat_0"].sort(),
+    );
+    expect(p2.hand.map((c) => c.id).sort()).toEqual(
+      ["card_p1_rye_0", "card_p2_cap1_1", "card_p2_cap1_2"].sort(),
+    );
     // v2.2: trade does NOT end the active player's turn — p1 keeps the cursor.
     expect(state.currentPlayerIndex).toBe(0);
   });

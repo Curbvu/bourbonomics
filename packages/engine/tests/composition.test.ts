@@ -16,6 +16,7 @@ import {
   giveHand,
   makeTestGame,
   placeBarrel,
+  spendCardId,
 } from "./helpers.js";
 import type { Card } from "../src/types.js";
 
@@ -228,6 +229,7 @@ describe("SELL_BOURBON — composition buffs", () => {
       barrelId,
       reputationSplit: 5, // grid value at age 5, demand 6 = 5
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(5 + 1); // grid + cask_3
@@ -262,10 +264,13 @@ describe("SELL_BOURBON — composition buffs", () => {
       barrelId,
       reputationSplit: 5,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    // 1 capital already in hand + 1 from corn_3 buff draw = 2.
-    expect(p1.hand).toHaveLength(2);
+    // v2.7.1: capital starts in hand, sell spends it → discard.
+    // corn_3 fires +1 bonus draw → pulls the rye out of the deck.
+    // Hand = [rye] (1).
+    expect(p1.hand).toHaveLength(1);
     expect(p1.deck).toHaveLength(0);
   });
 
@@ -299,6 +304,7 @@ describe("SELL_BOURBON — composition buffs", () => {
       barrelId,
       reputationSplit: 4,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     // grid-with-buff = 4, no other rep buffs (no cask_3, no all_grains).
@@ -322,6 +328,7 @@ describe("SELL_BOURBON — composition buffs", () => {
       barrelId,
       reputationSplit: 5,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     expect(state.demand).toBe(before);
   });
@@ -344,6 +351,7 @@ describe("SELL_BOURBON — composition buffs", () => {
       barrelId,
       reputationSplit: 5,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(5 + 2); // grid + all_grains
@@ -369,6 +377,7 @@ describe("SELL_BOURBON — composition buffs", () => {
         barrelId,
         reputationSplit: 2,
         cardDrawSplit: 0,
+        spendCardId: spendCardId(state, "p1"),
       }),
     ).toThrow(/expected reward of 4/);
   });

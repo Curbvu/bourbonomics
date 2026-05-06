@@ -656,6 +656,13 @@ export type GameAction =
       barrelId: string;
       reputationSplit: number;
       cardDrawSplit: number;
+      /**
+       * v2.7.1: id of the resource or capital card spent from the
+       * player's hand to pay the sell-action cost. Goes straight to
+       * discard. This card is one of the ~7 cards a baseline barrel
+       * consumes across its full lifecycle.
+       */
+      spendCardId: string;
       goldChoice?: "convert" | "keep" | "decline";
       goldConvertTargetSlotId?: string;
     }

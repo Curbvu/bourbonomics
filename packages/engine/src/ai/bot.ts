@@ -429,6 +429,10 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
     (b) => b.phase === "aging" && b.age >= 2,
   );
   if (barrels.length === 0) return null;
+  // v2.7.1: selling costs 1 card from hand. If hand is empty, no sale
+  // is possible — bail rather than emit an illegal action.
+  const spendable = pickSellSpendCard(player);
+  if (!spendable) return null;
 
   let best:
     | { barrelId: string; reward: number; age: number; bill: MashBill }
@@ -486,9 +490,32 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
     barrelId: best.barrelId,
     reputationSplit: best.reward,
     cardDrawSplit: 0,
+    spendCardId: spendable.id,
     ...(goldChoice ? { goldChoice } : {}),
     ...(goldConvertTargetSlotId ? { goldConvertTargetSlotId } : {}),
   };
+}
+
+/**
+ * v2.7.1 sell cost: pick the cheapest possible card from hand to spend
+ * on the sell action. Prefers the lowest-value capital, then a plain
+ * resource. Premium variants and high-value capitals are saved for
+ * production / market buys.
+ */
+function pickSellSpendCard(player: PlayerState): Card | null {
+  if (player.hand.length === 0) return null;
+  const eligible = player.hand.filter(
+    (c) => c.type === "resource" || c.type === "capital",
+  );
+  if (eligible.length === 0) return null;
+  // Cost-to-keep heuristic: prefer plain $1 capitals, then plain
+  // (non-premium) resources, then premium resources, then high-value
+  // capitals. Sort ascending by that score and grab the cheapest.
+  const score = (c: Card): number => {
+    if (c.type === "capital") return c.capitalValue ?? 1; // $1 < $3 < $5
+    return c.premium ? 10 : 5; // plain resource (5) before premium (10)
+  };
+  return eligible.slice().sort((a, b) => score(a) - score(b))[0]!;
 }
 
 /**

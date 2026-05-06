@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { applyAction, IllegalActionError } from "../src/engine.js";
 import { computeReward, awardConditionMet } from "../src/rewards.js";
 import { makeMashBill, makeCapitalCard, makeResourceCard } from "../src/cards.js";
-import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel } from "./helpers.js";
+import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel, spendCardId } from "./helpers.js";
 
 const testBill = () =>
   makeMashBill(
@@ -84,12 +84,14 @@ describe("SELL_BOURBON — happy path", () => {
       barrelId,
       reputationSplit: 5, // total reward is 5 at age=5, demand=6
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(5);
     expect(p1.barrelsSold).toBe(1);
     expect(state.demand).toBe(5);
     expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(0);
+    // 5 aging cards + 1 sell-action capital card = 6 in discard.
     expect(p1.discard.filter((c) => c.id.startsWith("agingcard_"))).toHaveLength(5);
   });
 
@@ -116,16 +118,23 @@ describe("SELL_BOURBON — happy path", () => {
       ),
     };
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
+    const sellSpend = spendCardId(state, "p1");
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
       reputationSplit: 2,
       cardDrawSplit: 3,
+      spendCardId: sellSpend,
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(2);
-    expect(p1.hand).toHaveLength(1 + 3);
+    // Hand math: started at 1 capital. Sell spends it → discard=[cap].
+    // Draw count = cardDrawSplit (3) + composition.bonusDraw (1, from
+    // the 5 corn aging cards on the placed barrel) = 4. Deck has 3
+    // ryes; the 4th draw reshuffles the discard and pulls the spent
+    // capital right back. Final hand = [3 ryes, 1 capital] = 4.
+    expect(p1.hand).toHaveLength(4);
     expect(p1.deck).toHaveLength(0);
   });
 
@@ -141,6 +150,7 @@ describe("SELL_BOURBON — happy path", () => {
         barrelId,
         reputationSplit: 0,
         cardDrawSplit: 0,
+        spendCardId: spendCardId(state, "p1"),
       }),
     ).toThrow(/2 years/);
   });
@@ -157,6 +167,7 @@ describe("SELL_BOURBON — happy path", () => {
         barrelId,
         reputationSplit: 4,
         cardDrawSplit: 0,
+        spendCardId: spendCardId(state, "p1"),
       }),
     ).toThrow(/expected reward of 5/);
   });
@@ -173,6 +184,7 @@ describe("SELL_BOURBON — happy path", () => {
         barrelId,
         reputationSplit: 5,
         cardDrawSplit: 0,
+        spendCardId: spendCardId(state, "p1"),
       }),
     ).toThrow(/own/);
   });
@@ -195,6 +207,7 @@ describe("SELL_BOURBON — happy path", () => {
       barrelId: ids[0]!,
       reputationSplit: 0,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     expect(state.demand).toBe(0);
     // Hand off to p2 — selling no longer ends the turn.
@@ -205,6 +218,7 @@ describe("SELL_BOURBON — happy path", () => {
       barrelId: ids[1]!,
       reputationSplit: 0,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p2"),
     });
     expect(state.demand).toBe(0);
   });
@@ -238,6 +252,7 @@ describe("SELL_BOURBON — Silver and Gold awards", () => {
       barrelId,
       reputationSplit: 5,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     // v2.6: Silver leaves the bill in the now-empty selling slot as
     // a "ready" barrel (slot doesn't open).
@@ -276,6 +291,7 @@ describe("SELL_BOURBON — Silver and Gold awards", () => {
       barrelId,
       reputationSplit: 5,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
       goldChoice: "keep",
     });
     // v2.6: Gold "keep" leaves the bill in the now-empty selling slot
@@ -312,6 +328,7 @@ describe("SELL_BOURBON — Silver and Gold awards", () => {
       barrelId,
       reputationSplit: 5,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     expect(state.bourbonDiscard.some((m) => m.id === bill.id)).toBe(true);
   });
@@ -372,6 +389,7 @@ describe("SELL_BOURBON — Silver and Gold awards", () => {
       barrelId: sellingBarrel.id,
       reputationSplit: 5,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
       goldChoice: "convert",
       goldConvertTargetSlotId: targetBarrel.slotId,
     });

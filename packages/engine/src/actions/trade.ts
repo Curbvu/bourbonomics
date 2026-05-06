@@ -72,9 +72,11 @@ export function applyTrade(draft: Draft<GameState>, action: TradeAction): void {
   }
   p2.hand = p2NewHand;
 
-  // Traded cards land in the recipient's discard (per rules).
-  p2.discard.push(...p1Offered);
-  p1.discard.push(...p2Offered);
+  // v2.7.1: traded cards land in the recipient's HAND (not discard),
+  // making them immediately available on subsequent turns — and on
+  // this turn for the active player who initiated the trade.
+  p2.hand.push(...p1Offered);
+  p1.hand.push(...p2Offered);
 
   // v2.2: trade is one of the active player's actions but does NOT end
   // their turn — they continue with whatever cards remain. The trading

@@ -216,3 +216,23 @@ export function slotForBill(state: GameState, playerId: string, billId: string):
   }
   return barrel.slotId;
 }
+
+/**
+ * v2.7.1: id of any spendable card (resource or capital) in the
+ * player's hand — used to fill SELL_BOURBON's `spendCardId` cost
+ * field in tests that don't otherwise care which card they spend.
+ * Throws if the hand has no eligible card.
+ */
+export function spendCardId(state: GameState, playerId: string): string {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) throw new Error(`spendCardId: unknown player ${playerId}`);
+  const card = player.hand.find(
+    (c) => c.type === "resource" || c.type === "capital",
+  );
+  if (!card) {
+    throw new Error(
+      `spendCardId: ${playerId} has no resource or capital card in hand`,
+    );
+  }
+  return card.id;
+}

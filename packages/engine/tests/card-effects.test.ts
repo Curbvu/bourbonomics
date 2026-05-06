@@ -14,6 +14,7 @@ import {
   makeTestGame,
   placeBarrel,
   slotForBill,
+  spendCardId,
 } from "./helpers.js";
 
 // ============================================================
@@ -335,6 +336,7 @@ describe("Card effect — rep_on_sale_flat", () => {
       barrelId,
       reputationSplit: 4,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     // 4 from the grid + 1 bonus from spicy_rye = 5.
@@ -365,6 +367,7 @@ describe("Card effect — rep_on_sale_if_age_gte", () => {
       barrelId,
       reputationSplit: 4,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(beforeRep + 4 + 2);
@@ -392,6 +395,7 @@ describe("Card effect — rep_on_sale_if_age_gte", () => {
       barrelId,
       reputationSplit: 2,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(beforeRep + 2);
@@ -421,6 +425,7 @@ describe("Card effect — rep_on_sale_if_demand_gte", () => {
       barrelId,
       reputationSplit: 5,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(beforeRep + 5 + 2);
@@ -449,6 +454,7 @@ describe("Card effect — grid_demand_band_offset on_sale", () => {
       barrelId,
       reputationSplit: 5,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     expect(state.players.find((p) => p.id === "p1")!.reputation).toBeGreaterThanOrEqual(5);
   });
@@ -481,6 +487,7 @@ describe("Card effect — skip_demand_drop on_sale", () => {
       barrelId,
       reputationSplit: 4,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     expect(state.demand).toBe(5);
   });
@@ -507,6 +514,7 @@ describe("Card effect — returns_to_hand_on_sale", () => {
       barrelId,
       reputationSplit: 4,
       cardDrawSplit: 0,
+      spendCardId: spendCardId(state, "p1"),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.hand.some((c) => c.id === usedCask.id)).toBe(true);
