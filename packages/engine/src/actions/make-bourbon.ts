@@ -26,11 +26,11 @@ import { isCurrentPlayer } from "../state";
 //                                       recipe (with distillery + pre-
 //                                       played discounts applied).
 // Cards committed during construction are locked until sale.
-// Once-per-turn-per-barrel: a player cannot rapid-fire commit to the
-// same barrel within one turn. Aging-phase barrels are immutable to
-// MAKE_BOURBON. Failed Batch (the optional discard-and-trash) is
-// available the FIRST time a slot transitions ready → construction;
-// subsequent commits to the same slot don't re-arm it.
+// v2.7: no per-slot turn cap — a player may commit to the same barrel
+// as many times as they want in a single turn. Aging-phase barrels
+// are immutable to MAKE_BOURBON. Failed Batch (the optional discard-
+// and-trash) is available the FIRST time a slot transitions ready →
+// construction; subsequent commits to the same slot don't re-arm it.
 // ============================================================
 
 type MakeBourbonAction = Extract<GameAction, { type: "MAKE_BOURBON" }>;
@@ -199,9 +199,6 @@ export function validateMakeBourbon(
   if (existingBarrel.phase === "aging") {
     return { legal: false, reason: "that barrel has already finished construction" };
   }
-  if (existingBarrel.committedThisTurn) {
-    return { legal: false, reason: "you already committed to this barrel this turn" };
-  }
 
   const cardCount = action.cardIds.length;
   if (cardCount === 0) {
@@ -278,9 +275,6 @@ export function applyMakeBourbon(
   for (const card of newCards) {
     applyProductionCommitEffect(draft, player, barrel, card);
   }
-
-  // Once-per-turn-per-barrel gate.
-  barrel.committedThisTurn = true;
 
   // Completion check.
   const totals = emptyTotals();

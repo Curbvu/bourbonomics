@@ -354,7 +354,6 @@ function retainBillInSlot(barrel: Draft<Barrel>, round: number): void {
   barrel.age = 0;
   barrel.productionRound = round;
   barrel.agedThisRound = false;
-  barrel.committedThisTurn = false;
   barrel.inspectedThisRound = false;
   barrel.extraAgesAvailable = 0;
   barrel.gridRepOffset = 0;

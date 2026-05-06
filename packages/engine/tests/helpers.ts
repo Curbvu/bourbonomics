@@ -181,7 +181,6 @@ export function placeBarrel(
         age: effectiveAge,
         productionRound: state.round,
         agedThisRound: false,
-        committedThisTurn: false,
         inspectedThisRound: false,
         extraAgesAvailable: 0,
         gridRepOffset: 0,

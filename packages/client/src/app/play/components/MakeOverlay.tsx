@@ -33,10 +33,11 @@ export default function MakeOverlay() {
   const slotsUsed = myBarrels.length;
   const slotsFree = slotsTotal - slotsUsed;
   // Prefer a construction-phase slot already in progress; otherwise
-  // pick the first ready slot.
+  // pick the first ready slot. v2.7 lets a player keep committing to
+  // the same slot in a single turn, so the per-turn filter is gone.
   const targetBarrel =
-    myBarrels.find((b) => b.phase === "construction" && !b.committedThisTurn) ??
-    myBarrels.find((b) => b.phase === "ready" && !b.committedThisTurn) ??
+    myBarrels.find((b) => b.phase === "construction") ??
+    myBarrels.find((b) => b.phase === "ready") ??
     null;
   const targetSlotId = targetBarrel?.slotId ?? null;
   const effectiveBill = targetBarrel?.attachedMashBill ?? null;

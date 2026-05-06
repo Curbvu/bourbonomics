@@ -94,11 +94,6 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
   // Insider Buyer's half-cost is a "this turn" effect — drop it on
   // turn end so an unused discount can't carry forward.
   player.pendingHalfCostMarketBuy = false;
-  // v2.5: clear the per-turn commit gate on every barrel this player
-  // owns so the next time they're on the clock they can commit again.
-  for (const b of draft.allBarrels) {
-    if (b.ownerId === playerId) b.committedThisTurn = false;
-  }
 
   if (actionPhaseComplete(draft)) {
     runCleanupPhase(draft);
@@ -132,7 +127,6 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
     b.agedThisRound = false;
     b.inspectedThisRound = false;
     b.extraAgesAvailable = 0;
-    b.committedThisTurn = false;
   }
 
   if (draft.finalRoundTriggered) {

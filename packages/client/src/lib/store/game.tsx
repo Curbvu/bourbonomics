@@ -629,13 +629,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!makeMode) return;
     const human = store.state?.players.find((p) => !p.isBot);
     if (!human || !store.state) return;
-    // v2.5 incremental commitment: prefer committing to an existing
-    // under-construction barrel that hasn't been touched this turn.
-    // Otherwise open a new barrel in the first empty slot.
+    // v2.5+ incremental commitment: prefer committing to an existing
+    // under-construction barrel. v2.7 dropped the once-per-turn cap,
+    // so any in-progress barrel is fair game.
     const myBarrels = store.state.allBarrels.filter((b) => b.ownerId === human.id);
-    const inProgress = myBarrels.find(
-      (b) => b.phase === "construction" && !b.committedThisTurn,
-    );
+    const inProgress = myBarrels.find((b) => b.phase === "construction");
     let slotId: string | null = null;
     if (inProgress) {
       slotId = inProgress.slotId;

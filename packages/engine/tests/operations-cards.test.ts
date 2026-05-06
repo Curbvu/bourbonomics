@@ -51,7 +51,6 @@ function placeReadySlot(
         age: 0,
         productionRound: state.round,
         agedThisRound: false,
-        committedThisTurn: false,
         inspectedThisRound: false,
         extraAgesAvailable: 0,
         gridRepOffset: 0,

@@ -176,7 +176,7 @@ A barrel has two phases:
 - Commit one or more cards from your hand to the barrel, **and/or**
 - Attach a mash bill from your hand to the barrel (only allowed once per barrel — the bill is locked once attached).
 
-**Once per turn per barrel.** You can Make Bourbon to several different barrels on the same turn, but you can't commit to the same barrel twice in one turn.
+**No per-slot limit.** You can Make Bourbon to any of your Ready or Construction slots as many times as you want on a single turn. Each commit is its own action; the recipe-completion check fires after every commit, so a slot can transition Ready → Construction → Aging across multiple commits in one turn.
 
 Committed cards (resource OR capital) are **locked with the barrel** — they don't go to discard until the barrel sells or is abandoned.
 
@@ -494,6 +494,7 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 
 # 📜 Changelog
 
+- **v2.7** — **Make Bourbon per-slot turn cap removed.** A player can now commit to the same barrel as many times as they want on a single turn; the recipe-completion check fires after every commit. The `committedThisTurn` flag and the related per-turn cleanup are gone from the engine and the bot/UI heuristics.
 - **v2.6** — **Slot-Bound Mash Bills.** Mash bills no longer enter a player's hand. Bills are drawn directly into an open rickhouse slot and remain public for their lifetime in that slot. Drawing a bill requires an open slot — slot capacity now gates the doomsday clock. `Make Bourbon`'s "attach a bill" sub-step is removed. Silver award reworked to "bill stays in slot" (slot becomes a "ready project" rather than fully opening). Gold award reworked to three mutually exclusive options on trigger: **Convert** (replace another slot's recipe with the Gold bill, provided that slot's already-committed cards satisfy the Gold recipe), **Keep** (Silver-style retention in the now-empty selling slot), or **Decline** (bill to bourbon discard, slot opens fully). Connoisseur Estate constraint reframed as "maximum slotted bills is 4" (replaces the old mash-bill hand cap). Allocation, Barrel Broker, and Blend ops cards updated for slot-bound bills. Trashing bills is free for empty/ready slots, action-cost for committed slots (subsumed by Abandon Barrel).
 - **v2.5** — **Incremental Mash Commitment.** Production redesigned: barrels are built across multiple turns via repeated `Make Bourbon` actions. Recipes auto-complete the moment the cumulative committed pile satisfies them; completed barrels first age the round after completion. New `Abandon Barrel` action returns committed cards to discard. **Convert (3:1) removed** — incremental commitment makes stranded resources less common. Distillery roster trimmed: Warehouse, Old-Line, and The Broker retired (their abilities were inert or carved out an awkward final-round asymmetry). Trading is now flatly illegal in the final round, no exceptions. Player count narrowed to 2–4.
 - **v2.4** — Composition Buffs added (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all-four-grains). Starter deck setup replaced with random-deal + 3-minute trade window + once-per-player stuck-hand swap. Distillery cards rebuilt as full asymmetric opening packages. Bot heuristics updated.

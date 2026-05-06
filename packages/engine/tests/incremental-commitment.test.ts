@@ -5,7 +5,7 @@
  *   - Completion in round N → first ages in round N+1.
  *   - Composition buffs (4-grain) read the cumulative pile assembled
  *     across multiple rounds.
- *   - Once-per-turn-per-barrel commit limit.
+ *   - v2.7: a barrel accepts multiple commits in the same turn.
  *   - Mash bill attachable at start or later, single attach only.
  *   - A barrel cannot complete without an attached mash bill.
  *   - Wheated Baron's discount applies to the cumulative committed pile.
@@ -129,7 +129,7 @@ describe("incremental commitment — basics", () => {
     expect(state.allBarrels[0]!.age).toBe(1);
   });
 
-  it("once-per-turn-per-barrel commit limit holds", () => {
+  it("v2.7: a player may commit to the same barrel multiple times per turn", () => {
     let state = makeTestGame();
     const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
     state = advanceToActionPhase(state);
@@ -137,24 +137,33 @@ describe("incremental commitment — basics", () => {
       cask("p1", 0),
       corn("p1", 1),
       cap("p1", 2),
-      cap("p1", 3),
+      rye("p1", 3),
     ]);
     const slotId = slotForBill(state, "p1", mbId);
-    // First commit — opens the barrel.
+    // First commit — opens the barrel with cask + corn (no rye yet).
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",
       slotId,
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],    });
-    // Second commit on the same turn — must reject.
-    expect(() =>
-      applyAction(state, {
-        type: "MAKE_BOURBON",
-        playerId: "p1",
-        slotId,
-        cardIds: ["card_p1_cap1_2"],
-      }),
-    ).toThrow(/already committed/);
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],
+    });
+    expect(state.allBarrels.find((b) => b.slotId === slotId)!.phase).toBe(
+      "construction",
+    );
+
+    // Second commit on the same turn — succeeds. The barrel auto-
+    // transitions to aging the moment its cumulative pile satisfies
+    // the recipe.
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      slotId,
+      cardIds: ["card_p1_rye_3"],
+    });
+    const after = state.allBarrels.find((b) => b.slotId === slotId)!;
+    expect(after.productionCards).toHaveLength(3);
+    expect(after.phase).toBe("aging");
+    expect(after.completedInRound).toBe(1);
   });
 });
 

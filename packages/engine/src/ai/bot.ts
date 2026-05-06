@@ -576,9 +576,7 @@ function recipeSatisfiedByPile(
 function chooseMakeBourbon(state: GameState, player: PlayerState): GameAction | null {
   const myBarrels = getPlayerBarrels(state, player.id);
   const candidates = myBarrels.filter(
-    (b) =>
-      (b.phase === "ready" || b.phase === "construction") &&
-      !b.committedThisTurn,
+    (b) => b.phase === "ready" || b.phase === "construction",
   );
   // Construction-phase first (closer to completion), then ready slots
   // ranked by their bill's peak reward.

@@ -344,12 +344,6 @@ export interface Barrel {
   productionRound: number;
   /** Reset to false at start of each round. */
   agedThisRound: boolean;
-  /**
-   * Reset to false at the start of every action turn. Once-per-turn-
-   * per-barrel gate on `MAKE_BOURBON` so a player cannot rapid-fire
-   * commit cards into the same barrel within a single turn.
-   */
-  committedThisTurn: boolean;
   /** Set by Regulatory Inspection — barrel cannot be aged this round. */
   inspectedThisRound: boolean;
   /** Set by Rushed Shipment — barrel may be aged once more this round. */
