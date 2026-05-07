@@ -61,10 +61,9 @@ export default function AgeOverlay() {
             </span>
           </span>
         ) : null}
-        <span className="font-mono text-[10px] italic text-slate-400">
-          {prompt}
-        </span>
-        <span className="flex-1" />
+        {/* Cancel button sits next to the picks, not pushed to the far
+            right — keeps the mouse close to where the player just
+            clicked. Age auto-fires on the second pick (no Confirm). */}
         <button
           type="button"
           onClick={cancelAgeMode}
@@ -72,6 +71,9 @@ export default function AgeOverlay() {
         >
           Cancel
         </button>
+        <span className="font-mono text-[10px] italic text-slate-400">
+          {prompt}
+        </span>
       </div>
     </div>
   );

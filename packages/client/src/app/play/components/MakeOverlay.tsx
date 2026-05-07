@@ -92,13 +92,8 @@ export default function MakeOverlay() {
             </span>
           </span>
         ) : null}
-        <span className="font-mono text-[10px] italic text-slate-400">
-          {prompt}
-        </span>
-        <span className="flex-1" />
-        <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
-          {slotsFree}/{slotsTotal} free
-        </span>
+        {/* Action buttons sit next to the data — was previously pushed
+            far right by a flex-1 spacer. */}
         <button
           type="button"
           onClick={cancelMakeMode}
@@ -118,6 +113,12 @@ export default function MakeOverlay() {
         >
           Confirm ↵
         </button>
+        <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
+          {slotsFree}/{slotsTotal} free
+        </span>
+        <span className="font-mono text-[10px] italic text-slate-400">
+          {prompt}
+        </span>
       </div>
     </div>
   );

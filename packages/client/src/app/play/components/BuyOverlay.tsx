@@ -86,10 +86,9 @@ export default function BuyOverlay() {
             no slot picked yet
           </span>
         )}
-        <span className="font-mono text-[10px] italic text-slate-400">
-          {prompt}
-        </span>
-        <span className="flex-1" />
+        {/* Action buttons sit right next to the data — was previously
+            pushed to the far right by a flex-1 spacer, which forced a
+            long mouse trip from the picked card to Confirm. */}
         <button
           type="button"
           onClick={cancelBuyMode}
@@ -109,6 +108,9 @@ export default function BuyOverlay() {
         >
           Confirm ↵
         </button>
+        <span className="font-mono text-[10px] italic text-slate-400">
+          {prompt}
+        </span>
       </div>
     </div>
   );
