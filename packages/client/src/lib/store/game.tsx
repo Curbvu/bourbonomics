@@ -326,6 +326,11 @@ export interface GameStore {
    *  human seat, and which display name claimed each one. Updates
    *  whenever someone claims or releases a seat. */
   roster: SeatInfo[];
+  /** Last server-side error reason (e.g. action rejection). UI can
+   *  render this as a toast so silent rejections aren't invisible. */
+  multiplayerError: string | null;
+  /** Dismiss the current error toast. */
+  clearMultiplayerError: () => void;
   newGame: (cfg: NewGameConfig) => void;
   /** Mint a new multi-player room and join it as host. */
   createMultiplayer: (cfg: NewMultiplayerGameConfig) => Promise<string>;
@@ -397,6 +402,8 @@ const Ctx = createContext<GameStore>({
   multiplayerMode: null,
   multiplayerStatus: "idle",
   roster: [],
+  multiplayerError: null,
+  clearMultiplayerError: noop,
   newGame: noop,
   createMultiplayer: async () => "",
   joinMultiplayer: async () => {},
@@ -436,6 +443,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [multiplayerMode, setMultiplayerMode] = useState<MultiplayerMode | null>(null);
   const [multiplayerStatus, setMultiplayerStatus] = useState<SocketStatus>("idle");
   const [roster, setRoster] = useState<SeatInfo[]>([]);
+  const [multiplayerError, setMultiplayerError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   // Load from localStorage on mount.
@@ -525,6 +533,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const dispatch = useCallback(
     (action: GameAction) => {
       if (multiplayerMode) {
+        // eslint-disable-next-line no-console
+        console.log("[mp] dispatch →", action);
         gameSocket().send({ type: "action", action });
         return;
       }
@@ -625,6 +635,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         case "error":
           // eslint-disable-next-line no-console
           console.error("multiplayer:", msg.reason);
+          setMultiplayerError(msg.reason);
           break;
         case "ping":
           // No-op; the server sometimes pings to keep idle sockets alive.
@@ -1377,6 +1388,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       multiplayerMode,
       multiplayerStatus,
       roster,
+      multiplayerError,
+      clearMultiplayerError: () => setMultiplayerError(null),
       newGame,
       createMultiplayer,
       joinMultiplayer,
@@ -1431,6 +1444,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       multiplayerMode,
       multiplayerStatus,
       roster,
+      multiplayerError,
       newGame,
       createMultiplayer,
       joinMultiplayer,

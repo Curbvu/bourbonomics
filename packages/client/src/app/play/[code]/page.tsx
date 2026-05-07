@@ -42,8 +42,15 @@ const NAME_KEY = "bourbonomics:displayName";
 export default function PlayCodePage({ params }: Props) {
   const { code: rawCode } = use(params);
   const code = rawCode.toUpperCase();
-  const { state, multiplayerMode, multiplayerStatus, joinMultiplayer, dragMake } =
-    useGameStore();
+  const {
+    state,
+    multiplayerMode,
+    multiplayerStatus,
+    multiplayerError,
+    clearMultiplayerError,
+    joinMultiplayer,
+    dragMake,
+  } = useGameStore();
 
   // `null` = haven't decided yet; "" = needs prompt; non-empty = pending
   // / completed join with this name. We split "deciding" from "needs
@@ -202,6 +209,28 @@ export default function PlayCodePage({ params }: Props) {
       <StarterDeckDraftModal />
       <DemandRollModal />
       <DrawPhaseModal />
+      {multiplayerError ? (
+        <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
+          <div className="pointer-events-auto flex max-w-md items-start gap-3 rounded-md border-2 border-rose-500/70 bg-rose-950/95 px-4 py-3 shadow-[0_8px_22px_rgba(0,0,0,.5)]">
+            <div className="flex-1">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-rose-300">
+                Server error
+              </p>
+              <p className="mt-1 font-display text-sm text-rose-100">
+                {multiplayerError}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearMultiplayerError}
+              aria-label="Dismiss"
+              className="rounded border border-rose-500/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[.14em] text-rose-200 hover:bg-rose-900/40"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
