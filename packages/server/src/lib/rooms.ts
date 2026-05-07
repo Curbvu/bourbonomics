@@ -88,10 +88,16 @@ function ttl(): number {
 // =============================================================================
 
 export async function getRoom(code: string): Promise<RoomRecord | null> {
+  // ConsistentRead so a Lambda that reads right after another Lambda
+  // wrote (e.g. action handler reading after start-game set started=
+  // true) doesn't get a stale view. The default eventually-consistent
+  // read can lag a write by hundreds of milliseconds — long enough for
+  // the host to click Pass and hit a phantom "game-not-started" reject.
   const r = await ddb.send(
     new GetCommand({
       TableName: Resource.Rooms.name,
       Key: { code },
+      ConsistentRead: true,
     }),
   );
   return (r.Item as RoomRecord | undefined) ?? null;
