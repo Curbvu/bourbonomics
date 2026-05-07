@@ -172,7 +172,16 @@ function BarrelChip({
   palIdx: number;
   isHumanRow: boolean;
 }) {
-  const { ageMode, setAgeBarrel, setInspect, dispatch, dragMake, endDragMake } = useGameStore();
+  const {
+    ageMode,
+    setAgeBarrel,
+    sellMode,
+    setSellBarrel,
+    setInspect,
+    dispatch,
+    dragMake,
+    endDragMake,
+  } = useGameStore();
   const owner = state.players.find((p) => p.id === barrel.ownerId);
   const ringHints: string[] = [];
   if (barrel.agedThisRound) ringHints.push("aged this round");
@@ -229,21 +238,37 @@ function BarrelChip({
     (!barrel.agedThisRound || barrel.extraAgesAvailable > 0);
   const isAgePicked = inAgeMode && ageMode!.pickedBarrelId === barrel.id;
 
+  // Sell-mode interactivity — mirrors age mode. The human's saleable
+  // barrels light up (aging-phase, age ≥2, has a bill). Clicking sets
+  // `pickedBarrelId` in the store; the auto-fire kicks in when the
+  // hand-card pick lands.
+  const inSellMode = sellMode != null && isHumanRow;
+  const saleable =
+    inSellMode &&
+    barrel.phase === "aging" &&
+    barrel.age >= 2 &&
+    barrel.attachedMashBill != null;
+  const isSellPicked = inSellMode && sellMode!.pickedBarrelId === barrel.id;
+
   // CSS keyframe (drop-target-active / drop-target-pulse) owns the
   // ring + glow + sparkle when this slot is the drag target — so we
   // skip the static ring class in that case to avoid double-styling.
   const isDragTarget = dropTargetState != null;
   const ringClass = isDragTarget
     ? ""
-    : isAgePicked
+    : isSellPicked
       ? "ring-4 ring-amber-300 shadow-[0_0_18px_rgba(252,211,77,.6)]"
-      : ageable
-        ? "ring-2 ring-sky-400/70 hover:ring-sky-200"
-        : barrel.inspectedThisRound
-          ? "ring-2 ring-rose-300/70"
-          : barrel.agedThisRound
-            ? "ring-2 ring-amber-300/70"
-            : "";
+      : saleable
+        ? "ring-2 ring-amber-300/70 hover:ring-amber-200 cursor-pointer"
+        : isAgePicked
+          ? "ring-4 ring-amber-300 shadow-[0_0_18px_rgba(252,211,77,.6)]"
+          : ageable
+            ? "ring-2 ring-sky-400/70 hover:ring-sky-200"
+            : barrel.inspectedThisRound
+              ? "ring-2 ring-rose-300/70"
+              : barrel.agedThisRound
+                ? "ring-2 ring-amber-300/70"
+                : "";
 
   // Match the hand's MashBillCard idiom: WoW-style tier chrome based on
   // the attached bill's rarity. Construction-phase barrels without a
@@ -270,12 +295,15 @@ function BarrelChip({
   }${ageable ? " — click to age this barrel" : ""}`;
 
   // Click behaviour:
-  //   - Age mode + this barrel is a legal age target → set as the
-  //     picked barrel (handled by AgeOverlay).
+  //   - Sell mode + barrel is saleable → pick it as the sell target.
+  //     Auto-fires once the hand card is also picked.
+  //   - Age mode + barrel is a legal age target → pick it. Auto-fires
+  //     once the hand card is also picked.
   //   - Otherwise → open the inspect modal so the player can see
   //     mash bill, age, committed cards, awards, etc.
   const onClick = () => {
-    if (ageable) setAgeBarrel(barrel.id);
+    if (saleable) setSellBarrel(barrel.id);
+    else if (ageable) setAgeBarrel(barrel.id);
     else setInspect({ kind: "barrel", barrel, ownerName: owner?.name });
   };
   // Drag-and-drop handlers — gated on isLegalForDrag so opponents'

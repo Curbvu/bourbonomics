@@ -30,6 +30,7 @@ import BuyOverlay from "./BuyOverlay";
 import AgeOverlay from "./AgeOverlay";
 import DrawBillOverlay from "./DrawBillOverlay";
 import MakeOverlay from "./MakeOverlay";
+import SellOverlay from "./SellOverlay";
 import PlayerSwatch from "./PlayerSwatch";
 import { CornerCost, CornerValue } from "./cardCorners";
 import { setMakeDragPayload } from "./dragMake";
@@ -71,6 +72,9 @@ export default function HandTray() {
       {/* Interactive Age mode — same idiom; only paints when the player
           has clicked "Age barrel" and is picking a barrel + pay-card. */}
       <AgeOverlay />
+      {/* Interactive Sell mode — auto-fires once both barrel and spend
+          card are picked. Status bar shows the running rep estimate. */}
+      <SellOverlay />
       {/* Interactive Draw-bill mode — single-select card-pay picker;
           blind draw of the top mash bill. */}
       <DrawBillOverlay />
@@ -452,6 +456,8 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     toggleDrawBillSpend,
     makeMode,
     toggleMakeSpend,
+    sellMode,
+    setSellSpendCard,
     dragMake,
     startDragMake,
     endDragMake,
@@ -466,13 +472,16 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
   const inAgeMode = ageMode != null;
   const inDrawBillMode = drawBillMode != null;
   const inMakeMode = makeMode != null;
+  const inSellMode = sellMode != null;
   const isBuySelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
   const isAgeSelected = inAgeMode && ageMode!.pickedCardId === card.id;
   const isDrawSelected =
     inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
   const isMakeSelected = inMakeMode && makeMode!.spendCardIds.includes(card.id);
-  const isSelected = isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected;
-  const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode;
+  const isSellSelected = inSellMode && sellMode!.pickedSpendCardId === card.id;
+  const isSelected =
+    isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected || isSellSelected;
+  const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode || inSellMode;
   // In draw-bill step 1 (no target picked yet), hand cards are NOT
   // tag-clickable — only the bourbon row is. Click should fall through
   // to inspect.
@@ -486,12 +495,15 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
       ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
       : inAgeMode || inDrawBillMode
         ? "ring-2 ring-sky-400/60"
-        : "ring-2 ring-emerald-400/60";
+        : inSellMode
+          ? "ring-2 ring-amber-300/60"
+          : "ring-2 ring-emerald-400/60";
   const onClick = () => {
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
     else if (inBuyMode) toggleBuySpend(card.id);
+    else if (inSellMode) setSellSpendCard(card.id);
     else setInspect({ kind: "resource", card });
   };
   return (
@@ -518,7 +530,9 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
               ? `${isAgeSelected ? "Unselect" : "Commit"} this card to age the picked barrel`
               : inBuyMode
                 ? `${isBuySelected ? "Unselect" : "Select"} this card to pay B$1`
-                : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""} — drag onto a barrel to commit, or click to inspect`
+                : inSellMode
+                  ? `${isSellSelected ? "Unselect" : "Spend"} this card as the sell-action cost`
+                  : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""} — drag onto a barrel to commit, or click to inspect`
       }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >
@@ -575,6 +589,8 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     toggleDrawBillSpend,
     makeMode,
     toggleMakeSpend,
+    sellMode,
+    setSellSpendCard,
     dragMake,
     startDragMake,
     endDragMake,
@@ -587,13 +603,16 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
   const inAgeMode = ageMode != null;
   const inDrawBillMode = drawBillMode != null;
   const inMakeMode = makeMode != null;
+  const inSellMode = sellMode != null;
   const isBuySelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
   const isAgeSelected = inAgeMode && ageMode!.pickedCardId === card.id;
   const isDrawSelected =
     inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
   const isMakeSelected = inMakeMode && makeMode!.spendCardIds.includes(card.id);
-  const isSelected = isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected;
-  const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode;
+  const isSellSelected = inSellMode && sellMode!.pickedSpendCardId === card.id;
+  const isSelected =
+    isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected || isSellSelected;
+  const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode || inSellMode;
   const drawStep1 =
     inDrawBillMode &&
     !drawBillMode!.blind &&
@@ -604,12 +623,15 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
       ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
       : inAgeMode || inDrawBillMode
         ? "ring-2 ring-sky-400/60"
-        : "ring-2 ring-emerald-400/60";
+        : inSellMode
+          ? "ring-2 ring-amber-300/60"
+          : "ring-2 ring-emerald-400/60";
   const onClick = () => {
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
     else if (inBuyMode) toggleBuySpend(card.id);
+    else if (inSellMode) setSellSpendCard(card.id);
     else setInspect({ kind: "capital", card });
   };
   return (
@@ -636,7 +658,9 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
               ? `${isAgeSelected ? "Unselect" : "Commit"} this B$${value} capital to age the picked barrel`
               : inBuyMode
                 ? `${isBuySelected ? "Unselect" : "Select"} this B$${value} capital card to spend`
-                : `Capital · pays B$${value} at the market — drag onto a barrel to commit`
+                : inSellMode
+                  ? `${isSellSelected ? "Unselect" : "Spend"} this B$${value} capital as the sell-action cost`
+                  : `Capital · pays B$${value} at the market — drag onto a barrel to commit`
       }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >

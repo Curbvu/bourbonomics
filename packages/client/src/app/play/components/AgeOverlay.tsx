@@ -1,24 +1,23 @@
 "use client";
 
 /**
- * AgeOverlay — sticky control bar for interactive Age mode.
+ * AgeOverlay — sticky status bar for interactive Age mode.
  *
  * Aging is conceptually the "Age Phase" of a round (one card committed
  * face-down per barrel), distinct from the main Action Phase actions —
  * but the engine collapses it into the action phase as `AGE_BOURBON`.
- * This overlay surfaces the picker so the player can choose:
  *
- *   1. Which of their barrels to age (click a chip in the Rickhouse).
- *   2. Which one card from hand to commit on top of it.
- *
- * The Rickhouse + HandTray wire their own clicks; this component is the
- * contract surface — it prompts the player and lets them commit.
+ * v2.8: **auto-fire on completion** — the moment the player has both
+ * picks (barrel from Rickhouse + card from hand), the store dispatches
+ * AGE_BOURBON without a Confirm click. This overlay is now purely
+ * informational: it tells the player what step they're on and lets
+ * them bail out, but never blocks on a button press.
  */
 
 import { useGameStore } from "@/lib/store/game";
 
 export default function AgeOverlay() {
-  const { state, ageMode, cancelAgeMode, confirmAge } = useGameStore();
+  const { state, ageMode, cancelAgeMode } = useGameStore();
   if (!state || !ageMode) return null;
   const human = state.players.find((p) => !p.isBot);
   if (!human) return null;
@@ -30,15 +29,16 @@ export default function AgeOverlay() {
     ? human.hand.find((c) => c.id === ageMode.pickedCardId)
     : null;
 
-  const canConfirm = barrel != null && card != null;
-
   let prompt: string;
-  if (!barrel) {
-    prompt = "Pick one of your barrels in the Rickhouse to age.";
+  if (!barrel && !card) {
+    prompt = "Pick a barrel in your Rickhouse and a card in hand. Auto-confirms on second pick.";
+  } else if (!barrel) {
+    prompt = "Now pick a barrel in your Rickhouse — it'll commit instantly.";
   } else if (!card) {
-    prompt = "Pick one card from your hand to commit on top of the barrel.";
+    prompt = "Now pick a card in your hand — it'll commit instantly.";
   } else {
-    prompt = "Ready to age. Confirm to dispatch.";
+    // Both picked — auto-fire is on the way; this state is transient.
+    prompt = "Aging…";
   }
 
   return (
@@ -70,18 +70,6 @@ export default function AgeOverlay() {
           className="rounded-md border border-rose-700/60 bg-rose-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-rose-100 transition-colors hover:border-rose-400 hover:bg-rose-800/40"
         >
           Cancel
-        </button>
-        <button
-          type="button"
-          disabled={!canConfirm}
-          onClick={canConfirm ? confirmAge : undefined}
-          className={
-            canConfirm
-              ? "confirm-ready rounded-md border border-amber-300 bg-gradient-to-b from-amber-300 to-amber-600 px-5 py-1.5 font-sans text-[13px] font-bold uppercase tracking-[.07em] text-slate-950 hover:from-amber-200 hover:to-amber-500"
-              : "rounded-md border border-slate-800 bg-slate-900 px-5 py-1.5 font-sans text-[13px] font-bold uppercase tracking-[.07em] text-slate-600 cursor-not-allowed"
-          }
-        >
-          Confirm ↵
         </button>
       </div>
     </div>

@@ -31,6 +31,7 @@ import {
   awaitingHumanInput,
   buildVanillaDistilleryFor,
   computeFinalScores,
+  computeReward,
   defaultMashBillCatalog,
   DISTILLERIES_ENABLED,
   initializeGame,
@@ -159,6 +160,21 @@ export interface MakeMode {
 }
 
 /**
+ * Interactive Sell-Bourbon mode. Two-step picker:
+ *
+ *   step 1 — pick which of your aging barrels to sell. Saleable barrels
+ *            (aging, age ≥2) light up sky-blue in your rickhouse.
+ *   step 2 — pick a single hand card to spend as the sell-action cost
+ *            (v2.7.1). The action auto-fires the moment both picks are
+ *            in — no Confirm button. Reputation gets the full grid
+ *            reward; cardDrawSplit is 0 by default.
+ */
+export interface SellMode {
+  pickedBarrelId: string | null;
+  pickedSpendCardId: string | null;
+}
+
+/**
  * Last-purchased card snapshot. Bumped by every BUY_FROM_MARKET dispatch
  * (human or bot) and consumed by `PurchaseFlight` to drive the fly-down
  * animation. `seq` is the unique key — same card bought twice still
@@ -182,6 +198,20 @@ export interface LastMake {
   seq: number;
 }
 
+/**
+ * Last-barrel-sold snapshot. Captures the cards that just returned to
+ * the seller's discard so `SaleFlight` can fan them out from the (now
+ * vanished) barrel slot to the discard pile. `slotId` is the origin
+ * for the flight; `cards` is the full list of production + aging
+ * cards that left the barrel.
+ */
+export interface LastSale {
+  slotId: string;
+  ownerId: string;
+  cards: Card[];
+  seq: number;
+}
+
 interface AtomicStore {
   state: GameState | null;
   log: LogEntry[];
@@ -189,6 +219,7 @@ interface AtomicStore {
   seatMeta: { id: string; logoId?: string; difficulty?: string }[];
   lastPurchase: LastPurchase | null;
   lastMake: LastMake | null;
+  lastSale: LastSale | null;
 }
 
 export interface GameStore {
@@ -235,6 +266,14 @@ export interface GameStore {
   setMakeMashBill: (mashBillId: string) => void;
   toggleMakeSpend: (cardId: string) => void;
   confirmMake: () => void;
+  /** Interactive sell-bourbon state, null when not selling. */
+  sellMode: SellMode | null;
+  startSellMode: () => void;
+  cancelSellMode: () => void;
+  /** Step 1: pick which barrel to sell. */
+  setSellBarrel: (barrelId: string) => void;
+  /** Step 2: pick the hand card to spend. Auto-fires when both set. */
+  setSellSpendCard: (cardId: string) => void;
   /**
    * v2.6 drag-and-drop state — the id of the hand card currently
    * being dragged onto a slot, or `null` when no drag is in flight.
@@ -249,6 +288,8 @@ export interface GameStore {
   lastPurchase: LastPurchase | null;
   /** Animation trigger — most recent MAKE_BOURBON snapshot. */
   lastMake: LastMake | null;
+  /** Animation trigger — most recent SELL_BOURBON snapshot. */
+  lastSale: LastSale | null;
   newGame: (cfg: NewGameConfig) => void;
   step: () => void;
   /** Submit an action directly (used by setup-phase modals). */
@@ -292,11 +333,17 @@ const Ctx = createContext<GameStore>({
   setMakeMashBill: noop,
   toggleMakeSpend: noop,
   confirmMake: noop,
+  sellMode: null,
+  startSellMode: noop,
+  cancelSellMode: noop,
+  setSellBarrel: noop,
+  setSellSpendCard: noop,
   dragMake: null,
   startDragMake: noop,
   endDragMake: noop,
   lastPurchase: null,
   lastMake: null,
+  lastSale: null,
   newGame: noop,
   step: noop,
   dispatch: noop,
@@ -315,6 +362,7 @@ const EMPTY_STORE: AtomicStore = {
   seatMeta: [],
   lastPurchase: null,
   lastMake: null,
+  lastSale: null,
 };
 
 export function GameProvider({ children }: { children: ReactNode }) {
@@ -325,6 +373,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [ageMode, setAgeMode] = useState<AgeMode | null>(null);
   const [drawBillMode, setDrawBillMode] = useState<DrawBillMode | null>(null);
   const [makeMode, setMakeMode] = useState<MakeMode | null>(null);
+  const [sellMode, setSellMode] = useState<SellMode | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   // Load from localStorage on mount.
@@ -344,6 +393,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           seatMeta: saved.seatMeta ?? [],
           lastPurchase: null,
           lastMake: null,
+          lastSale: null,
         });
       }
       const auto = window.localStorage.getItem(AUTOPLAY_KEY);
@@ -393,6 +443,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       };
       const lastPurchase = capturePurchase(prev, result.action, seq);
       const lastMake = captureMake(prev, result.state, result.action, seq);
+      const lastSale = captureSale(prev, result.action, seq);
       return {
         ...prev,
         state: result.state,
@@ -400,6 +451,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         seqCounter: seq,
         lastPurchase,
         lastMake,
+        lastSale,
       };
     });
   }, []);
@@ -418,6 +470,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       };
       const lastPurchase = capturePurchase(prev, action, seq);
       const lastMake = captureMake(prev, next, action, seq);
+      const lastSale = captureSale(prev, action, seq);
       return {
         ...prev,
         state: next,
@@ -425,6 +478,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         seqCounter: seq,
         lastPurchase,
         lastMake,
+        lastSale,
       };
     });
   }, []);
@@ -473,22 +527,60 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setAgeMode(null);
   }, []);
 
-  const setAgeBarrel = useCallback((barrelId: string) => {
-    setAgeMode((prev) =>
-      prev ? { ...prev, pickedBarrelId: barrelId } : prev,
-    );
-  }, []);
-
-  const setAgeCard = useCallback((cardId: string) => {
-    setAgeMode((prev) => {
-      if (!prev) return prev;
-      // Single-select toggle: clicking the same card again clears it.
-      return {
-        ...prev,
-        pickedCardId: prev.pickedCardId === cardId ? null : cardId,
+  // Auto-fire age the moment the player has both picks — no Confirm
+  // button. Mirrors sell-mode's `fireSell`.
+  const fireAge = useCallback(
+    (barrelId: string, cardId: string) => {
+      const human = store.state?.players.find((p) => !p.isBot);
+      if (!human) return;
+      const action: GameAction = {
+        type: "AGE_BOURBON",
+        playerId: human.id,
+        barrelId,
+        cardId,
       };
-    });
-  }, []);
+      setAgeMode(null);
+      dispatch(action);
+    },
+    [store.state, dispatch],
+  );
+
+  const setAgeBarrel = useCallback(
+    (barrelId: string) => {
+      setAgeMode((prev) => {
+        if (!prev) return prev;
+        // Clicking the same barrel again clears it (lets the player
+        // back out without canceling the whole mode).
+        if (prev.pickedBarrelId === barrelId) {
+          return { ...prev, pickedBarrelId: null };
+        }
+        const next = { ...prev, pickedBarrelId: barrelId };
+        if (next.pickedCardId) {
+          queueMicrotask(() => fireAge(barrelId, next.pickedCardId!));
+        }
+        return next;
+      });
+    },
+    [fireAge],
+  );
+
+  const setAgeCard = useCallback(
+    (cardId: string) => {
+      setAgeMode((prev) => {
+        if (!prev) return prev;
+        // Single-select toggle: clicking the same card again clears it.
+        if (prev.pickedCardId === cardId) {
+          return { ...prev, pickedCardId: null };
+        }
+        const next = { ...prev, pickedCardId: cardId };
+        if (next.pickedBarrelId) {
+          queueMicrotask(() => fireAge(next.pickedBarrelId!, cardId));
+        }
+        return next;
+      });
+    },
+    [fireAge],
+  );
 
   const confirmBuy = useCallback(() => {
     if (!buyMode || !buyMode.pickedTarget) return;
@@ -677,6 +769,93 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [makeMode, store.state, dispatch]);
 
   // ---------------------------------------------------------------
+  // Sell-mode helpers — two-step picker, **auto-fires on completion**.
+  // The user picks a barrel (step 1), then a hand card (step 2). The
+  // moment both are set, dispatch SELL_BOURBON with full reputation
+  // split. No Confirm button — the second click IS the confirm.
+  // ---------------------------------------------------------------
+  const startSellMode = useCallback(() => {
+    setSellMode({ pickedBarrelId: null, pickedSpendCardId: null });
+    setBuyMode(null);
+    setAgeMode(null);
+    setDrawBillMode(null);
+    setMakeMode(null);
+    setInspect(null);
+  }, []);
+
+  const cancelSellMode = useCallback(() => {
+    setSellMode(null);
+  }, []);
+
+  const fireSell = useCallback(
+    (barrelId: string, spendCardId: string) => {
+      const state = store.state;
+      if (!state) return;
+      const human = state.players.find((p) => !p.isBot);
+      if (!human) return;
+      const barrel = state.allBarrels.find((b) => b.id === barrelId);
+      if (!barrel || !barrel.attachedMashBill) return;
+      const reward = computeReward(barrel.attachedMashBill, barrel.age, state.demand, {
+        demandBandOffset: barrel.demandBandOffset,
+        gridRepOffset: barrel.gridRepOffset,
+      });
+      const action: GameAction = {
+        type: "SELL_BOURBON",
+        playerId: human.id,
+        barrelId,
+        // Take full rep; cardDrawSplit defaults to 0. A future iteration
+        // could let the player split via a slider — for now the picker
+        // matches the SmartButton behaviour.
+        reputationSplit: reward,
+        cardDrawSplit: 0,
+        spendCardId,
+      };
+      setSellMode(null);
+      dispatch(action);
+    },
+    [store.state, dispatch],
+  );
+
+  const setSellBarrel = useCallback(
+    (barrelId: string) => {
+      setSellMode((prev) => {
+        if (!prev) return prev;
+        // Clicking the same barrel again clears the pick (lets the
+        // player back out without canceling the whole mode).
+        if (prev.pickedBarrelId === barrelId) {
+          return { ...prev, pickedBarrelId: null };
+        }
+        const next = { ...prev, pickedBarrelId: barrelId };
+        // Auto-fire if the spend card was already picked first.
+        if (next.pickedSpendCardId) {
+          // Defer the fire so React applies the state update first.
+          queueMicrotask(() => fireSell(barrelId, next.pickedSpendCardId!));
+        }
+        return next;
+      });
+    },
+    [fireSell],
+  );
+
+  const setSellSpendCard = useCallback(
+    (cardId: string) => {
+      setSellMode((prev) => {
+        if (!prev) return prev;
+        // Toggle: clicking the same card again clears it.
+        if (prev.pickedSpendCardId === cardId) {
+          return { ...prev, pickedSpendCardId: null };
+        }
+        const next = { ...prev, pickedSpendCardId: cardId };
+        if (next.pickedBarrelId) {
+          queueMicrotask(() => fireSell(next.pickedBarrelId!, cardId));
+        }
+        return next;
+      });
+    },
+    [fireSell],
+  );
+
+  // ---------------------------------------------------------------
   // v2.6 drag-and-drop state — tracks "we're carrying a hand card,
   // looking for a slot to drop it on". Surfaced through the store
   // so every zone can read it and dim/spotlight accordingly.
@@ -749,6 +928,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setDrawBillMode(null);
     }
   }, [store.state, drawBillMode]);
+
+  // Same bail-out for sell mode.
+  useEffect(() => {
+    if (!sellMode) return;
+    const state = store.state;
+    if (!state || state.phase !== "action") {
+      setSellMode(null);
+      return;
+    }
+    const current = state.players[state.currentPlayerIndex];
+    if (!current || current.isBot) {
+      setSellMode(null);
+    }
+  }, [store.state, sellMode]);
 
   // Same bail-out for make mode.
   useEffect(() => {
@@ -853,6 +1046,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       seatMeta: meta,
       lastPurchase: null,
       lastMake: null,
+      lastSale: null,
     });
     setAutoplayState(false);
     setInspect(null);
@@ -860,6 +1054,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setAgeMode(null);
     setDrawBillMode(null);
     setMakeMode(null);
+    setSellMode(null);
   }, []);
 
   const clear = useCallback(() => {
@@ -870,6 +1065,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setAgeMode(null);
     setDrawBillMode(null);
     setMakeMode(null);
+    setSellMode(null);
   }, []);
 
   const setAutoplay = useCallback((on: boolean) => {
@@ -924,11 +1120,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setMakeMashBill,
       toggleMakeSpend,
       confirmMake,
+      sellMode,
+      startSellMode,
+      cancelSellMode,
+      setSellBarrel,
+      setSellSpendCard,
       dragMake,
       startDragMake,
       endDragMake,
       lastPurchase: store.lastPurchase,
       lastMake: store.lastMake,
+      lastSale: store.lastSale,
       newGame,
       step,
       dispatch,
@@ -966,6 +1168,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setMakeMashBill,
       toggleMakeSpend,
       confirmMake,
+      sellMode,
+      startSellMode,
+      cancelSellMode,
+      setSellBarrel,
+      setSellSpendCard,
       dragMake,
       startDragMake,
       endDragMake,
@@ -1047,6 +1254,29 @@ function captureMake(
     slotId: barrel.slotId,
     ownerId: barrel.ownerId,
     mashBillName: barrel.attachedMashBill?.name ?? "Unnamed barrel",
+    seq,
+  };
+}
+
+/**
+ * Snapshot the cards leaving a barrel on SELL_BOURBON so SaleFlight
+ * can animate them flying from the (now vanished) barrel slot to the
+ * seller's discard pile. Reads `prev.state` because the barrel only
+ * exists in the pre-apply state.
+ */
+function captureSale(
+  prev: AtomicStore,
+  action: GameAction,
+  seq: number,
+): LastSale | null {
+  if (action.type !== "SELL_BOURBON") return prev.lastSale;
+  if (!prev.state) return prev.lastSale;
+  const barrel = prev.state.allBarrels.find((b) => b.id === action.barrelId);
+  if (!barrel) return prev.lastSale;
+  return {
+    slotId: barrel.slotId,
+    ownerId: barrel.ownerId,
+    cards: [...barrel.productionCards, ...barrel.agingCards],
     seq,
   };
 }

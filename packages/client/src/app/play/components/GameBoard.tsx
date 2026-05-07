@@ -21,6 +21,7 @@ import MarketCenter from "./MarketCenter";
 import PurchaseFlight from "./PurchaseFlight";
 import RickhouseRow from "./RickhouseRow";
 import RightRail from "./RightRail";
+import SaleFlight from "./SaleFlight";
 
 export default function GameBoard() {
   const { state } = useGameStore();
@@ -63,6 +64,10 @@ export default function GameBoard() {
       {/* Make-bourbon animation — card flies from screen center into the
           target rickhouse slot whenever MAKE_BOURBON dispatches. */}
       <MakeFlight />
+
+      {/* Sell-bourbon animation — fan of cards flies from the sold
+          slot to the seller's discard pile on every SELL_BOURBON. */}
+      <SaleFlight />
     </div>
   );
 }

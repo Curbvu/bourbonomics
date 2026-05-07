@@ -28,7 +28,7 @@ export type FocusZone =
   | "rickhouse-others";
 
 function useFocusedZones(): Set<FocusZone> | null {
-  const { makeMode, ageMode, drawBillMode, buyMode } = useGameStore();
+  const { makeMode, ageMode, drawBillMode, buyMode, sellMode } = useGameStore();
 
   if (makeMode) {
     return makeMode.pickedMashBillId
@@ -37,6 +37,11 @@ function useFocusedZones(): Set<FocusZone> | null {
   }
   if (ageMode) {
     return ageMode.pickedBarrelId
+      ? new Set<FocusZone>(["hand-resources"])
+      : new Set<FocusZone>(["rickhouse-self"]);
+  }
+  if (sellMode) {
+    return sellMode.pickedBarrelId
       ? new Set<FocusZone>(["hand-resources"])
       : new Set<FocusZone>(["rickhouse-self"]);
   }

@@ -27,12 +27,11 @@
  */
 
 import type {
-  Card,
   GameAction,
   GameState,
   PlayerState,
 } from "@bourbonomics/engine";
-import { computeReward, paymentValue, validateAction } from "@bourbonomics/engine";
+import { paymentValue, validateAction } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 
 export default function ActionBar() {
@@ -52,6 +51,9 @@ export default function ActionBar() {
     makeMode,
     startMakeMode,
     cancelMakeMode,
+    sellMode,
+    startSellMode,
+    cancelSellMode,
   } = useGameStore();
   if (!state) return null;
   if (state.phase !== "action") return null;
@@ -65,8 +67,9 @@ export default function ActionBar() {
   const inAgeMode = ageMode != null;
   const inDrawBillMode = drawBillMode != null;
   const inMakeMode = makeMode != null;
+  const inSellMode = sellMode != null;
 
-  const sell = bestSellBourbon(state, human);
+  const sellEntry = canEnterSellMode(state, human);
   const makeEntry = canEnterMakeMode(state, human);
   // Bare-minimum BUY action for the gating tooltip — checks that the
   // human has *some* legal purchase available before we let them enter
@@ -128,13 +131,21 @@ export default function ActionBar() {
           onCancel={cancelMakeMode}
           cancelLabel="Cancel make"
         />
-        <SmartButton
+        <PickerButton
           label="Sell"
-          action={sell}
-          state={state}
-          dispatch={dispatch}
-          disabledByTurn={disabledByTurn}
-          tooltipIdle="Sell your highest-reward 2yo+ barrel for full reputation."
+          inMode={inSellMode}
+          enabled={!disabledByTurn && sellEntry.canSell}
+          tooltip={
+            disabledByTurn
+              ? "Wait for your turn"
+              : inSellMode
+                ? "Cancel the in-progress sale"
+                : sellEntry.reason ??
+                  "Pick a 2yo+ barrel in your Rickhouse, then a card in hand to spend."
+          }
+          onStart={startSellMode}
+          onCancel={cancelSellMode}
+          cancelLabel="Cancel sell"
         />
         <BuyButton
           inBuyMode={inBuyMode}
@@ -451,48 +462,33 @@ function SmartButton({
 // Buttons are enabled iff the action is non-null AND validateAction is legal.
 // =============================================================================
 
-function bestSellBourbon(state: GameState, player: PlayerState): GameAction | null {
-  const saleable = state.allBarrels.filter(
+/**
+ * Sell-mode gating — return whether the human has any saleable barrel
+ * (aging-phase, age ≥2, with a bill) AND a hand card to spend as the
+ * sell-action cost. The actual barrel + spend card pick is left to the
+ * interactive picker (RickhouseRow + HandTray click handlers).
+ */
+function canEnterSellMode(
+  state: GameState,
+  player: PlayerState,
+): { canSell: boolean; reason?: string } {
+  const saleable = state.allBarrels.some(
     (b) =>
       b.ownerId === player.id &&
       b.phase === "aging" &&
       b.attachedMashBill != null &&
       b.age >= 2,
   );
-  if (saleable.length === 0) return null;
-  let best: { id: string; reward: number } | null = null;
-  for (const b of saleable) {
-    const reward = computeReward(b.attachedMashBill!, b.age, state.demand);
-    if (!best || reward > best.reward) best = { id: b.id, reward };
+  if (!saleable) {
+    return { canSell: false, reason: "No 2yo+ barrels to sell." };
   }
-  if (!best || best.reward === 0) return null;
-  // v2.7.1: selling costs 1 card from hand. Auto-pick the cheapest
-  // card to spend (mirrors the bot heuristic): plain $1 capital first,
-  // then plain resources, then premium cards last so high-value
-  // pieces stay free for production / market buys. If hand is empty,
-  // no sale is possible.
-  const spend = pickCheapestSpendCard(player);
-  if (!spend) return null;
-  return {
-    type: "SELL_BOURBON",
-    playerId: player.id,
-    barrelId: best.id,
-    reputationSplit: best.reward,
-    cardDrawSplit: 0,
-    spendCardId: spend.id,
-  };
-}
-
-function pickCheapestSpendCard(player: PlayerState): Card | null {
-  const eligible = player.hand.filter(
+  const spendable = player.hand.some(
     (c) => c.type === "resource" || c.type === "capital",
   );
-  if (eligible.length === 0) return null;
-  const score = (c: Card): number => {
-    if (c.type === "capital") return c.capitalValue ?? 1;
-    return c.premium ? 10 : 5;
-  };
-  return eligible.slice().sort((a, b) => score(a) - score(b))[0]!;
+  if (!spendable) {
+    return { canSell: false, reason: "Selling costs 1 card from hand." };
+  }
+  return { canSell: true };
 }
 
 /**
