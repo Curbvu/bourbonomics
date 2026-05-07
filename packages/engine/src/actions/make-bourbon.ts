@@ -53,9 +53,9 @@ function totalGrain(t: ResourceTotals): number {
 
 /**
  * Tally a card's contribution to the cumulative ingredient totals.
- * Capital cards contribute nothing to recipe totals (they only matter
- * for sale-time composition buffs). Returns silently for non-resource
- * cards so callers can iterate uniformly across mixed piles.
+ * Capital cards contribute nothing to recipe totals. Returns silently
+ * for non-resource cards so callers can iterate uniformly across
+ * mixed piles.
  */
 function tallyCard(totals: ResourceTotals, card: Card): void {
   if (card.type !== "resource") return;

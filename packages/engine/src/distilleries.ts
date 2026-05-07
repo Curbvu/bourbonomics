@@ -1,16 +1,16 @@
 import type { Distillery, RickhouseSlot } from "./types";
 
 // ============================================================
-// Distillery catalog (v2.4 rebuild).
+// Distillery catalog.
 //
 // Each distillery is a full asymmetric opening package: a starting
 // state (pre-aged barrel and/or starter pool modifications), a
-// permanent ability (composition / sale / draft modifiers), and a
-// constraint (first-sale age, capacity cap, mash-bill hand cap).
+// permanent ability (sale / draft modifiers), and a constraint
+// (first-sale age, capacity cap, mash-bill hand cap).
 //
 // All ability/constraint data lives on the `Distillery` value so
 // systems can react without a `switch (bonus)` everywhere — see
-// composition.ts, sell-bourbon.ts, draw-deck.ts, and starter-pool.ts.
+// sell-bourbon.ts, draw-deck.ts, and starter-pool.ts.
 //
 // v2.7: distilleries are temporarily disabled in active play. The
 // catalog and ability hooks stay live (so the data validates and so
@@ -42,7 +42,6 @@ const SPECS: DistillerySpec[] = [
     startingBarrel: { age: 1, basicBillKey: "high_rye_basic" },
     starterPoolMods: { bonusTwoRye: 2 },
     saleMods: { bonusRepOnBill: { kind: "high_rye", rep: 1 } },
-    compositionMods: { excludeFromComposition: ["wheat"] },
   },
   {
     defId: "wheated_baron",
@@ -51,10 +50,6 @@ const SPECS: DistillerySpec[] = [
     bonus: "wheated_baron",
     slots: DEFAULT_SLOTS,
     startingBarrel: { age: 1, basicBillKey: "wheated_basic" },
-    compositionMods: {
-      excludeFromComposition: ["rye"],
-      singleGrainThreshold: 2,
-    },
   },
   {
     defId: "connoisseur",
@@ -64,10 +59,6 @@ const SPECS: DistillerySpec[] = [
     slots: DEFAULT_SLOTS,
     mashBillDraftSize: 4,
     maxSlottedBills: 4,
-    compositionMods: {
-      allGrainsDistinctThreshold: 3,
-      allGrainsRep: 3,
-    },
   },
   {
     defId: "vanilla",

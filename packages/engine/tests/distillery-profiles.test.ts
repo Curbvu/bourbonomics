@@ -3,10 +3,9 @@ import { applyAction } from "../src/engine.js";
 import { initializeGame } from "../src/initialize.js";
 import { defaultDistilleryPool } from "../src/distilleries.js";
 import { defaultMashBillCatalog, defaultStarterCards } from "../src/defaults.js";
-import { computeCompositionBuffs } from "../src/composition.js";
 import { makeCapitalCard, makeMashBill, makeResourceCard } from "../src/cards.js";
 import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel } from "./helpers.js";
-import type { Card, Distillery } from "../src/types.js";
+import type { Distillery } from "../src/types.js";
 
 const r = (sub: "cask" | "corn" | "rye" | "barley" | "wheat", n = 1) =>
   makeResourceCard(sub, "t", n, false, 1);
@@ -91,11 +90,9 @@ describe.skip("Distillery profiles — Permanent abilities", () => {
     );
     state = placeBarrel(state, "p1", highRyeBill, 5, undefined, {
       productionCards: [r("cask", 0), r("corn", 1), r("rye", 2), r("rye", 3), r("rye", 4)],
-      // Aging is corn-only so single-grain composition (rye_3) does not fire.
       agingCards: [r("corn", 10), r("corn", 11), r("corn", 12), r("corn", 13), r("corn", 14)],
     });
     state = giveHand(state, "p1", [makeCapitalCard("p1", 99)]);
-    // High-Rye ships a starter barrel (age 1) — pick the test barrel by id.
     const barrelId = state.allBarrels.find(
       (b) => b.ownerId === "p1" && b.attachedMashBill?.defId === "hr_test",
     )!.id;
@@ -108,59 +105,8 @@ describe.skip("Distillery profiles — Permanent abilities", () => {
       cardDrawSplit: 0,
     });
     const p1After = next.players.find((p) => p.id === "p1")!;
-    // grid (1) + corn_3 composition bonus (0 rep, 1 draw) + high-rye sale mod (+1 rep).
+    // grid (1) + high-rye sale mod (+1 rep).
     expect(p1After.reputation).toBe(repBefore + 1 + 1);
-  });
-
-  it("Wheated Baron: composition single-grain buff fires at 2+ instead of 3+", () => {
-    const wheated = pickDistillery("wheated_baron");
-    const buffs = computeCompositionBuffs(
-      {
-        productionCards: [r("cask", 0), r("corn", 1), r("wheat", 2)],
-        agingCards: [r("wheat", 3), r("corn", 4)],
-      },
-      wheated,
-    );
-    expect(buffs.triggered).toContain("single_grain_3");
-  });
-
-  it("Wheated Baron: rye contributes 0 to composition counts", () => {
-    const wheated = pickDistillery("wheated_baron");
-    const buffs = computeCompositionBuffs(
-      {
-        productionCards: [r("cask", 0), r("corn", 1), r("rye", 2)],
-        agingCards: [r("rye", 3), r("rye", 4), r("rye", 5)],
-      },
-      wheated,
-    );
-    // 4 rye would normally trigger single_grain_3; with rye excluded, no buff.
-    expect(buffs.triggered).not.toContain("single_grain_3");
-  });
-
-  it("High-Rye: wheat contributes 0 to composition counts", () => {
-    const highRye = pickDistillery("high_rye");
-    const buffs = computeCompositionBuffs(
-      {
-        productionCards: [r("cask", 0), r("corn", 1), r("rye", 2)],
-        agingCards: [r("wheat", 3), r("wheat", 4), r("wheat", 5)],
-      },
-      highRye,
-    );
-    expect(buffs.triggered).not.toContain("single_grain_3");
-  });
-
-  it("Connoisseur: all-grains buff fires at 3 distinct types and grants +3 rep", () => {
-    const conn = pickDistillery("connoisseur");
-    const buffs = computeCompositionBuffs(
-      {
-        productionCards: [r("cask", 0), r("corn", 1), r("rye", 2)],
-        agingCards: [r("barley", 3), r("corn", 4)],
-      },
-      conn,
-    );
-    expect(buffs.triggered).toContain("all_grains");
-    // Bonus rep only includes the all_grains contribution here.
-    expect(buffs.bonusRep).toBe(3);
   });
 });
 

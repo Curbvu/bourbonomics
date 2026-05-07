@@ -3,8 +3,6 @@
  *   - Start a barrel partial; phase = "construction".
  *   - Construction barrels are skipped during the Age Phase.
  *   - Completion in round N → first ages in round N+1.
- *   - Composition buffs (4-grain) read the cumulative pile assembled
- *     across multiple rounds.
  *   - v2.7: a barrel accepts multiple commits in the same turn.
  *   - Mash bill attachable at start or later, single attach only.
  *   - A barrel cannot complete without an attached mash bill.
@@ -279,7 +277,7 @@ describe("incremental commitment — ABANDON_BARREL", () => {
 });
 
 describe("incremental commitment — full lifecycle integration", () => {
-  it("a four-grain barrel built across rounds sells with the all-grains buff", () => {
+  it("a four-grain barrel built across rounds sells for its grid reward", () => {
     let state = makeTestGame({
       startingMashBills: [[fourGrainBill], []],
       bourbonDeck: [],
@@ -346,11 +344,8 @@ describe("incremental commitment — full lifecycle integration", () => {
     });
     expect(state.allBarrels[0]!.age).toBe(2);
 
-    // Sell the barrel and confirm the cumulative pile fires the
-    // four-grain composition buff. Demand rolled up to 6 across the
-    // setup rounds, so the grid lookup reads age=2 / demand=6 → 3.
-    // Splits MUST sum to the grid reward (3); the +2 all-grains
-    // bonus is added on top automatically.
+    // Sell the barrel. Demand rolled up to 6 across the setup
+    // rounds, so the grid lookup reads age=2 / demand=6 → 3.
     const repBefore = state.players.find((p) => p.id === "p1")!.reputation;
     state = applyAction(state, {
       type: "SELL_BOURBON",
@@ -360,7 +355,6 @@ describe("incremental commitment — full lifecycle integration", () => {
       cardDrawSplit: 0,
     });
     const repAfter = state.players.find((p) => p.id === "p1")!.reputation;
-    // Grid 3 (rep split) + all-grains buff (+2) = 5.
-    expect(repAfter - repBefore).toBe(3 + 2);
+    expect(repAfter - repBefore).toBe(3);
   });
 });

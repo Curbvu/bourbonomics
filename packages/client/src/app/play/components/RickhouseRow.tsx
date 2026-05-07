@@ -245,8 +245,8 @@ function BarrelChip({
  *      the gold/silver award icon). Reads "AGING · 4y" or "BUILDING".
  *   3. **Composition pips** along the bottom showing every committed
  *      card by subtype colour (filled for production, ring-only for
- *      aging cards). Lets the player count toward composition buffs at
- *      a glance without flipping the barrel.
+ *      aging cards). Lets the player audit the recipe at a glance
+ *      without flipping the barrel.
  */
 function BarrelChipInner({
   barrel,
@@ -326,8 +326,8 @@ function BarrelChipInner({
             the universal min) appear as **hollow rings** in the
             subtype's colour. As cards are committed they "fill in".
           - **Committed** cards beyond the recipe minimum appear as
-            extra **filled** pips (they don't satisfy a requirement
-            but they still count toward composition buffs at sale).
+            extra **filled** pips (over-commits don't increase the
+            payout but the visual record stays).
           - Aging-pile cards render as filled pips with a white ring
             so production-vs-aging composition is still legible. */}
       <div className="mt-1 flex min-h-[14px] flex-wrap items-end justify-center gap-[3px] rounded bg-black/35 px-1 py-0.5">

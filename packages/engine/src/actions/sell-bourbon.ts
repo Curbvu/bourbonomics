@@ -12,8 +12,6 @@ import { isWheatedBill } from "../types";
 import type { Draft } from "immer";
 import type { SaleEffectSignals } from "../card-effects";
 import { collectSaleSignals } from "../card-effects";
-import type { CompositionBuffSignals } from "../composition";
-import { computeCompositionBuffs } from "../composition";
 import { drawWithReshuffle } from "../deck";
 import { awardConditionMet, computeReward } from "../rewards";
 import { isCurrentPlayer } from "../state";
@@ -25,8 +23,7 @@ const MIN_SELL_AGE = 2;
 /**
  * Compute the grid reward for a barrel with all sale-time offsets
  * folded in: themed-card sale signals (Toasted Oak, Single Barrel
- * Cask), barrel-attached offsets (Master Distiller), and v2.4
- * composition buffs (single-grain demand-band shift).
+ * Cask) and barrel-attached offsets (Master Distiller).
  *
  * Used by both validate (to derive the expected split total) and
  * apply (to score the actual reward) — keeping them in sync.
@@ -36,13 +33,9 @@ function computeSaleGridReward(
   barrel: Pick<Barrel, "age" | "gridRepOffset" | "demandBandOffset">,
   demand: number,
   signals: SaleEffectSignals,
-  composition: CompositionBuffSignals,
 ): number {
   return computeReward(bill, barrel.age, demand, {
-    demandBandOffset:
-      signals.gridDemandBandOffset +
-      barrel.demandBandOffset +
-      composition.gridDemandBandOffset,
+    demandBandOffset: signals.gridDemandBandOffset + barrel.demandBandOffset,
     gridRepOffset: barrel.gridRepOffset,
   });
 }
@@ -74,7 +67,7 @@ export function validateSellBourbon(
     return { legal: false, reason: `barrel must be aged at least ${MIN_SELL_AGE} years` };
   }
 
-  const reward = computeSaleReward(state, barrel, player.distillery);
+  const reward = computeSaleReward(state, barrel);
 
   if (
     !Number.isInteger(action.reputationSplit) ||
@@ -126,19 +119,13 @@ export function validateSellBourbon(
  * attached bill (no goldBourbonId override anymore — Gold awards now
  * manipulate slots, not reward calculation).
  */
-function computeSaleReward(
-  state: GameState,
-  barrel: Barrel,
-  distillery: Distillery | null,
-): number {
+function computeSaleReward(state: GameState, barrel: Barrel): number {
   const signals = collectSaleSignals(barrel, { demand: state.demand });
-  const composition = computeCompositionBuffs(barrel, distillery);
   return computeSaleGridReward(
     barrel.attachedMashBill,
     barrel,
     state.demand,
     signals,
-    composition,
   );
 }
 
@@ -210,34 +197,29 @@ export function applySellBourbon(
 
   // Collect themed-card sale signals BEFORE any mutation so the
   // computed reward + bonus rep + return-to-hand list match what
-  // validation accepted. v2.4 composition buffs read the same
-  // committed-card pile and contribute parallel signals.
+  // validation accepted.
   const signals = collectSaleSignals(barrel, { demand: draft.demand });
-  const composition = computeCompositionBuffs(barrel, player.distillery);
-  const reward = computeSaleGridReward(attached, barrel, draft.demand, signals, composition);
+  const reward = computeSaleGridReward(attached, barrel, draft.demand, signals);
 
-  // Apply reputation gain. Five components stack on top of the
-  // player-driven split: themed-card flat bonuses, themed-card
-  // conditional bonuses (already in `signals.bonusRep`), the
-  // pre-played Rating Boost flag, v2.4 composition buffs (3+ cask,
-  // all-four-grains), and v2.4 distillery sale mods (e.g. High-Rye
-  // House: +1 rep on a high-rye bill).
+  // Apply reputation gain. Stacking on top of the player-driven
+  // split: themed-card flat bonuses, themed-card conditional
+  // bonuses (already in `signals.bonusRep`), the pre-played Rating
+  // Boost flag, and distillery sale mods (e.g. High-Rye House: +1
+  // rep on a high-rye bill).
   const ratingBoost = player.pendingRatingBoost;
   const distilleryBonusRep = distillerySaleBonusRep(player.distillery, attached);
   player.reputation +=
     action.reputationSplit +
     signals.bonusRep +
     ratingBoost +
-    composition.bonusRep +
     distilleryBonusRep;
   // Consume the boost — one-shot per sale.
   if (ratingBoost > 0) player.pendingRatingBoost = 0;
 
   // Mid-action card draw: drawn cards go straight into hand.
-  // `bonusDraw` from sale effects (e.g. Six-Row Barley) and the
-  // v2.4 composition 3+ corn buff both stack here.
-  const drawCount =
-    action.cardDrawSplit + signals.bonusDraw + composition.bonusDraw;
+  // `bonusDraw` from sale effects (e.g. Six-Row Barley) stacks on
+  // top of the player's split.
+  const drawCount = action.cardDrawSplit + signals.bonusDraw;
   if (drawCount > 0) {
     const result = drawWithReshuffle(
       player.deck.slice(),
@@ -326,12 +308,11 @@ export function applySellBourbon(
 
   player.barrelsSold += 1;
 
-  // Demand drops by 1 unless Demand Surge absorbs it, a sale-effect
-  // (Heirloom Wheat's `skip_demand_drop`) cancels the drop, or the
-  // v2.4 composition 2+ capital buff cancels it.
+  // Demand drops by 1 unless Demand Surge absorbs it or a sale-
+  // effect (Heirloom Wheat's `skip_demand_drop`) cancels the drop.
   if (player.demandSurgeActive) {
     player.demandSurgeActive = false;
-  } else if (signals.skipDemandDrop || composition.skipDemandDrop) {
+  } else if (signals.skipDemandDrop) {
     // No-op — drop cancelled.
   } else if (draft.demand > 0) {
     draft.demand -= 1;

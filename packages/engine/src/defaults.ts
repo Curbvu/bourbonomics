@@ -671,11 +671,10 @@ export function defaultMashBillCatalog(): MashBill[] {
 // Default market supply — v2.7 four-band resource economy + 3-tier
 // capital ladder.
 //
-// Resources are sorted into four pricing bands. Composition buffs
-// read `resourceCount` straight through, so a Double counts as 2
-// units. Specialties carry a uniform `+1 reputation on sale` flat
-// bonus — luxury upgrades that thicken the payout rather than add
-// bulk:
+// Resources are sorted into four pricing bands. Recipes read
+// `resourceCount` straight through, so a Double counts as 2 units.
+// Specialties carry a uniform `+1 reputation on sale` flat bonus —
+// luxury upgrades that thicken the payout rather than add bulk:
 //
 //   Common ($1)             1 unit, basic
 //   Double ($3)             2 units

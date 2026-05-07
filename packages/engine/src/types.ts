@@ -205,19 +205,8 @@ export interface DistilleryStarterPoolMods {
   capitalDelta?: number;
 }
 
-export interface DistilleryCompositionMods {
-  /** Subtypes that count as 0 toward this player's composition thresholds. */
-  excludeFromComposition?: ResourceSubtype[];
-  /** Threshold (units) for the "3+ single grain" buff. Default 3. */
-  singleGrainThreshold?: number;
-  /** Distinct grain types (corn + rye + barley + wheat) needed for the all-grains buff. Default 4. */
-  allGrainsDistinctThreshold?: number;
-  /** Reputation gained when the all-grains buff fires. Default 2. */
-  allGrainsRep?: number;
-}
-
 export interface DistillerySaleMods {
-  /** +N reputation when selling a bill matching `kind` (regardless of composition). */
+  /** +N reputation when selling a bill matching `kind`. */
   bonusRepOnBill?: { kind: "high_rye" | "wheated"; rep: number };
 }
 
@@ -235,8 +224,6 @@ export interface Distillery {
   startingBarrel?: DistilleryStarterBarrel;
   /** Modifications to the dealt starter hand. */
   starterPoolMods?: DistilleryStarterPoolMods;
-  /** Composition-buff modifications applied at sale time. */
-  compositionMods?: DistilleryCompositionMods;
   /** Sale-time modifiers tied to the attached mash bill. */
   saleMods?: DistillerySaleMods;
   /** Number of mash bills drafted during setup (default 3). */

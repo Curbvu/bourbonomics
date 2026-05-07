@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (v2.7 alpha).** Drafting, the round loop, incremental production, aging, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is temporarily disabled** — every game runs as Vanilla. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. Computer-only build today; human-controlled slots ship alongside the UI work.
+> **Scope (v2.8 alpha).** Drafting, the round loop, incremental production, aging, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is temporarily disabled** — every game runs as Vanilla. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. Computer-only build today; human-controlled slots ship alongside the UI work.
 
 ---
 
@@ -126,6 +126,8 @@ Operations cards are NOT auto-drawn — they're bought from the ops market.
 
 For each of your **aging barrels**, you may place one face-down card from your hand on top to advance its age by 1 year. Aging is optional but it's the primary path to reputation — most bourbons need years to pay out well.
 
+Aging cards advance the barrel's age and nothing else. They do not contribute to sale payout beyond the age they buy on the grid.
+
 **Construction barrels do not age.** They're skipped until they finish construction. See [§Make Bourbon](#make-bourbon).
 
 A barrel may only age **once per round** unless an ops card explicitly grants more.
@@ -201,6 +203,10 @@ Recipes only ever **tighten** the universal rule, never loosen it. Examples:
 
 Bills without a printed recipe accept any legal mash. Recipes are public information once the bill is in play.
 
+### Over-committing
+
+Over-committing is allowed but earns no bonus. You may commit more cards than the recipe requires, but the reward grid only reads (age, demand) — extra cards do not increase the payout. Recipe caps (`maxRye: 0`, etc.) are still enforced; those are bill-specific bans, not minimums.
+
 ### Failed Batch (optional, opening only)
 
 When you OPEN a new barrel via Make Bourbon, you may also discard one extra card from your hand and **trash** it. One of two ways to thin your deck (see [§Trashing Cards](#-trashing-cards)). Not available on subsequent commits to the same barrel.
@@ -219,16 +225,20 @@ Discard one of your **under-construction** barrels. All committed cards return t
 
 Sell any of your **aging** barrels that is **at least 2 years old**.
 
-Read the attached mash bill's grid using `(barrel age, current demand)` to get N. Apply [§Composition Buffs](#-composition-buffs) — buffs may shift the grid lookup or stack flat reputation/purchasing power on top.
+Sale resolution:
 
-Allocate N across two outcomes (any combination summing to ≤ N):
-- **Reputation** — advance your reputation track.
-- **Purchasing power** — spend immediately on market buys following normal costs.
+1. Read the attached mash bill's grid at `(barrel age, current demand)` to get N.
+2. Add **+1 reputation** for each Specialty or Double Specialty resource committed during production.
+3. Apply any persistent barrel offsets (e.g. Master Distiller).
+4. Allocate the total across two outcomes (any combination summing to ≤ total):
+   - **Reputation** — advance your reputation track.
+   - **Purchasing power** — spend immediately on market buys following normal costs.
+5. Demand drops by 1 (floor 0).
+6. Distribute cards and resolve slot fate per [§Bourbon Awards](#-bourbon-awards).
 
-Any unspent N becomes reputation. Purchased cards go to discard. Purchasing power can't be saved across turns and can't chain into another sale.
+Any unspent total becomes reputation. Purchased cards go to discard. Purchasing power can't be saved across turns and can't chain into another sale.
 
 After the sale:
-- Demand falls by 1 (floor 0).
 - Mash bill discards (unless an award returns it — see [§Bourbon Awards](#-bourbon-awards)).
 - All cards under the barrel return to your discard.
 - The barrel is removed; the slot frees up.
@@ -318,7 +328,7 @@ Decks grow through market purchases. The effective working deck shrinks as cards
 
 ### Card Bands (v2.7)
 
-Resource cards in the market sort into four pricing bands. Doubles count as 2 units toward both recipes and composition buffs. Specialties carry a uniform luxury bonus — **+1 reputation when the barrel sells**, for each Specialty (or Double Specialty) committed to it. Capital cards collapse onto a $1 / $3 / $5 ladder; cost equals face value across the board.
+Resource cards in the market sort into four pricing bands. Doubles count as 2 units toward recipes. Specialties carry a uniform luxury bonus — **+1 reputation when the barrel sells**, for each Specialty (or Double Specialty) committed to it. Capital cards collapse onto a $1 / $3 / $5 ladder; cost equals face value across the board.
 
 | Band | Cost | Units | On sale |
 |---|:-:|:-:|---|
@@ -327,27 +337,7 @@ Resource cards in the market sort into four pricing bands. Doubles count as 2 un
 | **Specialty** (superior cask / corn / rye / wheat / barley) | $3 | 1 | +1 reputation |
 | **Double Specialty** (double superior cask / rye / wheat) | $6 | 2 | +1 reputation |
 
-Premium variants — Doubles, Specialties, and Double Specialties — only enter play via the market. Composition-buff thresholds count Doubles and Double Specialties at their full unit value (a Double Rye contributes 2 toward the rye threshold and 2 toward the "3+ single grain" buff).
-
----
-
-# 🧪 Composition Buffs
-
-When a barrel sells, examine **everything** committed to it (production cards + aging cards). Each composition threshold met grants a buff. Buffs stack with each other and with the grid reward.
-
-| Threshold | Buff |
-|---|---|
-| 3+ cask cards committed | +1 reputation |
-| 3+ corn cards committed | +1 purchasing power |
-| 3+ of a single grain (rye / wheat / barley) | Read demand as +1 for this sale's grid lookup |
-| 2+ capital cards committed | Demand does not drop from this sale |
-| All four grain types present (rye / wheat / barley / corn) | +2 reputation |
-
-Demand-band buffs apply **before** the grid lookup; flat reputation and purchasing-power buffs apply **after**, on top of N. Skip-demand-drop overrides the normal post-sale demand drop.
-
-**Premium resources count by full unit value.** A Double Rye counts as 2 toward the rye threshold and a Double Specialty Wheat counts as 2 toward the wheat threshold. Specialties (1 unit) count as 1; the Specialty bonus (+1 reputation on sale) is separate from composition buffs and stacks on top. Capital cards count as 1 each toward the 2+ capital threshold regardless of printed face value.
-
-Composition is calculated **at sale time only**. Awards (Silver/Gold) read the grid value as printed plus persistent barrel offsets — buffs don't change award eligibility.
+Premium variants — Doubles, Specialties, and Double Specialties — only enter play via the market.
 
 ---
 
@@ -507,6 +497,7 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 
 # 📜 Changelog
 
+- **v2.8** — **Composition Buffs removed entirely.** The five threshold buffs (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all four grains) are deleted with no replacement. Sale resolution simplifies to grid lookup + Specialty bonus + awards. Aging cards now exclusively advance the age counter and contribute nothing else to sale payout. Resource cards do whatever their printed text says — most have no sale-time effect. The "demand does not drop on sale" effect previously granted by 2+ capital is preserved only via the Demand Surge ops card.
 - **v2.7** — **Make Bourbon per-slot turn cap removed** (a player can now commit to the same slot as many times as they want on a single turn; recipe-completion fires after every commit). **Mash bill catalog recalibrated** into three difficulty/payoff tiers (Tier 1 starter / Tier 2 mid / Tier 3 specialty) with peak rewards and Gold awards scaled per tier. **Distillery profiles temporarily disabled** behind a `DISTILLERIES_ENABLED` feature flag — every game runs as Vanilla while the roster is rebuilt; engine code preserved. New **Bourbon Cards gallery** on the home screen — a read-only browser of every mash bill, sorted by tier. **Resource card economy overhaul** — market resources collapse onto four pricing bands (Common $1 / Double $3 / Specialty $3 / Double Specialty $6) with a uniform Specialty bonus (+1 rep on sale); capitals collapse onto a $1 / $3 / $5 ladder.
 - **v2.6** — **Slot-Bound Mash Bills.** Mash bills no longer enter a player's hand. Bills are drawn directly into an open rickhouse slot and remain public for their lifetime in that slot. Drawing a bill requires an open slot — slot capacity now gates the doomsday clock. `Make Bourbon`'s "attach a bill" sub-step is removed. Silver award reworked to "bill stays in slot" (slot becomes a "ready project" rather than fully opening). Gold award reworked to three mutually exclusive options on trigger: **Convert** (replace another slot's recipe with the Gold bill, provided that slot's already-committed cards satisfy the Gold recipe), **Keep** (Silver-style retention in the now-empty selling slot), or **Decline** (bill to bourbon discard, slot opens fully). Connoisseur Estate constraint reframed as "maximum slotted bills is 4" (replaces the old mash-bill hand cap). Allocation, Barrel Broker, and Blend ops cards updated for slot-bound bills. Trashing bills is free for empty/ready slots, action-cost for committed slots (subsumed by Abandon Barrel).
 - **v2.5** — **Incremental Mash Commitment.** Production redesigned: barrels are built across multiple turns via repeated `Make Bourbon` actions. Recipes auto-complete the moment the cumulative committed pile satisfies them; completed barrels first age the round after completion. New `Abandon Barrel` action returns committed cards to discard. **Convert (3:1) removed** — incremental commitment makes stranded resources less common. Distillery roster trimmed: Warehouse, Old-Line, and The Broker retired (their abilities were inert or carved out an awkward final-round asymmetry). Trading is now flatly illegal in the final round, no exceptions. Player count narrowed to 2–4.

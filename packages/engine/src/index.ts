@@ -9,7 +9,6 @@ export * from "./rewards";
 export * from "./drafting";
 export * from "./state";
 export * from "./card-effects";
-export * from "./composition";
 export * from "./starter-pool";
 export * from "./initialize";
 export * from "./engine";
