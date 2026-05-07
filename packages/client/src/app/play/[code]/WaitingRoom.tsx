@@ -72,7 +72,7 @@ export default function WaitingRoom({ code }: { code: string }) {
               {openHumanSeats > 0 ? (
                 <p className="font-mono text-[10px] uppercase tracking-[.14em] text-slate-500">
                   Heads up — {openHumanSeats} unclaimed{" "}
-                  {openHumanSeats === 1 ? "seat becomes a bot" : "seats become bots"}{" "}
+                  {openHumanSeats === 1 ? "seat is closed" : "seats are closed"}{" "}
                   when you start.
                 </p>
               ) : null}

@@ -301,9 +301,9 @@ async function handleStartGame(connectionId: string): Promise<void> {
   }
 
   // Close any open human seats — the engine would otherwise sit
-  // forever awaiting input from seats nobody owns. Each unclaimed
-  // human becomes a bot keeping its slot in turn order; the seat-
-  // claim ledger isn't touched, so bots have no entries there.
+  // forever awaiting input from seats nobody owns. Unclaimed humans
+  // are removed from the player list entirely so the game starts at
+  // the smaller table (claimed humans + originally-declared bots).
   const claims = room.seatClaims ?? {};
   const stateWithFilledSeats = closeOpenSeats(room.state, claims);
   let workingSeq = room.seq;
@@ -346,33 +346,45 @@ async function handleStartGame(connectionId: string): Promise<void> {
 }
 
 /**
- * Flip every unclaimed human seat to a bot. The seat keeps its
- * original `id` (so saved state stays consistent), gets a friendly
- * fallback name, and `isBot: true` so the orchestrator auto-steps
- * its turns. Returns the original state object when no seats need
- * flipping (so the caller can short-circuit the CAS write).
+ * Drop every unclaimed human seat from the player list. The game
+ * starts at the smaller table — orphaned starter hands, ready
+ * bills, and rickhouse slots that were dealt to the dropped seats
+ * during bootstrap go away with them. Setup-phase order arrays are
+ * filtered to match. The host always survives (it occupies seat 0
+ * and is auto-claimed at room creation), so currentPlayerIndex=0
+ * stays valid. Returns the original state when nothing needs
+ * dropping so the caller can short-circuit the CAS write.
  */
 function closeOpenSeats(
   state: GameState,
   claims: Record<string, string>,
 ): GameState {
-  const fallbackBotNames = ["Mara", "Rix", "Ode", "Vale"];
-  const open = state.players.filter(
-    (p) => !p.isBot && !claims[p.id],
-  );
-  if (open.length === 0) return state;
+  const survivors = new Set<string>();
+  for (const p of state.players) {
+    if (p.isBot || claims[p.id]) survivors.add(p.id);
+  }
+  if (survivors.size === state.players.length) return state;
   return produce(state, (draft) => {
-    let i = 0;
-    for (const seat of draft.players) {
-      if (seat.isBot) continue;
-      if (claims[seat.id]) continue;
-      seat.isBot = true;
-      // Replace the placeholder "Open seat N" name with a friendly
-      // bot handle. Reuse the same name pool the lobby uses so
-      // visual identity is consistent.
-      seat.name = fallbackBotNames[i % fallbackBotNames.length] ?? `Bot ${i + 1}`;
-      i += 1;
+    // Return any starting mash bills attached to dropped seats' ready
+    // barrels back to the bourbon deck — keeps the table-wide bill
+    // balance honest at the smaller seat count.
+    for (const barrel of draft.allBarrels) {
+      if (survivors.has(barrel.ownerId)) continue;
+      if (barrel.attachedMashBill) {
+        draft.bourbonDeck.push(barrel.attachedMashBill);
+      }
     }
+    draft.players = draft.players.filter((p) => survivors.has(p.id));
+    draft.starterDeckDraftOrder = draft.starterDeckDraftOrder.filter((id) =>
+      survivors.has(id),
+    );
+    draft.distillerySelectionOrder = draft.distillerySelectionOrder.filter(
+      (id) => survivors.has(id),
+    );
+    draft.playerIdsCompletedPhase = draft.playerIdsCompletedPhase.filter(
+      (id) => survivors.has(id),
+    );
+    draft.allBarrels = draft.allBarrels.filter((b) => survivors.has(b.ownerId));
   });
 }
 
