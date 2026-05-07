@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (v2.8 alpha).** Drafting, the round loop, slot-bound mash bills, incremental production, aging, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is temporarily disabled** — every game runs as Vanilla. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. Computer-only build today; human-controlled slots ship alongside the UI work.
+> **Scope (v2.8 alpha).** Drafting, the round loop, slot-bound mash bills, incremental production, aging, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is temporarily disabled** — every game runs as Vanilla. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. **Multiplayer is live** — host a 4-char-code room from `/multiplayer`, share the link, claim seats; bots fill the rest. Solo-vs-bots and online-multi-human both ship from the same engine.
 
 ---
 
@@ -569,6 +569,43 @@ v2.7 runs every game as Vanilla while the distillery roster is disabled, so play
 
 ---
 
+# 🌐 Multiplayer
+
+Two ways to play, both running the same engine:
+
+- **Solo (`/play`)** — you + 1–3 bots. State lives in your browser; bots step locally.
+- **Online (`/multiplayer` + `/play/[code]`)** — 1–4 humans + bots, server-authoritative. State lives in DynamoDB behind a WebSocket Lambda; every action round-trips through `applyAction` on the server, then broadcasts to every connected client. Bot turns inline-step on the server too, so bot moves animate instantly between human turns.
+
+### Host flow
+
+1. Open `/multiplayer`, pick a name + total human seats (1–4) + bot seats (0–3).
+2. **Create room →** mints a 4-character code (Boggle-style, no 0/O/1/I), seats you as host (`human0`), and routes you to `/play/[code]`.
+3. Copy the share link from the room banner. The waiting room shows the per-seat roster live.
+4. **Start game →** flips the room out of pre-game lobby. The setup-phase modals (starter-deck draft, demand roll, draw) fire same as solo — only the seat the engine is on the clock for sees the prompt; the rest see "waiting on X".
+
+### Join flow
+
+1. Paste the share link. If you've never set a name on this device, a name prompt appears before the socket opens.
+2. The roster strip in the room banner shows every seat — **claim** an open seat by clicking it. You become that seat for the rest of the game; subsequent actions you submit are gated server-side against your claimed playerId.
+3. If you arrive as a **spectator** (deep-link to a started game with no open seats), you see the GameBoard but the bottom tray reads "👁 Spectating" instead of someone else's hand.
+
+### Under the hood
+
+- 4-char codes mint from a 32-letter alphabet (8-try collision resolution against ~1M keyspace).
+- Rooms expire 14 days after their last write (DynamoDB TTL); abandoned games clean themselves up.
+- Connection table has a `roomCode` GSI so broadcasts iterate every socket in a room without scanning.
+- Optimistic CAS on every state write — two clients racing the same action see one win, the other gets `stale-state` and resyncs.
+- Reconnect is name-based: if your display name already owns a seat, joining the room rebinds you to it without a re-claim round-trip.
+- Animations (sale flight, make flight, purchase flight) ride along on every broadcast so flights fire on every client, not just the actor's screen.
+
+### Lifecycle messages
+
+- `create-room` / `join-room` / `claim-seat` / `release-seat` / `start-game` (host-only) / `action` / `resync`.
+- Host-only actions (`start-game`) are gated by `connectionId.playerId === "human0"`.
+- Setup-phase modals self-gate: starter-deck draft only fires on the seat the engine is awaiting; demand roll only fires for the host (others wait for the broadcast); draw phase fires for each seat that hasn't drawn yet.
+
+---
+
 # 🔁 The Core Loop
 
 Pick a distillery → draft mash bills directly into your slots → build a starter deck → draw 8 cards a round → commit cards toward a Staged or Building slot → finish the recipe → age it → sell when demand favors you → take rep, cards, or both → buy more → play ops at the right moment → **manage your open slots** (every drawn bill needs one) → watch the rotation for your bookend → time your endgame.
@@ -588,6 +625,7 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 # 📜 Changelog
 
 - **v2.8** —
+  - **Multiplayer (online).** Host a 4-char-code room at `/multiplayer`; friends join via share link, claim seats, the host hits Start. Server-authoritative — every action round-trips through `applyAction` on AWS Lambda, then broadcasts to every connected client. Bot turns inline-step server-side so bot moves animate instantly between human turns. Pre-game lobby (waiting room with roster + Start button), seat claiming + release, reconnect-by-name, spectator mode, host-gated demand roll, per-seat draw modals. Setup-phase modals self-gate to the seat the engine is on the clock for. Infra: SST 4 / API Gateway WebSocket / DynamoDB rooms+connections / EventBridge cron tick fallback. See §Multiplayer for the full flow.
   - **Composition Buffs removed entirely.** The five threshold buffs (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all four grains) are deleted with no replacement. Sale resolution simplifies to grid lookup + Specialty bonus + awards. Aging cards now exclusively advance the age counter and contribute nothing else to sale payout. Resource cards do whatever their printed text says — most have no sale-time effect. The "demand does not drop on sale" effect previously granted by 2+ capital is preserved only via the Demand Surge ops card.
   - **Reward grids are now monotonic.** Every bill's grid rises (or holds flat) going right across demand and going down across age — no backward steps. Dropped the v2.7.2 "grain character" curves where wheat peaked mid-demand and barley peaked low; those produced cells that paid less at higher demand and read as bugs at a glance. Locked in with a per-tier shape invariant.
   - **Tier 1 commons run a slim single-axis grid** (1×N or N×1) with at most 2×2; uncommons run a varied 1×3 / 2×2 / 2×3 / 3×1 mix; rares 2×2 / 2×3 / 3×2; epics 3×2 / 3×3; legendary 4×4. Shape now encodes character — a flat-age wheat bill reads `1×3`, a pure-aging barley bill reads `3×1`.

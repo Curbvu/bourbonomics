@@ -659,11 +659,3 @@ function renderAgingPips(barrel: Barrel) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-baseline justify-between gap-1 rounded bg-slate-950/40 px-1.5 py-0.5">
-      <span>{label}</span>
-      <span className="font-sans text-[11px] tabular-nums text-slate-200">{value}</span>
-    </div>
-  );
-}

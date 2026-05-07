@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
-import { defaultDistilleryPool } from "../src/distilleries.js";
 import { makeCapitalCard, makeResourceCard } from "../src/cards.js";
 import { advanceToActionPhase, giveHand, makeTestGame } from "./helpers.js";
 

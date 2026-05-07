@@ -19,7 +19,6 @@ import { defaultDistilleryPool } from "../src/distilleries.js";
 import {
   advanceToActionPhase,
   advanceToNextRound,
-  firstEmptySlot,
   giveHand,
   makeTestGame,
   slotForBill,

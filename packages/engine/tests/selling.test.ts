@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyAction, IllegalActionError } from "../src/engine.js";
+import { applyAction } from "../src/engine.js";
 import { computeReward, awardConditionMet } from "../src/rewards.js";
 import { makeMashBill, makeCapitalCard, makeResourceCard } from "../src/cards.js";
 import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel, spendCardId } from "./helpers.js";

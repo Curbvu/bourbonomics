@@ -17,7 +17,6 @@ import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import type {
   Barrel,
   Card,
-  GameAction,
   GameState,
   ResourceSubtype,
 } from "@bourbonomics/engine";
