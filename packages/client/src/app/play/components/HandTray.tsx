@@ -522,11 +522,17 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     ? ""
     : isSelected
       ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : inAgeMode || inDrawBillMode
-        ? "ring-2 ring-sky-400/60"
-        : inSellMode
-          ? "ring-2 ring-amber-300/60"
-          : "ring-2 ring-emerald-400/60";
+      : inAgeMode
+        ? // v2.9: every hand card is a legal age payment, so light
+          // them all up with a soft sky glow — same idiom as the
+          // ageable rickhouse barrels — so the player can see at a
+          // glance that ANY card here commits.
+          "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
+        : inDrawBillMode
+          ? "ring-2 ring-sky-400/60"
+          : inSellMode
+            ? "ring-2 ring-amber-300/60"
+            : "ring-2 ring-emerald-400/60";
   const onClick = () => {
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
@@ -650,11 +656,15 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     ? ""
     : isSelected
       ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : inAgeMode || inDrawBillMode
-        ? "ring-2 ring-sky-400/60"
-        : inSellMode
-          ? "ring-2 ring-amber-300/60"
-          : "ring-2 ring-emerald-400/60";
+      : inAgeMode
+        ? // Match the resource-card age glow so capitals don't look
+          // second-class as age payments — they're equally valid.
+          "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
+        : inDrawBillMode
+          ? "ring-2 ring-sky-400/60"
+          : inSellMode
+            ? "ring-2 ring-amber-300/60"
+            : "ring-2 ring-emerald-400/60";
   const onClick = () => {
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);

@@ -31,11 +31,12 @@ export default function AgeOverlay() {
 
   let prompt: string;
   if (!barrel && !card) {
-    prompt = "Pick a barrel in your Rickhouse and a card in hand. Auto-confirms on second pick.";
+    prompt =
+      "Pick an aging barrel in your Rickhouse and any card in your hand — either order is fine. Auto-confirms on second pick.";
   } else if (!barrel) {
-    prompt = "Now pick a barrel in your Rickhouse — it'll commit instantly.";
+    prompt = "Now pick an aging barrel in your Rickhouse — it'll commit instantly.";
   } else if (!card) {
-    prompt = "Now pick a card in your hand — it'll commit instantly.";
+    prompt = "Now pick any card in your hand — it'll commit instantly.";
   } else {
     // Both picked — auto-fire is on the way; this state is transient.
     prompt = "Aging…";
