@@ -1,6 +1,6 @@
 {
   "name": "bourbonomics",
-  "version": "2.6.0",
+  "version": "2.8.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -15,10 +15,17 @@
     "preview": "npm run preview -w @bourbonomics/client",
     "test": "npm test --workspaces --if-present",
     "test:engine": "npm test -w @bourbonomics/engine",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "sst:dev": "sst dev",
+    "sst:diff": "sst diff",
+    "deploy": "sst deploy",
+    "deploy:dev": "sst deploy --stage dev",
+    "deploy:stg": "sst deploy --stage stg",
+    "deploy:prod": "sst deploy --stage prod"
   },
   "devDependencies": {
     "@types/node": "^22",
+    "sst": "^4.12.10",
     "typescript": "^5.9.3"
   }
 }

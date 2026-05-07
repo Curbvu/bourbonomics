@@ -43,6 +43,7 @@ import {
   type GameState,
   type InvestmentCard,
   type MashBill,
+  type NewGameConfig,
   type OperationsCard,
   type PlayerState,
   type ScoreResult,
@@ -60,20 +61,11 @@ const STORAGE_KEY = "bourbonomics:v2.6.0-game";
 const AUTOPLAY_KEY = "bourbonomics:v2.6.0-autoplay";
 const AUTO_STEP_MS = 280;
 
-export interface NewGameSeat {
-  name: string;
-  /** Logo id picked from playerLogos.ts (purely cosmetic). */
-  logoId?: string;
-  /** Difficulty picker is cosmetic in v2 — every seat plays via the heuristic bot. */
-  difficulty?: "easy" | "normal" | "hard";
-}
-
-export interface NewGameConfig {
-  /** Human seat goes first; bots follow. */
-  human: NewGameSeat;
-  bots: NewGameSeat[];
-  seed?: number;
-}
+// `NewGameSeat` and `NewGameConfig` now live in `@bourbonomics/engine`
+// so the multi-player server can take them over the wire without
+// duplicating the type. Re-exported below for back-compat with files
+// that imported them from this module.
+export type { NewGameSeat, NewGameConfig } from "@bourbonomics/engine";
 
 export interface LogEntry {
   seq: number;

@@ -620,6 +620,36 @@ export interface GameConfig {
 }
 
 // -----------------------------
+// New-game setup payload
+// -----------------------------
+
+/**
+ * Per-seat setup data captured at new-game time. The client mints
+ * these from the new-game form; the multi-player server takes them
+ * over the wire and bootstraps a `GameConfig` from them.
+ */
+export interface NewGameSeat {
+  name: string;
+  /** Cosmetic — picks the avatar asset shown in the seat strip. */
+  logoId?: string;
+  /** Bot difficulty selector. Ignored for human seats. */
+  difficulty?: "easy" | "normal" | "hard";
+}
+
+/**
+ * Config payload for `newGame` (client) and the multi-player server's
+ * `create-room` message. Distinct from `GameConfig` (which is the
+ * fully-resolved engine input); this is the human-friendly form.
+ */
+export interface NewGameConfig {
+  /** Human seat goes first; bots follow. */
+  human: NewGameSeat;
+  bots: NewGameSeat[];
+  /** Optional fixed seed for replays / shareable games. */
+  seed?: number;
+}
+
+// -----------------------------
 // Actions (Discriminated Union)
 // -----------------------------
 
