@@ -245,9 +245,10 @@ export interface GameStore {
   ageMode: AgeMode | null;
   startAgeMode: () => void;
   cancelAgeMode: () => void;
+  /** Pick a barrel. Auto-fires AGE_BOURBON when both fields are set. */
   setAgeBarrel: (barrelId: string) => void;
+  /** Pick a hand card. Auto-fires AGE_BOURBON when both fields are set. */
   setAgeCard: (cardId: string) => void;
-  confirmAge: () => void;
   /** Interactive draw-bill state, null when not drawing. */
   drawBillMode: DrawBillMode | null;
   startDrawBillMode: () => void;
@@ -319,7 +320,6 @@ const Ctx = createContext<GameStore>({
   cancelAgeMode: noop,
   setAgeBarrel: noop,
   setAgeCard: noop,
-  confirmAge: noop,
   drawBillMode: null,
   startDrawBillMode: noop,
   cancelDrawBillMode: noop,
@@ -604,20 +604,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setBuyMode(null);
     dispatch(action);
   }, [buyMode, store.state, dispatch]);
-
-  const confirmAge = useCallback(() => {
-    if (!ageMode || !ageMode.pickedBarrelId || !ageMode.pickedCardId) return;
-    const human = store.state?.players.find((p) => !p.isBot);
-    if (!human) return;
-    const action: GameAction = {
-      type: "AGE_BOURBON",
-      playerId: human.id,
-      barrelId: ageMode.pickedBarrelId,
-      cardId: ageMode.pickedCardId,
-    };
-    setAgeMode(null);
-    dispatch(action);
-  }, [ageMode, store.state, dispatch]);
 
   // Draw-bill mode helpers — two-step picker. Step 1 picks the bourbon
   // (face-up bill or blind top-of-deck); step 2 tags pay cards.
@@ -1106,7 +1092,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       cancelAgeMode,
       setAgeBarrel,
       setAgeCard,
-      confirmAge,
       drawBillMode,
       startDrawBillMode,
       cancelDrawBillMode,
@@ -1154,7 +1139,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       cancelAgeMode,
       setAgeBarrel,
       setAgeCard,
-      confirmAge,
       drawBillMode,
       startDrawBillMode,
       cancelDrawBillMode,

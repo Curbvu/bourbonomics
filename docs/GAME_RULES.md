@@ -195,7 +195,7 @@ The first commit transitions the slot **Staged → Building**. The completion ch
 
 ### Over-committing is fine, but earns no bonus
 
-You may commit **more** cards than the recipe requires (e.g. 4 rye when `rye ≥ 3`). The engine accepts the extra cards and locks them with the barrel until sale, but the reward grid only reads `(age, demand)` — over-commitment doesn't change the payout. Composition buffs read the full pile, so an extra grain card may still trip a buff threshold.
+You may commit **more** cards than the recipe requires (e.g. 4 rye when `rye ≥ 3`). The engine accepts the extra cards and locks them with the barrel until sale, but the reward grid only reads `(age, demand)` — over-commitment doesn't change the payout.
 
 Recipe **caps** (`maxRye: 0`, `maxWheat: 0`, etc.) are still enforced — those are bill-specific bans, not minimums.
 
@@ -212,6 +212,21 @@ Recipes only ever **tighten** the universal rule, never loosen it. Examples:
 - Four-grain — `barley ≥ 1, rye ≥ 1, wheat ≥ 1`
 
 Bills without a printed recipe accept any legal mash. Recipes are public information from the moment the bill is slotted.
+
+### Specialty gates (v2.7.2)
+
+Higher-rarity bills can require **Specialty** cards by subtype, on top of the regular minimums. A recipe with `minSpecialty: { rye: 1 }` requires at least one Specialty (or Double Specialty) Rye card in the production pile.
+
+A Specialty card counts toward **both** the regular minimum AND the specialty floor — one card, two boxes ticked. So a Wheated Estate bill (`minWheat: 2, minSpecialty: { wheat: 1 }`) needs 2 wheat cards total, of which at least 1 must be Specialty.
+
+Specialty thresholds tend to be:
+- **Common** — universal rule only.
+- **Uncommon** — one named-grain minimum.
+- **Rare** — three+ named grain OR one specialty card.
+- **Epic** — at least one specialty card required.
+- **Legendary** — two+ specialty cards required.
+
+Each Specialty card committed also grants **+1 reputation on sale** — a passive bonus separate from any specialty-gate requirement.
 
 ### Over-committing
 
@@ -516,6 +531,8 @@ These are representative — the full deck is defined in `packages/engine/conten
 
 > **v2.7: temporarily disabled.** Distillery profiles are not active in this build. Every player uses the **Vanilla** setup (4 Open slots, no pre-aged barrels, no asymmetric ability or constraint). The full roster — High-Rye House, Wheated Baron, Connoisseur Estate, plus future distilleries — will return in a later release. The reference text below is preserved so the engine and documentation stay in sync the moment the flag flips back on.
 
+> **v2.8 staleness note.** Several abilities below reference the **composition-buff system**, which v2.8 removed entirely. Those clauses (Wheated Baron's single-grain buff, Connoisseur Estate's all-grains buff, the High-Rye/Wheated "counts as 0 toward composition" constraints) will need to be re-tooled before the distillery flag flips back on — likely by retargeting them at specialty gates, slot caps, or sale-time mods. The text is left intact so the rework has a clear baseline.
+
 Each distillery is a full asymmetric package: a **starting state**, a **permanent ability**, and a **constraint**.
 
 ### High-Rye House — "The Specialist"
@@ -570,7 +587,12 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 
 # 📜 Changelog
 
-- **v2.8** — **Composition Buffs removed entirely.** The five threshold buffs (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all four grains) are deleted with no replacement. Sale resolution simplifies to grid lookup + Specialty bonus + awards. Aging cards now exclusively advance the age counter and contribute nothing else to sale payout. Resource cards do whatever their printed text says — most have no sale-time effect. The "demand does not drop on sale" effect previously granted by 2+ capital is preserved only via the Demand Surge ops card.
+- **v2.8** —
+  - **Composition Buffs removed entirely.** The five threshold buffs (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all four grains) are deleted with no replacement. Sale resolution simplifies to grid lookup + Specialty bonus + awards. Aging cards now exclusively advance the age counter and contribute nothing else to sale payout. Resource cards do whatever their printed text says — most have no sale-time effect. The "demand does not drop on sale" effect previously granted by 2+ capital is preserved only via the Demand Surge ops card.
+  - **Reward grids are now monotonic.** Every bill's grid rises (or holds flat) going right across demand and going down across age — no backward steps. Dropped the v2.7.2 "grain character" curves where wheat peaked mid-demand and barley peaked low; those produced cells that paid less at higher demand and read as bugs at a glance. Locked in with a per-tier shape invariant.
+  - **Tier 1 commons run a slim single-axis grid** (1×N or N×1) with at most 2×2; uncommons run a varied 1×3 / 2×2 / 2×3 / 3×1 mix; rares 2×2 / 2×3 / 3×2; epics 3×2 / 3×3; legendary 4×4. Shape now encodes character — a flat-age wheat bill reads `1×3`, a pure-aging barley bill reads `3×1`.
+  - **Sell + Age UX overhaul.** Sell now opens a picker (pick a barrel, pick a card to spend, action auto-fires on the second click). Age auto-fires the same way — no Confirm button. Selling a barrel fans the production + aging cards out from the slot to the seller's discard pile via a new `SaleFlight` animation. Recipe chips on the inspect modal + gallery now dedupe specialty + universal — a `minSpecialty: { cask: 1 }` recipe shows one chip, not two. New `mashBillBuildCost` tuning aid (basic = 1, specialty = 4, plus draw cost) surfaced as a "build N" pill on every card.
+- **v2.7.2** — **Specialty gates + rarity-ramped recipes.** Mash bill recipes can now require **Specialty** cards by subtype (`minSpecialty: { rye: 1 }`). One Specialty card satisfies both the regular minimum AND the specialty floor — a single Superior Rye covers a `minRye: 1, minSpecialty: { rye: 1 }` recipe. Recipe complexity now scales with rarity: commons keep the universal rule only; uncommons require ≥2 of a named grain; rares ask for 3 grain or 1 specialty; epics gate behind 1+ specialty; legendaries 2+ specialty. Bourbon Cards gallery rebuilt around the new constraints — heat-mapped payoff matrix, gold-bordered specialty chips, awards baked into the matrix cell background.
 - **v2.7.1** —
   - **Trade clarified:** traded cards land in the recipient's hand (not discard), making them immediately available on subsequent turns. Corrects an earlier draft that sent traded cards to discard and made the trade action mechanically inert until the next round.
   - **Sell Bourbon now explicitly costs 1 card from hand** (any resource or capital card), spent to discard. This formalizes part of the intended cards-in-to-rep-out economy: a baseline barrel sale consumes ~7 cards across its full lifecycle (bill draw + cask + corn + grain + 2 aging cards + sell-action card) for a minimum 1 rep payout, establishing the 7:1 floor ratio that scales toward ~2:1 at peak play.
