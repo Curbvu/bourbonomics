@@ -40,6 +40,12 @@ export type ClientMessage =
       playerId: string;
     }
   | {
+      /** Release whatever seat this connection currently owns —
+       *  the seat opens back up for others to claim. The connection
+       *  itself stays in the room as an observer. */
+      type: "release-seat";
+    }
+  | {
       /** Dispatch a game action. The server validates that the
        *  caller's claimed seat matches `action.playerId`, applies
        *  via the engine, persists, and broadcasts. */

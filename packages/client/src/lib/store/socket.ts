@@ -48,6 +48,7 @@ export type ClientMessage =
   | { type: "create-room"; config: NewMultiplayerGameConfig }
   | { type: "join-room"; code: string; name: string }
   | { type: "claim-seat"; playerId: string }
+  | { type: "release-seat" }
   | { type: "action"; action: GameAction }
   | { type: "resync" };
 

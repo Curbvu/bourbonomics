@@ -322,6 +322,9 @@ export interface GameStore {
   /** Claim an open human seat. Server rejects bot seats and seats
    *  already owned by someone else. */
   claimSeat: (playerId: string) => Promise<void>;
+  /** Drop your claim on the seat you currently own. The connection
+   *  stays in the room as an observer. */
+  releaseSeat: () => void;
   /** Disconnect and return the store to single-player mode. */
   leaveMultiplayer: () => void;
   step: () => void;
@@ -383,6 +386,7 @@ const Ctx = createContext<GameStore>({
   createMultiplayer: async () => "",
   joinMultiplayer: async () => {},
   claimSeat: async () => {},
+  releaseSeat: noop,
   leaveMultiplayer: noop,
   step: noop,
   dispatch: noop,
@@ -653,6 +657,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
+
+  const releaseSeat = useCallback((): void => {
+    gameSocket().send({ type: "release-seat" });
+    setMultiplayerMode((prev) => (prev ? { ...prev, playerId: "" } : prev));
+  }, []);
 
   const claimSeat = useCallback(
     async (playerId: string): Promise<void> => {
@@ -1332,6 +1341,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       createMultiplayer,
       joinMultiplayer,
       claimSeat,
+      releaseSeat,
       leaveMultiplayer,
       step,
       dispatch,
@@ -1383,6 +1393,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       createMultiplayer,
       joinMultiplayer,
       claimSeat,
+      releaseSeat,
       leaveMultiplayer,
       step,
       dispatch,

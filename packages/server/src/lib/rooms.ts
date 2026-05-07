@@ -165,6 +165,32 @@ export async function claimSeat(
   return claims;
 }
 
+/**
+ * Drop a player's claim on a seat. Returns the resulting `seatClaims`
+ * map (with `playerId` removed). No-op if the seat wasn't claimed.
+ */
+export async function releaseSeat(
+  code: string,
+  playerId: string,
+): Promise<Record<string, string>> {
+  const room = await getRoom(code);
+  if (!room) throw new Error("room-not-found");
+  const claims = { ...(room.seatClaims ?? {}) };
+  delete claims[playerId];
+  await ddb.send(
+    new UpdateCommand({
+      TableName: Resource.Rooms.name,
+      Key: { code },
+      UpdateExpression: "SET seatClaims = :c, expiresAt = :e",
+      ExpressionAttributeValues: {
+        ":c": claims,
+        ":e": Math.floor(Date.now() / 1000) + ROOM_TTL_SECONDS,
+      },
+    }),
+  );
+  return claims;
+}
+
 // =============================================================================
 // Connections
 // =============================================================================

@@ -3,16 +3,20 @@
 /**
  * `/play/[code]` — multi-player room view.
  *
- * Joins the room named in the URL (or stays bound if the lobby just
- * created it). Renders the same `GameBoard` the solo flow uses; the
- * store knows it's in multiplayer mode and routes dispatches over
- * the socket instead of applying locally.
+ * Three states:
  *
- * Setup-phase modals are intentionally suppressed here for the v1
- * MVP: bots seat-fill and the engine skips the distillery selection
- * phase via the DISTILLERIES_ENABLED flag, so the human only sees
- * action-phase UI. Setup-phase multi-client coordination ships in
- * a later iteration.
+ *   1. **Already bound** to this code (the host who just minted it,
+ *      or a returning player) → render the GameBoard.
+ *   2. **Deep-link arrival** with a remembered display name in
+ *      localStorage → auto-join.
+ *   3. **Deep-link arrival** with no remembered name → show the
+ *      pre-join modal so the player picks their name before we
+ *      open the socket.
+ *
+ * Setup-phase modals (distillery selection, deck draft) are
+ * intentionally skipped here for the v1 MVP: DISTILLERIES_ENABLED
+ * is false and the engine pre-assigns Vanilla, so the human goes
+ * straight to the action phase.
  */
 
 import { use, useEffect, useState } from "react";
@@ -21,36 +25,56 @@ import GameBoard from "../components/GameBoard";
 import GameErrorBoundary from "../components/ErrorBoundary";
 import GameTopBar from "../components/GameTopBar";
 import RoomBanner from "./RoomBanner";
+import PreJoinPrompt from "./PreJoinPrompt";
 import { useGameStore } from "@/lib/store/game";
 
 interface Props {
   params: Promise<{ code: string }>;
 }
 
+const NAME_KEY = "bourbonomics:displayName";
+
 export default function PlayCodePage({ params }: Props) {
   const { code: rawCode } = use(params);
   const code = rawCode.toUpperCase();
   const { state, multiplayerMode, multiplayerStatus, joinMultiplayer, dragMake } =
     useGameStore();
+
+  // `null` = haven't decided yet; "" = needs prompt; non-empty = pending
+  // / completed join with this name. We split "deciding" from "needs
+  // prompt" so the first paint doesn't flash the modal for users who
+  // already have a saved name.
+  const [pendingName, setPendingName] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
 
-  // Auto-join on mount if we're not already bound to this room. The
-  // host arriving from the lobby will already be bound; deep-link
-  // visitors from a share URL hit this branch and prompt for a name.
+  // First paint — figure out which mode we're in.
   useEffect(() => {
+    if (multiplayerMode && multiplayerMode.code === code) {
+      // Already in this room (host who just minted it, or a tab
+      // that survived a hot reload). Skip the prompt.
+      setPendingName("__SKIP__");
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(NAME_KEY);
+    if (saved && saved.trim().length > 0) {
+      setPendingName(saved.trim());
+    } else {
+      setPendingName("");
+    }
+  }, [code, multiplayerMode]);
+
+  // Auto-join the moment we've resolved a name (saved or freshly
+  // entered). The "__SKIP__" sentinel means we're already bound and
+  // there's nothing to do.
+  useEffect(() => {
+    if (pendingName == null || pendingName === "" || pendingName === "__SKIP__") return;
     if (multiplayerMode && multiplayerMode.code === code) return;
     let cancelled = false;
     setJoining(true);
     setJoinError(null);
-    // Default to a generic display name. A future iteration adds a
-    // pre-join name prompt; for the MVP, getting people in fast wins
-    // over personalization.
-    const defaultName =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem("bourbonomics:displayName") ?? "Guest"
-        : "Guest";
-    joinMultiplayer(code, defaultName)
+    joinMultiplayer(code, pendingName)
       .then(() => {
         if (cancelled) return;
         setJoining(false);
@@ -63,12 +87,11 @@ export default function PlayCodePage({ params }: Props) {
     return () => {
       cancelled = true;
     };
-    // Intentionally only run when the URL code changes — `joinMultiplayer`
-    // is stable because the store memos it.
+    // joinMultiplayer is stable (memoized in the store).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
+  }, [code, pendingName]);
 
-  // Same drag-class hookup as the solo `/play` page.
+  // Drag-class hookup, same as the solo `/play` page.
   useEffect(() => {
     if (typeof document === "undefined") return;
     if (dragMake) {
@@ -81,7 +104,23 @@ export default function PlayCodePage({ params }: Props) {
     };
   }, [dragMake]);
 
-  // Loading / error gates.
+  // Pre-join name prompt — shown when we have no saved name. Submit
+  // saves the name to localStorage and triggers the auto-join effect.
+  if (pendingName === "") {
+    return (
+      <PreJoinPrompt
+        code={code}
+        onSubmit={(name) => {
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem(NAME_KEY, name);
+          }
+          setPendingName(name);
+        }}
+      />
+    );
+  }
+
+  // Error gate.
   if (joinError) {
     return (
       <main className="min-h-screen bg-slate-950 px-6 py-16 text-slate-100">
@@ -101,6 +140,7 @@ export default function PlayCodePage({ params }: Props) {
     );
   }
 
+  // Loading gate.
   if (!state || joining) {
     return (
       <main className="min-h-screen bg-slate-950 px-6 py-16 text-slate-100">

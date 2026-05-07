@@ -51,6 +51,7 @@ import {
   getRoom,
   putConnection,
   putRoom,
+  releaseSeat,
   updateRoomState,
   type RoomRecord,
 } from "../lib/rooms.js";
@@ -88,6 +89,9 @@ export const handler: WsHandler = async (event) => {
         break;
       case "claim-seat":
         await handleClaimSeat(connectionId, msg);
+        break;
+      case "release-seat":
+        await handleReleaseSeat(connectionId);
         break;
       case "action":
         await handleAction(connectionId, msg.action);
@@ -245,6 +249,37 @@ async function handleClaimSeat(
 
   // Broadcast the new roster to everyone — the lobby UI uses this
   // to fill in seat names live as people claim.
+  await broadcastToRoom(conn.roomCode, {
+    type: "state",
+    state: room.state,
+    seq: room.seq,
+    roster: buildRoster(room.state, next),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// release-seat
+// ---------------------------------------------------------------------------
+async function handleReleaseSeat(connectionId: string): Promise<void> {
+  const conn = await getConnection(connectionId);
+  if (!conn || !conn.roomCode || !conn.playerId) {
+    await sendToConnection(connectionId, { type: "error", reason: "no-seat-to-release" });
+    return;
+  }
+  const room = await getRoom(conn.roomCode);
+  if (!room) {
+    await sendToConnection(connectionId, { type: "error", reason: "room-evicted" });
+    return;
+  }
+  const next = await releaseSeat(conn.roomCode, conn.playerId);
+  // Demote the connection back to observer.
+  await putConnection({
+    connectionId,
+    roomCode: conn.roomCode,
+    name: conn.name,
+    playerId: undefined,
+    joinedAt: conn.joinedAt,
+  });
   await broadcastToRoom(conn.roomCode, {
     type: "state",
     state: room.state,

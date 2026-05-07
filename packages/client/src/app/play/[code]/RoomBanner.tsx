@@ -15,10 +15,12 @@ import type { SeatInfo } from "@/lib/store/socket";
 
 export default function RoomBanner({ code }: { code: string }) {
   const {
+    state,
     multiplayerStatus,
     multiplayerMode,
     roster,
     claimSeat,
+    releaseSeat,
     leaveMultiplayer,
   } = useGameStore();
   const [copied, setCopied] = useState(false);
@@ -51,6 +53,20 @@ export default function RoomBanner({ code }: { code: string }) {
 
   const myPlayerId = multiplayerMode?.playerId ?? "";
 
+  // Surface "waiting on a human who hasn't claimed yet" so the room
+  // doesn't feel stuck. Reads the engine's currentPlayerIndex against
+  // the roster to find the on-clock seat.
+  const waitingForUnclaimedSeat = (() => {
+    if (!state || state.phase !== "action") return null;
+    const onClock = state.players[state.currentPlayerIndex];
+    if (!onClock) return null;
+    if (onClock.isBot) return null;
+    if (onClock.id === myPlayerId) return null; // it's your turn
+    const seat = roster.find((s) => s.playerId === onClock.id);
+    if (!seat || seat.claimedBy) return null;
+    return seat;
+  })();
+
   return (
     <div className="border-b border-amber-800/40 bg-gradient-to-r from-amber-950/40 via-slate-950 to-rose-950/30 px-[18px] py-1.5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -69,6 +85,16 @@ export default function RoomBanner({ code }: { code: string }) {
         </button>
         <StatusPill status={multiplayerStatus} />
         <span className="flex-1" />
+        {myPlayerId ? (
+          <button
+            type="button"
+            onClick={releaseSeat}
+            className="font-mono text-[10px] uppercase tracking-[.14em] text-slate-400 hover:text-rose-300"
+            title="Drop your seat — opens it back up for someone else to claim."
+          >
+            release seat
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={leaveMultiplayer}
@@ -92,6 +118,14 @@ export default function RoomBanner({ code }: { code: string }) {
           />
         ))}
       </div>
+
+      {waitingForUnclaimedSeat ? (
+        <p className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-amber-300">
+          ⏳ Waiting on{" "}
+          <span className="font-bold">{waitingForUnclaimedSeat.name}</span>{" "}
+          — share the room link to fill the seat.
+        </p>
+      ) : null}
 
       {claimError ? (
         <p className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-rose-300">
