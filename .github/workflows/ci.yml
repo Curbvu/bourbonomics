@@ -135,8 +135,16 @@ jobs:
       - name: Remove preinstalled Pulumi language plugin
         run: sudo rm -f /usr/local/bin/pulumi-language-nodejs
 
+      # `sst install` regenerates `.sst/platform/`. Without this the
+      # deploy can pick up a stale platform shim that silently no-ops
+      # against drifted state. Earlier CI runs reported "success" in
+      # ~2min for what should have been a 5+ min full re-deploy —
+      # this step closes that gap.
+      - name: Bootstrap SST platform
+        run: npx sst install
+
       - name: Deploy with SST
-        run: npx sst deploy --stage "${{ env.STAGE }}"
+        run: npx sst deploy --stage "${{ env.STAGE }}" --verbose
 
       # Invalidate CloudFront so the UI updates immediately. Edge
       # cache can otherwise serve old HTML for ~10min after deploy.

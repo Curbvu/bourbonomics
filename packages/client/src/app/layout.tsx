@@ -26,6 +26,14 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Bourbonomics",
   description: "Become the Bourbon Baron of America",
+  // Explicit icon entry so browsers prefer the SVG over a stale
+  // CloudFront-cached `/favicon.ico` (left over from when the
+  // project was scaffolded with `create-next-app`'s default).
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+  },
 };
 
 export default function RootLayout({

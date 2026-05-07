@@ -32,3 +32,10 @@ yarn-error.log*
 *.pem
 .vercel
 .sst
+
+# SST per-stage / per-developer generated artifacts (regenerated on
+# every `sst dev` / `sst deploy`).
+sst-env.d.ts
+**/sst-env.d.ts
+.open-next
+**/.open-next
