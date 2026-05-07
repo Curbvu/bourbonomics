@@ -45,33 +45,10 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     anchor: "center",
     advance: "manual",
   },
-  {
-    id: "rickhouse",
-    title: "Your rickhouse",
-    body:
-      "These are your barrel slots. Each one can hold one mash bill (a bourbon recipe). One slot already has a bill staged for you to start building.",
-    spotlight: "[data-rickhouse-row='true']",
-    anchor: "below",
-    advance: "manual",
-  },
-  {
-    id: "hand",
-    title: "Your hand",
-    body:
-      "Your hand of cards. You spend casks, corn, and grain to build bourbon, capital to buy from the market, and any card to age or sell. Resource and capital cards left over at end of round go to your discard.",
-    spotlight: "[data-hand-tray='true']",
-    anchor: "above",
-    advance: "manual",
-  },
-  {
-    id: "market",
-    title: "The market",
-    body:
-      "Buy more cards from the market conveyor. Mash bills sit beside the deck — drawing one is the doomsday clock that ends the game. We'll skip the market for now.",
-    spotlight: "[data-bb-zone='market']",
-    anchor: "above",
-    advance: "manual",
-  },
+  // Setup beats first — the player needs cards in hand and a rolled
+  // demand before the board tour spotlights make any sense (otherwise
+  // the hand-tray bbox is empty and the cutout dim ends up framing
+  // nothing).
   {
     id: "starter-pass",
     title: "Accept your starter hand",
@@ -103,6 +80,35 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
       const me = s.players.find((p) => !p.isBot);
       return s.phase === "action" && me != null && !me.needsDemandRoll;
     },
+  },
+  // Board tour — runs after the demand roll, when the rickhouse, hand,
+  // and market are all fully populated and no modal is in the way.
+  {
+    id: "rickhouse",
+    title: "Your rickhouse",
+    body:
+      "These are your barrel slots. Each one can hold one mash bill (a bourbon recipe). You drafted three bills at setup — they sit in your slots as 'staged' projects waiting for you to commit cards.",
+    spotlight: "[data-rickhouse-row='true']",
+    anchor: "below",
+    advance: "manual",
+  },
+  {
+    id: "hand",
+    title: "Your hand",
+    body:
+      "Your eight-card round hand. You spend casks, corn, and grain to build bourbon, capital to buy from the market, and any card to age or sell. Resource and capital cards left over at end of round go to your discard.",
+    spotlight: "[data-hand-tray='true']",
+    anchor: "above",
+    advance: "manual",
+  },
+  {
+    id: "market",
+    title: "The market",
+    body:
+      "Buy more cards from the market conveyor. Mash bills sit beside the deck — drawing one is the doomsday clock that ends the game. We'll skip the market for now.",
+    spotlight: "[data-bb-zone='market']",
+    anchor: "above",
+    advance: "manual",
   },
   {
     id: "make-bourbon",
