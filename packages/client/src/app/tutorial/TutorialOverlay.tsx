@@ -180,15 +180,27 @@ function Tooltip({
   onSkip: () => void;
 }) {
   // Position the tooltip:
-  //   center → dead-center of the viewport
-  //   above  → above the spotlight, centered horizontally
-  //   below  → below the spotlight, centered horizontally
+  //   anchor=center                   → dead-center of the viewport
+  //                                     (welcome / done splashes)
+  //   anchor=above/below, no bbox     → float bottom-right so an
+  //                                     existing centered modal (the
+  //                                     starter-draft / demand-roll /
+  //                                     draw modals) stays clickable
+  //   anchor=above/below, with bbox   → above/below the spotlight
   const pos = useMemo(() => {
-    if (!bbox || step.anchor === "center") {
+    if (step.anchor === "center") {
       return {
         top: "50%" as const,
         left: "50%" as const,
         transform: "translate(-50%, -50%)",
+      };
+    }
+    if (!bbox) {
+      // Float bottom-right so the live modal mid-screen stays usable.
+      return {
+        top: window.innerHeight - 220,
+        left: window.innerWidth - TOOLTIP_W - 24,
+        transform: "none" as const,
       };
     }
     const cx = bbox.left + bbox.width / 2;

@@ -76,9 +76,11 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: "starter-pass",
     title: "Accept your starter hand",
     body:
-      "Before the game begins you get one chance to look at your dealt 16-card starter pool. Click 'Pass — accept this hand' to lock it in.",
+      "Before the game begins you get one chance to look at your dealt 16-card starter pool. Click 'Pass — accept this hand' on the modal to lock it in.",
     spotlight: null,
-    anchor: "center",
+    // "below" with null spotlight → tooltip floats bottom-right so the
+    // centered modal stays clickable.
+    anchor: "below",
     advance: (s) => s.phase !== "starter_deck_draft",
   },
   {
@@ -87,7 +89,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     body:
       "Each round you draw 8 cards from your deck. Click 'Draw cards' on the fan that just popped up — your bot opponent will draw on their own.",
     spotlight: null,
-    anchor: "center",
+    anchor: "below",
     advance: (s) => s.phase === "action",
   },
   {
@@ -96,7 +98,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     body:
       "Each turn opens with you rolling 2d6 against the demand track. If the roll beats current demand, the market heats up by 1. Click 'Roll dice' — the modal dispatches automatically once the dice settle.",
     spotlight: null,
-    anchor: "center",
+    anchor: "below",
     advance: (s) => {
       const me = s.players.find((p) => !p.isBot);
       return s.phase === "action" && me != null && !me.needsDemandRoll;
