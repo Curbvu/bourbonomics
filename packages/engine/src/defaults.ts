@@ -223,11 +223,11 @@ export function defaultStarterCards(playerLabel: string): Card[] {
 //   epic        1+ specialty card required (`minSpecialty`)
 //   legendary   2+ specialty / Double Specialty equivalent
 //
-// **Grain character** (v2.7.2):
-//   - Rye-heavy bills peak at HIGH demand (booming markets pay for spice)
-//   - Wheat-heavy bills peak at MID demand (steady markets reward smoothness)
-//   - Barley-heavy bills peak at LOW demand (the patient pour, glut-resistant)
-//   - Corn-forward bills are flat across demand — bread-and-butter.
+// **Reward grids** are monotonically non-decreasing across both axes —
+// older bourbon never pays less than younger; hotter demand never pays
+// less than colder. (v2.8: dropped the earlier "grain character" curves
+// where wheat peaked mid-demand and barley peaked low — backward steps
+// read as "this card is broken" at a glance.)
 //
 // Awards correlate with rarity (Gold lives in epics + legendary).
 // ============================================================
@@ -300,13 +300,12 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Limestone water, malted barley, and one very large echo.",
         tier: "common",
         complexityTier: 1,
-        // Barley character (peaks low demand) — universal-rule starter
-        // for the patient pour.
+        // Universal-rule starter for the patient pour.
         ageBands: [2, 4],
         demandBands: [3, 6],
         rewardGrid: [
-          [3, 2],
-          [4, 3],
+          [2, 3],
+          [3, 4],
         ],
       },
       0,
@@ -379,13 +378,12 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Wheated mash bill that doesn't argue.",
         tier: "uncommon",
         complexityTier: 2,
-        // Wheat character — peaks at MID demand. Falls off at the
-        // boom-market high band. Wheated constraint (≥2 wheat).
+        // Wheated constraint (≥2 wheat). Smooth payoff curve.
         ageBands: [3, 5],
         demandBands: [3, 5, 8],
         rewardGrid: [
-          [2, 5, 4],
-          [3, 7, 6],
+          [2, 4, 5],
+          [3, 6, 7],
         ],
         recipe: { minWheat: 2, maxRye: 0 },
         silverAward: { minAge: 5, minDemand: 5 },
@@ -420,13 +418,12 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "A blender's standby — char level four, vanilla up front.",
         tier: "uncommon",
         complexityTier: 2,
-        // Barley character — peaks at LOW demand (glut-resistant pour).
-        // ≥2 barley.
+        // Mid-demand bias, ≥2 barley.
         ageBands: [3, 5],
         demandBands: [3, 5, 8],
         rewardGrid: [
-          [5, 4, 3],
-          [7, 5, 4],
+          [3, 4, 5],
+          [4, 5, 7],
         ],
         recipe: { minBarley: 2 },
         silverAward: { minAge: 5 },
@@ -461,14 +458,13 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Barley-heavy pot still that refuses to be subtle.",
         tier: "uncommon",
         complexityTier: 2,
-        // Barley character — pays best in low demand, holds across age.
-        // ≥2 barley.
+        // Holds across age. ≥2 barley.
         ageBands: [2, 4, 6],
         demandBands: [3, 6],
         rewardGrid: [
-          [4, 3],
-          [6, 4],
-          [8, 6],
+          [3, 4],
+          [4, 6],
+          [6, 8],
         ],
         recipe: { minBarley: 2 },
         silverAward: { minAge: 6 },
@@ -504,14 +500,14 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Char two on the staves, char three on the heads.",
         tier: "rare",
         complexityTier: 2,
-        // Barley character — peaks LOW demand (patient pour). Specialty
-        // cask is the rare gate (the cooper's hand-picked stave).
+        // Specialty cask is the rare gate (the cooper's hand-picked
+        // stave). Age-skewed payoff curve.
         ageBands: [4, 6, 8],
         demandBands: [3, 7],
         rewardGrid: [
-          [5, 3],
-          [7, 4],
-          [9, 6],
+          [3, 5],
+          [4, 7],
+          [6, 9],
         ],
         recipe: { minBarley: 2, minSpecialty: { cask: 1 } },
         silverAward: { minAge: 6 },
@@ -582,14 +578,14 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "The barrel left a watermark in the air. The bottle preserves what stayed.",
         tier: "rare",
         complexityTier: 3,
-        // Wheat character — peaks mid-demand. Specialty wheat is the
-        // rare ingredient that makes the angel's share worth signing for.
+        // Specialty wheat is the rare ingredient that makes the
+        // angel's share worth signing for.
         ageBands: [4, 6, 8],
         demandBands: [3, 6, 9],
         rewardGrid: [
-          [3, 6, 4],
-          [4, 9, 6],
-          [5, 11, 8],
+          [3, 4, 6],
+          [4, 6, 9],
+          [5, 8, 11],
         ],
         recipe: { minWheat: 1, minBarley: 1, minSpecialty: { wheat: 1 } },
         silverAward: { minAge: 6, minDemand: 6 },
@@ -656,14 +652,13 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "An estate-only wheated reserve. Demand a real summer to peak.",
         tier: "epic",
         complexityTier: 3,
-        // Wheated specialty — peak at MID demand, not boom. The estate
-        // wheat (specialty) is the price of admission.
+        // The estate wheat (specialty) is the price of admission.
         ageBands: [4, 6, 8],
         demandBands: [4, 7, 10],
         rewardGrid: [
-          [3, 8, 5],
-          [4, 10, 7],
-          [5, 12, 8],
+          [3, 5, 8],
+          [4, 7, 10],
+          [5, 8, 12],
         ],
         recipe: {
           minWheat: 2,

@@ -177,71 +177,38 @@ describe("mash bill rarity ramp (v2.7.2)", () => {
   });
 });
 
-describe("grain character — peak demand by dominant grain (v2.7.2)", () => {
+describe("reward grids are monotonically non-decreasing (v2.8)", () => {
   /**
-   * For each bill with a clear named-grain lean (the dominant grain
-   * has ≥2 units required), the demand column where the top reward
-   * sits should align with that grain's character:
-   *   - rye-heavy   → high demand column (rightmost)
-   *   - wheat-heavy → mid demand column
-   *   - barley-heavy→ low demand column (leftmost)
+   * Every reward grid must rise (or hold flat) going right across
+   * demand and going down across age — no backward steps. v2.8
+   * dropped the earlier "grain character" curves where wheat peaked
+   * mid-demand and barley peaked low; those produced cells that
+   * paid less at higher demand, which read as "this card is broken"
+   * in the UI.
    */
-  function peakDemandColumn(bill: { rewardGrid: (number | null)[][] }): number {
-    let bestVal = -1;
-    let bestCol = 0;
-    for (const row of bill.rewardGrid) {
-      for (let ci = 0; ci < row.length; ci++) {
-        const v = row[ci];
-        if (v != null && v > bestVal) {
-          bestVal = v;
-          bestCol = ci;
+  it("every catalog bill has a monotonic reward grid", () => {
+    for (const bill of defaultMashBillCatalog()) {
+      const g = bill.rewardGrid;
+      for (let r = 0; r < g.length; r++) {
+        for (let c = 0; c < g[r]!.length; c++) {
+          const cell = g[r]![c];
+          if (cell == null) continue;
+          const left = c > 0 ? g[r]![c - 1] : null;
+          const up = r > 0 ? g[r - 1]![c] : null;
+          if (left != null) {
+            expect(
+              cell,
+              `${bill.defId} steps backward at row ${r}: ${left} → ${cell}`,
+            ).toBeGreaterThanOrEqual(left);
+          }
+          if (up != null) {
+            expect(
+              cell,
+              `${bill.defId} steps backward at col ${c}: ${up} → ${cell}`,
+            ).toBeGreaterThanOrEqual(up);
+          }
         }
       }
-    }
-    return bestCol;
-  }
-
-  it("rye-heavy bills peak at the highest demand band", () => {
-    const ryeHeavy = defaultMashBillCatalog().filter(
-      (b) => (b.recipe?.minRye ?? 0) >= 2,
-    );
-    expect(ryeHeavy.length).toBeGreaterThan(0);
-    for (const bill of ryeHeavy) {
-      const lastCol = bill.demandBands.length - 1;
-      expect(
-        peakDemandColumn(bill),
-        `${bill.defId} (rye-heavy) doesn't peak at high demand`,
-      ).toBe(lastCol);
-    }
-  });
-
-  it("wheated bills peak in the mid demand band, not the top", () => {
-    const wheated = defaultMashBillCatalog().filter(
-      (b) => (b.recipe?.minWheat ?? 0) >= 2 && b.recipe?.maxRye === 0,
-    );
-    expect(wheated.length).toBeGreaterThan(0);
-    for (const bill of wheated) {
-      const lastCol = bill.demandBands.length - 1;
-      // Mid means: not the leftmost, not the rightmost (so ≥1 and < lastCol).
-      const peak = peakDemandColumn(bill);
-      expect(
-        peak,
-        `${bill.defId} (wheated) doesn't peak at mid demand`,
-      ).toBeGreaterThan(0);
-      expect(peak, `${bill.defId} (wheated) peaks too high`).toBeLessThan(lastCol);
-    }
-  });
-
-  it("barley-heavy bills peak at the lowest demand band", () => {
-    const barleyHeavy = defaultMashBillCatalog().filter(
-      (b) => (b.recipe?.minBarley ?? 0) >= 2,
-    );
-    expect(barleyHeavy.length).toBeGreaterThan(0);
-    for (const bill of barleyHeavy) {
-      expect(
-        peakDemandColumn(bill),
-        `${bill.defId} (barley-heavy) doesn't peak at low demand`,
-      ).toBe(0);
     }
   });
 });

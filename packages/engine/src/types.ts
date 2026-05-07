@@ -176,6 +176,58 @@ export function mashBillCost(bill: MashBill): number {
   return bill.cost ?? DEFAULT_MASH_BILL_COST;
 }
 
+/**
+ * Tuning aid: a single number summarising the bill's full economic
+ * footprint — the implicit "investment" required to build one barrel
+ * of this recipe. Use it to rank bills against each other while
+ * balancing payout grids.
+ *
+ * Formula:
+ *   - 1 per basic resource the recipe demands (universal cask + corn,
+ *     plus any rye / barley / wheat / extra corn minimums)
+ *   - 4 per Specialty resource (3 to buy from market + 1 for the
+ *     +1-rep-on-sale bonus those cards earn)
+ *   - + the bill's draw cost (`mashBillCost`)
+ *
+ * A Specialty card satisfies both the subtype's universal/per-subtype
+ * minimum AND the specialty floor — so the formula counts it once at
+ * 4, not 1 + 4. Mirrors the chip dedup in `buildRecipeChips`.
+ */
+export function mashBillBuildCost(bill: MashBill): number {
+  const r = bill.recipe ?? {};
+  const sp = r.minSpecialty ?? {};
+  const minCask = 1; // universal
+  const minCorn = Math.max(1, r.minCorn ?? 0);
+  const minRye = r.minRye ?? 0;
+  const minBarley = r.minBarley ?? 0;
+  const minWheat = r.minWheat ?? 0;
+  const namedGrain = minRye + minBarley + minWheat;
+  const minTotalGrain = Math.max(r.minTotalGrain ?? 0, namedGrain === 0 ? 1 : namedGrain);
+  const wildGrain = Math.max(0, minTotalGrain - namedGrain);
+
+  const SPECIALTY_UNIT_COST = 4; // 3 market cost + 1 sale bonus
+
+  const plainCask = Math.max(0, minCask - (sp.cask ?? 0));
+  const plainCorn = Math.max(0, minCorn - (sp.corn ?? 0));
+  const plainRye = Math.max(0, minRye - (sp.rye ?? 0));
+  const plainBarley = Math.max(0, minBarley - (sp.barley ?? 0));
+  const plainWheat = Math.max(0, minWheat - (sp.wheat ?? 0));
+
+  const specialtyTotal =
+    (sp.cask ?? 0) + (sp.corn ?? 0) + (sp.rye ?? 0) + (sp.barley ?? 0) + (sp.wheat ?? 0);
+
+  return (
+    plainCask +
+    plainCorn +
+    plainRye +
+    plainBarley +
+    plainWheat +
+    wildGrain +
+    specialtyTotal * SPECIALTY_UNIT_COST +
+    mashBillCost(bill)
+  );
+}
+
 // -----------------------------
 // Investment Cards (display-only in v2.1; mechanic ships in v2.2)
 // -----------------------------

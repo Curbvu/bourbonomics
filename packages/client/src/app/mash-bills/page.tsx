@@ -15,6 +15,7 @@ import { Fragment, useMemo, useState } from "react";
 
 import {
   defaultMashBillCatalog,
+  mashBillBuildCost,
   mashBillCost,
   type MashBill,
   type MashBillTier,
@@ -175,11 +176,20 @@ function BillCard({ bill }: { bill: MashBill }) {
       <SectionLabel>Recipe</SectionLabel>
       <RecipeChips bill={bill} />
 
-      {/* Cost footer */}
+      {/* Cost footer — `cost` is the bill's market draw price; `build`
+          is the tuning aid: implicit total resource investment to make
+          one barrel of this bill (basic = 1, specialty = 4, plus the
+          draw cost). Larger build = more "expensive" recipe. */}
       <footer className="mt-4 flex items-center justify-between border-t border-slate-700/60 pt-2.5 font-mono text-[11px] uppercase tracking-[.12em] text-slate-400">
         <span className="flex items-center gap-1.5">
           <span className="text-slate-500">cost</span>
           <MoneyText n={mashBillCost(bill)} className="font-display text-[15px] font-bold text-amber-200" />
+        </span>
+        <span className="flex items-center gap-1.5" title="Implicit build cost: 1 per basic resource + 4 per specialty + draw cost">
+          <span className="text-slate-500">build</span>
+          <span className="font-display text-[15px] font-bold tabular-nums text-emerald-200">
+            {mashBillBuildCost(bill)}
+          </span>
         </span>
       </footer>
     </article>
@@ -230,9 +240,20 @@ function BillDetailPanel({ bill, onBack }: { bill: MashBill; onBack: () => void 
               <SectionLabel>Recipe</SectionLabel>
               <RecipeChips bill={bill} />
             </div>
-            <div className="flex items-center gap-3 border-t border-slate-700/60 pt-3 font-mono text-[12px] uppercase tracking-[.12em] text-slate-400">
-              <span className="text-slate-500">cost to draw</span>
-              <MoneyText n={mashBillCost(bill)} className="font-display text-lg font-bold text-amber-200" />
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-700/60 pt-3 font-mono text-[12px] uppercase tracking-[.12em] text-slate-400">
+              <span className="flex items-center gap-2">
+                <span className="text-slate-500">cost to draw</span>
+                <MoneyText n={mashBillCost(bill)} className="font-display text-lg font-bold text-amber-200" />
+              </span>
+              <span
+                className="flex items-center gap-2"
+                title="Implicit build cost: 1 per basic resource + 4 per specialty (3 market + 1 sale bonus) + draw cost"
+              >
+                <span className="text-slate-500">build cost</span>
+                <span className="font-display text-lg font-bold tabular-nums text-emerald-200">
+                  {mashBillBuildCost(bill)}
+                </span>
+              </span>
             </div>
           </div>
         </section>
@@ -441,6 +462,13 @@ interface RecipeChip {
  */
 function buildRecipeChips(bill: MashBill): RecipeChip[] {
   const r = bill.recipe ?? {};
+  // v2.8: a Specialty card satisfies both the universal/per-subtype
+  // minimum AND the `minSpecialty` floor — one card, two boxes ticked.
+  // To keep the chip row truthful about how many cards the player
+  // actually has to commit, the regular chip count is reduced by the
+  // specialty count for that subtype.
+  const sp = r.minSpecialty ?? {};
+  const minCask = 1; // universal
   const minCorn = Math.max(1, r.minCorn ?? 0);
   const minRye = r.minRye ?? 0;
   const minBarley = r.minBarley ?? 0;
@@ -449,30 +477,34 @@ function buildRecipeChips(bill: MashBill): RecipeChip[] {
   const minTotalGrain = Math.max(r.minTotalGrain ?? 0, namedGrain === 0 ? 1 : namedGrain);
   const wildGrain = Math.max(0, minTotalGrain - namedGrain);
 
+  // Plain count = (universal/recipe min) − (specialty count for that subtype).
+  const plainCask = Math.max(0, minCask - (sp.cask ?? 0));
+  const plainCorn = Math.max(0, minCorn - (sp.corn ?? 0));
+  const plainRye = Math.max(0, minRye - (sp.rye ?? 0));
+  const plainBarley = Math.max(0, minBarley - (sp.barley ?? 0));
+  const plainWheat = Math.max(0, minWheat - (sp.wheat ?? 0));
+
   const chips: RecipeChip[] = [];
-  chips.push({ key: "cask", count: 1, label: "Cask", subtype: "cask" });
-  chips.push({ key: "corn", count: minCorn, label: "Corn", subtype: "corn" });
-  if (minRye) chips.push({ key: "rye", count: minRye, label: "Rye", subtype: "rye" });
-  if (minBarley) chips.push({ key: "barley", count: minBarley, label: "Barley", subtype: "barley" });
-  if (minWheat) chips.push({ key: "wheat", count: minWheat, label: "Wheat", subtype: "wheat" });
+  if (plainCask > 0) chips.push({ key: "cask", count: plainCask, label: "Cask", subtype: "cask" });
+  if (plainCorn > 0) chips.push({ key: "corn", count: plainCorn, label: "Corn", subtype: "corn" });
+  if (plainRye > 0) chips.push({ key: "rye", count: plainRye, label: "Rye", subtype: "rye" });
+  if (plainBarley > 0) chips.push({ key: "barley", count: plainBarley, label: "Barley", subtype: "barley" });
+  if (plainWheat > 0) chips.push({ key: "wheat", count: plainWheat, label: "Wheat", subtype: "wheat" });
   if (wildGrain > 0) chips.push({ key: "grain", count: wildGrain, label: "Any grain", subtype: null });
   // v2.7.2: per-subtype Specialty requirements rendered as their own
   // gold-bordered chips so the player sees "this needs a market-only
   // premium" at a glance.
-  const sp = r.minSpecialty;
-  if (sp) {
-    const subs: ResourceSubtype[] = ["cask", "corn", "rye", "barley", "wheat"];
-    for (const s of subs) {
-      const n = sp[s];
-      if (n && n > 0) {
-        chips.push({
-          key: `sp-${s}`,
-          count: n,
-          label: `Specialty ${s.charAt(0).toUpperCase() + s.slice(1)}`,
-          subtype: s,
-          specialty: true,
-        });
-      }
+  const subs: ResourceSubtype[] = ["cask", "corn", "rye", "barley", "wheat"];
+  for (const s of subs) {
+    const n = sp[s];
+    if (n && n > 0) {
+      chips.push({
+        key: `sp-${s}`,
+        count: n,
+        label: `Specialty ${s.charAt(0).toUpperCase() + s.slice(1)}`,
+        subtype: s,
+        specialty: true,
+      });
     }
   }
   if (r.maxRye === 0) chips.push({ key: "no-rye", label: "No rye", subtype: "rye", forbidden: true });

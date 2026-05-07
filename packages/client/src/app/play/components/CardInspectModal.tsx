@@ -23,7 +23,7 @@ import type {
   PlayerState,
   ResourceSubtype,
 } from "@bourbonomics/engine";
-import { isWheatedBill } from "@bourbonomics/engine";
+import { isWheatedBill, mashBillBuildCost, mashBillCost } from "@bourbonomics/engine";
 import { useGameStore, type InspectPayload } from "@/lib/store/game";
 import {
   CAPITAL_CHROME,
@@ -523,6 +523,8 @@ interface RecipeChipSpec {
   tint: string;
   forbidden?: boolean;
   wild?: boolean;
+  /** v2.7.2: Specialty / Double Specialty card requirement. */
+  specialty?: boolean;
 }
 
 /**
@@ -530,48 +532,66 @@ interface RecipeChipSpec {
  * colored chips with the same glyph + palette used everywhere else.
  * Always rendered (commons with no constraints show "any grain"); a
  * forbidden grain shows the chip with a struck-through ✕ overlay.
+ *
+ * v2.8: a Specialty card satisfies both the universal/per-subtype
+ * minimum AND the `minSpecialty` floor. The plain chip count is
+ * reduced by the specialty count for that subtype so the row reads
+ * truthfully — no phantom "1 cask + 1 specialty cask" double-count
+ * when one card is enough.
  */
 function RecipeGrid({ bill }: { bill: MashBill }) {
   const r = bill.recipe ?? {};
+  const sp = r.minSpecialty ?? {};
   const items: RecipeChipSpec[] = [];
 
-  // Universal: 1 cask
-  items.push({
-    glyph: RESOURCE_GLYPH.cask,
-    label: "Cask",
-    tint: RESOURCE_CHROME.cask.label,
-  });
-
-  // Universal: ≥1 corn (mins of 0 still imply 1 by the universal rule).
   const minCorn = Math.max(1, r.minCorn ?? 0);
-  items.push({
-    glyph: RESOURCE_GLYPH.corn,
-    label: "Corn",
-    count: minCorn,
-    tint: RESOURCE_CHROME.corn.label,
-  });
+  const minRye = r.minRye ?? 0;
+  const minBarley = r.minBarley ?? 0;
+  const minWheat = r.minWheat ?? 0;
 
-  if ((r.minRye ?? 0) > 0) {
+  const plainCask = Math.max(0, 1 - (sp.cask ?? 0));
+  const plainCorn = Math.max(0, minCorn - (sp.corn ?? 0));
+  const plainRye = Math.max(0, minRye - (sp.rye ?? 0));
+  const plainBarley = Math.max(0, minBarley - (sp.barley ?? 0));
+  const plainWheat = Math.max(0, minWheat - (sp.wheat ?? 0));
+
+  if (plainCask > 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.cask,
+      label: "Cask",
+      count: plainCask > 1 ? plainCask : undefined,
+      tint: RESOURCE_CHROME.cask.label,
+    });
+  }
+  if (plainCorn > 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.corn,
+      label: "Corn",
+      count: plainCorn,
+      tint: RESOURCE_CHROME.corn.label,
+    });
+  }
+  if (plainRye > 0) {
     items.push({
       glyph: RESOURCE_GLYPH.rye,
       label: "Rye",
-      count: r.minRye,
+      count: plainRye,
       tint: RESOURCE_CHROME.rye.label,
     });
   }
-  if ((r.minBarley ?? 0) > 0) {
+  if (plainBarley > 0) {
     items.push({
       glyph: RESOURCE_GLYPH.barley,
       label: "Barley",
-      count: r.minBarley,
+      count: plainBarley,
       tint: RESOURCE_CHROME.barley.label,
     });
   }
-  if ((r.minWheat ?? 0) > 0) {
+  if (plainWheat > 0) {
     items.push({
       glyph: RESOURCE_GLYPH.wheat,
       label: "Wheat",
-      count: r.minWheat,
+      count: plainWheat,
       tint: RESOURCE_CHROME.wheat.label,
     });
   }
@@ -579,8 +599,7 @@ function RecipeGrid({ bill }: { bill: MashBill }) {
   // Wild grain — when no specific grain is required, the universal
   // rule still demands ≥1 grain of any kind. Surface that explicitly
   // so commons don't feel under-specified.
-  const namedGrain =
-    (r.minRye ?? 0) + (r.minBarley ?? 0) + (r.minWheat ?? 0);
+  const namedGrain = minRye + minBarley + minWheat;
   const minTotal = r.minTotalGrain ?? 0;
   const wildGrain =
     namedGrain === 0 ? 1 : Math.max(0, minTotal - namedGrain);
@@ -592,6 +611,20 @@ function RecipeGrid({ bill }: { bill: MashBill }) {
       tint: "text-slate-300",
       wild: true,
     });
+  }
+
+  // v2.7.2: per-subtype Specialty requirements as their own chips.
+  for (const s of ["cask", "corn", "rye", "barley", "wheat"] as const) {
+    const n = sp[s];
+    if (n && n > 0) {
+      items.push({
+        glyph: RESOURCE_GLYPH[s],
+        label: `★ Specialty ${s.charAt(0).toUpperCase() + s.slice(1)}`,
+        count: n > 1 ? n : undefined,
+        tint: RESOURCE_CHROME[s].label,
+        specialty: true,
+      });
+    }
   }
 
   // Caps — `0` reads as forbidden, positive caps as a ceiling.
@@ -631,7 +664,10 @@ function RecipeGrid({ bill }: { bill: MashBill }) {
           <span
             key={i}
             className={[
-              "inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-slate-950/70 px-2 py-1 font-mono text-[11px] uppercase tracking-[.10em] shadow-[inset_0_1px_0_rgba(255,255,255,.06)]",
+              "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[11px] uppercase tracking-[.10em] shadow-[inset_0_1px_0_rgba(255,255,255,.06)]",
+              item.specialty
+                ? "border-amber-300 bg-amber-700/35 shadow-[0_0_8px_rgba(252,211,77,.25)]"
+                : "border-white/10 bg-slate-950/70",
               item.forbidden ? "opacity-70" : "",
             ].join(" ")}
           >
@@ -649,7 +685,13 @@ function RecipeGrid({ bill }: { bill: MashBill }) {
               ) : null}
             </span>
             <span
-              className={item.wild ? "text-slate-300" : "text-slate-100"}
+              className={
+                item.wild
+                  ? "text-slate-300"
+                  : item.specialty
+                    ? "text-amber-100"
+                    : "text-slate-100"
+              }
             >
               {item.count && item.count > 1 ? `${item.count}× ` : ""}
               {item.label}
@@ -728,7 +770,7 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
       <CornerOrnament pos="bl" tone={chrome.label} />
       <CornerOrnament pos="br" tone={chrome.label} />
 
-      <DetailCornerCost cost={1} />
+      <DetailCornerCost cost={mashBillCost(bill)} />
 
       {/* Tier ribbon — uses the rarity-specific pill chrome (gold ribbon
           for legendary, etc.) so the badge alone tells the player what
@@ -804,6 +846,26 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
           </div>
         </>
       ) : null}
+
+      {/* Tuning footer — `cost` is the bill's market draw price; `build`
+          is the implicit total resource investment to make one barrel
+          (basic = 1, specialty = 4, plus the draw cost). Useful for
+          ranking bills against each other while balancing payouts. */}
+      <div className="mt-1 flex items-center justify-center gap-5 border-t border-white/10 pt-2 font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
+        <span className="flex items-center gap-1.5">
+          <span className="text-slate-500">cost</span>
+          <MoneyText n={mashBillCost(bill)} className="font-display text-[13px] font-bold text-amber-200" />
+        </span>
+        <span
+          className="flex items-center gap-1.5"
+          title="Implicit build cost: 1 per basic resource + 4 per specialty (3 market + 1 sale bonus) + draw cost"
+        >
+          <span className="text-slate-500">build</span>
+          <span className="font-display text-[13px] font-bold tabular-nums text-emerald-200">
+            {mashBillBuildCost(bill)}
+          </span>
+        </span>
+      </div>
     </article>
   );
 }
