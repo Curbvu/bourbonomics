@@ -235,8 +235,10 @@ export function defaultStarterCards(playerLabel: string): Card[] {
 export function defaultMashBillCatalog(): MashBill[] {
   return [
     // ──────────────── Tier 1 — Starter bills ────────────────
-    // Forgiving payouts, low age thresholds, no recipe constraints
-    // beyond the universal rule. Reward range ~2-3, peak ≤ 6.
+    // Forgiving payouts, no recipe constraints beyond the universal
+    // rule. **One axis of variation only** — commons read as "small
+    // ladders" so beginners can scan them at a glance. Half lean on
+    // age (2×1), half on demand (1×2). Reward range ~2–5.
     makeMashBill(
       {
         defId: "knobs_end_90",
@@ -245,13 +247,11 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Bottled barrel-proof, sold at 90. The end of a long dump day.",
         tier: "common",
         complexityTier: 1,
-        // 2×2 — gentle payouts, low age threshold.
+        // 2×1 — age-driven. The end of a dump day reads better with
+        // a few extra years on it.
         ageBands: [2, 4],
-        demandBands: [3, 6],
-        rewardGrid: [
-          [2, 3],
-          [3, 4],
-        ],
+        demandBands: [3],
+        rewardGrid: [[2], [4]],
       },
       0,
     ),
@@ -263,14 +263,11 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Bardstown's main street, bottled. Workhorse pour at weeknight pricing.",
         tier: "common",
         complexityTier: 1,
-        // Slight rye character (peak high demand) — workhorse pour
-        // for hot weeknight markets.
-        ageBands: [2, 4],
+        // 1×2 — demand-driven. Workhorse pour catches a tailwind on
+        // hot weeknight markets.
+        ageBands: [2],
         demandBands: [3, 6],
-        rewardGrid: [
-          [2, 4],
-          [3, 5],
-        ],
+        rewardGrid: [[3, 5]],
       },
       0,
     ),
@@ -282,13 +279,10 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Whatever the rickhouse manager grabbed last. Consistent enough to ship.",
         tier: "common",
         complexityTier: 1,
-        // 2×2 — flat starter, payout from age 2.
-        ageBands: [2, 4],
+        // 1×2 — demand-driven. Whatever ships, ships.
+        ageBands: [2],
         demandBands: [3, 6],
-        rewardGrid: [
-          [2, 3],
-          [3, 5],
-        ],
+        rewardGrid: [[3, 5]],
       },
       0,
     ),
@@ -300,13 +294,10 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Limestone water, malted barley, and one very large echo.",
         tier: "common",
         complexityTier: 1,
-        // Universal-rule starter for the patient pour.
+        // 2×1 — age-driven. The patient pour rewards the wait.
         ageBands: [2, 4],
-        demandBands: [3, 6],
-        rewardGrid: [
-          [2, 3],
-          [3, 4],
-        ],
+        demandBands: [3],
+        rewardGrid: [[2], [4]],
       },
       0,
     ),
@@ -318,13 +309,11 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Hard water, soft mouthfeel, accountant's clarity.",
         tier: "common",
         complexityTier: 1,
-        // 2×2 — universal rule only, range 2-4.
-        ageBands: [2, 4],
+        // 1×2 — demand-driven. The accountant's pour: clean payout
+        // either way.
+        ageBands: [2],
         demandBands: [3, 6],
-        rewardGrid: [
-          [2, 3],
-          [3, 4],
-        ],
+        rewardGrid: [[2, 4]],
       },
       0,
     ),
@@ -336,13 +325,10 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Bottled when the cooper couldn't see the next building.",
         tier: "common",
         complexityTier: 1,
-        // 2×2 — older payouts come a notch higher; still no recipe.
+        // 2×1 — age-driven. Older fog forge cuts through the haze.
         ageBands: [2, 4],
-        demandBands: [3, 6],
-        rewardGrid: [
-          [2, 3],
-          [4, 5],
-        ],
+        demandBands: [3],
+        rewardGrid: [[2], [5]],
       },
       0,
     ),
@@ -354,13 +340,11 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Eighty percent corn, twenty percent everything else.",
         tier: "common",
         complexityTier: 1,
-        // 2×2 — one easy constraint (corn-forward), gentle range.
-        ageBands: [2, 4],
+        // 1×2 — demand-driven. Sweet corn always sells better in
+        // a hot market. One easy recipe constraint (≥2 corn).
+        ageBands: [2],
         demandBands: [3, 6],
-        rewardGrid: [
-          [2, 4],
-          [3, 5],
-        ],
+        rewardGrid: [[3, 5]],
         recipe: { minCorn: 2 },
       },
       0,

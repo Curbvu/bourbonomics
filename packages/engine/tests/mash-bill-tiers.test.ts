@@ -50,6 +50,20 @@ describe("mash bill complexity tier — per-tier curve", () => {
     }
   });
 
+  it("Tier 1 bills run a single-axis grid (1×N or N×1, exactly 2 cells)", () => {
+    const t1 = defaultMashBillCatalog().filter((b) => b.complexityTier === 1);
+    for (const bill of t1) {
+      const rows = bill.rewardGrid.length;
+      const cols = bill.rewardGrid[0]!.length;
+      const total = rows * cols;
+      expect(
+        rows === 1 || cols === 1,
+        `${bill.defId} is ${rows}×${cols}; tier 1 must be single-axis`,
+      ).toBe(true);
+      expect(total, `${bill.defId} has ${total} cells; tier 1 must have 2`).toBe(2);
+    }
+  });
+
   it("Tier 2 bills peak between 6 and 9", () => {
     const t2 = defaultMashBillCatalog().filter((b) => b.complexityTier === 2);
     for (const bill of t2) {
@@ -84,10 +98,9 @@ describe("mash bill complexity tier — representative snapshots", () => {
     const bill = defaultMashBillCatalog().find((b) => b.defId === "knobs_end_90")!;
     expect(bill.complexityTier).toBe(1);
     expect(bill.recipe ?? {}).toEqual({});
-    expect(bill.rewardGrid).toEqual([
-      [2, 3],
-      [3, 4],
-    ]);
+    // Commons run a slim single-axis grid (1×2 or 2×1) so beginners
+    // can read them at a glance. Knob's End leans on age.
+    expect(bill.rewardGrid).toEqual([[2], [4]]);
   });
 
   it("tier 2 representative — Wheat Whisper (wheated, mid-demand peak)", () => {
