@@ -31,7 +31,7 @@ const DROP_MS = 1050;     // matches die-drop keyframe
 const SETTLE_MS = 700;    // dwell on the result before dispatching
 
 export default function DemandRollModal() {
-  const { state, autoplay, dispatch } = useGameStore();
+  const { state, autoplay, multiplayerMode, dispatch } = useGameStore();
   const [phase, setPhase] = useState<RollState>({ kind: "idle" });
   const [tickValues, setTickValues] = useState<[number, number]>([1, 1]);
   // Guard against React strict-mode running effects twice in dev — one
@@ -80,6 +80,12 @@ export default function DemandRollModal() {
   if (!state) return null;
   if (state.phase !== "demand") return null;
   if (autoplay) return null;
+  // In multiplayer only the host rolls — every client would otherwise
+  // race the same ROLL_DEMAND dispatch and the losers would get
+  // stale-state errors. Non-host clients just wait for the broadcast.
+  if (multiplayerMode && multiplayerMode.playerId !== multiplayerMode.hostPlayerId) {
+    return null;
+  }
 
   const startRoll = () => {
     if (phase.kind !== "idle") return;

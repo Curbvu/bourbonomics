@@ -23,11 +23,16 @@ import {
 } from "./handCardStyles";
 
 export default function StarterDeckDraftModal() {
-  const { state, humanWaitingOn, dispatch } = useGameStore();
+  const { state, humanWaitingOn, humanSeatPlayerId, dispatch } = useGameStore();
 
   if (!state) return null;
   if (state.phase !== "starter_deck_draft") return null;
   if (!humanWaitingOn) return null;
+  // In multiplayer the engine cycles through every human seat — only
+  // fire the modal on the connection whose seat is currently on the
+  // clock, otherwise everyone in the room would see (and could click)
+  // someone else's draft prompt.
+  if (humanSeatPlayerId && humanWaitingOn.id !== humanSeatPlayerId) return null;
 
   const player = state.players.find((p) => p.id === humanWaitingOn.id);
   if (!player) return null;

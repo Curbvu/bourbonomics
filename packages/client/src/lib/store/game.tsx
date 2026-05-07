@@ -249,6 +249,13 @@ export interface GameStore {
   seatMeta: { id: string; logoId?: string; difficulty?: string }[];
   /** Player on the clock for human input, or null. */
   humanWaitingOn: PlayerState | null;
+  /** PlayerId for the seat THIS connection owns. In multiplayer it's
+   *  `multiplayerMode.playerId` (the seat we claimed), or empty for
+   *  observers. In solo it's the lone non-bot seat (matches the
+   *  pre-MP convention). UI components that ask "is it my turn?"
+   *  should compare this against `state.players[currentPlayerIndex]`
+   *  or `humanWaitingOn`. */
+  humanSeatPlayerId: string | null;
   /** Currently-inspected card payload (modal render target), or null. */
   inspect: InspectPayload | null;
   setInspect: (payload: InspectPayload | null) => void;
@@ -349,6 +356,7 @@ const Ctx = createContext<GameStore>({
   autoplay: false,
   seatMeta: [],
   humanWaitingOn: null,
+  humanSeatPlayerId: null,
   inspect: null,
   setInspect: noop,
   buyMode: null,
@@ -1311,6 +1319,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [store.state],
   );
 
+  // Resolve "which seat does this connection own?" The MP-aware
+  // value lets setup-phase modals (DrawPhase, DemandRoll, etc.)
+  // gate on the local player rather than `state.players.find(!isBot)`
+  // which always returns the host on every screen.
+  const humanSeatPlayerId = useMemo(() => {
+    if (multiplayerMode) return multiplayerMode.playerId || null;
+    return store.state?.players.find((p) => !p.isBot)?.id ?? null;
+  }, [multiplayerMode, store.state]);
+
   const value = useMemo<GameStore>(
     () => ({
       state: store.state,
@@ -1319,6 +1336,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       autoplay,
       seatMeta: store.seatMeta,
       humanWaitingOn,
+      humanSeatPlayerId,
       inspect,
       setInspect,
       buyMode,
@@ -1376,6 +1394,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       scores,
       autoplay,
       humanWaitingOn,
+      humanSeatPlayerId,
       inspect,
       buyMode,
       startBuyMode,

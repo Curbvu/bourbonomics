@@ -19,7 +19,7 @@ import { useGameStore } from "@/lib/store/game";
 const FAN_REVEAL_MS = 700;
 
 export default function DrawPhaseModal() {
-  const { state, autoplay, dispatch } = useGameStore();
+  const { state, autoplay, humanSeatPlayerId, dispatch } = useGameStore();
   const [stage, setStage] = useState<"idle" | "drawing" | "settled">("idle");
   // Guard against React strict-mode double-dispatching the same draw.
   const dispatchedRef = useRef<number>(-1);
@@ -30,25 +30,29 @@ export default function DrawPhaseModal() {
   }, [round]);
 
   // After the fan animation, dispatch DRAW_HAND once per round.
+  // `humanSeatPlayerId` is THIS connection's seat — in MP each
+  // client draws for its own seat, not for "the first non-bot"
+  // (which would always resolve to the host on every screen).
   useEffect(() => {
     if (stage !== "settled") return;
     if (!state) return;
     if (dispatchedRef.current === round) return;
-    const human = state.players.find((p) => !p.isBot);
-    if (!human) return;
+    if (!humanSeatPlayerId) return;
     const id = window.setTimeout(() => {
       dispatchedRef.current = round;
-      dispatch({ type: "DRAW_HAND", playerId: human.id });
+      dispatch({ type: "DRAW_HAND", playerId: humanSeatPlayerId });
       setStage("idle");
     }, 220);
     return () => window.clearTimeout(id);
-  }, [stage, state, dispatch, round]);
+  }, [stage, state, dispatch, round, humanSeatPlayerId]);
 
   if (!state) return null;
   if (state.phase !== "draw") return null;
   if (autoplay) return null;
 
-  const human = state.players.find((p) => !p.isBot);
+  const human = humanSeatPlayerId
+    ? state.players.find((p) => p.id === humanSeatPlayerId)
+    : null;
   if (!human) return null;
   if (state.playerIdsCompletedPhase.includes(human.id)) return null;
 

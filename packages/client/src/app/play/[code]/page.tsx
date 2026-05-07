@@ -21,9 +21,13 @@
 
 import { use, useEffect, useState } from "react";
 
+import DemandRollModal from "../components/DemandRollModal";
+import DistilleryDraftModal from "../components/DistilleryDraftModal";
+import DrawPhaseModal from "../components/DrawPhaseModal";
 import GameBoard from "../components/GameBoard";
 import GameErrorBoundary from "../components/ErrorBoundary";
 import GameTopBar from "../components/GameTopBar";
+import StarterDeckDraftModal from "../components/StarterDeckDraftModal";
 import RoomBanner from "./RoomBanner";
 import PreJoinPrompt from "./PreJoinPrompt";
 import WaitingRoom from "./WaitingRoom";
@@ -189,6 +193,15 @@ export default function PlayCodePage({ params }: Props) {
           </GameErrorBoundary>
         )}
       </div>
+      {/* Setup-phase modals — each one self-gates on phase + the
+          local connection's seat (`humanSeatPlayerId` in the store).
+          Only the seat the engine is currently waiting on sees the
+          starter-deck modal; only the host sees the demand-roll
+          (others wait for the broadcast). */}
+      <DistilleryDraftModal />
+      <StarterDeckDraftModal />
+      <DemandRollModal />
+      <DrawPhaseModal />
     </main>
   );
 }
