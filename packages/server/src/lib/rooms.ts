@@ -33,7 +33,14 @@ import {
 import { Resource } from "sst";
 import type { GameState } from "@bourbonomics/engine";
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+// `removeUndefinedValues: true` lets us pass records with optional
+// fields straight through (e.g. an observer connection has `playerId:
+// undefined` until they `claim-seat`). Without this DDB rejects the
+// PutCommand and the upgrade handshake bubbles up as "create-room"
+// hanging in the lobby.
+const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
+  marshallOptions: { removeUndefinedValues: true },
+});
 
 // Rooms expire 14 days after their last write; the field is updated on
 // every action so any active play extends the lifetime.
