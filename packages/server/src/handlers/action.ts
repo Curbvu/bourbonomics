@@ -37,6 +37,7 @@ import {
   type GameState,
   type NewMultiplayerGameConfig,
 } from "@bourbonomics/engine";
+import { produce } from "immer";
 
 import { broadcastToRoom, sendToConnection } from "../lib/broadcast.js";
 import type { WsHandler } from "../lib/lambda-types.js";
@@ -299,22 +300,80 @@ async function handleStartGame(connectionId: string): Promise<void> {
     return;
   }
 
+  // Close any open human seats — the engine would otherwise sit
+  // forever awaiting input from seats nobody owns. Each unclaimed
+  // human becomes a bot keeping its slot in turn order; the seat-
+  // claim ledger isn't touched, so bots have no entries there.
+  const claims = room.seatClaims ?? {};
+  const stateWithFilledSeats = closeOpenSeats(room.state, claims);
+  let workingSeq = room.seq;
+  let workingState = stateWithFilledSeats;
+  if (stateWithFilledSeats !== room.state) {
+    try {
+      const updated = await updateRoomState(
+        conn.roomCode,
+        room.seq,
+        stateWithFilledSeats,
+      );
+      workingState = updated.state;
+      workingSeq = updated.seq;
+    } catch {
+      await sendToConnection(connectionId, {
+        type: "error",
+        reason: "stale-state",
+        retriable: true,
+      });
+      return;
+    }
+  }
+
   await startGame(conn.roomCode);
 
-  // Broadcast the lifecycle flip with the current roster so all
-  // observers transition out of the lobby together.
+  // Broadcast the lifecycle flip + the (possibly-mutated) roster so
+  // every connection transitions out of the lobby together with the
+  // bot/human assignments now finalised.
   await broadcastToRoom(conn.roomCode, {
     type: "state",
-    state: room.state,
-    seq: room.seq,
+    state: workingState,
+    seq: workingSeq,
     started: true,
-    roster: buildRoster(room.state, room.seatClaims ?? {}),
+    roster: buildRoster(workingState, claims),
   });
 
-  // Bots may already be on the clock if seat 0 (host) isn't first
-  // by orchestrator order — drive them forward immediately so the
-  // start feels live.
-  await driveBotsForward(conn.roomCode, room.state, room.seq);
+  // Drive any bots that are first in turn order forward immediately
+  // so the start feels live (they'd otherwise wait for the cron tick).
+  await driveBotsForward(conn.roomCode, workingState, workingSeq);
+}
+
+/**
+ * Flip every unclaimed human seat to a bot. The seat keeps its
+ * original `id` (so saved state stays consistent), gets a friendly
+ * fallback name, and `isBot: true` so the orchestrator auto-steps
+ * its turns. Returns the original state object when no seats need
+ * flipping (so the caller can short-circuit the CAS write).
+ */
+function closeOpenSeats(
+  state: GameState,
+  claims: Record<string, string>,
+): GameState {
+  const fallbackBotNames = ["Mara", "Rix", "Ode", "Vale"];
+  const open = state.players.filter(
+    (p) => !p.isBot && !claims[p.id],
+  );
+  if (open.length === 0) return state;
+  return produce(state, (draft) => {
+    let i = 0;
+    for (const seat of draft.players) {
+      if (seat.isBot) continue;
+      if (claims[seat.id]) continue;
+      seat.isBot = true;
+      // Replace the placeholder "Open seat N" name with a friendly
+      // bot handle. Reuse the same name pool the lobby uses so
+      // visual identity is consistent.
+      seat.name = fallbackBotNames[i % fallbackBotNames.length] ?? `Bot ${i + 1}`;
+      i += 1;
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
