@@ -223,6 +223,11 @@ export interface MultiplayerMode {
   code: string;
   /** Which seat the local human owns, or empty for spectator. */
   playerId: string;
+  /** Whether the host has flipped the lobby into live play. */
+  started: boolean;
+  /** Convention: seat 0 is the host. The pre-game lobby's "Start
+   *  game" button is enabled only when `playerId === hostPlayerId`. */
+  hostPlayerId: string;
 }
 
 interface AtomicStore {
@@ -325,6 +330,8 @@ export interface GameStore {
   /** Drop your claim on the seat you currently own. The connection
    *  stays in the room as an observer. */
   releaseSeat: () => void;
+  /** Host-only — flip the room out of pre-game lobby into live play. */
+  startMultiplayerGame: () => void;
   /** Disconnect and return the store to single-player mode. */
   leaveMultiplayer: () => void;
   step: () => void;
@@ -387,6 +394,7 @@ const Ctx = createContext<GameStore>({
   joinMultiplayer: async () => {},
   claimSeat: async () => {},
   releaseSeat: noop,
+  startMultiplayerGame: noop,
   leaveMultiplayer: noop,
   step: noop,
   dispatch: noop,
@@ -557,7 +565,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const msg = event.message;
       switch (msg.type) {
         case "joined":
-          setMultiplayerMode({ code: msg.code, playerId: msg.playerId });
+          setMultiplayerMode({
+            code: msg.code,
+            playerId: msg.playerId,
+            started: msg.started,
+            hostPlayerId: msg.hostPlayerId,
+          });
           setRoster(msg.roster);
           setStore({
             state: msg.state,
@@ -571,6 +584,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
           break;
         case "state":
           if (msg.roster) setRoster(msg.roster);
+          if (msg.started !== undefined) {
+            setMultiplayerMode((prev) =>
+              prev ? { ...prev, started: msg.started! } : prev,
+            );
+          }
           setStore((prev) => {
             const action = msg.action;
             const seq = msg.seq;
@@ -661,6 +679,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const releaseSeat = useCallback((): void => {
     gameSocket().send({ type: "release-seat" });
     setMultiplayerMode((prev) => (prev ? { ...prev, playerId: "" } : prev));
+  }, []);
+
+  const startMultiplayerGame = useCallback((): void => {
+    gameSocket().send({ type: "start-game" });
   }, []);
 
   const claimSeat = useCallback(
@@ -1342,6 +1364,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       joinMultiplayer,
       claimSeat,
       releaseSeat,
+      startMultiplayerGame,
       leaveMultiplayer,
       step,
       dispatch,
@@ -1394,6 +1417,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       joinMultiplayer,
       claimSeat,
       releaseSeat,
+      startMultiplayerGame,
       leaveMultiplayer,
       step,
       dispatch,

@@ -26,6 +26,7 @@ import GameErrorBoundary from "../components/ErrorBoundary";
 import GameTopBar from "../components/GameTopBar";
 import RoomBanner from "./RoomBanner";
 import PreJoinPrompt from "./PreJoinPrompt";
+import WaitingRoom from "./WaitingRoom";
 import { useGameStore } from "@/lib/store/game";
 
 interface Props {
@@ -160,6 +161,12 @@ export default function PlayCodePage({ params }: Props) {
     );
   }
 
+  // Pre-game lobby: render the waiting room above the GameBoard
+  // until the host hits start. The RoomBanner stays visible the
+  // whole time so people can still claim seats / copy the share
+  // link / leave.
+  const inLobby = multiplayerMode != null && !multiplayerMode.started;
+
   return (
     <main
       className="min-h-screen text-slate-100"
@@ -174,9 +181,13 @@ export default function PlayCodePage({ params }: Props) {
       <div className="flex min-h-screen flex-col">
         <GameTopBar />
         <RoomBanner code={code} />
-        <GameErrorBoundary>
-          <GameBoard />
-        </GameErrorBoundary>
+        {inLobby ? (
+          <WaitingRoom code={code} />
+        ) : (
+          <GameErrorBoundary>
+            <GameBoard />
+          </GameErrorBoundary>
+        )}
       </div>
     </main>
   );

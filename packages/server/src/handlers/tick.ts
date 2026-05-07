@@ -72,6 +72,8 @@ async function listAllRooms(): Promise<RoomRecord[]> {
 }
 
 async function stepRoom(room: RoomRecord): Promise<void> {
+  // Pre-game lobby — host hasn't hit start yet.
+  if (!room.started) return;
   if (isGameOver(room.state)) return;
   // Don't step while the cursor is on a human — they might be mid-pick.
   if (awaitingHumanInput(room.state)) return;

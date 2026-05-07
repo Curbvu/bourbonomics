@@ -49,6 +49,7 @@ export type ClientMessage =
   | { type: "join-room"; code: string; name: string }
   | { type: "claim-seat"; playerId: string }
   | { type: "release-seat" }
+  | { type: "start-game" }
   | { type: "action"; action: GameAction }
   | { type: "resync" };
 
@@ -60,6 +61,8 @@ export type ServerMessage =
       state: GameState;
       seq: number;
       roster: SeatInfo[];
+      started: boolean;
+      hostPlayerId: string;
     }
   | {
       type: "state";
@@ -67,6 +70,7 @@ export type ServerMessage =
       seq: number;
       action?: GameAction;
       roster?: SeatInfo[];
+      started?: boolean;
     }
   | { type: "error"; reason: string; retriable?: boolean }
   | { type: "ping" };

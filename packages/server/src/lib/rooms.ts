@@ -47,7 +47,11 @@ export interface RoomRecord {
   seq: number;
   /** Unix-seconds DynamoDB TTL — automatically purged when reached. */
   expiresAt: number;
-  /** Set when the room finishes its setup phase and is mid-game. */
+  /** When `false`/missing the room is in pre-game lobby — actions
+   *  and bot ticks are gated. Flipped to `true` by the `start-game`
+   *  message (host only). */
+  started?: boolean;
+  /** When the host hit start; useful for "started 14m ago" UI. */
   startedAt?: number;
   /** Seat-claim ledger: `playerId → display name`. A seat in this
    *  map is owned by a connected human (the connection record holds
@@ -163,6 +167,26 @@ export async function claimSeat(
     }),
   );
   return claims;
+}
+
+/**
+ * Flip a room out of pre-game lobby into live play. Idempotent:
+ * calling on an already-started room is a no-op (the host can't
+ * undo a start, but they can hit it twice without breaking).
+ */
+export async function startGame(code: string): Promise<void> {
+  await ddb.send(
+    new UpdateCommand({
+      TableName: Resource.Rooms.name,
+      Key: { code },
+      UpdateExpression: "SET started = :s, startedAt = :a, expiresAt = :e",
+      ExpressionAttributeValues: {
+        ":s": true,
+        ":a": Date.now(),
+        ":e": Math.floor(Date.now() / 1000) + ROOM_TTL_SECONDS,
+      },
+    }),
+  );
 }
 
 /**

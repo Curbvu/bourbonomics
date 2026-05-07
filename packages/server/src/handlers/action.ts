@@ -52,9 +52,14 @@ import {
   putConnection,
   putRoom,
   releaseSeat,
+  startGame,
   updateRoomState,
   type RoomRecord,
 } from "../lib/rooms.js";
+
+/** Convention: seat 0 is always the host. The bootstrap function
+ *  hard-codes the id as `human0`. */
+const HOST_PLAYER_ID = "human0";
 
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // dropped 0/O/1/I
 
@@ -92,6 +97,9 @@ export const handler: WsHandler = async (event) => {
         break;
       case "release-seat":
         await handleReleaseSeat(connectionId);
+        break;
+      case "start-game":
+        await handleStartGame(connectionId);
         break;
       case "action":
         await handleAction(connectionId, msg.action);
@@ -140,6 +148,7 @@ async function handleCreateRoom(
     state,
     seq: 0,
     expiresAt: 0, // putRoom sets the real value
+    started: false,
     seatClaims,
   };
   await putRoom(room);
@@ -159,6 +168,8 @@ async function handleCreateRoom(
     state,
     seq: 0,
     roster: buildRoster(state, seatClaims),
+    started: false,
+    hostPlayerId: HOST_PLAYER_ID,
   });
 }
 
@@ -200,6 +211,8 @@ async function handleJoinRoom(
     state: room.state,
     seq: room.seq,
     roster: buildRoster(room.state, claims),
+    started: room.started ?? false,
+    hostPlayerId: HOST_PLAYER_ID,
   });
 }
 
@@ -258,6 +271,53 @@ async function handleClaimSeat(
 }
 
 // ---------------------------------------------------------------------------
+// start-game
+// ---------------------------------------------------------------------------
+async function handleStartGame(connectionId: string): Promise<void> {
+  const conn = await getConnection(connectionId);
+  if (!conn || !conn.roomCode) {
+    await sendToConnection(connectionId, { type: "error", reason: "not-in-a-room" });
+    return;
+  }
+  if (conn.playerId !== HOST_PLAYER_ID) {
+    await sendToConnection(connectionId, { type: "error", reason: "host-only" });
+    return;
+  }
+  const room = await getRoom(conn.roomCode);
+  if (!room) {
+    await sendToConnection(connectionId, { type: "error", reason: "room-evicted" });
+    return;
+  }
+  if (room.started) {
+    // Idempotent — just resync so the host's view catches up.
+    await sendToConnection(connectionId, {
+      type: "state",
+      state: room.state,
+      seq: room.seq,
+      started: true,
+    });
+    return;
+  }
+
+  await startGame(conn.roomCode);
+
+  // Broadcast the lifecycle flip with the current roster so all
+  // observers transition out of the lobby together.
+  await broadcastToRoom(conn.roomCode, {
+    type: "state",
+    state: room.state,
+    seq: room.seq,
+    started: true,
+    roster: buildRoster(room.state, room.seatClaims ?? {}),
+  });
+
+  // Bots may already be on the clock if seat 0 (host) isn't first
+  // by orchestrator order — drive them forward immediately so the
+  // start feels live.
+  await driveBotsForward(conn.roomCode, room.state, room.seq);
+}
+
+// ---------------------------------------------------------------------------
 // release-seat
 // ---------------------------------------------------------------------------
 async function handleReleaseSeat(connectionId: string): Promise<void> {
@@ -300,6 +360,13 @@ async function handleAction(connectionId: string, action: GameAction): Promise<v
   const room = await getRoom(conn.roomCode);
   if (!room) {
     await sendToConnection(connectionId, { type: "error", reason: "room-evicted" });
+    return;
+  }
+  if (!room.started) {
+    await sendToConnection(connectionId, {
+      type: "error",
+      reason: "game-not-started",
+    });
     return;
   }
 
@@ -373,6 +440,7 @@ async function handleResync(connectionId: string): Promise<void> {
     state: room.state,
     seq: room.seq,
     roster: buildRoster(room.state, room.seatClaims ?? {}),
+    started: room.started ?? false,
   });
 }
 

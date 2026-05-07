@@ -49,10 +49,23 @@ import { TIER_CHROME, tierOrCommon } from "./tierStyles";
 import { MoneyText } from "./money";
 
 export default function HandTray() {
-  const { state, seatMeta } = useGameStore();
+  const { state, seatMeta, multiplayerMode } = useGameStore();
   if (!state) return null;
-  const focused = focusedPlayer(state);
-  if (!focused) return null;
+  // In multiplayer, the tray belongs to whichever seat THIS connection
+  // owns — not the first non-bot, which would be the host on every
+  // remote screen. Spectators (no claimed seat) see no tray; they
+  // observe via the Rickhouse strip + RoomBanner instead.
+  const focused = multiplayerMode
+    ? multiplayerMode.playerId
+      ? state.players.find((p) => p.id === multiplayerMode.playerId) ?? null
+      : null
+    : focusedPlayer(state);
+  if (!focused) {
+    if (multiplayerMode) {
+      return <SpectatorTray />;
+    }
+    return null;
+  }
   const playerIndex = state.players.findIndex((p) => p.id === focused.id);
   const meta = seatMeta.find((m) => m.id === focused.id);
 
@@ -338,6 +351,25 @@ function focusedPlayer(state: GameState): PlayerState | null {
     return state.players[state.currentPlayerIndex] ?? state.players[0]!;
   }
   return state.players[0]!;
+}
+
+/**
+ * Slim tray shown to multiplayer observers (visitors who joined a
+ * room without claiming a seat). Replaces the full hand UI so we
+ * don't accidentally leak someone else's cards into the spectator's
+ * view; the action board above stays fully visible.
+ */
+function SpectatorTray() {
+  return (
+    <div className="border-t border-slate-800 bg-slate-950/90 px-[18px] py-3 text-center">
+      <p className="font-mono text-[11px] uppercase tracking-[.18em] text-slate-400">
+        👁 Spectating
+      </p>
+      <p className="mt-1 text-[12px] text-slate-400">
+        Claim an open seat from the room banner to play.
+      </p>
+    </div>
+  );
 }
 
 // -----------------------------

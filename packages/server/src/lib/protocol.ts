@@ -46,6 +46,13 @@ export type ClientMessage =
       type: "release-seat";
     }
   | {
+      /** Host-only — flip the room out of pre-game lobby into live
+       *  play. While `started: false` the server rejects every
+       *  `action` message, so bots and humans alike sit idle until
+       *  the host hits start. */
+      type: "start-game";
+    }
+  | {
       /** Dispatch a game action. The server validates that the
        *  caller's claimed seat matches `action.playerId`, applies
        *  via the engine, persists, and broadcasts. */
@@ -87,6 +94,11 @@ export type ServerMessageOut =
       state: GameState;
       seq: number;
       roster: SeatInfo[];
+      /** Whether the host has flipped the lobby into live play. */
+      started: boolean;
+      /** Convention: `human0` is always the host (seat 0). Surfaced
+       *  here so the client can gate the start button. */
+      hostPlayerId: string;
     }
   | {
       type: "state";
@@ -101,6 +113,9 @@ export type ServerMessageOut =
        *  release). Omitted on plain action broadcasts to keep the
        *  frame small. */
       roster?: SeatInfo[];
+      /** Sent on the `start-game` broadcast (and any other lifecycle
+       *  flip). Omitted on plain action broadcasts. */
+      started?: boolean;
     }
   | {
       type: "error";
