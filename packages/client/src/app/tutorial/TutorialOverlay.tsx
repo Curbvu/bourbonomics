@@ -196,11 +196,12 @@ function Tooltip({
       };
     }
     if (!bbox) {
-      // Bottom-center pin — visible at any zoom, sits below the live
-      // modal so both stay readable. ~140px above the bottom edge to
-      // clear the action bar / hand tray on a populated game.
+      // Top-center pin — sits just under the GameTopBar, well clear
+      // of the rickhouse / hand / picker overlays. The tooltip has
+      // pointer-events: auto for its own buttons, so anywhere it sits
+      // blocks clicks beneath it; up here it only covers blank canvas.
       return {
-        top: window.innerHeight - 220,
+        top: 64,
         left: "50%" as const,
         transform: "translateX(-50%)",
       };

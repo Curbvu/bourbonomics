@@ -96,7 +96,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: "hand",
     title: "Your hand",
     body:
-      "Your eight-card round hand. You spend casks, corn, and grain to build bourbon, capital to buy from the market, and any card to age or sell. Resource and capital cards left over at end of round go to your discard.",
+      "Your eight-card round hand. Spend casks, corn, and grain to build bourbon, capital to buy from the market, and any card to age or sell. Tip: in Make and Age modes you can also drag cards straight onto a slot in your rickhouse — no need to click through the picker.",
     spotlight: "[data-hand-tray='true']",
     anchor: "above",
     advance: "manual",
@@ -110,12 +110,16 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     anchor: "above",
     advance: "manual",
   },
+  // Active-gameplay steps below: NULL spotlight on purpose, so the
+  // tooltip floats top-center and the player has free use of the
+  // action bar, hand, rickhouse, and picker overlays simultaneously.
+  // Spotlighting one zone here used to cover the others.
   {
     id: "make-bourbon",
     title: "Build your first barrel",
     body:
-      "Click 'Make bourbon' in the action bar, pick your bill in the rickhouse, then commit one cask + one corn + one grain (rye / wheat / barley) from your hand. Once the recipe is satisfied the barrel transitions to aging.",
-    spotlight: "[data-bb-zone='action-bar']",
+      "Click 'Make' in the action bar, then commit one cask + one corn + one grain (rye / wheat / barley) — tap each card to tag it, OR drag a card straight onto a slot in your rickhouse to commit it instantly. Confirm and the barrel starts aging.",
+    spotlight: null,
     anchor: "above",
     advance: (s) => {
       const me = s.players.find((p) => !p.isBot);
@@ -129,11 +133,10 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: "end-turn-1",
     title: "End your turn",
     body:
-      "A barrel just finished construction can't age until next round — completion isn't a free aging year. End your turn so the bot can play and the round can wrap.",
-    spotlight: "[data-bb-zone='action-bar']",
+      "A just-completed barrel can't age until next round. Click End Turn so the bot can play and the round can wrap.",
+    spotlight: null,
     anchor: "above",
     advance: (s, prev) => {
-      // Advance when round ticks forward (cleanup happened).
       if (!prev) return false;
       return s.round > prev.round;
     },
@@ -142,9 +145,9 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: "age-barrel",
     title: "Pay the holding cost",
     body:
-      "New rule (v2.9): every turn one of your aging barrels takes a fresh card on top — the cost of keeping inventory while you wait for demand to rise. After your demand roll, the Age overlay opens automatically. Pick a barrel, then a card to commit.",
-    spotlight: "[data-rickhouse-row='true']",
-    anchor: "below",
+      "Each turn one of your aging barrels takes a fresh card on top — the cost of waiting for demand. The Age overlay auto-opens after your roll. Pick a barrel and any card from your hand (either order is fine), or drag a card directly onto the barrel.",
+    spotlight: null,
+    anchor: "above",
     advance: (s) => {
       const me = s.players.find((p) => !p.isBot);
       if (!me) return false;
@@ -159,7 +162,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     title: "End your turn again",
     body:
       "Aging takes time. End your turn — when you come back next round you'll age once more, hit age 2, and the barrel will be saleable.",
-    spotlight: "[data-bb-zone='action-bar']",
+    spotlight: null,
     anchor: "above",
     advance: (s) => {
       const me = s.players.find((p) => !p.isBot);
@@ -174,8 +177,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: "sell",
     title: "Sell your bourbon",
     body:
-      "Your barrel is age 2 — saleable! Click 'Sell bourbon', pick the barrel, then pick any card from your hand to spend on the sale. The grid pays out as reputation, then the barrel ships.",
-    spotlight: "[data-bb-zone='action-bar']",
+      "Your barrel is age 2 — saleable! Click 'Sell' in the action bar, pick the barrel, then pick any card from your hand to spend on the sale. The grid pays out as reputation, then the barrel ships.",
+    spotlight: null,
     anchor: "above",
     advance: (s) => {
       const me = s.players.find((p) => !p.isBot);
