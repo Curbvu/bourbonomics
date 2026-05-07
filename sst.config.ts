@@ -112,10 +112,17 @@ export default $config({
     const sharedHandlerProps = {
       link: [rooms, connections, wsApi],
       runtime: "nodejs22.x" as const,
-      timeout: "10 seconds" as const,
+      // Bumped from 10s to 15s — `$connect` cold starts on a freshly
+      // deployed stack can hit ~6s for the SDK + Resource binding
+      // bootstrap, which sometimes brushed up against the prior
+      // budget and returned 502 to the client.
+      timeout: "15 seconds" as const,
+      memory: "256 MB" as const,
       // Bundle the engine workspace into each Lambda — esbuild walks the
       // monorepo via Node's module resolution, so importing
-      // `@bourbonomics/engine` Just Works once the bundler runs.
+      // `@bourbonomics/engine` Just Works once the bundler runs. Immer
+      // is the only native-ish dep that needs explicit install; the
+      // AWS SDK packages are in the Node 22 Lambda runtime.
       nodejs: { install: ["immer"] },
     };
 
