@@ -182,10 +182,10 @@ function Tooltip({
   // Position the tooltip:
   //   anchor=center                   → dead-center of the viewport
   //                                     (welcome / done splashes)
-  //   anchor=above/below, no bbox     → float bottom-right so an
-  //                                     existing centered modal (the
-  //                                     starter-draft / demand-roll /
-  //                                     draw modals) stays clickable
+  //   anchor=above/below, no bbox     → bottom-center, just above the
+  //                                     action bar — hard to miss and
+  //                                     doesn't cover the modals that
+  //                                     anchor to the screen midpoint
   //   anchor=above/below, with bbox   → above/below the spotlight
   const pos = useMemo(() => {
     if (step.anchor === "center") {
@@ -196,11 +196,13 @@ function Tooltip({
       };
     }
     if (!bbox) {
-      // Float bottom-right so the live modal mid-screen stays usable.
+      // Bottom-center pin — visible at any zoom, sits below the live
+      // modal so both stay readable. ~140px above the bottom edge to
+      // clear the action bar / hand tray on a populated game.
       return {
         top: window.innerHeight - 220,
-        left: window.innerWidth - TOOLTIP_W - 24,
-        transform: "none" as const,
+        left: "50%" as const,
+        transform: "translateX(-50%)",
       };
     }
     const cx = bbox.left + bbox.width / 2;

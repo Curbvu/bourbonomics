@@ -31,18 +31,33 @@ export default function TutorialPage() {
   const { state, newGame, dragMake } = useGameStore();
   const startedRef = useRef(false);
 
-  // Mint a fresh tutorial game on first paint. Skipping when one's
-  // already there means a hot reload doesn't kick the player back to
-  // step 1 mid-walk.
+  // Mint a fresh tutorial game on first paint. Re-init if a stale
+  // /play save bleeds in via the GameProvider's localStorage
+  // hydration (its useEffect fires AFTER ours, so without this guard
+  // the tutorial state gets clobbered seconds after we set it). We
+  // detect "not ours" by checking the seed — TUTORIAL_SEED is unique
+  // to this route. After the re-init lands, the persistence useEffect
+  // will save the tutorial state back to localStorage and the loop
+  // terminates.
   useEffect(() => {
-    if (startedRef.current) return;
+    const isOurState = state != null && state.seed === TUTORIAL_SEED;
+    if (isOurState) {
+      startedRef.current = true;
+      return;
+    }
+    if (startedRef.current && state != null) {
+      // We already kicked off newGame this session AND there's some
+      // state — wait for the hydration race to settle rather than
+      // re-firing on every render.
+      return;
+    }
     startedRef.current = true;
     newGame({
       human: { name: "You" },
       bots: [{ name: "Tutor", difficulty: "easy" }],
       seed: TUTORIAL_SEED,
     });
-  }, [newGame]);
+  }, [state, newGame]);
 
   // Mirror the play page's drag-state body attribute so make-card
   // dimming still works inside the tutorial.
