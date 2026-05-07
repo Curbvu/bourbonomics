@@ -50,18 +50,24 @@ describe("mash bill complexity tier — per-tier curve", () => {
     }
   });
 
-  it("Tier 1 bills run a single-axis grid (1×N or N×1, exactly 2 cells)", () => {
+  it("Tier 1 bills run a small grid — at most 2×2 (≤4 cells)", () => {
     const t1 = defaultMashBillCatalog().filter((b) => b.complexityTier === 1);
     for (const bill of t1) {
       const rows = bill.rewardGrid.length;
       const cols = bill.rewardGrid[0]!.length;
-      const total = rows * cols;
-      expect(
-        rows === 1 || cols === 1,
-        `${bill.defId} is ${rows}×${cols}; tier 1 must be single-axis`,
-      ).toBe(true);
-      expect(total, `${bill.defId} has ${total} cells; tier 1 must have 2`).toBe(2);
+      expect(rows, `${bill.defId} has ${rows} age bands; tier 1 cap is 2`).toBeLessThanOrEqual(2);
+      expect(cols, `${bill.defId} has ${cols} demand bands; tier 1 cap is 2`).toBeLessThanOrEqual(2);
     }
+  });
+
+  it("most Tier 1 bills are single-axis (1×N or N×1) for at-a-glance reading", () => {
+    const t1 = defaultMashBillCatalog().filter((b) => b.complexityTier === 1);
+    const singleAxis = t1.filter(
+      (b) => b.rewardGrid.length === 1 || b.rewardGrid[0]!.length === 1,
+    );
+    // At least 60% should be single-axis. The rest can run 2×2 for
+    // variety (matches v2.5: 5 single-axis + 2 small 2×2 out of 7).
+    expect(singleAxis.length / t1.length).toBeGreaterThanOrEqual(0.6);
   });
 
   it("Tier 2 bills peak between 6 and 9", () => {

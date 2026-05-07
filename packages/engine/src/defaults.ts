@@ -236,9 +236,9 @@ export function defaultMashBillCatalog(): MashBill[] {
   return [
     // ──────────────── Tier 1 — Starter bills ────────────────
     // Forgiving payouts, no recipe constraints beyond the universal
-    // rule. **One axis of variation only** — commons read as "small
-    // ladders" so beginners can scan them at a glance. Half lean on
-    // age (2×1), half on demand (1×2). Reward range ~2–5.
+    // rule. **Small grids** — five 1×2 / 2×1 single-axis ladders
+    // beginners can scan at a glance, plus a couple of compact 2×2
+    // bills for variety. Reward range ~2–5.
     makeMashBill(
       {
         defId: "knobs_end_90",
@@ -279,10 +279,14 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Whatever the rickhouse manager grabbed last. Consistent enough to ship.",
         tier: "common",
         complexityTier: 1,
-        // 1×2 — demand-driven. Whatever ships, ships.
-        ageBands: [2],
+        // 2×2 — slightly richer common; rewards both age and demand.
+        // The "manager grabbed something" bill earns a fuller grid.
+        ageBands: [2, 4],
         demandBands: [3, 6],
-        rewardGrid: [[3, 5]],
+        rewardGrid: [
+          [2, 3],
+          [3, 5],
+        ],
       },
       0,
     ),
@@ -340,11 +344,14 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Eighty percent corn, twenty percent everything else.",
         tier: "common",
         complexityTier: 1,
-        // 1×2 — demand-driven. Sweet corn always sells better in
-        // a hot market. One easy recipe constraint (≥2 corn).
-        ageBands: [2],
+        // 2×2 — most varied common; corn-forward bill earns both
+        // axes. Easy recipe constraint (≥2 corn).
+        ageBands: [2, 4],
         demandBands: [3, 6],
-        rewardGrid: [[3, 5]],
+        rewardGrid: [
+          [2, 4],
+          [3, 5],
+        ],
         recipe: { minCorn: 2 },
       },
       0,
@@ -362,13 +369,14 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Wheated mash bill that doesn't argue.",
         tier: "uncommon",
         complexityTier: 2,
-        // Wheated constraint (≥2 wheat). Smooth payoff curve.
-        ageBands: [3, 5],
+        // 1×3 — flat-age, demand-driven. Wheated bills don't change
+        // much with age — the soft pour just rides the market.
+        // ≥2 wheat, no rye. Silver still rewards aging the barrel
+        // even though the grid doesn't (silver reads the barrel's
+        // raw age, not the grid bin).
+        ageBands: [3],
         demandBands: [3, 5, 8],
-        rewardGrid: [
-          [2, 4, 5],
-          [3, 6, 7],
-        ],
+        rewardGrid: [[3, 5, 7]],
         recipe: { minWheat: 2, maxRye: 0 },
         silverAward: { minAge: 5, minDemand: 5 },
       },
@@ -382,12 +390,12 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Each stave numbered, each pour narrated.",
         tier: "uncommon",
         complexityTier: 2,
-        // Rye character — peaks at HIGH demand. ≥2 rye.
-        ageBands: [3, 5],
-        demandBands: [3, 6, 8],
+        // 2×2 — narrated stave, hot-demand pour. ≥2 rye.
+        ageBands: [3, 6],
+        demandBands: [5, 8],
         rewardGrid: [
-          [2, 4, 6],
-          [3, 5, 8],
+          [3, 5],
+          [4, 8],
         ],
         recipe: { minRye: 2 },
         silverAward: { minAge: 5, minDemand: 6 },
@@ -402,13 +410,12 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "A blender's standby — char level four, vanilla up front.",
         tier: "uncommon",
         complexityTier: 2,
-        // Mid-demand bias, ≥2 barley.
-        ageBands: [3, 5],
+        // 1×3 — flat-age, demand-driven. The blender's standby pours
+        // the same at any reasonable age; market sets the price.
+        // ≥2 barley.
+        ageBands: [3],
         demandBands: [3, 5, 8],
-        rewardGrid: [
-          [3, 4, 5],
-          [4, 5, 7],
-        ],
+        rewardGrid: [[3, 5, 7]],
         recipe: { minBarley: 2 },
         silverAward: { minAge: 5 },
       },
@@ -422,12 +429,13 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Spicy rye-forward bend with a citrus undercurrent.",
         tier: "uncommon",
         complexityTier: 2,
-        // Rye character — high demand peak. ≥2 rye.
-        ageBands: [3, 5],
-        demandBands: [3, 5, 8],
+        // 2×2 — rye whistle reads two-by-two: age × hot demand.
+        // ≥2 rye.
+        ageBands: [3, 6],
+        demandBands: [3, 7],
         rewardGrid: [
-          [2, 4, 5],
-          [3, 6, 9],
+          [3, 5],
+          [4, 8],
         ],
         recipe: { minRye: 2 },
         silverAward: { minAge: 5, minDemand: 5 },
@@ -442,14 +450,12 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Barley-heavy pot still that refuses to be subtle.",
         tier: "uncommon",
         complexityTier: 2,
-        // Holds across age. ≥2 barley.
+        // 3×1 — pure aging play, demand-flat. The barley bastion
+        // is patience-priced: the market doesn't move it; the
+        // calendar does. ≥2 barley.
         ageBands: [2, 4, 6],
-        demandBands: [3, 6],
-        rewardGrid: [
-          [3, 4],
-          [4, 6],
-          [6, 8],
-        ],
+        demandBands: [3],
+        rewardGrid: [[3], [5], [7]],
         recipe: { minBarley: 2 },
         silverAward: { minAge: 6 },
       },
@@ -511,14 +517,15 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Ninety-five percent rye — pepper, mint, and a long ladder down the throat.",
         tier: "rare",
         complexityTier: 3,
-        // Hard rye character — peak rewards locked behind hot demand.
-        // 3 rye + 1 specialty rye gates Gold-tier returns.
+        // 3×2 — climbs hard with age, two clear demand bands. 95%
+        // rye is a one-axis-of-character bill. 3 rye + 1 specialty
+        // rye gates the Gold pour.
         ageBands: [3, 5, 7],
-        demandBands: [3, 6, 8],
+        demandBands: [3, 7],
         rewardGrid: [
-          [2, 4, 6],
-          [3, 5, 9],
-          [4, 7, 12],
+          [3, 6],
+          [4, 8],
+          [6, 12],
         ],
         recipe: { minRye: 3, minSpecialty: { rye: 1 } },
         silverAward: { minAge: 5, minDemand: 6 },
@@ -534,13 +541,12 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Built by hand, voted on by committee. The cooperage's house pour.",
         tier: "rare",
         complexityTier: 3,
-        // Three-grain commitment; cooper's specialty cask is the rare
-        // gate. Pays smoothly across demand, peaks at high age.
-        ageBands: [3, 5, 7],
+        // 2×3 — committee-priced, smooth across demand. Three-grain
+        // commitment + specialty cask gates the rare pour.
+        ageBands: [3, 6],
         demandBands: [3, 5, 8],
         rewardGrid: [
-          [2, 4, 5],
-          [3, 6, 8],
+          [3, 5, 7],
           [5, 8, 10],
         ],
         recipe: {
@@ -562,14 +568,14 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "The barrel left a watermark in the air. The bottle preserves what stayed.",
         tier: "rare",
         complexityTier: 3,
-        // Specialty wheat is the rare ingredient that makes the
-        // angel's share worth signing for.
-        ageBands: [4, 6, 8],
-        demandBands: [3, 6, 9],
+        // 2×2 — sparse high-stakes grid. Specialty wheat is the
+        // rare ingredient that makes the angel's share worth
+        // signing for.
+        ageBands: [4, 7],
+        demandBands: [4, 8],
         rewardGrid: [
-          [3, 4, 6],
-          [4, 6, 9],
-          [5, 8, 11],
+          [4, 7],
+          [6, 11],
         ],
         recipe: { minWheat: 1, minBarley: 1, minSpecialty: { wheat: 1 } },
         silverAward: { minAge: 6, minDemand: 6 },
@@ -613,14 +619,16 @@ export function defaultMashBillCatalog(): MashBill[] {
         flavorText: "Bottled-in-bond standard with a heavier proof.",
         tier: "epic",
         complexityTier: 3,
-        // Rye-bonded — hard high-demand peak. Specialty rye gates the
-        // Gold pour. Age-skewed: only crushes at age 6+ and demand 8+.
+        // 3×2 — bonded character is about age, not demand swings.
+        // Pairs with Mash Bill No. 7 (3×3) so the two epics read
+        // as distinct shapes at a glance. Specialty rye gates the
+        // Gold pour.
         ageBands: [4, 6, 8],
-        demandBands: [3, 6, 8],
+        demandBands: [4, 8],
         rewardGrid: [
-          [2, 5, 7],
-          [3, 7, 10],
-          [4, 8, 12],
+          [4, 7],
+          [5, 9],
+          [6, 12],
         ],
         recipe: { minBarley: 1, minRye: 1, minSpecialty: { rye: 1 } },
         silverAward: { minAge: 6 },
