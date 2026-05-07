@@ -784,22 +784,47 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Auto-fire age the moment the player has both picks — no Confirm
-  // button. Mirrors sell-mode's `fireSell`.
+  // button. Mirrors sell-mode's `fireSell`. Uses the MP-aware seat id
+  // so the multiplayer flow targets the dispatcher's claimed seat
+  // (not just `players.find(!isBot)` which always resolves to the
+  // host on every screen).
   const fireAge = useCallback(
     (barrelId: string, cardId: string) => {
-      const human = store.state?.players.find((p) => !p.isBot);
-      if (!human) return;
+      const seatId = multiplayerMode
+        ? multiplayerMode.playerId
+        : store.state?.players.find((p) => !p.isBot)?.id;
+      if (!seatId) return;
       const action: GameAction = {
         type: "AGE_BOURBON",
-        playerId: human.id,
+        playerId: seatId,
         barrelId,
         cardId,
       };
       setAgeMode(null);
       dispatch(action);
     },
-    [store.state, dispatch],
+    [multiplayerMode, store.state, dispatch],
   );
+
+  // v2.9: auto-open Age mode the moment the local seat owes a per-turn
+  // aging commit. The user can still Cancel out (gives up the turn via
+  // PASS_TURN); without this, they'd see no UI prompt and wonder why
+  // every other action is rejecting.
+  useEffect(() => {
+    const s = store.state;
+    if (!s || s.phase !== "action") return;
+    const seatId = multiplayerMode
+      ? multiplayerMode.playerId
+      : s.players.find((p) => !p.isBot)?.id;
+    if (!seatId) return;
+    const me = s.players.find((p) => p.id === seatId);
+    if (!me) return;
+    if (s.players[s.currentPlayerIndex]?.id !== seatId) return;
+    if (!me.needsAgeBarrels) return;
+    if (me.needsDemandRoll) return; // demand modal still owns the screen
+    if (ageMode) return;
+    setAgeMode({ pickedBarrelId: null, pickedCardId: null });
+  }, [store.state, multiplayerMode, ageMode]);
 
   const setAgeBarrel = useCallback(
     (barrelId: string) => {

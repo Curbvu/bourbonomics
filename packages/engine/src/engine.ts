@@ -37,6 +37,36 @@ export class IllegalActionError extends Error {
  * Pure validation. Never throws; safe for UI gating.
  */
 export function validateAction(state: GameState, action: GameAction): ValidationResult {
+  // v2.9: in the action phase, the current player must roll demand
+  // before doing anything else. PLAY_OPERATIONS_CARD stays free since
+  // it's a 0-cost prelude historically — but every other "real" action
+  // is gated on the per-turn demand roll.
+  if (state.phase === "action" && action.type !== "ROLL_DEMAND" && action.type !== "PLAY_OPERATIONS_CARD") {
+    const current = state.players[state.currentPlayerIndex];
+    if (current && current.needsDemandRoll) {
+      return {
+        legal: false,
+        reason: `${current.id} must roll demand before taking other actions`,
+      };
+    }
+    // v2.9: after the demand roll, the player must commit one card to
+    // an aging barrel before sales / buys / trades / new builds. The
+    // narrow allow-list (AGE / ABANDON / PASS / PLAY_OPS) lets them
+    // satisfy the cost, give up the turn, or fire free ops cards.
+    if (current && current.needsAgeBarrels) {
+      const allowedDuringAgePhase = new Set([
+        "AGE_BOURBON",
+        "ABANDON_BARREL",
+        "PASS_TURN",
+      ]);
+      if (!allowedDuringAgePhase.has(action.type)) {
+        return {
+          legal: false,
+          reason: `${current.id} must age a barrel before taking other actions`,
+        };
+      }
+    }
+  }
   switch (action.type) {
     case "SELECT_DISTILLERY":
       return validateSelectDistillery(state, action);

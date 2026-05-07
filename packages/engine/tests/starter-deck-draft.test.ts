@@ -222,11 +222,11 @@ describe("STARTER_PASS", () => {
     expect(next.phase).toBe("starter_deck_draft"); // p2 hasn't passed yet
   });
 
-  it("finalizes when every drafter has passed: shuffles starter hands into decks and transitions to demand", () => {
+  it("finalizes when every drafter has passed: shuffles starter hands into decks and transitions to draw", () => {
     let state = makeDraftGame();
     state = applyAction(state, { type: "STARTER_PASS", playerId: "p1" });
     state = applyAction(state, { type: "STARTER_PASS", playerId: "p2" });
-    expect(state.phase).toBe("demand");
+    expect(state.phase).toBe("draw");
     for (const p of state.players) {
       expect(p.starterHand).toHaveLength(0);
       expect(p.deck.length).toBeGreaterThanOrEqual(STARTER_HAND_SIZE);

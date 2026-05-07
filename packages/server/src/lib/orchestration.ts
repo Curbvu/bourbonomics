@@ -47,16 +47,12 @@ export function nextActorIsHuman(state: GameState): boolean {
       return isHuman(next);
     }
     case "action": {
+      // v2.9: each action turn opens with the player rolling demand,
+      // then taking their actions. Either way the server should pause
+      // when the cursor is on a human — the modal collects the roll,
+      // and the ActionBar collects the rest.
       const current = state.players[state.currentPlayerIndex];
       return isHuman(current);
-    }
-    case "demand": {
-      // Demand-rolling is a once-per-round ceremony the host clicks
-      // through via DemandRollModal (only the host sees it in MP).
-      // Without this gate the server auto-rolls before the modal can
-      // render, and the host never gets the visible roll animation.
-      const host = state.players[0];
-      return isHuman(host);
     }
     // `setup` / `cleanup` / `ended` aren't states the orchestrator
     // runs during normal play.

@@ -128,7 +128,8 @@ function describe(
       const sum = a.roll[0] + a.roll[1];
       return (
         <>
-          Demand roll: <span className="font-mono tabular-nums text-amber-200">{a.roll[0]} + {a.roll[1]} = {sum}</span>.
+          {who(a.playerId)} rolled demand:{" "}
+          <span className="font-mono tabular-nums text-amber-200">{a.roll[0]} + {a.roll[1]} = {sum}</span>.
         </>
       );
     }

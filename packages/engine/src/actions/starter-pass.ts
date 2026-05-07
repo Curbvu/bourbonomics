@@ -44,5 +44,7 @@ export function applyStarterPass(
     p.starterHand = [];
   }
   draft.starterUndealtPool = [];
-  draft.phase = "demand";
+  // v2.9: starter draft → draw directly. Demand is rolled per-player
+  // at the top of each action turn.
+  draft.phase = "draw";
 }

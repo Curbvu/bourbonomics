@@ -95,6 +95,14 @@ Five phases per round:
 4. **Action** — players take full turns in the rotated order. See [§Action Phase](#-phase-4-action-phase).
 5. **Cleanup** — unused resource and capital cards go to discard; per-round flags reset; start player rotates one seat counter-clockwise.
 
+> **v2.9 — per-turn demand + mandatory aging.** Demand is no longer rolled once at the top of the round, and the dedicated Age phase is gone. Each action turn now runs as a tight three-step loop:
+>
+> 1. **Roll demand** (mandatory first action — 2d6, demand rises if greater)
+> 2. **Age barrels** (mandatory second action — commit one card to one of your aging barrels; this is the holding cost for inventory you're sitting on)
+> 3. **Take actions** (Make / Sell / Buy / Trade / Draw / Pass — same as before)
+>
+> The per-round phase strip becomes **Draw → Action → Cleanup**. The demand roll and aging commit are gated by per-player flags inside the action phase; the engine refuses Make / Sell / Buy until the player has paid the cost. Players with no aging barrels skip step 2 automatically; players who can't afford to age can `PASS_TURN` and forfeit the turn (their barrels stay un-aged).
+
 **Operations cards persist** — they're not discarded at end of round.
 
 ---
@@ -109,11 +117,11 @@ For 4 players seated 1-2-3-4: rounds run 1234 → 4123 → 3412 → 2341 → 123
 
 ---
 
-# 🎲 Phase 1 — Demand
+# 🎲 Demand (per-turn, v2.9)
 
-Roll **2d6**. If the result is **greater than** current demand, demand **rises by 1** (cap 12). Otherwise it holds.
+At the **top of each player's action turn** (before any other action), the active player rolls **2d6**. If the result is **greater than** current demand, demand **rises by 1** (cap 12). Otherwise it holds. The roll is a mandatory first action — the engine rejects Make/Age/Sell/Buy/Trade until it lands.
 
-This is the only natural rise. Demand **falls by 1** for each barrel sold (floor 0). Some ops cards move it directly.
+This is the only natural rise — but with N players acting per round, demand can climb up to N times before the round ends, which speeds the market more than the old once-per-round roll. Demand still **falls by 1** for each barrel sold (floor 0). Some ops cards move it directly.
 
 The bell curve of 2d6 means demand drifts toward the middle, with rare booms and crashes.
 
@@ -127,17 +135,22 @@ Operations cards are NOT auto-drawn — they're bought from the ops market.
 
 ---
 
-# 🛢️ Phase 3 — Age
+# 🛢️ Aging (per-turn, v2.9)
 
-For each of your **aging barrels**, you may place one face-down card from your hand on top to advance its age by 1 year. Aging is optional but it's the primary path to reputation — most bourbons need years to pay out well.
+After rolling demand at the top of your turn, you **must commit one card from your hand to one of your aging barrels** before taking any other action. This is the holding cost for keeping inventory in the rickhouse — every turn a barrel sits unsold, you pay 1 card to keep it alive.
 
-Aging cards advance the barrel's age and nothing else. They do not contribute to sale payout beyond the age they buy on the grid.
+The committed card advances the barrel's age by 1 year (or more for cards with bonus ages). Aging cards do not contribute to sale payout beyond the age they buy on the grid — their value is the year they purchase.
 
-**Staged and Building barrels do not age.** A barrel only starts aging once its recipe is fully satisfied — partial pile, no aging. See [§Make Bourbon](#make-bourbon) for the slot lifecycle.
-
-A barrel may only age **once per round** unless an ops card explicitly grants more.
+**Staged and Building barrels do not age.** A barrel only starts aging once its recipe is fully satisfied — partial pile, no aging. See [§Make Bourbon](#make-bourbon) for the slot lifecycle. The aging commit only fires for barrels that are already in the **aging** phase.
 
 When the barrel sells, all aging cards go to the player's discard.
+
+### Edge cases
+
+- **No aging barrels** — the cost is skipped; you go straight to step 3.
+- **No cards in hand** — you can't pay the cost. The only legal moves are `PASS_TURN` (forfeits the turn; your barrels stay un-aged) or `ABANDON_BARREL` for any **ready / construction** barrel (aging barrels can't be abandoned — sell them instead).
+- **Multiple aging barrels** — one commit satisfies the requirement. You can age more on the same turn (each barrel still ages at most once per round), but only one is mandatory.
+- **Just-completed barrels** — a barrel that finished construction this round doesn't age until next round; if your ONLY aging barrels fall in that bucket, the cost is skipped this turn.
 
 ---
 
@@ -624,6 +637,9 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 
 # 📜 Changelog
 
+- **v2.9** —
+  - **Per-turn demand rolls.** Demand is no longer a once-per-round global ceremony at the top of the round. Each player rolls their own 2d6 at the very start of *their own* action turn — it's the mandatory first action of the turn, gated by `player.needsDemandRoll` (set when the cursor lands on the seat, cleared by ROLL_DEMAND). The phase strip drops the dedicated `demand` phase; rounds now run **Draw → Action → Cleanup**. Demand can rise up to N times per round (once per player) instead of once total, accelerating the market. Multiplayer: each player sees their own demand-roll modal at the top of their turn (others wait for the broadcast); bots roll inline via the orchestrator.
+  - **Mandatory per-turn aging.** The dedicated Age phase is gone. Right after the demand roll, the active player **must commit one card from hand to one of their aging barrels** before taking any other action — gated by `player.needsAgeBarrels` (set by ROLL_DEMAND when the player has any un-aged aging barrel, cleared by AGE_BOURBON). Players with no aging barrels skip the cost; players with no cards in hand can `PASS_TURN` (forfeits the turn) or `ABANDON_BARREL` (only for ready/construction barrels — aging barrels can only leave via SELL). The per-turn loop is now: **Roll → Age → Actions**, creating a real holding cost for sitting on inventory while waiting for demand to rise.
 - **v2.8** —
   - **Multiplayer (online).** Host a 4-char-code room at `/multiplayer`; friends join via share link, claim seats, the host hits Start. Server-authoritative — every action round-trips through `applyAction` on AWS Lambda, then broadcasts to every connected client. Bot turns inline-step server-side so bot moves animate instantly between human turns. Pre-game lobby (waiting room with roster + Start button), seat claiming + release, reconnect-by-name, spectator mode, host-gated demand roll, per-seat draw modals. Setup-phase modals self-gate to the seat the engine is on the clock for. Infra: SST 4 / API Gateway WebSocket / DynamoDB rooms+connections / EventBridge cron tick fallback. See §Multiplayer for the full flow.
   - **Composition Buffs removed entirely.** The five threshold buffs (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all four grains) are deleted with no replacement. Sale resolution simplifies to grid lookup + Specialty bonus + awards. Aging cards now exclusively advance the age counter and contribute nothing else to sale payout. Resource cards do whatever their printed text says — most have no sale-time effect. The "demand does not drop on sale" effect previously granted by 2+ capital is preserved only via the Demand Surge ops card.

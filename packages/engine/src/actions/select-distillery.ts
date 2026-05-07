@@ -72,7 +72,9 @@ export function applySelectDistillery(
     if (draft.starterDeckDraftOrder.length > 0) {
       enterStarterDeckDraftPhase(draft);
     } else {
-      draft.phase = "demand";
+      // v2.9: skip demand phase entirely. Round 1 opens in draw —
+      // demand is rolled per-player at the top of each action turn.
+      draft.phase = "draw";
     }
   }
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
 import { makeCapitalCard, makeResourceCard } from "../src/cards.js";
-import { advanceToActionPhase, giveHand, makeTestGame } from "./helpers.js";
+import { advanceToActionPhase, giveHand, makeTestGame, passTurn } from "./helpers.js";
 
 describe("TRADE", () => {
   function setupTrade() {
@@ -115,9 +115,9 @@ describe("TRADE", () => {
     // Trade itself never ends the turn — both players still need to PASS_TURN.
     expect(state.phase).toBe("action");
     expect(state.currentPlayerIndex).toBe(0);
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
-    expect(state.phase).toBe("demand");
+    state = passTurn(state, "p1");
+    state = passTurn(state, "p2");
+    expect(state.phase).toBe("draw");
     expect(state.round).toBe(2);
   });
 });

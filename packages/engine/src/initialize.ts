@@ -86,6 +86,12 @@ export function initializeGame(config: GameConfig): GameState {
       pendingHalfCostMarketBuy: false,
       pendingMakeDiscount: null,
       pendingRatingBoost: 0,
+      // Set when the action-phase cursor lands on the player; cleared
+      // by ROLL_DEMAND. False at init since the game enters draw first.
+      needsDemandRoll: false,
+      // Set by ROLL_DEMAND when the player has any un-aged aging
+      // barrels; cleared by AGE_BOURBON / ABANDON_BARREL.
+      needsAgeBarrels: false,
     };
   });
 
@@ -139,7 +145,9 @@ export function initializeGame(config: GameConfig): GameState {
   let phase: GameState["phase"];
   if (distillerySelectionOrder.length > 0) phase = "distillery_selection";
   else if (starterDeckDraftOrder.length > 0) phase = "starter_deck_draft";
-  else phase = "demand";
+  // v2.9: demand is rolled per-player at the top of each action turn,
+  // not as a separate global phase. Setup lands directly in draw.
+  else phase = "draw";
 
   const initialState: GameState = {
     seed: config.seed,

@@ -40,7 +40,7 @@ export default function MainMenu() {
       if (!s || s.phase === "ended" || !s.players) return;
       setResume({
         round: s.round ?? 1,
-        phase: s.phase ?? "demand",
+        phase: s.phase ?? "draw",
         playerCount: s.players.length,
       });
     } catch {

@@ -100,6 +100,10 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
     return;
   }
   draft.currentPlayerIndex = nextActivePlayerIndex(draft, draft.currentPlayerIndex);
+  // v2.9: each player rolls demand at the top of their own action
+  // turn — re-arm the cursor's seat as we hand them the floor.
+  const next = draft.players[draft.currentPlayerIndex];
+  if (next) next.needsDemandRoll = true;
 }
 
 /**
@@ -141,7 +145,9 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
   draft.startPlayerIndex = (draft.startPlayerIndex - 1 + n) % n;
 
   draft.round += 1;
-  draft.phase = "demand";
+  // v2.9: round opens in draw — each player will roll their own demand
+  // when the action cursor lands on them.
+  draft.phase = "draw";
   draft.currentPlayerIndex = draft.startPlayerIndex;
   draft.playerIdsCompletedPhase = [];
 }
