@@ -61,6 +61,14 @@ export default function MainMenu() {
       ) : null}
 
       <MenuTile
+        href="/tutorial"
+        eyebrow="Tutorial"
+        title="Learn the loop in 5 minutes"
+        subtitle="Walk through your first build, age, and sale step-by-step."
+        accent="violet"
+      />
+
+      <MenuTile
         href="/new-game"
         eyebrow="New game"
         title="Start a fresh barrel"
@@ -95,7 +103,7 @@ export default function MainMenu() {
   );
 }
 
-type Accent = "emerald" | "amber" | "sky" | "slate" | "rose";
+type Accent = "emerald" | "amber" | "sky" | "slate" | "rose" | "violet";
 
 const ACCENTS: Record<Accent, { border: string; eyebrow: string; arrow: string; hoverBg: string }> = {
   emerald: {
@@ -103,6 +111,12 @@ const ACCENTS: Record<Accent, { border: string; eyebrow: string; arrow: string; 
     eyebrow: "text-emerald-300",
     arrow: "text-emerald-300",
     hoverBg: "hover:bg-emerald-950/30",
+  },
+  violet: {
+    border: "border-violet-500/70",
+    eyebrow: "text-violet-300",
+    arrow: "text-violet-300",
+    hoverBg: "hover:bg-violet-950/30",
   },
   amber: {
     border: "border-amber-500/70",
