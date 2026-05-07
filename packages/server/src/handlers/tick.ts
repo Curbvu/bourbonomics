@@ -19,7 +19,6 @@
  */
 
 import {
-  awaitingHumanInput,
   isGameOver,
   stepOrchestrator,
 } from "@bourbonomics/engine";
@@ -33,6 +32,7 @@ import {
 import { Resource } from "sst";
 
 import { broadcastToRoom } from "../lib/broadcast.js";
+import { nextActorIsHuman } from "../lib/orchestration.js";
 import { updateRoomState, type RoomRecord } from "../lib/rooms.js";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -76,13 +76,15 @@ async function stepRoom(room: RoomRecord): Promise<void> {
   if (!room.started) return;
   if (isGameOver(room.state)) return;
   // Don't step while the cursor is on a human — they might be mid-pick.
-  if (awaitingHumanInput(room.state)) return;
+  // Stricter than the engine's `awaitingHumanInput`: also gates draw
+  // and action phases so we don't auto-play a human's whole turn.
+  if (nextActorIsHuman(room.state)) return;
 
   let state = room.state;
   let seq = room.seq;
   for (let i = 0; i < MAX_STEPS_PER_TICK; i++) {
     if (isGameOver(state)) break;
-    if (awaitingHumanInput(state)) break;
+    if (nextActorIsHuman(state)) break;
     const result = stepOrchestrator(state);
     if (!result) break;
     let updated;

@@ -25,7 +25,6 @@
 
 import {
   applyAction,
-  awaitingHumanInput,
   buildVanillaDistilleryFor,
   defaultMashBillCatalog,
   DISTILLERIES_ENABLED,
@@ -41,6 +40,7 @@ import { produce } from "immer";
 
 import { broadcastToRoom, sendToConnection } from "../lib/broadcast.js";
 import type { WsHandler } from "../lib/lambda-types.js";
+import { nextActorIsHuman } from "../lib/orchestration.js";
 import {
   parseClientMessage,
   type ClientMessage,
@@ -610,7 +610,10 @@ async function driveBotsForward(
   let seq = startSeq;
   for (let i = 0; i < MAX_INLINE_BOT_STEPS; i++) {
     if (isGameOver(state)) break;
-    if (awaitingHumanInput(state)) break;
+    // MP-stricter than the engine's `awaitingHumanInput`: also pauses
+    // on draw/action phases when the cursor is on a human, so the
+    // server doesn't auto-play someone's turn out from under them.
+    if (nextActorIsHuman(state)) break;
     const result = stepOrchestrator(state);
     if (!result) break;
     let updated;

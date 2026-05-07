@@ -1210,7 +1210,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   //   - action: when it's a bot's turn, auto-step them. Pause when the
   //     turn cursor lands on the human (they drive via the ActionBar).
   // Demand stays manual — the human triggers it via the demand modal.
+  // Disabled in multiplayer — the server is authoritative; client-side
+  // stepping would race the broadcast and produce visible divergence.
   useEffect(() => {
+    if (multiplayerMode) return;
     const state = store.state;
     if (!state) return;
     if (isGameOver(state)) return;
@@ -1244,7 +1247,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const delay = isActionPhase ? 320 : 180;
     const id = window.setTimeout(step, delay);
     return () => window.clearTimeout(id);
-  }, [store.state, step]);
+  }, [multiplayerMode, store.state, step]);
 
   const newGame = useCallback((cfg: NewGameConfig) => {
     const catalog = defaultMashBillCatalog();
