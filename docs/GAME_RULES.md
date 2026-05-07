@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (v2.8 alpha).** Drafting, the round loop, slot-bound mash bills, incremental production, aging, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is temporarily disabled** — every game runs as Vanilla. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. **Multiplayer is live** — host a 4-char-code room from `/multiplayer`, share the link, claim seats; bots fill the rest. Solo-vs-bots and online-multi-human both ship from the same engine.
+> **Scope (v2.9 alpha).** Drafting, the round loop (Draw → Action → Cleanup, with per-turn demand roll + mandatory aging inside Action), slot-bound mash bills, incremental production, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is temporarily disabled** — every game runs as Vanilla. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. **Multiplayer is live** — host a 4-char-code room from `/multiplayer`, share the link, claim seats; bots fill the rest. Solo-vs-bots and online-multi-human both ship from the same engine.
 
 ---
 
@@ -16,11 +16,11 @@ For the impatient. Read once, play once, the rest of the rulebook will make sens
 
 You run a bourbon distillery. You have a **rickhouse** (4 barrel slots), a **deck** (16 starter cards), and **mash bills** (recipes) that live directly in your rickhouse slots. Each round:
 
-1. **Demand rolls.** A shared market gauge ticks up or holds.
-2. **Draw 8** cards from your deck.
-3. **Age** any aging barrels you own (one card per barrel, face-down on top).
-4. **Take your turn.** Make bourbon, sell bourbon, buy from the market, etc. — full turn, not one-action-per-round.
-5. **Cleanup.** Discards reset, the start player rotates, next round.
+1. **Draw 8** cards from your deck.
+2. **Take your turn** — Roll demand → Age a barrel → Take actions (make / sell / buy / trade / etc.).
+3. **Cleanup.** Discards reset, the start player rotates, next round.
+
+Each player's turn opens with their own demand roll and a mandatory aging commit (1 card to one of their aging barrels) — that's the holding cost for keeping inventory. *Then* the rest of their turn opens up.
 
 ### The core loop
 
@@ -87,21 +87,11 @@ Each player shuffles and **draws 8 cards** as their opening hand.
 
 # 🔄 The Round
 
-Five phases per round:
+Three phases per round:
 
-1. **Demand** — roll 2d6. If higher than current demand, demand +1.
-2. **Draw** — each player draws 8 cards.
-3. **Age** — each player may place a card on top of any of their **aging barrels** (one per barrel per round).
-4. **Action** — players take full turns in the rotated order. See [§Action Phase](#-phase-4-action-phase).
-5. **Cleanup** — unused resource and capital cards go to discard; per-round flags reset; start player rotates one seat counter-clockwise.
-
-> **v2.9 — per-turn demand + mandatory aging.** Demand is no longer rolled once at the top of the round, and the dedicated Age phase is gone. Each action turn now runs as a tight three-step loop:
->
-> 1. **Roll demand** (mandatory first action — 2d6, demand rises if greater)
-> 2. **Age barrels** (mandatory second action — commit one card to one of your aging barrels; this is the holding cost for inventory you're sitting on)
-> 3. **Take actions** (Make / Sell / Buy / Trade / Draw / Pass — same as before)
->
-> The per-round phase strip becomes **Draw → Action → Cleanup**. The demand roll and aging commit are gated by per-player flags inside the action phase; the engine refuses Make / Sell / Buy until the player has paid the cost. Players with no aging barrels skip step 2 automatically; players who can't afford to age can `PASS_TURN` and forfeit the turn (their barrels stay un-aged).
+1. **Draw** — each player draws 8 cards from their resource deck.
+2. **Action** — players take full turns in the rotated order. Each turn runs as **Roll demand → Age a barrel → Take actions** (see [§Action Phase](#-action-phase) for the gated sub-steps).
+3. **Cleanup** — unused resource and capital cards go to discard; per-round flags reset; start player rotates one seat counter-clockwise.
 
 **Operations cards persist** — they're not discarded at end of round.
 
@@ -127,7 +117,7 @@ The bell curve of 2d6 means demand drifts toward the middle, with rare booms and
 
 ---
 
-# 🎴 Phase 2 — Draw
+# 🎴 Draw Phase
 
 Each player draws **8 cards** from their resource deck. Reshuffle the discard if the deck runs out.
 
@@ -154,11 +144,17 @@ When the barrel sells, all aging cards go to the player's discard.
 
 ---
 
-# 🎯 Phase 4 — Action Phase
+# 🎯 Action Phase
 
-Each player takes their **full turn** in rotated order. On your turn you take as many actions as you want — production, sales, market buys, mash bill draws, trades, abandons — until you voluntarily end your turn (or run out of legal plays). Then play passes.
+Each player takes their **full turn** in rotated order. The turn opens with two mandatory micro-steps before the free actions begin:
 
-**Operations cards** play as a **free interruption** at any point during your turn. They don't consume an action; each ops card is one-shot.
+1. **Roll demand** (see [§Demand](#-demand-per-turn-v29)).
+2. **Age a barrel** (see [§Aging](#️-aging-per-turn-v29)) — only required if you have any un-aged aging barrels.
+3. **Free actions** — take as many of these as you want, in any order: Make Bourbon, Sell Bourbon, Buy from the Market, Buy Operations Card, Draw a Mash Bill, Trade, Abandon Barrel, Trash a Card. End the turn voluntarily when you're done.
+
+Until both gated micro-steps are paid, the engine rejects every other action except `PASS_TURN`, `ABANDON_BARREL`, and `PLAY_OPERATIONS_CARD` (which always plays free).
+
+**Operations cards** play as a **free interruption** at any point during your turn — including before the demand roll and during the aging step. They don't consume an action; each ops card is one-shot.
 
 **Voluntarily ending your turn is final** — you don't act again until the next round. Cards in your hand stay there until cleanup.
 
@@ -457,7 +453,7 @@ Gold takes precedence if both Silver and Gold conditions are met. Gold awards do
 
 Range **0–12**, starting at 0.
 
-- **Rises by 1** if the start-of-round 2d6 roll exceeds current demand.
+- **Rises by 1** when an active player's 2d6 turn-opening roll exceeds current demand. Up to N rises per round, one per player.
 - **Falls by 1** for each barrel sold (floor 0), unless skipped by an effect.
 - **Moved directly** by some ops cards (Market Manipulation, Bourbon Boom, Glut).
 
@@ -594,7 +590,7 @@ Two ways to play, both running the same engine:
 1. Open `/multiplayer`, pick a name + total human seats (1–4) + bot seats (0–3).
 2. **Create room →** mints a 4-character code (Boggle-style, no 0/O/1/I), seats you as host (`human0`), and routes you to `/play/[code]`.
 3. Copy the share link from the room banner. The waiting room shows the per-seat roster live.
-4. **Start game →** flips the room out of pre-game lobby. The setup-phase modals (starter-deck draft, demand roll, draw) fire same as solo — only the seat the engine is on the clock for sees the prompt; the rest see "waiting on X".
+4. **Start game →** flips the room out of pre-game lobby. The setup-phase modals (starter-deck draft, draw) fire same as solo — only the seat the engine is on the clock for sees the prompt; the rest see "waiting on X". Once the action phase begins, each player rolls their own demand and ages their own barrel on their own turn (per v2.9).
 
 ### Join flow
 
@@ -615,7 +611,7 @@ Two ways to play, both running the same engine:
 
 - `create-room` / `join-room` / `claim-seat` / `release-seat` / `start-game` (host-only) / `action` / `resync`.
 - Host-only actions (`start-game`) are gated by `connectionId.playerId === "human0"`.
-- Setup-phase modals self-gate: starter-deck draft only fires on the seat the engine is awaiting; demand roll only fires for the host (others wait for the broadcast); draw phase fires for each seat that hasn't drawn yet.
+- Setup-phase modals self-gate: starter-deck draft only fires on the seat the engine is awaiting; draw phase fires for each seat that hasn't drawn yet; the v2.9 demand-roll modal and aging overlay each fire only for the seat whose turn is currently open (not host-only — every player rolls and ages on their own turn).
 
 ---
 
