@@ -180,7 +180,7 @@ export default function PlayCodePage({ params }: Props) {
 
   return (
     <main
-      className="min-h-screen text-slate-100"
+      className="h-screen overflow-hidden text-slate-100"
       style={{
         backgroundColor: "#0f172a",
         backgroundImage: `
@@ -189,7 +189,12 @@ export default function PlayCodePage({ params }: Props) {
         `,
       }}
     >
-      <div className="flex min-h-screen flex-col">
+      {/* h-screen + overflow-hidden so the multiplayer banner doesn't
+          push the page past the viewport — GameBoard's flex-1 chain
+          absorbs the extra chrome height instead of growing a scroll
+          bar. The blank gap that used to sit under the mash bills row
+          gets eaten by the compressed flex column. */}
+      <div className="flex h-screen flex-col">
         <GameTopBar />
         <RoomBanner code={code} />
         {inLobby ? (
