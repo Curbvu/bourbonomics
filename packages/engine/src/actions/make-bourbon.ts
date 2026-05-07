@@ -74,9 +74,9 @@ function totalGrain(t: ResourceTotals): number {
 
 /**
  * Tally a card's contribution to the cumulative ingredient totals.
- * Capital cards contribute nothing to recipe totals (they only matter
- * for sale-time composition buffs). Returns silently for non-resource
- * cards so callers can iterate uniformly across mixed piles.
+ * Capital cards contribute nothing to recipe totals. Returns silently
+ * for non-resource cards so callers can iterate uniformly across
+ * mixed piles.
  *
  * v2.7.2: Specialty / Double Specialty cards (`card.specialty === true`)
  * also contribute their `resourceCount` to the per-subtype specialty

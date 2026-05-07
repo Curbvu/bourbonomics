@@ -130,11 +130,9 @@ describe("SELL_BOURBON — happy path", () => {
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(2);
     // Hand math: started at 1 capital. Sell spends it → discard=[cap].
-    // Draw count = cardDrawSplit (3) + composition.bonusDraw (1, from
-    // the 5 corn aging cards on the placed barrel) = 4. Deck has 3
-    // ryes; the 4th draw reshuffles the discard and pulls the spent
-    // capital right back. Final hand = [3 ryes, 1 capital] = 4.
-    expect(p1.hand).toHaveLength(4);
+    // Draw count = cardDrawSplit (3). Deck has 3 ryes; 3 draws empty
+    // it. Final hand = [3 ryes] = 3.
+    expect(p1.hand).toHaveLength(3);
     expect(p1.deck).toHaveLength(0);
   });
 

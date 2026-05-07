@@ -352,8 +352,8 @@ function BarrelChip({
  *        - "AGING · Ny"— recipe complete, barrel maturing (amber badge)
  *   3. **Composition pips** along the bottom showing every committed
  *      card by subtype colour (filled for production, ring-only for
- *      aging cards). Lets the player count toward composition buffs at
- *      a glance without flipping the barrel.
+ *      aging cards). Lets the player audit the recipe at a glance
+ *      without flipping the barrel.
  */
 function BarrelChipInner({
   barrel,
@@ -444,7 +444,8 @@ function BarrelChipInner({
             subtype's colour. As production cards are committed they
             "fill in".
           - **Committed** production cards beyond the recipe minimum
-            appear as extra **filled** pips. */}
+            appear as extra **filled** pips (over-commits don't
+            increase the payout but the visual record stays). */}
       <div className="mt-1 flex min-h-[14px] flex-wrap items-end justify-center gap-[3px] rounded bg-black/35 px-1 py-0.5">
         {renderMashPips(barrel)}
       </div>

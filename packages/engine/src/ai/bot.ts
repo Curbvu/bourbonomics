@@ -10,7 +10,6 @@ import type {
 } from "../types";
 import { isWheatedBill } from "../types";
 import { capitalUnits, resourceUnits, suppliesResource } from "../cards";
-import { computeCompositionBuffs } from "../composition";
 import { computeReward } from "../rewards";
 import { emptySlotsFor, getPlayerBarrels } from "../state";
 
@@ -438,16 +437,12 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
     | { barrelId: string; reward: number; age: number; bill: MashBill }
     | null = null;
   for (const b of barrels) {
-    // v2.4: include composition's bonus reputation in the EV — a 5-rep
-    // grid sale that also fires cask_3 + all_grains is worth +3 more.
-    const composition = computeCompositionBuffs(b, player.distillery);
     const bill = b.attachedMashBill;
     const grid = computeReward(bill, b.age, state.demand, {
-      demandBandOffset: b.demandBandOffset + composition.gridDemandBandOffset,
+      demandBandOffset: b.demandBandOffset,
       gridRepOffset: b.gridRepOffset,
     });
-    const evReward = grid + composition.bonusRep;
-    if (best === null || evReward > best.reward) {
+    if (best === null || grid > best.reward) {
       best = { barrelId: b.id, reward: grid, age: b.age, bill };
     }
   }
