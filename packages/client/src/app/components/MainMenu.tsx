@@ -69,6 +69,14 @@ export default function MainMenu() {
       />
 
       <MenuTile
+        href="/multiplayer"
+        eyebrow="Multiplayer"
+        title="Play with friends online"
+        subtitle="Mint a 4-char room code, share the link, race to the rep cap."
+        accent="rose"
+      />
+
+      <MenuTile
         href="/mash-bills"
         eyebrow="Bourbon Cards"
         title="Browse every mash bill"
@@ -87,7 +95,7 @@ export default function MainMenu() {
   );
 }
 
-type Accent = "emerald" | "amber" | "sky" | "slate";
+type Accent = "emerald" | "amber" | "sky" | "slate" | "rose";
 
 const ACCENTS: Record<Accent, { border: string; eyebrow: string; arrow: string; hoverBg: string }> = {
   emerald: {
@@ -113,6 +121,12 @@ const ACCENTS: Record<Accent, { border: string; eyebrow: string; arrow: string; 
     eyebrow: "text-slate-400",
     arrow: "text-slate-400",
     hoverBg: "hover:bg-slate-900/50",
+  },
+  rose: {
+    border: "border-rose-500/70",
+    eyebrow: "text-rose-300",
+    arrow: "text-rose-300",
+    hoverBg: "hover:bg-rose-950/30",
   },
 };
 

@@ -208,6 +208,7 @@ async function handleAction(connectionId: string, action: GameAction): Promise<v
     type: "state",
     state: updated.state,
     seq: updated.seq,
+    action,
   });
 }
 

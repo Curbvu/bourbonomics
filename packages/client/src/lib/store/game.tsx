@@ -48,6 +48,7 @@ import {
   type PlayerState,
   type ScoreResult,
 } from "@bourbonomics/engine";
+import { gameSocket, gameSocketUrl, type SocketStatus } from "./socket";
 
 // Storage key is versioned and bumped whenever the engine schema or
 // canonical catalog changes (so legacy saves don't crash on hydrate).
@@ -204,6 +205,20 @@ export interface LastSale {
   seq: number;
 }
 
+/**
+ * Multiplayer-mode marker. When set, the store is bound to a remote
+ * room: `dispatch` sends actions over the WebSocket instead of
+ * applying them locally, and the autoplay loop is disabled (the
+ * server runs bot turns via the `Tick` Lambda). Cleared by
+ * `leaveMultiplayer()` or a fatal socket error.
+ */
+export interface MultiplayerMode {
+  /** 4-char room code. */
+  code: string;
+  /** Which seat the local human owns, or empty for spectator. */
+  playerId: string;
+}
+
 interface AtomicStore {
   state: GameState | null;
   log: LogEntry[];
@@ -283,7 +298,20 @@ export interface GameStore {
   lastMake: LastMake | null;
   /** Animation trigger — most recent SELL_BOURBON snapshot. */
   lastSale: LastSale | null;
+  /** When non-null, the store is bound to a remote multi-player room.
+   *  See `MultiplayerMode` for what that means for dispatch + autoplay. */
+  multiplayerMode: MultiplayerMode | null;
+  /** Live status of the multi-player WebSocket. Mirrors the socket's
+   *  own status so the UI can render a connection indicator. */
+  multiplayerStatus: import("./socket").SocketStatus;
   newGame: (cfg: NewGameConfig) => void;
+  /** Mint a new multi-player room and join it as host. The promise
+   *  resolves with the freshly-minted code once the server confirms. */
+  createMultiplayer: (cfg: NewGameConfig) => Promise<string>;
+  /** Join an existing room by its 4-char code. */
+  joinMultiplayer: (code: string, name: string) => Promise<void>;
+  /** Disconnect and return the store to single-player mode. */
+  leaveMultiplayer: () => void;
   step: () => void;
   /** Submit an action directly (used by setup-phase modals). */
   dispatch: (action: GameAction) => void;
@@ -336,7 +364,12 @@ const Ctx = createContext<GameStore>({
   lastPurchase: null,
   lastMake: null,
   lastSale: null,
+  multiplayerMode: null,
+  multiplayerStatus: "idle",
   newGame: noop,
+  createMultiplayer: async () => "",
+  joinMultiplayer: async () => {},
+  leaveMultiplayer: noop,
   step: noop,
   dispatch: noop,
   setAutoplay: noop,
@@ -366,6 +399,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [drawBillMode, setDrawBillMode] = useState<DrawBillMode | null>(null);
   const [makeMode, setMakeMode] = useState<MakeMode | null>(null);
   const [sellMode, setSellMode] = useState<SellMode | null>(null);
+  const [multiplayerMode, setMultiplayerMode] = useState<MultiplayerMode | null>(null);
+  const [multiplayerStatus, setMultiplayerStatus] = useState<SocketStatus>("idle");
   const [hydrated, setHydrated] = useState(false);
 
   // Load from localStorage on mount.
@@ -448,31 +483,168 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Pure dispatch — same StrictMode-safe shape.
-  const dispatch = useCallback((action: GameAction) => {
-    setStore((prev) => {
-      if (!prev.state) return prev;
-      const next = applyAction(prev.state, action);
-      const seq = prev.seqCounter + 1;
-      const entry: LogEntry = {
-        seq,
-        action,
-        round: next.round,
-        drawn: captureDrawn(prev.state, next, action),
-      };
-      const lastPurchase = capturePurchase(prev, action, seq);
-      const lastMake = captureMake(prev, next, action, seq);
-      const lastSale = captureSale(prev, action, seq);
-      return {
-        ...prev,
-        state: next,
-        log: [...prev.log, entry].slice(-400),
-        seqCounter: seq,
-        lastPurchase,
-        lastMake,
-        lastSale,
-      };
+  // Pure dispatch — same StrictMode-safe shape. In multiplayer mode
+  // the action is sent over the WebSocket and the server's broadcast
+  // updates state (so we DON'T apply locally — that would briefly
+  // double-mutate before the broadcast arrived).
+  const dispatch = useCallback(
+    (action: GameAction) => {
+      if (multiplayerMode) {
+        gameSocket().send({ type: "action", action });
+        return;
+      }
+      setStore((prev) => {
+        if (!prev.state) return prev;
+        const next = applyAction(prev.state, action);
+        const seq = prev.seqCounter + 1;
+        const entry: LogEntry = {
+          seq,
+          action,
+          round: next.round,
+          drawn: captureDrawn(prev.state, next, action),
+        };
+        const lastPurchase = capturePurchase(prev, action, seq);
+        const lastMake = captureMake(prev, next, action, seq);
+        const lastSale = captureSale(prev, action, seq);
+        return {
+          ...prev,
+          state: next,
+          log: [...prev.log, entry].slice(-400),
+          seqCounter: seq,
+          lastPurchase,
+          lastMake,
+          lastSale,
+        };
+      });
+    },
+    [multiplayerMode],
+  );
+
+  // ---------------------------------------------------------------
+  // Multi-player wiring
+  // ---------------------------------------------------------------
+  // When the store is bound to a room, every server broadcast lands
+  // here. We swap the local AtomicStore for the broadcast's `state`
+  // and recompute animation snapshots from the prior state + the
+  // action that produced this frame (server forwards the action on
+  // every broadcast — see `packages/server/src/lib/protocol.ts`).
+  useEffect(() => {
+    const sock = gameSocket();
+    const off = sock.subscribe((event) => {
+      if (event.kind === "status") {
+        setMultiplayerStatus(event.status);
+        return;
+      }
+      const msg = event.message;
+      switch (msg.type) {
+        case "joined":
+          setMultiplayerMode({ code: msg.code, playerId: msg.playerId });
+          setStore({
+            state: msg.state,
+            log: [],
+            seqCounter: msg.seq,
+            seatMeta: msg.state.players.map((p) => ({ id: p.id })),
+            lastPurchase: null,
+            lastMake: null,
+            lastSale: null,
+          });
+          break;
+        case "state":
+          setStore((prev) => {
+            const action = msg.action;
+            const seq = msg.seq;
+            const entry: LogEntry | null = action
+              ? {
+                  seq,
+                  action,
+                  round: msg.state.round,
+                  drawn: prev.state ? captureDrawn(prev.state, msg.state, action) : undefined,
+                }
+              : null;
+            const lastPurchase = action ? capturePurchase(prev, action, seq) : prev.lastPurchase;
+            const lastMake = action ? captureMake(prev, msg.state, action, seq) : prev.lastMake;
+            const lastSale = action ? captureSale(prev, action, seq) : prev.lastSale;
+            return {
+              ...prev,
+              state: msg.state,
+              log: entry ? [...prev.log, entry].slice(-400) : prev.log,
+              seqCounter: seq,
+              lastPurchase,
+              lastMake,
+              lastSale,
+            };
+          });
+          break;
+        case "error":
+          // eslint-disable-next-line no-console
+          console.error("multiplayer:", msg.reason);
+          break;
+        case "ping":
+          // No-op; the server sometimes pings to keep idle sockets alive.
+          break;
+      }
     });
+    return off;
+  }, []);
+
+  const createMultiplayer = useCallback(
+    async (cfg: NewGameConfig): Promise<string> => {
+      const url = gameSocketUrl();
+      if (!url) throw new Error("Multiplayer is not configured for this build.");
+      const sock = gameSocket();
+      sock.connect(url);
+      // Resolve as soon as the `joined` message lands. We use a
+      // one-shot subscriber rather than racing the global one so
+      // the caller gets the room code synchronously after the
+      // promise settles.
+      return new Promise<string>((resolve, reject) => {
+        const off = sock.subscribe((event) => {
+          if (event.kind !== "message") return;
+          if (event.message.type === "joined") {
+            off();
+            resolve(event.message.code);
+          } else if (event.message.type === "error") {
+            off();
+            reject(new Error(event.message.reason));
+          }
+        });
+        sock.send({
+          type: "create-room",
+          name: cfg.human.name,
+          config: cfg,
+        });
+      });
+    },
+    [],
+  );
+
+  const joinMultiplayer = useCallback(
+    async (code: string, name: string): Promise<void> => {
+      const url = gameSocketUrl();
+      if (!url) throw new Error("Multiplayer is not configured for this build.");
+      const sock = gameSocket();
+      sock.connect(url);
+      return new Promise<void>((resolve, reject) => {
+        const off = sock.subscribe((event) => {
+          if (event.kind !== "message") return;
+          if (event.message.type === "joined") {
+            off();
+            resolve();
+          } else if (event.message.type === "error") {
+            off();
+            reject(new Error(event.message.reason));
+          }
+        });
+        sock.send({ type: "join-room", code: code.toUpperCase(), name });
+      });
+    },
+    [],
+  );
+
+  const leaveMultiplayer = useCallback(() => {
+    gameSocket().close();
+    setMultiplayerMode(null);
+    setStore(EMPTY_STORE);
   }, []);
 
   // Buy-mode helpers — the conveyor + capital cards become click targets
@@ -846,8 +1018,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setDragMakeState(null);
   }, []);
 
-  // Autoplay loop — paused while waiting on human input.
+  // Autoplay loop — paused while waiting on human input. Disabled
+  // entirely in multiplayer mode (the server's `Tick` Lambda runs
+  // bot turns there; client-side stepping would race the broadcast).
   useEffect(() => {
+    if (multiplayerMode) return;
     if (!autoplay) return;
     if (!store.state) return;
     if (isGameOver(store.state)) {
@@ -857,7 +1032,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (awaitingHumanInput(store.state)) return;
     const id = window.setTimeout(step, AUTO_STEP_MS);
     return () => window.clearTimeout(id);
-  }, [autoplay, store.state, step]);
+  }, [autoplay, multiplayerMode, store.state, step]);
 
   // Bail out of buy mode the moment it stops being the human's turn or
   // the action phase ends — leaving stale UI selections around would let
@@ -1108,7 +1283,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastPurchase: store.lastPurchase,
       lastMake: store.lastMake,
       lastSale: store.lastSale,
+      multiplayerMode,
+      multiplayerStatus,
       newGame,
+      createMultiplayer,
+      joinMultiplayer,
+      leaveMultiplayer,
       step,
       dispatch,
       setAutoplay,
@@ -1152,7 +1332,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       dragMake,
       startDragMake,
       endDragMake,
+      multiplayerMode,
+      multiplayerStatus,
       newGame,
+      createMultiplayer,
+      joinMultiplayer,
+      leaveMultiplayer,
       step,
       dispatch,
       setAutoplay,

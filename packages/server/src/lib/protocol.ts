@@ -59,6 +59,11 @@ export type ServerMessageOut =
       type: "state";
       state: GameState;
       seq: number;
+      /** The action that produced this state, when known. Optional
+       *  because bot-tick broadcasts may collapse several actions
+       *  into one frame. The client uses this to drive animation
+       *  snapshots (lastSale / lastMake / lastPurchase). */
+      action?: GameAction;
     }
   | {
       type: "error";
