@@ -1,17 +1,29 @@
 "use client";
 
 /**
- * Slim banner above the GameBoard when in a multi-player room.
- * Shows the room code and a click-to-copy share link, plus a
- * connection-status pill so dropouts surface immediately.
+ * Banner above the GameBoard when bound to a multi-player room.
+ * Shows the room code, click-to-copy share link, live connection
+ * status, the per-seat roster (open seats / claimed names / bots),
+ * and a leave action. The visiting player can click an open seat
+ * pill to claim it; once claimed, the rep + game UI below works as
+ * usual.
  */
 
 import { useState } from "react";
 import { useGameStore } from "@/lib/store/game";
+import type { SeatInfo } from "@/lib/store/socket";
 
 export default function RoomBanner({ code }: { code: string }) {
-  const { multiplayerStatus, leaveMultiplayer } = useGameStore();
+  const {
+    multiplayerStatus,
+    multiplayerMode,
+    roster,
+    claimSeat,
+    leaveMultiplayer,
+  } = useGameStore();
   const [copied, setCopied] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState<string | null>(null);
 
   const onCopy = async () => {
     if (typeof window === "undefined") return;
@@ -21,15 +33,27 @@ export default function RoomBanner({ code }: { code: string }) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard might be denied (e.g. insecure origin); fall back
-      // to selection prompt.
       window.prompt("Copy this URL:", url);
     }
   };
 
+  const onClaim = async (seat: SeatInfo) => {
+    setClaiming(seat.playerId);
+    setClaimError(null);
+    try {
+      await claimSeat(seat.playerId);
+    } catch (err) {
+      setClaimError(err instanceof Error ? err.message : "Failed to claim seat.");
+    } finally {
+      setClaiming(null);
+    }
+  };
+
+  const myPlayerId = multiplayerMode?.playerId ?? "";
+
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-amber-800/40 bg-gradient-to-r from-amber-950/40 via-slate-950 to-rose-950/30 px-[18px] py-1.5">
-      <div className="flex items-center gap-3">
+    <div className="border-b border-amber-800/40 bg-gradient-to-r from-amber-950/40 via-slate-950 to-rose-950/30 px-[18px] py-1.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-rose-300">
           Room
         </span>
@@ -43,9 +67,8 @@ export default function RoomBanner({ code }: { code: string }) {
         >
           {copied ? "copied!" : "copy share link"}
         </button>
-      </div>
-      <div className="flex items-center gap-3">
         <StatusPill status={multiplayerStatus} />
+        <span className="flex-1" />
         <button
           type="button"
           onClick={leaveMultiplayer}
@@ -54,7 +77,78 @@ export default function RoomBanner({ code }: { code: string }) {
           leave
         </button>
       </div>
+
+      {/* Roster strip — one chip per seat. Open seats are clickable
+          when this connection has no seat yet. */}
+      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+        {roster.map((seat) => (
+          <SeatChip
+            key={seat.playerId}
+            seat={seat}
+            mine={seat.playerId === myPlayerId}
+            canClaim={!myPlayerId && !seat.isBot && !seat.claimedBy}
+            claiming={claiming === seat.playerId}
+            onClaim={() => onClaim(seat)}
+          />
+        ))}
+      </div>
+
+      {claimError ? (
+        <p className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-rose-300">
+          {claimError}
+        </p>
+      ) : null}
     </div>
+  );
+}
+
+function SeatChip({
+  seat,
+  mine,
+  canClaim,
+  claiming,
+  onClaim,
+}: {
+  seat: SeatInfo;
+  mine: boolean;
+  canClaim: boolean;
+  claiming: boolean;
+  onClaim: () => void;
+}) {
+  const tone = seat.isBot
+    ? "border-slate-600 bg-slate-900/60 text-slate-300"
+    : seat.claimedBy
+      ? mine
+        ? "border-emerald-400 bg-emerald-900/40 text-emerald-100"
+        : "border-amber-500/70 bg-amber-900/30 text-amber-100"
+      : "border-rose-500/60 bg-rose-950/40 text-rose-200";
+
+  const label = seat.isBot
+    ? `${seat.name} · bot`
+    : seat.claimedBy
+      ? mine
+        ? `${seat.claimedBy} · you`
+        : seat.claimedBy
+      : "open seat";
+
+  if (canClaim) {
+    return (
+      <button
+        type="button"
+        onClick={onClaim}
+        disabled={claiming}
+        className={`rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[.14em] transition-colors hover:bg-rose-900/50 disabled:opacity-50 ${tone}`}
+      >
+        {claiming ? "claiming…" : `claim ${label}`}
+      </button>
+    );
+  }
+  return (
+    <span
+      className={`rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[.14em] ${tone}`}
+    >
+      {label}
+    </span>
   );
 }
 

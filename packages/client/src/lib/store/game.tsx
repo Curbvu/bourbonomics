@@ -44,11 +44,17 @@ import {
   type InvestmentCard,
   type MashBill,
   type NewGameConfig,
+  type NewMultiplayerGameConfig,
   type OperationsCard,
   type PlayerState,
   type ScoreResult,
 } from "@bourbonomics/engine";
-import { gameSocket, gameSocketUrl, type SocketStatus } from "./socket";
+import {
+  gameSocket,
+  gameSocketUrl,
+  type SeatInfo,
+  type SocketStatus,
+} from "./socket";
 
 // Storage key is versioned and bumped whenever the engine schema or
 // canonical catalog changes (so legacy saves don't crash on hydrate).
@@ -304,12 +310,18 @@ export interface GameStore {
   /** Live status of the multi-player WebSocket. Mirrors the socket's
    *  own status so the UI can render a connection indicator. */
   multiplayerStatus: import("./socket").SocketStatus;
+  /** Per-seat roster from the server: who's a bot, who's an open
+   *  human seat, and which display name claimed each one. Updates
+   *  whenever someone claims or releases a seat. */
+  roster: SeatInfo[];
   newGame: (cfg: NewGameConfig) => void;
-  /** Mint a new multi-player room and join it as host. The promise
-   *  resolves with the freshly-minted code once the server confirms. */
-  createMultiplayer: (cfg: NewGameConfig) => Promise<string>;
-  /** Join an existing room by its 4-char code. */
+  /** Mint a new multi-player room and join it as host. */
+  createMultiplayer: (cfg: NewMultiplayerGameConfig) => Promise<string>;
+  /** Join an existing room by its 4-char code as an observer. */
   joinMultiplayer: (code: string, name: string) => Promise<void>;
+  /** Claim an open human seat. Server rejects bot seats and seats
+   *  already owned by someone else. */
+  claimSeat: (playerId: string) => Promise<void>;
   /** Disconnect and return the store to single-player mode. */
   leaveMultiplayer: () => void;
   step: () => void;
@@ -366,9 +378,11 @@ const Ctx = createContext<GameStore>({
   lastSale: null,
   multiplayerMode: null,
   multiplayerStatus: "idle",
+  roster: [],
   newGame: noop,
   createMultiplayer: async () => "",
   joinMultiplayer: async () => {},
+  claimSeat: async () => {},
   leaveMultiplayer: noop,
   step: noop,
   dispatch: noop,
@@ -401,6 +415,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [sellMode, setSellMode] = useState<SellMode | null>(null);
   const [multiplayerMode, setMultiplayerMode] = useState<MultiplayerMode | null>(null);
   const [multiplayerStatus, setMultiplayerStatus] = useState<SocketStatus>("idle");
+  const [roster, setRoster] = useState<SeatInfo[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   // Load from localStorage on mount.
@@ -539,6 +554,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       switch (msg.type) {
         case "joined":
           setMultiplayerMode({ code: msg.code, playerId: msg.playerId });
+          setRoster(msg.roster);
           setStore({
             state: msg.state,
             log: [],
@@ -550,6 +566,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           });
           break;
         case "state":
+          if (msg.roster) setRoster(msg.roster);
           setStore((prev) => {
             const action = msg.action;
             const seq = msg.seq;
@@ -588,7 +605,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const createMultiplayer = useCallback(
-    async (cfg: NewGameConfig): Promise<string> => {
+    async (cfg: NewMultiplayerGameConfig): Promise<string> => {
       const url = gameSocketUrl();
       if (!url) throw new Error("Multiplayer is not configured for this build.");
       const sock = gameSocket();
@@ -608,11 +625,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             reject(new Error(event.message.reason));
           }
         });
-        sock.send({
-          type: "create-room",
-          name: cfg.human.name,
-          config: cfg,
-        });
+        sock.send({ type: "create-room", config: cfg });
       });
     },
     [],
@@ -641,9 +654,38 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const claimSeat = useCallback(
+    async (playerId: string): Promise<void> => {
+      const sock = gameSocket();
+      return new Promise<void>((resolve, reject) => {
+        const off = sock.subscribe((event) => {
+          if (event.kind !== "message") return;
+          // The server's claim-seat path rebroadcasts state with
+          // an updated roster, so a `state` frame after our send
+          // is our success signal. An `error` is the failure.
+          if (event.message.type === "state" && event.message.roster) {
+            off();
+            // Pre-update the local mode so the caller doesn't have
+            // to wait for the broadcast handler.
+            setMultiplayerMode((prev) =>
+              prev ? { ...prev, playerId } : prev,
+            );
+            resolve();
+          } else if (event.message.type === "error") {
+            off();
+            reject(new Error(event.message.reason));
+          }
+        });
+        sock.send({ type: "claim-seat", playerId });
+      });
+    },
+    [],
+  );
+
   const leaveMultiplayer = useCallback(() => {
     gameSocket().close();
     setMultiplayerMode(null);
+    setRoster([]);
     setStore(EMPTY_STORE);
   }, []);
 
@@ -1285,9 +1327,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastSale: store.lastSale,
       multiplayerMode,
       multiplayerStatus,
+      roster,
       newGame,
       createMultiplayer,
       joinMultiplayer,
+      claimSeat,
       leaveMultiplayer,
       step,
       dispatch,
@@ -1334,9 +1378,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       endDragMake,
       multiplayerMode,
       multiplayerStatus,
+      roster,
       newGame,
       createMultiplayer,
       joinMultiplayer,
+      claimSeat,
       leaveMultiplayer,
       step,
       dispatch,

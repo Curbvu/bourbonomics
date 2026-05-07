@@ -637,13 +637,33 @@ export interface NewGameSeat {
 }
 
 /**
- * Config payload for `newGame` (client) and the multi-player server's
- * `create-room` message. Distinct from `GameConfig` (which is the
- * fully-resolved engine input); this is the human-friendly form.
+ * Config payload for `newGame` (client, single-player). The host is
+ * the lone human; everything else is bots that play themselves.
+ * Distinct from `GameConfig` (which is the fully-resolved engine
+ * input); this is the human-friendly form.
  */
 export interface NewGameConfig {
   /** Human seat goes first; bots follow. */
   human: NewGameSeat;
+  bots: NewGameSeat[];
+  /** Optional fixed seed for replays / shareable games. */
+  seed?: number;
+}
+
+/**
+ * Config payload for the multi-player `create-room` message. The
+ * host is implicitly seat 0; `extraHumanSeats` counts additional
+ * human seats other connections can claim. Bots fill the remaining
+ * seats and play themselves.
+ *
+ * Total player count = 1 + extraHumanSeats + bots.length.
+ */
+export interface NewMultiplayerGameConfig {
+  /** Display name for the host's seat. */
+  host: NewGameSeat;
+  /** Number of additional human seats waiting to be claimed. */
+  extraHumanSeats: number;
+  /** Bot seats; their `name` is shown in the rickhouse strip. */
   bots: NewGameSeat[];
   /** Optional fixed seed for replays / shareable games. */
   seed?: number;

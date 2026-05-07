@@ -6,7 +6,11 @@
  * one-line addition rather than a schema migration.
  */
 
-import type { GameAction, GameState, NewGameConfig } from "@bourbonomics/engine";
+import type {
+  GameAction,
+  GameState,
+  NewMultiplayerGameConfig,
+} from "@bourbonomics/engine";
 
 // =============================================================================
 // Client → Server
@@ -15,25 +19,30 @@ import type { GameAction, GameState, NewGameConfig } from "@bourbonomics/engine"
 export type ClientMessage =
   | {
       /** Open a fresh room (host action). The server mints a 4-char
-       *  code, runs `initializeGame`, and registers the caller as the
-       *  first player. */
+       *  code, runs `initializeGame` with the requested seat layout
+       *  (host + extra humans + bots), and registers the caller as
+       *  the host (seat 0). */
       type: "create-room";
-      /** Display name for the host's seat. */
-      name: string;
-      /** Setup config — bot seats, seed, etc. Same shape the local
-       *  store uses today. */
-      config: NewGameConfig;
+      config: NewMultiplayerGameConfig;
     }
   | {
-      /** Join an existing room. */
+      /** Join an existing room as an observer. The joiner doesn't
+       *  control any seat until they `claim-seat`. */
       type: "join-room";
       code: string;
       name: string;
     }
   | {
-      /** Dispatch a game action. The server validates + applies via
-       *  the engine, persists, and broadcasts the new state to every
-       *  connection in the room. */
+      /** Claim an open human seat in the current room. Server
+       *  rejects if the seat is already claimed, is a bot seat, or
+       *  doesn't exist. */
+      type: "claim-seat";
+      playerId: string;
+    }
+  | {
+      /** Dispatch a game action. The server validates that the
+       *  caller's claimed seat matches `action.playerId`, applies
+       *  via the engine, persists, and broadcasts. */
       type: "action";
       action: GameAction;
     }
@@ -43,6 +52,21 @@ export type ClientMessage =
       type: "resync";
     };
 
+/**
+ * Per-seat metadata sent on every broadcast so the client UI can
+ * show "Seat 1: Alice (you), Seat 2: open, Seat 3: Bot". The engine
+ * doesn't track who claimed what; the server overlays that.
+ */
+export interface SeatInfo {
+  playerId: string;
+  name: string;
+  isBot: boolean;
+  /** Display name of the connection currently controlling this
+   *  seat, or null when the seat is open. Bot seats are auto-played
+   *  by the server tick — `claimedBy` for a bot stays null. */
+  claimedBy: string | null;
+}
+
 // =============================================================================
 // Server → Client
 // =============================================================================
@@ -51,9 +75,12 @@ export type ServerMessageOut =
   | {
       type: "joined";
       code: string;
+      /** The seat this connection now owns ("" if the joiner is an
+       *  observer until they `claim-seat`). */
       playerId: string;
       state: GameState;
       seq: number;
+      roster: SeatInfo[];
     }
   | {
       type: "state";
@@ -64,6 +91,10 @@ export type ServerMessageOut =
        *  into one frame. The client uses this to drive animation
        *  snapshots (lastSale / lastMake / lastPurchase). */
       action?: GameAction;
+      /** Roster snapshot when seat assignments changed (claim /
+       *  release). Omitted on plain action broadcasts to keep the
+       *  frame small. */
+      roster?: SeatInfo[];
     }
   | {
       type: "error";

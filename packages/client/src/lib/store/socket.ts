@@ -27,7 +27,7 @@
 import type {
   GameAction,
   GameState,
-  NewGameConfig,
+  NewMultiplayerGameConfig,
 } from "@bourbonomics/engine";
 
 // =============================================================================
@@ -35,9 +35,19 @@ import type {
 // these aligned by hand; they're tiny and rarely change.
 // =============================================================================
 
+export interface SeatInfo {
+  playerId: string;
+  name: string;
+  isBot: boolean;
+  /** Display name of the connection currently controlling this seat,
+   *  or null when the seat is open (bot seats stay null). */
+  claimedBy: string | null;
+}
+
 export type ClientMessage =
-  | { type: "create-room"; name: string; config: NewGameConfig }
+  | { type: "create-room"; config: NewMultiplayerGameConfig }
   | { type: "join-room"; code: string; name: string }
+  | { type: "claim-seat"; playerId: string }
   | { type: "action"; action: GameAction }
   | { type: "resync" };
 
@@ -48,8 +58,15 @@ export type ServerMessage =
       playerId: string;
       state: GameState;
       seq: number;
+      roster: SeatInfo[];
     }
-  | { type: "state"; state: GameState; seq: number; action?: GameAction }
+  | {
+      type: "state";
+      state: GameState;
+      seq: number;
+      action?: GameAction;
+      roster?: SeatInfo[];
+    }
   | { type: "error"; reason: string; retriable?: boolean }
   | { type: "ping" };
 

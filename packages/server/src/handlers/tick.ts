@@ -78,34 +78,26 @@ async function stepRoom(room: RoomRecord): Promise<void> {
 
   let state = room.state;
   let seq = room.seq;
-  let stepped = 0;
-  while (stepped < MAX_STEPS_PER_TICK) {
+  for (let i = 0; i < MAX_STEPS_PER_TICK; i++) {
     if (isGameOver(state)) break;
     if (awaitingHumanInput(state)) break;
     const result = stepOrchestrator(state);
     if (!result) break;
-    state = result.state;
-    stepped += 1;
-  }
-  if (stepped === 0) return;
-
-  // Single CAS write for the batch — `updateRoomState` enforces that
-  // the action handler hasn't beat us to a write.
-  let updated;
-  try {
-    // Stage advances as we walk; final seq is `seq + stepped`.
-    updated = await updateRoomState(room.code, seq, state);
-    // The CAS only bumped seq by 1; sync our view.
+    let updated;
+    try {
+      updated = await updateRoomState(room.code, seq, result.state);
+    } catch {
+      // Race with a human action — bail; the action handler's own
+      // bot-stepping will keep the game moving.
+      return;
+    }
+    state = updated.state;
     seq = updated.seq;
-  } catch (err) {
-    // Race with a human action — let the action handler's broadcast
-    // take care of it; we'll re-converge on the next tick.
-    return;
+    await broadcastToRoom(room.code, {
+      type: "state",
+      state,
+      seq,
+      action: result.action,
+    });
   }
-
-  await broadcastToRoom(room.code, {
-    type: "state",
-    state: updated.state,
-    seq: updated.seq,
-  });
 }

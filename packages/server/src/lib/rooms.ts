@@ -49,6 +49,11 @@ export interface RoomRecord {
   expiresAt: number;
   /** Set when the room finishes its setup phase and is mid-game. */
   startedAt?: number;
+  /** Seat-claim ledger: `playerId → display name`. A seat in this
+   *  map is owned by a connected human (the connection record holds
+   *  the actual `connectionId` mapping). Bot seats and unclaimed
+   *  human seats stay out of the map. */
+  seatClaims?: Record<string, string>;
 }
 
 export interface ConnectionRecord {
@@ -126,6 +131,38 @@ export async function deleteRoom(code: string): Promise<void> {
       Key: { code },
     }),
   );
+}
+
+/**
+ * Idempotently claim a seat. Returns the resulting `seatClaims`
+ * map. Throws when the seat is already claimed by someone else
+ * (caller shows the joiner a friendly error).
+ */
+export async function claimSeat(
+  code: string,
+  playerId: string,
+  displayName: string,
+): Promise<Record<string, string>> {
+  const room = await getRoom(code);
+  if (!room) throw new Error("room-not-found");
+  const claims = { ...(room.seatClaims ?? {}) };
+  const existing = claims[playerId];
+  if (existing && existing !== displayName) {
+    throw new Error("seat-already-claimed");
+  }
+  claims[playerId] = displayName;
+  await ddb.send(
+    new UpdateCommand({
+      TableName: Resource.Rooms.name,
+      Key: { code },
+      UpdateExpression: "SET seatClaims = :c, expiresAt = :e",
+      ExpressionAttributeValues: {
+        ":c": claims,
+        ":e": Math.floor(Date.now() / 1000) + ROOM_TTL_SECONDS,
+      },
+    }),
+  );
+  return claims;
 }
 
 // =============================================================================
