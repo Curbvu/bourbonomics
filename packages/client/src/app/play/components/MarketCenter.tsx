@@ -308,15 +308,33 @@ const baseTile = `relative flex flex-shrink-0 flex-col overflow-hidden rounded-m
 /**
  * Visual modifiers + click target for a conveyor card while the human
  * is in interactive buy mode. Returns the per-card class additions and
- * the click handler — when in buy mode the card picks the slot, when
- * not it opens the inspect modal.
+ * the click handler.
+ *
+ * Click semantics (Pass 2 of the card-interaction overhaul):
+ * - In buy mode: click picks this slot as the buy target (existing).
+ * - Outside buy mode, on the human's turn, with the card affordable:
+ *   click STARTS buy mode, pre-targets this slot, and carries any
+ *   currently multi-selected hand cards over as the proposed spend.
+ *   This lets the player skip the toolbar's BUY MARKET button entirely
+ *   — the muted picker was hard to find.
+ * - Otherwise (not your turn, can't afford, or no useful action): click
+ *   falls back to the inspect modal so the card is still readable.
  */
 function useMarketBuyState(
   source: "conveyor" | "operations",
   slotIndex: number,
   cost: number,
 ) {
-  const { state, buyMode, setBuyTarget, setInspect } = useGameStore();
+  const {
+    state,
+    buyMode,
+    startBuyMode,
+    setBuyTarget,
+    setInspect,
+    selectedHandCardIds,
+    toggleBuySpend,
+    multiplayerMode,
+  } = useGameStore();
   const inBuyMode = buyMode != null;
   const picked = buyMode?.pickedTarget;
   const isPicked =
@@ -331,6 +349,16 @@ function useMarketBuyState(
     ? human.hand.reduce((acc, c) => acc + paymentValue(c), 0)
     : 0;
   const affordable = wallet >= cost;
+  // Turn gate for direct-buy. Mirrors ActionBar's `disabledByTurn` rule
+  // so the click can't smuggle the player into buy mode while a bot is
+  // on the clock or the game is between phases. The bail-out useEffect
+  // in the store would clear the mode anyway, but blocking up-front
+  // avoids a one-frame flicker of the BuyOverlay.
+  const seatId = multiplayerMode ? multiplayerMode.playerId : human?.id;
+  const isMyTurn =
+    !!state &&
+    state.phase === "action" &&
+    state.players[state.currentPlayerIndex]?.id === seatId;
   const buyClass = !inBuyMode
     ? ""
     : isPicked
@@ -345,9 +373,17 @@ function useMarketBuyState(
     onClickCard: (payload: () => void) => () => {
       if (inBuyMode) {
         if (affordable) setBuyTarget({ source, slotIndex });
-      } else {
-        payload();
+        return;
       }
+      if (isMyTurn && affordable) {
+        // Snapshot the multi-selection now — startBuyMode clears it.
+        const preSelected = [...selectedHandCardIds];
+        startBuyMode();
+        setBuyTarget({ source, slotIndex });
+        for (const id of preSelected) toggleBuySpend(id);
+        return;
+      }
+      payload();
     },
     setInspect,
   };
