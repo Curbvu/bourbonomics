@@ -499,7 +499,20 @@ function EmptySlot() {
 }
 
 function MashBillTile({ bill }: { bill: MashBill }) {
-  const { setInspect, drawBillMode, setDrawBillTarget } = useGameStore();
+  const {
+    state,
+    setInspect,
+    drawBillMode,
+    startDrawBillMode,
+    setDrawBillTarget,
+    selectedHandCardIds,
+    toggleDrawBillSpend,
+    multiplayerMode,
+    buyMode,
+    ageMode,
+    sellMode,
+    makeMode,
+  } = useGameStore();
   const tier = tierOrCommon(bill.tier);
   const chrome = TIER_CHROME[tier];
   const cells: number[] = [];
@@ -513,14 +526,42 @@ function MashBillTile({ bill }: { bill: MashBill }) {
     !drawBillMode.pickedMashBillId;
   const isPickedDraw =
     drawBillMode != null && drawBillMode.pickedMashBillId === bill.id;
+  // Auto-engage gate. Mirrors the click-to-buy in `useMarketBuyState`:
+  // outside any picker mode, on the human's turn, with at least one
+  // open rickhouse slot (DRAW_MASH_BILL needs somewhere to land), a
+  // click on a bill enters draw-bill mode and pre-targets it. The
+  // hand multi-selection (Pass 1) is carried into the sacrifice list.
+  const inAnyOtherPicker =
+    buyMode != null || ageMode != null || sellMode != null || makeMode != null;
+  const human = state?.players.find((p) => !p.isBot);
+  const seatId = multiplayerMode ? multiplayerMode.playerId : human?.id;
+  const isMyTurn =
+    !!state &&
+    state.phase === "action" &&
+    state.players[state.currentPlayerIndex]?.id === seatId;
+  const hasOpenSlot = !!human?.rickhouseSlots.some(
+    (s) => !state!.allBarrels.some((b) => b.slotId === s.id),
+  );
+  const canAutoDraw =
+    !drawBillMode && !inAnyOtherPicker && isMyTurn && hasOpenSlot;
   const drawRing = isPickedDraw
     ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-    : inDrawStep1
+    : inDrawStep1 || canAutoDraw
       ? "ring-2 ring-amber-300/70 hover:ring-amber-200"
       : "";
   const onClick = () => {
-    if (inDrawStep1) setDrawBillTarget({ mashBillId: bill.id });
-    else setInspect({ kind: "mashbill", bill });
+    if (inDrawStep1) {
+      setDrawBillTarget({ mashBillId: bill.id });
+      return;
+    }
+    if (canAutoDraw) {
+      const preSelected = [...selectedHandCardIds];
+      startDrawBillMode();
+      setDrawBillTarget({ mashBillId: bill.id });
+      for (const id of preSelected) toggleDrawBillSpend(id);
+      return;
+    }
+    setInspect({ kind: "mashbill", bill });
   };
   return (
     <button
@@ -534,7 +575,9 @@ function MashBillTile({ bill }: { bill: MashBill }) {
       title={
         inDrawStep1
           ? `Pick ${bill.name} — costs B$${bill.cost ?? 2}`
-          : `${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`
+          : canAutoDraw
+            ? `${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · click to draw (sacrifices a hand card), right-click to inspect`
+            : `${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`
       }
       className={[baseTile, chrome.gradient, chrome.border, chrome.glow, drawRing].join(" ")}
     >

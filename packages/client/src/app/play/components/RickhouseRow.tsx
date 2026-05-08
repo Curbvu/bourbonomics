@@ -183,6 +183,7 @@ function BarrelChip({
     dragMake,
     dragMakeIds,
     endDragMake,
+    selectedHandCardIds,
     clearHandSelection,
   } = useGameStore();
   const owner = state.players.find((p) => p.id === barrel.ownerId);
@@ -230,12 +231,44 @@ function BarrelChip({
       cardId: draggedIds[0]!,
     }).legal;
   const isLegalForDrag = isLegalMakeDrag || isLegalAgeDrag;
-  const dropTargetState = !dragMake
-    ? undefined
-    : isLegalForDrag
+  // Click-to-commit using the persistent hand multi-selection (Pass 1
+  // gesture). Same shape as the drag-drop validation but reading the
+  // selection set instead of the in-flight drag payload — so a click
+  // on a slot is the same gesture as dropping the group there.
+  const isLegalClickMake =
+    isHumanRow &&
+    isMyTurn &&
+    barrel.phase !== "aging" &&
+    selectedHandCardIds.length > 0 &&
+    validateAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: barrel.ownerId,
+      slotId: barrel.slotId,
+      cardIds: selectedHandCardIds,
+    }).legal;
+  const isLegalClickAge =
+    isHumanRow &&
+    isMyTurn &&
+    barrel.phase === "aging" &&
+    selectedHandCardIds.length === 1 &&
+    validateAction(state, {
+      type: "AGE_BOURBON",
+      playerId: barrel.ownerId,
+      barrelId: barrel.id,
+      cardId: selectedHandCardIds[0]!,
+    }).legal;
+  const isLegalForClickCommit = isLegalClickMake || isLegalClickAge;
+  // The slot pulses green when a drop OR a click-commit would be
+  // accepted. Drag still takes priority over click-hint for the
+  // hover variant (so a mid-drag hover lands on the brighter chrome).
+  const dropTargetState = dragMake
+    ? isLegalForDrag
       ? dragHover
         ? "hover"
         : "valid"
+      : undefined
+    : isLegalForClickCommit
+      ? "valid"
       : undefined;
 
   // Age-mode interactivity: in age mode, the human's ageable barrels
@@ -347,16 +380,55 @@ function BarrelChip({
     !barrel.inspectedThisRound &&
     (!barrel.agedThisRound || barrel.extraAgesAvailable > 0);
   const onClick = () => {
-    if (saleable) setSellBarrel(barrel.id);
-    else if (ageable) setAgeBarrel(barrel.id);
-    else if (canAutoAge) {
+    if (saleable) {
+      setSellBarrel(barrel.id);
+      return;
+    }
+    if (ageable) {
+      setAgeBarrel(barrel.id);
+      return;
+    }
+    // Click-to-commit: the player has multi-selected hand cards and
+    // clicked a slot that legally accepts that group. Same outcome as
+    // dragging the group onto the slot.
+    if (isLegalClickMake) {
+      try {
+        dispatch({
+          type: "MAKE_BOURBON",
+          playerId: barrel.ownerId,
+          slotId: barrel.slotId,
+          cardIds: selectedHandCardIds,
+        });
+        clearHandSelection();
+      } catch {
+        /* engine validated but apply threw — keep UI alive */
+      }
+      return;
+    }
+    if (isLegalClickAge) {
+      try {
+        dispatch({
+          type: "AGE_BOURBON",
+          playerId: barrel.ownerId,
+          barrelId: barrel.id,
+          cardId: selectedHandCardIds[0]!,
+        });
+        clearHandSelection();
+      } catch {
+        /* swallow — engine validated */
+      }
+      return;
+    }
+    if (canAutoAge) {
       // startAgeMode + setAgeBarrel batch in the same event handler;
-      // the ref-form setBuyMode in startAgeMode replaces state with a
-      // fresh ageMode, then setAgeBarrel's function-form updater sees
-      // it and stamps in the picked barrel.
+      // the object-form setAgeMode in startAgeMode replaces state with
+      // a fresh ageMode, then setAgeBarrel's function-form updater
+      // sees it and stamps in the picked barrel.
       startAgeMode();
       setAgeBarrel(barrel.id);
-    } else setInspect({ kind: "barrel", barrel, ownerName: owner?.name });
+      return;
+    }
+    setInspect({ kind: "barrel", barrel, ownerName: owner?.name });
   };
   // v2.10: right-click on any barrel always opens the inspect modal,
   // regardless of mode. Lets the player check a barrel's bill / age /
@@ -427,13 +499,15 @@ function BarrelChip({
     <button
       type="button"
       title={
-        canDropAge
-          ? `${titleText} — click to age (then click a hand card), or drag one card here`
-          : canDropMake
-            ? `${titleText} — drag a hand card here to commit, or click to inspect`
-            : ageable
-              ? titleText
-              : `${titleText} — click to inspect`
+        isLegalForClickCommit
+          ? `${titleText} — click to commit your selected hand cards here`
+          : canDropAge
+            ? `${titleText} — click to age (then click a hand card), or drag one card here`
+            : canDropMake
+              ? `${titleText} — drag a hand card here to commit, or click to inspect`
+              : ageable
+                ? titleText
+                : `${titleText} — click to inspect`
       }
       data-slot-id={barrel.slotId}
       data-drop-target={dropTargetState}
