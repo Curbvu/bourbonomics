@@ -168,7 +168,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-1-aftermath",
     kind: "prompt",
     title: "Recipe satisfied",
-    body: "Backroad Batch is now **Aging**. Each round it'll collect a year. The cards you committed are locked in until you sell.",
+    body: "Backroad Batch is now **Aging**. Each turn you must commit **1 card** to it to add a year — that aging card locks onto the barrel and stays there until you sell. The recipe cards you already committed are locked in too.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
   },
 
