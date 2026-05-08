@@ -368,14 +368,14 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-6-age-prompt",
     kind: "prompt",
     title: "Send a year down each barrel",
-    body: "Each round you can place **one card** on top of an aging barrel to age it by 1 year. Let's age both right now.",
+    body: "Each round you can place **one card** on top of an aging barrel to age it by 1 year. Click a barrel, then click any hand card to commit (drag also works). Let's age both.",
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },
   {
     id: "beat-6-age-backroad",
     kind: "await-action",
     title: "Age Backroad Batch",
-    body: "Pick any card from your hand and drop it on **Backroad Batch.**",
+    body: "Click **Backroad Batch**, then click any card in your hand.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
     matches: (action, state) => {
       if (action.type !== "AGE_BOURBON") return false;
@@ -388,7 +388,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-6-age-heritage",
     kind: "await-action",
     title: "Now Heritage Reserve",
-    body: "Drop another card on **Heritage Reserve.**",
+    body: "Same idea: click **Heritage Reserve**, then click another hand card.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
     matches: (action, state) => {
       if (action.type !== "AGE_BOURBON") return false;

@@ -89,20 +89,44 @@ function findSpotlightElement(target: SpotlightTarget): Element | null {
   }
 }
 
+/**
+ * When the primary spotlight is on a target that requires committing
+ * a card from hand (rickhouse barrels for make/age, market for buy),
+ * we ALSO leave the hand tray un-dimmed and faintly ringed so the
+ * player sees they need to follow up with a hand-card click. Without
+ * this, the dim layer covers the hand and the sky/amber rings on
+ * individual cards get muted.
+ */
+function wantsHandSecondary(target: SpotlightTarget | undefined): boolean {
+  if (!target) return false;
+  return (
+    target.kind === "rickhouse-slot" ||
+    target.kind === "rickhouse-row" ||
+    target.kind === "market-slot" ||
+    target.kind === "market-row"
+  );
+}
+
+function findHandTrayElement(): Element | null {
+  return document.querySelector("[data-hand-tray]");
+}
+
 export function SpotlightLayer({ target }: { target: SpotlightTarget | undefined }) {
   const [box, setBox] = useState<DOMRect | null>(null);
+  const [handBox, setHandBox] = useState<DOMRect | null>(null);
 
   useEffect(() => {
     if (!target || target.kind === "none") {
       setBox(null);
+      setHandBox(null);
       return;
     }
+    const wantsHand = wantsHandSecondary(target);
     const measure = () => {
       const el = findSpotlightElement(target);
       const next = el?.getBoundingClientRect() ?? null;
       setBox((prev) => {
         if (!prev || !next) return next;
-        // Avoid setState churn when the box hasn't moved.
         if (
           Math.abs(prev.top - next.top) < 0.5 &&
           Math.abs(prev.left - next.left) < 0.5 &&
@@ -113,6 +137,24 @@ export function SpotlightLayer({ target }: { target: SpotlightTarget | undefined
         }
         return next;
       });
+      if (wantsHand) {
+        const handEl = findHandTrayElement();
+        const handNext = handEl?.getBoundingClientRect() ?? null;
+        setHandBox((prev) => {
+          if (!prev || !handNext) return handNext;
+          if (
+            Math.abs(prev.top - handNext.top) < 0.5 &&
+            Math.abs(prev.left - handNext.left) < 0.5 &&
+            Math.abs(prev.width - handNext.width) < 0.5 &&
+            Math.abs(prev.height - handNext.height) < 0.5
+          ) {
+            return prev;
+          }
+          return handNext;
+        });
+      } else {
+        setHandBox(null);
+      }
     };
     measure();
     const onResize = () => measure();
@@ -128,32 +170,83 @@ export function SpotlightLayer({ target }: { target: SpotlightTarget | undefined
 
   if (!target || target.kind === "none" || !box) return null;
 
-  // The cut-out: 4 rectangles around the spotlight that dim the rest of
-  // the page. Cheaper than a CSS clip-path and works reliably across
-  // browsers without coordinate-system surprises.
-  const dim = "absolute bg-slate-950/55 pointer-events-none";
   const PAD = 8;
   const top = box.top - PAD;
   const left = box.left - PAD;
   const width = box.width + PAD * 2;
   const height = box.height + PAD * 2;
 
+  // Secondary hand-tray hole (only present for rickhouse / market beats).
+  const HAND_PAD = 4;
+  const ht = handBox
+    ? {
+        top: handBox.top - HAND_PAD,
+        left: handBox.left - HAND_PAD,
+        width: handBox.width + HAND_PAD * 2,
+        height: handBox.height + HAND_PAD * 2,
+      }
+    : null;
+
+  // SVG mask: white = dim, black = transparent. Two black rects punch
+  // out the primary spotlight and (optionally) the hand-tray, so the
+  // amber-glow ring on the spotlit element AND the hand cards' own
+  // sky/amber selection chrome both stay readable. Bumped to 70%
+  // dim (was 55%) for stronger contrast between the actionable target
+  // and the background table.
   return (
-    // The wrapper carries `pointer-events-none`, but `pointer-events`
-    // is NOT inherited — every child has to set it too, or the
-    // browser will route mouse / drag events to the child instead of
-    // the spotlit element underneath. The amber ring covers the slot
-    // we WANT to receive drops, so without `pointer-events-none` on
-    // the ring, drop events land on the ring and get swallowed.
     <div className="pointer-events-none fixed inset-0 z-40">
-      <div className={dim} style={{ top: 0, left: 0, right: 0, height: top }} />
-      <div className={dim} style={{ top, left: 0, width: left, height }} />
-      <div className={dim} style={{ top, left: left + width, right: 0, height }} />
-      <div className={dim} style={{ top: top + height, left: 0, right: 0, bottom: 0 }} />
+      <svg
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <mask id="bb-spotlight-mask" maskUnits="userSpaceOnUse">
+            <rect x="0" y="0" width="100%" height="100%" fill="white" />
+            <rect
+              x={left}
+              y={top}
+              width={width}
+              height={height}
+              rx="8"
+              fill="black"
+            />
+            {ht ? (
+              <rect
+                x={ht.left}
+                y={ht.top}
+                width={ht.width}
+                height={ht.height}
+                rx="8"
+                fill="black"
+              />
+            ) : null}
+          </mask>
+        </defs>
+        <rect
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          fill="rgb(2 6 23)"
+          fillOpacity="0.7"
+          mask="url(#bb-spotlight-mask)"
+        />
+      </svg>
+      {/* Primary amber ring — pointer-events-none so drop events land
+          on the spotlit element underneath (see bf39ea6). */}
       <div
         className="pointer-events-none absolute rounded-lg border-2 border-amber-400 shadow-[0_0_24px_rgba(251,191,36,.55),inset_0_0_24px_rgba(251,191,36,.18)]"
         style={{ top, left, width, height }}
       />
+      {/* Secondary, softer ring around the hand tray when this beat
+          needs a hand-card follow-up. Lighter to read as "you'll act
+          here next" rather than "click here first". */}
+      {ht ? (
+        <div
+          className="pointer-events-none absolute rounded-lg border-2 border-sky-300/70 shadow-[0_0_14px_rgba(125,211,252,.35)]"
+          style={{ top: ht.top, left: ht.left, width: ht.width, height: ht.height }}
+        />
+      ) : null}
     </div>
   );
 }

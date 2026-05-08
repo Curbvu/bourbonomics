@@ -175,6 +175,7 @@ function BarrelChip({
   const {
     ageMode,
     setAgeBarrel,
+    startAgeMode,
     sellMode,
     setSellBarrel,
     setInspect,
@@ -190,27 +191,27 @@ function BarrelChip({
   if (barrel.inspectedThisRound) ringHints.push("under inspection");
   if (barrel.extraAgesAvailable > 0) ringHints.push("rushed shipment");
 
-  // v2.6 drag-and-drop: the human can drag a hand card straight onto
-  // a slot barrel to commit it (single-card MAKE_BOURBON). Only their
-  // own ready / construction slots are valid drop targets. v2.7 lets
-  // a slot accept multiple commits in one turn, so the per-turn gate
-  // is no longer part of `canDropMake`.
+  // Drag-and-drop: the human can drag hand cards straight onto a slot
+  // barrel to commit them. Two flavors share the same gesture:
+  //   - barrel.phase !== "aging" → MAKE_BOURBON with the full drag group
+  //     (ready / construction slots, accepting multi-card commits).
+  //   - barrel.phase === "aging" → AGE_BOURBON with a SINGLE card (engine
+  //     rule: one age per barrel per round). Multi-card drags onto an
+  //     aging barrel reject so the player doesn't accidentally lose the
+  //     other cards from their multi-select.
   const [dragHover, setDragHover] = useState(false);
-  const canDropMake =
-    isHumanRow &&
+  const isMyTurn =
     state.phase === "action" &&
-    state.players[state.currentPlayerIndex]?.id === barrel.ownerId &&
-    barrel.phase !== "aging";
+    state.players[state.currentPlayerIndex]?.id === barrel.ownerId;
+  const canDropMake = isHumanRow && isMyTurn && barrel.phase !== "aging";
+  const canDropAge = isHumanRow && isMyTurn && barrel.phase === "aging";
   // Whether this slot would actually accept the in-flight card(s) under
-  // the engine's rules (caps on cask / rye / wheat). The CSS pulse
-  // only fires when the engine would also accept the drop, so the
-  // player isn't lured into an illegal target. v2.10: validate the
-  // FULL drag group, not just the primary card — dragging two casks
-  // onto a slot that allows max 1 should still light up only when
-  // the engine would accept BOTH together (which it won't, so it
-  // dims and the drop becomes a no-op).
+  // the engine's rules (caps on cask / rye / wheat for make; once-per-
+  // round + not-just-completed for age). The CSS pulse only fires when
+  // the engine would also accept the drop. v2.10: validate the FULL
+  // drag group for make, but require exactly one card for age.
   const draggedIds = dragMakeIds.length > 0 ? dragMakeIds : dragMake ? [dragMake] : [];
-  const isLegalForDrag =
+  const isLegalMakeDrag =
     canDropMake &&
     draggedIds.length > 0 &&
     validateAction(state, {
@@ -219,6 +220,16 @@ function BarrelChip({
       slotId: barrel.slotId,
       cardIds: draggedIds,
     }).legal;
+  const isLegalAgeDrag =
+    canDropAge &&
+    draggedIds.length === 1 &&
+    validateAction(state, {
+      type: "AGE_BOURBON",
+      playerId: barrel.ownerId,
+      barrelId: barrel.id,
+      cardId: draggedIds[0]!,
+    }).legal;
+  const isLegalForDrag = isLegalMakeDrag || isLegalAgeDrag;
   const dropTargetState = !dragMake
     ? undefined
     : isLegalForDrag
@@ -320,12 +331,32 @@ function BarrelChip({
   //     Auto-fires once the hand card is also picked.
   //   - Age mode + barrel is a legal age target → pick it. Auto-fires
   //     once the hand card is also picked.
+  //   - Outside any picker mode, the player's own AGING barrel is a
+  //     legal age target → auto-engage age-mode and pre-pick this
+  //     barrel. The player can then click any hand card to fire the
+  //     age, no need to find the AGE BARREL toolbar button first.
   //   - Otherwise → open the inspect modal so the player can see
   //     mash bill, age, committed cards, awards, etc.
+  const inAnyPickerMode = inAgeMode || inSellMode;
+  const canAutoAge =
+    isHumanRow &&
+    !inAnyPickerMode &&
+    barrel.phase === "aging" &&
+    isMyTurn &&
+    !completedThisRound &&
+    !barrel.inspectedThisRound &&
+    (!barrel.agedThisRound || barrel.extraAgesAvailable > 0);
   const onClick = () => {
     if (saleable) setSellBarrel(barrel.id);
     else if (ageable) setAgeBarrel(barrel.id);
-    else setInspect({ kind: "barrel", barrel, ownerName: owner?.name });
+    else if (canAutoAge) {
+      // startAgeMode + setAgeBarrel batch in the same event handler;
+      // the ref-form setBuyMode in startAgeMode replaces state with a
+      // fresh ageMode, then setAgeBarrel's function-form updater sees
+      // it and stamps in the picked barrel.
+      startAgeMode();
+      setAgeBarrel(barrel.id);
+    } else setInspect({ kind: "barrel", barrel, ownerName: owner?.name });
   };
   // v2.10: right-click on any barrel always opens the inspect modal,
   // regardless of mode. Lets the player check a barrel's bill / age /
@@ -351,10 +382,30 @@ function BarrelChip({
   const onDrop = (e: React.DragEvent) => {
     setDragHover(false);
     endDragMake();
-    if (!canDropMake) return;
+    if (!canDropMake && !canDropAge) return;
     const cardIds = readMakeDragPayload(e);
     if (cardIds.length === 0) return;
     e.preventDefault();
+    // Aging barrels: AGE_BOURBON commits one card. Reject multi-card
+    // drags so the multi-selected group survives for the player to
+    // re-target onto a building slot or split.
+    if (canDropAge) {
+      if (cardIds.length !== 1) return;
+      const action = {
+        type: "AGE_BOURBON" as const,
+        playerId: barrel.ownerId,
+        barrelId: barrel.id,
+        cardId: cardIds[0]!,
+      };
+      if (!validateAction(state, action).legal) return;
+      try {
+        dispatch(action);
+        clearHandSelection();
+      } catch {
+        /* swallow; engine validated but apply threw */
+      }
+      return;
+    }
     const action = {
       type: "MAKE_BOURBON" as const,
       playerId: barrel.ownerId,
@@ -376,11 +427,13 @@ function BarrelChip({
     <button
       type="button"
       title={
-        canDropMake
-          ? `${titleText} — drag a hand card here to commit, or click to inspect`
-          : ageable
-            ? titleText
-            : `${titleText} — click to inspect`
+        canDropAge
+          ? `${titleText} — click to age (then click a hand card), or drag one card here`
+          : canDropMake
+            ? `${titleText} — drag a hand card here to commit, or click to inspect`
+            : ageable
+              ? titleText
+              : `${titleText} — click to inspect`
       }
       data-slot-id={barrel.slotId}
       data-drop-target={dropTargetState}
