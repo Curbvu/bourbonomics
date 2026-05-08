@@ -23,12 +23,15 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { produce } from "immer";
 import {
   applyAction,
   awaitingHumanInput,
+  buildTutorialInitialState,
   buildVanillaDistilleryFor,
   computeFinalScores,
   computeReward,
@@ -49,6 +52,21 @@ import {
   type PlayerState,
   type ScoreResult,
 } from "@bourbonomics/engine";
+
+/**
+ * v2.9 introduced two per-turn gates: `needsDemandRoll` and
+ * `needsAgeBarrels`. The tutorial leaves both dormant — every beat
+ * teaches a voluntary action, not a per-turn cost — so the dispatch
+ * path runs this on every result while the tutorial is active.
+ */
+function clearTutorialGates(state: GameState): GameState {
+  return produce(state, (draft) => {
+    for (const p of draft.players) {
+      p.needsDemandRoll = false;
+      p.needsAgeBarrels = false;
+    }
+  });
+}
 import {
   gameSocket,
   gameSocketUrl,
@@ -351,6 +369,24 @@ export interface GameStore {
   dispatch: (action: GameAction) => void;
   setAutoplay: (on: boolean) => void;
   clear: () => void;
+
+  // ─── Tutorial hooks ──────────────────────────────────────────
+  /** True while the on-rails tutorial owns the store. Cleared by `endTutorial`. */
+  tutorialActive: boolean;
+  /** Inject the rigged tutorial GameState and switch the store into tutorial mode. */
+  startTutorial: () => void;
+  /** Clear the tutorial state and flags. Returns the store to its empty shape. */
+  endTutorial: () => void;
+  /** Direct state mutation — used by the tutorial controller for time-skips,
+   *  deck rigging, and silent age bumps that don't fit a normal action. */
+  mutateState: (fn: (s: GameState) => GameState) => void;
+  /** Pre-dispatch action transformer. While set, every dispatched action
+   *  runs through this hook first. Return `null` to silently drop the
+   *  action (used to gate non-scripted plays); return a (possibly-rewritten)
+   *  action to dispatch in its place (used to force splits in Beat 9 / 11). */
+  setTutorialActionTransform: (
+    fn: ((action: GameAction, state: GameState) => GameAction | null) | null,
+  ) => void;
 }
 
 const noop = () => {};
@@ -405,6 +441,11 @@ const Ctx = createContext<GameStore>({
   multiplayerError: null,
   clearMultiplayerError: noop,
   newGame: noop,
+  tutorialActive: false,
+  startTutorial: noop,
+  endTutorial: noop,
+  mutateState: noop,
+  setTutorialActionTransform: noop,
   createMultiplayer: async () => "",
   joinMultiplayer: async () => {},
   claimSeat: async () => {},
@@ -446,6 +487,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [multiplayerError, setMultiplayerError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
+  // Tutorial mode — when active, dispatch wraps every applied action in
+  // `clearTutorialGates` and routes it through the action-transform hook
+  // first. We hold both as refs so the dispatch closure doesn't have to
+  // re-create on every transform-set + we don't have to re-fire every
+  // dispatch consumer on every tutorial-flag flip.
+  const [tutorialActive, setTutorialActive] = useState(false);
+  const tutorialActiveRef = useRef(false);
+  const tutorialActionTransformRef = useRef<
+    ((action: GameAction, state: GameState) => GameAction | null) | null
+  >(null);
+
   // Load from localStorage on mount.
   useEffect(() => {
     try {
@@ -477,6 +529,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Persist on change.
   useEffect(() => {
     if (!hydrated) return;
+    // Tutorial state is ephemeral — don't persist it to the live-game
+    // localStorage key. Otherwise visiting /tutorial after a live game
+    // would overwrite the player's saved progress with the rigged
+    // scenario, and on next /play visit they'd hydrate into the
+    // tutorial mid-scenario.
+    if (tutorialActive) return;
     try {
       if (store.state) {
         window.localStorage.setItem(
@@ -494,7 +552,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore quota / private mode failures
     }
-  }, [store, autoplay, hydrated]);
+  }, [store, autoplay, hydrated, tutorialActive]);
 
   // Pure step — runs through StrictMode's double-invocation safely
   // because the new state is fully derived from `prev`.
@@ -540,17 +598,41 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
       setStore((prev) => {
         if (!prev.state) return prev;
-        const next = applyAction(prev.state, action);
+        // Tutorial mode runs every dispatched action through a transform
+        // hook. Returning `null` drops the action silently (gates the
+        // off-script play); returning a different action substitutes it
+        // (forces the rep/draw split on the scripted sales).
+        let final = action;
+        const transform = tutorialActionTransformRef.current;
+        if (transform) {
+          const out = transform(action, prev.state);
+          if (out === null) return prev;
+          final = out;
+        }
+        let next: GameState;
+        try {
+          next = applyAction(prev.state, final);
+        } catch {
+          // Tutorial dispatch may produce an action the engine rejects
+          // (e.g. a stale snapshot during fast scripted advancement).
+          // Drop silently rather than crash the page; in dev console
+          // we'll still see the engine's error in `applyAction`.
+          if (tutorialActiveRef.current) return prev;
+          throw new Error("dispatch: applyAction threw outside tutorial mode");
+        }
+        if (tutorialActiveRef.current) {
+          next = clearTutorialGates(next);
+        }
         const seq = prev.seqCounter + 1;
         const entry: LogEntry = {
           seq,
-          action,
+          action: final,
           round: next.round,
-          drawn: captureDrawn(prev.state, next, action),
+          drawn: captureDrawn(prev.state, next, final),
         };
-        const lastPurchase = capturePurchase(prev, action, seq);
-        const lastMake = captureMake(prev, next, action, seq);
-        const lastSale = captureSale(prev, action, seq);
+        const lastPurchase = capturePurchase(prev, final, seq);
+        const lastMake = captureMake(prev, next, final, seq);
+        const lastSale = captureSale(prev, final, seq);
         return {
           ...prev,
           state: next,
@@ -1239,6 +1321,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // stepping would race the broadcast and produce visible divergence.
   useEffect(() => {
     if (multiplayerMode) return;
+    // Tutorial mode owns the round loop — its controller dispatches
+    // every bot move and every draw on its own clock. The orchestrator
+    // would otherwise race the controller and stomp on the rigged
+    // sequence (e.g. fire its own ROLL_DEMAND between scripted beats).
+    if (tutorialActive) return;
     const state = store.state;
     if (!state) return;
     if (isGameOver(state)) return;
@@ -1272,7 +1359,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const delay = isActionPhase ? 320 : 180;
     const id = window.setTimeout(step, delay);
     return () => window.clearTimeout(id);
-  }, [multiplayerMode, store.state, step]);
+  }, [multiplayerMode, tutorialActive, store.state, step]);
 
   const newGame = useCallback((cfg: NewGameConfig) => {
     const catalog = defaultMashBillCatalog();
@@ -1344,6 +1431,80 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const setAutoplay = useCallback((on: boolean) => {
     setAutoplayState(on);
   }, []);
+
+  // ─── Tutorial mode ───────────────────────────────────────────
+  const startTutorial = useCallback(() => {
+    const fresh = clearTutorialGates(buildTutorialInitialState());
+    tutorialActiveRef.current = true;
+    setTutorialActive(true);
+    tutorialActionTransformRef.current = null;
+    setStore({
+      state: fresh,
+      log: [],
+      seqCounter: 0,
+      seatMeta: fresh.players.map((p) => ({ id: p.id })),
+      lastPurchase: null,
+      lastMake: null,
+      lastSale: null,
+    });
+    setAutoplayState(false);
+    setInspect(null);
+    setBuyMode(null);
+    setAgeMode(null);
+    setDrawBillMode(null);
+    setMakeMode(null);
+    setSellMode(null);
+  }, []);
+
+  const endTutorial = useCallback(() => {
+    tutorialActiveRef.current = false;
+    setTutorialActive(false);
+    tutorialActionTransformRef.current = null;
+    // Re-hydrate the live-game blob from storage so closing the tutorial
+    // doesn't blow away whatever real game the player had saved before.
+    // Empty fallback if there's no saved game.
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          state: GameState;
+          log: LogEntry[];
+          seatMeta: AtomicStore["seatMeta"];
+        };
+        setStore({
+          state: saved.state,
+          log: saved.log ?? [],
+          seqCounter: (saved.log ?? []).length,
+          seatMeta: saved.seatMeta ?? [],
+          lastPurchase: null,
+          lastMake: null,
+          lastSale: null,
+        });
+        return;
+      }
+    } catch {
+      /* corrupt save — fall through to empty store */
+    }
+    setStore(EMPTY_STORE);
+  }, []);
+
+  const mutateState = useCallback((fn: (s: GameState) => GameState) => {
+    setStore((prev) => {
+      if (!prev.state) return prev;
+      let next = fn(prev.state);
+      if (tutorialActiveRef.current) {
+        next = clearTutorialGates(next);
+      }
+      return { ...prev, state: next };
+    });
+  }, []);
+
+  const setTutorialActionTransform = useCallback(
+    (fn: ((action: GameAction, state: GameState) => GameAction | null) | null) => {
+      tutorialActionTransformRef.current = fn;
+    },
+    [],
+  );
 
   const scores = useMemo(
     () =>
@@ -1429,6 +1590,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       dispatch,
       setAutoplay,
       clear,
+      tutorialActive,
+      startTutorial,
+      endTutorial,
+      mutateState,
+      setTutorialActionTransform,
     }),
     [
       store,
@@ -1484,6 +1650,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       dispatch,
       setAutoplay,
       clear,
+      tutorialActive,
+      startTutorial,
+      endTutorial,
+      mutateState,
+      setTutorialActionTransform,
     ],
   );
 

@@ -1,202 +1,167 @@
 "use client";
 
 /**
- * Top-level tutorial orchestrator. Owns:
- *   - high-level phase: intro → tour → play → done
- *   - the engine GameState (we drive applyAction directly here, not
- *     via the live GameProvider — the production store carries
- *     concerns the tutorial doesn't need)
- *   - beat cursor + advancement
- *   - persistent UI mode (which interaction the player is mid-flight)
- *   - localStorage completion flag
+ * Tutorial controller — drives the 12-beat walkthrough on top of the
+ * live game store. Owns no engine state of its own; every action goes
+ * through `store.dispatch` and mutates / off-script gates flow through
+ * `store.mutateState` / `store.setTutorialActionTransform`.
  *
- * Action gating happens at three layers:
- *   1. The board only fires actions while `awaitingAction === true`.
- *   2. `tryDispatch` checks the active beat's `matches` predicate
- *      before forwarding to the engine.
- *   3. Each action runs through `applyAction`, which throws on
- *      illegality — we swallow those silently rather than crash the
- *      tutorial so a misclick is never fatal.
+ * Beat lifecycle:
+ *   - intro / tour: full-screen overlays mounted before the play phase.
+ *   - await-action: install a transform that rejects everything except
+ *     the matching action (or its rewritten form for forced sale splits)
+ *     and advances on dispatch.
+ *   - prompt / decision / celebrate / finale: render an overlay surface.
+ *   - scripted: clear the transform, fire `build(state)` actions
+ *     programmatically, advance.
+ *   - transition: full-screen "time passes" with a state mutate at the
+ *     start; auto-advance after the duration.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { produce } from "immer";
 import {
-  applyAction,
-  buildTutorialInitialState,
   TUTORIAL_HUMAN_ID,
   type GameAction,
   type GameState,
 } from "@bourbonomics/engine";
-
-/**
- * v2.9 introduced two per-turn gates: `needsDemandRoll` and
- * `needsAgeBarrels`. The tutorial leaves both dormant — every beat
- * teaches a voluntary action, not a per-turn cost — so we wipe them
- * on every player after every dispatch and after every direct mutate.
- * The engine still validates other rules; we just keep the v2.9 gates
- * out of the on-rails experience.
- */
-function clearTutorialGates(state: GameState): GameState {
-  return produce(state, (draft) => {
-    for (const p of draft.players) {
-      p.needsDemandRoll = false;
-      p.needsAgeBarrels = false;
-    }
-  });
-}
+import { useGameStore } from "@/lib/store/game";
 import IntroSequence from "./IntroSequence";
-import BoardTour, { RichText } from "./BoardTour";
-import TutorialBoard from "./TutorialBoard";
+import BoardTour from "./BoardTour";
 import Confetti from "./Confetti";
 import Dice from "./Dice";
 import { TUTORIAL_BEATS, spotlightSpecialtyRye } from "./beats";
 import type { Beat, SpotlightTarget } from "./types";
+import { RichText, SpotlightLayer } from "./Spotlight";
 
 export const TUTORIAL_COMPLETE_KEY = "bourbonomics:tutorial-complete";
 
 type Phase = "intro" | "tour" | "play" | "done";
 
-type Mode =
-  | { kind: "idle" }
-  | { kind: "make"; slotId: string; selectedCardIds: string[] }
-  | { kind: "buy"; marketSlotIndex: number; selectedCardIds: string[] }
-  | { kind: "age"; barrelId: string; cardId: string | null }
-  | { kind: "sell"; barrelId: string; spendCardId: string | null };
+export default function TutorialController() {
+  const {
+    state,
+    dispatch,
+    mutateState,
+    setTutorialActionTransform,
+    endTutorial,
+  } = useGameStore();
 
-interface AnimSale {
-  slotId: string;
-  ownerId: string;
-  seq: number;
-}
-interface AnimMake {
-  slotId: string;
-  seq: number;
-}
-
-export default function TutorialApp() {
   const [phase, setPhase] = useState<Phase>("intro");
-  const [state, setState] = useState<GameState>(() => buildTutorialInitialState());
   const [beatIndex, setBeatIndex] = useState(0);
-  const [mode, setMode] = useState<Mode>({ kind: "idle" });
   const [decisionReply, setDecisionReply] = useState<string | null>(null);
   const [confetti, setConfetti] = useState(false);
-  const [lastSale, setLastSale] = useState<AnimSale | null>(null);
-  const [lastMake, setLastMake] = useState<AnimMake | null>(null);
-  const seqRef = useRef(0);
 
-  const beat: Beat | undefined = TUTORIAL_BEATS[beatIndex];
+  // Ref for the live beat — used by the transform closure (which is
+  // installed once per beat) and by the post-dispatch state-watch
+  // useEffect. Updates synchronously alongside the React state.
+  const beatIndexRef = useRef(0);
+  beatIndexRef.current = beatIndex;
 
-  // Reset the interaction mode whenever the beat changes — never carry
-  // a half-finished selection from one prompt to the next.
-  useEffect(() => {
-    setMode({ kind: "idle" });
-    setDecisionReply(null);
-  }, [beatIndex]);
+  // Keep the latest GameState reachable from non-render contexts
+  // (setTimeout callbacks, scripted-beat builders). Plain useRef
+  // mutated in render is the simplest way — the setTimeout that
+  // fires on a delay will read whatever render-cycle had last set it.
+  const stateRef = useRef<GameState | null>(null);
+  stateRef.current = state ?? null;
 
+  // Increment a counter when a scripted/transition beat finishes its
+  // setTimeout so React re-runs the per-beat effect after a state mutate.
   const advance = useCallback(() => {
-    setBeatIndex((i) => i + 1);
-  }, []);
-
-  const dispatch = useCallback((action: GameAction) => {
-    setState((prev) => {
-      try {
-        const next = applyAction(prev, action);
-        captureAnimations(prev, action);
-        return clearTutorialGates(next);
-      } catch (err) {
-        // Illegal during tutorial — leave state alone. Console-log so
-        // we still notice in dev.
-        if (process.env.NODE_ENV !== "production") {
-          // eslint-disable-next-line no-console
-          console.warn("[tutorial] illegal action", action, err);
-        }
-        return prev;
-      }
+    setBeatIndex((i) => {
+      const next = i + 1;
+      beatIndexRef.current = next;
+      return next;
     });
   }, []);
 
-  const captureAnimations = useCallback((prev: GameState, action: GameAction) => {
-    seqRef.current += 1;
-    const seq = seqRef.current;
-    if (action.type === "MAKE_BOURBON") {
-      setLastMake({ slotId: action.slotId, seq });
-    }
-    if (action.type === "SELL_BOURBON") {
-      const barrel = prev.allBarrels.find((b) => b.id === action.barrelId);
-      if (barrel) setLastSale({ slotId: barrel.slotId, ownerId: barrel.ownerId, seq });
-    }
-  }, []);
+  const beat: Beat | undefined = TUTORIAL_BEATS[beatIndex];
 
-  const tryDispatch = useCallback(
-    (action: GameAction) => {
-      if (!beat || beat.kind !== "await-action") return;
-      if (!beat.matches(action, state)) {
-        // Not the action this beat is waiting for. The board's "Locked
-        // during tutorial" copy in the prompt body already explains this;
-        // silently no-op so the user can adjust.
-        return;
-      }
-      const final = beat.rewrite ? (beat.rewrite(action, state) ?? action) : action;
-      dispatch(final);
-      // Defer advance by one tick so the dispatched state lands first.
-      setTimeout(() => advance(), 0);
-    },
-    [beat, state, dispatch, advance],
-  );
-
-  // ── Auto-advance scripted + transition beats ────────────────────
+  // Reset transient UI on every beat change.
   useEffect(() => {
+    setDecisionReply(null);
+  }, [beatIndex]);
+
+  // ── Action transform install ────────────────────────────────────
+  // For await-action beats, install a transform that:
+  //   - drops the action if the beat's matcher rejects it;
+  //   - rewrites the action via beat.rewrite (if any);
+  //   - schedules advance() so the next beat fires AFTER the engine
+  //     has applied the action and React has flushed the state.
+  // For non-await beats, clear the transform.
+  useEffect(() => {
+    if (phase !== "play") return;
+    if (!beat) {
+      setTutorialActionTransform(null);
+      return;
+    }
+    if (beat.kind === "await-action") {
+      setTutorialActionTransform((action, current) => {
+        if (!beat.matches(action, current)) return null;
+        const rewritten = beat.rewrite ? beat.rewrite(action, current) : null;
+        const final = rewritten ?? action;
+        // Defer to next tick so the dispatch's setStore has flushed
+        // before we move on — predicate-driven beats need to see the
+        // post-action state.
+        setTimeout(() => advance(), 0);
+        return final;
+      });
+    } else {
+      setTutorialActionTransform(null);
+    }
+    // Cleanup on unmount or beat change.
+    return () => {
+      setTutorialActionTransform(null);
+    };
+  }, [beat, phase, setTutorialActionTransform, advance]);
+
+  // ── Auto-advance scripted + transition + celebrate beats ─────────
+  useEffect(() => {
+    if (phase !== "play") return;
     if (!beat) return;
+
     if (beat.kind === "scripted") {
       const delay = beat.delayMs ?? 600;
       const t = setTimeout(() => {
-        let live = state;
-        if (beat.mutate) {
-          live = clearTutorialGates(beat.mutate(live));
-          setState(live);
+        // Run mutate first so build() sees the post-mutate world.
+        // mutateState's setStore updater is synchronous on its own tick;
+        // by the time the next microtask reads stateRef, the ref has
+        // been updated by the next render that the mutate triggered.
+        // To dodge that race we apply mutate directly via the
+        // mutateState callback and capture its return inline.
+        let live = stateRef.current;
+        if (beat.mutate && live) {
+          live = beat.mutate(live);
+          mutateState(() => live!);
         }
+        if (!live) return;
         const out = beat.build(live);
         const list = Array.isArray(out) ? out : [out];
-        let cur = live;
         for (const a of list) {
-          try {
-            cur = clearTutorialGates(applyAction(cur, a));
-            captureAnimations(live, a);
-          } catch (err) {
-            if (process.env.NODE_ENV !== "production") {
-              // eslint-disable-next-line no-console
-              console.warn("[tutorial scripted] failed", a, err);
-            }
-          }
+          dispatch(a);
         }
-        if (list.length > 0 || beat.mutate) {
-          setState(cur);
-        }
-        advance();
+        // Advance after dispatch flushes.
+        setTimeout(() => advance(), 50);
       }, delay);
       return () => clearTimeout(t);
     }
+
     if (beat.kind === "transition") {
-      // Mutate at the START so the board behind the transition shows
-      // the post-skip state. Then auto-advance when the duration ends.
       if (beat.mutate) {
-        setState((prev) => clearTutorialGates(beat.mutate!(prev)));
+        mutateState(beat.mutate);
       }
       const t = setTimeout(() => advance(), beat.durationMs ?? 2400);
       return () => clearTimeout(t);
     }
+
     if (beat.kind === "celebrate") {
       setConfetti(true);
       const t = setTimeout(() => setConfetti(false), 3500);
       return () => clearTimeout(t);
     }
-  }, [beat, advance, captureAnimations]);
-  /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [beat, phase, mutateState, dispatch, advance]);
 
-  // Mark tutorial complete + jump phase when we've walked past the
-  // last beat.
+  // ── End-of-walkthrough hand-off ──────────────────────────────────
   useEffect(() => {
     if (phase !== "play") return;
     if (beat) return;
@@ -204,97 +169,79 @@ export default function TutorialApp() {
     try {
       window.localStorage.setItem(TUTORIAL_COMPLETE_KEY, "true");
     } catch {
-      /* private mode, etc. */
+      /* private mode — no-op */
     }
   }, [beat, phase]);
 
-  // ── Spotlight derivation ────────────────────────────────────────
-  const liveSpotlight = useMemo<SpotlightTarget | undefined>(() => {
-    if (!beat || !beat.spotlight) return undefined;
+  // ── Spotlight derivation ─────────────────────────────────────────
+  const liveSpotlight: SpotlightTarget | undefined = (() => {
+    if (!beat || !beat.spotlight || !state) return undefined;
     if (beat.spotlight.kind === "hand-card" && beat.spotlight.cardId === "") {
       const ryeId = spotlightSpecialtyRye(state);
       return ryeId ? { kind: "hand-card", cardId: ryeId } : { kind: "none" };
     }
     return beat.spotlight;
-  }, [beat, state]);
+  })();
 
-  // ── Phase routing ──────────────────────────────────────────────
+  // ── Phase routing ────────────────────────────────────────────────
   if (phase === "intro") {
     return <IntroSequence onDone={() => setPhase("tour")} />;
   }
   if (phase === "tour") {
-    return <BoardTour state={state} onDone={() => setPhase("play")} />;
+    return <BoardTour onDone={() => setPhase("play")} />;
   }
   if (phase === "done") {
-    return <TutorialDoneScreen onReplay={() => location.reload()} />;
+    return (
+      <DoneScreen
+        onReplay={() => location.reload()}
+        onClose={() => {
+          endTutorial();
+          window.location.href = "/";
+        }}
+      />
+    );
   }
 
   return (
-    <main className="relative flex min-h-screen flex-col bg-slate-950 text-slate-100">
-      <header className="flex items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 py-3">
-        <div className="flex items-center gap-3">
-          <h1 className="font-display text-xl font-bold tracking-tight text-amber-300">
-            Bourbonomics · Tutorial
-          </h1>
-          <span className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-500">
-            Beat {beatIndex + 1} / {TUTORIAL_BEATS.length}
-          </span>
-        </div>
-        <Link
-          href="/"
-          className="font-mono text-[11px] uppercase tracking-[.18em] text-slate-500 hover:text-amber-200"
-        >
-          Skip tutorial ↵
-        </Link>
-      </header>
-
-      <div className="relative flex-1 overflow-hidden">
-        <TutorialBoard
-          state={state}
-          spotlight={liveSpotlight}
-          awaitingAction={beat?.kind === "await-action"}
-          onTryAction={tryDispatch}
-          mode={mode}
-          setMode={setMode}
-          lastSale={lastSale}
-          lastMake={lastMake}
-        />
-
-        <BeatOverlay
-          beat={beat}
-          decisionReply={decisionReply}
-          onContinue={advance}
-          onPickDecision={(reply) => {
-            setDecisionReply(reply);
-            // Auto-advance after the reply has had ~1.6s to read.
-            setTimeout(() => {
-              setDecisionReply(null);
-              advance();
-            }, 1800);
-          }}
-          onFinaleClose={() => {
-            try {
-              window.localStorage.setItem(TUTORIAL_COMPLETE_KEY, "true");
-            } catch {
-              /* ignore */
-            }
-            window.location.href = "/";
-          }}
-          onFinaleReplay={() => location.reload()}
-        />
-
-        <Confetti shown={confetti} />
-      </div>
-    </main>
+    <>
+      <SpotlightLayer target={liveSpotlight} />
+      <BeatOverlay
+        beat={beat}
+        decisionReply={decisionReply}
+        beatIndex={beatIndex}
+        totalBeats={TUTORIAL_BEATS.length}
+        onContinue={advance}
+        onPickDecision={(reply) => {
+          setDecisionReply(reply);
+          setTimeout(() => {
+            setDecisionReply(null);
+            advance();
+          }, 1800);
+        }}
+        onFinaleClose={() => {
+          try {
+            window.localStorage.setItem(TUTORIAL_COMPLETE_KEY, "true");
+          } catch {
+            /* ignore */
+          }
+          endTutorial();
+          window.location.href = "/";
+        }}
+        onFinaleReplay={() => location.reload()}
+      />
+      <Confetti shown={confetti} />
+    </>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────
-// BeatOverlay — renders the right surface for the active beat
+// Beat overlay — picks the right surface for the active beat
 // ─────────────────────────────────────────────────────────────────
 function BeatOverlay({
   beat,
   decisionReply,
+  beatIndex,
+  totalBeats,
   onContinue,
   onPickDecision,
   onFinaleClose,
@@ -302,25 +249,28 @@ function BeatOverlay({
 }: {
   beat: Beat | undefined;
   decisionReply: string | null;
+  beatIndex: number;
+  totalBeats: number;
   onContinue: () => void;
   onPickDecision: (reply: string) => void;
   onFinaleClose: () => void;
   onFinaleReplay: () => void;
 }) {
   if (!beat) return null;
-
-  // Scripted beats render no overlay — they advance silently.
   if (beat.kind === "scripted") return null;
 
-  // Await-action beats render a slim coach-mark, not a blocking modal.
   if (beat.kind === "await-action") {
-    return <CoachMark beat={beat} />;
+    return (
+      <CoachMark
+        beat={beat}
+        beatIndex={beatIndex}
+        totalBeats={totalBeats}
+      />
+    );
   }
-
   if (beat.kind === "prompt") {
     return <PromptCard beat={beat} onContinue={onContinue} />;
   }
-
   if (beat.kind === "decision") {
     return (
       <DecisionCard
@@ -332,28 +282,35 @@ function BeatOverlay({
       />
     );
   }
-
   if (beat.kind === "transition") {
     return <TransitionScreen beat={beat} />;
   }
-
   if (beat.kind === "celebrate") {
     return <CelebrateCard beat={beat} onContinue={onContinue} />;
   }
-
   if (beat.kind === "finale") {
     return <FinaleCard beat={beat} onClose={onFinaleClose} onReplay={onFinaleReplay} />;
   }
-
   return null;
 }
 
-// Minor surfaces ────────────────────────────────────────────────────
-function CoachMark({ beat }: { beat: Beat }) {
+// ─────────────────────────────────────────────────────────────────
+// Surface primitives
+// ─────────────────────────────────────────────────────────────────
+function CoachMark({
+  beat,
+  beatIndex,
+  totalBeats,
+}: {
+  beat: Beat;
+  beatIndex: number;
+  totalBeats: number;
+}) {
   return (
-    <div className="pointer-events-auto absolute right-6 top-6 z-30 w-[360px] rounded-xl border-2 border-amber-700/60 bg-slate-900/95 p-4 shadow-[0_8px_30px_rgba(0,0,0,.55)]">
-      <div className="font-mono text-[10px] uppercase tracking-[.18em] text-amber-300">
-        {beat.title ? "Tutorial" : "Next step"}
+    <div className="pointer-events-auto fixed right-6 top-20 z-50 w-[360px] rounded-xl border-2 border-amber-700/60 bg-slate-900/95 p-4 shadow-[0_8px_30px_rgba(0,0,0,.55)]">
+      <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[.18em] text-amber-300">
+        <span>Tutorial · {beatIndex + 1} / {totalBeats}</span>
+        <SkipLink />
       </div>
       {beat.title ? (
         <h3 className="mt-1 font-display text-lg font-bold text-amber-100">{beat.title}</h3>
@@ -366,13 +323,14 @@ function CoachMark({ beat }: { beat: Beat }) {
 function PromptCard({ beat, onContinue }: { beat: Beat; onContinue: () => void }) {
   if (beat.kind !== "prompt") return null;
   return (
-    <div className="pointer-events-auto absolute inset-x-0 bottom-6 mx-auto w-full max-w-md px-6">
+    <div className="pointer-events-auto fixed inset-x-0 bottom-24 z-50 mx-auto w-full max-w-md px-6">
       <div className="rounded-xl border-2 border-amber-700/60 bg-slate-900/95 p-5 shadow-[0_8px_30px_rgba(0,0,0,.55)]">
         {beat.title ? (
           <h3 className="font-display text-xl font-bold text-amber-100">{beat.title}</h3>
         ) : null}
         <RichText className="mt-2 text-sm leading-relaxed text-slate-200">{beat.body}</RichText>
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex items-center justify-between">
+          <SkipLink />
           <button
             type="button"
             onClick={onContinue}
@@ -397,13 +355,12 @@ function DecisionCard({
 }) {
   if (beat.kind !== "decision") return null;
   return (
-    <div className="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-slate-950/70 px-6 backdrop-blur">
+    <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 backdrop-blur">
       <div className="w-full max-w-lg rounded-xl border-2 border-amber-700/60 bg-slate-900/95 p-6 shadow-[0_8px_40px_rgba(0,0,0,.55)]">
         {beat.title ? (
           <h3 className="font-display text-2xl font-bold text-amber-100">{beat.title}</h3>
         ) : null}
         <RichText className="mt-2 text-sm leading-relaxed text-slate-200">{beat.body}</RichText>
-
         {reply ? (
           <RichText className="mt-4 rounded-md border border-amber-700/40 bg-amber-950/30 p-3 text-sm leading-relaxed text-amber-100">
             {reply}
@@ -434,7 +391,7 @@ function DecisionCard({
 function TransitionScreen({ beat }: { beat: Beat }) {
   if (beat.kind !== "transition") return null;
   return (
-    <div className="pointer-events-auto absolute inset-0 z-40 flex flex-col items-center justify-center gap-8 bg-slate-950/95 px-6 text-center backdrop-blur">
+    <div className="pointer-events-auto fixed inset-0 z-50 flex flex-col items-center justify-center gap-8 bg-slate-950/95 px-6 text-center backdrop-blur">
       <div>
         <div className="font-mono text-[11px] uppercase tracking-[.20em] text-amber-300">
           {beat.subtitle ?? "Time passes…"}
@@ -446,11 +403,8 @@ function TransitionScreen({ beat }: { beat: Beat }) {
           {beat.body}
         </RichText>
       </div>
-
       {beat.fakeRolls && beat.fakeRolls.length > 0 ? (
-        <div className="flex flex-col items-center gap-3">
-          <RollStream rolls={beat.fakeRolls.map((r) => r.dice)} totalMs={beat.durationMs ?? 2400} />
-        </div>
+        <RollStream rolls={beat.fakeRolls.map((r) => r.dice)} totalMs={beat.durationMs ?? 2400} />
       ) : null}
     </div>
   );
@@ -479,7 +433,7 @@ function RollStream({
 function CelebrateCard({ beat, onContinue }: { beat: Beat; onContinue: () => void }) {
   if (beat.kind !== "celebrate") return null;
   return (
-    <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-slate-950/80 px-6 backdrop-blur">
+    <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-6 backdrop-blur">
       <div className="w-full max-w-md rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-950/95 to-slate-900/95 p-6 text-center shadow-[0_0_60px_rgba(251,191,36,.45)]">
         <div className="font-mono text-[11px] uppercase tracking-[.20em] text-amber-300">
           Award unlocked
@@ -518,7 +472,7 @@ function FinaleCard({
 }) {
   if (beat.kind !== "finale") return null;
   return (
-    <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-slate-950/85 px-6 backdrop-blur">
+    <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 px-6 backdrop-blur">
       <div className="w-full max-w-xl rounded-2xl border-2 border-amber-700/60 bg-slate-900/95 p-7 shadow-[0_8px_50px_rgba(0,0,0,.6)]">
         <h2 className="font-display text-3xl font-bold tracking-tight text-amber-200">
           {beat.title ?? "You just learned the whole game."}
@@ -556,9 +510,15 @@ function FinaleCard({
   );
 }
 
-function TutorialDoneScreen({ onReplay }: { onReplay: () => void }) {
+function DoneScreen({
+  onReplay,
+  onClose,
+}: {
+  onReplay: () => void;
+  onClose: () => void;
+}) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
+    <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 px-6 backdrop-blur">
       <div className="text-center">
         <h1 className="font-display text-3xl font-bold text-amber-300">Tutorial complete</h1>
         <p className="mt-3 text-sm text-slate-300">Ready for a real game?</p>
@@ -570,19 +530,29 @@ function TutorialDoneScreen({ onReplay }: { onReplay: () => void }) {
           >
             Replay
           </button>
-          <Link
-            href="/new-game"
+          <button
+            type="button"
+            onClick={onClose}
             className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950"
           >
-            New game ↵
-          </Link>
+            Back to menu
+          </button>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
-// Suppress the deps warning above — `state` would loop the effect as we
-// mutate it inside. The intentional dep set is `[beat]`; we read state
-// off the ref / closure inside.
-TutorialApp.displayName = "TutorialApp";
+function SkipLink() {
+  return (
+    <Link
+      href="/"
+      className="font-mono text-[10px] uppercase tracking-[.16em] text-slate-500 hover:text-amber-200"
+    >
+      Skip tutorial ↵
+    </Link>
+  );
+}
+
+// Suppress unused-warning in CI; the export is intentional.
+void TUTORIAL_HUMAN_ID;
