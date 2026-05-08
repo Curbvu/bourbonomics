@@ -368,6 +368,11 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
       <button
         type="button"
         onClick={onClickCard(() => setInspect({ kind: "capital", card }))}
+        // v2.10: right-click always opens inspect, regardless of mode.
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setInspect({ kind: "capital", card });
+        }}
         title={`${titleLabel} · pays B$${value} · costs B$${cost} to buy`}
         className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
       >
@@ -410,6 +415,10 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
     <button
       type="button"
       onClick={onClickCard(() => setInspect({ kind: "resource", card }))}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setInspect({ kind: "resource", card });
+      }}
       title={`${titleLabel} · pays B$${value} · cost B$${cost}`}
       className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
     >
@@ -482,6 +491,10 @@ function MashBillTile({ bill }: { bill: MashBill }) {
       type="button"
       data-bourbon-row="true"
       onClick={onClick}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setInspect({ kind: "mashbill", bill });
+      }}
       title={
         inDrawStep1
           ? `Pick ${bill.name} — costs B$${bill.cost ?? 2}`
@@ -552,6 +565,10 @@ function InvestmentCardTile({ card }: { card: InvestmentCard }) {
     <button
       type="button"
       onClick={() => setInspect({ kind: "investment", card })}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setInspect({ kind: "investment", card });
+      }}
       title={`${card.name} — ${card.short}\n\n${card.effect}`}
       className={[baseTile, chrome.gradient, chrome.border].join(" ")}
     >
@@ -589,6 +606,10 @@ function OpsCardTile({
     <button
       type="button"
       onClick={onClickCard(() => setInspect({ kind: "operations", card }))}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setInspect({ kind: "operations", card });
+      }}
       title={`${card.name} — ${card.description}`}
       className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
     >

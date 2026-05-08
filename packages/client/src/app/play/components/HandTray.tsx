@@ -493,6 +493,8 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     dragMake,
     startDragMake,
     endDragMake,
+    selectedHandCardIds,
+    toggleHandSelection,
   } = useGameStore();
   const subtype = card.subtype as ResourceSubtype;
   const chrome = RESOURCE_CHROME[subtype];
@@ -511,9 +513,12 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
   const isMakeSelected = inMakeMode && makeMode!.spendCardIds.includes(card.id);
   const isSellSelected = inSellMode && sellMode!.pickedSpendCardId === card.id;
-  const isSelected =
-    isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected || isSellSelected;
   const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode || inSellMode;
+  // v2.10 multi-select — only meaningful when no picker mode is open;
+  // the pickers own selection semantics themselves.
+  const isMultiSelected = !inAnyPicker && selectedHandCardIds.includes(card.id);
+  const isSelected =
+    isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected || isSellSelected || isMultiSelected;
   // In draw-bill step 1 (no target picked yet), hand cards are NOT
   // tag-clickable — only the bourbon row is. Click should fall through
   // to inspect.
@@ -521,40 +526,60 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     inDrawBillMode &&
     !drawBillMode!.blind &&
     !drawBillMode!.pickedMashBillId;
-  const buyClass = !inAnyPicker || drawStep1
-    ? ""
-    : isSelected
-      ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : inAgeMode
-        ? // v2.9: every hand card is a legal age payment, so light
-          // them all up with a soft sky glow — same idiom as the
-          // ageable rickhouse barrels — so the player can see at a
-          // glance that ANY card here commits.
-          "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
-        : inDrawBillMode
-          ? "ring-2 ring-sky-400/60"
-          : inSellMode
-            ? "ring-2 ring-amber-300/60"
-            : "ring-2 ring-emerald-400/60";
+  const buyClass = !inAnyPicker
+    ? isMultiSelected
+      ? // v2.10 multi-select — same amber chrome the picker modes use,
+        // so the visual is consistent regardless of how the player
+        // selected (mode picker or persistent selection).
+        "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+      : ""
+    : drawStep1
+      ? ""
+      : isSelected
+        ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+        : inAgeMode
+          ? // v2.9: every hand card is a legal age payment, so light
+            // them all up with a soft sky glow — same idiom as the
+            // ageable rickhouse barrels — so the player can see at a
+            // glance that ANY card here commits.
+            "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
+          : inDrawBillMode
+            ? "ring-2 ring-sky-400/60"
+            : inSellMode
+              ? "ring-2 ring-amber-300/60"
+              : "ring-2 ring-emerald-400/60";
   const onClick = () => {
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
     else if (inBuyMode) toggleBuySpend(card.id);
     else if (inSellMode) setSellSpendCard(card.id);
-    else setInspect({ kind: "resource", card });
+    // v2.10: outside any picker, left-click toggles the persistent
+    // multi-select. Right-click handles inspect (see onContextMenu).
+    else toggleHandSelection(card.id);
+  };
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setInspect({ kind: "resource", card });
   };
   return (
     <button
       type="button"
       onClick={onClick}
+      onContextMenu={onContextMenu}
       // v2.6: hand cards are drag sources for the "drag onto a slot
-      // barrel to commit" shortcut. Only active when no picker mode
-      // is open (otherwise the click flow handles selection).
+      // barrel to commit" shortcut. v2.10: drag carries the entire
+      // multi-select group when this card is part of one. Only
+      // active when no picker mode is open (those flows handle
+      // selection their own way).
       draggable={!inAnyPicker}
       onDragStart={(e) => {
-        setMakeDragPayload(e, card.id);
-        startDragMake(card.id);
+        const ids =
+          isMultiSelected && selectedHandCardIds.length > 0
+            ? selectedHandCardIds
+            : [card.id];
+        setMakeDragPayload(e, ids);
+        startDragMake(ids);
       }}
       onDragEnd={endDragMake}
       data-bb-hand-card
@@ -571,7 +596,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
                 ? `${isBuySelected ? "Unselect" : "Select"} this card to pay B$1`
                 : inSellMode
                   ? `${isSellSelected ? "Unselect" : "Spend"} this card as the sell-action cost`
-                  : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""} — drag onto a barrel to commit, or click to inspect`
+                  : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""} — left-click to ${isMultiSelected ? "uncheck" : "check"}, drag the group onto a slot, right-click to inspect`
       }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >
@@ -633,6 +658,8 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     dragMake,
     startDragMake,
     endDragMake,
+    selectedHandCardIds,
+    toggleHandSelection,
   } = useGameStore();
   const value = paymentValue(card);
   const cost = card.cost ?? card.capitalValue ?? 1;
@@ -649,45 +676,62 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
   const isMakeSelected = inMakeMode && makeMode!.spendCardIds.includes(card.id);
   const isSellSelected = inSellMode && sellMode!.pickedSpendCardId === card.id;
-  const isSelected =
-    isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected || isSellSelected;
   const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode || inSellMode;
+  const isMultiSelected = !inAnyPicker && selectedHandCardIds.includes(card.id);
+  const isSelected =
+    isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected || isSellSelected || isMultiSelected;
   const drawStep1 =
     inDrawBillMode &&
     !drawBillMode!.blind &&
     !drawBillMode!.pickedMashBillId;
-  const buyClass = !inAnyPicker || drawStep1
-    ? ""
-    : isSelected
+  const buyClass = !inAnyPicker
+    ? isMultiSelected
       ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : inAgeMode
-        ? // Match the resource-card age glow so capitals don't look
-          // second-class as age payments — they're equally valid.
-          "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
-        : inDrawBillMode
-          ? "ring-2 ring-sky-400/60"
-          : inSellMode
-            ? "ring-2 ring-amber-300/60"
-            : "ring-2 ring-emerald-400/60";
+      : ""
+    : drawStep1
+      ? ""
+      : isSelected
+        ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+        : inAgeMode
+          ? // Match the resource-card age glow so capitals don't look
+            // second-class as age payments — they're equally valid.
+            "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
+          : inDrawBillMode
+            ? "ring-2 ring-sky-400/60"
+            : inSellMode
+              ? "ring-2 ring-amber-300/60"
+              : "ring-2 ring-emerald-400/60";
   const onClick = () => {
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
     else if (inBuyMode) toggleBuySpend(card.id);
     else if (inSellMode) setSellSpendCard(card.id);
-    else setInspect({ kind: "capital", card });
+    // v2.10: outside any picker, left-click toggles persistent
+    // multi-select. Right-click handles inspect.
+    else toggleHandSelection(card.id);
+  };
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setInspect({ kind: "capital", card });
   };
   return (
     <button
       type="button"
       onClick={onClick}
+      onContextMenu={onContextMenu}
       // v2.6: hand cards are drag sources for the "drag onto a slot
       // barrel to commit" shortcut (capital cards count as a free-1
-      // resource in production, same as elsewhere).
+      // resource in production). v2.10: drag carries the entire
+      // multi-select group when this card is part of one.
       draggable={!inAnyPicker}
       onDragStart={(e) => {
-        setMakeDragPayload(e, card.id);
-        startDragMake(card.id);
+        const ids =
+          isMultiSelected && selectedHandCardIds.length > 0
+            ? selectedHandCardIds
+            : [card.id];
+        setMakeDragPayload(e, ids);
+        startDragMake(ids);
       }}
       onDragEnd={endDragMake}
       data-bb-hand-card
@@ -704,7 +748,7 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
                 ? `${isBuySelected ? "Unselect" : "Select"} this B$${value} capital card to spend`
                 : inSellMode
                   ? `${isSellSelected ? "Unselect" : "Spend"} this B$${value} capital as the sell-action cost`
-                  : `Capital · pays B$${value} at the market — drag onto a barrel to commit`
+                  : `Capital · pays B$${value} at the market — left-click to ${isMultiSelected ? "uncheck" : "check"}, drag the group onto a slot, right-click to inspect`
       }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
     >

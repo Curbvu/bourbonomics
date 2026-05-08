@@ -180,7 +180,9 @@ function BarrelChip({
     setInspect,
     dispatch,
     dragMake,
+    dragMakeIds,
     endDragMake,
+    clearHandSelection,
   } = useGameStore();
   const owner = state.players.find((p) => p.id === barrel.ownerId);
   const ringHints: string[] = [];
@@ -199,18 +201,23 @@ function BarrelChip({
     state.phase === "action" &&
     state.players[state.currentPlayerIndex]?.id === barrel.ownerId &&
     barrel.phase !== "aging";
-  // Whether this slot would actually accept the in-flight card under
+  // Whether this slot would actually accept the in-flight card(s) under
   // the engine's rules (caps on cask / rye / wheat). The CSS pulse
   // only fires when the engine would also accept the drop, so the
-  // player isn't lured into an illegal target.
+  // player isn't lured into an illegal target. v2.10: validate the
+  // FULL drag group, not just the primary card — dragging two casks
+  // onto a slot that allows max 1 should still light up only when
+  // the engine would accept BOTH together (which it won't, so it
+  // dims and the drop becomes a no-op).
+  const draggedIds = dragMakeIds.length > 0 ? dragMakeIds : dragMake ? [dragMake] : [];
   const isLegalForDrag =
     canDropMake &&
-    dragMake != null &&
+    draggedIds.length > 0 &&
     validateAction(state, {
       type: "MAKE_BOURBON",
       playerId: barrel.ownerId,
       slotId: barrel.slotId,
-      cardIds: [dragMake],
+      cardIds: draggedIds,
     }).legal;
   const dropTargetState = !dragMake
     ? undefined
@@ -320,6 +327,13 @@ function BarrelChip({
     else if (ageable) setAgeBarrel(barrel.id);
     else setInspect({ kind: "barrel", barrel, ownerName: owner?.name });
   };
+  // v2.10: right-click on any barrel always opens the inspect modal,
+  // regardless of mode. Lets the player check a barrel's bill / age /
+  // committed cards without committing to a sell or age action.
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setInspect({ kind: "barrel", barrel, ownerName: owner?.name });
+  };
   // Drag-and-drop handlers — gated on isLegalForDrag so opponents'
   // slots, finished barrels, slots already touched this turn, and
   // slots that would over-fill a recipe cap never accept the drop.
@@ -338,18 +352,20 @@ function BarrelChip({
     setDragHover(false);
     endDragMake();
     if (!canDropMake) return;
-    const cardId = readMakeDragPayload(e);
-    if (!cardId) return;
+    const cardIds = readMakeDragPayload(e);
+    if (cardIds.length === 0) return;
     e.preventDefault();
     const action = {
       type: "MAKE_BOURBON" as const,
       playerId: barrel.ownerId,
       slotId: barrel.slotId,
-      cardIds: [cardId],
+      cardIds,
     };
     if (!validateAction(state, action).legal) return;
     try {
       dispatch(action);
+      // v2.10: a successful drop consumes the multi-select group.
+      clearHandSelection();
     } catch {
       // Defensive — validation passed but apply threw. Keep the UI
       // alive; the player can try a different card.
@@ -369,6 +385,7 @@ function BarrelChip({
       data-slot-id={barrel.slotId}
       data-drop-target={dropTargetState}
       onClick={onClick}
+      onContextMenu={onContextMenu}
       onDragOver={onDragOver}
       onDragEnter={onDragOver}
       onDragLeave={onDragLeave}

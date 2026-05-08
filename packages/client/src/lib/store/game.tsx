@@ -319,15 +319,33 @@ export interface GameStore {
   /** Step 2: pick the hand card to spend. Auto-fires when both set. */
   setSellSpendCard: (cardId: string) => void;
   /**
-   * v2.6 drag-and-drop state — the id of the hand card currently
-   * being dragged onto a slot, or `null` when no drag is in flight.
-   * Read by every zone that wants to dim itself out of the way (the
-   * market, the action log, opponent rickhouses, and even the rest
-   * of the hand) so the player's eye snaps to the legal drop targets.
+   * v2.6 drag-and-drop state — the id of the PRIMARY hand card
+   * currently being dragged onto a slot, or `null` when no drag is in
+   * flight. Read by every zone that wants to dim itself out of the
+   * way (the market, the action log, opponent rickhouses, even the
+   * rest of the hand) so the player's eye snaps to the legal drop
+   * targets. v2.10: when the player has a multi-select group active,
+   * the entire group rides along — see `dragMakeIds`.
    */
   dragMake: string | null;
-  startDragMake: (cardId: string) => void;
+  /**
+   * v2.10 multi-card drag — the FULL set of card ids being dragged.
+   * Includes the primary `dragMake` plus any other cards currently in
+   * the hand-selection (see `selectedHandCardIds`). Drop targets
+   * dispatch MAKE_BOURBON with this whole list.
+   */
+  dragMakeIds: string[];
+  startDragMake: (cardIds: string[]) => void;
   endDragMake: () => void;
+  /**
+   * v2.10 hand multi-select — the ids of cards the player has
+   * "checked" for a future drag. Toggled by left-click on a hand
+   * card when no picker mode (Make / Buy / Age / Sell / DrawBill) is
+   * active. Cleared when a drag completes or a picker mode opens.
+   */
+  selectedHandCardIds: string[];
+  toggleHandSelection: (cardId: string) => void;
+  clearHandSelection: () => void;
   /** Animation trigger — most recent purchase snapshot. */
   lastPurchase: LastPurchase | null;
   /** Animation trigger — most recent MAKE_BOURBON snapshot. */
@@ -430,8 +448,12 @@ const Ctx = createContext<GameStore>({
   setSellBarrel: noop,
   setSellSpendCard: noop,
   dragMake: null,
+  dragMakeIds: [],
   startDragMake: noop,
   endDragMake: noop,
+  selectedHandCardIds: [],
+  toggleHandSelection: noop,
+  clearHandSelection: noop,
   lastPurchase: null,
   lastMake: null,
   lastSale: null,
@@ -481,6 +503,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [drawBillMode, setDrawBillMode] = useState<DrawBillMode | null>(null);
   const [makeMode, setMakeMode] = useState<MakeMode | null>(null);
   const [sellMode, setSellMode] = useState<SellMode | null>(null);
+
+  // v2.10 hand multi-select. Declared early so the picker-mode
+  // useCallbacks below can reach `setSelectedHandCardIds` and clear
+  // it when a picker mode opens (otherwise checkmarks linger and
+  // confuse the player when they tag cards in the new mode).
+  const [selectedHandCardIds, setSelectedHandCardIds] = useState<string[]>([]);
+
   const [multiplayerMode, setMultiplayerMode] = useState<MultiplayerMode | null>(null);
   const [multiplayerStatus, setMultiplayerStatus] = useState<SocketStatus>("idle");
   const [roster, setRoster] = useState<SeatInfo[]>([]);
@@ -836,6 +865,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const startBuyMode = useCallback(() => {
     setBuyMode({ pickedTarget: null, spendCardIds: [] });
     setInspect(null);
+    setSelectedHandCardIds([]);
   }, []);
 
   const cancelBuyMode = useCallback(() => {
@@ -869,6 +899,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setAgeMode({ pickedBarrelId: null, pickedCardId: null });
     setBuyMode(null);
     setInspect(null);
+    setSelectedHandCardIds([]);
   }, []);
 
   const cancelAgeMode = useCallback(() => {
@@ -986,6 +1017,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setAgeMode(null);
     setMakeMode(null);
     setInspect(null);
+    setSelectedHandCardIds([]);
   }, []);
 
   const cancelDrawBillMode = useCallback(() => {
@@ -1061,6 +1093,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setAgeMode(null);
     setDrawBillMode(null);
     setInspect(null);
+    setSelectedHandCardIds([]);
   }, []);
 
   const cancelMakeMode = useCallback(() => {
@@ -1140,6 +1173,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setDrawBillMode(null);
     setMakeMode(null);
     setInspect(null);
+    setSelectedHandCardIds([]);
   }, []);
 
   const cancelSellMode = useCallback(() => {
@@ -1220,11 +1254,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // so every zone can read it and dim/spotlight accordingly.
   // ---------------------------------------------------------------
   const [dragMake, setDragMakeState] = useState<string | null>(null);
-  const startDragMake = useCallback((cardId: string) => {
-    setDragMakeState(cardId);
+  const [dragMakeIds, setDragMakeIds] = useState<string[]>([]);
+  const startDragMake = useCallback((cardIds: string[]) => {
+    if (cardIds.length === 0) return;
+    setDragMakeState(cardIds[0] ?? null);
+    setDragMakeIds(cardIds);
   }, []);
   const endDragMake = useCallback(() => {
     setDragMakeState(null);
+    setDragMakeIds([]);
+  }, []);
+
+  // v2.10 hand multi-select setters. State itself is declared up top
+  // so the picker-mode useCallbacks earlier in this provider can
+  // clear it. Persistent across renders so the player can check
+  // several cards before deciding which slot or market card to drop
+  // them on. Cleared on a successful drop (drop handlers call
+  // `clearHandSelection`) and on mode entry (the Make / Buy / etc.
+  // pickers take over selection semantics themselves).
+  const toggleHandSelection = useCallback((cardId: string) => {
+    setSelectedHandCardIds((prev) =>
+      prev.includes(cardId) ? prev.filter((id) => id !== cardId) : [...prev, cardId],
+    );
+  }, []);
+  const clearHandSelection = useCallback(() => {
+    setSelectedHandCardIds([]);
   }, []);
 
   // Autoplay loop — paused while waiting on human input. Disabled
@@ -1579,8 +1633,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setSellBarrel,
       setSellSpendCard,
       dragMake,
+      dragMakeIds,
       startDragMake,
       endDragMake,
+      selectedHandCardIds,
+      toggleHandSelection,
+      clearHandSelection,
       lastPurchase: store.lastPurchase,
       lastMake: store.lastMake,
       lastSale: store.lastSale,
@@ -1643,8 +1701,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setSellBarrel,
       setSellSpendCard,
       dragMake,
+      dragMakeIds,
       startDragMake,
       endDragMake,
+      selectedHandCardIds,
+      toggleHandSelection,
+      clearHandSelection,
       multiplayerMode,
       multiplayerStatus,
       roster,
