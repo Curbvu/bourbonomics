@@ -73,6 +73,7 @@ import {
   type SeatInfo,
   type SocketStatus,
 } from "./socket";
+import type { SpotlightTarget } from "@/app/tutorial/types";
 
 // Storage key is versioned and bumped whenever the engine schema or
 // canonical catalog changes (so legacy saves don't crash on hydrate).
@@ -405,6 +406,13 @@ export interface GameStore {
   setTutorialActionTransform: (
     fn: ((action: GameAction, state: GameState) => GameAction | null) | null,
   ) => void;
+  /** Active spotlight target during the tutorial. Read by board components
+   *  (ConveyorCard, MashBillTile, …) so they can shimmer the spotlit
+   *  element AND lock down non-spotlit click actions during await-action
+   *  beats. The TutorialController + BoardTour both update this on
+   *  beat / stop change. `null` outside the tutorial. */
+  tutorialSpotlight: SpotlightTarget | null;
+  setTutorialSpotlight: (target: SpotlightTarget | null) => void;
 }
 
 const noop = () => {};
@@ -468,6 +476,8 @@ const Ctx = createContext<GameStore>({
   endTutorial: noop,
   mutateState: noop,
   setTutorialActionTransform: noop,
+  tutorialSpotlight: null,
+  setTutorialSpotlight: noop,
   createMultiplayer: async () => "",
   joinMultiplayer: async () => {},
   claimSeat: async () => {},
@@ -526,6 +536,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const tutorialActionTransformRef = useRef<
     ((action: GameAction, state: GameState) => GameAction | null) | null
   >(null);
+  // Active beat / stop spotlight target. Components read this to shimmer
+  // the spotlit element and gate clicks on the non-spotlit ones. State
+  // (not a ref) so consumers re-render when the target changes.
+  const [tutorialSpotlight, setTutorialSpotlightState] =
+    useState<SpotlightTarget | null>(null);
 
   // Load from localStorage on mount.
   useEffect(() => {
@@ -1524,6 +1539,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     tutorialActiveRef.current = false;
     setTutorialActive(false);
     tutorialActionTransformRef.current = null;
+    setTutorialSpotlightState(null);
     // Re-hydrate the live-game blob from storage so closing the tutorial
     // doesn't blow away whatever real game the player had saved before.
     // Empty fallback if there's no saved game.
@@ -1566,6 +1582,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const setTutorialActionTransform = useCallback(
     (fn: ((action: GameAction, state: GameState) => GameAction | null) | null) => {
       tutorialActionTransformRef.current = fn;
+    },
+    [],
+  );
+
+  const setTutorialSpotlight = useCallback(
+    (target: SpotlightTarget | null) => {
+      setTutorialSpotlightState(target);
     },
     [],
   );
@@ -1663,6 +1686,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       endTutorial,
       mutateState,
       setTutorialActionTransform,
+      tutorialSpotlight,
+      setTutorialSpotlight,
     }),
     [
       store,
@@ -1727,6 +1752,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       endTutorial,
       mutateState,
       setTutorialActionTransform,
+      tutorialSpotlight,
+      setTutorialSpotlight,
     ],
   );
 

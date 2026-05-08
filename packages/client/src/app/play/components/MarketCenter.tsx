@@ -334,6 +334,7 @@ function useMarketBuyState(
     selectedHandCardIds,
     toggleBuySpend,
     multiplayerMode,
+    tutorialSpotlight,
   } = useGameStore();
   const inBuyMode = buyMode != null;
   const picked = buyMode?.pickedTarget;
@@ -342,6 +343,13 @@ function useMarketBuyState(
     picked != null &&
     picked.source === source &&
     picked.slotIndex === slotIndex;
+  // Some other slot is the picked target — used to mute me hard so the
+  // single picked card and the chosen hand cards are the only bright
+  // things on screen.
+  const someoneElsePicked =
+    inBuyMode &&
+    picked != null &&
+    !(picked.source === source && picked.slotIndex === slotIndex);
   // Wallet for affordability dimming: capital cards pay face value,
   // resource cards pay 1¢ each — same rules the engine enforces.
   const human = state?.players.find((p) => !p.isBot);
@@ -359,18 +367,49 @@ function useMarketBuyState(
     !!state &&
     state.phase === "action" &&
     state.players[state.currentPlayerIndex]?.id === seatId;
-  const buyClass = !inBuyMode
-    ? ""
-    : isPicked
-      ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : affordable
-        ? "ring-2 ring-emerald-400/60"
-        : "opacity-40 saturate-50";
+  // Tutorial gating. When an await-action beat spotlights a specific
+  // market slot, lock the OTHER slots out of any buy action — clicks
+  // on non-spotlit cards fall through to inspect, and the cards mute
+  // hard. Only the conveyor is gated this way; the ops row is gated
+  // independently if a future beat spotlights it.
+  const tutorialMarketSlot =
+    tutorialSpotlight?.kind === "market-slot" && source === "conveyor"
+      ? tutorialSpotlight.slotIndex
+      : null;
+  const isTutorialBlocked =
+    tutorialMarketSlot != null && tutorialMarketSlot !== slotIndex;
+  const isTutorialSpotlit =
+    tutorialMarketSlot != null && tutorialMarketSlot === slotIndex;
+  const buyClass = isTutorialBlocked
+    ? "opacity-30 saturate-50"
+    : !inBuyMode
+      ? ""
+      : isPicked
+        ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+        : someoneElsePicked
+          ? // Some other card is picked — focus collapses onto the picked
+            // card + the hand spend cards. Mute me hard so the eye lands
+            // on the BuyOverlay's Confirm without distraction.
+            "opacity-30 saturate-50"
+          : affordable
+            ? "ring-2 ring-emerald-400/60"
+            : "opacity-40 saturate-50";
+  // Shimmer stops the moment the spotlit tile becomes the picked buy
+  // target — the picked-card ring + BuyOverlay carry the focus from
+  // there, no need to keep pulsing.
+  const shouldShimmer = isTutorialSpotlit && !isPicked;
   return {
     inBuyMode,
     affordable,
     buyClass,
+    isTutorialBlocked,
+    shouldShimmer,
     onClickCard: (payload: () => void) => () => {
+      if (isTutorialBlocked) {
+        // Inspect-only during a tutorial that locks this slot out.
+        payload();
+        return;
+      }
       if (inBuyMode) {
         if (affordable) setBuyTarget({ source, slotIndex });
         return;
@@ -392,17 +431,24 @@ function useMarketBuyState(
 function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
   const cost = card.cost ?? (card.type === "capital" ? card.capitalValue ?? 1 : 1);
   const value = paymentValue(card);
-  const { buyClass, onClickCard, setInspect } = useMarketBuyState(
-    "conveyor",
-    slotIndex,
-    cost,
-  );
+  const { buyClass, onClickCard, setInspect, shouldShimmer } =
+    useMarketBuyState("conveyor", slotIndex, cost);
+  // `data-market-slot-index` is consumed by the tutorial SpotlightLayer
+  // to focus a specific tile (instead of the whole conveyor row).
+  // `animate-bb-shimmer` flags the spotlit tile during the tutorial so
+  // the player's eye snaps to it.
+  const slotAttr = { "data-market-slot-index": slotIndex } as Record<
+    string,
+    number
+  >;
+  const shimmer = shouldShimmer ? "animate-bb-shimmer" : "";
   if (card.type === "capital") {
     const chrome = CAPITAL_CHROME;
     const titleLabel = card.displayName ?? "Capital";
     return (
       <button
         type="button"
+        {...slotAttr}
         onClick={onClickCard(() => setInspect({ kind: "capital", card }))}
         // v2.10: right-click always opens inspect, regardless of mode.
         onContextMenu={(e) => {
@@ -410,7 +456,7 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
           setInspect({ kind: "capital", card });
         }}
         title={`${titleLabel} · pays B$${value} · costs B$${cost} to buy`}
-        className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
+        className={[baseTile, chrome.gradient, chrome.border, buyClass, shimmer].join(" ")}
       >
         <Sheen />
         <CornerValue value={value} />
@@ -450,13 +496,14 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
   return (
     <button
       type="button"
+      {...slotAttr}
       onClick={onClickCard(() => setInspect({ kind: "resource", card }))}
       onContextMenu={(e) => {
         e.preventDefault();
         setInspect({ kind: "resource", card });
       }}
       title={`${titleLabel} · pays B$${value} · cost B$${cost}`}
-      className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
+      className={[baseTile, chrome.gradient, chrome.border, buyClass, shimmer].join(" ")}
     >
       <Sheen />
       <CornerValue value={value} />

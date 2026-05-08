@@ -61,12 +61,21 @@ function findSpotlightElement(target: SpotlightTarget): Element | null {
       }
       return document.querySelector("[data-hand-tray]");
     }
-    case "market-slot":
+    case "market-slot": {
+      // Per-slot beat: focus the specific tile so the player sees
+      // exactly which market card to act on. `ConveyorCard` stamps
+      // `data-market-slot-index` matching the conveyor index.
+      const tile = document.querySelector(
+        `[data-market-slot-index="${target.slotIndex}"]`,
+      );
+      if (tile) return tile;
+      return (
+        document.querySelector("[data-market-conveyor]") ??
+        document.querySelector("[data-bb-zone='market']")
+      );
+    }
     case "market-row":
-      // Spotlight just the conveyor row (10 face-up cards). The full
-      // market zone (`data-bb-zone='market'`) also wraps the mash-bills
-      // row + investments + ops + bourbon deck — too broad for the
-      // tour stop and the per-slot beat.
+      // Tour stop: spotlight the whole conveyor row.
       return (
         document.querySelector("[data-market-conveyor]") ??
         document.querySelector("[data-bb-zone='market']")

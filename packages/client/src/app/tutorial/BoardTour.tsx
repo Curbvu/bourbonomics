@@ -7,8 +7,9 @@
  * the caller (TutorialController) ahead to gameplay.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TUTORIAL_HUMAN_ID } from "@bourbonomics/engine";
+import { useGameStore } from "@/lib/store/game";
 import { RichText, SpotlightLayer } from "./Spotlight";
 import type { SpotlightTarget } from "./types";
 
@@ -64,8 +65,17 @@ const STOPS: TourStop[] = [
 ];
 
 export default function BoardTour({ onDone, onQuit }: BoardTourProps) {
+  const { setTutorialSpotlight } = useGameStore();
   const [stopIdx, setStopIdx] = useState(0);
   const stop = STOPS[stopIdx]!;
+
+  // Publish the active spotlight to the store so board components can
+  // react (matches the TutorialController convention). Cleared on
+  // unmount when the tour hands off to play.
+  useEffect(() => {
+    setTutorialSpotlight(stop.spotlight);
+    return () => setTutorialSpotlight(null);
+  }, [stop.spotlight, setTutorialSpotlight]);
 
   const advance = () => {
     if (stopIdx + 1 >= STOPS.length) onDone();

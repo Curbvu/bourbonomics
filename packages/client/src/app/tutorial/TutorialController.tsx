@@ -44,6 +44,7 @@ export default function TutorialController() {
     dispatch,
     mutateState,
     setTutorialActionTransform,
+    setTutorialSpotlight,
     endTutorial,
   } = useGameStore();
 
@@ -223,6 +224,13 @@ export default function TutorialController() {
     }
     return beat.spotlight;
   })();
+
+  // Mirror the active spotlight into the store so non-tutorial board
+  // components (ConveyorCard's click gate, the shimmer animation, …)
+  // can react to it without prop-drilling through GameBoard.
+  useEffect(() => {
+    setTutorialSpotlight(liveSpotlight ?? null);
+  }, [liveSpotlight, setTutorialSpotlight]);
 
   const quitToMenu = useCallback(() => {
     endTutorial();
