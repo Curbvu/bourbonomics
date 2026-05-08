@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 const STORAGE_KEY = "bourbonomics:v2.6.0-game";
+const TUTORIAL_COMPLETE_KEY = "bourbonomics:tutorial-complete";
 
 interface SavedGameMeta {
   round: number;
@@ -26,23 +27,29 @@ interface SavedGameMeta {
 
 export default function MainMenu() {
   const [resume, setResume] = useState<SavedGameMeta | null>(null);
+  const [tutorialDone, setTutorialDone] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setHydrated(true);
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as {
-        state?: { round?: number; phase?: string; players?: unknown[] };
-      };
-      const s = saved.state;
-      if (!s || s.phase === "ended" || !s.players) return;
-      setResume({
-        round: s.round ?? 1,
-        phase: s.phase ?? "demand",
-        playerCount: s.players.length,
-      });
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          state?: { round?: number; phase?: string; players?: unknown[] };
+        };
+        const s = saved.state;
+        if (s && s.phase !== "ended" && s.players) {
+          setResume({
+            round: s.round ?? 1,
+            phase: s.phase ?? "demand",
+            playerCount: s.players.length,
+          });
+        }
+      }
+      if (window.localStorage.getItem(TUTORIAL_COMPLETE_KEY) === "true") {
+        setTutorialDone(true);
+      }
     } catch {
       // Corrupt save — pretend it isn't there so the menu still renders.
     }
@@ -60,12 +67,26 @@ export default function MainMenu() {
         />
       ) : null}
 
+      {hydrated ? (
+        <MenuTile
+          href="/tutorial"
+          eyebrow={tutorialDone ? "Replay tutorial" : "Tutorial"}
+          title={tutorialDone ? "Walk through it again" : "Learn the game in 8 minutes"}
+          subtitle={
+            tutorialDone
+              ? "Same script — useful when teaching a friend."
+              : "Build, age, sell — every beat scripted, every lesson lands."
+          }
+          accent={tutorialDone ? "slate" : "amber"}
+        />
+      ) : null}
+
       <MenuTile
         href="/new-game"
         eyebrow="New game"
         title="Start a fresh barrel"
         subtitle="Pick your seat, opponents, and seed. Bots play themselves."
-        accent="amber"
+        accent={tutorialDone ? "amber" : "sky"}
       />
 
       <MenuTile

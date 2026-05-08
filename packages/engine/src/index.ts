@@ -14,3 +14,4 @@ export * from "./initialize";
 export * from "./engine";
 export * from "./ai/bot";
 export * from "./ai/runner";
+export * from "./tutorial";
