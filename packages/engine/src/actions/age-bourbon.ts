@@ -72,5 +72,7 @@ export function applyAgeBourbon(
     // This consumed one of the bonus ages granted by Rushed Shipment.
     barrel.extraAgesAvailable = Math.max(0, barrel.extraAgesAvailable - 1);
   }
+  // v2.9: one aging commit per turn satisfies the per-turn cost.
+  player.needsAgeBarrels = false;
   // v2.2: aging does NOT end the player's turn.
 }

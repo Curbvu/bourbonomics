@@ -21,6 +21,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { produce } from "immer";
 import {
   applyAction,
   buildTutorialInitialState,
@@ -28,6 +29,23 @@ import {
   type GameAction,
   type GameState,
 } from "@bourbonomics/engine";
+
+/**
+ * v2.9 introduced two per-turn gates: `needsDemandRoll` and
+ * `needsAgeBarrels`. The tutorial leaves both dormant — every beat
+ * teaches a voluntary action, not a per-turn cost — so we wipe them
+ * on every player after every dispatch and after every direct mutate.
+ * The engine still validates other rules; we just keep the v2.9 gates
+ * out of the on-rails experience.
+ */
+function clearTutorialGates(state: GameState): GameState {
+  return produce(state, (draft) => {
+    for (const p of draft.players) {
+      p.needsDemandRoll = false;
+      p.needsAgeBarrels = false;
+    }
+  });
+}
 import IntroSequence from "./IntroSequence";
 import BoardTour, { RichText } from "./BoardTour";
 import TutorialBoard from "./TutorialBoard";
@@ -86,7 +104,7 @@ export default function TutorialApp() {
       try {
         const next = applyAction(prev, action);
         captureAnimations(prev, action);
-        return next;
+        return clearTutorialGates(next);
       } catch (err) {
         // Illegal during tutorial — leave state alone. Console-log so
         // we still notice in dev.
@@ -136,7 +154,7 @@ export default function TutorialApp() {
       const t = setTimeout(() => {
         let live = state;
         if (beat.mutate) {
-          live = beat.mutate(live);
+          live = clearTutorialGates(beat.mutate(live));
           setState(live);
         }
         const out = beat.build(live);
@@ -144,7 +162,7 @@ export default function TutorialApp() {
         let cur = live;
         for (const a of list) {
           try {
-            cur = applyAction(cur, a);
+            cur = clearTutorialGates(applyAction(cur, a));
             captureAnimations(live, a);
           } catch (err) {
             if (process.env.NODE_ENV !== "production") {
@@ -164,7 +182,7 @@ export default function TutorialApp() {
       // Mutate at the START so the board behind the transition shows
       // the post-skip state. Then auto-advance when the duration ends.
       if (beat.mutate) {
-        setState((prev) => beat.mutate!(prev));
+        setState((prev) => clearTutorialGates(beat.mutate!(prev)));
       }
       const t = setTimeout(() => advance(), beat.durationMs ?? 2400);
       return () => clearTimeout(t);

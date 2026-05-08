@@ -332,7 +332,7 @@ function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean
                 const nextDemand = bill.demandBands[ci + 1];
                 const demandLo = bill.demandBands[ci]!;
                 const demandHi = nextDemand ?? Infinity;
-                const award = cellAward(bill, cell, ageLo, ageHi, demandLo, demandHi);
+                const award = cellAward(bill, cell, ageHi, demandHi);
                 return (
                   <div
                     key={`${ri}-${ci}`}
@@ -424,9 +424,7 @@ function awardCellBg(award: "gold" | "silver" | null, cell: number | null): stri
 function cellAward(
   bill: MashBill,
   reward: number | null,
-  ageLo: number,
   ageHi: number,
-  demandLo: number,
   demandHi: number,
 ): "gold" | "silver" | null {
   if (reward == null) return null;

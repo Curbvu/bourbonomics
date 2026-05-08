@@ -6,6 +6,7 @@ import {
   advanceToNextRound,
   giveHand,
   makeTestGame,
+  passTurn,
   slotForBill,
 } from "./helpers.js";
 
@@ -414,6 +415,13 @@ describe("AGE_BOURBON", () => {
     // Hand off to p2 explicitly so the validator hits the ownership
     // check rather than the "not your turn" check.
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    // v2.9: clear p2's per-turn demand-roll requirement so the next
+    // AGE_BOURBON validates against ownership, not the roll gate.
+    state = applyAction(state, {
+      type: "ROLL_DEMAND",
+      playerId: "p2",
+      roll: [3, 3],
+    });
     state = giveHand(state, "p2", [cap("p2", 0)]);
     expect(() =>
       applyAction(state, {
@@ -466,15 +474,15 @@ describe("PASS_TURN + cleanup", () => {
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [cap("p1", 0), cap("p1", 1)]);
     state = giveHand(state, "p2", [cap("p2", 0)]);
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    state = passTurn(state, "p1");
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.hand).toHaveLength(2);
     expect(p1.outForRound).toBe(true);
     expect(state.currentPlayerIndex).toBe(1);
     expect(state.phase).toBe("action");
 
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
-    expect(state.phase).toBe("demand");
+    state = passTurn(state, "p2");
+    expect(state.phase).toBe("draw");
     const p1AfterCleanup = state.players.find((p) => p.id === "p1")!;
     expect(p1AfterCleanup.hand).toHaveLength(0);
     expect(p1AfterCleanup.discard.map((c) => c.id).sort()).toEqual(
@@ -489,10 +497,10 @@ describe("PASS_TURN + cleanup", () => {
     state = giveHand(state, "p2", []);
     state = { ...state, currentPlayerIndex: 0 };
     // Each player must explicitly pass — actions don't end turns under v2.2.
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
+    state = passTurn(state, "p1");
+    state = passTurn(state, "p2");
     expect(state.round).toBe(2);
-    expect(state.phase).toBe("demand");
+    expect(state.phase).toBe("draw");
     for (const p of state.players) expect(p.outForRound).toBe(false);
   });
 
@@ -523,7 +531,7 @@ describe("PASS_TURN + cleanup", () => {
     // p2 had no deck and was auto-marked out for the round at draw time —
     // p1's PASS_TURN is enough to wrap the round.
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
-    expect(state.phase).toBe("demand");
+    expect(state.phase).toBe("draw");
     expect(state.round).toBe(3);
     expect(state.allBarrels[0]!.agedThisRound).toBe(false);
   });

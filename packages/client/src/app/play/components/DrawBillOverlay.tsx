@@ -140,10 +140,8 @@ export default function DrawBillOverlay() {
             </span>
           </span>
         ) : null}
-        <span className="font-mono text-[10px] italic text-slate-400">
-          {prompt}
-        </span>
-        <span className="flex-1" />
+        {/* Action buttons sit next to the data — was previously pushed
+            far right by a flex-1 spacer. */}
         {!step1 ? (
           <button
             type="button"
@@ -172,6 +170,9 @@ export default function DrawBillOverlay() {
         >
           Confirm ↵
         </button>
+        <span className="font-mono text-[10px] italic text-slate-400">
+          {prompt}
+        </span>
       </div>
     </div>
   );

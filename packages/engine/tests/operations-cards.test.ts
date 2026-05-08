@@ -561,7 +561,6 @@ describe("PLAY_OPERATIONS_CARD — Mash Futures", () => {
     );
     // v2.6: bills live on slots — seed the stiff bill as a "ready" barrel.
     state = placeReadySlot(state, "p1", stiffBill);
-    const stiffSlot = state.allBarrels[state.allBarrels.length - 1]!.slotId;
     const { state: s, cardId } = giveOpsCard(state, "p1", "mash_futures");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",

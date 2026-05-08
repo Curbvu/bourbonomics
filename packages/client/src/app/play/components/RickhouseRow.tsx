@@ -263,12 +263,25 @@ function BarrelChip({
         : isAgePicked
           ? "ring-4 ring-amber-300 shadow-[0_0_18px_rgba(252,211,77,.6)]"
           : ageable
-            ? "ring-2 ring-sky-400/70 hover:ring-sky-200"
+            ? // v2.9: bump the age-mode highlight so the player can
+              // see at a glance which barrels accept the per-turn
+              // aging commit. Sky glow + cursor-pointer + a thicker
+              // ring pulls the eye without competing with the picked-
+              // state amber glow.
+              "ring-2 ring-sky-300 shadow-[0_0_14px_rgba(125,211,252,.45)] hover:ring-sky-200 cursor-pointer"
             : barrel.inspectedThisRound
               ? "ring-2 ring-rose-300/70"
               : barrel.agedThisRound
                 ? "ring-2 ring-amber-300/70"
                 : "";
+
+  // v2.9: in age mode, dim barrels that aren't legal age targets so
+  // the highlighted ones pop. Ignored for the picked barrel itself
+  // (already amber-glowing) and for the player's other useful states.
+  const ageDim =
+    inAgeMode && !ageable && !isAgePicked
+      ? "opacity-55 saturate-75"
+      : "";
 
   // Match the hand's MashBillCard idiom: WoW-style tier chrome based on
   // the attached bill's rarity. Construction-phase barrels without a
@@ -277,11 +290,12 @@ function BarrelChip({
   const tier = tierOrCommon(barrel.attachedMashBill?.tier);
   const chrome = TIER_CHROME[tier];
   const baseClass = [
-    "relative flex h-[140px] w-[100px] flex-shrink-0 flex-col items-stretch overflow-hidden rounded-md border-2 p-1.5 text-left shadow-[0_4px_12px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-shadow",
+    "relative flex h-[140px] w-[100px] flex-shrink-0 flex-col items-stretch overflow-hidden rounded-md border-2 p-1.5 text-left shadow-[0_4px_12px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all",
     chrome.gradient,
     chrome.border,
     chrome.glow,
     ringClass,
+    ageDim,
   ].join(" ");
   const billLabel = barrel.attachedMashBill?.name ?? "no bill yet";
   const phaseLabel =
@@ -659,11 +673,3 @@ function renderAgingPips(barrel: Barrel) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-baseline justify-between gap-1 rounded bg-slate-950/40 px-1.5 py-0.5">
-      <span>{label}</span>
-      <span className="font-sans text-[11px] tabular-nums text-slate-200">{value}</span>
-    </div>
-  );
-}

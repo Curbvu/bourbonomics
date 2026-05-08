@@ -12,10 +12,9 @@ import { useEffect, useState } from "react";
 import type { GamePhase } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 
-type DisplayPhase = "demand" | "draw" | "age" | "action" | "cleanup";
+type DisplayPhase = "draw" | "age" | "action" | "cleanup";
 
 const PHASES: { k: DisplayPhase; l: string }[] = [
-  { k: "demand", l: "Demand" },
   { k: "draw", l: "Draw" },
   { k: "age", l: "Age" },
   { k: "action", l: "Action" },
@@ -24,8 +23,6 @@ const PHASES: { k: DisplayPhase; l: string }[] = [
 
 function visiblePhase(phase: GamePhase): DisplayPhase | null {
   switch (phase) {
-    case "demand":
-      return "demand";
     case "draw":
       return "draw";
     case "action":

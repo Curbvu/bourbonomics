@@ -1,0 +1,19 @@
+{
+  "name": "@bourbonomics/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bourbonomics/engine": "*",
+    "@aws-sdk/client-apigatewaymanagementapi": "^3.654.0",
+    "@aws-sdk/client-dynamodb": "^3.654.0",
+    "@aws-sdk/lib-dynamodb": "^3.654.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.149",
+    "sst": "*"
+  }
+}

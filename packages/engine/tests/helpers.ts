@@ -57,16 +57,52 @@ export function makeTestGame(overrides: Partial<GameConfig> = {}): GameState {
   return initializeGame(baseConfig);
 }
 
-/** Run ROLL_DEMAND + one DRAW_HAND per player to land in the action phase. */
+/**
+ * Pass turn for `playerId`, transparently rolling demand first if the
+ * cursor just landed on them and the v2.9 per-turn flag still asks for
+ * a roll. Tests that don't care about demand should use this instead
+ * of dispatching PASS_TURN directly.
+ */
+export function passTurn(
+  state: GameState,
+  playerId: string,
+  roll: [number, number] = [3, 3],
+): GameState {
+  let s = state;
+  const player = s.players.find((p) => p.id === playerId);
+  if (player?.needsDemandRoll) {
+    s = applyAction(s, { type: "ROLL_DEMAND", playerId, roll });
+  }
+  return applyAction(s, { type: "PASS_TURN", playerId });
+}
+
+/**
+ * Land a fresh game in the action phase ready for tests to dispatch.
+ *
+ * v2.9: demand is rolled per-player at the top of each action turn, so
+ * the helper draws for everyone, fires the start player's first ROLL_
+ * DEMAND, and then clears `needsDemandRoll` on every other seat too —
+ * tests that don't care about demand can PASS_TURN around the table
+ * without having to roll for every player. Tests that DO care about
+ * the per-turn roll mechanic should re-arm the flag explicitly.
+ */
 export function advanceToActionPhase(
   state: GameState,
   roll: [number, number] = [3, 3],
 ): GameState {
-  let s = applyAction(state, { type: "ROLL_DEMAND", roll });
+  let s = state;
   for (const p of s.players) {
     s = applyAction(s, { type: "DRAW_HAND", playerId: p.id });
   }
-  return s;
+  // Now phase=action, current player has needsDemandRoll=true.
+  const current = s.players[s.currentPlayerIndex]!;
+  s = applyAction(s, { type: "ROLL_DEMAND", playerId: current.id, roll });
+  // Pre-clear the flag on every other seat so PASS_TURN-driven tests
+  // don't have to roll for every player.
+  return {
+    ...s,
+    players: s.players.map((p) => ({ ...p, needsDemandRoll: false })),
+  };
 }
 
 /**
@@ -102,11 +138,17 @@ export function advanceToNextRound(
     if (s.players[s.currentPlayerIndex]!.id !== p.id) {
       s = { ...s, currentPlayerIndex: s.players.findIndex((q) => q.id === p.id) };
     }
+    // v2.9: any player handed the cursor mid-round still needs to
+    // satisfy the per-turn demand roll before they can PASS_TURN.
+    const cur = s.players[s.currentPlayerIndex]!;
+    if (cur.needsDemandRoll) {
+      s = applyAction(s, { type: "ROLL_DEMAND", playerId: cur.id, roll });
+    }
     s = applyAction(s, { type: "PASS_TURN", playerId: p.id });
   }
-  // Now in `demand` (or `ended`). Run a full next-round setup: roll +
-  // each player draws.
-  if (s.phase === "demand") {
+  // v2.9: cleanup wraps to `draw` (no separate demand phase). Run the
+  // per-player draws + first-turn demand roll to land back in action.
+  if (s.phase === "draw") {
     s = advanceToActionPhase(s, roll);
   }
   return s;

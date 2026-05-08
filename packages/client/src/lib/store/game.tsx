@@ -43,10 +43,18 @@ import {
   type GameState,
   type InvestmentCard,
   type MashBill,
+  type NewGameConfig,
+  type NewMultiplayerGameConfig,
   type OperationsCard,
   type PlayerState,
   type ScoreResult,
 } from "@bourbonomics/engine";
+import {
+  gameSocket,
+  gameSocketUrl,
+  type SeatInfo,
+  type SocketStatus,
+} from "./socket";
 
 // Storage key is versioned and bumped whenever the engine schema or
 // canonical catalog changes (so legacy saves don't crash on hydrate).
@@ -60,20 +68,11 @@ const STORAGE_KEY = "bourbonomics:v2.6.0-game";
 const AUTOPLAY_KEY = "bourbonomics:v2.6.0-autoplay";
 const AUTO_STEP_MS = 280;
 
-export interface NewGameSeat {
-  name: string;
-  /** Logo id picked from playerLogos.ts (purely cosmetic). */
-  logoId?: string;
-  /** Difficulty picker is cosmetic in v2 — every seat plays via the heuristic bot. */
-  difficulty?: "easy" | "normal" | "hard";
-}
-
-export interface NewGameConfig {
-  /** Human seat goes first; bots follow. */
-  human: NewGameSeat;
-  bots: NewGameSeat[];
-  seed?: number;
-}
+// `NewGameSeat` and `NewGameConfig` now live in `@bourbonomics/engine`
+// so the multi-player server can take them over the wire without
+// duplicating the type. Re-exported below for back-compat with files
+// that imported them from this module.
+export type { NewGameSeat, NewGameConfig } from "@bourbonomics/engine";
 
 export interface LogEntry {
   seq: number;
@@ -212,6 +211,25 @@ export interface LastSale {
   seq: number;
 }
 
+/**
+ * Multiplayer-mode marker. When set, the store is bound to a remote
+ * room: `dispatch` sends actions over the WebSocket instead of
+ * applying them locally, and the autoplay loop is disabled (the
+ * server runs bot turns via the `Tick` Lambda). Cleared by
+ * `leaveMultiplayer()` or a fatal socket error.
+ */
+export interface MultiplayerMode {
+  /** 4-char room code. */
+  code: string;
+  /** Which seat the local human owns, or empty for spectator. */
+  playerId: string;
+  /** Whether the host has flipped the lobby into live play. */
+  started: boolean;
+  /** Convention: seat 0 is the host. The pre-game lobby's "Start
+   *  game" button is enabled only when `playerId === hostPlayerId`. */
+  hostPlayerId: string;
+}
+
 interface AtomicStore {
   state: GameState | null;
   log: LogEntry[];
@@ -231,6 +249,13 @@ export interface GameStore {
   seatMeta: { id: string; logoId?: string; difficulty?: string }[];
   /** Player on the clock for human input, or null. */
   humanWaitingOn: PlayerState | null;
+  /** PlayerId for the seat THIS connection owns. In multiplayer it's
+   *  `multiplayerMode.playerId` (the seat we claimed), or empty for
+   *  observers. In solo it's the lone non-bot seat (matches the
+   *  pre-MP convention). UI components that ask "is it my turn?"
+   *  should compare this against `state.players[currentPlayerIndex]`
+   *  or `humanWaitingOn`. */
+  humanSeatPlayerId: string | null;
   /** Currently-inspected card payload (modal render target), or null. */
   inspect: InspectPayload | null;
   setInspect: (payload: InspectPayload | null) => void;
@@ -291,7 +316,36 @@ export interface GameStore {
   lastMake: LastMake | null;
   /** Animation trigger — most recent SELL_BOURBON snapshot. */
   lastSale: LastSale | null;
+  /** When non-null, the store is bound to a remote multi-player room.
+   *  See `MultiplayerMode` for what that means for dispatch + autoplay. */
+  multiplayerMode: MultiplayerMode | null;
+  /** Live status of the multi-player WebSocket. Mirrors the socket's
+   *  own status so the UI can render a connection indicator. */
+  multiplayerStatus: import("./socket").SocketStatus;
+  /** Per-seat roster from the server: who's a bot, who's an open
+   *  human seat, and which display name claimed each one. Updates
+   *  whenever someone claims or releases a seat. */
+  roster: SeatInfo[];
+  /** Last server-side error reason (e.g. action rejection). UI can
+   *  render this as a toast so silent rejections aren't invisible. */
+  multiplayerError: string | null;
+  /** Dismiss the current error toast. */
+  clearMultiplayerError: () => void;
   newGame: (cfg: NewGameConfig) => void;
+  /** Mint a new multi-player room and join it as host. */
+  createMultiplayer: (cfg: NewMultiplayerGameConfig) => Promise<string>;
+  /** Join an existing room by its 4-char code as an observer. */
+  joinMultiplayer: (code: string, name: string) => Promise<void>;
+  /** Claim an open human seat. Server rejects bot seats and seats
+   *  already owned by someone else. */
+  claimSeat: (playerId: string) => Promise<void>;
+  /** Drop your claim on the seat you currently own. The connection
+   *  stays in the room as an observer. */
+  releaseSeat: () => void;
+  /** Host-only — flip the room out of pre-game lobby into live play. */
+  startMultiplayerGame: () => void;
+  /** Disconnect and return the store to single-player mode. */
+  leaveMultiplayer: () => void;
   step: () => void;
   /** Submit an action directly (used by setup-phase modals). */
   dispatch: (action: GameAction) => void;
@@ -307,6 +361,7 @@ const Ctx = createContext<GameStore>({
   autoplay: false,
   seatMeta: [],
   humanWaitingOn: null,
+  humanSeatPlayerId: null,
   inspect: null,
   setInspect: noop,
   buyMode: null,
@@ -344,7 +399,18 @@ const Ctx = createContext<GameStore>({
   lastPurchase: null,
   lastMake: null,
   lastSale: null,
+  multiplayerMode: null,
+  multiplayerStatus: "idle",
+  roster: [],
+  multiplayerError: null,
+  clearMultiplayerError: noop,
   newGame: noop,
+  createMultiplayer: async () => "",
+  joinMultiplayer: async () => {},
+  claimSeat: async () => {},
+  releaseSeat: noop,
+  startMultiplayerGame: noop,
+  leaveMultiplayer: noop,
   step: noop,
   dispatch: noop,
   setAutoplay: noop,
@@ -374,6 +440,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [drawBillMode, setDrawBillMode] = useState<DrawBillMode | null>(null);
   const [makeMode, setMakeMode] = useState<MakeMode | null>(null);
   const [sellMode, setSellMode] = useState<SellMode | null>(null);
+  const [multiplayerMode, setMultiplayerMode] = useState<MultiplayerMode | null>(null);
+  const [multiplayerStatus, setMultiplayerStatus] = useState<SocketStatus>("idle");
+  const [roster, setRoster] = useState<SeatInfo[]>([]);
+  const [multiplayerError, setMultiplayerError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   // Load from localStorage on mount.
@@ -456,31 +526,217 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Pure dispatch — same StrictMode-safe shape.
-  const dispatch = useCallback((action: GameAction) => {
-    setStore((prev) => {
-      if (!prev.state) return prev;
-      const next = applyAction(prev.state, action);
-      const seq = prev.seqCounter + 1;
-      const entry: LogEntry = {
-        seq,
-        action,
-        round: next.round,
-        drawn: captureDrawn(prev.state, next, action),
-      };
-      const lastPurchase = capturePurchase(prev, action, seq);
-      const lastMake = captureMake(prev, next, action, seq);
-      const lastSale = captureSale(prev, action, seq);
-      return {
-        ...prev,
-        state: next,
-        log: [...prev.log, entry].slice(-400),
-        seqCounter: seq,
-        lastPurchase,
-        lastMake,
-        lastSale,
-      };
+  // Pure dispatch — same StrictMode-safe shape. In multiplayer mode
+  // the action is sent over the WebSocket and the server's broadcast
+  // updates state (so we DON'T apply locally — that would briefly
+  // double-mutate before the broadcast arrived).
+  const dispatch = useCallback(
+    (action: GameAction) => {
+      if (multiplayerMode) {
+        // eslint-disable-next-line no-console
+        console.log("[mp] dispatch →", action);
+        gameSocket().send({ type: "action", action });
+        return;
+      }
+      setStore((prev) => {
+        if (!prev.state) return prev;
+        const next = applyAction(prev.state, action);
+        const seq = prev.seqCounter + 1;
+        const entry: LogEntry = {
+          seq,
+          action,
+          round: next.round,
+          drawn: captureDrawn(prev.state, next, action),
+        };
+        const lastPurchase = capturePurchase(prev, action, seq);
+        const lastMake = captureMake(prev, next, action, seq);
+        const lastSale = captureSale(prev, action, seq);
+        return {
+          ...prev,
+          state: next,
+          log: [...prev.log, entry].slice(-400),
+          seqCounter: seq,
+          lastPurchase,
+          lastMake,
+          lastSale,
+        };
+      });
+    },
+    [multiplayerMode],
+  );
+
+  // ---------------------------------------------------------------
+  // Multi-player wiring
+  // ---------------------------------------------------------------
+  // When the store is bound to a room, every server broadcast lands
+  // here. We swap the local AtomicStore for the broadcast's `state`
+  // and recompute animation snapshots from the prior state + the
+  // action that produced this frame (server forwards the action on
+  // every broadcast — see `packages/server/src/lib/protocol.ts`).
+  useEffect(() => {
+    const sock = gameSocket();
+    const off = sock.subscribe((event) => {
+      if (event.kind === "status") {
+        setMultiplayerStatus(event.status);
+        return;
+      }
+      const msg = event.message;
+      switch (msg.type) {
+        case "joined":
+          setMultiplayerMode({
+            code: msg.code,
+            playerId: msg.playerId,
+            started: msg.started,
+            hostPlayerId: msg.hostPlayerId,
+          });
+          setRoster(msg.roster);
+          setStore({
+            state: msg.state,
+            log: [],
+            seqCounter: msg.seq,
+            seatMeta: msg.state.players.map((p) => ({ id: p.id })),
+            lastPurchase: null,
+            lastMake: null,
+            lastSale: null,
+          });
+          break;
+        case "state":
+          if (msg.roster) setRoster(msg.roster);
+          if (msg.started !== undefined) {
+            setMultiplayerMode((prev) =>
+              prev ? { ...prev, started: msg.started! } : prev,
+            );
+          }
+          setStore((prev) => {
+            const action = msg.action;
+            const seq = msg.seq;
+            const entry: LogEntry | null = action
+              ? {
+                  seq,
+                  action,
+                  round: msg.state.round,
+                  drawn: prev.state ? captureDrawn(prev.state, msg.state, action) : undefined,
+                }
+              : null;
+            const lastPurchase = action ? capturePurchase(prev, action, seq) : prev.lastPurchase;
+            const lastMake = action ? captureMake(prev, msg.state, action, seq) : prev.lastMake;
+            const lastSale = action ? captureSale(prev, action, seq) : prev.lastSale;
+            return {
+              ...prev,
+              state: msg.state,
+              log: entry ? [...prev.log, entry].slice(-400) : prev.log,
+              seqCounter: seq,
+              lastPurchase,
+              lastMake,
+              lastSale,
+            };
+          });
+          break;
+        case "error":
+          // eslint-disable-next-line no-console
+          console.error("multiplayer:", msg.reason);
+          setMultiplayerError(msg.reason);
+          break;
+        case "ping":
+          // No-op; the server sometimes pings to keep idle sockets alive.
+          break;
+      }
     });
+    return off;
+  }, []);
+
+  const createMultiplayer = useCallback(
+    async (cfg: NewMultiplayerGameConfig): Promise<string> => {
+      const url = gameSocketUrl();
+      if (!url) throw new Error("Multiplayer is not configured for this build.");
+      const sock = gameSocket();
+      sock.connect(url);
+      // Resolve as soon as the `joined` message lands. We use a
+      // one-shot subscriber rather than racing the global one so
+      // the caller gets the room code synchronously after the
+      // promise settles.
+      return new Promise<string>((resolve, reject) => {
+        const off = sock.subscribe((event) => {
+          if (event.kind !== "message") return;
+          if (event.message.type === "joined") {
+            off();
+            resolve(event.message.code);
+          } else if (event.message.type === "error") {
+            off();
+            reject(new Error(event.message.reason));
+          }
+        });
+        sock.send({ type: "create-room", config: cfg });
+      });
+    },
+    [],
+  );
+
+  const joinMultiplayer = useCallback(
+    async (code: string, name: string): Promise<void> => {
+      const url = gameSocketUrl();
+      if (!url) throw new Error("Multiplayer is not configured for this build.");
+      const sock = gameSocket();
+      sock.connect(url);
+      return new Promise<void>((resolve, reject) => {
+        const off = sock.subscribe((event) => {
+          if (event.kind !== "message") return;
+          if (event.message.type === "joined") {
+            off();
+            resolve();
+          } else if (event.message.type === "error") {
+            off();
+            reject(new Error(event.message.reason));
+          }
+        });
+        sock.send({ type: "join-room", code: code.toUpperCase(), name });
+      });
+    },
+    [],
+  );
+
+  const releaseSeat = useCallback((): void => {
+    gameSocket().send({ type: "release-seat" });
+    setMultiplayerMode((prev) => (prev ? { ...prev, playerId: "" } : prev));
+  }, []);
+
+  const startMultiplayerGame = useCallback((): void => {
+    gameSocket().send({ type: "start-game" });
+  }, []);
+
+  const claimSeat = useCallback(
+    async (playerId: string): Promise<void> => {
+      const sock = gameSocket();
+      return new Promise<void>((resolve, reject) => {
+        const off = sock.subscribe((event) => {
+          if (event.kind !== "message") return;
+          // The server's claim-seat path rebroadcasts state with
+          // an updated roster, so a `state` frame after our send
+          // is our success signal. An `error` is the failure.
+          if (event.message.type === "state" && event.message.roster) {
+            off();
+            // Pre-update the local mode so the caller doesn't have
+            // to wait for the broadcast handler.
+            setMultiplayerMode((prev) =>
+              prev ? { ...prev, playerId } : prev,
+            );
+            resolve();
+          } else if (event.message.type === "error") {
+            off();
+            reject(new Error(event.message.reason));
+          }
+        });
+        sock.send({ type: "claim-seat", playerId });
+      });
+    },
+    [],
+  );
+
+  const leaveMultiplayer = useCallback(() => {
+    gameSocket().close();
+    setMultiplayerMode(null);
+    setRoster([]);
+    setStore(EMPTY_STORE);
   }, []);
 
   // Buy-mode helpers — the conveyor + capital cards become click targets
@@ -528,22 +784,47 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Auto-fire age the moment the player has both picks — no Confirm
-  // button. Mirrors sell-mode's `fireSell`.
+  // button. Mirrors sell-mode's `fireSell`. Uses the MP-aware seat id
+  // so the multiplayer flow targets the dispatcher's claimed seat
+  // (not just `players.find(!isBot)` which always resolves to the
+  // host on every screen).
   const fireAge = useCallback(
     (barrelId: string, cardId: string) => {
-      const human = store.state?.players.find((p) => !p.isBot);
-      if (!human) return;
+      const seatId = multiplayerMode
+        ? multiplayerMode.playerId
+        : store.state?.players.find((p) => !p.isBot)?.id;
+      if (!seatId) return;
       const action: GameAction = {
         type: "AGE_BOURBON",
-        playerId: human.id,
+        playerId: seatId,
         barrelId,
         cardId,
       };
       setAgeMode(null);
       dispatch(action);
     },
-    [store.state, dispatch],
+    [multiplayerMode, store.state, dispatch],
   );
+
+  // v2.9: auto-open Age mode the moment the local seat owes a per-turn
+  // aging commit. The user can still Cancel out (gives up the turn via
+  // PASS_TURN); without this, they'd see no UI prompt and wonder why
+  // every other action is rejecting.
+  useEffect(() => {
+    const s = store.state;
+    if (!s || s.phase !== "action") return;
+    const seatId = multiplayerMode
+      ? multiplayerMode.playerId
+      : s.players.find((p) => !p.isBot)?.id;
+    if (!seatId) return;
+    const me = s.players.find((p) => p.id === seatId);
+    if (!me) return;
+    if (s.players[s.currentPlayerIndex]?.id !== seatId) return;
+    if (!me.needsAgeBarrels) return;
+    if (me.needsDemandRoll) return; // demand modal still owns the screen
+    if (ageMode) return;
+    setAgeMode({ pickedBarrelId: null, pickedCardId: null });
+  }, [store.state, multiplayerMode, ageMode]);
 
   const setAgeBarrel = useCallback(
     (barrelId: string) => {
@@ -854,8 +1135,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setDragMakeState(null);
   }, []);
 
-  // Autoplay loop — paused while waiting on human input.
+  // Autoplay loop — paused while waiting on human input. Disabled
+  // entirely in multiplayer mode (the server's `Tick` Lambda runs
+  // bot turns there; client-side stepping would race the broadcast).
   useEffect(() => {
+    if (multiplayerMode) return;
     if (!autoplay) return;
     if (!store.state) return;
     if (isGameOver(store.state)) {
@@ -865,7 +1149,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (awaitingHumanInput(store.state)) return;
     const id = window.setTimeout(step, AUTO_STEP_MS);
     return () => window.clearTimeout(id);
-  }, [autoplay, store.state, step]);
+  }, [autoplay, multiplayerMode, store.state, step]);
 
   // Bail out of buy mode the moment it stops being the human's turn or
   // the action phase ends — leaving stale UI selections around would let
@@ -951,7 +1235,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   //   - action: when it's a bot's turn, auto-step them. Pause when the
   //     turn cursor lands on the human (they drive via the ActionBar).
   // Demand stays manual — the human triggers it via the demand modal.
+  // Disabled in multiplayer — the server is authoritative; client-side
+  // stepping would race the broadcast and produce visible divergence.
   useEffect(() => {
+    if (multiplayerMode) return;
     const state = store.state;
     if (!state) return;
     if (isGameOver(state)) return;
@@ -985,7 +1272,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const delay = isActionPhase ? 320 : 180;
     const id = window.setTimeout(step, delay);
     return () => window.clearTimeout(id);
-  }, [store.state, step]);
+  }, [multiplayerMode, store.state, step]);
 
   const newGame = useCallback((cfg: NewGameConfig) => {
     const catalog = defaultMashBillCatalog();
@@ -1071,6 +1358,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [store.state],
   );
 
+  // Resolve "which seat does this connection own?" The MP-aware
+  // value lets setup-phase modals (DrawPhase, DemandRoll, etc.)
+  // gate on the local player rather than `state.players.find(!isBot)`
+  // which always returns the host on every screen.
+  const humanSeatPlayerId = useMemo(() => {
+    if (multiplayerMode) return multiplayerMode.playerId || null;
+    return store.state?.players.find((p) => !p.isBot)?.id ?? null;
+  }, [multiplayerMode, store.state]);
+
   const value = useMemo<GameStore>(
     () => ({
       state: store.state,
@@ -1079,6 +1375,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       autoplay,
       seatMeta: store.seatMeta,
       humanWaitingOn,
+      humanSeatPlayerId,
       inspect,
       setInspect,
       buyMode,
@@ -1116,7 +1413,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastPurchase: store.lastPurchase,
       lastMake: store.lastMake,
       lastSale: store.lastSale,
+      multiplayerMode,
+      multiplayerStatus,
+      roster,
+      multiplayerError,
+      clearMultiplayerError: () => setMultiplayerError(null),
       newGame,
+      createMultiplayer,
+      joinMultiplayer,
+      claimSeat,
+      releaseSeat,
+      startMultiplayerGame,
+      leaveMultiplayer,
       step,
       dispatch,
       setAutoplay,
@@ -1127,6 +1435,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       scores,
       autoplay,
       humanWaitingOn,
+      humanSeatPlayerId,
       inspect,
       buyMode,
       startBuyMode,
@@ -1160,7 +1469,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
       dragMake,
       startDragMake,
       endDragMake,
+      multiplayerMode,
+      multiplayerStatus,
+      roster,
+      multiplayerError,
       newGame,
+      createMultiplayer,
+      joinMultiplayer,
+      claimSeat,
+      releaseSeat,
+      startMultiplayerGame,
+      leaveMultiplayer,
       step,
       dispatch,
       setAutoplay,

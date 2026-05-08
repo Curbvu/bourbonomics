@@ -40,14 +40,6 @@ const standardBill = () =>
     100,
   );
 
-function firstEmptySlot(state: ReturnType<typeof makeTestGame>, ownerId: string): string {
-  const player = state.players.find((p) => p.id === ownerId)!;
-  const occupied = new Set(
-    state.allBarrels.filter((b) => b.ownerId === ownerId).map((b) => b.slotId),
-  );
-  return player.rickhouseSlots.find((s) => !occupied.has(s.id))!.id;
-}
-
 /** Seed both hand AND deck (giveHand clears the deck — draw tests need it). */
 function giveHandAndDeck(
   state: ReturnType<typeof makeTestGame>,

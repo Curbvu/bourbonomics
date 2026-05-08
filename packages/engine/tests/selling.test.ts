@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyAction, IllegalActionError } from "../src/engine.js";
+import { applyAction } from "../src/engine.js";
 import { computeReward, awardConditionMet } from "../src/rewards.js";
 import { makeMashBill, makeCapitalCard, makeResourceCard } from "../src/cards.js";
 import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel, spendCardId } from "./helpers.js";
@@ -208,8 +208,21 @@ describe("SELL_BOURBON — happy path", () => {
       spendCardId: spendCardId(state, "p1"),
     });
     expect(state.demand).toBe(0);
-    // Hand off to p2 — selling no longer ends the turn.
+    // Hand off to p2 — selling no longer ends the turn. v2.9: roll
+    // p2's demand and clear the (orthogonal) per-turn aging gate so
+    // SELL_BOURBON validates against the actual sale rules.
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    state = applyAction(state, {
+      type: "ROLL_DEMAND",
+      playerId: "p2",
+      roll: [1, 1], // hold demand at 0
+    });
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p2" ? { ...p, needsAgeBarrels: false } : p,
+      ),
+    };
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p2",

@@ -1,11 +1,14 @@
 "use client";
 
 /**
- * Demand-roll modal — interactive 2d6 roll for the start of every round.
+ * Demand-roll modal — interactive 2d6 roll at the top of each player's
+ * own action turn (v2.9: per-player, not per-round).
  *
  * Renders only when:
- *   - state.phase === "demand"
- *   - autoplay is OFF (autoplay handles the rolls automatically)
+ *   - state.phase === "action"
+ *   - the current player has `needsDemandRoll === true`
+ *   - autoplay is OFF
+ *   - in MP, the local seat IS the current player (others wait)
  *
  * Flow:
  *   1. Modal pops with a "Roll dice ↵" button.
@@ -14,7 +17,7 @@
  *      roll is determined by the engine's seeded RNG (same function the
  *      runner uses), so result is reproducible.
  *   3. After a brief reveal, the ROLL_DEMAND action is dispatched and
- *      the modal closes.
+ *      the modal closes — the player can now take their actions.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -31,18 +34,23 @@ const DROP_MS = 1050;     // matches die-drop keyframe
 const SETTLE_MS = 700;    // dwell on the result before dispatching
 
 export default function DemandRollModal() {
-  const { state, autoplay, dispatch } = useGameStore();
+  const { state, autoplay, multiplayerMode, humanSeatPlayerId, dispatch } = useGameStore();
   const [phase, setPhase] = useState<RollState>({ kind: "idle" });
   const [tickValues, setTickValues] = useState<[number, number]>([1, 1]);
+  // v2.9: demand is rolled per-turn, not per-round. Reset the dice
+  // animation each time a fresh roll is required (every time the
+  // current player flips to a human who needs to roll).
+  const armed =
+    state?.phase === "action" &&
+    state.players[state.currentPlayerIndex]?.needsDemandRoll === true;
+  const turnKey = armed ? `${state.round}:${state.currentPlayerIndex}` : "";
   // Guard against React strict-mode running effects twice in dev — one
-  // dispatch per round, max.
-  const dispatchedRef = useRef<number>(-1);
+  // dispatch per turn, max.
+  const dispatchedRef = useRef<string>("");
 
-  // Reset whenever the round changes — fresh roll each round.
-  const round = state?.round ?? 0;
   useEffect(() => {
     setPhase({ kind: "idle" });
-  }, [round]);
+  }, [turnKey]);
 
   // While rolling — flicker random faces during the drop, then snap to
   // the resolved values right before the settle phase.
@@ -65,25 +73,37 @@ export default function DemandRollModal() {
     };
   }, [phase]);
 
-  // After the dice settle, dispatch ROLL_DEMAND once per round.
+  // After the dice settle, dispatch ROLL_DEMAND once per turn.
+  const currentPlayerId = state?.players[state?.currentPlayerIndex ?? 0]?.id;
   useEffect(() => {
     if (phase.kind !== "settled") return;
-    if (dispatchedRef.current === round) return;
+    if (!currentPlayerId) return;
+    if (dispatchedRef.current === turnKey) return;
     const id = window.setTimeout(() => {
-      dispatchedRef.current = round;
-      dispatch({ type: "ROLL_DEMAND", roll: phase.values });
+      dispatchedRef.current = turnKey;
+      dispatch({
+        type: "ROLL_DEMAND",
+        playerId: currentPlayerId,
+        roll: phase.values,
+      });
       setPhase({ kind: "idle" });
     }, SETTLE_MS);
     return () => window.clearTimeout(id);
-  }, [phase, dispatch, round]);
+  }, [phase, dispatch, turnKey, currentPlayerId]);
 
   if (!state) return null;
-  if (state.phase !== "demand") return null;
+  if (!armed) return null;
   if (autoplay) return null;
+  // v2.9: each player rolls demand at the top of their own action
+  // turn. In MP only the seat the engine is on the clock for sees the
+  // modal — others wait for the broadcast.
+  if (multiplayerMode && humanSeatPlayerId !== currentPlayerId) {
+    return null;
+  }
 
   const startRoll = () => {
     if (phase.kind !== "idle") return;
-    if (dispatchedRef.current === round) return;
+    if (dispatchedRef.current === turnKey) return;
     const [values] = roll2d6(state.rngState);
     setPhase({ kind: "rolling", values });
   };
@@ -111,7 +131,7 @@ export default function DemandRollModal() {
       <div className="relative flex flex-col items-center gap-5">
         <div className="text-center">
           <div className="font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
-            Round {round} · Demand phase
+            Round {state.round} · Your demand roll
           </div>
           <div className="mt-1 font-display text-2xl font-semibold text-amber-100">
             Roll 2d6 to set the market temperature
@@ -134,8 +154,8 @@ export default function DemandRollModal() {
         {/* Dice stage — fixed-height tray so falling dice have somewhere
             to drop from / land into. */}
         <div className="relative h-[140px] w-[260px]">
-          <DieStage value={tickValues[0]} animating={isAnimating} runId={`${round}-a-${phase.kind}`} offsetX={-72} />
-          <DieStage value={tickValues[1]} animating={isAnimating} runId={`${round}-b-${phase.kind}`} offsetX={72} />
+          <DieStage value={tickValues[0]} animating={isAnimating} runId={`${turnKey}-a-${phase.kind}`} offsetX={-72} />
+          <DieStage value={tickValues[1]} animating={isAnimating} runId={`${turnKey}-b-${phase.kind}`} offsetX={72} />
         </div>
 
         <button

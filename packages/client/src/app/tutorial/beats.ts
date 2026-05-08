@@ -179,20 +179,16 @@ export const TUTORIAL_BEATS: Beat[] = [
     },
   },
   {
-    id: "beat-4-demand-roll",
+    id: "beat-4-pin-start-player",
     kind: "scripted",
-    body: "(internal — round-2 demand roll, holds at 2)",
-    delayMs: 80,
+    body: "(internal — round-2 opens on the human, not the rotated bookend)",
+    delayMs: 40,
     mutate: (state) => {
-      // Reset start-of-round to the human so the action phase opens on us.
       const next = structuredClone(state);
       next.startPlayerIndex = 0;
       return next;
     },
-    build: (state) => {
-      if (state.phase !== "demand") return [];
-      return [{ type: "ROLL_DEMAND", roll: [1, 1] }];
-    },
+    build: () => [],
   },
   {
     id: "beat-4-draw-human",
@@ -372,16 +368,16 @@ export const TUTORIAL_BEATS: Beat[] = [
     },
   },
   {
-    id: "beat-8-round-3-demand",
+    id: "beat-8-round-3-pin-start-player",
     kind: "scripted",
-    body: "(internal — round 3 demand roll, holds)",
-    delayMs: 80,
+    body: "(internal — round 3 opens on the human)",
+    delayMs: 40,
     mutate: (state) => {
       const next = structuredClone(state);
       next.startPlayerIndex = 0;
       return next;
     },
-    build: (state) => (state.phase === "demand" ? [{ type: "ROLL_DEMAND", roll: [1, 1] }] : []),
+    build: () => [],
   },
   {
     id: "beat-8-round-3-draw-human",

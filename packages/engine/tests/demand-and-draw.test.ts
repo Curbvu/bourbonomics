@@ -1,61 +1,130 @@
 import { describe, it, expect } from "vitest";
 import { applyAction, IllegalActionError } from "../src/engine.js";
 import { makeTestGame } from "./helpers.js";
+import type { GameState } from "../src/types.js";
 
-describe("ROLL_DEMAND", () => {
+/**
+ * v2.9: a fresh game starts in the `draw` phase. Each player draws,
+ * then phase flips to `action` with the start player armed to roll
+ * demand on their own turn.
+ *
+ * `landInActionWithRollPending` walks every player through DRAW_HAND
+ * so subsequent assertions can target the per-turn ROLL_DEMAND
+ * mechanic without the helper auto-clearing the flag.
+ */
+function landInActionWithRollPending(initial: GameState): GameState {
+  let s = initial;
+  for (const p of s.players) {
+    s = applyAction(s, { type: "DRAW_HAND", playerId: p.id });
+  }
+  return s;
+}
+
+describe("ROLL_DEMAND (per-player, top of action turn)", () => {
   it("raises demand when 2d6 sum > current", () => {
-    const state = makeTestGame({ startingDemand: 5 });
-    const next = applyAction(state, { type: "ROLL_DEMAND", roll: [4, 5] }); // 9 > 5
+    const fresh = makeTestGame({ startingDemand: 5 });
+    const state = landInActionWithRollPending(fresh);
+    const next = applyAction(state, {
+      type: "ROLL_DEMAND",
+      playerId: "p1",
+      roll: [4, 5], // 9 > 5
+    });
     expect(next.demand).toBe(6);
-    expect(next.phase).toBe("draw");
+    expect(next.phase).toBe("action");
     expect(next.demandRolls).toHaveLength(1);
     expect(next.demandRolls[0]?.result).toBe("rise");
+    expect(next.players.find((p) => p.id === "p1")?.needsDemandRoll).toBe(false);
   });
 
   it("holds demand when 2d6 sum <= current", () => {
-    const state = makeTestGame({ startingDemand: 9 });
-    const next = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] }); // 7 <= 9
+    const fresh = makeTestGame({ startingDemand: 9 });
+    const state = landInActionWithRollPending(fresh);
+    const next = applyAction(state, {
+      type: "ROLL_DEMAND",
+      playerId: "p1",
+      roll: [3, 4], // 7 <= 9
+    });
     expect(next.demand).toBe(9);
     expect(next.demandRolls[0]?.result).toBe("hold");
-    expect(next.phase).toBe("draw");
+    expect(next.phase).toBe("action");
   });
 
   it("caps demand at 12", () => {
-    const state = makeTestGame({ startingDemand: 12 });
-    const next = applyAction(state, { type: "ROLL_DEMAND", roll: [6, 6] }); // 12 not > 12 anyway
+    const fresh = makeTestGame({ startingDemand: 12 });
+    const state = landInActionWithRollPending(fresh);
+    const next = applyAction(state, {
+      type: "ROLL_DEMAND",
+      playerId: "p1",
+      roll: [6, 6], // 12 not > 12 anyway
+    });
     expect(next.demand).toBe(12);
 
-    // Force "rise" outcome at boundary (12 already): should still cap.
-    const state2 = { ...state, demand: 11 };
-    const next2 = applyAction(state2, { type: "ROLL_DEMAND", roll: [6, 6] }); // 12 > 11
+    // Force a "rise" outcome at boundary (already at 11): should still cap at 12.
+    const fresh2 = makeTestGame({ startingDemand: 11 });
+    const state2 = landInActionWithRollPending(fresh2);
+    const next2 = applyAction(state2, {
+      type: "ROLL_DEMAND",
+      playerId: "p1",
+      roll: [6, 6], // 12 > 11
+    });
     expect(next2.demand).toBe(12);
   });
 
   it("rejects rolls outside [1,6]", () => {
-    const state = makeTestGame();
-    expect(() => applyAction(state, { type: "ROLL_DEMAND", roll: [0, 5] })).toThrow(IllegalActionError);
-    expect(() => applyAction(state, { type: "ROLL_DEMAND", roll: [7, 5] })).toThrow(IllegalActionError);
-    expect(() => applyAction(state, { type: "ROLL_DEMAND", roll: [3.5, 4] })).toThrow(IllegalActionError);
+    const state = landInActionWithRollPending(makeTestGame());
+    expect(() =>
+      applyAction(state, { type: "ROLL_DEMAND", playerId: "p1", roll: [0, 5] }),
+    ).toThrow(IllegalActionError);
+    expect(() =>
+      applyAction(state, { type: "ROLL_DEMAND", playerId: "p1", roll: [7, 5] }),
+    ).toThrow(IllegalActionError);
+    expect(() =>
+      applyAction(state, { type: "ROLL_DEMAND", playerId: "p1", roll: [3.5, 4] }),
+    ).toThrow(IllegalActionError);
   });
 
-  it("rejects ROLL_DEMAND outside the demand phase", () => {
-    let state = makeTestGame();
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] }); // → draw phase
-    expect(() => applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] })).toThrow(IllegalActionError);
+  it("rejects a second ROLL_DEMAND in the same turn", () => {
+    let state = landInActionWithRollPending(makeTestGame());
+    state = applyAction(state, {
+      type: "ROLL_DEMAND",
+      playerId: "p1",
+      roll: [3, 4],
+    });
+    expect(() =>
+      applyAction(state, { type: "ROLL_DEMAND", playerId: "p1", roll: [3, 4] }),
+    ).toThrow(IllegalActionError);
   });
 
-  it("transitions to draw phase and resets phase-completion list", () => {
-    let state = makeTestGame();
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
-    expect(state.phase).toBe("draw");
-    expect(state.playerIdsCompletedPhase).toEqual([]);
+  it("rejects ROLL_DEMAND from a non-current player", () => {
+    const state = landInActionWithRollPending(makeTestGame());
+    expect(() =>
+      applyAction(state, { type: "ROLL_DEMAND", playerId: "p2", roll: [3, 4] }),
+    ).toThrow(IllegalActionError);
+  });
+
+  it("blocks every non-roll action while needsDemandRoll is true", () => {
+    const state = landInActionWithRollPending(makeTestGame());
+    expect(() =>
+      applyAction(state, { type: "PASS_TURN", playerId: "p1" }),
+    ).toThrow(IllegalActionError);
+  });
+
+  it("re-arms the next seat's roll on PASS_TURN", () => {
+    let state = landInActionWithRollPending(makeTestGame());
+    state = applyAction(state, {
+      type: "ROLL_DEMAND",
+      playerId: "p1",
+      roll: [3, 4],
+    });
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    expect(state.currentPlayerIndex).toBe(1);
+    expect(state.players[1]?.needsDemandRoll).toBe(true);
   });
 });
 
 describe("DRAW_HAND", () => {
   it("draws handSize cards into the player's hand", () => {
     let state = makeTestGame();
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.hand).toHaveLength(8);
@@ -66,7 +135,6 @@ describe("DRAW_HAND", () => {
   it("does NOT auto-deal an operations card on draw — ops are bought from market", () => {
     let state = makeTestGame();
     const initialOps = state.players[0]!.operationsHand.length;
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.operationsHand.length).toBe(initialOps);
@@ -74,25 +142,20 @@ describe("DRAW_HAND", () => {
 
   it("rejects double-draw by the same player", () => {
     let state = makeTestGame();
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
-    expect(() => applyAction(state, { type: "DRAW_HAND", playerId: "p1" })).toThrow(IllegalActionError);
-  });
-
-  it("rejects DRAW_HAND in the demand phase", () => {
-    const state = makeTestGame();
-    expect(() => applyAction(state, { type: "DRAW_HAND", playerId: "p1" })).toThrow(IllegalActionError);
+    expect(() =>
+      applyAction(state, { type: "DRAW_HAND", playerId: "p1" }),
+    ).toThrow(IllegalActionError);
   });
 
   it("rejects unknown player", () => {
-    let state = makeTestGame();
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
-    expect(() => applyAction(state, { type: "DRAW_HAND", playerId: "ghost" })).toThrow(IllegalActionError);
+    expect(() =>
+      applyAction(makeTestGame(), { type: "DRAW_HAND", playerId: "ghost" }),
+    ).toThrow(IllegalActionError);
   });
 
-  it("advances to the action phase once all players have drawn", () => {
+  it("advances to the action phase once all players have drawn, with the start player armed to roll demand", () => {
     let state = makeTestGame();
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     expect(state.phase).toBe("draw");
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p2" });
@@ -100,10 +163,13 @@ describe("DRAW_HAND", () => {
     expect(state.currentPlayerIndex).toBe(0);
     expect(state.playerIdsCompletedPhase).toEqual([]);
     for (const p of state.players) expect(p.outForRound).toBe(false);
+    // v2.9: the seat the cursor lands on owes a demand roll before any
+    // other action; subsequent seats are armed as the cursor reaches them.
+    expect(state.players[0]?.needsDemandRoll).toBe(true);
+    expect(state.players[1]?.needsDemandRoll).toBe(false);
   });
 
   it("reshuffles discard into deck mid-draw if deck is short", () => {
-    // Drain p1's deck into discard manually before drawing.
     let state = makeTestGame();
     const p1Index = 0;
     state = {
@@ -112,7 +178,6 @@ describe("DRAW_HAND", () => {
         i === p1Index ? { ...p, discard: p.deck.slice(), deck: [] } : p,
       ),
     };
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.hand).toHaveLength(8);
@@ -129,7 +194,6 @@ describe("DRAW_HAND", () => {
         i === p1Index ? { ...p, deck: p.deck.slice(0, 3), discard: [] } : p,
       ),
     };
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     expect(state.players.find((p) => p.id === "p1")!.hand).toHaveLength(3);
   });

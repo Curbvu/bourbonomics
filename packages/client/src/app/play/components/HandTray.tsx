@@ -19,7 +19,6 @@ import {
   paymentValue,
   type Card,
   type GameState,
-  type MashBill,
   type OperationsCard,
   type PlayerState,
   type ResourceSubtype,
@@ -35,7 +34,6 @@ import PlayerSwatch from "./PlayerSwatch";
 import { CornerCost, CornerValue } from "./cardCorners";
 import { setMakeDragPayload } from "./dragMake";
 import { useZoneFocusClass, type FocusZone } from "./pickerFocus";
-import RecipePips from "./RecipePips";
 import {
   CAPITAL_CHROME,
   CARD_SIZE_CLASS,
@@ -45,14 +43,26 @@ import {
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
 } from "./handCardStyles";
-import { TIER_CHROME, tierOrCommon } from "./tierStyles";
 import { MoneyText } from "./money";
 
 export default function HandTray() {
-  const { state, seatMeta } = useGameStore();
+  const { state, seatMeta, multiplayerMode } = useGameStore();
   if (!state) return null;
-  const focused = focusedPlayer(state);
-  if (!focused) return null;
+  // In multiplayer, the tray belongs to whichever seat THIS connection
+  // owns — not the first non-bot, which would be the host on every
+  // remote screen. Spectators (no claimed seat) see no tray; they
+  // observe via the Rickhouse strip + RoomBanner instead.
+  const focused = multiplayerMode
+    ? multiplayerMode.playerId
+      ? state.players.find((p) => p.id === multiplayerMode.playerId) ?? null
+      : null
+    : focusedPlayer(state);
+  if (!focused) {
+    if (multiplayerMode) {
+      return <SpectatorTray />;
+    }
+    return null;
+  }
   const playerIndex = state.players.findIndex((p) => p.id === focused.id);
   const meta = seatMeta.find((m) => m.id === focused.id);
 
@@ -340,6 +350,25 @@ function focusedPlayer(state: GameState): PlayerState | null {
   return state.players[0]!;
 }
 
+/**
+ * Slim tray shown to multiplayer observers (visitors who joined a
+ * room without claiming a seat). Replaces the full hand UI so we
+ * don't accidentally leak someone else's cards into the spectator's
+ * view; the action board above stays fully visible.
+ */
+function SpectatorTray() {
+  return (
+    <div className="border-t border-slate-800 bg-slate-950/90 px-[18px] py-3 text-center">
+      <p className="font-mono text-[11px] uppercase tracking-[.18em] text-slate-400">
+        👁 Spectating
+      </p>
+      <p className="mt-1 text-[12px] text-slate-400">
+        Claim an open seat from the room banner to play.
+      </p>
+    </div>
+  );
+}
+
 // -----------------------------
 // Layout helpers
 // -----------------------------
@@ -493,11 +522,17 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     ? ""
     : isSelected
       ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : inAgeMode || inDrawBillMode
-        ? "ring-2 ring-sky-400/60"
-        : inSellMode
-          ? "ring-2 ring-amber-300/60"
-          : "ring-2 ring-emerald-400/60";
+      : inAgeMode
+        ? // v2.9: every hand card is a legal age payment, so light
+          // them all up with a soft sky glow — same idiom as the
+          // ageable rickhouse barrels — so the player can see at a
+          // glance that ANY card here commits.
+          "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
+        : inDrawBillMode
+          ? "ring-2 ring-sky-400/60"
+          : inSellMode
+            ? "ring-2 ring-amber-300/60"
+            : "ring-2 ring-emerald-400/60";
   const onClick = () => {
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
@@ -621,11 +656,15 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     ? ""
     : isSelected
       ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : inAgeMode || inDrawBillMode
-        ? "ring-2 ring-sky-400/60"
-        : inSellMode
-          ? "ring-2 ring-amber-300/60"
-          : "ring-2 ring-emerald-400/60";
+      : inAgeMode
+        ? // Match the resource-card age glow so capitals don't look
+          // second-class as age payments — they're equally valid.
+          "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
+        : inDrawBillMode
+          ? "ring-2 ring-sky-400/60"
+          : inSellMode
+            ? "ring-2 ring-amber-300/60"
+            : "ring-2 ring-emerald-400/60";
   const onClick = () => {
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
@@ -707,70 +746,10 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
   );
 }
 
-function MashBillCard({ bill, indexInRow }: { bill: MashBill; indexInRow: number }) {
-  const { setInspect, makeMode, setMakeMashBill } = useGameStore();
-  const tier = tierOrCommon(bill.tier);
-  const chrome = TIER_CHROME[tier];
-  const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
-  const inMakeMode = makeMode != null;
-  const isMakePicked = inMakeMode && makeMode!.pickedMashBillId === bill.id;
-  const makeRing = !inMakeMode
-    ? ""
-    : isMakePicked
-      ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : "ring-2 ring-emerald-400/60";
-  // Compact reward range from the grid for a single glance.
-  const cells: number[] = [];
-  for (const row of bill.rewardGrid) {
-    for (const c of row) if (c !== null) cells.push(c);
-  }
-  const peak = cells.length ? Math.max(...cells) : 0;
-  const floor = cells.length ? Math.min(...cells) : 0;
-  const onClick = () => {
-    if (inMakeMode) setMakeMashBill(bill.id);
-    else setInspect({ kind: "mashbill", bill });
-  };
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={
-        inMakeMode
-          ? `${isMakePicked ? "Unselect" : "Pick"} this mash bill for production`
-          : `${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`
-      }
-      className={[baseCardChrome, chrome.gradient, chrome.border, chrome.glow, overlap, liftClass, makeRing].join(" ")}
-    >
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
-        aria-hidden
-      />
-      <div className="flex items-baseline justify-between">
-        <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
-          {chrome.label_text}
-        </span>
-        {bill.goldAward ? <span className="text-[9px]" aria-hidden>🥇</span> : bill.silverAward ? <span className="text-[9px]" aria-hidden>🥈</span> : null}
-      </div>
-      <h4 className={`mt-0.5 line-clamp-2 font-display text-[13px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
-        {bill.name}
-      </h4>
-      {bill.slogan ? (
-        <p className={`mt-0.5 line-clamp-2 font-display text-[8px] italic leading-snug ${chrome.label} opacity-90`}>
-          {bill.slogan}
-        </p>
-      ) : null}
-      <RecipePips bill={bill} />
-      <div className="mt-auto flex items-baseline justify-center gap-1">
-        <span className={`font-display text-[14px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
-          {floor}–{peak}
-        </span>
-        <span className={`font-mono text-[7.5px] uppercase tracking-[.16em] ${chrome.label}`}>
-          rep
-        </span>
-      </div>
-    </button>
-  );
-}
+// `MashBillCard` deleted in v2.6 — bills no longer enter the hand;
+// they live in rickhouse slots from draw to sale. The component went
+// dormant when `Section caption="Bills"` was removed and stayed
+// orphaned until this cleanup pass.
 
 function OpsCard({ card, indexInRow }: { card: OperationsCard; indexInRow: number }) {
   const { setInspect } = useGameStore();

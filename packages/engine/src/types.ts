@@ -506,6 +506,21 @@ export interface PlayerState {
    * +N reputation on top of the grid reward. Persists until consumed.
    */
   pendingRatingBoost: number;
+  /**
+   * v2.9: each player rolls demand at the start of their own action
+   * turn (instead of one global roll per round). This flag is set
+   * when the cursor lands on the player and cleared by ROLL_DEMAND.
+   * No other action is legal while it's true.
+   */
+  needsDemandRoll: boolean;
+  /**
+   * v2.9: after the demand roll, the player must commit one card to
+   * aging (or abandon a barrel) before taking other actions — but only
+   * if they have any aging barrel that hasn't already been aged this
+   * round. Set by `applyRollDemand` and cleared by AGE_BOURBON or
+   * ABANDON_BARREL. PASS_TURN and PLAY_OPERATIONS_CARD remain free.
+   */
+  needsAgeBarrels: boolean;
 }
 
 // -----------------------------
@@ -516,7 +531,6 @@ export type GamePhase =
   | "setup"
   | "distillery_selection"
   | "starter_deck_draft"
-  | "demand"
   | "draw"
   | "action"
   | "cleanup"
@@ -620,6 +634,56 @@ export interface GameConfig {
 }
 
 // -----------------------------
+// New-game setup payload
+// -----------------------------
+
+/**
+ * Per-seat setup data captured at new-game time. The client mints
+ * these from the new-game form; the multi-player server takes them
+ * over the wire and bootstraps a `GameConfig` from them.
+ */
+export interface NewGameSeat {
+  name: string;
+  /** Cosmetic — picks the avatar asset shown in the seat strip. */
+  logoId?: string;
+  /** Bot difficulty selector. Ignored for human seats. */
+  difficulty?: "easy" | "normal" | "hard";
+}
+
+/**
+ * Config payload for `newGame` (client, single-player). The host is
+ * the lone human; everything else is bots that play themselves.
+ * Distinct from `GameConfig` (which is the fully-resolved engine
+ * input); this is the human-friendly form.
+ */
+export interface NewGameConfig {
+  /** Human seat goes first; bots follow. */
+  human: NewGameSeat;
+  bots: NewGameSeat[];
+  /** Optional fixed seed for replays / shareable games. */
+  seed?: number;
+}
+
+/**
+ * Config payload for the multi-player `create-room` message. The
+ * host is implicitly seat 0; `extraHumanSeats` counts additional
+ * human seats other connections can claim. Bots fill the remaining
+ * seats and play themselves.
+ *
+ * Total player count = 1 + extraHumanSeats + bots.length.
+ */
+export interface NewMultiplayerGameConfig {
+  /** Display name for the host's seat. */
+  host: NewGameSeat;
+  /** Number of additional human seats waiting to be claimed. */
+  extraHumanSeats: number;
+  /** Bot seats; their `name` is shown in the rickhouse strip. */
+  bots: NewGameSeat[];
+  /** Optional fixed seed for replays / shareable games. */
+  seed?: number;
+}
+
+// -----------------------------
 // Actions (Discriminated Union)
 // -----------------------------
 
@@ -678,7 +742,7 @@ export type GameAction =
       type: "STARTER_PASS";
       playerId: string;
     }
-  | { type: "ROLL_DEMAND"; roll: [number, number] }
+  | { type: "ROLL_DEMAND"; playerId: string; roll: [number, number] }
   | { type: "DRAW_HAND"; playerId: string }
   | {
       // v2.6 slot-bound bills: commits ≥1 card from the player's hand

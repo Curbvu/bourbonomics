@@ -72,5 +72,9 @@ export function applyDrawHand(
         }
       }
     }
+    // v2.9: arm the first action-phase seat to roll demand. Subsequent
+    // seats are armed by `endPlayerTurn` as the cursor hands off.
+    const first = draft.players[draft.currentPlayerIndex];
+    if (first) first.needsDemandRoll = true;
   }
 }

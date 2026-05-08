@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { applyAction, computeFinalScores, isGameOver } from "../src/engine.js";
 import { makeCapitalCard, makeMashBill } from "../src/cards.js";
-import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel, spendCardId } from "./helpers.js";
+import { advanceToActionPhase, giveHand, makeTestGame, passTurn, placeBarrel, spendCardId } from "./helpers.js";
 
 describe("Final round trigger", () => {
   it("drawing the last mash bill flips finalRoundTriggered", () => {
@@ -64,8 +64,8 @@ describe("Final round trigger", () => {
     // v2.2: DRAW_MASH_BILL does not end p1's turn — they must PASS_TURN
     // explicitly. Once both seats pass, cleanup ends the game.
     expect(state.phase).toBe("action");
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
+    state = passTurn(state, "p1");
+    state = passTurn(state, "p2");
     expect(state.phase).toBe("ended");
     expect(isGameOver(state)).toBe(true);
   });
@@ -159,29 +159,40 @@ describe("Integration smoke test — minimal full game", () => {
       startingDemand: 6,
     });
 
-    // Round 1 — start player is p1 (idx 0).
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
+    // Round 1 — start player is p1 (idx 0). v2.9: each turn opens
+    // with the current player rolling demand, then taking actions.
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p2" });
     expect(state.startPlayerIndex).toBe(0);
     expect(state.currentPlayerIndex).toBe(0);
+    state = applyAction(state, { type: "ROLL_DEMAND", playerId: "p1", roll: [3, 4] });
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    state = applyAction(state, { type: "ROLL_DEMAND", playerId: "p2", roll: [3, 4] });
     state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
     expect(state.round).toBe(2);
-    expect(state.phase).toBe("demand");
+    expect(state.phase).toBe("draw");
     // Start player rotated CCW: round 2 starts at p2 (idx 1) in a 2-player game.
     expect(state.startPlayerIndex).toBe(1);
 
     // Round 2: p1 has a saleable barrel; p2 takes their (empty) turn first
     // because of the rotation, then p1 chains a SELL into a PASS.
     state = placeBarrel(state, "p1", bills[0]!, 5);
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p2" });
     expect(state.currentPlayerIndex).toBe(1);
+    state = applyAction(state, { type: "ROLL_DEMAND", playerId: "p2", roll: [3, 4] });
     state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
+    state = applyAction(state, { type: "ROLL_DEMAND", playerId: "p1", roll: [1, 1] }); // hold demand
+    // v2.9: skip the per-turn aging cost so SELL_BOURBON exercises the
+    // sale rules without first having to spend a card on aging.
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1" ? { ...p, needsAgeBarrels: false } : p,
+      ),
+    };
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    const reward = 5; // demand=7 (after roll), age=5 → grid[1][2] = 5
+    const reward = 5; // demand=8 (rose once on p2's roll), age=5 → grid[2][2] = 6 actually.
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
@@ -203,10 +214,11 @@ describe("Integration smoke test — minimal full game", () => {
 
     // Force the final-round flag and burn through round 3 to end the game.
     state = { ...state, finalRoundTriggered: true };
-    state = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 3] });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p2" });
+    state = applyAction(state, { type: "ROLL_DEMAND", playerId: "p1", roll: [3, 3] });
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    state = applyAction(state, { type: "ROLL_DEMAND", playerId: "p2", roll: [3, 3] });
     state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
     expect(isGameOver(state)).toBe(true);
 

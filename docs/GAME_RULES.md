@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (v2.8 alpha).** Drafting, the round loop, slot-bound mash bills, incremental production, aging, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is temporarily disabled** — every game runs as Vanilla. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. Computer-only build today; human-controlled slots ship alongside the UI work.
+> **Scope (v2.9 alpha).** Drafting, the round loop (Draw → Action → Cleanup, with per-turn demand roll + mandatory aging inside Action), slot-bound mash bills, incremental production, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is temporarily disabled** — every game runs as Vanilla. Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. **Multiplayer is live** — host a 4-char-code room from `/multiplayer`, share the link, claim seats; bots fill the rest. Solo-vs-bots and online-multi-human both ship from the same engine.
 
 ---
 
@@ -12,15 +12,17 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 For the impatient. Read once, play once, the rest of the rulebook will make sense.
 
+> **Prefer to learn by doing?** The home screen has a **Tutorial** tile that opens an interactive walkthrough at `/tutorial` — a 13-step guided game (1 human + 1 bot, fixed seed) that hand-holds you from your first roll through your first sale, with spotlights and tooltips overlaying the live board. Skip out at any time.
+
 ### The 90-second pitch
 
 You run a bourbon distillery. You have a **rickhouse** (4 barrel slots), a **deck** (16 starter cards), and **mash bills** (recipes) that live directly in your rickhouse slots. Each round:
 
-1. **Demand rolls.** A shared market gauge ticks up or holds.
-2. **Draw 8** cards from your deck.
-3. **Age** any aging barrels you own (one card per barrel, face-down on top).
-4. **Take your turn.** Make bourbon, sell bourbon, buy from the market, etc. — full turn, not one-action-per-round.
-5. **Cleanup.** Discards reset, the start player rotates, next round.
+1. **Draw 8** cards from your deck.
+2. **Take your turn** — Roll demand → Age a barrel → Take actions (make / sell / buy / trade / etc.).
+3. **Cleanup.** Discards reset, the start player rotates, next round.
+
+Each player's turn opens with their own demand roll and a mandatory aging commit (1 card to one of their aging barrels) — that's the holding cost for keeping inventory. *Then* the rest of their turn opens up.
 
 ### The core loop
 
@@ -87,13 +89,11 @@ Each player shuffles and **draws 8 cards** as their opening hand.
 
 # 🔄 The Round
 
-Five phases per round:
+Three phases per round:
 
-1. **Demand** — roll 2d6. If higher than current demand, demand +1.
-2. **Draw** — each player draws 8 cards.
-3. **Age** — each player may place a card on top of any of their **aging barrels** (one per barrel per round).
-4. **Action** — players take full turns in the rotated order. See [§Action Phase](#-phase-4-action-phase).
-5. **Cleanup** — unused resource and capital cards go to discard; per-round flags reset; start player rotates one seat counter-clockwise.
+1. **Draw** — each player draws 8 cards from their resource deck.
+2. **Action** — players take full turns in the rotated order. Each turn runs as **Roll demand → Age a barrel → Take actions** (see [§Action Phase](#-action-phase) for the gated sub-steps).
+3. **Cleanup** — unused resource and capital cards go to discard; per-round flags reset; start player rotates one seat counter-clockwise.
 
 **Operations cards persist** — they're not discarded at end of round.
 
@@ -109,17 +109,17 @@ For 4 players seated 1-2-3-4: rounds run 1234 → 4123 → 3412 → 2341 → 123
 
 ---
 
-# 🎲 Phase 1 — Demand
+# 🎲 Demand (per-turn, v2.9)
 
-Roll **2d6**. If the result is **greater than** current demand, demand **rises by 1** (cap 12). Otherwise it holds.
+At the **top of each player's action turn** (before any other action), the active player rolls **2d6**. If the result is **greater than** current demand, demand **rises by 1** (cap 12). Otherwise it holds. The roll is a mandatory first action — the engine rejects Make/Age/Sell/Buy/Trade until it lands.
 
-This is the only natural rise. Demand **falls by 1** for each barrel sold (floor 0). Some ops cards move it directly.
+This is the only natural rise — but with N players acting per round, demand can climb up to N times before the round ends, which speeds the market more than the old once-per-round roll. Demand still **falls by 1** for each barrel sold (floor 0). Some ops cards move it directly.
 
 The bell curve of 2d6 means demand drifts toward the middle, with rare booms and crashes.
 
 ---
 
-# 🎴 Phase 2 — Draw
+# 🎴 Draw Phase
 
 Each player draws **8 cards** from their resource deck. Reshuffle the discard if the deck runs out.
 
@@ -127,25 +127,36 @@ Operations cards are NOT auto-drawn — they're bought from the ops market.
 
 ---
 
-# 🛢️ Phase 3 — Age
+# 🛢️ Aging (per-turn, v2.9)
 
-For each of your **aging barrels**, you may place one face-down card from your hand on top to advance its age by 1 year. Aging is optional but it's the primary path to reputation — most bourbons need years to pay out well.
+After rolling demand at the top of your turn, you **must commit one card from your hand to one of your aging barrels** before taking any other action. This is the holding cost for keeping inventory in the rickhouse — every turn a barrel sits unsold, you pay 1 card to keep it alive.
 
-Aging cards advance the barrel's age and nothing else. They do not contribute to sale payout beyond the age they buy on the grid.
+The committed card advances the barrel's age by 1 year (or more for cards with bonus ages). Aging cards do not contribute to sale payout beyond the age they buy on the grid — their value is the year they purchase.
 
-**Staged and Building barrels do not age.** A barrel only starts aging once its recipe is fully satisfied — partial pile, no aging. See [§Make Bourbon](#make-bourbon) for the slot lifecycle.
-
-A barrel may only age **once per round** unless an ops card explicitly grants more.
+**Staged and Building barrels do not age.** A barrel only starts aging once its recipe is fully satisfied — partial pile, no aging. See [§Make Bourbon](#make-bourbon) for the slot lifecycle. The aging commit only fires for barrels that are already in the **aging** phase.
 
 When the barrel sells, all aging cards go to the player's discard.
 
+### Edge cases
+
+- **No aging barrels** — the cost is skipped; you go straight to step 3.
+- **No cards in hand** — you can't pay the cost. The only legal moves are `PASS_TURN` (forfeits the turn; your barrels stay un-aged) or `ABANDON_BARREL` for any **ready / construction** barrel (aging barrels can't be abandoned — sell them instead).
+- **Multiple aging barrels** — one commit satisfies the requirement. You can age more on the same turn (each barrel still ages at most once per round), but only one is mandatory.
+- **Just-completed barrels** — a barrel that finished construction this round doesn't age until next round; if your ONLY aging barrels fall in that bucket, the cost is skipped this turn.
+
 ---
 
-# 🎯 Phase 4 — Action Phase
+# 🎯 Action Phase
 
-Each player takes their **full turn** in rotated order. On your turn you take as many actions as you want — production, sales, market buys, mash bill draws, trades, abandons — until you voluntarily end your turn (or run out of legal plays). Then play passes.
+Each player takes their **full turn** in rotated order. The turn opens with two mandatory micro-steps before the free actions begin:
 
-**Operations cards** play as a **free interruption** at any point during your turn. They don't consume an action; each ops card is one-shot.
+1. **Roll demand** (see [§Demand](#-demand-per-turn-v29)).
+2. **Age a barrel** (see [§Aging](#️-aging-per-turn-v29)) — only required if you have any un-aged aging barrels.
+3. **Free actions** — take as many of these as you want, in any order: Make Bourbon, Sell Bourbon, Buy from the Market, Buy Operations Card, Draw a Mash Bill, Trade, Abandon Barrel, Trash a Card. End the turn voluntarily when you're done.
+
+Until both gated micro-steps are paid, the engine rejects every other action except `PASS_TURN`, `ABANDON_BARREL`, and `PLAY_OPERATIONS_CARD` (which always plays free).
+
+**Operations cards** play as a **free interruption** at any point during your turn — including before the demand roll and during the aging step. They don't consume an action; each ops card is one-shot.
 
 **Voluntarily ending your turn is final** — you don't act again until the next round. Cards in your hand stay there until cleanup.
 
@@ -444,7 +455,7 @@ Gold takes precedence if both Silver and Gold conditions are met. Gold awards do
 
 Range **0–12**, starting at 0.
 
-- **Rises by 1** if the start-of-round 2d6 roll exceeds current demand.
+- **Rises by 1** when an active player's 2d6 turn-opening roll exceeds current demand. Up to N rises per round, one per player.
 - **Falls by 1** for each barrel sold (floor 0), unless skipped by an effect.
 - **Moved directly** by some ops cards (Market Manipulation, Bourbon Boom, Glut).
 
@@ -569,6 +580,43 @@ v2.7 runs every game as Vanilla while the distillery roster is disabled, so play
 
 ---
 
+# 🌐 Multiplayer
+
+Two ways to play, both running the same engine:
+
+- **Solo (`/play`)** — you + 1–3 bots. State lives in your browser; bots step locally.
+- **Online (`/multiplayer` + `/play/[code]`)** — 1–4 humans + bots, server-authoritative. State lives in DynamoDB behind a WebSocket Lambda; every action round-trips through `applyAction` on the server, then broadcasts to every connected client. Bot turns inline-step on the server too, so bot moves animate instantly between human turns.
+
+### Host flow
+
+1. Open `/multiplayer`, pick a name + total human seats (1–4) + bot seats (0–3).
+2. **Create room →** mints a 4-character code (Boggle-style, no 0/O/1/I), seats you as host (`human0`), and routes you to `/play/[code]`.
+3. Copy the share link from the room banner. The waiting room shows the per-seat roster live.
+4. **Start game →** flips the room out of pre-game lobby. The setup-phase modals (starter-deck draft, draw) fire same as solo — only the seat the engine is on the clock for sees the prompt; the rest see "waiting on X". Once the action phase begins, each player rolls their own demand and ages their own barrel on their own turn (per v2.9).
+
+### Join flow
+
+1. Paste the share link. If you've never set a name on this device, a name prompt appears before the socket opens.
+2. The roster strip in the room banner shows every seat — **claim** an open seat by clicking it. You become that seat for the rest of the game; subsequent actions you submit are gated server-side against your claimed playerId.
+3. If you arrive as a **spectator** (deep-link to a started game with no open seats), you see the GameBoard but the bottom tray reads "👁 Spectating" instead of someone else's hand.
+
+### Under the hood
+
+- 4-char codes mint from a 32-letter alphabet (8-try collision resolution against ~1M keyspace).
+- Rooms expire 14 days after their last write (DynamoDB TTL); abandoned games clean themselves up.
+- Connection table has a `roomCode` GSI so broadcasts iterate every socket in a room without scanning.
+- Optimistic CAS on every state write — two clients racing the same action see one win, the other gets `stale-state` and resyncs.
+- Reconnect is name-based: if your display name already owns a seat, joining the room rebinds you to it without a re-claim round-trip.
+- Animations (sale flight, make flight, purchase flight) ride along on every broadcast so flights fire on every client, not just the actor's screen.
+
+### Lifecycle messages
+
+- `create-room` / `join-room` / `claim-seat` / `release-seat` / `start-game` (host-only) / `action` / `resync`.
+- Host-only actions (`start-game`) are gated by `connectionId.playerId === "human0"`.
+- Setup-phase modals self-gate: starter-deck draft only fires on the seat the engine is awaiting; draw phase fires for each seat that hasn't drawn yet; the v2.9 demand-roll modal and aging overlay each fire only for the seat whose turn is currently open (not host-only — every player rolls and ages on their own turn).
+
+---
+
 # 🔁 The Core Loop
 
 Pick a distillery → draft mash bills directly into your slots → build a starter deck → draw 8 cards a round → commit cards toward a Staged or Building slot → finish the recipe → age it → sell when demand favors you → take rep, cards, or both → buy more → play ops at the right moment → **manage your open slots** (every drawn bill needs one) → watch the rotation for your bookend → time your endgame.
@@ -587,7 +635,12 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 
 # 📜 Changelog
 
+- **v2.9** —
+  - **Per-turn demand rolls.** Demand is no longer a once-per-round global ceremony at the top of the round. Each player rolls their own 2d6 at the very start of *their own* action turn — it's the mandatory first action of the turn, gated by `player.needsDemandRoll` (set when the cursor lands on the seat, cleared by ROLL_DEMAND). The phase strip drops the dedicated `demand` phase; rounds now run **Draw → Action → Cleanup**. Demand can rise up to N times per round (once per player) instead of once total, accelerating the market. Multiplayer: each player sees their own demand-roll modal at the top of their turn (others wait for the broadcast); bots roll inline via the orchestrator.
+  - **Mandatory per-turn aging.** The dedicated Age phase is gone. Right after the demand roll, the active player **must commit one card from hand to one of their aging barrels** before taking any other action — gated by `player.needsAgeBarrels` (set by ROLL_DEMAND when the player has any un-aged aging barrel, cleared by AGE_BOURBON). Players with no aging barrels skip the cost; players with no cards in hand can `PASS_TURN` (forfeits the turn) or `ABANDON_BARREL` (only for ready/construction barrels — aging barrels can only leave via SELL). The per-turn loop is now: **Roll → Age → Actions**, creating a real holding cost for sitting on inventory while waiting for demand to rise.
+  - **Tutorial mode.** New `/tutorial` route — an overlay-driven walkthrough that boots a deterministic solo game (1 human + 1 bot, seed 42) and narrates 13 steps from welcome through the player's first sale. The overlay paints a yellow halo or cutout dim around the call-to-action zone; steps with auto-advance predicates fire forward when the player satisfies the relevant `GameState` condition (round ticked, barrel reached aging, age ≥ 2, barrelsSold ≥ 1, etc.). Read-only board-tour pages get a hard cutout dim; live-action pages stay light so the player can see and click the whole board. Skip button on every step. The home screen surfaces it as a violet tile so a fresh player lands here first.
 - **v2.8** —
+  - **Multiplayer (online).** Host a 4-char-code room at `/multiplayer`; friends join via share link, claim seats, the host hits Start. Server-authoritative — every action round-trips through `applyAction` on AWS Lambda, then broadcasts to every connected client. Bot turns inline-step server-side so bot moves animate instantly between human turns. Pre-game lobby (waiting room with roster + Start button), seat claiming + release, reconnect-by-name, spectator mode, host-gated demand roll, per-seat draw modals. Setup-phase modals self-gate to the seat the engine is on the clock for. Infra: SST 4 / API Gateway WebSocket / DynamoDB rooms+connections / EventBridge cron tick fallback. See §Multiplayer for the full flow.
   - **Composition Buffs removed entirely.** The five threshold buffs (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all four grains) are deleted with no replacement. Sale resolution simplifies to grid lookup + Specialty bonus + awards. Aging cards now exclusively advance the age counter and contribute nothing else to sale payout. Resource cards do whatever their printed text says — most have no sale-time effect. The "demand does not drop on sale" effect previously granted by 2+ capital is preserved only via the Demand Surge ops card.
   - **Reward grids are now monotonic.** Every bill's grid rises (or holds flat) going right across demand and going down across age — no backward steps. Dropped the v2.7.2 "grain character" curves where wheat peaked mid-demand and barley peaked low; those produced cells that paid less at higher demand and read as bugs at a glance. Locked in with a per-tier shape invariant.
   - **Tier 1 commons run a slim single-axis grid** (1×N or N×1) with at most 2×2; uncommons run a varied 1×3 / 2×2 / 2×3 / 3×1 mix; rares 2×2 / 2×3 / 3×2; epics 3×2 / 3×3; legendary 4×4. Shape now encodes character — a flat-age wheat bill reads `1×3`, a pure-aging barley bill reads `3×1`.

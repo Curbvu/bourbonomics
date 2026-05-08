@@ -297,16 +297,21 @@ function primeTutorialState(state: GameState): GameState {
     }));
   }
 
-  // Walk straight to the action phase from `demand` (initializeGame
-  // lands in `demand` since startingDemand is set but no roll has
-  // happened). The tutorial controller's Beat 0 owns the action phase
-  // narrative — players never see a demand roll on round 1.
+  // Walk straight to the action phase. v2.9 normally lands init in
+  // `draw`; the tutorial collapses through to `action` because Beat 1
+  // owns the narrative from there. Both v2.9 per-turn gates
+  // (`needsDemandRoll`, `needsAgeBarrels`) start cleared on every
+  // player and are kept cleared by the controller's post-dispatch
+  // hook — the tutorial teaches voluntary aging instead of the
+  // mandatory holding cost.
   next.phase = "action";
   next.currentPlayerIndex = 0;
   next.startPlayerIndex = 0;
   next.playerIdsCompletedPhase = [];
   for (const p of next.players) {
     p.outForRound = false;
+    p.needsDemandRoll = false;
+    p.needsAgeBarrels = false;
   }
 
   return next;

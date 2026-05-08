@@ -19,7 +19,6 @@ import { defaultDistilleryPool } from "../src/distilleries.js";
 import {
   advanceToActionPhase,
   advanceToNextRound,
-  firstEmptySlot,
   giveHand,
   makeTestGame,
   slotForBill,
@@ -205,6 +204,15 @@ describe("incremental commitment — Wheated Baron discount on cumulative pile",
     state = advanceToActionPhase(state);
 
     // Round 1: open with cask + corn (no wheat yet) — should NOT complete.
+    // v2.9: Wheated Baron's starting (already-aging) barrel triggers
+    // the per-turn age cost; this test isolates the build mechanic, so
+    // clear the flag for p1 explicitly.
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1" ? { ...p, needsAgeBarrels: false } : p,
+      ),
+    };
     state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1)]);
     state = giveHand(state, "p2", []);
     const openSlot = slotForBill(state, "p1", wheatedBill.id);
@@ -222,6 +230,14 @@ describe("incremental commitment — Wheated Baron discount on cumulative pile",
       seedDecks: { p1: [wheat("p1", 2)] },
     });
     state = { ...state, currentPlayerIndex: 0 };
+    // v2.9: skip the per-turn aging cost for the starting Baron barrel
+    // — this test is exclusively about the build / discount mechanic.
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1" ? { ...p, needsAgeBarrels: false } : p,
+      ),
+    };
     state = applyAction(state, {
       type: "MAKE_BOURBON",
       playerId: "p1",

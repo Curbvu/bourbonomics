@@ -207,7 +207,11 @@ function Section({
       data-zone={zone}
       {...dataProps}
       className={[
-        "relative flex items-stretch gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-1.5",
+        // Fixed height = card (140) + padding (p-1.5 → 12) + border (2)
+        // + 4px breathing room. Locks the box to card-and-a-half-buffer
+        // so the layout never tries to stretch a row taller than its
+        // contents and start a vertical scrollbar.
+        "relative flex h-[158px] items-stretch gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-1.5",
         focusClass ?? "",
       ].join(" ")}
     >

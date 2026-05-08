@@ -85,10 +85,6 @@ export function nextOrchestratorAction(state: GameState): GameAction | null {
       if (nextActor.isBot === false) return null;
       return chooseStarterPass(nextActor.id);
     }
-    case "demand": {
-      const [roll] = roll2d6(state.rngState);
-      return { type: "ROLL_DEMAND", roll };
-    }
     case "draw": {
       const next = state.players.find(
         (p) => !state.playerIdsCompletedPhase.includes(p.id),
@@ -101,6 +97,25 @@ export function nextOrchestratorAction(state: GameState): GameAction | null {
     case "action": {
       const current = state.players[state.currentPlayerIndex];
       if (!current) throw new Error("no current player in action phase");
+      // v2.9: each turn opens with the current player rolling demand.
+      // The orchestrator emits ROLL_DEMAND for them when armed; for a
+      // human seat it returns null and the modal collects the click.
+      if (current.needsDemandRoll) {
+        if (current.isBot === false) return null;
+        const [roll] = roll2d6(state.rngState);
+        return { type: "ROLL_DEMAND", playerId: current.id, roll };
+      }
+      // v2.9: post-roll, the player owes one aging commit before any
+      // other action. Bots auto-age the cheapest available barrel; for
+      // a human seat we yield so the AgeOverlay can collect the pick.
+      if (current.needsAgeBarrels) {
+        if (current.isBot === false) return null;
+        const ageAction = chooseAgeBarrelForBot(state, current.id);
+        if (ageAction) return ageAction;
+        // Bot has no legal age — fall through to chooseAction (likely
+        // PASS_TURN). The validateAction gate still rejects sales /
+        // buys / etc., but PASS_TURN is allow-listed.
+      }
       return chooseAction(state, current.id);
     }
     case "setup":
@@ -135,4 +150,44 @@ function applyOrchestratorStep(state: GameState, action: GameAction): GameState 
     return applyAction({ ...state, rngState: nextRng }, action);
   }
   return applyAction(state, action);
+}
+
+/**
+ * Pick the cheapest legal AGE_BOURBON for `playerId` to satisfy the
+ * v2.9 per-turn aging cost. Returns null if the bot has no legal age
+ * (no aging barrels available, or no spendable hand cards). The
+ * orchestrator falls back to PASS_TURN in that case.
+ */
+function chooseAgeBarrelForBot(
+  state: GameState,
+  playerId: string,
+): GameAction | null {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player || player.hand.length === 0) return null;
+  const ageable = state.allBarrels.filter(
+    (b) =>
+      b.ownerId === playerId &&
+      b.phase === "aging" &&
+      !b.agedThisRound &&
+      (b.completedInRound == null || state.round > b.completedInRound) &&
+      !b.inspectedThisRound,
+  );
+  if (ageable.length === 0) return null;
+  // Spend the lowest-payment-value card (resource preferred over
+  // capital, lowest count first) so high-value cards stay available
+  // for the rest of the turn. Stable enough for the inline runner —
+  // the bot AI gets smarter in a follow-up.
+  const sortedHand = [...player.hand].sort((a, b) => {
+    const av = (a.resourceCount ?? a.capitalValue ?? 1);
+    const bv = (b.resourceCount ?? b.capitalValue ?? 1);
+    return av - bv;
+  });
+  const card = sortedHand[0]!;
+  const barrel = ageable[0]!;
+  return {
+    type: "AGE_BOURBON",
+    playerId,
+    barrelId: barrel.id,
+    cardId: card.id,
+  };
 }

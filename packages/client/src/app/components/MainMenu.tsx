@@ -42,7 +42,7 @@ export default function MainMenu() {
         if (s && s.phase !== "ended" && s.players) {
           setResume({
             round: s.round ?? 1,
-            phase: s.phase ?? "demand",
+            phase: s.phase ?? "draw",
             playerCount: s.players.length,
           });
         }
@@ -77,7 +77,7 @@ export default function MainMenu() {
               ? "Same script — useful when teaching a friend."
               : "Build, age, sell — every beat scripted, every lesson lands."
           }
-          accent={tutorialDone ? "slate" : "amber"}
+          accent={tutorialDone ? "slate" : "violet"}
         />
       ) : null}
 
@@ -87,6 +87,14 @@ export default function MainMenu() {
         title="Start a fresh barrel"
         subtitle="Pick your seat, opponents, and seed. Bots play themselves."
         accent={tutorialDone ? "amber" : "sky"}
+      />
+
+      <MenuTile
+        href="/multiplayer"
+        eyebrow="Multiplayer"
+        title="Play with friends online"
+        subtitle="Mint a 4-char room code, share the link, race to the rep cap."
+        accent="rose"
       />
 
       <MenuTile
@@ -108,7 +116,7 @@ export default function MainMenu() {
   );
 }
 
-type Accent = "emerald" | "amber" | "sky" | "slate";
+type Accent = "emerald" | "amber" | "sky" | "slate" | "rose" | "violet";
 
 const ACCENTS: Record<Accent, { border: string; eyebrow: string; arrow: string; hoverBg: string }> = {
   emerald: {
@@ -116,6 +124,12 @@ const ACCENTS: Record<Accent, { border: string; eyebrow: string; arrow: string; 
     eyebrow: "text-emerald-300",
     arrow: "text-emerald-300",
     hoverBg: "hover:bg-emerald-950/30",
+  },
+  violet: {
+    border: "border-violet-500/70",
+    eyebrow: "text-violet-300",
+    arrow: "text-violet-300",
+    hoverBg: "hover:bg-violet-950/30",
   },
   amber: {
     border: "border-amber-500/70",
@@ -134,6 +148,12 @@ const ACCENTS: Record<Accent, { border: string; eyebrow: string; arrow: string; 
     eyebrow: "text-slate-400",
     arrow: "text-slate-400",
     hoverBg: "hover:bg-slate-900/50",
+  },
+  rose: {
+    border: "border-rose-500/70",
+    eyebrow: "text-rose-300",
+    arrow: "text-rose-300",
+    hoverBg: "hover:bg-rose-950/30",
   },
 };
 

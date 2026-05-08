@@ -7,7 +7,7 @@ describe("initializeGame", () => {
   it("creates a state with the right shape", () => {
     const state = makeTestGame();
     expect(state.round).toBe(1);
-    expect(state.phase).toBe("demand");
+    expect(state.phase).toBe("draw");
     expect(state.demand).toBe(0);
     expect(state.players).toHaveLength(2);
     expect(state.marketConveyor.length).toBeLessThanOrEqual(10);
