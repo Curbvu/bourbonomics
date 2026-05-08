@@ -372,7 +372,10 @@ function CoachMark({
   onBack: () => void;
 }) {
   return (
-    <div className="pointer-events-auto fixed right-6 top-20 z-50 w-[360px] rounded-xl border-2 border-amber-700/60 bg-slate-900/95 p-4 shadow-[0_8px_30px_rgba(0,0,0,.55)]">
+    <div
+      key={beat.id}
+      className="animate-bb-tour-pop pointer-events-auto fixed right-6 top-20 z-50 w-[360px] rounded-xl border-2 border-amber-400/80 bg-slate-900 p-4 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_28px_rgba(251,191,36,.16),inset_0_1px_0_rgba(251,191,36,.10)]"
+    >
       <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[.18em] text-amber-300">
         <span>Tutorial · {beatIndex + 1} / {totalBeats}</span>
         <SkipLink />
@@ -380,7 +383,7 @@ function CoachMark({
       {beat.title ? (
         <h3 className="mt-1 font-display text-lg font-bold text-amber-100">{beat.title}</h3>
       ) : null}
-      <RichText className="mt-2 text-sm leading-snug text-slate-200">{beat.body}</RichText>
+      <RichText className="mt-2 text-sm leading-snug text-slate-100">{beat.body}</RichText>
       {canGoBack ? (
         <div className="mt-3 flex justify-start">
           <button
@@ -410,11 +413,14 @@ function PromptCard({
   if (beat.kind !== "prompt") return null;
   return (
     <div className="pointer-events-auto fixed inset-x-0 bottom-24 z-50 mx-auto w-full max-w-md px-6">
-      <div className="rounded-xl border-2 border-amber-700/60 bg-slate-900/95 p-5 shadow-[0_8px_30px_rgba(0,0,0,.55)]">
+      <div
+        key={beat.id}
+        className="animate-bb-tour-pop rounded-xl border-2 border-amber-400/80 bg-slate-900 p-5 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_32px_rgba(251,191,36,.18),inset_0_1px_0_rgba(251,191,36,.10)]"
+      >
         {beat.title ? (
           <h3 className="font-display text-xl font-bold text-amber-100">{beat.title}</h3>
         ) : null}
-        <RichText className="mt-2 text-sm leading-relaxed text-slate-200">{beat.body}</RichText>
+        <RichText className="mt-2 text-sm leading-relaxed text-slate-100">{beat.body}</RichText>
         <div className="mt-4 flex items-center justify-between gap-3">
           <SkipLink />
           <div className="flex items-center gap-2">

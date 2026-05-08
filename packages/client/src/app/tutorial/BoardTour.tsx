@@ -76,7 +76,16 @@ export default function BoardTour({ onDone, onQuit }: BoardTourProps) {
     <>
       <SpotlightLayer target={stop.spotlight} />
       <div className="pointer-events-auto fixed inset-x-0 bottom-12 z-50 mx-auto w-full max-w-md px-6">
-        <div className="rounded-xl border-2 border-amber-700/60 bg-slate-900/95 p-5 shadow-[0_8px_40px_rgba(0,0,0,.65)]">
+        {/* `key` keys on stopIdx so the pop animation replays each
+            advance — the dim/spotlight transitions slide between
+            zones, the modal repaints with fresh copy. Brighter
+            chrome (full-opacity slate, amber-400 border, stronger
+            inner glow) so the foreground reads "lit" against the
+            now-darker dimmed table. */}
+        <div
+          key={stop.id}
+          className="animate-bb-tour-pop rounded-xl border-2 border-amber-400/80 bg-slate-900 p-5 shadow-[0_8px_40px_rgba(0,0,0,.7),0_0_36px_rgba(251,191,36,.18),inset_0_1px_0_rgba(251,191,36,.10)]"
+        >
           <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[.18em] text-amber-300">
             <span>Tour · {stopIdx + 1} / {STOPS.length}</span>
             <button
@@ -88,7 +97,7 @@ export default function BoardTour({ onDone, onQuit }: BoardTourProps) {
             </button>
           </div>
           <h2 className="mt-2 font-display text-2xl font-bold text-amber-100">{stop.title}</h2>
-          <RichText className="mt-3 text-sm leading-relaxed text-slate-200">{stop.body}</RichText>
+          <RichText className="mt-3 text-sm leading-relaxed text-slate-100">{stop.body}</RichText>
           <div className="mt-4 flex justify-end">
             <button
               type="button"

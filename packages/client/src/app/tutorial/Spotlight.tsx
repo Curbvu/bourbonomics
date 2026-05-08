@@ -190,11 +190,21 @@ export function SpotlightLayer({ target }: { target: SpotlightTarget | undefined
   // SVG mask: white = dim, black = transparent. Two black rects punch
   // out the primary spotlight and (optionally) the hand-tray, so the
   // amber-glow ring on the spotlit element AND the hand cards' own
-  // sky/amber selection chrome both stay readable. Bumped to 70%
-  // dim (was 55%) for stronger contrast between the actionable target
-  // and the background table.
+  // sky/amber selection chrome both stay readable. Dim opacity 0.85
+  // makes the actionable target POP against the rest of the table.
+  //
+  // Animations:
+  //   - The whole layer fades in once on mount (`animate-bb-spot-fade`).
+  //   - The mask holes AND the ring divs ease between positions when
+  //     the spotlight target changes — an instant jump from one zone
+  //     to the next was disorienting. SVG `x/y/width/height` accept
+  //     CSS transitions in evergreen browsers.
+  const BOX_TRANSITION =
+    "top 0.35s ease, left 0.35s ease, width 0.35s ease, height 0.35s ease";
+  const SVG_RECT_TRANSITION =
+    "x 0.35s ease, y 0.35s ease, width 0.35s ease, height 0.35s ease";
   return (
-    <div className="pointer-events-none fixed inset-0 z-40">
+    <div className="pointer-events-none fixed inset-0 z-40 animate-bb-spot-fade">
       <svg
         className="pointer-events-none absolute inset-0 h-full w-full"
         xmlns="http://www.w3.org/2000/svg"
@@ -209,6 +219,7 @@ export function SpotlightLayer({ target }: { target: SpotlightTarget | undefined
               height={height}
               rx="8"
               fill="black"
+              style={{ transition: SVG_RECT_TRANSITION }}
             />
             {ht ? (
               <rect
@@ -218,6 +229,7 @@ export function SpotlightLayer({ target }: { target: SpotlightTarget | undefined
                 height={ht.height}
                 rx="8"
                 fill="black"
+                style={{ transition: SVG_RECT_TRANSITION }}
               />
             ) : null}
           </mask>
@@ -228,7 +240,7 @@ export function SpotlightLayer({ target }: { target: SpotlightTarget | undefined
           width="100%"
           height="100%"
           fill="rgb(2 6 23)"
-          fillOpacity="0.7"
+          fillOpacity="0.85"
           mask="url(#bb-spotlight-mask)"
         />
       </svg>
@@ -236,7 +248,7 @@ export function SpotlightLayer({ target }: { target: SpotlightTarget | undefined
           on the spotlit element underneath (see bf39ea6). */}
       <div
         className="pointer-events-none absolute rounded-lg border-2 border-amber-400 shadow-[0_0_24px_rgba(251,191,36,.55),inset_0_0_24px_rgba(251,191,36,.18)]"
-        style={{ top, left, width, height }}
+        style={{ top, left, width, height, transition: BOX_TRANSITION }}
       />
       {/* Secondary, softer ring around the hand tray when this beat
           needs a hand-card follow-up. Lighter to read as "you'll act
@@ -244,7 +256,13 @@ export function SpotlightLayer({ target }: { target: SpotlightTarget | undefined
       {ht ? (
         <div
           className="pointer-events-none absolute rounded-lg border-2 border-sky-300/70 shadow-[0_0_14px_rgba(125,211,252,.35)]"
-          style={{ top: ht.top, left: ht.left, width: ht.width, height: ht.height }}
+          style={{
+            top: ht.top,
+            left: ht.left,
+            width: ht.width,
+            height: ht.height,
+            transition: BOX_TRANSITION,
+          }}
         />
       ) : null}
     </div>
