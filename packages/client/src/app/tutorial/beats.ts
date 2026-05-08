@@ -139,19 +139,29 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-1-make-backroad",
     kind: "await-action",
     title: "Make your first barrel",
-    body: "**Backroad Batch** needs the universal recipe: **1 cask + 1 corn + 1 grain** (rye, barley, or wheat). Tag exactly those three cards in your hand, then drop them on **Backroad Batch** to satisfy the recipe in a single commit.",
+    body: "**Backroad Batch** needs the universal recipe: **1 cask + 1 corn + 1 grain** (rye, barley, or wheat). Drag those cards onto Backroad Batch — one at a time or all at once. The barrel flips to Aging the moment all three are in.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
     matches: (action, state) => {
+      // Gate: only allow MAKE_BOURBON commits to the Backroad slot.
+      // Card composition is checked via `advanceWhen` — we accept
+      // partial commits (drag-and-drop sends one card per action)
+      // and let the engine accumulate them.
       if (action.type !== "MAKE_BOURBON") return false;
       if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
       const target = findHumanBarrelByBillDef(state, "tutorial_backroad_batch");
-      if (!target || action.slotId !== target.slotId) return false;
-      // Strict: must commit exactly cask + corn + grain so the barrel
-      // jumps straight to Aging. A partial pile would leave it in
-      // "construction" while the aftermath prompt claims "Recipe
-      // satisfied" — confusing the player.
-      const t = tallyCommit(state, action.cardIds);
-      return t.cask >= 1 && t.corn >= 1 && t.grain >= 1;
+      return target != null && action.slotId === target.slotId;
+    },
+    advanceWhen: (state) => {
+      // The recipe is satisfied iff the barrel has flipped to "aging".
+      // Engine logic in make-bourbon.ts handles the universal-rule
+      // check (≥1 cask + ≥1 corn + ≥1 grain) — we just look for the
+      // resulting phase transition.
+      const barrel = state.allBarrels.find(
+        (b) =>
+          b.ownerId === TUTORIAL_HUMAN_ID &&
+          b.attachedMashBill.defId === "tutorial_backroad_batch",
+      );
+      return barrel != null && barrel.phase === "aging";
     },
   },
   {
@@ -167,19 +177,37 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-2-make-heritage",
     kind: "await-action",
     title: "Start the picky one",
-    body: "**Heritage Reserve** needs **1 cask + 1 corn + 2 rye + 1 Specialty Rye.** You have everything *except* the Specialty Rye. Commit your remaining **cask, corn, and both common ryes** now — that's 4 cards. The Specialty Rye comes from the market next.",
+    body: "**Heritage Reserve** needs **1 cask + 1 corn + 2 rye + 1 Specialty Rye.** You have everything *except* the Specialty Rye. Drop your remaining **cask, corn, and both common ryes** onto Heritage Reserve — that's 4 cards. We'll grab the Specialty Rye from the market next.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
     matches: (action, state) => {
+      // Same idiom as Beat 1 — accept partial commits to the slot,
+      // gate progression on `advanceWhen`.
       if (action.type !== "MAKE_BOURBON") return false;
       if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
       const target = findHumanBarrelByBillDef(state, "tutorial_heritage_reserve");
-      if (!target || action.slotId !== target.slotId) return false;
-      // Strict: must commit 1 cask + 1 corn + 2 rye in this single
-      // action so the barrel transitions to "construction" with the
-      // exact pile the spec describes. Heritage stays in construction
-      // until Beat 5 adds the Specialty Rye.
-      const t = tallyCommit(state, action.cardIds);
-      return t.cask >= 1 && t.corn >= 1 && t.rye >= 2;
+      return target != null && action.slotId === target.slotId;
+    },
+    advanceWhen: (state) => {
+      // Heritage stays in "construction" through this beat (specialty
+      // rye comes in Beat 5). Advance once the player has committed
+      // the partial pile: ≥1 cask + ≥1 corn + ≥2 rye.
+      const barrel = state.allBarrels.find(
+        (b) =>
+          b.ownerId === TUTORIAL_HUMAN_ID &&
+          b.attachedMashBill.defId === "tutorial_heritage_reserve",
+      );
+      if (!barrel) return false;
+      let cask = 0;
+      let corn = 0;
+      let rye = 0;
+      for (const c of barrel.productionCards) {
+        if (c.type !== "resource") continue;
+        const n = c.resourceCount ?? 1;
+        if (c.subtype === "cask") cask += n;
+        if (c.subtype === "corn") corn += n;
+        if (c.subtype === "rye") rye += n;
+      }
+      return cask >= 1 && corn >= 1 && rye >= 2;
     },
   },
   {

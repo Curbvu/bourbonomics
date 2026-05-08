@@ -116,14 +116,19 @@ export default function TutorialController() {
       return;
     }
     if (beat.kind === "await-action") {
+      const hasAdvanceWhen = beat.advanceWhen != null;
       setTutorialActionTransform((action, current) => {
         if (!beat.matches(action, current)) return null;
         const rewritten = beat.rewrite ? beat.rewrite(action, current) : null;
         const final = rewritten ?? action;
-        // Defer to next tick so the dispatch's setStore has flushed
-        // before we move on — predicate-driven beats need to see the
-        // post-action state.
-        setTimeout(() => advance(), 0);
+        // If the beat has an `advanceWhen` predicate, leave progression
+        // to the state-watch effect — the player may need to dispatch
+        // several partial actions (e.g. drag-and-drop one card at a
+        // time) before the goal state lands. Without `advanceWhen`,
+        // a single matching action means the goal is reached.
+        if (!hasAdvanceWhen) {
+          setTimeout(() => advance(), 0);
+        }
         return final;
       });
     } else {
@@ -134,6 +139,22 @@ export default function TutorialController() {
       setTutorialActionTransform(null);
     };
   }, [beat, phase, setTutorialActionTransform, advance]);
+
+  // ── State-watch advancement for await-action beats with advanceWhen ──
+  // Some Make beats accept several partial commits before the goal is
+  // reached (drag-and-drop adds one card at a time). For those, the
+  // transform passes the action through but doesn't advance — this
+  // effect re-evaluates the predicate on every state change and
+  // advances exactly once when the goal state lands.
+  useEffect(() => {
+    if (phase !== "play") return;
+    if (!beat || beat.kind !== "await-action") return;
+    if (!beat.advanceWhen) return;
+    if (!state) return;
+    if (beat.advanceWhen(state)) {
+      advance();
+    }
+  }, [state, beat, phase, advance]);
 
   // ── Auto-advance scripted + transition + celebrate beats ─────────
   useEffect(() => {

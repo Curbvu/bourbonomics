@@ -58,8 +58,16 @@ export interface AwaitActionBeat extends BeatBase {
   kind: "await-action";
   /**
    * Predicate matched against the action the player tries to dispatch.
-   * Returning `true` advances the beat; returning `false` ignores the
-   * action (UI shows "Locked during tutorial" guidance).
+   * Returning `true` lets the action through (and advances the beat,
+   * unless `advanceWhen` is set — see below). Returning `false`
+   * silently drops the action.
+   *
+   * Use `matches` for *gating*: which actions are legal in this beat?
+   * Use `advanceWhen` for *progression*: when has the player satisfied
+   * the goal? The two are split because some beats accept multiple
+   * partial actions before the goal is reached — e.g. drag-and-drop
+   * commits one card at a time, but Beat 1 wants the player to land
+   * the full cask + corn + grain pile before advancing.
    */
   matches: (action: GameAction, state: GameState) => boolean;
   /**
@@ -68,6 +76,14 @@ export interface AwaitActionBeat extends BeatBase {
    * to dispatch the action as-is.
    */
   rewrite?: (action: GameAction, state: GameState) => GameAction | null;
+  /**
+   * Optional state-watch advance predicate. If set, the beat does NOT
+   * auto-advance on every successful match — instead, the controller
+   * runs this against the live state after every dispatch and advances
+   * only when it returns true. Lets the player accumulate partial
+   * progress (one drag at a time) without skipping ahead.
+   */
+  advanceWhen?: (state: GameState) => boolean;
 }
 
 export interface DecisionBeat extends BeatBase {
