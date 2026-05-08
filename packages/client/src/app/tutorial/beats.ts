@@ -399,6 +399,35 @@ export const TUTORIAL_BEATS: Beat[] = [
         ? [{ type: "DRAW_HAND", playerId: TUTORIAL_BOT_ID }]
         : [],
   },
+  {
+    id: "beat-8-passive-age-backroad",
+    kind: "scripted",
+    body: "(internal — Backroad picks up its second year across the round break so it lands on the engine's MIN_SELL_AGE of 2)",
+    delayMs: 40,
+    mutate: (state) => {
+      const next = structuredClone(state);
+      const backroad = next.allBarrels.find(
+        (b) =>
+          b.ownerId === TUTORIAL_HUMAN_ID &&
+          b.attachedMashBill.defId === "tutorial_backroad_batch",
+      );
+      if (backroad && backroad.age < 2) {
+        backroad.age = 2;
+        backroad.agingCards = [
+          ...backroad.agingCards,
+          {
+            id: "agingcard_tutorial_backroad_passive",
+            cardDefId: "corn",
+            type: "resource",
+            subtype: "corn",
+            resourceCount: 1,
+          },
+        ];
+      }
+      return next;
+    },
+    build: () => [],
+  },
 
   // ── Beat 9 — Sell Backroad ──────────────────────────────────────
   {
