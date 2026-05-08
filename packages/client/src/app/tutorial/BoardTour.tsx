@@ -34,7 +34,7 @@ const STOPS: TourStop[] = [
   {
     id: "hand",
     title: "Your Hand",
-    body: "Eight cards a round. **Casks**, **grains**, and **capital**. You'll spend these to build, age, and sell.",
+    body: "Eight cards a round. **Casks**, **corn**, **grains** (rye / barley / wheat), and **capital**. You'll spend these to build, age, and sell.",
     spotlight: { kind: "hand-cards", cardIds: [] },
   },
   {

@@ -31,6 +31,64 @@ function findHumanBarrelByBillDef(
   return barrel ? { barrelId: barrel.id, slotId: barrel.slotId } : null;
 }
 
+/**
+ * Tally the resource breakdown of the cards being committed in a
+ * MAKE_BOURBON action. Used by the Make matchers to verify the player
+ * is committing the FULL set the recipe needs, not a partial pile that
+ * would leave the barrel in "construction" while the next prompt
+ * misleadingly claims "Recipe satisfied."
+ */
+interface CommitTally {
+  cask: number;
+  corn: number;
+  rye: number;
+  barley: number;
+  wheat: number;
+  /** Total non-cask, non-corn grain (rye + barley + wheat). */
+  grain: number;
+  /** Specialty cards (`specialty === true`), broken out by subtype. */
+  specialtyRye: number;
+  /** Total committed cards (length of cardIds). */
+  total: number;
+}
+
+function tallyCommit(state: GameState, cardIds: string[]): CommitTally {
+  const t: CommitTally = {
+    cask: 0,
+    corn: 0,
+    rye: 0,
+    barley: 0,
+    wheat: 0,
+    grain: 0,
+    specialtyRye: 0,
+    total: cardIds.length,
+  };
+  const human = state.players.find((p) => p.id === TUTORIAL_HUMAN_ID);
+  if (!human) return t;
+  const byId = new Map(human.hand.map((c) => [c.id, c]));
+  for (const id of cardIds) {
+    const card = byId.get(id);
+    if (!card || card.type !== "resource") continue;
+    const count = card.resourceCount ?? 1;
+    if (card.subtype === "cask") t.cask += count;
+    if (card.subtype === "corn") t.corn += count;
+    if (card.subtype === "rye") {
+      t.rye += count;
+      t.grain += count;
+      if (card.specialty) t.specialtyRye += count;
+    }
+    if (card.subtype === "barley") {
+      t.barley += count;
+      t.grain += count;
+    }
+    if (card.subtype === "wheat") {
+      t.wheat += count;
+      t.grain += count;
+    }
+  }
+  return t;
+}
+
 /** Find the bot's lone aging barrel (the pre-staged one). */
 function findBotAgingBarrel(state: GameState): { barrelId: string; cardId: string | null } | null {
   const barrel = state.allBarrels.find(
@@ -81,13 +139,19 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-1-make-backroad",
     kind: "await-action",
     title: "Make your first barrel",
-    body: "**Backroad Batch** needs **1 cask, 1 corn, and any 1 grain.** You have all three in hand. Pick those three cards and commit them to the slot.",
+    body: "**Backroad Batch** needs the universal recipe: **1 cask + 1 corn + 1 grain** (rye, barley, or wheat). Tag exactly those three cards in your hand, then drop them on **Backroad Batch** to satisfy the recipe in a single commit.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
     matches: (action, state) => {
       if (action.type !== "MAKE_BOURBON") return false;
       if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
       const target = findHumanBarrelByBillDef(state, "tutorial_backroad_batch");
-      return target != null && action.slotId === target.slotId;
+      if (!target || action.slotId !== target.slotId) return false;
+      // Strict: must commit exactly cask + corn + grain so the barrel
+      // jumps straight to Aging. A partial pile would leave it in
+      // "construction" while the aftermath prompt claims "Recipe
+      // satisfied" — confusing the player.
+      const t = tallyCommit(state, action.cardIds);
+      return t.cask >= 1 && t.corn >= 1 && t.grain >= 1;
     },
   },
   {
@@ -103,13 +167,19 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-2-make-heritage",
     kind: "await-action",
     title: "Start the picky one",
-    body: "**Heritage Reserve** needs **1 cask, 1 corn, 2 rye — and at least one Specialty Rye.** Commit what you've got. The Specialty Rye comes from the market next.",
+    body: "**Heritage Reserve** needs **1 cask + 1 corn + 2 rye + 1 Specialty Rye.** You have everything *except* the Specialty Rye. Commit your remaining **cask, corn, and both common ryes** now — that's 4 cards. The Specialty Rye comes from the market next.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
     matches: (action, state) => {
       if (action.type !== "MAKE_BOURBON") return false;
       if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
       const target = findHumanBarrelByBillDef(state, "tutorial_heritage_reserve");
-      return target != null && action.slotId === target.slotId;
+      if (!target || action.slotId !== target.slotId) return false;
+      // Strict: must commit 1 cask + 1 corn + 2 rye in this single
+      // action so the barrel transitions to "construction" with the
+      // exact pile the spec describes. Heritage stays in construction
+      // until Beat 5 adds the Specialty Rye.
+      const t = tallyCommit(state, action.cardIds);
+      return t.cask >= 1 && t.corn >= 1 && t.rye >= 2;
     },
   },
   {

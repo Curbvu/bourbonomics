@@ -95,8 +95,11 @@ export default function HandTray() {
       <ActionBar />
 
       {/* Identity + reputation strip — compacted: smaller logo, single
-          line for everything, slimmer Y padding. */}
-      <div className="flex items-center gap-3 border-b border-slate-900 px-[18px] py-1">
+          line for everything, slimmer Y padding. The whole strip
+          carries `data-bb-zone="reputation"` so the tutorial spotlight
+          has a tall enough hit-box to ring; the inner Rep block alone
+          is only ~22px tall and reads as "nothing highlighted." */}
+      <div data-bb-zone="reputation" className="flex items-center gap-3 border-b border-slate-900 px-[18px] py-1">
         <div className="flex items-center gap-2">
           <PlayerSwatch
             seatIndex={playerIndex}
@@ -113,7 +116,7 @@ export default function HandTray() {
           </div>
         </div>
         <span className="mx-1 h-[20px] w-px bg-slate-800" aria-hidden />
-        <div data-bb-zone="reputation" className="flex items-baseline gap-1.5">
+        <div className="flex items-baseline gap-1.5">
           <span className="font-mono text-[9px] uppercase tracking-[.18em] text-amber-300/80">
             Rep
           </span>
