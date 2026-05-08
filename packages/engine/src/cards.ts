@@ -167,6 +167,7 @@ interface MashBillSpec {
   recipe?: MashBillRecipe;
   silverAward?: MashBill["silverAward"];
   goldAward?: MashBill["goldAward"];
+  tutorialOnly?: boolean;
 }
 
 export function makeMashBill(spec: MashBillSpec, instanceIndex: number): MashBill {
@@ -184,6 +185,7 @@ export function makeMashBill(spec: MashBillSpec, instanceIndex: number): MashBil
     recipe: spec.recipe,
     silverAward: spec.silverAward,
     goldAward: spec.goldAward,
+    tutorialOnly: spec.tutorialOnly,
   };
 }
 

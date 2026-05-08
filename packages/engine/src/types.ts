@@ -168,6 +168,13 @@ export interface MashBill {
    * Capital cards pay at printed value; other cards count as B$1.
    */
   cost?: number;
+  /**
+   * Marks the bill as scripted-tutorial-only. Filtered out of the
+   * public bourbon deck and the Bourbon Cards gallery so it never
+   * appears in real games. Set on the rebuild's Backroad Batch and
+   * Heritage Reserve.
+   */
+  tutorialOnly?: boolean;
 }
 
 /** Default cost for face-up mash bill picks when `cost` is unspecified. */

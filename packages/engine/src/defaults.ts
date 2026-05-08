@@ -232,8 +232,14 @@ export function defaultStarterCards(playerLabel: string): Card[] {
 // Awards correlate with rarity (Gold lives in epics + legendary).
 // ============================================================
 
+/**
+ * The Bourbon deck for real games + the source for the Bourbon Cards
+ * gallery. Tutorial-only bills are filtered out at the bottom of this
+ * function as a defense in depth — the catalog never lists them
+ * regardless, but the filter makes the contract explicit.
+ */
 export function defaultMashBillCatalog(): MashBill[] {
-  return [
+  return ([
     // ──────────────── Tier 1 — Starter bills ────────────────
     // Forgiving payouts, no recipe constraints beyond the universal
     // rule. **Small grids** — five 1×2 / 2×1 single-axis ladders
@@ -692,7 +698,7 @@ export function defaultMashBillCatalog(): MashBill[] {
       },
       0,
     ),
-  ];
+  ] as MashBill[]).filter((b) => !b.tutorialOnly);
 }
 
 // ============================================================

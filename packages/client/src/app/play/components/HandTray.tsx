@@ -555,6 +555,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
       }}
       onDragEnd={endDragMake}
       data-bb-hand-card
+      data-card-id={card.id}
       data-drag-source={dragMake === card.id ? "active" : undefined}
       title={
         inMakeMode
@@ -687,6 +688,7 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
       }}
       onDragEnd={endDragMake}
       data-bb-hand-card
+      data-card-id={card.id}
       data-drag-source={dragMake === card.id ? "active" : undefined}
       title={
         inMakeMode

@@ -52,6 +52,7 @@ export function buildTutorialBackroadBill(idx = 0): MashBill {
         [2, 3],
         [3, 4],
       ],
+      tutorialOnly: true,
     },
     idx,
   );
@@ -79,6 +80,7 @@ export function buildTutorialHeritageBill(idx = 0): MashBill {
       ],
       recipe: { minRye: 2, minSpecialty: { rye: 1 } },
       silverAward: { minAge: 3 },
+      tutorialOnly: true,
     },
     idx,
   );
@@ -136,6 +138,9 @@ export function buildTutorialStartingHand(): Card[] {
  * handful of cards to back the round-2/3 draws so the player has cards
  * to spend on aging and the final sell action. The controller will
  * re-stack this around the bought Specialty Rye between rounds.
+ *
+ * Order matters: this is the *fixed* deck the tutorial scenario
+ * installs, so every run draws the same cards in the same order.
  */
 function buildTutorialHumanDeck(): Card[] {
   const cards: Card[] = [];
@@ -151,6 +156,19 @@ function buildTutorialHumanDeck(): Card[] {
   cards.push(makeCapitalCard("tutorial-deck", idx++, 1));
   cards.push(makeCapitalCard("tutorial-deck", idx++, 1));
   cards.push(makeCapitalCard("tutorial-deck", idx++, 1));
+  return cards;
+}
+
+/**
+ * Bot's deck — fixed order so the scripted SELL_BOURBON always has a
+ * predictable card to spend. 4 capital + 4 corn lines up with what
+ * the bot draws in round 2, when Beat 7 fires.
+ */
+function buildTutorialBotDeck(): Card[] {
+  const cards: Card[] = [];
+  let idx = 300;
+  for (let i = 0; i < 4; i++) cards.push(makeCapitalCard("tutorial-bot", idx++, 1));
+  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("corn", "tutorial-bot", idx++));
   return cards;
 }
 
@@ -209,13 +227,7 @@ export function buildTutorialInitialState(): GameState {
   // backup deck (the round-2+ replenishment); bot gets a few generic
   // cards so its sell-action can pay its 1-card cost.
   const humanDeck = buildTutorialHumanDeck();
-  const botDeck: Card[] = (() => {
-    const cards: Card[] = [];
-    let idx = 300;
-    for (let i = 0; i < 4; i++) cards.push(makeCapitalCard("tutorial-bot", idx++, 1));
-    for (let i = 0; i < 4; i++) cards.push(makeResourceCard("corn", "tutorial-bot", idx++));
-    return cards;
-  })();
+  const botDeck = buildTutorialBotDeck();
 
   // initializeGame doesn't surface a way to skip the demand+draw phase
   // entry point, but our tutorial controller drives the game manually
@@ -272,9 +284,22 @@ function primeTutorialState(state: GameState): GameState {
   next.marketSupplyDeck = [];
   next.marketDiscard = [];
 
-  // Force the human's hand exactly per spec.
+  // Force the human's hand exactly per spec, plus a deterministic deck
+  // order. initializeGame shuffles `starterDecks` per the seed, but the
+  // tutorial controller wants to know the exact deck order so the
+  // round-2 / round-3 draws are reproducible across runs. We re-create
+  // the deck from `buildTutorialHumanDeck()` (already a fixed sequence)
+  // and skip the shuffle entirely.
   const human = next.players.find((p) => p.id === TUTORIAL_HUMAN_ID)!;
   human.hand = buildTutorialStartingHand();
+  human.deck = buildTutorialHumanDeck();
+  human.discard = [];
+
+  // Same fixed-order treatment for the bot so the SELL_BOURBON in
+  // Beat 7 always finds a known card to spend.
+  const bot = next.players.find((p) => p.id === TUTORIAL_BOT_ID)!;
+  bot.deck = buildTutorialBotDeck();
+  bot.discard = [];
 
   // The bot's pre-aged barrel: lift the bill we placed via
   // startingMashBills (a "ready" barrel) into an Aging barrel at age 4

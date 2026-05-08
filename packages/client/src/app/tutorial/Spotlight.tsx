@@ -43,12 +43,24 @@ function findSpotlightElement(target: SpotlightTarget): Element | null {
       });
       return opp ?? rows[1] ?? rows[0] ?? null;
     }
-    case "hand-card":
-    case "hand-cards":
-      // Hand cards don't carry per-id attributes today; fall back to the
-      // whole hand tray. The coach-mark copy still calls out the named
-      // card the player is looking for.
+    case "hand-card": {
+      // HandTray exposes `data-card-id` on each hand card. Fall back to
+      // the whole hand tray if the card has been spent / not yet drawn.
+      const el = document.querySelector(`[data-card-id="${target.cardId}"]`);
+      return el ?? document.querySelector("[data-hand-tray]");
+    }
+    case "hand-cards": {
+      // Multi-card spotlight: use the bounding box of the union via the
+      // first matched card's parent. For now, fall back to the whole
+      // hand tray — the spec's tour just needs the row visible.
+      if (target.cardIds.length > 0) {
+        const first = document.querySelector(
+          `[data-card-id="${target.cardIds[0]}"]`,
+        );
+        if (first) return first;
+      }
       return document.querySelector("[data-hand-tray]");
+    }
     case "market-slot":
     case "market-row":
       return document.querySelector("[data-bb-zone='market']");
