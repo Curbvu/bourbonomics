@@ -55,8 +55,12 @@ export default function IntroSequence({ onDone }: IntroSequenceProps) {
   const has = (key: string) => reached.has(key);
 
   return (
-    <main
-      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 text-slate-100"
+    // Fixed/inset-0 so the intro overlays the live GameBoard rendered
+    // by the tutorial page wrapper. Without `fixed` the intro flows
+    // inline after the board and gets clipped by the page's
+    // `h-screen overflow-hidden` container — invisible to the player.
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center overflow-hidden bg-slate-950 text-slate-100"
       style={{
         backgroundImage: `
           radial-gradient(900px 500px at 50% 20%, rgba(120,53,15,.45), transparent 60%),
@@ -134,7 +138,7 @@ export default function IntroSequence({ onDone }: IntroSequenceProps) {
           </button>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
