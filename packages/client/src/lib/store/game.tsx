@@ -500,6 +500,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Load from localStorage on mount.
   useEffect(() => {
+    // /tutorial mounts a child component that fires `startTutorial()`
+    // in ITS useEffect, which on React 18 fires BEFORE this parent
+    // useEffect (effects run child-first on mount). If we read
+    // localStorage and overwrite, we'd clobber the rigged scenario
+    // the tutorial just installed. Skip hydration entirely when
+    // the tutorial owns the store.
+    if (tutorialActiveRef.current) {
+      setHydrated(true);
+      return;
+    }
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {

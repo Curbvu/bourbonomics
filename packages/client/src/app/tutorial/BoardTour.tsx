@@ -52,7 +52,7 @@ const STOPS: TourStop[] = [
   {
     id: "supply",
     title: "The Bourbon Supply",
-    body: "When this runs out, the game ends. Don't worry about it yet — just know the clock is ticking.",
+    body: "More bourbon recipes live in this deck. Spend cards to draw a new mash bill into an open slot when you want a fresh recipe in your rickhouse. **When the deck runs dry, the game ends** — that's the doomsday clock.",
     spotlight: { kind: "supply" },
   },
   {

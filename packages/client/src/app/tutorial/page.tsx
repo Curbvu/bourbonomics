@@ -22,20 +22,18 @@ import GameErrorBoundary from "../play/components/ErrorBoundary";
 import TutorialController from "./TutorialController";
 
 export default function TutorialPage() {
-  const { state, tutorialActive, startTutorial, endTutorial, dragMake } =
-    useGameStore();
+  const { state, startTutorial, endTutorial, dragMake } = useGameStore();
 
-  // Boot the rigged scenario on first paint. Re-init if the store is
-  // empty (e.g. user hits /tutorial after Skip → /); end the tutorial
-  // on unmount so the live store doesn't keep tutorial state around.
+  // Always boot the rigged scenario on mount — never trust whatever
+  // state the GameProvider may have hydrated from localStorage. The
+  // GameProvider's hydration also self-skips when `tutorialActiveRef`
+  // is set, but we belt-and-braces here too.
   useEffect(() => {
-    if (!tutorialActive || !state) {
-      startTutorial();
-    }
+    startTutorial();
     return () => {
       endTutorial();
     };
-    // Run exactly once on mount — startTutorial is stable.
+    // Run exactly once on mount — startTutorial / endTutorial are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
