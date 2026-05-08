@@ -75,6 +75,26 @@ export default function TutorialController() {
     });
   }, []);
 
+  // Walk backwards through the beat list to the most recent prompt
+  // beat before `from`. Returns -1 if there isn't one. The Back button
+  // on PromptCard uses this so the player can re-read content they
+  // clicked through too quickly. Only prompts are considered targets:
+  // walking back into an await-action beat would land the player on a
+  // matcher that's already been satisfied (state has moved past it).
+  const findPreviousPromptIndex = useCallback((from: number): number => {
+    for (let i = from - 1; i >= 0; i--) {
+      if (TUTORIAL_BEATS[i]?.kind === "prompt") return i;
+    }
+    return -1;
+  }, []);
+
+  const goBackToPreviousPrompt = useCallback(() => {
+    const target = findPreviousPromptIndex(beatIndexRef.current);
+    if (target < 0) return;
+    setBeatIndex(target);
+    beatIndexRef.current = target;
+  }, [findPreviousPromptIndex]);
+
   const beat: Beat | undefined = TUTORIAL_BEATS[beatIndex];
 
   // Reset transient UI on every beat change.
@@ -215,7 +235,9 @@ export default function TutorialController() {
         decisionReply={decisionReply}
         beatIndex={beatIndex}
         totalBeats={TUTORIAL_BEATS.length}
+        canGoBack={findPreviousPromptIndex(beatIndex) >= 0}
         onContinue={advance}
+        onBack={goBackToPreviousPrompt}
         onPickDecision={(reply) => {
           setDecisionReply(reply);
           setTimeout(() => {
@@ -247,7 +269,9 @@ function BeatOverlay({
   decisionReply,
   beatIndex,
   totalBeats,
+  canGoBack,
   onContinue,
+  onBack,
   onPickDecision,
   onFinaleClose,
   onFinaleReplay,
@@ -256,7 +280,9 @@ function BeatOverlay({
   decisionReply: string | null;
   beatIndex: number;
   totalBeats: number;
+  canGoBack: boolean;
   onContinue: () => void;
+  onBack: () => void;
   onPickDecision: (reply: string) => void;
   onFinaleClose: () => void;
   onFinaleReplay: () => void;
@@ -270,11 +296,20 @@ function BeatOverlay({
         beat={beat}
         beatIndex={beatIndex}
         totalBeats={totalBeats}
+        canGoBack={canGoBack}
+        onBack={onBack}
       />
     );
   }
   if (beat.kind === "prompt") {
-    return <PromptCard beat={beat} onContinue={onContinue} />;
+    return (
+      <PromptCard
+        beat={beat}
+        canGoBack={canGoBack}
+        onBack={onBack}
+        onContinue={onContinue}
+      />
+    );
   }
   if (beat.kind === "decision") {
     return (
@@ -306,10 +341,14 @@ function CoachMark({
   beat,
   beatIndex,
   totalBeats,
+  canGoBack,
+  onBack,
 }: {
   beat: Beat;
   beatIndex: number;
   totalBeats: number;
+  canGoBack: boolean;
+  onBack: () => void;
 }) {
   return (
     <div className="pointer-events-auto fixed right-6 top-20 z-50 w-[360px] rounded-xl border-2 border-amber-700/60 bg-slate-900/95 p-4 shadow-[0_8px_30px_rgba(0,0,0,.55)]">
@@ -321,11 +360,32 @@ function CoachMark({
         <h3 className="mt-1 font-display text-lg font-bold text-amber-100">{beat.title}</h3>
       ) : null}
       <RichText className="mt-2 text-sm leading-snug text-slate-200">{beat.body}</RichText>
+      {canGoBack ? (
+        <div className="mt-3 flex justify-start">
+          <button
+            type="button"
+            onClick={onBack}
+            className="font-mono text-[10px] uppercase tracking-[.16em] text-slate-400 hover:text-amber-200"
+          >
+            ← Back to previous step
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function PromptCard({ beat, onContinue }: { beat: Beat; onContinue: () => void }) {
+function PromptCard({
+  beat,
+  canGoBack,
+  onBack,
+  onContinue,
+}: {
+  beat: Beat;
+  canGoBack: boolean;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
   if (beat.kind !== "prompt") return null;
   return (
     <div className="pointer-events-auto fixed inset-x-0 bottom-24 z-50 mx-auto w-full max-w-md px-6">
@@ -334,15 +394,26 @@ function PromptCard({ beat, onContinue }: { beat: Beat; onContinue: () => void }
           <h3 className="font-display text-xl font-bold text-amber-100">{beat.title}</h3>
         ) : null}
         <RichText className="mt-2 text-sm leading-relaxed text-slate-200">{beat.body}</RichText>
-        <div className="mt-4 flex items-center justify-between">
+        <div className="mt-4 flex items-center justify-between gap-3">
           <SkipLink />
-          <button
-            type="button"
-            onClick={onContinue}
-            className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
-          >
-            {beat.ctaLabel ?? "Continue ↵"}
-          </button>
+          <div className="flex items-center gap-2">
+            {canGoBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="rounded-md border-2 border-slate-600 bg-slate-900 px-4 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-200 hover:border-slate-400"
+              >
+                ← Back
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onContinue}
+              className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
+            >
+              {beat.ctaLabel ?? "Continue ↵"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

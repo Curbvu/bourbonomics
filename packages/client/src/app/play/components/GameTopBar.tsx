@@ -304,6 +304,7 @@ function DemandChip({ value }: { value: number }) {
   return (
     <div
       title={`Market demand ${value} of 12`}
+      data-bb-zone="demand"
       className="flex items-center gap-2 rounded border border-slate-800 bg-slate-900/60 px-2 py-1"
     >
       <span className="font-mono text-[9px] uppercase tracking-[.16em] text-slate-500">
@@ -343,6 +344,7 @@ function BourbonChip({ remaining, finalRound }: { remaining: number; finalRound:
   return (
     <div
       title="Bourbon deck remaining (the doomsday clock)"
+      data-bb-zone="supply-counter"
       className={[
         "flex items-baseline gap-1.5 rounded border px-2 py-1",
         finalRound ? "border-amber-500 bg-amber-700/[0.20]" : "border-slate-800 bg-slate-900/60",

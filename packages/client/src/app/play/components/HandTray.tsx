@@ -113,7 +113,7 @@ export default function HandTray() {
           </div>
         </div>
         <span className="mx-1 h-[20px] w-px bg-slate-800" aria-hidden />
-        <div className="flex items-baseline gap-1.5">
+        <div data-bb-zone="reputation" className="flex items-baseline gap-1.5">
           <span className="font-mono text-[9px] uppercase tracking-[.18em] text-amber-300/80">
             Rep
           </span>

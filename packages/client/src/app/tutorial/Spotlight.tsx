@@ -65,11 +65,17 @@ function findSpotlightElement(target: SpotlightTarget): Element | null {
     case "market-row":
       return document.querySelector("[data-bb-zone='market']");
     case "demand":
+      return document.querySelector('[data-bb-zone="demand"]');
     case "reputation":
+      return document.querySelector('[data-bb-zone="reputation"]');
     case "supply":
-      // All three live in the GameTopBar header. Spotlight the whole
-      // top bar — close enough to draw the eye.
-      return document.querySelector("header");
+      // The bourbon mash-bills row IS the supply — a depleted row is
+      // the doomsday clock. Fall back to the small counter chip in the
+      // top bar if MarketCenter hasn't mounted yet.
+      return (
+        document.querySelector("[data-bourbon-row]") ??
+        document.querySelector('[data-bb-zone="supply-counter"]')
+      );
     case "none":
     default:
       return null;
