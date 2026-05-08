@@ -139,13 +139,19 @@ export function SpotlightLayer({ target }: { target: SpotlightTarget | undefined
   const height = box.height + PAD * 2;
 
   return (
+    // The wrapper carries `pointer-events-none`, but `pointer-events`
+    // is NOT inherited — every child has to set it too, or the
+    // browser will route mouse / drag events to the child instead of
+    // the spotlit element underneath. The amber ring covers the slot
+    // we WANT to receive drops, so without `pointer-events-none` on
+    // the ring, drop events land on the ring and get swallowed.
     <div className="pointer-events-none fixed inset-0 z-40">
       <div className={dim} style={{ top: 0, left: 0, right: 0, height: top }} />
       <div className={dim} style={{ top, left: 0, width: left, height }} />
       <div className={dim} style={{ top, left: left + width, right: 0, height }} />
       <div className={dim} style={{ top: top + height, left: 0, right: 0, bottom: 0 }} />
       <div
-        className="absolute rounded-lg border-2 border-amber-400 shadow-[0_0_24px_rgba(251,191,36,.55),inset_0_0_24px_rgba(251,191,36,.18)]"
+        className="pointer-events-none absolute rounded-lg border-2 border-amber-400 shadow-[0_0_24px_rgba(251,191,36,.55),inset_0_0_24px_rgba(251,191,36,.18)]"
         style={{ top, left, width, height }}
       />
     </div>
