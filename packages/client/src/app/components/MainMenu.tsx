@@ -71,7 +71,7 @@ export default function MainMenu() {
         <MenuTile
           href="/tutorial"
           eyebrow={tutorialDone ? "Replay tutorial" : "Tutorial"}
-          title={tutorialDone ? "Walk through it again" : "Learn the game in 8 minutes"}
+          title={tutorialDone ? "Walk through it again" : "Learn the game in 5 mins"}
           subtitle={
             tutorialDone
               ? "Same script — useful when teaching a friend."
