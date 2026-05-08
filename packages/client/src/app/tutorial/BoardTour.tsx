@@ -39,7 +39,7 @@ const STOPS: TourStop[] = [
   },
   {
     id: "market",
-    title: "The Market Conveyor",
+    title: "The Market",
     body: "Ten cards for sale. Buy with cards from your hand. **Capital cards pay their face value.**",
     spotlight: { kind: "market-row" },
   },

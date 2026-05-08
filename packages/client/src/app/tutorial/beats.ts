@@ -195,7 +195,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-3-buy-specialty-rye",
     kind: "await-action",
     title: "Buy the Specialty Rye",
-    body: "**Capital cards pay their face value.** Spend the **$3** capital to grab the Specialty Rye on the conveyor.",
+    body: "**Capital cards pay their face value.** Spend the **$3** capital to grab the Specialty Rye in the market.",
     spotlight: { kind: "market-slot", slotIndex: 0 },
     matches: (action) =>
       action.type === "BUY_FROM_MARKET" &&

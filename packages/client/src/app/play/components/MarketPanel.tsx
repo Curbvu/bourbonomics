@@ -40,11 +40,11 @@ export default function MarketPanel() {
         )}
       </section>
 
-      {/* Market conveyor */}
+      {/* Market */}
       <section>
         <div className="mb-2 flex items-baseline justify-between">
           <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-slate-400">
-            Market conveyor
+            Market
           </h3>
           <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
             supply {state.marketSupplyDeck.length}

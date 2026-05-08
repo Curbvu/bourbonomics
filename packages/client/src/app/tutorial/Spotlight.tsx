@@ -63,7 +63,14 @@ function findSpotlightElement(target: SpotlightTarget): Element | null {
     }
     case "market-slot":
     case "market-row":
-      return document.querySelector("[data-bb-zone='market']");
+      // Spotlight just the conveyor row (10 face-up cards). The full
+      // market zone (`data-bb-zone='market'`) also wraps the mash-bills
+      // row + investments + ops + bourbon deck — too broad for the
+      // tour stop and the per-slot beat.
+      return (
+        document.querySelector("[data-market-conveyor]") ??
+        document.querySelector("[data-bb-zone='market']")
+      );
     case "demand":
       return document.querySelector('[data-bb-zone="demand"]');
     case "reputation":
