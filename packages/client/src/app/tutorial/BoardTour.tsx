@@ -58,7 +58,7 @@ const STOPS: TourStop[] = [
   {
     id: "reputation",
     title: "Your Reputation",
-    body: "This is your score. **Get it highest. That's the whole game.**",
+    body: "Reputation is the score. You earn it by **selling bourbon** — the rarer the recipe, the longer it ages, and the higher the demand at sale time, the more reputation you earn. **Get the highest reputation to win the game.**",
     spotlight: { kind: "reputation" },
   },
 ];
