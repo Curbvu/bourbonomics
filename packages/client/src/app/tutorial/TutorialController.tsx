@@ -183,12 +183,17 @@ export default function TutorialController() {
     return beat.spotlight;
   })();
 
+  const quitToMenu = useCallback(() => {
+    endTutorial();
+    window.location.href = "/";
+  }, [endTutorial]);
+
   // ── Phase routing ────────────────────────────────────────────────
   if (phase === "intro") {
-    return <IntroSequence onDone={() => setPhase("tour")} />;
+    return <IntroSequence onDone={() => setPhase("tour")} onQuit={quitToMenu} />;
   }
   if (phase === "tour") {
-    return <BoardTour onDone={() => setPhase("play")} />;
+    return <BoardTour onDone={() => setPhase("play")} onQuit={quitToMenu} />;
   }
   if (phase === "done") {
     return (

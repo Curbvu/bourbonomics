@@ -14,6 +14,7 @@ import type { SpotlightTarget } from "./types";
 
 interface BoardTourProps {
   onDone: () => void;
+  onQuit: () => void;
 }
 
 interface TourStop {
@@ -62,7 +63,7 @@ const STOPS: TourStop[] = [
   },
 ];
 
-export default function BoardTour({ onDone }: BoardTourProps) {
+export default function BoardTour({ onDone, onQuit }: BoardTourProps) {
   const [stopIdx, setStopIdx] = useState(0);
   const stop = STOPS[stopIdx]!;
 
@@ -80,10 +81,10 @@ export default function BoardTour({ onDone }: BoardTourProps) {
             <span>Tour · {stopIdx + 1} / {STOPS.length}</span>
             <button
               type="button"
-              onClick={onDone}
+              onClick={onQuit}
               className="text-slate-500 hover:text-amber-200"
             >
-              Skip tour ↵
+              Quit to menu ↵
             </button>
           </div>
           <h2 className="mt-2 font-display text-2xl font-bold text-amber-100">{stop.title}</h2>

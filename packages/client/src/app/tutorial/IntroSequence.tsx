@@ -11,14 +11,16 @@
  *   4. Stakes line fades in (~800ms hold).
  *   5. "Begin" button appears.
  *
- * Skip button is visible from frame 1. Total scripted runtime ~9.5s
- * which fits comfortably under the 12s ceiling in the spec.
+ * Quit button is visible from frame 1 — sends the player back to the
+ * main menu rather than advancing the tutorial. Total scripted
+ * runtime ~5s which fits comfortably under the 12s ceiling.
  */
 
 import { useEffect, useState } from "react";
 
 interface IntroSequenceProps {
   onDone: () => void;
+  onQuit: () => void;
 }
 
 const STAGES = [
@@ -31,7 +33,7 @@ const STAGES = [
   { delay: 4900, key: "begin" },
 ] as const;
 
-export default function IntroSequence({ onDone }: IntroSequenceProps) {
+export default function IntroSequence({ onDone, onQuit }: IntroSequenceProps) {
   const [reached, setReached] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -68,13 +70,15 @@ export default function IntroSequence({ onDone }: IntroSequenceProps) {
         `,
       }}
     >
-      {/* Skip control — top-right, visible from frame 1 per spec. */}
+      {/* Quit control — top-right, visible from frame 1. Returns to
+          the main menu rather than advancing the tutorial; the spec
+          calls for skip from any beat to land on the home screen. */}
       <button
         type="button"
-        onClick={onDone}
+        onClick={onQuit}
         className="absolute right-6 top-6 font-mono text-[11px] uppercase tracking-[.18em] text-slate-500 transition hover:text-amber-200"
       >
-        Skip ↵
+        Quit to menu ↵
       </button>
 
       {/* Subtle "dust mote" embers — light flecks drifting upward. */}
