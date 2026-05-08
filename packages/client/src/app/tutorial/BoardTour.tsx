@@ -76,10 +76,10 @@ export default function BoardTour({ onDone, onQuit }: BoardTourProps) {
     <>
       <SpotlightLayer target={stop.spotlight} />
       <div className="pointer-events-auto fixed inset-x-0 bottom-12 z-50 mx-auto w-full max-w-md px-6">
-        {/* `key` keys on stopIdx so the pop animation replays each
-            advance — the dim/spotlight transitions slide between
-            zones, the modal repaints with fresh copy. Brighter
-            chrome (full-opacity slate, amber-400 border, stronger
+        {/* `key={stop.id}` forces a remount on every advance so the
+            pop keyframe replays. Spotlight + dim slide between zones
+            (smooth), the modal repaints with fresh copy (popped in).
+            Brighter chrome (full-opacity slate, amber-400 border,
             inner glow) so the foreground reads "lit" against the
             now-darker dimmed table. */}
         <div
