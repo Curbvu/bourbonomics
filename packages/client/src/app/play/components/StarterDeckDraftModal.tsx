@@ -96,7 +96,7 @@ export default function StarterDeckDraftModal() {
             onClick={onPass}
             className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-6 py-2 font-sans text-sm font-bold uppercase tracking-[.05em] text-slate-950 shadow-[0_0_0_3px_rgba(251,191,36,0.30),inset_0_1px_0_rgba(255,255,255,0.25)] transition-all hover:from-amber-200 hover:to-amber-400"
           >
-            Pass — accept this hand ↵
+            Shuffle deck ↵
           </button>
         </div>
       </div>
