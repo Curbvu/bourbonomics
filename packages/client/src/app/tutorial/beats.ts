@@ -382,36 +382,55 @@ export const TUTORIAL_BEATS: Beat[] = [
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },
   {
-    id: "beat-6-age-backroad",
+    // Single accumulator beat — was two sequential awaits (Backroad, then
+    // Heritage) but the auto-pass on beat-6-pass-human raced the second
+    // age and the bot would fire its sale before the player could commit
+    // the second card. With one beat using `advanceWhen`, the controller
+    // doesn't move on until BOTH barrels are aged, in either order.
+    id: "beat-6-age-both",
     kind: "await-action",
-    title: "Age Backroad Batch",
-    body: "Click **Backroad Batch**, then click any card in your hand.",
-    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
+    title: "Age both barrels",
+    body: "Age **Backroad Batch** AND **Heritage Reserve**. Click each barrel, then click a hand card to commit (drag also works). Either order is fine.",
+    spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
     matches: (action, state) => {
       if (action.type !== "AGE_BOURBON") return false;
       if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
-      const target = findHumanBarrelByBillDef(state, "tutorial_backroad_batch");
-      return target != null && action.barrelId === target.barrelId;
+      const backroad = findHumanBarrelByBillDef(state, "tutorial_backroad_batch");
+      const heritage = findHumanBarrelByBillDef(state, "tutorial_heritage_reserve");
+      return (
+        (backroad != null && action.barrelId === backroad.barrelId) ||
+        (heritage != null && action.barrelId === heritage.barrelId)
+      );
     },
-  },
-  {
-    id: "beat-6-age-heritage",
-    kind: "await-action",
-    title: "Now Heritage Reserve",
-    body: "Same idea: click **Heritage Reserve**, then click another hand card.",
-    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
-    matches: (action, state) => {
-      if (action.type !== "AGE_BOURBON") return false;
-      if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
-      const target = findHumanBarrelByBillDef(state, "tutorial_heritage_reserve");
-      return target != null && action.barrelId === target.barrelId;
+    advanceWhen: (state) => {
+      const backroad = state.allBarrels.find(
+        (b) =>
+          b.ownerId === TUTORIAL_HUMAN_ID &&
+          b.attachedMashBill.defId === "tutorial_backroad_batch",
+      );
+      const heritage = state.allBarrels.find(
+        (b) =>
+          b.ownerId === TUTORIAL_HUMAN_ID &&
+          b.attachedMashBill.defId === "tutorial_heritage_reserve",
+      );
+      return (
+        backroad != null &&
+        backroad.agedThisRound &&
+        heritage != null &&
+        heritage.agedThisRound
+      );
     },
   },
   {
     id: "beat-6-pass-human",
     kind: "scripted",
     body: "(internal — human ends turn so the bot can sell)",
-    delayMs: 600,
+    // Bumped from 600ms — the second AGE_BOURBON ripples through state
+    // (agingCards push, age++, agedThisRound flag) and then the
+    // controller's `advanceWhen` re-evaluates. Give the player a
+    // beat to actually see the second barrel tick to 1Y before the
+    // turn flips to the bot.
+    delayMs: 900,
     build: () => [{ type: "PASS_TURN", playerId: TUTORIAL_HUMAN_ID }],
   },
 
