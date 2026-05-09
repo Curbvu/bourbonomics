@@ -416,13 +416,17 @@ export const TUTORIAL_BEATS: Beat[] = [
     body: "The **payoff grid** is the whole game — rows are **age**, columns are **demand**, each cell is the reputation that sale would pay. Higher age × higher demand = bigger reward. Now look for the medals: **🥈 Silver** means selling at the threshold keeps the recipe in your slot for a rebuild. **🥇 Gold** is the prize — you can swap that bill onto another of your slots at sale. Heritage carries a **Silver at age 3**. **Your tutorial goal: land it.**",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
     position: "top-right",
+    // Auto-close the still-open inspect modal when the player clicks
+    // Continue. The next beat (Age a year on each barrel) needs the
+    // rickhouse interactive again, and the modal would be in the way.
+    closeInspectOnAdvance: true,
   },
 
   // ── Beat 6 — Aging ──────────────────────────────────────────────
   {
     id: "beat-6-age-prompt",
     kind: "prompt",
-    title: "Send a year down each barrel",
+    title: "Age a year on each barrel",
     body: "Each round you can place **one card** on top of an aging barrel to age it by 1 year. Click a barrel, then click any hand card to commit (drag also works). Let's age both.",
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },

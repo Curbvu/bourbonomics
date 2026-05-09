@@ -81,6 +81,14 @@ export interface PromptBeat extends BeatBase {
    * separately). Used to gate "look at this card first" beats.
    */
   awaitInspectBarrelDefId?: string;
+  /**
+   * Close any open inspect modal when the player advances forward
+   * past this beat. Used by walk-through-the-card beats so the
+   * modal clears out of the way before the next interaction starts.
+   * Going Back doesn't trigger the close (the modal stays
+   * dismissed; the player can right-click to reopen).
+   */
+  closeInspectOnAdvance?: boolean;
 }
 
 export interface AwaitActionBeat extends BeatBase {

@@ -52,6 +52,7 @@ export default function TutorialController() {
     ageMode,
     drawBillMode,
     inspect,
+    setInspect,
     endTutorial,
   } = useGameStore();
 
@@ -104,6 +105,24 @@ export default function TutorialController() {
   }, [findPreviousPromptIndex]);
 
   const beat: Beat | undefined = TUTORIAL_BEATS[beatIndex];
+
+  // Track the previous beat index so we can detect forward advances
+  // (used to close lingering inspect modals on a "walk through the
+  // card" beat — see the effect below).
+  const prevBeatIndexRef = useRef(0);
+  useEffect(() => {
+    const prevIdx = prevBeatIndexRef.current;
+    if (beatIndex > prevIdx) {
+      const prevBeat = TUTORIAL_BEATS[prevIdx];
+      if (
+        prevBeat?.kind === "prompt" &&
+        prevBeat.closeInspectOnAdvance
+      ) {
+        setInspect(null);
+      }
+    }
+    prevBeatIndexRef.current = beatIndex;
+  }, [beatIndex, setInspect]);
 
   // Reset transient UI on every beat change.
   useEffect(() => {
