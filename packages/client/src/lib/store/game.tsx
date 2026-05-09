@@ -413,6 +413,12 @@ export interface GameStore {
    *  beat / stop change. `null` outside the tutorial. */
   tutorialSpotlight: SpotlightTarget | null;
   setTutorialSpotlight: (target: SpotlightTarget | null) => void;
+  /** Optional hand-card filter the active beat is enforcing. When set,
+   *  hand cards passing the predicate are tutorial-highlighted; cards
+   *  that don't pass are muted + inspect-only. `null` outside an
+   *  await-action beat that declares a filter. */
+  tutorialHandFilter: ((card: Card) => boolean) | null;
+  setTutorialHandFilter: (fn: ((card: Card) => boolean) | null) => void;
 }
 
 const noop = () => {};
@@ -478,6 +484,8 @@ const Ctx = createContext<GameStore>({
   setTutorialActionTransform: noop,
   tutorialSpotlight: null,
   setTutorialSpotlight: noop,
+  tutorialHandFilter: null,
+  setTutorialHandFilter: noop,
   createMultiplayer: async () => "",
   joinMultiplayer: async () => {},
   claimSeat: async () => {},
@@ -541,6 +549,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // (not a ref) so consumers re-render when the target changes.
   const [tutorialSpotlight, setTutorialSpotlightState] =
     useState<SpotlightTarget | null>(null);
+  // Optional hand-card filter the current await-action beat enforces.
+  // HandTray reads this to mute + lock cards that don't pass.
+  const [tutorialHandFilter, setTutorialHandFilterState] = useState<
+    ((card: Card) => boolean) | null
+  >(null);
 
   // Load from localStorage on mount.
   useEffect(() => {
@@ -1540,6 +1553,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setTutorialActive(false);
     tutorialActionTransformRef.current = null;
     setTutorialSpotlightState(null);
+    setTutorialHandFilterState(null);
     // Re-hydrate the live-game blob from storage so closing the tutorial
     // doesn't blow away whatever real game the player had saved before.
     // Empty fallback if there's no saved game.
@@ -1589,6 +1603,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const setTutorialSpotlight = useCallback(
     (target: SpotlightTarget | null) => {
       setTutorialSpotlightState(target);
+    },
+    [],
+  );
+
+  const setTutorialHandFilter = useCallback(
+    (fn: ((card: Card) => boolean) | null) => {
+      // Wrap in an updater. React's `setState(value)` treats raw
+      // function values as updaters and invokes them — which would
+      // try to call our filter with the previous filter as input.
+      setTutorialHandFilterState(() => fn);
     },
     [],
   );
@@ -1688,6 +1712,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setTutorialActionTransform,
       tutorialSpotlight,
       setTutorialSpotlight,
+      tutorialHandFilter,
+      setTutorialHandFilter,
     }),
     [
       store,
@@ -1754,6 +1780,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setTutorialActionTransform,
       tutorialSpotlight,
       setTutorialSpotlight,
+      tutorialHandFilter,
+      setTutorialHandFilter,
     ],
   );
 

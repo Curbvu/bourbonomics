@@ -45,6 +45,7 @@ export default function TutorialController() {
     mutateState,
     setTutorialActionTransform,
     setTutorialSpotlight,
+    setTutorialHandFilter,
     endTutorial,
   } = useGameStore();
 
@@ -231,6 +232,16 @@ export default function TutorialController() {
   useEffect(() => {
     setTutorialSpotlight(liveSpotlight ?? null);
   }, [liveSpotlight, setTutorialSpotlight]);
+
+  // Same for the per-beat hand-card filter (Make beats narrow the hand
+  // to the resource cards / specialty rye that the recipe needs).
+  useEffect(() => {
+    if (beat && beat.kind === "await-action" && beat.handCardFilter) {
+      setTutorialHandFilter(beat.handCardFilter);
+    } else {
+      setTutorialHandFilter(null);
+    }
+  }, [beat, setTutorialHandFilter]);
 
   const quitToMenu = useCallback(() => {
     endTutorial();

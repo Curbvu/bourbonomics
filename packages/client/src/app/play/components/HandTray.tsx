@@ -495,7 +495,16 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     endDragMake,
     selectedHandCardIds,
     toggleHandSelection,
+    tutorialHandFilter,
   } = useGameStore();
+  // Tutorial gate — when an await-action beat narrows the hand (e.g.
+  // "resource cards only" for a Make commit), cards that don't pass
+  // the predicate mute and become inspect-only. Cards that DO pass
+  // get a soft amber tutorial highlight.
+  const tutorialLocked = tutorialHandFilter ? !tutorialHandFilter(card) : false;
+  const tutorialHighlighted = tutorialHandFilter
+    ? tutorialHandFilter(card)
+    : false;
   const subtype = card.subtype as ResourceSubtype;
   const chrome = RESOURCE_CHROME[subtype];
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
@@ -526,29 +535,43 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     inDrawBillMode &&
     !drawBillMode!.blind &&
     !drawBillMode!.pickedMashBillId;
-  const buyClass = !inAnyPicker
-    ? isMultiSelected
-      ? // v2.10 multi-select — same amber chrome the picker modes use,
-        // so the visual is consistent regardless of how the player
-        // selected (mode picker or persistent selection).
-        "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : ""
-    : drawStep1
-      ? ""
-      : isSelected
-        ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-        : inAgeMode
-          ? // v2.9: every hand card is a legal age payment, so light
-            // them all up with a soft sky glow — same idiom as the
-            // ageable rickhouse barrels — so the player can see at a
-            // glance that ANY card here commits.
-            "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
-          : inDrawBillMode
-            ? "ring-2 ring-sky-400/60"
-            : inSellMode
-              ? "ring-2 ring-amber-300/60"
-              : "ring-2 ring-emerald-400/60";
+  const buyClass = tutorialLocked
+    ? "opacity-30 saturate-50"
+    : tutorialHighlighted && !inAnyPicker && !isMultiSelected
+      ? // Soft amber highlight on the cards the active beat wants the
+        // player to act on. Skipped when the player has already toggled
+        // multi-select on this card (the louder amber-4 ring takes over).
+        "ring-2 ring-amber-300/70 shadow-[0_0_12px_rgba(252,211,77,.4)]"
+      : !inAnyPicker
+        ? isMultiSelected
+          ? // v2.10 multi-select — same amber chrome the picker modes use,
+            // so the visual is consistent regardless of how the player
+            // selected (mode picker or persistent selection).
+            "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+          : ""
+        : drawStep1
+          ? ""
+          : isSelected
+            ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+            : inAgeMode
+              ? // v2.9: every hand card is a legal age payment, so light
+                // them all up with a soft sky glow — same idiom as the
+                // ageable rickhouse barrels — so the player can see at a
+                // glance that ANY card here commits.
+                "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
+              : inDrawBillMode
+                ? "ring-2 ring-sky-400/60"
+                : inSellMode
+                  ? "ring-2 ring-amber-300/60"
+                  : "ring-2 ring-emerald-400/60";
   const onClick = () => {
+    if (tutorialLocked) {
+      // Inspect-only during a tutorial that narrows the hand. The
+      // card can't be multi-selected, dragged, or tagged into a
+      // picker mode — the player can still see what it is.
+      setInspect({ kind: "resource", card });
+      return;
+    }
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
@@ -572,7 +595,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
       // multi-select group when this card is part of one. Only
       // active when no picker mode is open (those flows handle
       // selection their own way).
-      draggable={!inAnyPicker}
+      draggable={!inAnyPicker && !tutorialLocked}
       onDragStart={(e) => {
         const ids =
           isMultiSelected && selectedHandCardIds.length > 0
@@ -660,7 +683,15 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     endDragMake,
     selectedHandCardIds,
     toggleHandSelection,
+    tutorialHandFilter,
   } = useGameStore();
+  // Tutorial gate — see ResourceCard above for the rationale. Capitals
+  // are a typical lock target on Make beats since the universal recipe
+  // doesn't take capital, only resource cards.
+  const tutorialLocked = tutorialHandFilter ? !tutorialHandFilter(card) : false;
+  const tutorialHighlighted = tutorialHandFilter
+    ? tutorialHandFilter(card)
+    : false;
   const value = paymentValue(card);
   const cost = card.cost ?? card.capitalValue ?? 1;
   const chrome = CAPITAL_CHROME;
@@ -684,24 +715,32 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     inDrawBillMode &&
     !drawBillMode!.blind &&
     !drawBillMode!.pickedMashBillId;
-  const buyClass = !inAnyPicker
-    ? isMultiSelected
-      ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-      : ""
-    : drawStep1
-      ? ""
-      : isSelected
-        ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-        : inAgeMode
-          ? // Match the resource-card age glow so capitals don't look
-            // second-class as age payments — they're equally valid.
-            "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
-          : inDrawBillMode
-            ? "ring-2 ring-sky-400/60"
-            : inSellMode
-              ? "ring-2 ring-amber-300/60"
-              : "ring-2 ring-emerald-400/60";
+  const buyClass = tutorialLocked
+    ? "opacity-30 saturate-50"
+    : tutorialHighlighted && !inAnyPicker && !isMultiSelected
+      ? "ring-2 ring-amber-300/70 shadow-[0_0_12px_rgba(252,211,77,.4)]"
+      : !inAnyPicker
+        ? isMultiSelected
+          ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+          : ""
+        : drawStep1
+          ? ""
+          : isSelected
+            ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+            : inAgeMode
+              ? // Match the resource-card age glow so capitals don't look
+                // second-class as age payments — they're equally valid.
+                "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
+              : inDrawBillMode
+                ? "ring-2 ring-sky-400/60"
+                : inSellMode
+                  ? "ring-2 ring-amber-300/60"
+                  : "ring-2 ring-emerald-400/60";
   const onClick = () => {
+    if (tutorialLocked) {
+      setInspect({ kind: "capital", card });
+      return;
+    }
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
@@ -724,7 +763,7 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
       // barrel to commit" shortcut (capital cards count as a free-1
       // resource in production). v2.10: drag carries the entire
       // multi-select group when this card is part of one.
-      draggable={!inAnyPicker}
+      draggable={!inAnyPicker && !tutorialLocked}
       onDragStart={(e) => {
         const ids =
           isMultiSelected && selectedHandCardIds.length > 0

@@ -141,6 +141,10 @@ export const TUTORIAL_BEATS: Beat[] = [
     title: "Make your first barrel",
     body: "Click one **cask**, one **corn**, and one **rye** — then click the barrel. Or drag those cards onto **Backroad Batch** — one at a time or all at once. The barrel flips to Aging the moment all three are in.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
+    // Resource-only — the recipe doesn't take capital, and an
+    // accidental capital commit would just lock the card on the slot
+    // for no benefit. Mute capital out of the way.
+    handCardFilter: (c) => c.type === "resource",
     matches: (action, state) => {
       // Gate: only allow MAKE_BOURBON commits to the Backroad slot.
       // Card composition is checked via `advanceWhen` — we accept
@@ -179,6 +183,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     title: "Start the picky one",
     body: "**Heritage Reserve** needs **1 cask + 1 corn + 2 rye + 1 Specialty Rye.** You have everything *except* the Specialty Rye. Drop your remaining **cask, corn, and both common ryes** onto Heritage Reserve — that's 4 cards. We'll grab the Specialty Rye from the market next.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
+    handCardFilter: (c) => c.type === "resource",
     matches: (action, state) => {
       // Same idiom as Beat 1 — accept partial commits to the slot,
       // gate progression on `advanceWhen`.
@@ -327,6 +332,11 @@ export const TUTORIAL_BEATS: Beat[] = [
     title: "Complete the recipe",
     body: "Commit the **Specialty Rye** to Heritage Reserve. The recipe will be satisfied — and Specialty cards grant **+1 reputation when the barrel sells.**",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
+    // Lock the hand to the Specialty Rye specifically — it's the only
+    // card the recipe still needs. The other resources in hand are
+    // technically a legal partial commit, but commiting them would
+    // lock cards on the barrel for no payoff.
+    handCardFilter: (c) => c.cardDefId === "superior_rye",
     matches: (action, state) => {
       if (action.type !== "MAKE_BOURBON") return false;
       if (action.playerId !== TUTORIAL_HUMAN_ID) return false;

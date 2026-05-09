@@ -7,7 +7,7 @@
  * trigger for each beat type.
  */
 
-import type { GameAction, GameState } from "@bourbonomics/engine";
+import type { Card, GameAction, GameState } from "@bourbonomics/engine";
 
 export type SpotlightTarget =
   | { kind: "rickhouse-slot"; ownerId: string; slotIndex: number }
@@ -84,6 +84,17 @@ export interface AwaitActionBeat extends BeatBase {
    * progress (one drag at a time) without skipping ahead.
    */
   advanceWhen?: (state: GameState) => boolean;
+  /**
+   * Optional predicate that narrows the hand to a specific subset for
+   * the duration of this beat. Cards passing the predicate get an
+   * amber tutorial highlight and remain fully interactive (multi-
+   * select, drag, click-to-commit). Cards that don't pass mute and
+   * fall through to inspect-only — they can't be multi-selected,
+   * dragged, or clicked into a picker mode. Used by Make beats to
+   * teach the recipe without letting the player accidentally commit
+   * the wrong card type.
+   */
+  handCardFilter?: (card: Card) => boolean;
 }
 
 export interface DecisionBeat extends BeatBase {
