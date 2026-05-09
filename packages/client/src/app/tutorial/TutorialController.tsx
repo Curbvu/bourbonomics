@@ -51,6 +51,7 @@ export default function TutorialController() {
     buyMode,
     ageMode,
     drawBillMode,
+    inspect,
     endTutorial,
   } = useGameStore();
 
@@ -162,6 +163,21 @@ export default function TutorialController() {
       advance();
     }
   }, [state, beat, phase, advance]);
+
+  // ── Auto-advance prompt beats that gate on an inspect target ─────
+  // When a prompt declares `awaitInspectBarrelDefId`, the user must
+  // right-click the matching barrel to advance. The Continue button
+  // is hidden until that happens; this effect fires the auto-advance
+  // the moment the inspect state lands on the right barrel.
+  useEffect(() => {
+    if (phase !== "play") return;
+    if (!beat || beat.kind !== "prompt") return;
+    const wantedDefId = beat.awaitInspectBarrelDefId;
+    if (!wantedDefId) return;
+    if (!inspect || inspect.kind !== "barrel") return;
+    if (inspect.barrel.attachedMashBill.defId !== wantedDefId) return;
+    advance();
+  }, [beat, phase, inspect, advance]);
 
   // ── Auto-advance scripted + transition + celebrate beats ─────────
   useEffect(() => {
@@ -294,6 +310,17 @@ export default function TutorialController() {
     window.location.href = "/";
   }, [endTutorial]);
 
+  // Has the player satisfied the active prompt's inspect gate? While
+  // false, the prompt's Continue button is hidden and the user has to
+  // right-click the named barrel to proceed.
+  const inspectGateOpen =
+    !beat ||
+    beat.kind !== "prompt" ||
+    !beat.awaitInspectBarrelDefId ||
+    (inspect != null &&
+      inspect.kind === "barrel" &&
+      inspect.barrel.attachedMashBill.defId === beat.awaitInspectBarrelDefId);
+
   // ── Phase routing ────────────────────────────────────────────────
   if (phase === "intro") {
     return <IntroSequence onDone={() => setPhase("tour")} onQuit={quitToMenu} />;
@@ -339,6 +366,7 @@ export default function TutorialController() {
           window.location.href = "/";
         }}
         onFinaleReplay={() => location.reload()}
+        inspectGateOpen={inspectGateOpen}
       />
       <Confetti shown={confetti} />
     </>
@@ -360,6 +388,7 @@ function BeatOverlay({
   onConfirmDecision,
   onFinaleClose,
   onFinaleReplay,
+  inspectGateOpen,
 }: {
   beat: Beat | undefined;
   decisionReply: string | null;
@@ -372,6 +401,7 @@ function BeatOverlay({
   onConfirmDecision: () => void;
   onFinaleClose: () => void;
   onFinaleReplay: () => void;
+  inspectGateOpen: boolean;
 }) {
   if (!beat) return null;
   if (beat.kind === "scripted") return null;
@@ -394,6 +424,7 @@ function BeatOverlay({
         canGoBack={canGoBack}
         onBack={onBack}
         onContinue={onContinue}
+        inspectGateOpen={inspectGateOpen}
       />
     );
   }
@@ -470,23 +501,31 @@ function PromptCard({
   canGoBack,
   onBack,
   onContinue,
+  inspectGateOpen,
 }: {
   beat: Beat;
   canGoBack: boolean;
   onBack: () => void;
   onContinue: () => void;
+  inspectGateOpen: boolean;
 }) {
   if (beat.kind !== "prompt") return null;
+  // Position chrome — `top-right` is a smaller corner card that
+  // doesn't collide with a centered inspect / decision modal.
+  const isCorner = beat.position === "top-right";
+  const wrapperClass = isCorner
+    ? "pointer-events-auto fixed right-6 top-20 z-50 w-[360px]"
+    : "pointer-events-auto fixed inset-x-0 bottom-24 z-50 mx-auto w-full max-w-md px-6";
+  const cardClass = isCorner
+    ? "animate-bb-tour-pop rounded-xl border-2 border-amber-400/80 bg-slate-900 p-4 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_28px_rgba(251,191,36,.16),inset_0_1px_0_rgba(251,191,36,.10)]"
+    : "animate-bb-tour-pop rounded-xl border-2 border-amber-400/80 bg-slate-900 p-5 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_32px_rgba(251,191,36,.18),inset_0_1px_0_rgba(251,191,36,.10)]";
   return (
-    <div className="pointer-events-auto fixed inset-x-0 bottom-24 z-50 mx-auto w-full max-w-md px-6">
-      <div
-        key={beat.id}
-        className="animate-bb-tour-pop rounded-xl border-2 border-amber-400/80 bg-slate-900 p-5 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_32px_rgba(251,191,36,.18),inset_0_1px_0_rgba(251,191,36,.10)]"
-      >
+    <div className={wrapperClass}>
+      <div key={beat.id} className={cardClass}>
         {beat.title ? (
-          <h3 className="font-display text-xl font-bold text-amber-100">{beat.title}</h3>
+          <h3 className={isCorner ? "font-display text-lg font-bold text-amber-100" : "font-display text-xl font-bold text-amber-100"}>{beat.title}</h3>
         ) : null}
-        <RichText className="mt-2 text-sm leading-relaxed text-slate-100">{beat.body}</RichText>
+        <RichText className={isCorner ? "mt-2 text-sm leading-snug text-slate-100" : "mt-2 text-sm leading-relaxed text-slate-100"}>{beat.body}</RichText>
         <div className="mt-4 flex items-center justify-between gap-3">
           <SkipLink />
           <div className="flex items-center gap-2">
@@ -499,13 +538,25 @@ function PromptCard({
                 ← Back
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={onContinue}
-              className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
-            >
-              {beat.ctaLabel ?? "Continue ↵"}
-            </button>
+            {/* Continue is hidden while an inspect-gate is unmet — the
+                player has to right-click the named barrel to advance.
+                The controller's auto-advance fires the moment the
+                inspect lands on the right target, so this branch
+                exists mainly for the gated copy that nudges the
+                player toward the action. */}
+            {inspectGateOpen ? (
+              <button
+                type="button"
+                onClick={onContinue}
+                className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
+              >
+                {beat.ctaLabel ?? "Continue ↵"}
+              </button>
+            ) : (
+              <span className="font-mono text-[10px] italic text-amber-200/70">
+                Right-click to continue
+              </span>
+            )}
           </div>
         </div>
       </div>

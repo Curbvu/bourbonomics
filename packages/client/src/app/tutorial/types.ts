@@ -66,6 +66,21 @@ export interface PromptBeat extends BeatBase {
   kind: "prompt";
   /** Continue button label (default "Continue"). */
   ctaLabel?: string;
+  /**
+   * Where to render the prompt card. Default `bottom-center` (the
+   * standard chrome). `top-right` is a smaller corner card that
+   * doesn't collide with a centered inspect / decision modal — used
+   * by beats that walk the player through a modal's contents.
+   */
+  position?: "bottom-center" | "top-right";
+  /**
+   * If set, the Continue button is hidden until the player has
+   * right-clicked a barrel whose mash-bill `defId` matches. The
+   * controller watches the inspect state and auto-advances on the
+   * transition (so the player doesn't need to click Continue
+   * separately). Used to gate "look at this card first" beats.
+   */
+  awaitInspectBarrelDefId?: string;
 }
 
 export interface AwaitActionBeat extends BeatBase {

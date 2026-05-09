@@ -395,15 +395,27 @@ export const TUTORIAL_BEATS: Beat[] = [
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },
   {
-    // Pause before aging to teach the payoff grid AND the medals.
-    // The grid is the economic engine; the awards are the goalposts
-    // most players skip past on a first read. Right-click is already
-    // wired to inspect (Pass 1 gesture); the prompt just calls it out.
-    id: "beat-5c-payoff-grid",
+    // Step 1 of 2: GET the player to right-click. Continue is hidden
+    // (and auto-advance fires) once the inspect modal opens for
+    // Heritage. Standard bottom-center prompt — no modal up yet,
+    // nothing to overlap.
+    id: "beat-5c-open-card",
+    kind: "prompt",
+    title: "Open the bourbon card",
+    body: "**Right-click Heritage Reserve** in your rickhouse to open the inspector — that's where the payoff grid lives. (Right-click works on any card or barrel, anytime.)",
+    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
+    awaitInspectBarrelDefId: "tutorial_heritage_reserve",
+  },
+  {
+    // Step 2 of 2: walk the player through the inspector contents.
+    // Positioned top-right so it sits beside the centered inspect
+    // modal instead of underneath it.
+    id: "beat-5d-grid-explained",
     kind: "prompt",
     title: "Read the grid — and the medals",
-    body: "**Right-click Heritage Reserve** to open it. The **payoff grid** inside is the whole game — rows are **age**, columns are **demand**, each cell is the reputation that sale would pay. Higher age × higher demand = bigger reward. Now look for the medals: **🥈 Silver** means selling at the threshold keeps the recipe in your slot for a rebuild. **🥇 Gold** is the prize — you can swap that bill onto another of your slots at sale. Heritage carries a **Silver at age 3**. **Your tutorial goal: land it.**",
+    body: "The **payoff grid** is the whole game — rows are **age**, columns are **demand**, each cell is the reputation that sale would pay. Higher age × higher demand = bigger reward. Now look for the medals: **🥈 Silver** means selling at the threshold keeps the recipe in your slot for a rebuild. **🥇 Gold** is the prize — you can swap that bill onto another of your slots at sale. Heritage carries a **Silver at age 3**. **Your tutorial goal: land it.**",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
+    position: "top-right",
   },
 
   // ── Beat 6 — Aging ──────────────────────────────────────────────
