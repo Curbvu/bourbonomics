@@ -394,6 +394,17 @@ export const TUTORIAL_BEATS: Beat[] = [
     body: "Heritage Reserve is **Aging**. Specialty cards stick with the barrel until sale — that **+1 rep** is locked in for whenever you cash out.",
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },
+  {
+    // Pause before aging to teach the payoff grid — it's the whole
+    // economic engine of the game and players miss it if they never
+    // open a card. Right-click is already wired to inspect (Pass 1
+    // gesture); the prompt just calls it out.
+    id: "beat-5c-payoff-grid",
+    kind: "prompt",
+    title: "The whole game in one grid",
+    body: "**Right-click Heritage Reserve** (or any barrel) to open it. Inside is the **payoff grid** — rows are **age**, columns are **demand**. Each cell is the reputation that sale would pay. Higher age × higher demand = bigger reputation. The whole game is: age long enough to clear a high row, then time your sale when demand fills a fat column. This grid is your scoreboard.",
+    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
+  },
 
   // ── Beat 6 — Aging ──────────────────────────────────────────────
   {
