@@ -1335,6 +1335,25 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
 
       {/* Reward grid — full lookup table for the attached bill. */}
       {bill ? <RewardMatrix bill={bill} chrome={chrome} /> : null}
+
+      {/* Awards — matches the styling used in the standalone mash-bill
+          detail view, so a barrel inspect surfaces the Silver / Gold
+          tiers the same way as inspecting the bill itself. The
+          tutorial's "look for the medals" prompt explicitly relies on
+          this row being visible. */}
+      {bill && (bill.goldAward != null || bill.silverAward != null) ? (
+        <>
+          <SectionHeading label="Awards" tone={chrome.label} />
+          <div className="flex flex-col gap-1.5">
+            {bill.goldAward ? (
+              <AwardRow tone="gold" condition={bill.goldAward} />
+            ) : null}
+            {bill.silverAward ? (
+              <AwardRow tone="silver" condition={bill.silverAward} />
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </article>
   );
 }
