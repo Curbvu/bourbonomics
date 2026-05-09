@@ -679,13 +679,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
         let next: GameState;
         try {
           next = applyAction(prev.state, final);
-        } catch {
+        } catch (err) {
           // Tutorial dispatch may produce an action the engine rejects
           // (e.g. a stale snapshot during fast scripted advancement).
           // Drop silently rather than crash the page; in dev console
           // we'll still see the engine's error in `applyAction`.
           if (tutorialActiveRef.current) return prev;
-          throw new Error("dispatch: applyAction threw outside tutorial mode");
+          // Outside tutorial we don't crash either — the most common
+          // cause is a click-to-engage or click-to-commit handler
+          // sending a stale action (e.g. the player double-clicked,
+          // the second dispatch ran after the first changed state).
+          // Log the underlying error so it's visible in the console
+          // and drop the action without nuking the page.
+          // eslint-disable-next-line no-console
+          console.error(
+            "[bourbonomics] applyAction rejected an action; dropping.",
+            { action: final, error: err },
+          );
+          return prev;
         }
         if (tutorialActiveRef.current) {
           next = clearTutorialGates(next);
