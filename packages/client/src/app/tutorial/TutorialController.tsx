@@ -18,7 +18,7 @@
  *     start; auto-advance after the duration.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   TUTORIAL_HUMAN_ID,
@@ -217,14 +217,24 @@ export default function TutorialController() {
   }, [beat, phase]);
 
   // ── Spotlight derivation ─────────────────────────────────────────
-  const liveSpotlight: SpotlightTarget | undefined = (() => {
-    if (!beat || !beat.spotlight || !state) return undefined;
+  // Memoized on STABLE inputs so the resulting object reference doesn't
+  // change every render. The previous version returned a fresh object
+  // for the rigged-rye case on every render, and the store-mirror
+  // useEffect below has it in its deps — that combo blew up React's
+  // re-render guard with "Maximum update depth exceeded".
+  const ryeIdForSpotlight =
+    state && beat?.spotlight?.kind === "hand-card" && beat.spotlight.cardId === ""
+      ? spotlightSpecialtyRye(state)
+      : null;
+  const liveSpotlight = useMemo<SpotlightTarget | undefined>(() => {
+    if (!beat || !beat.spotlight) return undefined;
     if (beat.spotlight.kind === "hand-card" && beat.spotlight.cardId === "") {
-      const ryeId = spotlightSpecialtyRye(state);
-      return ryeId ? { kind: "hand-card", cardId: ryeId } : { kind: "none" };
+      return ryeIdForSpotlight
+        ? { kind: "hand-card", cardId: ryeIdForSpotlight }
+        : { kind: "none" };
     }
     return beat.spotlight;
-  })();
+  }, [beat, ryeIdForSpotlight]);
 
   // Mirror the active spotlight into the store so non-tutorial board
   // components (ConveyorCard's click gate, the shimmer animation, …)
@@ -278,12 +288,10 @@ export default function TutorialController() {
         canGoBack={findPreviousPromptIndex(beatIndex) >= 0}
         onContinue={advance}
         onBack={goBackToPreviousPrompt}
-        onPickDecision={(reply) => {
-          setDecisionReply(reply);
-          setTimeout(() => {
-            setDecisionReply(null);
-            advance();
-          }, 1800);
+        onPickDecision={(reply) => setDecisionReply(reply)}
+        onConfirmDecision={() => {
+          setDecisionReply(null);
+          advance();
         }}
         onFinaleClose={() => {
           try {
@@ -313,6 +321,7 @@ function BeatOverlay({
   onContinue,
   onBack,
   onPickDecision,
+  onConfirmDecision,
   onFinaleClose,
   onFinaleReplay,
 }: {
@@ -324,6 +333,7 @@ function BeatOverlay({
   onContinue: () => void;
   onBack: () => void;
   onPickDecision: (reply: string) => void;
+  onConfirmDecision: () => void;
   onFinaleClose: () => void;
   onFinaleReplay: () => void;
 }) {
@@ -359,6 +369,7 @@ function BeatOverlay({
         onPick={(branch) =>
           onPickDecision(branch === "A" ? beat.optionA.reply ?? "" : beat.optionB.reply ?? "")
         }
+        onContinue={onConfirmDecision}
       />
     );
   }
@@ -470,10 +481,12 @@ function DecisionCard({
   beat,
   reply,
   onPick,
+  onContinue,
 }: {
   beat: Beat;
   reply: string | null;
   onPick: (which: "A" | "B") => void;
+  onContinue: () => void;
 }) {
   if (beat.kind !== "decision") return null;
   return (
@@ -484,9 +497,22 @@ function DecisionCard({
         ) : null}
         <RichText className="mt-2 text-sm leading-relaxed text-slate-200">{beat.body}</RichText>
         {reply ? (
-          <RichText className="mt-4 rounded-md border border-amber-700/40 bg-amber-950/30 p-3 text-sm leading-relaxed text-amber-100">
-            {reply}
-          </RichText>
+          <>
+            <RichText className="mt-4 rounded-md border border-amber-700/40 bg-amber-950/30 p-3 text-sm leading-relaxed text-amber-100">
+              {reply}
+            </RichText>
+            {/* Was a 1800ms auto-close — players couldn't finish reading
+                the longer reply. Now waits for an explicit Continue. */}
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={onContinue}
+                className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
+              >
+                Continue ↵
+              </button>
+            </div>
+          </>
         ) : (
           <div className="mt-5 flex flex-col gap-2">
             <button
