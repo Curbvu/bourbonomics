@@ -395,14 +395,14 @@ export const TUTORIAL_BEATS: Beat[] = [
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },
   {
-    // Pause before aging to teach the payoff grid — it's the whole
-    // economic engine of the game and players miss it if they never
-    // open a card. Right-click is already wired to inspect (Pass 1
-    // gesture); the prompt just calls it out.
+    // Pause before aging to teach the payoff grid AND the medals.
+    // The grid is the economic engine; the awards are the goalposts
+    // most players skip past on a first read. Right-click is already
+    // wired to inspect (Pass 1 gesture); the prompt just calls it out.
     id: "beat-5c-payoff-grid",
     kind: "prompt",
-    title: "The whole game in one grid",
-    body: "**Right-click Heritage Reserve** (or any barrel) to open it. Inside is the **payoff grid** — rows are **age**, columns are **demand**. Each cell is the reputation that sale would pay. Higher age × higher demand = bigger reputation. The whole game is: age long enough to clear a high row, then time your sale when demand fills a fat column. This grid is your scoreboard.",
+    title: "Read the grid — and the medals",
+    body: "**Right-click Heritage Reserve** to open it. The **payoff grid** inside is the whole game — rows are **age**, columns are **demand**, each cell is the reputation that sale would pay. Higher age × higher demand = bigger reward. Now look for the medals: **🥈 Silver** means selling at the threshold keeps the recipe in your slot for a rebuild. **🥇 Gold** is the prize — you can swap that bill onto another of your slots at sale. Heritage carries a **Silver at age 3**. **Your tutorial goal: land it.**",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
   },
 
@@ -711,7 +711,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-12-finale",
     kind: "finale",
     title: "You just learned the whole game.",
-    body: "That's Bourbonomics. The distillery with the most reputation when the supply runs dry wins.",
+    body: "That's Bourbonomics. The distillery with the most reputation when the supply runs dry wins. Bourbon is patience and timing — commit your recipes, watch demand swing, pick your moment to sell. **Welcome to the trade. You've got the makings of a fine distiller.**",
     bullets: [
       "Built recipes from scratch — one in a single turn, one across multiple turns.",
       "Bought a Specialty card from the market to finish a tough recipe.",
