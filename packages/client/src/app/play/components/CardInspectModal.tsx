@@ -398,9 +398,13 @@ function bandLabel(
 
 /**
  * Reward grid with self-documenting axes — top row is the demand band
- * each column covers, left column is the age band each row covers. The
- * raw `ageBands` / `demandBands` chips at the bottom are gone since the
- * same information is now legible from the matrix itself.
+ * each column covers, left column is the age band each row covers.
+ *
+ * v2.10: cells that can trigger an award light up — Silver cells get a
+ * slate gradient, Gold cells get a bright amber gradient with a
+ * 🥈 / 🥇 corner badge. Same idiom as the bourbon encyclopedia
+ * (`/mash-bills`) so a player who studied bills there reads the
+ * inspect modal the same way.
  */
 function RewardMatrix({ bill, chrome }: { bill: MashBill; chrome: TierChrome }) {
   // v2.5: grids are variable size (commons 1×2 / 2×1, legendaries up
@@ -409,6 +413,7 @@ function RewardMatrix({ bill, chrome }: { bill: MashBill; chrome: TierChrome }) 
   const ageLabels = bill.ageBands.map((_, i) => bandLabel(bill.ageBands, i, "y"));
   const demandLabels = bill.demandBands.map((_, i) => bandLabel(bill.demandBands, i));
   const cols = bill.demandBands.length;
+  const hasAwards = bill.silverAward != null || bill.goldAward != null;
   return (
     <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
       <div
@@ -431,32 +436,125 @@ function RewardMatrix({ bill, chrome }: { bill: MashBill; chrome: TierChrome }) 
         ))}
 
         {/* Body rows: age band label + reward cells */}
-        {bill.rewardGrid.map((row, ri) => (
-          <Fragment key={`row-${ri}`}>
-            <div
-              className={`grid place-items-center pr-1.5 font-mono text-[14px] font-semibold uppercase tracking-[.10em] tabular-nums ${chrome.label} text-right`}
-            >
-              {ageLabels[ri]}
-            </div>
-            {row.map((cell, ci) => (
+        {bill.rewardGrid.map((row, ri) => {
+          const nextAge = bill.ageBands[ri + 1];
+          const ageHi = nextAge ?? Infinity;
+          return (
+            <Fragment key={`row-${ri}`}>
               <div
-                key={`${ri}-${ci}`}
-                className="grid min-h-[64px] place-items-center rounded border border-white/10 bg-slate-950/70 py-3"
+                className={`grid place-items-center pr-1.5 font-mono text-[14px] font-semibold uppercase tracking-[.10em] tabular-nums ${chrome.label} text-right`}
               >
-                <span
-                  className={`font-display text-[40px] font-bold leading-none tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,.45)] ${
-                    cell == null ? "text-slate-600" : chrome.titleInk
-                  }`}
-                >
-                  {cell == null ? "—" : cell}
-                </span>
+                {ageLabels[ri]}
               </div>
-            ))}
-          </Fragment>
-        ))}
+              {row.map((cell, ci) => {
+                const nextDemand = bill.demandBands[ci + 1];
+                const demandHi = nextDemand ?? Infinity;
+                const award = cellAward(bill, cell, ageHi, demandHi);
+                return (
+                  <div
+                    key={`${ri}-${ci}`}
+                    className={`relative grid min-h-[64px] place-items-center rounded border border-white/10 py-3 ${awardCellBg(award, cell)}`}
+                  >
+                    <span
+                      className={`font-display text-[40px] font-bold leading-none tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,.45)] ${
+                        cell == null
+                          ? "text-slate-600"
+                          : award != null
+                            ? "text-slate-950"
+                            : chrome.titleInk
+                      }`}
+                    >
+                      {cell == null ? "—" : cell}
+                    </span>
+                    {award ? (
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute right-1 top-1 text-[14px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.55)]"
+                      >
+                        {award === "gold" ? "🥇" : "🥈"}
+                      </span>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </Fragment>
+          );
+        })}
       </div>
+      {/* Inline award legend — same idiom as the encyclopedia. Only
+          shows the bands the bill actually carries. */}
+      {hasAwards ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 font-mono text-[10px] uppercase tracking-[.12em] text-slate-400">
+          {bill.silverAward ? (
+            <span className="flex items-center gap-1.5">
+              <span className="text-[12px]" aria-hidden>🥈</span>
+              <span>Silver · {awardCondText(bill.silverAward)}</span>
+            </span>
+          ) : null}
+          {bill.goldAward ? (
+            <span className="flex items-center gap-1.5">
+              <span className="text-[12px]" aria-hidden>🥇</span>
+              <span>Gold · {awardCondText(bill.goldAward)}</span>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
+}
+
+/**
+ * Cell background — neutral by default, gold/silver gradient when the
+ * cell can trigger an award. Mirrors `awardCellBg` in the bourbon
+ * encyclopedia so the modal's matrix reads identically to the
+ * gallery's.
+ */
+function awardCellBg(
+  award: "gold" | "silver" | null,
+  cell: number | null,
+): string {
+  if (cell == null) return "bg-slate-900/40";
+  if (award === "gold") {
+    return "bg-gradient-to-b from-amber-300 to-amber-500 shadow-[0_0_10px_rgba(252,211,77,.4)]";
+  }
+  if (award === "silver") {
+    return "bg-gradient-to-b from-slate-300 to-slate-400";
+  }
+  return "bg-slate-950/70";
+}
+
+/**
+ * Returns "gold", "silver", or null based on whether the cell's
+ * (age band, demand band, reward) can trigger an award. Gold takes
+ * precedence if both fire. A cell qualifies when *some* combination
+ * of (age, demand) within the band satisfies the award's mins.
+ */
+function cellAward(
+  bill: MashBill,
+  reward: number | null,
+  ageHi: number,
+  demandHi: number,
+): "gold" | "silver" | null {
+  if (reward == null) return null;
+  const fires = (cond: AwardCondition | undefined): boolean => {
+    if (!cond) return false;
+    if (cond.minAge != null && cond.minAge >= ageHi) return false;
+    if (cond.minDemand != null && cond.minDemand >= demandHi) return false;
+    if (cond.minReward != null && reward < cond.minReward) return false;
+    return true;
+  };
+  if (fires(bill.goldAward)) return "gold";
+  if (fires(bill.silverAward)) return "silver";
+  return null;
+}
+
+/** Compact "age 3+ · demand 5+" string for the inline award legend. */
+function awardCondText(c: AwardCondition): string {
+  const bits: string[] = [];
+  if (c.minAge != null) bits.push(`age ${c.minAge}+`);
+  if (c.minDemand != null) bits.push(`demand ${c.minDemand}+`);
+  if (c.minReward != null) bits.push(`reward ${c.minReward}+`);
+  return bits.length ? bits.join(" · ") : "any qualifying sale";
 }
 
 /**
@@ -703,44 +801,6 @@ function RecipeGrid({ bill }: { bill: MashBill }) {
   );
 }
 
-/**
- * Award badges — gold/silver ribbons that show the qualifying conditions
- * (age / demand / reward minimums) so the player knows when the bill
- * actually pays out the medal bonus.
- */
-function AwardRow({
-  tone,
-  condition,
-}: {
-  tone: "gold" | "silver";
-  condition: AwardCondition;
-}) {
-  const bits: string[] = [];
-  if (condition.minAge != null) bits.push(`age ≥ ${condition.minAge}y`);
-  if (condition.minDemand != null) bits.push(`demand ≥ ${condition.minDemand}`);
-  if (condition.minReward != null) bits.push(`reward ≥ ${condition.minReward}`);
-  const styles =
-    tone === "gold"
-      ? "border-amber-300/80 bg-gradient-to-b from-amber-300/25 via-amber-700/15 to-slate-950/80 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,.18)]"
-      : "border-slate-300/70 bg-gradient-to-b from-slate-300/20 via-slate-500/10 to-slate-950/80 text-slate-100";
-  return (
-    <div
-      className={`flex items-center gap-2.5 rounded-lg border-2 px-3 py-1.5 ${styles}`}
-    >
-      <span className="text-[20px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.5)]" aria-hidden>
-        {tone === "gold" ? "🥇" : "🥈"}
-      </span>
-      <span className="font-mono text-[10px] font-bold uppercase tracking-[.22em]">
-        {tone}
-      </span>
-      <span className="opacity-50" aria-hidden>·</span>
-      <span className="text-[11.5px] tabular-nums">
-        {bits.length ? bits.join(" · ") : "any qualifying sale"}
-      </span>
-    </div>
-  );
-}
-
 function MashBillDetail({ bill }: { bill: MashBill }) {
   const tier = tierOrCommon(bill.tier);
   const chrome = TIER_CHROME[tier];
@@ -748,7 +808,6 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
   for (const row of bill.rewardGrid) for (const c of row) if (c !== null) cells.push(c);
   const peak = cells.length ? Math.max(...cells) : 0;
   const floor = cells.length ? Math.min(...cells) : 0;
-  const hasAwards = bill.goldAward != null || bill.silverAward != null;
   return (
     <article
       className={[
@@ -832,20 +891,6 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
           {floor}–{peak}
         </span>
       </div>
-
-      {hasAwards ? (
-        <>
-          <SectionHeading label="Awards" tone={chrome.label} />
-          <div className="flex flex-col gap-1.5">
-            {bill.goldAward ? (
-              <AwardRow tone="gold" condition={bill.goldAward} />
-            ) : null}
-            {bill.silverAward ? (
-              <AwardRow tone="silver" condition={bill.silverAward} />
-            ) : null}
-          </div>
-        </>
-      ) : null}
 
       {/* Tuning footer — `cost` is the bill's market draw price; `build`
           is the implicit total resource investment to make one barrel
@@ -1333,27 +1378,10 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
         </div>
       </div>
 
-      {/* Reward grid — full lookup table for the attached bill. */}
+      {/* Reward grid — award cells light up in-grid; an inline legend
+          beneath the matrix breaks down the threshold conditions. Same
+          idiom as the bourbon encyclopedia (`/mash-bills`). */}
       {bill ? <RewardMatrix bill={bill} chrome={chrome} /> : null}
-
-      {/* Awards — matches the styling used in the standalone mash-bill
-          detail view, so a barrel inspect surfaces the Silver / Gold
-          tiers the same way as inspecting the bill itself. The
-          tutorial's "look for the medals" prompt explicitly relies on
-          this row being visible. */}
-      {bill && (bill.goldAward != null || bill.silverAward != null) ? (
-        <>
-          <SectionHeading label="Awards" tone={chrome.label} />
-          <div className="flex flex-col gap-1.5">
-            {bill.goldAward ? (
-              <AwardRow tone="gold" condition={bill.goldAward} />
-            ) : null}
-            {bill.silverAward ? (
-              <AwardRow tone="silver" condition={bill.silverAward} />
-            ) : null}
-          </div>
-        </>
-      ) : null}
     </article>
   );
 }
