@@ -234,6 +234,17 @@ export const TUTORIAL_BEATS: Beat[] = [
       action.type === "BUY_FROM_MARKET" &&
       action.playerId === TUTORIAL_HUMAN_ID &&
       action.marketSlotIndex === 0,
+    // Advance only after the buy ACTUALLY landed: the Specialty Rye
+    // moves out of the conveyor and into the human's discard. Guards
+    // against a matched-but-rejected dispatch (e.g. underpaid) racing
+    // the controller forward without the buy having succeeded.
+    advanceWhen: (state) => {
+      const human = state.players.find((p) => p.id === TUTORIAL_HUMAN_ID);
+      return (
+        human != null &&
+        human.discard.some((c) => c.cardDefId === "superior_rye")
+      );
+    },
   },
   {
     id: "beat-3-aftermath",
@@ -344,6 +355,17 @@ export const TUTORIAL_BEATS: Beat[] = [
       if (!target || action.slotId !== target.slotId) return false;
       const ryeId = findSpecialtyRyeInHand(state);
       return ryeId != null && action.cardIds.includes(ryeId);
+    },
+    // Advance only when Heritage actually transitions to Aging — the
+    // matcher passing isn't enough on its own; if the engine rejects
+    // the commit (illegal cap, etc.) state stays in construction.
+    advanceWhen: (state) => {
+      const heritage = state.allBarrels.find(
+        (b) =>
+          b.ownerId === TUTORIAL_HUMAN_ID &&
+          b.attachedMashBill.defId === "tutorial_heritage_reserve",
+      );
+      return heritage != null && heritage.phase === "aging";
     },
   },
   {
@@ -574,6 +596,16 @@ export const TUTORIAL_BEATS: Beat[] = [
       // Force the rep/draw split per the spec.
       return { ...action, reputationSplit: 1, cardDrawSplit: 1 };
     },
+    // Advance once the Backroad barrel actually leaves the rickhouse —
+    // sale rejected by the engine would leave the barrel in place.
+    advanceWhen: (state) => {
+      const backroad = state.allBarrels.find(
+        (b) =>
+          b.ownerId === TUTORIAL_HUMAN_ID &&
+          b.attachedMashBill.defId === "tutorial_backroad_batch",
+      );
+      return backroad == null;
+    },
   },
   {
     id: "beat-9-aftermath",
@@ -631,6 +663,13 @@ export const TUTORIAL_BEATS: Beat[] = [
       if (action.type !== "SELL_BOURBON") return null;
       // Grid 5 + Specialty +1 = 6 to player as reputation.
       return { ...action, reputationSplit: 5, cardDrawSplit: 0 };
+    },
+    // Advance once the human's `barrelsSold` ticks (proves the engine
+    // actually landed the sale — Silver Award keeps the bill in the
+    // slot but increments the sold counter regardless).
+    advanceWhen: (state) => {
+      const human = state.players.find((p) => p.id === TUTORIAL_HUMAN_ID);
+      return human != null && human.barrelsSold >= 2;
     },
   },
 
