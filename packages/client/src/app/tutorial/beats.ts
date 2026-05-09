@@ -139,7 +139,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-1-make-backroad",
     kind: "await-action",
     title: "Make your first barrel",
-    body: "**Backroad Batch** needs the universal recipe: **1 cask + 1 corn + 1 grain** (rye, barley, or wheat). Drag those cards onto Backroad Batch — one at a time or all at once. The barrel flips to Aging the moment all three are in.",
+    body: "Click one **cask**, one **corn**, and one **rye** — then click the barrel. Or drag those cards onto **Backroad Batch** — one at a time or all at once. The barrel flips to Aging the moment all three are in.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
     matches: (action, state) => {
       // Gate: only allow MAKE_BOURBON commits to the Backroad slot.
