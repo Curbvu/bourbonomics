@@ -594,8 +594,13 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-9-sell-backroad",
     kind: "await-action",
     title: "Sell Backroad Batch",
-    body: "Selling costs **1 card from your hand** — pick any. The grid pays **2 reputation** at this market temperature. We'll **split it: 1 rep, 1 card draw.**",
-    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
+    body: "Click **Sell** in the toolbar, then click **Backroad Batch**, then any hand card. The grid pays **2** at this age × demand — but it's flexible: you can take it as 2 rep, or trade some for **card draws** (cards thicken your deck for next round). We'll **split: 1 rep + 1 card draw**. Selling itself also costs 1 card from your hand as the sale fee.",
+    spotlight: { kind: "action-button", action: "sell" },
+    postEngageSpotlight: {
+      kind: "rickhouse-slot",
+      ownerId: TUTORIAL_HUMAN_ID,
+      slotIndex: 0,
+    },
     matches: (action, state) => {
       if (action.type !== "SELL_BOURBON") return false;
       if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
@@ -622,7 +627,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-9-aftermath",
     kind: "prompt",
     title: "Slot's open again",
-    body: "**+1 reputation** banked, **+1 card** drawn into your hand. Backroad's a Common — no award — so the slot opens fully. Empires grow one barrel at a time.",
+    body: "Grid paid **2** → split as **+1 reputation** banked and **+1 card** drawn into your hand. Backroad's a Common — no award — so the slot opens fully. Empires grow one barrel at a time.",
     spotlight: { kind: "reputation" },
   },
 
@@ -662,8 +667,13 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-11-sell-heritage",
     kind: "await-action",
     title: "Now. This is the moment.",
-    body: "Heritage Reserve at **age 3, demand 5.** Sell it. The Specialty Rye in the recipe pays an extra **+1 rep** at sale, and you'll trigger the **Silver award.**",
-    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
+    body: "Heritage Reserve at **age 3, demand 5.** Click **Sell** in the toolbar, then **Heritage Reserve**, then a hand card. Grid pays **5** here — we'll take it all as reputation. The Specialty Rye in the recipe adds **+1 rep** on top, and you'll trigger the **Silver award**.",
+    spotlight: { kind: "action-button", action: "sell" },
+    postEngageSpotlight: {
+      kind: "rickhouse-slot",
+      ownerId: TUTORIAL_HUMAN_ID,
+      slotIndex: 1,
+    },
     matches: (action, state) => {
       if (action.type !== "SELL_BOURBON") return false;
       if (action.playerId !== TUTORIAL_HUMAN_ID) return false;

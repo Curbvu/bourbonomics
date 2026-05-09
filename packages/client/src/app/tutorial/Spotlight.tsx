@@ -84,6 +84,8 @@ function findSpotlightElement(target: SpotlightTarget): Element | null {
       return document.querySelector('[data-bb-zone="demand"]');
     case "reputation":
       return document.querySelector('[data-bb-zone="reputation"]');
+    case "action-button":
+      return document.querySelector(`[data-bb-action="${target.action}"]`);
     case "supply":
       // The bourbon mash-bills row IS the supply — a depleted row is
       // the doomsday clock. Fall back to the small counter chip in the

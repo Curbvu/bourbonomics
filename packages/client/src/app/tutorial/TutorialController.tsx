@@ -46,6 +46,11 @@ export default function TutorialController() {
     setTutorialActionTransform,
     setTutorialSpotlight,
     setTutorialHandFilter,
+    sellMode,
+    makeMode,
+    buyMode,
+    ageMode,
+    drawBillMode,
     endTutorial,
   } = useGameStore();
 
@@ -226,6 +231,25 @@ export default function TutorialController() {
     state && beat?.spotlight?.kind === "hand-card" && beat.spotlight.cardId === ""
       ? spotlightSpecialtyRye(state)
       : null;
+  // For action-button spotlights, the corresponding picker mode being
+  // active means the player has already clicked the button — flip the
+  // spotlight to the beat's `postEngageSpotlight` so the next click
+  // target gets the highlight (e.g. Sell button → rickhouse slot).
+  const isActionButton = beat?.spotlight?.kind === "action-button";
+  const actionButtonAction =
+    beat?.spotlight?.kind === "action-button" ? beat.spotlight.action : null;
+  const actionButtonModeActive =
+    actionButtonAction === "sell"
+      ? sellMode != null
+      : actionButtonAction === "make"
+        ? makeMode != null
+        : actionButtonAction === "buy"
+          ? buyMode != null
+          : actionButtonAction === "age"
+            ? ageMode != null
+            : actionButtonAction === "draw-bill"
+              ? drawBillMode != null
+              : false;
   const liveSpotlight = useMemo<SpotlightTarget | undefined>(() => {
     if (!beat || !beat.spotlight) return undefined;
     if (beat.spotlight.kind === "hand-card" && beat.spotlight.cardId === "") {
@@ -233,8 +257,20 @@ export default function TutorialController() {
         ? { kind: "hand-card", cardId: ryeIdForSpotlight }
         : { kind: "none" };
     }
+    if (
+      isActionButton &&
+      actionButtonModeActive &&
+      beat.postEngageSpotlight
+    ) {
+      return beat.postEngageSpotlight;
+    }
     return beat.spotlight;
-  }, [beat, ryeIdForSpotlight]);
+  }, [
+    beat,
+    ryeIdForSpotlight,
+    isActionButton,
+    actionButtonModeActive,
+  ]);
 
   // Mirror the active spotlight into the store so non-tutorial board
   // components (ConveyorCard's click gate, the shimmer animation, …)

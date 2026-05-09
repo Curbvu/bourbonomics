@@ -146,6 +146,7 @@ export default function ActionBar() {
           onStart={startSellMode}
           onCancel={cancelSellMode}
           cancelLabel="Cancel sell"
+          dataAction="sell"
         />
         <BuyButton
           inBuyMode={inBuyMode}
@@ -261,6 +262,7 @@ function PickerButton({
   onStart,
   onCancel,
   cancelLabel,
+  dataAction,
 }: {
   label: string;
   inMode: boolean;
@@ -269,11 +271,17 @@ function PickerButton({
   onStart: () => void;
   onCancel: () => void;
   cancelLabel: string;
+  // Stable hook for the tutorial's `action-button` spotlight target —
+  // persists across the in-mode / not-in-mode toggle so the spotlight
+  // ring stays attached even after the picker engages.
+  dataAction?: string;
 }) {
+  const dataAttr = dataAction ? { "data-bb-action": dataAction } : {};
   if (inMode) {
     return (
       <button
         type="button"
+        {...dataAttr}
         onClick={onCancel}
         title={tooltip}
         className="rounded-md border border-rose-500 bg-rose-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-rose-100 transition-colors hover:border-rose-400 hover:bg-rose-800/40"
@@ -285,6 +293,7 @@ function PickerButton({
   return (
     <button
       type="button"
+      {...dataAttr}
       disabled={!enabled}
       onClick={enabled ? onStart : undefined}
       title={tooltip}

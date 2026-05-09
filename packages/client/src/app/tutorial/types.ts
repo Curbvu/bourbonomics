@@ -19,6 +19,12 @@ export type SpotlightTarget =
   | { kind: "demand" }
   | { kind: "reputation" }
   | { kind: "supply" }
+  | {
+      // ActionBar toolbar button. The `action` value matches the
+      // `data-bb-action` attribute the button is rendered with.
+      kind: "action-button";
+      action: "sell" | "make" | "buy" | "age" | "draw-bill";
+    }
   | { kind: "none" };
 
 export type BeatKind =
@@ -46,6 +52,14 @@ export interface BeatBase {
   body: string;
   /** Optional element to highlight while this beat is active. */
   spotlight?: SpotlightTarget;
+  /**
+   * Optional secondary spotlight that takes effect once the picker
+   * mode corresponding to `spotlight.action` engages (e.g. once the
+   * player clicks the spotlit Sell button, the spotlight shifts to
+   * the rickhouse slot they're meant to pick next). Only consulted
+   * when `spotlight.kind === "action-button"`.
+   */
+  postEngageSpotlight?: SpotlightTarget;
 }
 
 export interface PromptBeat extends BeatBase {
