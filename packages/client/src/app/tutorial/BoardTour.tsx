@@ -47,7 +47,7 @@ const STOPS: TourStop[] = [
   {
     id: "demand",
     title: "The Demand Track",
-    body: "Higher demand = bigger payouts. **You roll 2d6 to start each turn — beat the current demand and it ticks up by 1.** It **drops every time someone sells.**",
+    body: "Higher demand = bigger payouts. **You roll 2 dice to start each turn — beat the current demand and it ticks up by 1.** It **drops every time someone sells.**",
     spotlight: { kind: "demand" },
   },
   {
