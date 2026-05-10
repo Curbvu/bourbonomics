@@ -495,6 +495,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     endDragMake,
     selectedHandCardIds,
     toggleHandSelection,
+    commitHandCardImmediate,
     tutorialHandFilter,
   } = useGameStore();
   // Tutorial gate — when an await-action beat narrows the hand (e.g.
@@ -564,14 +565,15 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
                 : inSellMode
                   ? "ring-2 ring-amber-300/60"
                   : "ring-2 ring-emerald-400/60";
-  const onClick = () => {
+  const onClick = (e: React.MouseEvent) => {
     if (tutorialLocked) {
-      // Inspect-only during a tutorial that narrows the hand. The
-      // card can't be multi-selected, dragged, or tagged into a
-      // picker mode — the player can still see what it is.
       setInspect({ kind: "resource", card });
       return;
     }
+    // v3 double-click commit: if this is the second click of a fast
+    // pair, skip the toggle so the dblclick handler can fire the
+    // commit cleanly. Single clicks (detail===1) still toggle.
+    if (e.detail >= 2) return;
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
@@ -581,6 +583,12 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     // multi-select. Right-click handles inspect (see onContextMenu).
     else toggleHandSelection(card.id);
   };
+  const onDoubleClick = (e: React.MouseEvent) => {
+    if (tutorialLocked) return;
+    e.preventDefault();
+    e.stopPropagation();
+    commitHandCardImmediate(card.id);
+  };
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     setInspect({ kind: "resource", card });
@@ -589,6 +597,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     <button
       type="button"
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
       // v2.6: hand cards are drag sources for the "drag onto a slot
       // barrel to commit" shortcut. v2.10: drag carries the entire
@@ -610,15 +619,15 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
       data-drag-source={dragMake === card.id ? "active" : undefined}
       title={
         inMakeMode
-          ? `${isMakeSelected ? "Unselect" : "Tag"} this card for production`
+          ? `${isMakeSelected ? "Unselect" : "Tag"} this card · double-click to commit it solo`
           : inDrawBillMode
             ? `${isDrawSelected ? "Unselect" : "Sacrifice"} this card to draw the top mash bill`
             : inAgeMode
-              ? `${isAgeSelected ? "Unselect" : "Commit"} this card to age the picked barrel`
+              ? `${isAgeSelected ? "Unselect" : "Commit"} this card to age the picked barrel · double-click for instant commit`
               : inBuyMode
                 ? `${isBuySelected ? "Unselect" : "Select"} this card to pay B$1`
                 : inSellMode
-                  ? `${isSellSelected ? "Unselect" : "Spend"} this card as the sell-action cost`
+                  ? `${isSellSelected ? "Unselect" : "Spend"} this card as the sell-action cost · double-click for instant commit`
                   : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""} — left-click to ${isMultiSelected ? "uncheck" : "check"}, drag the group onto a slot, right-click to inspect`
       }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
@@ -683,6 +692,7 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     endDragMake,
     selectedHandCardIds,
     toggleHandSelection,
+    commitHandCardImmediate,
     tutorialHandFilter,
   } = useGameStore();
   // Tutorial gate — see ResourceCard above for the rationale. Capitals
@@ -736,11 +746,13 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
                 : inSellMode
                   ? "ring-2 ring-amber-300/60"
                   : "ring-2 ring-emerald-400/60";
-  const onClick = () => {
+  const onClick = (e: React.MouseEvent) => {
     if (tutorialLocked) {
       setInspect({ kind: "capital", card });
       return;
     }
+    // v3 double-click commit — see ResourceCard for the rationale.
+    if (e.detail >= 2) return;
     if (inMakeMode) toggleMakeSpend(card.id);
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
@@ -750,6 +762,12 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     // multi-select. Right-click handles inspect.
     else toggleHandSelection(card.id);
   };
+  const onDoubleClick = (e: React.MouseEvent) => {
+    if (tutorialLocked) return;
+    e.preventDefault();
+    e.stopPropagation();
+    commitHandCardImmediate(card.id);
+  };
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     setInspect({ kind: "capital", card });
@@ -758,6 +776,7 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     <button
       type="button"
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
       // v2.6: hand cards are drag sources for the "drag onto a slot
       // barrel to commit" shortcut (capital cards count as a free-1

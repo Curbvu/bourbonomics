@@ -1,6 +1,7 @@
 import type { Draft } from "immer";
 import type { GameAction, GameState, ValidationResult } from "../types";
 import { isCurrentPlayer } from "../state";
+import { hasUnAgedEligibleBarrel } from "./age-bourbon";
 
 type RollDemandAction = Extract<GameAction, { type: "ROLL_DEMAND" }>;
 
@@ -53,19 +54,14 @@ export function applyRollDemand(
   // Phase stays at "action" — demand no longer owns its own phase.
   const player = draft.players.find((p) => p.id === action.playerId)!;
   player.needsDemandRoll = false;
-  // v2.9: arm the per-turn aging requirement. The player must commit
-  // one card to one of their aging barrels (or abandon one) before
-  // the rest of the turn opens up — that's the cost of holding
-  // inventory while waiting on demand.
-  const hasUnAgedBarrel = draft.allBarrels.some(
-    (b) =>
-      b.ownerId === action.playerId &&
-      b.phase === "aging" &&
-      !b.agedThisRound &&
-      // A barrel that just finished construction this round can't be
-      // aged yet (rule lives in validateAgeBourbon); don't gate the
-      // turn on something the engine itself rejects.
-      (b.completedInRound == null || draft.round > b.completedInRound),
+  // v2.9 / v3: arm the per-turn aging requirement. The player must
+  // commit one card to *every* eligible aging barrel before the rest
+  // of the turn opens up — that's the cost of holding inventory while
+  // waiting on demand. Just-completed barrels (this round's flip from
+  // Building → Aging) can't age yet and don't count toward the gate.
+  player.needsAgeBarrels = hasUnAgedEligibleBarrel(
+    draft.allBarrels,
+    draft.round,
+    action.playerId,
   );
-  player.needsAgeBarrels = hasUnAgedBarrel;
 }

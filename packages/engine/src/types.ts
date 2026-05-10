@@ -236,24 +236,84 @@ export function mashBillBuildCost(bill: MashBill): number {
 }
 
 // -----------------------------
-// Investment Cards (display-only in v2.1; mechanic ships in v2.2)
+// Investment Cards
 // -----------------------------
+// Wired up as a display-only catalog. Cards are minted into the market
+// and rendered in the Investments row, but the engine does not resolve
+// any of their effects yet — `implemented: false` on every entry.
+// Source of truth lives at `packages/engine/content/investments.yaml`;
+// keep this catalog in sync by hand until a build script lands.
 
-export type InvestmentTier = "cheap" | "medium" | "expensive";
+/**
+ * Cost band and roughly the round in which the card becomes affordable:
+ *   small    cost 2-4   buyable round 2-3 from starter-deck proceeds
+ *   medium   cost 5-8   workhorse tier; defines the rest of a strategy
+ *   large    cost 9-15  late-game wagers; game-defining when they pay
+ *
+ * Tier is design intent — Brand Ambassador sits in `large` at cost 8
+ * because its effect strength belongs there even though the price is
+ * at the medium/large boundary.
+ */
+export type InvestmentTier = "small" | "medium" | "large";
+
+/** Primary game system the card manipulates. */
+export type InvestmentCategory =
+  | "production"
+  | "aging"
+  | "sales"
+  | "demand"
+  | "market"
+  | "slots"
+  | "deck"
+  | "info"
+  | "endgame";
+
+/** Discrete moment at which the effect fires. Cards may carry several. */
+export type InvestmentTrigger =
+  | "on_purchase"
+  | "passive_permanent"
+  | "on_sell"
+  | "on_make"
+  | "on_age"
+  | "on_complete"
+  | "on_buy_market"
+  | "turn_start"
+  | "round_end"
+  | "other_player_action"
+  | "final_scoring";
+
+/** Strategic axis the card amplifies. */
+export type InvestmentArchetype =
+  | "volume"
+  | "patience"
+  | "specialty"
+  | "tempo"
+  | "engine"
+  | "flex";
 
 export interface InvestmentCard {
   id: string;
   defId: string;
   name: string;
-  /** Capital cost to implement when the mechanic ships in v2.2. */
-  capital: number;
   /** Up-front market price (top-right corner chip). */
   cost: number;
-  /** Short tagline shown on the card face. */
-  short: string;
-  /** Long description of what the card does when implemented. */
-  effect: string;
   tier: InvestmentTier;
+  category: InvestmentCategory;
+  /** One or more discrete moments the effect fires at. */
+  triggers: InvestmentTrigger[];
+  archetype: InvestmentArchetype;
+  /** True when the card has a per-round (or other) trigger cap. */
+  rateLimited: boolean;
+  /** Free-form scope for the rate cap, e.g. "1/round". */
+  rateLimitScope?: string;
+  /** Short tagline shown on the tile. ≤ ~7 words. */
+  short: string;
+  /** Player-facing rule text printed on the card face. */
+  text: string;
+  /** Strategic flavor / rationale shown in the inspect modal. */
+  description: string;
+  /** Whether the engine resolves the effect. False = display-only stub. */
+  implemented: boolean;
 }
 
 /** Mash bills with `recipe.maxRye === 0` are "wheated" for distillery-bonus purposes. */
@@ -264,12 +324,37 @@ export function isWheatedBill(bill: MashBill): boolean {
 // -----------------------------
 // Distilleries
 // -----------------------------
+//
+// v3 starting roster: 7 asymmetric distilleries plus Vanilla. Each
+// distillery is a full asymmetric package — starting state, permanent
+// ability, and constraint — that shapes a player's whole game.
+//
+// Most v3 abilities are wired up but not yet resolved by the engine.
+// The structural fields the engine already supports (slots, maxSlots,
+// startingBarrel, starterPoolMods, saleMods, mashBillDraftSize,
+// maxSlottedBills) are populated where they fit; novel abilities
+// (re-roll one demand die, +2 first aging commit, demand+1 grid lookup,
+// etc.) live in `cardText` / `description` until the engine grows
+// dedicated hooks for them. The `implemented` flag tracks which
+// distilleries are fully resolvable today.
 
 export type DistilleryBonus =
-  | "high_rye"
-  | "wheated_baron"
-  | "connoisseur"
-  | "vanilla";
+  | "vanilla"
+  | "quick_turn"
+  | "patient_cooper"
+  | "single_barrel"
+  | "estate"
+  | "storm_chaser"
+  | "mothballed"
+  | "artisanal"
+  | "bourbon_purist";
+
+/** v3 difficulty tier for the picker UI. */
+export type DistilleryDifficulty =
+  | "beginner"
+  | "intermediate"
+  | "intermediate-advanced"
+  | "advanced";
 
 /** Identifier for a basic starter mash bill (NOT in the Bourbon deck). */
 export type StarterBillKey = "workhorse" | "high_rye_basic" | "wheated_basic";
@@ -297,6 +382,7 @@ export interface Distillery {
   id: string;
   defId: string;
   name: string;
+  /** Short tagline shown beneath the name on the picker tile. */
   flavorText?: string;
   bonus: DistilleryBonus;
   /** Total starting rickhouse slots a player gets if they pick this distillery. */
@@ -316,10 +402,26 @@ export interface Distillery {
    * set, this distillery cannot draw additional bills past the cap even
    * after buying a Rickhouse Expansion Permit — extra slots become
    * overflow space for transferred completed barrels (Barrel Broker,
-   * Blend) but cannot receive a freshly-drawn bill. Connoisseur Estate
-   * uses this to enforce its 4-bill ceiling.
+   * Blend) but cannot receive a freshly-drawn bill.
    */
   maxSlottedBills?: number;
+  // v3 metadata (display + design-doc reference) ------------------
+  /** Player-facing rule text printed on the card face. */
+  cardText: string;
+  /** Flavor paragraph shown beneath the rules. */
+  description: string;
+  /** Designer-facing strategy note shown in the picker / inspect modal. */
+  strategyNote?: string;
+  /** v3 difficulty tier shown on the picker. */
+  difficulty: DistilleryDifficulty;
+  /** Free-form design axis (time/tempo, slots, demand, specialty, etc.). */
+  axis: string;
+  /**
+   * Whether the engine resolves the distillery's ability + constraint
+   * today. False = wire-up only; the picker still surfaces it but its
+   * effects don't fire yet.
+   */
+  implemented: boolean;
 }
 
 // -----------------------------
@@ -375,9 +477,10 @@ export interface RickhouseSlot {
  * hold a barrel in any of three phases:
  *   - "ready" — bill present, no committed cards. The slot is taken (it
  *     can't be drawn into) but no production has started. Barrel does
- *     NOT age. Trashing a "ready" barrel is a free action.
+ *     NOT age.
  *   - "construction" — bill + ≥1 committed card, recipe not yet
- *     satisfied. Barrel does NOT age. Trashing requires ABANDON_BARREL.
+ *     satisfied. Barrel does NOT age. The committed cards are locked
+ *     with the slot until the recipe finishes and the barrel sells.
  *   - "aging" — recipe satisfied. Barrel ages from the round AFTER it
  *     completed (`completedInRound + 1`).
  *
@@ -522,10 +625,10 @@ export interface PlayerState {
   needsDemandRoll: boolean;
   /**
    * v2.9: after the demand roll, the player must commit one card to
-   * aging (or abandon a barrel) before taking other actions — but only
-   * if they have any aging barrel that hasn't already been aged this
-   * round. Set by `applyRollDemand` and cleared by AGE_BOURBON or
-   * ABANDON_BARREL. PASS_TURN and PLAY_OPERATIONS_CARD remain free.
+   * aging before taking other actions — but only if they have any
+   * aging barrel that hasn't already been aged this round. Set by
+   * `applyRollDemand` and cleared by AGE_BOURBON. PASS_TURN and
+   * PLAY_OPERATIONS_CARD remain free.
    */
   needsAgeBarrels: boolean;
 }
@@ -762,15 +865,6 @@ export type GameAction =
       playerId: string;
       slotId: string;
       cardIds: string[];
-    }
-  | {
-      // v2.6: discard a "ready" or "construction" barrel. All committed
-      // production cards return to the player's discard pile, the
-      // attached bill goes to the bourbon discard, and the slot becomes
-      // fully open. Aging-phase barrels cannot be abandoned.
-      type: "ABANDON_BARREL";
-      playerId: string;
-      barrelId: string;
     }
   | { type: "AGE_BOURBON"; playerId: string; barrelId: string; cardId: string }
   | {

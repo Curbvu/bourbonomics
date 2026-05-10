@@ -138,8 +138,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-1-make-backroad",
     kind: "await-action",
-    title: "Make your first barrel",
-    body: "Click one **cask**, one **corn**, and one **rye** — then click the barrel. Or drag those cards onto **Backroad Batch** — one at a time or all at once. The barrel flips to Aging the moment all three are in.",
+    title: "Make a barrel",
+    body: "Tag **1 cask + 1 corn + 1 rye** and click **Backroad Batch**. (Drag also works.)",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
     // Resource-only — the recipe doesn't take capital, and an
     // accidental capital commit would just lock the card on the slot
@@ -171,8 +171,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-1-aftermath",
     kind: "prompt",
-    title: "Recipe satisfied",
-    body: "Backroad Batch is now **Aging**. Each turn you must commit **1 card** to it to add a year — that aging card locks onto the barrel and stays there until you sell. The resource cards you already committed are locked in too.",
+    title: "Aging",
+    body: "Backroad Batch is **Aging**. Add 1 card each turn to age it.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
   },
 
@@ -180,8 +180,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-2-make-heritage",
     kind: "await-action",
-    title: "Start the picky one",
-    body: "**Heritage Reserve** needs **1 cask + 1 corn + 2 rye + 1 Specialty Rye.** You have everything *except* the Specialty Rye. Drop your remaining **cask, corn, and both common ryes** onto Heritage Reserve — that's 4 cards. We'll grab the Specialty Rye from the market next.",
+    title: "Start Heritage Reserve",
+    body: "Needs **1 cask + 1 corn + 2 rye + 1 Specialty Rye.** Tag your remaining **cask, corn, and both ryes** and click Heritage Reserve.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
     handCardFilter: (c) => c.type === "resource",
     matches: (action, state) => {
@@ -218,8 +218,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-2-aftermath",
     kind: "prompt",
-    title: "Building, not aging",
-    body: "Heritage Reserve is **Building** — the recipe still needs 1 specialty rye before it can age. We'll grab one from the market.",
+    title: "Still Building",
+    body: "Heritage needs 1 Specialty Rye to finish. Buy one next.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
   },
 
@@ -228,7 +228,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-3-buy-specialty-rye",
     kind: "await-action",
     title: "Buy the Specialty Rye",
-    body: "**Capital cards pay their face value.** Spend the **$3** capital to grab the Specialty Rye in the market.",
+    body: "Spend your **$3** capital on the Specialty Rye.",
     spotlight: { kind: "market-slot", slotIndex: 0 },
     matches: (action) =>
       action.type === "BUY_FROM_MARKET" &&
@@ -249,8 +249,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-3-aftermath",
     kind: "prompt",
-    title: "Off to your discard",
-    body: "Bought cards land in your **discard** — they cycle back into your hand later. Watch what happens after the round ends…",
+    title: "Into your discard",
+    body: "Bought cards go to discard. They'll come back next reshuffle.",
     spotlight: { kind: "none" },
   },
 
@@ -260,7 +260,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     kind: "transition",
     title: "Time passes…",
     subtitle: "Year 2",
-    body: "Both distilleries close their books. Demand holds. The deck reshuffles for a new round.",
+    body: "Round ends. Decks reshuffle.",
     fakeRolls: [{ dice: [1, 1] }],
     durationMs: 2600,
     mutate: (state) => rigSpecialtyRyeToDeckTop(state),
@@ -331,8 +331,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-4-rigged-draw",
     kind: "prompt",
-    title: "There it is",
-    body: "**Specialty Rye** — fresh in your hand. Time to finish Heritage Reserve.",
+    title: "Specialty Rye drawn",
+    body: "Finish Heritage with it next.",
     spotlight: { kind: "hand-card", cardId: "" }, // controller injects
   },
 
@@ -340,8 +340,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-5-finish-heritage",
     kind: "await-action",
-    title: "Complete the recipe",
-    body: "Commit the **Specialty Rye** to Heritage Reserve. The recipe will be satisfied — and Specialty cards grant **+1 reputation when the barrel sells.**",
+    title: "Finish Heritage",
+    body: "Commit the **Specialty Rye**. Specialty cards add **+1 rep** at sale.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
     // Lock the hand to the Specialty Rye specifically — it's the only
     // card the recipe still needs. The other resources in hand are
@@ -390,8 +390,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-5-aftermath",
     kind: "prompt",
-    title: "Now both are aging",
-    body: "Heritage Reserve is **Aging**. Specialty cards stick with the barrel until sale — that **+1 rep** is locked in for whenever you cash out.",
+    title: "Both aging",
+    body: "Heritage is locked in. **+1 rep** banked for sale day.",
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },
   {
@@ -401,8 +401,8 @@ export const TUTORIAL_BEATS: Beat[] = [
     // nothing to overlap.
     id: "beat-5c-open-card",
     kind: "prompt",
-    title: "Open the bourbon card",
-    body: "**Right-click Heritage Reserve** in your rickhouse to open the inspector — that's where the payoff grid lives. (Right-click works on any card or barrel, anytime.)",
+    title: "Inspect Heritage",
+    body: "**Right-click Heritage Reserve** to see its payoff grid.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
     awaitInspectBarrelDefId: "tutorial_heritage_reserve",
   },
@@ -412,8 +412,8 @@ export const TUTORIAL_BEATS: Beat[] = [
     // modal instead of underneath it.
     id: "beat-5d-grid-explained",
     kind: "prompt",
-    title: "Read the grid — and the medals",
-    body: "The **payoff grid** is the whole game — rows are **age**, columns are **demand**, each cell is the reputation that sale would pay. Higher age × higher demand = bigger reward. Now look for the medals: **🥈 Silver** means selling at the threshold keeps the recipe in your slot for a rebuild. **🥇 Gold** is the prize — you can swap that bill onto another of your slots at sale. Heritage carries a **Silver at age 3**. **Your tutorial goal: land it.**",
+    title: "The grid",
+    body: "Rows = **age**, columns = **demand**. Cell = rep at sale. **🥈 Silver** keeps the recipe in your slot. **🥇 Gold** lets you swap it. Heritage hits **Silver at age 3** — your goal.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
     position: "top-right",
     // Auto-close the still-open inspect modal when the player clicks
@@ -426,8 +426,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-6-age-prompt",
     kind: "prompt",
-    title: "Age a year on each barrel",
-    body: "Each round you can place **one card** on top of an aging barrel to age it by 1 year. Click a barrel, then click any hand card to commit (drag also works). Let's age both.",
+    title: "Age your barrels",
+    body: "Click a barrel, then a hand card to add 1 year. (Or drag.)",
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },
   {
@@ -438,8 +438,8 @@ export const TUTORIAL_BEATS: Beat[] = [
     // doesn't move on until BOTH barrels are aged, in either order.
     id: "beat-6-age-both",
     kind: "await-action",
-    title: "Age both barrels",
-    body: "Age **Backroad Batch** AND **Heritage Reserve**. Click each barrel, then click a hand card to commit (drag also works). Either order is fine.",
+    title: "Age both",
+    body: "Age **Backroad Batch** and **Heritage Reserve**. Either order.",
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
     matches: (action, state) => {
       if (action.type !== "AGE_BOURBON") return false;
@@ -511,8 +511,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-7-modal",
     kind: "prompt",
-    title: "The market just shifted",
-    body: "Your opponent sold a barrel. **Demand dropped from 2 to 1.** Your Backroad Batch is age 2 — sellable now. But Heritage Reserve will pay a lot more if you wait for demand to rise.",
+    title: "Demand dropped",
+    body: "Opponent sold. **Demand: 2 → 1.** Backroad's sellable now; Heritage waits for a spike.",
     spotlight: { kind: "demand" },
     ctaLabel: "What now?",
   },
@@ -522,14 +522,14 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-8-decision",
     kind: "decision",
     title: "Your move",
-    body: "Two paths in front of you. Which feels right?",
+    body: "Pick one.",
     optionA: {
-      label: "Sell Backroad Batch now",
-      reply: "Good call — small wins fund the big ones. Let's lock it in.",
+      label: "Sell Backroad now",
+      reply: "Locking it in.",
     },
     optionB: {
       label: "Wait and age more",
-      reply: "Smart instinct! But selling Backroad now gives you reputation **and** purchasing power for the big sale. Let's do that.",
+      reply: "Selling Backroad now gives you cash to grow. Let's do that.",
     },
   },
   {
@@ -609,8 +609,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-9-sell-backroad",
     kind: "await-action",
-    title: "Sell Backroad Batch",
-    body: "Click **Sell** in the toolbar, then click **Backroad Batch**, then any hand card. The grid pays **2** at this age × demand — but it's flexible: you can take it as 2 rep, or trade some for **card draws** (cards thicken your deck for next round). We'll **split: 1 rep + 1 card draw**. Selling itself also costs 1 card from your hand as the sale fee.",
+    title: "Sell Backroad",
+    body: "Click **Sell**, then **Backroad Batch**, then any hand card. Grid pays **2 rep**. Selling costs 1 card from hand.",
     spotlight: { kind: "action-button", action: "sell" },
     postEngageSpotlight: {
       kind: "rickhouse-slot",
@@ -625,8 +625,10 @@ export const TUTORIAL_BEATS: Beat[] = [
     },
     rewrite: (action) => {
       if (action.type !== "SELL_BOURBON") return null;
-      // Force the rep/draw split per the spec.
-      return { ...action, reputationSplit: 1, cardDrawSplit: 1 };
+      // Take the full grid value as reputation. The rep ↔ card draw
+      // split is a real game mechanic but we leave it for the
+      // post-tutorial onboarding so the first sale stays simple.
+      return { ...action, reputationSplit: 2, cardDrawSplit: 0 };
     },
     // Advance once the Backroad barrel actually leaves the rickhouse —
     // sale rejected by the engine would leave the barrel in place.
@@ -642,8 +644,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-9-aftermath",
     kind: "prompt",
-    title: "Slot's open again",
-    body: "Grid paid **2** → split as **+1 reputation** banked and **+1 card** drawn into your hand. Backroad's a Common — no award — so the slot opens fully. Empires grow one barrel at a time.",
+    title: "Slot reopened",
+    body: "**+2 reputation** banked. Backroad's a Common — no award — so the slot opens fully.",
     spotlight: { kind: "reputation" },
   },
 
@@ -652,8 +654,8 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-10-time-skip",
     kind: "transition",
     title: "Time passes…",
-    subtitle: "Demand spikes. The summer runs hot.",
-    body: "Bottle shops empty out. Allocation lists fill up. **Demand climbs to 5.** Heritage Reserve picks up another year in the rickhouse.",
+    subtitle: "Demand spikes.",
+    body: "**Demand: 1 → 5.** Heritage ages another year.",
     fakeRolls: [
       { dice: [4, 5], commitToDemand: true },
       { dice: [5, 6], commitToDemand: true },
@@ -682,8 +684,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-11-sell-heritage",
     kind: "await-action",
-    title: "Now. This is the moment.",
-    body: "Heritage Reserve at **age 3, demand 5.** Click **Sell** in the toolbar, then **Heritage Reserve**, then a hand card. Grid pays **5** here — we'll take it all as reputation. The Specialty Rye in the recipe adds **+1 rep** on top, and you'll trigger the **Silver award**.",
+    title: "Sell Heritage",
+    body: "**Age 3 × demand 5 → 5 rep.** Specialty Rye adds **+1**. Silver hits.",
     spotlight: { kind: "action-button", action: "sell" },
     postEngageSpotlight: {
       kind: "rickhouse-slot",
@@ -714,27 +716,27 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-12-silver",
     kind: "celebrate",
-    title: "Silver award",
-    body: "Heritage Reserve hit the age threshold. The recipe stays in the slot, ready to build again. **+6 reputation** locked in.",
+    title: "Silver",
+    body: "**+6 rep.** Recipe stays — build it again.",
     lines: [
-      "Grid payout · 5",
-      "Specialty Rye bonus · +1",
-      "Silver award · recipe retained",
+      "Grid · 5",
+      "Specialty · +1",
+      "Silver · recipe retained",
     ],
     ctaLabel: "Continue",
   },
   {
     id: "beat-12-finale",
     kind: "finale",
-    title: "You just learned the whole game.",
-    body: "That's Bourbonomics. The distillery with the most reputation when the supply runs dry wins. Bourbon is patience and timing — commit your recipes, watch demand swing, pick your moment to sell. **Welcome to the trade. You've got the makings of a fine distiller.**",
+    title: "That's the game.",
+    body: "Most reputation when the supply dries up wins. Patience and timing.",
     bullets: [
-      "Built recipes from scratch — one in a single turn, one across multiple turns.",
-      "Bought a Specialty card from the market to finish a tough recipe.",
+      "Built two recipes.",
+      "Bought a Specialty from market.",
       "Aged your barrels.",
-      "Sold the small one to fund the big one.",
-      "Waited for demand to rise.",
-      "Earned a Silver award — your recipe is still in the slot, ready to do it again.",
+      "Sold small to fund big.",
+      "Waited for demand.",
+      "Earned a Silver award.",
     ],
     closeLabel: "Start a real game",
     replayLabel: "Replay tutorial",

@@ -90,7 +90,7 @@ export function initializeGame(config: GameConfig): GameState {
       // by ROLL_DEMAND. False at init since the game enters draw first.
       needsDemandRoll: false,
       // Set by ROLL_DEMAND when the player has any un-aged aging
-      // barrels; cleared by AGE_BOURBON / ABANDON_BARREL.
+      // barrels; cleared by AGE_BOURBON.
       needsAgeBarrels: false,
     };
   });

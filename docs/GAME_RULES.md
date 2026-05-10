@@ -58,7 +58,7 @@ Distillery profiles are temporarily disabled in this build. All players use the 
 
 Each player drafts **3 mash bills** from a shared pool (snake draft recommended). **Drafted bills land directly in your rickhouse slots** as **Staged** projects (slot occupied, no cards committed yet) — they do not enter your hand. The 4th slot stays open for a bill drawn during play.
 
-**Connoisseur Estate** drafts **4** bills, filling all 4 of its starting slots. To draw a 5th bill, Connoisseur must first sell, abandon, or trash a slot to free space.
+**Connoisseur Estate** drafts **4** bills, filling all 4 of its starting slots. To draw a 5th bill, Connoisseur must first sell or trash a slot to free space.
 
 Pre-aged starter barrels (High-Rye House, Wheated Baron) occupy a slot with their bill already attached and aging cards already locked in — that bill counts as one of the player's slot occupants for setup purposes.
 
@@ -129,7 +129,7 @@ Operations cards are NOT auto-drawn — they're bought from the ops market.
 
 # 🛢️ Aging (per-turn, v2.9)
 
-After rolling demand at the top of your turn, you **must commit one card from your hand to one of your aging barrels** before taking any other action. This is the holding cost for keeping inventory in the rickhouse — every turn a barrel sits unsold, you pay 1 card to keep it alive.
+After rolling demand at the top of your turn, you **must commit one card from your hand to every one of your eligible aging barrels** before taking any other action. This is the holding cost for keeping inventory in the rickhouse — every turn a barrel sits unsold, you pay 1 card per barrel to keep it alive.
 
 The committed card advances the barrel's age by 1 year (or more for cards with bonus ages). Aging cards do not contribute to sale payout beyond the age they buy on the grid — their value is the year they purchase.
 
@@ -140,9 +140,9 @@ When the barrel sells, all aging cards go to the player's discard.
 ### Edge cases
 
 - **No aging barrels** — the cost is skipped; you go straight to step 3.
-- **No cards in hand** — you can't pay the cost. The only legal moves are `PASS_TURN` (forfeits the turn; your barrels stay un-aged) or `ABANDON_BARREL` for any **ready / construction** barrel (aging barrels can't be abandoned — sell them instead).
-- **Multiple aging barrels** — one commit satisfies the requirement. You can age more on the same turn (each barrel still ages at most once per round), but only one is mandatory.
-- **Just-completed barrels** — a barrel that finished construction this round doesn't age until next round; if your ONLY aging barrels fall in that bucket, the cost is skipped this turn.
+- **Not enough cards in hand** — you can't pay the full cost. The only legal move is `PASS_TURN`, which forfeits the turn; any un-aged barrels stay un-aged this round.
+- **Multiple aging barrels** — every one must age. You commit one card per barrel; until they're all touched, no other action is legal. Each barrel still ages at most once per round (Rushed Shipment grants exceptions).
+- **Just-completed barrels** — a barrel that finished construction this round doesn't age until next round and is not counted toward the requirement; if your ONLY aging barrels fall in that bucket, the cost is skipped this turn.
 
 ---
 
@@ -152,9 +152,9 @@ Each player takes their **full turn** in rotated order. The turn opens with two 
 
 1. **Roll demand** (see [§Demand](#-demand-per-turn-v29)).
 2. **Age a barrel** (see [§Aging](#️-aging-per-turn-v29)) — only required if you have any un-aged aging barrels.
-3. **Free actions** — take as many of these as you want, in any order: Make Bourbon, Sell Bourbon, Buy from the Market, Buy Operations Card, Draw a Mash Bill, Trade, Abandon Barrel, Trash a Card. End the turn voluntarily when you're done.
+3. **Free actions** — take as many of these as you want, in any order: Make Bourbon, Sell Bourbon, Buy from the Market, Buy Operations Card, Draw a Mash Bill, Trade, Trash a Card. End the turn voluntarily when you're done.
 
-Until both gated micro-steps are paid, the engine rejects every other action except `PASS_TURN`, `ABANDON_BARREL`, and `PLAY_OPERATIONS_CARD` (which always plays free).
+Until both gated micro-steps are paid, the engine rejects every other action except `PASS_TURN` and `PLAY_OPERATIONS_CARD` (which always plays free).
 
 **Operations cards** play as a **free interruption** at any point during your turn — including before the demand roll and during the aging step. They don't consume an action; each ops card is one-shot.
 
@@ -170,7 +170,6 @@ Plan during others' turns. Target pace: ~3 minutes per round at 4 players.
 - **Buy Operations Card** — same, but for the ops market.
 - **Draw a Mash Bill** — pay cost; bill lands directly in one of your open slots as Staged.
 - **Trade** — exchange cards with another player. Mash bills are not tradeable.
-- **Abandon Barrel** — discard a Staged or Building slot. Bill goes to bourbon discard, committed cards go to your discard, slot opens fully.
 - **Trash a Card** — permanently remove a card from your deck (see [§Trashing](#-trashing-cards) for bills).
 - **End Turn** — voluntary; cards remaining in hand stay there until cleanup.
 
@@ -193,7 +192,7 @@ Each rickhouse slot lives in one of four phases:
 
 **No per-slot limit.** You can Make Bourbon to any of your Staged or Building slots as many times as you want on a single turn. Each commit is its own action; the recipe-completion check fires after every commit, so a slot can transition Staged → Building → Aging across multiple commits in one turn.
 
-Committed cards (resource OR capital) are **locked with the barrel** — they don't go to discard until the barrel sells or is abandoned.
+Committed cards (resource OR capital) are **locked with the barrel** — they don't go to discard until the barrel sells.
 
 ### Recipe satisfaction
 
@@ -249,16 +248,6 @@ The first time a slot transitions **Staged → Building** (your first commit to 
 
 ---
 
-## Abandon Barrel
-
-Discard one of your **Staged** or **Building** slots. All committed cards return to your discard pile, the attached bill goes to the **bourbon discard**, and the slot becomes fully **Open** again.
-
-**Aging-phase barrels cannot be abandoned** — once a barrel finishes construction it can only leave via Sell Bourbon.
-
-**Free vs. action cost.** Abandoning a Staged slot (no committed cards) is a **free** sub-action — you're just clearing a recipe you no longer want. Abandoning a Building slot consumes one of your turn's actions, since real cards are involved.
-
----
-
 ## Sell Bourbon
 
 Sell any of your **aging** barrels that is **at least 2 years old**.
@@ -309,7 +298,7 @@ Three mash bills sit face-up beside the bourbon deck. Take one of:
 - **A face-up bill** — pay its printed cost. Capital pays printed value; others pay 1. Refill the row from the deck.
 - **The blind top** — pay any 1 card.
 
-**An open slot is required.** The drawn bill lands directly in one of your open rickhouse slots as **Staged**. If you have no open slots (all four are Staged, Building, or Aging), `Draw a Mash Bill` is illegal — you must sell, abandon, or trash a slot first to create room.
+**An open slot is required.** The drawn bill lands directly in one of your open rickhouse slots as **Staged**. If you have no open slots (all four are Staged, Building, or Aging), `Draw a Mash Bill` is illegal — you must sell or trash a slot first to create room.
 
 This makes slot capacity the gating resource on the doomsday clock: bills can't be drawn speculatively to accelerate the clock — every draw requires an actual project.
 
@@ -329,7 +318,7 @@ Informal agreements (deferred trades, rickhouse leases) ride on Trade — they'r
 
 Spend 1 card from your hand to permanently remove 1 other card from your hand. The trashed card is removed from the game; the spent card goes to discard. (Failed Batch on Make Bourbon is the second way to trash.)
 
-**Mash bills are governed separately.** A Staged slot may be trashed for free (the bill goes to bourbon discard, slot opens). A Building slot is trashed via [§Abandon Barrel](#abandon-barrel) — same operation, same result, but using the canonical action name. Aging slots cannot be trashed; they leave only via Sell Bourbon.
+**Mash bills are governed separately.** A Staged slot may be trashed for free (the bill goes to bourbon discard, slot opens). Building and Aging slots cannot be trashed — once you've committed a card to a recipe, the only way out is to finish the build and sell the barrel.
 
 ## End Turn
 
@@ -352,7 +341,7 @@ Each slot is in one of four phases:
 
 The lifecycle: `Open` → (Draw a Mash Bill) → `Staged` → (Make Bourbon, first commit) → `Building` → (Make Bourbon, recipe complete) → `Aging` → (Sell Bourbon) → `Open` (or `Staged` on Silver / Gold-Keep).
 
-When **all four** of your slots are taken (Staged, Building, or Aging), you cannot draw a new bill — you must sell, abandon, or trash to free a slot.
+When **all four** of your slots are taken (Staged, Building, or Aging), you cannot draw a new bill — you must sell or trash to free a slot.
 
 The Rickhouse Expansion Permit ops card raises capacity to a maximum of **6**.
 
@@ -382,7 +371,7 @@ When a barrel sells, the bill's fate depends on awards (see [§Bourbon Awards](#
 - **Gold-Convert** — bill replaces another slot's bill; selling slot opens.
 - **Gold-Decline** — bill goes to bourbon discard, slot opens.
 
-A bill also goes to the bourbon discard when its slot is abandoned (Building phase) or trashed (Staged phase).
+A bill also goes to the bourbon discard when its Staged slot is trashed.
 
 ### Bills are not tradeable
 

@@ -59,7 +59,7 @@ export function validateSellBourbon(
     return { legal: false, reason: "you do not own that barrel" };
   }
   // v2.6: only aging-phase barrels can be sold. Ready/construction
-  // barrels haven't aged and use ABANDON_BARREL to recover cards.
+  // barrels haven't aged.
   if (barrel.phase !== "aging") {
     return { legal: false, reason: "barrel is still under construction" };
   }
@@ -181,12 +181,9 @@ function convertCommitsSatisfyRecipe(
     }
   }
   const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  let minRye = recipe.minRye ?? 0;
-  let minBarley = recipe.minBarley ?? 0;
-  let minWheat = recipe.minWheat ?? 0;
-  if (player.distillery?.bonus === "wheated_baron" && isWheatedBill(candidate)) {
-    minWheat = Math.max(0, minWheat - 1);
-  }
+  const minRye = recipe.minRye ?? 0;
+  const minBarley = recipe.minBarley ?? 0;
+  const minWheat = recipe.minWheat ?? 0;
   const maxRye = recipe.maxRye ?? Infinity;
   const maxWheat = recipe.maxWheat ?? Infinity;
   const minTotal = Math.max(recipe.minTotalGrain ?? 0, 1);

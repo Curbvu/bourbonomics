@@ -347,6 +347,14 @@ export interface GameStore {
   selectedHandCardIds: string[];
   toggleHandSelection: (cardId: string) => void;
   clearHandSelection: () => void;
+  /**
+   * v3 double-click commit. When the active picker (Age / Sell / Make)
+   * already has its other half picked, double-clicking a hand card
+   * fires the action immediately — bypassing the single-click toggle
+   * dance. Outside any picker, falls through to a multi-select toggle
+   * (same as a single click).
+   */
+  commitHandCardImmediate: (cardId: string) => void;
   /** Animation trigger — most recent purchase snapshot. */
   lastPurchase: LastPurchase | null;
   /** Animation trigger — most recent MAKE_BOURBON snapshot. */
@@ -468,6 +476,7 @@ const Ctx = createContext<GameStore>({
   selectedHandCardIds: [],
   toggleHandSelection: noop,
   clearHandSelection: noop,
+  commitHandCardImmediate: noop,
   lastPurchase: null,
   lastMake: null,
   lastSale: null,
@@ -1320,6 +1329,70 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setSelectedHandCardIds([]);
   }, []);
 
+  // v3 double-click commit. Single-click on a hand card toggles
+  // selection (in any picker, or the persistent multi-select outside
+  // a picker). Double-click should bypass the toggle and fire the
+  // action immediately — the user's intent ("send this card now")
+  // is unambiguous. Resolves to a no-op when no actionable picker
+  // state is in place; the leading single-click already toggled the
+  // selection so the user just sees the toggle and no fire.
+  const commitHandCardImmediate = useCallback(
+    (cardId: string) => {
+      // Age — needs a picked barrel. Fire directly with the captured
+      // card id so onClick toggle races (which may have flipped
+      // pickedCardId off mid-double-click) don't matter.
+      if (ageMode?.pickedBarrelId) {
+        fireAge(ageMode.pickedBarrelId, cardId);
+        return;
+      }
+      // Sell — same idiom; needs a picked barrel.
+      if (sellMode?.pickedBarrelId) {
+        fireSell(sellMode.pickedBarrelId, cardId);
+        return;
+      }
+      // Make — fire a single-card commit using whichever target the
+      // confirmMake heuristic picks (in-progress barrel first, then
+      // the next open slot). State updates batch, so we read live
+      // store state instead of routing through toggleMakeSpend +
+      // confirmMake which would race.
+      if (makeMode) {
+        const human = store.state?.players.find((p) => !p.isBot);
+        if (!human || !store.state) return;
+        const myBarrels = store.state.allBarrels.filter(
+          (b) => b.ownerId === human.id,
+        );
+        const inProgress = myBarrels.find((b) => b.phase === "construction");
+        let slotId: string | null = null;
+        if (inProgress) {
+          slotId = inProgress.slotId;
+        } else {
+          const occupied = new Set(myBarrels.map((b) => b.slotId));
+          const freeSlot = human.rickhouseSlots.find(
+            (s) => !occupied.has(s.id),
+          );
+          if (freeSlot) slotId = freeSlot.id;
+        }
+        if (!slotId) return;
+        const billAlreadyOnBarrel = inProgress?.attachedMashBill != null;
+        setMakeMode(null);
+        dispatch({
+          type: "MAKE_BOURBON",
+          playerId: human.id,
+          slotId,
+          cardIds: [cardId],
+          ...(makeMode.pickedMashBillId && !billAlreadyOnBarrel
+            ? { mashBillId: makeMode.pickedMashBillId }
+            : {}),
+        });
+        return;
+      }
+      // No picker active — fall through. The leading onClick of the
+      // double-click already toggled the multi-select state; nothing
+      // more to do.
+    },
+    [ageMode, sellMode, makeMode, fireAge, fireSell, store.state, dispatch],
+  );
+
   // Autoplay loop — paused while waiting on human input. Disabled
   // entirely in multiplayer mode (the server's `Tick` Lambda runs
   // bot turns there; client-side stepping would race the broadcast).
@@ -1697,6 +1770,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       selectedHandCardIds,
       toggleHandSelection,
       clearHandSelection,
+      commitHandCardImmediate,
       lastPurchase: store.lastPurchase,
       lastMake: store.lastMake,
       lastSale: store.lastSale,
@@ -1769,6 +1843,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       selectedHandCardIds,
       toggleHandSelection,
       clearHandSelection,
+      commitHandCardImmediate,
       multiplayerMode,
       multiplayerStatus,
       roster,

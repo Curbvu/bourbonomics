@@ -670,7 +670,7 @@ function MashBillTile({ bill }: { bill: MashBill }) {
 function InvestmentCardTile({ card }: { card: InvestmentCard }) {
   const { setInspect } = useGameStore();
   const toneByTier: Record<InvestmentCard["tier"], { border: string; gradient: string; ink: string; label: string }> = {
-    cheap: {
+    small: {
       border: "border-emerald-400",
       gradient:
         "bg-[radial-gradient(110%_70%_at_50%_-10%,rgba(16,185,129,.18),transparent_55%),linear-gradient(180deg,rgba(6,78,59,.40)_0%,rgba(15,23,42,.95)_75%)]",
@@ -684,7 +684,7 @@ function InvestmentCardTile({ card }: { card: InvestmentCard }) {
       ink: "text-teal-50",
       label: "text-teal-300",
     },
-    expensive: {
+    large: {
       border: "border-amber-400",
       gradient:
         "bg-[radial-gradient(110%_70%_at_50%_-10%,rgba(251,191,36,.22),transparent_55%),linear-gradient(180deg,rgba(146,64,14,.45)_0%,rgba(15,23,42,.95)_75%)]",
@@ -701,7 +701,7 @@ function InvestmentCardTile({ card }: { card: InvestmentCard }) {
         e.preventDefault();
         setInspect({ kind: "investment", card });
       }}
-      title={`${card.name} — ${card.short}\n\n${card.effect}`}
+      title={`${card.name} — ${card.short}\n\n${card.text}`}
       className={[baseTile, chrome.gradient, chrome.border].join(" ")}
     >
       <Sheen />

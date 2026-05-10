@@ -15,25 +15,7 @@
 import { useEffect, useState } from "react";
 
 import { useGameStore } from "@/lib/store/game";
-import type { Distillery, DistilleryBonus } from "@bourbonomics/engine";
-
-const BONUS_LABELS: Record<DistilleryBonus, { perk: string }> = {
-  high_rye: {
-    perk:
-      "Pre-aged high-rye barrel + 2 free 2-rye in your hand. +1 rep on every high-rye sale. Wheat counts as 0 toward composition.",
-  },
-  wheated_baron: {
-    perk:
-      "Pre-aged wheated barrel. Wheated bills cost 1 fewer grain. Single-grain composition buff fires at 2+. Rye counts as 0.",
-  },
-  connoisseur: {
-    perk:
-      "Drafts 4 mash bills (cap 4 in hand). All-grains composition buff fires at 3-of-4 distinct grain types and grants +3 rep.",
-  },
-  vanilla: {
-    perk: "No starting bonus, no constraint. Pure symmetric play.",
-  },
-};
+import type { Distillery } from "@bourbonomics/engine";
 
 export default function DistilleryDraftModal() {
   const { state, humanWaitingOn, dispatch } = useGameStore();
@@ -137,7 +119,6 @@ function DistilleryCardTile({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const perk = BONUS_LABELS[def.bonus]?.perk ?? "—";
   return (
     <button
       type="button"
@@ -145,7 +126,7 @@ function DistilleryCardTile({
       aria-pressed={selected}
       aria-label={`Select ${def.name}`}
       className={[
-        "group flex h-[360px] w-[300px] cursor-pointer flex-col rounded-xl border-2 p-5 text-left shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-all",
+        "group flex h-[440px] w-[300px] cursor-pointer flex-col rounded-xl border-2 p-5 text-left shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-all",
         selected
           ? "-translate-y-1 border-amber-300 bg-gradient-to-b from-amber-700/50 via-amber-900/50 to-slate-950 shadow-[0_0_0_3px_rgba(251,191,36,0.55),0_8px_24px_rgba(0,0,0,0.45)]"
           : "border-amber-700 bg-gradient-to-b from-amber-700/30 via-amber-900/40 to-slate-950 hover:border-amber-400 hover:shadow-[0_0_0_3px_rgba(251,191,36,0.25),0_8px_24px_rgba(0,0,0,0.45)]",
@@ -153,7 +134,7 @@ function DistilleryCardTile({
     >
       <header className="flex items-baseline justify-between">
         <span className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-amber-300">
-          Distillery
+          Distillery · {def.difficulty}
         </span>
         {selected ? (
           <span className="rounded border border-amber-300 bg-amber-300/20 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.10em] text-amber-100">
@@ -171,21 +152,35 @@ function DistilleryCardTile({
         </p>
       ) : null}
 
-      <div className="mt-4 flex flex-col gap-2 text-[12.5px] leading-snug">
+      <div className="mt-4 flex flex-col gap-2 text-[12px] leading-snug">
         <div>
           <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-emerald-300">
-            Starting bonus
+            Card text
           </div>
-          <div className="mt-1 text-emerald-100/95">{perk}</div>
+          <p className="mt-1 line-clamp-6 text-emerald-100/95">{def.cardText}</p>
         </div>
-        <div>
-          <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-sky-300">
-            Rickhouse layout
+        <div className="flex items-baseline justify-between gap-2">
+          <div>
+            <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-sky-300">
+              Slots
+            </div>
+            <div className="text-sky-100/95">
+              {def.slots}
+              {def.maxSlots != null && def.maxSlots === def.slots ? " (capped)" : ""}
+            </div>
           </div>
-          <div className="mt-1 text-sky-100/95">
-            {def.slots} {def.slots === 1 ? "slot" : "slots"} total
+          <div className="text-right">
+            <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-fuchsia-300">
+              Axis
+            </div>
+            <div className="text-fuchsia-100/95">{def.axis}</div>
           </div>
         </div>
+        {!def.implemented ? (
+          <p className="font-mono text-[9px] uppercase tracking-[.12em] text-amber-300/80">
+            Preview · ability not yet resolved by engine
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-auto pt-4">

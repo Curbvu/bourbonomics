@@ -8,7 +8,6 @@ import type {
   OperationsCard,
   PlayerState,
 } from "../types";
-import { isWheatedBill } from "../types";
 import { capitalUnits, resourceUnits, suppliesResource } from "../cards";
 import { computeReward } from "../rewards";
 import { emptySlotsFor, getPlayerBarrels } from "../state";
@@ -101,11 +100,19 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
 // Distillery selection
 // -----------------------------
 
+// v3 distillery preference. Bot picks the leftmost match available in
+// the pool. Keeps ordering deterministic across games; tune as
+// engine support for individual distillery effects lands.
 const DISTILLERY_PREFERENCE: Distillery["bonus"][] = [
-  "high_rye",       // pre-aged + 2 free 2-rye + bill bonus
-  "wheated_baron",  // pre-aged + lower single-grain threshold
-  "connoisseur",    // diversified scoring; harder to pilot
-  "vanilla",        // last resort
+  "estate",          // 5 slots — wide engine
+  "vanilla",         // baseline; predictable
+  "artisanal",       // fewer slots but per-sale rep bonus
+  "patient_cooper",  // demand+1 grid; needs late-game patience
+  "bourbon_purist",  // rye/barley pool; ban on wheat
+  "single_barrel",   // specialty-focused
+  "quick_turn",      // tempo
+  "storm_chaser",    // demand-axis volatility
+  "mothballed",      // hardest opener
 ];
 
 export function chooseDistillery(state: GameState, playerId: string): GameAction {
@@ -566,10 +573,7 @@ function recipeSatisfiedByPile(
     if (c.subtype === "wheat") wheat += c.resourceCount ?? 1;
   }
   const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  let minWheat = recipe.minWheat ?? 0;
-  if (player.distillery?.bonus === "wheated_baron" && isWheatedBill(bill)) {
-    minWheat = Math.max(0, minWheat - 1);
-  }
+  const minWheat = recipe.minWheat ?? 0;
   if (cask !== 1) return false;
   if (corn < minCorn) return false;
   if (rye < (recipe.minRye ?? 0)) return false;
@@ -665,10 +669,7 @@ function planCardsTowardRecipe(
   const minCorn = Math.max(1, recipe.minCorn ?? 0);
   const minRye = recipe.minRye ?? 0;
   const minBarley = recipe.minBarley ?? 0;
-  let minWheat = recipe.minWheat ?? 0;
-  if (player.distillery?.bonus === "wheated_baron" && isWheatedBill(bill)) {
-    minWheat = Math.max(0, minWheat - 1);
-  }
+  const minWheat = recipe.minWheat ?? 0;
   const maxRye = recipe.maxRye ?? Infinity;
   const maxWheat = recipe.maxWheat ?? Infinity;
 

@@ -1,14 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { applyAction } from "../src/engine.js";
 import { initializeGame } from "../src/initialize.js";
 import { defaultDistilleryPool } from "../src/distilleries.js";
 import { defaultMashBillCatalog, defaultStarterCards } from "../src/defaults.js";
-import { makeCapitalCard, makeMashBill, makeResourceCard } from "../src/cards.js";
-import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel, spendCardId } from "./helpers.js";
 import type { Distillery } from "../src/types.js";
-
-const r = (sub: "cask" | "corn" | "rye" | "barley" | "wheat", n = 1) =>
-  makeResourceCard(sub, "t", n, false, 1);
 
 function pickDistillery(bonus: Distillery["bonus"]): Distillery {
   const pool = defaultDistilleryPool();
@@ -30,113 +24,51 @@ function gameWithDistilleries(bonuses: Distillery["bonus"][]) {
 }
 
 // v2.7: distilleries are feature-flagged off in active play. The engine
-// still supports the full roster (kept under test in the engine source)
-// but the gameplay flow runs as Vanilla-only — these scenarios stay
-// skipped until the flag is restored.
-describe.skip("Distillery profiles — Starting state", () => {
-  it("places a pre-aged starter barrel for distilleries that ship one", () => {
-    const state = gameWithDistilleries(["high_rye", "wheated_baron"]);
-    const aging = state.allBarrels.filter((b) => b.phase === "aging");
-    expect(aging).toHaveLength(2);
-    const ages = aging.map((b) => b.age).sort();
-    expect(ages).toEqual([1, 1]); // high_rye=1, wheated=1
+// still supports the catalog, and structural fields (slots, maxSlots)
+// take effect at distillery-select time. Most v3 abilities are
+// design-only stubs (`implemented: false`) until dedicated engine
+// hooks land — those scenarios stay skipped for now.
+describe("Distillery profiles — Structural fields", () => {
+  it("v3: Vanilla ships 4 rickhouse slots", () => {
+    const state = gameWithDistilleries(["vanilla", "vanilla"]);
+    expect(state.players[0]!.rickhouseSlots).toHaveLength(4);
+    expect(state.players[1]!.rickhouseSlots).toHaveLength(4);
   });
 
-  it("v2.6: Vanilla / Connoisseur don't ship a pre-aged starter barrel — only ready bills in slots", () => {
-    const state = gameWithDistilleries(["vanilla", "connoisseur"]);
-    // No aging-phase starter barrels.
-    const aging = state.allBarrels.filter((b) => b.phase === "aging");
-    expect(aging).toHaveLength(0);
+  it("v3: The Estate ships 5 rickhouse slots", () => {
+    const state = gameWithDistilleries(["estate", "vanilla"]);
+    expect(state.players[0]!.rickhouseSlots).toHaveLength(5);
+    expect(state.players[1]!.rickhouseSlots).toHaveLength(4);
   });
 
-  it("v2.6: Connoisseur Estate drafts 4 bills directly into slots (no open slots at start)", () => {
-    const state = gameWithDistilleries(["connoisseur", "vanilla"]);
-    const conn = state.players[0]!;
-    const slottedBills = state.allBarrels.filter((b) => b.ownerId === conn.id);
-    expect(slottedBills).toHaveLength(4);
-    // All four slots are taken — no open slots.
-    const taken = new Set(slottedBills.map((b) => b.slotId));
-    const openSlots = conn.rickhouseSlots.filter((s) => !taken.has(s.id));
-    expect(openSlots).toHaveLength(0);
+  it("v3: The Artisanal Distillery ships 3 slots, hard-capped", () => {
+    const state = gameWithDistilleries(["artisanal", "vanilla"]);
+    const artisanal = state.players[0]!;
+    expect(artisanal.rickhouseSlots).toHaveLength(3);
+    // Hard cap: maxSlots field locks expansion.
+    expect(artisanal.distillery?.maxSlots).toBe(3);
   });
 });
 
-// v2.7: distilleries are feature-flagged off in active play. The engine
-// still supports the full roster (kept under test in the engine source)
-// but the gameplay flow runs as Vanilla-only — these scenarios stay
-// skipped until the flag is restored.
-describe.skip("Distillery profiles — Permanent abilities", () => {
-  it("High-Rye House: +1 reputation when selling a high-rye bill", () => {
-    let state = makeTestGame({
-      startingDemand: 6,
-      startingDistilleries: [pickDistillery("high_rye"), pickDistillery("vanilla")],
-    });
-    state = advanceToActionPhase(state, [1, 1]);
-    // Hand-rolled high-rye bill so the grid value is predictable.
-    const highRyeBill = makeMashBill(
-      {
-        defId: "hr_test",
-        name: "HR Test",
-        ageBands: [2, 4, 6],
-        demandBands: [2, 4, 6],
-        rewardGrid: [
-          [1, 1, 1],
-          [1, 1, 1],
-          [1, 1, 1],
-        ],
-        recipe: { minRye: 2 },
-      },
-      0,
-    );
-    state = placeBarrel(state, "p1", highRyeBill, 5, undefined, {
-      productionCards: [r("cask", 0), r("corn", 1), r("rye", 2), r("rye", 3), r("rye", 4)],
-      agingCards: [r("corn", 10), r("corn", 11), r("corn", 12), r("corn", 13), r("corn", 14)],
-    });
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 99)]);
-    const barrelId = state.allBarrels.find(
-      (b) => b.ownerId === "p1" && b.attachedMashBill?.defId === "hr_test",
-    )!.id;
-    const repBefore = state.players.find((p) => p.id === "p1")!.reputation;
-    const next = applyAction(state, {
-      type: "SELL_BOURBON",
-      playerId: "p1",
-      barrelId,
-      reputationSplit: 1, // grid value
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
-    });
-    const p1After = next.players.find((p) => p.id === "p1")!;
-    // grid (1) + high-rye sale mod (+1 rep).
-    expect(p1After.reputation).toBe(repBefore + 1 + 1);
-  });
-});
-
-// v2.7: distilleries are feature-flagged off in active play. The engine
-// still supports the full roster (kept under test in the engine source)
-// but the gameplay flow runs as Vanilla-only — these scenarios stay
-// skipped until the flag is restored.
-describe.skip("Distillery profiles — Constraints", () => {
-  it("v2.6: Connoisseur Estate cannot draw a 5th mash bill (slotted-bill cap of 4)", () => {
-    // Connoisseur drafts 4 bills into 4 slots at setup. With every slot
-    // bound, the player has no open slot — DRAW_MASH_BILL is illegal.
-    const catalog = defaultMashBillCatalog();
-    let state = initializeGame({
-      seed: 1,
-      players: [{ id: "p1", name: "Alice", isBot: false }],
-      startingDistilleries: [pickDistillery("connoisseur")],
-      startingMashBills: [catalog.slice(0, 4)],
-      bourbonDeck: catalog.slice(4),
-      starterDecks: [defaultStarterCards("p1")],
-    });
-    state = advanceToActionPhase(state, [1, 1]);
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
-    expect(() =>
-      applyAction(state, {
-        type: "DRAW_MASH_BILL",
-        playerId: "p1",
-        spendCardIds: [state.players[0]!.hand[0]!.id],
-      }),
-    ).toThrow(/no open slot/);
+describe.skip("Distillery profiles — v3 abilities (not yet resolved)", () => {
+  it("Quick-Turn: first aging commit advances 2 years for 2 cards", () => {
+    // Engine hook pending — flip implemented when AGE_BOURBON resolves
+    // the first-commit branch.
   });
 
+  it("Patient Cooper: cannot sell before age 4; reads grid at demand+1", () => {
+    // Engine hook pending — SELL_BOURBON gating + demand-band offset.
+  });
+
+  it("Single-Barrel House: max 1 aging barrel; Specialty grants +2 rep", () => {
+    // Engine hook pending — barrel-phase transition cap + sale-rep multiplier.
+  });
+
+  it("Storm Chaser: re-roll one die; no sale at demand 5/6", () => {
+    // Engine hook pending — ROLL_DEMAND mulligan + SELL_BOURBON gating.
+  });
+
+  it("Mothballed: 2 pre-aged barrels + 8-card starter + bill embargo R1-3", () => {
+    // Engine hook pending — multi-pre-aged-barrel placement + DRAW_MASH_BILL gating.
+  });
 });

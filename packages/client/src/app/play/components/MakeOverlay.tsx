@@ -15,7 +15,7 @@
  * rye") if their selection doesn't satisfy the bill.
  */
 
-import type { MashBill, PlayerState } from "@bourbonomics/engine";
+import type { MashBill } from "@bourbonomics/engine";
 import { validateAction } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 
@@ -62,7 +62,7 @@ export default function MakeOverlay() {
   if (!targetBarrel) {
     prompt = "No ready slots — draw a mash bill into an open slot first.";
   } else if (tagged.length === 0) {
-    prompt = `Tag cards to commit to ${effectiveBill!.name} (recipe: ${recipeSummary(effectiveBill!, human)}).`;
+    prompt = `Tag cards to commit to ${effectiveBill!.name} (recipe: ${recipeSummary(effectiveBill!)}).`;
   } else if (validation && !validation.legal) {
     prompt = validation.reason ?? "This commit isn't legal yet.";
   } else {
@@ -81,7 +81,7 @@ export default function MakeOverlay() {
         </span>
         {effectiveBill ? (
           <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-400">
-            recipe: {recipeSummary(effectiveBill, human)}
+            recipe: {recipeSummary(effectiveBill)}
           </span>
         ) : null}
         {tagged.length > 0 ? (
@@ -124,23 +124,30 @@ export default function MakeOverlay() {
   );
 }
 
-function recipeSummary(bill: MashBill, player: PlayerState): string {
+function recipeSummary(bill: MashBill): string {
   const r = bill.recipe ?? {};
   const bits: string[] = ["1 cask", "≥1 corn", "≥1 grain"];
   if (r.minCorn && r.minCorn > 1) bits.push(`≥${r.minCorn} corn`);
   if (r.minRye) bits.push(`≥${r.minRye} rye`);
   if (r.minBarley) bits.push(`≥${r.minBarley} barley`);
   if (r.minWheat) {
-    const eff = player.distillery?.bonus === "wheated_baron" && (bill.recipe?.maxRye === 0)
-      ? Math.max(0, r.minWheat - 1)
-      : r.minWheat;
-    bits.push(eff === 0 ? "wheat optional" : `≥${eff} wheat`);
+    bits.push(`≥${r.minWheat} wheat`);
   }
   if (r.maxRye === 0) bits.push("no rye");
   else if (r.maxRye != null) bits.push(`≤${r.maxRye} rye`);
   if (r.maxWheat === 0) bits.push("no wheat");
   else if (r.maxWheat != null) bits.push(`≤${r.maxWheat} wheat`);
   if (r.minTotalGrain) bits.push(`grain ≥${r.minTotalGrain}`);
+  // v2.7.2 specialty floors — surface them inline so the player
+  // doesn't tag a regular Cask thinking it'll satisfy a recipe that
+  // requires a Superior Cask.
+  const sp = r.minSpecialty ?? {};
+  for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
+    const need = sp[sub];
+    if (need && need > 0) {
+      bits.push(`★${need > 1 ? need : ""} specialty ${sub}`);
+    }
+  }
   // Strip the universal-rule prefix when we're showing extra constraints
   // — keeps the line short.
   const extras = bits.slice(3);

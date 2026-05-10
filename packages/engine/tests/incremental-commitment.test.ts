@@ -7,7 +7,6 @@
  *   - Mash bill attachable at start or later, single attach only.
  *   - A barrel cannot complete without an attached mash bill.
  *   - Wheated Baron's discount applies to the cumulative committed pile.
- *   - ABANDON_BARREL returns committed cards to the player's discard.
  *   - End-to-end integration: build a four-grain bill incrementally
  *     across multiple rounds and sell it.
  */
@@ -15,7 +14,6 @@
 import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
 import { makeCapitalCard, makeMashBill, makeResourceCard } from "../src/cards.js";
-import { defaultDistilleryPool } from "../src/distilleries.js";
 import {
   advanceToActionPhase,
   advanceToNextRound,
@@ -172,128 +170,10 @@ describe("incremental commitment — basics", () => {
 // attach-at-start / attach-later / re-attach-rejection are not testable
 // behaviors. Their invariants are structurally guaranteed by the model.
 
-describe("incremental commitment — Wheated Baron discount on cumulative pile", () => {
-  it("applies to the cumulative committed pile, not a single commit", () => {
-    const wheatedBill = makeMashBill(
-      {
-        defId: "wheated_test",
-        name: "Test Wheated",
-        ageBands: [2, 4, 6],
-        demandBands: [2, 4, 6],
-        rewardGrid: [
-          [1, 2, 3],
-          [2, 3, 4],
-          [3, 4, 5],
-        ],
-        // Recipe wants 2 wheat — Wheated Baron's discount knocks 1 off,
-        // so the player only needs 1 wheat in the cumulative pile.
-        recipe: { minWheat: 2, maxRye: 0 },
-      },
-      77,
-    );
-    const baron = defaultDistilleryPool().find((d) => d.bonus === "wheated_baron")!;
-    const vanilla = defaultDistilleryPool().find((d) => d.bonus === "vanilla")!;
-    let state = makeTestGame({
-      startingDistilleries: [
-        { ...baron, id: "dist_test_baron_0" },
-        { ...vanilla, id: "dist_test_vanilla_1" },
-      ],
-      startingMashBills: [[wheatedBill], []],
-      bourbonDeck: [],
-    });
-    state = advanceToActionPhase(state);
-
-    // Round 1: open with cask + corn (no wheat yet) — should NOT complete.
-    // v2.9: Wheated Baron's starting (already-aging) barrel triggers
-    // the per-turn age cost; this test isolates the build mechanic, so
-    // clear the flag for p1 explicitly.
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1" ? { ...p, needsAgeBarrels: false } : p,
-      ),
-    };
-    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1)]);
-    state = giveHand(state, "p2", []);
-    const openSlot = slotForBill(state, "p1", wheatedBill.id);
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId: openSlot,
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],    });
-    let testBarrel = state.allBarrels.find((b) => b.slotId === openSlot)!;
-    expect(testBarrel.phase).toBe("construction");
-
-    // Round 2: commit a single wheat — Baron's discount should let
-    // the cumulative pile (1 wheat) satisfy the recipe (min 2 - 1 = 1).
-    state = advanceToNextRound(state, {
-      seedDecks: { p1: [wheat("p1", 2)] },
-    });
-    state = { ...state, currentPlayerIndex: 0 };
-    // v2.9: skip the per-turn aging cost for the starting Baron barrel
-    // — this test is exclusively about the build / discount mechanic.
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1" ? { ...p, needsAgeBarrels: false } : p,
-      ),
-    };
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId: openSlot,
-      cardIds: ["card_p1_wheat_2"],
-    });
-    testBarrel = state.allBarrels.find((b) => b.slotId === openSlot)!;
-    expect(testBarrel.phase).toBe("aging");
-    expect(testBarrel.completedInRound).toBe(2);
-  });
-});
-
-describe("incremental commitment — ABANDON_BARREL", () => {
-  it("returns committed cards to the player's discard and frees the slot", () => {
-    let state = makeTestGame();
-    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
-    state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1)]);
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId: slotForBill(state, "p1", mbId),
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1"],    });
-    const barrelId = state.allBarrels[0]!.id;
-    state = applyAction(state, {
-      type: "ABANDON_BARREL",
-      playerId: "p1",
-      barrelId,
-    });
-    expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(0);
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.discard.map((c) => c.id).sort()).toEqual(
-      ["card_p1_cask_0", "card_p1_corn_1"].sort(),
-    );
-  });
-
-  it("rejects abandoning an aging-phase barrel", () => {
-    let state = makeTestGame();
-    const mbId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!.attachedMashBill.id;
-    state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2)]);
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId: slotForBill(state, "p1", mbId),
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],    });
-    expect(state.allBarrels[0]!.phase).toBe("aging");
-    expect(() =>
-      applyAction(state, {
-        type: "ABANDON_BARREL",
-        playerId: "p1",
-        barrelId: state.allBarrels[0]!.id,
-      }),
-    ).toThrow(/aging barrels cannot/);
-  });
-});
+// v3 roster rebuild: the Wheated Baron distillery (and its
+// "minWheat - 1 on wheated bills" discount) was retired. No v3
+// distillery currently mods recipe minimums at MAKE_BOURBON time.
+// Restore coverage when an equivalent ability lands.
 
 describe("incremental commitment — full lifecycle integration", () => {
   it("a four-grain barrel built across rounds sells for its grid reward", () => {

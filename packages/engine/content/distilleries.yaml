@@ -1,0 +1,155 @@
+# ============================================================
+# Bourbonomics — Distillery Catalog (Source of Truth)
+# ============================================================
+#
+# Canonical, human-editable catalog of starting distilleries (v3
+# roster). The engine reads from `packages/engine/src/distilleries.ts`,
+# which is a manually-maintained TypeScript mirror of this file. When
+# you edit a distillery here, mirror the change in distilleries.ts and
+# re-run tests.
+#
+# Each distillery has:
+#   defId         — engine identifier (snake_case, stable)
+#   name          — display label
+#   bonus         — discriminator on `Distillery.bonus` (matches defId)
+#   flavorText    — short tagline shown beneath the name
+#   slots         — starting rickhouse slot count (default 4)
+#   max_slots     — hard cap on slots (defaults to 6, omitted unless tighter)
+#   card_text     — player-facing rule text
+#   description   — flavor paragraph
+#   strategy_note — designer-facing strategy note
+#   difficulty    — beginner | intermediate | intermediate-advanced | advanced
+#   axis          — design axis (time/tempo, slots, demand, specialty, etc.)
+#   implemented   — true | false. False = wired up but engine does not
+#                   resolve the ability/constraint yet. Structural
+#                   fields (slots, max_slots) still apply.
+#
+# Distribution: 1 baseline + 8 asymmetric = 9 distilleries.
+# Difficulty: 2 beginner / 4 intermediate / 1 intermediate-advanced
+#             (was 2 before Bourbon Purist landed on the boundary) /
+#             2 advanced.
+# Axes: time/tempo (2), slots (2), specialty (1), demand (1),
+#       recipe constraint (2 — Mothballed inheritance + Purist
+#       rye-only), baseline (1).
+
+distilleries:
+  # ─── Vanilla (baseline) ────────────────────────────────────────
+  - defId: vanilla
+    name: Vanilla Distillery
+    bonus: vanilla
+    flavorText: The Symmetric Option.
+    slots: 4
+    card_text: No starting state, no permanent ability, no constraint.
+    description: A working distillery, neither famous nor forgotten. You make bourbon the way the books say to make it — no shortcuts, no specialties, no inherited reputation. The ledger is yours to write. Choose Vanilla for a level playing field, an introductory game, or when you want the game itself to be the only variable.
+    difficulty: beginner
+    axis: baseline
+    implemented: true
+
+  # ─── The Quick-Turn Bottler ────────────────────────────────────
+  - defId: quick_turn
+    name: The Quick-Turn Bottler
+    bonus: quick_turn
+    flavorText: The Hustler.
+    slots: 4
+    card_text: When a barrel of yours first receives an aging card, that card advances the barrel by 2 years instead of 1 — but costs 2 cards from your hand to commit, not 1. Subsequent aging commits work normally (1 card → 1 year).
+    description: You don't have time for tradition. You have inventory, a route, and accounts that pay net-30. The Hustler runs the warehouse like a logistics operation — every barrel is a unit moving toward a sale, and the only question is how fast you can flip it. You pay extra for the express lane. The bourbon doesn't mind.
+    strategy_note: Throughput edge is front-loaded — by age 4 you're aging at the same rate as everyone else. Play pattern is "ship 'em while they're hot." The 2-card aging cost makes you hand-hungry; deck thinning + Distribution Deal pair naturally.
+    difficulty: beginner
+    axis: time / tempo
+    implemented: false
+
+  # ─── The Patient Cooper ────────────────────────────────────────
+  - defId: patient_cooper
+    name: The Patient Cooper
+    bonus: patient_cooper
+    flavorText: The Long Game.
+    slots: 4
+    card_text: When you sell, treat current demand as if it were 1 higher when reading the grid (a value adjustment, not a column promotion). Your barrels cannot be sold until they reach age 4.
+    description: Your warehouse smells like time. Generations of cooperage, slow oxidation, and the quiet certainty that good bourbon happens to those who wait. The market knows your name — when a Patient Cooper barrel hits the dock, buyers pay a premium without asking. You don't chase trends. You set them, four years late.
+    strategy_note: Age-4 minimum forces a slower rhythm — typically 4–5 sales/game vs Hustlers' 7+. demand+1 buys a free column promotion at band boundaries. Pairs with Bonded Warehouse, Tasting Room, Vintage Reserve. Hardest part — rounds 1–3, where you can't sell anything.
+    difficulty: intermediate
+    axis: time / patience
+    implemented: false
+
+  # ─── The Single-Barrel House ───────────────────────────────────
+  - defId: single_barrel
+    name: The Single-Barrel House
+    bonus: single_barrel
+    flavorText: The Perfectionist.
+    slots: 4
+    card_text: Each Specialty or Double Specialty card committed to a barrel grants +2 reputation on sale (instead of the standard +1). You may have at most 1 barrel in the Aging phase at any time — additional completed barrels cannot transition from Building to Aging until the existing aging barrel is sold.
+    description: One barrel at a time. That's the whole philosophy. Your tasting room sells exactly what you make, and you make exactly what you can stand behind. Other distilleries run pipelines; you run a meditation. Each cask is a project, each grain bill a question, each year a deepening of the answer. When the bottle finally ships, it's signed.
+    strategy_note: A barrel with 3 Specialty cards pays grid + 6 rep on sale. The 1-aging-barrel constraint forces serial play — build, age, sell, build again. Pairs with R&D Department and Premium Label.
+    difficulty: intermediate-advanced
+    axis: specialty
+    implemented: false
+
+  # ─── The Estate ────────────────────────────────────────────────
+  - defId: estate
+    name: The Estate
+    bonus: estate
+    flavorText: The Sprawling.
+    slots: 5
+    card_text: Your rickhouse has 5 slots instead of 4. Selling a barrel costs 2 cards from your hand (instead of 1) — both cards go to your discard.
+    description: Rolling acreage, a smokehouse, a creek. Three rickhouses if you count the old one. The Estate is bourbon the way the founding families ran it — wide, slow, expensive, and with more bottles in storage than the books admit. The doubled sell cost is just the ledger catching up: every sale rides a fleet of trucks, and every truck has a driver.
+    strategy_note: 5-slot rickhouse runs more parallel projects than anyone else. Doubled sell cost discourages high-volume "sell every turn" plays — wants fewer, larger sales. Pairs with Land Acquisition (toward the 6-slot cap) and Brand Equity.
+    difficulty: intermediate
+    axis: slots / capacity
+    # Slot count applies today (structural). Doubled sell cost
+    # is design-only — flip implemented when SELL_BOURBON resolves it.
+    implemented: false
+
+  # ─── The Storm Chaser ──────────────────────────────────────────
+  - defId: storm_chaser
+    name: The Storm Chaser
+    bonus: storm_chaser
+    flavorText: The Volatility Player.
+    slots: 4
+    card_text: On your demand roll at the start of your turn, after seeing both dice, you may re-roll one of the two dice (you must keep the new result). You cannot sell barrels when current demand is exactly 5 or 6.
+    description: You know what bourbon costs at 3 a.m. on a slow Tuesday and what it sells for during a Derby weekend. The middle of the road is where bad bets live. Storm Chaser doesn't sell into a steady market — Storm Chaser sells into the storm. Crash or boom, both make you money. It's the calm that kills.
+    strategy_note: Re-roll lets you push demand past 5–6 toward booms or back down toward crashes. Dead-zone forces active demand manipulation when demand parks at 5–6. Hardest distillery to play well; the most disruptive to play around.
+    difficulty: advanced
+    axis: demand
+    implemented: false
+
+  # ─── The Mothballed House ──────────────────────────────────────
+  - defId: mothballed
+    name: The Mothballed House
+    bonus: mothballed
+    flavorText: The Inheritance.
+    slots: 4
+    card_text: Your starting rickhouse contains 2 Open slots and 2 Aging slots (each with a basic bill at age 2). Your starter deck is exactly 8 cards — drawn directly into your round-1 hand with no deck behind them. You may not draw mash bills (face-up or blind) during rounds 1, 2, or 3 — the bourbon supply is closed to you until round 4.
+    description: Grandfather's distillery, mothballed for thirty years, opened on the morning the will cleared probate. Two barrels in the rickhouse, eight cards in hand, and a stack of old paperwork the regulators won't honor for another three rounds. You're not building a brand — you're rebuilding an estate. What's already in the rickhouse is what you have to work with.
+    strategy_note: 8-card starter is brutal — half the deck size of every other distillery. But two pre-aged age-2 barrels mean you can sell from round 1. Strategic question is timing — sell early at low demand for cash flow, or hold and risk aging starter inventory while waiting for a boom.
+    difficulty: advanced
+    axis: recipe constraint / inheritance
+    implemented: false
+
+  # ─── The Bourbon Purist ────────────────────────────────────────
+  - defId: bourbon_purist
+    name: The Bourbon Purist
+    bonus: bourbon_purist
+    flavorText: The Rye-Forward Traditionalist.
+    slots: 4
+    card_text: "Rye and barley cards are interchangeable for each other's recipe minimums (a minRye: 2 recipe can be satisfied by 2 rye, 2 barley, or 1 of each). Specialty gates are unaffected — a minSpecialty: { rye: 1 } recipe still requires a Specialty Rye specifically. You may never commit a wheat card to a barrel; bills with minWheat ≥ 1 cannot be completed by you."
+    description: You make whiskey the old way. Pre-Prohibition, pre-soft-bourbon, pre-marketing-departments. Rye and barley are your grains — rye for the spice and the structure, barley for the conversion that makes the whole mash work. Wheat is for bakers. The bottles you ship lead with black pepper, baking spice, dried herbs, and a long dry finish — the kind of whiskey that built the Manhattan and the Old Fashioned.
+    strategy_note: "Rye/barley pool makes high-rye bills dramatically easier — a minRye: 3 recipe completes with any 3 rye, 3 barley, or any combination. Four-grain bills with minRye + minBarley play loose for you. Wheated bills are dead inventory; prefer the face-up bill row over blind-deck draws so you can read recipes first. Specialty Wheat / Double Specialty Wheat are useless on production but still legal market currency. Pairs with Cooperage Stake and Premium Label; tense against Single-Barrel House (both want Specialty Rye)."
+    difficulty: intermediate-advanced
+    axis: recipe constraint / specialization
+    implemented: false
+
+  # ─── The Artisanal Distillery ──────────────────────────────────
+  - defId: artisanal
+    name: The Artisanal Distillery
+    bonus: artisanal
+    flavorText: The Boutique.
+    slots: 3
+    max_slots: 3
+    card_text: Your rickhouse has exactly 3 slots, and this number cannot increase by any effect — Rickhouse Expansion Permit and Land Acquisition both fail when targeted at your rickhouse (the cards are still consumed). Each barrel you sell pays +1 reputation in addition to the grid value.
+    description: You make bourbon the way it should be made — in small batches, signed, dated, and sold to people who will recognize the difference. You don't expand. You won't expand. There's a list of buyers who will pay for what you bottle, and they're the only ones who matter. The Estate might ship a thousand cases on a slow week. You ship eighty, and they're talked about.
+    strategy_note: 3 slots vs Vanilla's 4 means one fewer barrel/game; +1 rep per sale roughly closes the volume gap. Constraint matters most against The Estate (5-slot gap) and against Land Acquisition (a strong investment you can't use). Pairs with quality-axis investments (Brand Equity, Tasting Room).
+    difficulty: intermediate
+    axis: slots / quality
+    # Slot count + hard cap apply structurally today. +1 rep per sale
+    # is design-only until SELL_BOURBON resolves it.
+    implemented: false

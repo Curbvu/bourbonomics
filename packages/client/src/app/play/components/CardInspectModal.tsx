@@ -20,10 +20,9 @@ import type {
   InvestmentCard,
   MashBill,
   OperationsCard,
-  PlayerState,
   ResourceSubtype,
 } from "@bourbonomics/engine";
-import { isWheatedBill, mashBillBuildCost, mashBillCost } from "@bourbonomics/engine";
+import { bandIndex, mashBillBuildCost, mashBillCost } from "@bourbonomics/engine";
 import { useGameStore, type InspectPayload } from "@/lib/store/game";
 import {
   CAPITAL_CHROME,
@@ -406,7 +405,22 @@ function bandLabel(
  * (`/mash-bills`) so a player who studied bills there reads the
  * inspect modal the same way.
  */
-function RewardMatrix({ bill, chrome }: { bill: MashBill; chrome: TierChrome }) {
+function RewardMatrix({
+  bill,
+  chrome,
+  liveCell,
+}: {
+  bill: MashBill;
+  chrome: TierChrome;
+  /**
+   * When set, the cell at this (row, col) is highlighted as the
+   * barrel's current sale-time payout — i.e. what the engine would
+   * pay if the player sold this barrel right now at current demand.
+   * Omit when the matrix is shown without a specific barrel context
+   * (e.g. the bourbon encyclopedia tile).
+   */
+  liveCell?: { row: number; col: number } | null;
+}) {
   // v2.5: grids are variable size (commons 1×2 / 2×1, legendaries up
   // to 3×3 or wider). Iterate the actual band arrays rather than
   // assuming 3 rows × 3 columns.
@@ -450,10 +464,18 @@ function RewardMatrix({ bill, chrome }: { bill: MashBill; chrome: TierChrome }) 
                 const nextDemand = bill.demandBands[ci + 1];
                 const demandHi = nextDemand ?? Infinity;
                 const award = cellAward(bill, cell, ageHi, demandHi);
+                const isLive = liveCell?.row === ri && liveCell?.col === ci;
                 return (
                   <div
                     key={`${ri}-${ci}`}
-                    className={`relative grid min-h-[64px] place-items-center rounded border border-white/10 py-3 ${awardCellBg(award, cell)}`}
+                    className={[
+                      "relative grid min-h-[64px] place-items-center rounded border py-3",
+                      awardCellBg(award, cell),
+                      isLive
+                        ? "border-emerald-300 ring-2 ring-emerald-300/80 ring-offset-2 ring-offset-slate-950 shadow-[0_0_14px_rgba(110,231,183,.45)]"
+                        : "border-white/10",
+                    ].join(" ")}
+                    aria-current={isLive ? "true" : undefined}
                   >
                     <span
                       className={`font-display text-[40px] font-bold leading-none tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,.45)] ${
@@ -472,6 +494,14 @@ function RewardMatrix({ bill, chrome }: { bill: MashBill; chrome: TierChrome }) 
                         className="pointer-events-none absolute right-1 top-1 text-[14px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.55)]"
                       >
                         {award === "gold" ? "🥇" : "🥈"}
+                      </span>
+                    ) : null}
+                    {isLive ? (
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-full border border-emerald-300 bg-emerald-500/95 px-1.5 py-[1px] font-mono text-[8px] font-bold uppercase tracking-[.14em] text-slate-950 shadow-[0_2px_6px_rgba(0,0,0,.5)]"
+                      >
+                        Now
                       </span>
                     ) : null}
                   </div>
@@ -963,7 +993,7 @@ function OperationsDetail({ card }: { card: OperationsCard }) {
 
 function InvestmentDetail({ card }: { card: InvestmentCard }) {
   const toneByTier: Record<InvestmentCard["tier"], { border: string; gradient: string; ink: string; label: string }> = {
-    cheap: {
+    small: {
       border: "border-emerald-400",
       gradient:
         "bg-[radial-gradient(110%_70%_at_50%_-10%,rgba(16,185,129,.20),transparent_55%),linear-gradient(180deg,rgba(6,78,59,.55)_0%,rgba(15,23,42,.95)_75%)]",
@@ -977,7 +1007,7 @@ function InvestmentDetail({ card }: { card: InvestmentCard }) {
       ink: "text-teal-50",
       label: "text-teal-300",
     },
-    expensive: {
+    large: {
       border: "border-amber-400",
       gradient:
         "bg-[radial-gradient(110%_70%_at_50%_-10%,rgba(251,191,36,.24),transparent_55%),linear-gradient(180deg,rgba(146,64,14,.55)_0%,rgba(15,23,42,.95)_75%)]",
@@ -986,6 +1016,7 @@ function InvestmentDetail({ card }: { card: InvestmentCard }) {
     },
   };
   const chrome = toneByTier[card.tier];
+  const triggerLabel = card.triggers.join(" + ");
   return (
     <article
       className={[
@@ -1006,25 +1037,46 @@ function InvestmentDetail({ card }: { card: InvestmentCard }) {
       <p className={`font-display text-[13px] italic leading-snug ${chrome.label} opacity-95`}>
         {card.short}
       </p>
-      <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[.12em] text-slate-400">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[.12em] text-slate-400">
         <span>
-          implements at{" "}
-          <span className={`font-bold tabular-nums ${chrome.ink}`}>
-            ${card.capital}
-          </span>{" "}
-          capital
+          category{" "}
+          <span className={`font-bold ${chrome.ink}`}>{card.category}</span>
         </span>
+        <span>
+          archetype{" "}
+          <span className={`font-bold ${chrome.ink}`}>{card.archetype}</span>
+        </span>
+        <span>
+          trigger{" "}
+          <span className={`font-bold ${chrome.ink}`}>{triggerLabel}</span>
+        </span>
+        {card.rateLimited ? (
+          <span>
+            rate{" "}
+            <span className={`font-bold ${chrome.ink}`}>
+              {card.rateLimitScope ?? "limited"}
+            </span>
+          </span>
+        ) : null}
       </div>
       <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
         <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
-          Effect
+          Card text
         </span>
         <p className="mt-1 text-[13px] leading-snug text-slate-100">
-          {card.effect}
+          {card.text}
+        </p>
+      </div>
+      <div className="rounded-lg border border-white/10 bg-slate-950/40 p-3">
+        <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
+          Description
+        </span>
+        <p className="mt-1 text-[12px] leading-snug text-slate-300">
+          {card.description}
         </p>
       </div>
       <p className="font-mono text-[10px] uppercase tracking-[.12em] text-amber-300/80">
-        Preview · the investment mechanic ships in v2.2.
+        Preview · investment effects are not yet resolved by the engine.
       </p>
     </article>
   );
@@ -1048,10 +1100,16 @@ interface RecipeRow {
   current: number;
   /** Whether over-commit has piled extra past the requirement. */
   over: number;
+  /** Specialty floor (recipe.minSpecialty): renders a ★ marker. */
+  specialty?: boolean;
 }
 
 /**
- * Tally the barrel's committed production cards by subtype.
+ * Tally the barrel's committed production cards by subtype. The
+ * `specialty` field counts only cards flagged `specialty: true` per
+ * subtype — used to display recipe.minSpecialty progress alongside
+ * the universal/basic minimums (mirrors the engine's recipe-
+ * satisfaction check in make-bourbon.ts).
  */
 function tallyCommittedPile(cards: Card[]): {
   cask: number;
@@ -1059,15 +1117,27 @@ function tallyCommittedPile(cards: Card[]): {
   rye: number;
   barley: number;
   wheat: number;
+  specialty: { cask: number; corn: number; rye: number; barley: number; wheat: number };
 } {
-  const t = { cask: 0, corn: 0, rye: 0, barley: 0, wheat: 0 };
+  const t = {
+    cask: 0,
+    corn: 0,
+    rye: 0,
+    barley: 0,
+    wheat: 0,
+    specialty: { cask: 0, corn: 0, rye: 0, barley: 0, wheat: 0 },
+  };
   for (const c of cards) {
     if (c.type !== "resource") continue;
-    if (c.subtype === "cask") t.cask += c.resourceCount ?? 1;
-    if (c.subtype === "corn") t.corn += c.resourceCount ?? 1;
-    if (c.subtype === "rye") t.rye += c.resourceCount ?? 1;
-    if (c.subtype === "barley") t.barley += c.resourceCount ?? 1;
-    if (c.subtype === "wheat") t.wheat += c.resourceCount ?? 1;
+    const units = c.resourceCount ?? 1;
+    if (c.subtype === "cask") t.cask += units;
+    if (c.subtype === "corn") t.corn += units;
+    if (c.subtype === "rye") t.rye += units;
+    if (c.subtype === "barley") t.barley += units;
+    if (c.subtype === "wheat") t.wheat += units;
+    if (c.specialty && c.subtype) {
+      t.specialty[c.subtype] += units;
+    }
   }
   return t;
 }
@@ -1075,30 +1145,18 @@ function tallyCommittedPile(cards: Card[]): {
 /**
  * Recipe-progress display for a construction-or-aging barrel. Walks
  * the universal rule (1 cask + ≥1 corn + ≥1 grain) AND the bill's
- * own recipe constraints, with the wheated_baron discount applied
- * when the owner is on that distillery. Each row shows committed /
- * required and a check mark when satisfied. Over-committing past
- * the requirement is allowed (the engine doesn't penalise it) and
- * surfaced as a small "+N extra" tag — the player gets no bonus
- * from extra cards but the visual confirms they aren't broken.
+ * own recipe constraints. Each row shows committed / required and a
+ * check mark when satisfied. Over-committing past the requirement
+ * is allowed (the engine doesn't penalise it) and surfaced as a
+ * small "+N extra" tag — the player gets no bonus from extra cards
+ * but the visual confirms they aren't broken.
  */
-function RecipeProgress({
-  barrel,
-  owner,
-}: {
-  barrel: Barrel;
-  owner: PlayerState | undefined;
-}) {
+function RecipeProgress({ barrel }: { barrel: Barrel }) {
   const bill = barrel.attachedMashBill;
   const recipe = bill.recipe ?? {};
   const tally = tallyCommittedPile(barrel.productionCards);
 
-  // Wheated Baron discount: minWheat -1 (floor 0) on wheated bills.
-  let minWheat = recipe.minWheat ?? 0;
-  if (owner?.distillery?.bonus === "wheated_baron" && isWheatedBill(bill)) {
-    minWheat = Math.max(0, minWheat - 1);
-  }
-
+  const minWheat = recipe.minWheat ?? 0;
   const minCorn = Math.max(1, recipe.minCorn ?? 0);
   const minRye = recipe.minRye ?? 0;
   const minBarley = recipe.minBarley ?? 0;
@@ -1174,6 +1232,30 @@ function RecipeProgress({
     });
   }
 
+  // v2.7.2 specialty floors: epic / legendary recipes that gate
+  // payouts behind market-only Specialty cards. The engine treats a
+  // Specialty card as satisfying both the basic per-subtype minimum
+  // AND the specialty floor (one Superior Rye covers minRye:1 +
+  // minSpecialty:{rye:1}). Showing a dedicated row here so the
+  // player sees why their pile reads "ready" on basics but the
+  // engine still won't transition the slot to Aging.
+  const sp = recipe.minSpecialty ?? {};
+  for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
+    const need = sp[sub] ?? 0;
+    if (need > 0) {
+      rows.push({
+        key: `specialty-${sub}`,
+        glyph: RESOURCE_GLYPH[sub],
+        label: `Specialty ${sub.charAt(0).toUpperCase()}${sub.slice(1)}`,
+        tint: RESOURCE_CHROME[sub].label,
+        required: need,
+        current: tally.specialty[sub],
+        over: Math.max(0, tally.specialty[sub] - need),
+        specialty: true,
+      });
+    }
+  }
+
   const allSatisfied = rows.every((r) => r.current >= r.required);
 
   return (
@@ -1203,10 +1285,20 @@ function RecipeProgress({
                 "flex items-center gap-2 rounded border px-2 py-1.5 font-mono text-[11px]",
                 satisfied
                   ? "border-emerald-400/30 bg-emerald-900/15"
-                  : "border-slate-800 bg-slate-950/60",
+                  : r.specialty
+                    ? "border-amber-400/40 bg-amber-900/15"
+                    : "border-slate-800 bg-slate-950/60",
               ].join(" ")}
             >
               <span className={`text-[16px] leading-none ${r.tint}`}>{r.glyph}</span>
+              {r.specialty ? (
+                <span
+                  aria-hidden
+                  className="font-display text-[14px] leading-none text-amber-300 drop-shadow-[0_0_4px_rgba(252,211,77,.6)]"
+                >
+                  ★
+                </span>
+              ) : null}
               <span className="text-[12px] uppercase tracking-[.12em] text-slate-200">
                 {r.label}
               </span>
@@ -1259,6 +1351,27 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
   const chrome = TIER_CHROME[tier];
   const isAging = barrel.phase === "aging";
   const owner = state?.players.find((p) => p.id === barrel.ownerId);
+
+  // Highlight the cell the engine would read at the current age +
+  // demand if the player sold this barrel right now. Mirrors the
+  // logic in `computeReward` (rewards.ts): row from age bands, col
+  // from demand bands + any persistent demandBandOffset (Master
+  // Distiller). Returns null when either axis falls below the lowest
+  // band — staged/construction barrels (age 0) and demand-floor
+  // states naturally produce no highlight.
+  const liveCell = (() => {
+    if (!bill || state == null) return null;
+    const row = bandIndex(barrel.age, bill.ageBands);
+    if (row < 0) return null;
+    const baseCol = bandIndex(state.demand, bill.demandBands);
+    if (baseCol < 0) return null;
+    const colMax = Math.max(0, bill.demandBands.length - 1);
+    const col = Math.max(
+      0,
+      Math.min(colMax, baseCol + (barrel.demandBandOffset ?? 0)),
+    );
+    return { row, col };
+  })();
   return (
     <article
       className={[
@@ -1337,7 +1450,7 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
           what's still missing. Only meaningful before the barrel
           enters aging; once aging, the recipe is locked in and the
           reward grid below tells the value story instead. */}
-      {!isAging ? <RecipeProgress barrel={barrel} owner={owner} /> : null}
+      {!isAging ? <RecipeProgress barrel={barrel} /> : null}
 
       {/* Persistent modifiers (only render rows that actually fired). */}
       {barrel.gridRepOffset > 0 ||
@@ -1380,8 +1493,12 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
 
       {/* Reward grid — award cells light up in-grid; an inline legend
           beneath the matrix breaks down the threshold conditions. Same
-          idiom as the bourbon encyclopedia (`/mash-bills`). */}
-      {bill ? <RewardMatrix bill={bill} chrome={chrome} /> : null}
+          idiom as the bourbon encyclopedia (`/mash-bills`). The live
+          cell (current age × current demand) gets an emerald ring +
+          "Now" badge so the inspector can read the barrel's payout at
+          a glance — null when the barrel is too young / demand too
+          cold for the grid to bind. */}
+      {bill ? <RewardMatrix bill={bill} chrome={chrome} liveCell={liveCell} /> : null}
     </article>
   );
 }

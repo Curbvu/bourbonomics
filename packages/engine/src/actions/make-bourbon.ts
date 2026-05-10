@@ -7,7 +7,6 @@ import type {
   PlayerState,
   ValidationResult,
 } from "../types";
-import { isWheatedBill } from "../types";
 import { resourceUnits, suppliesResource } from "../cards";
 import { applyProductionCommitEffect } from "../card-effects";
 import { isCurrentPlayer } from "../state";
@@ -128,9 +127,6 @@ function effectiveRecipeMins(
   let minRye = recipe.minRye ?? 0;
   let minBarley = recipe.minBarley ?? 0;
   let minWheat = recipe.minWheat ?? 0;
-  if (player.distillery?.bonus === "wheated_baron" && isWheatedBill(bill)) {
-    minWheat = Math.max(0, minWheat - 1);
-  }
   if (player.pendingMakeDiscount === "grain") {
     // Mash Futures: knock 1 off the largest grain min that's > 0.
     let bestKind: "rye" | "barley" | "wheat" | null = null;

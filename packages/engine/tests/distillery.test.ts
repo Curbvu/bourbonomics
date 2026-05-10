@@ -44,17 +44,18 @@ describe.skip("Distillery selection", () => {
 
   it("assigns the distillery, builds rickhouse slots, and advances the cursor", () => {
     let state = makeSelectionGame();
-    const wheated = state.distilleryPool.find((d) => d.bonus === "wheated_baron")!;
+    const estate = state.distilleryPool.find((d) => d.bonus === "estate")!;
     state = applyAction(state, {
       type: "SELECT_DISTILLERY",
       playerId: "p3",
-      distilleryId: wheated.id,
+      distilleryId: estate.id,
     });
     const p3 = state.players.find((p) => p.id === "p3")!;
-    expect(p3.distillery?.bonus).toBe("wheated_baron");
-    expect(p3.rickhouseSlots).toHaveLength(4);
+    expect(p3.distillery?.bonus).toBe("estate");
+    // The Estate ships with 5 rickhouse slots (its structural ability).
+    expect(p3.rickhouseSlots).toHaveLength(5);
     expect(state.distillerySelectionCursor).toBe(1);
-    expect(state.distilleryPool.find((d) => d.id === wheated.id)).toBeUndefined();
+    expect(state.distilleryPool.find((d) => d.id === estate.id)).toBeUndefined();
   });
 
   it("falls through to starter_deck_draft once every player has picked a distillery", () => {
@@ -65,49 +66,5 @@ describe.skip("Distillery selection", () => {
     }
     expect(state.phase).toBe("starter_deck_draft");
     expect(state.players.every((p) => p.distillery !== null)).toBe(true);
-  });
-
-  it("High-Rye House delivers a free 2-rye via the v2.4 starter trade window", () => {
-    // p3 picks first under reverse-snake; the other two players still
-    // need distilleries before the starter phase begins. Walk all the
-    // way through so the 2-rye lands in p3's finalized deck.
-    let state = makeSelectionGame();
-    const highRye = state.distilleryPool.find((d) => d.bonus === "high_rye")!;
-    state = applyAction(state, {
-      type: "SELECT_DISTILLERY",
-      playerId: "p3",
-      distilleryId: highRye.id,
-    });
-    // p2 and p1 take whatever's left; we don't care which.
-    state = applyAction(state, {
-      type: "SELECT_DISTILLERY",
-      playerId: "p2",
-      distilleryId: state.distilleryPool[0]!.id,
-    });
-    state = applyAction(state, {
-      type: "SELECT_DISTILLERY",
-      playerId: "p1",
-      distilleryId: state.distilleryPool[0]!.id,
-    });
-
-    // After the random deal, p3's starter hand holds the two bonus
-    // 2-rye cards (16 dealt + 2 bonus = 18).
-    const p3Mid = state.players.find((p) => p.id === "p3")!;
-    expect(p3Mid.starterHand).toHaveLength(18);
-    const ryePremiumsMid = p3Mid.starterHand.filter(
-      (c) => c.subtype === "rye" && c.premium && c.resourceCount === 2,
-    );
-    expect(ryePremiumsMid.length).toBe(2);
-
-    // After every drafter passes, the starter hand shuffles into the deck.
-    for (const id of ["p3", "p2", "p1"]) {
-      state = applyAction(state, { type: "STARTER_PASS", playerId: id });
-    }
-    const p3Final = state.players.find((p) => p.id === "p3")!;
-    expect(p3Final.deck).toHaveLength(18);
-    const ryePremiumsFinal = p3Final.deck.filter(
-      (c) => c.subtype === "rye" && c.premium && c.resourceCount === 2,
-    );
-    expect(ryePremiumsFinal.length).toBe(2);
   });
 });

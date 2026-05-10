@@ -40,8 +40,11 @@ export function computeReward(
  * if value falls below the lowest threshold. Variable length —
  * commons may pass a single threshold; legendaries might pass four
  * or five.
+ *
+ * Exported so the UI can highlight the live cell on a reward grid
+ * given a barrel's current age + demand.
  */
-function bandIndex(value: number, bands: readonly number[]): number {
+export function bandIndex(value: number, bands: readonly number[]): number {
   let idx = -1;
   for (let i = 0; i < bands.length; i++) {
     if (value >= bands[i]!) idx = i;

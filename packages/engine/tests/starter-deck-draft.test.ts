@@ -6,13 +6,13 @@ import { defaultMashBillCatalog } from "../src/defaults.js";
 import { STARTER_HAND_SIZE } from "../src/starter-pool.js";
 
 function makeDraftGame(
-  distilleryBonuses?: Array<"vanilla" | "high_rye" | "wheated_baron" | "connoisseur">,
+  distilleryBonuses?: Array<"vanilla" | "estate" | "artisanal" | "patient_cooper">,
 ) {
   const pool = defaultDistilleryPool();
   const catalog = defaultMashBillCatalog();
   // Default: two Vanilla distilleries so the dealt hands are exactly
-  // STARTER_HAND_SIZE — the per-distillery starter mods (e.g. High-Rye's
-  // +2 2-rye) have dedicated tests below.
+  // STARTER_HAND_SIZE. v3 distilleries don't currently mod the starter
+  // pool (`starterPoolMods` left empty for the new roster).
   const bonuses = distilleryBonuses ?? ["vanilla", "vanilla"];
   const startingDistilleries = bonuses.map(
     (b, i) => ({ ...pool.find((d) => d.bonus === b)!, id: `dist_test_${b}_${i}` }),
@@ -48,16 +48,11 @@ describe("starter_deck_draft phase — random deal", () => {
     expect(state.starterUndealtPool.length).toBeGreaterThanOrEqual(0);
   });
 
-  it("applies High-Rye distillery modifications post-deal (2 free 2-rye cards in hand)", () => {
-    const state = makeDraftGame(["vanilla", "high_rye"]);
-    const p2 = state.players.find((p) => p.id === "p2")!;
-    expect(p2.starterHand.length).toBe(STARTER_HAND_SIZE + 2);
-    const ryePremiums = p2.starterHand.filter(
-      (c) => c.subtype === "rye" && (c.resourceCount ?? 1) >= 2,
-    );
-    expect(ryePremiums.length).toBe(2);
-  });
-
+  // The v2 High-Rye House "+2 free 2-rye" mod was retired in the v3
+  // roster rebuild; no v3 distillery currently mods the dealt starter
+  // hand (Single-Barrel House's "+1 Superior Cask" is design-only and
+  // not yet implemented). Re-add coverage when starterPoolMods is
+  // populated for a v3 distillery.
 });
 
 describe("STARTER_TRADE", () => {
@@ -120,11 +115,11 @@ describe("STARTER_SWAP — stuck-hand safety valve", () => {
       // dealing remainder available for swap replacements).
       const pool = defaultDistilleryPool();
       const catalog = defaultMashBillCatalog();
-      const bonuses: Array<"vanilla" | "high_rye" | "wheated_baron" | "connoisseur"> = [
+      const bonuses: Array<"vanilla" | "estate" | "artisanal" | "patient_cooper"> = [
         "vanilla",
-        "high_rye",
-        "wheated_baron",
-        "connoisseur",
+        "estate",
+        "artisanal",
+        "patient_cooper",
       ];
       const distilleries = bonuses.map(
         (b, i) => ({ ...pool.find((d) => d.bonus === b)!, id: `dist_test_${b}_${i}` }),
@@ -175,7 +170,7 @@ describe("STARTER_SWAP — stuck-hand safety valve", () => {
   it("rejects a second swap by the same player", () => {
     const pool = defaultDistilleryPool();
     const catalog = defaultMashBillCatalog();
-    const distilleries = ["vanilla", "high_rye", "wheated_baron", "connoisseur"].map(
+    const distilleries = ["vanilla", "estate", "artisanal", "patient_cooper"].map(
       (b, i) =>
         ({ ...pool.find((d) => d.bonus === b)!, id: `dist_test_${b}_${i}` }),
     );

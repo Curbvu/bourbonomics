@@ -1,9 +1,34 @@
 import type { Draft } from "immer";
-import type { GameAction, GameState, ValidationResult } from "../types";
+import type { Barrel, GameAction, GameState, ValidationResult } from "../types";
 import { ageYearsForCard, applyAgingCommitEffect } from "../card-effects";
 import { isCurrentPlayer } from "../state";
 
 type AgeBourbonAction = Extract<GameAction, { type: "AGE_BOURBON" }>;
+
+/**
+ * v3: shared predicate — does the player still owe a per-turn aging
+ * commit? True when they have any aging-phase barrel that hasn't
+ * already aged this round AND is eligible to age this turn (not just-
+ * completed). Used by ROLL_DEMAND (to arm the gate) and AGE_BOURBON
+ * (to clear it once every aging barrel has been touched).
+ *
+ * Inspected barrels still count toward the requirement — that matches
+ * the existing demand.ts behaviour and keeps the rules deterministic;
+ * if a regulatory hold strands a barrel, the player can PASS_TURN.
+ */
+export function hasUnAgedEligibleBarrel(
+  barrels: readonly Barrel[],
+  round: number,
+  playerId: string,
+): boolean {
+  return barrels.some(
+    (b) =>
+      b.ownerId === playerId &&
+      b.phase === "aging" &&
+      !b.agedThisRound &&
+      (b.completedInRound == null || round > b.completedInRound),
+  );
+}
 
 export function validateAgeBourbon(
   state: GameState,
@@ -72,7 +97,15 @@ export function applyAgeBourbon(
     // This consumed one of the bonus ages granted by Rushed Shipment.
     barrel.extraAgesAvailable = Math.max(0, barrel.extraAgesAvailable - 1);
   }
-  // v2.9: one aging commit per turn satisfies the per-turn cost.
-  player.needsAgeBarrels = false;
+  // v3: every aging barrel must be aged each turn — clear the gate
+  // only when no eligible aging barrel still owes a commit. With a
+  // single aging barrel the result is identical to the v2.9
+  // "one commit clears the requirement" behaviour; with multiple,
+  // the player keeps the gate active until each one is touched.
+  player.needsAgeBarrels = hasUnAgedEligibleBarrel(
+    draft.allBarrels,
+    draft.round,
+    action.playerId,
+  );
   // v2.2: aging does NOT end the player's turn.
 }
