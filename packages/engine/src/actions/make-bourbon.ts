@@ -169,6 +169,52 @@ function effectiveRecipeMins(
 }
 
 /**
+ * v3.1 — Specialty Cask upgrade detection.
+ *
+ * The universal "exactly 1 cask" rule + recipes that demand
+ * `minSpecialty.cask` create a trap: the player commits an ordinary
+ * cask first (satisfying the count), then can't add the required
+ * Specialty cask later (cap exceeded). The barrel is permanently
+ * stuck — the only escape is ABANDON_BARREL, losing the rest of the
+ * pile too.
+ *
+ * Detect a "swap intent" — the new commit holds exactly 1 Specialty
+ * cask, the existing pile holds exactly 1 ordinary cask, and the new
+ * commit holds no other cask. Validation accepts the over-commit;
+ * apply removes the ordinary cask from the production pile (returned
+ * to player.discard) before appending the new commit. Net result:
+ * exactly 1 cask source, upgraded ordinary → Specialty, with the
+ * displaced card back in rotation.
+ */
+export function isCaskUpgrade(
+  existingCards: readonly Card[],
+  newCards: readonly Card[],
+): boolean {
+  let existingOrdinary = 0;
+  let existingSpecialty = 0;
+  for (const c of existingCards) {
+    if (c.type !== "resource") continue;
+    if (!suppliesResource(c, "cask")) continue;
+    if (c.specialty) existingSpecialty += 1;
+    else existingOrdinary += 1;
+  }
+  let newOrdinary = 0;
+  let newSpecialty = 0;
+  for (const c of newCards) {
+    if (c.type !== "resource") continue;
+    if (!suppliesResource(c, "cask")) continue;
+    if (c.specialty) newSpecialty += 1;
+    else newOrdinary += 1;
+  }
+  return (
+    existingOrdinary === 1 &&
+    existingSpecialty === 0 &&
+    newSpecialty === 1 &&
+    newOrdinary === 0
+  );
+}
+
+/**
  * Returns true iff the cumulative committed pile (production cards on
  * the barrel after this commit) satisfies the universal rule + the
  * attached bill's recipe. Used both at validation time (to forbid
@@ -278,9 +324,15 @@ export function validateMakeBourbon(
     tallyCard(totals, card);
   }
 
-  // Hard upper limits — block over-commits that would strand the barrel.
+  // Hard upper limits — block over-commits that would strand the
+  // barrel. Exception: a Specialty Cask upgrade (swap intent) is
+  // allowed even though the raw cask count goes to 2 — apply will
+  // splice the existing ordinary cask out and return it to discard.
   if (totals.caskSources > 1) {
-    return { legal: false, reason: "barrel can hold at most 1 cask source" };
+    const newCards = action.cardIds.map((id) => cardById.get(id)!);
+    if (!isCaskUpgrade(existingBarrel.productionCards, newCards)) {
+      return { legal: false, reason: "barrel can hold at most 1 cask source" };
+    }
   }
   const mins = effectiveRecipeMins(player, existingBarrel.attachedMashBill);
   if (totals.rye > mins.maxRye) {
@@ -311,6 +363,24 @@ export function applyMakeBourbon(
   // Transition ready → construction on first commit.
   if (barrel.phase === "ready") {
     barrel.phase = "construction";
+  }
+
+  // v3.1: Specialty Cask upgrade. If validation accepted the commit
+  // because it's a swap intent (1 ordinary cask in the pile, 1
+  // Specialty cask incoming, no other casks), splice the existing
+  // ordinary cask OUT and return it to the player's discard before
+  // appending the new pile. The completion check below then sees
+  // exactly 1 cask source (the Specialty), recipe satisfied.
+  if (isCaskUpgrade(barrel.productionCards, newCards)) {
+    const idx = barrel.productionCards.findIndex(
+      (c) => c.type === "resource" && suppliesResource(c, "cask") && !c.specialty,
+    );
+    if (idx !== -1) {
+      const removed = barrel.productionCards[idx]!;
+      barrel.productionCards.splice(idx, 1);
+      barrel.productionCardDefIds.splice(idx, 1);
+      player.discard.push(removed);
+    }
   }
 
   // Append the newly committed cards to the production pile.
