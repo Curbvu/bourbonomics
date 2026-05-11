@@ -750,10 +750,42 @@ function renderMashPips(barrel: Barrel) {
   const committed = tallySubtypes(barrel.productionCards);
   const required = recipeMinimums(barrel);
 
+  // Wild-grain discharge. `recipeMinimums` assigns the universal
+  // "≥1 grain" rule (and any extra `minTotalGrain` overflow) to a
+  // specific subtype by preference: barley → wheat → rye. The engine
+  // is more lenient — ANY grain satisfies that wild requirement. If
+  // the player committed a different grain than the preferred slot,
+  // discharge the wild portion against the grain they actually used
+  // so we don't render a hollow pip claiming they still need barley.
+  if (required) {
+    const r = barrel.attachedMashBill?.recipe ?? {};
+    const namedReqs: Record<"rye" | "barley" | "wheat", number> = {
+      rye: r.minRye ?? 0,
+      barley: r.minBarley ?? 0,
+      wheat: r.minWheat ?? 0,
+    };
+    let dischargeable = 0;
+    for (const g of ["rye", "barley", "wheat"] as const) {
+      dischargeable += Math.max(0, committed[g] - namedReqs[g]);
+    }
+    for (const sub of ["barley", "wheat", "rye"] as const) {
+      if (dischargeable <= 0) break;
+      const wildPart = Math.max(0, required[sub] - namedReqs[sub]);
+      const discharge = Math.min(wildPart, dischargeable);
+      required[sub] -= discharge;
+      dischargeable -= discharge;
+    }
+  }
+
+  // Safety net: if the engine has already flipped the barrel into
+  // aging, the recipe is satisfied by definition. Suppress every
+  // hollow pip so a render bug can never contradict the engine.
+  const recipeSatisfied = barrel.phase === "aging";
+
   const pips: React.ReactNode[] = [];
   for (const sub of SUBTYPE_ORDER) {
     const have = committed[sub];
-    const need = required ? required[sub] : 0;
+    const need = required && !recipeSatisfied ? required[sub] : 0;
     const slots = Math.max(have, need);
     for (let i = 0; i < slots; i++) {
       const isFilled = i < have;
