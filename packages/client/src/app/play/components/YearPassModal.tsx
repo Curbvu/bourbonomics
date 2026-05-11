@@ -116,32 +116,41 @@ export default function YearPassModal() {
     }
   }, [round, dismissedRound]);
 
+  // Compute visibility BEFORE the early returns so the keyboard effect
+  // can gate on the same condition. Avoids attaching a global keydown
+  // listener when the modal isn't even on screen.
+  const human = state?.players.find((p) => p.id === humanSeatPlayerId);
+  const isVisible = Boolean(
+    state &&
+      state.phase === "draw" &&
+      state.round > 1 &&
+      !autoplay &&
+      humanSeatPlayerId &&
+      human &&
+      !state.playerIdsCompletedPhase.includes(human.id) &&
+      dismissedRound !== state.round,
+  );
+
   // Keyboard: Enter / Space dismisses, matching the other phase modals'
-  // ↵ affordance.
+  // ↵ affordance. Only attach while the modal is showing — otherwise
+  // we'd intercept Enter on every page (including focused buttons in
+  // other modals, which would dispatch them AND dismiss us at once).
+  // preventDefault / stopPropagation so a focused "Draw cards" button
+  // underneath doesn't fire from the same keypress.
   useEffect(() => {
+    if (!isVisible) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
-        if (state && state.phase === "draw" && state.round > 1) {
-          setDismissedRound(state.round);
-        }
+        e.preventDefault();
+        e.stopPropagation();
+        if (state) setDismissedRound(state.round);
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [state]);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [isVisible, state]);
 
-  if (!state) return null;
-  if (state.phase !== "draw") return null;
-  if (state.round <= 1) return null;
-  if (autoplay) return null;
-  if (!humanSeatPlayerId) return null;
-  if (dismissedRound === state.round) return null;
-
-  // If the human has already drawn this round (e.g. arrived after a
-  // page reload mid-round), don't strand them on a stale recap.
-  const human = state.players.find((p) => p.id === humanSeatPlayerId);
-  if (!human) return null;
-  if (state.playerIdsCompletedPhase.includes(human.id)) return null;
+  if (!isVisible || !state || !human) return null;
 
   const summary = summarizeRound(state, log, seatMeta, state.round - 1);
 

@@ -699,11 +699,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
           // sending a stale action (e.g. the player double-clicked,
           // the second dispatch ran after the first changed state).
           // Log the underlying error so it's visible in the console
-          // and drop the action without nuking the page.
+          // and drop the action without nuking the page. Surface the
+          // action type and player at the top-level message so a
+          // glance at the console explains "what got dropped" without
+          // needing to expand the inspector — the previous form put
+          // both inside a collapsed object and was effectively opaque.
+          const reason = err instanceof Error ? err.message : String(err);
+          const actorId =
+            "playerId" in (final as Record<string, unknown>)
+              ? String((final as { playerId?: unknown }).playerId ?? "—")
+              : "—";
           // eslint-disable-next-line no-console
           console.error(
-            "[bourbonomics] applyAction rejected an action; dropping.",
-            { action: final, error: err },
+            `[bourbonomics] applyAction rejected ${final.type} by ${actorId}: ${reason}`,
+            { action: final, error: err, phase: prev.state.phase, round: prev.state.round },
           );
           return prev;
         }
