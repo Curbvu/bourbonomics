@@ -27,9 +27,18 @@ interface TourStop {
 
 const STOPS: TourStop[] = [
   {
+    // Framing card — no spotlight, full dim, sets up the next 6 stops
+    // as a guided board walkthrough. Dismissible via Continue, like
+    // every other stop.
+    id: "tour-intro",
+    title: "Quick board tour",
+    body: "We're going to walk you through the board.",
+    spotlight: { kind: "none" },
+  },
+  {
     id: "rickhouse",
     title: "Your Rickhouse",
-    body: "Four slots. This is where bourbon ages. You've already drafted two recipes — Backroad Batch and Heritage Reserve — sitting **ready** in your slots, waiting for ingredients.",
+    body: "Four slots. This is where bourbon ages. You've already drafted two recipes — Backroad Batch and Heritage Reserve — sitting **ready** in your slots, waiting for resources.",
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },
   {
@@ -62,6 +71,16 @@ const STOPS: TourStop[] = [
     body: "Reputation is the score. You earn it by **selling bourbon** — the rarer the recipe, the longer it ages, and the higher the demand at sale time, the more reputation you earn. **Get the highest reputation to win the game.**",
     spotlight: { kind: "reputation" },
   },
+  {
+    // Closing card — bridges the board tour into live gameplay. No
+    // spotlight (full dim) so it reads as a chapter card rather than a
+    // zone callout. Continue (rendered as "Start playing" for the last
+    // stop) hands off to the play phase.
+    id: "play-prelude",
+    title: "How you play",
+    body: "Make bourbon, age bourbon, then sell it for reputation. The distillery with the most reputation when all the bourbon is gone is the winner.",
+    spotlight: { kind: "none" },
+  },
 ];
 
 export default function BoardTour({ onDone, onQuit }: BoardTourProps) {
@@ -82,9 +101,18 @@ export default function BoardTour({ onDone, onQuit }: BoardTourProps) {
     else setStopIdx((i) => i + 1);
   };
 
+  // Title-card stops (no spotlight target) get a flat full-screen dim
+  // so the modal pops as an interstitial. SpotlightLayer renders
+  // nothing for `kind: "none"` — we'd otherwise be overlaying a modal
+  // on a fully-lit board, which doesn't read as "chapter card."
+  const isTitleCard = stop.spotlight.kind === "none";
+
   return (
     <>
       <SpotlightLayer target={stop.spotlight} />
+      {isTitleCard ? (
+        <div className="pointer-events-none fixed inset-0 z-40 animate-bb-spot-fade bg-slate-950/85" />
+      ) : null}
       <div className="pointer-events-auto fixed inset-x-0 bottom-12 z-50 mx-auto w-full max-w-md px-6">
         {/* `key={stop.id}` forces a remount on every advance so the
             pop keyframe replays. Spotlight + dim slide between zones

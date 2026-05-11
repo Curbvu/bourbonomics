@@ -30,6 +30,7 @@ import IntroSequence from "./IntroSequence";
 import BoardTour from "./BoardTour";
 import Confetti from "./Confetti";
 import Dice from "./Dice";
+import DragHintAnimation from "./DragHintAnimation";
 import { TUTORIAL_BEATS, spotlightSpecialtyRye } from "./beats";
 import type { Beat, SpotlightTarget } from "./types";
 import { RichText, SpotlightLayer } from "./Spotlight";
@@ -359,9 +360,31 @@ export default function TutorialController() {
     );
   }
 
+  // Beat 1's body is "Tag 1 cask + 1 corn + 1 rye and click Backroad
+  // Batch. (Drag also works.)" — words alone don't communicate the
+  // gesture. Render a looping click-and-drag animation from the first
+  // cask in hand to the Backroad slot so the player SEES the motion.
+  // Only fires for beat-1; for any other beat the source/dest selectors
+  // wouldn't make sense and the standard spotlight ring is enough.
+  const dragHint = (() => {
+    if (!beat || beat.id !== "beat-1-make-backroad") return null;
+    const human = state?.players.find((p) => p.id === TUTORIAL_HUMAN_ID);
+    const firstCask = human?.hand.find(
+      (c) => c.type === "resource" && c.subtype === "cask",
+    );
+    if (!firstCask) return null;
+    return (
+      <DragHintAnimation
+        fromSelector={`[data-card-id="${firstCask.id}"]`}
+        toSelector={`[data-slot-id="slot_${TUTORIAL_HUMAN_ID}_0"]`}
+      />
+    );
+  })();
+
   return (
     <>
       <SpotlightLayer target={liveSpotlight} />
+      {dragHint}
       <BeatOverlay
         beat={beat}
         decisionReply={decisionReply}
@@ -487,10 +510,25 @@ function CoachMark({
   canGoBack: boolean;
   onBack: () => void;
 }) {
+  // Action-button beats spotlight a control in the bottom action bar
+  // (Sell, Make, Buy, etc.). Pinning the coach mark to top-right made
+  // the player's eyes ping-pong across the screen — read the prompt
+  // top-right, find the highlighted button bottom-left. Anchor the
+  // mark just above the action bar instead so the spotlight ring and
+  // the instructions sit in the same visual cluster.
+  const nearActionBar =
+    beat.kind === "await-action" && beat.spotlight?.kind === "action-button";
+  // bottom-52 (208px) clears the action bar AND the hand tray below it
+  // — the action bar isn't `fixed`, it sits in flex flow above the
+  // hand cards, so we need to clear both. The card sits just above the
+  // SELL/MAKE/etc. spotlight ring instead of competing with the hand.
+  const wrapperClass = nearActionBar
+    ? "animate-bb-tour-pop pointer-events-auto fixed inset-x-0 bottom-52 z-50 mx-auto w-[360px] rounded-xl border-2 border-amber-400/80 bg-slate-900 p-4 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_28px_rgba(251,191,36,.16),inset_0_1px_0_rgba(251,191,36,.10)]"
+    : "animate-bb-tour-pop pointer-events-auto fixed right-6 top-20 z-50 w-[360px] rounded-xl border-2 border-amber-400/80 bg-slate-900 p-4 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_28px_rgba(251,191,36,.16),inset_0_1px_0_rgba(251,191,36,.10)]";
   return (
     <div
       key={beat.id}
-      className="animate-bb-tour-pop pointer-events-auto fixed right-6 top-20 z-50 w-[360px] rounded-xl border-2 border-amber-400/80 bg-slate-900 p-4 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_28px_rgba(251,191,36,.16),inset_0_1px_0_rgba(251,191,36,.10)]"
+      className={wrapperClass}
     >
       <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[.18em] text-amber-300">
         <span>Tutorial · {beatIndex + 1} / {totalBeats}</span>
