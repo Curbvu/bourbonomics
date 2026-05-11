@@ -19,10 +19,10 @@ For the impatient. Read once, play once, the rest of the rulebook will make sens
 You run a bourbon distillery. You have a **rickhouse** (4 barrel slots), a **deck** (16 starter cards), and **mash bills** (recipes) that live directly in your rickhouse slots. Each round:
 
 1. **Draw 8** cards from your deck.
-2. **Take your turn** — Roll demand → Age a barrel → Take actions (make / sell / buy / trade / etc.).
+2. **Take your turn** — Roll demand → Age every aging barrel → Take actions (make / sell / buy / trade / etc.).
 3. **Cleanup.** Discards reset, the start player rotates, next round.
 
-Each player's turn opens with their own demand roll and a mandatory aging commit (1 card to one of their aging barrels) — that's the holding cost for keeping inventory. *Then* the rest of their turn opens up.
+Each player's turn opens with their own demand roll and a mandatory aging commit (1 card to **every** one of their aging barrels) — that's the holding cost for keeping inventory. *Then* the rest of their turn opens up.
 
 ### The core loop
 
@@ -92,7 +92,7 @@ Each player shuffles and **draws 8 cards** as their opening hand.
 Three phases per round:
 
 1. **Draw** — each player draws 8 cards from their resource deck.
-2. **Action** — players take full turns in the rotated order. Each turn runs as **Roll demand → Age a barrel → Take actions** (see [§Action Phase](#-action-phase) for the gated sub-steps).
+2. **Action** — players take full turns in the rotated order. Each turn runs as **Roll demand → Age every aging barrel → Take actions** (see [§Action Phase](#-action-phase) for the gated sub-steps).
 3. **Cleanup** — unused resource and capital cards go to discard; per-round flags reset; start player rotates one seat counter-clockwise.
 
 **Operations cards persist** — they're not discarded at end of round.
@@ -151,7 +151,7 @@ When the barrel sells, all aging cards go to the player's discard.
 Each player takes their **full turn** in rotated order. The turn opens with two mandatory micro-steps before the free actions begin:
 
 1. **Roll demand** (see [§Demand](#-demand-per-turn-v29)).
-2. **Age a barrel** (see [§Aging](#️-aging-per-turn-v29)) — only required if you have any un-aged aging barrels.
+2. **Age every aging barrel** (see [§Aging](#️-aging-per-turn-v29)) — commit one card per un-aged aging barrel; skipped only if you have none.
 3. **Free actions** — take as many of these as you want, in any order: Make Bourbon, Sell Bourbon, Buy from the Market, Buy Operations Card, Draw a Mash Bill, Trade, Trash a Card. End the turn voluntarily when you're done.
 
 Until both gated micro-steps are paid, the engine rejects every other action except `PASS_TURN` and `PLAY_OPERATIONS_CARD` (which always plays free).
@@ -626,7 +626,7 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 
 - **v2.9** —
   - **Per-turn demand rolls.** Demand is no longer a once-per-round global ceremony at the top of the round. Each player rolls their own 2d6 at the very start of *their own* action turn — it's the mandatory first action of the turn, gated by `player.needsDemandRoll` (set when the cursor lands on the seat, cleared by ROLL_DEMAND). The phase strip drops the dedicated `demand` phase; rounds now run **Draw → Action → Cleanup**. Demand can rise up to N times per round (once per player) instead of once total, accelerating the market. Multiplayer: each player sees their own demand-roll modal at the top of their turn (others wait for the broadcast); bots roll inline via the orchestrator.
-  - **Mandatory per-turn aging.** The dedicated Age phase is gone. Right after the demand roll, the active player **must commit one card from hand to one of their aging barrels** before taking any other action — gated by `player.needsAgeBarrels` (set by ROLL_DEMAND when the player has any un-aged aging barrel, cleared by AGE_BOURBON). Players with no aging barrels skip the cost; players with no cards in hand can `PASS_TURN` (forfeits the turn) or `ABANDON_BARREL` (only for ready/construction barrels — aging barrels can only leave via SELL). The per-turn loop is now: **Roll → Age → Actions**, creating a real holding cost for sitting on inventory while waiting for demand to rise.
+  - **Mandatory per-turn aging.** The dedicated Age phase is gone. Right after the demand roll, the active player **must commit one card from hand to every one of their eligible aging barrels** before taking any other action — gated by `player.needsAgeBarrels` (set by ROLL_DEMAND when the player has any un-aged aging barrel, cleared by AGE_BOURBON once every eligible barrel has been touched). Players with no aging barrels skip the cost; players with no cards in hand can `PASS_TURN` (forfeits the turn) or `ABANDON_BARREL` (only for ready/construction barrels — aging barrels can only leave via SELL). The per-turn loop is now: **Roll → Age → Actions**, creating a real holding cost for sitting on inventory while waiting for demand to rise. v3 tightened this from "one barrel touched is enough" to "every aging barrel must be touched" — multiple aging barrels now compound the holding cost.
   - **Tutorial mode.** New `/tutorial` route — an overlay-driven walkthrough that boots a deterministic solo game (1 human + 1 bot, seed 42) and narrates 13 steps from welcome through the player's first sale. The overlay paints a yellow halo or cutout dim around the call-to-action zone; steps with auto-advance predicates fire forward when the player satisfies the relevant `GameState` condition (round ticked, barrel reached aging, age ≥ 2, barrelsSold ≥ 1, etc.). Read-only board-tour pages get a hard cutout dim; live-action pages stay light so the player can see and click the whole board. Skip button on every step. The home screen surfaces it as a violet tile so a fresh player lands here first.
 - **v2.8** —
   - **Multiplayer (online).** Host a 4-char-code room at `/multiplayer`; friends join via share link, claim seats, the host hits Start. Server-authoritative — every action round-trips through `applyAction` on AWS Lambda, then broadcasts to every connected client. Bot turns inline-step server-side so bot moves animate instantly between human turns. Pre-game lobby (waiting room with roster + Start button), seat claiming + release, reconnect-by-name, spectator mode, host-gated demand roll, per-seat draw modals. Setup-phase modals self-gate to the seat the engine is on the clock for. Infra: SST 4 / API Gateway WebSocket / DynamoDB rooms+connections / EventBridge cron tick fallback. See §Multiplayer for the full flow.
