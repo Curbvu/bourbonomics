@@ -9,6 +9,7 @@ import GameErrorBoundary from "./components/ErrorBoundary";
 import GameTopBar from "./components/GameTopBar";
 import MainMenu from "./components/MainMenu";
 import StarterDeckDraftModal from "./components/StarterDeckDraftModal";
+import YearPassModal from "./components/YearPassModal";
 import { useGameStore } from "@/lib/store/game";
 
 export default function PlayPage() {
@@ -54,6 +55,10 @@ export default function PlayPage() {
       <StarterDeckDraftModal />
       <DemandRollModal />
       <DrawPhaseModal />
+      {/* Mounted last so it sits above DrawPhaseModal in the DOM stack
+          (z-55 vs z-50). The player reads the year-pass recap, hits
+          Begin year, and the draw modal underneath becomes interactive. */}
+      <YearPassModal />
     </main>
   );
 }
