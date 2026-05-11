@@ -134,7 +134,7 @@ export default function DemandRollModal() {
             Round {state.round} · Your demand roll
           </div>
           <div className="mt-1 font-display text-2xl font-semibold text-amber-100">
-            Roll 2d6 to set the market temperature
+            Roll 2 dice to set the market temperature
           </div>
           <div className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
             current demand · <span className="text-amber-200 tabular-nums">{state.demand}/12</span>

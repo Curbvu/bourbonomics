@@ -9,8 +9,9 @@
 
 import { useEffect, useState } from "react";
 
-import type { GamePhase } from "@bourbonomics/engine";
+import type { GamePhase, GameState } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
+import PlayerSwatch from "./PlayerSwatch";
 
 type DisplayPhase = "draw" | "age" | "action" | "cleanup";
 
@@ -35,7 +36,7 @@ function visiblePhase(phase: GamePhase): DisplayPhase | null {
 }
 
 export default function GameTopBar() {
-  const { state, autoplay, setAutoplay, step, clear } = useGameStore();
+  const { state, autoplay, setAutoplay, step, clear, seatMeta } = useGameStore();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -60,6 +61,16 @@ export default function GameTopBar() {
 
   return (
     <header className="border-b border-slate-800 bg-slate-950">
+      {/* Reputation leaderboard — slim sub-row above the main controls
+          so the standings are always visible without crowding the
+          phase strip. Hidden during setup/end since rep deltas don't
+          mean much there. */}
+      {showRoundChrome ? (
+        <RepLeaderboard
+          state={state}
+          seatMeta={seatMeta}
+        />
+      ) : null}
       <div className="flex items-center gap-3 px-[18px] py-2">
         {/* Brand */}
         <div className="flex flex-shrink-0 items-center gap-2">
@@ -279,6 +290,98 @@ function SetupBanner({ phase }: { phase: "distillery_selection" | "starter_deck_
   return (
     <div className="flex flex-1 items-center justify-center font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
       {label}
+    </div>
+  );
+}
+
+// -----------------------------
+// Reputation leaderboard
+// -----------------------------
+
+function RepLeaderboard({
+  state,
+  seatMeta,
+}: {
+  state: GameState;
+  seatMeta: { id: string; logoId?: string | null }[];
+}) {
+  // Sort by reputation desc, ties broken by barrelsSold desc — matches
+  // the engine's end-of-game tiebreaker so the on-board ranking lines
+  // up with the final standings.
+  const ranked = state.players
+    .map((p, seatIndex) => ({ player: p, seatIndex }))
+    .sort((a, b) => {
+      const rep = b.player.reputation - a.player.reputation;
+      if (rep !== 0) return rep;
+      return b.player.barrelsSold - a.player.barrelsSold;
+    });
+  const leaderRep = ranked[0]?.player.reputation ?? 0;
+  const isCurrentTurn = (id: string) =>
+    state.phase === "action" &&
+    state.players[state.currentPlayerIndex]?.id === id;
+
+  return (
+    <div className="flex items-center gap-3 border-b border-slate-800/60 bg-slate-950/60 px-[18px] py-1">
+      <span className="font-mono text-[9px] uppercase tracking-[.18em] text-slate-500">
+        Leaderboard
+      </span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {ranked.map(({ player, seatIndex }, rankIdx) => {
+          const meta = seatMeta.find((m) => m.id === player.id);
+          // Tie at the top: every player with rep === leaderRep gets
+          // the leader chrome, not just rank 0. Otherwise the visual
+          // implies a winner where the standings actually disagree.
+          const isLeader =
+            player.reputation === leaderRep && leaderRep > 0;
+          const isOnClock = isCurrentTurn(player.id);
+          return (
+            <span
+              key={player.id}
+              title={`${player.name} — ${player.reputation} rep · ${player.barrelsSold} sold`}
+              className={[
+                "flex items-center gap-1.5 rounded border px-1.5 py-[2px] transition-colors",
+                isLeader
+                  ? "border-amber-500/70 bg-amber-700/[0.18]"
+                  : "border-slate-800 bg-slate-900/40",
+                isOnClock
+                  ? "shadow-[0_0_0_1px_rgba(251,191,36,.35)]"
+                  : "",
+              ].join(" ")}
+            >
+              <PlayerSwatch
+                seatIndex={seatIndex}
+                logoId={meta?.logoId}
+                size="xs"
+                ring={false}
+              />
+              <span
+                className={[
+                  "font-mono text-[10px] uppercase tracking-[.06em]",
+                  isLeader ? "text-amber-100" : "text-slate-300",
+                ].join(" ")}
+              >
+                {player.name}
+              </span>
+              <span
+                className={[
+                  "font-mono text-[11px] font-bold tabular-nums",
+                  isLeader ? "text-amber-300" : "text-slate-400",
+                ].join(" ")}
+              >
+                {player.reputation}
+              </span>
+              {/* Tiny rank pill for everyone past first — quick read
+                  of "who's chasing whom" without doing arithmetic on
+                  the rep numbers. */}
+              {rankIdx > 0 ? (
+                <span className="font-mono text-[8px] uppercase tracking-[.10em] text-slate-500">
+                  #{rankIdx + 1}
+                </span>
+              ) : null}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }
