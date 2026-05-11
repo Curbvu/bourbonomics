@@ -61,16 +61,6 @@ export default function GameTopBar() {
 
   return (
     <header className="border-b border-slate-800 bg-slate-950">
-      {/* Reputation leaderboard — slim sub-row above the main controls
-          so the standings are always visible without crowding the
-          phase strip. Hidden during setup/end since rep deltas don't
-          mean much there. */}
-      {showRoundChrome ? (
-        <RepLeaderboard
-          state={state}
-          seatMeta={seatMeta}
-        />
-      ) : null}
       <div className="flex items-center gap-3 px-[18px] py-2">
         {/* Brand */}
         <div className="flex flex-shrink-0 items-center gap-2">
@@ -104,6 +94,16 @@ export default function GameTopBar() {
         ) : (
           <span className="flex-1" aria-hidden />
         )}
+
+        {/* Reputation leaderboard — folded into the top bar so the
+            standings sit alongside the phase strip instead of eating
+            a second row. Hidden during setup/end since rep deltas
+            don't mean much there. */}
+        {showRoundChrome ? (
+          <RepLeaderboard state={state} seatMeta={seatMeta} />
+        ) : null}
+
+        <span className={showRoundChrome ? "mx-1 h-[28px] w-px bg-slate-800" : "hidden"} aria-hidden />
 
         {/* Right cluster: demand chip + bourbon counter + controls */}
         {showRoundChrome ? (
@@ -321,12 +321,8 @@ function RepLeaderboard({
     state.players[state.currentPlayerIndex]?.id === id;
 
   return (
-    <div className="flex items-center gap-3 border-b border-slate-800/60 bg-slate-950/60 px-[18px] py-1">
-      <span className="font-mono text-[9px] uppercase tracking-[.18em] text-slate-500">
-        Leaderboard
-      </span>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {ranked.map(({ player, seatIndex }, rankIdx) => {
+    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+      {ranked.map(({ player, seatIndex }, rankIdx) => {
           const meta = seatMeta.find((m) => m.id === player.id);
           // Tie at the top: every player with rep === leaderRep gets
           // the leader chrome, not just rank 0. Otherwise the visual
@@ -381,7 +377,6 @@ function RepLeaderboard({
             </span>
           );
         })}
-      </div>
     </div>
   );
 }
