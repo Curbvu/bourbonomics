@@ -13,10 +13,9 @@
  *      pre-join modal so the player picks their name before we
  *      open the socket.
  *
- * Setup-phase modals (distillery selection, deck draft) are
- * intentionally skipped here for the v1 MVP: DISTILLERIES_ENABLED
- * is false and the engine pre-assigns Vanilla, so the human goes
- * straight to the action phase.
+ * Setup-phase modals — distillery selection (v2.10), starter-deck
+ * draft, and demand-roll — fire only on the seat the engine is on
+ * the clock for; other seats see "waiting on X".
  */
 
 import { use, useEffect, useState } from "react";
