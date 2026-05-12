@@ -100,12 +100,14 @@ describe("Card effect — bump_demand on_commit_production", () => {
     state = advanceToActionPhase(state, [1, 1]);
     const cask = makeResourceCard("cask", "p1", 0);
     const corn = makeResourceCard("corn", "p1", 1);
-    // Distiller's Reserve Rye: 3 rye + composite [bump_demand +1, +2 rep on sale].
+    // Distiller's Reserve Rye: 1 rye + composite [bump_demand +1, +2 rep on sale].
+    // v2.10: was 3 units but Common bills want exactly 1 grain total, so
+    // dropped to 1 to exercise the effect on a vanilla recipe.
     const rye = makePremiumResource({
       defId: "distillers_reserve_rye",
       displayName: "Distiller's Reserve Rye",
       subtype: "rye",
-      resourceCount: 3,
+      resourceCount: 1,
       cost: 8,
       effect: {
         kind: "composite",

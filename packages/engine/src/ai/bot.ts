@@ -572,8 +572,10 @@ function pickGoldConvertTarget(
 }
 
 /**
- * Predicate: does `pile` satisfy `bill`'s recipe under the universal
- * rules? Mirrors the engine's check in sell-bourbon.ts.
+ * Predicate: does `pile` **exactly** satisfy `bill`'s recipe under the
+ * v2.10 rules? Mirrors `make-bourbon.recipeSatisfied`. Used by the
+ * bot's Gold Convert picker to decide whether a slot's current pile
+ * would survive a recipe relabel.
  */
 function recipeSatisfiedByPile(
   player: PlayerState,
@@ -582,52 +584,61 @@ function recipeSatisfiedByPile(
 ): boolean {
   const recipe = bill.recipe ?? {};
   let cask = 0,
+    plainCask = 0,
     corn = 0,
     rye = 0,
     barley = 0,
     wheat = 0;
+  let spCask = 0,
+    spCorn = 0,
+    spRye = 0,
+    spBarley = 0,
+    spWheat = 0;
   for (const c of pile) {
     if (c.type !== "resource") continue;
-    if (c.subtype === "cask") cask += c.resourceCount ?? 1;
-    if (c.subtype === "corn") corn += c.resourceCount ?? 1;
-    if (c.subtype === "rye") rye += c.resourceCount ?? 1;
-    if (c.subtype === "barley") barley += c.resourceCount ?? 1;
-    if (c.subtype === "wheat") wheat += c.resourceCount ?? 1;
-  }
-  const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  const minWheat = recipe.minWheat ?? 0;
-  if (cask !== 1) return false;
-  if (corn < minCorn) return false;
-  if (rye < (recipe.minRye ?? 0)) return false;
-  if (barley < (recipe.minBarley ?? 0)) return false;
-  if (wheat < minWheat) return false;
-  if (recipe.maxRye !== undefined && rye > recipe.maxRye) return false;
-  if (recipe.maxWheat !== undefined && wheat > recipe.maxWheat) return false;
-  const grain = rye + barley + wheat;
-  if (grain < Math.max(recipe.minTotalGrain ?? 0, 1)) return false;
-  // v2.7.2: per-subtype Specialty requirements.
-  const sp = recipe.minSpecialty;
-  if (sp) {
-    let spCask = 0,
-      spCorn = 0,
-      spRye = 0,
-      spBarley = 0,
-      spWheat = 0;
-    for (const c of pile) {
-      if (c.type !== "resource" || !c.specialty) continue;
-      const count = c.resourceCount ?? 1;
+    const count = c.resourceCount ?? 1;
+    if (c.subtype === "cask") {
+      cask += count;
+      if (!c.specialty) plainCask += count;
+    }
+    if (c.subtype === "corn") corn += count;
+    if (c.subtype === "rye") rye += count;
+    if (c.subtype === "barley") barley += count;
+    if (c.subtype === "wheat") wheat += count;
+    if (c.specialty) {
       if (c.subtype === "cask") spCask += count;
       if (c.subtype === "corn") spCorn += count;
       if (c.subtype === "rye") spRye += count;
       if (c.subtype === "barley") spBarley += count;
       if (c.subtype === "wheat") spWheat += count;
     }
-    if (spCask < (sp.cask ?? 0)) return false;
-    if (spCorn < (sp.corn ?? 0)) return false;
-    if (spRye < (sp.rye ?? 0)) return false;
-    if (spBarley < (sp.barley ?? 0)) return false;
-    if (spWheat < (sp.wheat ?? 0)) return false;
   }
+  const sp = recipe.minSpecialty ?? {};
+  const minCorn = Math.max(Math.max(1, recipe.minCorn ?? 0), sp.corn ?? 0);
+  const minRye = Math.max(recipe.minRye ?? 0, sp.rye ?? 0);
+  const minBarley = Math.max(recipe.minBarley ?? 0, sp.barley ?? 0);
+  const minWheat = Math.max(recipe.minWheat ?? 0, sp.wheat ?? 0);
+  const namedGrainSum = minRye + minBarley + minWheat;
+  const minTotal = Math.max(
+    recipe.minTotalGrain ?? 0,
+    namedGrainSum === 0 ? 1 : namedGrainSum,
+  );
+  if (cask !== 1) return false;
+  if ((sp.cask ?? 0) >= 1 && plainCask > 0) return false;
+  // Corn exact; per-grain floors; total grain exact (matches engine).
+  if (corn !== minCorn) return false;
+  if (rye < minRye) return false;
+  if (barley < minBarley) return false;
+  if (wheat < minWheat) return false;
+  if (recipe.maxRye !== undefined && rye > recipe.maxRye) return false;
+  if (recipe.maxWheat !== undefined && wheat > recipe.maxWheat) return false;
+  const grain = rye + barley + wheat;
+  if (grain !== minTotal) return false;
+  if (spCask < (sp.cask ?? 0)) return false;
+  if (spCorn < (sp.corn ?? 0)) return false;
+  if (spRye < (sp.rye ?? 0)) return false;
+  if (spBarley < (sp.barley ?? 0)) return false;
+  if (spWheat < (sp.wheat ?? 0)) return false;
   return true;
 }
 
@@ -688,20 +699,39 @@ function planCardsTowardRecipe(
   existingPile: Card[],
 ): string[] {
   const recipe = bill.recipe ?? {};
-  const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  const minRye = recipe.minRye ?? 0;
-  const minBarley = recipe.minBarley ?? 0;
-  const minWheat = recipe.minWheat ?? 0;
+  const sp = recipe.minSpecialty ?? {};
+  // v2.10 exact-recipe: bake specialty floors into per-subtype mins
+  // so a `minRye: 0, minSpecialty.rye: 1` recipe registers as
+  // "needs 1 rye total" — the planner picks one Specialty Rye and
+  // satisfies both gates with a single card.
+  const minCorn = Math.max(Math.max(1, recipe.minCorn ?? 0), sp.corn ?? 0);
+  const minRye = Math.max(recipe.minRye ?? 0, sp.rye ?? 0);
+  const minBarley = Math.max(recipe.minBarley ?? 0, sp.barley ?? 0);
+  let minWheat = Math.max(recipe.minWheat ?? 0, sp.wheat ?? 0);
+  // Mirror the engine's Wheated Baron / Mash Futures discount here so
+  // the planner's effective totals match what `recipeSatisfied` will
+  // accept. Otherwise the planner picks one more wheat than the
+  // engine expects and the commit gets rejected.
+  if (
+    player.distillery?.bonus === "wheated_baron" &&
+    recipe.maxRye === 0 &&
+    minWheat > 0
+  ) {
+    minWheat = Math.max(0, minWheat - 1);
+  }
   const maxRye = recipe.maxRye ?? Infinity;
   const maxWheat = recipe.maxWheat ?? Infinity;
+  const spCaskReq = sp.cask ?? 0;
+  const spCornReq = sp.corn ?? 0;
+  const spRyeReq = sp.rye ?? 0;
+  const spBarleyReq = sp.barley ?? 0;
+  const spWheatReq = sp.wheat ?? 0;
 
   const tally = tallyPile(existingPile);
   const used = new Set<string>();
   const picks: string[] = [];
   // v2.10 Wheated Baron: rye cards are not legal commits. Mark every
-  // rye in hand as used so the planner never reaches for one. Bills
-  // requiring rye that fall through here will simply produce an empty
-  // pick list — and `chooseMakeBourbon` will skip the candidate.
+  // rye in hand as used so the planner never reaches for one.
   if (player.distillery?.bonus === "wheated_baron") {
     for (const c of player.hand) {
       if (c.type === "resource" && c.subtype === "rye") used.add(c.id);
@@ -709,66 +739,120 @@ function planCardsTowardRecipe(
   }
 
   // Cask first — exactly 1 needed per barrel (Cooper's Contract aside).
+  // v2.10: if the recipe demands a Specialty cask, only a Specialty
+  // cask is legal (plain casks would brick the barrel).
   if (tally.cask < 1) {
-    const cask = player.hand.find((c) => !used.has(c.id) && suppliesResource(c, "cask"));
+    const cask = player.hand.find((c) => {
+      if (used.has(c.id) || !suppliesResource(c, "cask")) return false;
+      if (spCaskReq >= 1) return c.specialty === true;
+      return true;
+    });
     if (cask) {
       used.add(cask.id);
       picks.push(cask.id);
       tally.cask += 1;
     }
   }
-  // Corn up to recipe min.
+  // Corn up to recipe min. Pull Specialty Corn first if the recipe
+  // demands any so a single card ticks both boxes.
   while (tally.corn < minCorn) {
-    const taken = takeBySubtype(player.hand, "corn", 1, used);
+    const taken = takeBySubtype(player.hand, "corn", 1, used, spCornReq > 0);
     if (!taken || taken.length === 0) break;
     for (const c of taken) {
       picks.push(c.id);
       tally.corn += resourceUnits(c, "corn");
     }
   }
-  // Rye / Barley / Wheat up to recipe min.
+  // Rye / Barley / Wheat up to recipe min (Specialty-preferred when gated).
+  // v2.10 exact-recipe: each per-grain loop also caps against the
+  // recipe's total-grain ceiling so a multi-unit specialty pick can't
+  // overshoot the whole barrel.
+  const minTotalGrain = Math.max(
+    recipe.minTotalGrain ?? 0,
+    minRye + minBarley + minWheat || 1,
+  );
+  const totalGrainNow = () => tally.rye + tally.barley + tally.wheat;
   while (tally.rye < minRye) {
     if (tally.rye + 1 > maxRye) break;
-    const taken = takeBySubtype(player.hand, "rye", 1, used);
+    if (totalGrainNow() >= minTotalGrain) break;
+    const taken = takeBySubtype(player.hand, "rye", 1, used, spRyeReq > 0);
     if (!taken || taken.length === 0) break;
-    for (const c of taken) {
-      picks.push(c.id);
-      tally.rye += resourceUnits(c, "rye");
+    const c = taken[0]!;
+    const units = resourceUnits(c, "rye");
+    if (totalGrainNow() + units > minTotalGrain) {
+      // multi-unit specialty would overshoot the total; back out
+      used.delete(c.id);
+      break;
     }
+    picks.push(c.id);
+    tally.rye += units;
   }
   while (tally.barley < minBarley) {
-    const taken = takeBySubtype(player.hand, "barley", 1, used);
+    if (totalGrainNow() >= minTotalGrain) break;
+    const taken = takeBySubtype(player.hand, "barley", 1, used, spBarleyReq > 0);
     if (!taken || taken.length === 0) break;
-    for (const c of taken) {
-      picks.push(c.id);
-      tally.barley += resourceUnits(c, "barley");
+    const c = taken[0]!;
+    const units = resourceUnits(c, "barley");
+    if (totalGrainNow() + units > minTotalGrain) {
+      used.delete(c.id);
+      break;
     }
+    picks.push(c.id);
+    tally.barley += units;
   }
   while (tally.wheat < minWheat) {
     if (tally.wheat + 1 > maxWheat) break;
-    const taken = takeBySubtype(player.hand, "wheat", 1, used);
+    if (totalGrainNow() >= minTotalGrain) break;
+    const taken = takeBySubtype(player.hand, "wheat", 1, used, spWheatReq > 0);
     if (!taken || taken.length === 0) break;
-    for (const c of taken) {
-      picks.push(c.id);
-      tally.wheat += resourceUnits(c, "wheat");
+    const c = taken[0]!;
+    const units = resourceUnits(c, "wheat");
+    if (totalGrainNow() + units > minTotalGrain) {
+      used.delete(c.id);
+      break;
     }
+    picks.push(c.id);
+    tally.wheat += units;
   }
-  // Universal min-1-grain: if still missing, take any legal grain.
-  let grain = tally.rye + tally.barley + tally.wheat;
-  if (grain < 1) {
+  // v2.10 wildcard-grain fill — top up to the recipe's exact total
+  // grain. The wildcard portion (minTotalGrain − sum of per-grain
+  // mins) can be any grain not capped at 0. One-card-at-a-time so the
+  // planner stops the instant the total is satisfied (the engine
+  // rejects over-commit, so any overshoot would brick the commit).
+  let grain = totalGrainNow();
+  if (grain < minTotalGrain) {
     const grainKinds: GrainSubtype[] = ["rye", "barley", "wheat"];
-    for (const sub of grainKinds) {
-      if (sub === "rye" && maxRye === 0) continue;
-      if (sub === "wheat" && maxWheat === 0) continue;
-      const taken = takeBySubtype(player.hand, sub, 1, used);
-      if (taken && taken.length > 0) {
-        for (const c of taken) {
-          picks.push(c.id);
-          tally[sub] += resourceUnits(c, sub);
-          grain += resourceUnits(c, sub);
+    outer: while (grain < minTotalGrain) {
+      let added = false;
+      for (const sub of grainKinds) {
+        if (sub === "rye" && maxRye === 0) continue;
+        if (sub === "wheat" && maxWheat === 0) continue;
+        if (sub === "rye" && tally.rye >= maxRye) continue;
+        if (sub === "wheat" && tally.wheat >= maxWheat) continue;
+        const taken = takeBySubtype(player.hand, sub, 1, used);
+        if (taken && taken.length > 0) {
+          for (const c of taken) {
+            picks.push(c.id);
+            const units = resourceUnits(c, sub);
+            tally[sub] += units;
+            grain += units;
+            // Stop if a multi-unit specialty card overshoots — the
+            // engine would reject this commit. Bail so the planner
+            // returns whatever it has so far (commit may still be
+            // partial-build legal under floors).
+            if (grain > minTotalGrain) {
+              picks.pop();
+              used.delete(c.id);
+              tally[sub] -= units;
+              grain -= units;
+              break outer;
+            }
+          }
+          added = true;
+          if (grain >= minTotalGrain) break outer;
         }
-        break;
       }
+      if (!added) break; // no more legal grain in hand
     }
   }
   return picks;
@@ -802,19 +886,31 @@ function peakReward(mb: MashBill): number {
  * Take up to `minUnits` worth of `subtype` from `hand`, marking cards
  * as used. Returns whatever it found (possibly empty if nothing
  * matches) — caller decides whether the partial coverage is enough.
+ *
+ * v2.10: `preferSpecialty` pulls Specialty / Double Specialty cards
+ * first when the recipe has a specialty floor on this subtype, so a
+ * single card can satisfy both the regular min and the floor.
  */
 function takeBySubtype(
   hand: Card[],
   subtype: "cask" | "corn" | GrainSubtype,
   minUnits: number,
   used: Set<string>,
+  preferSpecialty = false,
 ): Card[] | null {
   if (minUnits <= 0) return [];
   const taken: Card[] = [];
   let count = 0;
   const candidates = hand
     .filter((c) => !used.has(c.id) && c.subtype === subtype)
-    .sort((a, b) => (a.resourceCount ?? 1) - (b.resourceCount ?? 1));
+    .sort((a, b) => {
+      if (preferSpecialty) {
+        const sa = a.specialty ? 1 : 0;
+        const sb = b.specialty ? 1 : 0;
+        if (sa !== sb) return sb - sa; // specialty first
+      }
+      return (a.resourceCount ?? 1) - (b.resourceCount ?? 1);
+    });
   for (const c of candidates) {
     taken.push(c);
     used.add(c.id);

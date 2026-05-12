@@ -173,22 +173,23 @@ function computeSaleReward(state: GameState, barrel: Barrel): number {
 }
 
 /**
- * v2.6 Gold Convert: returns true iff the target slot's committed
- * production cards satisfy the candidate (Gold) bill's recipe — i.e.
- * the cards already on the slot would have been a legal completion
- * for the new recipe. We DON'T re-fire commit-time effects; the
- * cards stay where they are, only the bound bill changes.
+ * v2.10 Gold Convert: returns true iff the target slot's committed
+ * production cards **exactly** match the candidate (Gold) bill's
+ * recipe. Mirrors `make-bourbon.recipeSatisfied` under exact-recipe
+ * semantics — specialty floors are baked into per-subtype mins
+ * (specialty rye counts as plain rye + specialty), and any subtype
+ * past its effective min disqualifies the slot. Specialty-cask
+ * exclusivity also applies: if the Gold recipe wants a Specialty
+ * cask, a plain cask in the target slot's pile blocks the Convert.
  */
 function convertCommitsSatisfyRecipe(
   player: PlayerState,
   target: Barrel,
   candidate: MashBill,
 ): boolean {
-  // Reuse the make-bourbon recipe-satisfaction check by tallying the
-  // existing pile against the candidate bill. Imported lazily to keep
-  // sell-bourbon.ts free of a circular dep on make-bourbon internals.
   const recipe = candidate.recipe ?? {};
   let caskSources = 0;
+  let plainCaskSources = 0;
   let corn = 0,
     rye = 0,
     barley = 0,
@@ -201,7 +202,10 @@ function convertCommitsSatisfyRecipe(
   for (const card of target.productionCards) {
     if (card.type !== "resource") continue;
     const count = card.resourceCount ?? 1;
-    if (card.subtype === "cask") caskSources += count;
+    if (card.subtype === "cask") {
+      caskSources += count;
+      if (!card.specialty) plainCaskSources += count;
+    }
     if (card.subtype === "corn") corn += count;
     if (card.subtype === "rye") rye += count;
     if (card.subtype === "barley") barley += count;
@@ -214,21 +218,34 @@ function convertCommitsSatisfyRecipe(
       if (card.subtype === "wheat") spWheat += count;
     }
   }
-  const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  const minRye = recipe.minRye ?? 0;
-  const minBarley = recipe.minBarley ?? 0;
-  const minWheat = recipe.minWheat ?? 0;
+  const sp = recipe.minSpecialty ?? {};
+  // Specialty floors get rolled into the per-subtype minimum so
+  // "exact" lines up with backwards-compat specialty (one Specialty
+  // Rye satisfies both `minRye: 1` and `minSpecialty.rye: 1`).
+  const minCorn = Math.max(Math.max(1, recipe.minCorn ?? 0), sp.corn ?? 0);
+  const minRye = Math.max(recipe.minRye ?? 0, sp.rye ?? 0);
+  const minBarley = Math.max(recipe.minBarley ?? 0, sp.barley ?? 0);
+  const minWheat = Math.max(recipe.minWheat ?? 0, sp.wheat ?? 0);
   const maxRye = recipe.maxRye ?? Infinity;
   const maxWheat = recipe.maxWheat ?? Infinity;
-  const minTotal = Math.max(recipe.minTotalGrain ?? 0, 1);
+  const namedGrainSum = minRye + minBarley + minWheat;
+  const minTotal = Math.max(
+    recipe.minTotalGrain ?? 0,
+    namedGrainSum === 0 ? 1 : namedGrainSum,
+  );
   const grain = rye + barley + wheat;
-  if (caskSources < 1 || caskSources > 1) return false;
-  if (corn < minCorn) return false;
-  if (rye < minRye || barley < minBarley || wheat < minWheat) return false;
+  if (caskSources !== 1) return false;
+  // Specialty-cask exclusivity: Gold recipe wants Specialty, target
+  // has plain — Convert fails.
+  if ((sp.cask ?? 0) >= 1 && plainCaskSources > 0) return false;
+  // Corn is exact; per-grain are floors; total grain is exact.
+  if (corn !== minCorn) return false;
+  if (rye < minRye) return false;
+  if (barley < minBarley) return false;
+  if (wheat < minWheat) return false;
   if (rye > maxRye || wheat > maxWheat) return false;
-  if (grain < minTotal) return false;
+  if (grain !== minTotal) return false;
   // v2.7.2: per-subtype Specialty requirements.
-  const sp = recipe.minSpecialty ?? {};
   if (spCask < (sp.cask ?? 0)) return false;
   if (spCorn < (sp.corn ?? 0)) return false;
   if (spRye < (sp.rye ?? 0)) return false;

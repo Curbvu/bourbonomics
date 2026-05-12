@@ -208,11 +208,15 @@ A slot transitions **Building → Aging** the moment its committed pile satisfie
 
 The first commit transitions the slot **Staged → Building**. The completion check fires at the end of every commit, so a single sufficient commit can take a slot all the way from Staged to Aging in one action.
 
-### Over-committing is fine, but earns no bonus
+### Exact-recipe rule (v2.10)
 
-You may commit **more** cards than the recipe requires (e.g. 4 rye when `rye ≥ 3`). The engine accepts the extra cards and locks them with the barrel until sale, but the reward grid only reads `(age, demand)` — over-commitment doesn't change the payout.
+The total cards on a barrel match the recipe exactly. The engine rejects any commit that would push **corn** past the recipe's corn count, **total grain** past the recipe's grain count, or **cask** past 1. Per-grain minimums (e.g. `minRye: 2`) stay floors — they're the lowest count for that grain — but the *wildcard* portion of `minTotalGrain` can land on any grain (subject to per-grain caps like `maxRye: 0` on wheated bills).
 
 Recipe **caps** (`maxRye: 0`, `maxWheat: 0`, etc.) are still enforced — those are bill-specific bans, not minimums.
+
+**Specialty-cask exclusivity.** If a recipe demands `minSpecialty.cask ≥ 1`, plain casks are not legal commits — the player must lead with a Specialty cask. (The universal "exactly 1 cask" rule would otherwise strand the barrel.)
+
+**Specialties are backwards-compatible.** A Specialty card satisfies both its subtype's regular minimum AND the specialty floor — one card, two boxes ticked. A bill with `minRye: 1, minSpecialty.rye: 1` needs just **one Specialty Rye** to complete its rye requirement, not two cards. A bill with `minRye: 2, minSpecialty.rye: 1` needs 2 rye total, at least one specialty — so 1 plain + 1 specialty (or 2 specialty), never 3 cards.
 
 ### Timing
 
@@ -244,9 +248,9 @@ Specialty thresholds tend to be:
 
 Each Specialty card committed also grants **+1 reputation on sale** — a passive bonus separate from any specialty-gate requirement.
 
-### Over-committing
+### Over-committing is rejected (v2.10)
 
-Over-committing is allowed but earns no bonus. You may commit more cards than the recipe requires, but the reward grid only reads (age, demand) — extra cards do not increase the payout. Recipe caps (`maxRye: 0`, etc.) are still enforced; those are bill-specific bans, not minimums.
+The engine refuses commits that would push the barrel past its recipe — see [§Exact-recipe rule](#exact-recipe-rule-v210) above. Players who run out of legal cards mid-build can `ABANDON_BARREL` to recover the pile.
 
 ### Failed Batch (optional)
 
@@ -647,6 +651,9 @@ It's about **knowing what to lock up, what to let go, and when the world is read
   - **Sell action no longer costs a card.** The v2.7.1 1-card sell cost is dropped. Mandatory per-turn aging (v2.9) is now the sole holding cost in the cards-in-to-rep-out economy. Floor ratio shifts from 7:1 to ~6:1; combined with Gold-only PP, the two economic paths widen meaningfully. Sell UX simplifies: pick barrel → sale resolves. No card-spend step.
   - **Bot AI overhaul.** Bot heuristics updated for the v2.10 economy: distillery-aware action weights (High-Rye prefers rye bills and skips wheated drafts, Wheated never commits rye, Connoisseur values Open-slot Convert), Gold-eligibility valued ~50% higher than equivalent non-Gold sales, distillery sale-bonus baked into the priority score, and a round-gap-respecting sale filter. Distillery picker rebuilt around the new 4-roster.
   - **Resource bands reduced from four to three.** Plain Double cards (Double Corn / Rye / Barley / Wheat — the $3 2-unit tier, plus the earlier Double Cask) are retired. Two singles satisfy every recipe gate a Double would, so the band added market clutter without adding strategy. The bands now are Common ($1, 1 unit), Specialty ($3, 1 unit + rep), and Double Specialty ($6, 2 units + rep). Double Specialty stays because each card counts as 2 toward `minSpecialty.<subtype>` gates — a role no other card fills. Dead `bonusTwoRye` plumbing on `DistilleryStarterPoolMods` is removed alongside; High-Rye House's starter rye runs through `bonusSpecialtyRye`.
+  - **Exact-recipe rule.** Over-committing is no longer allowed. The engine rejects any commit that would push corn past the recipe's corn count, grain past the recipe's `minTotalGrain`, or cask past 1. Per-grain minimums (e.g. `minRye: 2`) stay floors — the wildcard portion of `minTotalGrain` can still land on any grain — but the *total* is exact. Two follow-on rules:
+    - **Specialty-cask exclusivity.** If a recipe demands `minSpecialty.cask ≥ 1`, plain casks are illegal commits up front (the universal "exactly 1 cask" rule would otherwise strand the barrel). The legacy v3.1 upgrade-swap path remains in code for recipes WITHOUT a specialty-cask floor, where the player upgrades for the +1 rep on sale.
+    - **Specialties are backwards-compatible (no double commit).** A Specialty card ticks both its subtype floor AND the specialty gate with a single commit. A recipe with `minRye: 1, minSpecialty.rye: 1` needs just one Specialty Rye, not "1 rye + 1 specialty rye" = 2 cards. With `minRye: 2, minSpecialty.rye: 1`, the player commits 2 rye total of which ≥1 is specialty.
 - **v2.9** —
   - **Per-turn demand rolls.** Demand is no longer a once-per-round global ceremony at the top of the round. Each player rolls their own 2d6 at the very start of *their own* action turn — it's the mandatory first action of the turn, gated by `player.needsDemandRoll` (set when the cursor lands on the seat, cleared by ROLL_DEMAND). The phase strip drops the dedicated `demand` phase; rounds now run **Draw → Action → Cleanup**. Demand can rise up to N times per round (once per player) instead of once total, accelerating the market. Multiplayer: each player sees their own demand-roll modal at the top of their turn (others wait for the broadcast); bots roll inline via the orchestrator.
   - **Mandatory per-turn aging.** The dedicated Age phase is gone. Right after the demand roll, the active player **must commit one card from hand to every one of their eligible aging barrels** before taking any other action — gated by `player.needsAgeBarrels` (set by ROLL_DEMAND when the player has any un-aged aging barrel, cleared by AGE_BOURBON once every eligible barrel has been touched). Players with no aging barrels skip the cost; players with no cards in hand can `PASS_TURN` (forfeits the turn) or `ABANDON_BARREL` (only for ready/construction barrels — aging barrels can only leave via SELL). The per-turn loop is now: **Roll → Age → Actions**, creating a real holding cost for sitting on inventory while waiting for demand to rise. v3 tightened this from "one barrel touched is enough" to "every aging barrel must be touched" — multiple aging barrels now compound the holding cost.
