@@ -54,7 +54,14 @@ export default function DrawPhaseModal() {
     ? state.players.find((p) => p.id === humanSeatPlayerId)
     : null;
   if (!human) return null;
-  if (state.playerIdsCompletedPhase.includes(human.id)) return null;
+
+  // v3.1: stay mounted during the gap between "human drew" and "phase
+  // flips to action." Otherwise the player saw a stark few-hundred-ms
+  // window of bare board between the draw modal disappearing and the
+  // demand-roll modal appearing — the choppy transition the user
+  // flagged. With a "waiting on opponents" state the dim never lifts;
+  // the next modal slides in over the same backdrop.
+  const humanHasDrawn = state.playerIdsCompletedPhase.includes(human.id);
 
   const startDraw = () => {
     if (stage !== "idle") return;
@@ -66,12 +73,19 @@ export default function DrawPhaseModal() {
   const willDrawCount = Math.min(human.handSize, human.deck.length + human.discard.length);
   const willDrawOps = state.operationsDeck.length > 0;
 
+  // Count how many opponents still need to draw — drives the waiting
+  // copy so the player gets a sense of progress instead of staring at
+  // a static "wait" prompt.
+  const stillToDraw = state.players.filter(
+    (p) => !state.playerIdsCompletedPhase.includes(p.id),
+  );
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Draw your round hand"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-6 backdrop-blur"
+      className="animate-bb-spot-fade fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-6 backdrop-blur"
     >
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 h-[440px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
@@ -81,46 +95,99 @@ export default function DrawPhaseModal() {
         }}
       />
 
-      <div className="relative flex flex-col items-center gap-5">
-        <div className="text-center">
-          <div className="font-mono text-[11px] uppercase tracking-[.18em] text-indigo-300">
-            Round {round} · Draw phase
-          </div>
-          <div className="mt-1 font-display text-2xl font-semibold text-amber-100">
-            Draw your round hand
-          </div>
-          <div className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
-            {human.name} · {willDrawCount} resource cards
-            {willDrawOps ? " + 1 operations card" : ""}
-          </div>
-        </div>
-
-        <CardFan
-          stage={stage}
-          count={willDrawCount}
-          drawsOpsCard={willDrawOps}
-          deckLeft={human.deck.length}
-          discardLeft={human.discard.length}
+      {humanHasDrawn ? (
+        <WaitingForOpponents
+          remaining={stillToDraw.length}
+          totalPlayers={state.players.length}
         />
+      ) : (
+        <div className="relative flex flex-col items-center gap-5">
+          <div className="text-center">
+            <div className="font-mono text-[11px] uppercase tracking-[.18em] text-indigo-300">
+              Round {round} · Draw phase
+            </div>
+            <div className="mt-1 font-display text-2xl font-semibold text-amber-100">
+              Draw your round hand
+            </div>
+            <div className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
+              {human.name} · {willDrawCount} resource cards
+              {willDrawOps ? " + 1 operations card" : ""}
+            </div>
+          </div>
 
-        <button
-          type="button"
-          onClick={startDraw}
-          disabled={stage !== "idle"}
-          className={[
-            "rounded-md border px-6 py-2.5 font-sans text-sm font-bold uppercase tracking-[.05em] transition-all",
-            stage === "idle"
-              ? "border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 text-slate-950 shadow-[0_0_0_3px_rgba(251,191,36,0.30),inset_0_1px_0_rgba(255,255,255,0.25)] hover:from-amber-200 hover:to-amber-400"
-              : "cursor-not-allowed border-slate-700 bg-slate-900 text-slate-600 shadow-none",
-          ].join(" ")}
-        >
-          {stage === "idle"
-            ? "Draw cards ↵"
-            : stage === "drawing"
-              ? "Drawing…"
-              : "Drawn ✓"}
-        </button>
+          <CardFan
+            stage={stage}
+            count={willDrawCount}
+            drawsOpsCard={willDrawOps}
+            deckLeft={human.deck.length}
+            discardLeft={human.discard.length}
+          />
+
+          <button
+            type="button"
+            onClick={startDraw}
+            disabled={stage !== "idle"}
+            className={[
+              "rounded-md border px-6 py-2.5 font-sans text-sm font-bold uppercase tracking-[.05em] transition-all",
+              stage === "idle"
+                ? "border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 text-slate-950 shadow-[0_0_0_3px_rgba(251,191,36,0.30),inset_0_1px_0_rgba(255,255,255,0.25)] hover:from-amber-200 hover:to-amber-400"
+                : "cursor-not-allowed border-slate-700 bg-slate-900 text-slate-600 shadow-none",
+            ].join(" ")}
+          >
+            {stage === "idle"
+              ? "Draw cards ↵"
+              : stage === "drawing"
+                ? "Drawing…"
+                : "Drawn ✓"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WaitingForOpponents({
+  remaining,
+  totalPlayers,
+}: {
+  remaining: number;
+  totalPlayers: number;
+}) {
+  // Pulses the indigo dot while bots draw. Keeps the same backdrop +
+  // chrome as the active draw modal so the transition into the demand
+  // roll modal that follows is a content swap, not a backdrop flash.
+  return (
+    <div className="relative flex flex-col items-center gap-5">
+      <div className="text-center">
+        <div className="font-mono text-[11px] uppercase tracking-[.18em] text-indigo-300">
+          Draw phase · waiting on opponents
+        </div>
+        <div className="mt-1 font-display text-2xl font-semibold text-amber-100">
+          {remaining > 0
+            ? `${remaining} of ${totalPlayers} still drawing…`
+            : "Setting up the round…"}
+        </div>
+        <div className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-500">
+          Your hand is ready. The round will begin in a moment.
+        </div>
       </div>
+      <div className="flex items-center gap-2" aria-hidden>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <span
+            key={i}
+            className="h-2 w-2 rounded-full bg-indigo-400/80"
+            style={{
+              animation: `bb-wait-pulse 1.2s ease-in-out ${i * 0.15}s infinite`,
+            }}
+          />
+        ))}
+      </div>
+      <style>{`
+        @keyframes bb-wait-pulse {
+          0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
+          40%           { opacity: 1;    transform: scale(1.1);  }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1541,7 +1541,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (!current || current.isBot === false) return;
     }
 
-    const delay = isActionPhase ? 320 : 180;
+    // Action-phase pacing: 320ms felt like the bot was machine-gunning
+    // moves — sale, make, buy back-to-back inside a single Flight
+    // animation cycle (FLIGHT_MS ≈ 720ms). The human couldn't track
+    // what each move did. Bumped to 800ms so each bot decision has
+    // room to land visually before the next one fires; draw-phase
+    // (180ms) stays snappy because there's nothing to watch beyond
+    // the deck count ticking down.
+    const delay = isActionPhase ? 800 : 180;
     const id = window.setTimeout(step, delay);
     return () => window.clearTimeout(id);
   }, [multiplayerMode, tutorialActive, store.state, step]);

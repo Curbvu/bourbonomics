@@ -37,8 +37,17 @@ const RICKHOUSE_SLOT_HARD_CAP = 6;
 //   8. PASS_TURN otherwise.
 // ---------------------------------------------------------------
 
-const SELL_REWARD_THRESHOLD = 3;
-const SELL_PRESSURE_AGE = 6; // sell aged barrels even at low reward
+// v3.1: lowered both thresholds — at 3 / 6 the bot was sitting on
+// barrels for most of a game. Most bills pay 1–2 rep at low/mid
+// demand and 3+ only when age and demand both align, which is a
+// rare coincidence in the early-mid game. The bot would wait,
+// rarely sell, and the human had no opponent pressure on the
+// market. Lowered to 2 / 4 so the bot:
+//   - sells anything paying ≥2 rep (typical mid-demand cell)
+//   - sells age 4+ for any positive reward (don't sit on stale)
+//   - still sells aggressively in the final round (unchanged).
+const SELL_REWARD_THRESHOLD = 2;
+const SELL_PRESSURE_AGE = 4; // sell aged barrels even at low reward
 
 export function chooseAction(state: GameState, playerId: string): GameAction {
   // Setup phase: distillery picks come through the runner, but expose a helper.

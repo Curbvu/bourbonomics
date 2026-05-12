@@ -118,7 +118,7 @@ export default function DemandRollModal() {
       role="dialog"
       aria-modal="true"
       aria-label="Roll demand dice"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-6 backdrop-blur"
+      className="animate-bb-spot-fade fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-6 backdrop-blur"
     >
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[640px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
