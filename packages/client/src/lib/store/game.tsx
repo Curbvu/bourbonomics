@@ -1020,48 +1020,46 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setAgeMode({ pickedBarrelId: null, pickedCardId: null });
   }, [store.state, multiplayerMode, ageMode]);
 
-  const setAgeBarrel = useCallback(
-    (barrelId: string) => {
-      // queueMicrotask sits INSIDE the setState updater so it runs
-      // when React commits the state — closure-var-outside-updater
-      // patterns silently fail because updaters are deferred (the
-      // outside check runs before the updater has assigned). Strict
-      // mode WILL invoke the updater twice; the lastAgeFireRef guard
-      // inside fireAge catches the duplicate dispatch.
-      setAgeMode((prev) => {
-        if (!prev) return prev;
-        // Clicking the same barrel again clears it (lets the player
-        // back out without canceling the whole mode).
-        if (prev.pickedBarrelId === barrelId) {
-          return { ...prev, pickedBarrelId: null };
-        }
-        const next = { ...prev, pickedBarrelId: barrelId };
-        if (next.pickedCardId) {
-          queueMicrotask(() => fireAge(barrelId, next.pickedCardId!));
-        }
-        return next;
-      });
-    },
-    [fireAge],
-  );
+  // v3.1 — auto-fire age via a useEffect watching ageMode instead of
+  // queueing microtasks from inside the setState updater. Two prior
+  // attempts had silent failure modes:
+  //   - queueMicrotask INSIDE the updater: strict-mode double-invokes
+  //     the updater, queues two microtasks, both fire fireAge, the
+  //     second hits `agedThisRound === true` and the engine rejects.
+  //   - queueMicrotask OUTSIDE via a closure-var: setState updaters
+  //     run DEFERRED (during commit), so the closure-var check ran
+  //     while shouldFire was still null — fireAge was never called.
+  // The effect-based pattern is what React docs recommend for
+  // "fire when state matches a condition." setAgeBarrel / setAgeCard
+  // become pure togglers; the effect owns the dispatch trigger.
+  const setAgeBarrel = useCallback((barrelId: string) => {
+    setAgeMode((prev) => {
+      if (!prev) return prev;
+      // Clicking the same barrel again clears it (lets the player
+      // back out without canceling the whole mode).
+      if (prev.pickedBarrelId === barrelId) {
+        return { ...prev, pickedBarrelId: null };
+      }
+      return { ...prev, pickedBarrelId: barrelId };
+    });
+  }, []);
 
-  const setAgeCard = useCallback(
-    (cardId: string) => {
-      setAgeMode((prev) => {
-        if (!prev) return prev;
-        // Single-select toggle: clicking the same card again clears it.
-        if (prev.pickedCardId === cardId) {
-          return { ...prev, pickedCardId: null };
-        }
-        const next = { ...prev, pickedCardId: cardId };
-        if (next.pickedBarrelId) {
-          queueMicrotask(() => fireAge(next.pickedBarrelId!, cardId));
-        }
-        return next;
-      });
-    },
-    [fireAge],
-  );
+  const setAgeCard = useCallback((cardId: string) => {
+    setAgeMode((prev) => {
+      if (!prev) return prev;
+      // Single-select toggle: clicking the same card again clears it.
+      if (prev.pickedCardId === cardId) {
+        return { ...prev, pickedCardId: null };
+      }
+      return { ...prev, pickedCardId: cardId };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!ageMode) return;
+    if (!ageMode.pickedBarrelId || !ageMode.pickedCardId) return;
+    fireAge(ageMode.pickedBarrelId, ageMode.pickedCardId);
+  }, [ageMode, fireAge]);
 
   const confirmBuy = useCallback(() => {
     if (!buyMode || !buyMode.pickedTarget) return;
