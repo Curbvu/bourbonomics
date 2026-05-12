@@ -120,24 +120,9 @@ export function applyDistilleryStarterModifications(
   const mods = distillery.starterPoolMods;
   if (!mods) return;
 
-  if (mods.bonusTwoRye && mods.bonusTwoRye > 0) {
-    // v2.7: the legacy "2× Rye" (rye_x2) is now the standard Double Rye
-    // — same units, same cost, just consolidated under the new band.
-    for (let i = 0; i < mods.bonusTwoRye; i++) {
-      target.push(
-        makePremiumResource({
-          defId: "double_rye",
-          displayName: "Double Rye",
-          flavor: "Pepper, doubled.",
-          subtype: "rye",
-          resourceCount: 2,
-          cost: 3,
-          ownerLabel: player.id,
-          index: 900 + i,
-        }),
-      );
-    }
-  }
+  // v2.10: bonusTwoRye is gone alongside the Double band — no current
+  // distillery mints plain Doubles. High-Rye House's starter rye now
+  // comes through `bonusSpecialtyRye` (handled below).
 
   // v2.10 High-Rye House: free Specialty Rye cards. Same `specialty:
   // true` flag the market-minted Superior Rye uses, so they count

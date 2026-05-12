@@ -938,16 +938,13 @@ interface BandCardSpec {
   copies: number;
 }
 
-// v2.10: Double Cask is gone — every barrel only ever consumes exactly 1
-// cask, so a 2-cask resource card had no production use. Cask still
-// appears in two bands: Common Cask (basic) and Superior Cask
-// (Specialty). Doubles continue to exist for the grain subtypes.
-const DOUBLE_SPECS: BandCardSpec[] = [
-  { defId: "double_corn", displayName: "Double Corn", flavor: "Sweet load, twice the haul.", subtype: "corn", copies: 2 },
-  { defId: "double_rye", displayName: "Double Rye", flavor: "Pepper, doubled.", subtype: "rye", copies: 3 },
-  { defId: "double_barley", displayName: "Double Barley", flavor: "The malt house's overshare.", subtype: "barley", copies: 2 },
-  { defId: "double_wheat", displayName: "Double Wheat", flavor: "Smooth, then smoother.", subtype: "wheat", copies: 2 },
-];
+// v2.10: the entire Double tier is gone. Plain 2-unit resource cards
+// (Double Cask first, then Double Corn / Rye / Barley / Wheat) added
+// market clutter without adding strategy — two singles satisfy the
+// same recipe gates. The Specialty band still ships singles ($3) and
+// the Double Specialty band still ships 2-unit flagships ($6) — the
+// latter remain because they each count as 2 toward `minSpecialty`,
+// a unique role no other card can play.
 
 const SPECIALTY_SPECS: BandCardSpec[] = [
   { defId: "superior_cask", displayName: "Superior Cask", flavor: "Hand-picked stave, certified char.", subtype: "cask", copies: 2 },
@@ -974,22 +971,8 @@ export function defaultMarketSupply(): Card[] {
   for (let i = 0; i < 5; i++) cards.push(makeResourceCard("barley", "supply", idx++));
   for (let i = 0; i < 5; i++) cards.push(makeResourceCard("wheat", "supply", idx++));
 
-  // ── Double ($3, 2 units) — bulk plays.
-  for (const spec of DOUBLE_SPECS) {
-    for (let i = 0; i < spec.copies; i++) {
-      cards.push(
-        makePremiumResource({
-          defId: spec.defId,
-          displayName: spec.displayName,
-          flavor: spec.flavor,
-          subtype: spec.subtype,
-          resourceCount: 2,
-          cost: 3,
-          index: idx++,
-        }),
-      );
-    }
-  }
+  // v2.10: the plain Double band (Double Corn / Rye / Barley / Wheat)
+  // is gone — see comment on `SPECIALTY_SPECS` above.
 
   // ── Specialty ($3, 1 unit + Specialty bonus) — luxury upgrades.
   //   Each committed Specialty grants +1 rep on sale. Flagged with

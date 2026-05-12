@@ -1,7 +1,9 @@
 /**
- * v2.7 market economy — sanity checks on the four-band resource system
- * and the $1 / $3 / $5 capital ladder. Locks the supply shape so the
- * UI badge logic and the rule docs don't drift.
+ * v2.10 market economy — sanity checks on the three-band resource system
+ * (Common / Specialty / Double Specialty) and the $1 / $3 / $5 capital
+ * ladder. The plain Double tier was retired in v2.10; two singles
+ * satisfy every recipe gate a Double would. Locks the supply shape so
+ * the UI badge logic and the rule docs don't drift.
  */
 
 import { describe, it, expect } from "vitest";
@@ -10,7 +12,7 @@ import { paymentValue } from "../src/cards.js";
 
 const RESOURCE_SUBTYPES = ["cask", "corn", "rye", "barley", "wheat"] as const;
 
-describe("market supply — four-band resource economy", () => {
+describe("market supply — three-band resource economy", () => {
   it("Commons exist for every subtype, cost 1, count 1, no effect", () => {
     const supply = defaultMarketSupply();
     for (const subtype of RESOURCE_SUBTYPES) {
@@ -26,19 +28,15 @@ describe("market supply — four-band resource economy", () => {
     }
   });
 
-  it("Doubles cost 3, count 2, and have no on-sale effect", () => {
+  it("the plain Double tier is gone (no double_<subtype> cards in supply)", () => {
     const doubles = defaultMarketSupply().filter(
       (c) =>
         c.type === "resource" &&
         c.premium === true &&
-        (c.cardDefId.startsWith("double_") && !c.cardDefId.startsWith("double_superior_")),
+        c.cardDefId.startsWith("double_") &&
+        !c.cardDefId.startsWith("double_superior_"),
     );
-    expect(doubles.length).toBeGreaterThan(0);
-    for (const d of doubles) {
-      expect(d.cost, `${d.cardDefId} cost`).toBe(3);
-      expect(d.resourceCount, `${d.cardDefId} count`).toBe(2);
-      expect(d.effect).toBeUndefined();
-    }
+    expect(doubles).toHaveLength(0);
   });
 
   it("Specialties cost 3, count 1, and grant +1 rep on sale", () => {
@@ -71,19 +69,13 @@ describe("market supply — four-band resource economy", () => {
     }
   });
 
-  it("the four bands together cover roughly the spec'd distribution", () => {
+  it("the three bands together cover the supply with commons as the plurality", () => {
     const supply = defaultMarketSupply().filter((c) => c.type === "resource");
     const total = supply.length;
     const commons = supply.filter((c) => !c.premium).length;
-    const doubles = supply.filter(
-      (c) =>
-        c.premium &&
-        c.cardDefId.startsWith("double_") &&
-        !c.cardDefId.startsWith("double_superior_"),
-    ).length;
     const specs = supply.filter((c) => c.premium && c.cardDefId.startsWith("superior_")).length;
     const dspecs = supply.filter((c) => c.premium && c.cardDefId.startsWith("double_superior_")).length;
-    expect(commons + doubles + specs + dspecs).toBe(total);
+    expect(commons + specs + dspecs).toBe(total);
     // Loose distribution sanity: commons are the plurality and double-
     // specialties stay rare.
     expect(commons / total).toBeGreaterThan(0.4);

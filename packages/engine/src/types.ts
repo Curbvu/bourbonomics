@@ -362,12 +362,11 @@ export interface DistilleryStarterBarrel {
 }
 
 export interface DistilleryStarterPoolMods {
-  /** Free 2-rye premium cards added to the dealt starter hand. */
-  bonusTwoRye?: number;
   /**
    * v2.10: free Specialty Rye cards added to the dealt starter hand
    * (High-Rye House). Specialty Rye is the +1-rep-on-sale, specialty-
-   * gate-counting variant. Independent of `bonusTwoRye`.
+   * gate-counting variant — every "bonus rye" path runs through this
+   * now that the plain Double band is retired.
    */
   bonusSpecialtyRye?: number;
   /** Net change to capital cards in the dealt starter hand (negative removes). */

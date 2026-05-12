@@ -75,7 +75,7 @@ Build the starter pool: per player, 6 cask · 4 corn · 4 grain (2 rye / 1 barle
 
 **Stuck-hand swap.** Once during the trade window, a player may return up to 3 cards to the pool and draw the same number off the top. One-shot per player per game.
 
-When the timer expires (or every player has signaled "pass"), shuffle your final 16 cards into your starter deck. Premium variants — Doubles, Specialties, and Double Specialties — only enter via the market.
+When the timer expires (or every player has signaled "pass"), shuffle your final 16 cards into your starter deck. Premium variants — Specialties and Double Specialties — only enter via the market.
 
 ### Step 4 — First hand
 
@@ -409,18 +409,17 @@ Decks grow through market purchases. The effective working deck shrinks as cards
 - **Capital** — currency. The printed value is its **payment value** when buying market cards, ops cards, or mash bills. In every other context (production, trading, aging) a capital card counts as 1.
 - **Operations** — bought from the face-up ops market. Played as a free action during the action phase. One-shot unless stated otherwise.
 
-### Card Bands (v2.7)
+### Card Bands
 
-Resource cards in the market sort into four pricing bands. Doubles count as 2 units toward recipes. Specialties carry a uniform luxury bonus — **+1 reputation when the barrel sells**, for each Specialty (or Double Specialty) committed to it. Capital cards collapse onto a $1 / $3 / $5 ladder; cost equals face value across the board.
+Resource cards in the market sort into three pricing bands (v2.10 retired the plain Double tier — see changelog). Specialties carry a uniform luxury bonus — **+1 reputation when the barrel sells**, for each Specialty (or Double Specialty) committed to it. Capital cards collapse onto a $1 / $3 / $5 ladder; cost equals face value across the board.
 
 | Band | Cost | Units | On sale |
 |---|:-:|:-:|---|
 | **Common** (cask, corn, rye, wheat, barley) | $1 | 1 | — |
-| **Double** (double cask / corn / rye / wheat / barley) | $3 | 2 | — |
 | **Specialty** (superior cask / corn / rye / wheat / barley) | $3 | 1 | +1 reputation |
 | **Double Specialty** (double superior cask / rye / wheat) | $6 | 2 | +1 reputation |
 
-Premium variants — Doubles, Specialties, and Double Specialties — only enter play via the market.
+Premium variants — Specialties and Double Specialties — only enter play via the market.
 
 ---
 
@@ -563,7 +562,7 @@ Pick Vanilla for a level playing field or an introductory game.
 ### Wheated Baron — "The Smooth Operator"
 - *Starting state:* 1 pre-aged wheated barrel (age 1, `starter_wheated` bill, `agingSinceRound = 0`), 3 Open slots.
 - *Permanent ability:* Wheated bills (`maxRye: 0`) require 1 fewer wheat to complete (floor 0 on the bill's `minWheat`). No effect on wheated bills whose `minWheat` is already 0.
-- *Constraint:* You cannot commit **any rye card** (Common, Double, Specialty, Double Specialty) to a barrel. Rye in your hand is still legal currency at the market and in trades.
+- *Constraint:* You cannot commit **any rye card** (Common, Specialty, Double Specialty) to a barrel. Rye in your hand is still legal currency at the market and in trades.
 
 ### Connoisseur Estate — "The Diversified"
 - *Starting state:* Drafts **4 mash bills** at setup instead of 3 — every slot ships Staged at game start. No Open slot until one is freed.
@@ -647,6 +646,7 @@ It's about **knowing what to lock up, what to let go, and when the world is read
   - **Distilleries re-enabled.** `DISTILLERIES_ENABLED` flips back on. Four-distillery roster returns: **Vanilla, High-Rye House, Wheated Baron, Connoisseur Estate**. Abilities re-tooled for the post-composition-buff world — High-Rye gets a +1 rep sale-time mod on rye-bill sales, Wheated reduces wheat requirements on wheated bills, Connoisseur unlocks Gold Convert into Open slots. Constraints retargeted: High-Rye bans wheated bills, Wheated bans rye commits, Connoisseur caps slotted bills at 4. Vanilla is the symmetric default. The retired roster (Quick-Turn, Patient Cooper, Single-Barrel, Estate, Storm Chaser, Mothballed, Bourbon Purist, Artisanal — and the older Warehouse / Old-Line / The Broker) stays retired.
   - **Sell action no longer costs a card.** The v2.7.1 1-card sell cost is dropped. Mandatory per-turn aging (v2.9) is now the sole holding cost in the cards-in-to-rep-out economy. Floor ratio shifts from 7:1 to ~6:1; combined with Gold-only PP, the two economic paths widen meaningfully. Sell UX simplifies: pick barrel → sale resolves. No card-spend step.
   - **Bot AI overhaul.** Bot heuristics updated for the v2.10 economy: distillery-aware action weights (High-Rye prefers rye bills and skips wheated drafts, Wheated never commits rye, Connoisseur values Open-slot Convert), Gold-eligibility valued ~50% higher than equivalent non-Gold sales, distillery sale-bonus baked into the priority score, and a round-gap-respecting sale filter. Distillery picker rebuilt around the new 4-roster.
+  - **Resource bands reduced from four to three.** Plain Double cards (Double Corn / Rye / Barley / Wheat — the $3 2-unit tier, plus the earlier Double Cask) are retired. Two singles satisfy every recipe gate a Double would, so the band added market clutter without adding strategy. The bands now are Common ($1, 1 unit), Specialty ($3, 1 unit + rep), and Double Specialty ($6, 2 units + rep). Double Specialty stays because each card counts as 2 toward `minSpecialty.<subtype>` gates — a role no other card fills. Dead `bonusTwoRye` plumbing on `DistilleryStarterPoolMods` is removed alongside; High-Rye House's starter rye runs through `bonusSpecialtyRye`.
 - **v2.9** —
   - **Per-turn demand rolls.** Demand is no longer a once-per-round global ceremony at the top of the round. Each player rolls their own 2d6 at the very start of *their own* action turn — it's the mandatory first action of the turn, gated by `player.needsDemandRoll` (set when the cursor lands on the seat, cleared by ROLL_DEMAND). The phase strip drops the dedicated `demand` phase; rounds now run **Draw → Action → Cleanup**. Demand can rise up to N times per round (once per player) instead of once total, accelerating the market. Multiplayer: each player sees their own demand-roll modal at the top of their turn (others wait for the broadcast); bots roll inline via the orchestrator.
   - **Mandatory per-turn aging.** The dedicated Age phase is gone. Right after the demand roll, the active player **must commit one card from hand to every one of their eligible aging barrels** before taking any other action — gated by `player.needsAgeBarrels` (set by ROLL_DEMAND when the player has any un-aged aging barrel, cleared by AGE_BOURBON once every eligible barrel has been touched). Players with no aging barrels skip the cost; players with no cards in hand can `PASS_TURN` (forfeits the turn) or `ABANDON_BARREL` (only for ready/construction barrels — aging barrels can only leave via SELL). The per-turn loop is now: **Roll → Age → Actions**, creating a real holding cost for sitting on inventory while waiting for demand to rise. v3 tightened this from "one barrel touched is enough" to "every aging barrel must be touched" — multiple aging barrels now compound the holding cost.
