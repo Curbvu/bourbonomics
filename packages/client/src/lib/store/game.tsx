@@ -968,8 +968,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // so the multiplayer flow targets the dispatcher's claimed seat
   // (not just `players.find(!isBot)` which always resolves to the
   // host on every screen).
+  // v3.1 — defensive guard against double-fire. Even with the
+  // setState-updater fix above, any future caller that triggers
+  // fireAge twice in a microtask window would re-dispatch and the
+  // second call would be rejected by the engine. Track the last
+  // fired (barrel, card) pair and skip identical fires within a
+  // short window. The guard is process-local, no React state.
+  const lastAgeFireRef = useRef<{ key: string; t: number } | null>(null);
   const fireAge = useCallback(
     (barrelId: string, cardId: string) => {
+      const key = `${barrelId}|${cardId}`;
+      const now = Date.now();
+      const last = lastAgeFireRef.current;
+      if (last && last.key === key && now - last.t < 500) {
+        return;
+      }
+      lastAgeFireRef.current = { key, t: now };
       const seatId = multiplayerMode
         ? multiplayerMode.playerId
         : store.state?.players.find((p) => !p.isBot)?.id;
@@ -1008,6 +1022,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const setAgeBarrel = useCallback(
     (barrelId: string) => {
+      // v3.1 — auto-fire used to queueMicrotask(fireAge) FROM INSIDE
+      // this setState updater. React 18 strict mode invokes updaters
+      // twice on purpose to catch impurity. Both invocations queued
+      // microtasks, both called fireAge — the first aged the barrel,
+      // the second hit `agedThisRound === true` and got rejected by
+      // the engine. Now: detect the fire intent inside the updater
+      // (assignment to a closure var is idempotent under double
+      // invocation since both runs write the same value) and queue
+      // the microtask exactly once, outside the updater.
+      let shouldFire: { barrelId: string; cardId: string } | null = null;
       setAgeMode((prev) => {
         if (!prev) return prev;
         // Clicking the same barrel again clears it (lets the player
@@ -1017,16 +1041,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
         const next = { ...prev, pickedBarrelId: barrelId };
         if (next.pickedCardId) {
-          queueMicrotask(() => fireAge(barrelId, next.pickedCardId!));
+          shouldFire = { barrelId, cardId: next.pickedCardId };
         }
         return next;
       });
+      if (shouldFire !== null) {
+        const fire = shouldFire as { barrelId: string; cardId: string };
+        queueMicrotask(() => fireAge(fire.barrelId, fire.cardId));
+      }
     },
     [fireAge],
   );
 
   const setAgeCard = useCallback(
     (cardId: string) => {
+      // Same fix as setAgeBarrel — see the long comment there.
+      let shouldFire: { barrelId: string; cardId: string } | null = null;
       setAgeMode((prev) => {
         if (!prev) return prev;
         // Single-select toggle: clicking the same card again clears it.
@@ -1035,10 +1065,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
         const next = { ...prev, pickedCardId: cardId };
         if (next.pickedBarrelId) {
-          queueMicrotask(() => fireAge(next.pickedBarrelId!, cardId));
+          shouldFire = { barrelId: next.pickedBarrelId, cardId };
         }
         return next;
       });
+      if (shouldFire !== null) {
+        const fire = shouldFire as { barrelId: string; cardId: string };
+        queueMicrotask(() => fireAge(fire.barrelId, fire.cardId));
+      }
     },
     [fireAge],
   );

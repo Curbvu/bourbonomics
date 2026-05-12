@@ -22,12 +22,26 @@ const PHASES: { k: DisplayPhase; l: string }[] = [
   { k: "cleanup", l: "Cleanup" },
 ];
 
-function visiblePhase(phase: GamePhase): DisplayPhase | null {
-  switch (phase) {
+/**
+ * v3.1: the engine no longer has a dedicated "age" phase — the per-turn
+ * aging commit lives inside the action phase, gated by the active
+ * player's `needsAgeBarrels` (and `needsDemandRoll` before it). The
+ * phase strip used to jump straight to "Action" the moment the engine
+ * flipped to the action phase, even while the player was still in the
+ * demand-roll → age sub-step. Stay on "Age" while either of those
+ * gates is open so the chip reflects what the player is actually doing.
+ */
+function visiblePhase(state: GameState): DisplayPhase | null {
+  switch (state.phase) {
     case "draw":
       return "draw";
-    case "action":
+    case "action": {
+      const current = state.players[state.currentPlayerIndex];
+      if (current && (current.needsDemandRoll || current.needsAgeBarrels)) {
+        return "age";
+      }
       return "action";
+    }
     case "cleanup":
       return "cleanup";
     default:
@@ -54,7 +68,7 @@ export default function GameTopBar() {
     setConfirmOpen(false);
   };
 
-  const active = visiblePhase(state.phase);
+  const active = visiblePhase(state);
   const inSetup =
     state.phase === "distillery_selection" || state.phase === "starter_deck_draft";
   const showRoundChrome = state.phase !== "ended" && !inSetup && active != null;

@@ -329,10 +329,17 @@ function BarrelChip({
   // v2.9: in age mode, dim barrels that aren't legal age targets so
   // the highlighted ones pop. Ignored for the picked barrel itself
   // (already amber-glowing) and for the player's other useful states.
+  // v3.1: also dim barrels that have already aged this round — even
+  // outside age mode — so the player can tell at a glance which ones
+  // they already touched. The AGED stamp inside BarrelChipInner
+  // reinforces the cue. Sell/inspect still work; this is purely a
+  // visual "this one is done for the round" signal.
   const ageDim =
     inAgeMode && !ageable && !isAgePicked
       ? "opacity-55 saturate-75"
-      : "";
+      : barrel.agedThisRound && !isAgePicked && !saleable && !isSellPicked
+        ? "opacity-75 saturate-90"
+        : "";
 
   // Match the hand's MashBillCard idiom: WoW-style tier chrome based on
   // the attached bill's rarity. Construction-phase barrels without a
@@ -579,8 +586,25 @@ function BarrelChipInner({
               "rounded border border-slate-500/70 bg-slate-700/40 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] text-slate-200",
           };
 
+  // v3.1: "AGED" stamp — fired this round? Show a centered diagonal
+  // stamp so the player can tell instantly which barrels they've
+  // already touched without reading the small phase badge in the
+  // corner. Only meaningful for barrels currently in the aging phase
+  // (the only phase that gates on `agedThisRound`).
+  const showAgedStamp = barrel.agedThisRound && barrel.phase === "aging";
+
   return (
     <>
+      {showAgedStamp ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+          aria-hidden
+        >
+          <span className="rotate-[-12deg] rounded border-2 border-amber-300/85 bg-slate-950/55 px-2 py-0.5 font-display text-[14px] font-bold uppercase tracking-[.18em] text-amber-200 shadow-[0_2px_10px_rgba(0,0,0,.6)]">
+            Aged ✓
+          </span>
+        </div>
+      ) : null}
       {/* Owner stripe — thin band of the player's seat colour pinned to
           the top edge so identity reads even at a glance. */}
       <div
