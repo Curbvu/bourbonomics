@@ -207,10 +207,19 @@ function BillCard({ bill }: { bill: MashBill }) {
   const rarity = tierOrCommon(bill.tier);
   const chrome = TIER_CHROME[rarity];
   return (
-    <article className="flex flex-col rounded-xl border-2 border-slate-700 bg-slate-900/60 px-4 py-4 shadow-[0_4px_16px_rgba(0,0,0,.35)]">
+    <article
+      className={[
+        "flex flex-col rounded-xl border-2 px-4 py-4 shadow-[0_4px_16px_rgba(0,0,0,.35)] transition-shadow",
+        chrome.border,
+        chrome.gradient,
+        chrome.glow,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-xl font-bold leading-tight text-slate-100">
+          <h2 className={`font-display text-xl font-bold leading-tight ${chrome.titleInk}`}>
             {bill.name}
           </h2>
           {bill.slogan ? (
@@ -262,10 +271,19 @@ function BillDetailPanel({ bill, onBack }: { bill: MashBill; onBack: () => void 
       >
         ← back to gallery
       </button>
-      <article className="rounded-xl border-2 border-slate-700 bg-slate-900/60 px-7 py-6 shadow-[0_8px_24px_rgba(0,0,0,.45)]">
+      <article
+        className={[
+          "rounded-xl border-2 px-7 py-6 shadow-[0_8px_24px_rgba(0,0,0,.45)]",
+          chrome.border,
+          chrome.gradient,
+          chrome.glow,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
         <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h2 className="font-display text-4xl font-bold leading-tight text-slate-100">
+            <h2 className={`font-display text-4xl font-bold leading-tight ${chrome.titleInk}`}>
               {bill.name}
             </h2>
             {bill.slogan ? (
