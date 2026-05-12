@@ -141,7 +141,7 @@ export default function ActionBar() {
               : inSellMode
                 ? "Cancel the in-progress sale"
                 : sellEntry.reason ??
-                  "Pick a 2yo+ barrel in your Rickhouse, then a card in hand to spend."
+                  "Pick a sellable barrel in your Rickhouse — the sale resolves instantly."
           }
           onStart={startSellMode}
           onCancel={cancelSellMode}
@@ -481,21 +481,18 @@ function canEnterSellMode(
   state: GameState,
   player: PlayerState,
 ): { canSell: boolean; reason?: string } {
+  // v2.10: a barrel is sellable iff it's aging, age >= 2, and has
+  // been in Aging for at least one full round (round-gap rule).
   const saleable = state.allBarrels.some(
     (b) =>
       b.ownerId === player.id &&
       b.phase === "aging" &&
       b.attachedMashBill != null &&
-      b.age >= 2,
+      b.age >= 2 &&
+      (b.completedInRound == null || state.round > b.completedInRound),
   );
   if (!saleable) {
-    return { canSell: false, reason: "No 2yo+ barrels to sell." };
-  }
-  const spendable = player.hand.some(
-    (c) => c.type === "resource" || c.type === "capital",
-  );
-  if (!spendable) {
-    return { canSell: false, reason: "Selling costs 1 card from hand." };
+    return { canSell: false, reason: "No sellable barrels (age 2+, aged one full round)." };
   }
   return { canSell: true };
 }

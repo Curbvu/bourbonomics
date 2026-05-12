@@ -340,14 +340,9 @@ export function isWheatedBill(bill: MashBill): boolean {
 
 export type DistilleryBonus =
   | "vanilla"
-  | "quick_turn"
-  | "patient_cooper"
-  | "single_barrel"
-  | "estate"
-  | "storm_chaser"
-  | "mothballed"
-  | "artisanal"
-  | "bourbon_purist";
+  | "high_rye_house"
+  | "wheated_baron"
+  | "connoisseur_estate";
 
 /** v3 difficulty tier for the picker UI. */
 export type DistilleryDifficulty =
@@ -369,6 +364,12 @@ export interface DistilleryStarterBarrel {
 export interface DistilleryStarterPoolMods {
   /** Free 2-rye premium cards added to the dealt starter hand. */
   bonusTwoRye?: number;
+  /**
+   * v2.10: free Specialty Rye cards added to the dealt starter hand
+   * (High-Rye House). Specialty Rye is the +1-rep-on-sale, specialty-
+   * gate-counting variant. Independent of `bonusTwoRye`.
+   */
+  bonusSpecialtyRye?: number;
   /** Net change to capital cards in the dealt starter hand (negative removes). */
   capitalDelta?: number;
 }
@@ -882,16 +883,20 @@ export type GameAction =
       type: "SELL_BOURBON";
       playerId: string;
       barrelId: string;
+      /**
+       * v2.10: total rep gained from the grid (post-offsets). Must
+       * equal the computed reward. Non-Gold sales must have
+       * `cardDrawSplit: 0` — only Gold-eligible sales may split the
+       * reward between reputation and purchasing power (card draw).
+       */
       reputationSplit: number;
       cardDrawSplit: number;
-      /**
-       * v2.7.1: id of the resource or capital card spent from the
-       * player's hand to pay the sell-action cost. Goes straight to
-       * discard. This card is one of the ~7 cards a baseline barrel
-       * consumes across its full lifecycle.
-       */
-      spendCardId: string;
       goldChoice?: "convert" | "keep" | "decline";
+      /**
+       * v2.10 Connoisseur Estate: Open-slot Convert allows the target
+       * slot to be empty (no barrel record). The Gold bill lands in
+       * the open slot as a "ready" barrel.
+       */
       goldConvertTargetSlotId?: string;
     }
   | {

@@ -3,14 +3,9 @@
 /**
  * SellOverlay — sticky status bar for interactive Sell mode.
  *
- * Mirrors AgeOverlay: a thin gold band that prompts the player through
- * the two picks (barrel + spend card) and lets them cancel. The picks
- * themselves happen via clicks on the Rickhouse / HandTray; the store
- * auto-fires SELL_BOURBON the moment both are set, so there's no
- * Confirm button.
- *
- * The grid reward is recomputed live from the picked barrel so the
- * player sees the rep they'd earn before the sell lands.
+ * v2.10: single-step picker. The player picks a barrel and the sale
+ * resolves immediately (no card-spend cost). The overlay shows the
+ * grid reward live as a barrel is picked.
  */
 
 import { computeReward } from "@bourbonomics/engine";
@@ -25,9 +20,6 @@ export default function SellOverlay() {
   const barrel = sellMode.pickedBarrelId
     ? state.allBarrels.find((b) => b.id === sellMode.pickedBarrelId)
     : null;
-  const card = sellMode.pickedSpendCardId
-    ? human.hand.find((c) => c.id === sellMode.pickedSpendCardId)
-    : null;
 
   const reward =
     barrel && barrel.attachedMashBill
@@ -37,16 +29,9 @@ export default function SellOverlay() {
         })
       : 0;
 
-  let prompt: string;
-  if (!barrel && !card) {
-    prompt = "Pick a 2yo+ barrel in your Rickhouse and a card in hand. Auto-sells on second pick.";
-  } else if (!barrel) {
-    prompt = "Now pick a 2yo+ barrel in your Rickhouse — it'll sell instantly.";
-  } else if (!card) {
-    prompt = "Now pick a card in your hand — selling costs 1 card.";
-  } else {
-    prompt = "Selling…";
-  }
+  const prompt = barrel
+    ? "Selling…"
+    : "Pick a sellable barrel in your Rickhouse — sale fires instantly.";
 
   return (
     <div className="border-t border-amber-700/60 bg-gradient-to-b from-amber-950/50 to-slate-950 px-[18px] py-2">
@@ -59,15 +44,6 @@ export default function SellOverlay() {
             ? `${barrel.attachedMashBill?.name ?? "barrel"} · age ${barrel.age} · ${reward} rep`
             : "no barrel picked"}
         </span>
-        {card ? (
-          <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-300">
-            paying with{" "}
-            <span className="font-bold text-emerald-300">{cardLabel(card)}</span>
-          </span>
-        ) : null}
-        {/* Cancel button sits next to the picks, not pushed to the far
-            right — keeps the mouse close to where the player just
-            clicked. Sell auto-fires on the second pick (no Confirm). */}
         <button
           type="button"
           onClick={cancelSellMode}
@@ -79,19 +55,4 @@ export default function SellOverlay() {
       </div>
     </div>
   );
-}
-
-function cardLabel(card: {
-  type: string;
-  subtype?: string;
-  capitalValue?: number;
-  resourceCount?: number;
-  displayName?: string;
-}): string {
-  if (card.displayName) return card.displayName;
-  if (card.type === "capital") return `Capital $${card.capitalValue ?? 1}`;
-  const sub = card.subtype ?? "";
-  const subCap = sub ? sub[0]!.toUpperCase() + sub.slice(1) : "Resource";
-  const count = card.resourceCount && card.resourceCount > 1 ? `${card.resourceCount}× ` : "";
-  return `${count}${subCap}`;
 }

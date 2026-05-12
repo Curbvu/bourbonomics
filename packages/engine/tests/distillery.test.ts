@@ -14,19 +14,12 @@ function makeSelectionGame() {
       { id: "p3", name: "Carol" },
     ],
     distilleryPool: defaultDistilleryPool(),
-    startingMashBills: [
-      catalog.slice(0, 3),
-      catalog.slice(3, 6),
-      catalog.slice(6, 8),
-    ],
-    bourbonDeck: [],
+    bourbonDeck: catalog,
   });
 }
 
-// v2.7: distillery selection is feature-flagged off in active play. The
-// engine still supports it (skipped, not deleted, per the patch spec) so
-// the tests stay green when the flag flips back on.
-describe.skip("Distillery selection", () => {
+// v2.10: distillery selection is live for every seat.
+describe("Distillery selection (v2.10)", () => {
   it("starts in distillery_selection with reverse-snake order", () => {
     const state = makeSelectionGame();
     expect(state.phase).toBe("distillery_selection");
@@ -42,20 +35,21 @@ describe.skip("Distillery selection", () => {
     ).toThrow(IllegalActionError);
   });
 
-  it("assigns the distillery, builds rickhouse slots, and advances the cursor", () => {
+  it("assigns Connoisseur Estate with 4 ready-phase slotted bills at setup", () => {
     let state = makeSelectionGame();
-    const estate = state.distilleryPool.find((d) => d.bonus === "estate")!;
+    const connoisseur = state.distilleryPool.find((d) => d.bonus === "connoisseur_estate")!;
     state = applyAction(state, {
       type: "SELECT_DISTILLERY",
       playerId: "p3",
-      distilleryId: estate.id,
+      distilleryId: connoisseur.id,
     });
     const p3 = state.players.find((p) => p.id === "p3")!;
-    expect(p3.distillery?.bonus).toBe("estate");
-    // The Estate ships with 5 rickhouse slots (its structural ability).
-    expect(p3.rickhouseSlots).toHaveLength(5);
+    expect(p3.distillery?.bonus).toBe("connoisseur_estate");
+    expect(p3.rickhouseSlots).toHaveLength(4);
+    const myBarrels = state.allBarrels.filter((b) => b.ownerId === "p3");
+    expect(myBarrels).toHaveLength(4);
+    expect(myBarrels.every((b) => b.phase === "ready")).toBe(true);
     expect(state.distillerySelectionCursor).toBe(1);
-    expect(state.distilleryPool.find((d) => d.id === estate.id)).toBeUndefined();
   });
 
   it("falls through to starter_deck_draft once every player has picked a distillery", () => {

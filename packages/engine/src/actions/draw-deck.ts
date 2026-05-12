@@ -69,6 +69,16 @@ export function validateDrawMashBill(
         reason: `mash bill ${action.mashBillId} is not in the face-up row`,
       };
     }
+    // v2.10 High-Rye House: cannot draft wheated bills (maxRye === 0).
+    if (
+      player.distillery?.bonus === "high_rye_house" &&
+      bill.recipe?.maxRye === 0
+    ) {
+      return {
+        legal: false,
+        reason: "High-Rye House cannot draft wheated bills",
+      };
+    }
     const cost = mashBillCost(bill);
     let totalCapital = 0;
     for (const id of spendIds) {
@@ -129,7 +139,18 @@ export function applyDrawMashBill(
     }
   } else {
     // Blind draw — top of deck = end of array.
+    // v2.10 High-Rye House: skip wheated bills (maxRye === 0). Pushed
+    // to the bottom; we keep popping until a legal bill turns up or
+    // the deck is empty.
     acquired = draft.bourbonDeck.pop()!;
+    if (player.distillery?.bonus === "high_rye_house") {
+      let safety = draft.bourbonDeck.length + 4;
+      while (acquired.recipe?.maxRye === 0 && safety-- > 0) {
+        draft.bourbonDeck.unshift(acquired);
+        if (draft.bourbonDeck.length === 0) break;
+        acquired = draft.bourbonDeck.pop()!;
+      }
+    }
   }
 
   // v2.6: bill goes directly into an open slot as a "ready" barrel.

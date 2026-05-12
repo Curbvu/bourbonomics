@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
 import { makeMashBill, makeCapitalCard, makeResourceCard } from "../src/cards.js";
 import type { OperationsCard, OperationsCardDefId } from "../src/types.js";
-import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel, spendCardId } from "./helpers.js";
+import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel } from "./helpers.js";
 
 const bill = () =>
   makeMashBill(
@@ -196,9 +196,7 @@ describe("PLAY_OPERATIONS_CARD — Demand Surge", () => {
       playerId: "p1",
       barrelId: state.allBarrels.find((b) => b.phase === "aging")!.id,
       reputationSplit: 5,
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
-    });
+      cardDrawSplit: 0,    });
     expect(state.demand).toBe(before);
     expect(state.players.find((p) => p.id === "p1")!.demandSurgeActive).toBe(false);
   });
@@ -638,9 +636,7 @@ describe("PLAY_OPERATIONS_CARD — Rating Boost", () => {
       playerId: "p1",
       barrelId,
       reputationSplit: 4,
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
-    });
+      cardDrawSplit: 0,    });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(beforeRep + 4 + 2);
     // Boost consumed.
@@ -670,9 +666,7 @@ describe("PLAY_OPERATIONS_CARD — Master Distiller", () => {
       playerId: "p1",
       barrelId,
       reputationSplit: 5,
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
-    });
+      cardDrawSplit: 0,    });
     expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(0);
   });
 });

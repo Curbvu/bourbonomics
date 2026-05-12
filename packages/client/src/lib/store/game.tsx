@@ -182,14 +182,12 @@ export interface MakeMode {
  *
  *   step 1 — pick which of your aging barrels to sell. Saleable barrels
  *            (aging, age ≥2) light up sky-blue in your rickhouse.
- *   step 2 — pick a single hand card to spend as the sell-action cost
- *            (v2.7.1). The action auto-fires the moment both picks are
- *            in — no Confirm button. Reputation gets the full grid
- *            reward; cardDrawSplit is 0 by default.
+ *   v2.10 — no spend-card cost. Picking a barrel auto-fires the sale
+ *            with the full grid reward as reputation (cardDrawSplit = 0).
+ *            A future iteration may add a rep/PP slider for Gold sales.
  */
 export interface SellMode {
   pickedBarrelId: string | null;
-  pickedSpendCardId: string | null;
 }
 
 /**
@@ -334,10 +332,8 @@ export interface GameStore {
   sellMode: SellMode | null;
   startSellMode: () => void;
   cancelSellMode: () => void;
-  /** Step 1: pick which barrel to sell. */
+  /** v2.10: pick a barrel — the sale auto-fires (no card-spend step). */
   setSellBarrel: (barrelId: string) => void;
-  /** Step 2: pick the hand card to spend. Auto-fires when both set. */
-  setSellSpendCard: (cardId: string) => void;
   /**
    * v2.6 drag-and-drop state — the id of the PRIMARY hand card
    * currently being dragged onto a slot, or `null` when no drag is in
@@ -489,7 +485,6 @@ const Ctx = createContext<GameStore>({
   startSellMode: noop,
   cancelSellMode: noop,
   setSellBarrel: noop,
-  setSellSpendCard: noop,
   dragMake: null,
   dragMakeIds: [],
   startDragMake: noop,
@@ -1267,13 +1262,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [makeMode, store.state, dispatch]);
 
   // ---------------------------------------------------------------
-  // Sell-mode helpers — two-step picker, **auto-fires on completion**.
-  // The user picks a barrel (step 1), then a hand card (step 2). The
-  // moment both are set, dispatch SELL_BOURBON with full reputation
-  // split. No Confirm button — the second click IS the confirm.
+  // Sell-mode helpers — single-step picker, **auto-fires on barrel pick**.
+  // v2.10: no card-spend cost. Clicking a barrel resolves the sale
+  // immediately with the full grid reward going to reputation. A
+  // future iteration may add a rep/PP slider for Gold-eligible sales.
   // ---------------------------------------------------------------
   const startSellMode = useCallback(() => {
-    setSellMode({ pickedBarrelId: null, pickedSpendCardId: null });
+    setSellMode({ pickedBarrelId: null });
     setBuyMode(null);
     setAgeMode(null);
     setDrawBillMode(null);
@@ -1287,7 +1282,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fireSell = useCallback(
-    (barrelId: string, spendCardId: string) => {
+    (barrelId: string) => {
       const state = store.state;
       if (!state) return;
       const human = state.players.find((p) => !p.isBot);
@@ -1302,12 +1297,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
         type: "SELL_BOURBON",
         playerId: human.id,
         barrelId,
-        // Take full rep; cardDrawSplit defaults to 0. A future iteration
-        // could let the player split via a slider — for now the picker
-        // matches the SmartButton behaviour.
+        // v2.10: take full rep. Gold-eligible sales support a rep/PP
+        // split in the engine, but the client UI doesn't expose the
+        // slider yet.
         reputationSplit: reward,
         cardDrawSplit: 0,
-        spendCardId,
       };
       setSellMode(null);
       dispatch(action);
@@ -1319,36 +1313,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     (barrelId: string) => {
       setSellMode((prev) => {
         if (!prev) return prev;
-        // Clicking the same barrel again clears the pick (lets the
-        // player back out without canceling the whole mode).
-        if (prev.pickedBarrelId === barrelId) {
-          return { ...prev, pickedBarrelId: null };
-        }
-        const next = { ...prev, pickedBarrelId: barrelId };
-        // Auto-fire if the spend card was already picked first.
-        if (next.pickedSpendCardId) {
-          // Defer the fire so React applies the state update first.
-          queueMicrotask(() => fireSell(barrelId, next.pickedSpendCardId!));
-        }
-        return next;
-      });
-    },
-    [fireSell],
-  );
-
-  const setSellSpendCard = useCallback(
-    (cardId: string) => {
-      setSellMode((prev) => {
-        if (!prev) return prev;
-        // Toggle: clicking the same card again clears it.
-        if (prev.pickedSpendCardId === cardId) {
-          return { ...prev, pickedSpendCardId: null };
-        }
-        const next = { ...prev, pickedSpendCardId: cardId };
-        if (next.pickedBarrelId) {
-          queueMicrotask(() => fireSell(next.pickedBarrelId!, cardId));
-        }
-        return next;
+        // Defer the fire so React applies the state update first.
+        queueMicrotask(() => fireSell(barrelId));
+        return { ...prev, pickedBarrelId: barrelId };
       });
     },
     [fireSell],
@@ -1403,11 +1370,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         fireAge(ageMode.pickedBarrelId, cardId);
         return;
       }
-      // Sell — same idiom; needs a picked barrel.
-      if (sellMode?.pickedBarrelId) {
-        fireSell(sellMode.pickedBarrelId, cardId);
-        return;
-      }
+      // v2.10: sell action no longer consumes a hand card, so the
+      // double-click-on-card path bypasses sell-mode entirely.
       // Make — fire a single-card commit using whichever target the
       // confirmMake heuristic picks (in-progress barrel first, then
       // the next open slot). State updates batch, so we read live
@@ -1830,7 +1794,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       startSellMode,
       cancelSellMode,
       setSellBarrel,
-      setSellSpendCard,
       dragMake,
       dragMakeIds,
       startDragMake,
@@ -1904,7 +1867,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       startSellMode,
       cancelSellMode,
       setSellBarrel,
-      setSellSpendCard,
       dragMake,
       dragMakeIds,
       startDragMake,

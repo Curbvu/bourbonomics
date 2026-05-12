@@ -503,7 +503,6 @@ export const TUTORIAL_BEATS: Beat[] = [
           barrelId: target.barrelId,
           reputationSplit: 3,
           cardDrawSplit: 0,
-          spendCardId: target.cardId,
         },
       ];
     },
@@ -610,7 +609,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-9-sell-backroad",
     kind: "await-action",
     title: "Sell Backroad",
-    body: "Click **Sell**, then **Backroad Batch**, then any hand card. Grid pays **2 rep**. Selling costs 1 card from hand.",
+    body: "Click **Sell**, then **Backroad Batch**. Grid pays **2 rep**. Selling is free — no card cost.",
     spotlight: { kind: "action-button", action: "sell" },
     postEngageSpotlight: {
       kind: "rickhouse-slot",

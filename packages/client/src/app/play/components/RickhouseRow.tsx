@@ -290,15 +290,16 @@ function BarrelChip({
   const isAgePicked = inAgeMode && ageMode!.pickedBarrelId === barrel.id;
 
   // Sell-mode interactivity — mirrors age mode. The human's saleable
-  // barrels light up (aging-phase, age ≥2, has a bill). Clicking sets
-  // `pickedBarrelId` in the store; the auto-fire kicks in when the
-  // hand-card pick lands.
+  // barrels light up (aging-phase, age ≥2, has a bill, round-gap
+  // satisfied). v2.10: the click fires the sale immediately (no
+  // card-spend step).
   const inSellMode = sellMode != null && isHumanRow;
   const saleable =
     inSellMode &&
     barrel.phase === "aging" &&
     barrel.age >= 2 &&
-    barrel.attachedMashBill != null;
+    barrel.attachedMashBill != null &&
+    (barrel.completedInRound == null || state.round > barrel.completedInRound);
   const isSellPicked = inSellMode && sellMode!.pickedBarrelId === barrel.id;
 
   // CSS keyframe (drop-target-active / drop-target-pulse) owns the

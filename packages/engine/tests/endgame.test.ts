@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import { applyAction, computeFinalScores, isGameOver } from "../src/engine.js";
 import { makeCapitalCard, makeMashBill } from "../src/cards.js";
-import { advanceToActionPhase, giveHand, makeTestGame, passTurn, placeBarrel, spendCardId } from "./helpers.js";
+import { advanceToActionPhase, giveHand, makeTestGame, passTurn, placeBarrel } from "./helpers.js";
 
 describe("Final round trigger", () => {
   it("drawing the last mash bill flips finalRoundTriggered", () => {
@@ -198,9 +198,7 @@ describe("Integration smoke test — minimal full game", () => {
       playerId: "p1",
       barrelId,
       reputationSplit: reward,
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
-    });
+      cardDrawSplit: 0,    });
     // v2.2: SELL did not end p1's turn — they must explicitly pass.
     expect(state.currentPlayerIndex).toBe(0);
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });

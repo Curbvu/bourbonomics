@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
 import { computeReward, awardConditionMet } from "../src/rewards.js";
 import { makeMashBill, makeCapitalCard, makeResourceCard } from "../src/cards.js";
-import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel, spendCardId } from "./helpers.js";
+import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel } from "./helpers.js";
 
 const testBill = () =>
   makeMashBill(
@@ -84,21 +84,38 @@ describe("SELL_BOURBON — happy path", () => {
       barrelId,
       reputationSplit: 5, // total reward is 5 at age=5, demand=6
       cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(5);
     expect(p1.barrelsSold).toBe(1);
     expect(state.demand).toBe(5);
     expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(0);
-    // 5 aging cards + 1 sell-action capital card = 6 in discard.
+    // v2.10: no spend-card cost; only the 5 aging cards land in discard.
     expect(p1.discard.filter((c) => c.id.startsWith("agingcard_"))).toHaveLength(5);
   });
 
-  it("draws cards mid-sale into hand for use later in the same action phase", () => {
+  it("draws cards mid-sale into hand for use later in the same action phase (Gold sale)", () => {
+    // v2.10: only Gold-eligible sales can split grid value into card
+    // draws. Build a bill with a Gold trigger that the placed barrel
+    // satisfies.
+    const goldBill = makeMashBill(
+      {
+        defId: "gold_split",
+        name: "Gold Split",
+        ageBands: [2, 4, 6],
+        demandBands: [2, 4, 6],
+        rewardGrid: [
+          [1, 2, 3],
+          [2, 4, 5],
+          [3, 5, 6],
+        ],
+        goldAward: { minAge: 5, minDemand: 5 },
+      },
+      200,
+    );
     let state = makeTestGame({ startingDemand: 6 });
     state = advanceToActionPhase(state, [1, 1]);
-    state = placeBarrel(state, "p1", testBill(), 5);
+    state = placeBarrel(state, "p1", goldBill, 5);
     // Stock p1's deck so the mid-sale draw has cards to pull from.
     state = {
       ...state,
@@ -106,7 +123,7 @@ describe("SELL_BOURBON — happy path", () => {
         p.id === "p1"
           ? {
               ...p,
-              hand: [makeCapitalCard("p1", 99)],
+              hand: [],
               deck: [
                 makeResourceCard("rye", "p1", 50),
                 makeResourceCard("rye", "p1", 51),
@@ -118,22 +135,62 @@ describe("SELL_BOURBON — happy path", () => {
       ),
     };
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    const sellSpend = spendCardId(state, "p1");
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
       reputationSplit: 2,
       cardDrawSplit: 3,
-      spendCardId: sellSpend,
+      goldChoice: "decline",
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(2);
-    // Hand math: started at 1 capital. Sell spends it → discard=[cap].
-    // Draw count = cardDrawSplit (3). Deck has 3 ryes; 3 draws empty
-    // it. Final hand = [3 ryes] = 3.
+    // Hand math: started empty. Draw count = cardDrawSplit (3). Deck
+    // has 3 ryes; 3 draws empty it.
     expect(p1.hand).toHaveLength(3);
     expect(p1.deck).toHaveLength(0);
+  });
+
+  it("rejects splitting grid value into PP on a non-Gold sale", () => {
+    let state = makeTestGame({ startingDemand: 6 });
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p1", testBill(), 5);
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
+    expect(() =>
+      applyAction(state, {
+        type: "SELL_BOURBON",
+        playerId: "p1",
+        barrelId,
+        reputationSplit: 2,
+        cardDrawSplit: 3,
+      }),
+    ).toThrow(/Gold-eligible/);
+  });
+
+  it("rejects selling a barrel that just finished aging this round", () => {
+    let state = makeTestGame({ startingDemand: 6 });
+    state = advanceToActionPhase(state, [1, 1]);
+    // Place an age-2 barrel and mark completedInRound = current round
+    // so the round-gap rule blocks the sale.
+    state = placeBarrel(state, "p1", testBill(), 2);
+    state = {
+      ...state,
+      allBarrels: state.allBarrels.map((b) =>
+        b.ownerId === "p1" && b.phase === "aging"
+          ? { ...b, completedInRound: state.round }
+          : b,
+      ),
+    };
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
+    expect(() =>
+      applyAction(state, {
+        type: "SELL_BOURBON",
+        playerId: "p1",
+        barrelId,
+        reputationSplit: 1,
+        cardDrawSplit: 0,
+      }),
+    ).toThrow(/too recently/);
   });
 
   it("rejects barrels younger than 2 years", () => {
@@ -147,9 +204,7 @@ describe("SELL_BOURBON — happy path", () => {
         playerId: "p1",
         barrelId,
         reputationSplit: 0,
-        cardDrawSplit: 0,
-        spendCardId: spendCardId(state, "p1"),
-      }),
+        cardDrawSplit: 0,      }),
     ).toThrow(/2 years/);
   });
 
@@ -164,9 +219,7 @@ describe("SELL_BOURBON — happy path", () => {
         playerId: "p1",
         barrelId,
         reputationSplit: 4,
-        cardDrawSplit: 0,
-        spendCardId: spendCardId(state, "p1"),
-      }),
+        cardDrawSplit: 0,      }),
     ).toThrow(/expected reward of 5/);
   });
 
@@ -181,9 +234,7 @@ describe("SELL_BOURBON — happy path", () => {
         playerId: "p1",
         barrelId,
         reputationSplit: 5,
-        cardDrawSplit: 0,
-        spendCardId: spendCardId(state, "p1"),
-      }),
+        cardDrawSplit: 0,      }),
     ).toThrow(/own/);
   });
 
@@ -204,9 +255,7 @@ describe("SELL_BOURBON — happy path", () => {
       playerId: "p1",
       barrelId: ids[0]!,
       reputationSplit: 0,
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
-    });
+      cardDrawSplit: 0,    });
     expect(state.demand).toBe(0);
     // Hand off to p2 — selling no longer ends the turn. v2.9: roll
     // p2's demand and clear the (orthogonal) per-turn aging gate so
@@ -228,9 +277,7 @@ describe("SELL_BOURBON — happy path", () => {
       playerId: "p2",
       barrelId: ids[1]!,
       reputationSplit: 0,
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p2"),
-    });
+      cardDrawSplit: 0,    });
     expect(state.demand).toBe(0);
   });
 });
@@ -262,9 +309,7 @@ describe("SELL_BOURBON — Silver and Gold awards", () => {
       playerId: "p1",
       barrelId,
       reputationSplit: 5,
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
-    });
+      cardDrawSplit: 0,    });
     // v2.6: Silver leaves the bill in the now-empty selling slot as
     // a "ready" barrel (slot doesn't open).
     const retained = state.allBarrels.find((b) => b.slotId === sellingSlotId);
@@ -301,9 +346,7 @@ describe("SELL_BOURBON — Silver and Gold awards", () => {
       playerId: "p1",
       barrelId,
       reputationSplit: 5,
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
-      goldChoice: "keep",
+      cardDrawSplit: 0,      goldChoice: "keep",
     });
     // v2.6: Gold "keep" leaves the bill in the now-empty selling slot
     // (Silver-style behavior).
@@ -338,9 +381,7 @@ describe("SELL_BOURBON — Silver and Gold awards", () => {
       playerId: "p1",
       barrelId,
       reputationSplit: 5,
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
-    });
+      cardDrawSplit: 0,    });
     expect(state.bourbonDiscard.some((m) => m.id === bill.id)).toBe(true);
   });
 
@@ -399,9 +440,7 @@ describe("SELL_BOURBON — Silver and Gold awards", () => {
       playerId: "p1",
       barrelId: sellingBarrel.id,
       reputationSplit: 5,
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
-      goldChoice: "convert",
+      cardDrawSplit: 0,      goldChoice: "convert",
       goldConvertTargetSlotId: targetBarrel.slotId,
     });
     const target = state.allBarrels.find((b) => b.slotId === targetBarrel.slotId)!;

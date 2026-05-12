@@ -1,4 +1,4 @@
-/**
+﻿/**
  * v2.5 Incremental Mash Commitment — tests covering the new lifecycle:
  *   - Start a barrel partial; phase = "construction".
  *   - Construction barrels are skipped during the Age Phase.
@@ -20,7 +20,6 @@ import {
   giveHand,
   makeTestGame,
   slotForBill,
-  spendCardId,
 } from "./helpers.js";
 
 const cask = (label: string, i = 0) => makeResourceCard("cask", label, i);
@@ -378,9 +377,7 @@ describe("incremental commitment — full lifecycle integration", () => {
       playerId: "p1",
       barrelId,
       reputationSplit: 3,
-      cardDrawSplit: 0,
-      spendCardId: spendCardId(state, "p1"),
-    });
+      cardDrawSplit: 0,    });
     const repAfter = state.players.find((p) => p.id === "p1")!.reputation;
     expect(repAfter - repBefore).toBe(3);
   });

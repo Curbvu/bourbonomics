@@ -127,6 +127,16 @@ function effectiveRecipeMins(
   let minRye = recipe.minRye ?? 0;
   let minBarley = recipe.minBarley ?? 0;
   let minWheat = recipe.minWheat ?? 0;
+  // v2.10 Wheated Baron: -1 wheat floor on wheated bills (maxRye === 0).
+  // Stacks before pendingMakeDiscount so a wheated bill with Mash
+  // Futures armed gets both discounts.
+  if (
+    player.distillery?.bonus === "wheated_baron" &&
+    recipe.maxRye === 0 &&
+    minWheat > 0
+  ) {
+    minWheat = Math.max(0, minWheat - 1);
+  }
   if (player.pendingMakeDiscount === "grain") {
     // Mash Futures: knock 1 off the largest grain min that's > 0.
     let bestKind: "rye" | "barley" | "wheat" | null = null;
@@ -316,10 +326,19 @@ export function validateMakeBourbon(
   const cardById = new Map(player.hand.map((c) => [c.id, c]));
   const totals = emptyTotals();
   for (const card of existingBarrel.productionCards) tallyCard(totals, card);
+  const banRye = player.distillery?.bonus === "wheated_baron";
   for (const id of action.cardIds) {
     const card = cardById.get(id)!;
     if (card.type !== "resource" && card.type !== "capital") {
       return { legal: false, reason: `card ${id} cannot be committed to a barrel` };
+    }
+    // v2.10 Wheated Baron: rye cards cannot be committed to barrels.
+    // The card stays legal at the market and in trades.
+    if (banRye && card.type === "resource" && card.subtype === "rye") {
+      return {
+        legal: false,
+        reason: "Wheated Baron cannot commit rye cards to a barrel",
+      };
     }
     tallyCard(totals, card);
   }

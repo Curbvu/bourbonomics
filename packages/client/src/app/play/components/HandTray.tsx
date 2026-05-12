@@ -489,7 +489,6 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     makeMode,
     toggleMakeSpend,
     sellMode,
-    setSellSpendCard,
     dragMake,
     startDragMake,
     endDragMake,
@@ -522,7 +521,10 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
   const isDrawSelected =
     inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
   const isMakeSelected = inMakeMode && makeMode!.spendCardIds.includes(card.id);
-  const isSellSelected = inSellMode && sellMode!.pickedSpendCardId === card.id;
+  // v2.10: sell mode no longer has a per-card pick — barrel click
+  // auto-fires the sale. Kept the flag so isSellSelected uniformly
+  // resolves to false without restructuring the boolean ladder.
+  const isSellSelected = false;
   const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode || inSellMode;
   // v2.10 multi-select — only meaningful when no picker mode is open;
   // the pickers own selection semantics themselves.
@@ -578,7 +580,8 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
     else if (inBuyMode) toggleBuySpend(card.id);
-    else if (inSellMode) setSellSpendCard(card.id);
+    // v2.10: sell mode is barrel-only; clicks in hand ignore.
+    else if (inSellMode) { /* no-op */ }
     // v2.10: outside any picker, left-click toggles the persistent
     // multi-select. Right-click handles inspect (see onContextMenu).
     else toggleHandSelection(card.id);
@@ -686,7 +689,6 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     makeMode,
     toggleMakeSpend,
     sellMode,
-    setSellSpendCard,
     dragMake,
     startDragMake,
     endDragMake,
@@ -716,7 +718,10 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
   const isDrawSelected =
     inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
   const isMakeSelected = inMakeMode && makeMode!.spendCardIds.includes(card.id);
-  const isSellSelected = inSellMode && sellMode!.pickedSpendCardId === card.id;
+  // v2.10: sell mode no longer has a per-card pick — barrel click
+  // auto-fires the sale. Kept the flag so isSellSelected uniformly
+  // resolves to false without restructuring the boolean ladder.
+  const isSellSelected = false;
   const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode || inSellMode;
   const isMultiSelected = !inAnyPicker && selectedHandCardIds.includes(card.id);
   const isSelected =
@@ -757,7 +762,8 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
     else if (inBuyMode) toggleBuySpend(card.id);
-    else if (inSellMode) setSellSpendCard(card.id);
+    // v2.10: sell mode is barrel-only; clicks in hand ignore.
+    else if (inSellMode) { /* no-op */ }
     // v2.10: outside any picker, left-click toggles persistent
     // multi-select. Right-click handles inspect.
     else toggleHandSelection(card.id);

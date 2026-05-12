@@ -139,6 +139,28 @@ export function applyDistilleryStarterModifications(
     }
   }
 
+  // v2.10 High-Rye House: free Specialty Rye cards. Same `specialty:
+  // true` flag the market-minted Superior Rye uses, so they count
+  // toward `minSpecialty.rye` and stack the +1-rep-on-sale bonus.
+  if (mods.bonusSpecialtyRye && mods.bonusSpecialtyRye > 0) {
+    for (let i = 0; i < mods.bonusSpecialtyRye; i++) {
+      target.push(
+        makePremiumResource({
+          defId: "superior_rye",
+          displayName: "Superior Rye",
+          flavor: "Reserve cut, sharper edge.",
+          subtype: "rye",
+          resourceCount: 1,
+          cost: 3,
+          ownerLabel: player.id,
+          index: 920 + i,
+          specialty: true,
+          effect: { kind: "rep_on_sale_flat", when: "on_sale", rep: 1 },
+        }),
+      );
+    }
+  }
+
   if (mods.capitalDelta) {
     if (mods.capitalDelta > 0) {
       for (let i = 0; i < mods.capitalDelta; i++) {
@@ -222,11 +244,23 @@ export function topUpSlottedBillsForDistillery(
   distillery: Distillery,
 ): void {
   const target = distillery.mashBillDraftSize ?? 3;
+  // v2.10 High-Rye House cannot draft wheated bills (recipe.maxRye === 0).
+  // Skip them during the auto top-up — bills that aren't placeable get
+  // shuffled to the bottom of the deck so the rest of the table can
+  // still see them.
+  const banWheated = distillery.bonus === "high_rye_house";
+  let safety = draft.bourbonDeck.length + 4;
   while (
     draft.allBarrels.filter((b) => b.ownerId === player.id).length < target &&
-    draft.bourbonDeck.length > 0
+    draft.bourbonDeck.length > 0 &&
+    safety-- > 0
   ) {
     const extra = draft.bourbonDeck.pop()!;
+    if (banWheated && extra.recipe?.maxRye === 0) {
+      // Send the wheated bill to the bottom of the deck — try the next.
+      draft.bourbonDeck.unshift(extra);
+      continue;
+    }
     if (placeBillInSlot(draft, player, extra) == null) {
       // No open slot — return the bill to the bottom of the deck.
       draft.bourbonDeck.unshift(extra);

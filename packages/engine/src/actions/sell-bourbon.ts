@@ -66,14 +66,14 @@ export function validateSellBourbon(
   if (barrel.age < MIN_SELL_AGE) {
     return { legal: false, reason: `barrel must be aged at least ${MIN_SELL_AGE} years` };
   }
-
-  // v2.7.1: selling costs 1 card from hand (any resource or capital).
-  const spend = player.hand.find((c) => c.id === action.spendCardId);
-  if (!spend) {
-    return { legal: false, reason: "selling a barrel costs 1 card from your hand" };
-  }
-  if (spend.type !== "resource" && spend.type !== "capital") {
-    return { legal: false, reason: "sell-action card must be a resource or capital card" };
+  // v2.10: round-gap rule. A barrel must have been in Aging phase for
+  // at least one full round before it can sell. Pre-aged starters ship
+  // with completedInRound = 0 so they're eligible from round 1 onward.
+  if (barrel.completedInRound != null && state.round <= barrel.completedInRound) {
+    return {
+      legal: false,
+      reason: "this barrel finished aging too recently — it can sell starting next round",
+    };
   }
 
   const reward = computeSaleReward(state, barrel);
@@ -96,22 +96,56 @@ export function validateSellBourbon(
     };
   }
 
-  // v2.6 Gold-award option validation. Only matters when the sale
-  // would actually trigger a Gold; otherwise goldChoice is ignored.
+  // v2.10: only Gold-eligible sales may split the grid value into
+  // purchasing power (card draws). Silver and no-award sales pay 100%
+  // reputation — cardDrawSplit must be 0.
   const goldEligible =
     barrel.attachedMashBill.goldAward != null &&
     awardConditionMet(barrel.attachedMashBill.goldAward, barrel.age, state.demand, reward);
+  if (!goldEligible && action.cardDrawSplit > 0) {
+    return {
+      legal: false,
+      reason: "only Gold-eligible sales can split value into purchasing power",
+    };
+  }
+
   if (goldEligible && action.goldChoice === "convert") {
-    const target = state.allBarrels.find(
-      (b) => b.id !== barrel.id && b.ownerId === player.id && b.slotId === action.goldConvertTargetSlotId,
-    );
-    if (!target) {
+    if (!action.goldConvertTargetSlotId) {
       return {
         legal: false,
-        reason: "Gold Convert needs a target slot — must be your own slot, not the selling slot, holding a bill",
+        reason: "Gold Convert needs a target slot id",
       };
     }
-    if (!convertCommitsSatisfyRecipe(player, target, barrel.attachedMashBill)) {
+    if (action.goldConvertTargetSlotId === barrel.slotId) {
+      return {
+        legal: false,
+        reason: "Gold Convert target must be a different slot than the selling barrel",
+      };
+    }
+    const targetSlot = player.rickhouseSlots.find(
+      (s) => s.id === action.goldConvertTargetSlotId,
+    );
+    if (!targetSlot) {
+      return {
+        legal: false,
+        reason: "Gold Convert target slot is not in your rickhouse",
+      };
+    }
+    const targetBarrel = state.allBarrels.find(
+      (b) => b.id !== barrel.id && b.ownerId === player.id && b.slotId === action.goldConvertTargetSlotId,
+    );
+    if (!targetBarrel) {
+      // v2.10 Connoisseur Estate: Open-slot Convert. Target slot is
+      // empty — the Gold bill lands there as a "ready" barrel.
+      if (player.distillery?.bonus !== "connoisseur_estate") {
+        return {
+          legal: false,
+          reason: "Gold Convert needs a target slot holding a bill",
+        };
+      }
+      // Open-slot Convert has no committed cards to validate against
+      // — no recipe check needed.
+    } else if (!convertCommitsSatisfyRecipe(player, targetBarrel, barrel.attachedMashBill)) {
       return {
         legal: false,
         reason: "target slot's committed cards don't satisfy the Gold bill's recipe",
@@ -208,7 +242,8 @@ function distillerySaleBonusRep(distillery: Distillery | null, bill: MashBill): 
   const mod = distillery?.saleMods?.bonusRepOnBill;
   if (!mod) return 0;
   if (mod.kind === "wheated" && isWheatedBill(bill)) return mod.rep;
-  if (mod.kind === "high_rye" && (bill.recipe?.minRye ?? 0) >= 2) return mod.rep;
+  // v2.10 High-Rye House: any bill with minRye ≥ 1 qualifies (was ≥ 2).
+  if (mod.kind === "high_rye" && (bill.recipe?.minRye ?? 0) >= 1) return mod.rep;
   return 0;
 }
 
@@ -221,11 +256,8 @@ export function applySellBourbon(
   const barrel = draft.allBarrels[barrelIdx]!;
   const attached = barrel.attachedMashBill;
 
-  // v2.7.1: pay the sell-action cost — 1 card from hand → discard.
-  // Validation guarantees the card exists and is resource/capital.
-  const spendIdx = player.hand.findIndex((c) => c.id === action.spendCardId);
-  const [spend] = player.hand.splice(spendIdx, 1) as [Card];
-  player.discard.push(spend);
+  // v2.10: sell action no longer costs a card from hand. Mandatory
+  // per-turn aging (v2.9) is the sole holding cost.
 
   // Collect themed-card sale signals BEFORE any mutation so the
   // computed reward + bonus rep + return-to-hand list match what
@@ -314,9 +346,30 @@ export function applySellBourbon(
         draft.bourbonDiscard.push(target.attachedMashBill);
         target.attachedMashBill = attached;
       } else {
-        // Defensive: validation should have caught this. Fall back
-        // to discarding the bill so we don't leak it.
-        draft.bourbonDiscard.push(attached);
+        // v2.10 Connoisseur Estate: Open-slot Convert. Target slot
+        // has no barrel — mint a fresh "ready" barrel there with
+        // the Gold bill attached. Validation guaranteed the slot
+        // belongs to the player and the player has the
+        // connoisseur_estate distillery.
+        const newBarrelId = `barrel_${draft.idCounter++}`;
+        draft.allBarrels.push({
+          id: newBarrelId,
+          ownerId: player.id,
+          slotId: action.goldConvertTargetSlotId,
+          phase: "ready",
+          completedInRound: null,
+          attachedMashBill: attached,
+          productionCardDefIds: [],
+          productionCards: [],
+          agingCards: [],
+          age: 0,
+          productionRound: draft.round,
+          agedThisRound: false,
+          inspectedThisRound: false,
+          extraAgesAvailable: 0,
+          gridRepOffset: 0,
+          demandBandOffset: 0,
+        });
       }
       // Selling slot opens fully (barrel record removed below).
       draft.allBarrels.splice(barrelIdx, 1);

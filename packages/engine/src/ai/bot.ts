@@ -109,19 +109,14 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
 // Distillery selection
 // -----------------------------
 
-// v3 distillery preference. Bot picks the leftmost match available in
-// the pool. Keeps ordering deterministic across games; tune as
-// engine support for individual distillery effects lands.
+// v2.10 distillery preference. Bot picks the leftmost match available
+// in the pool. Connoisseur Estate's deck-shaping edge and 4-bill draft
+// give it the strongest opening; Vanilla is the safe baseline.
 const DISTILLERY_PREFERENCE: Distillery["bonus"][] = [
-  "estate",          // 5 slots — wide engine
-  "vanilla",         // baseline; predictable
-  "artisanal",       // fewer slots but per-sale rep bonus
-  "patient_cooper",  // demand+1 grid; needs late-game patience
-  "bourbon_purist",  // rye/barley pool; ban on wheat
-  "single_barrel",   // specialty-focused
-  "quick_turn",      // tempo
-  "storm_chaser",    // demand-axis volatility
-  "mothballed",      // hardest opener
+  "connoisseur_estate",
+  "vanilla",
+  "high_rye_house",
+  "wheated_baron",
 ];
 
 export function chooseDistillery(state: GameState, playerId: string): GameAction {
@@ -440,17 +435,24 @@ function chooseDemandDirection(state: GameState, player: PlayerState): "up" | "d
 // -----------------------------
 
 function chooseSale(state: GameState, player: PlayerState): GameAction | null {
+  // v2.10: round-gap rule — only aging barrels whose completion round
+  // is strictly older than the current round are sellable.
   const barrels = getPlayerBarrels(state, player.id).filter(
-    (b) => b.phase === "aging" && b.age >= 2,
+    (b) =>
+      b.phase === "aging" &&
+      b.age >= 2 &&
+      (b.completedInRound == null || state.round > b.completedInRound),
   );
   if (barrels.length === 0) return null;
-  // v2.7.1: selling costs 1 card from hand. If hand is empty, no sale
-  // is possible — bail rather than emit an illegal action.
-  const spendable = pickSellSpendCard(player);
-  if (!spendable) return null;
 
   let best:
-    | { barrelId: string; reward: number; age: number; bill: MashBill }
+    | {
+        barrelId: string;
+        reward: number;
+        age: number;
+        bill: MashBill;
+        score: number;
+      }
     | null = null;
   for (const b of barrels) {
     const bill = b.attachedMashBill;
@@ -458,8 +460,27 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
       demandBandOffset: b.demandBandOffset,
       gridRepOffset: b.gridRepOffset,
     });
-    if (best === null || grid > best.reward) {
-      best = { barrelId: b.id, reward: grid, age: b.age, bill };
+    // v2.10: Gold-eligible sales are the only path to mid-game deck
+    // shaping (Convert / split into card draws). Score them higher
+    // so the bot prefers Gold-eligible barrels at equal grid value.
+    const goldEligibleHere =
+      bill.goldAward != null &&
+      b.age >= (bill.goldAward.minAge ?? 0) &&
+      state.demand >= (bill.goldAward.minDemand ?? 0) &&
+      grid >= (bill.goldAward.minReward ?? 0);
+    // v2.10 High-Rye House: +1 rep on rye-bill sales nudges these
+    // forward at equal grid.
+    const distilleryBonus =
+      player.distillery?.saleMods?.bonusRepOnBill?.kind === "high_rye" &&
+      (bill.recipe?.minRye ?? 0) >= 1
+        ? player.distillery.saleMods.bonusRepOnBill.rep
+        : player.distillery?.saleMods?.bonusRepOnBill?.kind === "wheated" &&
+            bill.recipe?.maxRye === 0
+          ? player.distillery.saleMods.bonusRepOnBill.rep
+          : 0;
+    const score = grid + (goldEligibleHere ? Math.ceil(grid * 0.5) : 0) + distilleryBonus;
+    if (best === null || score > best.score) {
+      best = { barrelId: b.id, reward: grid, age: b.age, bill, score };
     }
   }
   if (!best) return null;
@@ -501,32 +522,9 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
     barrelId: best.barrelId,
     reputationSplit: best.reward,
     cardDrawSplit: 0,
-    spendCardId: spendable.id,
     ...(goldChoice ? { goldChoice } : {}),
     ...(goldConvertTargetSlotId ? { goldConvertTargetSlotId } : {}),
   };
-}
-
-/**
- * v2.7.1 sell cost: pick the cheapest possible card from hand to spend
- * on the sell action. Prefers the lowest-value capital, then a plain
- * resource. Premium variants and high-value capitals are saved for
- * production / market buys.
- */
-function pickSellSpendCard(player: PlayerState): Card | null {
-  if (player.hand.length === 0) return null;
-  const eligible = player.hand.filter(
-    (c) => c.type === "resource" || c.type === "capital",
-  );
-  if (eligible.length === 0) return null;
-  // Cost-to-keep heuristic: prefer plain $1 capitals, then plain
-  // (non-premium) resources, then premium resources, then high-value
-  // capitals. Sort ascending by that score and grab the cheapest.
-  const score = (c: Card): number => {
-    if (c.type === "capital") return c.capitalValue ?? 1; // $1 < $3 < $5
-    return c.premium ? 10 : 5; // plain resource (5) before premium (10)
-  };
-  return eligible.slice().sort((a, b) => score(a) - score(b))[0]!;
 }
 
 /**
@@ -542,6 +540,21 @@ function pickGoldConvertTarget(
   sellingBarrelId: string,
   goldBill: MashBill,
 ): string | null {
+  // v2.10 Connoisseur Estate: empty slots count as Convert targets —
+  // no recipe check (no committed cards) and no displaced bill, so
+  // they're strictly better than overwriting an existing slot.
+  if (player.distillery?.bonus === "connoisseur_estate") {
+    const sellingSlotId = state.allBarrels.find((b) => b.id === sellingBarrelId)?.slotId;
+    const occupied = new Set(
+      state.allBarrels
+        .filter((b) => b.ownerId === player.id && b.id !== sellingBarrelId)
+        .map((b) => b.slotId),
+    );
+    const emptySlot = player.rickhouseSlots.find(
+      (s) => !occupied.has(s.id) && s.id !== sellingSlotId,
+    );
+    if (emptySlot) return emptySlot.id;
+  }
   const candidates = state.allBarrels.filter(
     (b) => b.id !== sellingBarrelId && b.ownerId === player.id,
   );
@@ -685,6 +698,15 @@ function planCardsTowardRecipe(
   const tally = tallyPile(existingPile);
   const used = new Set<string>();
   const picks: string[] = [];
+  // v2.10 Wheated Baron: rye cards are not legal commits. Mark every
+  // rye in hand as used so the planner never reaches for one. Bills
+  // requiring rye that fall through here will simply produce an empty
+  // pick list — and `chooseMakeBourbon` will skip the candidate.
+  if (player.distillery?.bonus === "wheated_baron") {
+    for (const c of player.hand) {
+      if (c.type === "resource" && c.subtype === "rye") used.add(c.id);
+    }
+  }
 
   // Cask first — exactly 1 needed per barrel (Cooper's Contract aside).
   if (tally.cask < 1) {
@@ -1006,6 +1028,13 @@ function chooseDrawMashBill(state: GameState, player: PlayerState): GameAction |
   // Face-up only — pick the cheapest face-up bill we can pay for.
   const sorted = [...player.hand].sort((a, b) => paymentForOpsBuy(b) - paymentForOpsBuy(a));
   for (const bill of state.bourbonFaceUp) {
+    // v2.10 High-Rye House: cannot draft wheated bills.
+    if (
+      player.distillery?.bonus === "high_rye_house" &&
+      bill.recipe?.maxRye === 0
+    ) {
+      continue;
+    }
     const cost = bill.cost ?? 2;
     const spend: string[] = [];
     let paid = 0;
