@@ -762,6 +762,33 @@ export interface NewGameSeat {
 }
 
 /**
+ * v2.10: per-game settings exposed in the New Game form. Each field is
+ * optional with a default that matches the "Normal" preset. The client
+ * uses the preset enum to drive the UI; the engine only ever sees the
+ * resolved values.
+ */
+export interface NewGameSettings {
+  /**
+   * Total mash bills shipped in the bourbon deck. Lower = shorter
+   * game (the deck runs out faster, triggering the doomsday clock).
+   * The catalog currently ships 21 bills.
+   */
+  mashBillCount?: number;
+  /**
+   * Turn distillery selection on/off. When false, every seat is
+   * pre-assigned Vanilla and the `distillery_selection` phase is
+   * skipped entirely. Default true.
+   */
+  distilleries?: boolean;
+  /**
+   * Mint investment cards into the market. The engine doesn't fully
+   * resolve investment effects yet; this flag is wired for forward
+   * compatibility. Default false.
+   */
+  investments?: boolean;
+}
+
+/**
  * Config payload for `newGame` (client, single-player). The host is
  * the lone human; everything else is bots that play themselves.
  * Distinct from `GameConfig` (which is the fully-resolved engine
@@ -773,6 +800,8 @@ export interface NewGameConfig {
   bots: NewGameSeat[];
   /** Optional fixed seed for replays / shareable games. */
   seed?: number;
+  /** Per-game settings from the New Game form. Defaults applied when omitted. */
+  settings?: NewGameSettings;
 }
 
 /**

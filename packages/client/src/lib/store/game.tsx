@@ -1567,7 +1567,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [multiplayerMode, tutorialActive, store.state, step]);
 
   const newGame = useCallback((cfg: NewGameConfig) => {
-    const catalog = defaultMashBillCatalog();
+    const fullCatalog = defaultMashBillCatalog();
     const seats = [cfg.human, ...cfg.bots];
     const players = seats.map((s, i) => ({
       id: i === 0 ? "human" : `bot${i}`,
@@ -1581,26 +1581,32 @@ export function GameProvider({ children }: { children: ReactNode }) {
       difficulty: s.difficulty,
     }));
     const seed = cfg.seed ?? Math.floor(Math.random() * 0xffff_ffff);
-    // Each player gets 3 mash bills; remainder forms the bourbon deck.
-    const startingMashBills: ReturnType<typeof defaultMashBillCatalog>[] = [];
-    let cursor = 0;
-    for (let i = 0; i < players.length; i++) {
-      const slice = catalog.slice(cursor, cursor + 3);
-      startingMashBills.push(slice);
-      cursor += slice.length;
-    }
-    const bourbonDeck = catalog.slice(cursor);
-    // v2.7: distillery selection is feature-flagged off. When the flag
-    // is false, every player is pre-assigned a Vanilla distillery so
-    // the engine skips the distillery_selection phase entirely.
-    const startingDistilleries = DISTILLERIES_ENABLED
+
+    // v2.10 settings: resolve overrides, falling back to "Normal" defaults.
+    const settings = cfg.settings ?? {};
+    const mashBillCount = Math.min(
+      fullCatalog.length,
+      Math.max(players.length, settings.mashBillCount ?? fullCatalog.length),
+    );
+    const catalog = fullCatalog.slice(0, mashBillCount);
+    // v2.10: when distilleries are enabled (default and the only
+    // resolved mode today), pre-assigning startingMashBills here would
+    // override each distillery's `mashBillDraftSize` (Vanilla=0,
+    // Connoisseur=4) — so we leave it undefined and let SELECT_DISTILLERY
+    // top up each player's slots per their distillery. The whole
+    // catalog becomes the bourbon deck.
+    //
+    // When distilleries are toggled off, every seat is pre-assigned
+    // Vanilla (0 starting bills) and the bourbon deck holds the catalog
+    // unchanged — players draw bills during play.
+    const distilleriesOn = settings.distilleries ?? DISTILLERIES_ENABLED;
+    const startingDistilleries = distilleriesOn
       ? undefined
       : players.map((p) => buildVanillaDistilleryFor(p.id));
     const fresh = initializeGame({
       seed,
       players,
-      startingMashBills,
-      bourbonDeck,
+      bourbonDeck: catalog,
       startingDistilleries,
       // No starterDecks → engine still runs the trade window.
     });
