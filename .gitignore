@@ -39,3 +39,6 @@ sst-env.d.ts
 **/sst-env.d.ts
 .open-next
 **/.open-next
+
+# Claude Code per-task worktrees + session state — local-only.
+.claude/
