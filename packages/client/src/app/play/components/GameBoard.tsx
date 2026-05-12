@@ -16,6 +16,7 @@ import { useGameStore } from "@/lib/store/game";
 import CardInspectModal from "./CardInspectModal";
 import GameOverPanel from "./GameOverPanel";
 import HandTray from "./HandTray";
+import AgeFlight from "./AgeFlight";
 import MakeFlight from "./MakeFlight";
 import MarketCenter from "./MarketCenter";
 import PurchaseFlight from "./PurchaseFlight";
@@ -68,6 +69,12 @@ export default function GameBoard() {
       {/* Sell-bourbon animation — fan of cards flies from the sold
           slot to the seller's discard pile on every SELL_BOURBON. */}
       <SaleFlight />
+
+      {/* Age-bourbon animation — card flies from the player's hand
+          tray up into the destination barrel slot on every
+          AGE_BOURBON. Mirrors MakeFlight; uses the hand tray as the
+          source so the gesture reads "this card → that barrel." */}
+      <AgeFlight />
     </div>
   );
 }

@@ -231,6 +231,24 @@ export interface LastSale {
 }
 
 /**
+ * Last-barrel-aged snapshot. Captures the destination slot + a label
+ * for the card that was committed so `AgeFlight` can animate a card-
+ * shaped element from the hand tray up to the slot. The card itself
+ * is gone from the hand by the time we render (engine moves it onto
+ * the barrel synchronously) — we keep just enough metadata to draw
+ * a believable ghost.
+ */
+export interface LastAge {
+  slotId: string;
+  ownerId: string;
+  /** Display label for the ghost card (e.g. "Common Cask"). */
+  cardLabel: string;
+  /** Card subtype for the ghost's color treatment. */
+  cardSubtype: string;
+  seq: number;
+}
+
+/**
  * Multiplayer-mode marker. When set, the store is bound to a remote
  * room: `dispatch` sends actions over the WebSocket instead of
  * applying them locally, and the autoplay loop is disabled (the
@@ -257,6 +275,7 @@ interface AtomicStore {
   lastPurchase: LastPurchase | null;
   lastMake: LastMake | null;
   lastSale: LastSale | null;
+  lastAge: LastAge | null;
 }
 
 export interface GameStore {
@@ -361,6 +380,8 @@ export interface GameStore {
   lastMake: LastMake | null;
   /** Animation trigger — most recent SELL_BOURBON snapshot. */
   lastSale: LastSale | null;
+  /** Animation trigger — most recent AGE_BOURBON snapshot. */
+  lastAge: LastAge | null;
   /** When non-null, the store is bound to a remote multi-player room.
    *  See `MultiplayerMode` for what that means for dispatch + autoplay. */
   multiplayerMode: MultiplayerMode | null;
@@ -480,6 +501,7 @@ const Ctx = createContext<GameStore>({
   lastPurchase: null,
   lastMake: null,
   lastSale: null,
+  lastAge: null,
   multiplayerMode: null,
   multiplayerStatus: "idle",
   roster: [],
@@ -519,6 +541,7 @@ const EMPTY_STORE: AtomicStore = {
   lastPurchase: null,
   lastMake: null,
   lastSale: null,
+  lastAge: null,
 };
 
 export function GameProvider({ children }: { children: ReactNode }) {
@@ -592,6 +615,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastPurchase: null,
           lastMake: null,
           lastSale: null,
+          lastAge: null,
         });
       }
       const auto = window.localStorage.getItem(AUTOPLAY_KEY);
@@ -648,6 +672,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const lastPurchase = capturePurchase(prev, result.action, seq);
       const lastMake = captureMake(prev, result.state, result.action, seq);
       const lastSale = captureSale(prev, result.action, seq);
+      const lastAge = captureAge(prev, result.action, seq);
       return {
         ...prev,
         state: result.state,
@@ -656,6 +681,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         lastPurchase,
         lastMake,
         lastSale,
+        lastAge,
       };
     });
   }, []);
@@ -729,6 +755,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const lastPurchase = capturePurchase(prev, final, seq);
         const lastMake = captureMake(prev, next, final, seq);
         const lastSale = captureSale(prev, final, seq);
+        const lastAge = captureAge(prev, final, seq);
         return {
           ...prev,
           state: next,
@@ -737,6 +764,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastPurchase,
           lastMake,
           lastSale,
+          lastAge,
         };
       });
     },
@@ -776,6 +804,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             lastPurchase: null,
             lastMake: null,
             lastSale: null,
+            lastAge: null,
           });
           break;
         case "state":
@@ -799,6 +828,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             const lastPurchase = action ? capturePurchase(prev, action, seq) : prev.lastPurchase;
             const lastMake = action ? captureMake(prev, msg.state, action, seq) : prev.lastMake;
             const lastSale = action ? captureSale(prev, action, seq) : prev.lastSale;
+            const lastAge = action ? captureAge(prev, action, seq) : prev.lastAge;
             return {
               ...prev,
               state: msg.state,
@@ -807,6 +837,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
               lastPurchase,
               lastMake,
               lastSale,
+              lastAge,
             };
           });
           break;
@@ -1617,6 +1648,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastPurchase: null,
       lastMake: null,
       lastSale: null,
+      lastAge: null,
     });
     setAutoplayState(false);
     setInspect(null);
@@ -1656,6 +1688,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastPurchase: null,
       lastMake: null,
       lastSale: null,
+      lastAge: null,
     });
     setAutoplayState(false);
     setInspect(null);
@@ -1691,6 +1724,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastPurchase: null,
           lastMake: null,
           lastSale: null,
+          lastAge: null,
         });
         return;
       }
@@ -1808,6 +1842,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastPurchase: store.lastPurchase,
       lastMake: store.lastMake,
       lastSale: store.lastSale,
+      lastAge: store.lastAge,
       multiplayerMode,
       multiplayerStatus,
       roster,
@@ -1998,6 +2033,40 @@ function captureSale(
     slotId: barrel.slotId,
     ownerId: barrel.ownerId,
     cards: [...barrel.productionCards, ...barrel.agingCards],
+    seq,
+  };
+}
+
+/**
+ * Snapshot the destination + card label on AGE_BOURBON so AgeFlight
+ * can animate a card-shaped element flying from the player's hand
+ * tray up to the destination barrel slot. The card itself has been
+ * removed from the player's hand by apply time, so we look it up in
+ * `prev.state` (pre-apply) for the label / subtype that drives the
+ * ghost's chrome.
+ */
+function captureAge(
+  prev: AtomicStore,
+  action: GameAction,
+  seq: number,
+): LastAge | null {
+  if (action.type !== "AGE_BOURBON") return prev.lastAge;
+  if (!prev.state) return prev.lastAge;
+  const barrel = prev.state.allBarrels.find((b) => b.id === action.barrelId);
+  if (!barrel) return prev.lastAge;
+  const player = prev.state.players.find((p) => p.id === action.playerId);
+  const card = player?.hand.find((c) => c.id === action.cardId);
+  return {
+    slotId: barrel.slotId,
+    ownerId: barrel.ownerId,
+    cardLabel:
+      card?.displayName ??
+      (card?.type === "capital"
+        ? `Capital $${card.capitalValue ?? 1}`
+        : card?.subtype
+          ? card.subtype.charAt(0).toUpperCase() + card.subtype.slice(1)
+          : "Card"),
+    cardSubtype: card?.subtype ?? card?.type ?? "card",
     seq,
   };
 }
