@@ -98,10 +98,10 @@ export default function MainMenu() {
       />
 
       <MenuTile
-        href="/mash-bills"
-        eyebrow="Bourbon Cards"
-        title="Browse every mash bill"
-        subtitle="Recipes, payoff grids, awards, and rarity tiers."
+        href="/wiki"
+        eyebrow="Bourbon Wiki"
+        title="Browse every catalog"
+        subtitle="Mash bills, distilleries, investments — recipes, grids, awards."
         accent="sky"
       />
 

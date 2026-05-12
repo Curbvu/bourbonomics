@@ -401,8 +401,8 @@ function bandLabel(
  *
  * v2.10: cells that can trigger an award light up — Silver cells get a
  * slate gradient, Gold cells get a bright amber gradient with a
- * 🥈 / 🥇 corner badge. Same idiom as the bourbon encyclopedia
- * (`/mash-bills`) so a player who studied bills there reads the
+ * 🥈 / 🥇 corner badge. Same idiom as the Bourbon Wiki
+ * (`/wiki`) so a player who studied bills there reads the
  * inspect modal the same way.
  */
 function RewardMatrix({
@@ -1493,7 +1493,7 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
 
       {/* Reward grid — award cells light up in-grid; an inline legend
           beneath the matrix breaks down the threshold conditions. Same
-          idiom as the bourbon encyclopedia (`/mash-bills`). The live
+          idiom as the Bourbon Wiki (`/wiki`). The live
           cell (current age × current demand) gets an emerald ring +
           "Now" badge so the inspector can read the barrel's payout at
           a glance — null when the barrel is too young / demand too

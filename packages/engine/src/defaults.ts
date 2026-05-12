@@ -938,8 +938,11 @@ interface BandCardSpec {
   copies: number;
 }
 
+// v2.10: Double Cask is gone — every barrel only ever consumes exactly 1
+// cask, so a 2-cask resource card had no production use. Cask still
+// appears in two bands: Common Cask (basic) and Superior Cask
+// (Specialty). Doubles continue to exist for the grain subtypes.
 const DOUBLE_SPECS: BandCardSpec[] = [
-  { defId: "double_cask", displayName: "Double Cask", flavor: "Two staves stacked, one barrel filled.", subtype: "cask", copies: 2 },
   { defId: "double_corn", displayName: "Double Corn", flavor: "Sweet load, twice the haul.", subtype: "corn", copies: 2 },
   { defId: "double_rye", displayName: "Double Rye", flavor: "Pepper, doubled.", subtype: "rye", copies: 3 },
   { defId: "double_barley", displayName: "Double Barley", flavor: "The malt house's overshare.", subtype: "barley", copies: 2 },
