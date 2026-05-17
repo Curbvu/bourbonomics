@@ -248,7 +248,7 @@ function BillCard({ bill }: { bill: MashBill }) {
           <span className="text-slate-500">cost</span>
           <MoneyText n={mashBillCost(bill)} className="font-display text-[15px] font-bold text-amber-200" />
         </span>
-        <span className="flex items-center gap-1.5" title="Implicit build cost: 1 per basic resource + 4 per specialty + draw cost">
+        <span className="flex items-center gap-1.5" title="Implicit build cost: 1 per basic resource + 2 per specialty + draw cost">
           <span className="text-slate-500">build</span>
           <span className="font-display text-[15px] font-bold tabular-nums text-emerald-200">
             {mashBillBuildCost(bill)}
@@ -319,7 +319,7 @@ function BillDetailPanel({ bill, onBack }: { bill: MashBill; onBack: () => void 
               </span>
               <span
                 className="flex items-center gap-2"
-                title="Implicit build cost: 1 per basic resource + 4 per specialty (3 market + 1 sale bonus) + draw cost"
+                title="Implicit build cost: 1 per basic resource + 2 per specialty (cheaper of the two specialty bands) + draw cost"
               >
                 <span className="text-slate-500">build cost</span>
                 <span className="font-display text-lg font-bold tabular-nums text-emerald-200">

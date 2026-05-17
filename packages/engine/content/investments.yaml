@@ -215,8 +215,8 @@ cards:
     archetype: specialty
     rate_limited: false
     short: Specialty cards, half off
-    text: When you buy a Specialty or Double Specialty card from the market, that card costs 2 less, AND it goes to your hand instead of your discard.
-    description: A premium-card engine. Specialty cards are expensive ($3–$6) and slow to use because they go to discard before reaching hand. R&D Department halves the cost AND fast-tracks them into immediate use. The defining card for specialty-heavy strategies.
+    text: When you buy a Specialty or Heritage card from the market, that card costs 1 less (floor 1), AND it goes to your hand instead of your discard.
+    description: A premium-card engine. Specialty and Heritage cards ($2–$3) cost $1 less under R&D Department AND skip the discard pile — they land straight in hand for the next action. The defining card for specialty-heavy strategies.
     implemented: false
 
   # ─── Large (cost 8-15) ────────────────────────────────────────
@@ -242,8 +242,8 @@ cards:
     archetype: specialty
     rate_limited: false
     short: Specialty barrels pay extra
-    text: When you sell a barrel containing 2 or more Specialty cards, gain +3 reputation. Stacks with the per-Specialty +1 reputation bonus already built into the rules.
-    description: Doubles down on the specialty axis. A barrel with 2 Specialty cards already pays +2 rep on sale; Premium Label pushes that to +5. Expensive because it requires a Specialty-heavy strategy to even fire.
+    text: When you sell a barrel containing 2 or more Specialty or Heritage cards, gain +3 reputation.
+    description: Doubles down on the specialty axis. With v2.11's uniform Specialty bonus retired, Premium Label is now the headline reason to stack specialty in a single barrel — a flat +3 on top of any per-card Heritage bonus.
     implemented: false
 
   - defId: land_acquisition

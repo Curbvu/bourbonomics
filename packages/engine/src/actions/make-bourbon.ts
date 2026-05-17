@@ -41,9 +41,10 @@ interface ResourceTotals {
   barley: number;
   wheat: number;
   /**
-   * v2.7.2: per-subtype Specialty unit counts. A Double Specialty
-   * card contributes its `resourceCount` (so a Double Superior Rye
-   * adds 2 to `specialtyRye`). Used to satisfy `recipe.minSpecialty`.
+   * v2.11: per-subtype Specialty unit counts. Each Specialty or
+   * Heritage card contributes its `resourceCount` (uniformly 1 in
+   * v2.11 — every card is one unit). Used to satisfy
+   * `recipe.minSpecialty`.
    */
   specialtyCask: number;
   specialtyCorn: number;
@@ -77,9 +78,9 @@ function totalGrain(t: ResourceTotals): number {
  * for non-resource cards so callers can iterate uniformly across
  * mixed piles.
  *
- * v2.7.2: Specialty / Double Specialty cards (`card.specialty === true`)
- * also contribute their `resourceCount` to the per-subtype specialty
- * tally so recipes with `minSpecialty` requirements can be checked.
+ * v2.11: Specialty / Heritage cards (`card.specialty === true`) also
+ * contribute their `resourceCount` to the per-subtype specialty tally
+ * so recipes with `minSpecialty` requirements can be checked.
  */
 function tallyCard(totals: ResourceTotals, card: Card): void {
   if (card.type !== "resource") return;

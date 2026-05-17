@@ -120,13 +120,12 @@ export function applyDistilleryStarterModifications(
   const mods = distillery.starterPoolMods;
   if (!mods) return;
 
-  // v2.10: bonusTwoRye is gone alongside the Double band — no current
-  // distillery mints plain Doubles. High-Rye House's starter rye now
-  // comes through `bonusSpecialtyRye` (handled below).
-
-  // v2.10 High-Rye House: free Specialty Rye cards. Same `specialty:
-  // true` flag the market-minted Superior Rye uses, so they count
-  // toward `minSpecialty.rye` and stack the +1-rep-on-sale bonus.
+  // v2.11 High-Rye House: free Specialty Rye cards. Same shape as the
+  // market-minted Superior Rye (cost $2, `specialty: true` so they
+  // count toward `minSpecialty.rye`). The v2.10 uniform +1-rep-on-sale
+  // bonus is retired — High-Rye House's +1 rep on rye-bill sales is a
+  // distillery-driven sale-time mod (DistillerySaleMods), independent
+  // of any card-band rule.
   if (mods.bonusSpecialtyRye && mods.bonusSpecialtyRye > 0) {
     for (let i = 0; i < mods.bonusSpecialtyRye; i++) {
       target.push(
@@ -136,11 +135,10 @@ export function applyDistilleryStarterModifications(
           flavor: "Reserve cut, sharper edge.",
           subtype: "rye",
           resourceCount: 1,
-          cost: 3,
+          cost: 2,
           ownerLabel: player.id,
           index: 920 + i,
           specialty: true,
-          effect: { kind: "rep_on_sale_flat", when: "on_sale", rep: 1 },
         }),
       );
     }

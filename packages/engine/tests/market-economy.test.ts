@@ -1,9 +1,13 @@
 /**
- * v2.10 market economy — sanity checks on the three-band resource system
- * (Common / Specialty / Double Specialty) and the $1 / $3 / $5 capital
- * ladder. The plain Double tier was retired in v2.10; two singles
- * satisfy every recipe gate a Double would. Locks the supply shape so
- * the UI badge logic and the rule docs don't drift.
+ * v2.11 market economy — sanity checks on the three-band, one-unit
+ * resource system (Common / Specialty / Heritage) and the $1 / $3 / $5
+ * capital ladder. Heritage replaces v2.10's Double Specialty band:
+ * same `specialty: true` flag (counts toward `minSpecialty.<subtype>`
+ * gates), but 1 unit instead of 2. The uniform "+1 rep on sale per
+ * Specialty" band-wide bonus is retired — Specialty and Heritage cards
+ * ship without a populated `effect` in v2.11. Heritage cards keep the
+ * `effect` field as a data hook for per-card bonuses; no Heritage
+ * card populates one in this pass.
  */
 
 import { describe, it, expect } from "vitest";
@@ -12,7 +16,7 @@ import { paymentValue } from "../src/cards.js";
 
 const RESOURCE_SUBTYPES = ["cask", "corn", "rye", "barley", "wheat"] as const;
 
-describe("market supply — three-band resource economy", () => {
+describe("market supply — three-band, one-unit resource economy", () => {
   it("Commons exist for every subtype, cost 1, count 1, no effect", () => {
     const supply = defaultMarketSupply();
     for (const subtype of RESOURCE_SUBTYPES) {
@@ -28,18 +32,7 @@ describe("market supply — three-band resource economy", () => {
     }
   });
 
-  it("the plain Double tier is gone (no double_<subtype> cards in supply)", () => {
-    const doubles = defaultMarketSupply().filter(
-      (c) =>
-        c.type === "resource" &&
-        c.premium === true &&
-        c.cardDefId.startsWith("double_") &&
-        !c.cardDefId.startsWith("double_superior_"),
-    );
-    expect(doubles).toHaveLength(0);
-  });
-
-  it("Specialties cost 3, count 1, and grant +1 rep on sale", () => {
+  it("Specialties cost 2, count 1, are specialty-flagged, and ship without an on-sale bonus", () => {
     const specs = defaultMarketSupply().filter(
       (c) =>
         c.type === "resource" &&
@@ -48,25 +41,55 @@ describe("market supply — three-band resource economy", () => {
     );
     expect(specs.length).toBeGreaterThan(0);
     for (const s of specs) {
-      expect(s.cost, `${s.cardDefId} cost`).toBe(3);
+      expect(s.cost, `${s.cardDefId} cost`).toBe(2);
       expect(s.resourceCount, `${s.cardDefId} count`).toBe(1);
-      expect(s.effect).toEqual({ kind: "rep_on_sale_flat", when: "on_sale", rep: 1 });
+      expect(s.specialty, `${s.cardDefId} specialty flag`).toBe(true);
+      expect(s.effect, `${s.cardDefId} effect`).toBeUndefined();
     }
   });
 
-  it("Double Specialties cost 6, count 2, and grant +1 rep on sale", () => {
-    const ds = defaultMarketSupply().filter(
+  it("Heritage cards cost 3, count 1, are specialty-flagged, and leave the per-card bonus hook empty in v2.11", () => {
+    const heritage = defaultMarketSupply().filter(
       (c) =>
         c.type === "resource" &&
         c.premium === true &&
-        c.cardDefId.startsWith("double_superior_"),
+        c.cardDefId.startsWith("heritage_"),
     );
-    expect(ds.length).toBeGreaterThan(0);
-    for (const d of ds) {
-      expect(d.cost, `${d.cardDefId} cost`).toBe(6);
-      expect(d.resourceCount, `${d.cardDefId} count`).toBe(2);
-      expect(d.effect).toEqual({ kind: "rep_on_sale_flat", when: "on_sale", rep: 1 });
+    expect(heritage.length).toBeGreaterThan(0);
+    for (const h of heritage) {
+      expect(h.cost, `${h.cardDefId} cost`).toBe(3);
+      expect(h.resourceCount, `${h.cardDefId} count`).toBe(1);
+      expect(h.specialty, `${h.cardDefId} specialty flag`).toBe(true);
+      expect(h.effect, `${h.cardDefId} effect (v2.11 hook empty)`).toBeUndefined();
     }
+  });
+
+  it("Heritage ships for every subtype (cask, corn, rye, barley, wheat)", () => {
+    const heritage = defaultMarketSupply().filter(
+      (c) =>
+        c.type === "resource" &&
+        c.premium === true &&
+        c.cardDefId.startsWith("heritage_"),
+    );
+    const subs = new Set(heritage.map((c) => c.subtype));
+    for (const s of RESOURCE_SUBTYPES) {
+      expect(subs.has(s), `Heritage missing for ${s}`).toBe(true);
+    }
+  });
+
+  it("no 2-unit resource cards ship in the supply", () => {
+    const fat = defaultMarketSupply().filter(
+      (c) => c.type === "resource" && (c.resourceCount ?? 1) > 1,
+    );
+    expect(fat).toHaveLength(0);
+  });
+
+  it("the legacy plain Double tier and Double Specialty band are gone", () => {
+    const supply = defaultMarketSupply();
+    const doubles = supply.filter(
+      (c) => c.type === "resource" && c.cardDefId.startsWith("double_"),
+    );
+    expect(doubles).toHaveLength(0);
   });
 
   it("the three bands together cover the supply with commons as the plurality", () => {
@@ -74,16 +97,15 @@ describe("market supply — three-band resource economy", () => {
     const total = supply.length;
     const commons = supply.filter((c) => !c.premium).length;
     const specs = supply.filter((c) => c.premium && c.cardDefId.startsWith("superior_")).length;
-    const dspecs = supply.filter((c) => c.premium && c.cardDefId.startsWith("double_superior_")).length;
-    expect(commons + specs + dspecs).toBe(total);
-    // Loose distribution sanity: commons are the plurality and double-
-    // specialties stay rare.
+    const heritage = supply.filter((c) => c.premium && c.cardDefId.startsWith("heritage_")).length;
+    expect(commons + specs + heritage).toBe(total);
+    // Commons stay the plurality; Heritage stays the rarest band.
     expect(commons / total).toBeGreaterThan(0.4);
-    expect(dspecs / total).toBeLessThan(0.15);
+    expect(heritage).toBeLessThan(specs);
   });
 });
 
-describe("market supply — $1 / $3 / $5 capital ladder", () => {
+describe("market supply — $1 / $3 / $5 capital ladder (unchanged in v2.11)", () => {
   it("includes basic $1 capitals", () => {
     const ones = defaultMarketSupply().filter(
       (c) => c.type === "capital" && (c.capitalValue ?? 1) === 1,
