@@ -360,23 +360,19 @@ export default function TutorialController() {
     );
   }
 
-  // Beat 1's body is "Tag 1 cask + 1 corn + 1 rye and click Backroad
-  // Batch. (Drag also works.)" — words alone don't communicate the
-  // gesture. Render a looping click-and-drag animation from the first
-  // cask in hand to the Backroad slot so the player SEES the motion.
-  // Only fires for beat-1; for any other beat the source/dest selectors
-  // wouldn't make sense and the standard spotlight ring is enough.
+  // Per-beat drag demonstration. Make sub-beats opt in via `beat.dragHint`
+  // — the controller picks the first hand card matching the predicate and
+  // animates a ghost cursor from that card to the target slot, so the
+  // player SEES the gesture without us having to spell it out in copy.
   const dragHint = (() => {
-    if (!beat || beat.id !== "beat-1-make-backroad") return null;
+    if (!beat || beat.kind !== "await-action" || !beat.dragHint) return null;
     const human = state?.players.find((p) => p.id === TUTORIAL_HUMAN_ID);
-    const firstCask = human?.hand.find(
-      (c) => c.type === "resource" && c.subtype === "cask",
-    );
-    if (!firstCask) return null;
+    const source = human?.hand.find(beat.dragHint.pickHandCard);
+    if (!source) return null;
     return (
       <DragHintAnimation
-        fromSelector={`[data-card-id="${firstCask.id}"]`}
-        toSelector={`[data-slot-id="slot_${TUTORIAL_HUMAN_ID}_0"]`}
+        fromSelector={`[data-card-id="${source.id}"]`}
+        toSelector={`[data-slot-id="slot_${TUTORIAL_HUMAN_ID}_${beat.dragHint.slotIndex}"]`}
       />
     );
   })();
@@ -567,6 +563,20 @@ function PromptCard({
   inspectGateOpen: boolean;
 }) {
   if (beat.kind !== "prompt") return null;
+  // Chapter title-card — full-screen dim + centered big card. Mirrors
+  // the BoardTour's interstitial style so each new lesson reads as a
+  // chapter break rather than another bottom-of-screen coachmark.
+  if (beat.chapter) {
+    return (
+      <ChapterCard
+        beat={beat}
+        chapter={beat.chapter}
+        canGoBack={canGoBack}
+        onBack={onBack}
+        onContinue={onContinue}
+      />
+    );
+  }
   // Position chrome — `top-right` is a smaller corner card that
   // doesn't collide with a centered inspect / decision modal.
   const isCorner = beat.position === "top-right";
@@ -618,6 +628,66 @@ function PromptCard({
         </div>
       </div>
     </div>
+  );
+}
+
+function ChapterCard({
+  beat,
+  chapter,
+  canGoBack,
+  onBack,
+  onContinue,
+}: {
+  beat: Beat;
+  chapter: { number: number; label: string };
+  canGoBack: boolean;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  if (beat.kind !== "prompt") return null;
+  return (
+    <>
+      <div className="pointer-events-none fixed inset-0 z-40 animate-bb-spot-fade bg-slate-950/85" />
+      <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center px-6">
+        <div
+          key={beat.id}
+          className="animate-bb-tour-pop w-full max-w-lg rounded-xl border-2 border-amber-400/80 bg-slate-900 p-7 shadow-[0_8px_40px_rgba(0,0,0,.7),0_0_36px_rgba(251,191,36,.18),inset_0_1px_0_rgba(251,191,36,.10)]"
+        >
+          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[.20em] text-amber-300">
+            <span>Lesson {chapter.number} · {chapter.label}</span>
+            <SkipLink />
+          </div>
+          {beat.title ? (
+            <h2 className="mt-3 font-display text-3xl font-bold text-amber-100">
+              {beat.title}
+            </h2>
+          ) : null}
+          <RichText className="mt-3 text-base leading-relaxed text-slate-100">
+            {beat.body}
+          </RichText>
+          <div className="mt-6 flex items-center justify-between gap-3">
+            {canGoBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="rounded-md border-2 border-slate-600 bg-slate-900 px-4 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-200 hover:border-slate-400"
+              >
+                ← Back
+              </button>
+            ) : (
+              <span />
+            )}
+            <button
+              type="button"
+              onClick={onContinue}
+              className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-6 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
+            >
+              {beat.ctaLabel ?? "Let's go ↵"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

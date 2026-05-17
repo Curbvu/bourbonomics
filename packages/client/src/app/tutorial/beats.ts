@@ -31,64 +31,6 @@ function findHumanBarrelByBillDef(
   return barrel ? { barrelId: barrel.id, slotId: barrel.slotId } : null;
 }
 
-/**
- * Tally the resource breakdown of the cards being committed in a
- * MAKE_BOURBON action. Used by the Make matchers to verify the player
- * is committing the FULL set the recipe needs, not a partial pile that
- * would leave the barrel in "construction" while the next prompt
- * misleadingly claims "Recipe satisfied."
- */
-interface CommitTally {
-  cask: number;
-  corn: number;
-  rye: number;
-  barley: number;
-  wheat: number;
-  /** Total non-cask, non-corn grain (rye + barley + wheat). */
-  grain: number;
-  /** Specialty cards (`specialty === true`), broken out by subtype. */
-  specialtyRye: number;
-  /** Total committed cards (length of cardIds). */
-  total: number;
-}
-
-function tallyCommit(state: GameState, cardIds: string[]): CommitTally {
-  const t: CommitTally = {
-    cask: 0,
-    corn: 0,
-    rye: 0,
-    barley: 0,
-    wheat: 0,
-    grain: 0,
-    specialtyRye: 0,
-    total: cardIds.length,
-  };
-  const human = state.players.find((p) => p.id === TUTORIAL_HUMAN_ID);
-  if (!human) return t;
-  const byId = new Map(human.hand.map((c) => [c.id, c]));
-  for (const id of cardIds) {
-    const card = byId.get(id);
-    if (!card || card.type !== "resource") continue;
-    const count = card.resourceCount ?? 1;
-    if (card.subtype === "cask") t.cask += count;
-    if (card.subtype === "corn") t.corn += count;
-    if (card.subtype === "rye") {
-      t.rye += count;
-      t.grain += count;
-      if (card.specialty) t.specialtyRye += count;
-    }
-    if (card.subtype === "barley") {
-      t.barley += count;
-      t.grain += count;
-    }
-    if (card.subtype === "wheat") {
-      t.wheat += count;
-      t.grain += count;
-    }
-  }
-  return t;
-}
-
 /** Find the bot's lone aging barrel (the pre-staged one). */
 function findBotAgingBarrel(state: GameState): { barrelId: string; cardId: string | null } | null {
   const barrel = state.allBarrels.find(
@@ -133,33 +75,111 @@ function findHandCard(state: GameState, predicate: (c: Card) => boolean): string
   return human.hand.find(predicate)?.id ?? null;
 }
 
+/**
+ * Helper: tally cumulative resource counts in a barrel's production pile.
+ * Used by every Make sub-beat's `advanceWhen` to look for the specific
+ * ingredient that this step expects to have just landed.
+ */
+function pileTotals(
+  state: GameState,
+  billDefId: string,
+): { cask: number; corn: number; rye: number; cardCount: number } | null {
+  const barrel = state.allBarrels.find(
+    (b) =>
+      b.ownerId === TUTORIAL_HUMAN_ID &&
+      b.attachedMashBill.defId === billDefId,
+  );
+  if (!barrel) return null;
+  let cask = 0;
+  let corn = 0;
+  let rye = 0;
+  for (const c of barrel.productionCards) {
+    if (c.type !== "resource") continue;
+    const n = c.resourceCount ?? 1;
+    if (c.subtype === "cask") cask += n;
+    if (c.subtype === "corn") corn += n;
+    if (c.subtype === "rye") rye += n;
+  }
+  return { cask, corn, rye, cardCount: barrel.productionCards.length };
+}
+
+/**
+ * Shared matcher factory — a Make sub-beat accepts any MAKE_BOURBON to
+ * the right barrel's slot. Composition is gated through `advanceWhen`
+ * (per-step "has the new ingredient landed?" predicates).
+ */
+function matchMakeForBill(billDefId: string) {
+  return (action: GameAction, state: GameState) => {
+    if (action.type !== "MAKE_BOURBON") return false;
+    if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
+    const target = findHumanBarrelByBillDef(state, billDefId);
+    return target != null && action.slotId === target.slotId;
+  };
+}
+
 export const TUTORIAL_BEATS: Beat[] = [
-  // ── Beat 1 — Make Bourbon, the easy one ─────────────────────────
+  // ── Lesson 1 chapter card ───────────────────────────────────────
   {
-    id: "beat-1-make-backroad",
+    id: "lesson-1-intro",
+    kind: "prompt",
+    title: "Make your first bourbon",
+    body: "We'll add the ingredients one at a time. Start with the corn.",
+    spotlight: { kind: "none" },
+    chapter: { number: 1, label: "Make bourbon" },
+  },
+
+  // ── Beat 1 — Make Backroad, one ingredient at a time ────────────
+  {
+    id: "beat-1a-add-corn",
     kind: "await-action",
-    title: "Make a barrel",
-    body: "Tag **1 cask + 1 corn + 1 rye** and click **Backroad Batch**. (Drag also works.)",
+    title: "Add the corn",
+    body: "Drag a **corn** card onto **Backroad Batch**.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
-    // Resource-only — the recipe doesn't take capital, and an
-    // accidental capital commit would just lock the card on the slot
-    // for no benefit. Mute capital out of the way.
-    handCardFilter: (c) => c.type === "resource",
-    matches: (action, state) => {
-      // Gate: only allow MAKE_BOURBON commits to the Backroad slot.
-      // Card composition is checked via `advanceWhen` — we accept
-      // partial commits (drag-and-drop sends one card per action)
-      // and let the engine accumulate them.
-      if (action.type !== "MAKE_BOURBON") return false;
-      if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
-      const target = findHumanBarrelByBillDef(state, "tutorial_backroad_batch");
-      return target != null && action.slotId === target.slotId;
+    handCardFilter: (c) => c.type === "resource" && c.subtype === "corn",
+    dragHint: {
+      pickHandCard: (c) => c.type === "resource" && c.subtype === "corn",
+      slotIndex: 0,
     },
+    matches: matchMakeForBill("tutorial_backroad_batch"),
     advanceWhen: (state) => {
-      // The recipe is satisfied iff the barrel has flipped to "aging".
-      // Engine logic in make-bourbon.ts handles the universal-rule
-      // check (≥1 cask + ≥1 corn + ≥1 grain) — we just look for the
-      // resulting phase transition.
+      const t = pileTotals(state, "tutorial_backroad_batch");
+      return t != null && t.corn >= 1;
+    },
+  },
+  {
+    id: "beat-1b-add-rye",
+    kind: "await-action",
+    title: "Now the rye",
+    body: "Drag a **rye** card onto Backroad Batch. Rye is one of the grains that gives bourbon its flavor.",
+    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
+    handCardFilter: (c) =>
+      c.type === "resource" && c.subtype === "rye" && !c.specialty,
+    dragHint: {
+      pickHandCard: (c) =>
+        c.type === "resource" && c.subtype === "rye" && !c.specialty,
+      slotIndex: 0,
+    },
+    matches: matchMakeForBill("tutorial_backroad_batch"),
+    advanceWhen: (state) => {
+      const t = pileTotals(state, "tutorial_backroad_batch");
+      return t != null && t.rye >= 1;
+    },
+  },
+  {
+    id: "beat-1c-add-cask",
+    kind: "await-action",
+    title: "Last, the cask",
+    body: "Drag a **cask** card onto Backroad Batch. That's where the bourbon will age.",
+    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
+    handCardFilter: (c) => c.type === "resource" && c.subtype === "cask",
+    dragHint: {
+      pickHandCard: (c) => c.type === "resource" && c.subtype === "cask",
+      slotIndex: 0,
+    },
+    matches: matchMakeForBill("tutorial_backroad_batch"),
+    // Once the cask lands the barrel has cask + corn + grain — the
+    // engine flips it to "aging" automatically.
+    advanceWhen: (state) => {
       const barrel = state.allBarrels.find(
         (b) =>
           b.ownerId === TUTORIAL_HUMAN_ID &&
@@ -176,43 +196,84 @@ export const TUTORIAL_BEATS: Beat[] = [
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
   },
 
-  // ── Beat 2 — Make Bourbon, partial commit ───────────────────────
+  // ── Beat 2 — Make Heritage, ingredient by ingredient ────────────
   {
-    id: "beat-2-make-heritage",
-    kind: "await-action",
-    title: "Start Heritage Reserve",
-    body: "Needs **1 cask + 1 corn + 2 rye + 1 Specialty Rye.** Tag your remaining **cask, corn, and both ryes** and click Heritage Reserve.",
+    id: "beat-2-intro",
+    kind: "prompt",
+    title: "One more recipe",
+    body: "**Heritage Reserve** is your second slot. Same idea — we'll add ingredients one at a time. It also needs a Specialty Rye, but you don't own one yet — we'll buy it after.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
-    handCardFilter: (c) => c.type === "resource",
-    matches: (action, state) => {
-      // Same idiom as Beat 1 — accept partial commits to the slot,
-      // gate progression on `advanceWhen`.
-      if (action.type !== "MAKE_BOURBON") return false;
-      if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
-      const target = findHumanBarrelByBillDef(state, "tutorial_heritage_reserve");
-      return target != null && action.slotId === target.slotId;
+  },
+  {
+    id: "beat-2a-add-corn",
+    kind: "await-action",
+    title: "Add the corn",
+    body: "Drag your remaining **corn** onto **Heritage Reserve**.",
+    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
+    handCardFilter: (c) => c.type === "resource" && c.subtype === "corn",
+    dragHint: {
+      pickHandCard: (c) => c.type === "resource" && c.subtype === "corn",
+      slotIndex: 1,
     },
+    matches: matchMakeForBill("tutorial_heritage_reserve"),
     advanceWhen: (state) => {
-      // Heritage stays in "construction" through this beat (specialty
-      // rye comes in Beat 5). Advance once the player has committed
-      // the partial pile: ≥1 cask + ≥1 corn + ≥2 rye.
-      const barrel = state.allBarrels.find(
-        (b) =>
-          b.ownerId === TUTORIAL_HUMAN_ID &&
-          b.attachedMashBill.defId === "tutorial_heritage_reserve",
-      );
-      if (!barrel) return false;
-      let cask = 0;
-      let corn = 0;
-      let rye = 0;
-      for (const c of barrel.productionCards) {
-        if (c.type !== "resource") continue;
-        const n = c.resourceCount ?? 1;
-        if (c.subtype === "cask") cask += n;
-        if (c.subtype === "corn") corn += n;
-        if (c.subtype === "rye") rye += n;
-      }
-      return cask >= 1 && corn >= 1 && rye >= 2;
+      const t = pileTotals(state, "tutorial_heritage_reserve");
+      return t != null && t.corn >= 1;
+    },
+  },
+  {
+    id: "beat-2b-add-rye-1",
+    kind: "await-action",
+    title: "Add a rye",
+    body: "Heritage is rye-heavy. Drag a **rye** card onto it.",
+    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
+    handCardFilter: (c) =>
+      c.type === "resource" && c.subtype === "rye" && !c.specialty,
+    dragHint: {
+      pickHandCard: (c) =>
+        c.type === "resource" && c.subtype === "rye" && !c.specialty,
+      slotIndex: 1,
+    },
+    matches: matchMakeForBill("tutorial_heritage_reserve"),
+    advanceWhen: (state) => {
+      const t = pileTotals(state, "tutorial_heritage_reserve");
+      return t != null && t.rye >= 1;
+    },
+  },
+  {
+    id: "beat-2c-add-rye-2",
+    kind: "await-action",
+    title: "And another rye",
+    body: "Drag your **second rye** onto Heritage. (You'll add a Specialty Rye later.)",
+    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
+    handCardFilter: (c) =>
+      c.type === "resource" && c.subtype === "rye" && !c.specialty,
+    dragHint: {
+      pickHandCard: (c) =>
+        c.type === "resource" && c.subtype === "rye" && !c.specialty,
+      slotIndex: 1,
+    },
+    matches: matchMakeForBill("tutorial_heritage_reserve"),
+    advanceWhen: (state) => {
+      const t = pileTotals(state, "tutorial_heritage_reserve");
+      return t != null && t.rye >= 2;
+    },
+  },
+  {
+    id: "beat-2d-add-cask",
+    kind: "await-action",
+    title: "Finish with the cask",
+    body: "Drag your last **cask** onto Heritage.",
+    spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
+    handCardFilter: (c) => c.type === "resource" && c.subtype === "cask",
+    dragHint: {
+      pickHandCard: (c) => c.type === "resource" && c.subtype === "cask",
+      slotIndex: 1,
+    },
+    matches: matchMakeForBill("tutorial_heritage_reserve"),
+    advanceWhen: (state) => {
+      const t = pileTotals(state, "tutorial_heritage_reserve");
+      return t != null && t.cask >= 1;
     },
   },
   {
@@ -221,6 +282,16 @@ export const TUTORIAL_BEATS: Beat[] = [
     title: "Still Building",
     body: "Heritage needs 1 Specialty Rye to finish. Buy one next.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
+  },
+
+  // ── Lesson 2 chapter card ───────────────────────────────────────
+  {
+    id: "lesson-2-intro",
+    kind: "prompt",
+    title: "Hit the market",
+    body: "Time to shop. The cards on the conveyor are for sale — pay with cards from your hand.",
+    spotlight: { kind: "none" },
+    chapter: { number: 2, label: "Buy a specialty" },
   },
 
   // ── Beat 3 — Market trip ────────────────────────────────────────
@@ -422,6 +493,16 @@ export const TUTORIAL_BEATS: Beat[] = [
     closeInspectOnAdvance: true,
   },
 
+  // ── Lesson 3 chapter card ───────────────────────────────────────
+  {
+    id: "lesson-3-intro",
+    kind: "prompt",
+    title: "Age your barrels",
+    body: "Every year an aging barrel needs 1 card to keep maturing. Older bourbon pays better — but only if you sell at the right time.",
+    spotlight: { kind: "none" },
+    chapter: { number: 3, label: "Age your barrels" },
+  },
+
   // ── Beat 6 — Aging ──────────────────────────────────────────────
   {
     id: "beat-6-age-prompt",
@@ -481,6 +562,16 @@ export const TUTORIAL_BEATS: Beat[] = [
     // turn flips to the bot.
     delayMs: 900,
     build: () => [{ type: "PASS_TURN", playerId: TUTORIAL_HUMAN_ID }],
+  },
+
+  // ── Lesson 4 chapter card ───────────────────────────────────────
+  {
+    id: "lesson-4-intro",
+    kind: "prompt",
+    title: "Sell at the right time",
+    body: "Selling earns reputation — but it drops the market's demand for everyone. Watch when your opponent sells.",
+    spotlight: { kind: "none" },
+    chapter: { number: 4, label: "Sell" },
   },
 
   // ── Beat 7 — Bot sells ──────────────────────────────────────────
