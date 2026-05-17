@@ -68,7 +68,7 @@ const SPECS: DistillerySpec[] = [
     description:
       "Your bottles lead with pepper, baking spice, and a long dry finish. The market knows your label — the buyers who pay for a high-rye pour are the buyers you'll see again. Wheated bills don't fit the house; you ship them straight back to the bourbon discard before they ever touch your rickhouse.",
     strategyNote:
-      "+1 rep stacks with Specialty bonuses, so a 3-Specialty-Rye sale pays grid + 4. The wheated-bill ban thins your draft pool — you'll see fewer Epic options. Pre-aged starter sells at round 2 once it picks up its second year.",
+      "+1 rep on every rye-bill sale is your engine. With v2.11's uniform Specialty bonus retired, the distillery's bonus is the rye player's headline sale upside — stacks only with per-card Heritage bonuses and ops/investment effects. The wheated-bill ban thins your draft pool — you'll see fewer Epic options. Pre-aged starter sells at round 2 once it picks up its second year.",
     difficulty: "intermediate",
     axis: "specialty / rye",
     implemented: true,
@@ -84,7 +84,7 @@ const SPECS: DistillerySpec[] = [
     startingBarrel: { age: 1, basicBillKey: "wheated_basic" },
     mashBillDraftSize: 0,
     cardText:
-      "Start with one pre-aged wheated barrel (age 1). Wheated bills (maxRye: 0) cost 1 fewer wheat to complete (floor 0). You cannot commit rye cards (basic, Double, Specialty, or Double Specialty) to any production pile. Rye is still legal to spend at the market or trade away.",
+      "Start with one pre-aged wheated barrel (age 1). Wheated bills (maxRye: 0) cost 1 fewer wheat to complete (floor 0). You cannot commit rye cards (Common, Specialty, or Heritage) to any production pile. Rye is still legal to spend at the market or trade away.",
     description:
       "Soft front, gentle finish, the pour grandmother poured. The Baron's brand is built on wheat — the bills you make taste like vanilla and caramel, never pepper, and the buyers who ask for them ask for them by name.",
     strategyNote:

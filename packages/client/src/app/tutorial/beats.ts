@@ -299,7 +299,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-3-buy-specialty-rye",
     kind: "await-action",
     title: "Buy the Specialty Rye",
-    body: "Spend your **$3** capital on the Specialty Rye.",
+    body: "Spend your **two $1 capitals** on the Specialty Rye ($2).",
     spotlight: { kind: "market-slot", slotIndex: 0 },
     matches: (action) =>
       action.type === "BUY_FROM_MARKET" &&
@@ -412,7 +412,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-5-finish-heritage",
     kind: "await-action",
     title: "Finish Heritage",
-    body: "Commit the **Specialty Rye**. Specialty cards add **+1 rep** at sale.",
+    body: "Commit the **Specialty Rye**. Specialty cards unlock recipe gates that demand them — without one, Heritage Reserve cannot finish.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 1 },
     // Lock the hand to the Specialty Rye specifically — it's the only
     // card the recipe still needs. The other resources in hand are
@@ -462,7 +462,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-5-aftermath",
     kind: "prompt",
     title: "Both aging",
-    body: "Heritage is locked in. **+1 rep** banked for sale day.",
+    body: "Heritage is locked in. The barrel ages from next round on.",
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },
   {

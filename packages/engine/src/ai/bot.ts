@@ -887,9 +887,9 @@ function peakReward(mb: MashBill): number {
  * as used. Returns whatever it found (possibly empty if nothing
  * matches) — caller decides whether the partial coverage is enough.
  *
- * v2.10: `preferSpecialty` pulls Specialty / Double Specialty cards
- * first when the recipe has a specialty floor on this subtype, so a
- * single card can satisfy both the regular min and the floor.
+ * v2.11: `preferSpecialty` pulls Specialty / Heritage cards first when
+ * the recipe has a specialty floor on this subtype, so a single card
+ * can satisfy both the regular min and the floor.
  */
 function takeBySubtype(
   hand: Card[],
@@ -956,16 +956,68 @@ function chooseAge(state: GameState, player: PlayerState): GameAction | null {
 // BUY_FROM_MARKET
 // -----------------------------
 
+/**
+ * Which Specialty subtypes the bot can still profit from buying — pulled
+ * from any unfinished bills in the player's slots. A subtype is "needed"
+ * when the bill's `minSpecialty.<subtype>` floor exceeds the matching
+ * count of specialty cards already committed to the barrel.
+ */
+function neededSpecialtySubtypes(
+  state: GameState,
+  player: PlayerState,
+): Set<"cask" | "corn" | "rye" | "barley" | "wheat"> {
+  const out = new Set<"cask" | "corn" | "rye" | "barley" | "wheat">();
+  for (const barrel of getPlayerBarrels(state, player.id)) {
+    if (barrel.phase === "aging") continue;
+    const sp = barrel.attachedMashBill.recipe?.minSpecialty;
+    if (!sp) continue;
+    const tally = { cask: 0, corn: 0, rye: 0, barley: 0, wheat: 0 };
+    for (const c of barrel.productionCards) {
+      if (c.type !== "resource" || !c.specialty) continue;
+      const sub = c.subtype;
+      if (!sub) continue;
+      tally[sub] += c.resourceCount ?? 1;
+    }
+    for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
+      const need = sp[sub] ?? 0;
+      if (need > tally[sub]) out.add(sub);
+    }
+  }
+  return out;
+}
+
 function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
   const totalCapital = player.hand.reduce((acc, c) => acc + capitalUnits(c), 0);
   if (totalCapital === 0) return null;
 
-  let best: { slotIndex: number; cost: number } | null = null;
+  // v2.11 valuation. With the uniform Specialty on-sale bonus retired,
+  // a Specialty card's only payoff is satisfying a `minSpecialty.<sub>`
+  // gate. The bot down-weights Specialty when no slotted bill calls
+  // for one of its subtype; Heritage stays full-priced because it's
+  // the future home of per-card bonuses and counts toward the same
+  // gates at one higher cost tier.
+  const specialtyDemand = neededSpecialtySubtypes(state, player);
+
+  let best: { slotIndex: number; score: number; cost: number } | null = null;
   for (let i = 0; i < state.marketConveyor.length; i++) {
     const card = state.marketConveyor[i]!;
     const cost = card.cost ?? 1;
     if (cost > totalCapital) continue;
-    if (!best || cost > best.cost) best = { slotIndex: i, cost };
+    let score = cost;
+    if (
+      card.type === "resource" &&
+      card.specialty === true &&
+      card.cardDefId.startsWith("superior_")
+    ) {
+      // Specialty (not Heritage): drop the bot's interest by 1 unless
+      // a current bill actually demands a specialty card of this
+      // subtype. The cost-priced bid still wins ties with Common.
+      const sub = card.subtype;
+      if (!sub || !specialtyDemand.has(sub)) {
+        score -= 1;
+      }
+    }
+    if (!best || score > best.score) best = { slotIndex: i, score, cost };
   }
   if (!best) return null;
 

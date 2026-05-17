@@ -398,7 +398,7 @@ describe("Card effect — rep_on_sale_if_demand_gte", () => {
       cardDefId: "high_proof_rye",
       type: "resource",
       subtype: "rye",
-      resourceCount: 2,
+      resourceCount: 1,
       cost: 5,
       effect: { kind: "rep_on_sale_if_demand_gte", when: "on_sale", demand: 7, rep: 2 },
     };
@@ -452,7 +452,7 @@ describe("Card effect — skip_demand_drop on_sale", () => {
       cardDefId: "heirloom_wheat",
       type: "resource",
       subtype: "wheat",
-      resourceCount: 2,
+      resourceCount: 1,
       cost: 7,
       effect: {
         kind: "composite",

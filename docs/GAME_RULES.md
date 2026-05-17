@@ -233,20 +233,20 @@ Recipes only ever **tighten** the universal rule, never loosen it. Examples:
 
 Bills without a printed recipe accept any legal mash. Recipes are public information from the moment the bill is slotted.
 
-### Specialty gates (v2.7.2)
+### Specialty gates (v2.11)
 
-Higher-rarity bills can require **Specialty** cards by subtype, on top of the regular minimums. A recipe with `minSpecialty: { rye: 1 }` requires at least one Specialty (or Double Specialty) Rye card in the production pile.
+Higher-rarity bills can require **Specialty** or **Heritage** cards by subtype, on top of the regular minimums. A recipe with `minSpecialty: { rye: 1 }` requires at least one Specialty (or Heritage) Rye card in the production pile.
 
-A Specialty card counts toward **both** the regular minimum AND the specialty floor — one card, two boxes ticked. So a Wheated Estate bill (`minWheat: 2, minSpecialty: { wheat: 1 }`) needs 2 wheat cards total, of which at least 1 must be Specialty.
+A Specialty card counts toward **both** the regular minimum AND the specialty floor — one card, two boxes ticked. So a Wheated Estate bill (`minWheat: 2, minSpecialty: { wheat: 1 }`) needs 2 wheat cards total, of which at least 1 must be Specialty or Heritage. Heritage cards satisfy the gate the same way Specialty cards do — they are not themselves a separate gate, only a flavor upgrade with a per-card sale-bonus hook.
 
-Specialty thresholds tend to be:
+The rarity ramp:
 - **Common** — universal rule only.
-- **Uncommon** — one named-grain minimum.
-- **Rare** — three+ named grain OR one specialty card.
-- **Epic** — at least one specialty card required.
-- **Legendary** — two+ specialty cards required.
+- **Uncommon** — transition tier: light specialty pressure (≤1 grain slot gated).
+- **Rare** — semi-gated: 1–2 `minSpecialty` entries.
+- **Epic** — fully gated: every cask + named-grain subtype in the recipe demands Specialty or Heritage.
+- **Legendary** — fully gated AND broader: more entries than any epic, often with tighter unit counts on a single slot (e.g. `rye: 2`).
 
-Each Specialty card committed also grants **+1 reputation on sale** — a passive bonus separate from any specialty-gate requirement.
+The v2.10 band-wide "+1 reputation on sale per Specialty" bonus is retired. Heritage cards each carry a `effect` hook reserved for a per-card bonus; no Heritage card in v2.11 ships with a populated bonus. Distillery-driven sale modifiers (e.g. High-Rye House's +1 rep on rye-bill sales) are unaffected — those run through `DistillerySaleMods`, not the band economy.
 
 ### Over-committing is rejected (v2.10)
 
@@ -273,8 +273,8 @@ Pre-aged starter barrels (High-Rye House, Wheated Baron) ship with `completedInR
 ### Sale resolution
 
 1. Read the attached mash bill's grid at `(barrel age, current demand)` to get N.
-2. Add **+1 reputation** for each Specialty or Double Specialty resource committed during production.
-3. Apply any persistent barrel offsets (e.g. Master Distiller).
+2. Add any per-card on-sale bonuses the committed cards declare via their `effect` (Heritage's per-card hook, themed cards like Spicy Rye, etc.). v2.11 retired the uniform Specialty +1-rep band bonus — no Specialty card pays automatic sale rep.
+3. Apply any persistent barrel offsets (e.g. Master Distiller) and distillery sale modifiers (e.g. High-Rye House's +1 rep on rye-bill sales).
 4. Determine the award eligibility:
    - **No award / Silver-eligible** — 100% of the total goes to **reputation**. Purchasing power is not available.
    - **Gold-eligible** — the player allocates the total across two outcomes (any combination summing to ≤ total):
@@ -415,15 +415,15 @@ Decks grow through market purchases. The effective working deck shrinks as cards
 
 ### Card Bands
 
-Resource cards in the market sort into three pricing bands (v2.10 retired the plain Double tier — see changelog). Specialties carry a uniform luxury bonus — **+1 reputation when the barrel sells**, for each Specialty (or Double Specialty) committed to it. Capital cards collapse onto a $1 / $3 / $5 ladder; cost equals face value across the board.
+Resource cards in the market sort into three pricing bands (v2.11 — "Three Bands, One Unit"). Every card is one unit; the bands differ only in price, scarcity, and whether Heritage cards carry their own per-card sale bonus (the data hook ships empty in v2.11). The v2.10 band-wide "+1 reputation per Specialty on sale" is retired. Capital cards collapse onto a $1 / $3 / $5 ladder; cost equals face value across the board.
 
 | Band | Cost | Units | On sale |
 |---|:-:|:-:|---|
 | **Common** (cask, corn, rye, wheat, barley) | $1 | 1 | — |
-| **Specialty** (superior cask / corn / rye / wheat / barley) | $3 | 1 | +1 reputation |
-| **Double Specialty** (double superior cask / rye / wheat) | $6 | 2 | +1 reputation |
+| **Specialty** (superior cask / corn / rye / wheat / barley) | $2 | 1 | — |
+| **Heritage** (heritage cask / corn / rye / wheat / barley) | $3 | 1 | per-card bonus (hook reserved; no Heritage card ships a populated bonus yet) |
 
-Premium variants — Specialties and Double Specialties — only enter play via the market.
+Premium variants — Specialties and Heritage — only enter play via the market. Both bands carry the structural Specialty marker that recipes read against; any card in either band satisfies a `minSpecialty.<subtype>` floor.
 
 ---
 
@@ -560,13 +560,13 @@ Pick Vanilla for a level playing field or an introductory game.
 
 ### High-Rye House — "The Specialist"
 - *Starting state:* 1 pre-aged rye barrel (age 1, `starter_high_rye` bill, `agingSinceRound = 0`), 3 Open slots, plus **2 free Specialty Rye** cards in your starter deck.
-- *Permanent ability:* +1 reputation when selling any barrel whose attached bill has `minRye ≥ 1`. Stacks with Specialty bonuses.
+- *Permanent ability:* +1 reputation when selling any barrel whose attached bill has `minRye ≥ 1`. (v2.11: independent of the retired Specialty band bonus — stacks only with per-card Heritage / ops / investment effects.)
 - *Constraint:* You cannot draft or draw any mash bill with `maxRye: 0` (the wheated lane is closed). Wheated bills in the face-up row are illegal targets; blind draws auto-skip wheated bills back to the bottom of the deck.
 
 ### Wheated Baron — "The Smooth Operator"
 - *Starting state:* 1 pre-aged wheated barrel (age 1, `starter_wheated` bill, `agingSinceRound = 0`), 3 Open slots.
 - *Permanent ability:* Wheated bills (`maxRye: 0`) require 1 fewer wheat to complete (floor 0 on the bill's `minWheat`). No effect on wheated bills whose `minWheat` is already 0.
-- *Constraint:* You cannot commit **any rye card** (Common, Specialty, Double Specialty) to a barrel. Rye in your hand is still legal currency at the market and in trades.
+- *Constraint:* You cannot commit **any rye card** (Common, Specialty, Heritage) to a barrel. Rye in your hand is still legal currency at the market and in trades.
 
 ### Connoisseur Estate — "The Diversified"
 - *Starting state:* Drafts **4 mash bills** at setup instead of 3 — every slot ships Staged at game start. No Open slot until one is freed.
@@ -644,6 +644,14 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 
 # 📜 Changelog
 
+- **v2.11** — **"Three Bands, One Unit."**
+  - **2-unit cards eliminated.** One card = one resource everywhere in the system. The Double Specialty band (Double Superior Cask / Rye / Wheat at $6, 2 units) is renamed **Heritage** and shipped at 1 unit, $3, with cards minted for all five subtypes (cask, corn, rye, barley, wheat). The plain Double band was already retired in v2.10 — v2.11 finishes the job.
+  - **Cost ladder compressed.** Common $1 / Specialty $2 / Heritage $3 — the old $1 / $3 / $6 ladder shortens to three single-step bands.
+  - **Uniform Specialty +1 rep on sale retired.** Specialty cards no longer pay a flat band-wide sale bonus. Heritage cards each carry an empty `effect` slot — a data hook reserved for per-card bonuses; no Heritage card ships a populated bonus in v2.11. Sale resolution stops iterating committed cards for the structural Specialty marker; the +1-rep machinery still works for any card that declares the effect, and distillery-driven sale modifiers (High-Rye House's +1 rep on rye-bill sales) ride a separate code path that's unaffected.
+  - **Mash bill specialty-gate ramp retuned.** Uncommons gain light specialty pressure (≤1 grain slot gated; Charred Oak Exchange now gates 1 barley, Riverbend Rye Signal gates 1 rye). Rares span 1–2 entries (Cooper's Quorum picks up a 2nd entry). Epics fully gate cask + every named-grain subtype in the recipe — Mash Bill No. 7, Bonded & Bold, and Wheated Estate all step up. Legendary High Rickhouse Select gates broader still (cask + corn + every named grain, with rye tightened to 2) — five entries, six specialty units total, more than any epic on both axes.
+  - **Build-cost tuner recalibrated.** `mashBillBuildCost` drops `SPECIALTY_UNIT_COST` from 4 (3 market + 1 sale bonus) to 2 (market only). The Bourbon Wiki "build N" pill now reads accurately for the v2.11 economy.
+  - **Bot AI Specialty valuation reduced.** With the band-wide bonus gone, Specialty cards are no longer worth the same as Heritage at full price — the bot down-weights Specialty buys when no slotted bill demands one of its subtype. Heritage stays full-priced (per-card bonus hook + counts toward the same gates). Production-side `preferSpecialty` is unchanged.
+  - **Capital cards explicitly untouched.** The $1 / $3 / $5 ladder, "capitals pay face value" payment rule, Cash Out ops card, and 2 starter capitals all stay exactly as they are. A separate capital-card redesign pass is coming next.
 - **v2.10** — **"Identity & Economy."**
   - **Gold-only purchasing power.** Only Gold-awarded sales can split grid value between reputation and purchasing power. Silver and no-award sales pay 100% reputation. Sale resolution branches on award type — `canMonetize` is gated by Gold eligibility, not the player's allocation choice. Net effect: Gold becomes the sprinter's economy (fast capital, deck-shaping), non-Gold becomes the grinder's economy (steady rep, deck stable). Cash Out and the operations market become more important for non-Gold players; investments will close more of the gap when they ship.
   - **All barrels must age before selling.** Formalized the round-gap rule: a barrel must be in the Aging phase for at least one full round before it can sell, in addition to the `age ≥ 2` threshold. Tracked via `completedInRound` on each barrel; sellability requires `currentRound > completedInRound`. Closes the v2.9 edge case where Rushed Shipment or Forced Cure could compress completion-to-sale into a single round. Pre-aged starter barrels are exempt (their `completedInRound = 0` makes them sellable from round 1 onward as soon as they clear the age 2 threshold).

@@ -90,7 +90,9 @@ export function buildTutorialHeritageBill(idx = 0): MashBill {
  * The Specialty Rye card the player buys in Beat 3. Built once with a
  * stable id so the tutorial controller can find it on the conveyor and
  * later re-locate it in the player's discard / deck for the rigged
- * round-2 draw.
+ * round-2 draw. v2.11: cost $2, no uniform on-sale bonus — Specialty
+ * cards now earn their keep by unlocking `minSpecialty` recipe gates,
+ * not by paying a flat sale bonus.
  */
 export function buildTutorialSpecialtyRye(): Card {
   return makePremiumResource({
@@ -99,8 +101,7 @@ export function buildTutorialSpecialtyRye(): Card {
     flavor: "Reserve cut, sharper edge.",
     subtype: "rye",
     resourceCount: 1,
-    cost: 3,
-    effect: { kind: "rep_on_sale_flat", when: "on_sale", rep: 1 },
+    cost: 2,
     specialty: true,
     ownerLabel: "tutorial",
     index: 1,
@@ -108,18 +109,18 @@ export function buildTutorialSpecialtyRye(): Card {
 }
 
 /**
- * The exact 8 cards the player begins the tutorial holding.
+ * The exact 9 cards the player begins the tutorial holding.
  *
- *   2 cask + 2 corn + 3 rye(common) + 1×$3 capital
+ *   2 cask + 2 corn + 3 rye(common) + 2×$1 capital
  *
  * Sizing rationale: Beat 1 commits 1 cask + 1 corn + 1 rye to Backroad
- * (3 cards), leaving 1 cask + 1 corn + 2 rye + $3 capital. Beat 2 commits
- * the remaining cask + corn + both ryes to Heritage as a partial pile
- * (4 cards), leaving the $3 capital — exactly what's needed to buy the
- * Specialty Rye in Beat 3. The hand finishes empty going into cleanup.
- * After round-1 cleanup, discard reshuffles into the deck for the round-2
- * draw, where the controller manually re-orders the deck so the
- * Specialty Rye is on top.
+ * (3 cards), leaving 1 cask + 1 corn + 2 rye + 2×$1 capital. Beat 2
+ * commits the remaining cask + corn + both ryes to Heritage as a
+ * partial pile (4 cards), leaving 2×$1 capital — exactly $2, what the
+ * v2.11 Specialty Rye costs in Beat 3. The hand finishes empty going
+ * into cleanup. After round-1 cleanup, discard reshuffles into the
+ * deck for the round-2 draw, where the controller manually re-orders
+ * the deck so the Specialty Rye is on top.
  */
 export function buildTutorialStartingHand(): Card[] {
   const hand: Card[] = [];
@@ -131,7 +132,8 @@ export function buildTutorialStartingHand(): Card[] {
   hand.push(makeResourceCard("rye", "tutorial-hand", idx++));
   hand.push(makeResourceCard("rye", "tutorial-hand", idx++));
   hand.push(makeResourceCard("rye", "tutorial-hand", idx++));
-  hand.push(makeCapitalCard("tutorial-hand", idx++, 3));
+  hand.push(makeCapitalCard("tutorial-hand", idx++, 1));
+  hand.push(makeCapitalCard("tutorial-hand", idx++, 1));
   return hand;
 }
 

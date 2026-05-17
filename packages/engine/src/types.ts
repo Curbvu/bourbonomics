@@ -40,12 +40,13 @@ export interface Card {
   /** Themed-card effect descriptor; resolved at commit/sale/spend time. */
   effect?: CardEffect;
   /**
-   * v2.7.2: marks Specialty / Double Specialty band cards. Recipes with
-   * `minSpecialty` requirements count only specialty cards of the given
-   * subtype toward the requirement. Independent of `premium` (Doubles
-   * are premium but not specialty); independent of the on-sale rep
-   * effect (the bonus is encoded via `effect`, this flag is the
-   * structural marker).
+   * v2.11: marks Specialty / Heritage band cards. Recipes with
+   * `minSpecialty` requirements count only specialty-flagged cards of
+   * the given subtype toward the requirement. Independent of `premium`;
+   * independent of any on-sale effect (the v2.10 uniform Specialty
+   * +1-rep-on-sale bonus is retired — per-card Heritage bonuses ride
+   * the regular `effect` field). The flag is the structural marker
+   * recipes read against.
    */
   specialty?: boolean;
 }
@@ -95,12 +96,14 @@ export interface MashBillRecipe {
   maxWheat?: number;
   minTotalGrain?: number;
   /**
-   * v2.7.2: per-subtype Specialty (or Double Specialty) requirements.
-   * Counts only cards flagged `card.specialty === true`. A
-   * Double Specialty card contributes its `resourceCount` (so a Double
-   * Superior Rye = 2 toward `minSpecialty.rye`). Used by Epic and
-   * Legendary bills (and a handful of Rares) to gate top-tier payouts
-   * behind market-only premium ingredients.
+   * v2.11: per-subtype Specialty / Heritage requirements. Counts only
+   * cards flagged `card.specialty === true`; each contributes its
+   * `resourceCount` (1 unit per card — no 2-unit cards exist in v2.11).
+   * Heritage cards satisfy the gate the same as Specialty cards. Used
+   * across the rarity ramp: uncommons get light pressure (≤1 grain slot
+   * gated), rares semi-gate (1–2 slots), epics fully gate every cask/
+   * grain slot, legendaries gate broader still (more entries, often
+   * tighter caps).
    */
   minSpecialty?: {
     cask?: number;
@@ -189,16 +192,19 @@ export function mashBillCost(bill: MashBill): number {
  * of this recipe. Use it to rank bills against each other while
  * balancing payout grids.
  *
- * Formula:
+ * Formula (v2.11):
  *   - 1 per basic resource the recipe demands (universal cask + corn,
  *     plus any rye / barley / wheat / extra corn minimums)
- *   - 4 per Specialty resource (3 to buy from market + 1 for the
- *     +1-rep-on-sale bonus those cards earn)
+ *   - 2 per Specialty resource — the cheapest option that satisfies a
+ *     `minSpecialty` floor (market cost $2; no uniform sale bonus).
+ *     Heritage ($3) also satisfies the gate but a rational builder
+ *     reaches for Specialty unless they want a Heritage card's
+ *     per-card bonus.
  *   - + the bill's draw cost (`mashBillCost`)
  *
  * A Specialty card satisfies both the subtype's universal/per-subtype
  * minimum AND the specialty floor — so the formula counts it once at
- * 4, not 1 + 4. Mirrors the chip dedup in `buildRecipeChips`.
+ * 2, not 1 + 2. Mirrors the chip dedup in `buildRecipeChips`.
  */
 export function mashBillBuildCost(bill: MashBill): number {
   const r = bill.recipe ?? {};
@@ -212,7 +218,10 @@ export function mashBillBuildCost(bill: MashBill): number {
   const minTotalGrain = Math.max(r.minTotalGrain ?? 0, namedGrain === 0 ? 1 : namedGrain);
   const wildGrain = Math.max(0, minTotalGrain - namedGrain);
 
-  const SPECIALTY_UNIT_COST = 4; // 3 market cost + 1 sale bonus
+  // v2.11: Specialty market cost is $2; uniform +1-rep-on-sale bonus is
+  // retired. Heritage costs $3 and also satisfies the gate, but a
+  // build-cost lower bound assumes the cheaper option.
+  const SPECIALTY_UNIT_COST = 2;
 
   const plainCask = Math.max(0, minCask - (sp.cask ?? 0));
   const plainCorn = Math.max(0, minCorn - (sp.corn ?? 0));
@@ -363,10 +372,12 @@ export interface DistilleryStarterBarrel {
 
 export interface DistilleryStarterPoolMods {
   /**
-   * v2.10: free Specialty Rye cards added to the dealt starter hand
-   * (High-Rye House). Specialty Rye is the +1-rep-on-sale, specialty-
-   * gate-counting variant — every "bonus rye" path runs through this
-   * now that the plain Double band is retired.
+   * v2.11: free Specialty Rye cards added to the dealt starter hand
+   * (High-Rye House). Specialty Rye carries no uniform on-sale bonus
+   * any more; it counts toward `minSpecialty.rye` gates. High-Rye
+   * House's own distillery ability still adds +1 rep on every
+   * rye-bill sale (independent of the band-wide bonus that was
+   * retired with the four-band economy).
    */
   bonusSpecialtyRye?: number;
   /** Net change to capital cards in the dealt starter hand (negative removes). */
