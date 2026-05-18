@@ -195,8 +195,7 @@ describe("PLAY_OPERATIONS_CARD — Demand Surge", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId: state.allBarrels.find((b) => b.phase === "aging")!.id,
-      reputationSplit: 5,
-      cardDrawSplit: 0,    });
+});
     expect(state.demand).toBe(before);
     expect(state.players.find((p) => p.id === "p1")!.demandSurgeActive).toBe(false);
   });
@@ -344,17 +343,24 @@ describe("PLAY_OPERATIONS_CARD — Insider Buyer", () => {
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.pendingHalfCostMarketBuy).toBe(true);
 
-    // Try to buy a 4¢ card with $2 capital — should succeed under the
-    // half-cost rule (ceil(4/2) = 2¢).
+    // v2.11: try to buy a $4 card with 2 rep — should succeed under the
+    // half-cost rule (ceil(4/2) = 2 rep). The conveyor has Specialty
+    // Labor cards at $4 in the v2.11 supply.
     const target = state.marketConveyor.find((c) => (c.cost ?? 1) === 4);
-    if (!target) return; // skip if seed didn't surface a 4¢ card
+    if (!target) return; // skip if seed didn't surface a $4 card
     const slotIdx = state.marketConveyor.findIndex((c) => c.id === target.id);
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 999, 2)]);
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1" ? { ...p, reputation: 2, hand: [] } : p,
+      ),
+    };
     state = applyAction(state, {
       type: "BUY_FROM_MARKET",
       playerId: "p1",
       marketSlotIndex: slotIdx,
-      spendCardIds: ["card_p1_cap2_999"],
+      rep: 2,
+      laborCardIds: [],
     });
     const p1After = state.players.find((p) => p.id === "p1")!;
     // Discount consumed.
@@ -397,19 +403,50 @@ describe("PLAY_OPERATIONS_CARD — Bottling Run", () => {
   });
 });
 
-describe("PLAY_OPERATIONS_CARD — Cash Out", () => {
-  it("converts every resource card in hand into $1 capital cards in discard", () => {
+describe("PLAY_OPERATIONS_CARD — Cash Out (v2.11)", () => {
+  it("discards resources from hand and grants 1 rep per 2 discarded (round down)", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
-    // Seed a known hand: 3 corn + 1 capital. Cash Out should clear the
-    // 3 corn and mint 3 new $1 capital cards into discard.
-    state = giveHand(state, "p1", [
-      makeCapitalCard("p1", 200, 1),
-      // 3 resource cards from helpers — use makeCapitalCard for slot,
-      // then mutate type via giveHand alternative. We'll just use
-      // makeCapitalCard for the keep-card and the helper's resources.
-    ]);
-    // Append 3 resource cards directly to the hand for simplicity.
+    // Seed a known hand: 5 corn cards. Cash Out should clear all 5
+    // resource cards and add floor(5/2) = 2 rep.
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1"
+          ? {
+              ...p,
+              hand: Array.from({ length: 5 }, (_, i) => ({
+                id: `card_p1_corn_t${i}`,
+                cardDefId: "corn",
+                type: "resource",
+                subtype: "corn",
+                resourceCount: 1,
+                cost: 1,
+              })),
+            }
+          : p,
+      ),
+    };
+    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "cash_out");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "cash_out",
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    // All resources cleared from hand.
+    expect(p1.hand.filter((c) => c.type === "resource")).toHaveLength(0);
+    // Discard holds the 5 spent corn cards.
+    expect(p1.discard.filter((c) => c.cardDefId === "corn")).toHaveLength(5);
+    // Reputation up by floor(5/2) = 2.
+    expect(p1.reputation).toBe(beforeRep + 2);
+  });
+
+  it("is illegal when fewer than 2 resource cards in hand", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
     state = {
       ...state,
       players: state.players.map((p) =>
@@ -417,25 +454,8 @@ describe("PLAY_OPERATIONS_CARD — Cash Out", () => {
           ? {
               ...p,
               hand: [
-                ...p.hand,
                 {
-                  id: "card_p1_corn_t0",
-                  cardDefId: "corn",
-                  type: "resource",
-                  subtype: "corn",
-                  resourceCount: 1,
-                  cost: 1,
-                },
-                {
-                  id: "card_p1_corn_t1",
-                  cardDefId: "corn",
-                  type: "resource",
-                  subtype: "corn",
-                  resourceCount: 1,
-                  cost: 1,
-                },
-                {
-                  id: "card_p1_corn_t2",
+                  id: "only_one_corn",
                   cardDefId: "corn",
                   type: "resource",
                   subtype: "corn",
@@ -448,20 +468,14 @@ describe("PLAY_OPERATIONS_CARD — Cash Out", () => {
       ),
     };
     const { state: s, cardId } = giveOpsCard(state, "p1", "cash_out");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "cash_out",
-    });
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    // Hand keeps the original capital card; resources are gone.
-    expect(p1.hand.every((c) => c.type === "capital")).toBe(true);
-    // Discard now has the 3 spent corn cards + 3 freshly minted $1 capitals.
-    const mintedCapitals = p1.discard.filter(
-      (c) => c.type === "capital" && c.id.startsWith("card_p1_cap"),
-    );
-    expect(mintedCapitals.length).toBeGreaterThanOrEqual(3);
+    expect(() =>
+      applyAction(s, {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: "p1",
+        cardId,
+        defId: "cash_out",
+      }),
+    ).toThrow(/at least 2 resource/);
   });
 });
 
@@ -635,8 +649,7 @@ describe("PLAY_OPERATIONS_CARD — Rating Boost", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 4,
-      cardDrawSplit: 0,    });
+});
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(beforeRep + 4 + 2);
     // Boost consumed.
@@ -665,8 +678,7 @@ describe("PLAY_OPERATIONS_CARD — Master Distiller", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 5,
-      cardDrawSplit: 0,    });
+});
     expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(0);
   });
 });

@@ -8,7 +8,7 @@ import type {
   PlayerState,
   ValidationResult,
 } from "../types";
-import { isWheatedBill } from "../types";
+import { isWheatedBill, saleFloorForBill } from "../types";
 import type { Draft } from "immer";
 import type { SaleEffectSignals } from "../card-effects";
 import { collectSaleSignals } from "../card-effects";
@@ -76,38 +76,14 @@ export function validateSellBourbon(
     };
   }
 
+  // v2.11 (Unified Rep): sale is single-step — no split prompt. The
+  // computed total rep (grid + bonuses, clamped to tier floor) lands
+  // on the player's rep track. Gold-only purchasing-power rule from
+  // v2.10 is retired alongside capital.
   const reward = computeSaleReward(state, barrel);
-
-  if (
-    !Number.isInteger(action.reputationSplit) ||
-    !Number.isInteger(action.cardDrawSplit)
-  ) {
-    return { legal: false, reason: "splits must be integers" };
-  }
-  if (action.reputationSplit < 0 || action.cardDrawSplit < 0) {
-    return { legal: false, reason: "splits must be non-negative" };
-  }
-  if (action.reputationSplit + action.cardDrawSplit !== reward) {
-    return {
-      legal: false,
-      reason: `splits sum to ${
-        action.reputationSplit + action.cardDrawSplit
-      }, expected reward of ${reward}`,
-    };
-  }
-
-  // v2.10: only Gold-eligible sales may split the grid value into
-  // purchasing power (card draws). Silver and no-award sales pay 100%
-  // reputation — cardDrawSplit must be 0.
   const goldEligible =
     barrel.attachedMashBill.goldAward != null &&
     awardConditionMet(barrel.attachedMashBill.goldAward, barrel.age, state.demand, reward);
-  if (!goldEligible && action.cardDrawSplit > 0) {
-    return {
-      legal: false,
-      reason: "only Gold-eligible sales can split value into purchasing power",
-    };
-  }
 
   if (goldEligible && action.goldChoice === "convert") {
     if (!action.goldConvertTargetSlotId) {
@@ -282,30 +258,27 @@ export function applySellBourbon(
   const signals = collectSaleSignals(barrel, { demand: draft.demand });
   const reward = computeSaleGridReward(attached, barrel, draft.demand, signals);
 
-  // Apply reputation gain. Stacking on top of the player-driven
-  // split: themed-card flat bonuses, themed-card conditional
-  // bonuses (already in `signals.bonusRep`), the pre-played Rating
-  // Boost flag, and distillery sale mods (e.g. High-Rye House: +1
-  // rep on a high-rye bill).
+  // v2.11 (Unified Rep): single-step sale. Sum everything that adds
+  // rep at sale — grid reward, themed-card per-card bonuses, Rating
+  // Boost, distillery sale mods (e.g. High-Rye +1) — then clamp to
+  // the bill's tier floor (3/4/5) so every sale clears its baseline.
   const ratingBoost = player.pendingRatingBoost;
   const distilleryBonusRep = distillerySaleBonusRep(player.distillery, attached);
-  player.reputation +=
-    action.reputationSplit +
-    signals.bonusRep +
-    ratingBoost +
-    distilleryBonusRep;
+  const rawTotal = reward + signals.bonusRep + ratingBoost + distilleryBonusRep;
+  const floor = saleFloorForBill(attached);
+  const total = Math.max(rawTotal, floor);
+  player.reputation += total;
   // Consume the boost — one-shot per sale.
   if (ratingBoost > 0) player.pendingRatingBoost = 0;
 
-  // Mid-action card draw: drawn cards go straight into hand.
-  // `bonusDraw` from sale effects (e.g. Six-Row Barley) stacks on
-  // top of the player's split.
-  const drawCount = action.cardDrawSplit + signals.bonusDraw;
-  if (drawCount > 0) {
+  // Themed-card on-sale draw bonuses (e.g. a future Heritage card
+  // declaring `draw_cards on_sale`). Kept independent of the rep
+  // total so themed effects still fire under unified rep.
+  if (signals.bonusDraw > 0) {
     const result = drawWithReshuffle(
       player.deck.slice(),
       player.discard.slice(),
-      drawCount,
+      signals.bonusDraw,
       draft.rngState,
     );
     player.hand.push(...result.drawn);

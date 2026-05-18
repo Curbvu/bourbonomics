@@ -1,8 +1,7 @@
 import type { Card, InvestmentCard, MashBill, StarterBillKey } from "./types";
 import {
-  makeCapitalCard,
+  makeLaborCard,
   makeMashBill,
-  makePremiumCapital,
   makePremiumResource,
   makeResourceCard,
 } from "./cards";
@@ -391,8 +390,15 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
 }
 
 // ============================================================
-// Default starter deck — 16 plain cards.
-// 4 cask + 4 corn + 4 grain (2 rye, 1 barley, 1 wheat) + 4 capital.
+// Default starter deck — v2.11 (Unified Rep): 16 cards =
+//   4 cask + 4 corn + 4 grain (2 rye, 1 barley, 1 wheat) + 4 Generic Labor.
+//
+// Capital is gone — rep is the unified currency. The 4 capital
+// cards of v2.10 are replaced 1:1 with Generic Labor (sweat equity
+// supplements rep on purchases). Setup also peels one Generic Labor
+// off the central Hire pile and seeds it directly into the opening
+// hand so every player has Labor available on their first turn —
+// see `initialize.ts`.
 // ============================================================
 
 export const STARTER_DECK_SIZE = 16;
@@ -405,7 +411,8 @@ export function defaultStarterCards(playerLabel: string): Card[] {
   for (let i = 0; i < 2; i++) cards.push(makeResourceCard("rye", playerLabel, idx++));
   cards.push(makeResourceCard("barley", playerLabel, idx++));
   cards.push(makeResourceCard("wheat", playerLabel, idx++));
-  for (let i = 0; i < 4; i++) cards.push(makeCapitalCard(playerLabel, idx++));
+  for (let i = 0; i < 4; i++)
+    cards.push(makeLaborCard({ subtype: "generic", ownerLabel: playerLabel, index: idx++ }));
   return cards;
 }
 
@@ -932,34 +939,31 @@ export function defaultMashBillCatalog(): MashBill[] {
 }
 
 // ============================================================
-// Default market supply — v2.11 three-band, one-unit resource economy
-// + 3-tier capital ladder.
+// Default market supply — v2.11 (Unified Rep) economy.
 //
-// Resources collapse onto three pricing bands; every card is 1 unit:
+// Resources sit in three pricing bands, every card 1 unit. Costs are
+// paid in reputation (the unified currency) — Labor cards from hand
+// can supplement rep on each buy.
 //
-//   Common ($1)     1 unit, basic, no effect
-//   Specialty ($2)  1 unit, satisfies `minSpecialty.<subtype>` gates
-//   Heritage ($3)   1 unit, satisfies `minSpecialty.<subtype>` gates,
-//                   per-card bonus hook (data hook only — no Heritage
-//                   card ships a populated bonus in v2.11)
+//   Common ($1)     1 unit, basic, no effect          (Labor-buyable)
+//   Specialty ($2)  1 unit, satisfies minSpecialty    (≥1 rep required)
+//   Heritage ($3)   1 unit, satisfies minSpecialty,   (≥1 rep required)
+//                   per-card bonus hook (empty in v2.11)
 //
-// The v2.10 uniform "+1 rep on sale per Specialty" band-wide bonus is
-// retired. The +1 reputation that High-Rye House grants on rye-bill
-// sales is a distillery ability, not a band rule — wired through
-// `DistillerySaleMods.bonusRepOnBill` and unaffected by this change.
+// Plus a Labor strip on the supply:
 //
-// Heritage replaces v2.10's Double Specialty: same `specialty: true`
-// flag (counts toward `minSpecialty` gates), but 1 unit instead of 2.
-// One card = one resource everywhere in the system.
+//   Generic Labor   ($1, ~3 copies)   universal +1 toward any buy
+//   Marketing       ($4, 1 copy)      +2 toward ops card buys
+//   Cooper          ($4, 1 copy)      +2 toward market resource buys
 //
-// Capitals collapse onto $1 / $3 / $5 face values; cost == value.
+// Capitals are entirely retired in v2.11 — rep is the only currency.
+// Architect ($4 Specialty Labor for investments) is reserved for
+// v2.12 when investments ship.
 //
-// Distribution intent across the resource portion of the supply:
-//   ~50% Common, ~30% Specialty, ~20% Heritage.
-//
-// The themed-card effect resolver in `card-effects.ts` is unchanged;
-// any Heritage card that wants a per-card bonus just declares an
-// `effect` (the same machinery Toasted Oak / Spicy Rye / etc. use).
+// The v2.10 uniform "+1 rep on sale per Specialty" band-wide bonus
+// stays retired. High-Rye House's +1 rep on rye-bill sales is a
+// distillery ability, wired through `DistillerySaleMods.bonusRepOnBill`
+// and unaffected by this change.
 // ============================================================
 
 interface BandCardSpec {
@@ -1038,33 +1042,28 @@ export function defaultMarketSupply(): Card[] {
     );
   }
 
-  // ── Capital ladder: $1 / $3 / $5 ─────────────────────────────
-  // $1 — basic Petty Cash (also serves as the Common-band capital).
-  for (let i = 0; i < 6; i++) cards.push(makeCapitalCard("supply", idx++));
-  // $3 — Brand Loan, plain face-value capital.
-  for (let i = 0; i < 4; i++)
+  // ── Labor ─────────────────────────────────────────────────────
+  // v2.11 (Unified Rep): capital cards are removed; rep is the
+  // unified currency. Labor cards appear in the market as a rare
+  // sweat-equity supplement to rep on purchases.
+  //
+  //   Generic Labor   ($1, ~3 copies)   universal +1 toward any buy.
+  //   Marketing       ($4, 1 copy)      +2 toward ops card buys.
+  //   Cooper          ($4, 1 copy)      +2 toward market resource buys.
+  //
+  // Architect ($4, +2 toward investment buys) is deferred to v2.12
+  // — no Architect ships in the v2.11 market because the investment
+  // market itself is still display-only.
+  for (let i = 0; i < 3; i++)
     cards.push(
-      makePremiumCapital({
-        defId: "brand_loan",
-        displayName: "Brand Loan",
-        flavor: "Three on credit, due in glory.",
-        capitalValue: 3,
-        cost: 3,
-        index: idx++,
-      }),
+      makeLaborCard({ subtype: "generic", ownerLabel: "supply", index: idx++ }),
     );
-  // $5 — House Backer, the big-ticket capital. Cost matches face value.
-  for (let i = 0; i < 2; i++)
-    cards.push(
-      makePremiumCapital({
-        defId: "house_backer",
-        displayName: "House Backer",
-        flavor: "Five at the till, no questions asked.",
-        capitalValue: 5,
-        cost: 5,
-        index: idx++,
-      }),
-    );
+  cards.push(
+    makeLaborCard({ subtype: "marketing", ownerLabel: "supply", index: idx++ }),
+  );
+  cards.push(
+    makeLaborCard({ subtype: "cooper", ownerLabel: "supply", index: idx++ }),
+  );
 
   return cards;
 }

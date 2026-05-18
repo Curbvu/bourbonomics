@@ -8,7 +8,7 @@ import type {
   OperationsCard,
   PlayerState,
 } from "../types";
-import { capitalUnits, resourceUnits, suppliesResource } from "../cards";
+import { resourceUnits, suppliesResource } from "../cards";
 import { computeReward } from "../rewards";
 import { emptySlotsFor, getPlayerBarrels } from "../state";
 
@@ -90,19 +90,86 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
   const age = chooseAge(state, player);
   if (age) return age;
 
-  // 5) Buy a useful card from the market.
+  // 5a) Hire a Generic Labor if available — free action, expands
+  // future spending options. Once per turn.
+  const hire = chooseHire(state, player);
+  if (hire) return hire;
+
+  // v2.11: bills cost rep. If the player has NO in-progress barrel
+  // (no ready / construction slot) AND the bourbon deck still has
+  // bills, drawing one is the priority — production depends on it.
+  // Otherwise the bot will spend its rep on cheap market cards and
+  // never advance the doomsday clock.
+  const myBarrels = getPlayerBarrels(state, player.id);
+  const needsBill =
+    !myBarrels.some((b) => b.phase === "ready" || b.phase === "construction") &&
+    (state.bourbonDeck.length > 0 || state.bourbonFaceUp.length > 0) &&
+    emptySlotsFor(state, player.id).length > 0;
+  if (needsBill) {
+    const drawFirst = chooseDrawMashBill(state, player);
+    if (drawFirst) return drawFirst;
+  }
+
+  // 5b) Buy a useful card from the market — but reserve at least 1
+  // rep for a future bill draw whenever bills are still available
+  // and the player isn't sitting on a sale-ready barrel.
   const buy = chooseBuy(state, player);
-  if (buy) return buy;
+  if (buy && buy.type === "BUY_FROM_MARKET" && !shouldReserveRep(state, player, buy.rep)) return buy;
 
   // 6) Ops buying disabled — pending future release.
   // const buyOps = chooseBuyOpsCard(state, player);
   // if (buyOps) return buyOps;
 
-  // 7) Draw a mash bill if we've run out of recipes.
+  // 7) Draw a mash bill if we still can.
   const draw = chooseDrawMashBill(state, player);
   if (draw) return draw;
 
   return { type: "PASS_TURN", playerId };
+}
+
+/**
+ * v2.11: should the bot hold off on a buy to save rep for a bill
+ * draw? True when the buy would push rep below 1 AND the bourbon
+ * deck still has bills AND the player has an open slot to receive
+ * one AND no aging-phase barrel is ready to sell.
+ */
+function shouldReserveRep(
+  state: GameState,
+  player: PlayerState,
+  buyRep: number,
+): boolean {
+  if (buyRep === 0) return false; // free buy — no rep concern
+  const postRep = player.reputation - buyRep;
+  if (postRep >= 1) return false;
+  const billsLeft = state.bourbonDeck.length + state.bourbonFaceUp.length;
+  if (billsLeft === 0) return false;
+  if (emptySlotsFor(state, player.id).length === 0) return false;
+  // If we have an aging barrel that's about to sell, the rep will
+  // refill — buying first is fine.
+  const hasSaleable = getPlayerBarrels(state, player.id).some(
+    (b) =>
+      b.phase === "aging" &&
+      b.age >= 2 &&
+      (b.completedInRound == null || state.round > b.completedInRound),
+  );
+  if (hasSaleable) return false;
+  return true;
+}
+
+/**
+ * v2.11 — HIRE heuristic. Take a Generic Labor from the pile if:
+ *   - the player hasn't already hired this turn
+ *   - the central pile has stock
+ *   - the player would benefit (fewer than 2 Generic Labor in hand)
+ */
+function chooseHire(state: GameState, player: PlayerState): GameAction | null {
+  if (player.hireUsedThisTurn) return null;
+  if (state.laborPile <= 0) return null;
+  const genericInHand = player.hand.filter(
+    (c) => c.type === "labor" && c.laborSubtype === "generic",
+  ).length;
+  if (genericInHand >= 2) return null;
+  return { type: "HIRE", playerId: player.id };
 }
 
 // -----------------------------
@@ -214,15 +281,17 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
   }
 
   // Market Corner: only if there's a high-value premium we can't otherwise afford.
+  // v2.11: "afford" = current rep (Labor cards we don't model here as
+  // a hard discount; this is a rough upper bound).
   const mc = playable.find((c) => c.defId === "market_corner");
   if (mc) {
-    const totalCapital = player.hand.reduce((acc, c) => acc + capitalUnits(c), 0);
+    const spending = player.reputation;
     let bestSlot = -1;
     let bestCost = 0;
     for (let i = 0; i < state.marketConveyor.length; i++) {
       const card = state.marketConveyor[i]!;
       const cost = card.cost ?? 1;
-      if (cost > totalCapital && cost > bestCost) {
+      if (cost > spending && cost > bestCost) {
         bestCost = cost;
         bestSlot = i;
       }
@@ -314,15 +383,15 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
   }
 
   // Insider Buyer: refresh the conveyor when at least one card is too
-  // expensive AND we're not blocked on capital.
+  // expensive AND we have rep to buy the refreshed offerings.
   const ib = playable.find((c) => c.defId === "insider_buyer");
   if (ib) {
-    const totalCapital = player.hand.reduce((acc, c) => acc + capitalUnits(c), 0);
+    const spending = player.reputation;
     const cheapestVisible = state.marketConveyor.reduce(
       (lo, c) => Math.min(lo, c.cost ?? 1),
       Infinity,
     );
-    if (totalCapital >= cheapestVisible) {
+    if (spending >= cheapestVisible) {
       return {
         type: "PLAY_OPERATIONS_CARD",
         playerId: player.id,
@@ -520,8 +589,8 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
     type: "SELL_BOURBON",
     playerId: player.id,
     barrelId: best.barrelId,
-    reputationSplit: best.reward,
-    cardDrawSplit: 0,
+    // v2.11: single-step sale — rep total + tier floor are applied
+    // by the engine. No split fields.
     ...(goldChoice ? { goldChoice } : {}),
     ...(goldConvertTargetSlotId ? { goldConvertTargetSlotId } : {}),
   };
@@ -937,9 +1006,11 @@ function chooseAge(state: GameState, player: PlayerState): GameAction | null {
   );
   if (barrels.length === 0) return null;
 
+  // v2.11: prefer a Generic Labor card (cheap, plentiful from Hire)
+  // when paying the aging cost; otherwise reach for any 1-unit resource.
   const card =
-    player.hand.find((c) => c.type === "capital" && (c.capitalValue ?? 1) === 1) ??
-    player.hand.find((c) => (c.resourceCount ?? 1) === 1) ??
+    player.hand.find((c) => c.type === "labor" && c.laborSubtype === "generic") ??
+    player.hand.find((c) => c.type === "resource" && (c.resourceCount ?? 1) === 1) ??
     player.hand[0];
   if (!card) return null;
 
@@ -987,31 +1058,37 @@ function neededSpecialtySubtypes(
 }
 
 function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
-  const totalCapital = player.hand.reduce((acc, c) => acc + capitalUnits(c), 0);
-  if (totalCapital === 0) return null;
+  // v2.11 (Unified Rep): rep is the currency. Labor cards in hand
+  // supplement rep — Cooper +2 toward market resources, Generic +1
+  // anywhere. The bot prefers to pay with Labor first (cards in hand
+  // are cheaper than rep, which is also VPs) and tops up with rep.
+  const cooperLabor = player.hand.filter(
+    (c) => c.type === "labor" && c.laborSubtype === "cooper",
+  );
+  const genericLabor = player.hand.filter(
+    (c) => c.type === "labor" && c.laborSubtype === "generic",
+  );
+  const laborMaxContribution = cooperLabor.length * 2 + genericLabor.length;
+  const maxAffordable = player.reputation + laborMaxContribution;
+  if (maxAffordable === 0) return null;
 
-  // v2.11 valuation. With the uniform Specialty on-sale bonus retired,
-  // a Specialty card's only payoff is satisfying a `minSpecialty.<sub>`
-  // gate. The bot down-weights Specialty when no slotted bill calls
-  // for one of its subtype; Heritage stays full-priced because it's
-  // the future home of per-card bonuses and counts toward the same
-  // gates at one higher cost tier.
+  // Down-weight Specialty when no slotted bill demands its subtype.
   const specialtyDemand = neededSpecialtySubtypes(state, player);
 
   let best: { slotIndex: number; score: number; cost: number } | null = null;
   for (let i = 0; i < state.marketConveyor.length; i++) {
     const card = state.marketConveyor[i]!;
     const cost = card.cost ?? 1;
-    if (cost > totalCapital) continue;
+    if (cost > maxAffordable) continue;
+    // Skip ≥$2 buys when we don't have at least 1 rep — the anchor
+    // rule rejects them.
+    if (cost >= 2 && player.reputation < 1) continue;
     let score = cost;
     if (
       card.type === "resource" &&
       card.specialty === true &&
       card.cardDefId.startsWith("superior_")
     ) {
-      // Specialty (not Heritage): drop the bot's interest by 1 unless
-      // a current bill actually demands a specialty card of this
-      // subtype. The cost-priced bid still wins ties with Common.
       const sub = card.subtype;
       if (!sub || !specialtyDemand.has(sub)) {
         score -= 1;
@@ -1021,23 +1098,32 @@ function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
   }
   if (!best) return null;
 
-  const capitalCards = player.hand
-    .filter((c) => c.type === "capital")
-    .sort((a, b) => (a.capitalValue ?? 1) - (b.capitalValue ?? 1));
-  const spend: string[] = [];
-  let paid = 0;
-  for (const c of capitalCards) {
-    spend.push(c.id);
-    paid += capitalUnits(c);
-    if (paid >= best.cost) break;
+  // Pay Cooper first (matched-domain, +2 each), then Generic (+1
+  // each), then rep. Anchor: ≥$2 buys keep at least 1 rep.
+  const laborIds: string[] = [];
+  let covered = 0;
+  for (const c of cooperLabor) {
+    if (covered >= best.cost) break;
+    laborIds.push(c.id);
+    covered += 2;
   }
-  if (paid < best.cost) return null;
+  for (const c of genericLabor) {
+    if (covered >= best.cost) break;
+    laborIds.push(c.id);
+    covered += 1;
+  }
+  // Compute the rep contribution. The total must equal at least
+  // `best.cost`; the anchor rule requires ≥1 rep when cost ≥ 2.
+  let rep = Math.max(0, best.cost - covered);
+  if (best.cost >= 2 && rep < 1) rep = 1;
+  if (rep > player.reputation) return null;
 
   return {
     type: "BUY_FROM_MARKET",
     playerId: player.id,
     marketSlotIndex: best.slotIndex,
-    spendCardIds: spend,
+    rep,
+    laborCardIds: laborIds,
   };
 }
 
@@ -1057,9 +1143,16 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
   if (state.operationsDeck.length === 0) return null;
   const heldDefIds = new Set(player.operationsHand.map((c) => c.defId));
 
-  // The face-up row is the last FACEUP_OPS_SIZE cards of operationsDeck,
-  // exposed in UI order [top, top-1, top-2].
-  const totalSpend = player.hand.reduce((acc, c) => acc + paymentForOpsBuy(c), 0);
+  // v2.11: ops buys pay rep + Marketing/Generic Labor. Marketing
+  // contributes +2 toward ops; Cooper / Architect contribute 0.
+  const marketingLabor = player.hand.filter(
+    (c) => c.type === "labor" && c.laborSubtype === "marketing",
+  );
+  const genericLabor = player.hand.filter(
+    (c) => c.type === "labor" && c.laborSubtype === "generic",
+  );
+  const laborMax = marketingLabor.length * 2 + genericLabor.length;
+  const maxAffordable = player.reputation + laborMax;
 
   let best: { uiSlot: number; cost: number; rank: number } | null = null;
   for (let ui = 0; ui < FACEUP_OPS_SIZE; ui++) {
@@ -1069,7 +1162,8 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
     if (!card) continue;
     if (heldDefIds.has(card.defId)) continue;
     if (!OPS_BOT_PLAYABLE.has(card.defId)) continue;
-    if (card.cost > totalSpend) continue;
+    if (card.cost > maxAffordable) continue;
+    if (card.cost >= 2 && player.reputation < 1) continue;
     const rank = OPS_BUY_PREFERENCE.indexOf(card.defId);
     const effectiveRank = rank === -1 ? OPS_BUY_PREFERENCE.length : rank;
     if (
@@ -1082,29 +1176,29 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
   }
   if (!best) return null;
 
-  // Pay with the cheapest combination of resource cards first, falling
-  // back to capital cards. We never overpay by a capital card if a
-  // pile of resource cards already covers it.
-  const sorted = [...player.hand].sort((a, b) => paymentForOpsBuy(a) - paymentForOpsBuy(b));
-  const spend: string[] = [];
-  let paid = 0;
-  for (const c of sorted) {
-    spend.push(c.id);
-    paid += paymentForOpsBuy(c);
-    if (paid >= best.cost) break;
+  const laborIds: string[] = [];
+  let covered = 0;
+  for (const c of marketingLabor) {
+    if (covered >= best.cost) break;
+    laborIds.push(c.id);
+    covered += 2;
   }
-  if (paid < best.cost) return null;
+  for (const c of genericLabor) {
+    if (covered >= best.cost) break;
+    laborIds.push(c.id);
+    covered += 1;
+  }
+  let rep = Math.max(0, best.cost - covered);
+  if (best.cost >= 2 && rep < 1) rep = 1;
+  if (rep > player.reputation) return null;
 
   return {
     type: "BUY_OPERATIONS_CARD",
     playerId: player.id,
     opsSlotIndex: best.uiSlot,
-    spendCardIds: spend,
+    rep,
+    laborCardIds: laborIds,
   };
-}
-
-function paymentForOpsBuy(card: Card): number {
-  return card.type === "capital" ? card.capitalValue ?? 1 : 1;
 }
 
 /**
@@ -1160,21 +1254,19 @@ function chooseDrawMashBill(state: GameState, player: PlayerState): GameAction |
   const myBarrels = getPlayerBarrels(state, player.id);
   const hasReady = myBarrels.some((b) => b.phase === "ready");
   if (hasReady) return null;
-  // Prefer the blind draw (cheapest — pay any 1 card) when the deck has
-  // bills left. Falls back to a face-up pick once the deck is exhausted.
-  if (state.bourbonDeck.length > 0) {
-    const spendCard =
-      player.hand.find((c) => c.type === "capital" && (c.capitalValue ?? 1) === 1) ??
-      player.hand[0];
-    if (!spendCard) return null;
+
+  // v2.11 (Unified Rep): bills cost rep — blind draw 1, face-up 2
+  // (stopgap). Bot conserves rep early, so prefers the blind 1-rep
+  // draw whenever the deck has bills left.
+  const BLIND_DRAW_REP = 1;
+  if (state.bourbonDeck.length > 0 && player.reputation >= BLIND_DRAW_REP) {
     return {
       type: "DRAW_MASH_BILL",
       playerId: player.id,
-      spendCardIds: [spendCard.id],
+      rep: BLIND_DRAW_REP,
     };
   }
-  // Face-up only — pick the cheapest face-up bill we can pay for.
-  const sorted = [...player.hand].sort((a, b) => paymentForOpsBuy(b) - paymentForOpsBuy(a));
+  // Face-up only — pick the cheapest legal bill we can afford.
   for (const bill of state.bourbonFaceUp) {
     // v2.10 High-Rye House: cannot draft wheated bills.
     if (
@@ -1184,21 +1276,13 @@ function chooseDrawMashBill(state: GameState, player: PlayerState): GameAction |
       continue;
     }
     const cost = bill.cost ?? 2;
-    const spend: string[] = [];
-    let paid = 0;
-    for (const c of sorted) {
-      spend.push(c.id);
-      paid += c.type === "capital" ? c.capitalValue ?? 1 : 1;
-      if (paid >= cost) break;
-    }
-    if (paid >= cost) {
-      return {
-        type: "DRAW_MASH_BILL",
-        playerId: player.id,
-        mashBillId: bill.id,
-        spendCardIds: spend,
-      };
-    }
+    if (player.reputation < cost) continue;
+    return {
+      type: "DRAW_MASH_BILL",
+      playerId: player.id,
+      mashBillId: bill.id,
+      rep: cost,
+    };
   }
   return null;
 }

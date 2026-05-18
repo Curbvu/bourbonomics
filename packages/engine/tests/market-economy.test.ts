@@ -105,44 +105,59 @@ describe("market supply — three-band, one-unit resource economy", () => {
   });
 });
 
-describe("market supply — $1 / $3 / $5 capital ladder (unchanged in v2.11)", () => {
-  it("includes basic $1 capitals", () => {
-    const ones = defaultMarketSupply().filter(
-      (c) => c.type === "capital" && (c.capitalValue ?? 1) === 1,
+describe("market supply — capital cards are gone in v2.11", () => {
+  it("mints no capital cards anywhere in the supply", () => {
+    const caps = defaultMarketSupply().filter((c) => c.type === "capital");
+    expect(caps).toHaveLength(0);
+  });
+});
+
+describe("market supply — Labor strip", () => {
+  it("ships Generic Labor at $1 (Labor-buyable)", () => {
+    const generic = defaultMarketSupply().filter(
+      (c) => c.type === "labor" && c.laborSubtype === "generic",
     );
-    expect(ones.length).toBeGreaterThanOrEqual(3);
-    for (const c of ones) {
-      expect(c.cost ?? 1).toBe(1);
-      expect(paymentValue(c)).toBe(1);
+    expect(generic.length).toBeGreaterThanOrEqual(1);
+    for (const c of generic) {
+      expect(c.cost).toBe(1);
+      expect(c.laborDomain).toBe("any");
+      expect(c.laborContribution).toBe(1);
     }
   });
 
-  it("includes $3 capitals priced at 3", () => {
-    const threes = defaultMarketSupply().filter(
-      (c) => c.type === "capital" && c.capitalValue === 3,
+  it("ships Marketing Labor at $4 (+2 toward ops)", () => {
+    const marketing = defaultMarketSupply().filter(
+      (c) => c.type === "labor" && c.laborSubtype === "marketing",
     );
-    expect(threes.length).toBeGreaterThanOrEqual(2);
-    for (const c of threes) {
-      expect(c.cost).toBe(3);
-      expect(paymentValue(c)).toBe(3);
+    expect(marketing.length).toBeGreaterThanOrEqual(1);
+    for (const c of marketing) {
+      expect(c.cost).toBe(4);
+      expect(c.laborDomain).toBe("ops");
+      expect(c.laborContribution).toBe(2);
     }
   });
 
-  it("includes $5 capitals priced at 5 with no on-spend effect", () => {
-    const fives = defaultMarketSupply().filter(
-      (c) => c.type === "capital" && c.capitalValue === 5,
+  it("ships Cooper Labor at $4 (+2 toward market resources)", () => {
+    const cooper = defaultMarketSupply().filter(
+      (c) => c.type === "labor" && c.laborSubtype === "cooper",
     );
-    expect(fives.length).toBeGreaterThanOrEqual(1);
-    for (const c of fives) {
-      expect(c.cost).toBe(5);
-      expect(paymentValue(c)).toBe(5);
-      expect(c.effect).toBeUndefined();
+    expect(cooper.length).toBeGreaterThanOrEqual(1);
+    for (const c of cooper) {
+      expect(c.cost).toBe(4);
+      expect(c.laborDomain).toBe("market_resource");
     }
   });
 
-  it("does not mint $2 or $4 capitals (legacy bands)", () => {
-    const supply = defaultMarketSupply();
-    expect(supply.find((c) => c.type === "capital" && c.capitalValue === 2)).toBeUndefined();
-    expect(supply.find((c) => c.type === "capital" && c.capitalValue === 4)).toBeUndefined();
+  it("does NOT ship Architect Labor in v2.11 (deferred until investments land)", () => {
+    const architect = defaultMarketSupply().filter(
+      (c) => c.type === "labor" && c.laborSubtype === "architect",
+    );
+    expect(architect).toHaveLength(0);
   });
+
+  // paymentValue is a legacy export — capital is gone, so nothing in
+  // the v2.11 supply has a non-default `paymentValue`. The helper
+  // still compiles; reference it here so the import stays grounded
+  // until a future cleanup pass removes the deprecated capital paths.
+  void paymentValue;
 });

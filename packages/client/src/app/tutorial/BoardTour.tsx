@@ -44,13 +44,13 @@ const STOPS: TourStop[] = [
   {
     id: "hand",
     title: "Your Hand",
-    body: "Eight cards a round. **Casks**, **corn**, **grains** (rye / barley / wheat), and **capital**. You'll spend these to build, age, and sell.",
+    body: "Eight cards a round. **Casks**, **corn**, **grains** (rye / barley / wheat), and **Labor**. Resources build barrels; Labor cards age them or stretch your spending power.",
     spotlight: { kind: "hand-cards", cardIds: [] },
   },
   {
     id: "market",
     title: "The Market",
-    body: "Ten cards for sale. Buy with cards from your hand. **Capital cards pay their face value.**",
+    body: "Ten cards for sale. Buy with your **reputation** — Labor cards from hand can supplement rep on each purchase (Cooper +2 on resources, Marketing +2 on ops, Generic +1 anywhere).",
     spotlight: { kind: "market-row" },
   },
   {

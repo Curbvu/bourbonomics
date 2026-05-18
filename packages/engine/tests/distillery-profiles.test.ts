@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import { initializeGame } from "../src/initialize.js";
 import { defaultDistilleryPool } from "../src/distilleries.js";
 import { defaultMashBillCatalog, defaultStarterCards } from "../src/defaults.js";
@@ -29,7 +29,7 @@ function gameWithDistilleries(bonuses: Distillery["bonus"][]): GameState {
   });
 }
 
-describe("v2.10 — Distillery roster", () => {
+describe("v2.10 â€” Distillery roster", () => {
   it("ships four distilleries: vanilla, high_rye_house, wheated_baron, connoisseur_estate", () => {
     const pool = defaultDistilleryPool();
     const bonuses = pool.map((d) => d.bonus).sort();
@@ -54,7 +54,7 @@ describe("v2.10 — Distillery roster", () => {
     expect(myBarrels[0]!.age).toBe(1);
     expect(myBarrels[0]!.completedInRound).toBe(0);
     expect(myBarrels[0]!.attachedMashBill.defId).toBe("starter_high_rye");
-    // The deck shuffles in the bonus Specialty Ryes — check across
+    // The deck shuffles in the bonus Specialty Ryes â€” check across
     // hand + deck (initialize seeds the deck, then runs the trade
     // window for human-driven games; here we used `starterDecks` so
     // bonuses are applied to the deck before shuffle).
@@ -82,8 +82,8 @@ describe("v2.10 — Distillery roster", () => {
   });
 });
 
-describe("v2.10 — Distillery ability hooks", () => {
-  it("Wheated Baron: -1 wheat floor on wheated bills (minWheat 2 → 1)", () => {
+describe("v2.10 â€” Distillery ability hooks", () => {
+  it("Wheated Baron: -1 wheat floor on wheated bills (minWheat 2 â†’ 1)", () => {
     // Wheated bill needing 2 wheat. Vanilla would need 2 wheat
     // committed; Baron satisfies with cask + corn + 1 wheat.
     const wheatedBill = makeMashBill(
@@ -135,12 +135,12 @@ describe("v2.10 — Distillery ability hooks", () => {
   it("Wheated Baron: rejects rye commits", () => {
     let state = gameWithDistilleries(["wheated_baron", "vanilla"]);
     state = advanceToActionPhase(state, [1, 1]);
-    // Clear v2.9 per-turn age gate — these tests don't exercise it.
+    // Clear v2.9 per-turn age gate â€” these tests don't exercise it.
     state = {
       ...state,
       players: state.players.map((p) => ({ ...p, needsAgeBarrels: false })),
     };
-    // The Baron's pre-aged starter is already aging — we need a
+    // The Baron's pre-aged starter is already aging â€” we need a
     // ready/construction slot to commit to. The Baron has 0
     // additional slotted bills, so place a bill directly via test
     // helper.
@@ -204,7 +204,7 @@ describe("v2.10 — Distillery ability hooks", () => {
       starterDecks: [defaultStarterCards("p1"), defaultStarterCards("p2")],
     });
     state = advanceToActionPhase(state, [1, 1]);
-    // Clear v2.9 per-turn age gate — these tests don't exercise it.
+    // Clear v2.9 per-turn age gate â€” these tests don't exercise it.
     state = {
       ...state,
       players: state.players.map((p) => ({ ...p, needsAgeBarrels: false })),
@@ -215,14 +215,19 @@ describe("v2.10 — Distillery ability hooks", () => {
       bourbonFaceUp: [wheated, ...state.bourbonFaceUp.filter((b) => b.id !== wheated.id)],
       bourbonDeck: state.bourbonDeck.filter((b) => b.id !== wheated.id),
     };
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 700)]);
-    const cap = state.players[0]!.hand[0]!;
+    // v2.11: bill draws cost rep — give the player enough to attempt.
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1" ? { ...p, reputation: 5 } : p,
+      ),
+    };
     expect(() =>
       applyAction(state, {
         type: "DRAW_MASH_BILL",
         playerId: "p1",
         mashBillId: wheated.id,
-        spendCardIds: [cap.id],
+        rep: 2,
       }),
     ).toThrow(/wheated/i);
   });
@@ -255,7 +260,7 @@ describe("v2.10 — Distillery ability hooks", () => {
       startingDemand: 6,
     });
     state = advanceToActionPhase(state, [1, 1]);
-    // Clear v2.9 per-turn age gate — these tests don't exercise it.
+    // Clear v2.9 per-turn age gate â€” these tests don't exercise it.
     state = {
       ...state,
       players: state.players.map((p) => ({ ...p, needsAgeBarrels: false })),
@@ -277,9 +282,7 @@ describe("v2.10 — Distillery ability hooks", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId: selling.id,
-      reputationSplit: 5,
-      cardDrawSplit: 0,
-      goldChoice: "convert",
+goldChoice: "convert",
       goldConvertTargetSlotId: openSlot.id,
     });
     // The open slot now holds a ready barrel with the Gold bill.
@@ -291,7 +294,7 @@ describe("v2.10 — Distillery ability hooks", () => {
     expect(state.allBarrels.some((b) => b.slotId === selling.slotId)).toBe(false);
   });
 
-  it("High-Rye House: +1 rep stacks on rye bills (minRye ≥ 1)", () => {
+  it("High-Rye House: +1 rep stacks on rye bills (minRye â‰¥ 1)", () => {
     const ryeBill = makeMashBill(
       {
         defId: "test_high_rye_bonus",
@@ -319,7 +322,7 @@ describe("v2.10 — Distillery ability hooks", () => {
       startingDemand: 2,
     });
     state = advanceToActionPhase(state, [1, 1]);
-    // Clear v2.9 per-turn age gate — these tests don't exercise it.
+    // Clear v2.9 per-turn age gate â€” these tests don't exercise it.
     state = {
       ...state,
       players: state.players.map((p) => ({ ...p, needsAgeBarrels: false })),
@@ -332,14 +335,15 @@ describe("v2.10 — Distillery ability hooks", () => {
     };
     state = placeBarrel(state, "p1", ryeBill, 2);
     const barrel = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!;
+    const beforeRep = state.players[0]!.reputation;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId: barrel.id,
-      reputationSplit: 3,
-      cardDrawSplit: 0,
-    });
-    // Grid pays 3 rep; +1 from High-Rye House = 4.
-    expect(state.players[0]!.reputation).toBe(4);
+});
+    // v2.11: grid pays 3 rep + 1 from High-Rye distillery bonus = 4.
+    // (Tier-1 floor is 3, so the +1 distillery bonus drives the total
+    // above floor cleanly.)
+    expect(state.players[0]!.reputation - beforeRep).toBe(4);
   });
 });

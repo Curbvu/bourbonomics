@@ -18,6 +18,7 @@
 import type { Card, GameState, MashBill } from "./types";
 import {
   makeCapitalCard,
+  makeLaborCard,
   makeMashBill,
   makePremiumResource,
   makeResourceCard,
@@ -109,18 +110,17 @@ export function buildTutorialSpecialtyRye(): Card {
 }
 
 /**
- * The exact 9 cards the player begins the tutorial holding.
+ * The exact 8 cards the player begins the tutorial holding.
  *
- *   2 cask + 2 corn + 3 rye(common) + 2×$1 capital
+ *   2 cask + 2 corn + 3 rye(common) + 1 Generic Labor
  *
- * Sizing rationale: Beat 1 commits 1 cask + 1 corn + 1 rye to Backroad
- * (3 cards), leaving 1 cask + 1 corn + 2 rye + 2×$1 capital. Beat 2
- * commits the remaining cask + corn + both ryes to Heritage as a
- * partial pile (4 cards), leaving 2×$1 capital — exactly $2, what the
- * v2.11 Specialty Rye costs in Beat 3. The hand finishes empty going
- * into cleanup. After round-1 cleanup, discard reshuffles into the
- * deck for the round-2 draw, where the controller manually re-orders
- * the deck so the Specialty Rye is on top.
+ * Sizing rationale (v2.11 Unified Rep): Beat 1 commits 1 cask + 1
+ * corn + 1 rye to Backroad (3 cards), leaving 1 cask + 1 corn + 2
+ * rye + 1 Labor. Beat 2 commits the cask + corn + both ryes to
+ * Heritage as a partial pile (4 cards), leaving 1 Labor. Beat 3
+ * buys the $2 Specialty Rye for 1 rep + 1 Labor — the player's
+ * Vanilla startingRep (5) covers the rep portion. The hand finishes
+ * empty going into cleanup.
  */
 export function buildTutorialStartingHand(): Card[] {
   const hand: Card[] = [];
@@ -132,8 +132,9 @@ export function buildTutorialStartingHand(): Card[] {
   hand.push(makeResourceCard("rye", "tutorial-hand", idx++));
   hand.push(makeResourceCard("rye", "tutorial-hand", idx++));
   hand.push(makeResourceCard("rye", "tutorial-hand", idx++));
-  hand.push(makeCapitalCard("tutorial-hand", idx++, 1));
-  hand.push(makeCapitalCard("tutorial-hand", idx++, 1));
+  hand.push(
+    makeLaborCard({ subtype: "generic", ownerLabel: "tutorial-hand", index: idx++ }),
+  );
   return hand;
 }
 

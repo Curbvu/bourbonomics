@@ -1,11 +1,11 @@
 import type { Draft } from "immer";
 import type { Barrel, Card, Distillery, GameState, PlayerState } from "./types";
-import { makeCapitalCard, makePremiumResource, makeResourceCard } from "./cards";
+import { makeLaborCard, makePremiumResource, makeResourceCard } from "./cards";
 import { shuffleCards } from "./deck";
 import { buildStarterMashBill } from "./defaults";
 
 // ============================================================
-// Starter pool (v2.4 Random Deal + Trading)
+// Starter pool (v2.4 Random Deal + Trading; v2.11 capital → Labor)
 //
 // Each player contributes the per-player composition to a shared
 // pool. A small fixed buffer (`POOL_BUFFER`) lives on top so the
@@ -13,9 +13,17 @@ import { buildStarterMashBill } from "./defaults";
 // from. The pool is shuffled, dealt 16 face-up to each drafter,
 // and the remainder (≥ POOL_BUFFER cards) backs the safety valve.
 //
-//   per player:  6 cask + 4 corn + 4 grain + 2 capital = 16
+//   per player:  6 cask + 4 corn + 4 grain + 2 Generic Labor = 16
 //   4 grain split: 2 rye + 1 barley + 1 wheat (≈ equal)
-//   buffer (per game): 2 cask + 1 corn + 1 rye + 1 barley + 1 wheat + 2 capital = 8
+//   buffer (per game): 2 cask + 1 corn + 1 rye + 1 barley + 1 wheat
+//                      + 2 Generic Labor = 8
+//
+// v2.11: capital cards are retired (rep is the unified currency).
+// The 2 capital cards per player are replaced 1:1 with Generic
+// Labor cards. The starter deck builder in `defaults.ts` keeps the
+// per-player Labor count higher (4) — the starter pool's per-player
+// Labor count stays at 2 because the deal is balanced against the
+// rest of the pool buffer (not the eventual deck).
 // ============================================================
 
 export const STARTER_HAND_SIZE = 16;
@@ -26,7 +34,8 @@ interface PoolSpec {
   rye: number;
   barley: number;
   wheat: number;
-  capital: number;
+  /** v2.11: replaces `capital` 1:1 — Generic Labor cards. */
+  labor: number;
 }
 
 const PER_PLAYER: PoolSpec = {
@@ -35,7 +44,7 @@ const PER_PLAYER: PoolSpec = {
   rye: 2,
   barley: 1,
   wheat: 1,
-  capital: 2,
+  labor: 2,
 };
 
 const POOL_BUFFER: PoolSpec = {
@@ -44,7 +53,7 @@ const POOL_BUFFER: PoolSpec = {
   rye: 1,
   barley: 1,
   wheat: 1,
-  capital: 2,
+  labor: 2,
 };
 
 /**
@@ -64,7 +73,8 @@ export function buildStarterPool(numPlayers: number): Card[] {
     for (let n = 0; n < spec.rye; n++) cards.push(makeResourceCard("rye", "pool", idx++));
     for (let n = 0; n < spec.barley; n++) cards.push(makeResourceCard("barley", "pool", idx++));
     for (let n = 0; n < spec.wheat; n++) cards.push(makeResourceCard("wheat", "pool", idx++));
-    for (let n = 0; n < spec.capital; n++) cards.push(makeCapitalCard("pool", idx++));
+    for (let n = 0; n < spec.labor; n++)
+      cards.push(makeLaborCard({ subtype: "generic", ownerLabel: "pool", index: idx++ }));
   };
   for (let i = 0; i < numPlayers; i++) addSpec(PER_PLAYER);
   addSpec(POOL_BUFFER);
@@ -108,9 +118,9 @@ export function dealStarterHands(
  * `target` is the array to modify (the dealt `starterHand` during
  * the trade window, or `deck` when the deck was pre-built via
  * config.starterDecks). Reads `distillery.starterPoolMods` —
- * adding free 2-rye cards (High-Rye, +2; existing High-Rye behaviour
- * was +1 in v2.3) or removing/adding capital cards (Old-Line: -1;
- * The Broker: +2).
+ * adding free Specialty Rye cards (High-Rye House: +2). The
+ * `capitalDelta` field is retired in v2.11 alongside capital cards
+ * themselves; no distillery sets it.
  */
 export function applyDistilleryStarterModifications(
   target: Draft<Card[]>,
@@ -143,30 +153,9 @@ export function applyDistilleryStarterModifications(
       );
     }
   }
-
-  if (mods.capitalDelta) {
-    if (mods.capitalDelta > 0) {
-      for (let i = 0; i < mods.capitalDelta; i++) {
-        target.push(makeCapitalCard(player.id, 950 + i));
-      }
-    } else {
-      // Remove `|capitalDelta|` capital cards, lowest face value first
-      // so the cost to the player is minimized. (Old-Line: -1.)
-      let toRemove = -mods.capitalDelta;
-      target.sort((a, b) => {
-        if (a.type !== b.type) return a.type === "capital" ? -1 : 1;
-        return (a.capitalValue ?? 1) - (b.capitalValue ?? 1);
-      });
-      for (let i = 0; i < target.length && toRemove > 0; ) {
-        if (target[i]!.type === "capital") {
-          target.splice(i, 1);
-          toRemove--;
-          continue;
-        }
-        i++;
-      }
-    }
-  }
+  // v2.11: capitalDelta is dead — capital cards no longer exist.
+  // Field retained on DistilleryStarterPoolMods for backwards-compat
+  // parsing of old saves; intentionally ignored here.
 }
 
 /**

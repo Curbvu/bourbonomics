@@ -1092,19 +1092,48 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const human = store.state?.players.find((p) => !p.isBot);
     if (!human) return;
     const target = buyMode.pickedTarget;
+    // v2.11 (Unified Rep): cost is paid in rep, supplemented by Labor
+    // cards from hand. `buyMode.spendCardIds` is reinterpreted as the
+    // selected Labor card ids (non-Labor selections are ignored). The
+    // rep portion = cost - laborContribution, with the anchor rule
+    // (cost ≥ $2 → ≥ 1 rep paid) enforced server-side.
+    const conveyor = store.state?.marketConveyor ?? [];
+    const ops = store.state?.operationsDeck ?? [];
+    const cost =
+      target.source === "operations"
+        ? ops[ops.length - 1 - target.slotIndex]?.cost ?? 0
+        : conveyor[target.slotIndex]?.cost ?? 1;
+    const laborDomain: "ops" | "market_resource" =
+      target.source === "operations" ? "ops" : "market_resource";
+    const laborCardIds = buyMode.spendCardIds.filter((id) => {
+      const c = human.hand.find((x) => x.id === id);
+      return c?.type === "labor";
+    });
+    const selectedLabor = laborCardIds
+      .map((id) => human.hand.find((c) => c.id === id))
+      .filter((c): c is NonNullable<typeof c> => c != null);
+    const laborTotal = selectedLabor.reduce((acc, c) => {
+      if (c.laborDomain === "any") return acc + (c.laborContribution ?? 1);
+      if (c.laborDomain === laborDomain) return acc + (c.laborContribution ?? 2);
+      return acc;
+    }, 0);
+    let rep = Math.max(0, cost - laborTotal);
+    if (cost >= 2 && rep < 1) rep = 1;
     const action: GameAction =
       target.source === "operations"
         ? {
             type: "BUY_OPERATIONS_CARD",
             playerId: human.id,
             opsSlotIndex: target.slotIndex,
-            spendCardIds: buyMode.spendCardIds,
+            rep,
+            laborCardIds,
           }
         : {
             type: "BUY_FROM_MARKET",
             playerId: human.id,
             marketSlotIndex: target.slotIndex,
-            spendCardIds: buyMode.spendCardIds,
+            rep,
+            laborCardIds,
           };
     setBuyMode(null);
     dispatch(action);
@@ -1166,20 +1195,28 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const confirmDrawBill = useCallback(() => {
     if (!drawBillMode) return;
     if (!drawBillMode.blind && !drawBillMode.pickedMashBillId) return;
-    if (drawBillMode.spendCardIds.length === 0) return;
     const human = store.state?.players.find((p) => !p.isBot);
     if (!human) return;
+    // v2.11 (Unified Rep): bill draws cost rep. Blind = 1 rep,
+    // face-up = the bill's printed cost (2 by default stopgap).
+    // Labor cards do NOT discount bill draws.
+    const billCost = drawBillMode.pickedMashBillId
+      ? (store.state?.bourbonFaceUp.find(
+          (b) => b.id === drawBillMode.pickedMashBillId,
+        )?.cost ?? 2)
+      : 1;
+    if (human.reputation < billCost) return;
     const action: GameAction = drawBillMode.pickedMashBillId
       ? {
           type: "DRAW_MASH_BILL",
           playerId: human.id,
           mashBillId: drawBillMode.pickedMashBillId,
-          spendCardIds: drawBillMode.spendCardIds,
+          rep: billCost,
         }
       : {
           type: "DRAW_MASH_BILL",
           playerId: human.id,
-          spendCardIds: drawBillMode.spendCardIds,
+          rep: billCost,
         };
     setDrawBillMode(null);
     dispatch(action);
@@ -1293,15 +1330,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
         demandBandOffset: barrel.demandBandOffset,
         gridRepOffset: barrel.gridRepOffset,
       });
+      // v2.11 (Unified Rep): sale is single-step. Engine adds
+      // grid + bonuses (clamped to tier floor) directly to the rep
+      // track — no split prompt. `reward` is intentionally unused
+      // here; the engine recomputes it.
+      void reward;
       const action: GameAction = {
         type: "SELL_BOURBON",
         playerId: human.id,
         barrelId,
-        // v2.10: take full rep. Gold-eligible sales support a rep/PP
-        // split in the engine, but the client UI doesn't expose the
-        // slider yet.
-        reputationSplit: reward,
-        cardDrawSplit: 0,
       };
       setSellMode(null);
       dispatch(action);

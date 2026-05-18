@@ -36,6 +36,15 @@ export function applyDrawHand(
   player.discard = result.discard;
   draft.rngState = result.rngState;
 
+  // v2.11: pull the saved card (if any) into hand on top of the
+  // 8-card deal. So a player who saved last round draws 9 effective
+  // cards this round. The Save slot then empties — only one card may
+  // be banked at a time.
+  if (player.savedCard) {
+    player.hand.push(player.savedCard);
+    player.savedCard = null;
+  }
+
   // Operations cards are NOT auto-drawn each round — players buy them
   // from the face-up ops row in the market (BUY_OPERATIONS_CARD).
 
