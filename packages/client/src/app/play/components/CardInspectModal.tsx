@@ -26,6 +26,7 @@ import { bandIndex, mashBillBuildCost, mashBillCost } from "@bourbonomics/engine
 import { useGameStore, type InspectPayload } from "@/lib/store/game";
 import {
   CAPITAL_CHROME,
+  LABOR_CHROME,
   OPS_CHROME,
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
@@ -139,6 +140,14 @@ function ResourceDetail({ card }: { card: Card }) {
 }
 
 function CapitalDetail({ card }: { card: Card }) {
+  // v2.11: Labor cards are also routed here (HandTray's right-click
+  // inspect emits {kind:"capital"} for the secondary-currency lane).
+  // Detect Labor and re-skin with LABOR_CHROME + a Labor headline so
+  // the inspect modal doesn't read as "Capital · value 1" for a
+  // Generic Worker.
+  if (card.type === "labor") {
+    return <LaborDetail card={card} />;
+  }
   const value = card.capitalValue ?? 1;
   const cost = card.cost ?? value;
   const chrome = CAPITAL_CHROME;
@@ -179,6 +188,66 @@ function CapitalDetail({ card }: { card: Card }) {
       <UseBox>
         Pays {formatMoney(value)} toward any market purchase. Goes to the discard
         pile after the action; reshuffles into your deck on cleanup.
+      </UseBox>
+    </article>
+  );
+}
+
+/**
+ * v2.11 Labor card detail panel. Generic Labor (+1 anywhere) is the
+ * starter-deck workhorse; Specialty Labor (Cooper, Marketing) gives
+ * a +2 boost in its matching domain and contributes 0 elsewhere.
+ * Generic Labor is also legal as an aging-commit card (sweat equity).
+ */
+function LaborDetail({ card }: { card: Card }) {
+  const chrome = LABOR_CHROME;
+  const sub = card.laborSubtype;
+  const subtypeLabel =
+    sub === "marketing" ? "Marketing" :
+    sub === "cooper" ? "Cooper" :
+    sub === "architect" ? "Architect" :
+    "Worker";
+  const contribution = card.laborContribution ?? 1;
+  const cost = card.cost ?? 1;
+  const domainText =
+    sub === "marketing" ? "operations card purchases" :
+    sub === "cooper" ? "market resource purchases" :
+    sub === "architect" ? "investment purchases" :
+    "any purchase";
+  return (
+    <article
+      className={[
+        "relative flex flex-col gap-4 rounded-xl border-2 p-5 shadow-[0_12px_32px_rgba(0,0,0,.55)]",
+        chrome.gradient,
+        chrome.border,
+      ].join(" ")}
+    >
+      <DetailCornerCost cost={cost} />
+      <header className="flex items-center justify-between pr-12">
+        <span className={`font-mono text-[12px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+          Labor · {subtypeLabel}
+        </span>
+      </header>
+      <h3 className={`font-display text-3xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+        {card.displayName ?? subtypeLabel}
+      </h3>
+      <div className={`flex flex-col items-center ${chrome.ink}`}>
+        <span className="font-display text-[64px] font-bold leading-none drop-shadow-[0_3px_8px_rgba(0,0,0,.45)]">
+          +{contribution}
+        </span>
+        <span className={`font-mono text-[12px] uppercase tracking-[.18em] ${chrome.label}`}>
+          toward {domainText}
+        </span>
+      </div>
+      {card.flavor ? (
+        <p className={`font-display text-[15px] italic leading-snug ${chrome.label} opacity-95`}>
+          “{card.flavor}”
+        </p>
+      ) : null}
+      <UseBox>
+        {sub === "generic" || !sub
+          ? `Tag in any purchase to discount the rep cost by ${contribution}. Generic Labor can also age a barrel — commit it to an aging slot in place of a resource. Anchor rule: ≥$2 buys still need ≥1 rep paid.`
+          : `Tag in a matching ${domainText.replace(" purchases", "")} purchase to discount the rep cost by ${contribution}. Contributes 0 on other purchase types. Anchor rule: ≥$2 buys still need ≥1 rep paid.`}
       </UseBox>
     </article>
   );

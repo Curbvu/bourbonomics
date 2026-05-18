@@ -93,7 +93,9 @@ export const RESOURCE_CHROME: Record<ResourceSubtype, CardChrome> = {
 export const CAPITAL_CHROME: CardChrome = {
   // Money green — punchier emerald top so it pops next to the warm
   // wood/grain row. Barley moved to teal so the two greens no longer
-  // collide.
+  // collide. v2.11: capital cards are retired in the new economy
+  // but the chrome stays for legacy serialized state + ops-card
+  // fallback.
   gradient: "bg-gradient-to-b from-emerald-400/95 via-emerald-800/90 to-slate-950",
   border: "border-emerald-300",
   borderSoft: "border-emerald-400/45",
@@ -107,6 +109,21 @@ export const OPS_CHROME: CardChrome = {
   borderSoft: "border-violet-400/40",
   ink: "text-violet-50",
   label: "text-violet-200",
+};
+
+/**
+ * v2.11 Labor card chrome — slate/steel palette that reads as
+ * "workers" without colliding with any resource grain or the capital
+ * emerald. Used for Generic Labor; Specialty Labor cards reuse the
+ * same chrome (their domain is communicated through the on-card
+ * subtype label rather than the gradient).
+ */
+export const LABOR_CHROME: CardChrome = {
+  gradient: "bg-gradient-to-b from-slate-400/95 via-slate-700/95 to-slate-950",
+  border: "border-slate-300",
+  borderSoft: "border-slate-400/45",
+  ink: "text-slate-50",
+  label: "text-slate-200",
 };
 
 // Mash bills use TIER_CHROME from `tierStyles.ts` (WoW palette per tier),
