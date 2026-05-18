@@ -18,6 +18,7 @@ import type { Card, ResourceSubtype } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import {
   CAPITAL_CHROME,
+  LABOR_CHROME,
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
@@ -153,6 +154,28 @@ export default function SaleFlight() {
 }
 
 function FlightFace({ card }: { card: Card }) {
+  if (card.type === "labor") {
+    const chrome = LABOR_CHROME;
+    const contribution = card.laborContribution ?? 1;
+    return (
+      <div
+        className={[
+          "relative flex h-full w-full flex-col overflow-hidden rounded-md border-2 p-1.5 ring-1 ring-white/10",
+          chrome.gradient,
+          chrome.border,
+        ].join(" ")}
+      >
+        <span className={`text-[7px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+          Labor
+        </span>
+        <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
+          <span className="font-display text-[20px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
+            +{contribution}
+          </span>
+        </div>
+      </div>
+    );
+  }
   if (card.type === "capital") {
     const value = card.capitalValue ?? 1;
     const chrome = CAPITAL_CHROME;

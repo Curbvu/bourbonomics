@@ -38,6 +38,7 @@ import {
   CAPITAL_CHROME,
   CARD_SIZE_CLASS,
   HAND_CARD_OVERLAP,
+  LABOR_CHROME,
   OPS_CHROME,
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
@@ -155,6 +156,8 @@ export default function HandTray() {
               {handCards.map((c, i) =>
                 c.type === "capital" ? (
                   <CapitalCard key={c.id} card={c} indexInRow={i} />
+                ) : c.type === "labor" ? (
+                  <LaborCard key={c.id} card={c} indexInRow={i} />
                 ) : (
                   <ResourceCard key={c.id} card={c} indexInRow={i} />
                 ),
@@ -863,6 +866,128 @@ function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
 // they live in rickhouse slots from draw to sale. The component went
 // dormant when `Section caption="Bills"` was removed and stayed
 // orphaned until this cleanup pass.
+
+/**
+ * v2.11 Labor card renderer. Labor cards are a separate `type` from
+ * resource/capital — they have no `subtype`, so the resource chrome
+ * lookup would crash. Layout mirrors `CapitalCard` (centered title
+ * + value chip + flavor); palette is `LABOR_CHROME` (slate/steel).
+ * Generic Labor contributes +1 toward any purchase; Specialty Labor
+ * (Marketing / Cooper) contributes +2 in its matching domain. Both
+ * variants are also legal as aging-commit cards.
+ */
+function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
+  const {
+    setInspect,
+    buyMode,
+    toggleBuySpend,
+    ageMode,
+    setAgeCard,
+    drawBillMode,
+    toggleDrawBillSpend,
+    makeMode,
+    sellMode,
+    selectedHandCardIds,
+    toggleHandSelection,
+    tutorialHandFilter,
+  } = useGameStore();
+  const tutorialLocked = tutorialHandFilter ? !tutorialHandFilter(card) : false;
+  const tutorialHighlighted = tutorialHandFilter ? tutorialHandFilter(card) : false;
+  const chrome = LABOR_CHROME;
+  const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
+  const contribution = card.laborContribution ?? 1;
+  const subtypeLabel =
+    card.laborSubtype === "marketing"
+      ? "Marketing"
+      : card.laborSubtype === "cooper"
+        ? "Cooper"
+        : card.laborSubtype === "architect"
+          ? "Architect"
+          : "Worker";
+  const cost = card.cost ?? 1;
+  const inBuyMode = buyMode != null;
+  const inAgeMode = ageMode != null;
+  const inDrawBillMode = drawBillMode != null;
+  const inMakeMode = makeMode != null;
+  const inSellMode = sellMode != null;
+  const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode || inSellMode;
+  const isBuySelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
+  const isAgeSelected = inAgeMode && ageMode!.pickedCardId === card.id;
+  const isDrawSelected = inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
+  const isMultiSelected = !inAnyPicker && selectedHandCardIds.includes(card.id);
+  const isSelected = isBuySelected || isAgeSelected || isDrawSelected || isMultiSelected;
+  const buyClass = tutorialLocked
+    ? "opacity-30 saturate-50"
+    : tutorialHighlighted && !inAnyPicker && !isMultiSelected
+      ? "ring-2 ring-amber-300/70 shadow-[0_0_12px_rgba(252,211,77,.4)]"
+      : isSelected
+        ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
+        : inAgeMode
+          ? "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
+          : inDrawBillMode
+            ? "ring-2 ring-sky-400/60"
+            : inBuyMode
+              ? "ring-2 ring-emerald-400/60"
+              : "";
+  const onClick = (e: React.MouseEvent) => {
+    if (tutorialLocked) return;
+    if (e.detail >= 2) return;
+    if (inBuyMode) toggleBuySpend(card.id);
+    else if (inDrawBillMode) toggleDrawBillSpend(card.id);
+    else if (inAgeMode) setAgeCard(card.id);
+    else if (!inAnyPicker) toggleHandSelection(card.id);
+  };
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setInspect({ kind: "capital", card });
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      title={`${subtypeLabel} Labor — contributes +${contribution} toward matching-domain purchases. Generic Labor also ages barrels.`}
+      className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
+    >
+      <CornerValue value={contribution} />
+      {isSelected ? (
+        <span
+          className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
+          aria-hidden
+        >
+          ✓
+        </span>
+      ) : (
+        <CornerCost cost={cost} />
+      )}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+        aria-hidden
+      />
+      <div className="flex items-baseline justify-center px-7">
+        <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+          Labor
+        </span>
+      </div>
+      <h4 className={`mt-0.5 line-clamp-1 font-display text-[14px] font-bold leading-tight ${chrome.ink}`}>
+        {card.displayName ?? subtypeLabel}
+      </h4>
+      {card.flavor ? (
+        <p className={`mt-0.5 line-clamp-2 font-display text-[8.5px] italic leading-snug ${chrome.label} opacity-90`}>
+          {card.flavor}
+        </p>
+      ) : null}
+      <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
+        <span className="font-display text-[28px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
+          +{contribution}
+        </span>
+        <span className={`mt-1 font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label}`}>
+          {subtypeLabel === "Worker" ? "any buy" : subtypeLabel.toLowerCase()}
+        </span>
+      </div>
+    </button>
+  );
+}
 
 function OpsCard({ card, indexInRow }: { card: OperationsCard; indexInRow: number }) {
   const { setInspect } = useGameStore();
