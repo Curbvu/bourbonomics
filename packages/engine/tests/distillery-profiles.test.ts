@@ -228,6 +228,7 @@ describe("v2.10 â€” Distillery ability hooks", () => {
         playerId: "p1",
         mashBillId: wheated.id,
         rep: 2,
+        laborCardIds: [],
       }),
     ).toThrow(/wheated/i);
   });

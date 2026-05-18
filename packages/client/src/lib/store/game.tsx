@@ -31,6 +31,7 @@ import { produce } from "immer";
 import {
   applyAction,
   awaitingHumanInput,
+  billCostByTier,
   buildTutorialInitialState,
   buildVanillaDistilleryFor,
   computeFinalScores,
@@ -1197,26 +1198,39 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!drawBillMode.blind && !drawBillMode.pickedMashBillId) return;
     const human = store.state?.players.find((p) => !p.isBot);
     if (!human) return;
-    // v2.11 (Unified Rep): bill draws cost rep. Blind = 1 rep,
-    // face-up = the bill's printed cost (2 by default stopgap).
-    // Labor cards do NOT discount bill draws.
-    const billCost = drawBillMode.pickedMashBillId
-      ? (store.state?.bourbonFaceUp.find(
+    // v2.11: bills pay rep + Generic Labor (same rules as market/ops
+    // buys). Face-up cost = tier ladder (common/uncommon 1, rare 2,
+    // epic 3, legendary 4); blind = 1. Generic Labor (+1 anywhere)
+    // discounts the rep portion; Cooper / Marketing don't (domain
+    // mismatch). Anchor rule: ≥$2 cost requires ≥1 rep paid.
+    const billFaceUp = drawBillMode.pickedMashBillId
+      ? store.state?.bourbonFaceUp.find(
           (b) => b.id === drawBillMode.pickedMashBillId,
-        )?.cost ?? 2)
-      : 1;
-    if (human.reputation < billCost) return;
+        )
+      : null;
+    const cost = billFaceUp ? billCostByTier(billFaceUp) : 1;
+    // Reinterpret `drawBillMode.spendCardIds` as Generic Labor ids.
+    const laborCardIds = drawBillMode.spendCardIds.filter((id) => {
+      const c = human.hand.find((x) => x.id === id);
+      return c?.type === "labor" && c.laborSubtype === "generic";
+    });
+    const laborTotal = laborCardIds.length; // Generic = +1 each
+    let rep = Math.max(0, cost - laborTotal);
+    if (cost >= 2 && rep < 1) rep = 1;
+    if (rep > human.reputation) return;
     const action: GameAction = drawBillMode.pickedMashBillId
       ? {
           type: "DRAW_MASH_BILL",
           playerId: human.id,
           mashBillId: drawBillMode.pickedMashBillId,
-          rep: billCost,
+          rep,
+          laborCardIds,
         }
       : {
           type: "DRAW_MASH_BILL",
           playerId: human.id,
-          rep: billCost,
+          rep,
+          laborCardIds,
         };
     setDrawBillMode(null);
     dispatch(action);

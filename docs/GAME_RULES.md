@@ -29,6 +29,7 @@ Your turn opens with your own demand roll and one aging card committed to **ever
 - A barrel becomes **aging** the moment its recipe is satisfied. From the next round on, you commit 1 aging card per round on top of it.
 - **Sell** an aging barrel (age ≥ 2) — the engine reads the bill's grid at `(barrel age, current demand)`, adds card / distillery / ops bonuses, and lifts the total to the bill's **tier floor** (3 / 4 / 5 rep). The total lands on your **reputation** track.
 - **Buy** new cards from the 10-card market with **reputation** — optionally supplemented by **Labor cards** in hand (Cooper +2 toward market resources, Marketing +2 toward ops, Generic +1 anywhere). The anchor rule: ≥$2 buys require ≥1 rep paid.
+- **Draw a mash bill** the same way — face-up bills cost rep by tier (common/uncommon 1, rare 2, epic 3, legendary 4); blind draws cost 1 rep. Generic Labor supplements rep; Specialty Labor for bill draws is reserved for a future release.
 - **Hire** (once per turn, free) takes 1 Generic Labor from the central Hire pile into your discard.
 
 ### Winning
@@ -244,16 +245,23 @@ Same payment model. Marketing Labor (+2) is the matching specialty. The bought o
 
 Three mash bills sit face-up beside the bourbon deck. Take one of:
 
-- **A face-up bill** — pay its printed cost (**2 rep** by default).
-- **The blind top** — pay **1 rep**.
+- **A face-up bill** — pay rep by tier (the bill's printed `cost` overrides if set):
 
-**Labor cards do NOT discount bill draws** — bills are recipe development, not engine purchases.
+  | Rarity | Cost (rep) |
+  |---|:-:|
+  | Common | 1 |
+  | Uncommon | 1 |
+  | Rare | 2 |
+  | Epic | 3 |
+  | Legendary | 4 |
+
+- **The blind top** — pay **1 rep** (no tier preview).
+
+Bills follow the same payment rules as everything else: rep + Labor, with the anchor rule (≥$2 buys require ≥1 rep paid). **Generic Labor** (+1 anywhere) supplements rep on bill draws today; the **Cooper** and **Marketing** specialty Labor cards do NOT discount bill draws — they match a different domain. A future Specialty Labor for bill draws (a "Distiller" worker) is reserved space; until it ships, only Generic Labor helps.
 
 **An open slot is required.** The drawn bill lands directly in one of your Open rickhouse slots as **Staged**. If you have no open slots, the action is illegal.
 
 When the deck **and** face-up row are both empty, the **final round trigger** activates.
-
-> The 2-rep bill cost is a v2.11 stopgap. A proper bill-cost design lands in v2.12 after playtesting the unified-rep economy.
 
 ## Hire
 
@@ -527,11 +535,11 @@ It's about **knowing what to lock up, what to let go, and when the world is read
       - **Cooper** ($4) — +2 toward market resource buys.
       - **Marketing** ($4) — +2 toward ops card buys.
       - **Architect** ($4) — +2 toward investment buys. *Reserved for v2.12 when investments ship.*
-  - **Spending anchor rule.** Purchases costing ≥ 2 require ≥ 1 rep paid (Labor cannot fully cover ≥$2 buys). $1 buys may be paid with 1 Labor and 0 rep.
+  - **Spending anchor rule.** Purchases costing ≥ 2 require ≥ 1 rep paid (Labor cannot fully cover ≥$2 buys). $1 buys may be paid with 1 Labor and 0 rep. Applies uniformly to market buys, ops buys, AND bill draws.
   - **Hire action.** Once per turn, free: take 1 Generic Labor from the central pile into your discard. Pile is finite (~5 per player).
   - **Save slot.** Each player has one Save slot. At any point during your turn, set aside one card from your hand. It joins next round's draw on top of the 8-card deal.
   - **Starting rep by distillery.** Vanilla 5, High-Rye House 4, Wheated Baron 4, Connoisseur Estate 6.
-  - **Bill cost (stopgap).** Bills cost 2 rep face-up, 1 rep blind. Labor doesn't discount bill draws. A proper bill-cost design lands in v2.12.
+  - **Bill cost ladder.** Face-up bills cost rep by rarity tier — common/uncommon 1, rare 2, epic 3, legendary 4. Blind draws cost 1 rep. Bill draws follow the same rep + Labor rules as the rest of the economy; Generic Labor (+1 anywhere) supplements rep, while Specialty Labor for bill draws (a future "Distiller" worker) is reserved space.
   - **Ops card cost rebalance.** Every cost dropped under unified rep (rep is precious). New ladder caps at 5 — Master Distiller and Rickhouse Expansion Permit at the top, Cooper's Contract and Cash Out at the floor.
   - **Cash Out reworked.** "Discard any number of resource cards; gain 1 rep per 2 discarded (round down)" — the internal-economy "convert spare cards to rep" valve.
   - **Trash a Card action removed.** Top-level Trash a Card is gone. Failed Batch (Make Bourbon sub-option) is also removed. Both were marginal under the new economy.
