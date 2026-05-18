@@ -8,7 +8,7 @@ import type {
   OperationsCard,
   PlayerState,
 } from "../types";
-import { capitalUnits, resourceUnits, suppliesResource } from "../cards";
+import { resourceUnits, suppliesResource } from "../cards";
 import { computeReward } from "../rewards";
 import { emptySlotsFor, getPlayerBarrels } from "../state";
 
@@ -90,19 +90,86 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
   const age = chooseAge(state, player);
   if (age) return age;
 
-  // 5) Buy a useful card from the market.
+  // 5a) Hire a Generic Labor if available — free action, expands
+  // future spending options. Once per turn.
+  const hire = chooseHire(state, player);
+  if (hire) return hire;
+
+  // v2.11: bills cost rep. If the player has NO in-progress barrel
+  // (no ready / construction slot) AND the bourbon deck still has
+  // bills, drawing one is the priority — production depends on it.
+  // Otherwise the bot will spend its rep on cheap market cards and
+  // never advance the doomsday clock.
+  const myBarrels = getPlayerBarrels(state, player.id);
+  const needsBill =
+    !myBarrels.some((b) => b.phase === "ready" || b.phase === "construction") &&
+    (state.bourbonDeck.length > 0 || state.bourbonFaceUp.length > 0) &&
+    emptySlotsFor(state, player.id).length > 0;
+  if (needsBill) {
+    const drawFirst = chooseDrawMashBill(state, player);
+    if (drawFirst) return drawFirst;
+  }
+
+  // 5b) Buy a useful card from the market — but reserve at least 1
+  // rep for a future bill draw whenever bills are still available
+  // and the player isn't sitting on a sale-ready barrel.
   const buy = chooseBuy(state, player);
-  if (buy) return buy;
+  if (buy && buy.type === "BUY_FROM_MARKET" && !shouldReserveRep(state, player, buy.rep)) return buy;
 
   // 6) Ops buying disabled — pending future release.
   // const buyOps = chooseBuyOpsCard(state, player);
   // if (buyOps) return buyOps;
 
-  // 7) Draw a mash bill if we've run out of recipes.
+  // 7) Draw a mash bill if we still can.
   const draw = chooseDrawMashBill(state, player);
   if (draw) return draw;
 
   return { type: "PASS_TURN", playerId };
+}
+
+/**
+ * v2.11: should the bot hold off on a buy to save rep for a bill
+ * draw? True when the buy would push rep below 1 AND the bourbon
+ * deck still has bills AND the player has an open slot to receive
+ * one AND no aging-phase barrel is ready to sell.
+ */
+function shouldReserveRep(
+  state: GameState,
+  player: PlayerState,
+  buyRep: number,
+): boolean {
+  if (buyRep === 0) return false; // free buy — no rep concern
+  const postRep = player.reputation - buyRep;
+  if (postRep >= 1) return false;
+  const billsLeft = state.bourbonDeck.length + state.bourbonFaceUp.length;
+  if (billsLeft === 0) return false;
+  if (emptySlotsFor(state, player.id).length === 0) return false;
+  // If we have an aging barrel that's about to sell, the rep will
+  // refill — buying first is fine.
+  const hasSaleable = getPlayerBarrels(state, player.id).some(
+    (b) =>
+      b.phase === "aging" &&
+      b.age >= 2 &&
+      (b.completedInRound == null || state.round > b.completedInRound),
+  );
+  if (hasSaleable) return false;
+  return true;
+}
+
+/**
+ * v2.11 — HIRE heuristic. Take a Generic Labor from the pile if:
+ *   - the player hasn't already hired this turn
+ *   - the central pile has stock
+ *   - the player would benefit (fewer than 2 Generic Labor in hand)
+ */
+function chooseHire(state: GameState, player: PlayerState): GameAction | null {
+  if (player.hireUsedThisTurn) return null;
+  if (state.laborPile <= 0) return null;
+  const genericInHand = player.hand.filter(
+    (c) => c.type === "labor" && c.laborSubtype === "generic",
+  ).length;
+  if (genericInHand >= 2) return null;
+  return { type: "HIRE", playerId: player.id };
 }
 
 // -----------------------------
@@ -214,15 +281,17 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
   }
 
   // Market Corner: only if there's a high-value premium we can't otherwise afford.
+  // v2.11: "afford" = current rep (Labor cards we don't model here as
+  // a hard discount; this is a rough upper bound).
   const mc = playable.find((c) => c.defId === "market_corner");
   if (mc) {
-    const totalCapital = player.hand.reduce((acc, c) => acc + capitalUnits(c), 0);
+    const spending = player.reputation;
     let bestSlot = -1;
     let bestCost = 0;
     for (let i = 0; i < state.marketConveyor.length; i++) {
       const card = state.marketConveyor[i]!;
       const cost = card.cost ?? 1;
-      if (cost > totalCapital && cost > bestCost) {
+      if (cost > spending && cost > bestCost) {
         bestCost = cost;
         bestSlot = i;
       }
@@ -314,15 +383,15 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
   }
 
   // Insider Buyer: refresh the conveyor when at least one card is too
-  // expensive AND we're not blocked on capital.
+  // expensive AND we have rep to buy the refreshed offerings.
   const ib = playable.find((c) => c.defId === "insider_buyer");
   if (ib) {
-    const totalCapital = player.hand.reduce((acc, c) => acc + capitalUnits(c), 0);
+    const spending = player.reputation;
     const cheapestVisible = state.marketConveyor.reduce(
       (lo, c) => Math.min(lo, c.cost ?? 1),
       Infinity,
     );
-    if (totalCapital >= cheapestVisible) {
+    if (spending >= cheapestVisible) {
       return {
         type: "PLAY_OPERATIONS_CARD",
         playerId: player.id,
@@ -520,8 +589,8 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
     type: "SELL_BOURBON",
     playerId: player.id,
     barrelId: best.barrelId,
-    reputationSplit: best.reward,
-    cardDrawSplit: 0,
+    // v2.11: single-step sale — rep total + tier floor are applied
+    // by the engine. No split fields.
     ...(goldChoice ? { goldChoice } : {}),
     ...(goldConvertTargetSlotId ? { goldConvertTargetSlotId } : {}),
   };
@@ -572,8 +641,10 @@ function pickGoldConvertTarget(
 }
 
 /**
- * Predicate: does `pile` satisfy `bill`'s recipe under the universal
- * rules? Mirrors the engine's check in sell-bourbon.ts.
+ * Predicate: does `pile` **exactly** satisfy `bill`'s recipe under the
+ * v2.10 rules? Mirrors `make-bourbon.recipeSatisfied`. Used by the
+ * bot's Gold Convert picker to decide whether a slot's current pile
+ * would survive a recipe relabel.
  */
 function recipeSatisfiedByPile(
   player: PlayerState,
@@ -582,52 +653,61 @@ function recipeSatisfiedByPile(
 ): boolean {
   const recipe = bill.recipe ?? {};
   let cask = 0,
+    plainCask = 0,
     corn = 0,
     rye = 0,
     barley = 0,
     wheat = 0;
+  let spCask = 0,
+    spCorn = 0,
+    spRye = 0,
+    spBarley = 0,
+    spWheat = 0;
   for (const c of pile) {
     if (c.type !== "resource") continue;
-    if (c.subtype === "cask") cask += c.resourceCount ?? 1;
-    if (c.subtype === "corn") corn += c.resourceCount ?? 1;
-    if (c.subtype === "rye") rye += c.resourceCount ?? 1;
-    if (c.subtype === "barley") barley += c.resourceCount ?? 1;
-    if (c.subtype === "wheat") wheat += c.resourceCount ?? 1;
-  }
-  const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  const minWheat = recipe.minWheat ?? 0;
-  if (cask !== 1) return false;
-  if (corn < minCorn) return false;
-  if (rye < (recipe.minRye ?? 0)) return false;
-  if (barley < (recipe.minBarley ?? 0)) return false;
-  if (wheat < minWheat) return false;
-  if (recipe.maxRye !== undefined && rye > recipe.maxRye) return false;
-  if (recipe.maxWheat !== undefined && wheat > recipe.maxWheat) return false;
-  const grain = rye + barley + wheat;
-  if (grain < Math.max(recipe.minTotalGrain ?? 0, 1)) return false;
-  // v2.7.2: per-subtype Specialty requirements.
-  const sp = recipe.minSpecialty;
-  if (sp) {
-    let spCask = 0,
-      spCorn = 0,
-      spRye = 0,
-      spBarley = 0,
-      spWheat = 0;
-    for (const c of pile) {
-      if (c.type !== "resource" || !c.specialty) continue;
-      const count = c.resourceCount ?? 1;
+    const count = c.resourceCount ?? 1;
+    if (c.subtype === "cask") {
+      cask += count;
+      if (!c.specialty) plainCask += count;
+    }
+    if (c.subtype === "corn") corn += count;
+    if (c.subtype === "rye") rye += count;
+    if (c.subtype === "barley") barley += count;
+    if (c.subtype === "wheat") wheat += count;
+    if (c.specialty) {
       if (c.subtype === "cask") spCask += count;
       if (c.subtype === "corn") spCorn += count;
       if (c.subtype === "rye") spRye += count;
       if (c.subtype === "barley") spBarley += count;
       if (c.subtype === "wheat") spWheat += count;
     }
-    if (spCask < (sp.cask ?? 0)) return false;
-    if (spCorn < (sp.corn ?? 0)) return false;
-    if (spRye < (sp.rye ?? 0)) return false;
-    if (spBarley < (sp.barley ?? 0)) return false;
-    if (spWheat < (sp.wheat ?? 0)) return false;
   }
+  const sp = recipe.minSpecialty ?? {};
+  const minCorn = Math.max(Math.max(1, recipe.minCorn ?? 0), sp.corn ?? 0);
+  const minRye = Math.max(recipe.minRye ?? 0, sp.rye ?? 0);
+  const minBarley = Math.max(recipe.minBarley ?? 0, sp.barley ?? 0);
+  const minWheat = Math.max(recipe.minWheat ?? 0, sp.wheat ?? 0);
+  const namedGrainSum = minRye + minBarley + minWheat;
+  const minTotal = Math.max(
+    recipe.minTotalGrain ?? 0,
+    namedGrainSum === 0 ? 1 : namedGrainSum,
+  );
+  if (cask !== 1) return false;
+  if ((sp.cask ?? 0) >= 1 && plainCask > 0) return false;
+  // Corn exact; per-grain floors; total grain exact (matches engine).
+  if (corn !== minCorn) return false;
+  if (rye < minRye) return false;
+  if (barley < minBarley) return false;
+  if (wheat < minWheat) return false;
+  if (recipe.maxRye !== undefined && rye > recipe.maxRye) return false;
+  if (recipe.maxWheat !== undefined && wheat > recipe.maxWheat) return false;
+  const grain = rye + barley + wheat;
+  if (grain !== minTotal) return false;
+  if (spCask < (sp.cask ?? 0)) return false;
+  if (spCorn < (sp.corn ?? 0)) return false;
+  if (spRye < (sp.rye ?? 0)) return false;
+  if (spBarley < (sp.barley ?? 0)) return false;
+  if (spWheat < (sp.wheat ?? 0)) return false;
   return true;
 }
 
@@ -688,20 +768,39 @@ function planCardsTowardRecipe(
   existingPile: Card[],
 ): string[] {
   const recipe = bill.recipe ?? {};
-  const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  const minRye = recipe.minRye ?? 0;
-  const minBarley = recipe.minBarley ?? 0;
-  const minWheat = recipe.minWheat ?? 0;
+  const sp = recipe.minSpecialty ?? {};
+  // v2.10 exact-recipe: bake specialty floors into per-subtype mins
+  // so a `minRye: 0, minSpecialty.rye: 1` recipe registers as
+  // "needs 1 rye total" — the planner picks one Specialty Rye and
+  // satisfies both gates with a single card.
+  const minCorn = Math.max(Math.max(1, recipe.minCorn ?? 0), sp.corn ?? 0);
+  const minRye = Math.max(recipe.minRye ?? 0, sp.rye ?? 0);
+  const minBarley = Math.max(recipe.minBarley ?? 0, sp.barley ?? 0);
+  let minWheat = Math.max(recipe.minWheat ?? 0, sp.wheat ?? 0);
+  // Mirror the engine's Wheated Baron / Mash Futures discount here so
+  // the planner's effective totals match what `recipeSatisfied` will
+  // accept. Otherwise the planner picks one more wheat than the
+  // engine expects and the commit gets rejected.
+  if (
+    player.distillery?.bonus === "wheated_baron" &&
+    recipe.maxRye === 0 &&
+    minWheat > 0
+  ) {
+    minWheat = Math.max(0, minWheat - 1);
+  }
   const maxRye = recipe.maxRye ?? Infinity;
   const maxWheat = recipe.maxWheat ?? Infinity;
+  const spCaskReq = sp.cask ?? 0;
+  const spCornReq = sp.corn ?? 0;
+  const spRyeReq = sp.rye ?? 0;
+  const spBarleyReq = sp.barley ?? 0;
+  const spWheatReq = sp.wheat ?? 0;
 
   const tally = tallyPile(existingPile);
   const used = new Set<string>();
   const picks: string[] = [];
   // v2.10 Wheated Baron: rye cards are not legal commits. Mark every
-  // rye in hand as used so the planner never reaches for one. Bills
-  // requiring rye that fall through here will simply produce an empty
-  // pick list — and `chooseMakeBourbon` will skip the candidate.
+  // rye in hand as used so the planner never reaches for one.
   if (player.distillery?.bonus === "wheated_baron") {
     for (const c of player.hand) {
       if (c.type === "resource" && c.subtype === "rye") used.add(c.id);
@@ -709,66 +808,120 @@ function planCardsTowardRecipe(
   }
 
   // Cask first — exactly 1 needed per barrel (Cooper's Contract aside).
+  // v2.10: if the recipe demands a Specialty cask, only a Specialty
+  // cask is legal (plain casks would brick the barrel).
   if (tally.cask < 1) {
-    const cask = player.hand.find((c) => !used.has(c.id) && suppliesResource(c, "cask"));
+    const cask = player.hand.find((c) => {
+      if (used.has(c.id) || !suppliesResource(c, "cask")) return false;
+      if (spCaskReq >= 1) return c.specialty === true;
+      return true;
+    });
     if (cask) {
       used.add(cask.id);
       picks.push(cask.id);
       tally.cask += 1;
     }
   }
-  // Corn up to recipe min.
+  // Corn up to recipe min. Pull Specialty Corn first if the recipe
+  // demands any so a single card ticks both boxes.
   while (tally.corn < minCorn) {
-    const taken = takeBySubtype(player.hand, "corn", 1, used);
+    const taken = takeBySubtype(player.hand, "corn", 1, used, spCornReq > 0);
     if (!taken || taken.length === 0) break;
     for (const c of taken) {
       picks.push(c.id);
       tally.corn += resourceUnits(c, "corn");
     }
   }
-  // Rye / Barley / Wheat up to recipe min.
+  // Rye / Barley / Wheat up to recipe min (Specialty-preferred when gated).
+  // v2.10 exact-recipe: each per-grain loop also caps against the
+  // recipe's total-grain ceiling so a multi-unit specialty pick can't
+  // overshoot the whole barrel.
+  const minTotalGrain = Math.max(
+    recipe.minTotalGrain ?? 0,
+    minRye + minBarley + minWheat || 1,
+  );
+  const totalGrainNow = () => tally.rye + tally.barley + tally.wheat;
   while (tally.rye < minRye) {
     if (tally.rye + 1 > maxRye) break;
-    const taken = takeBySubtype(player.hand, "rye", 1, used);
+    if (totalGrainNow() >= minTotalGrain) break;
+    const taken = takeBySubtype(player.hand, "rye", 1, used, spRyeReq > 0);
     if (!taken || taken.length === 0) break;
-    for (const c of taken) {
-      picks.push(c.id);
-      tally.rye += resourceUnits(c, "rye");
+    const c = taken[0]!;
+    const units = resourceUnits(c, "rye");
+    if (totalGrainNow() + units > minTotalGrain) {
+      // multi-unit specialty would overshoot the total; back out
+      used.delete(c.id);
+      break;
     }
+    picks.push(c.id);
+    tally.rye += units;
   }
   while (tally.barley < minBarley) {
-    const taken = takeBySubtype(player.hand, "barley", 1, used);
+    if (totalGrainNow() >= minTotalGrain) break;
+    const taken = takeBySubtype(player.hand, "barley", 1, used, spBarleyReq > 0);
     if (!taken || taken.length === 0) break;
-    for (const c of taken) {
-      picks.push(c.id);
-      tally.barley += resourceUnits(c, "barley");
+    const c = taken[0]!;
+    const units = resourceUnits(c, "barley");
+    if (totalGrainNow() + units > minTotalGrain) {
+      used.delete(c.id);
+      break;
     }
+    picks.push(c.id);
+    tally.barley += units;
   }
   while (tally.wheat < minWheat) {
     if (tally.wheat + 1 > maxWheat) break;
-    const taken = takeBySubtype(player.hand, "wheat", 1, used);
+    if (totalGrainNow() >= minTotalGrain) break;
+    const taken = takeBySubtype(player.hand, "wheat", 1, used, spWheatReq > 0);
     if (!taken || taken.length === 0) break;
-    for (const c of taken) {
-      picks.push(c.id);
-      tally.wheat += resourceUnits(c, "wheat");
+    const c = taken[0]!;
+    const units = resourceUnits(c, "wheat");
+    if (totalGrainNow() + units > minTotalGrain) {
+      used.delete(c.id);
+      break;
     }
+    picks.push(c.id);
+    tally.wheat += units;
   }
-  // Universal min-1-grain: if still missing, take any legal grain.
-  let grain = tally.rye + tally.barley + tally.wheat;
-  if (grain < 1) {
+  // v2.10 wildcard-grain fill — top up to the recipe's exact total
+  // grain. The wildcard portion (minTotalGrain − sum of per-grain
+  // mins) can be any grain not capped at 0. One-card-at-a-time so the
+  // planner stops the instant the total is satisfied (the engine
+  // rejects over-commit, so any overshoot would brick the commit).
+  let grain = totalGrainNow();
+  if (grain < minTotalGrain) {
     const grainKinds: GrainSubtype[] = ["rye", "barley", "wheat"];
-    for (const sub of grainKinds) {
-      if (sub === "rye" && maxRye === 0) continue;
-      if (sub === "wheat" && maxWheat === 0) continue;
-      const taken = takeBySubtype(player.hand, sub, 1, used);
-      if (taken && taken.length > 0) {
-        for (const c of taken) {
-          picks.push(c.id);
-          tally[sub] += resourceUnits(c, sub);
-          grain += resourceUnits(c, sub);
+    outer: while (grain < minTotalGrain) {
+      let added = false;
+      for (const sub of grainKinds) {
+        if (sub === "rye" && maxRye === 0) continue;
+        if (sub === "wheat" && maxWheat === 0) continue;
+        if (sub === "rye" && tally.rye >= maxRye) continue;
+        if (sub === "wheat" && tally.wheat >= maxWheat) continue;
+        const taken = takeBySubtype(player.hand, sub, 1, used);
+        if (taken && taken.length > 0) {
+          for (const c of taken) {
+            picks.push(c.id);
+            const units = resourceUnits(c, sub);
+            tally[sub] += units;
+            grain += units;
+            // Stop if a multi-unit specialty card overshoots — the
+            // engine would reject this commit. Bail so the planner
+            // returns whatever it has so far (commit may still be
+            // partial-build legal under floors).
+            if (grain > minTotalGrain) {
+              picks.pop();
+              used.delete(c.id);
+              tally[sub] -= units;
+              grain -= units;
+              break outer;
+            }
+          }
+          added = true;
+          if (grain >= minTotalGrain) break outer;
         }
-        break;
       }
+      if (!added) break; // no more legal grain in hand
     }
   }
   return picks;
@@ -802,19 +955,31 @@ function peakReward(mb: MashBill): number {
  * Take up to `minUnits` worth of `subtype` from `hand`, marking cards
  * as used. Returns whatever it found (possibly empty if nothing
  * matches) — caller decides whether the partial coverage is enough.
+ *
+ * v2.11: `preferSpecialty` pulls Specialty / Heritage cards first when
+ * the recipe has a specialty floor on this subtype, so a single card
+ * can satisfy both the regular min and the floor.
  */
 function takeBySubtype(
   hand: Card[],
   subtype: "cask" | "corn" | GrainSubtype,
   minUnits: number,
   used: Set<string>,
+  preferSpecialty = false,
 ): Card[] | null {
   if (minUnits <= 0) return [];
   const taken: Card[] = [];
   let count = 0;
   const candidates = hand
     .filter((c) => !used.has(c.id) && c.subtype === subtype)
-    .sort((a, b) => (a.resourceCount ?? 1) - (b.resourceCount ?? 1));
+    .sort((a, b) => {
+      if (preferSpecialty) {
+        const sa = a.specialty ? 1 : 0;
+        const sb = b.specialty ? 1 : 0;
+        if (sa !== sb) return sb - sa; // specialty first
+      }
+      return (a.resourceCount ?? 1) - (b.resourceCount ?? 1);
+    });
   for (const c of candidates) {
     taken.push(c);
     used.add(c.id);
@@ -841,9 +1006,11 @@ function chooseAge(state: GameState, player: PlayerState): GameAction | null {
   );
   if (barrels.length === 0) return null;
 
+  // v2.11: prefer a Generic Labor card (cheap, plentiful from Hire)
+  // when paying the aging cost; otherwise reach for any 1-unit resource.
   const card =
-    player.hand.find((c) => c.type === "capital" && (c.capitalValue ?? 1) === 1) ??
-    player.hand.find((c) => (c.resourceCount ?? 1) === 1) ??
+    player.hand.find((c) => c.type === "labor" && c.laborSubtype === "generic") ??
+    player.hand.find((c) => c.type === "resource" && (c.resourceCount ?? 1) === 1) ??
     player.hand[0];
   if (!card) return null;
 
@@ -860,36 +1027,103 @@ function chooseAge(state: GameState, player: PlayerState): GameAction | null {
 // BUY_FROM_MARKET
 // -----------------------------
 
-function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
-  const totalCapital = player.hand.reduce((acc, c) => acc + capitalUnits(c), 0);
-  if (totalCapital === 0) return null;
+/**
+ * Which Specialty subtypes the bot can still profit from buying — pulled
+ * from any unfinished bills in the player's slots. A subtype is "needed"
+ * when the bill's `minSpecialty.<subtype>` floor exceeds the matching
+ * count of specialty cards already committed to the barrel.
+ */
+function neededSpecialtySubtypes(
+  state: GameState,
+  player: PlayerState,
+): Set<"cask" | "corn" | "rye" | "barley" | "wheat"> {
+  const out = new Set<"cask" | "corn" | "rye" | "barley" | "wheat">();
+  for (const barrel of getPlayerBarrels(state, player.id)) {
+    if (barrel.phase === "aging") continue;
+    const sp = barrel.attachedMashBill.recipe?.minSpecialty;
+    if (!sp) continue;
+    const tally = { cask: 0, corn: 0, rye: 0, barley: 0, wheat: 0 };
+    for (const c of barrel.productionCards) {
+      if (c.type !== "resource" || !c.specialty) continue;
+      const sub = c.subtype;
+      if (!sub) continue;
+      tally[sub] += c.resourceCount ?? 1;
+    }
+    for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
+      const need = sp[sub] ?? 0;
+      if (need > tally[sub]) out.add(sub);
+    }
+  }
+  return out;
+}
 
-  let best: { slotIndex: number; cost: number } | null = null;
+function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
+  // v2.11 (Unified Rep): rep is the currency. Labor cards in hand
+  // supplement rep — Cooper +2 toward market resources, Generic +1
+  // anywhere. The bot prefers to pay with Labor first (cards in hand
+  // are cheaper than rep, which is also VPs) and tops up with rep.
+  const cooperLabor = player.hand.filter(
+    (c) => c.type === "labor" && c.laborSubtype === "cooper",
+  );
+  const genericLabor = player.hand.filter(
+    (c) => c.type === "labor" && c.laborSubtype === "generic",
+  );
+  const laborMaxContribution = cooperLabor.length * 2 + genericLabor.length;
+  const maxAffordable = player.reputation + laborMaxContribution;
+  if (maxAffordable === 0) return null;
+
+  // Down-weight Specialty when no slotted bill demands its subtype.
+  const specialtyDemand = neededSpecialtySubtypes(state, player);
+
+  let best: { slotIndex: number; score: number; cost: number } | null = null;
   for (let i = 0; i < state.marketConveyor.length; i++) {
     const card = state.marketConveyor[i]!;
     const cost = card.cost ?? 1;
-    if (cost > totalCapital) continue;
-    if (!best || cost > best.cost) best = { slotIndex: i, cost };
+    if (cost > maxAffordable) continue;
+    // Skip ≥$2 buys when we don't have at least 1 rep — the anchor
+    // rule rejects them.
+    if (cost >= 2 && player.reputation < 1) continue;
+    let score = cost;
+    if (
+      card.type === "resource" &&
+      card.specialty === true &&
+      card.cardDefId.startsWith("superior_")
+    ) {
+      const sub = card.subtype;
+      if (!sub || !specialtyDemand.has(sub)) {
+        score -= 1;
+      }
+    }
+    if (!best || score > best.score) best = { slotIndex: i, score, cost };
   }
   if (!best) return null;
 
-  const capitalCards = player.hand
-    .filter((c) => c.type === "capital")
-    .sort((a, b) => (a.capitalValue ?? 1) - (b.capitalValue ?? 1));
-  const spend: string[] = [];
-  let paid = 0;
-  for (const c of capitalCards) {
-    spend.push(c.id);
-    paid += capitalUnits(c);
-    if (paid >= best.cost) break;
+  // Pay Cooper first (matched-domain, +2 each), then Generic (+1
+  // each), then rep. Anchor: ≥$2 buys keep at least 1 rep.
+  const laborIds: string[] = [];
+  let covered = 0;
+  for (const c of cooperLabor) {
+    if (covered >= best.cost) break;
+    laborIds.push(c.id);
+    covered += 2;
   }
-  if (paid < best.cost) return null;
+  for (const c of genericLabor) {
+    if (covered >= best.cost) break;
+    laborIds.push(c.id);
+    covered += 1;
+  }
+  // Compute the rep contribution. The total must equal at least
+  // `best.cost`; the anchor rule requires ≥1 rep when cost ≥ 2.
+  let rep = Math.max(0, best.cost - covered);
+  if (best.cost >= 2 && rep < 1) rep = 1;
+  if (rep > player.reputation) return null;
 
   return {
     type: "BUY_FROM_MARKET",
     playerId: player.id,
     marketSlotIndex: best.slotIndex,
-    spendCardIds: spend,
+    rep,
+    laborCardIds: laborIds,
   };
 }
 
@@ -909,9 +1143,16 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
   if (state.operationsDeck.length === 0) return null;
   const heldDefIds = new Set(player.operationsHand.map((c) => c.defId));
 
-  // The face-up row is the last FACEUP_OPS_SIZE cards of operationsDeck,
-  // exposed in UI order [top, top-1, top-2].
-  const totalSpend = player.hand.reduce((acc, c) => acc + paymentForOpsBuy(c), 0);
+  // v2.11: ops buys pay rep + Marketing/Generic Labor. Marketing
+  // contributes +2 toward ops; Cooper / Architect contribute 0.
+  const marketingLabor = player.hand.filter(
+    (c) => c.type === "labor" && c.laborSubtype === "marketing",
+  );
+  const genericLabor = player.hand.filter(
+    (c) => c.type === "labor" && c.laborSubtype === "generic",
+  );
+  const laborMax = marketingLabor.length * 2 + genericLabor.length;
+  const maxAffordable = player.reputation + laborMax;
 
   let best: { uiSlot: number; cost: number; rank: number } | null = null;
   for (let ui = 0; ui < FACEUP_OPS_SIZE; ui++) {
@@ -921,7 +1162,8 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
     if (!card) continue;
     if (heldDefIds.has(card.defId)) continue;
     if (!OPS_BOT_PLAYABLE.has(card.defId)) continue;
-    if (card.cost > totalSpend) continue;
+    if (card.cost > maxAffordable) continue;
+    if (card.cost >= 2 && player.reputation < 1) continue;
     const rank = OPS_BUY_PREFERENCE.indexOf(card.defId);
     const effectiveRank = rank === -1 ? OPS_BUY_PREFERENCE.length : rank;
     if (
@@ -934,29 +1176,29 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
   }
   if (!best) return null;
 
-  // Pay with the cheapest combination of resource cards first, falling
-  // back to capital cards. We never overpay by a capital card if a
-  // pile of resource cards already covers it.
-  const sorted = [...player.hand].sort((a, b) => paymentForOpsBuy(a) - paymentForOpsBuy(b));
-  const spend: string[] = [];
-  let paid = 0;
-  for (const c of sorted) {
-    spend.push(c.id);
-    paid += paymentForOpsBuy(c);
-    if (paid >= best.cost) break;
+  const laborIds: string[] = [];
+  let covered = 0;
+  for (const c of marketingLabor) {
+    if (covered >= best.cost) break;
+    laborIds.push(c.id);
+    covered += 2;
   }
-  if (paid < best.cost) return null;
+  for (const c of genericLabor) {
+    if (covered >= best.cost) break;
+    laborIds.push(c.id);
+    covered += 1;
+  }
+  let rep = Math.max(0, best.cost - covered);
+  if (best.cost >= 2 && rep < 1) rep = 1;
+  if (rep > player.reputation) return null;
 
   return {
     type: "BUY_OPERATIONS_CARD",
     playerId: player.id,
     opsSlotIndex: best.uiSlot,
-    spendCardIds: spend,
+    rep,
+    laborCardIds: laborIds,
   };
-}
-
-function paymentForOpsBuy(card: Card): number {
-  return card.type === "capital" ? card.capitalValue ?? 1 : 1;
 }
 
 /**
@@ -1012,21 +1254,19 @@ function chooseDrawMashBill(state: GameState, player: PlayerState): GameAction |
   const myBarrels = getPlayerBarrels(state, player.id);
   const hasReady = myBarrels.some((b) => b.phase === "ready");
   if (hasReady) return null;
-  // Prefer the blind draw (cheapest — pay any 1 card) when the deck has
-  // bills left. Falls back to a face-up pick once the deck is exhausted.
-  if (state.bourbonDeck.length > 0) {
-    const spendCard =
-      player.hand.find((c) => c.type === "capital" && (c.capitalValue ?? 1) === 1) ??
-      player.hand[0];
-    if (!spendCard) return null;
+
+  // v2.11 (Unified Rep): bills cost rep — blind draw 1, face-up 2
+  // (stopgap). Bot conserves rep early, so prefers the blind 1-rep
+  // draw whenever the deck has bills left.
+  const BLIND_DRAW_REP = 1;
+  if (state.bourbonDeck.length > 0 && player.reputation >= BLIND_DRAW_REP) {
     return {
       type: "DRAW_MASH_BILL",
       playerId: player.id,
-      spendCardIds: [spendCard.id],
+      rep: BLIND_DRAW_REP,
     };
   }
-  // Face-up only — pick the cheapest face-up bill we can pay for.
-  const sorted = [...player.hand].sort((a, b) => paymentForOpsBuy(b) - paymentForOpsBuy(a));
+  // Face-up only — pick the cheapest legal bill we can afford.
   for (const bill of state.bourbonFaceUp) {
     // v2.10 High-Rye House: cannot draft wheated bills.
     if (
@@ -1036,21 +1276,13 @@ function chooseDrawMashBill(state: GameState, player: PlayerState): GameAction |
       continue;
     }
     const cost = bill.cost ?? 2;
-    const spend: string[] = [];
-    let paid = 0;
-    for (const c of sorted) {
-      spend.push(c.id);
-      paid += c.type === "capital" ? c.capitalValue ?? 1 : 1;
-      if (paid >= cost) break;
-    }
-    if (paid >= cost) {
-      return {
-        type: "DRAW_MASH_BILL",
-        playerId: player.id,
-        mashBillId: bill.id,
-        spendCardIds: spend,
-      };
-    }
+    if (player.reputation < cost) continue;
+    return {
+      type: "DRAW_MASH_BILL",
+      playerId: player.id,
+      mashBillId: bill.id,
+      rep: cost,
+    };
   }
   return null;
 }

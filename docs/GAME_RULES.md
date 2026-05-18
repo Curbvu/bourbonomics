@@ -4,91 +4,82 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (v2.10 alpha — "Identity & Economy").** Drafting, the round loop (Draw → Action → Cleanup, with per-turn demand roll + mandatory aging inside Action), slot-bound mash bills, incremental production, selling, market (4-band economy), operations cards, trading, doomsday-deck endgame. **Distillery selection is back** — every game opens with a 4-distillery picker (Vanilla, High-Rye House, Wheated Baron, Connoisseur Estate). Investment cards are sketched in [`PLANNED_MECHANICS.md`](PLANNED_MECHANICS.md) and not yet live. **Multiplayer is live** — host a 4-char-code room from `/multiplayer`, share the link, claim seats; bots fill the rest. Solo-vs-bots and online-multi-human both ship from the same engine.
+> **Scope (v2.11 alpha — "Three Bands · Unified Rep").** Distillery selection (4-distillery picker), slot-bound mash bills, incremental production, single-step selling, market (three-band economy + Labor strip), operations cards, trading, doomsday-deck endgame. Reputation is the unified currency for both VP and spending; Labor cards supplement rep on purchases. Multiplayer is live (host a 4-char-code room from `/multiplayer`). Investment cards are sketched in `PLANNED_MECHANICS.md` and not yet live.
 
 ---
 
 # 🚀 Quick Start
 
-For the impatient. Read once, play once, the rest of the rulebook will make sense.
-
-> **Prefer to learn by doing?** The home screen has a **Tutorial** tile that opens an interactive walkthrough at `/tutorial` — a 13-step guided game (1 human + 1 bot, fixed seed) that hand-holds you from your first roll through your first sale, with spotlights and tooltips overlaying the live board. Skip out at any time.
+> **Learn by doing.** The home screen has a **Tutorial** tile (a guided walkthrough at `/tutorial`) that hand-holds a fresh player from their first roll through their first sale.
 
 ### The 90-second pitch
 
-You run a bourbon distillery. You have a **rickhouse** (4 barrel slots), a **deck** (16 starter cards), and **mash bills** (recipes) that live directly in your rickhouse slots. Each round:
+You run a bourbon distillery. You have a **rickhouse** (4 barrel slots), a **deck** (16 starter cards), and **mash bills** (recipes) that live directly on your slots. Each round:
 
-1. **Draw 8** cards from your deck.
-2. **Take your turn** — Roll demand → Age every aging barrel → Take actions (make / sell / buy / trade / etc.).
+1. **Draw 8** cards.
+2. **Take your turn** — Roll demand → Age every aging barrel → Take actions.
 3. **Cleanup.** Discards reset, the start player rotates, next round.
 
-Each player's turn opens with their own demand roll and a mandatory aging commit (1 card to **every** one of their aging barrels) — that's the holding cost for keeping inventory. *Then* the rest of their turn opens up.
+Your turn opens with your own demand roll and one aging card committed to **every** of your aging barrels — that's the holding cost for keeping inventory. *Then* the rest of your turn opens up.
 
 ### The core loop
 
-- **Mash bills are slot-bound.** Bills are drafted into your slots at setup and drawn directly into open slots during play. They never enter your hand. Every bill is public the moment it's slotted.
-- **Make bourbon** by committing cards (cask + corn + grain) from your hand to a slotted bill. Recipes take **multiple turns** to assemble — commit what you have now, finish the recipe later.
-- A barrel becomes **aging** the moment its recipe is satisfied. From the next round on, you can place 1 aging card per round on top of it.
-- **Sell** an aging barrel (age ≥ 2) and read its mash bill's grid against your barrel's age and the current demand. The grid value becomes reputation, purchasing power, or both.
-- **Buy** new cards from the 10-card market conveyor with cards from your hand (capital cards pay their face value; any other card pays 1).
+- **Mash bills are slot-bound.** Bills are drafted into your slots at setup and drawn directly into open slots during play. They never enter your hand.
+- **Make bourbon** by committing cards (cask + corn + grain) from your hand to a slotted bill. Recipes take **multiple turns** to assemble.
+- A barrel becomes **aging** the moment its recipe is satisfied. From the next round on, you commit 1 aging card per round on top of it.
+- **Sell** an aging barrel (age ≥ 2) — the engine reads the bill's grid at `(barrel age, current demand)`, adds card / distillery / ops bonuses, and lifts the total to the bill's **tier floor** (3 / 4 / 5 rep). The total lands on your **reputation** track.
+- **Buy** new cards from the 10-card market with **reputation** — optionally supplemented by **Labor cards** in hand (Cooper +2 toward market resources, Marketing +2 toward ops, Generic +1 anywhere). The anchor rule: ≥$2 buys require ≥1 rep paid.
+- **Hire** (once per turn, free) takes 1 Generic Labor from the central Hire pile into your discard.
 
 ### Winning
 
-The game ends when the **last mash bill leaves the bourbon supply**. Most reputation wins; ties broken by barrels sold.
-
----
-
-# 🏆 Winning the Game
-
-The game ends when the **bourbon supply** is exhausted — both the deck AND the face-up mash bill row are empty. Drawing or acquiring the final mash bill triggers the **final round**: every player completes the round and scoring happens immediately after.
-
-**Most reputation wins.** Tiebreakers, in order: (1) most barrels sold, (2) shared victory.
-
-The final round is the high-drama round — players race to liquidate aged barrels and time sales against demand. Cards committed to barrels that don't sell in the final round are lost; there is no next round to bail them out.
+The game ends when the **last mash bill leaves the bourbon supply**. Most reputation wins; tiebreakers: most barrels sold, then shared victory.
 
 ---
 
 # 🎬 Setup
 
 ### Step 1 — Distillery selection
+Players pick distilleries in **reverse snake order** from a shared pool of four: Vanilla, High-Rye House, Wheated Baron, Connoisseur Estate. No two players share a distillery. See [§Distillery Profiles](#-distillery-profiles).
 
-Players pick distilleries in **reverse snake order** (last seat first, then up the table, then back down) from a shared pool of four — **Vanilla**, **High-Rye House**, **Wheated Baron**, and **Connoisseur Estate**. Each pick is private until reveal, which fires at the start of round 1's action phase. No two players share a distillery.
+### Step 2 — Starting rep
+Each distillery's stake lands on the rep track at setup:
 
-The choice ships a starting state (open slots, pre-aged barrels, draft size), a permanent ability, and (for the asymmetric three) a constraint. See [§Distillery Profiles](#distillery-profiles) for the full roster.
+| Distillery | Starting rep |
+|---|:-:|
+| Vanilla Distillery | **5** |
+| High-Rye House | **4** |
+| Wheated Baron | **4** |
+| Connoisseur Estate | **6** |
 
-### Step 2 — Mash bill draft
+This is *starting* rep — not earned — but it counts toward your final score throughout the game.
 
-Setup-time bill drafting is now distillery-driven (v2.10):
+### Step 3 — Mash bill draft
+- **Vanilla** — 0 starting bills; every slot Open.
+- **High-Rye House** — 0 starting bills + 1 pre-aged rye barrel (age 1).
+- **Wheated Baron** — 0 starting bills + 1 pre-aged wheated barrel (age 1).
+- **Connoisseur Estate** — **4** starting bills, filling every slot Staged.
 
-- **Vanilla** — 0 starting bills. Every slot ships **Open**; the first bill is drawn during play.
-- **High-Rye House** — 0 starting bills + 1 pre-aged rye barrel (`high_rye_basic`, age 1, `agingSinceRound = 0`). Three Open slots remain.
-- **Wheated Baron** — 0 starting bills + 1 pre-aged wheated barrel (`wheated_basic`, age 1, `agingSinceRound = 0`). Three Open slots remain.
-- **Connoisseur Estate** — **4** starting bills, filling every slot Staged. No Open slots until one is freed. Slotted-bill cap of 4 means Rickhouse Expansion Permit's 5th and 6th slots can only receive transferred barrels — never freshly drawn bills.
+### Step 4 — Starter pool draft (random deal + trade window)
+Build the starter pool: per player, **6 cask · 4 corn · 4 grain (2 rye / 1 barley / 1 wheat) · 2 Generic Labor = 16 cards**, plus an 8-card buffer for the stuck-hand safety valve. Shuffle and **deal 16 cards face-up** to each player.
 
-Pre-aged starter barrels carry a virtual production pile — no actual resource cards are returned on sale. Their attached bills are basic Common-tier (no Specialty gates, no Gold awards).
+**Trade window — 3 minutes.** Players negotiate **1-for-1 trades** in any order, public and mutual.
 
-### Step 3 — Starter hand
+**Stuck-hand swap.** Once during the trade window, a player may return up to 3 cards to the pool and draw the same number off the top.
 
-Build the starter pool: per player, 6 cask · 4 corn · 4 grain (2 rye / 1 barley / 1 wheat) · 2 capital. Shuffle and **deal 16 cards face-up** to each player.
+When the timer expires (or every player has passed), shuffle your final 16 cards into your starter deck. Premium variants — **Specialty** and **Heritage** — only enter via the market.
 
-**Trade window — 3 minutes.** Players negotiate **1-for-1 trades** with anyone, in any order. Trades are public and require both sides to agree. Each trade is exactly one card per side; multi-card swaps are run as multiple trades.
+### Step 5 — First hand
+- Each player **draws 8 cards** from their starter deck.
+- Setup also seeds **1 free Generic Labor** card directly into the opening hand (so every player has Labor available on their first turn).
 
-**Stuck-hand swap.** Once during the trade window, a player may return up to 3 cards to the pool and draw the same number off the top. One-shot per player per game.
-
-When the timer expires (or every player has signaled "pass"), shuffle your final 16 cards into your starter deck. Premium variants — Doubles, Specialties, and Double Specialties — only enter via the market.
-
-### Step 4 — First hand
-
-Each player shuffles and **draws 8 cards** as their opening hand.
-
-### Step 5 — Board setup
-
-- **Market conveyor:** 10 cards face-up from the market supply.
-- **Operations market:** 3 face-up ops cards beside the ops deck. Players begin with an empty operations hand.
+### Step 6 — Board setup
+- **Market conveyor:** 10 cards face-up from the market supply (Common $1 / Specialty $2 / Heritage $3 resources + a rare Labor strip — Generic Labor $1, Marketing $4, Cooper $4).
+- **Operations market:** 3 face-up ops cards beside the ops deck.
 - **Bourbon deck:** mash bills face-down, with 3 face-up beside the deck.
-- **Demand track:** start at 0.
-- **Reputation:** 0 for everyone.
-- Pick a start player. Rotation is one seat counter-clockwise after each round.
+- **Central Hire pile:** ~5 Generic Labor cards per player (e.g. 20 in a 4-player game).
+- **Demand:** starts at 0.
+- Pick a start player.
 
 ---
 
@@ -96,255 +87,205 @@ Each player shuffles and **draws 8 cards** as their opening hand.
 
 Three phases per round:
 
-1. **Draw** — each player draws 8 cards from their resource deck.
-2. **Action** — players take full turns in the rotated order. Each turn runs as **Roll demand → Age every aging barrel → Take actions** (see [§Action Phase](#-action-phase) for the gated sub-steps).
-3. **Cleanup** — unused resource and capital cards go to discard; per-round flags reset; start player rotates one seat counter-clockwise.
+1. **Draw** — each player draws 8 cards. A player who used the **Save slot** last round adds the saved card on top, drawing effectively 9 that round.
+2. **Action** — players take full turns in rotated order. Each turn runs as **Roll demand → Age every aging barrel → Take actions**.
+3. **Cleanup** — unused resource and Labor cards go to discard; per-round flags reset; start player rotates one seat counter-clockwise.
 
-**Operations cards persist** — they're not discarded at end of round.
+**Operations cards persist** across rounds.
 
----
-
-# 🎴 Turn Order and the Bookend
-
-The first player rotates each round. The player who went **last** in round N goes **first** in round N+1.
-
-For 4 players seated 1-2-3-4: rounds run 1234 → 4123 → 3412 → 2341 → 1234.
-
-**The bookend.** Going last-then-first across a round boundary lets you act with full information at the end of round N and again with a fresh hand at the start of round N+1. It's a deliberate feature of the design — every player gets it equally over an N-player game. Operations cards held across rounds amplify this; demand-boosting ops in particular.
+**Turn order rotates** — the player who acted last in round N goes first in round N+1 (the *bookend*). Each player gets the bookend equally over an N-player game.
 
 ---
 
-# 🎲 Demand (per-turn, v2.9)
+# 🎲 Demand (per-turn)
 
-At the **top of each player's action turn** (before any other action), the active player rolls **2d6**. If the result is **greater than** current demand, demand **rises by 1** (cap 12). Otherwise it holds. The roll is a mandatory first action — the engine rejects Make/Age/Sell/Buy/Trade until it lands.
+At the **top of each player's action turn** (before any other action), the active player rolls **2d6**. If the result is **greater than** current demand, demand **rises by 1** (cap 12). Otherwise it holds.
 
-This is the only natural rise — but with N players acting per round, demand can climb up to N times before the round ends, which speeds the market more than the old once-per-round roll. Demand still **falls by 1** for each barrel sold (floor 0). Some ops cards move it directly.
+Demand **falls by 1** for each barrel sold (floor 0), unless skipped by an effect (Demand Surge, Heirloom Wheat). Some ops cards (Market Manipulation, Bourbon Boom, Glut) move it directly.
 
-The bell curve of 2d6 means demand drifts toward the middle, with rare booms and crashes.
-
----
-
-# 🎴 Draw Phase
-
-Each player draws **8 cards** from their resource deck. Reshuffle the discard if the deck runs out.
-
-Operations cards are NOT auto-drawn — they're bought from the ops market.
+The 2d6 bell curve drifts demand toward the middle, with rare booms and crashes.
 
 ---
 
-# 🛢️ Aging (per-turn, v2.9)
+# 🛢️ Aging (per-turn)
 
-After rolling demand at the top of your turn, you **must commit one card from your hand to every one of your eligible aging barrels** before taking any other action. This is the holding cost for keeping inventory in the rickhouse — every turn a barrel sits unsold, you pay 1 card per barrel to keep it alive.
+After rolling demand, you **must commit one card from hand to every one of your eligible aging barrels** before taking any other action — the holding cost for inventory.
 
-The committed card advances the barrel's age by 1 year (or more for cards with bonus ages). Aging cards do not contribute to sale payout beyond the age they buy on the grid — their value is the year they purchase.
+- **Staged and Building barrels do not age.** Only barrels in the **Aging** phase trigger the requirement.
+- A barrel that finished construction this round skips its first aging until next round.
+- **Generic Labor** is legal as an aging card (sweat equity in the warehouse). Specialty Labor cards (Marketing, Cooper, Architect) are not.
+- If you have no cards left, only `PASS_TURN` is legal — your un-aged barrels stay un-aged this round.
 
-**Staged and Building barrels do not age.** A barrel only starts aging once its recipe is fully satisfied — partial pile, no aging. See [§Make Bourbon](#make-bourbon) for the slot lifecycle. The aging commit only fires for barrels that are already in the **aging** phase.
-
-When the barrel sells, all aging cards go to the player's discard.
-
-### Edge cases
-
-- **No aging barrels** — the cost is skipped; you go straight to step 3.
-- **Not enough cards in hand** — you can't pay the full cost. The only legal move is `PASS_TURN`, which forfeits the turn; any un-aged barrels stay un-aged this round.
-- **Multiple aging barrels** — every one must age. You commit one card per barrel; until they're all touched, no other action is legal. Each barrel still ages at most once per round (Rushed Shipment grants exceptions).
-- **Just-completed barrels** — a barrel that finished construction this round doesn't age until next round and is not counted toward the requirement; if your ONLY aging barrels fall in that bucket, the cost is skipped this turn.
+When the barrel sells, all aging cards go to your discard.
 
 ---
 
 # 🎯 Action Phase
 
-Each player takes their **full turn** in rotated order. The turn opens with two mandatory micro-steps before the free actions begin:
-
-1. **Roll demand** (see [§Demand](#-demand-per-turn-v29)).
-2. **Age every aging barrel** (see [§Aging](#️-aging-per-turn-v29)) — commit one card per un-aged aging barrel; skipped only if you have none.
-3. **Free actions** — take as many of these as you want, in any order: Make Bourbon, Sell Bourbon, Buy from the Market, Buy Operations Card, Draw a Mash Bill, Trade, Trash a Card. End the turn voluntarily when you're done.
-
-Until both gated micro-steps are paid, the engine rejects every other action except `PASS_TURN` and `PLAY_OPERATIONS_CARD` (which always plays free).
-
-**Operations cards** play as a **free interruption** at any point during your turn — including before the demand roll and during the aging step. They don't consume an action; each ops card is one-shot.
-
-**Voluntarily ending your turn is final** — you don't act again until the next round. Cards in your hand stay there until cleanup.
-
-Plan during others' turns. Target pace: ~3 minutes per round at 4 players.
-
-### Available Actions
+After rolling demand and paying the aging cost, take **any number** of these free actions in any order:
 
 - **Make Bourbon** — commit cards from your hand to a Staged or Building slot.
-- **Sell Bourbon** — sell an aging barrel ≥ 2 years old that has aged at least one full round. No card cost.
-- **Buy from the Market** — spend cards to acquire a market card.
-- **Buy Operations Card** — same, but for the ops market.
-- **Draw a Mash Bill** — pay cost; bill lands directly in one of your open slots as Staged.
+- **Sell Bourbon** — sell an aging barrel ≥ 2 years old that has aged at least one full round.
+- **Buy from the Market** — pay rep (+ optional Labor) to acquire a card.
+- **Buy Operations Card** — same; Marketing Labor discounts ops.
+- **Draw a Mash Bill** — pay rep for a face-up bill (default 2 rep) or blind from the top of the deck (1 rep).
 - **Trade** — exchange cards with another player. Mash bills are not tradeable.
-- **Trash a Card** — permanently remove a card from your deck (see [§Trashing](#-trashing-cards) for bills).
-- **End Turn** — voluntary; cards remaining in hand stay there until cleanup.
+- **Hire** — once per turn, free: take 1 Generic Labor from the central pile into your discard.
+- **Save Card** — set aside one card from hand into your Save slot for next round's draw.
+- **Play Operations Card** — free interruption at any time.
+- **End Turn** — voluntary; cards remaining in hand stay until cleanup.
+
+Operations cards always play as a free interruption — they don't consume an action.
 
 ---
 
 ## Make Bourbon
 
-> **v2.6: Slot-Bound Bills.** Bills live on slots from the moment they're drawn. `Make Bourbon` only commits cards — there is no separate "attach a bill" sub-step.
-
 Each rickhouse slot lives in one of four phases:
 
-- **Open** — no bill in the slot. Drawable into via [§Draw a Mash Bill](#draw-a-mash-bill).
-- **Staged** — bill present, no committed cards. Visible to all players. Does NOT age.
+- **Open** — no bill. Drawable into via [§Draw a Mash Bill](#-draw-a-mash-bill).
+- **Staged** — bill present, no committed cards. Public. Does NOT age.
 - **Building** — bill + ≥1 committed card, recipe not yet satisfied. Does NOT age.
 - **Aging** — recipe satisfied. Locked in. Accepts one aging card per round from the round AFTER completion.
 
-### The action
+`Make Bourbon` commits cards from your hand to a Staged or Building slot. The bill is already attached — you only choose the slot and the cards. **No per-slot limit** — you can commit to the same slot as many times as you want in a single turn.
 
-`Make Bourbon` commits one or more cards from your hand to one of your **Staged** or **Building** slots. The bill is already attached — you only choose the slot and the cards.
-
-**No per-slot limit.** You can Make Bourbon to any of your Staged or Building slots as many times as you want on a single turn. Each commit is its own action; the recipe-completion check fires after every commit, so a slot can transition Staged → Building → Aging across multiple commits in one turn.
-
-Committed cards (resource OR capital) are **locked with the barrel** — they don't go to discard until the barrel sells.
+Committed cards are **locked with the barrel** — they don't return to discard until the barrel sells.
 
 ### Recipe satisfaction
 
 A slot transitions **Building → Aging** the moment its committed pile satisfies BOTH:
-
 1. **Universal rule:** exactly 1 cask + ≥1 corn + ≥1 grain.
-2. **The slotted bill's recipe** (if any), e.g. "rye ≥ 3" for a high-rye bill.
+2. **The slotted bill's recipe** (if any).
 
-The first commit transitions the slot **Staged → Building**. The completion check fires at the end of every commit, so a single sufficient commit can take a slot all the way from Staged to Aging in one action.
+### Exact-recipe rule
 
-### Over-committing is fine, but earns no bonus
+The total cards on a barrel match the recipe exactly. The engine rejects any commit that would push **corn**, **total grain**, or **cask** past the recipe — no over-committing. Per-grain minimums stay floors; bill-specific caps (`maxRye: 0` on wheated bills) are enforced.
 
-You may commit **more** cards than the recipe requires (e.g. 4 rye when `rye ≥ 3`). The engine accepts the extra cards and locks them with the barrel until sale, but the reward grid only reads `(age, demand)` — over-commitment doesn't change the payout.
+**Specialty-cask exclusivity.** If a recipe demands `minSpecialty.cask ≥ 1`, plain casks are not legal — you must lead with a Specialty (or Heritage) cask.
 
-Recipe **caps** (`maxRye: 0`, `maxWheat: 0`, etc.) are still enforced — those are bill-specific bans, not minimums.
+**Specialty cards satisfy both the regular minimum AND the specialty floor.** One Specialty Rye covers `minRye: 1 + minSpecialty.rye: 1` — not two cards. Heritage cards satisfy the gate the same way.
 
 ### Timing
 
-- Completion check fires at the end of the action that placed the satisfying card.
-- A barrel completed in **round N first ages in round N+1** — completion doesn't grant a free aging round. This preserves the temporal cost of a slow build.
-- A barrel completed in round N also **cannot sell until round N+1** at the earliest (v2.10 round-gap rule, see [§Sell Bourbon](#sell-bourbon)). Ops cards that accelerate age (Rushed Shipment, Forced Cure) cannot bypass the round-gap.
+- A barrel completed in **round N first ages in round N+1**.
+- A barrel completed in round N **cannot sell until round N+1** (the round-gap rule). Ops cards that accelerate age (Rushed Shipment, Forced Cure) cannot bypass this.
 
-### Per-bill recipes
+### Specialty gates by rarity
 
-Recipes only ever **tighten** the universal rule, never loosen it. Examples:
-- High-rye — `rye ≥ 3`
-- Wheated — `wheat ≥ 1, no rye`
-- Four-grain — `barley ≥ 1, rye ≥ 1, wheat ≥ 1`
+Higher-rarity bills require **Specialty** or **Heritage** cards by subtype, on top of the regular minimums.
 
-Bills without a printed recipe accept any legal mash. Recipes are public information from the moment the bill is slotted.
-
-### Specialty gates (v2.7.2)
-
-Higher-rarity bills can require **Specialty** cards by subtype, on top of the regular minimums. A recipe with `minSpecialty: { rye: 1 }` requires at least one Specialty (or Double Specialty) Rye card in the production pile.
-
-A Specialty card counts toward **both** the regular minimum AND the specialty floor — one card, two boxes ticked. So a Wheated Estate bill (`minWheat: 2, minSpecialty: { wheat: 1 }`) needs 2 wheat cards total, of which at least 1 must be Specialty.
-
-Specialty thresholds tend to be:
-- **Common** — universal rule only.
-- **Uncommon** — one named-grain minimum.
-- **Rare** — three+ named grain OR one specialty card.
-- **Epic** — at least one specialty card required.
-- **Legendary** — two+ specialty cards required.
-
-Each Specialty card committed also grants **+1 reputation on sale** — a passive bonus separate from any specialty-gate requirement.
-
-### Over-committing
-
-Over-committing is allowed but earns no bonus. You may commit more cards than the recipe requires, but the reward grid only reads (age, demand) — extra cards do not increase the payout. Recipe caps (`maxRye: 0`, etc.) are still enforced; those are bill-specific bans, not minimums.
-
-### Failed Batch (optional)
-
-The first time a slot transitions **Staged → Building** (your first commit to a freshly-drawn bill), you may also discard one extra card from your hand and **trash** it. One of two ways to thin your deck (see [§Trashing Cards](#-trashing-cards)). Not available on subsequent commits to the same slot.
+| Rarity | Specialty pressure |
+|---|---|
+| **Common** | Universal rule only. |
+| **Uncommon** | Transition tier: at most 1 grain slot gated. |
+| **Rare** | Semi-gated: 1–2 `minSpecialty` entries. |
+| **Epic** | Fully gated: every cask + named-grain subtype in the recipe demands Specialty or Heritage. |
+| **Legendary** | Fully gated AND broader: more entries than any epic, often with tighter unit counts on a single slot. |
 
 ---
 
 ## Sell Bourbon
 
-Sell any of your **aging** barrels that is **at least 2 years old** AND has been in Aging phase for at least one full round.
+Sell any of your **aging** barrels that is **age ≥ 2** AND has been in Aging for at least one full round.
 
-**No card cost (v2.10).** The sell action is free — mandatory per-turn aging is the sole holding cost in the cards-in-to-rep-out economy.
+### Sale resolution (single-step)
 
-### Round-gap rule (v2.10)
+1. Read the bill's grid at `(barrel age, current demand)` → grid value.
+2. Add any per-card on-sale bonuses (themed cards like Spicy Rye, future Heritage hooks).
+3. Apply persistent barrel offsets (Master Distiller) and distillery sale modifiers (High-Rye House's +1 rep on rye bills).
+4. **Apply the tier floor** — the total is at least:
+   - **Tier 1** (Common, Uncommon) — 3 rep
+   - **Tier 2** (Rare) — 4 rep
+   - **Tier 3** (Epic, Legendary) — 5 rep
+5. Add the total to your **reputation** track.
+6. Demand drops by 1 (floor 0), unless an effect skips the drop.
+7. Cards under the barrel return to your discard.
 
-A barrel completed in round N first becomes sellable in round N+1, in addition to the age ≥ 2 threshold. Mechanically: a barrel is sellable iff `barrel.age >= 2 AND state.round > barrel.completedInRound`. The check is independent of how the barrel reached age 2 — Rushed Shipment or Forced Cure inside the completion round still cannot bypass the round-gap.
+The tier floor guarantees every sale clears its baseline build cost — even a Common bill at age 2 / demand 2 pays 3 rep. Higher-rarity bills float higher floors because their build costs are higher (more Specialty cards).
 
-Pre-aged starter barrels (High-Rye House, Wheated Baron) ship with `completedInRound: 0`, so the gap is satisfied from round 1 onward; their age 1 floor still has to clear before they sell.
+There is no split prompt — the engine resolves the rep total and lands it directly. (The v2.10 Gold-only "purchasing power" split is retired in v2.11 under unified rep.)
 
-### Sale resolution
+### Awards
 
-1. Read the attached mash bill's grid at `(barrel age, current demand)` to get N.
-2. Add **+1 reputation** for each Specialty or Double Specialty resource committed during production.
-3. Apply any persistent barrel offsets (e.g. Master Distiller).
-4. Determine the award eligibility:
-   - **No award / Silver-eligible** — 100% of the total goes to **reputation**. Purchasing power is not available.
-   - **Gold-eligible** — the player allocates the total across two outcomes (any combination summing to ≤ total):
-     - **Reputation** — advance your reputation track.
-     - **Purchasing power** — spend immediately on market buys following normal costs.
-5. Demand drops by 1 (floor 0).
-6. Distribute cards and resolve slot fate per [§Bourbon Awards](#-bourbon-awards).
+Some bills grant awards on sale — they manipulate **slot state**, not card draws.
 
-Any unspent total becomes reputation. Purchased cards go to discard. Purchasing power can't be saved across turns and can't chain into another sale.
+- **Silver** — bill stays in the now-empty slot as **Staged**. Slot does NOT open.
+- **Gold** — player chooses:
+  - **Convert.** Replace another of your slots' bill with the Gold one, provided that slot's committed cards satisfy the Gold recipe. The replaced bill goes to bourbon discard. *Connoisseur Estate may Convert into an Open slot — no recipe check.*
+  - **Keep.** Silver-style retention: bill stays in the selling slot as Staged.
+  - **Decline.** Bill to discard; slot opens.
 
-After the sale:
-- All cards under the barrel return to your discard.
-- The barrel record is removed.
-- **Slot fate depends on awards** (see [§Bourbon Awards](#-bourbon-awards)):
-  - **No award** — bill goes to bourbon discard, slot becomes fully **Open**.
-  - **Silver** — bill stays in the now-empty slot as **Staged** (recipe ready to receive new commits). Slot does NOT open.
-  - **Gold** — player chooses: Convert (replace another slot's bill, or land in an Open slot for Connoisseur Estate), Keep (Silver-style retention), or Decline (bill to discard, slot opens).
+Gold takes precedence if both Silver and Gold trigger. Gold does NOT trigger the final round — only the bourbon supply running out does.
 
 ---
 
-## Buy from the Market
+## Buy from the Market (Unified Rep)
 
-Spend cards from your hand totaling at least the **cost** of a card on the **market conveyor** (10 face-up cards). **Capital cards pay their printed value; any other card pays 1.** Resource and capital cards may be mixed in one purchase.
+Cost is paid in **reputation**, optionally supplemented by **Labor cards** from hand.
 
-Both the spent and purchased cards go to your discard. The empty conveyor slot refills from the supply.
+- **Cooper** (Specialty Labor) — +2 toward market resource buys.
+- **Marketing** (Specialty Labor) — +2 toward ops buys (no help on market resources).
+- **Generic Labor** — +1 toward any buy.
 
-One purchase at a time. No carryover — overpaying loses the excess.
+**Anchor rule:**
+- Buys costing **≥ 2** require **≥ 1 rep paid** (Labor cannot fully cover ≥$2 buys).
+- Buys costing **1** can be Labor-only (1 Generic = $1, no rep).
+
+Rep can never go below 0.
+
+Both the purchased card and any spent Labor cards go to your **discard**. The empty conveyor slot refills from the supply.
 
 ## Buy Operations Card
 
-Spend cards from your hand totaling the cost of a card from the **operations market** (3 face-up). Same payment rule as the market: capital pays its value, others pay 1. The bought ops card goes to your **operations hand**.
-
-You may also blind-draw the top of the ops deck by paying any 1 card.
+Same payment model. Marketing Labor (+2) is the matching specialty. The bought ops card goes to your **operations hand**.
 
 ## Draw a Mash Bill
 
 Three mash bills sit face-up beside the bourbon deck. Take one of:
 
-- **A face-up bill** — pay its printed cost. Capital pays printed value; others pay 1. Refill the row from the deck.
-- **The blind top** — pay any 1 card.
+- **A face-up bill** — pay its printed cost (**2 rep** by default).
+- **The blind top** — pay **1 rep**.
 
-**An open slot is required.** The drawn bill lands directly in one of your open rickhouse slots as **Staged**. If you have no open slots (all four are Staged, Building, or Aging), `Draw a Mash Bill` is illegal — you must sell or trash a slot first to create room.
+**Labor cards do NOT discount bill draws** — bills are recipe development, not engine purchases.
 
-This makes slot capacity the gating resource on the doomsday clock: bills can't be drawn speculatively to accelerate the clock — every draw requires an actual project.
+**An open slot is required.** The drawn bill lands directly in one of your Open rickhouse slots as **Staged**. If you have no open slots, the action is illegal.
 
 When the deck **and** face-up row are both empty, the **final round trigger** activates.
 
+> The 2-rep bill cost is a v2.11 stopgap. A proper bill-cost design lands in v2.12 after playtesting the unified-rep economy.
+
+## Hire
+
+Free action, **once per turn**: take 1 Generic Labor card from the central Hire pile and add it to your discard. Illegal when the pile is empty.
+
+The central pile is finite (sized ~5 × player count at setup) — late-game Hires aren't free.
+
+## Save Card
+
+At any point during your turn, set aside one card from your hand into your **Save slot**. Only resource and Labor cards may be saved.
+
+- Holds at most one card.
+- Persists across rounds.
+- On the next round's draw, the saved card joins your 8-card hand (so you draw 9 effectively).
+
+Strategic use: keep a Cooper card for the round you plan to buy a Heritage, or save a Specialty Rye for the round you'll commit it.
+
 ## Trade
 
-Two players exchange cards by mutual consent. Each side must offer at least one card. **Traded cards land in the recipient's hand**, not their discard. They are immediately available to play on subsequent turns (or this turn, if you are the active player receiving them as part of your own trade action). Trade is one of the active player's actions but does NOT end your turn.
+Two players exchange cards by mutual consent. Each side offers at least one card. **Traded cards land in the recipient's hand** (not discard).
 
-**Mash bills cannot be traded.** Bills are slot-bound and public — they only move via game actions (Draw a Mash Bill, Sell Bourbon's Gold-Convert option, Blend, Barrel Broker), never by player-to-player negotiation.
-
-Informal agreements (deferred trades, rickhouse leases) ride on Trade — they're not enforced by the rules.
-
-**Trading is illegal during the final round.**
-
-## Trash a Card
-
-Spend 1 card from your hand to permanently remove 1 other card from your hand. The trashed card is removed from the game; the spent card goes to discard. (Failed Batch on Make Bourbon is the second way to trash.)
-
-**Mash bills are governed separately.** A Staged slot may be trashed for free (the bill goes to bourbon discard, slot opens). Building and Aging slots cannot be trashed — once you've committed a card to a recipe, the only way out is to finish the build and sell the barrel.
+**Mash bills cannot be traded** — they're slot-bound and public. **Trading is illegal during the final round.**
 
 ## End Turn
 
-Voluntary. Cards remaining in your hand stay until cleanup, when resource and capital cards discard. Operations cards persist. You don't act again until next round.
+Voluntary. Cards remaining in your hand stay until cleanup. Operations cards persist across rounds.
 
 ---
 
 # 🏚️ The Rickhouse
 
-Each player owns their rickhouse outright — printed on the distillery card. **4 slots** by default, equivalent. No shared barrel space.
-
-Each slot is in one of four phases:
+**4 slots** by default, all equivalent. The Rickhouse Expansion Permit ops card raises the cap to **6**.
 
 | Phase | Bill? | Cards? | Ages? | Drawable into? |
 |---|:-:|:-:|:-:|:-:|
@@ -353,107 +294,67 @@ Each slot is in one of four phases:
 | **Building** | ✅ | partial | — | — |
 | **Aging** | ✅ | recipe complete | ✅ | — |
 
-The lifecycle: `Open` → (Draw a Mash Bill) → `Staged` → (Make Bourbon, first commit) → `Building` → (Make Bourbon, recipe complete) → `Aging` → (Sell Bourbon) → `Open` (or `Staged` on Silver / Gold-Keep).
+Lifecycle: `Open` → (Draw) → `Staged` → (Make, first commit) → `Building` → (Make, recipe complete) → `Aging` → (Sell) → `Open` (or `Staged` on Silver / Gold-Keep).
 
-When **all four** of your slots are taken (Staged, Building, or Aging), you cannot draw a new bill — you must sell or trash to free a slot.
-
-The Rickhouse Expansion Permit ops card raises capacity to a maximum of **6**.
+When **all** slots hold a bill, you cannot draw a new one — sell or finish a barrel first.
 
 ---
 
 # 📜 Mash Bills
 
-Recipes that determine each barrel's reward grid. **Bills are slot-bound** — they live directly on rickhouse slots and never enter a player's hand.
+Recipes that determine each barrel's reward grid. **Bills are slot-bound** — they live on rickhouse slots and never enter a player's hand.
 
 ### How bills enter play
 
-- **Setup draft** — each player drafts 3 bills (Connoisseur Estate: 4) directly into their starting slots. Standard distilleries leave the 4th slot Open for a bill drawn during play.
-- **Draw a Mash Bill action** — pay cost; bill lands in one of your Open slots as Staged.
-- **Allocation** ops card — draw up to 2 bills, capped by your Open-slot count.
-- **Barrel Broker** ops card — transfers a completed barrel (with its bill) into a recipient's Open slot.
-- **Gold Convert award** — replaces another slot's bill with the Gold one when its committed cards already satisfy the Gold recipe.
+- **Setup draft** — Vanilla draws 0, High-Rye/Wheated 0 + 1 pre-aged, Connoisseur 4.
+- **Draw a Mash Bill action** — pay rep; bill lands in an Open slot as Staged.
+- **Allocation** ops card — up to 2 bills free, capped by Open slots.
+- **Barrel Broker** ops card — transfers a completed barrel (with its bill) to another player.
+- **Gold Convert award** — replaces another slot's bill with the Gold one.
 
 ### Public information
 
-A bill is **public the moment it's slotted**. Every player can read every other player's bills (recipe, reward grid, awards) at any time. There's no hidden hand of recipes.
-
-### What ends a bill's lifetime
-
-When a barrel sells, the bill's fate depends on awards (see [§Bourbon Awards](#-bourbon-awards)):
-- **No award** — bill goes to bourbon discard, slot opens.
-- **Silver / Gold-Keep** — bill stays in the now-empty slot as Staged.
-- **Gold-Convert** — bill replaces another slot's bill; selling slot opens.
-- **Gold-Decline** — bill goes to bourbon discard, slot opens.
-
-A bill also goes to the bourbon discard when its Staged slot is trashed.
+Every bill is **public the moment it's slotted** — recipe, grid, awards, all visible to all players.
 
 ### Bills are not tradeable
 
-Bills cannot be transferred between players via Trade. They only move via the game actions listed above.
+Bills move only via the actions listed above — never by Trade.
 
 ---
 
 # 🃏 Hand and Deck
 
-Each player draws **8 cards** at the start of every round. No max hand size during a turn (mid-sale draws can temporarily expand). At cleanup, all unused resource and capital cards in hand discard. Operations cards persist.
+Each player draws **8 cards** at the start of every round (9 if they saved a card last round). No max hand size during a turn. At cleanup, all unused resource and Labor cards in hand discard. Operations cards persist.
 
-The deck contains **resource cards** (cask, corn, grain — premium variants like 2-rye come from the market) and **capital cards** (face-value currency).
-
-**Mash bills are NOT in your hand.** They live directly on rickhouse slots and are public. Operations cards are the only non-resource/non-capital cards a player holds privately.
-
-Decks grow through market purchases. The effective working deck shrinks as cards lock onto Building or Aging barrels — those cards are unavailable until sale.
+The deck contains **resource cards** (cask, corn, grain — premiums come from the market) and **Labor cards** (sweat equity that supplements rep on purchases).
 
 ### Card types
 
-- **Resource** — cask, corn, wheat, rye, barley. Needed to make bourbon. Premium variants count for more units.
-- **Capital** — currency. The printed value is its **payment value** when buying market cards, ops cards, or mash bills. In every other context (production, trading, aging) a capital card counts as 1.
-- **Operations** — bought from the face-up ops market. Played as a free action during the action phase. One-shot unless stated otherwise.
+- **Resource** — cask, corn, wheat, rye, barley. Needed to make bourbon.
+- **Labor** — sweat equity. Generic Labor (+1 anywhere) lives in the starter deck and the central Hire pile. Specialty Labor (Cooper +2 toward market resources, Marketing +2 toward ops) appears rarely in the market.
+- **Operations** — bought from the face-up ops market. Free-action interruptions; one-shot.
 
-### Card Bands (v2.7)
+### Card Bands
 
-Resource cards in the market sort into four pricing bands. Doubles count as 2 units toward recipes. Specialties carry a uniform luxury bonus — **+1 reputation when the barrel sells**, for each Specialty (or Double Specialty) committed to it. Capital cards collapse onto a $1 / $3 / $5 ladder; cost equals face value across the board.
+Resource cards in the market sort into three pricing bands. Every card is **1 unit**. Costs are paid in reputation.
 
-| Band | Cost | Units | On sale |
+| Band | Cost | Units | Notes |
 |---|:-:|:-:|---|
-| **Common** (cask, corn, rye, wheat, barley) | $1 | 1 | — |
-| **Double** (double cask / corn / rye / wheat / barley) | $3 | 2 | — |
-| **Specialty** (superior cask / corn / rye / wheat / barley) | $3 | 1 | +1 reputation |
-| **Double Specialty** (double superior cask / rye / wheat) | $6 | 2 | +1 reputation |
+| **Common** (cask, corn, rye, wheat, barley) | $1 | 1 | Basic; Labor-buyable. |
+| **Specialty** (superior cask / corn / rye / wheat / barley) | $2 | 1 | Satisfies `minSpecialty.<subtype>` gates. |
+| **Heritage** (heritage cask / corn / rye / wheat / barley) | $3 | 1 | Satisfies the same gates; per-card on-sale bonus hook (no Heritage card ships a populated bonus in v2.11). |
 
-Premium variants — Doubles, Specialties, and Double Specialties — only enter play via the market.
+Premium variants — Specialty and Heritage — only enter play via the market.
 
----
+The Labor strip also lives in the market:
 
-# 🥇 Bourbon Awards
+| Labor | Cost | Domain |
+|---|:-:|---|
+| **Generic Labor** | $1 | Any (+1 toward any buy) |
+| **Marketing** | $4 | Ops (+2 toward ops buys) |
+| **Cooper** | $4 | Market resources (+2 toward market resource buys) |
 
-Some mash bills grant special awards on sale. Awards manipulate **slot state** rather than card draws — winning a great bourbon means the recipe sticks around or jumps to a more promising slot.
-
-### Silver — Bill stays in slot
-
-When a barrel with a Silver-eligible bill sells:
-- All committed and aging cards distribute as normal (player's discard, mid-sale draws, etc.).
-- **The bill stays in the now-empty slot as Staged.** The slot does NOT open — it's a "ready project" awaiting fresh commits.
-- The full grid total goes to **reputation** (Silver does not unlock purchasing power; see [§Sell Bourbon](#sell-bourbon)).
-
-This rewards a successful sale by keeping the recipe on the board, ready to receive cards from your next hand.
-
-### Gold — Three mutually exclusive options
-
-When a barrel with a Gold-eligible bill sells, the player chooses **one** of:
-
-- **Convert.** Replace one of your **other** slots' bill with the Gold bill, provided that slot's already-committed cards satisfy the Gold recipe. The replaced bill goes to bourbon discard. The Gold bill is then locked into the target slot. The selling slot opens fully.
-  - **Connoisseur Estate — Open-slot Convert (v2.10).** Connoisseur may Convert into one of their **Open slots** (no barrel record there yet). The Gold bill lands in the Open slot as a Staged barrel. No recipe check is needed because there are no committed cards to validate.
-- **Keep.** The Gold bill stays in the now-empty selling slot (Silver-style retention). Slot becomes Staged.
-- **Decline.** The Gold bill goes to bourbon discard. The selling slot opens fully.
-
-**Convert constraints:**
-- Target must be one of your own slots, **not** the slot being sold.
-- Target slot must currently hold a bill whose committed cards satisfy the Gold bill's recipe — **unless** you're playing Connoisseur Estate, in which case an Open slot is also legal.
-- If no legal Convert target exists, the option is unavailable — pick Keep or Decline.
-
-Gold takes precedence if both Silver and Gold conditions are met. Gold awards do NOT trigger the final round — only the bourbon supply running out does.
-
-**Gold is the only path to purchasing power (v2.10).** Silver and no-award sales pay 100% reputation. Choosing Decline on a Gold-eligible sale still grants the rep/PP split — the monetization gate is Gold eligibility, not which Gold slot option you exercise.
+*Architect ($4 Specialty Labor for investments) is reserved for v2.12 when investments ship.*
 
 ---
 
@@ -461,25 +362,25 @@ Gold takes precedence if both Silver and Gold conditions are met. Gold awards do
 
 Range **0–12**, starting at 0.
 
-- **Rises by 1** when an active player's 2d6 turn-opening roll exceeds current demand. Up to N rises per round, one per player.
-- **Falls by 1** for each barrel sold (floor 0), unless skipped by an effect.
-- **Moved directly** by some ops cards (Market Manipulation, Bourbon Boom, Glut).
+- **Rises by 1** when an active player's 2d6 turn-opening roll exceeds current demand. Up to N rises per round (once per player).
+- **Falls by 1** for each barrel sold (floor 0), unless skipped.
+- **Moved directly** by some ops cards.
 
-Each mash bill defines its own demand bands — some pay better at low demand, others demand a hot market. Reading bands before attaching the bill is part of the game.
+Each mash bill defines its own demand bands. Some pay better at low demand; others demand a hot market.
 
 ---
 
-# 📈 Mash Bill Pricing
+# 📈 Reading a Mash Bill
 
-Every bill prints a grid keyed on age and demand. To resolve a sale:
+Every bill prints a grid keyed on age and demand:
 
 1. Find the highest age threshold ≤ the barrel's age — that's the row.
 2. Find the highest demand threshold ≤ current demand — that's the column.
-3. The cell is the reputation reward (N).
+3. The cell is the base reputation reward.
 
-Every legal sale pays at least 1 rep.
+The **tier floor** then guarantees a minimum (3 / 4 / 5 by rarity).
 
-### Example — Backroad Batch (workhorse bill)
+### Example — Backroad Batch (Tier 1 workhorse bill)
 
 `ageBands: [2, 4, 6]`, `demandBands: [2, 4, 6]`
 
@@ -489,100 +390,80 @@ Every legal sale pays at least 1 rep.
 | 4–5 | 2 | 4 | 5 |
 | 6+ | 3 | 5 | 6 |
 
-A 5-year barrel at demand 7 pays **5** reputation, allocatable across the rep track and purchasing power.
-
----
-
-# 🃏 Trashing Cards
-
-Two ways to permanently remove a card from your deck:
-
-- **Trash a Card** action — spend 1 to trash 1.
-- **Failed Batch** — when opening a barrel via Make Bourbon, you may also discard and trash one extra card.
-
-Trashed cards leave the game; they don't return to deck, discard, or any zone.
+A 5-year barrel at demand 7 reads **5** on the grid. Tier-1 floor (3) is met — no clamp needed. The 5 rep lands on the player's track.
 
 ---
 
 # 🃏 Operations Cards
 
-Operations cards represent market moves, regulatory events, competitive pressure, and moments of opportunism.
+Bought from the face-up **operations market** (3 face-up). Held in a separate **operations hand** (no size limit). Played as a **free interruption** during your turn — one-shot. **Not tradeable.**
 
-- Bought from the face-up **operations market** (3 face-up). Empty slot refills from the top of the deck after each purchase.
-- Held in a separate **operations hand** with no size limit.
-- Played as a **free interruption** during your turn — does NOT consume an action.
-- **One-shot** unless the card states otherwise; discarded after play.
-- **Not tradeable.**
-- **Not playable during the final round** — except those already in your hand before the final round began.
+Operations cards held before the final round can be played; new ops cards bought during the final round **cannot** be played that round.
 
-### Selected ops cards
+### The full deck
 
-These are representative — the full deck is defined in `packages/engine/content/operations.yaml`.
-
-| Card | Cost | Effect |
+| Card | Cost (rep) | Effect |
 |---|:-:|---|
-| **Market Manipulation** | 3 | Move demand up or down by 1. |
-| **Bourbon Boom** | 4 | Demand +2 (cap 12). |
-| **Glut** | 3 | Demand −2 (floor 0). |
-| **Demand Surge** | 4 | Your next sale this round does not drop demand. |
-| **Rushed Shipment** | 4 | Age one of your barrels twice this round. |
-| **Forced Cure** | 4 | Place an extra aging card on a barrel for one extra year. |
-| **Mash Futures** | 3 | Pre-play. Your next Make Bourbon's grain min relaxes by 1. |
-| **Cooper's Contract** | 2 | Pre-play. Your next Make Bourbon may use 0 cask. |
-| **Market Corner** | 5 | Take a face-up market card free into your hand. |
-| **Insider Buyer** | 3 | Discard the conveyor and refill from supply. |
-| **Kentucky Connection** | 2 | Draw 2 cards. |
-| **Bottling Run** | 3 | Every player draws 1. |
-| **Cash Out** | 1 | Discard your resource cards; gain that many $1 capitals in discard. |
-| **Allocation** | 4 | Draw up to 2 mash bills free, one per Open slot. If you have 0 Open slots, the card is consumed for no effect. |
-| **Regulatory Inspection** | 5 | Target an aging barrel. It cannot be aged this round. |
-| **Barrel Broker** | 6 | Transfer one of your aging barrels to another player's **fully-Open** slot for a card payment. The barrel's bill rides with it; the recipient now owns both. |
-| **Blend** | 6 | Merge two of your aging barrels into one slot. Pick which slot survives; the other opens fully. Merged barrel keeps the higher age, higher-value bill (player's choice on tie), and all committed + aging cards. The discarded bill goes to bourbon discard. |
-| **Rating Boost** | 4 | Pre-play. Your next sale gains +2 reputation. |
-| **Master Distiller** | 6 | Choose one of your aging barrels — for the rest of the game it reads its grid as if demand were +2. |
-| **Rickhouse Expansion Permit** | 6 | Permanently +1 rickhouse slot (max 6). |
+| **Cooper's Contract** | 1 | Pre-play. Next Make Bourbon may use 0 cask. |
+| **Cash Out** | 1 | Discard any number of resource cards; gain 1 rep per 2 discarded (round down). |
+| **Kentucky Connection** | 1 | Draw 2 cards. |
+| **Market Manipulation** | 2 | Move demand ±1. |
+| **Glut** | 2 | Demand −2 (floor 0). |
+| **Mash Futures** | 2 | Pre-play. Next Make Bourbon grain min −1. |
+| **Insider Buyer** | 2 | Discard the entire 10-card conveyor; refill from supply. |
+| **Bottling Run** | 2 | Every player draws 1. |
+| **Bourbon Boom** | 3 | Demand +2 (cap 12). |
+| **Demand Surge** | 3 | Your next sale this round does not drop demand. |
+| **Rushed Shipment** | 3 | Age one of your barrels twice this round. |
+| **Forced Cure** | 3 | +1 aging card on a barrel for an extra year. |
+| **Allocation** | 3 | Draw up to 2 mash bills free, capped by Open slots. |
+| **Rating Boost** | 3 | Pre-play. Next sale +2 reputation. |
+| **Regulatory Inspection** | 3 | Target an aging barrel. It cannot be aged this round. |
+| **Market Corner** | 3 | Take a face-up market card free into your hand. |
+| **Blend** | 4 | Combine two of your own barrels into one. |
+| **Barrel Broker** | 4 | Transfer one of your aging barrels to another player's Open slot for a card payment. |
+| **Master Distiller** | 5 | Persistent. One barrel reads grid at demand +2. |
+| **Rickhouse Expansion Permit** | 5 | Permanently +1 rickhouse slot (max 6). |
 
 ---
 
 # 🏛️ Distillery Profiles
 
-Four distilleries (v2.10). Each profile is a full asymmetric package: **starting state**, **permanent ability**, **constraint** (asymmetric three only). Setup runs a reverse-snake pick from the shared pool — no two players share a distillery.
+Four distilleries. Each profile is a full asymmetric package: **starting state**, **starting rep**, **permanent ability**, **constraint** (asymmetric three only).
 
 ### Vanilla Distillery — "The Symmetric Option"
-- *Starting state:* 4 Open slots, no pre-aged barrels.
+- *Starting state:* 5 starting rep, 4 Open slots, no pre-aged barrels.
 - *Permanent ability:* None.
 - *Constraint:* None.
 
-Pick Vanilla for a level playing field or an introductory game.
+The baseline. Pick for an introductory game.
 
 ### High-Rye House — "The Specialist"
-- *Starting state:* 1 pre-aged rye barrel (age 1, `starter_high_rye` bill, `agingSinceRound = 0`), 3 Open slots, plus **2 free Specialty Rye** cards in your starter deck.
-- *Permanent ability:* +1 reputation when selling any barrel whose attached bill has `minRye ≥ 1`. Stacks with Specialty bonuses.
-- *Constraint:* You cannot draft or draw any mash bill with `maxRye: 0` (the wheated lane is closed). Wheated bills in the face-up row are illegal targets; blind draws auto-skip wheated bills back to the bottom of the deck.
+- *Starting state:* 4 starting rep, 1 pre-aged rye barrel (age 1), 3 Open slots, plus **2 free Specialty Rye** in your starter deck.
+- *Permanent ability:* +1 reputation when selling any barrel whose bill has `minRye ≥ 1`.
+- *Constraint:* Cannot draft or draw any mash bill with `maxRye: 0` (wheated lane closed).
 
 ### Wheated Baron — "The Smooth Operator"
-- *Starting state:* 1 pre-aged wheated barrel (age 1, `starter_wheated` bill, `agingSinceRound = 0`), 3 Open slots.
-- *Permanent ability:* Wheated bills (`maxRye: 0`) require 1 fewer wheat to complete (floor 0 on the bill's `minWheat`). No effect on wheated bills whose `minWheat` is already 0.
-- *Constraint:* You cannot commit **any rye card** (Common, Double, Specialty, Double Specialty) to a barrel. Rye in your hand is still legal currency at the market and in trades.
+- *Starting state:* 4 starting rep, 1 pre-aged wheated barrel (age 1), 3 Open slots.
+- *Permanent ability:* Wheated bills require 1 fewer wheat to complete (floor 0).
+- *Constraint:* Cannot commit **any rye card** (Common, Specialty, Heritage) to a barrel. Rye is still legal at the market and in trades.
 
 ### Connoisseur Estate — "The Diversified"
-- *Starting state:* Drafts **4 mash bills** at setup instead of 3 — every slot ships Staged at game start. No Open slot until one is freed.
-- *Permanent ability:* When you trigger a Gold award, Convert may target an **Open slot** in addition to existing-bill slots. The Gold bill lands there as a Staged barrel (no recipe check required). Standard Convert into an existing slot also remains available.
-- *Constraint:* Maximum slotted bills is 4. Even with Rickhouse Expansion Permit, slots 5 and 6 cannot receive freshly drawn bills — they function only as overflow space for completed barrels transferred via Barrel Broker, Blend, or other ops effects.
-
-> **Roster note.** The earlier v3 roster (Quick-Turn Bottler, Patient Cooper, Single-Barrel House, The Estate, Storm Chaser, Mothballed, Bourbon Purist, Artisanal) is retired alongside the older Warehouse / Old-Line / The Broker. Most of those leaned on the composition-buff system, which v2.8 removed entirely. The v2.10 four-distillery roster retargets every ability at systems that exist today: specialty gates, slot caps, and sale-time modifiers.
+- *Starting state:* 6 starting rep, drafts **4 mash bills** at setup — every slot ships Staged.
+- *Permanent ability:* When you trigger a Gold award, Convert may target an **Open slot** (no recipe check).
+- *Constraint:* Slotted-bill cap of 4 — even with Rickhouse Expansion Permit, slots 5/6 are overflow only (transferred barrels, never freshly drawn bills).
 
 ---
 
 # 🎲 Player Count Notes
 
-Designed and balanced for **2–4 players**.
+Designed for **2–4 players**.
 
-- **2 players** — fastest; high variance. Demand swings dramatically with fewer sales to anchor it. Tactical play over long-arc planning.
-- **3 players** — the sweet spot. Demand pressure is meaningful, ops cards make table moments, doomsday clock paces well.
-- **4 players** — fullest experience. Real drama on ops, contested demand track, the most chaotic final rounds.
+- **2** — fastest; high variance.
+- **3** — sweet spot. Demand pressure is meaningful, ops cards make table moments.
+- **4** — fullest experience. Real drama on ops, contested demand track.
 
-v2.10 ships four distilleries (Vanilla + 3 asymmetric), supporting 2–4 players cleanly. **5+ players are not supported** in this build for balance reasons.
+**5+ players are not supported** in this build for balance reasons.
 
 ---
 
@@ -590,44 +471,29 @@ v2.10 ships four distilleries (Vanilla + 3 asymmetric), supporting 2–4 players
 
 Two ways to play, both running the same engine:
 
-- **Solo (`/play`)** — you + 1–3 bots. State lives in your browser; bots step locally.
-- **Online (`/multiplayer` + `/play/[code]`)** — 1–4 humans + bots, server-authoritative. State lives in DynamoDB behind a WebSocket Lambda; every action round-trips through `applyAction` on the server, then broadcasts to every connected client. Bot turns inline-step on the server too, so bot moves animate instantly between human turns.
+- **Solo (`/play`)** — you + 1–3 bots. State lives in your browser.
+- **Online (`/multiplayer` + `/play/[code]`)** — 1–4 humans + bots. Server-authoritative (WebSocket Lambda + DynamoDB). Bot turns inline-step server-side; moves animate instantly between human turns.
 
 ### Host flow
 
 1. Open `/multiplayer`, pick a name + total human seats (1–4) + bot seats (0–3).
-2. **Create room →** mints a 4-character code (Boggle-style, no 0/O/1/I), seats you as host (`human0`), and routes you to `/play/[code]`.
-3. Copy the share link from the room banner. The waiting room shows the per-seat roster live.
-4. **Start game →** flips the room out of pre-game lobby. The setup-phase modals (starter-deck draft, draw) fire same as solo — only the seat the engine is on the clock for sees the prompt; the rest see "waiting on X". Once the action phase begins, each player rolls their own demand and ages their own barrel on their own turn (per v2.9).
+2. **Create room →** mints a 4-character code, seats you as host, routes you to `/play/[code]`.
+3. Copy the share link. The waiting room shows the per-seat roster live.
+4. **Start game →** flips the room out of pre-game lobby. Setup-phase modals fire on the seat the engine is awaiting; others see "waiting on X". Each player rolls their own demand and ages their own barrels on their own turn.
 
 ### Join flow
 
-1. Paste the share link. If you've never set a name on this device, a name prompt appears before the socket opens.
-2. The roster strip in the room banner shows every seat — **claim** an open seat by clicking it. You become that seat for the rest of the game; subsequent actions you submit are gated server-side against your claimed playerId.
-3. If you arrive as a **spectator** (deep-link to a started game with no open seats), you see the GameBoard but the bottom tray reads "👁 Spectating" instead of someone else's hand.
-
-### Under the hood
-
-- 4-char codes mint from a 32-letter alphabet (8-try collision resolution against ~1M keyspace).
-- Rooms expire 14 days after their last write (DynamoDB TTL); abandoned games clean themselves up.
-- Connection table has a `roomCode` GSI so broadcasts iterate every socket in a room without scanning.
-- Optimistic CAS on every state write — two clients racing the same action see one win, the other gets `stale-state` and resyncs.
-- Reconnect is name-based: if your display name already owns a seat, joining the room rebinds you to it without a re-claim round-trip.
-- Animations (sale flight, make flight, purchase flight) ride along on every broadcast so flights fire on every client, not just the actor's screen.
-
-### Lifecycle messages
-
-- `create-room` / `join-room` / `claim-seat` / `release-seat` / `start-game` (host-only) / `action` / `resync`.
-- Host-only actions (`start-game`) are gated by `connectionId.playerId === "human0"`.
-- Setup-phase modals self-gate: starter-deck draft only fires on the seat the engine is awaiting; draw phase fires for each seat that hasn't drawn yet; the v2.9 demand-roll modal and aging overlay each fire only for the seat whose turn is currently open (not host-only — every player rolls and ages on their own turn).
+1. Paste the share link. Name prompt if first time on this device.
+2. **Claim** an open seat by clicking it in the roster.
+3. **Spectator** mode if you deep-link to a started game with no open seats.
 
 ---
 
 # 🔁 The Core Loop
 
-Pick a distillery → draft mash bills directly into your slots → build a starter deck → draw 8 cards a round → commit cards toward a Staged or Building slot → finish the recipe → age it → sell when demand favors you → take rep, cards, or both → buy more → play ops at the right moment → **manage your open slots** (every drawn bill needs one) → watch the rotation for your bookend → time your endgame.
+Pick a distillery → draft mash bills directly into your slots → build a starter deck → draw 8 cards a round → commit cards toward a Staged or Building slot → finish the recipe → age it → sell when demand favors you → bank the rep → spend rep (with Labor) to grow the engine → play ops at the right moment → **manage your open slots and your rep balance** (every drawn bill needs both) → watch the rotation for your bookend → time your endgame.
 
-The mash bill supply is the **doomsday clock**. Drawing mash bills accelerates the end — and slot capacity is the natural throttle: you can't draw a bill without an Open slot to receive it.
+The mash bill supply is the **doomsday clock**. Drawing mash bills accelerates the end — slot capacity is the natural throttle.
 
 ---
 
@@ -641,30 +507,40 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 
 # 📜 Changelog
 
-- **v2.10** — **"Identity & Economy."**
-  - **Gold-only purchasing power.** Only Gold-awarded sales can split grid value between reputation and purchasing power. Silver and no-award sales pay 100% reputation. Sale resolution branches on award type — `canMonetize` is gated by Gold eligibility, not the player's allocation choice. Net effect: Gold becomes the sprinter's economy (fast capital, deck-shaping), non-Gold becomes the grinder's economy (steady rep, deck stable). Cash Out and the operations market become more important for non-Gold players; investments will close more of the gap when they ship.
-  - **All barrels must age before selling.** Formalized the round-gap rule: a barrel must be in the Aging phase for at least one full round before it can sell, in addition to the `age ≥ 2` threshold. Tracked via `completedInRound` on each barrel; sellability requires `currentRound > completedInRound`. Closes the v2.9 edge case where Rushed Shipment or Forced Cure could compress completion-to-sale into a single round. Pre-aged starter barrels are exempt (their `completedInRound = 0` makes them sellable from round 1 onward as soon as they clear the age 2 threshold).
-  - **Distilleries re-enabled.** `DISTILLERIES_ENABLED` flips back on. Four-distillery roster returns: **Vanilla, High-Rye House, Wheated Baron, Connoisseur Estate**. Abilities re-tooled for the post-composition-buff world — High-Rye gets a +1 rep sale-time mod on rye-bill sales, Wheated reduces wheat requirements on wheated bills, Connoisseur unlocks Gold Convert into Open slots. Constraints retargeted: High-Rye bans wheated bills, Wheated bans rye commits, Connoisseur caps slotted bills at 4. Vanilla is the symmetric default. The retired roster (Quick-Turn, Patient Cooper, Single-Barrel, Estate, Storm Chaser, Mothballed, Bourbon Purist, Artisanal — and the older Warehouse / Old-Line / The Broker) stays retired.
-  - **Sell action no longer costs a card.** The v2.7.1 1-card sell cost is dropped. Mandatory per-turn aging (v2.9) is now the sole holding cost in the cards-in-to-rep-out economy. Floor ratio shifts from 7:1 to ~6:1; combined with Gold-only PP, the two economic paths widen meaningfully. Sell UX simplifies: pick barrel → sale resolves. No card-spend step.
-  - **Bot AI overhaul.** Bot heuristics updated for the v2.10 economy: distillery-aware action weights (High-Rye prefers rye bills and skips wheated drafts, Wheated never commits rye, Connoisseur values Open-slot Convert), Gold-eligibility valued ~50% higher than equivalent non-Gold sales, distillery sale-bonus baked into the priority score, and a round-gap-respecting sale filter. Distillery picker rebuilt around the new 4-roster.
-- **v2.9** —
-  - **Per-turn demand rolls.** Demand is no longer a once-per-round global ceremony at the top of the round. Each player rolls their own 2d6 at the very start of *their own* action turn — it's the mandatory first action of the turn, gated by `player.needsDemandRoll` (set when the cursor lands on the seat, cleared by ROLL_DEMAND). The phase strip drops the dedicated `demand` phase; rounds now run **Draw → Action → Cleanup**. Demand can rise up to N times per round (once per player) instead of once total, accelerating the market. Multiplayer: each player sees their own demand-roll modal at the top of their turn (others wait for the broadcast); bots roll inline via the orchestrator.
-  - **Mandatory per-turn aging.** The dedicated Age phase is gone. Right after the demand roll, the active player **must commit one card from hand to every one of their eligible aging barrels** before taking any other action — gated by `player.needsAgeBarrels` (set by ROLL_DEMAND when the player has any un-aged aging barrel, cleared by AGE_BOURBON once every eligible barrel has been touched). Players with no aging barrels skip the cost; players with no cards in hand can `PASS_TURN` (forfeits the turn) or `ABANDON_BARREL` (only for ready/construction barrels — aging barrels can only leave via SELL). The per-turn loop is now: **Roll → Age → Actions**, creating a real holding cost for sitting on inventory while waiting for demand to rise. v3 tightened this from "one barrel touched is enough" to "every aging barrel must be touched" — multiple aging barrels now compound the holding cost.
-  - **Tutorial mode.** New `/tutorial` route — an overlay-driven walkthrough that boots a deterministic solo game (1 human + 1 bot, seed 42) and narrates 13 steps from welcome through the player's first sale. The overlay paints a yellow halo or cutout dim around the call-to-action zone; steps with auto-advance predicates fire forward when the player satisfies the relevant `GameState` condition (round ticked, barrel reached aging, age ≥ 2, barrelsSold ≥ 1, etc.). Read-only board-tour pages get a hard cutout dim; live-action pages stay light so the player can see and click the whole board. Skip button on every step. The home screen surfaces it as a violet tile so a fresh player lands here first.
-- **v2.8** —
-  - **Multiplayer (online).** Host a 4-char-code room at `/multiplayer`; friends join via share link, claim seats, the host hits Start. Server-authoritative — every action round-trips through `applyAction` on AWS Lambda, then broadcasts to every connected client. Bot turns inline-step server-side so bot moves animate instantly between human turns. Pre-game lobby (waiting room with roster + Start button), seat claiming + release, reconnect-by-name, spectator mode, host-gated demand roll, per-seat draw modals. Setup-phase modals self-gate to the seat the engine is on the clock for. Infra: SST 4 / API Gateway WebSocket / DynamoDB rooms+connections / EventBridge cron tick fallback. See §Multiplayer for the full flow.
-  - **Composition Buffs removed entirely.** The five threshold buffs (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all four grains) are deleted with no replacement. Sale resolution simplifies to grid lookup + Specialty bonus + awards. Aging cards now exclusively advance the age counter and contribute nothing else to sale payout. Resource cards do whatever their printed text says — most have no sale-time effect. The "demand does not drop on sale" effect previously granted by 2+ capital is preserved only via the Demand Surge ops card.
-  - **Reward grids are now monotonic.** Every bill's grid rises (or holds flat) going right across demand and going down across age — no backward steps. Dropped the v2.7.2 "grain character" curves where wheat peaked mid-demand and barley peaked low; those produced cells that paid less at higher demand and read as bugs at a glance. Locked in with a per-tier shape invariant.
-  - **Tier 1 commons run a slim single-axis grid** (1×N or N×1) with at most 2×2; uncommons run a varied 1×3 / 2×2 / 2×3 / 3×1 mix; rares 2×2 / 2×3 / 3×2; epics 3×2 / 3×3; legendary 4×4. Shape now encodes character — a flat-age wheat bill reads `1×3`, a pure-aging barley bill reads `3×1`.
-  - **Sell + Age UX overhaul.** Sell now opens a picker (pick a barrel, pick a card to spend, action auto-fires on the second click). Age auto-fires the same way — no Confirm button. Selling a barrel fans the production + aging cards out from the slot to the seller's discard pile via a new `SaleFlight` animation. Recipe chips on the inspect modal + gallery now dedupe specialty + universal — a `minSpecialty: { cask: 1 }` recipe shows one chip, not two. New `mashBillBuildCost` tuning aid (basic = 1, specialty = 4, plus draw cost) surfaced as a "build N" pill on every card.
-- **v2.7.2** — **Specialty gates + rarity-ramped recipes.** Mash bill recipes can now require **Specialty** cards by subtype (`minSpecialty: { rye: 1 }`). One Specialty card satisfies both the regular minimum AND the specialty floor — a single Superior Rye covers a `minRye: 1, minSpecialty: { rye: 1 }` recipe. Recipe complexity now scales with rarity: commons keep the universal rule only; uncommons require ≥2 of a named grain; rares ask for 3 grain or 1 specialty; epics gate behind 1+ specialty; legendaries 2+ specialty. Bourbon Cards gallery rebuilt around the new constraints — heat-mapped payoff matrix, gold-bordered specialty chips, awards baked into the matrix cell background.
-- **v2.7.1** —
-  - **Trade clarified:** traded cards land in the recipient's hand (not discard), making them immediately available on subsequent turns. Corrects an earlier draft that sent traded cards to discard and made the trade action mechanically inert until the next round.
-  - **Sell Bourbon now explicitly costs 1 card from hand** (any resource or capital card), spent to discard. This formalizes part of the intended cards-in-to-rep-out economy: a baseline barrel sale consumes ~7 cards across its full lifecycle (bill draw + cask + corn + grain + 2 aging cards + sell-action card) for a minimum 1 rep payout, establishing the 7:1 floor ratio that scales toward ~2:1 at peak play.
-- **v2.7** — **Make Bourbon per-slot turn cap removed** (a player can now commit to the same slot as many times as they want on a single turn; recipe-completion fires after every commit). **Mash bill catalog recalibrated** into three difficulty/payoff tiers (Tier 1 starter / Tier 2 mid / Tier 3 specialty) with peak rewards and Gold awards scaled per tier. **Distillery profiles temporarily disabled** behind a `DISTILLERIES_ENABLED` feature flag — every game runs as Vanilla while the roster is rebuilt; engine code preserved. New **Bourbon Cards gallery** on the home screen — a read-only browser of every mash bill, sorted by tier. **Resource card economy overhaul** — market resources collapse onto four pricing bands (Common $1 / Double $3 / Specialty $3 / Double Specialty $6) with a uniform Specialty bonus (+1 rep on sale); capitals collapse onto a $1 / $3 / $5 ladder.
-- **v2.6** — **Slot-Bound Mash Bills.** Mash bills no longer enter a player's hand. Bills are drawn directly into an open rickhouse slot and remain public for their lifetime in that slot. Drawing a bill requires an open slot — slot capacity now gates the doomsday clock. New 4-phase slot lifecycle: **Open → Staged → Building → Aging**. `Make Bourbon`'s "attach a bill" sub-step is removed; the action only commits cards. Silver award reworked to "bill stays in slot" (slot becomes Staged, ready for fresh commits). Gold award reworked to three mutually exclusive options on trigger: **Convert** (replace another slot's recipe with the Gold bill, provided that slot's already-committed cards satisfy the Gold recipe), **Keep** (Silver-style retention in the now-empty selling slot), or **Decline** (bill to bourbon discard, slot opens fully). Connoisseur Estate constraint reframed as "maximum slotted bills is 4" (replaces the old mash-bill hand cap). Allocation, Barrel Broker, and Blend ops cards updated for slot-bound bills. Trashing bills is free for Staged slots, action-cost for Building slots (subsumed by Abandon Barrel). Over-committing past a recipe minimum is allowed but earns no bonus — the reward grid is keyed off `(age, demand)` only.
-- **v2.5** — **Incremental Mash Commitment.** Production redesigned: barrels are built across multiple turns via repeated `Make Bourbon` actions. Recipes auto-complete the moment the cumulative committed pile satisfies them; completed barrels first age the round after completion. New `Abandon Barrel` action returns committed cards to discard. **Convert (3:1) removed** — incremental commitment makes stranded resources less common. Distillery roster trimmed: Warehouse, Old-Line, and The Broker retired (their abilities were inert or carved out an awkward final-round asymmetry). Trading is now flatly illegal in the final round, no exceptions. Player count narrowed to 2–4.
-- **v2.4** — Composition Buffs added (3+ cask, 3+ corn, 3+ single grain, 2+ capital, all-four-grains). Starter deck setup replaced with random-deal + 3-minute trade window + once-per-player stuck-hand swap. Distillery cards rebuilt as full asymmetric opening packages. Bot heuristics updated.
-- **v2.2.x** — Rickhouse bonded/upper tier distinction removed. All slots equivalent; ops cards (Regulatory Inspection, Barrel Broker, Blend) that used to be tier-gated now operate on any aging slot.
-- **v2.2** — Action Phase restructured: full turns, not one-action-per-round. Start player rotates each round (last → first). Operations cards moved to purchase-only.
-- **v2.1** — Operations cards added (8 effects), Rush to Market and Distressed Sale Notice removed, ops bought from face-up market.
+- **v2.11** — **"Three Bands · Unified Rep"** — a two-part economic redesign that ships in one alpha:
+
+  **Three Bands, One Unit** (resource economy)
+  - **2-unit cards eliminated.** Every card is now 1 unit. The Double Specialty band (2-unit $6 cards) is renamed **Heritage** and shipped at 1 unit, $3, with cards minted for all five subtypes (cask, corn, rye, barley, wheat). The plain Double band was retired in v2.10; v2.11 finishes the job.
+  - **Cost ladder compressed.** Common $1 / Specialty $2 / Heritage $3 — the old $1 / $3 / $6 ladder shortens to three single-step bands.
+  - **Uniform Specialty +1 rep on sale retired.** Specialty cards no longer pay a flat band-wide sale bonus. Heritage cards each carry a reserved `effect` hook for per-card bonuses (no Heritage card ships a populated bonus in v2.11). Distillery-driven sale modifiers (High-Rye House's +1 rep on rye bills) ride a separate code path and are unaffected.
+  - **Mash bill specialty-gate ramp retuned.** Uncommons gain light specialty pressure (≤1 grain slot gated). Rares span 1–2 entries. Epics fully gate cask + every named-grain subtype in the recipe. Legendary High Rickhouse Select broadens to 5 entries / 6 specialty units total — more than any epic on both axes.
+  - **`mashBillBuildCost` recalibrated.** `SPECIALTY_UNIT_COST` drops from 4 to 2 (market cost only, no sale-bonus premium). The Bourbon Wiki "build N" pill now reads accurately.
+
+  **Unified Rep & Sweat Equity** (currency / spending economy)
+  - **Capital cards retired entirely.** No capital in starter decks, the market, or game state. Reputation is now the single unified currency for both victory points and spending power. Every purchase is a real victory cost.
+  - **Reputation track is the wallet AND the score.** Spent on market buys, ops card buys, and mash bill draws. Rep can never go below 0.
+  - **Sale floors by tier.** Every sale pays at least the tier floor: 3 rep for Tier 1 (Common/Uncommon), 4 for Tier 2 (Rare), 5 for Tier 3 (Epic/Legendary). Guarantees every sale clears its base build cost; encourages playing the production loop.
+  - **No split prompt on Sell.** Single-step sale — engine resolves grid + bonuses + tier floor and lands the total on the rep track. The v2.10 Gold-only purchasing-power rule is retired.
+  - **Labor cards — new card type.**
+    - **Generic Labor** ($1, 4 in the starter deck, lives in the central Hire pile) — +1 toward any purchase. Also legal as an aging-commit card.
+    - **Specialty Labor** — domain specialists (rare market drops):
+      - **Cooper** ($4) — +2 toward market resource buys.
+      - **Marketing** ($4) — +2 toward ops card buys.
+      - **Architect** ($4) — +2 toward investment buys. *Reserved for v2.12 when investments ship.*
+  - **Spending anchor rule.** Purchases costing ≥ 2 require ≥ 1 rep paid (Labor cannot fully cover ≥$2 buys). $1 buys may be paid with 1 Labor and 0 rep.
+  - **Hire action.** Once per turn, free: take 1 Generic Labor from the central pile into your discard. Pile is finite (~5 per player).
+  - **Save slot.** Each player has one Save slot. At any point during your turn, set aside one card from your hand. It joins next round's draw on top of the 8-card deal.
+  - **Starting rep by distillery.** Vanilla 5, High-Rye House 4, Wheated Baron 4, Connoisseur Estate 6.
+  - **Bill cost (stopgap).** Bills cost 2 rep face-up, 1 rep blind. Labor doesn't discount bill draws. A proper bill-cost design lands in v2.12.
+  - **Ops card cost rebalance.** Every cost dropped under unified rep (rep is precious). New ladder caps at 5 — Master Distiller and Rickhouse Expansion Permit at the top, Cooper's Contract and Cash Out at the floor.
+  - **Cash Out reworked.** "Discard any number of resource cards; gain 1 rep per 2 discarded (round down)" — the internal-economy "convert spare cards to rep" valve.
+  - **Trash a Card action removed.** Top-level Trash a Card is gone. Failed Batch (Make Bourbon sub-option) is also removed. Both were marginal under the new economy.
+  - **Bot AI overhaul.** Bot heuristics rewritten for the unified-rep economy: Hire each turn, prioritize bill draws when no in-progress barrel + bills available, reserve rep for bill draws over cheap buys, pay with Labor first then rep, simplified single-step sales.
+
+- **v2.10** — **"Identity & Economy."** Distilleries re-enabled (4-distillery roster). Sell action no longer costs a card. Round-gap rule (a barrel completed in round N first sells in round N+1). Resource bands reduced from four to three (plain Double tier retired). Exact-recipe rule introduced (over-committing rejected). Specialty-cask exclusivity. Specialties backwards-compatible with subtype mins.
+- **v2.9** — **Per-turn demand rolls + mandatory per-turn aging.** Demand is no longer a once-per-round global ceremony — each player rolls at the top of their own turn. The dedicated Age phase is gone; after rolling demand, the active player must commit one card to every eligible aging barrel before taking other actions. Tutorial mode added at `/tutorial`.
+- **v2.8** — **Online multiplayer.** Composition Buffs removed entirely. Reward grids are now monotonic (no backward steps).
+- **v2.7.x** — Specialty gates + rarity-ramped recipes. Make Bourbon per-slot turn cap removed. Mash bill catalog recalibrated into three difficulty/payoff tiers. Bourbon Cards gallery added. Resource card economy collapsed to four pricing bands (then to three in v2.10).
+- **v2.6** — **Slot-Bound Mash Bills.** Bills no longer enter the hand — they live on slots from draw to sale. 4-phase slot lifecycle: Open → Staged → Building → Aging. Silver award reworked to "bill stays in slot." Gold reworked to Convert / Keep / Decline.
+- **v2.5** — **Incremental Mash Commitment.** Barrels built across multiple turns. Trading flatly illegal in the final round.
+- **v2.4 and earlier** — Composition Buffs (later removed in v2.8). Random-deal starter pool + trade window + stuck-hand swap. Distillery cards as full asymmetric packages. Operations cards added (v2.1).

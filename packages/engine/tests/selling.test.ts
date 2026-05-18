@@ -1,14 +1,21 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
 import { computeReward, awardConditionMet } from "../src/rewards.js";
-import { makeMashBill, makeCapitalCard, makeResourceCard } from "../src/cards.js";
-import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel } from "./helpers.js";
+import { makeMashBill } from "../src/cards.js";
+import { saleFloorForBill } from "../src/types.js";
+import { advanceToActionPhase, makeTestGame, placeBarrel } from "./helpers.js";
 
-const testBill = () =>
+// v2.11 (Unified Rep): SELL_BOURBON is single-step. Grid + bonuses
+// land directly on the rep track, clamped to the bill's tier floor
+// (3 for common/uncommon, 4 for rare, 5 for epic/legendary). The
+// v2.10 split prompt and Gold-only purchasing-power rule are retired.
+
+const testBill = (tier: "common" | "uncommon" | "rare" | "epic" | "legendary" = "common") =>
   makeMashBill(
     {
       defId: "test_bill",
       name: "Test",
+      tier,
       ageBands: [2, 4, 6],
       demandBands: [2, 4, 6],
       rewardGrid: [
@@ -24,15 +31,15 @@ describe("computeReward", () => {
   it("looks up the correct cell for valid age + demand", () => {
     const b = testBill();
     expect(computeReward(b, 2, 2)).toBe(1);
-    expect(computeReward(b, 5, 7)).toBe(5); // age row 1, demand col 2
-    expect(computeReward(b, 6, 6)).toBe(6); // top-right
+    expect(computeReward(b, 5, 7)).toBe(5);
+    expect(computeReward(b, 6, 6)).toBe(6);
     expect(computeReward(b, 3, 4)).toBe(2);
   });
 
   it("returns 0 below the lowest band thresholds", () => {
     const b = testBill();
-    expect(computeReward(b, 1, 5)).toBe(0); // age below 2
-    expect(computeReward(b, 5, 1)).toBe(0); // demand below 2
+    expect(computeReward(b, 1, 5)).toBe(0);
+    expect(computeReward(b, 5, 1)).toBe(0);
   });
 
   it("returns 0 for blank cells", () => {
@@ -50,7 +57,7 @@ describe("computeReward", () => {
       },
       0,
     );
-    expect(computeReward(blank, 2, 5)).toBe(0); // blank cell at top-left
+    expect(computeReward(blank, 2, 5)).toBe(0);
     expect(computeReward(blank, 5, 7)).toBe(3);
   });
 });
@@ -70,108 +77,91 @@ describe("awardConditionMet", () => {
   });
 });
 
-describe("SELL_BOURBON — happy path", () => {
-  it("grants reputation, drops demand, removes the barrel, discards aging cards", () => {
+describe("saleFloorForBill (v2.11 tier floor)", () => {
+  it("Tier 1 (common / uncommon) bills floor at 3 rep", () => {
+    expect(saleFloorForBill(testBill("common"))).toBe(3);
+    expect(saleFloorForBill(testBill("uncommon"))).toBe(3);
+  });
+  it("Tier 2 (rare) bills floor at 4 rep", () => {
+    expect(saleFloorForBill(testBill("rare"))).toBe(4);
+  });
+  it("Tier 3 (epic / legendary) bills floor at 5 rep", () => {
+    expect(saleFloorForBill(testBill("epic"))).toBe(5);
+    expect(saleFloorForBill(testBill("legendary"))).toBe(5);
+  });
+});
+
+describe("SELL_BOURBON — single-step v2.11 sale", () => {
+  it("adds grid value to rep, drops demand, removes the barrel", () => {
     let state = makeTestGame({ startingDemand: 6 });
     state = advanceToActionPhase(state, [1, 1]);
     expect(state.demand).toBe(6);
     state = placeBarrel(state, "p1", testBill(), 5);
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 5, // total reward is 5 at age=5, demand=6
-      cardDrawSplit: 0,
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(5);
+    // Grid cell at age 5 / demand 6 = 5. Tier 1 floor = 3 (not binding).
+    expect(p1.reputation).toBe(beforeRep + 5);
     expect(p1.barrelsSold).toBe(1);
     expect(state.demand).toBe(5);
     expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(0);
-    // v2.10: no spend-card cost; only the 5 aging cards land in discard.
+    // 5 aging cards land in discard (no spend card under v2.10/v2.11).
     expect(p1.discard.filter((c) => c.id.startsWith("agingcard_"))).toHaveLength(5);
   });
 
-  it("draws cards mid-sale into hand for use later in the same action phase (Gold sale)", () => {
-    // v2.10: only Gold-eligible sales can split grid value into card
-    // draws. Build a bill with a Gold trigger that the placed barrel
-    // satisfies.
-    const goldBill = makeMashBill(
-      {
-        defId: "gold_split",
-        name: "Gold Split",
-        ageBands: [2, 4, 6],
-        demandBands: [2, 4, 6],
-        rewardGrid: [
-          [1, 2, 3],
-          [2, 4, 5],
-          [3, 5, 6],
-        ],
-        goldAward: { minAge: 5, minDemand: 5 },
-      },
-      200,
-    );
-    let state = makeTestGame({ startingDemand: 6 });
+  it("applies the tier floor when grid + bonuses fall below it", () => {
+    // Common bill at age 2 / demand 2 → grid cell = 1; tier floor = 3.
+    let state = makeTestGame({ startingDemand: 2 });
     state = advanceToActionPhase(state, [1, 1]);
-    state = placeBarrel(state, "p1", goldBill, 5);
-    // Stock p1's deck so the mid-sale draw has cards to pull from.
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1"
-          ? {
-              ...p,
-              hand: [],
-              deck: [
-                makeResourceCard("rye", "p1", 50),
-                makeResourceCard("rye", "p1", 51),
-                makeResourceCard("rye", "p1", 52),
-              ],
-              discard: [],
-            }
-          : p,
-      ),
-    };
+    state = placeBarrel(state, "p1", testBill("common"), 2);
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 2,
-      cardDrawSplit: 3,
-      goldChoice: "decline",
     });
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(2);
-    // Hand math: started empty. Draw count = cardDrawSplit (3). Deck
-    // has 3 ryes; 3 draws empty it.
-    expect(p1.hand).toHaveLength(3);
-    expect(p1.deck).toHaveLength(0);
+    expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(beforeRep + 3);
   });
 
-  it("rejects splitting grid value into PP on a non-Gold sale", () => {
-    let state = makeTestGame({ startingDemand: 6 });
+  it("applies the epic floor (5) on a low grid sale", () => {
+    const epicBill = makeMashBill(
+      {
+        defId: "epic_floor_test",
+        name: "Epic Floor",
+        tier: "epic",
+        ageBands: [2, 4, 6],
+        demandBands: [2, 4, 6],
+        // Worst cell is 1 — floor must lift the sale to 5.
+        rewardGrid: [
+          [1, 2, 3],
+          [2, 3, 4],
+          [3, 4, 5],
+        ],
+      },
+      500,
+    );
+    let state = makeTestGame({ startingDemand: 2 });
     state = advanceToActionPhase(state, [1, 1]);
-    state = placeBarrel(state, "p1", testBill(), 5);
+    state = placeBarrel(state, "p1", epicBill, 2);
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    expect(() =>
-      applyAction(state, {
-        type: "SELL_BOURBON",
-        playerId: "p1",
-        barrelId,
-        reputationSplit: 2,
-        cardDrawSplit: 3,
-      }),
-    ).toThrow(/Gold-eligible/);
+    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    state = applyAction(state, {
+      type: "SELL_BOURBON",
+      playerId: "p1",
+      barrelId,
+    });
+    expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(beforeRep + 5);
   });
 
-  it("rejects selling a barrel that just finished aging this round", () => {
+  it("rejects selling a barrel that just finished aging this round (round-gap)", () => {
     let state = makeTestGame({ startingDemand: 6 });
     state = advanceToActionPhase(state, [1, 1]);
-    // Place an age-2 barrel and mark completedInRound = current round
-    // so the round-gap rule blocks the sale.
     state = placeBarrel(state, "p1", testBill(), 2);
     state = {
       ...state,
@@ -187,14 +177,12 @@ describe("SELL_BOURBON — happy path", () => {
         type: "SELL_BOURBON",
         playerId: "p1",
         barrelId,
-        reputationSplit: 1,
-        cardDrawSplit: 0,
       }),
     ).toThrow(/too recently/);
   });
 
-  it("rejects barrels younger than 2 years", () => {
-    let state = makeTestGame();
+  it("rejects selling a barrel below the minimum age", () => {
+    let state = makeTestGame({ startingDemand: 6 });
     state = advanceToActionPhase(state, [1, 1]);
     state = placeBarrel(state, "p1", testBill(), 1);
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
@@ -203,91 +191,51 @@ describe("SELL_BOURBON — happy path", () => {
         type: "SELL_BOURBON",
         playerId: "p1",
         barrelId,
-        reputationSplit: 0,
-        cardDrawSplit: 0,      }),
-    ).toThrow(/2 years/);
+      }),
+    ).toThrow(/at least 2 years/);
   });
 
-  it("rejects mismatched split", () => {
+  it("rejects selling a non-aging (construction) barrel", () => {
     let state = makeTestGame({ startingDemand: 6 });
     state = advanceToActionPhase(state, [1, 1]);
-    state = placeBarrel(state, "p1", testBill(), 5); // reward = 5
-    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
+    state = placeBarrel(state, "p1", testBill(), 5);
+    state = {
+      ...state,
+      allBarrels: state.allBarrels.map((b) =>
+        b.ownerId === "p1" && b.phase === "aging"
+          ? { ...b, phase: "construction" }
+          : b,
+      ),
+    };
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p1")!.id;
     expect(() =>
       applyAction(state, {
         type: "SELL_BOURBON",
         playerId: "p1",
         barrelId,
-        reputationSplit: 4,
-        cardDrawSplit: 0,      }),
-    ).toThrow(/expected reward of 5/);
+      }),
+    ).toThrow(/under construction/);
   });
 
   it("rejects selling another player's barrel", () => {
     let state = makeTestGame({ startingDemand: 6 });
     state = advanceToActionPhase(state, [1, 1]);
     state = placeBarrel(state, "p2", testBill(), 5);
-    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
+    const barrelId = state.allBarrels.find((b) => b.ownerId === "p2")!.id;
     expect(() =>
       applyAction(state, {
         type: "SELL_BOURBON",
         playerId: "p1",
         barrelId,
-        reputationSplit: 5,
-        cardDrawSplit: 0,      }),
-    ).toThrow(/own/);
+      }),
+    ).toThrow(/do not own/);
   });
 
-  it("demand floors at 0 even on sequential sales", () => {
-    let state = makeTestGame({ startingDemand: 1 });
-    state = advanceToActionPhase(state, [1, 1]);
-    // The roll-of-2 bumps demand to 2. Pin it back to 1 so the test exercises
-    // the floor.
-    state = { ...state, demand: 1 };
-    state = placeBarrel(state, "p1", testBill(), 5); // reward at demand=1 is 0
-    state = placeBarrel(state, "p2", testBill(), 5);
-    // Keep both players in the round so we don't auto-cleanup between sales.
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 90)]);
-    state = giveHand(state, "p2", [makeCapitalCard("p2", 90)]);
-    const ids = state.allBarrels.filter((b) => b.phase === "aging").map((b) => b.id);
-    state = applyAction(state, {
-      type: "SELL_BOURBON",
-      playerId: "p1",
-      barrelId: ids[0]!,
-      reputationSplit: 0,
-      cardDrawSplit: 0,    });
-    expect(state.demand).toBe(0);
-    // Hand off to p2 — selling no longer ends the turn. v2.9: roll
-    // p2's demand and clear the (orthogonal) per-turn aging gate so
-    // SELL_BOURBON validates against the actual sale rules.
-    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
-    state = applyAction(state, {
-      type: "ROLL_DEMAND",
-      playerId: "p2",
-      roll: [1, 1], // hold demand at 0
-    });
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p2" ? { ...p, needsAgeBarrels: false } : p,
-      ),
-    };
-    state = applyAction(state, {
-      type: "SELL_BOURBON",
-      playerId: "p2",
-      barrelId: ids[1]!,
-      reputationSplit: 0,
-      cardDrawSplit: 0,    });
-    expect(state.demand).toBe(0);
-  });
-});
-
-describe("SELL_BOURBON — Silver and Gold awards", () => {
-  it("Silver returns the bill to hand", () => {
-    const bill = makeMashBill(
+  it("Silver retention: bill stays in the slot as a 'ready' barrel", () => {
+    const silverBill = makeMashBill(
       {
-        defId: "silver_test",
-        name: "Silver",
+        defId: "silver_retain",
+        name: "Silver Retain",
         ageBands: [2, 4, 6],
         demandBands: [2, 4, 6],
         rewardGrid: [
@@ -295,159 +243,22 @@ describe("SELL_BOURBON — Silver and Gold awards", () => {
           [2, 4, 5],
           [3, 5, 6],
         ],
-        silverAward: { minAge: 4 },
+        silverAward: { minAge: 4, minDemand: 4 },
       },
-      0,
+      300,
     );
-    let state = makeTestGame({ startingDemand: 6 });
+    let state = makeTestGame({ startingDemand: 5 });
     state = advanceToActionPhase(state, [1, 1]);
-    state = placeBarrel(state, "p1", bill, 5);
-    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    const sellingSlotId = state.allBarrels.find((b) => b.phase === "aging")!.slotId;
-    state = applyAction(state, {
-      type: "SELL_BOURBON",
-      playerId: "p1",
-      barrelId,
-      reputationSplit: 5,
-      cardDrawSplit: 0,    });
-    // v2.6: Silver leaves the bill in the now-empty selling slot as
-    // a "ready" barrel (slot doesn't open).
-    const retained = state.allBarrels.find((b) => b.slotId === sellingSlotId);
-    expect(retained).toBeDefined();
-    expect(retained!.attachedMashBill.id).toBe(bill.id);
-    expect(retained!.phase).toBe("ready");
-    expect(state.bourbonDiscard.some((m) => m.id === bill.id)).toBe(false);
-  });
-
-  it("Gold takes precedence over Silver — keep retains in slot", () => {
-    const bill = makeMashBill(
-      {
-        defId: "gold_test",
-        name: "Gold",
-        ageBands: [2, 4, 6],
-        demandBands: [2, 4, 6],
-        rewardGrid: [
-          [1, 2, 3],
-          [2, 4, 5],
-          [3, 5, 6],
-        ],
-        silverAward: { minAge: 4 },
-        goldAward: { minAge: 5, minDemand: 5 },
-      },
-      0,
-    );
-    let state = makeTestGame({ startingDemand: 6 });
-    state = advanceToActionPhase(state, [1, 1]);
-    state = placeBarrel(state, "p1", bill, 5);
-    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    const sellingSlotId = state.allBarrels.find((b) => b.phase === "aging")!.slotId;
-    state = applyAction(state, {
-      type: "SELL_BOURBON",
-      playerId: "p1",
-      barrelId,
-      reputationSplit: 5,
-      cardDrawSplit: 0,      goldChoice: "keep",
-    });
-    // v2.6: Gold "keep" leaves the bill in the now-empty selling slot
-    // (Silver-style behavior).
-    const retained = state.allBarrels.find((b) => b.slotId === sellingSlotId);
-    expect(retained).toBeDefined();
-    expect(retained!.attachedMashBill.id).toBe(bill.id);
-    expect(retained!.phase).toBe("ready");
-    expect(state.bourbonDiscard.some((m) => m.id === bill.id)).toBe(false);
-  });
-
-  it("falls through to discard when no award conditions are met", () => {
-    const bill = makeMashBill(
-      {
-        defId: "noaward",
-        name: "No Award",
-        ageBands: [2, 4, 6],
-        demandBands: [2, 4, 6],
-        rewardGrid: [
-          [1, 2, 3],
-          [2, 4, 5],
-          [3, 5, 6],
-        ],
-      },
-      0,
-    );
-    let state = makeTestGame({ startingDemand: 6 });
-    state = advanceToActionPhase(state, [1, 1]);
-    state = placeBarrel(state, "p1", bill, 5);
+    state = placeBarrel(state, "p1", silverBill, 5);
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 5,
-      cardDrawSplit: 0,    });
-    expect(state.bourbonDiscard.some((m) => m.id === bill.id)).toBe(true);
-  });
-
-  // v2.6: the v2.5 "uses an unlocked gold bourbon's grid" test is gone —
-  // Gold awards no longer populate a permanent recipe library. The new
-  // Gold mechanic (Convert / Keep / Decline) is exercised by the Silver
-  // and Gold-keep tests above; a Gold-convert test follows.
-
-  it("Gold convert replaces another slot's bill when commits satisfy the new recipe", () => {
-    const goldBill = makeMashBill(
-      {
-        defId: "gold_convert_test",
-        name: "Gold Convert",
-        ageBands: [2, 4, 6],
-        demandBands: [2, 4, 6],
-        rewardGrid: [
-          [1, 2, 3],
-          [2, 4, 5],
-          [3, 5, 6],
-        ],
-        // Permissive recipe so any cask + corn + grain target qualifies.
-        goldAward: { minAge: 5, minDemand: 5 },
-      },
-      0,
-    );
-    const targetBill = makeMashBill(
-      {
-        defId: "target_bill",
-        name: "Target",
-        ageBands: [2, 4, 6],
-        demandBands: [2, 4, 6],
-        rewardGrid: [
-          [1, 1, 1],
-          [1, 1, 1],
-          [1, 1, 1],
-        ],
-      },
-      1,
-    );
-    let state = makeTestGame({ startingDemand: 6 });
-    state = advanceToActionPhase(state, [1, 1]);
-    // Selling barrel — aged 5, will trigger the Gold award.
-    state = placeBarrel(state, "p1", goldBill, 5);
-    const sellingBarrel = state.allBarrels[state.allBarrels.length - 1]!;
-    // Convert target — committed cask + corn + rye that satisfy the
-    // Gold bill's recipe.
-    const cask = makeResourceCard("cask", "convert", 0);
-    const corn = makeResourceCard("corn", "convert", 1);
-    const rye = makeResourceCard("rye", "convert", 2);
-    state = placeBarrel(state, "p1", targetBill, 0, undefined, {
-      productionCards: [cask, corn, rye],
     });
-    const targetBarrel = state.allBarrels[state.allBarrels.length - 1]!;
-    state = applyAction(state, {
-      type: "SELL_BOURBON",
-      playerId: "p1",
-      barrelId: sellingBarrel.id,
-      reputationSplit: 5,
-      cardDrawSplit: 0,      goldChoice: "convert",
-      goldConvertTargetSlotId: targetBarrel.slotId,
-    });
-    const target = state.allBarrels.find((b) => b.slotId === targetBarrel.slotId)!;
-    expect(target.attachedMashBill.id).toBe(goldBill.id);
-    // Selling slot opens fully — no barrel record at that slot.
-    expect(state.allBarrels.some((b) => b.slotId === sellingBarrel.slotId)).toBe(false);
-    // The replaced bill goes to the bourbon discard.
-    expect(state.bourbonDiscard.some((m) => m.id === targetBill.id)).toBe(true);
+    const slotBarrel = state.allBarrels.find((b) => b.id === barrelId);
+    // Bill stays — barrel becomes "ready" again with same slot id.
+    expect(slotBarrel?.phase).toBe("ready");
+    expect(slotBarrel?.attachedMashBill.defId).toBe("silver_retain");
   });
 });

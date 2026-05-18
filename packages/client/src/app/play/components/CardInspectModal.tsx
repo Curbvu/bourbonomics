@@ -651,7 +651,7 @@ interface RecipeChipSpec {
   tint: string;
   forbidden?: boolean;
   wild?: boolean;
-  /** v2.7.2: Specialty / Double Specialty card requirement. */
+  /** v2.11: Specialty / Heritage card requirement. */
   specialty?: boolean;
 }
 

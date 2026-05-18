@@ -7,7 +7,6 @@ import type {
   RickhouseSlot,
   ValidationResult,
 } from "../types";
-import { makeCapitalCard } from "../cards";
 import { drawWithReshuffle } from "../deck";
 import { emptySlotsFor, isCurrentPlayer, slottedBillCount } from "../state";
 import { placeBillInSlot } from "../starter-pool";
@@ -165,9 +164,15 @@ export function validatePlayOperationsCard(
       return { legal: true };
 
     case "cash_out": {
-      const hasResources = player.hand.some((c) => c.type === "resource");
-      if (!hasResources) {
-        return { legal: false, reason: "no resource cards in hand to cash out" };
+      // v2.11: needs at least 2 resource cards to gain any rep
+      // (1 rep per 2 discarded, round down). Below 2, the card has
+      // no effect — block the play to avoid a wasted ops slot.
+      const resourceCount = player.hand.filter((c) => c.type === "resource").length;
+      if (resourceCount < 2) {
+        return {
+          legal: false,
+          reason: "Cash Out needs at least 2 resource cards in hand (pays 1 rep per 2)",
+        };
       }
       return { legal: true };
     }
@@ -414,8 +419,10 @@ export function applyPlayOperationsCard(
     }
 
     case "cash_out": {
-      // Discard every resource card from hand; mint $1 capital cards
-      // (one per discarded resource) into the discard pile.
+      // v2.11 (Unified Rep): discard every resource card from hand;
+      // gain 1 rep per 2 discarded (round down). The "trade grain
+      // for rep" valve — no minting of capital because capital is
+      // retired.
       const kept: Card[] = [];
       const discarded: Card[] = [];
       for (const c of player.hand) {
@@ -424,11 +431,8 @@ export function applyPlayOperationsCard(
       }
       player.hand = kept;
       player.discard.push(...discarded);
-      for (let i = 0; i < discarded.length; i++) {
-        player.discard.push(
-          makeCapitalCard(player.id, draft.idCounter++, 1),
-        );
-      }
+      const gained = Math.floor(discarded.length / 2);
+      player.reputation += gained;
       break;
     }
 

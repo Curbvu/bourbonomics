@@ -14,14 +14,18 @@ describe("initializeGame", () => {
     expect(state.finalRoundTriggered).toBe(false);
   });
 
-  it("gives each player a 16-card starter deck", () => {
+  it("gives each player a 16-card starter deck and v2.11 startingRep", () => {
     const state = makeTestGame();
     for (const p of state.players) {
       expect(p.deck).toHaveLength(16);
       expect(p.hand).toHaveLength(0);
       expect(p.discard).toHaveLength(0);
-      expect(p.reputation).toBe(0);
+      // v2.11: Vanilla startingRep = 5.
+      expect(p.reputation).toBe(5);
       expect(p.handSize).toBe(8);
+      // v2.11: setup seeds a Generic Labor card into savedCard so the
+      // first DRAW_HAND has at least 1 Labor available.
+      expect(p.savedCard?.type).toBe("labor");
     }
   });
 

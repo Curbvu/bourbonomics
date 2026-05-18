@@ -42,6 +42,7 @@ const SPECS: DistillerySpec[] = [
     bonus: "vanilla",
     slots: DEFAULT_SLOTS,
     mashBillDraftSize: 0,
+    startingRep: 5,
     cardText: "Four open slots. No permanent ability, no constraint.",
     description:
       "A working distillery, neither famous nor forgotten. You start with four open slots and no inheritance — every barrel you ever sell is one you built from scratch. Choose Vanilla for a level playing field, an introductory game, or when you want the game itself to be the only variable.",
@@ -63,12 +64,13 @@ const SPECS: DistillerySpec[] = [
     starterPoolMods: { bonusSpecialtyRye: 2 },
     saleMods: { bonusRepOnBill: { kind: "high_rye", rep: 1 } },
     mashBillDraftSize: 0,
+    startingRep: 4,
     cardText:
       "Start with one pre-aged rye barrel (age 1) and two free Specialty Rye cards. +1 rep on any sale of a bill with minRye ≥ 1. You cannot draft or draw any mash bill that forbids rye (maxRye: 0).",
     description:
       "Your bottles lead with pepper, baking spice, and a long dry finish. The market knows your label — the buyers who pay for a high-rye pour are the buyers you'll see again. Wheated bills don't fit the house; you ship them straight back to the bourbon discard before they ever touch your rickhouse.",
     strategyNote:
-      "+1 rep stacks with Specialty bonuses, so a 3-Specialty-Rye sale pays grid + 4. The wheated-bill ban thins your draft pool — you'll see fewer Epic options. Pre-aged starter sells at round 2 once it picks up its second year.",
+      "+1 rep on every rye-bill sale is your engine. With v2.11's uniform Specialty bonus retired, the distillery's bonus is the rye player's headline sale upside — stacks only with per-card Heritage bonuses and ops/investment effects. The wheated-bill ban thins your draft pool — you'll see fewer Epic options. Pre-aged starter sells at round 2 once it picks up its second year.",
     difficulty: "intermediate",
     axis: "specialty / rye",
     implemented: true,
@@ -83,8 +85,9 @@ const SPECS: DistillerySpec[] = [
     slots: DEFAULT_SLOTS,
     startingBarrel: { age: 1, basicBillKey: "wheated_basic" },
     mashBillDraftSize: 0,
+    startingRep: 4,
     cardText:
-      "Start with one pre-aged wheated barrel (age 1). Wheated bills (maxRye: 0) cost 1 fewer wheat to complete (floor 0). You cannot commit rye cards (basic, Double, Specialty, or Double Specialty) to any production pile. Rye is still legal to spend at the market or trade away.",
+      "Start with one pre-aged wheated barrel (age 1). Wheated bills (maxRye: 0) cost 1 fewer wheat to complete (floor 0). You cannot commit rye cards (Common, Specialty, or Heritage) to any production pile. Rye is still legal to spend at the market or trade away.",
     description:
       "Soft front, gentle finish, the pour grandmother poured. The Baron's brand is built on wheat — the bills you make taste like vanilla and caramel, never pepper, and the buyers who ask for them ask for them by name.",
     strategyNote:
@@ -103,6 +106,7 @@ const SPECS: DistillerySpec[] = [
     slots: DEFAULT_SLOTS,
     mashBillDraftSize: 4,
     maxSlottedBills: 4,
+    startingRep: 6,
     cardText:
       "Drafts 4 mash bills at setup instead of 3. Slotted-bill cap is 4 (Rickhouse Expansion Permit unlocks slots 5–6 for transferred barrels only). When you trigger a Gold award, Convert may land the Gold bill in an Open slot (no recipe check).",
     description:

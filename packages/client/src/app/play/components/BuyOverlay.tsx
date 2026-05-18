@@ -3,11 +3,12 @@
 /**
  * BuyOverlay — sticky control bar for interactive Buy mode.
  *
- * Renders only when `buyMode` is non-null. Shows the in-progress
- * purchase: which target (conveyor card OR face-up ops card) the player
- * picked, the cost vs paid totals (resource cards count 1¢ each, capital
- * cards pay their face value), and a Confirm button gated on paid ≥ cost.
- * Cancel exits without dispatching.
+ * Renders only when `buyMode` is non-null. v2.11 (Unified Rep) shows
+ * the in-progress purchase as rep + Labor: cost is paid from the
+ * player's rep track, optionally supplemented by Labor cards tagged
+ * from hand (Cooper +2 toward market resources, Marketing +2 toward
+ * ops, Generic +1 anywhere). Anchor rule: ≥$2 buys require ≥1 rep
+ * paid; $1 buys may be Labor-only.
  *
  * The conveyor + ops row + hand do their own click wiring (MarketCenter
  * + HandTray); this component is the contract surface — it tells the
@@ -16,7 +17,6 @@
 
 import { useGameStore } from "@/lib/store/game";
 import {
-  paymentValue,
   type Card,
   type GameState,
   type OperationsCard,
@@ -33,24 +33,35 @@ export default function BuyOverlay() {
 
   const target = resolveTarget(state, buyMode.pickedTarget);
   const cost = target?.cost ?? null;
+  const laborDomain: "ops" | "market_resource" =
+    target?.type === "operations" ? "ops" : "market_resource";
 
-  // Both capital AND resource cards can pay. Resource cards count 1¢
-  // each; capital cards pay their printed value.
-  const selectedCards = human.hand.filter((c) =>
-    buyMode.spendCardIds.includes(c.id),
+  // v2.11: only Labor cards contribute. Non-Labor selections in
+  // `spendCardIds` are ignored at confirm time (store filter); we
+  // mirror that here so the overlay totals match what dispatches.
+  const selectedLabor = human.hand.filter(
+    (c) => c.type === "labor" && buyMode.spendCardIds.includes(c.id),
   );
-  const paid = selectedCards.reduce((acc, c) => acc + paymentValue(c), 0);
-
-  const canConfirm = target != null && cost != null && paid >= cost;
-  const overpaid = target != null && cost != null && paid > cost;
+  const laborContrib = selectedLabor.reduce((acc, c) => {
+    if (c.laborDomain === "any") return acc + (c.laborContribution ?? 1);
+    if (c.laborDomain === laborDomain) return acc + (c.laborContribution ?? 2);
+    return acc;
+  }, 0);
+  const repPortion = cost != null ? Math.max(0, cost - laborContrib) : 0;
+  const repEnforced = cost != null && cost >= 2 ? Math.max(1, repPortion) : repPortion;
+  const canConfirm =
+    target != null &&
+    cost != null &&
+    repEnforced <= human.reputation &&
+    (cost === 0 || repEnforced > 0 || selectedLabor.length > 0);
 
   let prompt: string;
   if (!target) {
     prompt = "Pick a card from the market or operations row.";
-  } else if (cost != null && paid < cost) {
-    prompt = `Tag ${formatMoney(cost - paid)} more from your hand (resource = ${formatMoney(1)}, capital pays its face value).`;
-  } else if (overpaid) {
-    prompt = "You're spending more than the cost — confirm or untag a card.";
+  } else if (cost != null && repEnforced > human.reputation) {
+    prompt = `Need ${repEnforced} rep — you have ${human.reputation}.`;
+  } else if (cost != null) {
+    prompt = `Pay ${repEnforced} rep${selectedLabor.length ? ` + ${selectedLabor.length} Labor` : ""}. Tag Labor cards from hand to reduce the rep cost.`;
   } else {
     prompt = "Ready to buy. Confirm to dispatch.";
   }
@@ -68,16 +79,16 @@ export default function BuyOverlay() {
           <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-300">
             cost{" "}
             <MoneyText n={cost} className="font-bold text-amber-200" />{" "}
-            · paid{" "}
+            · pay{" "}
             <MoneyText
-              n={paid}
-              className={`font-bold ${paid >= cost ? "text-emerald-300" : "text-rose-300"}`}
+              n={repEnforced}
+              className={`font-bold ${repEnforced <= human.reputation ? "text-emerald-300" : "text-rose-300"}`}
             />
-            {selectedCards.length ? (
+            {" rep"}
+            {selectedLabor.length ? (
               <span className="text-slate-500">
                 {" "}
-                ({selectedCards.length} card
-                {selectedCards.length === 1 ? "" : "s"})
+                + {selectedLabor.length} Labor
               </span>
             ) : null}
           </span>
@@ -153,6 +164,10 @@ function targetLabel(t: TargetView): string {
   const card = t.card as Card;
   if (card.displayName) return card.displayName;
   if (t.type === "conveyor-capital") return `Capital ${formatMoney(card.capitalValue ?? 1)}`;
+  if (card.type === "labor") {
+    const sub = card.laborSubtype ?? "labor";
+    return `Labor · ${sub[0]!.toUpperCase()}${sub.slice(1)}`;
+  }
   const sub = card.subtype ?? "";
   const subCap = sub ? sub[0]!.toUpperCase() + sub.slice(1) : "Resource";
   const count = card.resourceCount && card.resourceCount > 1 ? `${card.resourceCount}× ` : "";

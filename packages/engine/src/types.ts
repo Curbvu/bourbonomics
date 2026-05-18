@@ -8,10 +8,32 @@
 // Cards
 // -----------------------------
 
-export type CardType = "resource" | "capital" | "mashbill";
+// v2.11 (Unified Rep): "capital" cards are no longer minted (rep is the
+// unified currency). The "labor" type joins as the sweat-equity card:
+// supplements rep on purchases via a domain-matching contribution.
+// "capital" stays in the union so old replays / serialized saves still
+// parse without crashing; new mints never use it.
+export type CardType = "resource" | "capital" | "labor" | "mashbill";
 
 export type ResourceSubtype = "cask" | "corn" | "rye" | "barley" | "wheat";
 export type GrainSubtype = "rye" | "barley" | "wheat";
+
+/**
+ * v2.11 Labor subtypes:
+ *   - "generic"   — universal +1 toward any purchase. Also legal as an
+ *                   aging-commit card (sweat equity in the warehouse).
+ *   - "marketing" — +2 toward operations card purchases.
+ *   - "cooper"    — +2 toward market resource purchases.
+ *   - "architect" — +2 toward investment purchases. NOT in v2.11 market;
+ *                   reserved for v2.12 when investments ship.
+ *
+ * A Specialty Labor card with a non-matching purchase domain contributes
+ * 0 — the worker doesn't apply, the rep gap stays open.
+ */
+export type LaborSubtype = "generic" | "marketing" | "cooper" | "architect";
+
+/** Which purchase domain a Specialty Labor card discounts. */
+export type LaborDomain = "any" | "ops" | "market_resource" | "investment";
 
 export const GRAIN_SUBTYPES: GrainSubtype[] = ["rye", "barley", "wheat"];
 
@@ -19,19 +41,43 @@ export const GRAIN_SUBTYPES: GrainSubtype[] = ["rye", "barley", "wheat"];
 export interface Card {
   id: string;                         // unique instance id
   cardDefId: string;                  // references the catalog definition
-  type: "resource" | "capital";       // mash bills + ops cards have their own types
+  /**
+   * Card type. v2.11 introduces "labor" (sweat-equity discount cards)
+   * alongside "resource". "capital" is preserved in the union so old
+   * replays still parse, but no card factory mints capital under
+   * unified rep — rep is the currency.
+   */
+  type: "resource" | "capital" | "labor";
   subtype?: ResourceSubtype;          // for resource cards
-  premium?: boolean;                  // true for cards like 2-rye
-  resourceCount?: number;             // 1 for plain, 2 for 2-rye, etc.
-  capitalValue?: number;              // for capital cards
+  /** v2.11: Labor subtype. Set only when `type === "labor"`. */
+  laborSubtype?: LaborSubtype;
+  /** v2.11: Purchase domain a Specialty Labor card discounts. */
+  laborDomain?: LaborDomain;
+  /**
+   * v2.11: Labor contribution toward a matching-domain purchase.
+   * Generic = 1; Specialty = 2 in domain, 0 elsewhere.
+   */
+  laborContribution?: number;
+  premium?: boolean;                  // true for premium variants (Specialty, Heritage)
+  resourceCount?: number;             // uniformly 1 in v2.11
+  /**
+   * @deprecated v2.11 — capital cards are no longer minted under
+   * unified rep. Field kept for serialized-save compatibility only.
+   */
+  capitalValue?: number;
   /** Optional: subtypes this card may stand in for (e.g. "any grain" specialty). */
   aliases?: ResourceSubtype[];
-  /** Capital cost to acquire this card from the market. Defaults to 1. */
+  /**
+   * Rep cost to acquire this card from the market. Defaults to 1.
+   * Under v2.11 unified rep this is paid in reputation (with Labor
+   * supplementing — see `BUY_FROM_MARKET`).
+   */
   cost?: number;
-  /** How many B$ this card pays when spent at the market. Defaults to 1
-   *  for resource cards and to `capitalValue ?? 1` for capital cards. The
-   *  field exists so future expansion cards (e.g. "premium grain pays
-   *  B$2") can override the default without rewriting the spend rules. */
+  /**
+   * @deprecated v2.11 — under unified rep, cards no longer pay
+   * arbitrary purchase values from hand. Rep is the currency; Labor
+   * cards supplement it. Field kept for backward-compat parsing.
+   */
   value?: number;
   /** Optional themed name shown in place of the auto-generated label. */
   displayName?: string;
@@ -40,12 +86,13 @@ export interface Card {
   /** Themed-card effect descriptor; resolved at commit/sale/spend time. */
   effect?: CardEffect;
   /**
-   * v2.7.2: marks Specialty / Double Specialty band cards. Recipes with
-   * `minSpecialty` requirements count only specialty cards of the given
-   * subtype toward the requirement. Independent of `premium` (Doubles
-   * are premium but not specialty); independent of the on-sale rep
-   * effect (the bonus is encoded via `effect`, this flag is the
-   * structural marker).
+   * v2.11: marks Specialty / Heritage band cards. Recipes with
+   * `minSpecialty` requirements count only specialty-flagged cards of
+   * the given subtype toward the requirement. Independent of `premium`;
+   * independent of any on-sale effect (the v2.10 uniform Specialty
+   * +1-rep-on-sale bonus is retired — per-card Heritage bonuses ride
+   * the regular `effect` field). The flag is the structural marker
+   * recipes read against.
    */
   specialty?: boolean;
 }
@@ -95,12 +142,14 @@ export interface MashBillRecipe {
   maxWheat?: number;
   minTotalGrain?: number;
   /**
-   * v2.7.2: per-subtype Specialty (or Double Specialty) requirements.
-   * Counts only cards flagged `card.specialty === true`. A
-   * Double Specialty card contributes its `resourceCount` (so a Double
-   * Superior Rye = 2 toward `minSpecialty.rye`). Used by Epic and
-   * Legendary bills (and a handful of Rares) to gate top-tier payouts
-   * behind market-only premium ingredients.
+   * v2.11: per-subtype Specialty / Heritage requirements. Counts only
+   * cards flagged `card.specialty === true`; each contributes its
+   * `resourceCount` (1 unit per card — no 2-unit cards exist in v2.11).
+   * Heritage cards satisfy the gate the same as Specialty cards. Used
+   * across the rarity ramp: uncommons get light pressure (≤1 grain slot
+   * gated), rares semi-gate (1–2 slots), epics fully gate every cask/
+   * grain slot, legendaries gate broader still (more entries, often
+   * tighter caps).
    */
   minSpecialty?: {
     cask?: number;
@@ -177,10 +226,53 @@ export interface MashBill {
   tutorialOnly?: boolean;
 }
 
-/** Default cost for face-up mash bill picks when `cost` is unspecified. */
+/**
+ * Default rep cost for face-up mash bill picks when `cost` is unspecified.
+ *
+ * v2.11 STOPGAP: bills cost 2 rep under unified rep. The proper
+ * bill-cost design (resource-card cost? tier-variable? rep + Labor?)
+ * is a v2.12 work item — this is a placeholder so the system
+ * functions while the bill economy is redesigned. See GAME_RULES.md
+ * "Bill cost — DEFERRED" for the discussion.
+ */
 export const DEFAULT_MASH_BILL_COST = 2;
 export function mashBillCost(bill: MashBill): number {
   return bill.cost ?? DEFAULT_MASH_BILL_COST;
+}
+
+/**
+ * v2.11 sale-floor table: every sale pays at least this much rep,
+ * regardless of grid value + bonuses. Keyed off the bill's rarity
+ * tier so every barrel built clears its base cost.
+ *
+ *   common / uncommon → 3 rep   (Tier 1)
+ *   rare              → 4 rep   (Tier 2)
+ *   epic / legendary  → 5 rep   (Tier 3)
+ *
+ * The clamp lives in `SELL_BOURBON` apply: `total = max(total, floor)`.
+ */
+export function saleFloorForBill(bill: MashBill): number {
+  const t = bill.tier ?? "common";
+  if (t === "epic" || t === "legendary") return 5;
+  if (t === "rare") return 4;
+  return 3;
+}
+
+/**
+ * v2.11: how many rep this Labor card contributes toward a purchase
+ * of `domain`. Generic Labor pays 1 anywhere. Specialty Labor pays its
+ * `laborContribution` (2 by default) when the domains match, 0 when
+ * they don't. Non-Labor cards return 0 — Labor is the only card type
+ * that supplements rep on purchases.
+ */
+export function laborContribution(
+  card: Card,
+  domain: Exclude<LaborDomain, "any">,
+): number {
+  if (card.type !== "labor") return 0;
+  if (card.laborDomain === "any") return card.laborContribution ?? 1;
+  if (card.laborDomain === domain) return card.laborContribution ?? 2;
+  return 0;
 }
 
 /**
@@ -189,16 +281,19 @@ export function mashBillCost(bill: MashBill): number {
  * of this recipe. Use it to rank bills against each other while
  * balancing payout grids.
  *
- * Formula:
+ * Formula (v2.11):
  *   - 1 per basic resource the recipe demands (universal cask + corn,
  *     plus any rye / barley / wheat / extra corn minimums)
- *   - 4 per Specialty resource (3 to buy from market + 1 for the
- *     +1-rep-on-sale bonus those cards earn)
+ *   - 2 per Specialty resource — the cheapest option that satisfies a
+ *     `minSpecialty` floor (market cost $2; no uniform sale bonus).
+ *     Heritage ($3) also satisfies the gate but a rational builder
+ *     reaches for Specialty unless they want a Heritage card's
+ *     per-card bonus.
  *   - + the bill's draw cost (`mashBillCost`)
  *
  * A Specialty card satisfies both the subtype's universal/per-subtype
  * minimum AND the specialty floor — so the formula counts it once at
- * 4, not 1 + 4. Mirrors the chip dedup in `buildRecipeChips`.
+ * 2, not 1 + 2. Mirrors the chip dedup in `buildRecipeChips`.
  */
 export function mashBillBuildCost(bill: MashBill): number {
   const r = bill.recipe ?? {};
@@ -212,7 +307,10 @@ export function mashBillBuildCost(bill: MashBill): number {
   const minTotalGrain = Math.max(r.minTotalGrain ?? 0, namedGrain === 0 ? 1 : namedGrain);
   const wildGrain = Math.max(0, minTotalGrain - namedGrain);
 
-  const SPECIALTY_UNIT_COST = 4; // 3 market cost + 1 sale bonus
+  // v2.11: Specialty market cost is $2; uniform +1-rep-on-sale bonus is
+  // retired. Heritage costs $3 and also satisfies the gate, but a
+  // build-cost lower bound assumes the cheaper option.
+  const SPECIALTY_UNIT_COST = 2;
 
   const plainCask = Math.max(0, minCask - (sp.cask ?? 0));
   const plainCorn = Math.max(0, minCorn - (sp.corn ?? 0));
@@ -362,15 +460,20 @@ export interface DistilleryStarterBarrel {
 }
 
 export interface DistilleryStarterPoolMods {
-  /** Free 2-rye premium cards added to the dealt starter hand. */
-  bonusTwoRye?: number;
   /**
-   * v2.10: free Specialty Rye cards added to the dealt starter hand
-   * (High-Rye House). Specialty Rye is the +1-rep-on-sale, specialty-
-   * gate-counting variant. Independent of `bonusTwoRye`.
+   * v2.11: free Specialty Rye cards added to the dealt starter hand
+   * (High-Rye House). Specialty Rye carries no uniform on-sale bonus
+   * any more; it counts toward `minSpecialty.rye` gates. High-Rye
+   * House's own distillery ability still adds +1 rep on every
+   * rye-bill sale (independent of the band-wide bonus that was
+   * retired with the four-band economy).
    */
   bonusSpecialtyRye?: number;
-  /** Net change to capital cards in the dealt starter hand (negative removes). */
+  /**
+   * @deprecated v2.11 (Unified Rep): capital cards no longer exist —
+   * rep is the unified currency. Field retained for serialized-save
+   * compatibility; no distillery sets it under v2.11.
+   */
   capitalDelta?: number;
 }
 
@@ -398,6 +501,12 @@ export interface Distillery {
   saleMods?: DistillerySaleMods;
   /** Number of mash bills drafted during setup (default 3). */
   mashBillDraftSize?: number;
+  /**
+   * v2.11 (Unified Rep): rep the player starts on their track. Each
+   * distillery's stake compensates for its setup asymmetries — see
+   * GAME_RULES.md §Distillery Profiles. Defaults to 5 (Vanilla).
+   */
+  startingRep?: number;
   /**
    * v2.6: cap on the number of slots that may hold a bill at once. When
    * set, this distillery cannot draw additional bills past the cap even
@@ -589,9 +698,24 @@ export interface PlayerState {
   starterSwapUsed: boolean;
 
   // Counters.
+  /**
+   * v2.11 (Unified Rep): reputation is BOTH the victory-point track
+   * AND the spending currency. Earned from sales, spent on purchases.
+   * Must remain ≥ 0 at all times — purchase validation rejects a
+   * spend that would push rep below zero (the Labor exemption for
+   * cost-$1 cards leaves rep at 0, never negative).
+   */
   reputation: number;
   handSize: number;                         // default 8
   barrelsSold: number;
+
+  /**
+   * v2.11: Save slot — at cleanup, the player may set aside ONE card
+   * from their hand into this slot. The saved card joins next round's
+   * 8-card draw on top, so the player effectively draws 9 the round
+   * after a Save. Holds at most one card; null when empty.
+   */
+  savedCard: Card | null;
 
   outForRound: boolean;                     // hand exhausted in current action phase
 
@@ -600,10 +724,16 @@ export interface PlayerState {
   demandSurgeActive: boolean;
   /**
    * Set by Insider Buyer — your next BUY_FROM_MARKET this turn pays
-   * half the printed cost (rounded up, min 1¢). Cleared after one
-   * purchase or when your turn ends.
+   * half the printed rep cost (rounded up, min 1 rep). Cleared after
+   * one purchase or when your turn ends.
    */
   pendingHalfCostMarketBuy: boolean;
+  /**
+   * v2.11: tracks whether the player has invoked HIRE this turn. The
+   * Hire action is free but capped at once per turn. Reset when the
+   * player's turn ends.
+   */
+  hireUsedThisTurn: boolean;
   /**
    * Pre-played production discount that applies to the player's next
    * MAKE_BOURBON. Set by Mash Futures (`grain` — minimum total grain
@@ -705,6 +835,14 @@ export interface GameState {
   demand: number;                           // 0..12
   demandRolls: { round: number; roll: [number, number]; result: "rise" | "hold" }[];
 
+  /**
+   * v2.11: count of Generic Labor cards remaining in the central Hire
+   * pile. Decremented by every successful HIRE action; never refills.
+   * Sized at setup to ~5 × playerCount so the pile lasts most of a
+   * game. When empty, HIRE is illegal.
+   */
+  laborPile: number;
+
   finalRoundTriggered: boolean;
   finalRoundTriggerPlayerIndex: number | null;
 
@@ -762,6 +900,33 @@ export interface NewGameSeat {
 }
 
 /**
+ * v2.10: per-game settings exposed in the New Game form. Each field is
+ * optional with a default that matches the "Normal" preset. The client
+ * uses the preset enum to drive the UI; the engine only ever sees the
+ * resolved values.
+ */
+export interface NewGameSettings {
+  /**
+   * Total mash bills shipped in the bourbon deck. Lower = shorter
+   * game (the deck runs out faster, triggering the doomsday clock).
+   * The catalog currently ships 21 bills.
+   */
+  mashBillCount?: number;
+  /**
+   * Turn distillery selection on/off. When false, every seat is
+   * pre-assigned Vanilla and the `distillery_selection` phase is
+   * skipped entirely. Default true.
+   */
+  distilleries?: boolean;
+  /**
+   * Mint investment cards into the market. The engine doesn't fully
+   * resolve investment effects yet; this flag is wired for forward
+   * compatibility. Default false.
+   */
+  investments?: boolean;
+}
+
+/**
  * Config payload for `newGame` (client, single-player). The host is
  * the lone human; everything else is bots that play themselves.
  * Distinct from `GameConfig` (which is the fully-resolved engine
@@ -773,6 +938,8 @@ export interface NewGameConfig {
   bots: NewGameSeat[];
   /** Optional fixed seed for replays / shareable games. */
   seed?: number;
+  /** Per-game settings from the New Game form. Defaults applied when omitted. */
+  settings?: NewGameSettings;
 }
 
 /**
@@ -869,28 +1036,13 @@ export type GameAction =
     }
   | { type: "AGE_BOURBON"; playerId: string; barrelId: string; cardId: string }
   | {
-      // v2.6: when the sold barrel triggers a Gold award, the player
-      // chooses one of three slot manipulations via `goldChoice`:
-      //   - "convert" → replace another slot's bill with this Gold
-      //                 bill (target's committed cards must satisfy
-      //                 the new recipe); selling slot opens fully.
-      //                 Requires `goldConvertTargetSlotId`.
-      //   - "keep"    → bill stays in the now-empty selling slot
-      //                 ("ready" barrel). Same behavior as a Silver.
-      //   - "decline" → bill goes to bourbon discard; selling slot
-      //                 opens fully.
-      // Ignored when the sale doesn't trigger a Gold award.
+      // v2.11 (Unified Rep): sale is single-step. Grid value + bonuses
+      // are auto-clamped to the tier floor (3/4/5) and added to the
+      // player's rep track. No split prompt — the v2.10 Gold-only
+      // purchasing-power rule is retired alongside capital.
       type: "SELL_BOURBON";
       playerId: string;
       barrelId: string;
-      /**
-       * v2.10: total rep gained from the grid (post-offsets). Must
-       * equal the computed reward. Non-Gold sales must have
-       * `cardDrawSplit: 0` — only Gold-eligible sales may split the
-       * reward between reputation and purchasing power (card draw).
-       */
-      reputationSplit: number;
-      cardDrawSplit: number;
       goldChoice?: "convert" | "keep" | "decline";
       /**
        * v2.10 Connoisseur Estate: Open-slot Convert allows the target
@@ -900,38 +1052,37 @@ export type GameAction =
       goldConvertTargetSlotId?: string;
     }
   | {
+      // v2.11 (Unified Rep): pay rep + Labor cards. `rep` is the
+      // reputation portion of the payment; `laborCardIds` are Labor
+      // cards from hand whose contributions (Generic = 1, Specialty
+      // Cooper = 2 toward market resources) sum with rep to ≥ cost.
+      // Purchases costing ≥ 2 require at least 1 rep paid. $1 cards
+      // may be paid with 1 Labor and 0 rep.
       type: "BUY_FROM_MARKET";
       playerId: string;
       marketSlotIndex: number;
-      /**
-       * Cards spent from hand to pay the cost. Capital cards pay their
-       * `capitalValue`; resource cards pay 1¢ each.
-       */
-      spendCardIds: string[];
+      rep: number;
+      laborCardIds: string[];
     }
   | {
+      // v2.11: same payment shape as BUY_FROM_MARKET. Marketing Labor
+      // (+2 toward ops) is the matching specialty.
       type: "BUY_OPERATIONS_CARD";
       playerId: string;
       /** Index into the face-up operations row (0..2). */
       opsSlotIndex: number;
-      /** Same payment rules as BUY_FROM_MARKET. */
-      spendCardIds: string[];
+      rep: number;
+      laborCardIds: string[];
     }
   | {
+      // v2.11: face-up bill costs `mashBillCost(bill)` rep (default 2 —
+      // the v2.11 stopgap). Blind draw costs 1 rep. Labor cards do not
+      // discount bill draws — bills are recipe development, not
+      // engine purchases.
       type: "DRAW_MASH_BILL";
       playerId: string;
-      /**
-       * When set: pick the face-up bill with this id. Pay sum-of-cards
-       * ≥ `mashBillCost(bill)` (capital cards pay face value).
-       * When omitted: blind draw from the top of the bourbon deck. Pay
-       * exactly 1 card from your hand.
-       */
       mashBillId?: string;
-      /**
-       * Cards to spend. Blind draw needs exactly 1; face-up needs sum
-       * ≥ the bill's cost.
-       */
-      spendCardIds: string[];
+      rep: number;
     }
   | {
       type: "TRADE";
@@ -945,6 +1096,21 @@ export type GameAction =
       playerId: string;
       cardId: string;
     } & PlayOperationsCardParams)
+  | {
+      // v2.11: take 1 Generic Labor card from the central pile and add
+      // it to your discard. Free action, but once per turn (gated by
+      // `player.hireUsedThisTurn`). Illegal when `laborPile === 0`.
+      type: "HIRE";
+      playerId: string;
+    }
+  | {
+      // v2.11: at cleanup, set aside one card from your hand into the
+      // Save slot. Saved card joins next round's draw on top of the
+      // 8-card deal. Only one card may be saved at a time.
+      type: "SAVE_CARD";
+      playerId: string;
+      cardId: string;
+    }
   | { type: "PASS_TURN"; playerId: string };
 
 // -----------------------------

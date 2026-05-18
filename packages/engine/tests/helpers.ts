@@ -169,6 +169,19 @@ export function giveHand(state: GameState, playerId: string, cards: Card[]): Gam
 }
 
 /**
+ * v2.11: set a player's reputation directly for unified-rep tests
+ * (buys, bill draws, Cash Out, etc.).
+ */
+export function giveRep(state: GameState, playerId: string, rep: number): GameState {
+  return {
+    ...state,
+    players: state.players.map((p) =>
+      p.id === playerId ? { ...p, reputation: rep } : p,
+    ),
+  };
+}
+
+/**
  * Inject a fully-aged barrel directly into one of the player's slots. Used by
  * sale/aging tests so we don't have to grind through N rounds to get a
  * saleable barrel.

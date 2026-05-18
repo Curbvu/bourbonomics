@@ -8,7 +8,7 @@ import type {
   PlayerState,
   ValidationResult,
 } from "../types";
-import { isWheatedBill } from "../types";
+import { isWheatedBill, saleFloorForBill } from "../types";
 import type { Draft } from "immer";
 import type { SaleEffectSignals } from "../card-effects";
 import { collectSaleSignals } from "../card-effects";
@@ -76,38 +76,14 @@ export function validateSellBourbon(
     };
   }
 
+  // v2.11 (Unified Rep): sale is single-step — no split prompt. The
+  // computed total rep (grid + bonuses, clamped to tier floor) lands
+  // on the player's rep track. Gold-only purchasing-power rule from
+  // v2.10 is retired alongside capital.
   const reward = computeSaleReward(state, barrel);
-
-  if (
-    !Number.isInteger(action.reputationSplit) ||
-    !Number.isInteger(action.cardDrawSplit)
-  ) {
-    return { legal: false, reason: "splits must be integers" };
-  }
-  if (action.reputationSplit < 0 || action.cardDrawSplit < 0) {
-    return { legal: false, reason: "splits must be non-negative" };
-  }
-  if (action.reputationSplit + action.cardDrawSplit !== reward) {
-    return {
-      legal: false,
-      reason: `splits sum to ${
-        action.reputationSplit + action.cardDrawSplit
-      }, expected reward of ${reward}`,
-    };
-  }
-
-  // v2.10: only Gold-eligible sales may split the grid value into
-  // purchasing power (card draws). Silver and no-award sales pay 100%
-  // reputation — cardDrawSplit must be 0.
   const goldEligible =
     barrel.attachedMashBill.goldAward != null &&
     awardConditionMet(barrel.attachedMashBill.goldAward, barrel.age, state.demand, reward);
-  if (!goldEligible && action.cardDrawSplit > 0) {
-    return {
-      legal: false,
-      reason: "only Gold-eligible sales can split value into purchasing power",
-    };
-  }
 
   if (goldEligible && action.goldChoice === "convert") {
     if (!action.goldConvertTargetSlotId) {
@@ -173,22 +149,23 @@ function computeSaleReward(state: GameState, barrel: Barrel): number {
 }
 
 /**
- * v2.6 Gold Convert: returns true iff the target slot's committed
- * production cards satisfy the candidate (Gold) bill's recipe — i.e.
- * the cards already on the slot would have been a legal completion
- * for the new recipe. We DON'T re-fire commit-time effects; the
- * cards stay where they are, only the bound bill changes.
+ * v2.10 Gold Convert: returns true iff the target slot's committed
+ * production cards **exactly** match the candidate (Gold) bill's
+ * recipe. Mirrors `make-bourbon.recipeSatisfied` under exact-recipe
+ * semantics — specialty floors are baked into per-subtype mins
+ * (specialty rye counts as plain rye + specialty), and any subtype
+ * past its effective min disqualifies the slot. Specialty-cask
+ * exclusivity also applies: if the Gold recipe wants a Specialty
+ * cask, a plain cask in the target slot's pile blocks the Convert.
  */
 function convertCommitsSatisfyRecipe(
   player: PlayerState,
   target: Barrel,
   candidate: MashBill,
 ): boolean {
-  // Reuse the make-bourbon recipe-satisfaction check by tallying the
-  // existing pile against the candidate bill. Imported lazily to keep
-  // sell-bourbon.ts free of a circular dep on make-bourbon internals.
   const recipe = candidate.recipe ?? {};
   let caskSources = 0;
+  let plainCaskSources = 0;
   let corn = 0,
     rye = 0,
     barley = 0,
@@ -201,7 +178,10 @@ function convertCommitsSatisfyRecipe(
   for (const card of target.productionCards) {
     if (card.type !== "resource") continue;
     const count = card.resourceCount ?? 1;
-    if (card.subtype === "cask") caskSources += count;
+    if (card.subtype === "cask") {
+      caskSources += count;
+      if (!card.specialty) plainCaskSources += count;
+    }
     if (card.subtype === "corn") corn += count;
     if (card.subtype === "rye") rye += count;
     if (card.subtype === "barley") barley += count;
@@ -214,21 +194,34 @@ function convertCommitsSatisfyRecipe(
       if (card.subtype === "wheat") spWheat += count;
     }
   }
-  const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  const minRye = recipe.minRye ?? 0;
-  const minBarley = recipe.minBarley ?? 0;
-  const minWheat = recipe.minWheat ?? 0;
+  const sp = recipe.minSpecialty ?? {};
+  // Specialty floors get rolled into the per-subtype minimum so
+  // "exact" lines up with backwards-compat specialty (one Specialty
+  // Rye satisfies both `minRye: 1` and `minSpecialty.rye: 1`).
+  const minCorn = Math.max(Math.max(1, recipe.minCorn ?? 0), sp.corn ?? 0);
+  const minRye = Math.max(recipe.minRye ?? 0, sp.rye ?? 0);
+  const minBarley = Math.max(recipe.minBarley ?? 0, sp.barley ?? 0);
+  const minWheat = Math.max(recipe.minWheat ?? 0, sp.wheat ?? 0);
   const maxRye = recipe.maxRye ?? Infinity;
   const maxWheat = recipe.maxWheat ?? Infinity;
-  const minTotal = Math.max(recipe.minTotalGrain ?? 0, 1);
+  const namedGrainSum = minRye + minBarley + minWheat;
+  const minTotal = Math.max(
+    recipe.minTotalGrain ?? 0,
+    namedGrainSum === 0 ? 1 : namedGrainSum,
+  );
   const grain = rye + barley + wheat;
-  if (caskSources < 1 || caskSources > 1) return false;
-  if (corn < minCorn) return false;
-  if (rye < minRye || barley < minBarley || wheat < minWheat) return false;
+  if (caskSources !== 1) return false;
+  // Specialty-cask exclusivity: Gold recipe wants Specialty, target
+  // has plain — Convert fails.
+  if ((sp.cask ?? 0) >= 1 && plainCaskSources > 0) return false;
+  // Corn is exact; per-grain are floors; total grain is exact.
+  if (corn !== minCorn) return false;
+  if (rye < minRye) return false;
+  if (barley < minBarley) return false;
+  if (wheat < minWheat) return false;
   if (rye > maxRye || wheat > maxWheat) return false;
-  if (grain < minTotal) return false;
+  if (grain !== minTotal) return false;
   // v2.7.2: per-subtype Specialty requirements.
-  const sp = recipe.minSpecialty ?? {};
   if (spCask < (sp.cask ?? 0)) return false;
   if (spCorn < (sp.corn ?? 0)) return false;
   if (spRye < (sp.rye ?? 0)) return false;
@@ -265,30 +258,27 @@ export function applySellBourbon(
   const signals = collectSaleSignals(barrel, { demand: draft.demand });
   const reward = computeSaleGridReward(attached, barrel, draft.demand, signals);
 
-  // Apply reputation gain. Stacking on top of the player-driven
-  // split: themed-card flat bonuses, themed-card conditional
-  // bonuses (already in `signals.bonusRep`), the pre-played Rating
-  // Boost flag, and distillery sale mods (e.g. High-Rye House: +1
-  // rep on a high-rye bill).
+  // v2.11 (Unified Rep): single-step sale. Sum everything that adds
+  // rep at sale — grid reward, themed-card per-card bonuses, Rating
+  // Boost, distillery sale mods (e.g. High-Rye +1) — then clamp to
+  // the bill's tier floor (3/4/5) so every sale clears its baseline.
   const ratingBoost = player.pendingRatingBoost;
   const distilleryBonusRep = distillerySaleBonusRep(player.distillery, attached);
-  player.reputation +=
-    action.reputationSplit +
-    signals.bonusRep +
-    ratingBoost +
-    distilleryBonusRep;
+  const rawTotal = reward + signals.bonusRep + ratingBoost + distilleryBonusRep;
+  const floor = saleFloorForBill(attached);
+  const total = Math.max(rawTotal, floor);
+  player.reputation += total;
   // Consume the boost — one-shot per sale.
   if (ratingBoost > 0) player.pendingRatingBoost = 0;
 
-  // Mid-action card draw: drawn cards go straight into hand.
-  // `bonusDraw` from sale effects (e.g. Six-Row Barley) stacks on
-  // top of the player's split.
-  const drawCount = action.cardDrawSplit + signals.bonusDraw;
-  if (drawCount > 0) {
+  // Themed-card on-sale draw bonuses (e.g. a future Heritage card
+  // declaring `draw_cards on_sale`). Kept independent of the rep
+  // total so themed effects still fire under unified rep.
+  if (signals.bonusDraw > 0) {
     const result = drawWithReshuffle(
       player.deck.slice(),
       player.discard.slice(),
-      drawCount,
+      signals.bonusDraw,
       draft.rngState,
     );
     player.hand.push(...result.drawn);

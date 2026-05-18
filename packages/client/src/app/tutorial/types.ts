@@ -89,6 +89,13 @@ export interface PromptBeat extends BeatBase {
    * dismissed; the player can right-click to reopen).
    */
   closeInspectOnAdvance?: boolean;
+  /**
+   * When set, render the prompt as a full-screen chapter title-card
+   * (mirrors the BoardTour's title cards) — big centered card on a
+   * dimmed board, "Lesson N · Label" eyebrow. Used to group the
+   * play phase into bite-sized lessons.
+   */
+  chapter?: { number: number; label: string };
 }
 
 export interface AwaitActionBeat extends BeatBase {
@@ -108,9 +115,11 @@ export interface AwaitActionBeat extends BeatBase {
    */
   matches: (action: GameAction, state: GameState) => boolean;
   /**
-   * Optional override for the dispatched action — e.g. force the
-   * sell-action's reputationSplit to a specific value. Returns null
-   * to dispatch the action as-is.
+   * Optional override for the dispatched action. Returns null to
+   * dispatch as-is. v2.11: the sell-action no longer carries a
+   * rep-split payload (engine resolves the total on apply), so the
+   * legacy "force a specific split" use-case is gone — left here in
+   * case future beats need to massage other action shapes.
    */
   rewrite?: (action: GameAction, state: GameState) => GameAction | null;
   /**
@@ -132,6 +141,17 @@ export interface AwaitActionBeat extends BeatBase {
    * the wrong card type.
    */
   handCardFilter?: (card: Card) => boolean;
+  /**
+   * Optional looping drag demonstration. The controller picks the
+   * first card in the human's hand satisfying `pickHandCard` and
+   * animates a ghost cursor + card pill from there to the rickhouse
+   * slot named by `slotIndex`. Used during Make sub-beats so the
+   * player SEES which ingredient to drag next.
+   */
+  dragHint?: {
+    pickHandCard: (card: Card) => boolean;
+    slotIndex: number;
+  };
 }
 
 export interface DecisionBeat extends BeatBase {

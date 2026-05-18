@@ -169,11 +169,15 @@ describe("incremental commitment — basics", () => {
 // attach-at-start / attach-later / re-attach-rejection are not testable
 // behaviors. Their invariants are structurally guaranteed by the model.
 
-describe("incremental commitment — Specialty Cask upgrade (v3.1)", () => {
-  // Bills with `minSpecialty: { cask: 1 }` previously trapped any
-  // player who committed an ordinary cask first — the universal
-  // "exactly 1 cask" rule rejected the follow-up Specialty cask, and
-  // the barrel was permanently stuck. The upgrade swap unsticks it.
+describe("incremental commitment — Specialty Cask exclusivity (v2.10)", () => {
+  // v2.10 rule: when a recipe demands `minSpecialty.cask >= 1`, plain
+  // casks are NEVER legal commits — the universal "exactly 1 cask"
+  // rule would otherwise force the player to ABANDON_BARREL. The
+  // engine refuses the plain cask up front so the player has to lead
+  // with a Specialty cask. The legacy v3.1 upgrade-swap path is
+  // unreachable for these recipes; it survives in the code for
+  // recipes WITHOUT a specialty-cask floor (player upgrading cask
+  // for the +1 rep on sale).
   const specialtyCaskBill = makeMashBill(
     {
       defId: "specialty_cask_test",
@@ -196,18 +200,33 @@ describe("incremental commitment — Specialty Cask upgrade (v3.1)", () => {
     };
   }
 
-  it("swaps an existing ordinary cask for an incoming Specialty cask", () => {
+  it("rejects a plain cask up front when the recipe requires a Specialty cask", () => {
     let state = makeTestGame({
       startingMashBills: [[specialtyCaskBill], []],
       bourbonDeck: [],
     });
     state = advanceToActionPhase(state);
     const slotId = slotForBill(state, "p1", specialtyCaskBill.id);
+    state = giveHand(state, "p1", [cask("p1", 0)]);
+    expect(() =>
+      applyAction(state, {
+        type: "MAKE_BOURBON",
+        playerId: "p1",
+        slotId,
+        cardIds: ["card_p1_cask_0"],
+      }),
+    ).toThrow(/Specialty cask/);
+  });
 
-    // Step 1: commit ordinary cask + corn + rye. Recipe count is met
-    // but Specialty gate is NOT — barrel sits in construction.
+  it("completes the barrel when the player leads with a Specialty cask", () => {
+    let state = makeTestGame({
+      startingMashBills: [[specialtyCaskBill], []],
+      bourbonDeck: [],
+    });
+    state = advanceToActionPhase(state);
+    const slotId = slotForBill(state, "p1", specialtyCaskBill.id);
     state = giveHand(state, "p1", [
-      cask("p1", 0),
+      specialtyCask("p1", 5),
       corn("p1", 1),
       rye("p1", 2),
     ]);
@@ -215,81 +234,13 @@ describe("incremental commitment — Specialty Cask upgrade (v3.1)", () => {
       type: "MAKE_BOURBON",
       playerId: "p1",
       slotId,
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
+      cardIds: ["card_p1_specialty_cask_5", "card_p1_corn_1", "card_p1_rye_2"],
     });
-    let barrel = state.allBarrels.find((b) => b.slotId === slotId)!;
-    expect(barrel.phase).toBe("construction");
-    expect(barrel.productionCards.map((c) => c.cardDefId).sort()).toEqual(
-      ["cask", "corn", "rye"],
-    );
-
-    // Step 2: the trap. Without the upgrade swap, this would throw —
-    // caskSources would go to 2 and validation rejects. With the
-    // upgrade: ordinary cask returns to discard, Specialty cask takes
-    // its place, recipe satisfied, barrel flips to aging.
-    state = giveHand(state, "p1", [specialtyCask("p1", 5)]);
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId,
-      cardIds: ["card_p1_specialty_cask_5"],
-    });
-
-    barrel = state.allBarrels.find((b) => b.slotId === slotId)!;
+    const barrel = state.allBarrels.find((b) => b.slotId === slotId)!;
     expect(barrel.phase).toBe("aging");
     expect(barrel.productionCards.map((c) => c.cardDefId).sort()).toEqual(
       ["corn", "rye", "superior_cask"],
     );
-
-    // The displaced ordinary cask returned to the player's discard —
-    // not lost, not stranded on the barrel.
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.discard.map((c) => c.cardDefId)).toContain("cask");
-  });
-
-  it("rejects a second ordinary cask (no swap allowed without Specialty)", () => {
-    let state = makeTestGame();
-    const mbId = state.allBarrels.find(
-      (b) => b.ownerId === "p1" && b.phase === "ready",
-    )!.attachedMashBill.id;
-    state = advanceToActionPhase(state);
-    const slotId = slotForBill(state, "p1", mbId);
-
-    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2)]);
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId,
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
-    });
-    // The above already completed the recipe (Common bill), so the
-    // barrel is aging — make it construction again for the test by
-    // resetting to a fresh game where the bill needs more.
-    let s2 = makeTestGame({
-      startingMashBills: [[specialtyCaskBill], []],
-      bourbonDeck: [],
-    });
-    s2 = advanceToActionPhase(s2);
-    const slotId2 = slotForBill(s2, "p1", specialtyCaskBill.id);
-    s2 = giveHand(s2, "p1", [cask("p1", 0), corn("p1", 1), rye("p1", 2)]);
-    s2 = applyAction(s2, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      slotId: slotId2,
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
-    });
-
-    // Now try to add a SECOND ordinary cask — should still reject
-    // (only Specialty triggers the swap exception).
-    s2 = giveHand(s2, "p1", [cask("p1", 9)]);
-    expect(() =>
-      applyAction(s2, {
-        type: "MAKE_BOURBON",
-        playerId: "p1",
-        slotId: slotId2,
-        cardIds: ["card_p1_cask_9"],
-      }),
-    ).toThrow(/cask/);
   });
 });
 
@@ -376,8 +327,7 @@ describe("incremental commitment — full lifecycle integration", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 3,
-      cardDrawSplit: 0,    });
+});
     const repAfter = state.players.find((p) => p.id === "p1")!.reputation;
     expect(repAfter - repBefore).toBe(3);
   });

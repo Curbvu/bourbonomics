@@ -1,24 +1,26 @@
 import type { Draft } from "immer";
-import type { Card, GameAction, GameState, MashBill, ValidationResult } from "../types";
+import type { GameAction, GameState, MashBill, ValidationResult } from "../types";
 import { mashBillCost } from "../types";
-import { paymentValue } from "../cards";
 import { emptySlotsFor, isCurrentPlayer, slottedBillCount } from "../state";
 import { placeBillInSlot } from "../starter-pool";
 
 type DrawMashBillAction = Extract<GameAction, { type: "DRAW_MASH_BILL" }>;
 
 const FACEUP_BOURBON_SIZE = 3;
+const BLIND_DRAW_COST = 1;
 
 /**
- * v2.6 — DRAW_MASH_BILL routes the drawn bill straight into one of the
+ * DRAW_MASH_BILL routes the drawn bill straight into one of the
  * player's open rickhouse slots as a "ready" barrel. Without an open
  * slot, the action is illegal: slot capacity is the gating resource on
  * the doomsday clock.
  *
- * Two flavors as before:
- *   - targeted face-up pick: pick one of the 3 face-up bills, pay
- *     ≥ `mashBillCost(bill)` with hand cards (capital cards pay face).
- *   - blind draw: pop the top of the bourbon deck for exactly 1 card.
+ * v2.11 (Unified Rep) payment is rep-only — Labor cards do not
+ * discount bill draws because bills are recipe development, not
+ * engine purchases:
+ *   - targeted face-up pick: `rep ≥ mashBillCost(bill)` (default 2 —
+ *     the v2.11 stopgap; see `mashBillCost` in types.ts).
+ *   - blind draw: `rep ≥ 1`.
  */
 export function validateDrawMashBill(
   state: GameState,
@@ -46,18 +48,14 @@ export function validateDrawMashBill(
     };
   }
 
-  const spendIds = action.spendCardIds;
-  if (spendIds.length === 0) {
-    return { legal: false, reason: "must spend at least one card" };
+  if (!Number.isInteger(action.rep) || action.rep < 0) {
+    return { legal: false, reason: "rep payment must be a non-negative integer" };
   }
-  if (new Set(spendIds).size !== spendIds.length) {
-    return { legal: false, reason: "duplicate card id in spend list" };
-  }
-  const handIds = new Set(player.hand.map((c) => c.id));
-  for (const id of spendIds) {
-    if (!handIds.has(id)) {
-      return { legal: false, reason: `card ${id} is not in your hand` };
-    }
+  if (action.rep > player.reputation) {
+    return {
+      legal: false,
+      reason: `not enough reputation: have ${player.reputation}, paying ${action.rep}`,
+    };
   }
 
   if (action.mashBillId) {
@@ -80,25 +78,20 @@ export function validateDrawMashBill(
       };
     }
     const cost = mashBillCost(bill);
-    let totalCapital = 0;
-    for (const id of spendIds) {
-      const card = player.hand.find((c) => c.id === id)!;
-      totalCapital += paymentValue(card);
-    }
-    if (totalCapital < cost) {
+    if (action.rep < cost) {
       return {
         legal: false,
-        reason: `spent value is B$${totalCapital}, need B$${cost}`,
+        reason: `need ${cost} rep (have ${action.rep})`,
       };
     }
     return { legal: true };
   }
 
-  // Blind draw — exactly 1 card paid, top of deck.
-  if (spendIds.length !== 1) {
+  // Blind draw — exactly BLIND_DRAW_COST rep, top of deck.
+  if (action.rep < BLIND_DRAW_COST) {
     return {
       legal: false,
-      reason: "blind draw spends exactly 1 card (or pick a face-up bill instead)",
+      reason: `blind draw costs ${BLIND_DRAW_COST} rep (have ${action.rep})`,
     };
   }
   if (state.bourbonDeck.length === 0) {
@@ -112,17 +105,7 @@ export function applyDrawMashBill(
   action: DrawMashBillAction,
 ): void {
   const player = draft.players.find((p) => p.id === action.playerId)!;
-
-  // Move spent cards from hand → discard.
-  const spendSet = new Set(action.spendCardIds);
-  const newHand: Card[] = [];
-  const spent: Card[] = [];
-  for (const c of player.hand) {
-    if (spendSet.has(c.id)) spent.push(c);
-    else newHand.push(c);
-  }
-  player.hand = newHand;
-  player.discard.push(...spent);
+  player.reputation -= action.rep;
 
   let acquired: MashBill;
   if (action.mashBillId) {

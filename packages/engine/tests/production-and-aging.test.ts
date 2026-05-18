@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
-import { makeResourceCard, makeCapitalCard, makeMashBill } from "../src/cards.js";
+import {
+  makeResourceCard,
+  makeCapitalCard,
+  makeMashBill,
+  makePremiumResource,
+} from "../src/cards.js";
 import {
   advanceToActionPhase,
   advanceToNextRound,
@@ -534,5 +539,289 @@ describe("PASS_TURN + cleanup", () => {
     expect(state.phase).toBe("draw");
     expect(state.round).toBe(3);
     expect(state.allBarrels[0]!.agedThisRound).toBe(false);
+  });
+});
+
+// ============================================================
+// v2.10 — exact-recipe rule
+// ============================================================
+//
+// Three constraints land together:
+//   1. Total cask + corn + grain matches the recipe (cask universal,
+//      corn always exact, grain total exact — per-grain mins stay
+//      floors so wildcard portions still float across grains).
+//   2. `minSpecialty.cask >= 1` forbids plain casks outright.
+//   3. Specialties are backwards-compatible: one Specialty Rye
+//      satisfies both `minRye: 1` and `minSpecialty.rye: 1` — no
+//      double commit needed.
+
+const superiorCask = (label: string, i = 0) =>
+  makePremiumResource({
+    defId: "superior_cask",
+    displayName: "Superior Cask",
+    subtype: "cask",
+    resourceCount: 1,
+    cost: 3,
+    specialty: true,
+    effect: { kind: "rep_on_sale_flat", when: "on_sale", rep: 1 },
+    ownerLabel: label,
+    index: i,
+  });
+
+const superiorRye = (label: string, i = 0) =>
+  makePremiumResource({
+    defId: "superior_rye",
+    displayName: "Superior Rye",
+    subtype: "rye",
+    resourceCount: 1,
+    cost: 3,
+    specialty: true,
+    effect: { kind: "rep_on_sale_flat", when: "on_sale", rep: 1 },
+    ownerLabel: label,
+    index: i,
+  });
+
+describe("MAKE_BOURBON — v2.10 exact-recipe rule", () => {
+  it("rejects an over-commit that exceeds total grain on a Common bill", () => {
+    let state = makeTestGame();
+    const mbId = p1MashBillId(state);
+    state = advanceToActionPhase(state);
+    const slotId = slotForBill(state, "p1", mbId);
+    state = giveHand(state, "p1", [
+      cask("p1", 0),
+      corn("p1", 1),
+      rye("p1", 2),
+      barley("p1", 3),
+    ]);
+    expect(() =>
+      applyAction(state, {
+        type: "MAKE_BOURBON",
+        playerId: "p1",
+        slotId,
+        cardIds: [
+          "card_p1_cask_0",
+          "card_p1_corn_1",
+          "card_p1_rye_2",
+          "card_p1_barley_3",
+        ],
+      }),
+    ).toThrow(/exactly 1 total grain/);
+  });
+
+  it("rejects an over-commit on corn", () => {
+    let state = makeTestGame();
+    const mbId = p1MashBillId(state);
+    state = advanceToActionPhase(state);
+    const slotId = slotForBill(state, "p1", mbId);
+    state = giveHand(state, "p1", [
+      cask("p1", 0),
+      corn("p1", 1),
+      corn("p1", 2),
+      rye("p1", 3),
+    ]);
+    expect(() =>
+      applyAction(state, {
+        type: "MAKE_BOURBON",
+        playerId: "p1",
+        slotId,
+        cardIds: [
+          "card_p1_cask_0",
+          "card_p1_corn_1",
+          "card_p1_corn_2",
+          "card_p1_rye_3",
+        ],
+      }),
+    ).toThrow(/exactly 1 corn/);
+  });
+
+  it("lets the wildcard grain slot float across grains within total", () => {
+    const bill = makeMashBill(
+      {
+        defId: "wildcard_test",
+        name: "Wildcard 2-grain",
+        ageBands: [2],
+        demandBands: [2],
+        rewardGrid: [[1]],
+        recipe: { minRye: 1, minTotalGrain: 2 },
+      },
+      150,
+    );
+    let state = makeTestGame({ startingMashBills: [[bill], []], bourbonDeck: [] });
+    state = advanceToActionPhase(state);
+    const slotId = slotForBill(state, "p1", bill.id);
+    state = giveHand(state, "p1", [
+      cask("p1", 0),
+      corn("p1", 1),
+      rye("p1", 2),
+      barley("p1", 3),
+    ]);
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      slotId,
+      cardIds: [
+        "card_p1_cask_0",
+        "card_p1_corn_1",
+        "card_p1_rye_2",
+        "card_p1_barley_3",
+      ],
+    });
+    const barrel = state.allBarrels.find((b) => b.slotId === slotId)!;
+    expect(barrel.phase).toBe("aging");
+  });
+});
+
+describe("MAKE_BOURBON — v2.10 specialty-cask exclusivity", () => {
+  const specCaskBill = makeMashBill(
+    {
+      defId: "exact_specialty_cask",
+      name: "Specialty-Cask Bill",
+      ageBands: [2],
+      demandBands: [2],
+      rewardGrid: [[3]],
+      recipe: { minSpecialty: { cask: 1 } },
+    },
+    160,
+  );
+
+  it("rejects a plain cask up front", () => {
+    let state = makeTestGame({ startingMashBills: [[specCaskBill], []], bourbonDeck: [] });
+    state = advanceToActionPhase(state);
+    const slotId = slotForBill(state, "p1", specCaskBill.id);
+    state = giveHand(state, "p1", [cask("p1", 0)]);
+    expect(() =>
+      applyAction(state, {
+        type: "MAKE_BOURBON",
+        playerId: "p1",
+        slotId,
+        cardIds: ["card_p1_cask_0"],
+      }),
+    ).toThrow(/Specialty cask/);
+  });
+
+  it("accepts a Specialty cask and lets the barrel age", () => {
+    let state = makeTestGame({ startingMashBills: [[specCaskBill], []], bourbonDeck: [] });
+    state = advanceToActionPhase(state);
+    const slotId = slotForBill(state, "p1", specCaskBill.id);
+    state = giveHand(state, "p1", [superiorCask("p1", 0), corn("p1", 1), rye("p1", 2)]);
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      slotId,
+      cardIds: [
+        "card_p1_superior_cask_0",
+        "card_p1_corn_1",
+        "card_p1_rye_2",
+      ],
+    });
+    const barrel = state.allBarrels.find((b) => b.slotId === slotId)!;
+    expect(barrel.phase).toBe("aging");
+  });
+});
+
+describe("MAKE_BOURBON — v2.10 backwards-compatible specialty", () => {
+  it("a single Specialty Rye satisfies both minRye:1 and minSpecialty.rye:1", () => {
+    const bill = makeMashBill(
+      {
+        defId: "dedup_specialty_rye",
+        name: "Dedup Test",
+        ageBands: [2],
+        demandBands: [2],
+        rewardGrid: [[3]],
+        recipe: { minRye: 1, minSpecialty: { rye: 1 } },
+      },
+      170,
+    );
+    let state = makeTestGame({ startingMashBills: [[bill], []], bourbonDeck: [] });
+    state = advanceToActionPhase(state);
+    const slotId = slotForBill(state, "p1", bill.id);
+    state = giveHand(state, "p1", [cask("p1", 0), corn("p1", 1), superiorRye("p1", 2)]);
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      slotId,
+      cardIds: [
+        "card_p1_cask_0",
+        "card_p1_corn_1",
+        "card_p1_superior_rye_2",
+      ],
+    });
+    const barrel = state.allBarrels.find((b) => b.slotId === slotId)!;
+    expect(barrel.phase).toBe("aging");
+    // Exactly 3 cards on the barrel — no double-commit of plain+specialty.
+    expect(barrel.productionCards).toHaveLength(3);
+  });
+
+  it("minRye:2 + minSpecialty.rye:1 takes 1 plain + 1 specialty (2 rye total, 1 specialty)", () => {
+    const bill = makeMashBill(
+      {
+        defId: "exact_layered_rye",
+        name: "Layered Rye",
+        ageBands: [2],
+        demandBands: [2],
+        rewardGrid: [[4]],
+        recipe: { minRye: 2, minTotalGrain: 2, minSpecialty: { rye: 1 } },
+      },
+      180,
+    );
+    let state = makeTestGame({ startingMashBills: [[bill], []], bourbonDeck: [] });
+    state = advanceToActionPhase(state);
+    const slotId = slotForBill(state, "p1", bill.id);
+    state = giveHand(state, "p1", [
+      cask("p1", 0),
+      corn("p1", 1),
+      rye("p1", 2),
+      superiorRye("p1", 3),
+    ]);
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      slotId,
+      cardIds: [
+        "card_p1_cask_0",
+        "card_p1_corn_1",
+        "card_p1_rye_2",
+        "card_p1_superior_rye_3",
+      ],
+    });
+    const barrel = state.allBarrels.find((b) => b.slotId === slotId)!;
+    expect(barrel.phase).toBe("aging");
+    expect(barrel.productionCards).toHaveLength(4);
+  });
+
+  it("rejects layering plain + specialty when the recipe only wants 1 grain", () => {
+    const bill = makeMashBill(
+      {
+        defId: "no_double_rye",
+        name: "No Doubling",
+        ageBands: [2],
+        demandBands: [2],
+        rewardGrid: [[3]],
+        recipe: { minRye: 1, minSpecialty: { rye: 1 } },
+      },
+      190,
+    );
+    let state = makeTestGame({ startingMashBills: [[bill], []], bourbonDeck: [] });
+    state = advanceToActionPhase(state);
+    const slotId = slotForBill(state, "p1", bill.id);
+    state = giveHand(state, "p1", [
+      cask("p1", 0),
+      corn("p1", 1),
+      rye("p1", 2),
+      superiorRye("p1", 3),
+    ]);
+    expect(() =>
+      applyAction(state, {
+        type: "MAKE_BOURBON",
+        playerId: "p1",
+        slotId,
+        cardIds: [
+          "card_p1_cask_0",
+          "card_p1_corn_1",
+          "card_p1_rye_2",
+          "card_p1_superior_rye_3",
+        ],
+      }),
+    ).toThrow(/exactly 1 total grain/);
   });
 });

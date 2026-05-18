@@ -41,9 +41,10 @@ interface ResourceTotals {
   barley: number;
   wheat: number;
   /**
-   * v2.7.2: per-subtype Specialty unit counts. A Double Specialty
-   * card contributes its `resourceCount` (so a Double Superior Rye
-   * adds 2 to `specialtyRye`). Used to satisfy `recipe.minSpecialty`.
+   * v2.11: per-subtype Specialty unit counts. Each Specialty or
+   * Heritage card contributes its `resourceCount` (uniformly 1 in
+   * v2.11 — every card is one unit). Used to satisfy
+   * `recipe.minSpecialty`.
    */
   specialtyCask: number;
   specialtyCorn: number;
@@ -77,9 +78,9 @@ function totalGrain(t: ResourceTotals): number {
  * for non-resource cards so callers can iterate uniformly across
  * mixed piles.
  *
- * v2.7.2: Specialty / Double Specialty cards (`card.specialty === true`)
- * also contribute their `resourceCount` to the per-subtype specialty
- * tally so recipes with `minSpecialty` requirements can be checked.
+ * v2.11: Specialty / Heritage cards (`card.specialty === true`) also
+ * contribute their `resourceCount` to the per-subtype specialty tally
+ * so recipes with `minSpecialty` requirements can be checked.
  */
 function tallyCard(totals: ResourceTotals, card: Card): void {
   if (card.type !== "resource") return;
@@ -101,10 +102,15 @@ function tallyCard(totals: ResourceTotals, card: Card): void {
  * Recipe minimums for this player + bill, with distillery and pre-
  * played discounts (Mash Futures, Cooper's Contract) baked in.
  *
+ * v2.10 exact-recipe rule: each `min*` is also the **maximum** the
+ * commit may carry for that subtype. Recipes are exact. Specialty
+ * floors are computed as `max(declared, sp.<subtype>)` so a
+ * `minRye: 0, minSpecialty: { rye: 2 }` recipe still demands 2 rye
+ * total (the specialty card counts as both a plain rye and a
+ * specialty rye — backwards-compatible).
+ *
  * Wheated Baron applied to wheated bills knocks 1 off `minWheat`
- * (floor 0). The discount is computed against the cumulative pile —
- * with incremental commitment we only check satisfaction at the
- * moment the cumulative cards meet the (discounted) recipe.
+ * (floor 0). Mash Futures knocks 1 off the largest grain min.
  */
 function effectiveRecipeMins(
   player: PlayerState,
@@ -128,8 +134,6 @@ function effectiveRecipeMins(
   let minBarley = recipe.minBarley ?? 0;
   let minWheat = recipe.minWheat ?? 0;
   // v2.10 Wheated Baron: -1 wheat floor on wheated bills (maxRye === 0).
-  // Stacks before pendingMakeDiscount so a wheated bill with Mash
-  // Futures armed gets both discounts.
   if (
     player.distillery?.bonus === "wheated_baron" &&
     recipe.maxRye === 0 &&
@@ -157,13 +161,28 @@ function effectiveRecipeMins(
     else if (bestKind === "barley") minBarley = Math.max(0, minBarley - 1);
     else if (bestKind === "wheat") minWheat = Math.max(0, minWheat - 1);
   }
-  let minTotalGrain = recipe.minTotalGrain ?? 0;
+  const sp = recipe.minSpecialty ?? {};
+  // v2.10: bake the specialty floor into the per-subtype minimum so
+  // `minRye: 0, minSpecialty.rye: 2` reads as "exactly 2 rye, both
+  // specialty". A specialty card contributes to BOTH the regular
+  // total and the specialty floor (see tallyCard).
+  minRye = Math.max(minRye, sp.rye ?? 0);
+  minBarley = Math.max(minBarley, sp.barley ?? 0);
+  minWheat = Math.max(minWheat, sp.wheat ?? 0);
+  const minCorn = Math.max(Math.max(1, recipe.minCorn ?? 0), sp.corn ?? 0);
+  // Effective total grain = max(declared, sum of named grain mins, 1).
+  // Universal rule guarantees ≥1 grain on every barrel; bills with no
+  // grain minimums get an implicit 1-wildcard slot.
+  const namedGrainSum = minRye + minBarley + minWheat;
+  let minTotalGrain = Math.max(
+    recipe.minTotalGrain ?? 0,
+    namedGrainSum === 0 ? 1 : namedGrainSum,
+  );
   if (player.pendingMakeDiscount === "grain") {
     minTotalGrain = Math.max(1, minTotalGrain - 1);
   }
-  const sp = recipe.minSpecialty ?? {};
   return {
-    minCorn: Math.max(1, recipe.minCorn ?? 0),
+    minCorn,
     minRye,
     minBarley,
     minWheat,
@@ -225,11 +244,20 @@ export function isCaskUpgrade(
 }
 
 /**
+ * v2.10 — exact-recipe satisfaction check.
+ *
  * Returns true iff the cumulative committed pile (production cards on
- * the barrel after this commit) satisfies the universal rule + the
- * attached bill's recipe. Used both at validation time (to forbid
- * over-commits past `maxRye` etc.) and at apply time (to decide
- * whether to flip the barrel to aging).
+ * the barrel after this commit) satisfies the universal rule AND
+ * **exactly** matches the bill's recipe minimums. Specialty floors
+ * are baked into per-subtype mins by `effectiveRecipeMins`, so a
+ * specialty card satisfies both its subtype floor and the specialty
+ * gate with one card (a single Specialty Rye satisfies
+ * `minRye: 1 + minSpecialty.rye: 1`).
+ *
+ * Exact rule shape: cask/corn/grain-total are EXACT counts; per-grain
+ * (rye/barley/wheat) minimums act as **floors** — players can lean
+ * any combination of grains into the wildcard portion of
+ * `minTotalGrain`, but the total is still the recipe's exact total.
  */
 function recipeSatisfied(
   player: PlayerState,
@@ -239,25 +267,47 @@ function recipeSatisfied(
   // Universal rule: exactly 1 cask source per barrel. Cooper's
   // Contract allows 0.
   const allowZeroCask = player.pendingMakeDiscount === "cask";
-  const minCaskSources = allowZeroCask ? 0 : 1;
-  if (totals.caskSources < minCaskSources) {
-    return { ok: false, reason: `need ${minCaskSources} cask source` };
+  const expectedCask = allowZeroCask ? 0 : 1;
+  if (totals.caskSources !== expectedCask) {
+    return {
+      ok: false,
+      reason:
+        totals.caskSources < expectedCask
+          ? `need ${expectedCask} cask source`
+          : "barrel can hold at most 1 cask source",
+    };
   }
-  if (totals.caskSources > 1) {
-    return { ok: false, reason: "barrel can hold at most 1 cask source" };
-  }
-  if (totals.corn < 1) return { ok: false, reason: "need at least 1 corn" };
-  const grain = totalGrain(totals);
-  if (grain < 1) return { ok: false, reason: "need at least 1 grain" };
   const mins = effectiveRecipeMins(player, bill);
-  if (totals.corn < mins.minCorn) return { ok: false, reason: `recipe requires corn ≥ ${mins.minCorn}` };
-  if (totals.rye < mins.minRye) return { ok: false, reason: `recipe requires rye ≥ ${mins.minRye}` };
-  if (totals.barley < mins.minBarley) return { ok: false, reason: `recipe requires barley ≥ ${mins.minBarley}` };
-  if (totals.wheat < mins.minWheat) return { ok: false, reason: `recipe requires wheat ≥ ${mins.minWheat}` };
-  if (totals.rye > mins.maxRye) return { ok: false, reason: `recipe forbids rye > ${mins.maxRye}` };
-  if (totals.wheat > mins.maxWheat) return { ok: false, reason: `recipe forbids wheat > ${mins.maxWheat}` };
-  if (grain < mins.minTotalGrain) return { ok: false, reason: `recipe requires total grain ≥ ${mins.minTotalGrain}` };
-  // v2.7.2: per-subtype Specialty requirements (Epic / Legendary bills).
+  // Corn is exact (every recipe specifies it explicitly or defaults
+  // to 1 via the universal rule).
+  if (totals.corn !== mins.minCorn)
+    return {
+      ok: false,
+      reason: `recipe requires exactly ${mins.minCorn} corn (have ${totals.corn})`,
+    };
+  // Per-grain floors. A recipe with `minRye: 2, minTotalGrain: 3`
+  // is "2 rye + 1 wildcard grain"; the wildcard can land on any
+  // grain (including more rye), but the per-grain caps still apply.
+  if (totals.rye < mins.minRye)
+    return { ok: false, reason: `recipe requires rye ≥ ${mins.minRye} (have ${totals.rye})` };
+  if (totals.barley < mins.minBarley)
+    return { ok: false, reason: `recipe requires barley ≥ ${mins.minBarley} (have ${totals.barley})` };
+  if (totals.wheat < mins.minWheat)
+    return { ok: false, reason: `recipe requires wheat ≥ ${mins.minWheat} (have ${totals.wheat})` };
+  if (totals.rye > mins.maxRye)
+    return { ok: false, reason: `recipe forbids rye > ${mins.maxRye}` };
+  if (totals.wheat > mins.maxWheat)
+    return { ok: false, reason: `recipe forbids wheat > ${mins.maxWheat}` };
+  // Total grain is exact — no extra cards beyond what the recipe asks.
+  const grain = totalGrain(totals);
+  if (grain !== mins.minTotalGrain)
+    return {
+      ok: false,
+      reason: `recipe requires exactly ${mins.minTotalGrain} total grain (have ${grain})`,
+    };
+  // Specialty floors. The +1-rep specialty bonus is encoded as an
+  // independent gate so the failure mode is "not enough of the
+  // committed cards are Specialty for that subtype".
   if (totals.specialtyCask < mins.minSpecialtyCask)
     return { ok: false, reason: `recipe requires ${mins.minSpecialtyCask} Specialty cask` };
   if (totals.specialtyCorn < mins.minSpecialtyCorn)
@@ -343,23 +393,68 @@ export function validateMakeBourbon(
     tallyCard(totals, card);
   }
 
-  // Hard upper limits — block over-commits that would strand the
-  // barrel. Exception: a Specialty Cask upgrade (swap intent) is
-  // allowed even though the raw cask count goes to 2 — apply will
-  // splice the existing ordinary cask out and return it to discard.
+  const mins = effectiveRecipeMins(player, existingBarrel.attachedMashBill);
+  const newCards = action.cardIds.map((id) => cardById.get(id)!);
+
+  // v2.10 specialty-cask exclusivity: when the recipe requires a
+  // Specialty cask, plain casks are never legal — committing one
+  // forecloses the slot since the universal rule allows exactly one
+  // cask source. Reject the commit (and any pile that already holds
+  // a plain cask) up front instead of letting it die at completion.
+  if (mins.minSpecialtyCask >= 1) {
+    const hasPlainCask = (cards: readonly Card[]): boolean =>
+      cards.some(
+        (c) => c.type === "resource" && suppliesResource(c, "cask") && !c.specialty,
+      );
+    if (hasPlainCask(existingBarrel.productionCards) || hasPlainCask(newCards)) {
+      return {
+        legal: false,
+        reason: "recipe requires a Specialty cask — plain casks are not allowed",
+      };
+    }
+  }
+
+  // Hard upper limit on cask count — block over-commits that would
+  // strand the barrel. Exception: a Specialty Cask upgrade (swap
+  // intent) is allowed even though the raw cask count goes to 2 —
+  // apply will splice the existing ordinary cask out and return it
+  // to discard. (Upgrade can't fire when minSpecialtyCask gates the
+  // recipe — that path is closed off above so plain cask never lands
+  // in the pile.)
   if (totals.caskSources > 1) {
-    const newCards = action.cardIds.map((id) => cardById.get(id)!);
     if (!isCaskUpgrade(existingBarrel.productionCards, newCards)) {
       return { legal: false, reason: "barrel can hold at most 1 cask source" };
     }
   }
-  const mins = effectiveRecipeMins(player, existingBarrel.attachedMashBill);
+
+  // v2.10 exact-recipe over-commit guards. Cask, corn, and grain
+  // total are exact counts — any commit that would push them past
+  // the recipe strands the barrel, so we reject early instead of
+  // forcing the player into ABANDON_BARREL. Per-grain mins stay
+  // floors; the wildcard portion of `minTotalGrain` can land on any
+  // grain (subject to the recipe's per-grain caps).
+  //
+  // Per-grain caps (maxRye / maxWheat) are checked FIRST so the
+  // error message accurately attributes the failure — e.g. a
+  // wheated bill (maxRye: 0) reports "no rye" rather than a generic
+  // "too many grain" when the player tried to commit a rye.
   if (totals.rye > mins.maxRye) {
     return { legal: false, reason: `recipe forbids rye > ${mins.maxRye}` };
   }
   if (totals.wheat > mins.maxWheat) {
     return { legal: false, reason: `recipe forbids wheat > ${mins.maxWheat}` };
   }
+  if (totals.corn > mins.minCorn)
+    return {
+      legal: false,
+      reason: `recipe requires exactly ${mins.minCorn} corn (would have ${totals.corn})`,
+    };
+  const grain = totals.rye + totals.barley + totals.wheat;
+  if (grain > mins.minTotalGrain)
+    return {
+      legal: false,
+      reason: `recipe requires exactly ${mins.minTotalGrain} total grain (would have ${grain})`,
+    };
 
   return { legal: true };
 }

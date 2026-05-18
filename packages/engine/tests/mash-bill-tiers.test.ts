@@ -118,15 +118,15 @@ describe("mash bill complexity tier — representative snapshots", () => {
     expect(peakReward(bill.rewardGrid)).toBeGreaterThanOrEqual(6);
   });
 
-  it("tier 3 representative — Mash Bill No. 7 (epic, requires specialty rye)", () => {
+  it("tier 3 representative — Mash Bill No. 7 (epic, fully gated)", () => {
     const bill = defaultMashBillCatalog().find((b) => b.defId === "mash_bill_no_7")!;
     expect(bill.complexityTier).toBe(3);
-    // v2.7.2: epics gate top payouts behind a specialty card.
+    // v2.11: epics fully gate cask + every named-grain subtype.
     expect(bill.recipe).toEqual({
       minBarley: 1,
       minRye: 1,
       minWheat: 1,
-      minSpecialty: { rye: 1 },
+      minSpecialty: { cask: 1, rye: 1, barley: 1, wheat: 1 },
     });
     expect(bill.goldAward).toBeDefined();
   });
@@ -138,7 +138,7 @@ function peakReward(grid: (number | null)[][]): number {
   return best;
 }
 
-describe("mash bill rarity ramp (v2.7.2)", () => {
+describe("mash bill rarity ramp (v2.11)", () => {
   it("commons carry no recipe constraints (universal rule only)", () => {
     // Cornbread Line is the lone exception — minCorn: 2 still keeps it
     // grain-unconstrained.
@@ -152,7 +152,7 @@ describe("mash bill rarity ramp (v2.7.2)", () => {
     }
   });
 
-  it("uncommons require at least 2 grain (named or via minTotalGrain)", () => {
+  it("uncommons require ≥2 grain and gate at most 1 grain slot to specialty", () => {
     const uncommons = defaultMashBillCatalog().filter((b) => b.tier === "uncommon");
     expect(uncommons.length).toBeGreaterThan(0);
     for (const bill of uncommons) {
@@ -160,38 +160,58 @@ describe("mash bill rarity ramp (v2.7.2)", () => {
       const named = (r.minRye ?? 0) + (r.minBarley ?? 0) + (r.minWheat ?? 0);
       const total = Math.max(named, r.minTotalGrain ?? 0);
       expect(total, `${bill.defId} doesn't require ≥2 grain`).toBeGreaterThanOrEqual(2);
+      // v2.11 uncommon-tier light pressure: cap on specialty units.
+      const sp = r.minSpecialty ?? {};
+      const spUnits =
+        (sp.cask ?? 0) +
+        (sp.corn ?? 0) +
+        (sp.rye ?? 0) +
+        (sp.barley ?? 0) +
+        (sp.wheat ?? 0);
+      expect(spUnits, `${bill.defId} uncommon gates >1 specialty slot`).toBeLessThanOrEqual(1);
     }
   });
 
-  it("epics and legendaries require at least 1 specialty card", () => {
-    const epics = defaultMashBillCatalog().filter(
-      (b) => b.tier === "epic" || b.tier === "legendary",
-    );
+  it("rares ship 1–2 specialty entries (semi-gated)", () => {
+    const rares = defaultMashBillCatalog().filter((b) => b.tier === "rare");
+    expect(rares.length).toBeGreaterThan(0);
+    for (const bill of rares) {
+      const sp = bill.recipe?.minSpecialty ?? {};
+      const entries = (Object.values(sp) as number[]).filter((n) => n > 0).length;
+      expect(entries, `${bill.defId} rare entries`).toBeGreaterThanOrEqual(1);
+      expect(entries, `${bill.defId} rare entries`).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("epics fully gate cask + every named-grain subtype in the recipe", () => {
+    const epics = defaultMashBillCatalog().filter((b) => b.tier === "epic");
     expect(epics.length).toBeGreaterThan(0);
     for (const bill of epics) {
-      const sp = bill.recipe?.minSpecialty ?? {};
-      const total =
-        (sp.cask ?? 0) +
-        (sp.corn ?? 0) +
-        (sp.rye ?? 0) +
-        (sp.barley ?? 0) +
-        (sp.wheat ?? 0);
-      expect(total, `${bill.defId} doesn't require any specialty`).toBeGreaterThanOrEqual(1);
+      const r = bill.recipe ?? {};
+      const sp = r.minSpecialty ?? {};
+      expect(sp.cask ?? 0, `${bill.defId} epic missing cask gate`).toBeGreaterThanOrEqual(1);
+      if ((r.minRye ?? 0) > 0)
+        expect(sp.rye ?? 0, `${bill.defId} epic missing rye gate`).toBeGreaterThanOrEqual(1);
+      if ((r.minBarley ?? 0) > 0)
+        expect(sp.barley ?? 0, `${bill.defId} epic missing barley gate`).toBeGreaterThanOrEqual(1);
+      if ((r.minWheat ?? 0) > 0)
+        expect(sp.wheat ?? 0, `${bill.defId} epic missing wheat gate`).toBeGreaterThanOrEqual(1);
     }
   });
 
-  it("legendary requires ≥2 specialty units total", () => {
+  it("legendary gates broader than any epic (more entries) and tighter (more units)", () => {
     const legs = defaultMashBillCatalog().filter((b) => b.tier === "legendary");
+    const epics = defaultMashBillCatalog().filter((b) => b.tier === "epic");
     expect(legs.length).toBeGreaterThan(0);
+    const entryCount = (b: (typeof legs)[number]) =>
+      (Object.values(b.recipe?.minSpecialty ?? {}) as number[]).filter((n) => n > 0).length;
+    const unitCount = (b: (typeof legs)[number]) =>
+      (Object.values(b.recipe?.minSpecialty ?? {}) as number[]).reduce((a, n) => a + (n ?? 0), 0);
+    const epicEntryMax = Math.max(...epics.map(entryCount));
+    const epicUnitMax = Math.max(...epics.map(unitCount));
     for (const bill of legs) {
-      const sp = bill.recipe?.minSpecialty ?? {};
-      const total =
-        (sp.cask ?? 0) +
-        (sp.corn ?? 0) +
-        (sp.rye ?? 0) +
-        (sp.barley ?? 0) +
-        (sp.wheat ?? 0);
-      expect(total, `${bill.defId} legendary needs ≥2 specialty`).toBeGreaterThanOrEqual(2);
+      expect(entryCount(bill), `${bill.defId} legendary entries`).toBeGreaterThan(epicEntryMax);
+      expect(unitCount(bill), `${bill.defId} legendary units`).toBeGreaterThan(epicUnitMax);
     }
   });
 });

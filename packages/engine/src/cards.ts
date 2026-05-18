@@ -1,6 +1,8 @@
 import type {
   Card,
   CardEffect,
+  LaborDomain,
+  LaborSubtype,
   MashBill,
   MashBillRecipe,
   MashBillTier,
@@ -39,9 +41,37 @@ const BASIC_RESOURCE_COPY: Record<ResourceSubtype, { displayName: string; flavor
   },
 };
 
-const BASIC_CAPITAL_COPY = {
-  displayName: "Petty Cash",
-  flavor: "One dollar of trust, ready to spend.",
+/**
+ * v2.11 Labor card copy (display name + flavor for each subtype).
+ * Generic Labor is universal; Marketing / Cooper / Architect are
+ * domain specialists. Architect is reserved for v2.12 (no Architect
+ * cards ship in the v2.11 market — see `defaultMarketSupply`).
+ */
+const LABOR_COPY: Record<LaborSubtype, { displayName: string; flavor: string }> = {
+  generic: {
+    displayName: "Worker",
+    flavor: "Hands on, sleeves up.",
+  },
+  marketing: {
+    displayName: "Marketing",
+    flavor: "Stories sell better than spreadsheets.",
+  },
+  cooper: {
+    displayName: "Cooper",
+    flavor: "Bourbon lives in barrels they hand-raised.",
+  },
+  architect: {
+    displayName: "Architect",
+    flavor: "Lines on paper before stone on stone.",
+  },
+};
+
+/** v2.11: domain a Specialty Labor subtype matches. */
+const LABOR_DOMAIN_BY_SUBTYPE: Record<LaborSubtype, LaborDomain> = {
+  generic: "any",
+  marketing: "ops",
+  cooper: "market_resource",
+  architect: "investment",
 };
 
 export function makeResourceCard(
@@ -83,7 +113,7 @@ export function makePremiumResource(spec: {
   cost: number;
   aliases?: ResourceSubtype[];
   effect?: CardEffect;
-  /** v2.7.2: marks a Specialty / Double Specialty card. */
+  /** v2.11: marks a Specialty / Heritage card. */
   specialty?: boolean;
   ownerLabel?: string;
   index: number;
@@ -106,9 +136,51 @@ export function makePremiumResource(spec: {
 }
 
 /**
- * Capital factory with a themed display name. Identical pricing to
- * `makeCapitalCard` but with a distinct on-card label so the market
- * supply can mint variants like "Cellar Stipend" / "Brand Loan".
+ * v2.11 Labor factory. Generic Labor lives in starter decks and the
+ * central Hire pile; Specialty Labor (Marketing / Cooper / Architect)
+ * appears rarely in the market supply.
+ *
+ * `displayName` and `flavor` default to `LABOR_COPY[subtype]` when
+ * omitted; the caller may override (e.g. distillery flavor variants).
+ */
+export function makeLaborCard(spec: {
+  subtype: LaborSubtype;
+  ownerLabel: string;
+  index: number;
+  /** Override the default display name for this subtype. */
+  displayName?: string;
+  /** Override the default flavor for this subtype. */
+  flavor?: string;
+  /**
+   * Override the rep contribution. Defaults to 1 (Generic) or 2
+   * (Specialty). Mostly here for tests; v2.11 ships the defaults.
+   */
+  contribution?: number;
+  /** Override the market acquisition cost. Generic = $1; Specialty = $4. */
+  cost?: number;
+}): Card {
+  const copy = LABOR_COPY[spec.subtype];
+  const isGeneric = spec.subtype === "generic";
+  const cost = spec.cost ?? (isGeneric ? 1 : 4);
+  const contribution = spec.contribution ?? (isGeneric ? 1 : 2);
+  return {
+    id: `card_${spec.ownerLabel}_labor_${spec.subtype}_${spec.index}`,
+    cardDefId: `labor_${spec.subtype}`,
+    type: "labor",
+    laborSubtype: spec.subtype,
+    laborDomain: LABOR_DOMAIN_BY_SUBTYPE[spec.subtype],
+    laborContribution: contribution,
+    cost,
+    displayName: spec.displayName ?? copy.displayName,
+    flavor: spec.flavor ?? copy.flavor,
+  };
+}
+
+/**
+ * @deprecated v2.11 (Unified Rep) — capital cards are no longer
+ * minted. This factory remains so old test fixtures and replay code
+ * still parse, but `defaultMarketSupply` and starter pools no longer
+ * call it. Will be removed in a future cleanup pass.
  */
 export function makePremiumCapital(spec: {
   defId: string;
@@ -133,6 +205,10 @@ export function makePremiumCapital(spec: {
   };
 }
 
+/**
+ * @deprecated v2.11 (Unified Rep) — capital cards are no longer
+ * minted. Same compatibility note as `makePremiumCapital`.
+ */
 export function makeCapitalCard(
   ownerLabel: string,
   index: number,
@@ -146,8 +222,8 @@ export function makeCapitalCard(
     cost: capitalValue,
   };
   if (capitalValue === 1) {
-    card.displayName = BASIC_CAPITAL_COPY.displayName;
-    card.flavor = BASIC_CAPITAL_COPY.flavor;
+    card.displayName = "Petty Cash";
+    card.flavor = "Legacy card — capital is retired in v2.11.";
   }
   return card;
 }
@@ -205,18 +281,23 @@ export function suppliesResource(card: Card, subtype: ResourceSubtype): boolean 
   return resourceUnits(card, subtype) > 0;
 }
 
-/** Total capital contributed by a card (capital cards only). */
+/**
+ * @deprecated v2.11 (Unified Rep) — capital cards are no longer in
+ * play. Always returns 0 for the legacy capital type (since the
+ * cards never enter v2.11 games), preserved only so bot/legacy code
+ * that still calls `capitalUnits` keeps compiling.
+ */
 export function capitalUnits(card: Card): number {
   return card.type === "capital" ? card.capitalValue ?? 1 : 0;
 }
 
 /**
- * Value of a card when used to pay a market cost.
- *   - Explicit `card.value` always wins (lets expansion cards override).
- *   - Capital cards otherwise pay their face value (capitalValue, default 1).
- *   - Resource cards otherwise pay 1¢ each (regardless of resourceCount).
- *
- * Used by BUY_FROM_MARKET and BUY_OPERATIONS_CARD validation.
+ * @deprecated v2.11 (Unified Rep) — `BUY_FROM_MARKET` and
+ * `BUY_OPERATIONS_CARD` now take `{rep, laborCardIds}` directly; rep
+ * is the universal currency and Labor cards supplement via
+ * `laborContribution` (in types.ts). This helper survives only for
+ * legacy capital-card serialized state and will be removed in a
+ * future cleanup pass.
  */
 export function paymentValue(card: Card): number {
   if (card.value != null) return card.value;

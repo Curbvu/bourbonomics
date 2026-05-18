@@ -6,7 +6,7 @@ import type {
   OperationsCard,
   ValidationResult,
 } from "../types";
-import { paymentValue } from "../cards";
+import { laborContribution } from "../types";
 import { isCurrentPlayer } from "../state";
 
 type BuyOperationsCardAction = Extract<GameAction, { type: "BUY_OPERATIONS_CARD" }>;
@@ -15,12 +15,18 @@ const FACEUP_OPS_SIZE = 3;
 
 /**
  * Buy a face-up operations card from the market into your operations
- * hand. Same payment model as BUY_FROM_MARKET (capital cards pay face
- * value, resource cards pay 1¢ each). Free action — turn does not end.
+ * hand. v2.11 unified-rep payment model:
+ *   total = rep + sum(laborCardIds → laborContribution(card, "ops"))
  *
- * The face-up row is the top `FACEUP_OPS_SIZE` cards of `operationsDeck`,
- * shown reversed in the UI. The action's `opsSlotIndex` (0..2) is a
- * UI-coordinate index; we resolve it back to the engine's deck order.
+ * Marketing Labor (+2 toward ops) is the matching specialty. Cooper
+ * and Architect contribute 0 here. Same anchor rule as
+ * BUY_FROM_MARKET: ≥$2 buys require ≥1 rep paid; $1 buys can be
+ * Labor-only.
+ *
+ * The face-up row is the top `FACEUP_OPS_SIZE` cards of
+ * `operationsDeck`, shown reversed in the UI. The action's
+ * `opsSlotIndex` (0..2) is a UI-coordinate index; we resolve it back
+ * to the engine's deck order.
  */
 export function validateBuyOperationsCard(
   state: GameState,
@@ -44,29 +50,51 @@ export function validateBuyOperationsCard(
   }
   const cost = card.cost;
 
-  const spendIds = action.spendCardIds;
-  if (spendIds.length === 0) {
-    return { legal: false, reason: "must spend at least one card" };
+  if (!Number.isInteger(action.rep) || action.rep < 0) {
+    return { legal: false, reason: "rep payment must be a non-negative integer" };
   }
-  if (new Set(spendIds).size !== spendIds.length) {
-    return { legal: false, reason: "duplicate card id in spend list" };
-  }
-
-  const handIds = new Set(player.hand.map((c) => c.id));
-  let totalCapital = 0;
-  for (const id of spendIds) {
-    if (!handIds.has(id)) {
-      return { legal: false, reason: `card ${id} is not in your hand` };
-    }
-    const c = player.hand.find((x) => x.id === id)!;
-    totalCapital += paymentValue(c);
-  }
-  if (totalCapital < cost) {
+  if (action.rep > player.reputation) {
     return {
       legal: false,
-      reason: `spent value is ${totalCapital}¢, need ${cost}¢`,
+      reason: `not enough reputation: have ${player.reputation}, paying ${action.rep}`,
     };
   }
+
+  const laborIds = action.laborCardIds;
+  if (new Set(laborIds).size !== laborIds.length) {
+    return { legal: false, reason: "duplicate Labor card id in payment" };
+  }
+  const handById = new Map(player.hand.map((c) => [c.id, c]));
+  let laborTotal = 0;
+  for (const id of laborIds) {
+    const c = handById.get(id);
+    if (!c) return { legal: false, reason: `card ${id} is not in your hand` };
+    if (c.type !== "labor") {
+      return { legal: false, reason: `card ${id} is not a Labor card` };
+    }
+    laborTotal += laborContribution(c, "ops");
+  }
+
+  const total = action.rep + laborTotal;
+  if (total < cost) {
+    return {
+      legal: false,
+      reason: `payment totals ${total} rep, need ${cost}`,
+    };
+  }
+  if (cost >= 2 && action.rep < 1) {
+    return {
+      legal: false,
+      reason: "purchases costing 2 or more require at least 1 reputation paid",
+    };
+  }
+  if (cost === 1 && action.rep === 0 && laborIds.length === 0) {
+    return {
+      legal: false,
+      reason: "pay 1 reputation or 1 Labor card to buy a $1 ops card",
+    };
+  }
+
   return { legal: true };
 }
 
@@ -81,12 +109,14 @@ export function applyBuyOperationsCard(
   const [bought] = draft.operationsDeck.splice(idx, 1) as [OperationsCard];
   player.operationsHand.push({ ...bought, drawnInRound: draft.round });
 
-  // Move spent payment cards from hand → discard.
-  const spendSet = new Set(action.spendCardIds);
+  player.reputation -= action.rep;
+
+  // Discard the Labor cards used as payment.
+  const laborSet = new Set(action.laborCardIds);
   const newHand: Card[] = [];
   const spent: Card[] = [];
   for (const c of player.hand) {
-    if (spendSet.has(c.id)) spent.push(c);
+    if (laborSet.has(c.id)) spent.push(c);
     else newHand.push(c);
   }
   player.hand = newHand;
@@ -100,8 +130,6 @@ export function applyBuyOperationsCard(
 
 /** Map a UI face-up index (0..2) to the engine's operationsDeck index. */
 function resolveFaceUpOpsIndex(state: GameState, uiSlot: number): number {
-  // Face-up row = last FACEUP_OPS_SIZE cards of operationsDeck, reversed.
-  // UI slot 0 = top of deck; UI slot 2 = third from top.
   const total = state.operationsDeck.length;
   const lastIndex = total - 1;
   return lastIndex - uiSlot;

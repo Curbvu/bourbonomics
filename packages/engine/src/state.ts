@@ -94,6 +94,9 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
   // Insider Buyer's half-cost is a "this turn" effect — drop it on
   // turn end so an unused discount can't carry forward.
   player.pendingHalfCostMarketBuy = false;
+  // v2.11: Hire is once per turn — clear the flag so the next turn
+  // re-arms it. (It also re-clears at cleanup as a safety net.)
+  player.hireUsedThisTurn = false;
 
   if (actionPhaseComplete(draft)) {
     runCleanupPhase(draft);
@@ -125,6 +128,9 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
     p.outForRound = false;
     p.demandSurgeActive = false;
     p.pendingHalfCostMarketBuy = false;
+    p.hireUsedThisTurn = false;
+    // v2.11: savedCard intentionally NOT cleared — it carries into
+    // next round's draw (see DRAW_HAND apply).
   }
 
   for (const b of draft.allBarrels) {
