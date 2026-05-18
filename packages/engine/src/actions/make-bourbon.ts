@@ -201,11 +201,16 @@ function effectiveRecipeMins(
  * v3.1 — Specialty Cask upgrade detection.
  *
  * The universal "exactly 1 cask" rule + recipes that demand
- * `minSpecialty.cask` create a trap: the player commits an ordinary
- * cask first (satisfying the count), then can't add the required
- * Specialty cask later (cap exceeded). The barrel is permanently
- * stuck — the only escape is ABANDON_BARREL, losing the rest of the
- * pile too.
+ * `minSpecialty.cask` would otherwise create a trap: a player who
+ * committed an ordinary cask first (satisfying the count) couldn't
+ * add the required Specialty cask later (cap exceeded). The barrel
+ * would be permanently stuck — there is no abandon-barrel escape
+ * hatch. Two complementary fixes close the trap:
+ *   - v2.10 specialty-cask exclusivity (the validator rejects plain
+ *     casks upfront on any recipe with `minSpecialty.cask ≥ 1`).
+ *   - this upgrade-swap path for recipes WITHOUT a specialty-cask
+ *     floor, where a player wants to swap a plain cask for a
+ *     Specialty after the fact.
  *
  * Detect a "swap intent" — the new commit holds exactly 1 Specialty
  * cask, the existing pile holds exactly 1 ordinary cask, and the new
@@ -429,10 +434,10 @@ export function validateMakeBourbon(
 
   // v2.10 exact-recipe over-commit guards. Cask, corn, and grain
   // total are exact counts — any commit that would push them past
-  // the recipe strands the barrel, so we reject early instead of
-  // forcing the player into ABANDON_BARREL. Per-grain mins stay
-  // floors; the wildcard portion of `minTotalGrain` can land on any
-  // grain (subject to the recipe's per-grain caps).
+  // the recipe strands the barrel (there is no abandon-barrel escape
+  // hatch), so the validator rejects the over-commit early. Per-grain
+  // mins stay floors; the wildcard portion of `minTotalGrain` can
+  // land on any grain (subject to the recipe's per-grain caps).
   //
   // Per-grain caps (maxRye / maxWheat) are checked FIRST so the
   // error message accurately attributes the failure — e.g. a

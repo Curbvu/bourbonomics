@@ -172,12 +172,12 @@ describe("incremental commitment — basics", () => {
 describe("incremental commitment — Specialty Cask exclusivity (v2.10)", () => {
   // v2.10 rule: when a recipe demands `minSpecialty.cask >= 1`, plain
   // casks are NEVER legal commits — the universal "exactly 1 cask"
-  // rule would otherwise force the player to ABANDON_BARREL. The
-  // engine refuses the plain cask up front so the player has to lead
-  // with a Specialty cask. The legacy v3.1 upgrade-swap path is
-  // unreachable for these recipes; it survives in the code for
-  // recipes WITHOUT a specialty-cask floor (player upgrading cask
-  // for the +1 rep on sale).
+  // rule would otherwise permanently strand the barrel (no abandon
+  // hatch exists). The engine refuses the plain cask up front so the
+  // player has to lead with a Specialty cask. The legacy v3.1
+  // upgrade-swap path is unreachable for these recipes; it survives
+  // in the code for recipes WITHOUT a specialty-cask floor (player
+  // upgrading cask for a per-card on-sale bonus on a future Heritage).
   const specialtyCaskBill = makeMashBill(
     {
       defId: "specialty_cask_test",

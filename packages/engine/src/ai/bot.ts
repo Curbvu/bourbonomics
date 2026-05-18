@@ -8,6 +8,7 @@ import type {
   OperationsCard,
   PlayerState,
 } from "../types";
+import { billCostByTier } from "../types";
 import { resourceUnits, suppliesResource } from "../cards";
 import { computeReward } from "../rewards";
 import { emptySlotsFor, getPlayerBarrels } from "../state";
@@ -1255,16 +1256,24 @@ function chooseDrawMashBill(state: GameState, player: PlayerState): GameAction |
   const hasReady = myBarrels.some((b) => b.phase === "ready");
   if (hasReady) return null;
 
-  // v2.11 (Unified Rep): bills cost rep — blind draw 1, face-up 2
-  // (stopgap). Bot conserves rep early, so prefers the blind 1-rep
-  // draw whenever the deck has bills left.
-  const BLIND_DRAW_REP = 1;
-  if (state.bourbonDeck.length > 0 && player.reputation >= BLIND_DRAW_REP) {
-    return {
-      type: "DRAW_MASH_BILL",
-      playerId: player.id,
-      rep: BLIND_DRAW_REP,
-    };
+  // v2.11: bills pay rep + Labor. Generic Labor (+1 anywhere) helps;
+  // Cooper / Marketing / Architect don't (domain mismatch). Anchor
+  // rule: ≥2 cost → ≥1 rep paid.
+  const genericLabor = player.hand.filter(
+    (c) => c.type === "labor" && c.laborSubtype === "generic",
+  );
+  const blindCost = 1;
+  // Blind draw is the cheapest path when the deck has bills left.
+  if (state.bourbonDeck.length > 0) {
+    const plan = planBillPayment(player, blindCost, genericLabor);
+    if (plan) {
+      return {
+        type: "DRAW_MASH_BILL",
+        playerId: player.id,
+        rep: plan.rep,
+        laborCardIds: plan.laborCardIds,
+      };
+    }
   }
   // Face-up only — pick the cheapest legal bill we can afford.
   for (const bill of state.bourbonFaceUp) {
@@ -1275,14 +1284,39 @@ function chooseDrawMashBill(state: GameState, player: PlayerState): GameAction |
     ) {
       continue;
     }
-    const cost = bill.cost ?? 2;
-    if (player.reputation < cost) continue;
+    const cost = billCostByTier(bill);
+    const plan = planBillPayment(player, cost, genericLabor);
+    if (!plan) continue;
     return {
       type: "DRAW_MASH_BILL",
       playerId: player.id,
       mashBillId: bill.id,
-      rep: cost,
+      rep: plan.rep,
+      laborCardIds: plan.laborCardIds,
     };
   }
   return null;
+}
+
+/**
+ * v2.11 helper: plan a bill-draw payment of `cost` rep using the
+ * player's rep + Generic Labor cards. Returns `null` when the player
+ * cannot afford the cost under the anchor rule (≥2 cost needs ≥1 rep).
+ */
+function planBillPayment(
+  player: PlayerState,
+  cost: number,
+  genericLabor: Card[],
+): { rep: number; laborCardIds: string[] } | null {
+  const laborIds: string[] = [];
+  let covered = 0;
+  for (const c of genericLabor) {
+    if (covered >= cost) break;
+    laborIds.push(c.id);
+    covered += 1;
+  }
+  let rep = Math.max(0, cost - covered);
+  if (cost >= 2 && rep < 1) rep = 1;
+  if (rep > player.reputation) return null;
+  return { rep, laborCardIds: laborIds };
 }

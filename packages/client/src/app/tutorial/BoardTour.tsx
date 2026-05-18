@@ -62,7 +62,7 @@ const STOPS: TourStop[] = [
   {
     id: "supply",
     title: "The Bourbon Supply",
-    body: "More bourbon recipes live in this deck. Spend cards to draw a new mash bill into an open slot when you want a fresh recipe in your rickhouse. **When the deck runs dry, the game ends.**",
+    body: "More bourbon recipes live in this deck. Pay rep (1 for a blind draw; 1/1/2/3/4 by tier for a face-up bill) to draw a new mash bill into an open slot. Generic Labor cards from your hand stretch the rep. **When the deck runs dry, the game ends.**",
     spotlight: { kind: "supply" },
   },
   {
