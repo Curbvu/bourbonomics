@@ -31,6 +31,7 @@ import {
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
+  laborGlyphFor,
 } from "./handCardStyles";
 import { TIER_CHROME, tierOrCommon, type TierChrome } from "./tierStyles";
 import { formatMoney, MoneyText } from "./money";
@@ -228,11 +229,19 @@ function LaborDetail({ card }: { card: Card }) {
           Labor · {subtypeLabel}
         </span>
       </header>
-      <h3 className={`font-display text-3xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
-        {card.displayName ?? subtypeLabel}
-      </h3>
+      <div className="flex items-center gap-4">
+        <div
+          aria-hidden
+          className={`grid h-20 w-20 flex-shrink-0 place-items-center rounded-full border-2 bg-white/10 text-5xl shadow-[inset_0_1px_4px_rgba(255,255,255,.18)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
+        >
+          {laborGlyphFor(sub)}
+        </div>
+        <h3 className={`font-display text-3xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+          {card.displayName ?? subtypeLabel}
+        </h3>
+      </div>
       <div className={`flex flex-col items-center ${chrome.ink}`}>
-        <span className="font-display text-[64px] font-bold leading-none drop-shadow-[0_3px_8px_rgba(0,0,0,.45)]">
+        <span className="font-display text-[48px] font-bold leading-none drop-shadow-[0_3px_8px_rgba(0,0,0,.45)]">
           +{contribution}
         </span>
         <span className={`font-mono text-[12px] uppercase tracking-[.18em] ${chrome.label}`}>
