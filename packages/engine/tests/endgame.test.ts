@@ -31,7 +31,8 @@ describe("Final round trigger", () => {
       type: "DRAW_MASH_BILL",
       playerId: "p1",
       mashBillId: state.bourbonFaceUp[0]!.id,
-      rep: 2,
+      rep: 1,
+      laborCardIds: [],
     });
     expect(state.finalRoundTriggered).toBe(true);
     expect(state.bourbonDeck).toHaveLength(0);
@@ -61,7 +62,8 @@ describe("Final round trigger", () => {
       type: "DRAW_MASH_BILL",
       playerId: "p1",
       mashBillId: state.bourbonFaceUp[0]!.id,
-      rep: 2,
+      rep: 1,
+      laborCardIds: [],
     });
     expect(state.finalRoundTriggered).toBe(true);
     // v2.2: DRAW_MASH_BILL does not end p1's turn — they must PASS_TURN

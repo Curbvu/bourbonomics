@@ -1,6 +1,12 @@
 import type { Draft } from "immer";
-import type { GameAction, GameState, MashBill, ValidationResult } from "../types";
-import { mashBillCost } from "../types";
+import type {
+  Card,
+  GameAction,
+  GameState,
+  MashBill,
+  ValidationResult,
+} from "../types";
+import { billCostByTier, laborContribution } from "../types";
 import { emptySlotsFor, isCurrentPlayer, slottedBillCount } from "../state";
 import { placeBillInSlot } from "../starter-pool";
 
@@ -15,12 +21,15 @@ const BLIND_DRAW_COST = 1;
  * slot, the action is illegal: slot capacity is the gating resource on
  * the doomsday clock.
  *
- * v2.11 (Unified Rep) payment is rep-only — Labor cards do not
- * discount bill draws because bills are recipe development, not
- * engine purchases:
- *   - targeted face-up pick: `rep ≥ mashBillCost(bill)` (default 2 —
- *     the v2.11 stopgap; see `mashBillCost` in types.ts).
- *   - blind draw: `rep ≥ 1`.
+ * v2.11 (Unified Rep) payment follows the same rep + Labor rules as
+ * market and ops buys:
+ *   - face-up pick: `billCostByTier(bill)` rep (1/1/2/3/4 by rarity).
+ *   - blind draw: 1 rep.
+ *   - Labor cards supplement rep via `laborContribution(card, "bill_draw")`.
+ *     Generic Labor (any-domain) contributes 1; Specialty Labor only
+ *     helps when its domain matches "bill_draw" (no such card ships
+ *     in v2.11 — reserved space).
+ *   - Anchor rule: costs ≥ 2 require ≥ 1 rep paid.
  */
 export function validateDrawMashBill(
   state: GameState,
@@ -58,8 +67,24 @@ export function validateDrawMashBill(
     };
   }
 
+  // Validate Labor cards — in hand, Labor type, unique.
+  const laborIds = action.laborCardIds;
+  if (new Set(laborIds).size !== laborIds.length) {
+    return { legal: false, reason: "duplicate Labor card id in payment" };
+  }
+  const handById = new Map(player.hand.map((c) => [c.id, c]));
+  let laborTotal = 0;
+  for (const id of laborIds) {
+    const card = handById.get(id);
+    if (!card) return { legal: false, reason: `card ${id} is not in your hand` };
+    if (card.type !== "labor") {
+      return { legal: false, reason: `card ${id} is not a Labor card` };
+    }
+    laborTotal += laborContribution(card, "bill_draw");
+  }
+
+  let cost: number;
   if (action.mashBillId) {
-    // Targeted face-up pick.
     const bill = state.bourbonFaceUp.find((b) => b.id === action.mashBillId);
     if (!bill) {
       return {
@@ -77,25 +102,34 @@ export function validateDrawMashBill(
         reason: "High-Rye House cannot draft wheated bills",
       };
     }
-    const cost = mashBillCost(bill);
-    if (action.rep < cost) {
-      return {
-        legal: false,
-        reason: `need ${cost} rep (have ${action.rep})`,
-      };
+    cost = billCostByTier(bill);
+  } else {
+    cost = BLIND_DRAW_COST;
+    if (state.bourbonDeck.length === 0) {
+      return { legal: false, reason: "the bourbon deck is empty" };
     }
-    return { legal: true };
   }
 
-  // Blind draw — exactly BLIND_DRAW_COST rep, top of deck.
-  if (action.rep < BLIND_DRAW_COST) {
+  const total = action.rep + laborTotal;
+  if (total < cost) {
     return {
       legal: false,
-      reason: `blind draw costs ${BLIND_DRAW_COST} rep (have ${action.rep})`,
+      reason: `payment totals ${total} rep, need ${cost}`,
     };
   }
-  if (state.bourbonDeck.length === 0) {
-    return { legal: false, reason: "the bourbon deck is empty" };
+  // Anchor rule: ≥2-cost draws require ≥1 rep paid.
+  if (cost >= 2 && action.rep < 1) {
+    return {
+      legal: false,
+      reason: "bill draws costing 2 or more require at least 1 reputation paid",
+    };
+  }
+  // $1 draws with no rep need at least one Labor card.
+  if (cost === 1 && action.rep === 0 && laborIds.length === 0) {
+    return {
+      legal: false,
+      reason: "pay 1 reputation or 1 Labor card to draw a $1 bill",
+    };
   }
   return { legal: true };
 }
@@ -106,6 +140,17 @@ export function applyDrawMashBill(
 ): void {
   const player = draft.players.find((p) => p.id === action.playerId)!;
   player.reputation -= action.rep;
+
+  // Discard any Labor cards used as payment.
+  const laborSet = new Set(action.laborCardIds);
+  const newHand: Card[] = [];
+  const spent: Card[] = [];
+  for (const c of player.hand) {
+    if (laborSet.has(c.id)) spent.push(c);
+    else newHand.push(c);
+  }
+  player.hand = newHand;
+  player.discard.push(...spent);
 
   let acquired: MashBill;
   if (action.mashBillId) {

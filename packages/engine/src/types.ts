@@ -28,12 +28,20 @@ export type GrainSubtype = "rye" | "barley" | "wheat";
  *                   reserved for v2.12 when investments ship.
  *
  * A Specialty Labor card with a non-matching purchase domain contributes
- * 0 — the worker doesn't apply, the rep gap stays open.
+ * 0 — the worker doesn't apply, the rep gap stays open. A future
+ * "distiller" Specialty Labor with `laborDomain: "bill_draw"` could be
+ * added to discount mash bill draws; until then only Generic Labor
+ * (domain "any") helps with bills.
  */
 export type LaborSubtype = "generic" | "marketing" | "cooper" | "architect";
 
 /** Which purchase domain a Specialty Labor card discounts. */
-export type LaborDomain = "any" | "ops" | "market_resource" | "investment";
+export type LaborDomain =
+  | "any"
+  | "ops"
+  | "market_resource"
+  | "investment"
+  | "bill_draw";
 
 export const GRAIN_SUBTYPES: GrainSubtype[] = ["rye", "barley", "wheat"];
 
@@ -227,18 +235,40 @@ export interface MashBill {
 }
 
 /**
- * Default rep cost for face-up mash bill picks when `cost` is unspecified.
+ * Rep cost to draw a face-up mash bill, by rarity tier:
  *
- * v2.11 STOPGAP: bills cost 2 rep under unified rep. The proper
- * bill-cost design (resource-card cost? tier-variable? rep + Labor?)
- * is a v2.12 work item — this is a placeholder so the system
- * functions while the bill economy is redesigned. See GAME_RULES.md
- * "Bill cost — DEFERRED" for the discussion.
+ *   common      1
+ *   uncommon    1
+ *   rare        2
+ *   epic        3
+ *   legendary   4
+ *
+ * A bill may override via `bill.cost`; otherwise the tier-based
+ * ladder applies. Blind draws cost a flat 1 rep regardless of tier
+ * (the player doesn't know what they're getting), wired in the
+ * action validator.
+ *
+ * v2.11: bills follow the same rep + Labor payment rules as market
+ * and ops buys. Generic Labor (+1 anywhere) supplements rep; a
+ * future Specialty Labor (e.g. "Distiller") for bill draws is
+ * reserved space.
  */
-export const DEFAULT_MASH_BILL_COST = 2;
-export function mashBillCost(bill: MashBill): number {
-  return bill.cost ?? DEFAULT_MASH_BILL_COST;
+export function billCostByTier(bill: MashBill): number {
+  if (bill.cost != null) return bill.cost;
+  const t = bill.tier ?? "common";
+  if (t === "legendary") return 4;
+  if (t === "epic") return 3;
+  if (t === "rare") return 2;
+  // common, uncommon
+  return 1;
 }
+
+/**
+ * @deprecated v2.11: use `billCostByTier`. Kept as an alias so any
+ * external callers don't break mid-refactor.
+ */
+export const DEFAULT_MASH_BILL_COST = 1;
+export const mashBillCost = billCostByTier;
 
 /**
  * v2.11 sale-floor table: every sale pays at least this much rep,
@@ -1075,14 +1105,18 @@ export type GameAction =
       laborCardIds: string[];
     }
   | {
-      // v2.11: face-up bill costs `mashBillCost(bill)` rep (default 2 —
-      // the v2.11 stopgap). Blind draw costs 1 rep. Labor cards do not
-      // discount bill draws — bills are recipe development, not
-      // engine purchases.
+      // v2.11: bills follow the same rep + Labor payment rules as
+      // market and ops buys. Face-up cost = `billCostByTier(bill)`
+      // (common/uncommon 1, rare 2, epic 3, legendary 4). Blind draw
+      // costs a flat 1 rep. Generic Labor cards (+1 anywhere) can
+      // supplement rep on either flavor; a Specialty Labor for bill
+      // draws is reserved for a future release. Anchor rule applies:
+      // costs ≥ 2 require ≥ 1 rep paid.
       type: "DRAW_MASH_BILL";
       playerId: string;
       mashBillId?: string;
       rep: number;
+      laborCardIds: string[];
     }
   | {
       type: "TRADE";
