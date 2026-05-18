@@ -175,15 +175,11 @@ function describe(
       );
     }
     case "SELL_BOURBON":
-      return (
-        <>
-          {who(a.playerId)} sold a barrel for{" "}
-          <span className="font-mono tabular-nums text-amber-300">
-            {a.reputationSplit + a.cardDrawSplit}
-          </span>{" "}
-          reputation.
-        </>
-      );
+      // v2.11: sale is single-step. Engine resolves total rep (grid +
+      // bonuses, clamped to tier floor) on apply. We don't have the
+      // resolved total in the action payload anymore — log the action
+      // without a specific number to avoid drift.
+      return <>{who(a.playerId)} sold a barrel.</>;
     case "BUY_FROM_MARKET":
       return <>{who(a.playerId)} bought a card from the market.</>;
     case "BUY_OPERATIONS_CARD":

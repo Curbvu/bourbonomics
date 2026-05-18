@@ -327,8 +327,7 @@ describe("incremental commitment — full lifecycle integration", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 3,
-      cardDrawSplit: 0,    });
+});
     const repAfter = state.players.find((p) => p.id === "p1")!.reputation;
     expect(repAfter - repBefore).toBe(3);
   });

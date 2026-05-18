@@ -42,6 +42,7 @@ const SPECS: DistillerySpec[] = [
     bonus: "vanilla",
     slots: DEFAULT_SLOTS,
     mashBillDraftSize: 0,
+    startingRep: 5,
     cardText: "Four open slots. No permanent ability, no constraint.",
     description:
       "A working distillery, neither famous nor forgotten. You start with four open slots and no inheritance — every barrel you ever sell is one you built from scratch. Choose Vanilla for a level playing field, an introductory game, or when you want the game itself to be the only variable.",
@@ -63,6 +64,7 @@ const SPECS: DistillerySpec[] = [
     starterPoolMods: { bonusSpecialtyRye: 2 },
     saleMods: { bonusRepOnBill: { kind: "high_rye", rep: 1 } },
     mashBillDraftSize: 0,
+    startingRep: 4,
     cardText:
       "Start with one pre-aged rye barrel (age 1) and two free Specialty Rye cards. +1 rep on any sale of a bill with minRye ≥ 1. You cannot draft or draw any mash bill that forbids rye (maxRye: 0).",
     description:
@@ -83,6 +85,7 @@ const SPECS: DistillerySpec[] = [
     slots: DEFAULT_SLOTS,
     startingBarrel: { age: 1, basicBillKey: "wheated_basic" },
     mashBillDraftSize: 0,
+    startingRep: 4,
     cardText:
       "Start with one pre-aged wheated barrel (age 1). Wheated bills (maxRye: 0) cost 1 fewer wheat to complete (floor 0). You cannot commit rye cards (Common, Specialty, or Heritage) to any production pile. Rye is still legal to spend at the market or trade away.",
     description:
@@ -103,6 +106,7 @@ const SPECS: DistillerySpec[] = [
     slots: DEFAULT_SLOTS,
     mashBillDraftSize: 4,
     maxSlottedBills: 4,
+    startingRep: 6,
     cardText:
       "Drafts 4 mash bills at setup instead of 3. Slotted-bill cap is 4 (Rickhouse Expansion Permit unlocks slots 5–6 for transferred barrels only). When you trigger a Gold award, Convert may land the Gold bill in an Open slot (no recipe check).",
     description:

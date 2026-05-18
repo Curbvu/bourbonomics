@@ -327,8 +327,7 @@ describe("Card effect — rep_on_sale_flat", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 4,
-      cardDrawSplit: 0,    });
+});
     const p1 = state.players.find((p) => p.id === "p1")!;
     // 4 from the grid + 1 bonus from spicy_rye = 5.
     expect(p1.reputation).toBe(beforeRep + 5);
@@ -356,8 +355,7 @@ describe("Card effect — rep_on_sale_if_age_gte", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 4,
-      cardDrawSplit: 0,    });
+});
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(beforeRep + 4 + 2);
   });
@@ -377,15 +375,15 @@ describe("Card effect — rep_on_sale_if_age_gte", () => {
     state = placeBarrelWithProductionCard(state, "p1", 3, heavyChar);
     const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
     const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
-    // age 3 → row 0, demand 5 → col 1 (band 4-5), reward = 2. No bonus.
+    // age 3 → row 0, demand 5 → col 1 (band 4-5), reward = 2. No bonus
+    // fires (age < 4). v2.11: tier-1 floor (3) clamps the sale to ≥3.
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 2,
-      cardDrawSplit: 0,    });
+});
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(beforeRep + 2);
+    expect(p1.reputation).toBe(beforeRep + 3);
   });
 });
 
@@ -410,8 +408,7 @@ describe("Card effect — rep_on_sale_if_demand_gte", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 5,
-      cardDrawSplit: 0,    });
+});
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(beforeRep + 5 + 2);
   });
@@ -437,8 +434,7 @@ describe("Card effect — grid_demand_band_offset on_sale", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 5,
-      cardDrawSplit: 0,    });
+});
     expect(state.players.find((p) => p.id === "p1")!.reputation).toBeGreaterThanOrEqual(5);
   });
 });
@@ -468,8 +464,7 @@ describe("Card effect — skip_demand_drop on_sale", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 4,
-      cardDrawSplit: 0,    });
+});
     expect(state.demand).toBe(5);
   });
 });
@@ -493,8 +488,7 @@ describe("Card effect — returns_to_hand_on_sale", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: 4,
-      cardDrawSplit: 0,    });
+});
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.hand.some((c) => c.id === usedCask.id)).toBe(true);
     expect(p1.discard.some((c) => c.id === usedCask.id)).toBe(false);
@@ -502,39 +496,51 @@ describe("Card effect — returns_to_hand_on_sale", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────
-// on_spend (capital)
+// on_spend (Labor / capital — dispatcher forward-compat)
 // ─────────────────────────────────────────────────────────────────
 
 describe("Card effect — rep_on_market_spend", () => {
-  it("Lender's Note grants +1 rep when spent on a market purchase", () => {
+  it("fires the on_spend effect when a hand-crafted Labor card is spent on a buy", () => {
+    // v2.11: legacy Lender's Note is gone (capital retired). The
+    // on_spend dispatcher still exists for forward-compat (Labor or
+    // Heritage may carry an on_spend rep bonus later). Build a custom
+    // Labor card with the effect and verify the dispatcher fires.
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
-    // Pick a 1¢-cost card from the conveyor for a clean test.
     const target = state.marketConveyor.find((c) => (c.cost ?? 1) === 1);
-    if (!target) return; // skip if mix didn't surface a 1¢ card
+    if (!target) return; // skip if mix didn't surface a $1 card
     const slotIdx = state.marketConveyor.findIndex((c) => c.id === target.id);
 
-    const lender = makePremiumCapital({
-      defId: "lenders_note",
-      displayName: "Lender's Note",
-      capitalValue: 4,
+    const lender: Card = {
+      id: "card_p1_lender",
+      cardDefId: "labor_marketing_lender_test",
+      type: "labor",
+      laborSubtype: "marketing",
+      laborDomain: "ops",
+      laborContribution: 0, // no contribution toward this market_resource buy
       cost: 8,
       effect: { kind: "rep_on_market_spend", when: "on_spend", rep: 1 },
-      ownerLabel: "p1",
-      index: 0,
-    });
-    state = giveHand(state, "p1", [lender]);
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    };
+    // Give 1 rep to satisfy the anchor rule + pay the $1 cost.
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1" ? { ...p, reputation: 1, hand: [lender] } : p,
+      ),
+    };
     state = applyAction(state, {
       type: "BUY_FROM_MARKET",
       playerId: "p1",
       marketSlotIndex: slotIdx,
-      spendCardIds: [lender.id],
+      rep: 1,
+      laborCardIds: [lender.id],
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(beforeRep + 1);
+    // Paid 1 rep; on_spend granted +1 rep. Net change: 0.
+    expect(p1.reputation).toBe(1);
   });
 });
 
 // Suppress unused-warning when bundling.
 void makeCapitalCard;
+void makePremiumCapital;

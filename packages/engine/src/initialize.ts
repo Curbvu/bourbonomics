@@ -10,6 +10,7 @@ import {
   defaultMarketSupply,
   defaultMashBillCatalog,
 } from "./defaults";
+import { makeLaborCard } from "./cards";
 import { defaultDistilleryPool, buildRickhouseSlots } from "./distilleries";
 import { defaultOperationsDeck } from "./operations";
 import { shuffleCards } from "./deck";
@@ -24,6 +25,23 @@ import {
 const DEFAULT_HAND_SIZE = 8;
 const DEFAULT_DEMAND = 0;
 const MARKET_CONVEYOR_SIZE = 10;
+/**
+ * v2.11: central Labor pile size — `LABOR_PILE_PER_PLAYER × #players`.
+ * Calibrated so a 4-player game has 20 Labor draws (~5 per player),
+ * which roughly matches "Hire every turn for ~5 rounds." Plenty to
+ * matter; finite enough that late-game Hires aren't free.
+ */
+const LABOR_PILE_PER_PLAYER = 5;
+
+/**
+ * v2.11: each player starts with this many rep on their track unless
+ * their distillery overrides via `startingRep`. Vanilla = 5 by spec.
+ */
+const DEFAULT_STARTING_REP = 5;
+
+function distilleryStartingRep(d: Distillery | null): number {
+  return d?.startingRep ?? DEFAULT_STARTING_REP;
+}
 
 /**
  * Build a fresh GameState. Setup phases are skipped per-player when the
@@ -78,12 +96,19 @@ export function initializeGame(config: GameConfig): GameState {
       starterHand: [],
       starterPassed: false,
       starterSwapUsed: false,
-      reputation: 0,
+      // v2.11: starting rep is the player's distillery stake. Each
+      // distillery's value compensates its setup asymmetries.
+      reputation: distilleryStartingRep(distillery),
       handSize: startingHandSize,
       barrelsSold: 0,
+      // v2.11: Save slot starts empty. Carries one card across the
+      // cleanup boundary when used.
+      savedCard: null,
       outForRound: false,
       demandSurgeActive: false,
       pendingHalfCostMarketBuy: false,
+      // v2.11: Hire is once per turn. Cleared by endPlayerTurn.
+      hireUsedThisTurn: false,
       pendingMakeDiscount: null,
       pendingRatingBoost: 0,
       // Set when the action-phase cursor lands on the player; cleared
@@ -173,12 +198,27 @@ export function initializeGame(config: GameConfig): GameState {
     operationsDiscard: [],
     demand: startingDemand,
     demandRolls: [],
+    laborPile: LABOR_PILE_PER_PLAYER * players.length,
     finalRoundTriggered: false,
     finalRoundTriggerPlayerIndex: null,
     playerIdsCompletedPhase: [],
     idCounter: 1,
     actionHistory: [],
   };
+
+  // v2.11: round-1 Labor seed. Every player gets one Generic Labor
+  // card in their opening hand by riding the Save-slot mechanism —
+  // DRAW_HAND already appends `savedCard` to the deal. This is a
+  // setup bonus, not a draw from the central Hire pile, so the pile
+  // is unaffected.
+  for (const p of initialPlayersWithLaborSeed(initialState)) {
+    // mutate is fine here — state hasn't been frozen yet.
+    p.savedCard = makeLaborCard({
+      subtype: "generic",
+      ownerLabel: p.id,
+      index: 9000,
+    });
+  }
 
   // If every player's distillery is pre-assigned (no `distillery_selection`
   // phase), the per-distillery starting barrel placement happens here
@@ -214,6 +254,15 @@ export function initializeGame(config: GameConfig): GameState {
     });
   }
   return initialState;
+}
+
+/**
+ * v2.11: iterate the players whose savedCard should be seeded with a
+ * Generic Labor at game start. Only seeds players who don't already
+ * have a saved card (test fixtures that pre-populate state opt out).
+ */
+function initialPlayersWithLaborSeed(state: GameState): PlayerState[] {
+  return state.players.filter((p) => p.savedCard == null);
 }
 
 /** Helper for tests / programmatic auto-pick: assign distilleries from the pool head. */

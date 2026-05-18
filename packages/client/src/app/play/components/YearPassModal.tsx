@@ -66,20 +66,19 @@ function summarizeRound(
     Math.min(12, demandEnd - demandRises + sales.length),
   );
 
-  // Per-player tally — barrels sold and rep gained from SELL_BOURBON's
-  // `reputationSplit`. Specialty bonuses, Master Distiller offsets, and
-  // Rating Boost are folded into the engine-applied total but NOT into
-  // `reputationSplit`, so this number is the floor of "rep banked," not
-  // the exact delta. Good enough for a recap chip.
+  // v2.11: SELL_BOURBON no longer carries the rep total in its
+  // payload. We count barrels sold from the action log and report 0
+  // repGained for the per-round delta — the recap chip will show
+  // sales count but not the exact rep delta until the engine
+  // surfaces it on a future state snapshot.
   const perPlayer: PlayerRoundSummary[] = state.players.map((p, seatIndex) => {
     const meta = seatMeta.find((m) => m.id === p.id);
     let barrelsSold = 0;
-    let repGained = 0;
+    const repGained = 0;
     for (const entry of prevLog) {
       const a = entry.action as GameAction;
       if (a.type === "SELL_BOURBON" && a.playerId === p.id) {
         barrelsSold += 1;
-        repGained += a.reputationSplit ?? 0;
       }
     }
     return {

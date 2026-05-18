@@ -123,13 +123,15 @@ describe("ROLL_DEMAND (per-player, top of action turn)", () => {
 });
 
 describe("DRAW_HAND", () => {
-  it("draws handSize cards into the player's hand", () => {
+  it("draws handSize cards into the player's hand (+1 from the v2.11 round-1 Labor seed)", () => {
     let state = makeTestGame();
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.hand).toHaveLength(8);
+    // v2.11: 8 from deck + 1 from savedCard (Generic Labor seed) = 9.
+    expect(p1.hand).toHaveLength(9);
     expect(p1.deck).toHaveLength(16 - 8);
     expect(p1.discard).toHaveLength(0);
+    expect(p1.savedCard).toBeNull();
   });
 
   it("does NOT auto-deal an operations card on draw — ops are bought from market", () => {
@@ -180,9 +182,11 @@ describe("DRAW_HAND", () => {
     };
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.hand).toHaveLength(8);
+    // v2.11: 8 from deck + 1 from savedCard seed = 9.
+    expect(p1.hand).toHaveLength(9);
     expect(p1.discard).toHaveLength(0);
-    expect(p1.deck.length + p1.hand.length).toBe(16);
+    // Deck + (hand minus the seeded Labor) = 16 starter cards.
+    expect(p1.deck.length + p1.hand.length - 1).toBe(16);
   });
 
   it("draws fewer than handSize when deck + discard run out", () => {
@@ -195,6 +199,7 @@ describe("DRAW_HAND", () => {
       ),
     };
     state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
-    expect(state.players.find((p) => p.id === "p1")!.hand).toHaveLength(3);
+    // v2.11: 3 from deck + 1 from savedCard seed = 4.
+    expect(state.players.find((p) => p.id === "p1")!.hand).toHaveLength(4);
   });
 });

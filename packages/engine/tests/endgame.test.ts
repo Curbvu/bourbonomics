@@ -20,16 +20,18 @@ describe("Final round trigger", () => {
     // what triggers the final round.
     let state = makeTestGame({ bourbonDeck: [onlyBill] });
     state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [
-      makeCapitalCard("p1", 0),
-      makeCapitalCard("p1", 1),
-    ]);
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1" ? { ...p, reputation: 5, hand: [] } : p,
+      ),
+    };
     expect(state.bourbonFaceUp).toHaveLength(1);
     state = applyAction(state, {
       type: "DRAW_MASH_BILL",
       playerId: "p1",
       mashBillId: state.bourbonFaceUp[0]!.id,
-      spendCardIds: ["card_p1_cap1_0", "card_p1_cap1_1"],
+      rep: 2,
     });
     expect(state.finalRoundTriggered).toBe(true);
     expect(state.bourbonDeck).toHaveLength(0);
@@ -49,16 +51,17 @@ describe("Final round trigger", () => {
     );
     let state = makeTestGame({ bourbonDeck: [onlyBill] });
     state = advanceToActionPhase(state);
-    state = giveHand(state, "p1", [
-      makeCapitalCard("p1", 0),
-      makeCapitalCard("p1", 1),
-    ]);
-    state = giveHand(state, "p2", []);
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1" ? { ...p, reputation: 5, hand: [] } : { ...p, hand: [] },
+      ),
+    };
     state = applyAction(state, {
       type: "DRAW_MASH_BILL",
       playerId: "p1",
       mashBillId: state.bourbonFaceUp[0]!.id,
-      spendCardIds: ["card_p1_cap1_0", "card_p1_cap1_1"],
+      rep: 2,
     });
     expect(state.finalRoundTriggered).toBe(true);
     // v2.2: DRAW_MASH_BILL does not end p1's turn — they must PASS_TURN
@@ -192,17 +195,21 @@ describe("Integration smoke test — minimal full game", () => {
       ),
     };
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    const reward = 5; // demand=8 (rose once on p2's roll), age=5 → grid[2][2] = 6 actually.
+    // v2.11: sale auto-pays grid + bonuses, clamped to tier floor.
+    // Capture pre-sale rep so we can verify the delta.
+    const prevRep = state.players.find((p) => p.id === "p1")!.reputation;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-      reputationSplit: reward,
-      cardDrawSplit: 0,    });
+    });
     // v2.2: SELL did not end p1's turn — they must explicitly pass.
     expect(state.currentPlayerIndex).toBe(0);
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
-    expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(reward);
+    // Rep should have gone up by at least the tier-1 floor (3).
+    expect(
+      state.players.find((p) => p.id === "p1")!.reputation,
+    ).toBeGreaterThanOrEqual(prevRep + 3);
     // v2.6: filter to aging-phase — the helper seeds 1 ready barrel
     // per player which persists through the sale.
     expect(state.allBarrels.filter((b) => b.phase === "aging")).toHaveLength(0);

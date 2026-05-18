@@ -299,7 +299,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-3-buy-specialty-rye",
     kind: "await-action",
     title: "Buy the Specialty Rye",
-    body: "Spend your **two $1 capitals** on the Specialty Rye ($2).",
+    body: "Spend **1 rep + your Generic Labor** card on the Specialty Rye ($2).",
     spotlight: { kind: "market-slot", slotIndex: 0 },
     matches: (action) =>
       action.type === "BUY_FROM_MARKET" &&
@@ -592,8 +592,6 @@ export const TUTORIAL_BEATS: Beat[] = [
           type: "SELL_BOURBON",
           playerId: TUTORIAL_BOT_ID,
           barrelId: target.barrelId,
-          reputationSplit: 3,
-          cardDrawSplit: 0,
         },
       ];
     },
@@ -715,10 +713,9 @@ export const TUTORIAL_BEATS: Beat[] = [
     },
     rewrite: (action) => {
       if (action.type !== "SELL_BOURBON") return null;
-      // Take the full grid value as reputation. The rep ↔ card draw
-      // split is a real game mechanic but we leave it for the
-      // post-tutorial onboarding so the first sale stays simple.
-      return { ...action, reputationSplit: 2, cardDrawSplit: 0 };
+      // v2.11: single-step sale — engine resolves the rep total
+      // (grid + bonuses, clamped to tier floor) on apply.
+      return action;
     },
     // Advance once the Backroad barrel actually leaves the rickhouse —
     // sale rejected by the engine would leave the barrel in place.
@@ -790,8 +787,8 @@ export const TUTORIAL_BEATS: Beat[] = [
     },
     rewrite: (action) => {
       if (action.type !== "SELL_BOURBON") return null;
-      // Grid 5 + Specialty +1 = 6 to player as reputation.
-      return { ...action, reputationSplit: 5, cardDrawSplit: 0 };
+      // v2.11: single-step — engine handles rep math.
+      return action;
     },
     // Advance once the human's `barrelsSold` ticks (proves the engine
     // actually landed the sale — Silver Award keeps the bill in the
