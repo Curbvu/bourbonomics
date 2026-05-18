@@ -1,16 +1,16 @@
-"use client";
+﻿"use client";
 
 /**
- * Center column — the public face of the table.
+ * Center column â€” the public face of the table.
  *
  * Top: Market conveyor (10 face-up cards available for purchase).
  *
- * Below: three subsections — Mash bills, Operations, Investments. Each
+ * Below: three subsections â€” Mash bills, Operations, Investments. Each
  * shows 3 face-up cards plus a face-down "draw from pile" tile with a
  * remaining-cards counter. Investments is a placeholder until v2.2.
  *
  * **Every card on the table is the exact same fixed silhouette
- * (CARD_W × CARD_H).** The hand uses a slightly larger size; market
+ * (CARD_W Ã— CARD_H).** The hand uses a slightly larger size; market
  * tiles run a bit smaller for density.
  */
 
@@ -36,7 +36,7 @@ import {
   laborGlyphFor,
 } from "./handCardStyles";
 import { TIER_CHROME, tierOrCommon } from "./tierStyles";
-import { CornerCost, CornerValue } from "./cardCorners";
+import { CornerCost } from "./cardCorners";
 import { useZoneFocusClass } from "./pickerFocus";
 import RecipePips from "./RecipePips";
 import { MoneyText } from "./money";
@@ -46,7 +46,7 @@ const FACEUP_PER_SECTION = 3;
 
 export default function MarketCenter() {
   const { state, drawBillMode, setDrawBillTarget } = useGameStore();
-  // v2.1 has no in-engine investment deck — show a static catalog so the
+  // v2.1 has no in-engine investment deck â€” show a static catalog so the
   // slot is themed and visible. The mechanic ships in v2.2.
   const investmentDeck = useMemo(() => defaultInvestmentCatalog(), []);
 
@@ -56,7 +56,7 @@ export default function MarketCenter() {
   const faceUpBills = state.bourbonFaceUp;
   const remainingBills = state.bourbonDeck.length;
   // Draw-bill mode wires the bourbon section as a click target during
-  // step 1 (pick the bourbon — face-up tile or blind deck top).
+  // step 1 (pick the bourbon â€” face-up tile or blind deck top).
   const drawStep1 =
     drawBillMode != null &&
     !drawBillMode.blind &&
@@ -97,7 +97,7 @@ export default function MarketCenter() {
         </div>
       </Section>
 
-      {/* Mash bills + Ops + Investments — each is its own peer section,
+      {/* Mash bills + Ops + Investments â€” each is its own peer section,
           laid out in a grid so they share the available row width. */}
       <div className="grid grid-cols-1 gap-1.5 lg:grid-cols-3">
         <Section
@@ -173,13 +173,13 @@ export default function MarketCenter() {
  * Top-level peer section in the market column. Every section (Market,
  * Mash bills, Operations, Investments) shares the same chrome:
  *
- *   ┌─────────────────────────────────────────────────────┐
- *   │ T │ ╎  [card] [card] [card] ...                     │
- *   │ I │ ╎                                                │
- *   │ T │ ╎                                                │
- *   │ L │ ╎                                                │
- *   │ E │ ╎                                                │
- *   └─────────────────────────────────────────────────────┘
+ *   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+ *   â”‚ T â”‚ â•Ž  [card] [card] [card] ...                     â”‚
+ *   â”‚ I â”‚ â•Ž                                                â”‚
+ *   â”‚ T â”‚ â•Ž                                                â”‚
+ *   â”‚ L â”‚ â•Ž                                                â”‚
+ *   â”‚ E â”‚ â•Ž                                                â”‚
+ *   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
  *
  * The vertical title (writing-mode: vertical-rl) anchors the section
  * without eating a full row of vertical space. A thin vertical lining
@@ -209,7 +209,7 @@ function Section({
       data-zone={zone}
       {...dataProps}
       className={[
-        // Fixed height = card (140) + padding (p-1.5 → 12) + border (2)
+        // Fixed height = card (140) + padding (p-1.5 â†’ 12) + border (2)
         // + 4px breathing room. Locks the box to card-and-a-half-buffer
         // so the layout never tries to stretch a row taller than its
         // contents and start a vertical scrollbar.
@@ -249,7 +249,7 @@ function SideCaption({ title, tag }: { title: string; tag?: string }) {
           </span>
         ) : null}
       </div>
-      {/* Vertical lining — anchors the title against the card row. */}
+      {/* Vertical lining â€” anchors the title against the card row. */}
       <div className="w-px self-stretch bg-slate-700/60" aria-hidden />
     </div>
   );
@@ -302,7 +302,7 @@ function FaceUpRow({
 }
 
 // -----------------------------
-// Card tiles — all share CARD_SIZE_CLASS
+// Card tiles â€” all share CARD_SIZE_CLASS
 // -----------------------------
 
 const baseTile = `relative flex flex-shrink-0 flex-col overflow-hidden rounded-md border-2 p-1.5 text-left shadow-[0_4px_12px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-transform duration-150 cursor-pointer hover:-translate-y-1 hover:scale-[1.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${CARD_SIZE_CLASS}`;
@@ -318,7 +318,7 @@ const baseTile = `relative flex flex-shrink-0 flex-col overflow-hidden rounded-m
  *   click STARTS buy mode, pre-targets this slot, and carries any
  *   currently multi-selected hand cards over as the proposed spend.
  *   This lets the player skip the toolbar's BUY MARKET button entirely
- *   — the muted picker was hard to find.
+ *   â€” the muted picker was hard to find.
  * - Otherwise (not your turn, can't afford, or no useful action): click
  *   falls back to the inspect modal so the card is still readable.
  */
@@ -345,7 +345,7 @@ function useMarketBuyState(
     picked != null &&
     picked.source === source &&
     picked.slotIndex === slotIndex;
-  // Some other slot is the picked target — used to mute me hard so the
+  // Some other slot is the picked target â€” used to mute me hard so the
   // single picked card and the chosen hand cards are the only bright
   // things on screen.
   const someoneElsePicked =
@@ -353,7 +353,7 @@ function useMarketBuyState(
     picked != null &&
     !(picked.source === source && picked.slotIndex === slotIndex);
   // Wallet for affordability dimming: capital cards pay face value,
-  // resource cards pay 1¢ each — same rules the engine enforces.
+  // resource cards pay 1Â¢ each â€” same rules the engine enforces.
   const human = state?.players.find((p) => !p.isBot);
   const wallet = human
     ? human.hand.reduce((acc, c) => acc + paymentValue(c), 0)
@@ -370,7 +370,7 @@ function useMarketBuyState(
     state.phase === "action" &&
     state.players[state.currentPlayerIndex]?.id === seatId;
   // Tutorial gating. When an await-action beat spotlights a specific
-  // market slot, lock the OTHER slots out of any buy action — clicks
+  // market slot, lock the OTHER slots out of any buy action â€” clicks
   // on non-spotlit cards fall through to inspect, and the cards mute
   // hard. Only the conveyor is gated this way; the ops row is gated
   // independently if a future beat spotlights it.
@@ -389,7 +389,7 @@ function useMarketBuyState(
       : isPicked
         ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
         : someoneElsePicked
-          ? // Some other card is picked — focus collapses onto the picked
+          ? // Some other card is picked â€” focus collapses onto the picked
             // card + the hand spend cards. Mute me hard so the eye lands
             // on the BuyOverlay's Confirm without distraction.
             "opacity-30 saturate-50"
@@ -397,7 +397,7 @@ function useMarketBuyState(
             ? "ring-2 ring-emerald-400/60"
             : "opacity-40 saturate-50";
   // Shimmer stops the moment the spotlit tile becomes the picked buy
-  // target — the picked-card ring + BuyOverlay carry the focus from
+  // target â€” the picked-card ring + BuyOverlay carry the focus from
   // there, no need to keep pulsing.
   const shouldShimmer = isTutorialSpotlit && !isPicked;
   return {
@@ -417,7 +417,7 @@ function useMarketBuyState(
         return;
       }
       if (isMyTurn && affordable) {
-        // Snapshot the multi-selection now — startBuyMode clears it.
+        // Snapshot the multi-selection now â€” startBuyMode clears it.
         const preSelected = [...selectedHandCardIds];
         startBuyMode();
         setBuyTarget({ source, slotIndex });
@@ -463,11 +463,10 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
           e.preventDefault();
           setInspect({ kind: "capital", card });
         }}
-        title={`${titleLabel} · contributes +${contribution} toward ${sub === "generic" || !sub ? "any" : sub.replace("_", " ")} buys · costs ${cost} rep to acquire`}
+        title={`${titleLabel} Â· contributes +${contribution} toward ${sub === "generic" || !sub ? "any" : sub.replace("_", " ")} buys Â· costs ${cost} rep to acquire`}
         className={[baseTile, chrome.gradient, chrome.border, buyClass, shimmer].join(" ")}
       >
         <Sheen />
-        <CornerValue value={contribution} />
         <CornerCost cost={cost} />
         <div className="flex items-baseline justify-center px-7">
           <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
@@ -490,7 +489,7 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
             {laborGlyphFor(sub)}
           </span>
           <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
-            +{contribution} · {subtypeLabel === "Worker" ? "any buy" : subtypeLabel.toLowerCase()}
+            +{contribution} Â· {subtypeLabel === "Worker" ? "any buy" : subtypeLabel.toLowerCase()}
           </span>
         </div>
       </button>
@@ -509,11 +508,10 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
           e.preventDefault();
           setInspect({ kind: "capital", card });
         }}
-        title={`${titleLabel} · pays B$${value} · costs B$${cost} to buy`}
+        title={`${titleLabel} Â· pays B$${value} Â· costs B$${cost} to buy`}
         className={[baseTile, chrome.gradient, chrome.border, buyClass, shimmer].join(" ")}
       >
         <Sheen />
-        <CornerValue value={value} />
         <CornerCost cost={cost} />
         <div className="flex items-baseline justify-center px-7">
           <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
@@ -545,7 +543,7 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
   const subtype = card.subtype as ResourceSubtype;
   const chrome = RESOURCE_CHROME[subtype];
   const count = card.resourceCount ?? 1;
-  const titleLabel = card.displayName ?? `${count > 1 ? `${count}× ` : ""}${RESOURCE_LABEL[subtype]}`;
+  const titleLabel = card.displayName ?? `${count > 1 ? `${count}Ã— ` : ""}${RESOURCE_LABEL[subtype]}`;
   const isWildcard = (card.aliases?.length ?? 0) > 0;
   return (
     <button
@@ -556,11 +554,10 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
         e.preventDefault();
         setInspect({ kind: "resource", card });
       }}
-      title={`${titleLabel} · pays B$${value} · cost B$${cost}`}
+      title={`${titleLabel} Â· pays B$${value} Â· cost B$${cost}`}
       className={[baseTile, chrome.gradient, chrome.border, buyClass, shimmer].join(" ")}
     >
       <Sheen />
-      <CornerValue value={value} />
       <CornerCost cost={cost} />
       <div className="flex items-baseline justify-center px-7">
         <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
@@ -632,7 +629,7 @@ function MashBillTile({ bill }: { bill: MashBill }) {
   // open rickhouse slot (DRAW_MASH_BILL needs somewhere to land), a
   // click on a bill enters draw-bill mode and pre-targets it. The
   // hand multi-selection (Pass 1) is carried into the sacrifice list.
-  // No always-on ring for the auto-draw affordance — `baseTile`'s
+  // No always-on ring for the auto-draw affordance â€” `baseTile`'s
   // cursor-pointer + hover lift already telegraph "clickable", and a
   // permanent amber glow on every face-up bill would be too noisy.
   const inAnyOtherPicker =
@@ -681,10 +678,10 @@ function MashBillTile({ bill }: { bill: MashBill }) {
       }}
       title={
         inDrawStep1
-          ? `Pick ${bill.name} — costs B$${bill.cost ?? 2}`
+          ? `Pick ${bill.name} â€” costs B$${bill.cost ?? 2}`
           : canAutoDraw
-            ? `${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · click to draw (sacrifices a hand card), right-click to inspect`
-            : `${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`
+            ? `${bill.name}${bill.slogan ? ` â€” ${bill.slogan}` : ""} Â· click to draw (sacrifices a hand card), right-click to inspect`
+            : `${bill.name}${bill.slogan ? ` â€” ${bill.slogan}` : ""} Â· ${chrome.label_text}`
       }
       className={[baseTile, chrome.gradient, chrome.border, chrome.glow, drawRing].join(" ")}
     >
@@ -695,9 +692,9 @@ function MashBillTile({ bill }: { bill: MashBill }) {
           {chrome.label_text}
         </span>
         {bill.goldAward ? (
-          <span className="text-[9px]" aria-hidden>🥇</span>
+          <span className="text-[9px]" aria-hidden>ðŸ¥‡</span>
         ) : bill.silverAward ? (
-          <span className="text-[9px]" aria-hidden>🥈</span>
+          <span className="text-[9px]" aria-hidden>ðŸ¥ˆ</span>
         ) : null}
       </div>
       <h4 className={`mt-0.5 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
@@ -711,7 +708,7 @@ function MashBillTile({ bill }: { bill: MashBill }) {
       <RecipePips bill={bill} />
       <div className="mt-auto flex items-baseline justify-center gap-1">
         <span className={`font-display text-[16px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
-          {floor}–{peak}
+          {floor}â€“{peak}
         </span>
         <span className={`font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
           rep
@@ -755,7 +752,7 @@ function InvestmentCardTile({ card }: { card: InvestmentCard }) {
         e.preventDefault();
         setInspect({ kind: "investment", card });
       }}
-      title={`${card.name} — ${card.short}\n\n${card.text}`}
+      title={`${card.name} â€” ${card.short}\n\n${card.text}`}
       className={[baseTile, chrome.gradient, chrome.border].join(" ")}
     >
       <Sheen />
@@ -796,7 +793,7 @@ function OpsCardTile({
         e.preventDefault();
         setInspect({ kind: "operations", card });
       }}
-      title={`${card.name} — ${card.description}`}
+      title={`${card.name} â€” ${card.description}`}
       className={[baseTile, chrome.gradient, chrome.border, buyClass].join(" ")}
     >
       <Sheen />
@@ -818,7 +815,7 @@ function OpsCardTile({
         className={`mt-auto grid h-8 w-8 self-center place-items-center rounded-full border-2 bg-white/10 text-base font-bold ${chrome.border} ${chrome.ink}`}
         aria-hidden
       >
-        ⚡
+        âš¡
       </div>
     </button>
   );
@@ -885,7 +882,7 @@ function DrawPile({
   const titleText =
     interactive && clickTitle
       ? clickTitle
-      : `${label} · ${remaining} card${remaining === 1 ? "" : "s"} remaining`;
+      : `${label} Â· ${remaining} card${remaining === 1 ? "" : "s"} remaining`;
   const baseClass = [
     baseTile,
     interactive ? "" : "cursor-default hover:translate-y-0 hover:scale-100",
