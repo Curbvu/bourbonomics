@@ -23,6 +23,7 @@ import {
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
+  laborGlyphFor,
 } from "./handCardStyles";
 import { MoneyText } from "./money";
 
@@ -125,7 +126,13 @@ function FlightFace({ card }: { card: Card }) {
           Labor
         </span>
         <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
-          <span className="font-display text-[24px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
+          <span
+            aria-hidden
+            className="font-display text-[24px] leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
+          >
+            {laborGlyphFor(card.laborSubtype)}
+          </span>
+          <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
             +{contribution}
           </span>
         </div>

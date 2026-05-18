@@ -33,6 +33,7 @@ import {
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
+  laborGlyphFor,
 } from "./handCardStyles";
 import { TIER_CHROME, tierOrCommon } from "./tierStyles";
 import { CornerCost, CornerValue } from "./cardCorners";
@@ -482,11 +483,14 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
           </p>
         ) : null}
         <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
-          <span className="font-display text-[20px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
-            +{contribution}
+          <span
+            aria-hidden
+            className="font-display text-[20px] leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
+          >
+            {laborGlyphFor(sub)}
           </span>
           <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
-            {subtypeLabel === "Worker" ? "any buy" : subtypeLabel.toLowerCase()}
+            +{contribution} · {subtypeLabel === "Worker" ? "any buy" : subtypeLabel.toLowerCase()}
           </span>
         </div>
       </button>
