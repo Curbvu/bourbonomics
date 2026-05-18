@@ -17,6 +17,7 @@ import { useGameStore } from "@/lib/store/game";
 import type { Card, ResourceSubtype } from "@bourbonomics/engine";
 import {
   CAPITAL_CHROME,
+  LABOR_CHROME,
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
@@ -106,20 +107,31 @@ export default function StarterDeckDraftModal() {
 
 function DealtCardTile({ card }: { card: Card }) {
   const isCapital = card.type === "capital";
+  const isLabor = card.type === "labor";
   const subtype = card.subtype as ResourceSubtype | undefined;
-  const chrome = isCapital
-    ? CAPITAL_CHROME
-    : subtype
-      ? RESOURCE_CHROME[subtype]
-      : CAPITAL_CHROME;
-  const label = isCapital
-    ? "Capital"
-    : subtype
-      ? RESOURCE_LABEL[subtype]
-      : "Card";
-  const glyph = isCapital ? "$" : subtype ? RESOURCE_GLYPH[subtype] : "?";
+  const chrome = isLabor
+    ? LABOR_CHROME
+    : isCapital
+      ? CAPITAL_CHROME
+      : subtype
+        ? RESOURCE_CHROME[subtype]
+        : CAPITAL_CHROME;
+  const laborSubtypeLabel =
+    card.laborSubtype === "marketing" ? "Marketing" :
+    card.laborSubtype === "cooper" ? "Cooper" :
+    card.laborSubtype === "architect" ? "Architect" :
+    "Labor";
+  const label = isLabor
+    ? laborSubtypeLabel
+    : isCapital
+      ? "Capital"
+      : subtype
+        ? RESOURCE_LABEL[subtype]
+        : "Card";
+  const glyph = isLabor ? "+" + (card.laborContribution ?? 1) : isCapital ? "$" : subtype ? RESOURCE_GLYPH[subtype] : "?";
   const count = card.resourceCount ?? card.capitalValue ?? 1;
-  const showCount = (card.resourceCount ?? 1) > 1 || (card.capitalValue ?? 1) > 1;
+  const showCount =
+    !isLabor && ((card.resourceCount ?? 1) > 1 || (card.capitalValue ?? 1) > 1);
 
   return (
     <div

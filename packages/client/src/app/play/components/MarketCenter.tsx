@@ -28,6 +28,7 @@ import { useGameStore } from "@/lib/store/game";
 import {
   CAPITAL_CHROME,
   CARD_SIZE_CLASS,
+  LABOR_CHROME,
   OPS_CHROME,
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
@@ -442,6 +443,55 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
     number
   >;
   const shimmer = shouldShimmer ? "animate-bb-shimmer" : "";
+  if (card.type === "labor") {
+    const chrome = LABOR_CHROME;
+    const sub = card.laborSubtype;
+    const subtypeLabel =
+      sub === "marketing" ? "Marketing" :
+      sub === "cooper" ? "Cooper" :
+      sub === "architect" ? "Architect" :
+      "Worker";
+    const contribution = card.laborContribution ?? 1;
+    const titleLabel = card.displayName ?? `${subtypeLabel} Labor`;
+    return (
+      <button
+        type="button"
+        {...slotAttr}
+        onClick={onClickCard(() => setInspect({ kind: "capital", card }))}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setInspect({ kind: "capital", card });
+        }}
+        title={`${titleLabel} · contributes +${contribution} toward ${sub === "generic" || !sub ? "any" : sub.replace("_", " ")} buys · costs ${cost} rep to acquire`}
+        className={[baseTile, chrome.gradient, chrome.border, buyClass, shimmer].join(" ")}
+      >
+        <Sheen />
+        <CornerValue value={contribution} />
+        <CornerCost cost={cost} />
+        <div className="flex items-baseline justify-center px-7">
+          <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+            Labor
+          </span>
+        </div>
+        <h4 className={`mt-0.5 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+          {titleLabel}
+        </h4>
+        {card.flavor ? (
+          <p className={`mt-0.5 line-clamp-2 font-display text-[7.5px] italic leading-snug ${chrome.label} opacity-90`}>
+            {card.flavor}
+          </p>
+        ) : null}
+        <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
+          <span className="font-display text-[20px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
+            +{contribution}
+          </span>
+          <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
+            {subtypeLabel === "Worker" ? "any buy" : subtypeLabel.toLowerCase()}
+          </span>
+        </div>
+      </button>
+    );
+  }
   if (card.type === "capital") {
     const chrome = CAPITAL_CHROME;
     const titleLabel = card.displayName ?? "Capital";
