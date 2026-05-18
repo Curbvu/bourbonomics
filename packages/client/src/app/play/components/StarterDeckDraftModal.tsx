@@ -21,6 +21,7 @@ import {
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
+  laborGlyphFor,
 } from "./handCardStyles";
 
 export default function StarterDeckDraftModal() {
@@ -128,7 +129,13 @@ function DealtCardTile({ card }: { card: Card }) {
       : subtype
         ? RESOURCE_LABEL[subtype]
         : "Card";
-  const glyph = isLabor ? "+" + (card.laborContribution ?? 1) : isCapital ? "$" : subtype ? RESOURCE_GLYPH[subtype] : "?";
+  const glyph = isLabor
+    ? laborGlyphFor(card.laborSubtype)
+    : isCapital
+      ? "$"
+      : subtype
+        ? RESOURCE_GLYPH[subtype]
+        : "?";
   const count = card.resourceCount ?? card.capitalValue ?? 1;
   const showCount =
     !isLabor && ((card.resourceCount ?? 1) > 1 || (card.capitalValue ?? 1) > 1);

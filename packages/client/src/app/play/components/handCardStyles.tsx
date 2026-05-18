@@ -126,6 +126,34 @@ export const LABOR_CHROME: CardChrome = {
   label: "text-slate-200",
 };
 
+/**
+ * v2.11 Labor glyph table. Sweat-equity tools per subtype so the
+ * card face reads as a worker, not a generic "+1" badge.
+ *
+ *   generic   🔨 hammer        — the universal worker
+ *   cooper    🪓 axe           — barrel-stave craft
+ *   marketing 📣 megaphone     — the storyteller
+ *   architect 📐 ruler         — the planner (reserved for v2.12)
+ *
+ * Used everywhere a Labor card surfaces: HandTray, MarketCenter,
+ * PurchaseFlight, SaleFlight, StarterDeckDraftModal, CardInspectModal.
+ */
+export const LABOR_GLYPH: Record<string, string> = {
+  generic: "🔨",
+  cooper: "🪓",
+  marketing: "📣",
+  architect: "📐",
+};
+
+/** Convenience: get the glyph for a Labor card, with a sensible default. */
+export function laborGlyphFor(subtype: string | undefined): string {
+  if (subtype) {
+    const g = LABOR_GLYPH[subtype];
+    if (g) return g;
+  }
+  return LABOR_GLYPH.generic ?? "🔨";
+}
+
 // Mash bills use TIER_CHROME from `tierStyles.ts` (WoW palette per tier),
 // not a single bourbon chrome.
 
