@@ -240,8 +240,10 @@ export function buildTutorialInitialState(): GameState {
   // pre-running through demand+draw via an explicit DRAW_HAND mutation
   // below. For now we ask initializeGame to skip the setup phases.
   const startingDistilleries = [humanDistillery, botDistillery];
+  // v2.11 slim cut: tutorial teaches Backroad Batch end-to-end; the
+  // Heritage Reserve arc was retired so we only seed one human bill.
   const startingMashBills: MashBill[][] = [
-    [buildTutorialBackroadBill(0), buildTutorialHeritageBill(0)],
+    [buildTutorialBackroadBill(0)],
     buildBotStartingBills(),
   ];
   const marketConveyor = buildTutorialMarketConveyor();
