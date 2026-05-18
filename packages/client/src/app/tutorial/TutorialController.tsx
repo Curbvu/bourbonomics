@@ -31,7 +31,7 @@ import BoardTour from "./BoardTour";
 import Confetti from "./Confetti";
 import Dice from "./Dice";
 import DragHintAnimation from "./DragHintAnimation";
-import { TUTORIAL_BEATS, spotlightSpecialtyRye } from "./beats";
+import { TUTORIAL_BEATS, chapterProgressFor, spotlightSpecialtyRye } from "./beats";
 import type { Beat, SpotlightTarget } from "./types";
 import { RichText, SpotlightLayer } from "./Spotlight";
 
@@ -493,6 +493,30 @@ function BeatOverlay({
 // ─────────────────────────────────────────────────────────────────
 // Surface primitives
 // ─────────────────────────────────────────────────────────────────
+
+/**
+ * v2.11: small chapter-scoped progress chip. Shows "Make bourbon ·
+ * 2/5" instead of the total "Tutorial · 13/45" so each phase feels
+ * manageable. Counts only visible beats (prompts / awaits / decisions
+ * / transitions / celebrate / finale) — scripted plumbing doesn't
+ * register with the player and shouldn't bloat the denominator.
+ */
+function ChapterProgress({
+  beatIndex,
+  totalBeats: _totalBeats,
+}: {
+  beatIndex: number;
+  totalBeats: number;
+}) {
+  const prog = chapterProgressFor(beatIndex);
+  if (!prog) return <span>Tutorial</span>;
+  return (
+    <span>
+      {prog.chapterLabel} · {prog.position}/{prog.total}
+    </span>
+  );
+}
+
 function CoachMark({
   beat,
   beatIndex,
@@ -526,8 +550,8 @@ function CoachMark({
       key={beat.id}
       className={wrapperClass}
     >
-      <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[.18em] text-amber-300">
-        <span>Tutorial · {beatIndex + 1} / {totalBeats}</span>
+      <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-[.14em] text-amber-300/85">
+        <ChapterProgress beatIndex={beatIndex} totalBeats={totalBeats} />
         <SkipLink />
       </div>
       {beat.title ? (
