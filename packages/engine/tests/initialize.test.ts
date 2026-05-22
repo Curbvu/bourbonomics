@@ -87,30 +87,9 @@ describe("initializeGame", () => {
     for (const p of state.players) expect(p.handSize).toBe(5);
   });
 
-  it("rigs the 2 Generic Labor cards on top of every starter deck", () => {
-    const state = makeTestGame();
-    for (const p of state.players) {
-      // drawWithReshuffle pops from the array tail, so the last two
-      // slots of `deck` are the next two cards drawn.
-      const topTwo = p.deck.slice(-2);
-      const allLabor = topTwo.every(
-        (c) => c.type === "labor" && c.laborSubtype === "generic",
-      );
-      expect(allLabor).toBe(true);
-    }
-  });
-
-  it("round-1 DRAW_HAND deals 2 Generic Labor into every opening hand", () => {
-    let state = makeTestGame();
-    for (const p of state.players) {
-      state = applyAction(state, { type: "DRAW_HAND", playerId: p.id });
-    }
-    for (const p of state.players) {
-      const hand = state.players.find((x) => x.id === p.id)!.hand;
-      const genericLabor = hand.filter(
-        (c) => c.type === "labor" && c.laborSubtype === "generic",
-      );
-      expect(genericLabor).toHaveLength(2);
-    }
-  });
+  // v2.14 Smoother Starter: round 1 no longer rigs Labor on top of
+  // the starter deck. The opening hand is a normal random draw like
+  // every other round; the rep-supplement sub-economy stays online
+  // via the bumped starter Labor count (3 per player) rather than
+  // the special-case rig.
 });

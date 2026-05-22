@@ -30,31 +30,6 @@ const MARKET_SIZE = 10;
  */
 const DEFAULT_STARTING_REP = 5;
 
-/**
- * Re-order a starter deck so the player's 2 Generic Labor cards sit
- * on top — `drawWithReshuffle` pops from the array tail, so the top
- * of the deck is the last 2 indices. Round-1 DRAW_HAND therefore
- * deals both Labor cards into the opening hand before any random
- * resources, satisfying the "2 Labor in starting hand" guarantee.
- */
-function rigOpeningLaborOnTop(deck: Card[]): Card[] {
-  const labors: Card[] = [];
-  const rest: Card[] = [];
-  for (const card of deck) {
-    if (
-      labors.length < 2 &&
-      card.type === "labor" &&
-      card.laborSubtype === "generic"
-    ) {
-      labors.push(card);
-    } else {
-      rest.push(card);
-    }
-  }
-  // Labor goes to the tail (the top of the deck).
-  return [...rest, ...labors];
-}
-
 function distilleryStartingRep(d: Distillery | null): number {
   return d?.startingRep ?? DEFAULT_STARTING_REP;
 }
@@ -95,9 +70,10 @@ export function initializeGame(config: GameConfig): GameState {
         applyDistilleryStarterModifications(seedDeck as unknown as Draft<Card[]>, p, distillery);
       }
       const shuffled = shuffleCards(seedDeck, rngState);
-      // Rig 2 Generic Labor to the top so the round-1 DRAW_HAND
-      // guarantees both Labor cards in the opening hand.
-      deck = rigOpeningLaborOnTop(shuffled.shuffled);
+      // v2.14: no round-1 Labor rig. The starter composition (3 Labor
+      // per player) makes the round-1 zero-Labor case rare enough that
+      // a rigged draw isn't worth the special-case in the engine.
+      deck = shuffled.shuffled;
       rngState = shuffled.rngState;
     }
 

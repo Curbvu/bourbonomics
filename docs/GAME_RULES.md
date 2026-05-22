@@ -30,7 +30,7 @@ Your turn opens with your own demand roll and one aging card committed to **ever
 - **Sell** an aging barrel (age ≥ 2) — the engine reads the bill's grid at `(barrel age, current demand)`, adds card / distillery / ops bonuses, and lifts the total to the bill's **tier floor** (3 / 4 / 5 rep). The total lands on your **reputation** track.
 - **Buy** new cards from the 10-card market with **reputation** and/or **Labor cards** from hand (Cooper +2 toward market resources, Marketing +2 toward ops, Generic +1 anywhere). Rep and Labor are fully fungible — pay in rep, Labor, or any mix.
 - **Draft mash bills** by initiating the **Drafting Loop** — put a card on the table, reveal 3 bills, take what you want for 1 card each; the remainder passes around the table for others to claim. Bills cost no rep.
-- **Labor is finite per player.** You start with 2 Generic Labor in your deck — that's it. New Labor only enters via **Specialty Labor** cards bought from the market (Cooper, Marketing, future Architect).
+- **Labor is finite per player.** You start with 3 Generic Labor in your deck — that's it. New Labor only enters via **Specialty Labor** cards bought from the market (Cooper, Marketing, future Architect).
 
 ### Winning
 
@@ -62,7 +62,7 @@ This is *starting* rep — not earned — but it counts toward your final score 
 - **Connoisseur Estate** — **4** starting bills, filling every slot Staged.
 
 ### Step 4 — Starter pool draft (random deal + trade window)
-Build the starter pool: per player, **6 cask · 4 corn · 4 grain (2 rye / 1 barley / 1 wheat) · 2 Generic Labor = 16 cards**, plus an 8-card buffer for the stuck-hand safety valve. Shuffle and **deal 16 cards face-up** to each player.
+Build the starter pool: per player, **6 cask · 4 corn · 3 grain (1 rye / 1 barley / 1 wheat) · 3 Generic Labor = 16 cards**, plus an 8-card buffer for the stuck-hand safety valve. Shuffle and **deal 16 cards face-up** to each player.
 
 **Trade window — 3 minutes.** Players negotiate **1-for-1 trades** in any order, public and mutual.
 
@@ -84,7 +84,7 @@ When the timer expires (or every player has passed), shuffle your final 16 cards
 
 Three phases per round:
 
-1. **Draw** — each player draws 8 cards. A player who used the **Save slot** last round adds the saved card on top, drawing effectively 9 that round. (Round 1 only: both Generic Labor cards from your starter deck are rigged to be in your opening hand.)
+1. **Draw** — each player draws 8 cards. A player who used the **Save slot** last round adds the saved card on top, drawing effectively 9 that round.
 2. **Action** — players take full turns in rotated order. Each turn runs as **Roll demand → Age every aging barrel → Take actions**.
 3. **Cleanup** — unused resource and Labor cards go to discard; per-round flags reset; **the 10 market cards cycle out to the market discard and 10 fresh cards are dealt from the supply**; start player rotates one seat counter-clockwise.
 
@@ -545,7 +545,11 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 
 # 📜 Changelog
 
-- **v2.14** — **"The Drafting Loop."** Bill acquisition is rebuilt from the ground up as a table event. The face-up bill row is retired. The blind bill draw (1 rep) is retired. The flat rep cost on face-up bills (1/1/2/3/4) is retired. Bills are now acquired exclusively through the **Drafting Loop**: the active player places one card from hand on the table and reveals 3 bills from the deck; they take 0–N bills (limited by Open slots) by adding one card to the pile per bill; the pile then passes left, with each subsequent player able to take cards from the pile freely AND/OR take remaining bills at a cost of 1 card each. When the pile returns to the initiator, leftover bills shuffle back into the deck and leftover cards go to the market discard. **Bills now cost no rep — only cards.** This restores deck thinning to the game (retired in v2.11 with Trash a Card), reintroduces meaningful player-to-player card transfer outside of Trade, and turns bill drafting into a social moment. The action is limited to **once per round per player** and is illegal in the final round. Distillery constraints apply (High-Rye House skips wheated bills; Connoisseur Estate respects its 4-bill cap). Specialty Labor for bill draws (the future "Distiller" worker) is no longer reserved space — it's obsolete under the cards-only economy.
+- **v2.14** — **"The Drafting Loop" + "Smoother Starter."**
+
+  **The Drafting Loop.** Bill acquisition is rebuilt from the ground up as a table event. The face-up bill row is retired. The blind bill draw (1 rep) is retired. The flat rep cost on face-up bills (1/1/2/3/4) is retired. Bills are now acquired exclusively through the **Drafting Loop**: the active player places one card from hand on the table and reveals 3 bills from the deck; they take 0–N bills (limited by Open slots) by adding one card to the pile per bill; the pile then passes left, with each subsequent player able to take cards from the pile freely AND/OR take remaining bills at a cost of 1 card each. When the pile returns to the initiator, leftover bills shuffle back into the deck and leftover cards go to the market discard. **Bills now cost no rep — only cards.** This restores deck thinning to the game (retired in v2.11 with Trash a Card), reintroduces meaningful player-to-player card transfer outside of Trade, and turns bill drafting into a social moment. The action is limited to **once per round per player** and is illegal in the final round. Distillery constraints apply (High-Rye House skips wheated bills; Connoisseur Estate respects its 4-bill cap). Specialty Labor for bill draws (the future "Distiller" worker) is no longer reserved space — it's obsolete under the cards-only economy.
+
+  **Smoother Starter.** Starter Generic Labor bumped from 2 to 3 (cut one rye to keep the deck at 16; grain mix is now symmetric at 1 rye / 1 barley / 1 wheat). The round-1 Labor rig is gone — round 1 now draws 8 random cards like every other round. Labor doesn't carry over between rounds, so the bump-not-rig approach better solves what the rig was patching: at 2 Labor the zero-Labor-round rate was ~27%, leaving the rep-supplement sub-economy offline too often; at 3 Labor it drops to ~11% with expected Labor/round rising from 1.0 to 1.5.
 
 - **v2.13** — **"Unified Market."** The three face-up rows (resource conveyor, ops face-up, investments display-stub) collapsed into a single 10-card market alongside the separate mash-bills column. All non-bill card types (resource / Labor / ops / investment) share one supply deck and one discard; each buy refills the empty slot immediately, and at end of every year all 10 cards cycle out and 10 fresh cards are dealt. Capital cards eradicated from the codebase end-to-end — the type member, factories, `capitalValue` field, distillery `capitalDelta` field, and every UI render branch are gone. Architect Labor (+2 toward investment buys) ships in the market alongside Cooper and Marketing; Generic Labor no longer appears in the market (your 2 starter-deck Labor are all you'll ever own). Every player's round-1 opening hand is guaranteed to contain both Generic Labor cards (deck is rigged at init so the 2 Labors sit on top). Investment effects are still effect-pending — buying transfers them to discard with a placeholder marker.
 

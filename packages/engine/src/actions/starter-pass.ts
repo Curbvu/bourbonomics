@@ -1,28 +1,6 @@
 import type { Draft } from "immer";
-import type { Card, GameAction, GameState, ValidationResult } from "../types";
+import type { GameAction, GameState, ValidationResult } from "../types";
 import { shuffleCards } from "../deck";
-
-/**
- * Re-order the drafted deck so the player's 2 Generic Labor cards sit
- * on top (array tail). `drawWithReshuffle` pops from the tail, so the
- * round-1 DRAW_HAND deals both Labor cards into the opening hand.
- */
-function rigOpeningLaborOnTop(deck: Card[]): Card[] {
-  const labors: Card[] = [];
-  const rest: Card[] = [];
-  for (const card of deck) {
-    if (
-      labors.length < 2 &&
-      card.type === "labor" &&
-      card.laborSubtype === "generic"
-    ) {
-      labors.push(card);
-    } else {
-      rest.push(card);
-    }
-  }
-  return [...rest, ...labors];
-}
 
 type StarterPassAction = Extract<GameAction, { type: "STARTER_PASS" }>;
 
@@ -61,9 +39,10 @@ export function applyStarterPass(
 
   for (const p of drafters) {
     const shuffleResult = shuffleCards(p.starterHand, draft.rngState);
-    // Rig 2 Generic Labor on top so the round-1 DRAW_HAND
-    // guarantees both Labor cards in the opening hand.
-    p.deck = rigOpeningLaborOnTop(shuffleResult.shuffled);
+    // v2.14: no round-1 Labor rig — round 1 draws like any other round.
+    // The starter pool's 3 Labor per player (up from 2) keeps the
+    // zero-Labor-round rate low enough without the special-case.
+    p.deck = shuffleResult.shuffled;
     draft.rngState = shuffleResult.rngState;
     p.starterHand = [];
   }

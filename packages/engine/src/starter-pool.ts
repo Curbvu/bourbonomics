@@ -13,14 +13,16 @@ import { buildStarterMashBill } from "./defaults";
 // from. The pool is shuffled, dealt 16 face-up to each drafter,
 // and the remainder (≥ POOL_BUFFER cards) backs the safety valve.
 //
-//   per player:  6 cask + 4 corn + 4 grain + 2 Generic Labor = 16
-//   4 grain split: 2 rye + 1 barley + 1 wheat (≈ equal)
+//   per player:  6 cask + 4 corn + 3 grain + 3 Generic Labor = 16
+//   3 grain split: 1 rye + 1 barley + 1 wheat (symmetric)
 //   buffer (per game): 2 cask + 1 corn + 1 rye + 1 barley + 1 wheat
 //                      + 2 Generic Labor = 8
 //
-// Labor is scarce: 2 per player is the only Generic Labor a drafter
-// will ever own. The shared buffer adds slight variance so some
-// drafters land on 1 or 3 — trading balances things.
+// v2.14 Smoother Starter: bumped Labor 2→3 per player and dropped
+// one rye to keep the total at 16. At 2 Labor the zero-Labor-round
+// rate was ~27%; at 3 it drops to ~11%. Expected Labor per round
+// rises from 1.0 to 1.5 so the rep-supplement sub-economy stays
+// online round-to-round without the v2.13 round-1 rig.
 // ============================================================
 
 export const STARTER_HAND_SIZE = 16;
@@ -38,10 +40,10 @@ interface PoolSpec {
 const PER_PLAYER: PoolSpec = {
   cask: 6,
   corn: 4,
-  rye: 2,
+  rye: 1,
   barley: 1,
   wheat: 1,
-  labor: 2,
+  labor: 3,
 };
 
 const POOL_BUFFER: PoolSpec = {
