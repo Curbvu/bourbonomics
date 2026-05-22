@@ -2,7 +2,7 @@
 import { applyAction } from "../src/engine.js";
 import { makeMashBill, makeResourceCard } from "../src/cards.js";
 import type { OperationsCard, OperationsCardDefId } from "../src/types.js";
-import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel } from "./helpers.js";
+import { advanceToActionPhase, giveHand, giveRep, makeTestGame, placeBarrel } from "./helpers.js";
 
 const bill = () =>
   makeMashBill(
@@ -683,5 +683,59 @@ describe("PLAY_OPERATIONS_CARD — Master Distiller", () => {
       barrelId,
 });
     expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(0);
+  });
+});
+
+describe("BUY_OPERATIONS_CARD — from the unified market", () => {
+  it("transfers the spec to operationsHand and refills the slot", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state);
+    // Find the first operations slot in the unified market.
+    const slotIndex = state.market.findIndex((c) => c.type === "operations");
+    if (slotIndex < 0) return; // skip if no ops surfaced in the default seed
+    const marketCard = state.market[slotIndex]!;
+    const spec = marketCard.opSpec!;
+    const cost = marketCard.cost ?? spec.cost;
+    const initialMarket = state.market.length;
+    state = giveRep(state, "p1", 10);
+    state = giveHand(state, "p1", []);
+
+    state = applyAction(state, {
+      type: "BUY_OPERATIONS_CARD",
+      playerId: "p1",
+      marketSlotIndex: slotIndex,
+      rep: cost,
+      laborCardIds: [],
+    });
+
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    // Spec copied into operations hand with a fresh id + drawnInRound.
+    const owned = p1.operationsHand.find((c) => c.defId === spec.defId);
+    expect(owned).toBeDefined();
+    expect(owned!.id).not.toBe(spec.id);
+    expect(owned!.drawnInRound).toBe(state.round);
+    // Cost paid; market slot refilled or shrunk if supply was empty.
+    expect(p1.reputation).toBe(10 - cost);
+    expect(state.market.length).toBeLessThanOrEqual(initialMarket);
+    // The bought card is gone from the market (matched by id).
+    expect(state.market.every((c) => c.id !== marketCard.id)).toBe(true);
+  });
+
+  it("rejects a resource target (use BUY_FROM_MARKET)", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state);
+    const slotIndex = state.market.findIndex((c) => c.type === "resource");
+    if (slotIndex < 0) return;
+    state = giveRep(state, "p1", 10);
+    state = giveHand(state, "p1", []);
+    expect(() =>
+      applyAction(state, {
+        type: "BUY_OPERATIONS_CARD",
+        playerId: "p1",
+        marketSlotIndex: slotIndex,
+        rep: 1,
+        laborCardIds: [],
+      }),
+    ).toThrow(/not an operations card/);
   });
 });

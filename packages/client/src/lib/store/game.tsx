@@ -691,8 +691,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const dispatch = useCallback(
     (action: GameAction) => {
       if (multiplayerMode) {
-        // eslint-disable-next-line no-console
-        console.log("[mp] dispatch →", action);
         gameSocket().send({ type: "action", action });
         return;
       }

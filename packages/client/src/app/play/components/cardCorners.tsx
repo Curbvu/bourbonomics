@@ -3,15 +3,10 @@
 /**
  * Corner tab shared by every card silhouette on the table.
  *
- * cards no longer pay arbitrary "values" — rep
- * is the currency, Labor cards supplement via contribution, and
- * resource cards have no payment value. So the green CornerValue
- * tab is retired; only the top-right CornerCost remains.
- *
- * The cost tab reads as a small notch in the card's top-right
- * corner: flush with the top edge, sharing the card's outer
- * radius, with a desaturated amber tint that anchors to the card
- * rather than floating on top. No drop shadow.
+ * Reads as a small notch in the card's top-right corner: flush with
+ * the top edge, sharing the card's outer radius, with a desaturated
+ * amber tint that anchors to the card rather than floating on top.
+ * No drop shadow.
  */
 
 import { MoneyText } from "./money";
@@ -28,13 +23,4 @@ export function CornerCost({ cost }: { cost: number }) {
       <MoneyText n={cost} />
     </span>
   );
-}
-
-/**
- * @deprecated cards don't pay arbitrary values
- * anymore. Left as an inert stub so old imports don't crash while
- * call-sites get cleaned up; new code should not reference it.
- */
-export function CornerValue(_: { value: number }) {
-  return null;
 }

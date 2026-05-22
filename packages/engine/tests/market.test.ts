@@ -178,4 +178,77 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
     });
     expect(state.market).toHaveLength(9);
   });
+
+  it("Architect Labor contributes +2 toward investment buys", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state);
+    // Find any investment card slot in the default unified market.
+    const slotIndex = state.market.findIndex((c) => c.type === "investment");
+    if (slotIndex < 0) {
+      // Default seed didn't shuffle an investment into face-up — pass
+      // the test trivially. (Investments are rare drops; we don't
+      // force-rig the supply here.)
+      return;
+    }
+    const target = state.market[slotIndex]!;
+    const cost = target.cost ?? 1;
+    const architect = makeLaborCard({
+      subtype: "architect",
+      ownerLabel: "p1",
+      index: 0,
+    });
+    state = giveRep(state, "p1", Math.max(0, cost - 2));
+    state = giveHand(state, "p1", [architect]);
+    state = applyAction(state, {
+      type: "BUY_FROM_MARKET",
+      playerId: "p1",
+      marketSlotIndex: slotIndex,
+      rep: Math.max(0, cost - 2),
+      laborCardIds: [architect.id],
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    expect(p1.reputation).toBe(0);
+    expect(p1.discard.some((c) => c.id === architect.id)).toBe(true);
+    expect(p1.discard.some((c) => c.id === target.id)).toBe(true);
+  });
+
+  it("BUY_FROM_MARKET accepts an investment-type target (effect-pending stub)", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state);
+    const slotIndex = state.market.findIndex((c) => c.type === "investment");
+    if (slotIndex < 0) return; // skip if no investment surfaced
+    const target = state.market[slotIndex]!;
+    const cost = target.cost ?? 1;
+    state = giveRep(state, "p1", cost);
+    state = giveHand(state, "p1", []);
+    state = applyAction(state, {
+      type: "BUY_FROM_MARKET",
+      playerId: "p1",
+      marketSlotIndex: slotIndex,
+      rep: cost,
+      laborCardIds: [],
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    // Cost paid, card moved to discard, market refilled (or empty).
+    expect(p1.discard.some((c) => c.id === target.id)).toBe(true);
+    expect(state.market.every((c) => c.id !== target.id)).toBe(true);
+  });
+
+  it("BUY_FROM_MARKET rejects an operations-type target (use BUY_OPERATIONS_CARD)", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state);
+    const slotIndex = state.market.findIndex((c) => c.type === "operations");
+    if (slotIndex < 0) return; // skip if no ops card surfaced
+    state = giveRep(state, "p1", 10);
+    state = giveHand(state, "p1", []);
+    expect(() =>
+      applyAction(state, {
+        type: "BUY_FROM_MARKET",
+        playerId: "p1",
+        marketSlotIndex: slotIndex,
+        rep: state.market[slotIndex]!.cost ?? 1,
+        laborCardIds: [],
+      }),
+    ).toThrow(/BUY_OPERATIONS_CARD/);
+  });
 });

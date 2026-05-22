@@ -53,7 +53,7 @@ export default function MarketCenter() {
     !drawBillMode.pickedMashBillId;
   const blindPicked = drawBillMode != null && drawBillMode.blind;
 
-  const conveyorFocus = useZoneFocusClass("market-conveyor");
+  const marketFocus = useZoneFocusClass("market-conveyor");
   const mashBillsFocus = useZoneFocusClass("market-mash-bills");
 
   return (
@@ -63,7 +63,7 @@ export default function MarketCenter() {
       <Section
         title="Market"
         zone="market-conveyor"
-        focusClass={conveyorFocus}
+        focusClass={marketFocus}
         dataAttr="data-market-conveyor"
       >
         <div className="flex flex-1 flex-wrap items-stretch justify-between gap-2">

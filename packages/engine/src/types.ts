@@ -46,8 +46,6 @@ export type LaborDomain =
   | "investment"
   | "bill_draw";
 
-export const GRAIN_SUBTYPES: GrainSubtype[] = ["rye", "barley", "wheat"];
-
 /** A concrete card instance in a player's deck/hand/discard/etc. */
 export interface Card {
   id: string;                         // unique instance id
@@ -224,7 +222,7 @@ export interface MashBill {
   goldAward?: AwardCondition;
   /**
    * Capital cost to pick this bill from the face-up bourbon row. When
-   * omitted, defaults to `DEFAULT_MASH_BILL_COST` (see `cards.ts`).
+   * omitted, defaults to `billCostByTier(bill)` (see `cards.ts`).
    * Capital cards pay at printed value; other cards count as B$1.
    */
   cost?: number;
@@ -266,11 +264,7 @@ export function billCostByTier(bill: MashBill): number {
   return 1;
 }
 
-/**
- * @deprecated use `billCostByTier`. Kept as an alias so any
- * external callers don't break mid-refactor.
- */
-export const DEFAULT_MASH_BILL_COST = 1;
+/** Canonical alias for `billCostByTier` — used by client UI helpers. */
 export const mashBillCost = billCostByTier;
 
 /**

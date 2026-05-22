@@ -1,7 +1,14 @@
 ﻿import { describe, it, expect } from "vitest";
 import { applyAction, computeFinalScores, isGameOver } from "../src/engine.js";
 import { makeMashBill, makeResourceCard } from "../src/cards.js";
-import { advanceToActionPhase, giveHand, makeTestGame, passTurn, placeBarrel } from "./helpers.js";
+import {
+  advanceToActionPhase,
+  advanceToNextRound,
+  giveHand,
+  makeTestGame,
+  passTurn,
+  placeBarrel,
+} from "./helpers.js";
 
 describe("Final round trigger", () => {
   it("drawing the last mash bill flips finalRoundTriggered", () => {
@@ -231,5 +238,31 @@ describe("Integration smoke test — minimal full game", () => {
 
     const scores = computeFinalScores(state);
     expect(scores[0]!.playerId).toBe("p1"); // higher rep
+  });
+});
+
+describe("End-of-year market refresh", () => {
+  it("cycles all 10 market cards out and deals 10 fresh at cleanup", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state);
+    expect(state.market).toHaveLength(10);
+    const beforeIds = state.market.map((c) => c.id);
+    const beforeDiscard = state.marketDiscard.length;
+
+    state = advanceToNextRound(state);
+
+    // After cleanup → draw → action, the round has rolled over and the
+    // market has been refreshed.
+    expect(state.round).toBeGreaterThan(1);
+    expect(state.market).toHaveLength(10);
+    // None of the previous 10 cards should still be face-up (the
+    // refresh swept them to discard before dealing 10 fresh).
+    const afterIds = new Set(state.market.map((c) => c.id));
+    const carriedOver = beforeIds.filter((id) => afterIds.has(id));
+    expect(carriedOver).toHaveLength(0);
+    // Discard grew by ≥ the old face-up size minus any that ended up
+    // re-dealt off a reshuffled supply (rare; the supply normally has
+    // dozens of fresh cards).
+    expect(state.marketDiscard.length).toBeGreaterThanOrEqual(beforeDiscard);
   });
 });

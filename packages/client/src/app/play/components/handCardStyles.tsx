@@ -1,10 +1,8 @@
 /**
- * Shared visual chrome for the human hand cards. Centralised so the in-tray
- * mini cards and any future inspect modal agree on gradients, glyphs, and
- * labels. All hand cards share the same portrait silhouette in the tray
- * (HAND_CARD_W × HAND_CARD_H).
- *
- * Visual idiom ported from the dev branch.
+ * Shared visual chrome for the human hand cards. Centralised so the
+ * in-tray mini cards and the inspect modal agree on gradients,
+ * glyphs, and labels. All hand cards share the same portrait
+ * silhouette in the tray.
  */
 
 import type { ReactNode } from "react";
@@ -12,13 +10,11 @@ import type { ResourceSubtype } from "@bourbonomics/engine";
 import { BarleyIcon, CornIcon, RyeIcon, WheatIcon } from "./GrainIcon";
 
 /**
- * Single source of truth for the table-card silhouette. Hand, market
- * conveyor, mash-bill row, ops row, and draw-pile tiles all use this so
- * every card on screen reads as the same physical object.
+ * Single source of truth for the table-card silhouette. Hand, unified
+ * market, mash-bill row, and draw-pile tiles all use this so every
+ * card on screen reads as the same physical object.
  */
 export const CARD_SIZE_CLASS = "h-[140px] w-[100px]";
-export const HAND_CARD_W = 100;
-export const HAND_CARD_H = 140;
 
 /**
  * Per-card horizontal offset between siblings inside a hand row.

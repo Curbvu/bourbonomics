@@ -1,17 +1,13 @@
 ﻿"use client";
 
 /**
- * HandTray â€” bottom-of-canvas strip showing the focused player's hand.
+ * HandTray — bottom-of-canvas strip showing the focused player's hand.
  *
- * Visual idiom ported from the dev branch: every hand item is a
- * portrait-oriented mini card (112Ã—128) with a type-coloured gradient,
- * a centered glyph, and an accordion-fan layout (cards overlap left-to-
- * right; hover lifts and lifts to z-50). Three sections are stacked:
- * Resources / Capital / Bourbon-bills Â· Ops / Reputation summary.
- *
- * v2 is computer-driven during the action phase, so cards aren't click
- * targets â€” they're informational. The setup-phase modals own all human
- * input.
+ * Every hand item is a portrait-oriented mini card with a type-coloured
+ * gradient, a centered glyph, and an accordion-fan layout (cards
+ * overlap left-to-right; hover lifts to z-50). Sections from left to
+ * right: deck pile · resources + Labor row · ops row · reputation
+ * strip (rendered separately above the cards).
  */
 
 import { useEffect, useRef, useState } from "react";
