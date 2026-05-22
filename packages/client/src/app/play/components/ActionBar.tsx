@@ -31,7 +31,7 @@ import type {
   GameState,
   PlayerState,
 } from "@bourbonomics/engine";
-import { paymentValue, validateAction } from "@bourbonomics/engine";
+import { validateAction } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 
 export default function ActionBar() {
@@ -506,24 +506,27 @@ function canEnterBuyMode(
   state: GameState,
   player: PlayerState,
 ): { canBuy: boolean; reason?: string } {
-  if (state.marketConveyor.length === 0) {
-    return { canBuy: false, reason: "Market conveyor is empty" };
+  if (state.market.length === 0) {
+    return { canBuy: false, reason: "Market is empty" };
   }
-  // Wallet = sum of payment value across the whole hand. Capital cards
-  // pay their face value; resource cards pay B$1 each. Same rule the
-  // engine enforces in BUY_FROM_MARKET validation.
-  const wallet = player.hand.reduce((acc, c) => acc + paymentValue(c), 0);
+  // Wallet = rep + max Labor contribution. The engine enforces precise
+  // domain matching at apply time; this is an upper bound for gating.
+  const laborContrib = player.hand.reduce(
+    (acc, c) => acc + (c.type === "labor" ? c.laborContribution ?? 1 : 0),
+    0,
+  );
+  const wallet = player.reputation + laborContrib;
   if (wallet === 0) {
-    return { canBuy: false, reason: "Hand is empty — nothing to spend" };
+    return { canBuy: false, reason: "No rep or Labor — nothing to spend" };
   }
-  const cheapest = state.marketConveyor.reduce(
-    (lo, c) => Math.min(lo, c.cost ?? 1),
+  const cheapest = state.market.reduce(
+    (lo: number, c) => Math.min(lo, c.cost ?? 1),
     Infinity,
   );
   if (wallet < cheapest) {
     return {
       canBuy: false,
-      reason: `Cheapest market card costs B$${cheapest} — you have B$${wallet}`,
+      reason: `Cheapest market card costs ${cheapest} — you can pay ${wallet}`,
     };
   }
   return { canBuy: true };

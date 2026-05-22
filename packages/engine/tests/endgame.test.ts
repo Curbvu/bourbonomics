@@ -1,6 +1,6 @@
 ﻿import { describe, it, expect } from "vitest";
 import { applyAction, computeFinalScores, isGameOver } from "../src/engine.js";
-import { makeCapitalCard, makeMashBill } from "../src/cards.js";
+import { makeMashBill, makeResourceCard } from "../src/cards.js";
 import { advanceToActionPhase, giveHand, makeTestGame, passTurn, placeBarrel } from "./helpers.js";
 
 describe("Final round trigger", () => {
@@ -87,7 +87,7 @@ describe("computeFinalScores", () => {
               ...p,
               reputation: repA,
               hand: [],
-              deck: Array.from({ length: deckA }, (_, i) => makeCapitalCard("p1", i)),
+              deck: Array.from({ length: deckA }, (_, i) => makeResourceCard("corn", "p1", i)),
               discard: [],
               barrelsSold: soldA,
             }
@@ -95,7 +95,7 @@ describe("computeFinalScores", () => {
               ...p,
               reputation: repB,
               hand: [],
-              deck: Array.from({ length: deckB }, (_, i) => makeCapitalCard("p2", i)),
+              deck: Array.from({ length: deckB }, (_, i) => makeResourceCard("corn", "p2", i)),
               discard: [],
               barrelsSold: soldB,
             },

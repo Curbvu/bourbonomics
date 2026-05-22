@@ -3,7 +3,7 @@ import { initializeGame } from "../src/initialize.js";
 import { defaultDistilleryPool } from "../src/distilleries.js";
 import { defaultMashBillCatalog, defaultStarterCards } from "../src/defaults.js";
 import { applyAction } from "../src/engine.js";
-import { makeMashBill, makeResourceCard, makeCapitalCard } from "../src/cards.js";
+import { makeMashBill, makeResourceCard } from "../src/cards.js";
 import type { Distillery, GameState } from "../src/types.js";
 import {
   advanceToActionPhase,

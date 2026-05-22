@@ -19,11 +19,8 @@ import { useGameStore } from "@/lib/store/game";
 import {
   type Card,
   type GameState,
-  type OperationsCard,
 } from "@bourbonomics/engine";
-import { formatMoney, MoneyText } from "./money";
-
-const FACEUP_OPS_SIZE = 3;
+import { MoneyText } from "./money";
 
 export default function BuyOverlay() {
   const { state, buyMode, cancelBuyMode, confirmBuy } = useGameStore();
@@ -33,8 +30,12 @@ export default function BuyOverlay() {
 
   const target = resolveTarget(state, buyMode.pickedTarget);
   const cost = target?.cost ?? null;
-  const laborDomain: "ops" | "market_resource" =
-    target?.type === "operations" ? "ops" : "market_resource";
+  const laborDomain: "ops" | "market_resource" | "investment" =
+    target?.type === "operations"
+      ? "ops"
+      : target?.type === "investment"
+        ? "investment"
+        : "market_resource";
 
   // v2.11: only Labor cards contribute. Non-Labor selections in
   // `spendCardIds` are ignored at confirm time (store filter); we
@@ -128,41 +129,30 @@ export default function BuyOverlay() {
 
 interface TargetView {
   cost: number;
-  type: "conveyor-resource" | "conveyor-capital" | "operations";
-  card: Card | OperationsCard;
+  type: "resource" | "labor" | "operations" | "investment";
+  card: Card;
 }
 
 function resolveTarget(
   state: GameState,
-  picked: { source: "conveyor" | "operations"; slotIndex: number } | null,
+  picked: { slotIndex: number } | null,
 ): TargetView | null {
   if (!picked) return null;
-  if (picked.source === "conveyor") {
-    const card = state.marketConveyor[picked.slotIndex];
-    if (!card) return null;
-    return {
-      cost: card.cost ?? 1,
-      type: card.type === "capital" ? "conveyor-capital" : "conveyor-resource",
-      card,
-    };
-  }
-  // operations: face-up row = last 3 of operationsDeck.
-  if (picked.slotIndex < 0 || picked.slotIndex >= FACEUP_OPS_SIZE) return null;
-  const total = state.operationsDeck.length;
-  const idx = total - 1 - picked.slotIndex;
-  const opsCard = state.operationsDeck[idx];
-  if (!opsCard) return null;
-  return { cost: opsCard.cost, type: "operations", card: opsCard };
+  const card = state.market[picked.slotIndex];
+  if (!card) return null;
+  return {
+    cost: card.cost ?? 1,
+    type: card.type,
+    card,
+  };
 }
 
 function targetLabel(t: TargetView): string {
-  if (t.type === "operations") {
-    const ops = t.card as OperationsCard;
-    return `Ops · ${ops.name}`;
-  }
-  const card = t.card as Card;
+  const card = t.card;
   if (card.displayName) return card.displayName;
-  if (t.type === "conveyor-capital") return `Capital ${formatMoney(card.capitalValue ?? 1)}`;
+  if (t.type === "operations" && card.opSpec) return `Ops · ${card.opSpec.name}`;
+  if (t.type === "investment" && card.investmentSpec)
+    return `Invest · ${card.investmentSpec.name}`;
   if (card.type === "labor") {
     const sub = card.laborSubtype ?? "labor";
     return `Labor · ${sub[0]!.toUpperCase()}${sub.slice(1)}`;

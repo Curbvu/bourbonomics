@@ -64,7 +64,13 @@ export default function DrawBillOverlay() {
     drawBillMode.spendCardIds.includes(c.id),
   );
   const paid = tagged.reduce(
-    (acc, c) => acc + (c.type === "capital" ? c.capitalValue ?? 1 : 1),
+    (acc, c) =>
+      acc +
+      (c.type === "labor"
+        ? c.laborDomain === "any"
+          ? c.laborContribution ?? 1
+          : 0
+        : 1),
     0,
   );
   const blindOk = drawBillMode.blind && tagged.length === 1;

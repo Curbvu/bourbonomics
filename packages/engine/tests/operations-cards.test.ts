@@ -1,6 +1,6 @@
 ﻿import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
-import { makeMashBill, makeCapitalCard, makeResourceCard } from "../src/cards.js";
+import { makeMashBill, makeResourceCard } from "../src/cards.js";
 import type { OperationsCard, OperationsCardDefId } from "../src/types.js";
 import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel } from "./helpers.js";
 
@@ -133,13 +133,13 @@ describe("PLAY_OPERATIONS_CARD — Regulatory Inspection", () => {
       targetBarrelId: state.allBarrels.find((b) => b.phase === "aging")!.id,
     });
     expect(state.allBarrels.find((b) => b.phase === "aging")!.inspectedThisRound).toBe(true);
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 0)]);
+    state = giveHand(state, "p1", [makeResourceCard("corn", "p1", 0)]);
     expect(() =>
       applyAction(state, {
         type: "AGE_BOURBON",
         playerId: "p1",
         barrelId: state.allBarrels.find((b) => b.phase === "aging")!.id,
-        cardId: "card_p1_cap1_0",
+        cardId: "card_p1_corn_0",
       }),
     ).toThrow(/regulatory inspection/);
   });
@@ -159,19 +159,22 @@ describe("PLAY_OPERATIONS_CARD — Rushed Shipment", () => {
       defId: "rushed_shipment",
       targetBarrelId: barrelId,
     });
-    state = giveHand(state, "p1", [makeCapitalCard("p1", 0), makeCapitalCard("p1", 1)]);
+    state = giveHand(state, "p1", [
+      makeResourceCard("corn", "p1", 0),
+      makeResourceCard("corn", "p1", 1),
+    ]);
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
       barrelId,
-      cardId: "card_p1_cap1_0",
+      cardId: "card_p1_corn_0",
     });
     // v2.2: AGE doesn't end the turn — p1 chains into the bonus age.
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
       barrelId,
-      cardId: "card_p1_cap1_1",
+      cardId: "card_p1_corn_1",
     });
     expect(state.allBarrels.find((b) => b.phase === "aging")!.age).toBe(2);
   });
@@ -207,7 +210,7 @@ describe("PLAY_OPERATIONS_CARD — Market Corner", () => {
   it("takes a face-up market card into hand without paying", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
-    const targetCard = state.marketConveyor[0]!;
+    const targetCard = state.market[0]!;
     const { state: s, cardId } = giveOpsCard(state, "p1", "market_corner");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
@@ -216,7 +219,7 @@ describe("PLAY_OPERATIONS_CARD — Market Corner", () => {
       defId: "market_corner",
       marketSlotIndex: 0,
     });
-    expect(state.marketConveyor[0]!.id).not.toBe(targetCard.id);
+    expect(state.market[0]!.id).not.toBe(targetCard.id);
     expect(state.players.find((p) => p.id === "p1")!.hand.some((c) => c.id === targetCard.id)).toBe(true);
   });
 });
@@ -313,7 +316,7 @@ describe("PLAY_OPERATIONS_CARD — Insider Buyer", () => {
   it("sweeps the conveyor and refills 10 fresh cards", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
-    const initialIds = state.marketConveyor.map((c) => c.id);
+    const initialIds = state.market.map((c) => c.id);
     const { state: s, cardId } = giveOpsCard(state, "p1", "insider_buyer");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
@@ -321,10 +324,10 @@ describe("PLAY_OPERATIONS_CARD — Insider Buyer", () => {
       cardId,
       defId: "insider_buyer",
     });
-    expect(state.marketConveyor).toHaveLength(10);
+    expect(state.market).toHaveLength(10);
     // None of the original conveyor cards should still occupy the row
     // (they all went to discard before the redeal pulled fresh ones).
-    const overlap = state.marketConveyor.filter((c) => initialIds.includes(c.id));
+    const overlap = state.market.filter((c) => initialIds.includes(c.id));
     // Some overlap is possible if the supply reshuffled the discard back in,
     // but a full match would suggest the sweep didn't actually happen.
     expect(overlap.length).toBeLessThan(initialIds.length);
@@ -346,9 +349,9 @@ describe("PLAY_OPERATIONS_CARD — Insider Buyer", () => {
     // v2.11: try to buy a $4 card with 2 rep — should succeed under the
     // half-cost rule (ceil(4/2) = 2 rep). The conveyor has Specialty
     // Labor cards at $4 in the v2.11 supply.
-    const target = state.marketConveyor.find((c) => (c.cost ?? 1) === 4);
+    const target = state.market.find((c) => (c.cost ?? 1) === 4);
     if (!target) return; // skip if seed didn't surface a $4 card
-    const slotIdx = state.marketConveyor.findIndex((c) => c.id === target.id);
+    const slotIdx = state.market.findIndex((c) => c.id === target.id);
     state = {
       ...state,
       players: state.players.map((p) =>

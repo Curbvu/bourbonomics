@@ -247,7 +247,7 @@ export function buildTutorialInitialState(): GameState {
     [buildTutorialBackroadBill(0)],
     buildBotStartingBills(),
   ];
-  const marketConveyor = buildTutorialMarketConveyor();
+  const tutorialMarket = buildTutorialMarketConveyor();
 
   const state = initializeGame({
     seed: 0xb0bb_0220,
@@ -263,12 +263,11 @@ export function buildTutorialInitialState(): GameState {
     // engine doesn't accidentally surface a real Bourbon card mid-
     // tutorial during a stray DRAW_MASH_BILL we forgot to gate.
     bourbonDeck: [],
-    // Hand-stacked conveyor with the Cooper Labor card at slot 0.
-    // Pass it as the supply so init pulls 10 cards into the conveyor;
-    // we then overwrite the conveyor below to guarantee slot 0 is
-    // the Cooper even after init's reverse() ordering.
-    marketSupply: marketConveyor,
-    operationsDeck: [],
+    // Hand-stacked unified market with Cooper at slot 0. Passing it as
+    // the supply lets init pull 10 cards face-up; we then overwrite
+    // `state.market` below to guarantee slot 0 is the Cooper even
+    // after init's reverse() ordering.
+    marketSupply: tutorialMarket,
     startingDemand: 2,
     startingHandSize: 8,
   });
@@ -287,8 +286,8 @@ function primeTutorialState(state: GameState): GameState {
   // not transitioning, so a structured clone + direct edits is fine.
   const next: GameState = JSON.parse(JSON.stringify(state)) as GameState;
 
-  // Force the conveyor: slot 0 = Cooper Labor, then 9 filler.
-  next.marketConveyor = buildTutorialMarketConveyor();
+  // Force the unified market: slot 0 = Cooper Labor, then 9 filler.
+  next.market = buildTutorialMarketConveyor();
   next.marketSupplyDeck = [];
   next.marketDiscard = [];
 

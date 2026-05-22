@@ -25,7 +25,6 @@ import type {
 import { bandIndex, mashBillBuildCost, mashBillCost } from "@bourbonomics/engine";
 import { useGameStore, type InspectPayload } from "@/lib/store/game";
 import {
-  CAPITAL_CHROME,
   LABOR_CHROME,
   OPS_CHROME,
   RESOURCE_CHROME,
@@ -81,8 +80,8 @@ function Body({ inspect }: { inspect: InspectPayload }) {
   switch (inspect.kind) {
     case "resource":
       return <ResourceDetail card={inspect.card} />;
-    case "capital":
-      return <CapitalDetail card={inspect.card} />;
+    case "labor":
+      return <LaborDetail card={inspect.card} />;
     case "mashbill":
       return <MashBillDetail bill={inspect.bill} />;
     case "operations":
@@ -140,65 +139,11 @@ function ResourceDetail({ card }: { card: Card }) {
   );
 }
 
-function CapitalDetail({ card }: { card: Card }) {
-  // v2.11: Labor cards are also routed here (HandTray's right-click
-  // inspect emits {kind:"capital"} for the secondary-currency lane).
-  // Detect Labor and re-skin with LABOR_CHROME + a Labor headline so
-  // the inspect modal doesn't read as "Capital · value 1" for a
-  // Generic Worker.
-  if (card.type === "labor") {
-    return <LaborDetail card={card} />;
-  }
-  const value = card.capitalValue ?? 1;
-  const cost = card.cost ?? value;
-  const chrome = CAPITAL_CHROME;
-  return (
-    <article
-      className={[
-        "relative flex flex-col gap-4 rounded-xl border-2 p-5 shadow-[0_12px_32px_rgba(0,0,0,.55)]",
-        chrome.gradient,
-        chrome.border,
-      ].join(" ")}
-    >
-      <DetailCornerCost cost={cost} />
-      <header className="flex items-center justify-between pr-12">
-        <span className={`font-mono text-[12px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
-          Capital
-        </span>
-      </header>
-      {card.displayName ? (
-        <h3 className={`font-display text-2xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
-          {card.displayName}
-        </h3>
-      ) : null}
-      <div className="flex flex-col items-center gap-1 py-3">
-        <MoneyText
-          n={value}
-          className={`font-display text-[64px] font-bold leading-none drop-shadow-[0_3px_8px_rgba(0,0,0,.45)] ${chrome.ink}`}
-        />
-        <span className={`font-mono text-[12px] uppercase tracking-[.18em] ${chrome.label}`}>
-          spend at the market
-        </span>
-      </div>
-      {card.flavor ? (
-        <p className={`font-display text-[15px] italic leading-snug ${chrome.label} opacity-95`}>
-          “{card.flavor}”
-        </p>
-      ) : null}
-      <EffectsByPhase effect={card.effect} />
-      <UseBox>
-        Pays {formatMoney(value)} toward any market purchase. Goes to the discard
-        pile after the action; reshuffles into your deck on cleanup.
-      </UseBox>
-    </article>
-  );
-}
-
 /**
- * v2.11 Labor card detail panel. Generic Labor (+1 anywhere) is the
- * starter-deck workhorse; Specialty Labor (Cooper, Marketing) gives
- * a +2 boost in its matching domain and contributes 0 elsewhere.
- * Generic Labor is also legal as an aging-commit card (sweat equity).
+ * Labor card detail panel. Generic Labor (+1 anywhere) is the
+ * starter-deck workhorse; Specialty Labor (Cooper, Marketing, future
+ * Architect) gives a +2 boost in its matching domain and contributes 0
+ * elsewhere. Generic Labor is also legal as an aging-commit card.
  */
 function LaborDetail({ card }: { card: Card }) {
   const chrome = LABOR_CHROME;
@@ -1616,7 +1561,7 @@ function CommittedRow({ label, cards }: { label: string; cards: Card[] }) {
   // detail and totals at once.
   const counts = new Map<string, number>();
   for (const c of cards) {
-    const key = c.type === "capital" ? "capital" : (c.subtype ?? "other");
+    const key = c.subtype ?? c.type ?? "other";
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return (
@@ -1629,9 +1574,7 @@ function CommittedRow({ label, cards }: { label: string; cards: Card[] }) {
           const palette =
             c.type === "resource" && c.subtype && COMMITTED_PIP_COLOR[c.subtype]
               ? COMMITTED_PIP_COLOR[c.subtype]
-              : c.type === "capital"
-                ? "bg-emerald-300"
-                : "bg-slate-300";
+              : "bg-slate-300";
           return (
             <span
               key={c.id}

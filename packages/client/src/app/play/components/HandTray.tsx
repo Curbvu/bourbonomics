@@ -16,7 +16,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  paymentValue,
   type Card,
   type GameState,
   type OperationsCard,
@@ -35,7 +34,6 @@ import { CornerCost } from "./cardCorners";
 import { setMakeDragPayload } from "./dragMake";
 import { useZoneFocusClass, type FocusZone } from "./pickerFocus";
 import {
-  CAPITAL_CHROME,
   CARD_SIZE_CLASS,
   HAND_CARD_OVERLAP,
   LABOR_CHROME,
@@ -68,11 +66,12 @@ export default function HandTray() {
   const playerIndex = state.players.findIndex((p) => p.id === focused.id);
   const meta = seatMeta.find((m) => m.id === focused.id);
 
-  // Capital is a resource â€” render them in a single mixed row, sorted
-  // so the row reads consistently (capital first, then by subtype).
+  // Render hand cards in a single mixed row, sorted by subtype/type so
+  // the row reads consistently. Labor sorts last so it sits next to
+  // resources but doesn't crowd grain order.
   const handCards = [...focused.hand].sort((a, b) => {
     const order = (c: typeof a) =>
-      c.type === "capital" ? 0 : SUBTYPE_ORDER[c.subtype ?? "cask"] ?? 99;
+      c.type === "labor" ? 100 : SUBTYPE_ORDER[c.subtype ?? "cask"] ?? 99;
     return order(a) - order(b);
   });
 
@@ -155,9 +154,7 @@ export default function HandTray() {
           ) : (
             <CardAccordion>
               {handCards.map((c, i) =>
-                c.type === "capital" ? (
-                  <CapitalCard key={c.id} card={c} indexInRow={i} />
-                ) : c.type === "labor" ? (
+                c.type === "labor" ? (
                   <LaborCard key={c.id} card={c} indexInRow={i} />
                 ) : (
                   <ResourceCard key={c.id} card={c} indexInRow={i} />
@@ -513,7 +510,6 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
   const chrome = RESOURCE_CHROME[subtype];
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
   const count = card.resourceCount ?? 1;
-  const value = paymentValue(card);
   const cost = card.cost ?? 1;
   const inBuyMode = buyMode != null;
   const inAgeMode = ageMode != null;
@@ -680,186 +676,6 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
   );
 }
 
-function CapitalCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
-  const {
-    setInspect,
-    buyMode,
-    toggleBuySpend,
-    ageMode,
-    setAgeCard,
-    drawBillMode,
-    toggleDrawBillSpend,
-    makeMode,
-    toggleMakeSpend,
-    sellMode,
-    dragMake,
-    startDragMake,
-    endDragMake,
-    selectedHandCardIds,
-    toggleHandSelection,
-    commitHandCardImmediate,
-    tutorialHandFilter,
-  } = useGameStore();
-  // Tutorial gate â€” see ResourceCard above for the rationale. Capitals
-  // are a typical lock target on Make beats since the universal recipe
-  // doesn't take capital, only resource cards.
-  const tutorialLocked = tutorialHandFilter ? !tutorialHandFilter(card) : false;
-  const tutorialHighlighted = tutorialHandFilter
-    ? tutorialHandFilter(card)
-    : false;
-  const value = paymentValue(card);
-  const cost = card.cost ?? card.capitalValue ?? 1;
-  const chrome = CAPITAL_CHROME;
-  const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
-  const inBuyMode = buyMode != null;
-  const inAgeMode = ageMode != null;
-  const inDrawBillMode = drawBillMode != null;
-  const inMakeMode = makeMode != null;
-  const inSellMode = sellMode != null;
-  const isBuySelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
-  const isAgeSelected = inAgeMode && ageMode!.pickedCardId === card.id;
-  const isDrawSelected =
-    inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
-  const isMakeSelected = inMakeMode && makeMode!.spendCardIds.includes(card.id);
-  // v2.10: sell mode no longer has a per-card pick â€” barrel click
-  // auto-fires the sale. Kept the flag so isSellSelected uniformly
-  // resolves to false without restructuring the boolean ladder.
-  const isSellSelected = false;
-  const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode || inSellMode;
-  const isMultiSelected = !inAnyPicker && selectedHandCardIds.includes(card.id);
-  const isSelected =
-    isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected || isSellSelected || isMultiSelected;
-  const drawStep1 =
-    inDrawBillMode &&
-    !drawBillMode!.blind &&
-    !drawBillMode!.pickedMashBillId;
-  const buyClass = tutorialLocked
-    ? "opacity-30 saturate-50"
-    : tutorialHighlighted && !inAnyPicker && !isMultiSelected
-      ? "ring-2 ring-amber-300/70 shadow-[0_0_12px_rgba(252,211,77,.4)]"
-      : !inAnyPicker
-        ? isMultiSelected
-          ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-          : ""
-        : drawStep1
-          ? ""
-          : isSelected
-            ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-            : inAgeMode
-              ? // Match the resource-card age glow so capitals don't look
-                // second-class as age payments â€” they're equally valid.
-                "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
-              : inDrawBillMode
-                ? "ring-2 ring-sky-400/60"
-                : inSellMode
-                  ? "ring-2 ring-amber-300/60"
-                  : "ring-2 ring-emerald-400/60";
-  const onClick = (e: React.MouseEvent) => {
-    if (tutorialLocked) {
-      setInspect({ kind: "capital", card });
-      return;
-    }
-    // v3 double-click commit â€” see ResourceCard for the rationale.
-    if (e.detail >= 2) return;
-    if (inMakeMode) toggleMakeSpend(card.id);
-    else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
-    else if (inAgeMode) setAgeCard(card.id);
-    else if (inBuyMode) toggleBuySpend(card.id);
-    // v2.10: sell mode is barrel-only; clicks in hand ignore.
-    else if (inSellMode) { /* no-op */ }
-    // v2.10: outside any picker, left-click toggles persistent
-    // multi-select. Right-click handles inspect.
-    else toggleHandSelection(card.id);
-  };
-  const onDoubleClick = (e: React.MouseEvent) => {
-    if (tutorialLocked) return;
-    e.preventDefault();
-    e.stopPropagation();
-    commitHandCardImmediate(card.id);
-  };
-  const onContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setInspect({ kind: "capital", card });
-  };
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      onContextMenu={onContextMenu}
-      // v2.6: hand cards are drag sources for the "drag onto a slot
-      // barrel to commit" shortcut (capital cards count as a free-1
-      // resource in production). v2.10: drag carries the entire
-      // multi-select group when this card is part of one.
-      draggable={!inAnyPicker && !tutorialLocked}
-      onDragStart={(e) => {
-        const ids =
-          isMultiSelected && selectedHandCardIds.length > 0
-            ? selectedHandCardIds
-            : [card.id];
-        setMakeDragPayload(e, ids);
-        startDragMake(ids);
-      }}
-      onDragEnd={endDragMake}
-      data-bb-hand-card
-      data-card-id={card.id}
-      data-drag-source={dragMake === card.id ? "active" : undefined}
-      title={
-        inMakeMode
-          ? `${isMakeSelected ? "Unselect" : "Tag"} this B$${value} capital for production (counts as 1 in conversion only)`
-          : inDrawBillMode
-            ? `${isDrawSelected ? "Unselect" : "Sacrifice"} this B$${value} capital to draw the top mash bill`
-            : inAgeMode
-              ? `${isAgeSelected ? "Unselect" : "Commit"} this B$${value} capital to age the picked barrel`
-              : inBuyMode
-                ? `${isBuySelected ? "Unselect" : "Select"} this B$${value} capital card to spend`
-                : inSellMode
-                  ? `${isSellSelected ? "Unselect" : "Spend"} this B$${value} capital as the sell-action cost`
-                  : `Capital Â· pays B$${value} at the market â€” left-click to ${isMultiSelected ? "uncheck" : "check"}, drag the group onto a slot, right-click to inspect`
-      }
-      className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
-    >
-      {isSelected ? (
-        <span
-          className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
-          aria-hidden
-        >
-          âœ“
-        </span>
-      ) : (
-        <CornerCost cost={cost} />
-      )}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
-        aria-hidden
-      />
-      <div className="flex items-baseline justify-center px-7">
-        <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
-          Capital
-        </span>
-      </div>
-      {card.displayName ? (
-        <h4 className={`mt-0.5 line-clamp-1 font-display text-[14px] font-bold leading-tight ${chrome.ink}`}>
-          {card.displayName}
-        </h4>
-      ) : null}
-      {card.flavor ? (
-        <p className={`mt-0.5 line-clamp-2 font-display text-[8.5px] italic leading-snug ${chrome.label} opacity-90`}>
-          {card.flavor}
-        </p>
-      ) : null}
-      <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
-        <MoneyText
-          n={value}
-          className="font-display text-[28px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
-        />
-        <span className={`mt-1 font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label}`}>
-          spend
-        </span>
-      </div>
-    </button>
-  );
-}
 
 // `MashBillCard` deleted in v2.6 â€” bills no longer enter the hand;
 // they live in rickhouse slots from draw to sale. The component went
@@ -938,7 +754,7 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
   };
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    setInspect({ kind: "capital", card });
+    setInspect({ kind: "labor", card });
   };
   return (
     <button

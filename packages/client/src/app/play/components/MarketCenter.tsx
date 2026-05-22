@@ -1,32 +1,26 @@
 ﻿"use client";
 
 /**
- * Center column â€” the public face of the table.
+ * Center column — the public face of the table.
  *
- * Top: Market conveyor (10 face-up cards available for purchase).
- *
- * Below: three subsections â€” Mash bills, Operations, Investments. Each
- * shows 3 face-up cards plus a face-down "draw from pile" tile with a
- * remaining-cards counter. Investments is a placeholder until v2.2.
+ * Unified market: a single 10-tile face-up row holding resources,
+ * Labor, ops, and investments. Mash bills live in a separate column
+ * to the right with their own deck (the doomsday clock).
  *
  * **Every card on the table is the exact same fixed silhouette
- * (CARD_W Ã— CARD_H).** The hand uses a slightly larger size; market
+ * (CARD_W × CARD_H).** The hand uses a slightly larger size; market
  * tiles run a bit smaller for density.
  */
 
 import {
-  defaultInvestmentCatalog,
-  paymentValue,
   type Card,
   type InvestmentCard,
   type MashBill,
   type OperationsCard,
   type ResourceSubtype,
 } from "@bourbonomics/engine";
-import { useMemo } from "react";
 import { useGameStore } from "@/lib/store/game";
 import {
-  CAPITAL_CHROME,
   CARD_SIZE_CLASS,
   LABOR_CHROME,
   OPS_CHROME,
@@ -41,43 +35,30 @@ import { useZoneFocusClass } from "./pickerFocus";
 import RecipePips from "./RecipePips";
 import { MoneyText } from "./money";
 
-const CONVEYOR_SIZE = 10;
+const MARKET_SIZE = 10;
 const FACEUP_PER_SECTION = 3;
 
 export default function MarketCenter() {
   const { state, drawBillMode, setDrawBillTarget } = useGameStore();
-  // v2.1 has no in-engine investment deck â€” show a static catalog so the
-  // slot is themed and visible. The mechanic ships in v2.2.
-  const investmentDeck = useMemo(() => defaultInvestmentCatalog(), []);
 
   if (!state) return null;
 
-  // v2.2: face-up bourbon row lives in its own engine slot.
   const faceUpBills = state.bourbonFaceUp;
   const remainingBills = state.bourbonDeck.length;
   // Draw-bill mode wires the bourbon section as a click target during
-  // step 1 (pick the bourbon â€” face-up tile or blind deck top).
+  // step 1 (pick the bourbon — face-up tile or blind deck top).
   const drawStep1 =
     drawBillMode != null &&
     !drawBillMode.blind &&
     !drawBillMode.pickedMashBillId;
   const blindPicked = drawBillMode != null && drawBillMode.blind;
-  const faceUpOps = state.operationsDeck.slice(-FACEUP_PER_SECTION).reverse();
-  const remainingOps = Math.max(0, state.operationsDeck.length - faceUpOps.length);
-  const faceUpInvest = investmentDeck.slice(0, FACEUP_PER_SECTION);
-  const remainingInvest = Math.max(0, investmentDeck.length - faceUpInvest.length);
 
   const conveyorFocus = useZoneFocusClass("market-conveyor");
   const mashBillsFocus = useZoneFocusClass("market-mash-bills");
-  const opsFocus = useZoneFocusClass("market-ops");
-  const investFocus = useZoneFocusClass("market-investments");
 
   return (
-    // Top-level: every section (Market, Mash bills, Ops, Investments)
-    // is a PEER. They share the same chrome (rounded panel + side
-    // caption + cards) so nothing reads as nested under Market. The
-    // outer wrapper is a flex column that just stacks them with a
-    // tight gap.
+    // Unified market on top (10 tiles), bills column below. Both are
+    // peer sections sharing chrome.
     <div data-bb-zone="market" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden">
       <Section
         title="Market"
@@ -86,81 +67,38 @@ export default function MarketCenter() {
         dataAttr="data-market-conveyor"
       >
         <div className="flex flex-1 flex-wrap items-stretch justify-between gap-2">
-          {state.marketConveyor.map((c, i) => (
+          {state.market.map((c, i) => (
             <ConveyorCard key={c.id} card={c} slotIndex={i} />
           ))}
           {Array.from({
-            length: Math.max(0, CONVEYOR_SIZE - state.marketConveyor.length),
+            length: Math.max(0, MARKET_SIZE - state.market.length),
           }).map((_, i) => (
             <EmptySlot key={`empty-${i}`} />
           ))}
         </div>
       </Section>
 
-      {/* Mash bills + Ops + Investments â€” each is its own peer section,
-          laid out in a grid so they share the available row width. */}
-      <div className="grid grid-cols-1 gap-1.5 lg:grid-cols-3">
-        <Section
-          title="Mash bills"
-          tag={state.finalRoundTriggered ? "final round" : undefined}
-          zone="market-mash-bills"
-          focusClass={mashBillsFocus}
-          dataAttr="data-bourbon-row"
-        >
-          <FaceUpRow
-            faceUp={faceUpBills.map((b) => (
-              <MashBillTile key={b.id} bill={b} />
-            ))}
-            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpBills.length)}
-            pileLabel="Bourbon deck"
-            pileRemaining={remainingBills}
-            pileTone="amber"
-            pileInteractive={drawStep1 && remainingBills > 0}
-            pilePicked={blindPicked}
-            onClickPile={() => setDrawBillTarget({ blind: true })}
-            pileClickTitle="Draw the top mash bill blind (1 card sacrifice)"
-          />
-        </Section>
-
-        <Section
-          title="Operations"
-          tag="pending future release"
-          zone="market-ops"
-          focusClass={`${opsFocus} relative pointer-events-none [filter:grayscale(1)_brightness(0.5)] opacity-30`}
-          dataAttr="data-ops-row"
-          overlay={<PendingOverlay />}
-        >
-          <FaceUpRow
-            faceUp={faceUpOps.map((c, i) => (
-              <OpsCardTile key={c.id} card={c} slotIndex={i} />
-            ))}
-            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpOps.length)}
-            pileLabel="Ops deck"
-            pileRemaining={remainingOps}
-            pileSubLabel={`discard ${state.operationsDiscard.length}`}
-            pileTone="violet"
-          />
-        </Section>
-
-        <Section
-          title="Investments"
-          tag="pending future release"
-          zone="market-investments"
-          focusClass={`${investFocus} relative pointer-events-none [filter:grayscale(1)_brightness(0.5)] opacity-30`}
-          dataAttr="data-investments-row"
-          overlay={<PendingOverlay />}
-        >
-          <FaceUpRow
-            faceUp={faceUpInvest.map((c) => (
-              <InvestmentCardTile key={c.id} card={c} />
-            ))}
-            placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpInvest.length)}
-            pileLabel="Invest deck"
-            pileRemaining={remainingInvest}
-            pileTone="emerald"
-          />
-        </Section>
-      </div>
+      <Section
+        title="Mash bills"
+        tag={state.finalRoundTriggered ? "final round" : undefined}
+        zone="market-mash-bills"
+        focusClass={mashBillsFocus}
+        dataAttr="data-bourbon-row"
+      >
+        <FaceUpRow
+          faceUp={faceUpBills.map((b) => (
+            <MashBillTile key={b.id} bill={b} />
+          ))}
+          placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpBills.length)}
+          pileLabel="Bourbon deck"
+          pileRemaining={remainingBills}
+          pileTone="amber"
+          pileInteractive={drawStep1 && remainingBills > 0}
+          pilePicked={blindPicked}
+          onClickPile={() => setDrawBillTarget({ blind: true })}
+          pileClickTitle="Draw the top mash bill blind (1 card sacrifice)"
+        />
+      </Section>
     </div>
   );
 }
@@ -323,7 +261,7 @@ const baseTile = `relative flex flex-shrink-0 flex-col overflow-hidden rounded-m
  *   falls back to the inspect modal so the card is still readable.
  */
 function useMarketBuyState(
-  source: "conveyor" | "operations",
+  _source: "conveyor" | "operations",
   slotIndex: number,
   cost: number,
 ) {
@@ -340,23 +278,22 @@ function useMarketBuyState(
   } = useGameStore();
   const inBuyMode = buyMode != null;
   const picked = buyMode?.pickedTarget;
-  const isPicked =
-    inBuyMode &&
-    picked != null &&
-    picked.source === source &&
-    picked.slotIndex === slotIndex;
-  // Some other slot is the picked target â€” used to mute me hard so the
+  const isPicked = inBuyMode && picked != null && picked.slotIndex === slotIndex;
+  // Some other slot is the picked target — used to mute me hard so the
   // single picked card and the chosen hand cards are the only bright
   // things on screen.
   const someoneElsePicked =
-    inBuyMode &&
-    picked != null &&
-    !(picked.source === source && picked.slotIndex === slotIndex);
-  // Wallet for affordability dimming: capital cards pay face value,
-  // resource cards pay 1Â¢ each â€” same rules the engine enforces.
+    inBuyMode && picked != null && picked.slotIndex !== slotIndex;
+  // Wallet for affordability dimming: rep + Labor in hand cover the
+  // posted cost (the engine enforces the precise rules at apply time).
   const human = state?.players.find((p) => !p.isBot);
   const wallet = human
-    ? human.hand.reduce((acc, c) => acc + paymentValue(c), 0)
+    ? human.reputation +
+      human.hand.reduce(
+        (acc, c) =>
+          c.type === "labor" ? acc + (c.laborContribution ?? 1) : acc,
+        0,
+      )
     : 0;
   const affordable = wallet >= cost;
   // Turn gate for direct-buy. Mirrors ActionBar's `disabledByTurn` rule
@@ -375,7 +312,7 @@ function useMarketBuyState(
   // hard. Only the conveyor is gated this way; the ops row is gated
   // independently if a future beat spotlights it.
   const tutorialMarketSlot =
-    tutorialSpotlight?.kind === "market-slot" && source === "conveyor"
+    tutorialSpotlight?.kind === "market-slot"
       ? tutorialSpotlight.slotIndex
       : null;
   const isTutorialBlocked =
@@ -413,14 +350,14 @@ function useMarketBuyState(
         return;
       }
       if (inBuyMode) {
-        if (affordable) setBuyTarget({ source, slotIndex });
+        if (affordable) setBuyTarget({ slotIndex });
         return;
       }
       if (isMyTurn && affordable) {
-        // Snapshot the multi-selection now â€” startBuyMode clears it.
+        // Snapshot the multi-selection now — startBuyMode clears it.
         const preSelected = [...selectedHandCardIds];
         startBuyMode();
-        setBuyTarget({ source, slotIndex });
+        setBuyTarget({ slotIndex });
         for (const id of preSelected) toggleBuySpend(id);
         return;
       }
@@ -431,8 +368,7 @@ function useMarketBuyState(
 }
 
 function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
-  const cost = card.cost ?? (card.type === "capital" ? card.capitalValue ?? 1 : 1);
-  const value = paymentValue(card);
+  const cost = card.cost ?? 1;
   const { buyClass, onClickCard, setInspect, shouldShimmer } =
     useMarketBuyState("conveyor", slotIndex, cost);
   // `data-market-slot-index` is consumed by the tutorial SpotlightLayer
@@ -458,10 +394,10 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
       <button
         type="button"
         {...slotAttr}
-        onClick={onClickCard(() => setInspect({ kind: "capital", card }))}
+        onClick={onClickCard(() => setInspect({ kind: "labor", card }))}
         onContextMenu={(e) => {
           e.preventDefault();
-          setInspect({ kind: "capital", card });
+          setInspect({ kind: "labor", card });
         }}
         title={`${titleLabel} Â· contributes +${contribution} toward ${sub === "generic" || !sub ? "any" : sub.replace("_", " ")} buys Â· costs ${cost} rep to acquire`}
         className={[baseTile, chrome.gradient, chrome.border, buyClass, shimmer].join(" ")}
@@ -495,49 +431,30 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
       </button>
     );
   }
-  if (card.type === "capital") {
-    const chrome = CAPITAL_CHROME;
-    const titleLabel = card.displayName ?? "Capital";
+  if (card.type === "operations" && card.opSpec) {
     return (
-      <button
-        type="button"
-        {...slotAttr}
-        onClick={onClickCard(() => setInspect({ kind: "capital", card }))}
-        // v2.10: right-click always opens inspect, regardless of mode.
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setInspect({ kind: "capital", card });
-        }}
-        title={`${titleLabel} Â· pays B$${value} Â· costs B$${cost} to buy`}
-        className={[baseTile, chrome.gradient, chrome.border, buyClass, shimmer].join(" ")}
-      >
-        <Sheen />
-        <CornerCost cost={cost} />
-        <div className="flex items-baseline justify-center px-7">
-          <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
-            Capital
-          </span>
-        </div>
-        {card.displayName ? (
-          <h4 className={`mt-0.5 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
-            {card.displayName}
-          </h4>
-        ) : null}
-        {card.flavor ? (
-          <p className={`mt-0.5 line-clamp-2 font-display text-[7.5px] italic leading-snug ${chrome.label} opacity-90`}>
-            {card.flavor}
-          </p>
-        ) : null}
-        <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
-          <MoneyText
-            n={value}
-            className="font-display text-[20px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
-          />
-          <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
-            spend
-          </span>
-        </div>
-      </button>
+      <OpsTileFromMarket
+        card={card}
+        slotIndex={slotIndex}
+        cost={cost}
+        buyClass={buyClass}
+        shimmer={shimmer}
+        onClickCard={onClickCard}
+        setInspect={setInspect}
+      />
+    );
+  }
+  if (card.type === "investment" && card.investmentSpec) {
+    return (
+      <InvestmentTileFromMarket
+        card={card}
+        slotIndex={slotIndex}
+        cost={cost}
+        buyClass={buyClass}
+        shimmer={shimmer}
+        onClickCard={onClickCard}
+        setInspect={setInspect}
+      />
     );
   }
   const subtype = card.subtype as ResourceSubtype;
@@ -554,7 +471,7 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
         e.preventDefault();
         setInspect({ kind: "resource", card });
       }}
-      title={`${titleLabel} Â· pays B$${value} Â· cost B$${cost}`}
+      title={`${titleLabel} · costs ${cost} rep`}
       className={[baseTile, chrome.gradient, chrome.border, buyClass, shimmer].join(" ")}
     >
       <Sheen />
@@ -593,6 +510,121 @@ function EmptySlot() {
     >
       empty
     </div>
+  );
+}
+
+interface TileFromMarketProps {
+  card: Card;
+  slotIndex: number;
+  cost: number;
+  buyClass: string;
+  shimmer: string;
+  onClickCard: (payload: () => void) => () => void;
+  setInspect: (
+    payload:
+      | { kind: "operations"; card: OperationsCard }
+      | { kind: "investment"; card: InvestmentCard },
+  ) => void;
+}
+
+function OpsTileFromMarket({
+  card,
+  slotIndex,
+  cost,
+  buyClass,
+  shimmer,
+  onClickCard,
+  setInspect,
+}: TileFromMarketProps) {
+  const spec = card.opSpec!;
+  const chrome = OPS_CHROME;
+  return (
+    <button
+      type="button"
+      data-market-slot-index={slotIndex}
+      onClick={onClickCard(() => setInspect({ kind: "operations", card: spec }))}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setInspect({ kind: "operations", card: spec });
+      }}
+      title={`${spec.name} — ${spec.description}`}
+      className={[baseTile, chrome.gradient, chrome.border, buyClass, shimmer].join(" ")}
+    >
+      <Sheen />
+      <CornerCost cost={cost} />
+      <div className="flex items-baseline justify-between pr-7">
+        <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+          Ops
+        </span>
+      </div>
+      <h4 className={`mt-0.5 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
+        {spec.name}
+      </h4>
+      {spec.flavor ? (
+        <p className={`mt-0.5 line-clamp-2 font-display text-[7.5px] italic leading-snug ${chrome.label} opacity-90`}>
+          {spec.flavor}
+        </p>
+      ) : null}
+      <div
+        className={`mt-auto grid h-8 w-8 self-center place-items-center rounded-full border-2 bg-white/10 text-base font-bold ${chrome.border} ${chrome.ink}`}
+        aria-hidden
+      >
+        ⚡
+      </div>
+    </button>
+  );
+}
+
+function InvestmentTileFromMarket({
+  card,
+  slotIndex,
+  cost,
+  buyClass,
+  shimmer,
+  onClickCard,
+  setInspect,
+}: TileFromMarketProps) {
+  const spec = card.investmentSpec!;
+  // Reuse the Labor slate palette with an emerald accent — investments
+  // share the "infrastructure" feel.
+  return (
+    <button
+      type="button"
+      data-market-slot-index={slotIndex}
+      onClick={onClickCard(() => setInspect({ kind: "investment", card: spec }))}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setInspect({ kind: "investment", card: spec });
+      }}
+      title={`${spec.name} · ${spec.short} · effect pending`}
+      className={[
+        baseTile,
+        "bg-gradient-to-b from-emerald-900/55 via-slate-800/90 to-slate-950",
+        "border-emerald-500/60",
+        buyClass,
+        shimmer,
+      ].join(" ")}
+    >
+      <Sheen />
+      <CornerCost cost={cost} />
+      <div className="flex items-baseline justify-between pr-7">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
+          Invest
+        </span>
+      </div>
+      <h4 className="mt-0.5 line-clamp-2 font-display text-[14px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] text-emerald-50">
+        {spec.name}
+      </h4>
+      <p className="mt-0.5 line-clamp-3 font-display text-[8px] italic leading-snug text-emerald-200 opacity-90">
+        {spec.short}
+      </p>
+      <div className="mt-auto flex flex-col items-center text-emerald-100">
+        <span aria-hidden className="font-display text-[18px] leading-none">📈</span>
+        <span className="mt-0.5 font-mono text-[7.5px] uppercase tracking-[.14em] text-emerald-300">
+          effect pending
+        </span>
+      </div>
+    </button>
   );
 }
 

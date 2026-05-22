@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { applyAction } from "../src/engine.js";
 import { defaultDistilleryPool } from "../src/distilleries.js";
 import { initializeGame } from "../src/initialize.js";
 import { makeTestGame } from "./helpers.js";
@@ -10,7 +11,7 @@ describe("initializeGame", () => {
     expect(state.phase).toBe("draw");
     expect(state.demand).toBe(0);
     expect(state.players).toHaveLength(2);
-    expect(state.marketConveyor.length).toBeLessThanOrEqual(10);
+    expect(state.market.length).toBeLessThanOrEqual(10);
     expect(state.finalRoundTriggered).toBe(false);
   });
 
@@ -71,7 +72,7 @@ describe("initializeGame", () => {
     const b = makeTestGame({ seed: 7 });
     expect(a.players[0]!.deck.map((c) => c.id)).toEqual(b.players[0]!.deck.map((c) => c.id));
     expect(a.bourbonDeck.map((m) => m.id)).toEqual(b.bourbonDeck.map((m) => m.id));
-    expect(a.marketConveyor.map((c) => c.id)).toEqual(b.marketConveyor.map((c) => c.id));
+    expect(a.market.map((c) => c.id)).toEqual(b.market.map((c) => c.id));
   });
 
   it("produces different decks for different seeds", () => {
@@ -84,5 +85,32 @@ describe("initializeGame", () => {
     const state = makeTestGame({ startingDemand: 0, startingHandSize: 5 });
     expect(state.demand).toBe(0);
     for (const p of state.players) expect(p.handSize).toBe(5);
+  });
+
+  it("rigs the 2 Generic Labor cards on top of every starter deck", () => {
+    const state = makeTestGame();
+    for (const p of state.players) {
+      // drawWithReshuffle pops from the array tail, so the last two
+      // slots of `deck` are the next two cards drawn.
+      const topTwo = p.deck.slice(-2);
+      const allLabor = topTwo.every(
+        (c) => c.type === "labor" && c.laborSubtype === "generic",
+      );
+      expect(allLabor).toBe(true);
+    }
+  });
+
+  it("round-1 DRAW_HAND deals 2 Generic Labor into every opening hand", () => {
+    let state = makeTestGame();
+    for (const p of state.players) {
+      state = applyAction(state, { type: "DRAW_HAND", playerId: p.id });
+    }
+    for (const p of state.players) {
+      const hand = state.players.find((x) => x.id === p.id)!.hand;
+      const genericLabor = hand.filter(
+        (c) => c.type === "labor" && c.laborSubtype === "generic",
+      );
+      expect(genericLabor).toHaveLength(2);
+    }
   });
 });

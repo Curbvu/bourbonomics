@@ -217,21 +217,41 @@ Gold takes precedence if both Silver and Gold trigger. Gold does NOT trigger the
 
 ---
 
+## The Unified Market
+
+The market is a **single 10-card face-up row** containing a mix of:
+
+- **Resources** (cask, corn, rye, barley, wheat — Common $1, Specialty $2, Heritage $3)
+- **Specialty Labor** ($4 — Cooper, Marketing, Architect)
+- **Operations cards** (one-shot effects with various costs)
+- **Investments** (long-term effects — *effects pending implementation*)
+
+Mash bills are NOT in this market — they live in a separate face-up row beside the bourbon supply deck.
+
+**On every buy or draw, the empty slot refills immediately** from the face-down market supply. Cards in the supply that aren't drawn between rounds aren't lost — they shuffle back when needed.
+
+**At the end of every year (cleanup), the entire 10-card market is replaced.** The current 10 cards go to the market discard; 10 fresh cards are dealt from the supply (reshuffling the discard back in when supply runs low).
+
 ## Buy from the Market
 
 Cost is paid in **reputation** and/or **Labor cards** from hand. Rep and Labor are **fully fungible** — any cost can be paid in rep, Labor, or any mix.
 
 - **Cooper** (Specialty Labor) — +2 toward market resource buys.
 - **Marketing** (Specialty Labor) — +2 toward ops buys (no help on market resources).
-- **Generic Labor** — +1 toward any buy.
+- **Architect** (Specialty Labor) — +2 toward investment buys.
+- **Generic Labor** — +1 toward any buy. (You only get 2 in your starter deck — finite.)
 
 Rep can never go below 0.
 
-Both the purchased card and any spent Labor cards go to your **discard**. The empty conveyor slot refills from the supply.
+Both the purchased card and any spent Labor cards go to your **discard**. The empty market slot refills from the supply.
 
 ## Buy Operations Card
 
-Same payment model. Marketing Labor (+2) is the matching specialty. The bought ops card goes to your **operations hand**.
+Same payment model as a resource buy — the engine routes ops targets through a dedicated action because they land in your **operations hand** instead of your discard. Marketing Labor (+2) is the matching specialty.
+
+## Buy Investment
+
+Same payment model. The bought investment goes to your **discard** with a placeholder marker; on-buy effects are not yet wired (every catalog entry ships `implemented: false` in this wave). Architect Labor (+2) is the matching specialty.
 
 ## Draw a Mash Bill
 
@@ -344,11 +364,11 @@ The Labor strip also lives in the market:
 
 | Labor | Cost | Domain |
 |---|:-:|---|
-| **Generic Labor** | $1 | Any (+1 toward any buy) |
 | **Marketing** | $4 | Ops (+2 toward ops buys) |
 | **Cooper** | $4 | Market resources (+2 toward market resource buys) |
+| **Architect** | $4 | Investments (+2 toward investment buys) |
 
-*Architect ($4 Specialty Labor for investments) is reserved for v2.12 when investments ship.*
+Generic Labor is not sold — your 2 starter-deck Generic Labor cards are the only Generic Labor you'll ever own. Specialty Labor (above) is the only way new Labor enters your deck.
 
 ---
 
@@ -500,6 +520,8 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 ---
 
 # 📜 Changelog
+
+- **v2.13** — **"Unified Market."** The three face-up rows (resource conveyor, ops face-up, investments display-stub) collapsed into a single 10-card market alongside the separate mash-bills column. All non-bill card types (resource / Labor / ops / investment) share one supply deck and one discard; each buy refills the empty slot immediately, and at end of every year all 10 cards cycle out and 10 fresh cards are dealt. Capital cards eradicated from the codebase end-to-end — the type member, factories, `capitalValue` field, distillery `capitalDelta` field, and every UI render branch are gone. Architect Labor (+2 toward investment buys) ships in the market alongside Cooper and Marketing; Generic Labor no longer appears in the market (your 2 starter-deck Labor are all you'll ever own). Every player's round-1 opening hand is guaranteed to contain both Generic Labor cards (deck is rigged at init so the 2 Labors sit on top). Investment effects are still effect-pending — buying transfers them to discard with a placeholder marker.
 
 - **v2.12** — **"Labor Scarcity."** Generic Labor is now finite per player: starter deck holds **2** Generic Labor and there is no central Hire pile or HIRE action — new Labor only enters a deck via Specialty Labor (Cooper, Marketing, future Architect) bought from the market. The spending anchor rule (≥$2 buys require ≥1 rep paid) is gone: rep and Labor are fully fungible — any cost can be paid in rep, Labor, or any mix. PurchaseFlight animation tightened from 850ms → 650ms. Tutorial restructured to four chapters: Make → Hire (new) → Age → Sell, and the tutorial deck no longer contains any Capital cards. Game shell auto-scales to fit any desktop down to 1280×720 via CSS transform-scale, so the HandTray no longer falls off the bottom of shorter viewports. Escape now cancels any open picker overlay.
 

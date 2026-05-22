@@ -71,7 +71,6 @@ export default function DrawPhaseModal() {
   };
 
   const willDrawCount = Math.min(human.handSize, human.deck.length + human.discard.length);
-  const willDrawOps = state.operationsDeck.length > 0;
 
   // Count how many opponents still need to draw — drives the waiting
   // copy so the player gets a sense of progress instead of staring at
@@ -110,15 +109,14 @@ export default function DrawPhaseModal() {
               Draw your round hand
             </div>
             <div className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
-              {human.name} · {willDrawCount} resource cards
-              {willDrawOps ? " + 1 operations card" : ""}
+              {human.name} · {willDrawCount} cards
             </div>
           </div>
 
           <CardFan
             stage={stage}
             count={willDrawCount}
-            drawsOpsCard={willDrawOps}
+            drawsOpsCard={false}
             deckLeft={human.deck.length}
             discardLeft={human.discard.length}
           />

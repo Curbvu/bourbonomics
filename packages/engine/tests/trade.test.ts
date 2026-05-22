@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
-import { makeCapitalCard, makeResourceCard } from "../src/cards.js";
+import { makeResourceCard } from "../src/cards.js";
 import { advanceToActionPhase, giveHand, makeTestGame, passTurn } from "./helpers.js";
 
 describe("TRADE", () => {
@@ -9,13 +9,13 @@ describe("TRADE", () => {
     state = advanceToActionPhase(state);
     state = giveHand(state, "p1", [
       makeResourceCard("rye", "p1", 0),
-      makeCapitalCard("p1", 1),
-      makeCapitalCard("p1", 2),
+      makeResourceCard("corn", "p1", 1),
+      makeResourceCard("corn", "p1", 2),
     ]);
     state = giveHand(state, "p2", [
       makeResourceCard("wheat", "p2", 0),
-      makeCapitalCard("p2", 1),
-      makeCapitalCard("p2", 2),
+      makeResourceCard("corn", "p2", 1),
+      makeResourceCard("corn", "p2", 2),
     ]);
     return state;
   }
@@ -38,10 +38,10 @@ describe("TRADE", () => {
     // Each player has their two unspent capitals AND the card they
     // received from the trade — all in hand, immediately usable.
     expect(p1.hand.map((c) => c.id).sort()).toEqual(
-      ["card_p1_cap1_1", "card_p1_cap1_2", "card_p2_wheat_0"].sort(),
+      ["card_p1_corn_1", "card_p1_corn_2", "card_p2_wheat_0"].sort(),
     );
     expect(p2.hand.map((c) => c.id).sort()).toEqual(
-      ["card_p1_rye_0", "card_p2_cap1_1", "card_p2_cap1_2"].sort(),
+      ["card_p1_rye_0", "card_p2_corn_1", "card_p2_corn_2"].sort(),
     );
     // v2.2: trade does NOT end the active player's turn — p1 keeps the cursor.
     expect(state.currentPlayerIndex).toBe(0);

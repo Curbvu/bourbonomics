@@ -13,7 +13,7 @@
 
 import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
-import { makeCapitalCard, makeMashBill, makeResourceCard } from "../src/cards.js";
+import { makeMashBill, makeResourceCard } from "../src/cards.js";
 import {
   advanceToActionPhase,
   advanceToNextRound,
@@ -27,7 +27,9 @@ const corn = (label: string, i = 0) => makeResourceCard("corn", label, i);
 const rye = (label: string, i = 0) => makeResourceCard("rye", label, i);
 const barley = (label: string, i = 0) => makeResourceCard("barley", label, i);
 const wheat = (label: string, i = 0) => makeResourceCard("wheat", label, i);
-const cap = (label: string, i = 0, v = 1) => makeCapitalCard(label, i, v);
+// Generic filler used where the prior tests minted a capital card —
+// substitute corn so the card is aging-legal and resource-shaped.
+const cap = (label: string, i = 0) => makeResourceCard("corn", label, i);
 
 const fourGrainBill = makeMashBill(
   {
@@ -81,7 +83,7 @@ describe("incremental commitment — basics", () => {
         type: "AGE_BOURBON",
         playerId: "p1",
         barrelId,
-        cardId: "card_p1_cap1_2",
+        cardId: "card_p1_corn_2",
       }),
     ).toThrow(/under construction/);
   });
@@ -108,7 +110,7 @@ describe("incremental commitment — basics", () => {
         type: "AGE_BOURBON",
         playerId: "p1",
         barrelId: barrel.id,
-        cardId: "card_p1_cap1_9",
+        cardId: "card_p1_corn_9",
       }),
     ).toThrow(/first ages next round/);
 
@@ -121,7 +123,7 @@ describe("incremental commitment — basics", () => {
       type: "AGE_BOURBON",
       playerId: "p1",
       barrelId: barrel.id,
-      cardId: "card_p1_cap1_9",
+      cardId: "card_p1_corn_9",
     });
     expect(state.allBarrels[0]!.age).toBe(1);
   });
@@ -303,7 +305,7 @@ describe("incremental commitment — full lifecycle integration", () => {
       type: "AGE_BOURBON",
       playerId: "p1",
       barrelId,
-      cardId: "card_p1_cap1_5",
+      cardId: "card_p1_corn_5",
     });
     state = advanceToNextRound(state, {
       seedDecks: { p1: [cap("p1", 6)] },
@@ -313,7 +315,7 @@ describe("incremental commitment — full lifecycle integration", () => {
       type: "AGE_BOURBON",
       playerId: "p1",
       barrelId,
-      cardId: "card_p1_cap1_6",
+      cardId: "card_p1_corn_6",
     });
     expect(state.allBarrels[0]!.age).toBe(2);
 

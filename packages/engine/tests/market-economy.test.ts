@@ -1,18 +1,12 @@
 /**
- * v2.11 market economy — sanity checks on the three-band, one-unit
- * resource system (Common / Specialty / Heritage) and the $1 / $3 / $5
- * capital ladder. Heritage replaces v2.10's Double Specialty band:
- * same `specialty: true` flag (counts toward `minSpecialty.<subtype>`
- * gates), but 1 unit instead of 2. The uniform "+1 rep on sale per
- * Specialty" band-wide bonus is retired — Specialty and Heritage cards
- * ship without a populated `effect` in v2.11. Heritage cards keep the
- * `effect` field as a data hook for per-card bonuses; no Heritage
- * card populates one in this pass.
+ * Market economy — sanity checks on the three-band, one-unit resource
+ * system (Common / Specialty / Heritage) and the unified market's
+ * Labor / ops / investment additions. Heritage and Specialty share the
+ * `specialty: true` flag (counts toward `minSpecialty.<subtype>` gates).
  */
 
 import { describe, it, expect } from "vitest";
 import { defaultMarketSupply } from "../src/defaults.js";
-import { paymentValue } from "../src/cards.js";
 
 const RESOURCE_SUBTYPES = ["cask", "corn", "rye", "barley", "wheat"] as const;
 
@@ -105,24 +99,15 @@ describe("market supply — three-band, one-unit resource economy", () => {
   });
 });
 
-describe("market supply — capital cards are gone in v2.11", () => {
-  it("mints no capital cards anywhere in the supply", () => {
-    const caps = defaultMarketSupply().filter((c) => c.type === "capital");
-    expect(caps).toHaveLength(0);
-  });
-});
-
 describe("market supply — Labor strip", () => {
-  it("ships Generic Labor at $1 (Labor-buyable)", () => {
+  // Generic Labor no longer ships in the market — players start with
+  // 2 in their starter deck and that's all the Generic Labor they
+  // will ever own. Only Specialty Labor enters via the market.
+  it("does NOT ship Generic Labor in the unified market", () => {
     const generic = defaultMarketSupply().filter(
       (c) => c.type === "labor" && c.laborSubtype === "generic",
     );
-    expect(generic.length).toBeGreaterThanOrEqual(1);
-    for (const c of generic) {
-      expect(c.cost).toBe(1);
-      expect(c.laborDomain).toBe("any");
-      expect(c.laborContribution).toBe(1);
-    }
+    expect(generic).toHaveLength(0);
   });
 
   it("ships Marketing Labor at $4 (+2 toward ops)", () => {
@@ -148,16 +133,35 @@ describe("market supply — Labor strip", () => {
     }
   });
 
-  it("does NOT ship Architect Labor in v2.11 (deferred until investments land)", () => {
+  it("ships Architect Labor at $4 (+2 toward investment buys)", () => {
     const architect = defaultMarketSupply().filter(
       (c) => c.type === "labor" && c.laborSubtype === "architect",
     );
-    expect(architect).toHaveLength(0);
+    expect(architect.length).toBeGreaterThanOrEqual(1);
+    for (const c of architect) {
+      expect(c.cost).toBe(4);
+      expect(c.laborDomain).toBe("investment");
+    }
+  });
+});
+
+describe("unified market supply — ops + investments", () => {
+  it("mints wrapped operations cards (type 'operations' with opSpec)", () => {
+    const ops = defaultMarketSupply().filter((c) => c.type === "operations");
+    expect(ops.length).toBeGreaterThanOrEqual(1);
+    for (const c of ops) {
+      expect(c.opSpec).toBeDefined();
+      expect(c.opSpec!.defId).toBeTruthy();
+      expect(c.cost).toBe(c.opSpec!.cost);
+    }
   });
 
-  // paymentValue is a legacy export — capital is gone, so nothing in
-  // the v2.11 supply has a non-default `paymentValue`. The helper
-  // still compiles; reference it here so the import stays grounded
-  // until a future cleanup pass removes the deprecated capital paths.
-  void paymentValue;
+  it("mints wrapped investment cards (type 'investment' with investmentSpec)", () => {
+    const inv = defaultMarketSupply().filter((c) => c.type === "investment");
+    expect(inv.length).toBeGreaterThanOrEqual(1);
+    for (const c of inv) {
+      expect(c.investmentSpec).toBeDefined();
+      expect(c.investmentSpec!.defId).toBeTruthy();
+    }
+  });
 });

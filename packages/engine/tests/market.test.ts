@@ -7,19 +7,24 @@ import { advanceToActionPhase, giveHand, giveRep, makeTestGame } from "./helpers
 // fungible — any cost can be paid in rep, Labor, or any mix.
 
 describe("BUY_FROM_MARKET — unified rep payment", () => {
-  it("happy path: pays rep, purchased card goes to discard, conveyor refills", () => {
+  it("happy path: pays rep, purchased card goes to discard, market refills", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state);
-    const purchased = state.marketConveyor[0]!;
+    // The unified market mixes types — pick the first non-operations
+    // slot since BUY_FROM_MARKET rejects ops targets (those use
+    // BUY_OPERATIONS_CARD).
+    const slotIndex = state.market.findIndex((c) => c.type !== "operations");
+    expect(slotIndex).toBeGreaterThanOrEqual(0);
+    const purchased = state.market[slotIndex]!;
     const cost = purchased.cost ?? 1;
     state = giveRep(state, "p1", 10);
     state = giveHand(state, "p1", []);
-    const initialConveyor = state.marketConveyor.length;
+    const initialMarket = state.market.length;
 
     state = applyAction(state, {
       type: "BUY_FROM_MARKET",
       playerId: "p1",
-      marketSlotIndex: 0,
+      marketSlotIndex: slotIndex,
       rep: cost,
       laborCardIds: [],
     });
@@ -27,8 +32,8 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.discard.some((c) => c.id === purchased.id)).toBe(true);
     expect(p1.reputation).toBe(10 - cost);
-    expect(state.marketConveyor.length).toBe(initialConveyor);
-    expect(state.marketConveyor.some((c) => c.id === purchased.id)).toBe(false);
+    expect(state.market.length).toBe(initialMarket);
+    expect(state.market.some((c) => c.id === purchased.id)).toBe(false);
   });
 
   it("rejects insufficient rep", () => {
@@ -161,7 +166,7 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
     );
     let state = makeTestGame({ marketSupply: supply });
     state = advanceToActionPhase(state);
-    expect(state.marketConveyor).toHaveLength(10);
+    expect(state.market).toHaveLength(10);
     expect(state.marketSupplyDeck).toHaveLength(0);
     state = giveRep(state, "p1", 5);
     state = applyAction(state, {
@@ -171,6 +176,6 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
       rep: 1,
       laborCardIds: [],
     });
-    expect(state.marketConveyor).toHaveLength(9);
+    expect(state.market).toHaveLength(9);
   });
 });

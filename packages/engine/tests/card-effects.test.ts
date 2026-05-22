@@ -1,9 +1,7 @@
 ﻿import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
 import {
-  makeCapitalCard,
   makeMashBill,
-  makePremiumCapital,
   makePremiumResource,
   makeResourceCard,
 } from "../src/cards.js";
@@ -261,15 +259,20 @@ describe("Card effect — rep_on_commit_aging", () => {
     state = advanceToActionPhase(state);
     state = placeBarrel(state, "p1", standardBill(), 0);
     const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
-    const bond = makePremiumCapital({
-      defId: "bourbon_bond",
-      displayName: "Bourbon Bond",
-      capitalValue: 2,
+    // Capital cards are retired — substitute a synthetic Generic
+    // Labor card with the same effect. Generic Labor is aging-legal,
+    // so the AGE_BOURBON below exercises the rep_on_commit_aging
+    // dispatcher equivalently.
+    const bond: Card = {
+      id: "card_p1_bond",
+      cardDefId: "bourbon_bond_test",
+      type: "labor",
+      laborSubtype: "generic",
+      laborDomain: "any",
+      laborContribution: 1,
       cost: 5,
       effect: { kind: "rep_on_commit_aging", when: "on_commit_aging", rep: 1 },
-      ownerLabel: "p1",
-      index: 0,
-    });
+    };
     state = giveHand(state, "p1", [bond]);
     const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
     state = applyAction(state, {
@@ -507,9 +510,12 @@ describe("Card effect — rep_on_market_spend", () => {
     // Labor card with the effect and verify the dispatcher fires.
     let state = makeTestGame();
     state = advanceToActionPhase(state, [1, 1]);
-    const target = state.marketConveyor.find((c) => (c.cost ?? 1) === 1);
+    // Pick the first non-operations $1 card so BUY_FROM_MARKET accepts.
+    const target = state.market.find(
+      (c) => c.type !== "operations" && (c.cost ?? 1) === 1,
+    );
     if (!target) return; // skip if mix didn't surface a $1 card
-    const slotIdx = state.marketConveyor.findIndex((c) => c.id === target.id);
+    const slotIdx = state.market.findIndex((c) => c.id === target.id);
 
     const lender: Card = {
       id: "card_p1_lender",
@@ -541,6 +547,3 @@ describe("Card effect — rep_on_market_spend", () => {
   });
 });
 
-// Suppress unused-warning when bundling.
-void makeCapitalCard;
-void makePremiumCapital;

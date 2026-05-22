@@ -226,17 +226,15 @@ function ColorChip({ age }: { age: number }) {
 
 /**
  * Compact summary for a hand-draw payload — groups cards by subtype /
- * capital tier so a 5-card draw reads as "2× corn, 1× rye, B$2 capital"
- * instead of one entry per card.
+ * type so a 5-card draw reads as "2× corn, 1× rye, 1× Labor" instead of
+ * one entry per card.
  */
 function summarizeCards(cards: Card[]): ReactNode {
   const resources = new Map<ResourceSubtype, number>();
-  let capitalSum = 0;
-  let capitalCount = 0;
+  let laborCount = 0;
   for (const c of cards) {
-    if (c.type === "capital") {
-      capitalSum += c.capitalValue ?? 1;
-      capitalCount += 1;
+    if (c.type === "labor") {
+      laborCount += 1;
     } else if (c.type === "resource" && c.subtype) {
       const n = c.resourceCount ?? 1;
       resources.set(c.subtype, (resources.get(c.subtype) ?? 0) + n);
@@ -250,11 +248,10 @@ function summarizeCards(cards: Card[]): ReactNode {
       </span>,
     );
   }
-  if (capitalCount > 0) {
+  if (laborCount > 0) {
     parts.push(
-      <span key="cap" className="text-emerald-300">
-        {capitalCount === 1 ? "B$" : `${capitalCount}× B$`}
-        {capitalSum}
+      <span key="labor" className="text-slate-300">
+        {laborCount}× Labor
       </span>,
     );
   }

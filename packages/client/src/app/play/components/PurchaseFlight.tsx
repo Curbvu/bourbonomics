@@ -18,14 +18,12 @@ import { useEffect, useState } from "react";
 import type { Card, ResourceSubtype } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import {
-  CAPITAL_CHROME,
   LABOR_CHROME,
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
   laborGlyphFor,
 } from "./handCardStyles";
-import { MoneyText } from "./money";
 
 const FLIGHT_MS = 650;
 const START_TOP = 120;
@@ -134,32 +132,6 @@ function FlightFace({ card }: { card: Card }) {
           </span>
           <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
             +{contribution}
-          </span>
-        </div>
-      </div>
-    );
-  }
-  if (card.type === "capital") {
-    const value = card.capitalValue ?? 1;
-    const chrome = CAPITAL_CHROME;
-    return (
-      <div
-        className={[
-          "relative flex h-full w-full flex-col overflow-hidden rounded-md border-2 p-1.5 ring-1 ring-white/10",
-          chrome.gradient,
-          chrome.border,
-        ].join(" ")}
-      >
-        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
-          Capital
-        </span>
-        <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
-          <MoneyText
-            n={value}
-            className="font-display text-[24px] font-bold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
-          />
-          <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
-            spend
           </span>
         </div>
       </div>

@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
 import {
   makeResourceCard,
-  makeCapitalCard,
   makeMashBill,
   makePremiumResource,
 } from "../src/cards.js";
@@ -20,7 +19,9 @@ const corn = (label: string, i = 0) => makeResourceCard("corn", label, i);
 const rye = (label: string, i = 0) => makeResourceCard("rye", label, i);
 const barley = (label: string, i = 0) => makeResourceCard("barley", label, i);
 const wheat = (label: string, i = 0) => makeResourceCard("wheat", label, i);
-const cap = (label: string, i = 0, v = 1) => makeCapitalCard(label, i, v);
+// Generic filler used where the prior tests minted a capital card —
+// substitute corn so the card is aging-legal and resource-shaped.
+const cap = (label: string, i = 0) => makeResourceCard("corn", label, i);
 
 /**
  * v2.6: drafted bills land in slots as "ready" barrels at setup.
@@ -54,7 +55,7 @@ describe("MAKE_BOURBON — happy path", () => {
 
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(state.allBarrels.find((b) => b.attachedMashBill.id === mbId)?.phase).not.toBe("ready");
-    expect(p1.hand.map((c) => c.id)).toEqual(["card_p1_cap1_3"]);
+    expect(p1.hand.map((c) => c.id)).toEqual(["card_p1_corn_3"]);
     // Production cards are now LOCKED with the barrel until sale
     // (they used to land in discard at production time).
     expect(p1.discard.map((c) => c.id)).toEqual([]);
@@ -396,7 +397,7 @@ describe("AGE_BOURBON", () => {
       type: "AGE_BOURBON",
       playerId: "p1",
       barrelId,
-      cardId: "card_p1_cap1_3",
+      cardId: "card_p1_corn_3",
     });
     expect(state.phase).toBe("action");
     const barrel = state.allBarrels.find((b) => b.id === barrelId)!;
@@ -433,7 +434,7 @@ describe("AGE_BOURBON", () => {
         type: "AGE_BOURBON",
         playerId: "p2",
         barrelId,
-        cardId: "card_p2_cap1_0",
+        cardId: "card_p2_corn_0",
       }),
     ).toThrow(/own/);
   });
@@ -459,7 +460,7 @@ describe("AGE_BOURBON", () => {
       type: "AGE_BOURBON",
       playerId: "p1",
       barrelId,
-      cardId: "card_p1_cap1_3",
+      cardId: "card_p1_corn_3",
     });
     expect(state.currentPlayerIndex).toBe(0);
     expect(() =>
@@ -467,7 +468,7 @@ describe("AGE_BOURBON", () => {
         type: "AGE_BOURBON",
         playerId: "p1",
         barrelId,
-        cardId: "card_p1_cap1_4",
+        cardId: "card_p1_corn_4",
       }),
     ).toThrow(/already been aged/);
   });
@@ -491,7 +492,7 @@ describe("PASS_TURN + cleanup", () => {
     const p1AfterCleanup = state.players.find((p) => p.id === "p1")!;
     expect(p1AfterCleanup.hand).toHaveLength(0);
     expect(p1AfterCleanup.discard.map((c) => c.id).sort()).toEqual(
-      ["card_p1_cap1_0", "card_p1_cap1_1"].sort(),
+      ["card_p1_corn_0", "card_p1_corn_1"].sort(),
     );
   });
 
@@ -531,7 +532,7 @@ describe("PASS_TURN + cleanup", () => {
       type: "AGE_BOURBON",
       playerId: "p1",
       barrelId,
-      cardId: "card_p1_cap1_3",
+      cardId: "card_p1_corn_3",
     });
     // p2 had no deck and was auto-marked out for the round at draw time —
     // p1's PASS_TURN is enough to wrap the round.

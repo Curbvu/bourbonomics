@@ -15,7 +15,7 @@ type PlayOperationsCardAction = Extract<GameAction, { type: "PLAY_OPERATIONS_CAR
 
 const DEMAND_MIN = 0;
 const DEMAND_MAX = 12;
-const MARKET_CONVEYOR_SIZE = 10;
+const MARKET_SIZE = 10;
 const RICKHOUSE_SLOT_HARD_CAP = 6;
 
 export function validatePlayOperationsCard(
@@ -129,7 +129,7 @@ export function validatePlayOperationsCard(
     }
 
     case "market_corner": {
-      const slot = state.marketConveyor[action.marketSlotIndex];
+      const slot = state.market[action.marketSlotIndex];
       if (!slot) {
         return {
           legal: false,
@@ -296,7 +296,7 @@ export function applyPlayOperationsCard(
     }
 
     case "market_corner": {
-      const [card] = draft.marketConveyor.splice(action.marketSlotIndex, 1);
+      const [card] = draft.market.splice(action.marketSlotIndex, 1);
       player.hand.push(card!);
       // Refill conveyor (single draw with reshuffle if needed).
       if (draft.marketSupplyDeck.length > 0 || draft.marketDiscard.length > 0) {
@@ -307,7 +307,7 @@ export function applyPlayOperationsCard(
           draft.rngState,
         );
         if (result.drawn.length > 0) {
-          draft.marketConveyor.push(result.drawn[0]!);
+          draft.market.push(result.drawn[0]!);
         }
         draft.marketSupplyDeck = result.deck;
         draft.marketDiscard = result.discard;
@@ -367,16 +367,16 @@ export function applyPlayOperationsCard(
     case "insider_buyer": {
       // Sweep the conveyor into the market discard, then deal a fresh
       // 10 from the supply (drawing through reshuffle if needed).
-      draft.marketDiscard.push(...draft.marketConveyor);
-      draft.marketConveyor = [];
-      const want = MARKET_CONVEYOR_SIZE;
+      draft.marketDiscard.push(...draft.market);
+      draft.market = [];
+      const want = MARKET_SIZE;
       const result = drawWithReshuffle(
         draft.marketSupplyDeck.slice(),
         draft.marketDiscard.slice(),
         want,
         draft.rngState,
       );
-      draft.marketConveyor.push(...result.drawn);
+      draft.market.push(...result.drawn);
       draft.marketSupplyDeck = result.deck;
       draft.marketDiscard = result.discard;
       draft.rngState = result.rngState;
@@ -498,7 +498,11 @@ export function applyPlayOperationsCard(
     }
   }
 
-  draft.operationsDiscard.push(card);
+  // Played ops card is out of play permanently. (The unified-market
+  // model no longer tracks an operationsDiscard pile; played-and-
+  // resolved ops cards don't re-enter the market — those would be
+  // rebuyable supply, which is too generous.)
+  void card;
   // Playing an ops card does NOT consume the action — turn does not end.
 }
 

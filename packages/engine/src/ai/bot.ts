@@ -268,8 +268,8 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
     const spending = player.reputation;
     let bestSlot = -1;
     let bestCost = 0;
-    for (let i = 0; i < state.marketConveyor.length; i++) {
-      const card = state.marketConveyor[i]!;
+    for (let i = 0; i < state.market.length; i++) {
+      const card = state.market[i]!;
       const cost = card.cost ?? 1;
       if (cost > spending && cost > bestCost) {
         bestCost = cost;
@@ -367,8 +367,8 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
   const ib = playable.find((c) => c.defId === "insider_buyer");
   if (ib) {
     const spending = player.reputation;
-    const cheapestVisible = state.marketConveyor.reduce(
-      (lo, c) => Math.min(lo, c.cost ?? 1),
+    const cheapestVisible = state.market.reduce(
+      (lo: number, c) => Math.min(lo, c.cost ?? 1),
       Infinity,
     );
     if (spending >= cheapestVisible) {

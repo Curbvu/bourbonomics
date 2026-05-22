@@ -113,7 +113,8 @@ export interface LogEntry {
  * call `setInspect` with one of these.
  */
 export type InspectPayload =
-  | { kind: "resource" | "capital"; card: Card; ownerName?: string }
+  | { kind: "resource"; card: Card; ownerName?: string }
+  | { kind: "labor"; card: Card; ownerName?: string }
   | { kind: "mashbill"; bill: MashBill; ownerName?: string }
   | { kind: "operations"; card: OperationsCard; ownerName?: string }
   | { kind: "investment"; card: InvestmentCard }
@@ -121,16 +122,17 @@ export type InspectPayload =
 
 /**
  * Interactive market-buy mode. While this is non-null the human is in
- * the middle of picking a market target + tagging the resource/capital
- * cards they want to spend; the conveyor + ops row + hand light up as
- * click targets and `BuyOverlay` renders the running cost vs paid totals.
+ * the middle of picking a market target + tagging the Labor cards they
+ * want to spend; the unified market + hand light up as click targets
+ * and `BuyOverlay` renders the running cost vs paid totals.
  *
- * Targets:
- *   - source = "conveyor" → `slotIndex` is into `state.marketConveyor`
- *   - source = "operations" → `slotIndex` is the face-up ops position (0..2)
+ * Target: `slotIndex` is into the unified `state.market` array (10
+ * tiles); the engine action dispatched depends on the picked card's
+ * type (BUY_OPERATIONS_CARD for ops; BUY_FROM_MARKET for everything
+ * else).
  */
 export interface BuyMode {
-  pickedTarget: { source: "conveyor" | "operations"; slotIndex: number } | null;
+  pickedTarget: { slotIndex: number } | null;
   spendCardIds: string[];
 }
 
@@ -300,7 +302,7 @@ export interface GameStore {
   buyMode: BuyMode | null;
   startBuyMode: () => void;
   cancelBuyMode: () => void;
-  setBuyTarget: (target: { source: "conveyor" | "operations"; slotIndex: number }) => void;
+  setBuyTarget: (target: { slotIndex: number }) => void;
   toggleBuySpend: (cardId: string) => void;
   confirmBuy: () => void;
   /** Interactive age state, null when not aging. */
@@ -957,7 +959,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setBuyTarget = useCallback(
-    (target: { source: "conveyor" | "operations"; slotIndex: number }) => {
+    (target: { slotIndex: number }) => {
       setBuyMode((prev) => (prev ? { ...prev, pickedTarget: target } : prev));
     },
     [],
@@ -1093,18 +1095,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const human = store.state?.players.find((p) => !p.isBot);
     if (!human) return;
     const target = buyMode.pickedTarget;
-    // Cost is paid in rep, supplemented by Labor cards from hand.
-    // `buyMode.spendCardIds` is reinterpreted as the selected Labor
-    // card ids (non-Labor selections are ignored). The rep portion =
-    // cost - laborContribution. Rep and Labor are fully fungible.
-    const conveyor = store.state?.marketConveyor ?? [];
-    const ops = store.state?.operationsDeck ?? [];
-    const cost =
-      target.source === "operations"
-        ? ops[ops.length - 1 - target.slotIndex]?.cost ?? 0
-        : conveyor[target.slotIndex]?.cost ?? 1;
-    const laborDomain: "ops" | "market_resource" =
-      target.source === "operations" ? "ops" : "market_resource";
+    // Unified market: all targets live in `state.market` at the same
+    // slot indices. The picked card's type decides which action to
+    // dispatch and which labor-contribution domain applies.
+    const market = store.state?.market ?? [];
+    const picked = market[target.slotIndex];
+    if (!picked) return;
+    const cost = picked.cost ?? 1;
+    const laborDomain: "ops" | "market_resource" | "investment" =
+      picked.type === "operations"
+        ? "ops"
+        : picked.type === "investment"
+          ? "investment"
+          : "market_resource";
     const laborCardIds = buyMode.spendCardIds.filter((id) => {
       const c = human.hand.find((x) => x.id === id);
       return c?.type === "labor";
@@ -1119,11 +1122,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }, 0);
     const rep = Math.max(0, cost - laborTotal);
     const action: GameAction =
-      target.source === "operations"
+      picked.type === "operations"
         ? {
             type: "BUY_OPERATIONS_CARD",
             playerId: human.id,
-            opsSlotIndex: target.slotIndex,
+            marketSlotIndex: target.slotIndex,
             rep,
             laborCardIds,
           }
@@ -1992,16 +1995,11 @@ function capturePurchase(
   seq: number,
 ): LastPurchase | null {
   if (!prev.state) return prev.lastPurchase;
-  if (action.type === "BUY_FROM_MARKET") {
-    const bought = prev.state.marketConveyor[action.marketSlotIndex];
+  if (action.type === "BUY_FROM_MARKET" || action.type === "BUY_OPERATIONS_CARD") {
+    const bought = prev.state.market[action.marketSlotIndex];
     if (!bought) return prev.lastPurchase;
     return { card: bought, seq };
   }
-  // BUY_OPERATIONS_CARD also triggers the flight — render the bought
-  // ops card by repurposing the LastPurchase shape with a fake Card-like
-  // facade. We don't actually need the engine Card here (PurchaseFlight
-  // only renders resource/capital faces), so for ops we skip the flight
-  // and let the BuyOverlay closing be the visual confirmation.
   return prev.lastPurchase;
 }
 
@@ -2077,11 +2075,9 @@ function captureAge(
     ownerId: barrel.ownerId,
     cardLabel:
       card?.displayName ??
-      (card?.type === "capital"
-        ? `Capital $${card.capitalValue ?? 1}`
-        : card?.subtype
-          ? card.subtype.charAt(0).toUpperCase() + card.subtype.slice(1)
-          : "Card"),
+      (card?.subtype
+        ? card.subtype.charAt(0).toUpperCase() + card.subtype.slice(1)
+        : "Card"),
     cardSubtype: card?.subtype ?? card?.type ?? "card",
     seq,
   };
