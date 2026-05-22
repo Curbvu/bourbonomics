@@ -26,7 +26,6 @@ import {
   defaultInvestmentCatalog,
   defaultMashBillCatalog,
   mashBillBuildCost,
-  mashBillCost,
   type Distillery,
   type DistilleryDifficulty,
   type InvestmentCard,
@@ -244,11 +243,10 @@ function BillCard({ bill }: { bill: MashBill }) {
       <RecipeChips bill={bill} />
 
       <footer className="mt-4 flex items-center justify-between border-t border-slate-700/60 pt-2.5 font-mono text-[11px] uppercase tracking-[.12em] text-slate-400">
-        <span className="flex items-center gap-1.5">
-          <span className="text-slate-500">cost</span>
-          <MoneyText n={mashBillCost(bill)} className="font-display text-[15px] font-bold text-amber-200" />
-        </span>
-        <span className="flex items-center gap-1.5" title="Implicit build cost: 1 per basic resource + 2 per specialty + draw cost">
+        <span
+          className="flex items-center gap-1.5"
+          title="Implicit build cost: 1 per basic resource + 2 per specialty + 1 card paid into the Drafting Loop"
+        >
           <span className="text-slate-500">build</span>
           <span className="font-display text-[15px] font-bold tabular-nums text-emerald-200">
             {mashBillBuildCost(bill)}
@@ -313,13 +311,9 @@ function BillDetailPanel({ bill, onBack }: { bill: MashBill; onBack: () => void 
               <RecipeChips bill={bill} />
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-700/60 pt-3 font-mono text-[12px] uppercase tracking-[.12em] text-slate-400">
-              <span className="flex items-center gap-2">
-                <span className="text-slate-500">cost to draw</span>
-                <MoneyText n={mashBillCost(bill)} className="font-display text-lg font-bold text-amber-200" />
-              </span>
               <span
                 className="flex items-center gap-2"
-                title="Implicit build cost: 1 per basic resource + 2 per specialty (cheaper of the two specialty bands) + draw cost"
+                title="Implicit build cost: 1 per basic resource + 2 per specialty (cheaper of the two specialty bands) + 1 card paid into the Drafting Loop"
               >
                 <span className="text-slate-500">build cost</span>
                 <span className="font-display text-lg font-bold tabular-nums text-emerald-200">

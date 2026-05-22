@@ -10,7 +10,16 @@ import {
   applyBuyOperationsCard,
   validateBuyOperationsCard,
 } from "./actions/buy-operations-card";
-import { applyDrawMashBill, validateDrawMashBill } from "./actions/draw-deck";
+import {
+  applyDraftPass,
+  applyDraftTakeBill,
+  applyDraftTakeCard,
+  applyInitiateDraftingLoop,
+  validateDraftPass,
+  validateDraftTakeBill,
+  validateDraftTakeCard,
+  validateInitiateDraftingLoop,
+} from "./actions/drafting-loop";
 import { applyTrade, validateTrade } from "./actions/trade";
 import { applyPassTurn, validatePassTurn } from "./actions/pass-turn";
 import { applySelectDistillery, validateSelectDistillery } from "./actions/select-distillery";
@@ -37,11 +46,30 @@ export class IllegalActionError extends Error {
  * Pure validation. Never throws; safe for UI gating.
  */
 export function validateAction(state: GameState, action: GameAction): ValidationResult {
-  // v2.9: in the action phase, the current player must roll demand
-  // before doing anything else. PLAY_OPERATIONS_CARD stays free since
-  // it's a 0-cost prelude historically — but every other "real" action
-  // is gated on the per-turn demand roll.
-  if (state.phase === "action" && action.type !== "ROLL_DEMAND" && action.type !== "PLAY_OPERATIONS_CARD") {
+  // v2.14: the Drafting Loop is a modal sub-phase. The current picker
+  // (not necessarily the current player) may TAKE_BILL / TAKE_CARD /
+  // PASS; everything else is rejected until the loop closes.
+  if (state.draftingLoop !== null) {
+    const draftAllowed = new Set([
+      "DRAFT_TAKE_BILL",
+      "DRAFT_TAKE_CARD",
+      "DRAFT_PASS",
+    ]);
+    if (!draftAllowed.has(action.type)) {
+      return {
+        legal: false,
+        reason: "must complete the active Drafting Loop first",
+      };
+    }
+  } else if (
+    // v2.9: in the action phase, the current player must roll demand
+    // before doing anything else. PLAY_OPERATIONS_CARD stays free since
+    // it's a 0-cost prelude historically — but every other "real" action
+    // is gated on the per-turn demand roll.
+    state.phase === "action" &&
+    action.type !== "ROLL_DEMAND" &&
+    action.type !== "PLAY_OPERATIONS_CARD"
+  ) {
     const current = state.players[state.currentPlayerIndex];
     if (current && current.needsDemandRoll) {
       return {
@@ -90,8 +118,14 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateBuyFromMarket(state, action);
     case "BUY_OPERATIONS_CARD":
       return validateBuyOperationsCard(state, action);
-    case "DRAW_MASH_BILL":
-      return validateDrawMashBill(state, action);
+    case "INITIATE_DRAFTING_LOOP":
+      return validateInitiateDraftingLoop(state, action);
+    case "DRAFT_TAKE_BILL":
+      return validateDraftTakeBill(state, action);
+    case "DRAFT_TAKE_CARD":
+      return validateDraftTakeCard(state, action);
+    case "DRAFT_PASS":
+      return validateDraftPass(state, action);
     case "TRADE":
       return validateTrade(state, action);
     case "PLAY_OPERATIONS_CARD":
@@ -158,8 +192,17 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
     case "BUY_OPERATIONS_CARD":
       applyBuyOperationsCard(draft, action);
       return;
-    case "DRAW_MASH_BILL":
-      applyDrawMashBill(draft, action);
+    case "INITIATE_DRAFTING_LOOP":
+      applyInitiateDraftingLoop(draft, action);
+      return;
+    case "DRAFT_TAKE_BILL":
+      applyDraftTakeBill(draft, action);
+      return;
+    case "DRAFT_TAKE_CARD":
+      applyDraftTakeCard(draft, action);
+      return;
+    case "DRAFT_PASS":
+      applyDraftPass(draft, action);
       return;
     case "TRADE":
       applyTrade(draft, action);

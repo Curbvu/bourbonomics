@@ -259,9 +259,9 @@ export function buildTutorialInitialState(): GameState {
     startingDistilleries,
     startingMashBills,
     // No bourbonDeck supplied — the catalog isn't relevant since the
-    // tutorial never draws fresh bills. Pass an empty deck so the
+    // tutorial never drafts fresh bills. Pass an empty deck so the
     // engine doesn't accidentally surface a real Bourbon card mid-
-    // tutorial during a stray DRAW_MASH_BILL we forgot to gate.
+    // tutorial if the controller ever lets a Drafting Loop initiate.
     bourbonDeck: [],
     // Hand-stacked unified market with Cooper at slot 0. Passing it as
     // the supply lets init pull 10 cards face-up; we then overwrite

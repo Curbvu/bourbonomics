@@ -2,6 +2,7 @@ import type { Draft } from "immer";
 import type { Distillery, GameAction, GameState, ValidationResult } from "../types";
 import { buildRickhouseSlots } from "../distilleries";
 import { shuffleCards } from "../deck";
+import { maybeTriggerFinalRound } from "../state";
 import {
   applyDistilleryStarterModifications,
   enterStarterDeckDraftPhase,
@@ -53,6 +54,9 @@ export function applySelectDistillery(
   // v2.6: top up slotted bills (3 by default; Connoisseur Estate: 4).
   // Each drafted bill lands in an open slot as a "ready" barrel.
   topUpSlottedBillsForDistillery(draft, player, distillery);
+  // v2.14: top-up may have drained the bourbon deck — arm the
+  // doomsday clock if so (no Drafting Loop ever runs to catch it).
+  maybeTriggerFinalRound(draft);
 
   // If this player's deck was pre-built (config.starterDecks[i]), they
   // skip the starter trade window — apply post-deal distillery

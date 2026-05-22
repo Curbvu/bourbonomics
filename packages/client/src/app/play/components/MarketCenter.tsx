@@ -39,19 +39,15 @@ const MARKET_SIZE = 10;
 const FACEUP_PER_SECTION = 3;
 
 export default function MarketCenter() {
-  const { state, drawBillMode, setDrawBillTarget } = useGameStore();
+  const { state } = useGameStore();
 
   if (!state) return null;
 
-  const faceUpBills = state.bourbonFaceUp;
+  // v2.14: the face-up bill row is retired. Show the deck count only;
+  // any revealed bills during an active Drafting Loop surface in the
+  // DraftingLoopOverlay above the action bar.
   const remainingBills = state.bourbonDeck.length;
-  // Draw-bill mode wires the bourbon section as a click target during
-  // step 1 (pick the bourbon — face-up tile or blind deck top).
-  const drawStep1 =
-    drawBillMode != null &&
-    !drawBillMode.blind &&
-    !drawBillMode.pickedMashBillId;
-  const blindPicked = drawBillMode != null && drawBillMode.blind;
+  const loopRevealed = state.draftingLoop?.revealedBills ?? [];
 
   const marketFocus = useZoneFocusClass("market-conveyor");
   const mashBillsFocus = useZoneFocusClass("market-mash-bills");
@@ -86,17 +82,13 @@ export default function MarketCenter() {
         dataAttr="data-bourbon-row"
       >
         <FaceUpRow
-          faceUp={faceUpBills.map((b) => (
+          faceUp={loopRevealed.map((b) => (
             <MashBillTile key={b.id} bill={b} />
           ))}
-          placeholders={Math.max(0, FACEUP_PER_SECTION - faceUpBills.length)}
+          placeholders={Math.max(0, FACEUP_PER_SECTION - loopRevealed.length)}
           pileLabel="Bourbon deck"
           pileRemaining={remainingBills}
           pileTone="amber"
-          pileInteractive={drawStep1 && remainingBills > 0}
-          pilePicked={blindPicked}
-          onClickPile={() => setDrawBillTarget({ blind: true })}
-          pileClickTitle="Draw the top mash bill blind (1 card sacrifice)"
         />
       </Section>
     </div>
@@ -629,104 +621,38 @@ function InvestmentTileFromMarket({
 }
 
 function MashBillTile({ bill }: { bill: MashBill }) {
-  const {
-    state,
-    setInspect,
-    drawBillMode,
-    startDrawBillMode,
-    setDrawBillTarget,
-    selectedHandCardIds,
-    toggleDrawBillSpend,
-    multiplayerMode,
-    buyMode,
-    ageMode,
-    sellMode,
-    makeMode,
-  } = useGameStore();
+  const { setInspect } = useGameStore();
   const tier = tierOrCommon(bill.tier);
   const chrome = TIER_CHROME[tier];
   const cells: number[] = [];
   for (const row of bill.rewardGrid) for (const c of row) if (c !== null) cells.push(c);
   const peak = cells.length ? Math.max(...cells) : 0;
   const floor = cells.length ? Math.min(...cells) : 0;
-  // In draw-bill step 1, the face-up bourbon row becomes click targets.
-  const inDrawStep1 =
-    drawBillMode != null &&
-    !drawBillMode.blind &&
-    !drawBillMode.pickedMashBillId;
-  const isPickedDraw =
-    drawBillMode != null && drawBillMode.pickedMashBillId === bill.id;
-  // Auto-engage gate. Mirrors the click-to-buy in `useMarketBuyState`:
-  // outside any picker mode, on the human's turn, with at least one
-  // open rickhouse slot (DRAW_MASH_BILL needs somewhere to land), a
-  // click on a bill enters draw-bill mode and pre-targets it. The
-  // hand multi-selection (Pass 1) is carried into the sacrifice list.
-  // No always-on ring for the auto-draw affordance â€” `baseTile`'s
-  // cursor-pointer + hover lift already telegraph "clickable", and a
-  // permanent amber glow on every face-up bill would be too noisy.
-  const inAnyOtherPicker =
-    buyMode != null || ageMode != null || sellMode != null || makeMode != null;
-  const human = state?.players.find((p) => !p.isBot);
-  const seatId = multiplayerMode ? multiplayerMode.playerId : human?.id;
-  const isMyTurn =
-    state != null &&
-    state.phase === "action" &&
-    state.players[state.currentPlayerIndex]?.id === seatId;
-  const hasOpenSlot =
-    state != null &&
-    human != null &&
-    human.rickhouseSlots.some(
-      (s) => !state.allBarrels.some((b) => b.slotId === s.id),
-    );
-  const canAutoDraw =
-    !drawBillMode && !inAnyOtherPicker && isMyTurn && hasOpenSlot;
-  const drawRing = isPickedDraw
-    ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-    : inDrawStep1
-      ? "ring-2 ring-amber-300/70 hover:ring-amber-200"
-      : "";
-  const onClick = () => {
-    if (inDrawStep1) {
-      setDrawBillTarget({ mashBillId: bill.id });
-      return;
-    }
-    if (canAutoDraw) {
-      const preSelected = [...selectedHandCardIds];
-      startDrawBillMode();
-      setDrawBillTarget({ mashBillId: bill.id });
-      for (const id of preSelected) toggleDrawBillSpend(id);
-      return;
-    }
-    setInspect({ kind: "mashbill", bill });
-  };
+  // v2.14: bills surface only inside the Drafting Loop overlay; here
+  // the tile is read-only chrome (e.g. when MarketCenter shows the
+  // currently revealed bills from the active loop). Click opens the
+  // inspect modal, nothing else.
   return (
     <button
       type="button"
       data-bourbon-row="true"
-      onClick={onClick}
+      onClick={() => setInspect({ kind: "mashbill", bill })}
       onContextMenu={(e) => {
         e.preventDefault();
         setInspect({ kind: "mashbill", bill });
       }}
-      title={
-        inDrawStep1
-          ? `Pick ${bill.name} â€” costs B$${bill.cost ?? 2}`
-          : canAutoDraw
-            ? `${bill.name}${bill.slogan ? ` â€” ${bill.slogan}` : ""} Â· click to draw (sacrifices a hand card), right-click to inspect`
-            : `${bill.name}${bill.slogan ? ` â€” ${bill.slogan}` : ""} Â· ${chrome.label_text}`
-      }
-      className={[baseTile, chrome.gradient, chrome.border, chrome.glow, drawRing].join(" ")}
+      title={`${bill.name}${bill.slogan ? ` — ${bill.slogan}` : ""} · ${chrome.label_text}`}
+      className={[baseTile, chrome.gradient, chrome.border, chrome.glow].join(" ")}
     >
       <Sheen />
-      <CornerCost cost={bill.cost ?? 2} />
-      <div className="flex items-baseline justify-between pr-7">
+      <div className="flex items-baseline justify-between pr-1">
         <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           {chrome.label_text}
         </span>
         {bill.goldAward ? (
-          <span className="text-[9px]" aria-hidden>ðŸ¥‡</span>
+          <span className="text-[9px]" aria-hidden>🥇</span>
         ) : bill.silverAward ? (
-          <span className="text-[9px]" aria-hidden>ðŸ¥ˆ</span>
+          <span className="text-[9px]" aria-hidden>🥈</span>
         ) : null}
       </div>
       <h4 className={`mt-0.5 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.titleInk}`}>
@@ -740,7 +666,7 @@ function MashBillTile({ bill }: { bill: MashBill }) {
       <RecipePips bill={bill} />
       <div className="mt-auto flex items-baseline justify-center gap-1">
         <span className={`font-display text-[16px] font-bold leading-none tabular-nums ${chrome.titleInk}`}>
-          {floor}â€“{peak}
+          {floor}–{peak}
         </span>
         <span className={`font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
           rep

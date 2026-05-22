@@ -34,7 +34,7 @@ describe("chooseAction", () => {
       "SELL_BOURBON",
       "BUY_FROM_MARKET",
       "BUY_OPERATIONS_CARD",
-      "DRAW_MASH_BILL",
+      "INITIATE_DRAFTING_LOOP",
       "PLAY_OPERATIONS_CARD",
       "PASS_TURN",
     ]).toContain(action.type);

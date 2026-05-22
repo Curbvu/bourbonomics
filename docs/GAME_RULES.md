@@ -24,12 +24,12 @@ Your turn opens with your own demand roll and one aging card committed to **ever
 
 ### The core loop
 
-- **Mash bills are slot-bound.** Bills are drafted into your slots at setup and drawn directly into open slots during play. They never enter your hand.
+- **Mash bills are slot-bound.** Bills are drafted into your slots at setup and acquired through the **Drafting Loop** during play. They never enter your hand.
 - **Make bourbon** by committing cards (cask + corn + grain) from your hand to a slotted bill. Recipes take **multiple turns** to assemble.
 - A barrel becomes **aging** the moment its recipe is satisfied. From the next round on, you commit 1 aging card per round on top of it.
 - **Sell** an aging barrel (age ≥ 2) — the engine reads the bill's grid at `(barrel age, current demand)`, adds card / distillery / ops bonuses, and lifts the total to the bill's **tier floor** (3 / 4 / 5 rep). The total lands on your **reputation** track.
 - **Buy** new cards from the 10-card market with **reputation** and/or **Labor cards** from hand (Cooper +2 toward market resources, Marketing +2 toward ops, Generic +1 anywhere). Rep and Labor are fully fungible — pay in rep, Labor, or any mix.
-- **Draw a mash bill** the same way — face-up bills cost rep by tier (common/uncommon 1, rare 2, epic 3, legendary 4); blind draws cost 1. Generic Labor supplements rep; Specialty Labor for bill draws is reserved for a future release.
+- **Draft mash bills** by initiating the **Drafting Loop** — put a card on the table, reveal 3 bills, take what you want for 1 card each; the remainder passes around the table for others to claim. Bills cost no rep.
 - **Labor is finite per player.** You start with 2 Generic Labor in your deck — that's it. New Labor only enters via **Specialty Labor** cards bought from the market (Cooper, Marketing, future Architect).
 
 ### Winning
@@ -74,7 +74,7 @@ When the timer expires (or every player has passed), shuffle your final 16 cards
 - Each player **draws 8 cards** from their starter deck.
 ### Step 6 — Board setup
 - **Unified market:** 10 cards face-up from a single shuffled supply containing **resources** (Common $1 / Specialty $2 / Heritage $3), **Specialty Labor** (Marketing $4, Cooper $4, Architect $4), **operations cards**, and **investment cards**. Generic Labor is **not** sold; the 2 in your starter deck are all you'll ever own.
-- **Bourbon deck:** mash bills face-down, with 3 face-up beside the deck in a separate column.
+- **Bourbon deck:** mash bills face-down. No face-up bill row — bills are acquired exclusively through the **Drafting Loop**.
 - **Demand:** starts at 0.
 - Pick a start player.
 
@@ -125,7 +125,7 @@ After rolling demand and paying the aging cost, take **any number** of these fre
 - **Sell Bourbon** — sell an aging barrel ≥ 2 years old that has aged at least one full round.
 - **Buy from the Market** — pay rep (+ optional Labor) to acquire a card.
 - **Buy Operations Card** — same; Marketing Labor discounts ops.
-- **Draw a Mash Bill** — pay rep for a face-up bill (default 2 rep) or blind from the top of the deck (1 rep).
+- **Draft Mash Bills** — initiate the **Drafting Loop**: spend 1 card to reveal 3 bills, take any number for 1 card each, then pass the remainder around the table. Once per round per player.
 - **Trade** — exchange cards with another player. Mash bills are not tradeable.
 - **Save Card** — set aside one card from hand into your Save slot for next round's draw.
 - **Play Operations Card** — free interruption at any time.
@@ -139,7 +139,7 @@ Operations cards always play as a free interruption — they don't consume an ac
 
 Each rickhouse slot lives in one of four phases:
 
-- **Open** — no bill. Drawable into via [§Draw a Mash Bill](#-draw-a-mash-bill).
+- **Open** — no bill. Filled via the [§Drafting Loop](#draft-mash-bills-the-drafting-loop).
 - **Staged** — bill present, no committed cards. Public. Does NOT age.
 - **Building** — bill + ≥1 committed card, recipe not yet satisfied. Does NOT age.
 - **Aging** — recipe satisfied. Locked in. Accepts one aging card per round from the round AFTER completion.
@@ -225,7 +225,7 @@ The market is a **single 10-card face-up row** containing a mix of:
 - **Operations cards** (one-shot effects with various costs)
 - **Investments** (long-term effects — *effects pending implementation*)
 
-Mash bills are NOT in this market — they live in a separate face-up row beside the bourbon supply deck.
+Mash bills are NOT in this market — they live face-down in the bourbon deck and only surface during the [§Drafting Loop](#draft-mash-bills-the-drafting-loop).
 
 **On every buy or draw, the empty slot refills immediately** from the face-down market supply. Cards in the supply that aren't drawn between rounds aren't lost — they shuffle back when needed.
 
@@ -252,27 +252,51 @@ Same payment model as a resource buy — the engine routes ops targets through a
 
 Same payment model. The bought investment goes to your **discard** with a placeholder marker; on-buy effects are not yet wired (every catalog entry ships `implemented: false` in this wave). Architect Labor (+2) is the matching specialty.
 
-## Draw a Mash Bill
+## Draft Mash Bills (The Drafting Loop)
 
-Three mash bills sit face-up beside the bourbon deck. Take one of:
+The signature bill-acquisition action. A table event, not a solo transaction.
 
-- **A face-up bill** — pay rep by tier (the bill's printed `cost` overrides if set):
+**Once per round per player. Not legal in the final round.**
 
-  | Rarity | Cost (rep) |
-  |---|:-:|
-  | Common | 1 |
-  | Uncommon | 1 |
-  | Rare | 2 |
-  | Epic | 3 |
-  | Legendary | 4 |
+### How it works
 
-- **The blind top** — pay **1 rep** (no tier preview).
+1. **Initiate.** The active player places one resource or Labor card from hand face-up on the table to start the **draft pile**. They reveal the top **3 bills** from the bourbon deck face-up beside the pile.
+2. **First pick.** The active player takes 0–N bills (where N = their current Open slots), adding one card from hand to the draft pile for each bill taken. Each bill lands in an Open slot as **Staged**. Bills cost no rep — the only cost is the card added to the pile per bill.
+3. **Pass left.** The draft pile (cards + remaining bills) passes to the player on the active player's left.
+4. **Each subsequent player, in turn, may — in this order:**
+   - **Take any cards from the draft pile** into their hand (free).
+   - **Take any remaining bills** by adding one card from hand to the draft pile per bill, capped by their Open slots. Bills land as Staged.
+   They may take cards only, bills only, both, or pass entirely. Then they pass the pile to their left.
+5. **Loop closes.** When the pile returns to the initiator, the loop ends. Any remaining bills shuffle back into the bourbon deck. Any remaining cards go to the market discard.
 
-Bills follow the same payment rules as everything else: rep + Labor, fully fungible. **Generic Labor** (+1 anywhere) supplements rep on bill draws today; the **Cooper** and **Marketing** specialty Labor cards do NOT discount bill draws — they match a different domain. A future Specialty Labor for bill draws (a "Distiller" worker) is reserved space; until it ships, only Generic Labor helps.
+### What can be paid into the pile
 
-**An open slot is required.** The drawn bill lands directly in one of your Open rickhouse slots as **Staged**. If you have no open slots, the action is illegal.
+Any single resource card (Common, Specialty, or Heritage) **or** any Labor card (Generic or Specialty). One card per bill taken. Mash bills cannot be paid into the pile — they're slot-bound and never enter hands.
 
-When the deck **and** face-up row are both empty, the **final round trigger** activates.
+### Distillery constraints
+
+Constraints apply normally. **High-Rye House** cannot take a bill with `maxRye: 0`; it stays in the pile and passes on. **Wheated Baron** has no bill constraint (only a card-commit constraint). **Connoisseur Estate's** 4-bill cap applies — they cannot take a bill if doing so would push their slotted-bill count past 4.
+
+If all 3 revealed bills are illegal for the initiator and no other players take them either, the loop still consumes the initiator's once-per-round use.
+
+### Why this matters
+
+The Drafting Loop is a three-way value engine:
+
+- **Bill acquisition** — the obvious draw. First pick of 3 random bills, with the option to grab multiple.
+- **Deck thinning** — the card you offer (and any cards you put in for bills you take) may leave your deck permanently if someone else claims them.
+- **Card pickup** — anyone in the loop can scavenge the accumulating pile, picking up cards left behind by previous players. The later you sit in the loop, the bigger the pile tends to be.
+
+Strategic considerations:
+
+- **Offer junk that someone might want.** A Common Wheat you don't need might be valuable to the Wheated Baron — they'll happily take it and thin your deck for you.
+- **Offer pure junk if you just want it gone.** It cycles to the market discard if nobody takes it — still removed from your deck.
+- **Sit late in the loop for cumulative pickup.** Mid-loop players paying for bills feed the pile; the last player often inherits a stack of cards.
+- **Initiate when you want bills AND want to thin.** The action is most efficient when both motives align.
+
+### Round-gap behavior
+
+Bills acquired through the Drafting Loop land as Staged like any other bill draft. Standard rules apply — no aging this turn, recipe satisfaction requires commits in following turns.
 
 ## Save Card
 
@@ -300,16 +324,16 @@ Voluntary. Cards remaining in your hand stay until cleanup. Operations cards per
 
 **4 slots** by default, all equivalent. The Rickhouse Expansion Permit ops card raises the cap to **6**.
 
-| Phase | Bill? | Cards? | Ages? | Drawable into? |
+| Phase | Bill? | Cards? | Ages? | Draftable into? |
 |---|:-:|:-:|:-:|:-:|
 | **Open** | — | — | — | ✅ |
 | **Staged** | ✅ | — | — | — |
 | **Building** | ✅ | partial | — | — |
 | **Aging** | ✅ | recipe complete | ✅ | — |
 
-Lifecycle: `Open` → (Draw) → `Staged` → (Make, first commit) → `Building` → (Make, recipe complete) → `Aging` → (Sell) → `Open` (or `Staged` on Silver / Gold-Keep).
+Lifecycle: `Open` → (Draft) → `Staged` → (Make, first commit) → `Building` → (Make, recipe complete) → `Aging` → (Sell) → `Open` (or `Staged` on Silver / Gold-Keep).
 
-When **all** slots hold a bill, you cannot draw a new one — sell or finish a barrel first.
+When **all** slots hold a bill, you cannot take a new one — sell or finish a barrel first.
 
 ---
 
@@ -320,7 +344,7 @@ Recipes that determine each barrel's reward grid. **Bills are slot-bound** — t
 ### How bills enter play
 
 - **Setup draft** — Vanilla draws 0, High-Rye/Wheated 0 + 1 pre-aged, Connoisseur 4.
-- **Draw a Mash Bill action** — pay rep; bill lands in an Open slot as Staged.
+- **Drafting Loop action** — the standard in-game bill acquisition (see [§Draft Mash Bills](#draft-mash-bills-the-drafting-loop)).
 - **Allocation** ops card — up to 2 bills free, capped by Open slots.
 - **Barrel Broker** ops card — transfers a completed barrel (with its bill) to another player.
 - **Gold Convert award** — replaces another slot's bill with the Gold one.
@@ -455,7 +479,7 @@ The baseline. Pick for an introductory game.
 ### High-Rye House — "The Specialist"
 - *Starting state:* 4 starting rep, 1 pre-aged rye barrel (age 1), 3 Open slots, plus **2 free Specialty Rye** in your starter deck.
 - *Permanent ability:* +1 reputation when selling any barrel whose bill has `minRye ≥ 1`.
-- *Constraint:* Cannot draft or draw any mash bill with `maxRye: 0` (wheated lane closed).
+- *Constraint:* Cannot draft any mash bill with `maxRye: 0` (wheated lane closed).
 
 ### Wheated Baron — "The Smooth Operator"
 - *Starting state:* 4 starting rep, 1 pre-aged wheated barrel (age 1), 3 Open slots.
@@ -465,7 +489,7 @@ The baseline. Pick for an introductory game.
 ### Connoisseur Estate — "The Diversified"
 - *Starting state:* 6 starting rep, drafts **4 mash bills** at setup — every slot ships Staged.
 - *Permanent ability:* When you trigger a Gold award, Convert may target an **Open slot** (no recipe check).
-- *Constraint:* Slotted-bill cap of 4 — even with Rickhouse Expansion Permit, slots 5/6 are overflow only (transferred barrels, never freshly drawn bills).
+- *Constraint:* Slotted-bill cap of 4 — even with Rickhouse Expansion Permit, slots 5/6 are overflow only (transferred barrels, never freshly drafted bills).
 
 ---
 
@@ -505,9 +529,9 @@ Two ways to play, both running the same engine:
 
 # 🔁 The Core Loop
 
-Pick a distillery → draft mash bills directly into your slots → build a starter deck → draw 8 cards a round → commit cards toward a Staged or Building slot → finish the recipe → age it → sell when demand favors you → bank the rep → spend rep (with Labor) to grow the engine → play ops at the right moment → **manage your open slots and your rep balance** (every drawn bill needs both) → watch the rotation for your bookend → time your endgame.
+Pick a distillery → draft mash bills directly into your slots → build a starter deck → draw 8 cards a round → commit cards toward a Staged or Building slot → finish the recipe → age it → sell when demand favors you → bank the rep → spend rep (with Labor) to grow the engine → initiate the **Drafting Loop** to refresh your bill lineup and thin your deck → play ops at the right moment → **manage your open slots and your rep balance** → watch the rotation for your bookend → time your endgame.
 
-The mash bill supply is the **doomsday clock**. Drawing mash bills accelerates the end — slot capacity is the natural throttle.
+The mash bill supply is the **doomsday clock**. Every Drafting Loop reveals 3 bills; whatever isn't claimed returns to the deck. Bill claims accelerate the end — slot capacity is the natural throttle.
 
 ---
 
@@ -520,6 +544,8 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 ---
 
 # 📜 Changelog
+
+- **v2.14** — **"The Drafting Loop."** Bill acquisition is rebuilt from the ground up as a table event. The face-up bill row is retired. The blind bill draw (1 rep) is retired. The flat rep cost on face-up bills (1/1/2/3/4) is retired. Bills are now acquired exclusively through the **Drafting Loop**: the active player places one card from hand on the table and reveals 3 bills from the deck; they take 0–N bills (limited by Open slots) by adding one card to the pile per bill; the pile then passes left, with each subsequent player able to take cards from the pile freely AND/OR take remaining bills at a cost of 1 card each. When the pile returns to the initiator, leftover bills shuffle back into the deck and leftover cards go to the market discard. **Bills now cost no rep — only cards.** This restores deck thinning to the game (retired in v2.11 with Trash a Card), reintroduces meaningful player-to-player card transfer outside of Trade, and turns bill drafting into a social moment. The action is limited to **once per round per player** and is illegal in the final round. Distillery constraints apply (High-Rye House skips wheated bills; Connoisseur Estate respects its 4-bill cap). Specialty Labor for bill draws (the future "Distiller" worker) is no longer reserved space — it's obsolete under the cards-only economy.
 
 - **v2.13** — **"Unified Market."** The three face-up rows (resource conveyor, ops face-up, investments display-stub) collapsed into a single 10-card market alongside the separate mash-bills column. All non-bill card types (resource / Labor / ops / investment) share one supply deck and one discard; each buy refills the empty slot immediately, and at end of every year all 10 cards cycle out and 10 fresh cards are dealt. Capital cards eradicated from the codebase end-to-end — the type member, factories, `capitalValue` field, distillery `capitalDelta` field, and every UI render branch are gone. Architect Labor (+2 toward investment buys) ships in the market alongside Cooper and Marketing; Generic Labor no longer appears in the market (your 2 starter-deck Labor are all you'll ever own). Every player's round-1 opening hand is guaranteed to contain both Generic Labor cards (deck is rigged at init so the 2 Labors sit on top). Investment effects are still effect-pending — buying transfers them to discard with a placeholder marker.
 

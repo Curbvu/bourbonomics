@@ -151,10 +151,10 @@ export function applyDistilleryStarterModifications(
 }
 
 /**
- * v2.6: place a freshly-drawn bill into one of the player's open slots
- * as a "ready" barrel (bill present, no committed cards). Returns the
+ * Place a freshly-acquired bill into one of the player's open slots as
+ * a "ready" barrel (bill present, no committed cards). Returns the
  * created barrel id, or null if the player has no open slot. Used by
- * setup, DRAW_MASH_BILL, and the Allocation ops card.
+ * setup, the Drafting Loop, and the Allocation ops card.
  */
 export function placeBillInSlot(
   draft: Draft<GameState>,

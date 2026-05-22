@@ -184,8 +184,19 @@ function describe(
       return <>{who(a.playerId)} bought a card from the market.</>;
     case "BUY_OPERATIONS_CARD":
       return <>{who(a.playerId)} bought an operations card.</>;
-    case "DRAW_MASH_BILL":
-      return <>{who(a.playerId)} drew a mash bill.</>;
+    case "INITIATE_DRAFTING_LOOP":
+      return <>{who(a.playerId)} initiated the Drafting Loop.</>;
+    case "DRAFT_TAKE_BILL":
+      return <>{who(a.playerId)} drafted a mash bill.</>;
+    case "DRAFT_TAKE_CARD":
+      return (
+        <>
+          {who(a.playerId)} took {a.cardIds.length} card
+          {a.cardIds.length === 1 ? "" : "s"} from the draft pile.
+        </>
+      );
+    case "DRAFT_PASS":
+      return <>{who(a.playerId)} passed the draft pile.</>;
     case "TRADE":
       return (
         <>

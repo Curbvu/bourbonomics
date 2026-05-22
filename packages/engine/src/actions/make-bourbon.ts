@@ -12,10 +12,11 @@ import { applyProductionCommitEffect } from "../card-effects";
 import { isCurrentPlayer } from "../state";
 
 // ============================================================
-// MAKE_BOURBON — v2.6 slot-bound bills.
+// MAKE_BOURBON — slot-bound bills.
 //
 // Commits ≥1 card from the player's hand to a slot that already holds
-// a bill (slots are opened by DRAW_MASH_BILL, not by this action).
+// a bill (slots are filled via the Drafting Loop, Allocation, or setup
+// — never by this action).
 // The barrel transitions:
 //   - "ready"       (bill, 0 cards)  →  "construction" on first commit
 //   - "construction" (bill, ≥1 card) →  "aging"        when the cumulative
@@ -346,7 +347,8 @@ export function validateMakeBourbon(
 
   // v2.6: MAKE_BOURBON commits to an existing barrel (ready or
   // construction). Open slots aren't valid targets — the player must
-  // first DRAW_MASH_BILL into the slot to seed a "ready" barrel.
+  // first acquire a bill into the slot via the Drafting Loop (or
+  // Allocation / Gold Convert) to seed a "ready" barrel.
   const existingBarrel = state.allBarrels.find((b) => b.slotId === action.slotId);
   if (!existingBarrel) {
     return {

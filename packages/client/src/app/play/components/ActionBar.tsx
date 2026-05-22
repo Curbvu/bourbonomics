@@ -162,20 +162,20 @@ export default function ActionBar() {
           onCancel={cancelBuyMode}
         />
         <PickerButton
-          label="Draw bill"
+          label="Draft bills"
           inMode={inDrawBillMode}
           enabled={!disabledByTurn && drawBillEntry.canDraw}
           tooltip={
             disabledByTurn
               ? "Wait for your turn"
               : inDrawBillMode
-                ? "Cancel the in-progress draw"
+                ? "Cancel the in-progress draft"
                 : drawBillEntry.reason ??
-                  "Pick a card to sacrifice; you'll draw the top mash bill blind."
+                  "Pick a card to seed the draft pile; 3 mash bills are revealed for the table."
           }
           onStart={startDrawBillMode}
           onCancel={cancelDrawBillMode}
-          cancelLabel="Cancel draw"
+          cancelLabel="Cancel draft"
         />
         <SmartButton
           label="Trade"
@@ -312,11 +312,20 @@ function canEnterDrawBillMode(
   state: GameState,
   player: PlayerState,
 ): { canDraw: boolean; reason?: string } {
+  if (state.draftingLoop) {
+    return { canDraw: false, reason: "A Drafting Loop is already in progress." };
+  }
+  if (state.finalRoundTriggered) {
+    return { canDraw: false, reason: "The Drafting Loop is not legal in the final round." };
+  }
+  if (player.draftingLoopUsedThisRound) {
+    return { canDraw: false, reason: "You've already initiated the loop this round." };
+  }
   if (player.hand.length === 0) {
-    return { canDraw: false, reason: "Your hand is empty — nothing to sacrifice." };
+    return { canDraw: false, reason: "Your hand is empty — nothing to seed the pile with." };
   }
   if (state.bourbonDeck.length === 0) {
-    return { canDraw: false, reason: "Bourbon deck is empty — no bills left to draw." };
+    return { canDraw: false, reason: "Bourbon deck is empty — no bills left to reveal." };
   }
   return { canDraw: true };
 }

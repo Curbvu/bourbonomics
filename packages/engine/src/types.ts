@@ -9,9 +9,10 @@
 // -----------------------------
 
 // Unified market: the 10-slot market holds resources, Labor cards,
-// ops cards, and investment cards in one row. Mash bills live in a
-// separate face-up row beside the bourbon supply deck. Capital cards
-// no longer exist — rep is the unified currency.
+// ops cards, and investment cards in one row. Mash bills live face-down
+// in the bourbon deck and surface only during the Drafting Loop —
+// there's no face-up bill row in v2.14. Capital cards no longer exist —
+// rep is the unified currency.
 export type CardType =
   | "resource"
   | "labor"
@@ -31,10 +32,10 @@ export type GrainSubtype = "rye" | "barley" | "wheat";
  *   - "architect" — +2 toward investment purchases (ships in market).
  *
  * A Specialty Labor card with a non-matching purchase domain contributes
- * 0 — the worker doesn't apply, the rep gap stays open. A future
- * "distiller" Specialty Labor with `laborDomain: "bill_draw"` could be
- * added to discount mash bill draws; until then only Generic Labor
- * (domain "any") helps with bills.
+ * 0 — the worker doesn't apply, the rep gap stays open. Mash bills no
+ * longer cost rep (v2.14 Drafting Loop — payment is one card per bill
+ * taken, paid into the draft pile), so there is no "bill_draw" Labor
+ * domain.
  */
 export type LaborSubtype = "generic" | "marketing" | "cooper" | "architect";
 
@@ -43,8 +44,7 @@ export type LaborDomain =
   | "any"
   | "ops"
   | "market_resource"
-  | "investment"
-  | "bill_draw";
+  | "investment";
 
 /** A concrete card instance in a player's deck/hand/discard/etc. */
 export interface Card {
@@ -221,9 +221,11 @@ export interface MashBill {
   silverAward?: AwardCondition;
   goldAward?: AwardCondition;
   /**
-   * Capital cost to pick this bill from the face-up bourbon row. When
-   * omitted, defaults to `billCostByTier(bill)` (see `cards.ts`).
-   * Capital cards pay at printed value; other cards count as B$1.
+   * Vestigial. Pre-v2.14 this was the rep cost to draw a face-up bill.
+   * The face-up bill row is retired and bills cost no rep — only a card
+   * paid into the draft pile during the Drafting Loop. Field retained
+   * in the data model so old fixtures and the bill catalog still type-
+   * check; nothing reads it.
    */
   cost?: number;
   /**
@@ -234,38 +236,6 @@ export interface MashBill {
    */
   tutorialOnly?: boolean;
 }
-
-/**
- * Rep cost to draw a face-up mash bill, by rarity tier:
- *
- *   common      1
- *   uncommon    1
- *   rare        2
- *   epic        3
- *   legendary   4
- *
- * A bill may override via `bill.cost`; otherwise the tier-based
- * ladder applies. Blind draws cost a flat 1 rep regardless of tier
- * (the player doesn't know what they're getting), wired in the
- * action validator.
- *
- * bills follow the same rep + Labor payment rules as market
- * and ops buys. Generic Labor (+1 anywhere) supplements rep; a
- * future Specialty Labor (e.g. "Distiller") for bill draws is
- * reserved space.
- */
-export function billCostByTier(bill: MashBill): number {
-  if (bill.cost != null) return bill.cost;
-  const t = bill.tier ?? "common";
-  if (t === "legendary") return 4;
-  if (t === "epic") return 3;
-  if (t === "rare") return 2;
-  // common, uncommon
-  return 1;
-}
-
-/** Canonical alias for `billCostByTier` — used by client UI helpers. */
-export const mashBillCost = billCostByTier;
 
 /**
  * sale-floor table: every sale pays at least this much rep,
@@ -291,6 +261,9 @@ export function saleFloorForBill(bill: MashBill): number {
  * `laborContribution` (2 by default) when the domains match, 0 when
  * they don't. Non-Labor cards return 0 — Labor is the only card type
  * that supplements rep on purchases.
+ *
+ * Mash bills are paid in cards-only (Drafting Loop) and do not call
+ * this function — only market, ops, and investment buys do.
  */
 export function laborContribution(
   card: Card,
@@ -316,7 +289,8 @@ export function laborContribution(
  *     Heritage ($3) also satisfies the gate but a rational builder
  *     reaches for Specialty unless they want a Heritage card's
  *     per-card bonus.
- *   - + the bill's draw cost (`mashBillCost`)
+ *   - + 1 for the card the player pays into the Drafting Loop to take
+ *     the bill (cards-only economy under v2.14)
  *
  * A Specialty card satisfies both the subtype's universal/per-subtype
  * minimum AND the specialty floor — so the formula counts it once at
@@ -348,6 +322,9 @@ export function mashBillBuildCost(bill: MashBill): number {
   const specialtyTotal =
     (sp.cask ?? 0) + (sp.corn ?? 0) + (sp.rye ?? 0) + (sp.barley ?? 0) + (sp.wheat ?? 0);
 
+  // Drafting Loop: 1 card paid per bill taken.
+  const DRAFT_PILE_CARD_COST = 1;
+
   return (
     plainCask +
     plainCorn +
@@ -356,7 +333,7 @@ export function mashBillBuildCost(bill: MashBill): number {
     plainWheat +
     wildGrain +
     specialtyTotal * SPECIALTY_UNIT_COST +
-    mashBillCost(bill)
+    DRAFT_PILE_CARD_COST
   );
 }
 
@@ -777,6 +754,66 @@ export interface PlayerState {
    * PLAY_OPERATIONS_CARD remain free.
    */
   needsAgeBarrels: boolean;
+  /**
+   * v2.14: each player may initiate the Drafting Loop at most once
+   * per round. Set by `INITIATE_DRAFTING_LOOP`, reset to false at
+   * cleanup. Counts even when the loop produces nothing for the
+   * initiator (e.g. all 3 revealed bills are illegal for them).
+   */
+  draftingLoopUsedThisRound: boolean;
+}
+
+// -----------------------------
+// Drafting Loop
+// -----------------------------
+
+/**
+ * Per-picker stage inside the loop:
+ *   - "card" — picker may take any cards from the pile, then take
+ *     bills. TAKE_CARD is legal here.
+ *   - "bill" — picker has either taken a bill (which advanced past
+ *     the card-take window) or is the initiator (who never gets to
+ *     scavenge cards — they don't take their own initial card back).
+ *     TAKE_CARD is illegal here; only TAKE_BILL or PASS.
+ *
+ * The spec's "in this order" — cards first, then bills — is enforced
+ * by this two-stage flow.
+ */
+export type DraftingLoopPickerStage = "card" | "bill";
+
+/**
+ * Active state of the Drafting Loop sub-phase. Created by
+ * `INITIATE_DRAFTING_LOOP`, torn down when the pile returns to the
+ * initiator after every other picker has passed.
+ */
+export interface DraftingLoopState {
+  /**
+   * Player who initiated the loop. Their action-phase turn remains in
+   * progress; the loop just rotates the active picker around the table.
+   */
+  initiatorId: string;
+  /**
+   * Pick order, starting at the initiator and walking clockwise. Length
+   * equals the player count. Initiator at index 0; loop closes when the
+   * cursor walks past the last index.
+   */
+  pickOrder: string[];
+  /** Index into `pickOrder` pointing at the current picker. */
+  pickerIndex: number;
+  /** What the current picker is allowed to do next. See above. */
+  pickerStage: DraftingLoopPickerStage;
+  /**
+   * Cards face-up on the table. Order = placement order (initiator's
+   * initial card at index 0). Subsequent pickers may take any of these
+   * before placing their own.
+   */
+  draftPile: Card[];
+  /**
+   * Mash bills revealed at the top of the loop. Up to 3 at start;
+   * shrinks as pickers claim bills. Leftovers shuffle back into
+   * `bourbonDeck` when the loop closes.
+   */
+  revealedBills: MashBill[];
 }
 
 // -----------------------------
@@ -837,7 +874,8 @@ export interface GameState {
   /**
    * The unified market — 10 face-up slots holding a mix of resource,
    * Labor, operations, and investment cards. Mash bills live in
-   * `bourbonFaceUp` (separate row, separate deck).
+   * `bourbonDeck` (separate face-down deck, surfaced only via the
+   * Drafting Loop).
    */
   market: Card[];
   /** Face-down supply that backs the unified market. Mixed types. */
@@ -846,9 +884,15 @@ export interface GameState {
   marketDiscard: Card[];
 
   bourbonDeck: MashBill[];
-  /** Face-up bourbon row beside the deck. Up to 3 bills. */
-  bourbonFaceUp: MashBill[];
   bourbonDiscard: MashBill[];
+  /**
+   * Active Drafting Loop sub-phase, if any. While non-null, the only
+   * legal actions are `DRAFT_TAKE_BILL`, `DRAFT_TAKE_CARD`, and
+   * `DRAFT_PASS`, routed to `draftingLoop.pickOrder[pickerIndex]`
+   * (which may not equal `currentPlayerIndex` — the initiator's turn
+   * is still in progress; the loop just rotates the active picker).
+   */
+  draftingLoop: DraftingLoopState | null;
 
   demand: number;                           // 0..12
   demandRolls: { round: number; roll: [number, number]; result: "rise" | "hold" }[];
@@ -1032,11 +1076,11 @@ export type GameAction =
   | { type: "DRAW_HAND"; playerId: string }
   | {
       // v2.6 slot-bound bills: commits ≥1 card from the player's hand
-      // to an existing slot that already holds a bill (drawn at setup
-      // or via DRAW_MASH_BILL). The barrel auto-transitions from
-      // "ready" → "construction" → "aging" as cards accumulate. Slots
-      // are opened by DRAW_MASH_BILL, not by this action; bills are
-      // already attached when MAKE_BOURBON dispatches.
+      // to an existing slot that already holds a bill (placed at setup
+      // or acquired via the Drafting Loop / Allocation). The barrel
+      // auto-transitions from "ready" → "construction" → "aging" as
+      // cards accumulate. Bills are already attached when MAKE_BOURBON
+      // dispatches.
       type: "MAKE_BOURBON";
       playerId: string;
       slotId: string;
@@ -1082,17 +1126,47 @@ export type GameAction =
       laborCardIds: string[];
     }
   | {
-      // Bills follow the same rep + Labor payment rules as market and
-      // ops buys. Face-up cost = `billCostByTier(bill)` (common /
-      // uncommon 1, rare 2, epic 3, legendary 4). Blind draw costs a
-      // flat 1. Generic Labor cards (+1 anywhere) can supplement rep on
-      // either flavor; a Specialty Labor for bill draws is reserved for
-      // a future release.
-      type: "DRAW_MASH_BILL";
+      // v2.14 Drafting Loop — entry point. The active player places one
+      // card from their hand face-up on the table to start the draft
+      // pile and reveals the top 3 mash bills from the bourbon deck.
+      // Once per round per player; illegal in the final round.
+      type: "INITIATE_DRAFTING_LOOP";
       playerId: string;
-      mashBillId?: string;
-      rep: number;
-      laborCardIds: string[];
+      /** Card from hand placed face-up as the seed of the draft pile. */
+      cardId: string;
+    }
+  | {
+      // v2.14 Drafting Loop — current picker claims one of the
+      // revealed bills, adding one card from hand to the draft pile
+      // as payment. Bill lands in an Open slot as Staged. Capped by
+      // Open slot count and distillery constraints (High-Rye House
+      // cannot take a wheated bill; Connoisseur Estate respects its
+      // 4-bill cap). Cards in the Save slot are NOT eligible payment.
+      type: "DRAFT_TAKE_BILL";
+      playerId: string;
+      /** Bill from `state.draftingLoop.revealedBills` to take. */
+      mashBillId: string;
+      /** Card from hand placed into the draft pile in exchange. */
+      paymentCardId: string;
+    }
+  | {
+      // v2.14 Drafting Loop — current picker scavenges one or more
+      // cards from the draft pile into their hand (free). Subsequent
+      // pickers only; the initiator never gets to take their own
+      // initial card back. Must be the picker's first action of the
+      // turn — once they take a bill, card-taking is closed for them.
+      type: "DRAFT_TAKE_CARD";
+      playerId: string;
+      /** Cards from `state.draftingLoop.draftPile` to pick up. */
+      cardIds: string[];
+    }
+  | {
+      // v2.14 Drafting Loop — current picker passes the pile to the
+      // player on their left. When the pile returns to the initiator
+      // the loop closes: leftover bills shuffle into the bourbon
+      // deck, leftover cards go to the market discard.
+      type: "DRAFT_PASS";
+      playerId: string;
     }
   | {
       type: "TRADE";

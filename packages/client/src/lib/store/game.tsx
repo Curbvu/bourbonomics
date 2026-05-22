@@ -31,7 +31,6 @@ import { produce } from "immer";
 import {
   applyAction,
   awaitingHumanInput,
-  billCostByTier,
   buildTutorialInitialState,
   buildVanillaDistilleryFor,
   computeFinalScores,
@@ -102,7 +101,7 @@ export interface LogEntry {
    * Optional snapshot data captured at dispatch time so the EventLog
    * can describe ephemeral effects after the fact.
    *   - `drawn`: cards added to a player's hand by this action
-   *     (DRAW_HAND, occasionally DRAW_MASH_BILL or buy-side draws).
+   *     (DRAW_HAND, occasionally buy-side draws).
    */
   drawn?: Card[];
 }
@@ -148,23 +147,17 @@ export interface AgeMode {
 }
 
 /**
- * Interactive Draw-a-Mash-Bill mode. Two-step picker:
- *
- *   step 1 — `pickedMashBillId` is null. The player either clicks a
- *            face-up bill (sets the id and advances to step 2) or
- *            clicks the deck-top "blind" target (sets `blind: true`).
- *   step 2 — the player tags pay cards. Blind draws need exactly 1
- *            card; face-up picks need rep + Generic Labor totaling
- *            ≥ the bill's cost.
- *
- * Confirm dispatches DRAW_MASH_BILL with either `mashBillId` set
- * (face-up) or omitted (blind).
+ * v2.14 Initiate-Drafting-Loop mode. Single-step picker: the human
+ * picks one card from hand to seed the draft pile. Clicking the card
+ * (in HandTray, while this mode is open) dispatches
+ * `INITIATE_DRAFTING_LOOP` and closes the mode; the engine then
+ * surfaces the active loop in `state.draftingLoop` and the
+ * `DraftingLoopOverlay` takes over for the rest of the loop. Kept
+ * under the legacy `drawBillMode` field name to avoid renames across
+ * a dozen UI consumers — it's the same "you're in a picker" state.
  */
 export interface DrawBillMode {
-  /** id of the picked face-up bill, or null when in step 1 / blind. */
-  pickedMashBillId: string | null;
-  /** True when the player chose the blind top-of-deck target. */
-  blind: boolean;
+  /** Selected seed card id, or null while the user is still choosing. */
   spendCardIds: string[];
 }
 
@@ -1140,10 +1133,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dispatch(action);
   }, [buyMode, store.state, dispatch]);
 
-  // Draw-bill mode helpers — two-step picker. Step 1 picks the bourbon
-  // (face-up bill or blind top-of-deck); step 2 tags pay cards.
+  // v2.14 Initiate-Drafting-Loop picker. The user picks one card from
+  // hand to seed the draft pile; confirm dispatches
+  // INITIATE_DRAFTING_LOOP and the engine takes over from there. The
+  // legacy "Draw bill" picker shape is retained (single field) so the
+  // dozen UI consumers that gate on `drawBillMode != null` keep
+  // working without renames.
   const startDrawBillMode = useCallback(() => {
-    setDrawBillMode({ pickedMashBillId: null, blind: false, spendCardIds: [] });
+    setDrawBillMode({ spendCardIds: [] });
     setBuyMode(null);
     setAgeMode(null);
     setMakeMode(null);
@@ -1156,18 +1153,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setDrawBillTarget = useCallback(
-    (target: { mashBillId: string } | { blind: true }) => {
-      setDrawBillMode((prev) => {
-        if (!prev) return prev;
-        if ("blind" in target) {
-          return { pickedMashBillId: null, blind: true, spendCardIds: [] };
-        }
-        return {
-          pickedMashBillId: target.mashBillId,
-          blind: false,
-          spendCardIds: [],
-        };
-      });
+    (_target: { mashBillId: string } | { blind: true }) => {
+      // No-op under v2.14 — there's no face-up bill row or blind-top
+      // target to pick. Retained as a no-op so legacy MarketCenter
+      // call-sites compile while the broader bill UI is reshaped.
     },
     [],
   );
@@ -1175,62 +1164,30 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const toggleDrawBillSpend = useCallback((cardId: string) => {
     setDrawBillMode((prev) => {
       if (!prev) return prev;
-      const has = prev.spendCardIds.includes(cardId);
-      return {
-        ...prev,
-        spendCardIds: has
-          ? prev.spendCardIds.filter((id) => id !== cardId)
-          : [...prev.spendCardIds, cardId],
-      };
+      // Single-card picker — selecting a different card replaces the
+      // previous selection (no multi-card seed today).
+      if (prev.spendCardIds.includes(cardId)) {
+        return { spendCardIds: [] };
+      }
+      return { spendCardIds: [cardId] };
     });
   }, []);
 
   const resetDrawBillTarget = useCallback(() => {
-    setDrawBillMode((prev) =>
-      prev
-        ? { pickedMashBillId: null, blind: false, spendCardIds: [] }
-        : prev,
-    );
+    setDrawBillMode((prev) => (prev ? { spendCardIds: [] } : prev));
   }, []);
 
   const confirmDrawBill = useCallback(() => {
     if (!drawBillMode) return;
-    if (!drawBillMode.blind && !drawBillMode.pickedMashBillId) return;
+    const cardId = drawBillMode.spendCardIds[0];
+    if (!cardId) return;
     const human = store.state?.players.find((p) => !p.isBot);
     if (!human) return;
-    // Bills pay rep + Generic Labor (same rules as market/ops buys).
-    // Face-up cost = tier ladder (common/uncommon 1, rare 2, epic 3,
-    // legendary 4); blind = 1. Generic Labor (+1 anywhere) discounts
-    // the rep portion; Cooper / Marketing don't (domain mismatch).
-    // Rep and Labor are fully fungible.
-    const billFaceUp = drawBillMode.pickedMashBillId
-      ? store.state?.bourbonFaceUp.find(
-          (b) => b.id === drawBillMode.pickedMashBillId,
-        )
-      : null;
-    const cost = billFaceUp ? billCostByTier(billFaceUp) : 1;
-    // Reinterpret `drawBillMode.spendCardIds` as Generic Labor ids.
-    const laborCardIds = drawBillMode.spendCardIds.filter((id) => {
-      const c = human.hand.find((x) => x.id === id);
-      return c?.type === "labor" && c.laborSubtype === "generic";
-    });
-    const laborTotal = laborCardIds.length; // Generic = +1 each
-    const rep = Math.max(0, cost - laborTotal);
-    if (rep > human.reputation) return;
-    const action: GameAction = drawBillMode.pickedMashBillId
-      ? {
-          type: "DRAW_MASH_BILL",
-          playerId: human.id,
-          mashBillId: drawBillMode.pickedMashBillId,
-          rep,
-          laborCardIds,
-        }
-      : {
-          type: "DRAW_MASH_BILL",
-          playerId: human.id,
-          rep,
-          laborCardIds,
-        };
+    const action: GameAction = {
+      type: "INITIATE_DRAFTING_LOOP",
+      playerId: human.id,
+      cardId,
+    };
     setDrawBillMode(null);
     dispatch(action);
   }, [drawBillMode, store.state, dispatch]);

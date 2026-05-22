@@ -1,7 +1,12 @@
 import type { GameAction, GameState, PlayerState } from "../types";
 import { applyAction, isGameOver } from "../engine";
 import { roll2d6 } from "../rng";
-import { chooseAction, chooseDistillery, chooseStarterPass } from "./bot";
+import {
+  chooseAction,
+  chooseDistillery,
+  chooseDraftAction,
+  chooseStarterPass,
+} from "./bot";
 
 /**
  * Drive a game where every player is a bot. Returns the final state.
@@ -95,6 +100,19 @@ export function nextOrchestratorAction(state: GameState): GameAction | null {
       return { type: "DRAW_HAND", playerId: next.id };
     }
     case "action": {
+      // v2.14: a Drafting Loop is a modal sub-phase. The active picker
+      // (`loop.pickOrder[pickerIndex]`) may not be the current player.
+      // Route to that picker's bot — or yield if they're a human.
+      if (state.draftingLoop) {
+        const loop = state.draftingLoop;
+        const pickerId = loop.pickOrder[loop.pickerIndex];
+        if (!pickerId) {
+          throw new Error("drafting loop has no current picker");
+        }
+        const picker = state.players.find((p) => p.id === pickerId);
+        if (picker && picker.isBot === false) return null;
+        return chooseDraftAction(state, pickerId);
+      }
       const current = state.players[state.currentPlayerIndex];
       if (!current) throw new Error("no current player in action phase");
       // v2.9: each turn opens with the current player rolling demand.
@@ -139,6 +157,15 @@ export function awaitingHumanInput(state: GameState): PlayerState | null {
       .map((id) => state.players.find((p) => p.id === id))
       .find((p): p is PlayerState => p !== undefined && !p.starterPassed);
     if (nextActor && nextActor.isBot === false) return nextActor;
+  } else if (state.phase === "action" && state.draftingLoop) {
+    // v2.14: during a Drafting Loop, the seat the engine is awaiting
+    // is the current picker — not the current player.
+    const loop = state.draftingLoop;
+    const pickerId = loop.pickOrder[loop.pickerIndex];
+    const picker = pickerId
+      ? state.players.find((p) => p.id === pickerId)
+      : undefined;
+    if (picker && picker.isBot === false) return picker;
   }
   return null;
 }

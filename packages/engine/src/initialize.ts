@@ -133,23 +133,20 @@ export function initializeGame(config: GameConfig): GameState {
       // Set by ROLL_DEMAND when the player has any un-aged aging
       // barrels; cleared by AGE_BOURBON.
       needsAgeBarrels: false,
+      // v2.14: each player gets one Drafting Loop initiation per round.
+      // Reset at cleanup.
+      draftingLoopUsedThisRound: false,
     };
   });
 
-  // Bourbon deck (mash bills NOT already drafted to players). After
-  // shuffle we deal the top 3 bills to a face-up row beside the deck;
-  // the rest stay face-down. "Top of deck" is the array tail.
+  // Bourbon deck (mash bills NOT already drafted to players). All
+  // unclaimed bills stay face-down — v2.14 retires the face-up bill
+  // row; bills surface only during the Drafting Loop. "Top of deck"
+  // is the array tail.
   const bourbonSeed = config.bourbonDeck ?? defaultMashBillCatalog();
   const bourbonShuffle = shuffleCards(bourbonSeed, rngState);
   rngState = bourbonShuffle.rngState;
   const bourbonShuffled = bourbonShuffle.shuffled;
-  const FACEUP_BOURBON_SIZE = 3;
-  const faceUpCount = Math.min(FACEUP_BOURBON_SIZE, bourbonShuffled.length);
-  // Pop from the tail (top) so the face-up row reflects the deck order.
-  const bourbonFaceUp = bourbonShuffled.splice(
-    bourbonShuffled.length - faceUpCount,
-    faceUpCount,
-  );
 
   // Unified market supply: resources + Labor + ops + investments in a
   // single shuffled pool. The top 10 cards form the face-up market;
@@ -203,8 +200,8 @@ export function initializeGame(config: GameConfig): GameState {
     marketSupplyDeck,
     marketDiscard: [],
     bourbonDeck: bourbonShuffled,
-    bourbonFaceUp,
     bourbonDiscard: [],
+    draftingLoop: null,
     demand: startingDemand,
     demandRolls: [],
     finalRoundTriggered: false,

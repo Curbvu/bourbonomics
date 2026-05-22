@@ -62,7 +62,7 @@ const STOPS: TourStop[] = [
   {
     id: "supply",
     title: "The Bourbon Supply",
-    body: "More bourbon recipes live in this deck. Pay 1 for a blind draw or 1/1/2/3/4 by tier for a face-up bill — in rep, Labor, or a mix. The bill drops into an open slot as a fresh **ready** barrel. **When the deck runs dry, the game ends.**",
+    body: "More bourbon recipes live in this deck. Tap **Draft bills** to seed a draft pile with one card and reveal 3 bills — take any number for 1 card each, then the pile passes left so others can scavenge or take. **When the deck runs dry, the game ends.**",
     spotlight: { kind: "supply" },
   },
   {

@@ -44,9 +44,10 @@ export function playerRickhouseFull(state: GameState, playerId: string): boolean
 }
 
 /**
- * v2.6 "open slot" — a slot id that holds NO barrel at all. Distinct
- * from a "ready" slot (bill present, no commits) which is taken from
- * a draw-target perspective. DRAW_MASH_BILL targets open slots only.
+ * "open slot" — a slot id that holds NO barrel at all. Distinct from a
+ * "ready" slot (bill present, no commits) which is taken from a
+ * drafting-target perspective. The Drafting Loop and Allocation only
+ * place bills into open slots.
  */
 export function emptySlotsFor(state: GameState, playerId: string): string[] {
   const player = findPlayer(state, playerId);
@@ -126,6 +127,8 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
     p.outForRound = false;
     p.demandSurgeActive = false;
     p.pendingHalfCostMarketBuy = false;
+    // v2.14: each player gets one Drafting Loop initiation per round.
+    p.draftingLoopUsedThisRound = false;
     // savedCard intentionally NOT cleared — it carries into
     // next round's draw (see DRAW_HAND apply).
   }
@@ -181,3 +184,25 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
 }
 
 const MARKET_REFRESH_SIZE = 10;
+
+/**
+ * Doomsday clock — fires when the bourbon deck is empty AND no in-flight
+ * loop is holding bills that might still shuffle back. The loop's
+ * `revealedBills` are *potentially* returning to the deck on close, so
+ * we defer the trigger while any are still face-up; an empty
+ * `revealedBills` with an active loop is fine (the loop is just passing
+ * cards around at that point).
+ *
+ * Cheap to run after every action. Called by `applyAction` post-
+ * dispatch so any path that drains the bourbon supply (Drafting Loop
+ * take, Allocation pop, setup top-up) triggers consistently.
+ */
+export function maybeTriggerFinalRound(draft: Draft<GameState>): void {
+  if (draft.finalRoundTriggered) return;
+  if (draft.bourbonDeck.length > 0) return;
+  if (draft.draftingLoop && draft.draftingLoop.revealedBills.length > 0) {
+    return;
+  }
+  draft.finalRoundTriggered = true;
+  draft.finalRoundTriggerPlayerIndex = draft.currentPlayerIndex;
+}

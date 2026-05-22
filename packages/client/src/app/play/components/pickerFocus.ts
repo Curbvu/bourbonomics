@@ -46,10 +46,9 @@ function useFocusedZones(): Set<FocusZone> | null {
       : new Set<FocusZone>(["rickhouse-self"]);
   }
   if (drawBillMode) {
-    const step1 = !drawBillMode.blind && !drawBillMode.pickedMashBillId;
-    return step1
-      ? new Set<FocusZone>(["market-mash-bills"])
-      : new Set<FocusZone>(["hand-resources"]);
+    // v2.14: the Drafting Loop initiate picker is a single-step hand-
+    // card pick. Always focus the hand.
+    return new Set<FocusZone>(["hand-resources"]);
   }
   if (buyMode) {
     return buyMode.pickedTarget

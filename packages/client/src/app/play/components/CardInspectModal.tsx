@@ -22,7 +22,7 @@ import type {
   OperationsCard,
   ResourceSubtype,
 } from "@bourbonomics/engine";
-import { bandIndex, mashBillBuildCost, mashBillCost } from "@bourbonomics/engine";
+import { bandIndex, mashBillBuildCost } from "@bourbonomics/engine";
 import { useGameStore, type InspectPayload } from "@/lib/store/game";
 import {
   LABOR_CHROME,
@@ -882,8 +882,6 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
       <CornerOrnament pos="bl" tone={chrome.label} />
       <CornerOrnament pos="br" tone={chrome.label} />
 
-      <DetailCornerCost cost={mashBillCost(bill)} />
-
       {/* Tier ribbon — uses the rarity-specific pill chrome (gold ribbon
           for legendary, etc.) so the badge alone tells the player what
           they're looking at. */}
@@ -945,18 +943,14 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
         </span>
       </div>
 
-      {/* Tuning footer — `cost` is the bill's market draw price; `build`
-          is the implicit total resource investment to make one barrel
-          (basic = 1, specialty = 4, plus the draw cost). Useful for
-          ranking bills against each other while balancing payouts. */}
+      {/* Tuning footer — `build` is the implicit total resource
+          investment to make one barrel (basic = 1, specialty = 2, plus
+          1 card paid into the Drafting Loop). Useful for ranking bills
+          against each other while balancing payouts. */}
       <div className="mt-1 flex items-center justify-center gap-5 border-t border-white/10 pt-2 font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
-        <span className="flex items-center gap-1.5">
-          <span className="text-slate-500">cost</span>
-          <MoneyText n={mashBillCost(bill)} className="font-display text-[13px] font-bold text-amber-200" />
-        </span>
         <span
           className="flex items-center gap-1.5"
-          title="Implicit build cost: 1 per basic resource + 4 per specialty (3 market + 1 sale bonus) + draw cost"
+          title="Implicit build cost: 1 per basic resource + 2 per specialty + 1 card paid into the Drafting Loop"
         >
           <span className="text-slate-500">build</span>
           <span className="font-display text-[13px] font-bold tabular-nums text-emerald-200">

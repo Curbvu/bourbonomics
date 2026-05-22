@@ -526,13 +526,12 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
   const isMultiSelected = !inAnyPicker && selectedHandCardIds.includes(card.id);
   const isSelected =
     isBuySelected || isAgeSelected || isDrawSelected || isMakeSelected || isSellSelected || isMultiSelected;
-  // In draw-bill step 1 (no target picked yet), hand cards are NOT
-  // tag-clickable â€” only the bourbon row is. Click should fall through
-  // to inspect.
-  const drawStep1 =
-    inDrawBillMode &&
-    !drawBillMode!.blind &&
-    !drawBillMode!.pickedMashBillId;
+  // v2.14: the draft-initiate picker is a one-step single-card flow —
+  // no "step 1 / step 2" distinction. Kept as `drawStep1 = false` so
+  // the downstream click-routing path below (which gates seed-tagging
+  // on `!drawStep1`) keeps working without renames.
+  const drawStep1 = false;
+  void drawBillMode;
   const buyClass = tutorialLocked
     ? "opacity-30 saturate-50"
     : tutorialHighlighted && !inAnyPicker && !isMultiSelected

@@ -178,7 +178,7 @@ describe("v2.10 â€” Distillery ability hooks", () => {
     ).toThrow(/Wheated Baron cannot commit rye/);
   });
 
-  it("High-Rye House: rejects drafting wheated bills from face-up row", () => {
+  it("High-Rye House: rejects taking wheated bills via the Drafting Loop", () => {
     const wheated = makeMashBill(
       {
         defId: "test_wheated2",
@@ -197,38 +197,39 @@ describe("v2.10 â€” Distillery ability hooks", () => {
         { id: "p2", name: "B" },
       ],
       startingDistilleries: [pickDistillery("high_rye_house"), pickDistillery("vanilla")],
-      // Skip auto top-up of slotted bills; place the wheated bill
-      // directly into face-up so we can try to draft it.
       startingMashBills: [[], []],
       bourbonDeck: [wheated, ...defaultMashBillCatalog()],
       starterDecks: [defaultStarterCards("p1"), defaultStarterCards("p2")],
     });
     state = advanceToActionPhase(state, [1, 1]);
-    // Clear v2.9 per-turn age gate â€” these tests don't exercise it.
+    // Clear the v2.9 per-turn age gate — these tests don't exercise it.
     state = {
       ...state,
       players: state.players.map((p) => ({ ...p, needsAgeBarrels: false })),
     };
-    // Move the wheated bill into the face-up row.
+    // Stand up a loop directly with the wheated bill in the revealed
+    // set so we can try (and fail) to take it as High-Rye House. The
+    // pile is non-empty so the validator's hand-membership check on
+    // payment cards is exercised normally.
+    const seedCard = state.players.find((p) => p.id === "p1")!.hand[0]!;
+    const payCard = state.players.find((p) => p.id === "p1")!.hand[1]!;
     state = {
       ...state,
-      bourbonFaceUp: [wheated, ...state.bourbonFaceUp.filter((b) => b.id !== wheated.id)],
-      bourbonDeck: state.bourbonDeck.filter((b) => b.id !== wheated.id),
-    };
-    // v2.11: bill draws cost rep — give the player enough to attempt.
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1" ? { ...p, reputation: 5 } : p,
-      ),
+      draftingLoop: {
+        initiatorId: "p1",
+        pickOrder: ["p1", "p2"],
+        pickerIndex: 0,
+        pickerStage: "bill",
+        draftPile: [seedCard],
+        revealedBills: [wheated],
+      },
     };
     expect(() =>
       applyAction(state, {
-        type: "DRAW_MASH_BILL",
+        type: "DRAFT_TAKE_BILL",
         playerId: "p1",
         mashBillId: wheated.id,
-        rep: 2,
-        laborCardIds: [],
+        paymentCardId: payCard.id,
       }),
     ).toThrow(/wheated/i);
   });

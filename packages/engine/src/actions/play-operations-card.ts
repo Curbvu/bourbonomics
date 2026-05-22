@@ -8,7 +8,12 @@ import type {
   ValidationResult,
 } from "../types";
 import { drawWithReshuffle } from "../deck";
-import { emptySlotsFor, isCurrentPlayer, slottedBillCount } from "../state";
+import {
+  emptySlotsFor,
+  isCurrentPlayer,
+  maybeTriggerFinalRound,
+  slottedBillCount,
+} from "../state";
 import { placeBillInSlot } from "../starter-pool";
 
 type PlayOperationsCardAction = Extract<GameAction, { type: "PLAY_OPERATIONS_CARD" }>;
@@ -454,6 +459,8 @@ export function applyPlayOperationsCard(
           break;
         }
       }
+      // v2.14: Allocation can drain the bourbon deck.
+      maybeTriggerFinalRound(draft);
       break;
     }
 

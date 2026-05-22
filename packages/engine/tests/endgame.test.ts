@@ -11,7 +11,7 @@ import {
 } from "./helpers.js";
 
 describe("Final round trigger", () => {
-  it("drawing the last mash bill flips finalRoundTriggered", () => {
+  it("claiming the last revealed bill flips finalRoundTriggered", () => {
     const onlyBill = makeMashBill(
       {
         defId: "lastman",
@@ -22,28 +22,39 @@ describe("Final round trigger", () => {
       },
       0,
     );
-    // With v2.2 face-up bourbon row, a single starting bill gets dealt
-    // to the face-up row and the deck starts empty. The face-up pick is
-    // what triggers the final round.
+    // v2.14: a single starting bill stays face-down in the bourbon
+    // deck. Initiating the Drafting Loop reveals it; the deck goes
+    // empty as the reveal happens. Taking the bill empties the loop's
+    // revealedBills too — that's the doomsday moment.
     let state = makeTestGame({ bourbonDeck: [onlyBill] });
     state = advanceToActionPhase(state);
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1" ? { ...p, reputation: 5, hand: [] } : p,
-      ),
-    };
-    expect(state.bourbonFaceUp).toHaveLength(1);
+    state = giveHand(state, "p1", [
+      makeResourceCard("corn", "p1-seed", 0),
+      makeResourceCard("corn", "p1-pay", 1),
+    ]);
+    expect(state.bourbonDeck).toHaveLength(1);
+    expect(state.finalRoundTriggered).toBe(false);
+
+    const seedId = state.players.find((p) => p.id === "p1")!.hand[0]!.id;
     state = applyAction(state, {
-      type: "DRAW_MASH_BILL",
+      type: "INITIATE_DRAFTING_LOOP",
       playerId: "p1",
-      mashBillId: state.bourbonFaceUp[0]!.id,
-      rep: 1,
-      laborCardIds: [],
+      cardId: seedId,
+    });
+    expect(state.bourbonDeck).toHaveLength(0);
+    expect(state.draftingLoop?.revealedBills).toHaveLength(1);
+    // Loop active with bills face-up → trigger should NOT have fired.
+    expect(state.finalRoundTriggered).toBe(false);
+
+    const payId = state.players.find((p) => p.id === "p1")!.hand[0]!.id;
+    state = applyAction(state, {
+      type: "DRAFT_TAKE_BILL",
+      playerId: "p1",
+      mashBillId: onlyBill.id,
+      paymentCardId: payId,
     });
     expect(state.finalRoundTriggered).toBe(true);
-    expect(state.bourbonDeck).toHaveLength(0);
-    expect(state.bourbonFaceUp).toHaveLength(0);
+    expect(state.draftingLoop?.revealedBills).toHaveLength(0);
   });
 
   it("triggering during a round means cleanup ends the game (phase=ended) — not the next round", () => {
@@ -59,22 +70,31 @@ describe("Final round trigger", () => {
     );
     let state = makeTestGame({ bourbonDeck: [onlyBill] });
     state = advanceToActionPhase(state);
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1" ? { ...p, reputation: 5, hand: [] } : { ...p, hand: [] },
-      ),
-    };
+    state = giveHand(state, "p1", [
+      makeResourceCard("corn", "p1-seed", 0),
+      makeResourceCard("corn", "p1-pay", 1),
+    ]);
+    state = giveHand(state, "p2", []);
+
+    const seedId = state.players.find((p) => p.id === "p1")!.hand[0]!.id;
     state = applyAction(state, {
-      type: "DRAW_MASH_BILL",
+      type: "INITIATE_DRAFTING_LOOP",
       playerId: "p1",
-      mashBillId: state.bourbonFaceUp[0]!.id,
-      rep: 1,
-      laborCardIds: [],
+      cardId: seedId,
+    });
+    const payId = state.players.find((p) => p.id === "p1")!.hand[0]!.id;
+    state = applyAction(state, {
+      type: "DRAFT_TAKE_BILL",
+      playerId: "p1",
+      mashBillId: onlyBill.id,
+      paymentCardId: payId,
     });
     expect(state.finalRoundTriggered).toBe(true);
-    // v2.2: DRAW_MASH_BILL does not end p1's turn — they must PASS_TURN
-    // explicitly. Once both seats pass, cleanup ends the game.
+    // Loop is still active; p1 must pass it along, then p2 passes,
+    // then both pass their action turns.
+    state = applyAction(state, { type: "DRAFT_PASS", playerId: "p1" });
+    state = applyAction(state, { type: "DRAFT_PASS", playerId: "p2" });
+    expect(state.draftingLoop).toBeNull();
     expect(state.phase).toBe("action");
     state = passTurn(state, "p1");
     state = passTurn(state, "p2");
