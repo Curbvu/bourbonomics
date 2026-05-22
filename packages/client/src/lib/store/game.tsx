@@ -77,14 +77,15 @@ import type { SpotlightTarget } from "@/app/tutorial/types";
 
 // Storage key is versioned and bumped whenever the engine schema or
 // canonical catalog changes (so legacy saves don't crash on hydrate).
-// v2.6 bump: mash bills are now slot-bound — `player.mashBills` and
-// `player.unlockedGoldBourbons` are removed from PlayerState; barrels
-// gained a "ready" phase; SELL_BOURBON's action shape changed
-// (`goldBourbonId` → `goldChoice` + `goldConvertTargetSlotId`); and
-// MAKE_BOURBON dropped its `mashBillId` parameter. Old saves would
-// hydrate without slot-bound bills, so we drop them.
-const STORAGE_KEY = "bourbonomics:v2.6.0-game";
-const AUTOPLAY_KEY = "bourbonomics:v2.6.0-autoplay";
+// v2.14 bump: `bourbonFaceUp` field removed from GameState; new
+// `draftingLoop` sub-phase state added; per-player
+// `draftingLoopUsedThisRound` flag added; `DRAW_MASH_BILL` action
+// replaced by four DRAFT_* actions. Old saves would hydrate without
+// these fields and `state.bourbonFaceUp` would still be present —
+// any component that reads it would crash. New key forces a clean
+// slate for anyone with a pre-v2.14 save.
+const STORAGE_KEY = "bourbonomics:v2.14.0-game";
+const AUTOPLAY_KEY = "bourbonomics:v2.14.0-autoplay";
 const AUTO_STEP_MS = 280;
 
 // `NewGameSeat` and `NewGameConfig` now live in `@bourbonomics/engine`
