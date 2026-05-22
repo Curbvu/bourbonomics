@@ -177,7 +177,7 @@ function LaborDetail({ card }: { card: Card }) {
       <div className="flex items-center gap-4">
         <div
           aria-hidden
-          className={`grid h-20 w-20 flex-shrink-0 place-items-center rounded-full border-2 bg-white/10 text-5xl shadow-[inset_0_1px_4px_rgba(255,255,255,.18)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
+          className={`grid h-20 w-20 flex-shrink-0 place-items-center rounded-full border-2 bg-white/10 text-5xl font-emoji shadow-[inset_0_1px_4px_rgba(255,255,255,.18)] backdrop-blur-sm ${chrome.border} ${chrome.ink}`}
         >
           {laborGlyphFor(sub)}
         </div>

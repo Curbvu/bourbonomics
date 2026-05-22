@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 /**
  * Center column — the public face of the table.
@@ -103,13 +103,13 @@ export default function MarketCenter() {
  * Top-level peer section in the market column. Every section (Market,
  * Mash bills, Operations, Investments) shares the same chrome:
  *
- *   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
- *   â”‚ T â”‚ â•Ž  [card] [card] [card] ...                     â”‚
- *   â”‚ I â”‚ â•Ž                                                â”‚
- *   â”‚ T â”‚ â•Ž                                                â”‚
- *   â”‚ L â”‚ â•Ž                                                â”‚
- *   â”‚ E â”‚ â•Ž                                                â”‚
- *   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+ *   ┌─────────────────────────────────────────────────────┐
+ *   │ T │ ╎  [card] [card] [card] ...                     │
+ *   │ I │ ╎                                                │
+ *   │ T │ ╎                                                │
+ *   │ L │ ╎                                                │
+ *   │ E │ ╎                                                │
+ *   └─────────────────────────────────────────────────────┘
  *
  * The vertical title (writing-mode: vertical-rl) anchors the section
  * without eating a full row of vertical space. A thin vertical lining
@@ -139,7 +139,7 @@ function Section({
       data-zone={zone}
       {...dataProps}
       className={[
-        // Fixed height = card (140) + padding (p-1.5 â†’ 12) + border (2)
+        // Fixed height = card (140) + padding (p-1.5 → 12) + border (2)
         // + 4px breathing room. Locks the box to card-and-a-half-buffer
         // so the layout never tries to stretch a row taller than its
         // contents and start a vertical scrollbar.
@@ -179,7 +179,7 @@ function SideCaption({ title, tag }: { title: string; tag?: string }) {
           </span>
         ) : null}
       </div>
-      {/* Vertical lining â€” anchors the title against the card row. */}
+      {/* Vertical lining — anchors the title against the card row. */}
       <div className="w-px self-stretch bg-slate-700/60" aria-hidden />
     </div>
   );
@@ -232,7 +232,7 @@ function FaceUpRow({
 }
 
 // -----------------------------
-// Card tiles â€” all share CARD_SIZE_CLASS
+// Card tiles — all share CARD_SIZE_CLASS
 // -----------------------------
 
 const baseTile = `relative flex flex-shrink-0 flex-col overflow-hidden rounded-md border-2 p-1.5 text-left shadow-[0_4px_12px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-transform duration-150 cursor-pointer hover:-translate-y-1 hover:scale-[1.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${CARD_SIZE_CLASS}`;
@@ -248,7 +248,7 @@ const baseTile = `relative flex flex-shrink-0 flex-col overflow-hidden rounded-m
  *   click STARTS buy mode, pre-targets this slot, and carries any
  *   currently multi-selected hand cards over as the proposed spend.
  *   This lets the player skip the toolbar's BUY MARKET button entirely
- *   â€” the muted picker was hard to find.
+ *   — the muted picker was hard to find.
  * - Otherwise (not your turn, can't afford, or no useful action): click
  *   falls back to the inspect modal so the card is still readable.
  */
@@ -299,7 +299,7 @@ function useMarketBuyState(
     state.phase === "action" &&
     state.players[state.currentPlayerIndex]?.id === seatId;
   // Tutorial gating. When an await-action beat spotlights a specific
-  // market slot, lock the OTHER slots out of any buy action â€” clicks
+  // market slot, lock the OTHER slots out of any buy action — clicks
   // on non-spotlit cards fall through to inspect, and the cards mute
   // hard. Only the conveyor is gated this way; the ops row is gated
   // independently if a future beat spotlights it.
@@ -318,7 +318,7 @@ function useMarketBuyState(
       : isPicked
         ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
         : someoneElsePicked
-          ? // Some other card is picked â€” focus collapses onto the picked
+          ? // Some other card is picked — focus collapses onto the picked
             // card + the hand spend cards. Mute me hard so the eye lands
             // on the BuyOverlay's Confirm without distraction.
             "opacity-30 saturate-50"
@@ -326,7 +326,7 @@ function useMarketBuyState(
             ? "ring-2 ring-emerald-400/60"
             : "opacity-40 saturate-50";
   // Shimmer stops the moment the spotlit tile becomes the picked buy
-  // target â€” the picked-card ring + BuyOverlay carry the focus from
+  // target — the picked-card ring + BuyOverlay carry the focus from
   // there, no need to keep pulsing.
   const shouldShimmer = isTutorialSpotlit && !isPicked;
   return {
@@ -391,7 +391,7 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
           e.preventDefault();
           setInspect({ kind: "labor", card });
         }}
-        title={`${titleLabel} Â· contributes +${contribution} toward ${sub === "generic" || !sub ? "any" : sub.replace("_", " ")} buys Â· costs ${cost} rep to acquire`}
+        title={`${titleLabel} · contributes +${contribution} toward ${sub === "generic" || !sub ? "any" : sub.replace("_", " ")} buys · costs ${cost} rep to acquire`}
         className={[baseTile, chrome.gradient, chrome.border, buyClass, shimmer].join(" ")}
       >
         <Sheen />
@@ -412,12 +412,12 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
         <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
           <span
             aria-hidden
-            className="font-display text-[20px] leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
+            className="font-emoji text-[20px] leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
           >
             {laborGlyphFor(sub)}
           </span>
           <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
-            +{contribution} Â· {subtypeLabel === "Worker" ? "any buy" : subtypeLabel.toLowerCase()}
+            +{contribution} · {subtypeLabel === "Worker" ? "any buy" : subtypeLabel.toLowerCase()}
           </span>
         </div>
       </button>
@@ -452,7 +452,7 @@ function ConveyorCard({ card, slotIndex }: { card: Card; slotIndex: number }) {
   const subtype = card.subtype as ResourceSubtype;
   const chrome = RESOURCE_CHROME[subtype];
   const count = card.resourceCount ?? 1;
-  const titleLabel = card.displayName ?? `${count > 1 ? `${count}Ã— ` : ""}${RESOURCE_LABEL[subtype]}`;
+  const titleLabel = card.displayName ?? `${count > 1 ? `${count}× ` : ""}${RESOURCE_LABEL[subtype]}`;
   const isWildcard = (card.aliases?.length ?? 0) > 0;
   return (
     <button
@@ -737,7 +737,7 @@ function DrawPile({
   const titleText =
     interactive && clickTitle
       ? clickTitle
-      : `${label} Â· ${remaining} card${remaining === 1 ? "" : "s"} remaining`;
+      : `${label} · ${remaining} card${remaining === 1 ? "" : "s"} remaining`;
   const baseClass = [
     baseTile,
     interactive ? "" : "cursor-default hover:translate-y-0 hover:scale-100",

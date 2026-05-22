@@ -14,6 +14,64 @@
   --font-sans: var(--font-inter);
   --font-mono: var(--font-jb);
   --font-display: var(--font-cormorant);
+  /* Explicit emoji-only stack so chrome rendering hammer (🔨) / axe (🪓)
+     / megaphone (📣) / ruler (📐) doesn't fall back to a serif's
+     missing-glyph box on Windows machines without Color Emoji bundled
+     into the body font. Applied via `font-emoji` on the labor glyph
+     spans across HandTray / MarketCenter / inspect modal / flights. */
+  --font-emoji:
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+    "Twemoji Mozilla", "EmojiOne Color", "Android Emoji", system-ui,
+    sans-serif;
+}
+
+/* `font-emoji` utility — Tailwind v4 generates it from --font-emoji
+   via the @theme block, but stating it explicitly keeps lint quiet. */
+.font-emoji {
+  font-family: var(--font-emoji);
+}
+
+/* ----------------------------------------------------------------------
+   Selected-hand-card shimmer. When a card in HandTray is in the
+   "selected" state (any picker mode or multi-select), the outer
+   button gets `.bb-hand-selected`, which lifts it with a translate
+   and lays an animated gold gradient sweep on top of the existing
+   amber ring.
+   ---------------------------------------------------------------------- */
+@keyframes bb-hand-shimmer {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+/* Lift the selected card with `top` — the card is `position: relative`
+   already, so a negative top offsets it visually without disturbing
+   the flex layout (siblings keep their slots). Tailwind v4's transform
+   chain on these elements clobbers our translate even when marked
+   `!important`, and margins get reset by flex parents — `top` sails
+   through both. Specificity bumped via the data-attr so we win
+   against any future `.bb-hand-*` utility in the same layer. */
+[data-bb-hand-card].bb-hand-selected {
+  top: -10px;
+  transition: top 0.18s ease-out;
+}
+[data-bb-hand-card].bb-hand-selected::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      120deg,
+      transparent 25%,
+      rgba(252, 211, 77, 0.55) 45%,
+      rgba(254, 240, 138, 0.85) 50%,
+      rgba(252, 211, 77, 0.55) 55%,
+      transparent 75%
+    );
+  background-size: 220% 100%;
+  mix-blend-mode: screen;
+  animation: bb-hand-shimmer 1.8s linear infinite;
+  z-index: 5;
 }
 
 @media (prefers-color-scheme: dark) {

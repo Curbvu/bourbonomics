@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 /**
  * HandTray — bottom-of-canvas strip showing the focused player's hand.
@@ -45,7 +45,7 @@ export default function HandTray() {
   const { state, seatMeta, multiplayerMode } = useGameStore();
   if (!state) return null;
   // In multiplayer, the tray belongs to whichever seat THIS connection
-  // owns â€” not the first non-bot, which would be the host on every
+  // owns — not the first non-bot, which would be the host on every
   // remote screen. Spectators (no claimed seat) see no tray; they
   // observe via the Rickhouse strip + RoomBanner instead.
   const focused = multiplayerMode
@@ -73,25 +73,25 @@ export default function HandTray() {
 
   return (
     <div data-hand-tray="true" className="border-t border-slate-800 bg-slate-950/90">
-      {/* Interactive Buy mode â€” sticky bar above the action bar; only
+      {/* Interactive Buy mode — sticky bar above the action bar; only
           paints when the player has clicked Buy market. */}
       <BuyOverlay />
-      {/* Interactive Age mode â€” same idiom; only paints when the player
+      {/* Interactive Age mode — same idiom; only paints when the player
           has clicked "Age barrel" and is picking a barrel + pay-card. */}
       <AgeOverlay />
-      {/* Interactive Sell mode â€” auto-fires once both barrel and spend
+      {/* Interactive Sell mode — auto-fires once both barrel and spend
           card are picked. Status bar shows the running rep estimate. */}
       <SellOverlay />
-      {/* Interactive Draw-bill mode â€” single-select card-pay picker;
+      {/* Interactive Draw-bill mode — single-select card-pay picker;
           blind draw of the top mash bill. */}
       <DrawBillOverlay />
-      {/* Interactive Make mode â€” pick a mash bill, then tag the cards
+      {/* Interactive Make mode — pick a mash bill, then tag the cards
           to commit. */}
       <MakeOverlay />
-      {/* Action bar â€” controls for the human seat during the action phase. */}
+      {/* Action bar — controls for the human seat during the action phase. */}
       <ActionBar />
 
-      {/* Identity + reputation strip â€” compacted: smaller logo, single
+      {/* Identity + reputation strip — compacted: smaller logo, single
           line for everything, slimmer Y padding. The whole strip
           carries `data-bb-zone="reputation"` so the tutorial spotlight
           has a tall enough hit-box to ring; the inner Rep block alone
@@ -108,7 +108,7 @@ export default function HandTray() {
               {focused.name}
             </span>
             <span className="font-mono text-[9px] uppercase tracking-[.12em] text-slate-500">
-              {focused.distillery?.name ?? "no distillery"} Â· hand {focused.hand.length}/{focused.handSize}
+              {focused.distillery?.name ?? "no distillery"} · hand {focused.hand.length}/{focused.handSize}
             </span>
           </div>
         </div>
@@ -126,17 +126,17 @@ export default function HandTray() {
           <Stat label="deck" value={focused.deck.length} />
           <Stat label="disc" value={focused.discard.length} />
           <Stat label="sold" value={focused.barrelsSold} />
-          {/* v2.6: unlockedGoldBourbons removed â€” Gold awards now manipulate slots. */}
+          {/* v2.6: unlockedGoldBourbons removed — Gold awards now manipulate slots. */}
         </div>
       </div>
 
-      {/* Card sections â€” laid out left-to-right with the deck pile
+      {/* Card sections — laid out left-to-right with the deck pile
           anchored at the far-left, and the (mixed) Resources accordion
           taking the remaining space. No horizontal scrollbar: the
           accordion clips overflow and the cards fan tighter via
           HAND_CARD_OVERLAP. */}
       <div className="flex items-stretch gap-[10px] overflow-hidden px-[14px] py-1.5">
-        {/* Deck pile â€” far left. Two stacked counters: deck + discard. */}
+        {/* Deck pile — far left. Two stacked counters: deck + discard. */}
         <DeckPile deckCount={focused.deck.length} discardCount={focused.discard.length} />
 
         <Divider />
@@ -165,10 +165,10 @@ export default function HandTray() {
             from the moment they're drawn and rendered on each
             rickhouse slot in `RickhouseRow`. */}
 
-        {/* Operations â€” pending future release: hand display kept for
+        {/* Operations — pending future release: hand display kept for
             visual consistency but rendered fully greyscale + dim with
             an overlay sash so the "feature off" status reads at a glance. */}
-        <Section caption="ops Â· pending" count={focused.operationsHand.length} zone="hand-ops">
+        <Section caption="ops · pending" count={focused.operationsHand.length} zone="hand-ops">
           <div className="relative pointer-events-none [filter:grayscale(1)_brightness(0.5)] opacity-30">
             {focused.operationsHand.length === 0 ? (
               <EmptyPill>pending future release</EmptyPill>
@@ -205,13 +205,13 @@ const SUBTYPE_ORDER: Record<string, number> = {
 
 /**
  * Two-card silhouette showing the player's deck + discard counts in the
- * dev-branch "cash" position. Self-contained â€” no clicks. The visuals
+ * dev-branch "cash" position. Self-contained — no clicks. The visuals
  * are intentionally minimal: a stacked deck back + the running totals.
  */
 function DeckPile({ deckCount, discardCount }: { deckCount: number; discardCount: number }) {
   // Pulse the discard tile whenever its count grows (purchases land
   // here, sales drop spent + aging cards, etc.). Tracking the count
-  // â€” not `lastPurchase.seq` â€” keeps the pulse focused on this
+  // — not `lastPurchase.seq` — keeps the pulse focused on this
   // player's pile and naturally ignores bot purchases.
   const [pulseKey, setPulseKey] = useState(0);
   const prevCountRef = useRef(discardCount);
@@ -274,7 +274,7 @@ function PileTile({
   return (
     <div
       data-purchase-target={purchaseTarget ? "discard" : undefined}
-      title={`${label} Â· ${count} card${count === 1 ? "" : "s"}`}
+      title={`${label} · ${count} card${count === 1 ? "" : "s"}`}
       className={[
         "relative flex flex-col items-center justify-between overflow-hidden rounded-md border-2 p-1.5 ring-1 ring-white/10",
         palette.border,
@@ -291,7 +291,7 @@ function PileTile({
         className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent`}
         aria-hidden
       />
-      {/* Pulse overlay â€” flashes on every fresh `pulseKey`. Re-keying
+      {/* Pulse overlay — flashes on every fresh `pulseKey`. Re-keying
           the element re-runs the keyframe so back-to-back purchases
           each get their own flash. */}
       {pulseKey != null ? (
@@ -440,7 +440,7 @@ function EmptyPill({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Spread row â€” children sit side-by-side with a small gap so every
+ * Spread row — children sit side-by-side with a small gap so every
  * card is fully readable without hover. The outer wrapper allows the
  * row to overflow horizontally when the hand grows past the available
  * width (rather than crushing the cards into an accordion fan).
@@ -493,7 +493,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     commitHandCardImmediate,
     tutorialHandFilter,
   } = useGameStore();
-  // Tutorial gate â€” when an await-action beat narrows the hand (e.g.
+  // Tutorial gate — when an await-action beat narrows the hand (e.g.
   // "resource cards only" for a Make commit), cards that don't pass
   // the predicate mute and become inspect-only. Cards that DO pass
   // get a soft amber tutorial highlight.
@@ -516,12 +516,12 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
   const isDrawSelected =
     inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
   const isMakeSelected = inMakeMode && makeMode!.spendCardIds.includes(card.id);
-  // v2.10: sell mode no longer has a per-card pick â€” barrel click
+  // v2.10: sell mode no longer has a per-card pick — barrel click
   // auto-fires the sale. Kept the flag so isSellSelected uniformly
   // resolves to false without restructuring the boolean ladder.
   const isSellSelected = false;
   const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode || inSellMode;
-  // v2.10 multi-select â€” only meaningful when no picker mode is open;
+  // v2.10 multi-select — only meaningful when no picker mode is open;
   // the pickers own selection semantics themselves.
   const isMultiSelected = !inAnyPicker && selectedHandCardIds.includes(card.id);
   const isSelected =
@@ -541,7 +541,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
         "ring-2 ring-amber-300/70 shadow-[0_0_12px_rgba(252,211,77,.4)]"
       : !inAnyPicker
         ? isMultiSelected
-          ? // v2.10 multi-select â€” same amber chrome the picker modes use,
+          ? // v2.10 multi-select — same amber chrome the picker modes use,
             // so the visual is consistent regardless of how the player
             // selected (mode picker or persistent selection).
             "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
@@ -552,8 +552,8 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
             ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
             : inAgeMode
               ? // v2.9: every hand card is a legal age payment, so light
-                // them all up with a soft sky glow â€” same idiom as the
-                // ageable rickhouse barrels â€” so the player can see at a
+                // them all up with a soft sky glow — same idiom as the
+                // ageable rickhouse barrels — so the player can see at a
                 // glance that ANY card here commits.
                 "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
               : inDrawBillMode
@@ -616,25 +616,33 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
       data-drag-source={dragMake === card.id ? "active" : undefined}
       title={
         inMakeMode
-          ? `${isMakeSelected ? "Unselect" : "Tag"} this card Â· double-click to commit it solo`
+          ? `${isMakeSelected ? "Unselect" : "Tag"} this card · double-click to commit it solo`
           : inDrawBillMode
             ? `${isDrawSelected ? "Unselect" : "Sacrifice"} this card to draw the top mash bill`
             : inAgeMode
-              ? `${isAgeSelected ? "Unselect" : "Commit"} this card to age the picked barrel Â· double-click for instant commit`
+              ? `${isAgeSelected ? "Unselect" : "Commit"} this card to age the picked barrel · double-click for instant commit`
               : inBuyMode
                 ? `${isBuySelected ? "Unselect" : "Select"} this card to pay B$1`
                 : inSellMode
-                  ? `${isSellSelected ? "Unselect" : "Spend"} this card as the sell-action cost Â· double-click for instant commit`
-                  : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` Â· counts as ${count}` : ""} â€” left-click to ${isMultiSelected ? "uncheck" : "check"}, drag the group onto a slot, right-click to inspect`
+                  ? `${isSellSelected ? "Unselect" : "Spend"} this card as the sell-action cost · double-click for instant commit`
+                  : `${RESOURCE_LABEL[subtype]}${count > 1 ? ` · counts as ${count}` : ""} — left-click to ${isMultiSelected ? "uncheck" : "check"}, drag the group onto a slot, right-click to inspect`
       }
-      className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
+      className={[
+        baseCardChrome,
+        chrome.gradient,
+        chrome.border,
+        overlap,
+        liftClass,
+        buyClass,
+        isSelected ? "bb-hand-selected" : "",
+      ].join(" ")}
     >
       {isSelected ? (
         <span
           className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
           aria-hidden
         >
-          âœ“
+          ✓
         </span>
       ) : (
         <CornerCost cost={cost} />
@@ -649,12 +657,12 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
         </span>
         {count > 1 ? (
           <span className={`ml-1 rounded border px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] ${chrome.borderSoft} ${chrome.ink}`}>
-            Ã—{count}
+            ×{count}
           </span>
         ) : null}
       </div>
       <h4 className={`mt-1 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
-        {card.displayName ?? (count > 1 ? `${count}Ã— ${RESOURCE_LABEL[subtype]}` : RESOURCE_LABEL[subtype])}
+        {card.displayName ?? (count > 1 ? `${count}× ${RESOURCE_LABEL[subtype]}` : RESOURCE_LABEL[subtype])}
       </h4>
       {card.flavor ? (
         <p className={`mt-0.5 line-clamp-2 font-display text-[8.5px] italic leading-snug ${chrome.label} opacity-90`}>
@@ -671,7 +679,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
 }
 
 
-// `MashBillCard` deleted in v2.6 â€” bills no longer enter the hand;
+// `MashBillCard` deleted in v2.6 — bills no longer enter the hand;
 // they live in rickhouse slots from draw to sale. The component went
 // dormant when `Section caption="Bills"` was removed and stayed
 // orphaned until this cleanup pass.
@@ -755,15 +763,23 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
       type="button"
       onClick={onClick}
       onContextMenu={onContextMenu}
-      title={`${subtypeLabel} Labor â€” contributes +${contribution} toward matching-domain purchases. Generic Labor also ages barrels.`}
-      className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass, buyClass].join(" ")}
+      title={`${subtypeLabel} Labor — contributes +${contribution} toward matching-domain purchases. Generic Labor also ages barrels.`}
+      className={[
+        baseCardChrome,
+        chrome.gradient,
+        chrome.border,
+        overlap,
+        liftClass,
+        buyClass,
+        isSelected ? "bb-hand-selected" : "",
+      ].join(" ")}
     >
       {isSelected ? (
         <span
           className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
           aria-hidden
         >
-          âœ“
+          ✓
         </span>
       ) : (
         <CornerCost cost={cost} />
@@ -788,12 +804,12 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
       <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
         <span
           aria-hidden
-          className="font-display text-[28px] leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
+          className="font-emoji text-[28px] leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]"
         >
           {laborGlyphFor(card.laborSubtype)}
         </span>
         <span className={`mt-1 font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label}`}>
-          +{contribution} Â· {subtypeLabel === "Worker" ? "any buy" : subtypeLabel.toLowerCase()}
+          +{contribution} · {subtypeLabel === "Worker" ? "any buy" : subtypeLabel.toLowerCase()}
         </span>
       </div>
     </button>
@@ -808,7 +824,7 @@ function OpsCard({ card, indexInRow }: { card: OperationsCard; indexInRow: numbe
     <button
       type="button"
       onClick={() => setInspect({ kind: "operations", card })}
-      title={`${card.name} â€” ${card.description}`}
+      title={`${card.name} — ${card.description}`}
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass].join(" ")}
     >
       <div
@@ -829,7 +845,7 @@ function OpsCard({ card, indexInRow }: { card: OperationsCard; indexInRow: numbe
         </p>
       ) : null}
       <div className={`mt-auto grid h-9 w-9 self-center place-items-center rounded-full border-2 bg-white/10 text-lg font-bold ${chrome.border} ${chrome.ink}`}>
-        âš¡
+        ⚡
       </div>
     </button>
   );
