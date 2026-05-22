@@ -3,28 +3,26 @@ import type {
   Card,
   GameAction,
   GameState,
-  OperationsCard,
   ValidationResult,
 } from "../types";
 import { laborContribution } from "../types";
+import { drawWithReshuffle } from "../deck";
 import { isCurrentPlayer } from "../state";
 
 type BuyOperationsCardAction = Extract<GameAction, { type: "BUY_OPERATIONS_CARD" }>;
 
-const FACEUP_OPS_SIZE = 3;
+const MARKET_SIZE = 10;
 
 /**
- * Buy a face-up operations card from the market into your operations
- * hand. Unified-rep payment model:
- *   total = rep + sum(laborCardIds → laborContribution(card, "ops"))
+ * Buy an operations card from the unified market. The picked slot must
+ * be an operations-typed market card carrying an `opSpec`.
  *
- * Marketing Labor (+2 toward ops) is the matching specialty. Cooper
- * and Architect contribute 0 here. Rep and Labor are fully fungible.
+ * Payment rules: rep + Labor (any mix). Marketing Labor (+2 toward
+ * ops) is the matching specialty; Cooper / Architect contribute 0.
  *
- * The face-up row is the top `FACEUP_OPS_SIZE` cards of
- * `operationsDeck`, shown reversed in the UI. The action's
- * `opsSlotIndex` (0..2) is a UI-coordinate index; we resolve it back
- * to the engine's deck order.
+ * The bought card transfers from the market into the player's
+ * operationsHand (the spec is copied with a fresh id + drawnInRound).
+ * The vacated market slot refills from the supply.
  */
 export function validateBuyOperationsCard(
   state: GameState,
@@ -39,14 +37,20 @@ export function validateBuyOperationsCard(
     return { legal: false, reason: "it is not your turn" };
   }
 
-  const card = resolveFaceUpOpsCard(state, action.opsSlotIndex);
+  const card = state.market[action.marketSlotIndex];
   if (!card) {
     return {
       legal: false,
-      reason: `operations slot ${action.opsSlotIndex} is empty or out of range`,
+      reason: `market slot ${action.marketSlotIndex} is empty or out of range`,
     };
   }
-  const cost = card.cost;
+  if (card.type !== "operations" || !card.opSpec) {
+    return {
+      legal: false,
+      reason: `market slot ${action.marketSlotIndex} is not an operations card`,
+    };
+  }
+  const cost = card.cost ?? card.opSpec.cost;
 
   if (!Number.isInteger(action.rep) || action.rep < 0) {
     return { legal: false, reason: "rep payment must be a non-negative integer" };
@@ -89,11 +93,19 @@ export function applyBuyOperationsCard(
   action: BuyOperationsCardAction,
 ): void {
   const player = draft.players.find((p) => p.id === action.playerId)!;
+  const marketCard = draft.market[action.marketSlotIndex]!;
+  const spec = marketCard.opSpec!;
 
-  // Find + remove the bought card from the operations deck (face-up row).
-  const idx = resolveFaceUpOpsIndex(draft, action.opsSlotIndex);
-  const [bought] = draft.operationsDeck.splice(idx, 1) as [OperationsCard];
-  player.operationsHand.push({ ...bought, drawnInRound: draft.round });
+  // Remove the bought card from the unified market.
+  draft.market.splice(action.marketSlotIndex, 1);
+
+  // Copy the spec into the player's operationsHand with a fresh id +
+  // current round.
+  player.operationsHand.push({
+    ...spec,
+    id: `ops_${spec.defId}_${draft.idCounter++}`,
+    drawnInRound: draft.round,
+  });
 
   player.reputation -= action.rep;
 
@@ -108,25 +120,23 @@ export function applyBuyOperationsCard(
   player.hand = newHand;
   player.discard.push(...spent);
 
-  // Face-up row = last 3 cards of operationsDeck. Splicing the bought
-  // card out shifts the rest down, so the next card "rises" into the
-  // empty face-up slot automatically — no extra draw needed.
-  // Note: turn does NOT end (free action).
-}
-
-/** Map a UI face-up index (0..2) to the engine's operationsDeck index. */
-function resolveFaceUpOpsIndex(state: GameState, uiSlot: number): number {
-  const total = state.operationsDeck.length;
-  const lastIndex = total - 1;
-  return lastIndex - uiSlot;
-}
-
-function resolveFaceUpOpsCard(
-  state: GameState,
-  uiSlot: number,
-): OperationsCard | null {
-  if (uiSlot < 0 || uiSlot >= FACEUP_OPS_SIZE) return null;
-  const idx = resolveFaceUpOpsIndex(state, uiSlot);
-  if (idx < 0 || idx >= state.operationsDeck.length) return null;
-  return state.operationsDeck[idx] ?? null;
+  // Refill the market slot from supply.
+  if (
+    draft.market.length < MARKET_SIZE &&
+    draft.marketSupplyDeck.length + draft.marketDiscard.length > 0
+  ) {
+    const result = drawWithReshuffle(
+      draft.marketSupplyDeck.slice(),
+      draft.marketDiscard.slice(),
+      1,
+      draft.rngState,
+    );
+    if (result.drawn.length > 0) {
+      draft.market.push(result.drawn[0]!);
+    }
+    draft.marketSupplyDeck = result.deck;
+    draft.marketDiscard = result.discard;
+    draft.rngState = result.rngState;
+  }
+  // Buying does NOT end the player's turn (free action).
 }

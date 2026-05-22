@@ -1,15 +1,17 @@
 import type {
   Card,
   CardEffect,
+  InvestmentCard,
   LaborDomain,
   LaborSubtype,
   MashBill,
   MashBillRecipe,
   MashBillTier,
+  OperationsCard,
   ResourceSubtype,
 } from "./types";
 
-// ----- Resource & Capital Card Factories -----
+// ----- Resource Card Factories -----
 
 /**
  * Witty front-of-card copy for the plain (non-premium) starter cards.
@@ -177,58 +179,6 @@ export function makeLaborCard(spec: {
   };
 }
 
-/**
- * @deprecated v2.11 (Unified Rep) — capital cards are no longer
- * minted. This factory remains so old test fixtures and replay code
- * still parse, but `defaultMarketSupply` and starter pools no longer
- * call it. Will be removed in a future cleanup pass.
- */
-export function makePremiumCapital(spec: {
-  defId: string;
-  displayName: string;
-  flavor?: string;
-  capitalValue: number;
-  cost?: number;
-  effect?: CardEffect;
-  ownerLabel?: string;
-  index: number;
-}): Card {
-  const owner = spec.ownerLabel ?? "supply";
-  return {
-    id: `card_${owner}_${spec.defId}_${spec.index}`,
-    cardDefId: spec.defId,
-    type: "capital",
-    capitalValue: spec.capitalValue,
-    cost: spec.cost ?? spec.capitalValue,
-    displayName: spec.displayName,
-    flavor: spec.flavor,
-    effect: spec.effect,
-  };
-}
-
-/**
- * @deprecated v2.11 (Unified Rep) — capital cards are no longer
- * minted. Same compatibility note as `makePremiumCapital`.
- */
-export function makeCapitalCard(
-  ownerLabel: string,
-  index: number,
-  capitalValue = 1,
-): Card {
-  const card: Card = {
-    id: `card_${ownerLabel}_cap${capitalValue}_${index}`,
-    cardDefId: capitalValue === 1 ? "capital" : `capital_x${capitalValue}`,
-    type: "capital",
-    capitalValue,
-    cost: capitalValue,
-  };
-  if (capitalValue === 1) {
-    card.displayName = "Petty Cash";
-    card.flavor = "Legacy card — capital is retired in v2.11.";
-  }
-  return card;
-}
-
 // ----- Mash Bill Factory -----
 
 interface MashBillSpec {
@@ -282,26 +232,51 @@ export function suppliesResource(card: Card, subtype: ResourceSubtype): boolean 
   return resourceUnits(card, subtype) > 0;
 }
 
+// ----- Unified-market wrappers -----
+//
+// The unified market holds resources, Labor, ops, and investments in
+// one 10-slot face-up row. Ops and investments enter the supply as
+// market-shaped Card entries that carry the underlying spec inline,
+// so a buy can ship the spec straight to the player's hand.
+
 /**
- * @deprecated v2.11 (Unified Rep) — capital cards are no longer in
- * play. Always returns 0 for the legacy capital type (since the
- * cards never enter v2.11 games), preserved only so bot/legacy code
- * that still calls `capitalUnits` keeps compiling.
+ * Wrap an OperationsCard spec as a unified-market Card entry. The
+ * returned card has `type: "operations"`, carries the full spec via
+ * `opSpec`, and exposes the spec's cost / name for market rendering.
  */
-export function capitalUnits(card: Card): number {
-  return card.type === "capital" ? card.capitalValue ?? 1 : 0;
+export function wrapOperationsForMarket(
+  spec: OperationsCard,
+  index: number,
+): Card {
+  return {
+    id: `market_ops_${spec.defId}_${index}`,
+    cardDefId: spec.defId,
+    type: "operations",
+    cost: spec.cost,
+    displayName: spec.name,
+    flavor: spec.flavor,
+    opSpec: spec,
+  };
 }
 
 /**
- * @deprecated v2.11 (Unified Rep) — `BUY_FROM_MARKET` and
- * `BUY_OPERATIONS_CARD` now take `{rep, laborCardIds}` directly; rep
- * is the universal currency and Labor cards supplement via
- * `laborContribution` (in types.ts). This helper survives only for
- * legacy capital-card serialized state and will be removed in a
- * future cleanup pass.
+ * Wrap an InvestmentCard spec as a unified-market Card entry. Effects
+ * don't fire yet (the catalog ships `implemented: false` across the
+ * board); the spec is preserved inline so a future wave can switch to
+ * resolving effects without changing the buy flow.
  */
-export function paymentValue(card: Card): number {
-  if (card.value != null) return card.value;
-  if (card.type === "capital") return card.capitalValue ?? 1;
-  return 1;
+export function wrapInvestmentForMarket(
+  spec: InvestmentCard,
+  index: number,
+): Card {
+  return {
+    id: `market_inv_${spec.defId}_${index}`,
+    cardDefId: spec.defId,
+    type: "investment",
+    cost: spec.cost,
+    displayName: spec.name,
+    flavor: spec.short,
+    investmentSpec: spec,
+  };
 }
+

@@ -74,7 +74,7 @@ function totalGrain(t: ResourceTotals): number {
 
 /**
  * Tally a card's contribution to the cumulative ingredient totals.
- * Capital cards contribute nothing to recipe totals. Returns silently
+ * Non-resource cards contribute nothing to recipe totals. Returns silently
  * for non-resource cards so callers can iterate uniformly across
  * mixed piles.
  *
@@ -384,7 +384,7 @@ export function validateMakeBourbon(
   const banRye = player.distillery?.bonus === "wheated_baron";
   for (const id of action.cardIds) {
     const card = cardById.get(id)!;
-    if (card.type !== "resource" && card.type !== "capital") {
+    if (card.type !== "resource") {
       return { legal: false, reason: `card ${id} cannot be committed to a barrel` };
     }
     // v2.10 Wheated Baron: rye cards cannot be committed to barrels.

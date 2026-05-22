@@ -405,13 +405,12 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
     };
   }
 
-  // Cash Out: convert junk grain to capital when our hand is mostly
+  // Cash Out: convert junk grain to rep when our hand is mostly
   // resources we won't use this round.
   const co = playable.find((c) => c.defId === "cash_out");
   if (co) {
     const resourceCount = player.hand.filter((c) => c.type === "resource").length;
-    const capitalCount = player.hand.filter((c) => c.type === "capital").length;
-    if (resourceCount >= 3 && capitalCount === 0) {
+    if (resourceCount >= 3) {
       return {
         type: "PLAY_OPERATIONS_CARD",
         playerId: player.id,
@@ -1056,8 +1055,11 @@ function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
   const specialtyDemand = neededSpecialtySubtypes(state, player);
 
   let best: { slotIndex: number; score: number; cost: number } | null = null;
-  for (let i = 0; i < state.marketConveyor.length; i++) {
-    const card = state.marketConveyor[i]!;
+  for (let i = 0; i < state.market.length; i++) {
+    const card = state.market[i]!;
+    // BUY_FROM_MARKET handles resource/labor/investment; ops cards
+    // are bought via the separate chooser/action.
+    if (card.type === "operations") continue;
     const cost = card.cost ?? 1;
     if (cost > maxAffordable) continue;
     let score = cost;
@@ -1071,6 +1073,9 @@ function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
         score -= 1;
       }
     }
+    // De-prioritize investments — their on-buy effects don't fire yet,
+    // so they're a worse spend than a real resource until v2.12.
+    if (card.type === "investment") score -= 2;
     if (!best || score > best.score) best = { slotIndex: i, score, cost };
   }
   if (!best) return null;
@@ -1115,11 +1120,10 @@ const FACEUP_OPS_SIZE = 3;
  * affordable card so we don't drain hand value on a single buy.
  */
 function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | null {
-  if (state.operationsDeck.length === 0) return null;
   const heldDefIds = new Set(player.operationsHand.map((c) => c.defId));
 
-  // v2.11: ops buys pay rep + Marketing/Generic Labor. Marketing
-  // contributes +2 toward ops; Cooper / Architect contribute 0.
+  // Ops buys pay rep + Marketing/Generic Labor. Marketing contributes
+  // +2 toward ops; Cooper / Architect contribute 0.
   const marketingLabor = player.hand.filter(
     (c) => c.type === "labor" && c.laborSubtype === "marketing",
   );
@@ -1129,23 +1133,23 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
   const laborMax = marketingLabor.length * 2 + genericLabor.length;
   const maxAffordable = player.reputation + laborMax;
 
-  let best: { uiSlot: number; cost: number; rank: number } | null = null;
-  for (let ui = 0; ui < FACEUP_OPS_SIZE; ui++) {
-    const idx = state.operationsDeck.length - 1 - ui;
-    if (idx < 0) break;
-    const card = state.operationsDeck[idx];
-    if (!card) continue;
-    if (heldDefIds.has(card.defId)) continue;
-    if (!OPS_BOT_PLAYABLE.has(card.defId)) continue;
-    if (card.cost > maxAffordable) continue;
-    const rank = OPS_BUY_PREFERENCE.indexOf(card.defId);
+  let best: { slotIndex: number; cost: number; rank: number } | null = null;
+  for (let i = 0; i < state.market.length; i++) {
+    const card = state.market[i]!;
+    if (card.type !== "operations" || !card.opSpec) continue;
+    const spec = card.opSpec;
+    if (heldDefIds.has(spec.defId)) continue;
+    if (!OPS_BOT_PLAYABLE.has(spec.defId)) continue;
+    const cost = card.cost ?? spec.cost;
+    if (cost > maxAffordable) continue;
+    const rank = OPS_BUY_PREFERENCE.indexOf(spec.defId);
     const effectiveRank = rank === -1 ? OPS_BUY_PREFERENCE.length : rank;
     if (
       !best ||
       effectiveRank < best.rank ||
-      (effectiveRank === best.rank && card.cost < best.cost)
+      (effectiveRank === best.rank && cost < best.cost)
     ) {
-      best = { uiSlot: ui, cost: card.cost, rank: effectiveRank };
+      best = { slotIndex: i, cost, rank: effectiveRank };
     }
   }
   if (!best) return null;
@@ -1168,7 +1172,7 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
   return {
     type: "BUY_OPERATIONS_CARD",
     playerId: player.id,
-    opsSlotIndex: best.uiSlot,
+    marketSlotIndex: best.slotIndex,
     rep,
     laborCardIds: laborIds,
   };

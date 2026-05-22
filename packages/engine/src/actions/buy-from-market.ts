@@ -7,17 +7,25 @@ import { isCurrentPlayer } from "../state";
 
 type BuyFromMarketAction = Extract<GameAction, { type: "BUY_FROM_MARKET" }>;
 
-const MARKET_CONVEYOR_SIZE = 10;
+const MARKET_SIZE = 10;
 
 /**
- * Payment validation rules:
- *   total = rep + sum(laborCardIds → laborContribution(card, "market_resource"))
+ * BUY_FROM_MARKET handles resource, Labor, and investment cards out of
+ * the unified market. Operations cards live in the same market but
+ * route through BUY_OPERATIONS_CARD (their destination is the player's
+ * operationsHand rather than the discard pile).
+ *
+ * Payment rules:
+ *   total = rep + sum(laborCardIds → laborContribution(card, domain))
  *   total ≥ cost
  *   rep ≥ 0, never goes negative
  *
- * Rep and Labor are fully fungible — any cost can be paid in rep, Labor,
- * or any mix. A $0 cost still requires at least one payment unit unless
- * the action explicitly handles it.
+ * The labor domain is inferred from the bought card:
+ *   - `type === "investment"` → "investment" (Architect matches)
+ *   - everything else        → "market_resource" (Cooper matches)
+ *
+ * Rep and Labor are fully fungible — any cost can be paid in rep,
+ * Labor, or any mix.
  *
  * Insider Buyer (pre-played) halves the printed cost, rounded up,
  * floored at 1.
@@ -35,11 +43,17 @@ export function validateBuyFromMarket(
     return { legal: false, reason: "it is not your turn" };
   }
 
-  const purchased = state.marketConveyor[action.marketSlotIndex];
+  const purchased = state.market[action.marketSlotIndex];
   if (!purchased) {
     return {
       legal: false,
       reason: `market slot ${action.marketSlotIndex} is empty or out of range`,
+    };
+  }
+  if (purchased.type === "operations") {
+    return {
+      legal: false,
+      reason: "use BUY_OPERATIONS_CARD for operations cards",
     };
   }
 
@@ -65,6 +79,8 @@ export function validateBuyFromMarket(
   if (new Set(laborIds).size !== laborIds.length) {
     return { legal: false, reason: "duplicate Labor card id in payment" };
   }
+  const domain =
+    purchased.type === "investment" ? "investment" : "market_resource";
   const handById = new Map(player.hand.map((c) => [c.id, c]));
   let laborTotal = 0;
   for (const id of laborIds) {
@@ -73,7 +89,7 @@ export function validateBuyFromMarket(
     if (card.type !== "labor") {
       return { legal: false, reason: `card ${id} is not a Labor card` };
     }
-    laborTotal += laborContribution(card, "market_resource");
+    laborTotal += laborContribution(card, domain);
   }
 
   const total = action.rep + laborTotal;
@@ -92,10 +108,10 @@ export function applyBuyFromMarket(
   action: BuyFromMarketAction,
 ): void {
   const player = draft.players.find((p) => p.id === action.playerId)!;
-  const purchased = draft.marketConveyor[action.marketSlotIndex]!;
+  const purchased = draft.market[action.marketSlotIndex]!;
 
-  // Remove the purchased card from the conveyor.
-  draft.marketConveyor.splice(action.marketSlotIndex, 1);
+  // Remove the purchased card from the market.
+  draft.market.splice(action.marketSlotIndex, 1);
 
   // Spend rep.
   player.reputation -= action.rep;
@@ -113,16 +129,19 @@ export function applyBuyFromMarket(
   for (const c of spentLabor) applySpendEffect(player, c);
   player.discard.push(...spentLabor);
 
-  // The bought card itself goes to the player's discard.
+  // The bought card itself goes to the player's discard. (For
+  // investment cards, the on-buy effect is a no-op today — the spec
+  // is `implemented: false` across the catalog. The Card stays in
+  // discard so the player can still see what they bought.)
   player.discard.push(purchased);
 
   // Consume the Insider Buyer half-cost flag (one shot).
   player.pendingHalfCostMarketBuy = false;
 
-  // Refill conveyor (draw 1 from supply if room + cards available).
+  // Refill market slot from supply.
   if (
-    draft.marketConveyor.length < MARKET_CONVEYOR_SIZE &&
-    draft.marketSupplyDeck.length > 0
+    draft.market.length < MARKET_SIZE &&
+    draft.marketSupplyDeck.length + draft.marketDiscard.length > 0
   ) {
     const result = drawWithReshuffle(
       draft.marketSupplyDeck.slice(),
@@ -131,11 +150,11 @@ export function applyBuyFromMarket(
       draft.rngState,
     );
     if (result.drawn.length > 0) {
-      draft.marketConveyor.push(result.drawn[0]!);
+      draft.market.push(result.drawn[0]!);
     }
     draft.marketSupplyDeck = result.deck;
     draft.marketDiscard = result.discard;
     draft.rngState = result.rngState;
   }
-  // v2.2: buying does NOT end the player's turn.
+  // Buying does NOT end the player's turn.
 }

@@ -8,12 +8,16 @@
 // Cards
 // -----------------------------
 
-// v2.11 (Unified Rep): "capital" cards are no longer minted (rep is the
-// unified currency). The "labor" type joins as the sweat-equity card:
-// supplements rep on purchases via a domain-matching contribution.
-// "capital" stays in the union so old replays / serialized saves still
-// parse without crashing; new mints never use it.
-export type CardType = "resource" | "capital" | "labor" | "mashbill";
+// Unified market: the 10-slot market holds resources, Labor cards,
+// ops cards, and investment cards in one row. Mash bills live in a
+// separate face-up row beside the bourbon supply deck. Capital cards
+// no longer exist — rep is the unified currency.
+export type CardType =
+  | "resource"
+  | "labor"
+  | "operations"
+  | "investment"
+  | "mashbill";
 
 export type ResourceSubtype = "cask" | "corn" | "rye" | "barley" | "wheat";
 export type GrainSubtype = "rye" | "barley" | "wheat";
@@ -50,29 +54,35 @@ export interface Card {
   id: string;                         // unique instance id
   cardDefId: string;                  // references the catalog definition
   /**
-   * Card type. v2.11 introduces "labor" (sweat-equity discount cards)
-   * alongside "resource". "capital" is preserved in the union so old
-   * replays still parse, but no card factory mints capital under
-   * unified rep — rep is the currency.
+   * Card type. The market mixes resources, Labor cards, ops cards, and
+   * investment cards in one row; mash bills stay separate.
    */
-  type: "resource" | "capital" | "labor";
+  type: "resource" | "labor" | "operations" | "investment";
   subtype?: ResourceSubtype;          // for resource cards
-  /** v2.11: Labor subtype. Set only when `type === "labor"`. */
+  /** Labor subtype. Set only when `type === "labor"`. */
   laborSubtype?: LaborSubtype;
-  /** v2.11: Purchase domain a Specialty Labor card discounts. */
+  /** Purchase domain a Specialty Labor card discounts. */
   laborDomain?: LaborDomain;
   /**
-   * v2.11: Labor contribution toward a matching-domain purchase.
+   * Labor contribution toward a matching-domain purchase.
    * Generic = 1; Specialty = 2 in domain, 0 elsewhere.
    */
   laborContribution?: number;
   premium?: boolean;                  // true for premium variants (Specialty, Heritage)
-  resourceCount?: number;             // uniformly 1 in v2.11
+  resourceCount?: number;             // uniformly 1
   /**
-   * @deprecated v2.11 — capital cards are no longer minted under
-   * unified rep. Field kept for serialized-save compatibility only.
+   * Set when `type === "operations"` for a market card. Carries the
+   * full OperationsCard spec inline so buying just copies the spec
+   * (with a fresh id + drawnInRound) into the buyer's operationsHand.
    */
-  capitalValue?: number;
+  opSpec?: OperationsCard;
+  /**
+   * Set when `type === "investment"` for a market card. Carries the
+   * full InvestmentCard spec inline. On-buy effects don't fire yet
+   * (the catalog is `implemented: false` across the board); the spec
+   * is preserved so a future wave can switch to resolving effects.
+   */
+  investmentSpec?: InvestmentCard;
   /** Optional: subtypes this card may stand in for (e.g. "any grain" specialty). */
   aliases?: ResourceSubtype[];
   /**
@@ -84,7 +94,8 @@ export interface Card {
   /**
    * @deprecated v2.11 — under unified rep, cards no longer pay
    * arbitrary purchase values from hand. Rep is the currency; Labor
-   * cards supplement it. Field kept for backward-compat parsing.
+   * cards supplement it. Field kept for backward-compat parsing of
+   * older saves; no factory sets it.
    */
   value?: number;
   /** Optional themed name shown in place of the auto-generated label. */
@@ -499,12 +510,6 @@ export interface DistilleryStarterPoolMods {
    * retired with the four-band economy).
    */
   bonusSpecialtyRye?: number;
-  /**
-   * @deprecated v2.11 (Unified Rep): capital cards no longer exist —
-   * rep is the unified currency. Field retained for serialized-save
-   * compatibility; no distillery sets it under v2.11.
-   */
-  capitalDelta?: number;
 }
 
 export interface DistillerySaleMods {
@@ -704,7 +709,7 @@ export interface PlayerState {
   /** Personal rickhouse slots. Built once distillery is selected. */
   rickhouseSlots: RickhouseSlot[];
 
-  // Personal deck zones (resource + capital cards only).
+  // Personal deck zones (resources, Labor, and bought ops/investments).
   hand: Card[];
   deck: Card[];
   discard: Card[];
@@ -843,18 +848,21 @@ export interface GameState {
   /** Every barrel in play. Owner is barrel.ownerId; slot is barrel.slotId. */
   allBarrels: Barrel[];
 
-  marketConveyor: Card[];                   // up to 6 face-up
-  marketSupplyDeck: Card[];                 // face-down draw pile
-  marketDiscard: Card[];                    // for reshuffle on exhaustion
+  /**
+   * The unified market — 10 face-up slots holding a mix of resource,
+   * Labor, operations, and investment cards. Mash bills live in
+   * `bourbonFaceUp` (separate row, separate deck).
+   */
+  market: Card[];
+  /** Face-down supply that backs the unified market. Mixed types. */
+  marketSupplyDeck: Card[];
+  /** Cycled-out market cards. Reshuffled back when supply runs short. */
+  marketDiscard: Card[];
 
   bourbonDeck: MashBill[];
   /** Face-up bourbon row beside the deck. Up to 3 bills. */
   bourbonFaceUp: MashBill[];
   bourbonDiscard: MashBill[];
-
-  /** Shared operations deck. */
-  operationsDeck: OperationsCard[];
-  operationsDiscard: OperationsCard[];
 
   demand: number;                           // 0..12
   demandRolls: { round: number; roll: [number, number]; result: "rise" | "hold" }[];
@@ -884,10 +892,8 @@ export interface GameConfig {
   startingMashBills?: MashBill[][];
   /** Mash bills remaining in the bourbon deck after the draft. */
   bourbonDeck?: MashBill[];
-  /** Cards that populate the market supply (some go straight to the conveyor). */
+  /** Cards that populate the market supply (top 10 deal face-up). */
   marketSupply?: Card[];
-  /** Override the operations deck. */
-  operationsDeck?: OperationsCard[];
   /** Pre-assign distilleries (skips selection phase). Length must equal players.length. */
   startingDistilleries?: Distillery[];
   /** Override the distillery pool offered during selection. */
@@ -1052,10 +1058,9 @@ export type GameAction =
     }
   | { type: "AGE_BOURBON"; playerId: string; barrelId: string; cardId: string }
   | {
-      // v2.11 (Unified Rep): sale is single-step. Grid value + bonuses
-      // are auto-clamped to the tier floor (3/4/5) and added to the
-      // player's rep track. No split prompt — the v2.10 Gold-only
-      // purchasing-power rule is retired alongside capital.
+      // Sale is single-step. Grid value + bonuses are auto-clamped to
+      // the tier floor (3/4/5) and added to the player's rep track.
+      // No split prompt.
       type: "SELL_BOURBON";
       playerId: string;
       barrelId: string;
@@ -1080,12 +1085,13 @@ export type GameAction =
       laborCardIds: string[];
     }
   | {
-      // Same payment shape as BUY_FROM_MARKET. Marketing Labor (+2
-      // toward ops) is the matching specialty.
+      // Same payment shape as BUY_FROM_MARKET, but the target must be
+      // an operations-typed card in the unified market. Marketing
+      // Labor (+2 toward ops) is the matching specialty.
       type: "BUY_OPERATIONS_CARD";
       playerId: string;
-      /** Index into the face-up operations row (0..2). */
-      opsSlotIndex: number;
+      /** Index into the unified 10-slot market (0..9). */
+      marketSlotIndex: number;
       rep: number;
       laborCardIds: string[];
     }

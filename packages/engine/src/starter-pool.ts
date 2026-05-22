@@ -115,9 +115,7 @@ export function dealStarterHands(
  * `target` is the array to modify (the dealt `starterHand` during
  * the trade window, or `deck` when the deck was pre-built via
  * config.starterDecks). Reads `distillery.starterPoolMods` —
- * adding free Specialty Rye cards (High-Rye House: +2). The
- * `capitalDelta` field is deprecated alongside capital cards; no
- * distillery sets it.
+ * currently only `bonusSpecialtyRye` (High-Rye House: +2).
  */
 export function applyDistilleryStarterModifications(
   target: Draft<Card[]>,
@@ -150,9 +148,6 @@ export function applyDistilleryStarterModifications(
       );
     }
   }
-  // capitalDelta is dead — capital cards no longer exist.
-  // Field retained on DistilleryStarterPoolMods for backwards-compat
-  // parsing of old saves; intentionally ignored here.
 }
 
 /**

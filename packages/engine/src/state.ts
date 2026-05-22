@@ -1,5 +1,6 @@
 import type { Draft } from "immer";
 import type { Barrel, Card, GameState, PlayerState } from "./types";
+import { drawWithReshuffle } from "./deck";
 
 export function findPlayer(state: GameState, id: string): PlayerState | undefined {
   return state.players.find((p) => p.id === id);
@@ -140,6 +141,31 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
     return;
   }
 
+  // End-of-year market refresh: sweep the 10 face-up market cards to
+  // the discard pile and deal 10 fresh from the supply. Reshuffles
+  // the discard back into supply when supply runs short (handled by
+  // drawWithReshuffle).
+  if (draft.market.length > 0) {
+    draft.marketDiscard.push(...draft.market);
+    draft.market = [];
+  }
+  const refreshSize = Math.min(
+    MARKET_REFRESH_SIZE,
+    draft.marketSupplyDeck.length + draft.marketDiscard.length,
+  );
+  if (refreshSize > 0) {
+    const refresh = drawWithReshuffle(
+      draft.marketSupplyDeck.slice(),
+      draft.marketDiscard.slice(),
+      refreshSize,
+      draft.rngState,
+    );
+    draft.market = refresh.drawn;
+    draft.marketSupplyDeck = refresh.deck;
+    draft.marketDiscard = refresh.discard;
+    draft.rngState = refresh.rngState;
+  }
+
   // Rotate the start player one seat counter-clockwise. The player who
   // ended their turn last in round N becomes the first player in round
   // N+1 (the "bookend" — see GAME_RULES.md §Turn Order and the Bookend).
@@ -153,3 +179,5 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
   draft.currentPlayerIndex = draft.startPlayerIndex;
   draft.playerIdsCompletedPhase = [];
 }
+
+const MARKET_REFRESH_SIZE = 10;

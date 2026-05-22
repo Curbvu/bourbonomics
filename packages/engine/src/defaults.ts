@@ -4,7 +4,10 @@ import {
   makeMashBill,
   makePremiumResource,
   makeResourceCard,
+  wrapInvestmentForMarket,
+  wrapOperationsForMarket,
 } from "./cards";
+import { defaultOperationsDeck } from "./operations";
 
 // ============================================================
 // Starter mash bills (v2.4) — NOT part of the Bourbon deck. Used
@@ -1041,27 +1044,39 @@ export function defaultMarketSupply(): Card[] {
   }
 
   // ── Labor ─────────────────────────────────────────────────────
-  // v2.11 (Unified Rep): capital cards are removed; rep is the
-  // unified currency. Labor cards appear in the market as a rare
-  // sweat-equity supplement to rep on purchases.
+  // Generic Labor is finite per player (2 in the starter deck, no
+  // central pile). Specialty Labor is the only way new Labor enters
+  // a deck after setup — rare drops in the unified market.
   //
-  //   Generic Labor   ($1, ~3 copies)   universal +1 toward any buy.
-  //   Marketing       ($4, 1 copy)      +2 toward ops card buys.
-  //   Cooper          ($4, 1 copy)      +2 toward market resource buys.
-  //
-  // Architect ($4, +2 toward investment buys) is deferred to v2.12
-  // — no Architect ships in the v2.11 market because the investment
-  // market itself is still display-only.
-  for (let i = 0; i < 3; i++)
-    cards.push(
-      makeLaborCard({ subtype: "generic", ownerLabel: "supply", index: idx++ }),
-    );
+  //   Marketing       ($4, 1 copy)  +2 toward ops card buys.
+  //   Cooper          ($4, 1 copy)  +2 toward market resource buys.
+  //   Architect       ($4, 1 copy)  +2 toward investment buys.
   cards.push(
     makeLaborCard({ subtype: "marketing", ownerLabel: "supply", index: idx++ }),
   );
   cards.push(
     makeLaborCard({ subtype: "cooper", ownerLabel: "supply", index: idx++ }),
   );
+  cards.push(
+    makeLaborCard({ subtype: "architect", ownerLabel: "supply", index: idx++ }),
+  );
+
+  // ── Operations cards ──────────────────────────────────────────
+  // Wrap every op-card spec from the operations catalog as a
+  // unified-market entry. When the player buys one, the engine
+  // copies the spec into their operationsHand.
+  for (const op of defaultOperationsDeck()) {
+    cards.push(wrapOperationsForMarket(op, idx++));
+  }
+
+  // ── Investments ───────────────────────────────────────────────
+  // The 16-card investment catalog ships as effect-pending stubs
+  // (every card has `implemented: false`). Cards enter the unified
+  // market and are buyable — the purchase removes the card and
+  // charges the cost, but no effect fires yet.
+  for (const inv of defaultInvestmentCatalog()) {
+    cards.push(wrapInvestmentForMarket(inv, idx++));
+  }
 
   return cards;
 }

@@ -173,13 +173,12 @@ function chooseAgeBarrelForBot(
       !b.inspectedThisRound,
   );
   if (ageable.length === 0) return null;
-  // Spend the lowest-payment-value card (resource preferred over
-  // capital, lowest count first) so high-value cards stay available
-  // for the rest of the turn. Stable enough for the inline runner —
-  // the bot AI gets smarter in a follow-up.
+  // Spend the lowest-resource-count card first so high-value cards
+  // stay available for the rest of the turn. Stable enough for the
+  // inline runner — the bot AI gets smarter in a follow-up.
   const sortedHand = [...player.hand].sort((a, b) => {
-    const av = (a.resourceCount ?? a.capitalValue ?? 1);
-    const bv = (b.resourceCount ?? b.capitalValue ?? 1);
+    const av = a.resourceCount ?? 1;
+    const bv = b.resourceCount ?? 1;
     return av - bv;
   });
   const card = sortedHand[0]!;

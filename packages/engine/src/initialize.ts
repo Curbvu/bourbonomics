@@ -11,7 +11,6 @@ import {
   defaultMashBillCatalog,
 } from "./defaults";
 import { defaultDistilleryPool, buildRickhouseSlots } from "./distilleries";
-import { defaultOperationsDeck } from "./operations";
 import { shuffleCards } from "./deck";
 import {
   applyDistilleryStarterModifications,
@@ -23,13 +22,38 @@ import {
 
 const DEFAULT_HAND_SIZE = 8;
 const DEFAULT_DEMAND = 0;
-const MARKET_CONVEYOR_SIZE = 10;
+const MARKET_SIZE = 10;
 
 /**
- * v2.11: each player starts with this many rep on their track unless
- * their distillery overrides via `startingRep`. Vanilla = 5 by spec.
+ * Each player starts with this many rep on their track unless their
+ * distillery overrides via `startingRep`. Vanilla = 5 by spec.
  */
 const DEFAULT_STARTING_REP = 5;
+
+/**
+ * Re-order a starter deck so the player's 2 Generic Labor cards sit
+ * on top — `drawWithReshuffle` pops from the array tail, so the top
+ * of the deck is the last 2 indices. Round-1 DRAW_HAND therefore
+ * deals both Labor cards into the opening hand before any random
+ * resources, satisfying the "2 Labor in starting hand" guarantee.
+ */
+function rigOpeningLaborOnTop(deck: Card[]): Card[] {
+  const labors: Card[] = [];
+  const rest: Card[] = [];
+  for (const card of deck) {
+    if (
+      labors.length < 2 &&
+      card.type === "labor" &&
+      card.laborSubtype === "generic"
+    ) {
+      labors.push(card);
+    } else {
+      rest.push(card);
+    }
+  }
+  // Labor goes to the tail (the top of the deck).
+  return [...rest, ...labors];
+}
 
 function distilleryStartingRep(d: Distillery | null): number {
   return d?.startingRep ?? DEFAULT_STARTING_REP;
@@ -71,7 +95,9 @@ export function initializeGame(config: GameConfig): GameState {
         applyDistilleryStarterModifications(seedDeck as unknown as Draft<Card[]>, p, distillery);
       }
       const shuffled = shuffleCards(seedDeck, rngState);
-      deck = shuffled.shuffled;
+      // Rig 2 Generic Labor to the top so the round-1 DRAW_HAND
+      // guarantees both Labor cards in the opening hand.
+      deck = rigOpeningLaborOnTop(shuffled.shuffled);
       rngState = shuffled.rngState;
     }
 
@@ -125,22 +151,17 @@ export function initializeGame(config: GameConfig): GameState {
     faceUpCount,
   );
 
-  // Operations deck. Players start with empty operations hands — they
-  // acquire ops cards by purchasing them from the face-up market row
-  // (BUY_OPERATIONS_CARD) using their resource / capital cards.
-  const opsSeed = config.operationsDeck ?? defaultOperationsDeck();
-  const opsShuffle = shuffleCards(opsSeed, rngState);
-  rngState = opsShuffle.rngState;
-  const operationsDeck = opsShuffle.shuffled;
-
-  // Market supply: 6 to conveyor, rest stay in supply deck face-down.
+  // Unified market supply: resources + Labor + ops + investments in a
+  // single shuffled pool. The top 10 cards form the face-up market;
+  // the rest stay in the supply deck (refills market on every buy
+  // and gets fully refreshed at end-of-year).
   const supplySeed = config.marketSupply ?? defaultMarketSupply();
   const supplyShuffle = shuffleCards(supplySeed, rngState);
   rngState = supplyShuffle.rngState;
-  const conveyorCount = Math.min(MARKET_CONVEYOR_SIZE, supplyShuffle.shuffled.length);
-  const conveyorSrc = supplyShuffle.shuffled.slice(supplyShuffle.shuffled.length - conveyorCount);
-  const marketConveyor = conveyorSrc.slice().reverse();
-  const marketSupplyDeck = supplyShuffle.shuffled.slice(0, supplyShuffle.shuffled.length - conveyorCount);
+  const marketCount = Math.min(MARKET_SIZE, supplyShuffle.shuffled.length);
+  const marketSrc = supplyShuffle.shuffled.slice(supplyShuffle.shuffled.length - marketCount);
+  const market = marketSrc.slice().reverse();
+  const marketSupplyDeck = supplyShuffle.shuffled.slice(0, supplyShuffle.shuffled.length - marketCount);
 
   // Distillery pool — exclude any distilleries already pre-assigned.
   const distilleryPool = (config.distilleryPool ?? defaultDistilleryPool()).filter(
@@ -178,14 +199,12 @@ export function initializeGame(config: GameConfig): GameState {
     starterDeckDraftOrder,
     starterUndealtPool: [],
     allBarrels: [],
-    marketConveyor,
+    market,
     marketSupplyDeck,
     marketDiscard: [],
     bourbonDeck: bourbonShuffled,
     bourbonFaceUp,
     bourbonDiscard: [],
-    operationsDeck,
-    operationsDiscard: [],
     demand: startingDemand,
     demandRolls: [],
     finalRoundTriggered: false,
