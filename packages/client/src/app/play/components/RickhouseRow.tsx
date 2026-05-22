@@ -183,7 +183,15 @@ function SlotRow({
     );
   };
 
-  return <div className="flex items-center gap-1">{slots.map(renderSlot)}</div>;
+  // `justify-between` spreads slots across the full panel width so the
+  // strip reads as "your distillery occupies this whole row" instead
+  // of "four tiles clustered to the left with empty space trailing."
+  // Slot widths stay fixed; only the inter-slot gap grows.
+  return (
+    <div className="flex items-center justify-between gap-1">
+      {slots.map(renderSlot)}
+    </div>
+  );
 }
 
 function BarrelChip({
