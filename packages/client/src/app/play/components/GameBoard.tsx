@@ -87,10 +87,19 @@ export default function GameBoard() {
         {state.phase === "ended" ? <GameOverPanel /> : null}
 
         <div className="grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_300px]">
-          {/* Left column: rickhouses on top (compact), market below (fills). */}
+          {/* Left column, top-to-bottom:
+                1. Opponents' rickhouses (someone else's stuff up here).
+                2. Market — the shared table.
+                3. Your rickhouse, flush against the HandTray below so
+                   "your slots ↑ your cards" reads as one zone.
+              This rearrangement is paired with dropping the persistent
+              Mash Bills row from MarketCenter — under v2.14 bills only
+              surface in the Drafting Loop overlay, so the section was
+              an empty placeholder eating ~160px. */}
           <div className="flex min-h-0 flex-col gap-1.5">
-            <RickhouseRow />
+            <RickhouseRow showOnly="others" />
             <MarketCenter />
+            <RickhouseRow showOnly="self" />
           </div>
 
           {/* Right column: action log matches the left column's height

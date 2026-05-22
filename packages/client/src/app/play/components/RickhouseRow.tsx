@@ -22,9 +22,29 @@ import { useZoneFocusClass } from "./pickerFocus";
 import { TIER_CHROME, tierOrCommon } from "./tierStyles";
 import { dragCarriesMakeCard, readMakeDragPayload } from "./dragMake";
 
-export default function RickhouseRow() {
+/**
+ * `showOnly` partitions the player list so the GameBoard can render
+ * opponents at the top of the table and the human's own rickhouse just
+ * above the HandTray — putting "your stuff" together near your action
+ * surface (the eye + hand stays in one place when you act).
+ */
+export default function RickhouseRow({
+  showOnly = "all",
+}: {
+  showOnly?: "all" | "self" | "others";
+} = {}) {
   const { state } = useGameStore();
   if (!state) return null;
+
+  // Original seat indexes are preserved so the colour palette stays
+  // stable regardless of which slice we render.
+  const indexed = state.players.map((p, i) => ({ player: p, seatIndex: i }));
+  const filtered = indexed.filter(({ player }) => {
+    if (showOnly === "self") return !player.isBot;
+    if (showOnly === "others") return player.isBot;
+    return true;
+  });
+  if (filtered.length === 0) return null;
 
   return (
     <section data-rickhouse-row="true" className="flex flex-col gap-1">
@@ -33,8 +53,13 @@ export default function RickhouseRow() {
           gets wider panels and a 4-player game wraps rather than
           cramming. */}
       <div className="grid gap-1.5 [grid-template-columns:repeat(auto-fit,minmax(460px,1fr))]">
-        {state.players.map((p, i) => (
-          <PlayerRickhouse key={p.id} state={state} playerId={p.id} seatIndex={i} />
+        {filtered.map(({ player, seatIndex }) => (
+          <PlayerRickhouse
+            key={player.id}
+            state={state}
+            playerId={player.id}
+            seatIndex={seatIndex}
+          />
         ))}
       </div>
     </section>

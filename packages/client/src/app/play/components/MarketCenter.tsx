@@ -36,25 +36,23 @@ import RecipePips from "./RecipePips";
 import { MoneyText } from "./money";
 
 const MARKET_SIZE = 10;
-const FACEUP_PER_SECTION = 3;
 
 export default function MarketCenter() {
   const { state } = useGameStore();
 
   if (!state) return null;
 
-  // v2.14: the face-up bill row is retired. Show the deck count only;
-  // any revealed bills during an active Drafting Loop surface in the
-  // DraftingLoopOverlay above the action bar.
-  const remainingBills = state.bourbonDeck.length;
-  const loopRevealed = state.draftingLoop?.revealedBills ?? [];
+  // v2.14: bills are face-down in `bourbonDeck` and only surface
+  // during an active Drafting Loop (rendered by DraftingLoopOverlay).
+  // The persistent Mash Bills section is retired — the deck count
+  // lives in the top bar's BOURBON chip, and the loop overlay handles
+  // the reveal-and-pick flow when bills are in play. Reclaims ~160px
+  // of vertical real estate so the player's own rickhouse can sit
+  // right above the HandTray.
 
   const marketFocus = useZoneFocusClass("market-conveyor");
-  const mashBillsFocus = useZoneFocusClass("market-mash-bills");
 
   return (
-    // Unified market on top (10 tiles), bills column below. Both are
-    // peer sections sharing chrome.
     <div data-bb-zone="market" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden">
       <Section
         title="Market"
@@ -72,24 +70,6 @@ export default function MarketCenter() {
             <EmptySlot key={`empty-${i}`} />
           ))}
         </div>
-      </Section>
-
-      <Section
-        title="Mash bills"
-        tag={state.finalRoundTriggered ? "final round" : undefined}
-        zone="market-mash-bills"
-        focusClass={mashBillsFocus}
-        dataAttr="data-bourbon-row"
-      >
-        <FaceUpRow
-          faceUp={loopRevealed.map((b) => (
-            <MashBillTile key={b.id} bill={b} />
-          ))}
-          placeholders={Math.max(0, FACEUP_PER_SECTION - loopRevealed.length)}
-          pileLabel="Bourbon deck"
-          pileRemaining={remainingBills}
-          pileTone="amber"
-        />
       </Section>
     </div>
   );
