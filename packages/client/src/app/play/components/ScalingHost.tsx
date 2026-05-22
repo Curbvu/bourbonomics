@@ -2,13 +2,16 @@
 
 /**
  * ScalingHost — wraps the game shell in a fixed design canvas
- * (1680×900) and applies a CSS transform-scale that shrinks the
- * canvas to fit the viewport.
+ * and applies a CSS transform-scale so the canvas always fits the
+ * viewport without clipping the HandTray.
  *
- * Used by /play, /play/[code], and /tutorial so the same 1680×900
- * layout works on smaller desktops (1366×768, 1280×720) without
- * clipping the HandTray. When the viewport meets or exceeds the
- * design size, scale is 1 (no-op).
+ * Width is a fixed design budget (1680px). Height is *measured*
+ * from the actual content via ResizeObserver — the play board is
+ * dense and routinely exceeds 900px once Rickhouse + Market +
+ * Mash Bills + Action Bar + HandTray are all mounted, so a fixed
+ * 900px design height would clip the hand tray on common 1080p
+ * laptops. Measuring the inner div lets us shrink the canvas
+ * proportionally when the content runs taller than the viewport.
  *
  * Trade-off: `transform: scale` rasterizes after layout, so click
  * targets and tooltips inside the scaled subtree work correctly with
@@ -18,26 +21,43 @@
  * page coordinates, so they read correctly without extra math.
  */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 const DESIGN_WIDTH = 1680;
-const DESIGN_HEIGHT = 900;
-
-function computeScale(): number {
-  if (typeof window === "undefined") return 1;
-  const sx = window.innerWidth / DESIGN_WIDTH;
-  const sy = window.innerHeight / DESIGN_HEIGHT;
-  return Math.min(sx, sy, 1);
-}
+/**
+ * Used only as the initial guess + a floor for the height-aware scale
+ * computation; the measured content height takes over once the inner
+ * div mounts.
+ */
+const DESIGN_HEIGHT_FALLBACK = 900;
 
 export default function ScalingHost({ children }: { children: ReactNode }) {
   const [scale, setScale] = useState<number>(1);
+  const innerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const update = () => setScale(computeScale());
+    if (typeof window === "undefined") return;
+    const update = () => {
+      const inner = innerRef.current;
+      const contentHeight = inner ? inner.scrollHeight : DESIGN_HEIGHT_FALLBACK;
+      const effectiveHeight = Math.max(contentHeight, DESIGN_HEIGHT_FALLBACK);
+      const sx = window.innerWidth / DESIGN_WIDTH;
+      const sy = window.innerHeight / effectiveHeight;
+      setScale(Math.min(sx, sy, 1));
+    };
     update();
     window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
+    // Re-measure when content height changes (modals opening, picker
+    // bars sliding in, demand-roll height changes, etc.).
+    let observer: ResizeObserver | null = null;
+    if (innerRef.current && "ResizeObserver" in window) {
+      observer = new ResizeObserver(update);
+      observer.observe(innerRef.current);
+    }
+    return () => {
+      window.removeEventListener("resize", update);
+      observer?.disconnect();
+    };
   }, []);
 
   return (
@@ -55,9 +75,13 @@ export default function ScalingHost({ children }: { children: ReactNode }) {
       }}
     >
       <div
+        ref={innerRef}
         style={{
           width: `${DESIGN_WIDTH}px`,
-          height: `${DESIGN_HEIGHT}px`,
+          // `height: auto` lets the content drive the box height; the
+          // measured height feeds back into `sy` so the canvas scales
+          // down whenever the content runs taller than the viewport.
+          minHeight: `${DESIGN_HEIGHT_FALLBACK}px`,
           transform: `scale(${scale})`,
           transformOrigin: "top left",
           flexShrink: 0,
