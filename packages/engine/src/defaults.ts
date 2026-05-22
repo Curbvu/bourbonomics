@@ -390,15 +390,13 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
 }
 
 // ============================================================
-// Default starter deck — v2.11 (Unified Rep): 16 cards =
-//   4 cask + 4 corn + 4 grain (2 rye, 1 barley, 1 wheat) + 4 Generic Labor.
+// Default starter deck — 16 cards =
+//   4 cask + 5 corn + 5 grain (3 rye, 1 barley, 1 wheat) + 2 Generic Labor.
 //
-// Capital is gone — rep is the unified currency. The 4 capital
-// cards of v2.10 are replaced 1:1 with Generic Labor (sweat equity
-// supplements rep on purchases). Setup also peels one Generic Labor
-// off the central Hire pile and seeds it directly into the opening
-// hand so every player has Labor available on their first turn —
-// see `initialize.ts`.
+// Labor is scarce and finite per player: 2 in the starter deck is all
+// the Generic Labor a player will ever own. New Labor only enters via
+// Specialty Labor cards (Cooper, Marketing, future Architect) bought
+// from the market. No central Hire pile, no top-up.
 // ============================================================
 
 export const STARTER_DECK_SIZE = 16;
@@ -407,11 +405,11 @@ export function defaultStarterCards(playerLabel: string): Card[] {
   const cards: Card[] = [];
   let idx = 0;
   for (let i = 0; i < 4; i++) cards.push(makeResourceCard("cask", playerLabel, idx++));
-  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("corn", playerLabel, idx++));
-  for (let i = 0; i < 2; i++) cards.push(makeResourceCard("rye", playerLabel, idx++));
+  for (let i = 0; i < 5; i++) cards.push(makeResourceCard("corn", playerLabel, idx++));
+  for (let i = 0; i < 3; i++) cards.push(makeResourceCard("rye", playerLabel, idx++));
   cards.push(makeResourceCard("barley", playerLabel, idx++));
   cards.push(makeResourceCard("wheat", playerLabel, idx++));
-  for (let i = 0; i < 4; i++)
+  for (let i = 0; i < 2; i++)
     cards.push(makeLaborCard({ subtype: "generic", ownerLabel: playerLabel, index: idx++ }));
   return cards;
 }

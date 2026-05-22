@@ -5,7 +5,7 @@ import { shuffleCards } from "./deck";
 import { buildStarterMashBill } from "./defaults";
 
 // ============================================================
-// Starter pool (v2.4 Random Deal + Trading; v2.11 capital → Labor)
+// Starter pool (Random Deal + Trading)
 //
 // Each player contributes the per-player composition to a shared
 // pool. A small fixed buffer (`POOL_BUFFER`) lives on top so the
@@ -18,12 +18,9 @@ import { buildStarterMashBill } from "./defaults";
 //   buffer (per game): 2 cask + 1 corn + 1 rye + 1 barley + 1 wheat
 //                      + 2 Generic Labor = 8
 //
-// v2.11: capital cards are retired (rep is the unified currency).
-// The 2 capital cards per player are replaced 1:1 with Generic
-// Labor cards. The starter deck builder in `defaults.ts` keeps the
-// per-player Labor count higher (4) — the starter pool's per-player
-// Labor count stays at 2 because the deal is balanced against the
-// rest of the pool buffer (not the eventual deck).
+// Labor is scarce: 2 per player is the only Generic Labor a drafter
+// will ever own. The shared buffer adds slight variance so some
+// drafters land on 1 or 3 — trading balances things.
 // ============================================================
 
 export const STARTER_HAND_SIZE = 16;
@@ -34,7 +31,7 @@ interface PoolSpec {
   rye: number;
   barley: number;
   wheat: number;
-  /** v2.11: replaces `capital` 1:1 — Generic Labor cards. */
+  /** Generic Labor cards. Finite per starter deck. */
   labor: number;
 }
 
@@ -119,8 +116,8 @@ export function dealStarterHands(
  * the trade window, or `deck` when the deck was pre-built via
  * config.starterDecks). Reads `distillery.starterPoolMods` —
  * adding free Specialty Rye cards (High-Rye House: +2). The
- * `capitalDelta` field is retired in v2.11 alongside capital cards
- * themselves; no distillery sets it.
+ * `capitalDelta` field is deprecated alongside capital cards; no
+ * distillery sets it.
  */
 export function applyDistilleryStarterModifications(
   target: Draft<Card[]>,
@@ -153,7 +150,7 @@ export function applyDistilleryStarterModifications(
       );
     }
   }
-  // v2.11: capitalDelta is dead — capital cards no longer exist.
+  // capitalDelta is dead — capital cards no longer exist.
   // Field retained on DistilleryStarterPoolMods for backwards-compat
   // parsing of old saves; intentionally ignored here.
 }

@@ -38,19 +38,19 @@ const STOPS: TourStop[] = [
   {
     id: "rickhouse",
     title: "Your Rickhouse",
-    body: "Four slots. This is where bourbon ages. You've already drafted two recipes — Backroad Batch and Heritage Reserve — sitting **ready** in your slots, waiting for resources.",
+    body: "Four slots. This is where bourbon ages. You've already drafted **Backroad Batch** as a **ready** barrel, waiting for resources.",
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },
   {
     id: "hand",
     title: "Your Hand",
-    body: "Eight cards a round. **Casks**, **corn**, **grains** (rye / barley / wheat), and **Labor**. Resources build barrels; Labor cards age them or stretch your spending power.",
+    body: "Eight cards a round. **Casks**, **corn**, **grains** (rye / barley / wheat), and **Labor** (🔨). Resources build barrels; **Labor cards age them or pay for buys**. You start with just 2 Labor — guard them.",
     spotlight: { kind: "hand-cards", cardIds: [] },
   },
   {
     id: "market",
     title: "The Market",
-    body: "Ten cards for sale. Buy with your **reputation** — Labor cards from hand can supplement rep on each purchase (Cooper +2 on resources, Marketing +2 on ops, Generic +1 anywhere).",
+    body: "Ten cards for sale. Pay with **rep**, **Labor** (🔨), or any mix — they're fungible. The market sometimes stocks **Specialty Labor**: **Cooper** (🪓) gives +2 on resource buys, **Marketing** (📣) gives +2 on ops. Specialty Labor is the only way new Labor enters your deck.",
     spotlight: { kind: "market-row" },
   },
   {
@@ -62,7 +62,7 @@ const STOPS: TourStop[] = [
   {
     id: "supply",
     title: "The Bourbon Supply",
-    body: "More bourbon recipes live in this deck. Pay rep (1 for a blind draw; 1/1/2/3/4 by tier for a face-up bill) to draw a new mash bill into an open slot. Generic Labor cards from your hand stretch the rep. **When the deck runs dry, the game ends.**",
+    body: "More bourbon recipes live in this deck. Pay 1 for a blind draw or 1/1/2/3/4 by tier for a face-up bill — in rep, Labor, or a mix. The bill drops into an open slot as a fresh **ready** barrel. **When the deck runs dry, the game ends.**",
     spotlight: { kind: "supply" },
   },
   {

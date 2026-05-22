@@ -17,10 +17,8 @@
 
 import type { Card, GameState, MashBill } from "./types";
 import {
-  makeCapitalCard,
   makeLaborCard,
   makeMashBill,
-  makePremiumResource,
   makeResourceCard,
 } from "./cards";
 import { buildVanillaDistilleryFor } from "./distilleries";
@@ -88,39 +86,39 @@ export function buildTutorialHeritageBill(idx = 0): MashBill {
 }
 
 /**
- * The Specialty Rye card the player buys in Beat 3. Built once with a
- * stable id so the tutorial controller can find it on the conveyor and
- * later re-locate it in the player's discard / deck for the rigged
- * round-2 draw. v2.11: cost $2, no uniform on-sale bonus — Specialty
- * cards now earn their keep by unlocking `minSpecialty` recipe gates,
- * not by paying a flat sale bonus.
+ * The Cooper Labor card the player buys in the new Buy beat. Built
+ * once with a stable id so the tutorial controller can find it on the
+ * conveyor and later re-locate it in the player's discard for the
+ * round-2 draw.
+ *
+ * Cooper is Specialty Labor (+2 toward market resource buys). It's
+ * the only way new Labor enters the player's deck in the new design,
+ * so this beat demonstrates both unified-rep payment (rep + Labor or
+ * Labor-only) and the "Specialty Labor enters via market" rule.
  */
-export function buildTutorialSpecialtyRye(): Card {
-  return makePremiumResource({
-    defId: "superior_rye",
-    displayName: "Superior Rye",
-    flavor: "Reserve cut, sharper edge.",
-    subtype: "rye",
-    resourceCount: 1,
-    cost: 2,
-    specialty: true,
+export function buildTutorialCooperLabor(): Card {
+  const cooper = makeLaborCard({
+    subtype: "cooper",
     ownerLabel: "tutorial",
     index: 1,
   });
+  cooper.cost = 2;
+  return cooper;
 }
 
 /**
  * The exact 8 cards the player begins the tutorial holding.
  *
- *   2 cask + 2 corn + 3 rye(common) + 1 Generic Labor
+ *   2 cask + 2 corn + 2 rye(common) + 2 Generic Labor (🔨)
  *
- * Sizing rationale (v2.11 Unified Rep): Beat 1 commits 1 cask + 1
- * corn + 1 rye to Backroad (3 cards), leaving 1 cask + 1 corn + 2
- * rye + 1 Labor. Beat 2 commits the cask + corn + both ryes to
- * Heritage as a partial pile (4 cards), leaving 1 Labor. Beat 3
- * buys the $2 Specialty Rye for 1 rep + 1 Labor — the player's
- * Vanilla startingRep (5) covers the rep portion. The hand finishes
- * empty going into cleanup.
+ * Sizing rationale: Beat 1 commits 1 cask + 1 corn + 1 rye to
+ * Backroad (3 cards), leaving 1 cask + 1 corn + 1 rye + 2 Labor.
+ * The new Cooper-buy beat spends 0 rep + 1 Labor (the Cooper costs
+ * $2, fully covered by one Generic Labor +1 plus one rep — or by
+ * the player's choice with rep alone). Aging consumes the rest.
+ *
+ * The 2 Generic Labor in hand are the only Generic Labor this
+ * tutorial player will ever own — the central Hire pile is gone.
  */
 export function buildTutorialStartingHand(): Card[] {
   const hand: Card[] = [];
@@ -131,7 +129,9 @@ export function buildTutorialStartingHand(): Card[] {
   hand.push(makeResourceCard("corn", "tutorial-hand", idx++));
   hand.push(makeResourceCard("rye", "tutorial-hand", idx++));
   hand.push(makeResourceCard("rye", "tutorial-hand", idx++));
-  hand.push(makeResourceCard("rye", "tutorial-hand", idx++));
+  hand.push(
+    makeLaborCard({ subtype: "generic", ownerLabel: "tutorial-hand", index: idx++ }),
+  );
   hand.push(
     makeLaborCard({ subtype: "generic", ownerLabel: "tutorial-hand", index: idx++ }),
   );
@@ -150,17 +150,17 @@ export function buildTutorialStartingHand(): Card[] {
 function buildTutorialHumanDeck(): Card[] {
   const cards: Card[] = [];
   let idx = 100;
-  // Enough for Beat 6 (1 age × 2 barrels = 2 cards) + Beat 9 (1 sell
-  // cost) + Beat 10 (extra ages on Heritage to push it 2→3) + Beat 11
-  // (1 sell cost). Plus a couple of buffers.
+  // Round 2+ replenishment. The previous 3 Capital cards are replaced
+  // with resources so the tutorial deck contains no Capital. Eight
+  // cards back the late-round aging + sell beats with buffer.
   cards.push(makeResourceCard("corn", "tutorial-deck", idx++));
   cards.push(makeResourceCard("corn", "tutorial-deck", idx++));
   cards.push(makeResourceCard("rye", "tutorial-deck", idx++));
   cards.push(makeResourceCard("barley", "tutorial-deck", idx++));
   cards.push(makeResourceCard("wheat", "tutorial-deck", idx++));
-  cards.push(makeCapitalCard("tutorial-deck", idx++, 1));
-  cards.push(makeCapitalCard("tutorial-deck", idx++, 1));
-  cards.push(makeCapitalCard("tutorial-deck", idx++, 1));
+  cards.push(makeResourceCard("cask", "tutorial-deck", idx++));
+  cards.push(makeResourceCard("corn", "tutorial-deck", idx++));
+  cards.push(makeResourceCard("rye", "tutorial-deck", idx++));
   return cards;
 }
 
@@ -172,8 +172,9 @@ function buildTutorialHumanDeck(): Card[] {
 function buildTutorialBotDeck(): Card[] {
   const cards: Card[] = [];
   let idx = 300;
-  for (let i = 0; i < 4; i++) cards.push(makeCapitalCard("tutorial-bot", idx++, 1));
-  for (let i = 0; i < 4; i++) cards.push(makeResourceCard("corn", "tutorial-bot", idx++));
+  // The bot's only scripted action is the sell in Beat 7; it spends
+  // 1 card from this deck. Pure corn keeps the rigged path simple.
+  for (let i = 0; i < 8; i++) cards.push(makeResourceCard("corn", "tutorial-bot", idx++));
   return cards;
 }
 
@@ -189,13 +190,14 @@ function buildBotStartingBills(): MashBill[] {
 }
 
 /**
- * Conveyor stack for the tutorial. The Specialty Rye lives at slot 0
- * (the only buyable target during Beat 3); the rest are filler. Cards
- * are listed top-down (slot 0 first).
+ * Conveyor stack for the tutorial. The Cooper Labor card lives at
+ * slot 0 (the only buyable target during the Buy beat); the rest are
+ * filler resources. No Capital — the tutorial deck and market contain
+ * Labor and resources only.
  */
 function buildTutorialMarketConveyor(): Card[] {
   const cards: Card[] = [];
-  cards.push(buildTutorialSpecialtyRye());
+  cards.push(buildTutorialCooperLabor());
   // Filler — appears in the conveyor but is not interactive during the
   // tutorial. Distinct cards so they look natural rather than a cloned row.
   let idx = 200;
@@ -203,22 +205,22 @@ function buildTutorialMarketConveyor(): Card[] {
   cards.push(makeResourceCard("rye", "tutorial-market", idx++));
   cards.push(makeResourceCard("barley", "tutorial-market", idx++));
   cards.push(makeResourceCard("wheat", "tutorial-market", idx++));
-  cards.push(makeCapitalCard("tutorial-market", idx++, 1));
-  cards.push(makeCapitalCard("tutorial-market", idx++, 1));
+  cards.push(makeResourceCard("corn", "tutorial-market", idx++));
+  cards.push(makeResourceCard("rye", "tutorial-market", idx++));
   cards.push(makeResourceCard("cask", "tutorial-market", idx++));
   cards.push(makeResourceCard("cask", "tutorial-market", idx++));
-  cards.push(makeCapitalCard("tutorial-market", idx++, 3));
+  cards.push(makeResourceCard("corn", "tutorial-market", idx++));
   return cards;
 }
 
 /**
  * Build the initial tutorial GameState. After this call:
  *
- *   - human player has Backroad Batch + Heritage Reserve as "ready"
- *     barrels in slots 0 and 1, an empty 8-card hand (we set a
- *     forced hand below), and a small deck queued for round 2+
+ *   - human player has Backroad Batch as a "ready" barrel in slot 0,
+ *     a forced 8-card opening hand (2 cask + 2 corn + 2 rye + 2
+ *     Generic Labor), and a small deck queued for round 2+
  *   - bot player has one Aging barrel at age 4 with Backroad Batch
- *   - market conveyor's slot 0 holds the Specialty Rye for $3
+ *   - market conveyor's slot 0 holds a Cooper Labor card for $2
  *   - demand starts at 2; final-round trigger is disabled by virtue
  *     of the supply not running out during the scripted beats
  *   - phase is "action" (we collapse demand + draw — the tutorial
@@ -240,8 +242,7 @@ export function buildTutorialInitialState(): GameState {
   // pre-running through demand+draw via an explicit DRAW_HAND mutation
   // below. For now we ask initializeGame to skip the setup phases.
   const startingDistilleries = [humanDistillery, botDistillery];
-  // v2.11 slim cut: tutorial teaches Backroad Batch end-to-end; the
-  // Heritage Reserve arc was retired so we only seed one human bill.
+  // Tutorial teaches Backroad Batch end-to-end with a single human bill.
   const startingMashBills: MashBill[][] = [
     [buildTutorialBackroadBill(0)],
     buildBotStartingBills(),
@@ -262,10 +263,10 @@ export function buildTutorialInitialState(): GameState {
     // engine doesn't accidentally surface a real Bourbon card mid-
     // tutorial during a stray DRAW_MASH_BILL we forgot to gate.
     bourbonDeck: [],
-    // Hand-stacked conveyor with Specialty Rye at slot 0. Pass it as
-    // the supply so init pulls 10 cards into the conveyor; we then
-    // overwrite the conveyor below to guarantee slot 0 is the
-    // Specialty Rye even after init's reverse() ordering.
+    // Hand-stacked conveyor with the Cooper Labor card at slot 0.
+    // Pass it as the supply so init pulls 10 cards into the conveyor;
+    // we then overwrite the conveyor below to guarantee slot 0 is
+    // the Cooper even after init's reverse() ordering.
     marketSupply: marketConveyor,
     operationsDeck: [],
     startingDemand: 2,
@@ -286,7 +287,7 @@ function primeTutorialState(state: GameState): GameState {
   // not transitioning, so a structured clone + direct edits is fine.
   const next: GameState = JSON.parse(JSON.stringify(state)) as GameState;
 
-  // Force the conveyor: slot 0 = Specialty Rye, then 9 filler.
+  // Force the conveyor: slot 0 = Cooper Labor, then 9 filler.
   next.marketConveyor = buildTutorialMarketConveyor();
   next.marketSupplyDeck = [];
   next.marketDiscard = [];

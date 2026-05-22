@@ -27,7 +27,7 @@ import {
 } from "./handCardStyles";
 import { MoneyText } from "./money";
 
-const FLIGHT_MS = 850;
+const FLIGHT_MS = 650;
 const START_TOP = 120;
 const CARD_W = 100;
 const CARD_H = 140;

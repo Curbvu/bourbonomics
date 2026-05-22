@@ -8,6 +8,7 @@ import GameBoard from "./components/GameBoard";
 import GameErrorBoundary from "./components/ErrorBoundary";
 import GameTopBar from "./components/GameTopBar";
 import MainMenu from "./components/MainMenu";
+import ScalingHost from "./components/ScalingHost";
 import StarterDeckDraftModal from "./components/StarterDeckDraftModal";
 import YearPassModal from "./components/YearPassModal";
 import { useGameStore } from "@/lib/store/game";
@@ -34,7 +35,7 @@ export default function PlayPage() {
 
   return (
     <main
-      className="min-h-screen text-slate-100"
+      className="h-screen overflow-hidden text-slate-100"
       style={{
         backgroundColor: "#0f172a",
         backgroundImage: `
@@ -43,12 +44,14 @@ export default function PlayPage() {
         `,
       }}
     >
-      <div className="flex min-h-screen flex-col">
-        <GameTopBar />
-        <GameErrorBoundary>
-          <GameBoard />
-        </GameErrorBoundary>
-      </div>
+      <ScalingHost>
+        <div className="flex h-full flex-col">
+          <GameTopBar />
+          <GameErrorBoundary>
+            <GameBoard />
+          </GameErrorBoundary>
+        </div>
+      </ScalingHost>
       {/* Setup-phase modals — render unconditionally; each component
           self-gates on phase + humanWaitingOn (or autoplay). */}
       <DistilleryDraftModal />

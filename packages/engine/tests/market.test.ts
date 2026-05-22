@@ -3,9 +3,8 @@ import { applyAction } from "../src/engine.js";
 import { makeLaborCard, makeResourceCard } from "../src/cards.js";
 import { advanceToActionPhase, giveHand, giveRep, makeTestGame } from "./helpers.js";
 
-// v2.11 (Unified Rep): BUY_FROM_MARKET pays in rep + Labor cards.
-// Anchor rule: purchases costing ≥ 2 require ≥ 1 rep paid; $1 cards
-// may be paid Labor-only.
+// BUY_FROM_MARKET pays in rep + Labor cards. Rep and Labor are fully
+// fungible — any cost can be paid in rep, Labor, or any mix.
 
 describe("BUY_FROM_MARKET — unified rep payment", () => {
   it("happy path: pays rep, purchased card goes to discard, conveyor refills", () => {
@@ -84,7 +83,7 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
     expect(p1.discard.some((c) => c.id === labor.id)).toBe(true);
   });
 
-  it("rejects a Labor-only payment on a ≥$2 buy (anchor rule)", () => {
+  it("accepts a Labor-only payment on a ≥$2 buy (rep and Labor are fungible)", () => {
     let state = makeTestGame({
       marketSupply: [
         makeResourceCard("rye", "supply", 100, true, 2),
@@ -100,15 +99,17 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
     const b = makeLaborCard({ subtype: "generic", ownerLabel: "p1", index: 1 });
     state = giveRep(state, "p1", 0);
     state = giveHand(state, "p1", [a, b]);
-    expect(() =>
-      applyAction(state, {
-        type: "BUY_FROM_MARKET",
-        playerId: "p1",
-        marketSlotIndex: 0,
-        rep: 0,
-        laborCardIds: [a.id, b.id],
-      }),
-    ).toThrow(/at least 1 reputation/);
+    state = applyAction(state, {
+      type: "BUY_FROM_MARKET",
+      playerId: "p1",
+      marketSlotIndex: 0,
+      rep: 0,
+      laborCardIds: [a.id, b.id],
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    expect(p1.reputation).toBe(0);
+    expect(p1.discard.some((c) => c.id === a.id)).toBe(true);
+    expect(p1.discard.some((c) => c.id === b.id)).toBe(true);
   });
 
   it("Cooper Labor contributes +2 toward market resource buys", () => {
@@ -126,7 +127,7 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
     const cooper = makeLaborCard({ subtype: "cooper", ownerLabel: "p1", index: 0 });
     state = giveRep(state, "p1", 1);
     state = giveHand(state, "p1", [cooper]);
-    // Cost 3 = 1 rep + 1 Cooper (+2). Anchor satisfied (1 rep ≥ 1).
+    // Cost 3 = 1 rep + 1 Cooper (+2).
     state = applyAction(state, {
       type: "BUY_FROM_MARKET",
       playerId: "p1",

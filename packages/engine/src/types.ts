@@ -759,12 +759,6 @@ export interface PlayerState {
    */
   pendingHalfCostMarketBuy: boolean;
   /**
-   * v2.11: tracks whether the player has invoked HIRE this turn. The
-   * Hire action is free but capped at once per turn. Reset when the
-   * player's turn ends.
-   */
-  hireUsedThisTurn: boolean;
-  /**
    * Pre-played production discount that applies to the player's next
    * MAKE_BOURBON. Set by Mash Futures (`grain` — minimum total grain
    * relaxed by 1, floor 1) or Cooper's Contract (`cask` — the
@@ -864,14 +858,6 @@ export interface GameState {
 
   demand: number;                           // 0..12
   demandRolls: { round: number; roll: [number, number]; result: "rise" | "hold" }[];
-
-  /**
-   * v2.11: count of Generic Labor cards remaining in the central Hire
-   * pile. Decremented by every successful HIRE action; never refills.
-   * Sized at setup to ~5 × playerCount so the pile lasts most of a
-   * game. When empty, HIRE is illegal.
-   */
-  laborPile: number;
 
   finalRoundTriggered: boolean;
   finalRoundTriggerPlayerIndex: number | null;
@@ -1082,12 +1068,11 @@ export type GameAction =
       goldConvertTargetSlotId?: string;
     }
   | {
-      // v2.11 (Unified Rep): pay rep + Labor cards. `rep` is the
-      // reputation portion of the payment; `laborCardIds` are Labor
-      // cards from hand whose contributions (Generic = 1, Specialty
-      // Cooper = 2 toward market resources) sum with rep to ≥ cost.
-      // Purchases costing ≥ 2 require at least 1 rep paid. $1 cards
-      // may be paid with 1 Labor and 0 rep.
+      // Pay rep + Labor cards. `rep` is the reputation portion of the
+      // payment; `laborCardIds` are Labor cards from hand whose
+      // contributions (Generic = 1, Specialty Cooper = 2 toward market
+      // resources) sum with rep to ≥ cost. Rep and Labor are fully
+      // fungible — any cost can be paid in rep, Labor, or a mix.
       type: "BUY_FROM_MARKET";
       playerId: string;
       marketSlotIndex: number;
@@ -1095,8 +1080,8 @@ export type GameAction =
       laborCardIds: string[];
     }
   | {
-      // v2.11: same payment shape as BUY_FROM_MARKET. Marketing Labor
-      // (+2 toward ops) is the matching specialty.
+      // Same payment shape as BUY_FROM_MARKET. Marketing Labor (+2
+      // toward ops) is the matching specialty.
       type: "BUY_OPERATIONS_CARD";
       playerId: string;
       /** Index into the face-up operations row (0..2). */
@@ -1105,13 +1090,12 @@ export type GameAction =
       laborCardIds: string[];
     }
   | {
-      // v2.11: bills follow the same rep + Labor payment rules as
-      // market and ops buys. Face-up cost = `billCostByTier(bill)`
-      // (common/uncommon 1, rare 2, epic 3, legendary 4). Blind draw
-      // costs a flat 1 rep. Generic Labor cards (+1 anywhere) can
-      // supplement rep on either flavor; a Specialty Labor for bill
-      // draws is reserved for a future release. Anchor rule applies:
-      // costs ≥ 2 require ≥ 1 rep paid.
+      // Bills follow the same rep + Labor payment rules as market and
+      // ops buys. Face-up cost = `billCostByTier(bill)` (common /
+      // uncommon 1, rare 2, epic 3, legendary 4). Blind draw costs a
+      // flat 1. Generic Labor cards (+1 anywhere) can supplement rep on
+      // either flavor; a Specialty Labor for bill draws is reserved for
+      // a future release.
       type: "DRAW_MASH_BILL";
       playerId: string;
       mashBillId?: string;
@@ -1131,16 +1115,9 @@ export type GameAction =
       cardId: string;
     } & PlayOperationsCardParams)
   | {
-      // v2.11: take 1 Generic Labor card from the central pile and add
-      // it to your discard. Free action, but once per turn (gated by
-      // `player.hireUsedThisTurn`). Illegal when `laborPile === 0`.
-      type: "HIRE";
-      playerId: string;
-    }
-  | {
-      // v2.11: at cleanup, set aside one card from your hand into the
-      // Save slot. Saved card joins next round's draw on top of the
-      // 8-card deal. Only one card may be saved at a time.
+      // At cleanup, set aside one card from your hand into the Save
+      // slot. Saved card joins next round's draw on top of the 8-card
+      // deal. Only one card may be saved at a time.
       type: "SAVE_CARD";
       playerId: string;
       cardId: string;

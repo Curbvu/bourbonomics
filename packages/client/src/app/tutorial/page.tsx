@@ -19,6 +19,7 @@ import { useGameStore } from "@/lib/store/game";
 import GameBoard from "../play/components/GameBoard";
 import GameTopBar from "../play/components/GameTopBar";
 import GameErrorBoundary from "../play/components/ErrorBoundary";
+import ScalingHost from "../play/components/ScalingHost";
 import TutorialController from "./TutorialController";
 
 export default function TutorialPage() {
@@ -77,12 +78,14 @@ export default function TutorialPage() {
         `,
       }}
     >
-      <div className="flex h-screen flex-col">
-        <GameTopBar />
-        <GameErrorBoundary>
-          <GameBoard />
-        </GameErrorBoundary>
-      </div>
+      <ScalingHost>
+        <div className="flex h-full flex-col">
+          <GameTopBar />
+          <GameErrorBoundary>
+            <GameBoard />
+          </GameErrorBoundary>
+        </div>
+      </ScalingHost>
       {/* The tutorial owns its own demand / draw cadence, so we deliberately
           DO NOT mount DemandRollModal / DrawPhaseModal here — the controller
           dispatches those actions on its own clock. */}

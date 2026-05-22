@@ -136,9 +136,10 @@ export function makePremiumResource(spec: {
 }
 
 /**
- * v2.11 Labor factory. Generic Labor lives in starter decks and the
- * central Hire pile; Specialty Labor (Marketing / Cooper / Architect)
- * appears rarely in the market supply.
+ * Labor factory. Generic Labor only lives in starter decks (2 per
+ * player, finite). Specialty Labor (Marketing / Cooper / Architect)
+ * appears rarely in the market supply and is the only way new Labor
+ * enters a deck after setup.
  *
  * `displayName` and `flavor` default to `LABOR_COPY[subtype]` when
  * omitted; the caller may override (e.g. distillery flavor variants).

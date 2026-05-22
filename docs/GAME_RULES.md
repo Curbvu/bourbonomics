@@ -28,9 +28,9 @@ Your turn opens with your own demand roll and one aging card committed to **ever
 - **Make bourbon** by committing cards (cask + corn + grain) from your hand to a slotted bill. Recipes take **multiple turns** to assemble.
 - A barrel becomes **aging** the moment its recipe is satisfied. From the next round on, you commit 1 aging card per round on top of it.
 - **Sell** an aging barrel (age ≥ 2) — the engine reads the bill's grid at `(barrel age, current demand)`, adds card / distillery / ops bonuses, and lifts the total to the bill's **tier floor** (3 / 4 / 5 rep). The total lands on your **reputation** track.
-- **Buy** new cards from the 10-card market with **reputation** — optionally supplemented by **Labor cards** in hand (Cooper +2 toward market resources, Marketing +2 toward ops, Generic +1 anywhere). The anchor rule: ≥$2 buys require ≥1 rep paid.
-- **Draw a mash bill** the same way — face-up bills cost rep by tier (common/uncommon 1, rare 2, epic 3, legendary 4); blind draws cost 1 rep. Generic Labor supplements rep; Specialty Labor for bill draws is reserved for a future release.
-- **Hire** (once per turn, free) takes 1 Generic Labor from the central Hire pile into your discard.
+- **Buy** new cards from the 10-card market with **reputation** and/or **Labor cards** from hand (Cooper +2 toward market resources, Marketing +2 toward ops, Generic +1 anywhere). Rep and Labor are fully fungible — pay in rep, Labor, or any mix.
+- **Draw a mash bill** the same way — face-up bills cost rep by tier (common/uncommon 1, rare 2, epic 3, legendary 4); blind draws cost 1. Generic Labor supplements rep; Specialty Labor for bill draws is reserved for a future release.
+- **Labor is finite per player.** You start with 2 Generic Labor in your deck — that's it. New Labor only enters via **Specialty Labor** cards bought from the market (Cooper, Marketing, future Architect).
 
 ### Winning
 
@@ -72,13 +72,10 @@ When the timer expires (or every player has passed), shuffle your final 16 cards
 
 ### Step 5 — First hand
 - Each player **draws 8 cards** from their starter deck.
-- Setup also seeds **1 free Generic Labor** card directly into the opening hand (so every player has Labor available on their first turn).
-
 ### Step 6 — Board setup
-- **Market conveyor:** 10 cards face-up from the market supply (Common $1 / Specialty $2 / Heritage $3 resources + a rare Labor strip — Generic Labor $1, Marketing $4, Cooper $4).
+- **Market conveyor:** 10 cards face-up from the market supply (Common $1 / Specialty $2 / Heritage $3 resources + a rare Specialty Labor strip — Marketing $4, Cooper $4. Generic Labor is **not** sold; the 2 you start with are all you get).
 - **Operations market:** 3 face-up ops cards beside the ops deck.
 - **Bourbon deck:** mash bills face-down, with 3 face-up beside the deck.
-- **Central Hire pile:** ~5 Generic Labor cards per player (e.g. 20 in a 4-player game).
 - **Demand:** starts at 0.
 - Pick a start player.
 
@@ -131,7 +128,6 @@ After rolling demand and paying the aging cost, take **any number** of these fre
 - **Buy Operations Card** — same; Marketing Labor discounts ops.
 - **Draw a Mash Bill** — pay rep for a face-up bill (default 2 rep) or blind from the top of the deck (1 rep).
 - **Trade** — exchange cards with another player. Mash bills are not tradeable.
-- **Hire** — once per turn, free: take 1 Generic Labor from the central pile into your discard.
 - **Save Card** — set aside one card from hand into your Save slot for next round's draw.
 - **Play Operations Card** — free interruption at any time.
 - **End Turn** — voluntary; cards remaining in hand stay until cleanup.
@@ -221,17 +217,13 @@ Gold takes precedence if both Silver and Gold trigger. Gold does NOT trigger the
 
 ---
 
-## Buy from the Market (Unified Rep)
+## Buy from the Market
 
-Cost is paid in **reputation**, optionally supplemented by **Labor cards** from hand.
+Cost is paid in **reputation** and/or **Labor cards** from hand. Rep and Labor are **fully fungible** — any cost can be paid in rep, Labor, or any mix.
 
 - **Cooper** (Specialty Labor) — +2 toward market resource buys.
 - **Marketing** (Specialty Labor) — +2 toward ops buys (no help on market resources).
 - **Generic Labor** — +1 toward any buy.
-
-**Anchor rule:**
-- Buys costing **≥ 2** require **≥ 1 rep paid** (Labor cannot fully cover ≥$2 buys).
-- Buys costing **1** can be Labor-only (1 Generic = $1, no rep).
 
 Rep can never go below 0.
 
@@ -257,17 +249,11 @@ Three mash bills sit face-up beside the bourbon deck. Take one of:
 
 - **The blind top** — pay **1 rep** (no tier preview).
 
-Bills follow the same payment rules as everything else: rep + Labor, with the anchor rule (≥$2 buys require ≥1 rep paid). **Generic Labor** (+1 anywhere) supplements rep on bill draws today; the **Cooper** and **Marketing** specialty Labor cards do NOT discount bill draws — they match a different domain. A future Specialty Labor for bill draws (a "Distiller" worker) is reserved space; until it ships, only Generic Labor helps.
+Bills follow the same payment rules as everything else: rep + Labor, fully fungible. **Generic Labor** (+1 anywhere) supplements rep on bill draws today; the **Cooper** and **Marketing** specialty Labor cards do NOT discount bill draws — they match a different domain. A future Specialty Labor for bill draws (a "Distiller" worker) is reserved space; until it ships, only Generic Labor helps.
 
 **An open slot is required.** The drawn bill lands directly in one of your Open rickhouse slots as **Staged**. If you have no open slots, the action is illegal.
 
 When the deck **and** face-up row are both empty, the **final round trigger** activates.
-
-## Hire
-
-Free action, **once per turn**: take 1 Generic Labor card from the central Hire pile and add it to your discard. Illegal when the pile is empty.
-
-The central pile is finite (sized ~5 × player count at setup) — late-game Hires aren't free.
 
 ## Save Card
 
@@ -339,7 +325,7 @@ The deck contains **resource cards** (cask, corn, grain — premiums come from t
 ### Card types
 
 - **Resource** — cask, corn, wheat, rye, barley. Needed to make bourbon.
-- **Labor** — sweat equity. Generic Labor (+1 anywhere) lives in the starter deck and the central Hire pile. Specialty Labor (Cooper +2 toward market resources, Marketing +2 toward ops) appears rarely in the market.
+- **Labor** — sweat equity. Generic Labor (+1 anywhere) lives only in the starter deck (2 per player, finite — there is no central Hire pile). Specialty Labor (Cooper +2 toward market resources, Marketing +2 toward ops) appears rarely in the market and is the only way new Labor enters your deck.
 - **Operations** — bought from the face-up ops market. Free-action interruptions; one-shot.
 
 ### Card Bands
@@ -514,6 +500,8 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 ---
 
 # 📜 Changelog
+
+- **v2.12** — **"Labor Scarcity."** Generic Labor is now finite per player: starter deck holds **2** Generic Labor and there is no central Hire pile or HIRE action — new Labor only enters a deck via Specialty Labor (Cooper, Marketing, future Architect) bought from the market. The spending anchor rule (≥$2 buys require ≥1 rep paid) is gone: rep and Labor are fully fungible — any cost can be paid in rep, Labor, or any mix. PurchaseFlight animation tightened from 850ms → 650ms. Tutorial restructured to four chapters: Make → Hire (new) → Age → Sell, and the tutorial deck no longer contains any Capital cards. Game shell auto-scales to fit any desktop down to 1280×720 via CSS transform-scale, so the HandTray no longer falls off the bottom of shorter viewports. Escape now cancels any open picker overlay.
 
 - **v2.11** — **"Three Bands · Unified Rep"** — a two-part economic redesign that ships in one alpha:
 

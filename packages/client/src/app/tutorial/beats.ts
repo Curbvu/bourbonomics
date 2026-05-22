@@ -3,13 +3,13 @@
  * controller in `TutorialController.tsx` walks them in order and
  * renders the right surface per beat kind.
  *
- * v2.11 slim cut — the Heritage Reserve arc was retired. The tutorial
- * now teaches one barrel end-to-end (Backroad Batch) across three
- * chapters:
+ * The tutorial teaches one barrel end-to-end (Backroad Batch) across
+ * four chapters:
  *
  *   Chapter 1 — Make bourbon (3 ingredient commits)
- *   Chapter 2 — Age your barrel
- *   Chapter 3 — Sell
+ *   Chapter 2 — Hire a Cooper from the market (rep + Labor payment)
+ *   Chapter 3 — Age your barrel
+ *   Chapter 4 — Sell
  *
  * Why not ship as a tree / branching script? Every player gets the
  * same path. There IS a "false decision" but both branches advance
@@ -172,15 +172,47 @@ export const TUTORIAL_BEATS: Beat[] = [
   },
 
   // ════════════════════════════════════════════════════════════════
-  // CHAPTER 2 — Age your barrel
+  // CHAPTER 2 — Hire from the market
   // ════════════════════════════════════════════════════════════════
   {
     id: "lesson-2-intro",
     kind: "prompt",
+    title: "Hire a Cooper",
+    body: "The market has a **Cooper** today — Specialty Labor (🪓) that gives **+2 toward resource buys**. Specialty Labor is the only way new Labor enters your deck — your 2 Generic Labor (🔨) are all you'd ever own otherwise.",
+    spotlight: { kind: "none" },
+    chapter: { number: 2, label: "Hire" },
+  },
+  {
+    id: "beat-buy-cooper",
+    kind: "await-action",
+    title: "Buy the Cooper",
+    body: "Click **Buy market**, pick the Cooper at slot 1, then tag a **Labor card** (🔨) from your hand. Pay **1 rep + 1 Labor** ($1 + $1 = $2). Rep and Labor are fully fungible — you could pay 2 rep instead, or 2 Labor.",
+    spotlight: { kind: "action-button", action: "buy" },
+    postEngageSpotlight: { kind: "market-slot", slotIndex: 0 },
+    matches: (action) => {
+      if (action.type !== "BUY_FROM_MARKET") return false;
+      if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
+      return action.marketSlotIndex === 0;
+    },
+  },
+  {
+    id: "beat-buy-aftermath",
+    kind: "prompt",
+    title: "Cooper hired",
+    body: "Your new Cooper landed in your discard — it'll shuffle into your deck next reshuffle. Generic Labor is finite; Specialty Labor is how your hand grows.",
+    spotlight: { kind: "none" },
+  },
+
+  // ════════════════════════════════════════════════════════════════
+  // CHAPTER 3 — Age your barrel
+  // ════════════════════════════════════════════════════════════════
+  {
+    id: "lesson-3-intro",
+    kind: "prompt",
     title: "Age your barrel",
     body: "Every round, an aging barrel needs 1 card to keep maturing. Older bourbon pays more — when you sell at the right time.",
     spotlight: { kind: "none" },
-    chapter: { number: 2, label: "Age" },
+    chapter: { number: 3, label: "Age" },
   },
   {
     id: "beat-age-time-passes",
@@ -286,15 +318,15 @@ export const TUTORIAL_BEATS: Beat[] = [
   },
 
   // ════════════════════════════════════════════════════════════════
-  // CHAPTER 3 — Sell
+  // CHAPTER 4 — Sell
   // ════════════════════════════════════════════════════════════════
   {
-    id: "lesson-3-intro",
+    id: "lesson-4-intro",
     kind: "prompt",
     title: "Sell at the right time",
     body: "Selling earns reputation — but it also drops the market's demand for everyone. Watch what your opponent does.",
     spotlight: { kind: "none" },
-    chapter: { number: 3, label: "Sell" },
+    chapter: { number: 4, label: "Sell" },
   },
   {
     id: "beat-sell-pass-human",

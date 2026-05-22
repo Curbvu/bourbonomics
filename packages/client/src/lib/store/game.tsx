@@ -1093,11 +1093,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const human = store.state?.players.find((p) => !p.isBot);
     if (!human) return;
     const target = buyMode.pickedTarget;
-    // v2.11 (Unified Rep): cost is paid in rep, supplemented by Labor
-    // cards from hand. `buyMode.spendCardIds` is reinterpreted as the
-    // selected Labor card ids (non-Labor selections are ignored). The
-    // rep portion = cost - laborContribution, with the anchor rule
-    // (cost ≥ $2 → ≥ 1 rep paid) enforced server-side.
+    // Cost is paid in rep, supplemented by Labor cards from hand.
+    // `buyMode.spendCardIds` is reinterpreted as the selected Labor
+    // card ids (non-Labor selections are ignored). The rep portion =
+    // cost - laborContribution. Rep and Labor are fully fungible.
     const conveyor = store.state?.marketConveyor ?? [];
     const ops = store.state?.operationsDeck ?? [];
     const cost =
@@ -1118,8 +1117,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (c.laborDomain === laborDomain) return acc + (c.laborContribution ?? 2);
       return acc;
     }, 0);
-    let rep = Math.max(0, cost - laborTotal);
-    if (cost >= 2 && rep < 1) rep = 1;
+    const rep = Math.max(0, cost - laborTotal);
     const action: GameAction =
       target.source === "operations"
         ? {
@@ -1198,11 +1196,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!drawBillMode.blind && !drawBillMode.pickedMashBillId) return;
     const human = store.state?.players.find((p) => !p.isBot);
     if (!human) return;
-    // v2.11: bills pay rep + Generic Labor (same rules as market/ops
-    // buys). Face-up cost = tier ladder (common/uncommon 1, rare 2,
-    // epic 3, legendary 4); blind = 1. Generic Labor (+1 anywhere)
-    // discounts the rep portion; Cooper / Marketing don't (domain
-    // mismatch). Anchor rule: ≥$2 cost requires ≥1 rep paid.
+    // Bills pay rep + Generic Labor (same rules as market/ops buys).
+    // Face-up cost = tier ladder (common/uncommon 1, rare 2, epic 3,
+    // legendary 4); blind = 1. Generic Labor (+1 anywhere) discounts
+    // the rep portion; Cooper / Marketing don't (domain mismatch).
+    // Rep and Labor are fully fungible.
     const billFaceUp = drawBillMode.pickedMashBillId
       ? store.state?.bourbonFaceUp.find(
           (b) => b.id === drawBillMode.pickedMashBillId,
@@ -1215,8 +1213,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return c?.type === "labor" && c.laborSubtype === "generic";
     });
     const laborTotal = laborCardIds.length; // Generic = +1 each
-    let rep = Math.max(0, cost - laborTotal);
-    if (cost >= 2 && rep < 1) rep = 1;
+    const rep = Math.max(0, cost - laborTotal);
     if (rep > human.reputation) return;
     const action: GameAction = drawBillMode.pickedMashBillId
       ? {

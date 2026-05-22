@@ -10,19 +10,17 @@ type BuyFromMarketAction = Extract<GameAction, { type: "BUY_FROM_MARKET" }>;
 const MARKET_CONVEYOR_SIZE = 10;
 
 /**
- * v2.11 (Unified Rep) — payment validation rules:
+ * Payment validation rules:
  *   total = rep + sum(laborCardIds → laborContribution(card, "market_resource"))
  *   total ≥ cost
  *   rep ≥ 0, never goes negative
  *
- * Anchor rule:
- *   cost ≥ 2     →  rep ≥ 1 required (Labor cannot fully cover ≥$2 buys)
- *   cost === 1   →  Labor-only payment legal (0 rep + 1 Labor = $1)
- *   cost === 0   →  trivially legal (rare; not currently in market)
+ * Rep and Labor are fully fungible — any cost can be paid in rep, Labor,
+ * or any mix. A $0 cost still requires at least one payment unit unless
+ * the action explicitly handles it.
  *
  * Insider Buyer (pre-played) halves the printed cost, rounded up,
- * floored at 1. The anchor rule is applied to the *post-discount*
- * cost — a $2 card halved to $1 may be paid Labor-only.
+ * floored at 1.
  */
 export function validateBuyFromMarket(
   state: GameState,
@@ -82,22 +80,7 @@ export function validateBuyFromMarket(
   if (total < cost) {
     return {
       legal: false,
-      reason: `payment totals ${total} rep, need ${cost}`,
-    };
-  }
-
-  // Anchor rule: ≥$2 buys require at least 1 rep paid.
-  if (cost >= 2 && action.rep < 1) {
-    return {
-      legal: false,
-      reason: "purchases costing 2 or more require at least 1 reputation paid",
-    };
-  }
-  // $1 buys with no rep require at least one Labor card.
-  if (cost === 1 && action.rep === 0 && laborIds.length === 0) {
-    return {
-      legal: false,
-      reason: "pay 1 reputation or 1 Labor card to buy a $1 item",
+      reason: `payment totals ${total}, need ${cost}`,
     };
   }
 

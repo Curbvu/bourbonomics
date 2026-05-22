@@ -12,6 +12,7 @@
  *   [HandTray]              flush bottom, full bleed
  */
 
+import { useEffect } from "react";
 import { useGameStore } from "@/lib/store/game";
 import CardInspectModal from "./CardInspectModal";
 import GameOverPanel from "./GameOverPanel";
@@ -25,7 +26,59 @@ import RightRail from "./RightRail";
 import SaleFlight from "./SaleFlight";
 
 export default function GameBoard() {
-  const { state } = useGameStore();
+  const {
+    state,
+    buyMode,
+    makeMode,
+    ageMode,
+    sellMode,
+    drawBillMode,
+    cancelBuyMode,
+    cancelMakeMode,
+    cancelAgeMode,
+    cancelSellMode,
+    cancelDrawBillMode,
+  } = useGameStore();
+
+  // Escape-to-cancel for any active picker overlay. The cancels are
+  // safe no-ops when the matching mode isn't active, but we route to
+  // the live mode first so the keystroke maps to the player's most
+  // recent action intent.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (buyMode) {
+        e.preventDefault();
+        cancelBuyMode();
+      } else if (makeMode) {
+        e.preventDefault();
+        cancelMakeMode();
+      } else if (ageMode) {
+        e.preventDefault();
+        cancelAgeMode();
+      } else if (sellMode) {
+        e.preventDefault();
+        cancelSellMode();
+      } else if (drawBillMode) {
+        e.preventDefault();
+        cancelDrawBillMode();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    buyMode,
+    makeMode,
+    ageMode,
+    sellMode,
+    drawBillMode,
+    cancelBuyMode,
+    cancelMakeMode,
+    cancelAgeMode,
+    cancelSellMode,
+    cancelDrawBillMode,
+  ]);
+
   if (!state) return null;
 
   return (

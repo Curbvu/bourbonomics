@@ -26,6 +26,7 @@ import DrawPhaseModal from "../components/DrawPhaseModal";
 import GameBoard from "../components/GameBoard";
 import GameErrorBoundary from "../components/ErrorBoundary";
 import GameTopBar from "../components/GameTopBar";
+import ScalingHost from "../components/ScalingHost";
 import StarterDeckDraftModal from "../components/StarterDeckDraftModal";
 import RoomBanner from "./RoomBanner";
 import PreJoinPrompt from "./PreJoinPrompt";
@@ -188,22 +189,25 @@ export default function PlayCodePage({ params }: Props) {
         `,
       }}
     >
-      {/* h-screen + overflow-hidden so the multiplayer banner doesn't
-          push the page past the viewport — GameBoard's flex-1 chain
-          absorbs the extra chrome height instead of growing a scroll
-          bar. The blank gap that used to sit under the mash bills row
-          gets eaten by the compressed flex column. */}
-      <div className="flex h-screen flex-col">
-        <GameTopBar />
-        <RoomBanner code={code} />
-        {inLobby ? (
-          <WaitingRoom code={code} />
-        ) : (
-          <GameErrorBoundary>
-            <GameBoard />
-          </GameErrorBoundary>
-        )}
-      </div>
+      {/* ScalingHost owns the viewport — its inner box is the
+          1680×900 design canvas, scaled down to fit shorter desktops
+          (1366×768, 1280×720) so the HandTray never falls off the
+          bottom edge. Setup modals are siblings (rendered outside the
+          scaled host) so their portals position against the live
+          viewport. */}
+      <ScalingHost>
+        <div className="flex h-full flex-col">
+          <GameTopBar />
+          <RoomBanner code={code} />
+          {inLobby ? (
+            <WaitingRoom code={code} />
+          ) : (
+            <GameErrorBoundary>
+              <GameBoard />
+            </GameErrorBoundary>
+          )}
+        </div>
+      </ScalingHost>
       {/* Setup-phase modals — each one self-gates on phase + the
           local connection's seat (`humanSeatPlayerId` in the store).
           Only the seat the engine is currently waiting on sees the

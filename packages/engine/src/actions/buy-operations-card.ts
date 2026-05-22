@@ -15,13 +15,11 @@ const FACEUP_OPS_SIZE = 3;
 
 /**
  * Buy a face-up operations card from the market into your operations
- * hand. v2.11 unified-rep payment model:
+ * hand. Unified-rep payment model:
  *   total = rep + sum(laborCardIds → laborContribution(card, "ops"))
  *
  * Marketing Labor (+2 toward ops) is the matching specialty. Cooper
- * and Architect contribute 0 here. Same anchor rule as
- * BUY_FROM_MARKET: ≥$2 buys require ≥1 rep paid; $1 buys can be
- * Labor-only.
+ * and Architect contribute 0 here. Rep and Labor are fully fungible.
  *
  * The face-up row is the top `FACEUP_OPS_SIZE` cards of
  * `operationsDeck`, shown reversed in the UI. The action's
@@ -79,19 +77,7 @@ export function validateBuyOperationsCard(
   if (total < cost) {
     return {
       legal: false,
-      reason: `payment totals ${total} rep, need ${cost}`,
-    };
-  }
-  if (cost >= 2 && action.rep < 1) {
-    return {
-      legal: false,
-      reason: "purchases costing 2 or more require at least 1 reputation paid",
-    };
-  }
-  if (cost === 1 && action.rep === 0 && laborIds.length === 0) {
-    return {
-      legal: false,
-      reason: "pay 1 reputation or 1 Labor card to buy a $1 ops card",
+      reason: `payment totals ${total}, need ${cost}`,
     };
   }
 

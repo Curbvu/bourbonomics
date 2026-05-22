@@ -21,7 +21,6 @@ import {
   applyPlayOperationsCard,
   validatePlayOperationsCard,
 } from "./actions/play-operations-card";
-import { applyHire, validateHire } from "./actions/hire";
 import { applySaveCard, validateSaveCard } from "./actions/save-card";
 
 export class IllegalActionError extends Error {
@@ -50,16 +49,14 @@ export function validateAction(state: GameState, action: GameAction): Validation
         reason: `${current.id} must roll demand before taking other actions`,
       };
     }
-    // v2.9: after the demand roll, the player must commit one card to
-    // an aging barrel before sales / buys / trades / new builds. The
-    // narrow allow-list (AGE / PASS / PLAY_OPS / HIRE / SAVE_CARD)
-    // lets them satisfy the cost, give up the turn, hire a worker
-    // (free action), or save a card (free).
+    // After the demand roll, the player must commit one card to an
+    // aging barrel before sales / buys / trades / new builds. The
+    // narrow allow-list (AGE / PASS / SAVE_CARD) lets them satisfy
+    // the cost, give up the turn, or save a card (free).
     if (current && current.needsAgeBarrels) {
       const allowedDuringAgePhase = new Set([
         "AGE_BOURBON",
         "PASS_TURN",
-        "HIRE",
         "SAVE_CARD",
       ]);
       if (!allowedDuringAgePhase.has(action.type)) {
@@ -99,8 +96,6 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateTrade(state, action);
     case "PLAY_OPERATIONS_CARD":
       return validatePlayOperationsCard(state, action);
-    case "HIRE":
-      return validateHire(state, action);
     case "SAVE_CARD":
       return validateSaveCard(state, action);
     case "PASS_TURN":
@@ -171,9 +166,6 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
       return;
     case "PLAY_OPERATIONS_CARD":
       applyPlayOperationsCard(draft, action);
-      return;
-    case "HIRE":
-      applyHire(draft, action);
       return;
     case "SAVE_CARD":
       applySaveCard(draft, action);

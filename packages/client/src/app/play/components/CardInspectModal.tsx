@@ -255,8 +255,8 @@ function LaborDetail({ card }: { card: Card }) {
       ) : null}
       <UseBox>
         {sub === "generic" || !sub
-          ? `Tag in any purchase to discount the rep cost by ${contribution}. Generic Labor can also age a barrel — commit it to an aging slot in place of a resource. Anchor rule: ≥$2 buys still need ≥1 rep paid.`
-          : `Tag in a matching ${domainText.replace(" purchases", "")} purchase to discount the rep cost by ${contribution}. Contributes 0 on other purchase types. Anchor rule: ≥$2 buys still need ≥1 rep paid.`}
+          ? `Tag in any purchase to discount the rep cost by ${contribution}. Generic Labor can also age a barrel — commit it to an aging slot in place of a resource. You only get 2 to start, and the central pile is gone, so spend them carefully.`
+          : `Tag in a matching ${domainText.replace(" purchases", "")} purchase to discount the rep cost by ${contribution}. Contributes 0 on other purchase types. Specialty Labor only enters your deck via the market — guard it.`}
       </UseBox>
     </article>
   );

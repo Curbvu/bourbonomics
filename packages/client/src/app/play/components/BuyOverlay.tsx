@@ -3,12 +3,12 @@
 /**
  * BuyOverlay — sticky control bar for interactive Buy mode.
  *
- * Renders only when `buyMode` is non-null. v2.11 (Unified Rep) shows
- * the in-progress purchase as rep + Labor: cost is paid from the
- * player's rep track, optionally supplemented by Labor cards tagged
- * from hand (Cooper +2 toward market resources, Marketing +2 toward
- * ops, Generic +1 anywhere). Anchor rule: ≥$2 buys require ≥1 rep
- * paid; $1 buys may be Labor-only.
+ * Renders only when `buyMode` is non-null. Shows the in-progress
+ * purchase as rep + Labor: cost is paid from the player's rep track,
+ * optionally supplemented by Labor cards tagged from hand (Cooper +2
+ * toward market resources, Marketing +2 toward ops, Generic +1
+ * anywhere). Rep and Labor are fully fungible — any cost can be paid
+ * in rep, Labor, or a mix.
  *
  * The conveyor + ops row + hand do their own click wiring (MarketCenter
  * + HandTray); this component is the contract surface — it tells the
@@ -48,20 +48,19 @@ export default function BuyOverlay() {
     return acc;
   }, 0);
   const repPortion = cost != null ? Math.max(0, cost - laborContrib) : 0;
-  const repEnforced = cost != null && cost >= 2 ? Math.max(1, repPortion) : repPortion;
   const canConfirm =
     target != null &&
     cost != null &&
-    repEnforced <= human.reputation &&
-    (cost === 0 || repEnforced > 0 || selectedLabor.length > 0);
+    repPortion <= human.reputation &&
+    (cost === 0 || repPortion > 0 || selectedLabor.length > 0);
 
   let prompt: string;
   if (!target) {
     prompt = "Pick a card from the market or operations row.";
-  } else if (cost != null && repEnforced > human.reputation) {
-    prompt = `Need ${repEnforced} rep — you have ${human.reputation}.`;
+  } else if (cost != null && repPortion > human.reputation) {
+    prompt = `Need ${repPortion} rep — you have ${human.reputation}.`;
   } else if (cost != null) {
-    prompt = `Pay ${repEnforced} rep${selectedLabor.length ? ` + ${selectedLabor.length} Labor` : ""}. Tag Labor cards from hand to reduce the rep cost.`;
+    prompt = `Pay ${repPortion} rep${selectedLabor.length ? ` + ${selectedLabor.length} Labor` : ""}. Tag Labor cards from hand to reduce the rep cost.`;
   } else {
     prompt = "Ready to buy. Confirm to dispatch.";
   }
@@ -81,8 +80,8 @@ export default function BuyOverlay() {
             <MoneyText n={cost} className="font-bold text-amber-200" />{" "}
             · pay{" "}
             <MoneyText
-              n={repEnforced}
-              className={`font-bold ${repEnforced <= human.reputation ? "text-emerald-300" : "text-rose-300"}`}
+              n={repPortion}
+              className={`font-bold ${repPortion <= human.reputation ? "text-emerald-300" : "text-rose-300"}`}
             />
             {" rep"}
             {selectedLabor.length ? (

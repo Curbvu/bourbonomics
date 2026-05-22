@@ -21,15 +21,14 @@ const BLIND_DRAW_COST = 1;
  * slot, the action is illegal: slot capacity is the gating resource on
  * the doomsday clock.
  *
- * v2.11 (Unified Rep) payment follows the same rep + Labor rules as
- * market and ops buys:
- *   - face-up pick: `billCostByTier(bill)` rep (1/1/2/3/4 by rarity).
- *   - blind draw: 1 rep.
- *   - Labor cards supplement rep via `laborContribution(card, "bill_draw")`.
+ * Unified payment follows the same rep + Labor rules as market and
+ * ops buys — rep and Labor are fully fungible:
+ *   - face-up pick: `billCostByTier(bill)` (1/1/2/3/4 by rarity).
+ *   - blind draw: 1.
+ *   - Labor cards supplement via `laborContribution(card, "bill_draw")`.
  *     Generic Labor (any-domain) contributes 1; Specialty Labor only
  *     helps when its domain matches "bill_draw" (no such card ships
- *     in v2.11 — reserved space).
- *   - Anchor rule: costs ≥ 2 require ≥ 1 rep paid.
+ *     yet — reserved space for a future Distiller worker).
  */
 export function validateDrawMashBill(
   state: GameState,
@@ -114,21 +113,7 @@ export function validateDrawMashBill(
   if (total < cost) {
     return {
       legal: false,
-      reason: `payment totals ${total} rep, need ${cost}`,
-    };
-  }
-  // Anchor rule: ≥2-cost draws require ≥1 rep paid.
-  if (cost >= 2 && action.rep < 1) {
-    return {
-      legal: false,
-      reason: "bill draws costing 2 or more require at least 1 reputation paid",
-    };
-  }
-  // $1 draws with no rep need at least one Labor card.
-  if (cost === 1 && action.rep === 0 && laborIds.length === 0) {
-    return {
-      legal: false,
-      reason: "pay 1 reputation or 1 Labor card to draw a $1 bill",
+      reason: `payment totals ${total}, need ${cost}`,
     };
   }
   return { legal: true };

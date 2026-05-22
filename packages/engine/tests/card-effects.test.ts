@@ -521,7 +521,7 @@ describe("Card effect — rep_on_market_spend", () => {
       cost: 8,
       effect: { kind: "rep_on_market_spend", when: "on_spend", rep: 1 },
     };
-    // Give 1 rep to satisfy the anchor rule + pay the $1 cost.
+    // Pay the $1 cost with 1 rep (Marketing Labor doesn't help on market resource buys).
     state = {
       ...state,
       players: state.players.map((p) =>
