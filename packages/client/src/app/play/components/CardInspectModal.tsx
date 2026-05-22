@@ -5,7 +5,7 @@
  * clicked in the HandTray or MarketCenter. Reads `inspect` from the
  * game store; closes on backdrop / ✕ / Esc.
  *
- * Each kind (resource, capital, mash bill, operations, investment)
+ * Each kind (resource, labor, mash bill, operations, investment)
  * renders the same gradient/border idiom as its mini-tile, scaled up,
  * with full prose unclamped — so the player has one place to read every
  * detail (recipe constraints, reward grid, awards, full effect text).
@@ -674,7 +674,7 @@ interface RecipeChipSpec {
   tint: string;
   forbidden?: boolean;
   wild?: boolean;
-  /** v2.11: Specialty / Heritage card requirement. */
+  /** Specialty / Heritage card requirement. */
   specialty?: boolean;
 }
 

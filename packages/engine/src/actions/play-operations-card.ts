@@ -164,7 +164,7 @@ export function validatePlayOperationsCard(
       return { legal: true };
 
     case "cash_out": {
-      // v2.11: needs at least 2 resource cards to gain any rep
+      // needs at least 2 resource cards to gain any rep
       // (1 rep per 2 discarded, round down). Below 2, the card has
       // no effect — block the play to avoid a wasted ops slot.
       const resourceCount = player.hand.filter((c) => c.type === "resource").length;
@@ -419,10 +419,8 @@ export function applyPlayOperationsCard(
     }
 
     case "cash_out": {
-      // v2.11 (Unified Rep): discard every resource card from hand;
-      // gain 1 rep per 2 discarded (round down). The "trade grain
-      // for rep" valve — no minting of capital because capital is
-      // retired.
+      // Discard every resource card from hand; gain 1 rep per 2
+      // discarded (round down). The "trade grain for rep" valve.
       const kept: Card[] = [];
       const discarded: Card[] = [];
       for (const c of player.hand) {

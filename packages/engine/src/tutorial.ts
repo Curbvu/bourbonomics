@@ -166,8 +166,8 @@ function buildTutorialHumanDeck(): Card[] {
 
 /**
  * Bot's deck — fixed order so the scripted SELL_BOURBON always has a
- * predictable card to spend. 4 capital + 4 corn lines up with what
- * the bot draws in round 2, when Beat 7 fires.
+ * predictable card to spend. 8 corn lines up with what the bot draws
+ * in round 2, when Beat 7 fires.
  */
 function buildTutorialBotDeck(): Card[] {
   const cards: Card[] = [];

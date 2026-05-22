@@ -4,7 +4,7 @@ import type { GameAction, GameState, ValidationResult } from "../types";
 type SaveCardAction = Extract<GameAction, { type: "SAVE_CARD" }>;
 
 /**
- * v2.11 — SAVE_CARD: set aside one card from hand into the Save
+ * SAVE_CARD: set aside one card from hand into the Save
  * slot. Joins next round's draw on top of the 8-card deal. Only one
  * card may be saved at a time. Legal during the player's action
  * phase OR during cleanup (the engine doesn't currently expose a

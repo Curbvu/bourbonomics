@@ -154,8 +154,8 @@ export interface AgeMode {
  *            face-up bill (sets the id and advances to step 2) or
  *            clicks the deck-top "blind" target (sets `blind: true`).
  *   step 2 — the player tags pay cards. Blind draws need exactly 1
- *            card; face-up picks need cards summing to ≥ the bill's
- *            cost (capital cards pay face value).
+ *            card; face-up picks need rep + Generic Labor totaling
+ *            ≥ the bill's cost.
  *
  * Confirm dispatches DRAW_MASH_BILL with either `mashBillId` set
  * (face-up) or omitted (blind).
@@ -946,8 +946,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setStore(EMPTY_STORE);
   }, []);
 
-  // Buy-mode helpers — the conveyor + capital cards become click targets
-  // and the BuyOverlay drives Confirm/Cancel.
+  // Buy-mode helpers — the unified market tiles + matching-domain
+  // Labor cards in hand become click targets and the BuyOverlay
+  // drives Confirm/Cancel.
   const startBuyMode = useCallback(() => {
     setBuyMode({ pickedTarget: null, spendCardIds: [] });
     setInspect(null);
@@ -1344,7 +1345,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         demandBandOffset: barrel.demandBandOffset,
         gridRepOffset: barrel.gridRepOffset,
       });
-      // v2.11 (Unified Rep): sale is single-step. Engine adds
+      // sale is single-step. Engine adds
       // grid + bonuses (clamped to tier floor) directly to the rep
       // track — no split prompt. `reward` is intentionally unused
       // here; the engine recomputes it.

@@ -125,7 +125,7 @@ export function applyDistilleryStarterModifications(
   const mods = distillery.starterPoolMods;
   if (!mods) return;
 
-  // v2.11 High-Rye House: free Specialty Rye cards. Same shape as the
+  // High-Rye House: free Specialty Rye cards. Same shape as the
   // market-minted Superior Rye (cost $2, `specialty: true` so they
   // count toward `minSpecialty.rye`). The v2.10 uniform +1-rep-on-sale
   // bonus is retired — High-Rye House's +1 rep on rye-bill sales is a

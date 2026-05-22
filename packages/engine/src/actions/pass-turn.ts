@@ -5,14 +5,13 @@ import { endPlayerTurn, isCurrentPlayer } from "../state";
 type PassTurnAction = Extract<GameAction, { type: "PASS_TURN" }>;
 
 /**
- * Voluntarily end your full turn. Any resource / capital cards still in
- * hand are held until the Cleanup Phase, when they hit the discard pile.
- * Operations cards in hand carry across rounds. Once you end your turn
- * you do not act again until the next round.
+ * Voluntarily end your full turn. Any resource / Labor cards still in
+ * hand are held until the Cleanup Phase, when they hit the discard
+ * pile. Operations cards in hand carry across rounds. Once you end
+ * your turn you do not act again until the next round.
  *
- * Under v2.2, no main action ends a turn implicitly — only PASS_TURN
- * (the "End Turn" action) does. A bot whose hand is empty also emits
- * PASS_TURN as its terminal action.
+ * No main action ends a turn implicitly — only PASS_TURN does. A bot
+ * whose hand is empty also emits PASS_TURN as its terminal action.
  */
 export function validatePassTurn(
   state: GameState,

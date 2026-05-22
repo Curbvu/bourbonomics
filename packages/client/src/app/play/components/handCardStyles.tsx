@@ -41,11 +41,9 @@ export type CardChrome = {
 //
 //   cask    — whiskey-barrel brown (warm wood)
 //   corn    — golden yellow
-//   barley  — vivid forest green   (contrasts capital's indigo)
+//   barley  — teal                  (cool counterpoint to the warm row)
 //   rye     — blood crimson         (contrasts wheat's cyan)
 //   wheat   — pale cyan/sky         (contrasts rye's red)
-//   capital — royal indigo          (contrasts corn's yellow, distinct
-//                                    from ops which is violet/purple)
 export const RESOURCE_CHROME: Record<ResourceSubtype, CardChrome> = {
   cask: {
     // Charred-oak barrel brown — pulls every step away from amber/orange so
@@ -65,9 +63,8 @@ export const RESOURCE_CHROME: Record<ResourceSubtype, CardChrome> = {
     label: "text-yellow-100",
   },
   barley: {
-    // Teal — sits between capital (green) and wheat (cyan) without
-    // colliding with either, and stays a distinct hue from the warm
-    // cask/corn/rye column.
+    // Teal — a cool counterpoint to the warm cask/corn/rye column,
+    // distinct from wheat's cyan.
     gradient: "bg-gradient-to-b from-teal-300/95 via-teal-800/90 to-slate-950",
     border: "border-teal-200",
     borderSoft: "border-teal-300/45",
@@ -90,19 +87,6 @@ export const RESOURCE_CHROME: Record<ResourceSubtype, CardChrome> = {
   },
 };
 
-export const CAPITAL_CHROME: CardChrome = {
-  // Money green — punchier emerald top so it pops next to the warm
-  // wood/grain row. Barley moved to teal so the two greens no longer
-  // collide. v2.11: capital cards are retired in the new economy
-  // but the chrome stays for legacy serialized state + ops-card
-  // fallback.
-  gradient: "bg-gradient-to-b from-emerald-400/95 via-emerald-800/90 to-slate-950",
-  border: "border-emerald-300",
-  borderSoft: "border-emerald-400/45",
-  ink: "text-emerald-50",
-  label: "text-emerald-200",
-};
-
 export const OPS_CHROME: CardChrome = {
   gradient: "bg-gradient-to-b from-violet-500/90 via-violet-800/90 to-slate-950",
   border: "border-violet-300",
@@ -112,11 +96,11 @@ export const OPS_CHROME: CardChrome = {
 };
 
 /**
- * v2.11 Labor card chrome — slate/steel palette that reads as
- * "workers" without colliding with any resource grain or the capital
- * emerald. Used for Generic Labor; Specialty Labor cards reuse the
- * same chrome (their domain is communicated through the on-card
- * subtype label rather than the gradient).
+ * Labor card chrome — slate/steel palette that reads as "workers"
+ * without colliding with any resource grain. Used for Generic Labor;
+ * Specialty Labor cards reuse the same chrome (their domain is
+ * communicated through the on-card subtype label rather than the
+ * gradient).
  */
 export const LABOR_CHROME: CardChrome = {
   gradient: "bg-gradient-to-b from-slate-400/95 via-slate-700/95 to-slate-950",
@@ -127,13 +111,13 @@ export const LABOR_CHROME: CardChrome = {
 };
 
 /**
- * v2.11 Labor glyph table. Sweat-equity tools per subtype so the
+ * Labor glyph table. Sweat-equity tools per subtype so the
  * card face reads as a worker, not a generic "+1" badge.
  *
  *   generic   🔨 hammer        — the universal worker
  *   cooper    🪓 axe           — barrel-stave craft
  *   marketing 📣 megaphone     — the storyteller
- *   architect 📐 ruler         — the planner (reserved for v2.12)
+ *   architect 📐 ruler         — the planner 
  *
  * Used everywhere a Labor card surfaces: HandTray, MarketCenter,
  * PurchaseFlight, SaleFlight, StarterDeckDraftModal, CardInspectModal.

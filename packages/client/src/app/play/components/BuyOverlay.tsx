@@ -37,7 +37,7 @@ export default function BuyOverlay() {
         ? "investment"
         : "market_resource";
 
-  // v2.11: only Labor cards contribute. Non-Labor selections in
+  // only Labor cards contribute. Non-Labor selections in
   // `spendCardIds` are ignored at confirm time (store filter); we
   // mirror that here so the overlay totals match what dispatches.
   const selectedLabor = human.hand.filter(

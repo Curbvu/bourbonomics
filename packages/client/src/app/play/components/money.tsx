@@ -1,10 +1,10 @@
 /**
  * Currency formatting — single source of truth for the in-game unit.
  *
- * Bourbonomics uses one currency: "Bourbon dollars", abbreviated **B$**.
- * Earlier iterations split this into ¢ (resource cards = 1¢) and $
- * (capital cards = $N face value), which read as two units even though
- * the engine treats them as one. v2.2 unifies both as B$N.
+ * Bourbonomics uses one currency: reputation (and Labor cards as a
+ * fungible supplement). Earlier iterations used "Bourbon dollars" (B$);
+ * this helper still emits the B$ glyph for legacy UI hooks but new
+ * surfaces increasingly read "rep" plain.
  *
  * Usage:
  *   formatMoney(3)        → "B$3"

@@ -124,7 +124,7 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
 }
 
 /**
- * v2.11: should the bot hold off on a buy to save rep for a bill
+ * should the bot hold off on a buy to save rep for a bill
  * draw? True when the buy would push rep below 1 AND the bourbon
  * deck still has bills AND the player has an open slot to receive
  * one AND no aging-phase barrel is ready to sell.
@@ -261,7 +261,7 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
   }
 
   // Market Corner: only if there's a high-value premium we can't otherwise afford.
-  // v2.11: "afford" = current rep (Labor cards we don't model here as
+  // "afford" = current rep (Labor cards we don't model here as
   // a hard discount; this is a rough upper bound).
   const mc = playable.find((c) => c.defId === "market_corner");
   if (mc) {
@@ -568,7 +568,7 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
     type: "SELL_BOURBON",
     playerId: player.id,
     barrelId: best.barrelId,
-    // v2.11: single-step sale — rep total + tier floor are applied
+    // single-step sale — rep total + tier floor are applied
     // by the engine. No split fields.
     ...(goldChoice ? { goldChoice } : {}),
     ...(goldConvertTargetSlotId ? { goldConvertTargetSlotId } : {}),
@@ -935,7 +935,7 @@ function peakReward(mb: MashBill): number {
  * as used. Returns whatever it found (possibly empty if nothing
  * matches) — caller decides whether the partial coverage is enough.
  *
- * v2.11: `preferSpecialty` pulls Specialty / Heritage cards first when
+ * `preferSpecialty` pulls Specialty / Heritage cards first when
  * the recipe has a specialty floor on this subtype, so a single card
  * can satisfy both the regular min and the floor.
  */
@@ -1037,7 +1037,7 @@ function neededSpecialtySubtypes(
 }
 
 function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
-  // v2.11 (Unified Rep): rep is the currency. Labor cards in hand
+  // rep is the currency. Labor cards in hand
   // supplement rep — Cooper +2 toward market resources, Generic +1
   // anywhere. The bot prefers to pay with Labor first (cards in hand
   // are cheaper than rep, which is also VPs) and tops up with rep.
@@ -1074,7 +1074,7 @@ function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
       }
     }
     // De-prioritize investments — their on-buy effects don't fire yet,
-    // so they're a worse spend than a real resource until v2.12.
+    // so they're a worse spend than a real resource in a future wave.
     if (card.type === "investment") score -= 2;
     if (!best || score > best.score) best = { slotIndex: i, score, cost };
   }

@@ -79,9 +79,12 @@ export default function AgeOverlay() {
   );
 }
 
-function cardLabel(card: { type: string; subtype?: string; capitalValue?: number; resourceCount?: number; displayName?: string }): string {
+function cardLabel(card: { type: string; subtype?: string; laborSubtype?: string; resourceCount?: number; displayName?: string }): string {
   if (card.displayName) return card.displayName;
-  if (card.type === "capital") return `Capital $${card.capitalValue ?? 1}`;
+  if (card.type === "labor") {
+    const sub = card.laborSubtype ?? "labor";
+    return `Labor · ${sub[0]!.toUpperCase()}${sub.slice(1)}`;
+  }
   const sub = card.subtype ?? "";
   const subCap = sub ? sub[0]!.toUpperCase() + sub.slice(1) : "Resource";
   const count = card.resourceCount && card.resourceCount > 1 ? `${card.resourceCount}× ` : "";

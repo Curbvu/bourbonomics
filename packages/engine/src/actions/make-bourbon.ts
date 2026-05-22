@@ -41,9 +41,9 @@ interface ResourceTotals {
   barley: number;
   wheat: number;
   /**
-   * v2.11: per-subtype Specialty unit counts. Each Specialty or
+   * per-subtype Specialty unit counts. Each Specialty or
    * Heritage card contributes its `resourceCount` (uniformly 1 in
-   * v2.11 — every card is one unit). Used to satisfy
+   * every card is one unit). Used to satisfy
    * `recipe.minSpecialty`.
    */
   specialtyCask: number;
@@ -78,7 +78,7 @@ function totalGrain(t: ResourceTotals): number {
  * for non-resource cards so callers can iterate uniformly across
  * mixed piles.
  *
- * v2.11: Specialty / Heritage cards (`card.specialty === true`) also
+ * Specialty / Heritage cards (`card.specialty === true`) also
  * contribute their `resourceCount` to the per-subtype specialty tally
  * so recipes with `minSpecialty` requirements can be checked.
  */

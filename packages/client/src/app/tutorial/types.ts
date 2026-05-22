@@ -116,7 +116,7 @@ export interface AwaitActionBeat extends BeatBase {
   matches: (action: GameAction, state: GameState) => boolean;
   /**
    * Optional override for the dispatched action. Returns null to
-   * dispatch as-is. v2.11: the sell-action no longer carries a
+   * dispatch as-is. the sell-action no longer carries a
    * rep-split payload (engine resolves the total on apply), so the
    * legacy "force a specific split" use-case is gone — left here in
    * case future beats need to massage other action shapes.

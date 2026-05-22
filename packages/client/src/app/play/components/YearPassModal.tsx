@@ -66,7 +66,7 @@ function summarizeRound(
     Math.min(12, demandEnd - demandRises + sales.length),
   );
 
-  // v2.11: SELL_BOURBON no longer carries the rep total in its
+  // SELL_BOURBON no longer carries the rep total in its
   // payload. We count barrels sold from the action log and report 0
   // repGained for the per-round delta — the recap chip will show
   // sales count but not the exact rep delta until the engine

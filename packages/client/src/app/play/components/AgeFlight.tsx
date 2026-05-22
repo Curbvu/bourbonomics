@@ -180,13 +180,6 @@ function chromeForSubtype(subtype: string): SubtypeChrome {
         tag: "text-cyan-200",
         title: "text-cyan-50",
       };
-    case "capital":
-      return {
-        border: "border-emerald-400",
-        bg: "bg-gradient-to-b from-emerald-900/85 via-emerald-950/85 to-slate-950",
-        tag: "text-emerald-200",
-        title: "text-emerald-50",
-      };
     default:
       return {
         border: "border-slate-400",

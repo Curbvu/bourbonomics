@@ -1,5 +1,9 @@
 # Bourbonomics 2.0 — Claude Code Implementation Guide
 
+> **⚠️ This doc is a historical bootstrap prompt — the original "start from zero" implementation guide.** It still references the pre-2.13 design (Capital cards, separate operations / bourbon / investment rows, `marketConveyor` field, IMPLEMENT_INVESTMENT action, etc.). The codebase has moved past those decisions; treat this file as design history, not the spec.
+>
+> **For the canonical current rules, see [`GAME_RULES.md`](GAME_RULES.md).** For the canonical current code shape, read the engine source directly (`packages/engine/src/types.ts` is the entry point).
+
 This document is a structured prompt for Claude Code to implement Bourbonomics 2.0 as a digital game. It assumes a clean repository and provides the architecture, data models, mechanics, and implementation order.
 
 ---

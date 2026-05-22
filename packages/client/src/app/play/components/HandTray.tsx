@@ -145,9 +145,8 @@ export default function HandTray() {
 
         <Divider />
 
-        {/* Resources (capital folded in â€” capital is a resource). Takes
-            the remaining space; flex-1 + min-w-0 lets it shrink instead
-            of overflowing the row. */}
+        {/* Resources + Labor mixed row. Takes the remaining space;
+            flex-1 + min-w-0 lets it shrink instead of overflowing. */}
         <Section caption="resources" count={handCards.length} grow zone="hand-resources">
           {handCards.length === 0 ? (
             <EmptyPill>no cards</EmptyPill>
@@ -683,12 +682,12 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
 // orphaned until this cleanup pass.
 
 /**
- * v2.11 Labor card renderer. Labor cards are a separate `type` from
- * resource/capital â€” they have no `subtype`, so the resource chrome
- * lookup would crash. Layout mirrors `CapitalCard` (centered title
- * + value chip + flavor); palette is `LABOR_CHROME` (slate/steel).
- * Generic Labor contributes +1 toward any purchase; Specialty Labor
- * (Marketing / Cooper) contributes +2 in its matching domain. Both
+ * Labor card renderer. Labor cards are a separate `type` from
+ * resource — they have no `subtype`, so the resource chrome lookup
+ * would crash. Layout is centered title + glyph + flavor on the
+ * slate `LABOR_CHROME` palette. Generic Labor contributes +1 toward
+ * any purchase; Specialty Labor (Marketing / Cooper / Architect)
+ * contributes +2 in its matching domain. Both
  * variants are also legal as aging-commit cards.
  */
 function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {

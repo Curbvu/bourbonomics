@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (v2.11 alpha — "Three Bands · Unified Rep").** Distillery selection (4-distillery picker), slot-bound mash bills, incremental production, single-step selling, market (three-band economy + Labor strip), operations cards, trading, doomsday-deck endgame. Reputation is the unified currency for both VP and spending; Labor cards supplement rep on purchases. Multiplayer is live (host a 4-char-code room from `/multiplayer`). Investment cards are sketched in `PLANNED_MECHANICS.md` and not yet live.
+> **Scope (current alpha — "Unified Market").** Distillery selection (4-distillery picker), slot-bound mash bills, incremental production, single-step selling, a unified 10-card market (resources + Labor + ops + investments together), trading, doomsday-deck endgame. Reputation is the unified currency for both VP and spending; Labor cards supplement rep on purchases. Generic Labor is finite per player (2 in the starter deck, no central pile, no Hire). Investment cards ship in the market but their on-buy effects are still effect-pending. Multiplayer is live (host a 4-char-code room from `/multiplayer`).
 
 ---
 
@@ -73,9 +73,8 @@ When the timer expires (or every player has passed), shuffle your final 16 cards
 ### Step 5 — First hand
 - Each player **draws 8 cards** from their starter deck.
 ### Step 6 — Board setup
-- **Market conveyor:** 10 cards face-up from the market supply (Common $1 / Specialty $2 / Heritage $3 resources + a rare Specialty Labor strip — Marketing $4, Cooper $4. Generic Labor is **not** sold; the 2 you start with are all you get).
-- **Operations market:** 3 face-up ops cards beside the ops deck.
-- **Bourbon deck:** mash bills face-down, with 3 face-up beside the deck.
+- **Unified market:** 10 cards face-up from a single shuffled supply containing **resources** (Common $1 / Specialty $2 / Heritage $3), **Specialty Labor** (Marketing $4, Cooper $4, Architect $4), **operations cards**, and **investment cards**. Generic Labor is **not** sold; the 2 in your starter deck are all you'll ever own.
+- **Bourbon deck:** mash bills face-down, with 3 face-up beside the deck in a separate column.
 - **Demand:** starts at 0.
 - Pick a start player.
 
@@ -85,11 +84,11 @@ When the timer expires (or every player has passed), shuffle your final 16 cards
 
 Three phases per round:
 
-1. **Draw** — each player draws 8 cards. A player who used the **Save slot** last round adds the saved card on top, drawing effectively 9 that round.
+1. **Draw** — each player draws 8 cards. A player who used the **Save slot** last round adds the saved card on top, drawing effectively 9 that round. (Round 1 only: both Generic Labor cards from your starter deck are rigged to be in your opening hand.)
 2. **Action** — players take full turns in rotated order. Each turn runs as **Roll demand → Age every aging barrel → Take actions**.
-3. **Cleanup** — unused resource and Labor cards go to discard; per-round flags reset; start player rotates one seat counter-clockwise.
+3. **Cleanup** — unused resource and Labor cards go to discard; per-round flags reset; **the 10 market cards cycle out to the market discard and 10 fresh cards are dealt from the supply**; start player rotates one seat counter-clockwise.
 
-**Operations cards persist** across rounds.
+**Operations cards persist** across rounds in your operations hand.
 
 **Turn order rotates** — the player who acted last in round N goes first in round N+1 (the *bookend*). Each player gets the bookend equally over an N-player game.
 
@@ -201,7 +200,7 @@ Sell any of your **aging** barrels that is **age ≥ 2** AND has been in Aging f
 
 The tier floor guarantees every sale clears its baseline build cost — even a Common bill at age 2 / demand 2 pays 3 rep. Higher-rarity bills float higher floors because their build costs are higher (more Specialty cards).
 
-There is no split prompt — the engine resolves the rep total and lands it directly. (The v2.10 Gold-only "purchasing power" split is retired in v2.11 under unified rep.)
+There is no split prompt — the engine resolves the rep total and lands it directly.
 
 ### Awards
 
@@ -345,22 +344,23 @@ The deck contains **resource cards** (cask, corn, grain — premiums come from t
 ### Card types
 
 - **Resource** — cask, corn, wheat, rye, barley. Needed to make bourbon.
-- **Labor** — sweat equity. Generic Labor (+1 anywhere) lives only in the starter deck (2 per player, finite — there is no central Hire pile). Specialty Labor (Cooper +2 toward market resources, Marketing +2 toward ops) appears rarely in the market and is the only way new Labor enters your deck.
-- **Operations** — bought from the face-up ops market. Free-action interruptions; one-shot.
+- **Labor** — sweat equity. Generic Labor (+1 anywhere) lives only in the starter deck (2 per player, finite — there is no central Hire pile). Specialty Labor (Cooper +2 toward market resources, Marketing +2 toward ops, Architect +2 toward investments) appears in the unified market and is the only way new Labor enters your deck.
+- **Operations** — bought from the unified market. Held in your operations hand; play as a free interruption (one-shot).
+- **Investment** — bought from the unified market. Long-term effects; effects are pending implementation in the current alpha.
 
 ### Card Bands
 
-Resource cards in the market sort into three pricing bands. Every card is **1 unit**. Costs are paid in reputation.
+Resource cards in the market sort into three pricing bands. Every card is **1 unit**. Costs are paid in reputation (and/or Labor).
 
 | Band | Cost | Units | Notes |
 |---|:-:|:-:|---|
-| **Common** (cask, corn, rye, wheat, barley) | $1 | 1 | Basic; Labor-buyable. |
+| **Common** (cask, corn, rye, wheat, barley) | $1 | 1 | Basic; payable in 1 rep or 1 Generic Labor. |
 | **Specialty** (superior cask / corn / rye / wheat / barley) | $2 | 1 | Satisfies `minSpecialty.<subtype>` gates. |
-| **Heritage** (heritage cask / corn / rye / wheat / barley) | $3 | 1 | Satisfies the same gates; per-card on-sale bonus hook (no Heritage card ships a populated bonus in v2.11). |
+| **Heritage** (heritage cask / corn / rye / wheat / barley) | $3 | 1 | Satisfies the same gates; per-card on-sale bonus hook (no Heritage card ships a populated bonus yet). |
 
 Premium variants — Specialty and Heritage — only enter play via the market.
 
-The Labor strip also lives in the market:
+The Specialty Labor strip:
 
 | Labor | Cost | Domain |
 |---|:-:|---|
@@ -410,7 +410,7 @@ A 5-year barrel at demand 7 reads **5** on the grid. Tier-1 floor (3) is met —
 
 # 🃏 Operations Cards
 
-Bought from the face-up **operations market** (3 face-up). Held in a separate **operations hand** (no size limit). Played as a **free interruption** during your turn — one-shot. **Not tradeable.**
+Bought from the **unified market** (any of the 10 face-up slots that happens to hold an ops card). Held in a separate **operations hand** (no size limit). Played as a **free interruption** during your turn — one-shot. **Not tradeable.**
 
 Operations cards held before the final round can be played; new ops cards bought during the final round **cannot** be played that round.
 
@@ -424,7 +424,7 @@ Operations cards held before the final round can be played; new ops cards bought
 | **Market Manipulation** | 2 | Move demand ±1. |
 | **Glut** | 2 | Demand −2 (floor 0). |
 | **Mash Futures** | 2 | Pre-play. Next Make Bourbon grain min −1. |
-| **Insider Buyer** | 2 | Discard the entire 10-card conveyor; refill from supply. |
+| **Insider Buyer** | 2 | Discard the entire 10-card market; refill from supply. Your next market buy this turn pays half price (round up, floor 1). |
 | **Bottling Run** | 2 | Every player draws 1. |
 | **Bourbon Boom** | 3 | Demand +2 (cap 12). |
 | **Demand Surge** | 3 | Your next sale this round does not drop demand. |

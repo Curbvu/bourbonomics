@@ -495,7 +495,7 @@ function BeatOverlay({
 // ─────────────────────────────────────────────────────────────────
 
 /**
- * v2.11: small chapter-scoped progress chip. Shows "Make bourbon ·
+ * small chapter-scoped progress chip. Shows "Make bourbon ·
  * 2/5" instead of the total "Tutorial · 13/45" so each phase feels
  * manageable. Counts only visible beats (prompts / awaits / decisions
  * / transitions / celebrate / finale) — scripted plumbing doesn't

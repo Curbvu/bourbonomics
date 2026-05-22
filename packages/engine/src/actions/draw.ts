@@ -36,7 +36,7 @@ export function applyDrawHand(
   player.discard = result.discard;
   draft.rngState = result.rngState;
 
-  // v2.11: pull the saved card (if any) into hand on top of the
+  // pull the saved card (if any) into hand on top of the
   // 8-card deal. So a player who saved last round draws 9 effective
   // cards this round. The Save slot then empties — only one card may
   // be banked at a time.

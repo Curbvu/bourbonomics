@@ -325,7 +325,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       short: "Specialty barrels pay extra",
       text: "When you sell a barrel containing 2 or more Specialty or Heritage cards, gain +3 reputation.",
       description:
-        "Doubles down on the specialty axis. With v2.11's uniform Specialty bonus retired, Premium Label is now the headline reason to stack specialty in a single barrel — a flat +3 on top of any per-card Heritage bonus.",
+        "Doubles down on the specialty axis. With the uniform Specialty bonus retired, Premium Label is now the headline reason to stack specialty in a single barrel — a flat +3 on top of any per-card Heritage bonus.",
       implemented: false,
     },
     {
@@ -418,8 +418,8 @@ export function defaultStarterCards(playerLabel: string): Card[] {
 }
 
 // ============================================================
-// Default mash bill catalog — v2.7 difficulty/payoff curve, v2.11
-// specialty-gate ramp.
+// Default mash bill catalog — difficulty/payoff curve with a
+// specialty-gate ramp by rarity.
 //
 // Pool is split roughly into thirds across complexityTiers, with
 // constraints ramping by rarity:
@@ -629,7 +629,7 @@ export function defaultMashBillCatalog(): MashBill[] {
         // 1×3 — flat-age, demand-driven. The blender's standby pours
         // the same at any reasonable age; market sets the price.
         // ≥2 barley, with light specialty pressure on one barley slot —
-        // the v2.11 uncommon-tier transition signal (≤1 grain slot
+        // the uncommon-tier transition signal (≤1 grain slot
         // gated; commons gate nothing, rares gate 1–2 entries).
         ageBands: [3],
         demandBands: [3, 5, 8],
@@ -649,7 +649,7 @@ export function defaultMashBillCatalog(): MashBill[] {
         complexityTier: 2,
         // 2×2 — rye whistle reads two-by-two: age × hot demand.
         // ≥2 rye, with one rye slot gated to Specialty/Heritage —
-        // the v2.11 uncommon-tier light-pressure signal.
+        // the uncommon-tier light-pressure signal.
         ageBands: [3, 6],
         demandBands: [3, 7],
         rewardGrid: [
@@ -772,7 +772,7 @@ export function defaultMashBillCatalog(): MashBill[] {
           minRye: 1,
           minBarley: 1,
           minWheat: 1,
-          // v2.11 rare-tier semi-gate: two specialty entries (cask +
+          // rare-tier semi-gate: two specialty entries (cask +
           // rye). Sits at the top of the rare gating range; epics
           // step up to a full cask + every-named-grain gate.
           minSpecialty: { cask: 1, rye: 1 },
@@ -826,7 +826,7 @@ export function defaultMashBillCatalog(): MashBill[] {
           minBarley: 1,
           minRye: 1,
           minWheat: 1,
-          // v2.11 epic full gate: cask + every named-grain subtype
+          // epic full gate: cask + every named-grain subtype
           // (rye, barley, wheat) all demand Specialty or Heritage.
           minSpecialty: { cask: 1, rye: 1, barley: 1, wheat: 1 },
         },
@@ -854,7 +854,7 @@ export function defaultMashBillCatalog(): MashBill[] {
           [5, 9],
           [6, 12],
         ],
-        // v2.11 epic full gate: cask + every named-grain subtype
+        // epic full gate: cask + every named-grain subtype
         // (rye + barley) all gated to Specialty or Heritage.
         recipe: {
           minBarley: 1,
@@ -885,7 +885,7 @@ export function defaultMashBillCatalog(): MashBill[] {
         recipe: {
           minWheat: 2,
           maxRye: 0,
-          // v2.11 epic full gate: cask + the wheat subtype (the only
+          // epic full gate: cask + the wheat subtype (the only
           // named grain) gated. Wheated Baron's -1 wheat discount
           // still applies to the second (plain) wheat slot.
           minSpecialty: { cask: 1, wheat: 1 },
@@ -918,7 +918,7 @@ export function defaultMashBillCatalog(): MashBill[] {
           minBarley: 1,
           minWheat: 1,
           minTotalGrain: 4,
-          // v2.11 legendary: broader than any epic — gates every
+          // legendary: broader than any epic — gates every
           // subtype (cask + corn + every named grain) AND tightens
           // the rye cap to 2 (the wildcard grain slot becomes the
           // second specialty rye). Five entries, six specialty units
@@ -940,7 +940,7 @@ export function defaultMashBillCatalog(): MashBill[] {
 }
 
 // ============================================================
-// Default market supply — v2.11 (Unified Rep) economy.
+// Default market supply — Unified Rep economy.
 //
 // Resources sit in three pricing bands, every card 1 unit. Costs are
 // paid in reputation (the unified currency) — Labor cards from hand
@@ -949,22 +949,19 @@ export function defaultMashBillCatalog(): MashBill[] {
 //   Common ($1)     1 unit, basic, no effect          (Labor-buyable)
 //   Specialty ($2)  1 unit, satisfies minSpecialty    (≥1 rep required)
 //   Heritage ($3)   1 unit, satisfies minSpecialty,   (≥1 rep required)
-//                   per-card bonus hook (empty in v2.11)
+//                   per-card bonus hook (empty)
 //
 // Plus a Labor strip on the supply:
 //
-//   Generic Labor   ($1, ~3 copies)   universal +1 toward any buy
 //   Marketing       ($4, 1 copy)      +2 toward ops card buys
 //   Cooper          ($4, 1 copy)      +2 toward market resource buys
+//   Architect       ($4, 1 copy)      +2 toward investment buys
 //
-// Capitals are entirely retired in v2.11 — rep is the only currency.
-// Architect ($4 Specialty Labor for investments) is reserved for
-// v2.12 when investments ship.
-//
-// The v2.10 uniform "+1 rep on sale per Specialty" band-wide bonus
-// stays retired. High-Rye House's +1 rep on rye-bill sales is a
-// distillery ability, wired through `DistillerySaleMods.bonusRepOnBill`
-// and unaffected by this change.
+// Generic Labor is NOT for sale — players start with 2 in their
+// starter deck and that's all the Generic Labor they'll ever own.
+// The unified market supply also wraps every ops card + every
+// investment card into Card-shaped entries (see
+// `wrapOperationsForMarket` / `wrapInvestmentForMarket`).
 // ============================================================
 
 interface BandCardSpec {
@@ -1004,7 +1001,7 @@ export function defaultMarketSupply(): Card[] {
 
   // ── Specialty ($2, 1 unit) — luxury upgrades that satisfy
   //   `minSpecialty.<subtype>` gates. No uniform on-sale bonus — the
-  //   v2.10 band-wide +1 rep is retired in v2.11.
+  //   v2.10 band-wide +1 rep is retired.
   for (const spec of SPECIALTY_SPECS) {
     for (let i = 0; i < spec.copies; i++) {
       cards.push(
@@ -1025,9 +1022,9 @@ export function defaultMarketSupply(): Card[] {
   // ── Heritage ($3, 1 unit) — flagship variants. Same
   //   `specialty: true` flag (count toward `minSpecialty`). Each
   //   Heritage card is the future home for a per-card on-sale bonus
-  //   (the `effect` field is the hook); v2.11 ships them without a
-  //   populated bonus — they currently differ from Specialty only in
-  //   price.
+  //   (the `effect` field is the hook); none of them ship with a
+  //   populated bonus yet — they currently differ from Specialty only
+  //   in price.
   for (const spec of HERITAGE_SPECS) {
     cards.push(
       makePremiumResource({

@@ -114,12 +114,12 @@ export function initializeGame(config: GameConfig): GameState {
       starterHand: [],
       starterPassed: false,
       starterSwapUsed: false,
-      // v2.11: starting rep is the player's distillery stake. Each
+      // starting rep is the player's distillery stake. Each
       // distillery's value compensates its setup asymmetries.
       reputation: distilleryStartingRep(distillery),
       handSize: startingHandSize,
       barrelsSold: 0,
-      // v2.11: Save slot starts empty. Carries one card across the
+      // Save slot starts empty. Carries one card across the
       // cleanup boundary when used.
       savedCard: null,
       outForRound: false,

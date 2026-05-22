@@ -175,7 +175,7 @@ function describe(
       );
     }
     case "SELL_BOURBON":
-      // v2.11: sale is single-step. Engine resolves total rep (grid +
+      // sale is single-step. Engine resolves total rep (grid +
       // bonuses, clamped to tier floor) on apply. We don't have the
       // resolved total in the action payload anymore — log the action
       // without a specific number to avoid drift.

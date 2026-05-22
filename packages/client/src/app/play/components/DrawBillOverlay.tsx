@@ -85,7 +85,7 @@ export default function DrawBillOverlay() {
   } else if (pickedBill) {
     prompt =
       paid < cost
-        ? `Step 2 — tag ${formatMoney(cost - paid)} more (capital pays face, others = ${formatMoney(1)}).`
+        ? `Step 2 — tag ${formatMoney(cost - paid)} more (Generic Labor pays +1; resources don't help here).`
         : "Ready. Confirm to dispatch.";
   } else {
     prompt = "Pick a bourbon to continue.";

@@ -486,7 +486,7 @@ export const TUTORIAL_BEATS: Beat[] = [
 ];
 
 /**
- * v2.11: chapter-aware progress for a given beat index. Used by the
+ * chapter-aware progress for a given beat index. Used by the
  * counter chip in CoachMark / PromptCard so players see e.g.
  * "Make bourbon · 2/5" instead of "Tutorial · 13/45".
  *
@@ -551,7 +551,7 @@ export function chapterProgressFor(beatIndex: number): {
 
 /** Helper kept for the controller's spotlight injection (legacy). */
 export function spotlightSpecialtyRye(_state: GameState): string | null {
-  // v2.11 slim cut: Specialty Rye is no longer purchased in the
+  // slim cut: Specialty Rye is no longer purchased in the
   // tutorial. Kept as a noop export so the controller doesn't break
   // on import if it still references it.
   return null;

@@ -23,13 +23,12 @@ export type ResourceSubtype = "cask" | "corn" | "rye" | "barley" | "wheat";
 export type GrainSubtype = "rye" | "barley" | "wheat";
 
 /**
- * v2.11 Labor subtypes:
+ * Labor subtypes:
  *   - "generic"   — universal +1 toward any purchase. Also legal as an
  *                   aging-commit card (sweat equity in the warehouse).
  *   - "marketing" — +2 toward operations card purchases.
  *   - "cooper"    — +2 toward market resource purchases.
- *   - "architect" — +2 toward investment purchases. NOT in v2.11 market;
- *                   reserved for v2.12 when investments ship.
+ *   - "architect" — +2 toward investment purchases (ships in market).
  *
  * A Specialty Labor card with a non-matching purchase domain contributes
  * 0 — the worker doesn't apply, the rep gap stays open. A future
@@ -87,17 +86,10 @@ export interface Card {
   aliases?: ResourceSubtype[];
   /**
    * Rep cost to acquire this card from the market. Defaults to 1.
-   * Under v2.11 unified rep this is paid in reputation (with Labor
+   * Under unified rep this is paid in reputation (with Labor
    * supplementing — see `BUY_FROM_MARKET`).
    */
   cost?: number;
-  /**
-   * @deprecated v2.11 — under unified rep, cards no longer pay
-   * arbitrary purchase values from hand. Rep is the currency; Labor
-   * cards supplement it. Field kept for backward-compat parsing of
-   * older saves; no factory sets it.
-   */
-  value?: number;
   /** Optional themed name shown in place of the auto-generated label. */
   displayName?: string;
   /** Optional one-line flavor used by the inspect modal. */
@@ -105,7 +97,7 @@ export interface Card {
   /** Themed-card effect descriptor; resolved at commit/sale/spend time. */
   effect?: CardEffect;
   /**
-   * v2.11: marks Specialty / Heritage band cards. Recipes with
+   * Marks Specialty / Heritage band cards. Recipes with
    * `minSpecialty` requirements count only specialty-flagged cards of
    * the given subtype toward the requirement. Independent of `premium`;
    * independent of any on-sale effect (the v2.10 uniform Specialty
@@ -161,9 +153,9 @@ export interface MashBillRecipe {
   maxWheat?: number;
   minTotalGrain?: number;
   /**
-   * v2.11: per-subtype Specialty / Heritage requirements. Counts only
+   * per-subtype Specialty / Heritage requirements. Counts only
    * cards flagged `card.specialty === true`; each contributes its
-   * `resourceCount` (1 unit per card — no 2-unit cards exist in v2.11).
+   * `resourceCount` (1 unit per card — no 2-unit cards exist).
    * Heritage cards satisfy the gate the same as Specialty cards. Used
    * across the rarity ramp: uncommons get light pressure (≤1 grain slot
    * gated), rares semi-gate (1–2 slots), epics fully gate every cask/
@@ -190,7 +182,7 @@ export interface AwardCondition {
 export type MashBillTier = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
 /**
- * v2.7 difficulty/payoff tier. Independent of the visual rarity `tier`:
+ * difficulty/payoff tier. Independent of the visual rarity `tier`:
  *   1 — Starter bills. Universal rule only or one easy constraint.
  *       Flat, forgiving payoff grids (small spread, low age thresholds).
  *   2 — Mid bills. One real constraint. Wider payoff range, age thresholds
@@ -259,7 +251,7 @@ export interface MashBill {
  * (the player doesn't know what they're getting), wired in the
  * action validator.
  *
- * v2.11: bills follow the same rep + Labor payment rules as market
+ * bills follow the same rep + Labor payment rules as market
  * and ops buys. Generic Labor (+1 anywhere) supplements rep; a
  * future Specialty Labor (e.g. "Distiller") for bill draws is
  * reserved space.
@@ -275,14 +267,14 @@ export function billCostByTier(bill: MashBill): number {
 }
 
 /**
- * @deprecated v2.11: use `billCostByTier`. Kept as an alias so any
+ * @deprecated use `billCostByTier`. Kept as an alias so any
  * external callers don't break mid-refactor.
  */
 export const DEFAULT_MASH_BILL_COST = 1;
 export const mashBillCost = billCostByTier;
 
 /**
- * v2.11 sale-floor table: every sale pays at least this much rep,
+ * sale-floor table: every sale pays at least this much rep,
  * regardless of grid value + bonuses. Keyed off the bill's rarity
  * tier so every barrel built clears its base cost.
  *
@@ -300,7 +292,7 @@ export function saleFloorForBill(bill: MashBill): number {
 }
 
 /**
- * v2.11: how many rep this Labor card contributes toward a purchase
+ * how many rep this Labor card contributes toward a purchase
  * of `domain`. Generic Labor pays 1 anywhere. Specialty Labor pays its
  * `laborContribution` (2 by default) when the domains match, 0 when
  * they don't. Non-Labor cards return 0 — Labor is the only card type
@@ -322,7 +314,7 @@ export function laborContribution(
  * of this recipe. Use it to rank bills against each other while
  * balancing payout grids.
  *
- * Formula (v2.11):
+ * Formula:
  *   - 1 per basic resource the recipe demands (universal cask + corn,
  *     plus any rye / barley / wheat / extra corn minimums)
  *   - 2 per Specialty resource — the cheapest option that satisfies a
@@ -348,7 +340,7 @@ export function mashBillBuildCost(bill: MashBill): number {
   const minTotalGrain = Math.max(r.minTotalGrain ?? 0, namedGrain === 0 ? 1 : namedGrain);
   const wildGrain = Math.max(0, minTotalGrain - namedGrain);
 
-  // v2.11: Specialty market cost is $2; uniform +1-rep-on-sale bonus is
+  // Specialty market cost is $2; uniform +1-rep-on-sale bonus is
   // retired. Heritage costs $3 and also satisfies the gate, but a
   // build-cost lower bound assumes the cheaper option.
   const SPECIALTY_UNIT_COST = 2;
@@ -502,7 +494,7 @@ export interface DistilleryStarterBarrel {
 
 export interface DistilleryStarterPoolMods {
   /**
-   * v2.11: free Specialty Rye cards added to the dealt starter hand
+   * free Specialty Rye cards added to the dealt starter hand
    * (High-Rye House). Specialty Rye carries no uniform on-sale bonus
    * any more; it counts toward `minSpecialty.rye` gates. High-Rye
    * House's own distillery ability still adds +1 rep on every
@@ -537,7 +529,7 @@ export interface Distillery {
   /** Number of mash bills drafted during setup (default 3). */
   mashBillDraftSize?: number;
   /**
-   * v2.11 (Unified Rep): rep the player starts on their track. Each
+   * rep the player starts on their track. Each
    * distillery's stake compensates for its setup asymmetries — see
    * GAME_RULES.md §Distillery Profiles. Defaults to 5 (Vanilla).
    */
@@ -734,7 +726,7 @@ export interface PlayerState {
 
   // Counters.
   /**
-   * v2.11 (Unified Rep): reputation is BOTH the victory-point track
+   * reputation is BOTH the victory-point track
    * AND the spending currency. Earned from sales, spent on purchases.
    * Must remain ≥ 0 at all times — purchase validation rejects a
    * spend that would push rep below zero (the Labor exemption for
@@ -745,7 +737,7 @@ export interface PlayerState {
   barrelsSold: number;
 
   /**
-   * v2.11: Save slot — at cleanup, the player may set aside ONE card
+   * Save slot — at cleanup, the player may set aside ONE card
    * from their hand into this slot. The saved card joins next round's
    * 8-card draw on top, so the player effectively draws 9 the round
    * after a Save. Holds at most one card; null when empty.

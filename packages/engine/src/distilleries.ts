@@ -70,7 +70,7 @@ const SPECS: DistillerySpec[] = [
     description:
       "Your bottles lead with pepper, baking spice, and a long dry finish. The market knows your label — the buyers who pay for a high-rye pour are the buyers you'll see again. Wheated bills don't fit the house; you ship them straight back to the bourbon discard before they ever touch your rickhouse.",
     strategyNote:
-      "+1 rep on every rye-bill sale is your engine. With v2.11's uniform Specialty bonus retired, the distillery's bonus is the rye player's headline sale upside — stacks only with per-card Heritage bonuses and ops/investment effects. The wheated-bill ban thins your draft pool — you'll see fewer Epic options. Pre-aged starter sells at round 2 once it picks up its second year.",
+      "+1 rep on every rye-bill sale is your engine. With the uniform Specialty bonus retired, the distillery's bonus is the rye player's headline sale upside — stacks only with per-card Heritage bonuses and ops/investment effects. The wheated-bill ban thins your draft pool — you'll see fewer Epic options. Pre-aged starter sells at round 2 once it picks up its second year.",
     difficulty: "intermediate",
     axis: "specialty / rye",
     implemented: true,

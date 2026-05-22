@@ -76,10 +76,9 @@ export function validateSellBourbon(
     };
   }
 
-  // v2.11 (Unified Rep): sale is single-step — no split prompt. The
-  // computed total rep (grid + bonuses, clamped to tier floor) lands
-  // on the player's rep track. Gold-only purchasing-power rule from
-  // v2.10 is retired alongside capital.
+  // Sale is single-step — no split prompt. The computed total rep
+  // (grid + bonuses, clamped to tier floor) lands on the player's
+  // rep track.
   const reward = computeSaleReward(state, barrel);
   const goldEligible =
     barrel.attachedMashBill.goldAward != null &&
@@ -258,7 +257,7 @@ export function applySellBourbon(
   const signals = collectSaleSignals(barrel, { demand: draft.demand });
   const reward = computeSaleGridReward(attached, barrel, draft.demand, signals);
 
-  // v2.11 (Unified Rep): single-step sale. Sum everything that adds
+  // single-step sale. Sum everything that adds
   // rep at sale — grid reward, themed-card per-card bonuses, Rating
   // Boost, distillery sale mods (e.g. High-Rye +1) — then clamp to
   // the bill's tier floor (3/4/5) so every sale clears its baseline.

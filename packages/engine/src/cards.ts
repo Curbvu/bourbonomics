@@ -44,10 +44,9 @@ const BASIC_RESOURCE_COPY: Record<ResourceSubtype, { displayName: string; flavor
 };
 
 /**
- * v2.11 Labor card copy (display name + flavor for each subtype).
- * Generic Labor is universal; Marketing / Cooper / Architect are
- * domain specialists. Architect is reserved for v2.12 (no Architect
- * cards ship in the v2.11 market — see `defaultMarketSupply`).
+ * Labor card copy (display name + flavor for each subtype). Generic
+ * Labor is universal; Marketing / Cooper / Architect are domain
+ * specialists that ship in the market via `defaultMarketSupply`.
  */
 const LABOR_COPY: Record<LaborSubtype, { displayName: string; flavor: string }> = {
   generic: {
@@ -68,7 +67,7 @@ const LABOR_COPY: Record<LaborSubtype, { displayName: string; flavor: string }> 
   },
 };
 
-/** v2.11: domain a Specialty Labor subtype matches. */
+/** Domain a Specialty Labor subtype matches. */
 const LABOR_DOMAIN_BY_SUBTYPE: Record<LaborSubtype, LaborDomain> = {
   generic: "any",
   marketing: "ops",
@@ -115,7 +114,7 @@ export function makePremiumResource(spec: {
   cost: number;
   aliases?: ResourceSubtype[];
   effect?: CardEffect;
-  /** v2.11: marks a Specialty / Heritage card. */
+  /** Marks a Specialty / Heritage card. */
   specialty?: boolean;
   ownerLabel?: string;
   index: number;
@@ -156,7 +155,7 @@ export function makeLaborCard(spec: {
   flavor?: string;
   /**
    * Override the rep contribution. Defaults to 1 (Generic) or 2
-   * (Specialty). Mostly here for tests; v2.11 ships the defaults.
+   * (Specialty). Mostly here for tests.
    */
   contribution?: number;
   /** Override the market acquisition cost. Generic = $1; Specialty = $4. */

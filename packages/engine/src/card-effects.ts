@@ -20,8 +20,9 @@ import { drawWithReshuffle } from "./deck";
 //   on_sale              — fired for every production + aging card
 //                          on a barrel that's being sold
 //                          (SELL_BOURBON apply)
-//   on_spend             — fired when a capital card is used to pay
-//                          a market purchase (BUY_FROM_MARKET apply)
+//   on_spend             — fired when a Labor card is consumed as
+//                          payment on a market purchase
+//                          (BUY_FROM_MARKET / BUY_OPERATIONS_CARD apply)
 //
 // The resolver is a pure dispatcher: it inspects card.effect and
 // mutates the immer Draft. Some effects also return *signals* to the
@@ -170,7 +171,7 @@ export function collectSaleSignals(
 }
 
 // -----------------------------
-// Market spend (capital `on_spend`)
+// Market spend (Labor `on_spend`)
 // -----------------------------
 
 export function applySpendEffect(

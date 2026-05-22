@@ -28,7 +28,7 @@ interface OpsCardSpec {
 
 const SPECS: OpsCardSpec[] = [
   // ── Demand manipulation ─────────────────────────────────────────
-  // v2.11 (Unified Rep) cost rebalance: every dollar of cost is now a
+  // (Unified Rep) cost rebalance: every dollar of cost is now a
   // victory point sacrificed (rep IS the score), so the old
   // 2/3/4/5/6 ladder was rebalanced. New ladder caps at 5.
   {

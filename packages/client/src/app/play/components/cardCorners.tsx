@@ -3,7 +3,7 @@
 /**
  * Corner tab shared by every card silhouette on the table.
  *
- * v2.11 (Unified Rep): cards no longer pay arbitrary "values" — rep
+ * cards no longer pay arbitrary "values" — rep
  * is the currency, Labor cards supplement via contribution, and
  * resource cards have no payment value. So the green CornerValue
  * tab is retired; only the top-right CornerCost remains.
@@ -31,7 +31,7 @@ export function CornerCost({ cost }: { cost: number }) {
 }
 
 /**
- * @deprecated v2.11 (Unified Rep): cards don't pay arbitrary values
+ * @deprecated cards don't pay arbitrary values
  * anymore. Left as an inert stub so old imports don't crash while
  * call-sites get cleaned up; new code should not reference it.
  */
