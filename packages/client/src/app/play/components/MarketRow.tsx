@@ -29,7 +29,6 @@
  * the tutorial spotlight and the existing drop-target CSS rules.
  */
 
-import { useRef } from "react";
 import type {
   Card,
   ResourceSubtype,
@@ -90,13 +89,6 @@ export default function MarketRow() {
   // market is always fully visible — drag the ScrollEdge buttons or use
   // the track scroller to see anything past the right edge.
   const market = state.market;
-
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const scrollBy = (dir: -1 | 1) => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    el.scrollBy({ left: dir * 360, behavior: "smooth" });
-  };
 
   // Inline buy: same path as the drawer's onCardClick. BuyOverlay then
   // drives the payment selection — the row click only fixes the target.
@@ -174,18 +166,16 @@ export default function MarketRow() {
           }}
         />
 
-        {/* Scroll edge buttons (fade affordances). */}
-        <ScrollEdge side="left" onClick={() => scrollBy(-1)} />
-        <ScrollEdge side="right" onClick={() => scrollBy(1)} />
-
-        {/* Card track */}
+        {/* Card track — fits the full market (typically 10 cards) at the
+            current panel width. No scroll affordances; if a future round
+            sneaks in extra inventory, native horizontal scroll still
+            works via touchpad / scroll wheel + shift. */}
         <div
-          ref={scrollerRef}
           data-market-conveyor
           className="scroll-thin flex"
           style={{
             gap: 8,
-            padding: "10px 36px 12px 36px",
+            padding: "10px 4px 12px 4px",
             overflowX: "auto",
             overflowY: "visible",
             scrollSnapType: "x proximity",
@@ -207,47 +197,6 @@ export default function MarketRow() {
 }
 
 /**
- * Left/right fade affordance — scrolls the card track by ±360px on
- * click. Positioned absolutely so the gradient overlays the leftmost /
- * rightmost cards (and hints there's more to scroll into view).
- */
-function ScrollEdge({
-  side,
-  onClick,
-}: {
-  side: "left" | "right";
-  onClick: () => void;
-}) {
-  const isLeft = side === "left";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={isLeft ? "scroll market left" : "scroll market right"}
-      className="absolute grid place-items-center"
-      style={{
-        top: 0,
-        bottom: 0,
-        [isLeft ? "left" : "right"]: 0,
-        width: 32,
-        background: `linear-gradient(${
-          isLeft ? "90deg" : "270deg"
-        }, rgba(12,8,5,.92), rgba(12,8,5,0))`,
-        border: 0,
-        cursor: "pointer",
-        zIndex: 2,
-        color: "var(--brass)",
-        fontFamily: "var(--font-display)",
-        fontSize: 26,
-        lineHeight: 1,
-      }}
-    >
-      {isLeft ? "‹" : "›"}
-    </button>
-  );
-}
-
-/**
  * Brass medallion price tag. Affordable: brass gradient + ink. Not
  * affordable: dark slate fill + whisper ink. The `฿` rune sits before
  * the amount at 9px / opacity .7 per the mockup's PriceTag.
@@ -264,14 +213,14 @@ function PriceTag({
       className="inline-flex items-center"
       style={{
         gap: 3,
-        padding: "2px 9px 2px 7px",
+        padding: "2px 10px 2px 8px",
         borderRadius: 999,
         background: affordable
           ? "linear-gradient(180deg, #f0c970, #c69d52)"
           : "linear-gradient(180deg, #4d4031, #2a1f15)",
         color: affordable ? "#1a120b" : "var(--whisper)",
         fontFamily: "var(--font-mono)",
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: 700,
         boxShadow: affordable
           ? "inset 0 1px 0 rgba(255,255,255,.4), 0 1px 2px rgba(0,0,0,.5)"
@@ -279,7 +228,7 @@ function PriceTag({
         letterSpacing: ".02em",
       }}
     >
-      <span style={{ fontSize: 10, opacity: 0.7 }}>฿</span>
+      <span style={{ fontSize: 11.5, opacity: 0.7 }}>฿</span>
       {amount}
     </span>
   );
@@ -423,7 +372,7 @@ function MarketRowCard({
         <span
           className="font-mono font-bold uppercase"
           style={{
-            fontSize: 9,
+            fontSize: 11,
             letterSpacing: ".18em",
             color: tierInk,
           }}
@@ -434,11 +383,11 @@ function MarketRowCard({
       </div>
 
       {/* Glyph block */}
-      <div className="mt-1.5 grid place-items-center" style={{ height: 40 }}>
+      <div className="mt-1.5 grid place-items-center" style={{ height: 44 }}>
         <span
           className="font-emoji leading-none"
           style={{
-            fontSize: 34,
+            fontSize: 38,
             color: subInk,
             textShadow: dim ? "none" : `0 0 12px ${subInk}55`,
           }}
@@ -450,11 +399,11 @@ function MarketRowCard({
 
       {/* Name */}
       <div
-        className="mt-1 font-display font-semibold"
+        className="mt-1.5 font-display font-semibold"
         style={{
-          fontSize: 15,
+          fontSize: 17,
           color: "var(--ink)",
-          lineHeight: 1.12,
+          lineHeight: 1.15,
         }}
       >
         {name}
@@ -465,7 +414,7 @@ function MarketRowCard({
         <div
           className="mt-1 font-display italic"
           style={{
-            fontSize: 11.5,
+            fontSize: 13,
             color: "var(--mute)",
             lineHeight: 1.3,
             display: "-webkit-box",
@@ -488,11 +437,11 @@ function MarketRowCard({
         <span
           className="font-mono font-bold uppercase"
           style={{
-            padding: "1px 6px",
-            borderRadius: 3,
+            padding: "2px 7px",
+            borderRadius: 4,
             border: `1px solid ${tierInk}`,
             color: tierInk,
-            fontSize: 9,
+            fontSize: 10.5,
             letterSpacing: ".14em",
           }}
         >
@@ -510,7 +459,7 @@ function MarketRowCard({
           <span
             className="font-mono font-bold uppercase"
             style={{
-              fontSize: 9.5,
+              fontSize: 11,
               letterSpacing: ".16em",
               color: "var(--gold)",
             }}
