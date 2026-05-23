@@ -95,10 +95,10 @@ function OpponentCard({
       }}
     >
       {/* Identity row */}
-      <div className="flex items-center gap-[9px]">
+      <div className="flex items-center gap-3">
         <div
           aria-hidden
-          className="h-[26px] w-[26px] flex-shrink-0 rounded-full"
+          className="h-[32px] w-[32px] flex-shrink-0 rounded-full"
           style={{
             background: `radial-gradient(circle at 35% 30%, ${ink}, #1a120b 90%)`,
             boxShadow: `0 0 0 1.5px ${ink}88, inset 0 1px 0 rgba(255,255,255,.18)`,
@@ -106,26 +106,26 @@ function OpponentCard({
         />
         <div className="min-w-0 flex-1">
           <div
-            className="truncate font-display text-[15px] font-semibold leading-none"
+            className="truncate font-display text-[17px] font-semibold leading-tight"
             style={{ color: "var(--ink)" }}
           >
             {player.name}
           </div>
           <div
             className="label-sm mt-[3px] truncate"
-            style={{ color: ink, fontSize: 8.5 }}
+            style={{ color: ink, fontSize: 9.5 }}
           >
             {player.distillery?.name ?? "no distillery"}
           </div>
         </div>
-        <div className="text-right leading-none">
+        <div className="text-right leading-tight">
           <div
-            className="font-display text-[22px] font-bold"
+            className="font-display text-[26px] font-bold leading-none"
             style={{ color: "var(--gold)" }}
           >
             {player.reputation}
           </div>
-          <div className="label-sm" style={{ fontSize: 8.5 }}>
+          <div className="label-sm" style={{ fontSize: 9.5 }}>
             Rep
           </div>
         </div>
@@ -156,7 +156,7 @@ function OpponentCard({
             <div
               key={i}
               title={bill ? `${bill.name} · ${range} rep` : "empty slot"}
-              className="grid h-[28px] flex-1 place-items-center rounded-[4px] border font-mono text-[8px] uppercase tracking-[.12em]"
+              className="grid h-[34px] flex-1 place-items-center rounded-[5px] border font-mono text-[9.5px] font-semibold uppercase tracking-[.12em]"
               style={{
                 borderColor: barrel ? cellInk : "var(--whisper)",
                 background: barrel
@@ -215,13 +215,13 @@ function Counter({
   v: number;
 }) {
   return (
-    <div className="flex flex-col items-center gap-[1px]">
+    <div className="flex flex-col items-center gap-[2px]">
       <span
-        className="font-mono text-[11px] font-semibold leading-none"
+        className="font-mono text-[13px] font-semibold leading-none"
         style={{ color: "var(--ink-muted)" }}
       >
         <span
-          className="mr-1 text-[9px]"
+          className="mr-1 text-[10.5px]"
           style={{ color: "var(--brass)" }}
           aria-hidden
         >
@@ -229,7 +229,7 @@ function Counter({
         </span>
         {v}
       </span>
-      <span className="label-sm" style={{ fontSize: 7.5 }}>
+      <span className="label-sm" style={{ fontSize: 9 }}>
         {label}
       </span>
     </div>

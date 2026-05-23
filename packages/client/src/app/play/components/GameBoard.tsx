@@ -126,7 +126,10 @@ export default function GameBoard() {
       <main
         className="grid min-h-0 flex-1"
         style={{
-          gridTemplateColumns: "230px 1fr 290px",
+          // Rivals 280px (was 230) so opponent cards' name + handle +
+          // mini-rickhouse range strips don't crowd. Log stays 290 so
+          // Tasting Notes entries don't wrap mid-sentence.
+          gridTemplateColumns: "280px 1fr 290px",
           gridTemplateRows: "1fr auto",
           gridTemplateAreas: '"rivals stage log" "rivals hand log"',
           gap: 12,

@@ -85,9 +85,11 @@ export default function MarketRow() {
   const me = youId ? state.players.find((p) => p.id === youId) : null;
   const reputation = me?.reputation ?? 0;
 
+  // v3.2.1: show the full market inline (no overflow cap). The track
+  // still scrolls when the cards overflow the panel width, so a 10-card
+  // market is always fully visible — drag the ScrollEdge buttons or use
+  // the track scroller to see anything past the right edge.
   const market = state.market;
-  const inline = market.slice(0, 8);
-  const overflow = Math.max(0, market.length - inline.length);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const scrollBy = (dir: -1 | 1) => {
@@ -189,7 +191,7 @@ export default function MarketRow() {
             scrollSnapType: "x proximity",
           }}
         >
-          {inline.map((card, i) => (
+          {market.map((card, i) => (
             <MarketRowCard
               key={card.id}
               card={card}
@@ -198,41 +200,6 @@ export default function MarketRow() {
               onBuy={() => onCardBuy(i, reputation >= (card.cost ?? 1))}
             />
           ))}
-          {overflow > 0 ? (
-            <button
-              type="button"
-              onClick={onOpenFull}
-              className="flex flex-col items-center justify-center gap-1.5"
-              style={{
-                flexShrink: 0,
-                width: 92,
-                borderRadius: 8,
-                border: "1px dashed rgba(110,80,50,.45)",
-                background: "rgba(20,14,8,.5)",
-                color: "var(--ink-muted)",
-                fontFamily: "var(--font-mono)",
-                fontSize: 9.5,
-                letterSpacing: ".14em",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                cursor: "pointer",
-                scrollSnapAlign: "end",
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: 26,
-                  fontWeight: 700,
-                  color: "var(--brass)",
-                  lineHeight: 1,
-                }}
-              >
-                +{overflow}
-              </span>
-              <span>more</span>
-            </button>
-          ) : null}
         </div>
       </div>
     </section>
@@ -297,14 +264,14 @@ function PriceTag({
       className="inline-flex items-center"
       style={{
         gap: 3,
-        padding: "1px 7px 1px 5px",
+        padding: "2px 9px 2px 7px",
         borderRadius: 999,
         background: affordable
           ? "linear-gradient(180deg, #f0c970, #c69d52)"
           : "linear-gradient(180deg, #4d4031, #2a1f15)",
         color: affordable ? "#1a120b" : "var(--whisper)",
         fontFamily: "var(--font-mono)",
-        fontSize: 10.5,
+        fontSize: 12,
         fontWeight: 700,
         boxShadow: affordable
           ? "inset 0 1px 0 rgba(255,255,255,.4), 0 1px 2px rgba(0,0,0,.5)"
@@ -312,7 +279,7 @@ function PriceTag({
         letterSpacing: ".02em",
       }}
     >
-      <span style={{ fontSize: 9, opacity: 0.7 }}>฿</span>
+      <span style={{ fontSize: 10, opacity: 0.7 }}>฿</span>
       {amount}
     </span>
   );
@@ -432,10 +399,10 @@ function MarketRowCard({
       className="relative flex flex-col text-left"
       style={{
         flexShrink: 0,
-        width: 130,
-        height: 158,
-        padding: "9px 9px 10px 9px",
-        borderRadius: 8,
+        width: 160,
+        height: 212,
+        padding: "11px 12px 12px 12px",
+        borderRadius: 9,
         border: `1px solid ${dim ? "var(--rule)" : `${tierInk}66`}`,
         background: dim
           ? "linear-gradient(180deg, rgba(34,23,16,.55), rgba(20,14,8,.85))"
@@ -456,8 +423,8 @@ function MarketRowCard({
         <span
           className="font-mono font-bold uppercase"
           style={{
-            fontSize: 8,
-            letterSpacing: ".16em",
+            fontSize: 9,
+            letterSpacing: ".18em",
             color: tierInk,
           }}
         >
@@ -467,13 +434,13 @@ function MarketRowCard({
       </div>
 
       {/* Glyph block */}
-      <div className="mt-1 grid place-items-center" style={{ height: 30 }}>
+      <div className="mt-1.5 grid place-items-center" style={{ height: 40 }}>
         <span
           className="font-emoji leading-none"
           style={{
-            fontSize: 26,
+            fontSize: 34,
             color: subInk,
-            textShadow: dim ? "none" : `0 0 10px ${subInk}55`,
+            textShadow: dim ? "none" : `0 0 12px ${subInk}55`,
           }}
           aria-hidden
         >
@@ -483,11 +450,11 @@ function MarketRowCard({
 
       {/* Name */}
       <div
-        className="mt-0.5 font-display font-semibold"
+        className="mt-1 font-display font-semibold"
         style={{
-          fontSize: 13,
+          fontSize: 15,
           color: "var(--ink)",
-          lineHeight: 1.1,
+          lineHeight: 1.12,
         }}
       >
         {name}
@@ -496,11 +463,11 @@ function MarketRowCard({
       {/* Slogan — clamped to 2 lines so 4-line bios don't break layout */}
       {slogan ? (
         <div
-          className="mt-0.5 font-display italic"
+          className="mt-1 font-display italic"
           style={{
-            fontSize: 10,
+            fontSize: 11.5,
             color: "var(--mute)",
-            lineHeight: 1.25,
+            lineHeight: 1.3,
             display: "-webkit-box",
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
@@ -521,12 +488,12 @@ function MarketRowCard({
         <span
           className="font-mono font-bold uppercase"
           style={{
-            padding: "0 5px",
+            padding: "1px 6px",
             borderRadius: 3,
             border: `1px solid ${tierInk}`,
             color: tierInk,
-            fontSize: 7.5,
-            letterSpacing: ".12em",
+            fontSize: 9,
+            letterSpacing: ".14em",
           }}
         >
           {tierKey === "uncommon"
@@ -543,8 +510,8 @@ function MarketRowCard({
           <span
             className="font-mono font-bold uppercase"
             style={{
-              fontSize: 8,
-              letterSpacing: ".14em",
+              fontSize: 9.5,
+              letterSpacing: ".16em",
               color: "var(--gold)",
             }}
           >
