@@ -141,15 +141,43 @@ export function initializeGame(config: GameConfig): GameState {
     (d) => !players.some((p) => p.distillery && p.distillery.defId === d.defId),
   );
 
-  // Reverse-snake order for setup phases (last seat picks first).
-  const distillerySelectionOrder = players
-    .filter((p) => !p.distillery)
-    .map((p) => p.id)
-    .reverse();
-  const starterDeckDraftOrder = players
-    .filter((_, i) => !config.starterDecks?.[i])
-    .map((p) => p.id)
-    .reverse();
+  // Setup pick order: humans first (seat order), then any bots
+  // (reverse-snake among themselves to preserve their internal
+  // fairness convention).
+  //
+  // v2.14.2: in solo (1 human + bots) the bot's preference list
+  // (Connoisseur > Vanilla > High-Rye > Wheated) meant the human
+  // routinely lost both Connoisseur AND Vanilla to bot pre-picks —
+  // they could only pick from the two "abilities-heavy" distilleries
+  // the bot ranked lowest. Promoting humans to the front of the
+  // setup queue restores their access to the simpler picks (notably
+  // Vanilla, the level-playing-field baseline). Multiplayer rooms
+  // (all-human or human+bot) still let every human pick before any
+  // bot does; humans go in seat order, which is fine because the
+  // human pool isn't trying to outsmart each other for the "easy"
+  // distillery.
+  const setupPickOrder = (ids: string[]) => {
+    const remaining = players.filter((p) => ids.includes(p.id));
+    // Reverse-snake within each group (last seat in the group picks
+    // first) preserves the "compensation for going late" convention
+    // for any group with internal turn order. With every player human
+    // this collapses to the original `players.reverse()` behaviour.
+    const humans = remaining
+      .filter((p) => !p.isBot)
+      .map((p) => p.id)
+      .reverse();
+    const bots = remaining
+      .filter((p) => p.isBot)
+      .map((p) => p.id)
+      .reverse();
+    return [...humans, ...bots];
+  };
+  const distillerySelectionOrder = setupPickOrder(
+    players.filter((p) => !p.distillery).map((p) => p.id),
+  );
+  const starterDeckDraftOrder = setupPickOrder(
+    players.filter((_, i) => !config.starterDecks?.[i]).map((p) => p.id),
+  );
 
   let phase: GameState["phase"];
   if (distillerySelectionOrder.length > 0) phase = "distillery_selection";

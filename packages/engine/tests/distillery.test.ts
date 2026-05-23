@@ -61,4 +61,27 @@ describe("Distillery selection (v2.10)", () => {
     expect(state.phase).toBe("starter_deck_draft");
     expect(state.players.every((p) => p.distillery !== null)).toBe(true);
   });
+
+  it("puts the human ahead of bots in solo setup so the human gets first pick", () => {
+    // v2.14.2: previously the entire seating used reverse-snake, so a
+    // solo human at seat 0 picked LAST — bots (whose preference list
+    // grabs Connoisseur then Vanilla first) would routinely strip the
+    // pool's "easy" options before the human's turn. Now humans pick
+    // before any bots; reverse-snake is preserved within each group.
+    const catalog = defaultMashBillCatalog();
+    const state = initializeGame({
+      seed: 1,
+      players: [
+        { id: "human", name: "You" },
+        { id: "bot1", name: "Clyde", isBot: true },
+        { id: "bot2", name: "Dell", isBot: true },
+      ],
+      distilleryPool: defaultDistilleryPool(),
+      bourbonDeck: catalog,
+    });
+    expect(state.distillerySelectionOrder[0]).toBe("human");
+    // Bots still pick in reverse-snake among themselves (bot2 before bot1).
+    expect(state.distillerySelectionOrder).toEqual(["human", "bot2", "bot1"]);
+    expect(state.starterDeckDraftOrder[0]).toBe("human");
+  });
 });
