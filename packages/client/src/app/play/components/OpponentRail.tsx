@@ -1,0 +1,241 @@
+"use client";
+
+/**
+ * v3 OpponentRail — compact left-side list of rivals.
+ *
+ * Replaces the per-opponent panel that lived in RickhouseRow. Each
+ * opponent gets a tight summary card: seat-color avatar + name +
+ * distillery handle in seat ink + large rep number + mini rickhouse
+ * (slot cells tinted by their bill's tier) + counter row
+ * (hand · deck · disc · sold).
+ *
+ * Filters players to non-human seats — the human's rickhouse renders
+ * front-and-center in `DistilleryStage`.
+ *
+ * Stamps `data-bb-zone="opponent-rickhouse"` on each card so the
+ * existing drag-mode focus-dim CSS in `globals.css` keeps masking
+ * opponent rows when the human is dragging a card to commit.
+ */
+
+import type { GameState } from "@bourbonomics/engine";
+import { useGameStore } from "@/lib/store/game";
+import { PLAYER_HEX, paletteIndex } from "./playerColors";
+import { TIER_INK, tierOrCommon } from "./tierStyles";
+
+export default function OpponentRail() {
+  const { state, multiplayerMode } = useGameStore();
+  if (!state) return null;
+
+  // The same "you" detection HandTray uses: in multiplayer the local
+  // seat is whichever id the connection claimed; in solo it's the lone
+  // non-bot. Filter to "not you" so we render every other seat as an
+  // opponent — including human opponents in multiplayer.
+  const youId = multiplayerMode
+    ? multiplayerMode.playerId
+    : state.players.find((p) => !p.isBot)?.id ?? null;
+
+  const opponents = state.players
+    .map((p, i) => ({ player: p, seatIndex: i }))
+    .filter(({ player }) => player.id !== youId);
+
+  if (opponents.length === 0) return null;
+
+  return (
+    <aside
+      data-rickhouse-row="true"
+      className="scroll-thin flex min-h-0 flex-col gap-[10px] overflow-auto border-r border-[#3b2818] px-[10px] py-3"
+      style={{
+        gridArea: "rivals",
+        background:
+          "linear-gradient(180deg, rgba(20,14,8,.85), rgba(12,8,5,.85))",
+      }}
+    >
+      <header className="flex items-baseline justify-between">
+        <h2
+          className="m-0 font-display text-[14px] font-semibold tracking-[.02em]"
+          style={{ color: "var(--ink-muted)" }}
+        >
+          Rivals
+        </h2>
+        <span className="label-sm">{opponents.length}</span>
+      </header>
+      <div className="flex flex-col gap-2">
+        {opponents.map(({ player, seatIndex }) => (
+          <OpponentCard
+            key={player.id}
+            player={player}
+            seatIndex={seatIndex}
+            state={state}
+          />
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function OpponentCard({
+  player,
+  seatIndex,
+  state,
+}: {
+  player: GameState["players"][number];
+  seatIndex: number;
+  state: GameState;
+}) {
+  const ink = PLAYER_HEX[paletteIndex(seatIndex)]!;
+  const myBarrels = state.allBarrels.filter((b) => b.ownerId === player.id);
+  const slotsTotal = player.rickhouseSlots.length;
+  const filled = myBarrels.length;
+  const isOnClock =
+    state.phase === "action" &&
+    state.players[state.currentPlayerIndex]?.id === player.id;
+
+  return (
+    <div
+      data-bb-zone="opponent-rickhouse"
+      className="flex flex-col gap-2 rounded-[9px] border bg-[linear-gradient(180deg,rgba(34,23,16,.65),rgba(20,14,8,.65))] p-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-colors"
+      style={{
+        borderColor: isOnClock ? "rgba(240,201,112,.55)" : "var(--rule)",
+      }}
+    >
+      {/* Identity row */}
+      <div className="flex items-center gap-[9px]">
+        <div
+          aria-hidden
+          className="h-[26px] w-[26px] flex-shrink-0 rounded-full"
+          style={{
+            background: `radial-gradient(circle at 35% 30%, ${ink}, #1a120b 90%)`,
+            boxShadow: `0 0 0 1.5px ${ink}88, inset 0 1px 0 rgba(255,255,255,.18)`,
+          }}
+        />
+        <div className="min-w-0 flex-1">
+          <div
+            className="truncate font-display text-[15px] font-semibold leading-none"
+            style={{ color: "var(--ink)" }}
+          >
+            {player.name}
+          </div>
+          <div
+            className="label-sm mt-[3px] truncate"
+            style={{ color: ink, fontSize: 8.5 }}
+          >
+            {player.distillery?.name ?? "no distillery"}
+          </div>
+        </div>
+        <div className="text-right leading-none">
+          <div
+            className="font-display text-[22px] font-bold"
+            style={{ color: "var(--gold)" }}
+          >
+            {player.reputation}
+          </div>
+          <div className="label-sm" style={{ fontSize: 8.5 }}>
+            Rep
+          </div>
+        </div>
+      </div>
+
+      {/* Mini rickhouse — slot cells, tier-tinted if filled */}
+      <div className="flex gap-1">
+        {Array.from({ length: slotsTotal }).map((_, i) => {
+          const barrel = myBarrels[i];
+          const tier = barrel?.attachedMashBill
+            ? tierOrCommon(barrel.attachedMashBill.tier)
+            : null;
+          const cellInk = tier ? TIER_INK[tier] : "var(--whisper)";
+          const bill = barrel?.attachedMashBill;
+          // Quick rep-range read: peak grid value gives the player the
+          // gist of how chunky the slot can pay without a click.
+          let range = "";
+          if (bill) {
+            const cells: number[] = [];
+            for (const row of bill.rewardGrid) {
+              for (const c of row) if (c !== null) cells.push(c);
+            }
+            const peak = cells.length ? Math.max(...cells) : 0;
+            const floor = cells.length ? Math.min(...cells) : 0;
+            range = `${floor}–${peak}`;
+          }
+          return (
+            <div
+              key={i}
+              title={bill ? `${bill.name} · ${range} rep` : "empty slot"}
+              className="grid h-[28px] flex-1 place-items-center rounded-[4px] border font-mono text-[8px] uppercase tracking-[.12em]"
+              style={{
+                borderColor: barrel ? cellInk : "var(--whisper)",
+                background: barrel
+                  ? `linear-gradient(180deg, ${cellInk}33, rgba(0,0,0,.4))`
+                  : "transparent",
+                color: barrel ? cellInk : "var(--whisper)",
+              }}
+            >
+              {range || ""}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Counters: hand · deck · disc · sold */}
+      <div className="flex justify-between" style={{ color: "var(--mute)" }}>
+        <Counter glyph="✋" label="hand" v={player.hand.length} />
+        <Counter glyph="▤" label="deck" v={player.deck.length} />
+        <Counter glyph="↻" label="disc" v={player.discard.length} />
+        <Counter glyph="🛢" label="sold" v={player.barrelsSold} />
+      </div>
+
+      {/* "On the clock" pill */}
+      {isOnClock ? (
+        <div
+          className="label-sm rounded border px-1 py-px text-center"
+          style={{
+            borderColor: "rgba(240,201,112,.55)",
+            background: "rgba(240,201,112,.12)",
+            color: "var(--gold)",
+            fontSize: 7.5,
+          }}
+        >
+          their turn
+        </div>
+      ) : null}
+
+      {/* Slot count for clarity */}
+      <div className="-mt-1 flex justify-end">
+        <span className="label-sm" style={{ fontSize: 8 }}>
+          <span style={{ color: "var(--gold)" }}>{filled}</span>
+          <span style={{ color: "var(--mute)" }}>/{slotsTotal} slots</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Counter({
+  glyph,
+  label,
+  v,
+}: {
+  glyph: string;
+  label: string;
+  v: number;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-[1px]">
+      <span
+        className="font-mono text-[11px] font-semibold leading-none"
+        style={{ color: "var(--ink-muted)" }}
+      >
+        <span
+          className="mr-1 text-[9px]"
+          style={{ color: "var(--brass)" }}
+          aria-hidden
+        >
+          {glyph}
+        </span>
+        {v}
+      </span>
+      <span className="label-sm" style={{ fontSize: 7.5 }}>
+        {label}
+      </span>
+    </div>
+  );
+}

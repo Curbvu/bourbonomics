@@ -1,17 +1,35 @@
 "use client";
 
 /**
- * Top bar — single row holds brand + year, an inline stylised phase
- * strip, the Step / Auto / Quit controls, and the demand chip + bourbon
- * counter. The barons block was folded into the per-player rickhouse
- * panels (RickhouseRow), so the player chips no longer live up here.
+ * v3 "Distillery-first" top bar.
+ *
+ * Three-cluster header: brand block (left), phase pip row (center),
+ * demand meter + bourbon chip + Step/Auto/Quit (right). Reputation
+ * moved off the top bar — the human's rep lives in DistilleryStage
+ * and opponent rep lives in OpponentRail under the new layout.
+ *
+ * Phase pips:
+ *   - Past phases: slate fill, check icon, mute label.
+ *   - Current phase: brass gradient fill (animated via `pip-pulse`),
+ *     index number in ink-dark, gold label.
+ *   - Future phases: outline only.
+ *
+ * Demand meter:
+ *   - 140×14 brass-striped horizontal bar, scaled to `demand / 12`.
+ *   - Stripes scroll via the `pour` keyframe (continuous flow).
+ *
+ * Bourbon chip:
+ *   - Pill with brass border + warm gradient fill. Shows the bourbon
+ *     deck count (the doomsday clock).
+ *
+ * Preserves `data-bb-zone="demand"` and `data-bb-zone="supply-counter"`
+ * for tutorial spotlight anchors.
  */
 
 import { useEffect, useState } from "react";
 
 import type { GamePhase, GameState } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
-import PlayerSwatch from "./PlayerSwatch";
 
 type DisplayPhase = "draw" | "age" | "action" | "cleanup";
 
@@ -25,11 +43,9 @@ const PHASES: { k: DisplayPhase; l: string }[] = [
 /**
  * v3.1: the engine no longer has a dedicated "age" phase — the per-turn
  * aging commit lives inside the action phase, gated by the active
- * player's `needsAgeBarrels` (and `needsDemandRoll` before it). The
- * phase strip used to jump straight to "Action" the moment the engine
- * flipped to the action phase, even while the player was still in the
- * demand-roll → age sub-step. Stay on "Age" while either of those
- * gates is open so the chip reflects what the player is actually doing.
+ * player's `needsAgeBarrels` (and `needsDemandRoll` before it). Stay on
+ * "Age" while either of those gates is open so the chip reflects what
+ * the player is actually doing.
  */
 function visiblePhase(state: GameState): DisplayPhase | null {
   switch (state.phase) {
@@ -50,7 +66,7 @@ function visiblePhase(state: GameState): DisplayPhase | null {
 }
 
 export default function GameTopBar() {
-  const { state, autoplay, setAutoplay, step, clear, seatMeta } = useGameStore();
+  const { state, autoplay, setAutoplay, step, clear } = useGameStore();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -63,6 +79,7 @@ export default function GameTopBar() {
   }, [confirmOpen]);
 
   if (!state) return null;
+
   const quit = () => {
     clear();
     setConfirmOpen(false);
@@ -74,87 +91,77 @@ export default function GameTopBar() {
   const showRoundChrome = state.phase !== "ended" && !inSetup && active != null;
 
   return (
-    <header className="border-b border-slate-800 bg-slate-950">
-      <div className="flex items-center gap-3 px-[18px] py-2">
-        {/* Brand */}
-        <div className="flex flex-shrink-0 items-center gap-2">
-          <div
-            className="grid h-7 w-7 place-items-center rounded-md border border-amber-700 font-display text-base font-bold text-amber-100"
-            style={{
-              background: "linear-gradient(135deg, #d97706, #92400e)",
-              boxShadow: "0 1px 0 rgba(255,255,255,.15) inset",
-            }}
-            aria-hidden
-          >
-            B
-          </div>
-          <div className="hidden flex-col leading-tight md:flex">
-            <span className="font-display text-[15px] font-semibold tracking-[.01em] text-amber-100">
-              Bourbonomics
-            </span>
-            <span className="-mt-0.5 font-mono text-[9px] uppercase tracking-[.12em] text-slate-500">
-              year {state.round}
-            </span>
-          </div>
+    <header
+      className="relative z-10 grid items-center gap-5 border-b border-[#3b2818] px-[18px] py-[10px]"
+      style={{
+        gridTemplateColumns: "auto 1fr auto",
+        background: "linear-gradient(180deg, #15100a 0%, #0c0805 100%)",
+        boxShadow:
+          "0 1px 0 rgba(240,201,112,.10) inset, 0 4px 14px rgba(0,0,0,.5)",
+      }}
+    >
+      {/* Brand block — brass tile + name + year/round */}
+      <div className="flex items-center gap-3">
+        <div
+          aria-hidden
+          className="grid h-[38px] w-[38px] place-items-center rounded-md font-display text-[22px] font-bold leading-none"
+          style={{
+            background:
+              "radial-gradient(circle at 35% 30%, #f0c970, #b06a38 70%, #2a1a10)",
+            color: "#1a120b",
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,.25), 0 2px 6px rgba(0,0,0,.6)",
+          }}
+        >
+          B
         </div>
+        <div className="hidden flex-col leading-tight md:flex">
+          <span className="font-display text-[22px] font-semibold tracking-[.01em] text-[#f0e3c8]">
+            Bourbonomics
+          </span>
+          <span className="label-sm" style={{ color: "var(--brass)" }}>
+            Year {state.round} · Round {state.round}
+          </span>
+        </div>
+      </div>
 
-        <span className="mx-1 h-[28px] w-px bg-slate-800" aria-hidden />
+      {/* Phase pip row (center) or setup banner */}
+      {showRoundChrome ? (
+        <PhaseStrip activeKey={active!} />
+      ) : inSetup ? (
+        <SetupBanner phase={state.phase as "distillery_selection" | "starter_deck_draft"} />
+      ) : (
+        <span aria-hidden />
+      )}
 
-        {/* Inline phase strip */}
-        {showRoundChrome ? (
-          <PhaseStrip activeKey={active} />
-        ) : inSetup ? (
-          <SetupBanner phase={state.phase as "distillery_selection" | "starter_deck_draft"} />
-        ) : (
-          <span className="flex-1" aria-hidden />
-        )}
-
-        {/* Reputation leaderboard — folded into the top bar so the
-            standings sit alongside the phase strip instead of eating
-            a second row. Hidden during setup/end since rep deltas
-            don't mean much there. */}
-        {showRoundChrome ? (
-          <RepLeaderboard state={state} seatMeta={seatMeta} />
-        ) : null}
-
-        <span className={showRoundChrome ? "mx-1 h-[28px] w-px bg-slate-800" : "hidden"} aria-hidden />
-
-        {/* Right cluster: demand chip + bourbon counter + controls */}
+      {/* Right cluster: demand + bourbon + controls */}
+      <div className="flex items-center gap-3">
         {showRoundChrome ? (
           <>
-            <DemandChip value={state.demand} />
-            <BourbonChip remaining={state.bourbonDeck.length} finalRound={state.finalRoundTriggered} />
-            <span className="mx-1 h-[28px] w-px bg-slate-800" aria-hidden />
-            <button
-              type="button"
-              onClick={step}
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-slate-200 transition-colors hover:border-amber-500/60 hover:bg-slate-800 hover:text-amber-200"
-            >
-              Step
-            </button>
-            <button
-              type="button"
-              onClick={() => setAutoplay(!autoplay)}
-              className={[
-                "rounded border px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.05em] transition-colors",
-                autoplay
-                  ? "border-amber-500 bg-amber-500 text-slate-950 hover:bg-amber-400"
-                  : "border-slate-700 bg-slate-900 text-slate-200 hover:border-amber-500/60 hover:text-amber-200",
-              ].join(" ")}
-            >
-              {autoplay ? "Pause" : "Auto"}
-            </button>
+            <DemandMeter value={state.demand} />
+            <BourbonChip
+              remaining={state.bourbonDeck.length}
+              finalRound={state.finalRoundTriggered}
+            />
           </>
         ) : null}
 
-        <button
-          type="button"
-          onClick={() => setConfirmOpen(true)}
-          title="Quit this game and return to the main menu"
-          className="rounded border border-rose-500/60 bg-rose-700/[0.20] px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-rose-100 transition-colors hover:bg-rose-700/[0.35]"
-        >
-          Quit
-        </button>
+        <div className="flex gap-1.5">
+          {showRoundChrome ? (
+            <>
+              <ChromeBtn onClick={step}>Step</ChromeBtn>
+              <ChromeBtn
+                onClick={() => setAutoplay(!autoplay)}
+                tone={autoplay ? "active" : undefined}
+              >
+                {autoplay ? "Pause" : "Auto"}
+              </ChromeBtn>
+            </>
+          ) : null}
+          <ChromeBtn onClick={() => setConfirmOpen(true)} tone="danger">
+            Quit
+          </ChromeBtn>
+        </div>
       </div>
 
       {confirmOpen ? (
@@ -204,95 +211,84 @@ export default function GameTopBar() {
 }
 
 // -----------------------------
-// Inline phase strip
+// Phase pip row
 // -----------------------------
 
 function PhaseStrip({ activeKey }: { activeKey: DisplayPhase }) {
   const activeIdx = PHASES.findIndex((p) => p.k === activeKey);
   return (
-    <div
-      role="navigation"
-      aria-label="Round phases"
-      className="flex flex-1 items-center gap-1 overflow-hidden rounded-md border border-slate-800 bg-slate-900/40 px-1 py-1"
-    >
-      {PHASES.map((p, i) => {
-        const isActive = i === activeIdx;
-        const isPast = activeIdx > i;
-        return (
-          <PhaseChip
-            key={p.k}
-            label={p.l}
-            index={i + 1}
-            isActive={isActive}
-            isPast={isPast}
-            isLast={i === PHASES.length - 1}
-          />
-        );
-      })}
+    <div className="flex items-center justify-center">
+      <div
+        className="flex items-center gap-0 rounded-[10px] border border-[#3b2818] px-2 py-1.5"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(34,23,16,.9), rgba(22,15,10,.9))",
+          boxShadow: "0 1px 0 rgba(240,201,112,.12) inset",
+        }}
+      >
+        {PHASES.map((p, i) => {
+          const isActive = i === activeIdx;
+          const isPast = activeIdx > i;
+          return (
+            <div key={p.k} className="flex items-center">
+              <PhasePip label={p.l} index={i + 1} isActive={isActive} isPast={isPast} />
+              {i < PHASES.length - 1 ? (
+                <span
+                  className="mx-1 font-mono text-[var(--whisper)]"
+                  aria-hidden
+                >
+                  —
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function PhaseChip({
+function PhasePip({
   label,
   index,
   isActive,
   isPast,
-  isLast,
 }: {
   label: string;
   index: number;
   isActive: boolean;
   isPast: boolean;
-  isLast: boolean;
 }) {
   return (
-    <>
-      <div
-        className={[
-          "flex items-center gap-1.5 rounded px-2 py-1 transition-colors",
-          isActive
-            ? "bg-amber-700/[0.25] shadow-[inset_0_0_0_1px_rgba(245,158,11,.45)]"
-            : "",
-        ].join(" ")}
-        aria-current={isActive ? "step" : undefined}
+    <div
+      className="flex items-center gap-2 px-3 py-[2px]"
+      aria-current={isActive ? "step" : undefined}
+    >
+      <span
+        className={["grid h-[18px] w-[18px] place-items-center rounded-full font-mono text-[10px] font-bold leading-none", isActive ? "pip-active" : ""].join(" ")}
+        style={{
+          background: isActive
+            ? "linear-gradient(180deg,#f0c970,#c69d52)"
+            : isPast
+              ? "linear-gradient(180deg,#3a2818,#23170d)"
+              : "transparent",
+          color: isActive ? "#1a120b" : "var(--mute)",
+          border: isActive ? "1px solid #f0c970" : "1px solid var(--rule)",
+        }}
+        aria-hidden
       >
-        <span
-          className={[
-            "grid h-5 w-5 flex-shrink-0 place-items-center rounded-full font-mono text-[10px] font-bold leading-none",
-            isActive
-              ? "bg-amber-400 text-slate-950 shadow-[0_0_10px_rgba(251,191,36,.55)]"
-              : isPast
-                ? "bg-slate-700 text-slate-300"
-                : "border border-slate-700 text-slate-500",
-          ].join(" ")}
-          aria-hidden
-        >
-          {isPast ? "✓" : index}
-        </span>
-        <span
-          className={[
-            "font-mono text-[11px] uppercase tracking-[.12em]",
-            isActive
-              ? "font-bold text-amber-100"
-              : isPast
-                ? "font-semibold text-slate-300"
-                : "font-medium text-slate-500",
-          ].join(" ")}
-        >
-          {label}
-        </span>
-      </div>
-      {!isLast ? (
-        <span
-          className={[
-            "h-px w-3 flex-shrink-0",
-            isPast ? "bg-amber-500/50" : "bg-slate-700",
-          ].join(" ")}
-          aria-hidden
-        />
-      ) : null}
-    </>
+        {isPast ? "✓" : index}
+      </span>
+      <span
+        className="font-mono text-[10px] uppercase tracking-[.18em]"
+        style={{
+          color: isActive ? "var(--gold)" : "var(--mute)",
+          fontWeight: isActive ? 700 : 500,
+        }}
+      >
+        {label}
+      </span>
+    </div>
   );
 }
 
@@ -309,170 +305,123 @@ function SetupBanner({ phase }: { phase: "distillery_selection" | "starter_deck_
 }
 
 // -----------------------------
-// Reputation leaderboard
+// Demand meter (brass-striped, animated by `pour`)
 // -----------------------------
 
-function RepLeaderboard({
-  state,
-  seatMeta,
-}: {
-  state: GameState;
-  seatMeta: { id: string; logoId?: string | null }[];
-}) {
-  // Sort by reputation desc, ties broken by barrelsSold desc — matches
-  // the engine's end-of-game tiebreaker so the on-board ranking lines
-  // up with the final standings.
-  const ranked = state.players
-    .map((p, seatIndex) => ({ player: p, seatIndex }))
-    .sort((a, b) => {
-      const rep = b.player.reputation - a.player.reputation;
-      if (rep !== 0) return rep;
-      return b.player.barrelsSold - a.player.barrelsSold;
-    });
-  const leaderRep = ranked[0]?.player.reputation ?? 0;
-  const isCurrentTurn = (id: string) =>
-    state.phase === "action" &&
-    state.players[state.currentPlayerIndex]?.id === id;
-
-  return (
-    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-      {ranked.map(({ player, seatIndex }, rankIdx) => {
-          const meta = seatMeta.find((m) => m.id === player.id);
-          // Tie at the top: every player with rep === leaderRep gets
-          // the leader chrome, not just rank 0. Otherwise the visual
-          // implies a winner where the standings actually disagree.
-          const isLeader =
-            player.reputation === leaderRep && leaderRep > 0;
-          const isOnClock = isCurrentTurn(player.id);
-          return (
-            <span
-              key={player.id}
-              title={`${player.name} — ${player.reputation} rep · ${player.barrelsSold} sold`}
-              className={[
-                "flex items-center gap-1.5 rounded border px-1.5 py-[2px] transition-colors",
-                isLeader
-                  ? "border-amber-500/70 bg-amber-700/[0.18]"
-                  : "border-slate-800 bg-slate-900/40",
-                isOnClock
-                  ? "shadow-[0_0_0_1px_rgba(251,191,36,.35)]"
-                  : "",
-              ].join(" ")}
-            >
-              <PlayerSwatch
-                seatIndex={seatIndex}
-                logoId={meta?.logoId}
-                size="xs"
-                ring={false}
-              />
-              <span
-                className={[
-                  "font-mono text-[10px] uppercase tracking-[.06em]",
-                  isLeader ? "text-amber-100" : "text-slate-300",
-                ].join(" ")}
-              >
-                {player.name}
-              </span>
-              <span
-                className={[
-                  "font-mono text-[11px] font-bold tabular-nums",
-                  isLeader ? "text-amber-300" : "text-slate-400",
-                ].join(" ")}
-              >
-                {player.reputation}
-              </span>
-              {/* Tiny rank pill for everyone past first — quick read
-                  of "who's chasing whom" without doing arithmetic on
-                  the rep numbers. */}
-              {rankIdx > 0 ? (
-                <span className="font-mono text-[8px] uppercase tracking-[.10em] text-slate-500">
-                  #{rankIdx + 1}
-                </span>
-              ) : null}
-            </span>
-          );
-        })}
-    </div>
-  );
-}
-
-function DemandChip({ value }: { value: number }) {
-  // Sky-blue (cool) → amber (hot) gradient across 12 cells. Matches the
-  // dev branch's full-width demand bar, compressed for the top bar.
-  const cellColor = (i: number) => {
-    const t = i / 11;
-    const r = Math.round(56 + (251 - 56) * t);
-    const g = Math.round(189 + (191 - 189) * t);
-    const b = Math.round(248 + (36 - 248) * t);
-    return `rgb(${r}, ${g}, ${b})`;
-  };
-  const valueClass =
-    value >= 9
-      ? "text-amber-300"
-      : value >= 6
-        ? "text-amber-200"
-        : value >= 3
-          ? "text-sky-300"
-          : "text-slate-400";
+function DemandMeter({ value }: { value: number }) {
+  const target = 12;
+  const pct = Math.min(1, value / target);
   return (
     <div
-      title={`Market demand ${value} of 12`}
       data-bb-zone="demand"
-      className="flex items-center gap-2 rounded border border-slate-800 bg-slate-900/60 px-2 py-1"
+      className="flex items-center gap-2.5 rounded-md border border-[#3b2818] bg-[rgba(22,15,10,.7)] px-3 py-1.5"
     >
-      <span className="font-mono text-[9px] uppercase tracking-[.16em] text-slate-500">
-        demand
-      </span>
-      <div className="flex items-center gap-[2px]" aria-hidden>
-        {Array.from({ length: 12 }).map((_, i) => {
-          const cellNum = i + 1;
-          const isActive = cellNum <= value;
-          return (
-            <div
-              key={i}
-              className={[
-                "h-[14px] w-[6px] rounded-[2px] border transition-colors duration-200",
-                isActive ? "" : "border-slate-800 bg-slate-900",
-              ].join(" ")}
-              style={
-                isActive
-                  ? {
-                      backgroundColor: cellColor(i),
-                      borderColor: cellColor(i),
-                    }
-                  : undefined
-              }
-            />
-          );
-        })}
+      <span className="label-sm">Demand</span>
+      <div
+        className="relative h-[14px] w-[140px] overflow-hidden rounded-full border border-[var(--whisper)]"
+        style={{
+          background: "linear-gradient(180deg,#0a0604,#15100a)",
+          boxShadow: "inset 0 2px 4px rgba(0,0,0,.6)",
+        }}
+      >
+        <div
+          className="absolute inset-y-0 left-0 pour"
+          style={{
+            width: `${pct * 100}%`,
+            background:
+              "repeating-linear-gradient(135deg, #f0c970 0 8px, #c69d52 8px 16px)",
+            backgroundSize: "24px 24px",
+            boxShadow: "0 0 10px rgba(240,201,112,.55)",
+          }}
+        />
       </div>
-      <span className={`font-mono text-[13px] font-bold tabular-nums ${valueClass}`}>
-        {value}/12
+      <span className="font-mono text-[12px] font-semibold tabular-nums leading-none">
+        <span style={{ color: "var(--gold)" }}>{value}</span>
+        <span style={{ color: "var(--mute)" }}>/{target}</span>
       </span>
     </div>
   );
 }
 
-function BourbonChip({ remaining, finalRound }: { remaining: number; finalRound: boolean }) {
+// -----------------------------
+// Bourbon chip (deck count = doomsday clock)
+// -----------------------------
+
+function BourbonChip({
+  remaining,
+  finalRound,
+}: {
+  remaining: number;
+  finalRound: boolean;
+}) {
   return (
     <div
       title="Bourbon deck remaining (the doomsday clock)"
       data-bb-zone="supply-counter"
       className={[
-        "flex items-baseline gap-1.5 rounded border px-2 py-1",
-        finalRound ? "border-amber-500 bg-amber-700/[0.20]" : "border-slate-800 bg-slate-900/60",
+        "flex items-center gap-2 rounded-md border px-3 py-1.5",
+        finalRound ? "border-[var(--gold)]" : "border-[var(--brass)]",
       ].join(" ")}
+      style={{
+        background:
+          "linear-gradient(180deg, rgba(240,201,112,.15), rgba(176,106,56,.08))",
+        boxShadow: "inset 0 1px 0 rgba(240,201,112,.35)",
+      }}
     >
-      <span className="font-mono text-[9px] uppercase tracking-[.16em] text-slate-500">
-        bourbon
+      <span className="label-sm" style={{ color: "var(--gold)" }}>
+        Bourbon
       </span>
-      <span className="font-mono text-[14px] font-bold tabular-nums text-amber-300">
+      <span
+        className="font-display text-[22px] font-bold leading-none tracking-[.01em]"
+        style={{ color: "var(--gold)" }}
+      >
         {remaining}
       </span>
       {finalRound ? (
-        <span className="ml-1 rounded bg-amber-500 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] text-slate-950">
+        <span className="rounded bg-amber-500 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] text-slate-950">
           final
         </span>
       ) : null}
     </div>
+  );
+}
+
+// -----------------------------
+// Chrome buttons (Step / Auto / Quit)
+// -----------------------------
+
+function ChromeBtn({
+  children,
+  onClick,
+  tone,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  tone?: "danger" | "active";
+}) {
+  const isDanger = tone === "danger";
+  const isActive = tone === "active";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-[7px] border px-3 py-1.5 font-mono text-[10.5px] font-semibold uppercase tracking-[.16em]"
+      style={{
+        borderColor: isDanger
+          ? "rgba(217,107,84,.55)"
+          : isActive
+            ? "var(--gold)"
+            : "var(--rule)",
+        background: isDanger
+          ? "linear-gradient(180deg, rgba(217,107,84,.18), rgba(120,40,32,.18))"
+          : isActive
+            ? "linear-gradient(180deg, #f0c970, #c69d52)"
+            : "linear-gradient(180deg, rgba(34,23,16,.9), rgba(22,15,10,.9))",
+        color: isDanger ? "#f4a89a" : isActive ? "#1a120b" : "var(--ink-muted)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,.06)",
+      }}
+    >
+      {children}
+    </button>
   );
 }

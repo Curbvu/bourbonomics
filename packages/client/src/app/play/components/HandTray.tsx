@@ -72,31 +72,40 @@ export default function HandTray() {
   });
 
   return (
-    <div data-hand-tray="true" className="border-t border-slate-800 bg-slate-950/90">
-      {/* Interactive Buy mode — sticky bar above the action bar; only
-          paints when the player has clicked Buy market. */}
+    <div
+      data-hand-tray="true"
+      className="border-t border-[#3b2818]"
+      style={{
+        background:
+          "linear-gradient(180deg, rgba(20,14,8,.85) 0%, rgba(10,7,4,.95) 100%)",
+        boxShadow: "0 -2px 14px rgba(0,0,0,.5)",
+        gridArea: "hand",
+      }}
+    >
+      {/* Interactive overlays. Only one of these ever paints at a time
+          (each gates on its own mode flag); kept mounted here so the
+          mode-pickers can land right above the hand. */}
       <BuyOverlay />
-      {/* Interactive Age mode — same idiom; only paints when the player
-          has clicked "Age barrel" and is picking a barrel + pay-card. */}
       <AgeOverlay />
-      {/* Interactive Sell mode — auto-fires once both barrel and spend
-          card are picked. Status bar shows the running rep estimate. */}
       <SellOverlay />
-      {/* Interactive Draw-bill mode — single-select card-pay picker;
-          blind draw of the top mash bill. */}
       <DrawBillOverlay />
-      {/* Interactive Make mode — pick a mash bill, then tag the cards
-          to commit. */}
       <MakeOverlay />
-      {/* Action bar — controls for the human seat during the action phase. */}
+
+      {/* Action bar — restyled mono brass buttons. */}
       <ActionBar />
 
-      {/* Identity + reputation strip — compacted: smaller logo, single
-          line for everything, slimmer Y padding. The whole strip
-          carries `data-bb-zone="reputation"` so the tutorial spotlight
-          has a tall enough hit-box to ring; the inner Rep block alone
-          is only ~22px tall and reads as "nothing highlighted." */}
-      <div data-bb-zone="reputation" className="flex items-center gap-3 border-b border-slate-900 px-[18px] py-1">
+      {/* Status strip — context-aware italic sentence tied to the
+          active picker mode. Pulled from the new HandStripStatus
+          component below to keep the JSX tidy. */}
+      <HandStripStatus />
+
+      {/* Identity + reputation strip — compact. The whole strip carries
+          `data-bb-zone="reputation"` so the tutorial spotlight has a
+          tall enough hit-box to ring. */}
+      <div
+        data-bb-zone="reputation"
+        className="flex items-center gap-3 border-b border-[#3b2818] px-[18px] py-1"
+      >
         <div className="flex items-center gap-2">
           <PlayerSwatch
             seatIndex={playerIndex}
@@ -104,46 +113,39 @@ export default function HandTray() {
             size="sm"
           />
           <div className="flex items-baseline gap-1.5 leading-tight">
-            <span className="font-display text-[14px] font-semibold text-slate-100">
+            <span
+              className="font-display text-[14px] font-semibold"
+              style={{ color: "var(--ink)" }}
+            >
               {focused.name}
             </span>
-            <span className="font-mono text-[9px] uppercase tracking-[.12em] text-slate-500">
-              {focused.distillery?.name ?? "no distillery"} · hand {focused.hand.length}/{focused.handSize}
+            <span
+              className="font-mono text-[9px] uppercase tracking-[.12em]"
+              style={{ color: "var(--mute)" }}
+            >
+              {focused.distillery?.name ?? "no distillery"} · hand{" "}
+              {focused.hand.length}/{focused.handSize}
             </span>
           </div>
         </div>
-        <span className="mx-1 h-[20px] w-px bg-slate-800" aria-hidden />
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-[.18em] text-amber-300/80">
-            Rep
-          </span>
-          <span className="font-display text-[22px] font-bold leading-none tabular-nums text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,.55)]">
-            {focused.reputation}
-          </span>
-        </div>
-        <span className="flex-1" />
-        <div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[.10em] text-slate-500">
-          <Stat label="deck" value={focused.deck.length} />
-          <Stat label="disc" value={focused.discard.length} />
-          <Stat label="sold" value={focused.barrelsSold} />
-          {/* v2.6: unlockedGoldBourbons removed — Gold awards now manipulate slots. */}
-        </div>
       </div>
 
-      {/* Card sections — laid out left-to-right with the deck pile
-          anchored at the far-left, and the (mixed) Resources accordion
-          taking the remaining space. No horizontal scrollbar: the
-          accordion clips overflow and the cards fan tighter via
-          HAND_CARD_OVERLAP. */}
-      <div className="flex items-stretch gap-[10px] overflow-hidden px-[14px] py-1.5">
-        {/* Deck pile — far left. Two stacked counters: deck + discard. */}
-        <DeckPile deckCount={focused.deck.length} discardCount={focused.discard.length} />
+      {/* Main row: DeckPile (left) | hand cards (center) | DiscardPile +
+          SoldStack (right). Mockup-style deck-builder layout. */}
+      <div
+        className="grid items-stretch gap-3 overflow-hidden px-[18px] py-2"
+        style={{ gridTemplateColumns: "auto 1fr auto" }}
+      >
+        {/* Deck pile (left) */}
+        <DramaticPile label="Deck" count={focused.deck.length} tone="amber" />
 
-        <Divider />
-
-        {/* Resources + Labor mixed row. Takes the remaining space;
-            flex-1 + min-w-0 lets it shrink instead of overflowing. */}
-        <Section caption="resources" count={handCards.length} grow zone="hand-resources">
+        {/* Hand cards (center, fills) */}
+        <Section
+          caption="your hand"
+          count={handCards.length}
+          grow
+          zone="hand-resources"
+        >
           {handCards.length === 0 ? (
             <EmptyPill>no cards</EmptyPill>
           ) : (
@@ -159,37 +161,224 @@ export default function HandTray() {
           )}
         </Section>
 
-        <Divider />
+        {/* Discard pile + Sold stack (right) */}
+        <div className="flex items-stretch gap-3">
+          <DramaticPile
+            label="Discard"
+            count={focused.discard.length}
+            tone="rose"
+            purchaseTarget
+          />
+          <SoldStack count={focused.barrelsSold} />
+          {/* Operations (pending) folded into a small overlay strip
+              below the piles so the row stays clean. */}
+        </div>
+      </div>
 
-        {/* v2.6: bills no longer live in the hand. They're slot-bound
-            from the moment they're drawn and rendered on each
-            rickhouse slot in `RickhouseRow`. */}
-
-        {/* Operations — pending future release: hand display kept for
-            visual consistency but rendered fully greyscale + dim with
-            an overlay sash so the "feature off" status reads at a glance. */}
-        <Section caption="ops · pending" count={focused.operationsHand.length} zone="hand-ops">
-          <div className="relative pointer-events-none [filter:grayscale(1)_brightness(0.5)] opacity-30">
-            {focused.operationsHand.length === 0 ? (
-              <EmptyPill>pending future release</EmptyPill>
-            ) : (
+      {/* Operations row — pending future release, kept for visual
+          continuity. Collapsed under the main row so it doesn't fight
+          the new deck-builder layout for attention. */}
+      {focused.operationsHand.length > 0 ? (
+        <div className="border-t border-[#3b2818] px-[18px] py-1.5">
+          <Section
+            caption="ops · pending"
+            count={focused.operationsHand.length}
+            zone="hand-ops"
+          >
+            <div className="relative pointer-events-none opacity-30 [filter:grayscale(1)_brightness(0.5)]">
               <CardAccordion>
                 {focused.operationsHand.map((c, i) => (
                   <OpsCard key={c.id} card={c} indexInRow={i} />
                 ))}
               </CardAccordion>
-            )}
-            <div
-              className="pointer-events-none absolute inset-0 flex items-center justify-center [filter:grayscale(0)] opacity-100"
-              aria-hidden
-            >
-              <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/85 px-2.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-amber-200 shadow-[0_3px_12px_rgba(0,0,0,.65)]">
-                Pending
-              </span>
+              <div
+                className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-100 [filter:grayscale(0)]"
+                aria-hidden
+              >
+                <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/85 px-2.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-amber-200 shadow-[0_3px_12px_rgba(0,0,0,.65)]">
+                  Pending
+                </span>
+              </div>
             </div>
-          </div>
-        </Section>
+          </Section>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// v3 status strip — context-aware italic line keyed off the active mode
+// ─────────────────────────────────────────────────────────────────────
+
+function HandStripStatus() {
+  const { buyMode, ageMode, sellMode, drawBillMode, makeMode } = useGameStore();
+  let activeKey: string | null = null;
+  let label = "Idle";
+  let msg = "Choose an action to continue your turn.";
+  if (makeMode) {
+    activeKey = "make";
+    label = "Make";
+    msg =
+      "Pick the cards you want to commit, then click a slot in your rickhouse.";
+  } else if (ageMode) {
+    activeKey = "age";
+    label = "Age";
+    msg =
+      "Pick an aging barrel and any hand card — either order, auto-confirms on second pick.";
+  } else if (sellMode) {
+    activeKey = "sell";
+    label = "Sell";
+    msg = "Click a saleable barrel to ship it.";
+  } else if (buyMode) {
+    activeKey = "buy";
+    label = "Buy";
+    msg = "Pick a market card and a payment from your hand.";
+  } else if (drawBillMode) {
+    activeKey = "draft";
+    label = "Draft";
+    msg = "Spend a card to seed the draft pile (initiate the Drafting Loop).";
+  }
+  const active = activeKey != null;
+  return (
+    <div
+      className="border-b border-[#3b2818] px-[18px] py-[5px] font-display italic"
+      style={{
+        background: "rgba(20,14,8,.65)",
+        fontSize: 13,
+        letterSpacing: ".01em",
+        color: active ? "var(--gold)" : "var(--ink-muted)",
+      }}
+    >
+      <span
+        className="label-sm mr-2.5"
+        style={{ color: active ? "var(--gold)" : "var(--mute)" }}
+      >
+        {label}
+      </span>
+      {msg}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// v3 dramatic pile — stacked-card layers behind a big count
+// ─────────────────────────────────────────────────────────────────────
+
+function DramaticPile({
+  label,
+  count,
+  tone,
+  purchaseTarget = false,
+}: {
+  label: string;
+  count: number;
+  tone: "amber" | "rose";
+  purchaseTarget?: boolean;
+}) {
+  const palette =
+    tone === "amber"
+      ? {
+          ink: "#f0c970",
+          edge: "rgba(240,201,112,.55)",
+          glow: "rgba(240,201,112,.40)",
+        }
+      : {
+          ink: "#d96b54",
+          edge: "rgba(217,107,84,.45)",
+          glow: "rgba(217,107,84,.35)",
+        };
+  return (
+    <div
+      className="relative flex flex-col items-center justify-end"
+      style={{ width: 84, height: 142 }}
+      data-purchase-target={purchaseTarget ? "discard" : undefined}
+      title={`${label} · ${count} card${count === 1 ? "" : "s"}`}
+    >
+      {/* Stacked-card layers behind the top face */}
+      {[8, 5, 2, 0].map((off, i) => (
+        <span
+          key={i}
+          aria-hidden
+          className="absolute mx-auto rounded-md"
+          style={{
+            bottom: off,
+            left: 0,
+            right: 0,
+            width: 72,
+            height: 108,
+            margin: "0 auto",
+            background:
+              "linear-gradient(180deg, rgba(46,31,21,.95) 0%, rgba(20,14,8,.95) 100%)",
+            border: `1px solid ${palette.edge}`,
+            boxShadow: `inset 0 1px 0 rgba(255,255,255,.06), 0 ${4 + i}px ${10 + i * 2}px rgba(0,0,0,.55)`,
+            opacity: 1 - i * 0.08,
+          }}
+        />
+      ))}
+      {/* Top face */}
+      <div
+        className="absolute flex flex-col items-center justify-between rounded-md"
+        style={{
+          bottom: 8,
+          left: 6,
+          right: 6,
+          height: 108,
+          padding: "10px 8px",
+          background:
+            "radial-gradient(120% 80% at 50% 0%, rgba(240,201,112,.10), transparent 60%), linear-gradient(180deg, #2a1a10, #14100a)",
+          border: `1px solid ${palette.edge}`,
+          boxShadow: `inset 0 1px 0 rgba(255,255,255,.10), 0 0 16px ${palette.glow}`,
+        }}
+      >
+        <span
+          className="label-sm"
+          style={{ color: palette.ink, fontSize: 9 }}
+        >
+          {label}
+        </span>
+        <span
+          className="font-display font-bold leading-none"
+          style={{
+            fontSize: 38,
+            color: palette.ink,
+            textShadow: `0 0 12px ${palette.glow}`,
+          }}
+        >
+          {count}
+        </span>
+        <span
+          className="label-sm"
+          style={{ fontSize: 8.5, color: "var(--mute)" }}
+        >
+          cards
+        </span>
       </div>
+    </div>
+  );
+}
+
+function SoldStack({ count }: { count: number }) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center gap-1.5 rounded-md border border-dashed"
+      style={{
+        width: 84,
+        height: 142,
+        borderColor: "rgba(110,80,50,.45)",
+        background: "rgba(20,14,8,.45)",
+      }}
+    >
+      <span className="label-sm">Sold</span>
+      <span
+        className="font-display font-bold leading-none"
+        style={{ fontSize: 32, color: "var(--ink)" }}
+      >
+        {count}
+      </span>
+      <span className="label-sm" style={{ fontSize: 8 }}>
+        bottles
+      </span>
     </div>
   );
 }

@@ -60,30 +60,43 @@ export default function EventLog() {
   return (
     <div
       ref={ref}
-      // Fixed cap (60vh) so the log never grows the page on narrow
-      // layouts where RightRail stacks under the board. On wide layouts
-      // the parent grid row height already constrains this — the cap
-      // just guarantees a hard ceiling either way.
-      className="max-h-[60vh] overflow-y-auto p-3 lg:h-full lg:max-h-none"
+      className="scroll-thin max-h-[60vh] overflow-y-auto lg:h-full lg:max-h-none"
     >
       {log.length === 0 ? (
-        <p className="text-left font-mono text-[11px] italic text-slate-500">
+        <p
+          className="font-display text-[12px] italic"
+          style={{ color: "var(--mute)" }}
+        >
           No actions yet.
         </p>
       ) : (
-        <ul className="flex flex-col gap-1 text-left">
+        <ol
+          className="m-0 flex flex-col gap-[6px] p-0"
+          style={{ listStyle: "none" }}
+        >
           {log.map((e) => (
             <li
               key={e.seq}
-              className="flex items-baseline gap-2 font-sans text-[12px] leading-snug text-slate-200"
+              className="log-line flex items-baseline gap-2 pb-1.5"
+              style={{
+                borderBottom: "1px dotted rgba(110,80,50,.25)",
+              }}
             >
-              <span className="w-7 flex-shrink-0 font-mono text-[10px] uppercase tracking-[.10em] tabular-nums text-slate-600">
+              <span
+                className="label-sm flex-shrink-0"
+                style={{ fontSize: 9, color: "var(--whisper)" }}
+              >
                 R{e.round}
               </span>
-              <span className="flex-1">{describe(e, playerById, state)}</span>
+              <span
+                className="flex-1 font-sans text-[12.5px] leading-[1.4]"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                {describe(e, playerById, state)}
+              </span>
             </li>
           ))}
-        </ul>
+        </ol>
       )}
     </div>
   );

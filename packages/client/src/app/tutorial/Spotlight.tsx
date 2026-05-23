@@ -23,25 +23,15 @@ function findSpotlightElement(target: SpotlightTarget): Element | null {
       return document.querySelector(`[data-slot-id="${slotId}"]`);
     }
     case "rickhouse-row": {
-      // The human's row is the one NOT marked as opponent-rickhouse.
-      // Both rows carry [data-rickhouse-row]; the human row also has a
-      // RickhouseRow with default data-bb-zone (no value); the opponent's
-      // wrapping rickhouse panel has data-bb-zone="opponent-rickhouse".
-      const rows = Array.from(
-        document.querySelectorAll("[data-rickhouse-row]"),
-      );
+      // v3 layout: the human's rickhouse is its own hero region
+      // (`[data-bb-zone="distillery-stage"]`), while opponents live
+      // in the left rail (`[data-rickhouse-row]` on the rail itself).
+      // For the human, point straight at the distillery stage; for
+      // opponents, fall back to the rivals rail.
       if (target.ownerId === TUTORIAL_HUMAN_ID) {
-        const human = rows.find((r) => {
-          const wrapper = r.parentElement;
-          return wrapper?.getAttribute("data-bb-zone") !== "opponent-rickhouse";
-        });
-        return human ?? rows[0] ?? null;
+        return document.querySelector('[data-bb-zone="distillery-stage"]');
       }
-      const opp = rows.find((r) => {
-        const wrapper = r.parentElement;
-        return wrapper?.getAttribute("data-bb-zone") === "opponent-rickhouse";
-      });
-      return opp ?? rows[1] ?? rows[0] ?? null;
+      return document.querySelector("[data-rickhouse-row]");
     }
     case "hand-card": {
       // HandTray exposes `data-card-id` on each hand card. Fall back to
@@ -62,23 +52,28 @@ function findSpotlightElement(target: SpotlightTarget): Element | null {
       return document.querySelector("[data-hand-tray]");
     }
     case "market-slot": {
-      // Per-slot beat: focus the specific tile so the player sees
-      // exactly which market card to act on. `ConveyorCard` stamps
-      // `data-market-slot-index` matching the conveyor index.
+      // v3 layout: the market lives inside the MarketDrawer overlay
+      // (not a persistent board zone). If the drawer is mounted, the
+      // slot tile is queryable directly; otherwise fall back to the
+      // BUY MARKET action button so the tutorial highlights what the
+      // player needs to click to open the drawer.
       const tile = document.querySelector(
         `[data-market-slot-index="${target.slotIndex}"]`,
       );
       if (tile) return tile;
       return (
         document.querySelector("[data-market-conveyor]") ??
-        document.querySelector("[data-bb-zone='market']")
+        document.querySelector('[data-bb-action="buy"]')
       );
     }
     case "market-row":
-      // Tour stop: spotlight the whole conveyor row.
+      // v3 layout: anchor to the conveyor inside the drawer when open,
+      // otherwise to the BUY MARKET button (telling the player "tap
+      // this to open the conveyor"). The beat copy already nudges
+      // them toward opening the drawer.
       return (
         document.querySelector("[data-market-conveyor]") ??
-        document.querySelector("[data-bb-zone='market']")
+        document.querySelector('[data-bb-action="buy"]')
       );
     case "demand":
       return document.querySelector('[data-bb-zone="demand"]');
@@ -87,13 +82,11 @@ function findSpotlightElement(target: SpotlightTarget): Element | null {
     case "action-button":
       return document.querySelector(`[data-bb-action="${target.action}"]`);
     case "supply":
-      // The bourbon mash-bills row IS the supply — a depleted row is
-      // the doomsday clock. Fall back to the small counter chip in the
-      // top bar if MarketCenter hasn't mounted yet.
-      return (
-        document.querySelector("[data-bourbon-row]") ??
-        document.querySelector('[data-bb-zone="supply-counter"]')
-      );
+      // v3 layout: mash bills are face-down in the bourbon deck and
+      // surface only during the Drafting Loop overlay. The top-bar
+      // bourbon chip (the doomsday clock) is the persistent supply
+      // signal — anchor there directly.
+      return document.querySelector('[data-bb-zone="supply-counter"]');
     case "none":
     default:
       return null;

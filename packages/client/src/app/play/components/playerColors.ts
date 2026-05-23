@@ -1,54 +1,59 @@
 /**
- * Seat-indexed player palette. Six visually distinct hues so that a default
- * 3-player game (seats 0/1/2) gets three obviously different colours rather
- * than the old indigo/sky/violet "three blues" cluster, and a 6-player game
- * still has unique identities at every seat.
+ * Seat-indexed player palette. v3 "Distillery-first" refresh re-tints
+ * seat 0 ("You") to warm amber so it sits inside the bourbon palette —
+ * the player's identity is now expressed by the DistilleryStage hero,
+ * not by their seat color, and an indigo "You" chip clashed with the
+ * warm canvas. Opponent seats keep visually-distinct hues but pulled
+ * to match the warm tokens in globals.css.
  *
- *   seat 0 (You)     indigo-500   #6366f1
- *   seat 1           rose-500     #f43f5e
- *   seat 2           emerald-500  #10b981
- *   seat 3           amber-500    #f59e0b
- *   seat 4           sky-500      #0ea5e9
- *   seat 5           violet-500   #a855f7
+ *   seat 0 (You)     warm amber   #d59650
+ *   seat 1           rose         #d96b54
+ *   seat 2           emerald      #6db28c
+ *   seat 3           amber-2      #e9b46e
+ *   seat 4           sky          #6fa4d6
+ *   seat 5           violet       #b08fd8
  *
- * Class strings are listed statically so Tailwind v4's content scanner picks
- * them up at build time — never construct these by string interpolation.
+ * Class strings are listed statically so Tailwind v4's content scanner
+ * picks them up at build time — never construct these by string
+ * interpolation. The arbitrary-value `bg-[#hex]` form is used so we
+ * can match the bourbon palette tokens precisely rather than snap to
+ * a Tailwind named color.
  */
 
 export const PLAYER_HEX = [
-  "#6366f1", // indigo-500 — You
-  "#f43f5e", // rose-500
-  "#10b981", // emerald-500
-  "#f59e0b", // amber-500
-  "#0ea5e9", // sky-500
-  "#a855f7", // violet-500
+  "#d59650", // amber — You
+  "#d96b54", // rose
+  "#6db28c", // emerald
+  "#e9b46e", // amber-2
+  "#6fa4d6", // sky
+  "#b08fd8", // violet
 ] as const;
 
 export const PLAYER_BG_CLASS = [
-  "bg-indigo-500",
-  "bg-rose-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-sky-500",
-  "bg-violet-500",
+  "bg-[#d59650]",
+  "bg-[#d96b54]",
+  "bg-[#6db28c]",
+  "bg-[#e9b46e]",
+  "bg-[#6fa4d6]",
+  "bg-[#b08fd8]",
 ] as const;
 
 export const PLAYER_BORDER_CLASS = [
-  "border-indigo-500",
-  "border-rose-500",
-  "border-emerald-500",
-  "border-amber-500",
-  "border-sky-500",
-  "border-violet-500",
+  "border-[#d59650]",
+  "border-[#d96b54]",
+  "border-[#6db28c]",
+  "border-[#e9b46e]",
+  "border-[#6fa4d6]",
+  "border-[#b08fd8]",
 ] as const;
 
 export const PLAYER_TEXT_CLASS = [
-  "text-indigo-300",
-  "text-rose-300",
-  "text-emerald-300",
-  "text-amber-300",
-  "text-sky-300",
-  "text-violet-300",
+  "text-[#d59650]",
+  "text-[#d96b54]",
+  "text-[#6db28c]",
+  "text-[#e9b46e]",
+  "text-[#6fa4d6]",
+  "text-[#b08fd8]",
 ] as const;
 
 /** Wrap a seatIndex into the palette range (handles negatives / overflow). */

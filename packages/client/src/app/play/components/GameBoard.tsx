@@ -1,15 +1,26 @@
 "use client";
 
 /**
- * GameBoard — dashboard layout container.
+ * v3 GameBoard — distillery-first layout.
  *
- *   ┌────────────────────────────────────┬──────────────┐
- *   │ Rickhouses (top of left column)    │              │
- *   │ ────────────────────────────────── │  Action log  │
- *   │ MarketCenter (bottom of left,      │  (full       │
- *   │ flex-1, takes spare height)        │   height)    │
- *   └────────────────────────────────────┴──────────────┘
- *   [HandTray]              flush bottom, full bleed
+ *   ┌──────────────────────────────────────────────────────────────┐
+ *   │ TopBar                                                       │
+ *   ├──────────┬───────────────────────────────────────┬───────────┤
+ *   │          │                                       │           │
+ *   │ Rivals   │      DistilleryStage (hero)           │ LogRail   │
+ *   │ Rail     │                                       │ (Tasting  │
+ *   │          │                                       │  Notes)   │
+ *   │  230px   │ ─────────────────────────────────     │   290px   │
+ *   │          │      HandStrip                        │           │
+ *   │          │                  1fr                  │           │
+ *   └──────────┴───────────────────────────────────────┴───────────┘
+ *
+ * `marketOpen` is derived from the existing `buyMode` state: the
+ * drawer is open whenever the player has clicked BUY MARKET but
+ * hasn't picked a target tile yet. Clicking a tile in the drawer
+ * calls `setBuyTarget(slotIndex)` which completes that condition
+ * and closes the drawer; BuyOverlay then handles payment selection.
+ * Click backdrop / Cancel → `cancelBuyMode()` → drawer closes too.
  */
 
 import { useEffect } from "react";
@@ -19,9 +30,10 @@ import GameOverPanel from "./GameOverPanel";
 import HandTray from "./HandTray";
 import AgeFlight from "./AgeFlight";
 import MakeFlight from "./MakeFlight";
-import MarketCenter from "./MarketCenter";
+import MarketDrawer from "./MarketDrawer";
+import DistilleryStage from "./DistilleryStage";
+import OpponentRail from "./OpponentRail";
 import PurchaseFlight from "./PurchaseFlight";
-import RickhouseRow from "./RickhouseRow";
 import RightRail from "./RightRail";
 import SaleFlight from "./SaleFlight";
 
@@ -40,10 +52,8 @@ export default function GameBoard() {
     cancelDrawBillMode,
   } = useGameStore();
 
-  // Escape-to-cancel for any active picker overlay. The cancels are
-  // safe no-ops when the matching mode isn't active, but we route to
-  // the live mode first so the keystroke maps to the player's most
-  // recent action intent.
+  // Esc → cancel the active picker mode (no drawer change here;
+  // MarketDrawer also handles Esc to close itself).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -81,61 +91,44 @@ export default function GameBoard() {
 
   if (!state) return null;
 
+  // Drawer is open when the user clicked BUY MARKET (buyMode is non-
+  // null) but hasn't picked a slot yet. Once a slot is picked, the
+  // payment-selection UI (BuyOverlay) takes over and the drawer
+  // closes. Cancel from anywhere clears buyMode entirely.
+  const marketOpen = buyMode != null && buyMode.pickedTarget == null;
+
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex flex-1 flex-col gap-[6px] overflow-hidden px-[12px] pb-[6px] pt-[6px]">
-        {state.phase === "ended" ? <GameOverPanel /> : null}
+    <div className="flex flex-1 flex-col" style={{ minHeight: 0 }}>
+      {/* Game-over overlays sit above everything else when the round ends. */}
+      {state.phase === "ended" ? <GameOverPanel /> : null}
 
-        <div className="grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_300px]">
-          {/* Left column, top-to-bottom:
-                1. Opponents' rickhouses (someone else's stuff up here).
-                2. Market — the shared table.
-                3. Your rickhouse, flush against the HandTray below so
-                   "your slots ↑ your cards" reads as one zone.
-              This rearrangement is paired with dropping the persistent
-              Mash Bills row from MarketCenter — under v2.14 bills only
-              surface in the Drafting Loop overlay, so the section was
-              an empty placeholder eating ~160px. */}
-          <div className="flex min-h-0 flex-col gap-1.5">
-            <RickhouseRow showOnly="others" />
-            <MarketCenter />
-            <RickhouseRow showOnly="self" />
-          </div>
+      {/* Three-area grid: rivals | stage+hand | log */}
+      <main
+        className="grid min-h-0 flex-1"
+        style={{
+          gridTemplateColumns: "230px 1fr 290px",
+          gridTemplateRows: "1fr auto",
+          gridTemplateAreas: '"rivals stage log" "rivals hand log"',
+        }}
+      >
+        <OpponentRail />
+        <DistilleryStage />
+        <RightRail />
+        {/* HandTray stamps `gridArea: "hand"` on its own root so it
+            slots into the bottom-center area of this grid. */}
+        <HandTray />
+      </main>
 
-          {/* Right column: action log matches the left column's height
-              exactly — the rail is absolutely positioned so its log
-              content can never push the grid row taller. */}
-          <div className="relative min-h-0">
-            <div className="absolute inset-0">
-              <RightRail />
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Market drawer — opens above the board when BUY MARKET clicked. */}
+      <MarketDrawer open={marketOpen} onClose={cancelBuyMode} />
 
-      {/* HandTray bleeds to canvas edges. */}
-      <HandTray />
-
-      {/* Click-any-card inspect modal — mounts at top level so it sits
-          above every panel. Renders only when `inspect` is set. */}
+      {/* Modal stack — preserved unchanged. */}
       <CardInspectModal />
 
-      {/* Purchase animation — fires on every BUY_FROM_MARKET (bot or
-          human) and self-clears when the keyframe finishes. */}
+      {/* Flight animations — preserved unchanged. */}
       <PurchaseFlight />
-
-      {/* Make-bourbon animation — card flies from screen center into the
-          target rickhouse slot whenever MAKE_BOURBON dispatches. */}
       <MakeFlight />
-
-      {/* Sell-bourbon animation — fan of cards flies from the sold
-          slot to the seller's discard pile on every SELL_BOURBON. */}
       <SaleFlight />
-
-      {/* Age-bourbon animation — card flies from the player's hand
-          tray up into the destination barrel slot on every
-          AGE_BOURBON. Mirrors MakeFlight; uses the hand tray as the
-          source so the gesture reads "this card → that barrel." */}
       <AgeFlight />
     </div>
   );
