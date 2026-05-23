@@ -10,7 +10,7 @@
  * strip (rendered separately above the cards).
  */
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   type Card,
   type GameState,
@@ -139,7 +139,7 @@ export default function HandTray() {
         {/* Deck pile (left) */}
         <DramaticPile label="Deck" count={focused.deck.length} tone="amber" />
 
-        {/* Hand cards (center, fills) */}
+        {/* Hand cards (center, fills) — fan-arrange on a shallow arc */}
         <Section
           caption="your hand"
           count={handCards.length}
@@ -149,7 +149,7 @@ export default function HandTray() {
           {handCards.length === 0 ? (
             <EmptyPill>no cards</EmptyPill>
           ) : (
-            <CardAccordion>
+            <HandFan>
               {handCards.map((c, i) =>
                 c.type === "labor" ? (
                   <LaborCard key={c.id} card={c} indexInRow={i} />
@@ -157,7 +157,7 @@ export default function HandTray() {
                   <ResourceCard key={c.id} card={c} indexInRow={i} />
                 ),
               )}
-            </CardAccordion>
+            </HandFan>
           )}
         </Section>
 
@@ -630,14 +630,73 @@ function EmptyPill({ children }: { children: React.ReactNode }) {
 
 /**
  * Spread row — children sit side-by-side with a small gap so every
- * card is fully readable without hover. The outer wrapper allows the
- * row to overflow horizontally when the hand grows past the available
- * width (rather than crushing the cards into an accordion fan).
+ * card is fully readable without hover. Kept for the ops "pending"
+ * row, where the flat overlap matches the muted treatment. Hand cards
+ * use `HandFan` instead.
  */
 function CardAccordion({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-w-0 flex-1 items-end overflow-x-auto py-2 pl-2 pr-3">
       <div className="flex min-w-0 items-end gap-2">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Fan-arrange a hand of cards on a shallow arc per the v3 design.
+ * Each child sits in an absolutely-positioned `.hand-fan-card` slot
+ * with inline `transform: translateY(...) rotate(...)`. CSS picks up
+ * the hover override (translateY(-22px) scale(1.04) rotate(0)) to
+ * pull the focused card upright at z-index 40.
+ *
+ * Card width assumed at 100px (matches `CARD_SIZE_CLASS`); the slot
+ * "stride" (visible width per card after overlap) is 70px, giving a
+ * 30px overlap so an 8-card hand fits comfortably under 800px.
+ *
+ * Slots stretch the container to `(n - 1) * stride + cardW`, which
+ * the parent flex centers via `justify-center`.
+ */
+function HandFan({ children }: { children: React.ReactNode }) {
+  const slots = React.Children.toArray(children);
+  const n = slots.length;
+  const cardW = 100;
+  const stride = 70; // visible width per slot after overlap
+  const totalW = n > 0 ? (n - 1) * stride + cardW : 0;
+  const mid = (n - 1) / 2;
+  return (
+    <div className="relative flex min-w-0 flex-1 items-end justify-center py-2 pl-2 pr-3">
+      <div
+        style={{
+          position: "relative",
+          width: totalW,
+          height: 156,
+        }}
+      >
+        {slots.map((child, i) => {
+          const off = i - mid;
+          const rot = off * 3.2;
+          const lift = Math.abs(off) * 2.4;
+          const x = i * stride;
+          return (
+            <div
+              key={
+                React.isValidElement(child) && child.key != null
+                  ? child.key
+                  : i
+              }
+              className="hand-fan-card"
+              style={{
+                left: x,
+                width: cardW,
+                transform: `translateY(${lift}px) rotate(${rot}deg)`,
+                zIndex: i,
+              }}
+            >
+              {child}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

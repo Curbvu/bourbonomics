@@ -31,16 +31,30 @@ export default function PlayPage() {
     };
   }, [dragMake]);
 
+  // v3 distillery-first refresh: tag the body so the globals.css paper
+  // grain overlay (body[data-page="play"]::before) activates. Cleared
+  // on unmount so other pages stay clean.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.dataset.page = "play";
+    return () => {
+      delete document.body.dataset.page;
+    };
+  }, []);
+
   if (!state) return <MainMenu />;
 
   return (
     <main
-      className="h-screen overflow-hidden text-slate-100"
+      className="h-screen overflow-hidden text-[#f0e3c8]"
       style={{
-        backgroundColor: "#0f172a",
+        // v3 warm bourbon canvas — replaces the old cool slate
+        // (#0f172a) + indigo radials with the mockup's atmospheric
+        // amber radials over deep bourbon dark.
+        backgroundColor: "#0c0805",
         backgroundImage: `
-          radial-gradient(1200px 600px at 70% -10%, rgba(180,83,9,.10), transparent 60%),
-          radial-gradient(800px 500px at -10% 110%, rgba(99,102,241,.06), transparent 60%)
+          radial-gradient(140% 90% at 50% 110%, rgba(213,150,80,.10), transparent 60%),
+          radial-gradient(80% 60% at 50% -10%, rgba(213,150,80,.05), transparent 50%)
         `,
       }}
     >

@@ -576,3 +576,44 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
   background: rgba(198, 157, 82, 0.35);
   border-radius: 999px;
 }
+
+/* ──────────────────────────────────────────────────────────────────
+   Paper grain overlay — soft warm noise layered over the bourbon
+   canvas to keep large gradient fields from reading as plastic.
+   Scoped to body[data-page="play"] (set by /play and /tutorial)
+   so it never bleeds into the main menu or wiki pages.
+   ────────────────────────────────────────────────────────────── */
+body[data-page="play"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.86 0 0 0 0 0.78 0 0 0 0 0.62 0 0 0 0.10 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   HandFan arc — replaces CardAccordion's flat row with a shallow
+   fan. Each .hand-fan-card slot is an absolutely-positioned wrapper
+   whose inline transform gets `(i - mid) * 3.2°` rotation + `|i -
+   mid| * 2.4px` lift from JS. The hover override here pulls the
+   slot perfectly upright at z-index 40 so the chosen card sits
+   forward of every neighbour.
+   ────────────────────────────────────────────────────────────── */
+.hand-fan-card {
+  position: absolute;
+  bottom: 0;
+  transform-origin: bottom center;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hand-fan-card:hover,
+.hand-fan-card:focus-within {
+  /* `!important` defeats the inline rotation+lift transform JS sets
+     on the slot per-index — without it, the inline style still wins
+     and the card never lifts on hover. The CSS transition above
+     animates the change either way. */
+  transform: translateY(-22px) scale(1.04) rotate(0deg) !important;
+  z-index: 40 !important;
+}
