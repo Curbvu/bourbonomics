@@ -5,18 +5,23 @@ import { shuffleCards } from "./deck";
 import { buildStarterMashBill } from "./defaults";
 
 // ============================================================
-// Starter pool (Random Deal + Trading)
+// Starter pool (Deterministic per-player composition + Trading)
 //
-// Each player contributes the per-player composition to a shared
-// pool. A small fixed buffer (`POOL_BUFFER`) lives on top so the
-// stuck-hand safety valve has undealt cards to draw replacements
-// from. The pool is shuffled, dealt 16 face-up to each drafter,
-// and the remainder (≥ POOL_BUFFER cards) backs the safety valve.
+// Each player's starter hand is the canonical `PER_PLAYER` block:
 //
 //   per player:  6 cask + 4 corn + 3 grain + 3 Generic Labor = 16
 //   3 grain split: 1 rye + 1 barley + 1 wheat (symmetric)
 //   buffer (per game): 2 cask + 1 corn + 1 rye + 1 barley + 1 wheat
 //                      + 2 Generic Labor = 8
+//
+// v2.14.1 Locked composition: previously the pool was shuffled
+// globally and dealt 16 random cards per player — at 3 players that
+// meant ~9 labor + 2 buffer = 11 labor floating around, so the deal
+// could hand one player 6 labor and another zero. The trade window's
+// 1-for-1 swaps couldn't restore balance with that variance, so we
+// now build each player's hand from their own `PER_PLAYER` block,
+// shuffled internally for draw-order variance. The shared buffer
+// stays in `starterUndealtPool` for the stuck-hand safety valve.
 //
 // v2.14 Smoother Starter: bumped Labor 2→3 per player and dropped
 // one rye to keep the total at 16. At 2 Labor the zero-Labor-round
@@ -81,32 +86,45 @@ export function buildStarterPool(numPlayers: number): Card[] {
 }
 
 /**
- * Shuffle a starter pool and deal `STARTER_HAND_SIZE` cards to each
- * of `numPlayers` players. Returns the per-player hands and the
- * undealt remainder (which becomes `state.starterUndealtPool`).
+ * Deal canonical `STARTER_HAND_SIZE`-card hands to each player from a
+ * starter pool built with `buildStarterPool(numPlayers)`. The pool is
+ * laid out as `[player0's 16][player1's 16]...[playerN's 16][buffer]`
+ * — each consecutive `STARTER_HAND_SIZE`-block is one player's
+ * canonical PER_PLAYER composition. We shuffle each block internally
+ * for draw-order variance but never cross blocks, so every player's
+ * starter hand is guaranteed to contain exactly 6 cask + 4 corn + 1
+ * rye + 1 barley + 1 wheat + 3 Generic Labor.
+ *
+ * The remainder is the pool buffer (unshuffled — the safety-valve
+ * action shuffles it on draw if needed) which becomes
+ * `state.starterUndealtPool` and backs the stuck-hand swap.
+ *
+ * Each per-player shuffle threads the rng state through so a seeded
+ * game still produces identical hands across runs.
  */
 export function dealStarterHands(
   pool: readonly Card[],
   numPlayers: number,
   rngState: number,
 ): { hands: Card[][]; remainder: Card[]; rngState: number } {
-  const shuffleResult = shuffleCards(pool, rngState);
-  const shuffled = shuffleResult.shuffled;
-  const hands: Card[][] = Array.from({ length: numPlayers }, () => []);
-  let cursor = 0;
-  for (let p = 0; p < numPlayers; p++) {
-    for (let i = 0; i < STARTER_HAND_SIZE; i++) {
-      const card = shuffled[cursor++];
-      if (!card) {
-        throw new Error(
-          `dealStarterHands: pool of ${pool.length} cannot deal ${numPlayers}×${STARTER_HAND_SIZE}`,
-        );
-      }
-      hands[p]!.push(card);
-    }
+  if (pool.length < numPlayers * STARTER_HAND_SIZE) {
+    throw new Error(
+      `dealStarterHands: pool of ${pool.length} cannot deal ${numPlayers}×${STARTER_HAND_SIZE}`,
+    );
   }
-  const remainder = shuffled.slice(cursor);
-  return { hands, remainder, rngState: shuffleResult.rngState };
+  const hands: Card[][] = [];
+  let state = rngState;
+  for (let p = 0; p < numPlayers; p++) {
+    const start = p * STARTER_HAND_SIZE;
+    const block = pool.slice(start, start + STARTER_HAND_SIZE);
+    // Shuffle each player's canonical block independently so draw
+    // order is randomised per seat without disturbing composition.
+    const shuf = shuffleCards(block, state);
+    hands.push(shuf.shuffled);
+    state = shuf.rngState;
+  }
+  const remainder = pool.slice(numPlayers * STARTER_HAND_SIZE);
+  return { hands, remainder, rngState: state };
 }
 
 /**

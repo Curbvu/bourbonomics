@@ -48,6 +48,38 @@ describe("starter_deck_draft phase — random deal", () => {
     expect(state.starterUndealtPool.length).toBeGreaterThanOrEqual(0);
   });
 
+  it("locks per-player composition at exactly 6 cask + 4 corn + 1 rye + 1 barley + 1 wheat + 3 labor", () => {
+    // v2.14.1 Locked composition: every dealt starter hand must contain
+    // the canonical PER_PLAYER block. Previously the pool was shuffled
+    // globally and dealt 16 random cards per player, so one drafter
+    // could land 6 labor while another got zero. This regression test
+    // pins the deal to deterministic per-player composition (draw order
+    // can still vary per seed).
+    const state = makeDraftGame();
+    for (const p of state.players) {
+      const tally: Record<string, number> = {
+        cask: 0,
+        corn: 0,
+        rye: 0,
+        barley: 0,
+        wheat: 0,
+        labor: 0,
+      };
+      for (const c of p.starterHand) {
+        if (c.type === "labor") tally.labor = (tally.labor ?? 0) + 1;
+        else if (c.subtype) tally[c.subtype] = (tally[c.subtype] ?? 0) + 1;
+      }
+      expect(tally).toEqual({
+        cask: 6,
+        corn: 4,
+        rye: 1,
+        barley: 1,
+        wheat: 1,
+        labor: 3,
+      });
+    }
+  });
+
   // The v2 High-Rye House "+2 free 2-rye" mod was retired in the v3
   // roster rebuild; no v3 distillery currently mods the dealt starter
   // hand (Single-Barrel House's "+1 Superior Cask" is design-only and
