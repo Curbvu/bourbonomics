@@ -608,8 +608,14 @@ body[data-page="play"]::before {
   transform-origin: bottom center;
   transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.hand-fan-card:hover,
-.hand-fan-card:focus-within {
+/* Hover-only lift — `:focus-within` was sticking the elevation
+   after click-to-deselect (the inner button keeps focus until the
+   user clicks elsewhere, so the slot would stay raised even though
+   the selection had been cleared). Keyboard accessibility is still
+   handled by the inner card's own `focus-visible:ring-2 ring-amber-
+   300` outline + the `bb-hand-selected` shimmer when the card is
+   actually picked. */
+.hand-fan-card:hover {
   /* `!important` defeats the inline rotation+lift transform JS sets
      on the slot per-index — without it, the inline style still wins
      and the card never lifts on hover. The CSS transition above
