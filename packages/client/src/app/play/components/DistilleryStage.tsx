@@ -813,8 +813,9 @@ function CaptionCard({
   const floor = cells.length ? Math.min(...cells) : 0;
   return (
     <div
-      className="mt-2 rounded-[7px] border px-2 py-[6px] text-left"
+      className="mt-3 w-full rounded-[9px] border text-left"
       style={{
+        padding: "10px 12px 11px 12px",
         borderColor: selected ? "var(--gold)" : `${band.ink}55`,
         background:
           "linear-gradient(180deg, rgba(34,23,16,.85), rgba(20,14,8,.95))",
@@ -823,38 +824,38 @@ function CaptionCard({
           : "inset 0 1px 0 rgba(255,255,255,.05)",
       }}
     >
-      <div className="flex items-baseline justify-between gap-1.5">
+      <div className="flex items-baseline justify-between gap-2">
         <span
           className="label-sm"
-          style={{ color: band.ink, fontSize: 8.5 }}
+          style={{ color: band.ink, fontSize: 10.5, letterSpacing: ".16em" }}
         >
           {band.label}
         </span>
         <PhaseStamp phase={barrel.phase} age={barrel.age} />
       </div>
       <div
-        className="mt-0.5 font-display text-[16px] font-semibold leading-tight"
-        style={{ color: "var(--ink)" }}
+        className="mt-1.5 font-display font-semibold leading-tight"
+        style={{ color: "var(--ink)", fontSize: 20 }}
       >
         {bill?.name ?? "in progress"}
       </div>
       {bill?.slogan ? (
         <div
-          className="mt-px font-display text-[11.5px] italic leading-snug"
-          style={{ color: "var(--mute)" }}
+          className="mt-1 font-display italic"
+          style={{ color: "var(--mute)", fontSize: 13.5, lineHeight: 1.35 }}
         >
           {bill.slogan}
         </div>
       ) : null}
-      <div className="mt-1.5 flex items-center justify-between gap-1.5">
+      <div className="mt-2.5 flex items-center justify-between gap-2">
         <span
-          className="font-display text-[16px] font-bold tracking-[.01em]"
-          style={{ color: band.ink }}
+          className="font-display font-bold tracking-[.01em]"
+          style={{ color: band.ink, fontSize: 20 }}
         >
           {bill ? `${floor}–${peak}` : "—"}{" "}
           <span
             className="label-sm"
-            style={{ color: band.ink, opacity: 0.7 }}
+            style={{ color: band.ink, opacity: 0.75, fontSize: 11 }}
           >
             rep
           </span>
@@ -892,10 +893,12 @@ function PhaseStamp({ phase, age }: { phase: Barrel["phase"]; age: number }) {
   const s = map[phase];
   return (
     <span
-      className="font-mono text-[8px] font-bold uppercase tracking-[.12em]"
+      className="font-mono font-bold uppercase"
       style={{
-        padding: "1px 6px",
-        borderRadius: 4,
+        fontSize: 10.5,
+        letterSpacing: ".14em",
+        padding: "2px 8px",
+        borderRadius: 5,
         border: `1px solid ${s.border}`,
         background: s.bg,
         color: s.ink,
@@ -1021,8 +1024,11 @@ function EmptySlot({
         </div>
       </div>
       <div
-        className="mt-2 rounded-[7px] border px-2 py-[6px] text-center font-mono text-[9.5px] uppercase tracking-[.18em]"
+        className="mt-3 w-full rounded-[9px] border text-center font-mono uppercase"
         style={{
+          padding: "12px 12px",
+          fontSize: 12,
+          letterSpacing: ".22em",
           borderColor: selected ? "var(--gold)" : "rgba(110,80,50,.45)",
           borderStyle: "dashed",
           background: "rgba(20,14,8,.5)",
