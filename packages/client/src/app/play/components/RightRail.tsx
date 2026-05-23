@@ -18,12 +18,8 @@ export default function RightRail() {
   return (
     <aside
       data-bb-zone="right-rail"
-      className="flex min-h-0 flex-col gap-2 overflow-hidden border-l border-[#3b2818] px-3 py-3"
-      style={{
-        gridArea: "log",
-        background:
-          "linear-gradient(180deg, rgba(20,14,8,.85), rgba(12,8,5,.85))",
-      }}
+      className="bb-panel bb-panel--log flex min-h-0 flex-col gap-2 overflow-hidden px-3 py-3"
+      style={{ gridArea: "log" }}
     >
       <header className="flex items-center justify-between">
         <h2

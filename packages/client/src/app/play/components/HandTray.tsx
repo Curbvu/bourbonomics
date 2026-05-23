@@ -74,13 +74,8 @@ export default function HandTray() {
   return (
     <div
       data-hand-tray="true"
-      className="border-t border-[#3b2818]"
-      style={{
-        background:
-          "linear-gradient(180deg, rgba(20,14,8,.85) 0%, rgba(10,7,4,.95) 100%)",
-        boxShadow: "0 -2px 14px rgba(0,0,0,.5)",
-        gridArea: "hand",
-      }}
+      className="bb-panel bb-panel--hand overflow-hidden"
+      style={{ gridArea: "hand" }}
     >
       {/* Interactive overlays. Only one of these ever paints at a time
           (each gates on its own mode flag); kept mounted here so the

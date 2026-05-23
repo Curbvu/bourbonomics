@@ -578,6 +578,76 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
 }
 
 /* ──────────────────────────────────────────────────────────────────
+   `.bb-panel` — shared floating-panel chrome for every play-screen
+   region (rivals rail, market row, distillery stage, hand strip,
+   tasting notes). Per the v2 handoff: each region renders as its
+   own bordered card with rounded corners and a drop shadow, with
+   the main grid carrying the 12px gap between panels.
+
+   The base treatment is a 12px radius, 1px brass rule, inset top
+   highlight, and a subtle drop shadow. Region modifier classes
+   layer in a faint identity-tinted radial at the top edge so the
+   eye can tell "this is the market" / "this is the log" without
+   reading text.
+
+   `position: relative` is set so any absolute children (e.g. the
+   MarketRow shelf rail + floor plank) anchor inside the panel.
+   ────────────────────────────────────────────────────────────── */
+.bb-panel {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--rule);
+  box-shadow:
+    inset 0 1px 0 rgba(240, 201, 112, 0.10),
+    0 4px 14px rgba(0, 0, 0, 0.40);
+  background:
+    linear-gradient(180deg, rgba(26, 18, 11, 0.88), rgba(14, 10, 6, 0.95));
+}
+
+/* Rivals rail — faint rose tint (rye / opponents). */
+.bb-panel--rivals {
+  background:
+    radial-gradient(80% 60% at 50% 0%, rgba(217, 107, 84, 0.05), transparent 60%),
+    linear-gradient(180deg, rgba(26, 18, 11, 0.88), rgba(14, 10, 6, 0.95));
+}
+
+/* Market row — copper tint (the conveyor brass-spotlight). */
+.bb-panel--market {
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgba(176, 106, 56, 0.10), transparent 70%),
+    linear-gradient(180deg, rgba(28, 18, 11, 0.92), rgba(18, 12, 8, 0.95));
+}
+
+/* Distillery stage — gold tint, stronger top highlight + deeper
+   shadow to anchor it as the primary surface. */
+.bb-panel--stage {
+  background:
+    radial-gradient(80% 60% at 50% 0%, rgba(240, 201, 112, 0.06), transparent 60%),
+    linear-gradient(180deg, rgba(28, 18, 11, 0.85), rgba(14, 10, 6, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(240, 201, 112, 0.12),
+    0 6px 18px rgba(0, 0, 0, 0.50);
+}
+
+/* Hand strip — gold tint (matches the stage above), same anchor
+   shadow treatment as the stage. */
+.bb-panel--hand {
+  background:
+    radial-gradient(60% 80% at 50% 0%, rgba(240, 201, 112, 0.06), transparent 70%),
+    linear-gradient(180deg, rgba(26, 18, 11, 0.92), rgba(10, 7, 4, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(240, 201, 112, 0.12),
+    0 6px 18px rgba(0, 0, 0, 0.50);
+}
+
+/* Tasting notes — emerald tint (matches the LIVE pill). */
+.bb-panel--log {
+  background:
+    radial-gradient(80% 60% at 50% 0%, rgba(109, 178, 140, 0.05), transparent 60%),
+    linear-gradient(180deg, rgba(26, 18, 11, 0.88), rgba(14, 10, 6, 0.95));
+}
+
+/* ──────────────────────────────────────────────────────────────────
    Paper grain overlay — soft warm noise layered over the bourbon
    canvas to keep large gradient fields from reading as plastic.
    Scoped to body[data-page="play"] (set by /play and /tutorial)

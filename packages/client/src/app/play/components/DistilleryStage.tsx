@@ -77,8 +77,7 @@ export default function DistilleryStage() {
   return (
     <section
       data-bb-zone="distillery-stage"
-      className="flex min-h-0 flex-col gap-3.5 px-[22px] py-4"
-      style={{ gridArea: "stage" }}
+      className="bb-panel bb-panel--stage flex min-h-0 flex-col gap-3.5 px-[22px] py-4"
     >
       {/* 1. Stage tag strip */}
       <div className="flex items-baseline gap-3">

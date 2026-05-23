@@ -43,12 +43,8 @@ export default function OpponentRail() {
   return (
     <aside
       data-rickhouse-row="true"
-      className="scroll-thin flex min-h-0 flex-col gap-[10px] overflow-auto border-r border-[#3b2818] px-[10px] py-3"
-      style={{
-        gridArea: "rivals",
-        background:
-          "linear-gradient(180deg, rgba(20,14,8,.85), rgba(12,8,5,.85))",
-      }}
+      className="bb-panel bb-panel--rivals scroll-thin flex min-h-0 flex-col gap-[10px] overflow-auto px-[12px] py-3"
+      style={{ gridArea: "rivals" }}
     >
       <header className="flex items-baseline justify-between">
         <h2
