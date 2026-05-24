@@ -918,43 +918,42 @@ function BarrelNeedsPlate({ needs }: { needs: BarrelNeed[] }) {
     return (
       <span
         aria-hidden
-        className="absolute left-1/2 top-1/2 grid h-[58px] w-[58px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full"
+        className="absolute left-1/2 top-1/2 grid h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full"
         style={{
           background:
             "radial-gradient(circle at 35% 30%, rgba(125,166,223,.55), rgba(50,80,120,.55) 65%, rgba(20,30,50,.55) 100%)",
           boxShadow:
-            "inset 0 2px 3px rgba(255,255,255,.2), inset 0 -2px 4px rgba(0,0,0,.5), 0 0 10px rgba(125,166,223,.4)",
+            "inset 0 2px 4px rgba(255,255,255,.2), inset 0 -2px 6px rgba(0,0,0,.5), 0 0 14px rgba(125,166,223,.45)",
         }}
       >
-        <span className="font-display text-[24px] font-bold text-sky-100">?</span>
+        <span className="font-display text-[44px] font-bold leading-none text-sky-100">?</span>
       </span>
     );
   }
   return (
     <span
       aria-hidden
-      className="absolute left-1/2 top-1/2 flex max-w-[120px] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[3px] rounded-md px-2 py-1.5"
+      className="absolute left-1/2 top-1/2 flex w-[108px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-2 rounded-lg px-2 py-3"
       style={{
         background:
-          "linear-gradient(180deg, rgba(8,10,14,.86), rgba(4,6,10,.94))",
+          "linear-gradient(180deg, rgba(8,10,14,.92), rgba(4,6,10,.97))",
         boxShadow:
-          "inset 0 1px 0 rgba(255,255,255,.10), inset 0 -1px 0 rgba(0,0,0,.6), 0 2px 8px rgba(0,0,0,.55)",
-        border: "1px solid rgba(125,166,223,.55)",
+          "inset 0 1px 0 rgba(255,255,255,.12), inset 0 -1px 0 rgba(0,0,0,.65), 0 4px 14px rgba(0,0,0,.6)",
+        border: "1.5px solid rgba(125,166,223,.7)",
+        minHeight: 116,
       }}
     >
-      <span
-        className="font-mono text-[10px] font-bold uppercase tracking-[.16em] text-sky-200/90"
-      >
+      <span className="font-mono text-[13px] font-bold uppercase tracking-[.18em] text-sky-200">
         Needs
       </span>
       {needs.slice(0, 4).map((n) => (
         <span
           key={n.subtype}
-          className="flex items-center gap-1.5 font-mono text-[14px] font-bold leading-none"
+          className="flex items-center gap-2 font-mono text-[20px] font-bold leading-none"
           style={{ color: SUB_INK[n.subtype] }}
         >
           <span className="tabular-nums">{n.count}×</span>
-          <span className="flex h-4 w-4 items-center justify-center text-[14px]">
+          <span className="flex h-6 w-6 items-center justify-center text-[20px] leading-none">
             {RESOURCE_GLYPH[n.subtype]}
           </span>
         </span>
