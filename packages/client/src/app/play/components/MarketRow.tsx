@@ -74,7 +74,7 @@ const TIER_GLOW: Record<string, string> = {
 };
 
 export default function MarketRow() {
-  const { state, multiplayerMode, startBuyMode, setBuyTarget, buyMode } = useGameStore();
+  const { state, multiplayerMode, startBuyMode, setBuyTarget, buyMode, setInspect } = useGameStore();
   if (!state) return null;
 
   // Mirror DistilleryStage's seat-id logic so the affordability check
@@ -104,6 +104,22 @@ export default function MarketRow() {
   // (buyMode != null && pickedTarget == null) opens the drawer.
   const onOpenFull = () => {
     startBuyMode();
+  };
+
+  // Right-click on any market card → open the inspect modal so the
+  // player can read the full card text without committing to a buy.
+  // Ops / investments carry their spec on `opSpec` / `investmentSpec`;
+  // resources + labor pass through as-is.
+  const onCardInspect = (card: Card) => {
+    if (card.type === "operations" && card.opSpec) {
+      setInspect({ kind: "operations", card: card.opSpec });
+    } else if (card.type === "investment" && card.investmentSpec) {
+      setInspect({ kind: "investment", card: card.investmentSpec });
+    } else if (card.type === "labor") {
+      setInspect({ kind: "labor", card });
+    } else {
+      setInspect({ kind: "resource", card });
+    }
   };
 
   const focusClass = useZoneFocusClass("market-conveyor");
@@ -193,6 +209,7 @@ export default function MarketRow() {
               affordable={reputation >= (card.cost ?? 1)}
               picked={buyMode?.pickedTarget?.slotIndex === i}
               onBuy={() => onCardBuy(i, reputation >= (card.cost ?? 1))}
+              onInspect={() => onCardInspect(card)}
             />
           ))}
         </div>
@@ -310,12 +327,16 @@ function MarketRowCard({
   affordable,
   picked,
   onBuy,
+  onInspect,
 }: {
   card: Card;
   slotIndex: number;
   affordable: boolean;
   picked: boolean;
   onBuy: () => void;
+  /** Right-click opens the full inspect modal — never blocked by
+   *  affordability, so the player can read about cards they can't buy. */
+  onInspect: () => void;
 }) {
   const { kindLabel, glyph, subInk, tier } = resolveCardKind(card);
   const tierKey = tierOrCommon(tier);
@@ -354,10 +375,18 @@ function MarketRowCard({
   return (
     <button
       type="button"
-      onClick={onBuy}
+      onClick={dim ? undefined : onBuy}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onInspect();
+      }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      disabled={dim}
+      aria-disabled={dim || undefined}
+      // Stay un-disabled so contextmenu still fires on unaffordable
+      // cards — `disabled` blocks all native pointer events including
+      // right-click. We gate the left-click ourselves via `dim`.
+      title={dim ? "Can't afford yet — right-click to inspect" : "Left-click to buy · right-click to inspect"}
       data-market-slot-index={slotIndex}
       data-market-picked={picked || undefined}
       className="relative flex flex-col text-left"
