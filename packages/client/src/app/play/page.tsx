@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import DemandRollModal from "./components/DemandRollModal";
 import DistilleryDraftModal from "./components/DistilleryDraftModal";
+import DraftPickFlight from "./components/DraftPickFlight";
 import DrawBillOverlay from "./components/DrawBillOverlay";
 import DrawPhaseModal from "./components/DrawPhaseModal";
 import GameBoard from "./components/GameBoard";
@@ -77,6 +78,11 @@ export default function PlayPage() {
           ScalingHost) so its `fixed inset-0` covers the full viewport
           rather than being scoped to the scaled design canvas. */}
       <DrawBillOverlay />
+      {/* Draft-pick flight — fires when the human commits a bill.
+          Page-root mount for the same containing-block reason; sibling
+          to the modal so the flight starts the same frame the modal
+          unmounts. */}
+      <DraftPickFlight />
       {/* Mounted last so it sits above DrawPhaseModal in the DOM stack
           (z-55 vs z-50). The player reads the year-pass recap, hits
           Begin year, and the draw modal underneath becomes interactive. */}

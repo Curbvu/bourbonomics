@@ -244,6 +244,34 @@ export interface LastAge {
 }
 
 /**
+ * Last-drafted-bill snapshot. Bumped on a human's `DRAFT_TAKE_BILL`
+ * (bots are log-only by design). `DraftPickFlight` reads this to play
+ * the card→pile + bill→slot two-part animation that bridges the gap
+ * between the drafting modal closing and the bill appearing in its
+ * new home.
+ *
+ * `billStartRect` is captured by the modal's click handler BEFORE the
+ * dispatch fires, because the modal unmounts in the same render and
+ * the revealed-bill DOM node is gone by the time the flight runs.
+ * The card-spent half of the animation starts from `[data-hand-tray]`
+ * which stays mounted, so it's measured live at flight time.
+ */
+export interface LastDraftPick {
+  /** The hand card the human spent to pay for the bill. */
+  spentCard: Card;
+  /** The mash bill that landed in their slot. */
+  mashBillName: string;
+  /** Destination slot for the bill→slot half of the flight. */
+  slotId: string;
+  ownerId: string;
+  /** Viewport-coords rect of the BillTile at click time. The modal
+   *  unmounts on dispatch, so we capture this synchronously before
+   *  the React render that hides the bill. */
+  billStartRect: { x: number; y: number; w: number; h: number };
+  seq: number;
+}
+
+/**
  * Multiplayer-mode marker. When set, the store is bound to a remote
  * room: `dispatch` sends actions over the WebSocket instead of
  * applying them locally, and the autoplay loop is disabled (the
@@ -271,6 +299,7 @@ interface AtomicStore {
   lastMake: LastMake | null;
   lastSale: LastSale | null;
   lastAge: LastAge | null;
+  lastDraftPick: LastDraftPick | null;
 }
 
 export interface GameStore {
@@ -375,6 +404,17 @@ export interface GameStore {
   lastSale: LastSale | null;
   /** Animation trigger — most recent AGE_BOURBON snapshot. */
   lastAge: LastAge | null;
+  /** Animation trigger — most recent human DRAFT_TAKE_BILL snapshot.
+   *  Populated only for the local human (bot picks are log-only). */
+  lastDraftPick: LastDraftPick | null;
+  /** Push a draft-pick animation snapshot. Called by DrawBillOverlay
+   *  right after dispatching DRAFT_TAKE_BILL — the modal owns all the
+   *  inputs (spent card, bill, destination slot, captured bill rect),
+   *  so we bypass the capture-from-action plumbing the other flights
+   *  use. The store auto-bumps `seq`. */
+  triggerDraftPickAnimation: (
+    payload: Omit<LastDraftPick, "seq">,
+  ) => void;
   /** When non-null, the store is bound to a remote multi-player room.
    *  See `MultiplayerMode` for what that means for dispatch + autoplay. */
   multiplayerMode: MultiplayerMode | null;
@@ -494,6 +534,8 @@ const Ctx = createContext<GameStore>({
   lastMake: null,
   lastSale: null,
   lastAge: null,
+  lastDraftPick: null,
+  triggerDraftPickAnimation: noop,
   multiplayerMode: null,
   multiplayerStatus: "idle",
   roster: [],
@@ -534,6 +576,7 @@ const EMPTY_STORE: AtomicStore = {
   lastMake: null,
   lastSale: null,
   lastAge: null,
+  lastDraftPick: null,
 };
 
 export function GameProvider({ children }: { children: ReactNode }) {
@@ -608,6 +651,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastMake: null,
           lastSale: null,
           lastAge: null,
+          lastDraftPick: null,
         });
       }
       const auto = window.localStorage.getItem(AUTOPLAY_KEY);
@@ -761,6 +805,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [multiplayerMode],
   );
 
+  // Draft-pick animation trigger. The DrawBillOverlay calls this
+  // synchronously after dispatching DRAFT_TAKE_BILL so the
+  // DraftPickFlight overlay can run after the modal unmounts. We
+  // bump the store's `seqCounter` so the new snapshot's `seq` is
+  // strictly greater than any prior animation key — that's what the
+  // flight component's `useEffect` watches to retrigger.
+  const triggerDraftPickAnimation = useCallback(
+    (payload: Omit<LastDraftPick, "seq">) => {
+      setStore((prev) => {
+        const seq = prev.seqCounter + 1;
+        return {
+          ...prev,
+          seqCounter: seq,
+          lastDraftPick: { ...payload, seq },
+        };
+      });
+    },
+    [],
+  );
+
   // ---------------------------------------------------------------
   // Multi-player wiring
   // ---------------------------------------------------------------
@@ -795,6 +859,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             lastMake: null,
             lastSale: null,
             lastAge: null,
+            lastDraftPick: null,
           });
           break;
         case "state":
@@ -1636,6 +1701,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastMake: null,
       lastSale: null,
       lastAge: null,
+      lastDraftPick: null,
     });
     setAutoplayState(false);
     setInspect(null);
@@ -1676,6 +1742,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastMake: null,
       lastSale: null,
       lastAge: null,
+      lastDraftPick: null,
     });
     setAutoplayState(false);
     setInspect(null);
@@ -1712,6 +1779,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastMake: null,
           lastSale: null,
           lastAge: null,
+          lastDraftPick: null,
         });
         return;
       }
@@ -1829,6 +1897,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastMake: store.lastMake,
       lastSale: store.lastSale,
       lastAge: store.lastAge,
+      lastDraftPick: store.lastDraftPick,
+      triggerDraftPickAnimation,
       multiplayerMode,
       multiplayerStatus,
       roster,
@@ -1898,6 +1968,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       toggleHandSelection,
       clearHandSelection,
       commitHandCardImmediate,
+      triggerDraftPickAnimation,
       multiplayerMode,
       multiplayerStatus,
       roster,

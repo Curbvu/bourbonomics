@@ -50,14 +50,36 @@ export default function DraftingLoopOverlay() {
     cancelDrawBillMode,
     dispatch,
     multiplayerMode,
+    triggerDraftPickAnimation,
   } = useGameStore();
 
+  if (!state) return null;
+  const loop = state.draftingLoop;
+
+  const humanId = multiplayerMode
+    ? multiplayerMode.playerId
+    : state.players.find((p) => !p.isBot)?.id ?? null;
+  const human = humanId ? state.players.find((p) => p.id === humanId) ?? null : null;
+
+  // New "draft-once-then-close" gate: the modal opens for the human's
+  // seed pick and stays open while THEY are the current picker. Once
+  // the picker advances to a bot (or the loop closes), the modal
+  // unmounts and the bots' picks resolve silently via the autoplay
+  // loop — players follow along in the Tasting Notes log. The seed
+  // card and chosen bill get a card→pile + bill→slot flight via
+  // DraftPickFlight, mounted at the page root.
+  const humanIsPicker =
+    loop != null &&
+    human != null &&
+    loop.pickOrder[loop.pickerIndex] === human.id;
+  const open = drawBillMode != null || humanIsPicker;
+
   // Body data-attr is kept so any CSS focus-modes that listened to the
-  // legacy overlay continue to apply.
+  // legacy overlay continue to apply. Mirrors the modal's open gate.
   useEffect(() => {
     const root = typeof document !== "undefined" ? document.body : null;
     if (!root) return;
-    if (drawBillMode || state?.draftingLoop) {
+    if (open) {
       root.setAttribute("data-draw-mode", "drafting-loop");
     } else {
       root.removeAttribute("data-draw-mode");
@@ -65,17 +87,22 @@ export default function DraftingLoopOverlay() {
     return () => {
       root.removeAttribute("data-draw-mode");
     };
-  }, [drawBillMode, state?.draftingLoop]);
+  }, [open]);
 
-  if (!state) return null;
-  const loop = state.draftingLoop;
-  const open = drawBillMode != null || loop != null;
+  // Clear drawBillMode the instant a Drafting Loop becomes active. The
+  // store sets drawBillMode when the human clicks "Draft bills" and
+  // never clears it on its own — pre-refactor that didn't matter
+  // because the modal stayed open through the whole loop, but the new
+  // "close once picker advances past human" gate uses `drawBillMode`
+  // as a seed-mode signal. Letting it linger after the loop ends
+  // would flip the modal right back into seed mode the moment the
+  // bots wrap their picks. The seedMode-vs-active hand-off only
+  // works if drawBillMode is dropped on entry to the live loop.
+  useEffect(() => {
+    if (loop && drawBillMode) cancelDrawBillMode();
+  }, [loop, drawBillMode, cancelDrawBillMode]);
+
   if (!open) return null;
-
-  const humanId = multiplayerMode
-    ? multiplayerMode.playerId
-    : state.players.find((p) => !p.isBot)?.id ?? null;
-  const human = humanId ? state.players.find((p) => p.id === humanId) ?? null : null;
   if (!human) return null;
 
   return (
@@ -86,6 +113,7 @@ export default function DraftingLoopOverlay() {
       seedMode={drawBillMode != null && loop == null}
       cancelSeed={cancelDrawBillMode}
       dispatch={dispatch}
+      triggerDraftPickAnimation={triggerDraftPickAnimation}
     />
   );
 }
@@ -101,6 +129,7 @@ function DraftingLoopModal({
   seedMode,
   cancelSeed,
   dispatch,
+  triggerDraftPickAnimation,
 }: {
   humanId: string;
   hand: Card[];
@@ -108,6 +137,12 @@ function DraftingLoopModal({
   seedMode: boolean;
   cancelSeed: () => void;
   dispatch: (action: GameAction) => void;
+  triggerDraftPickAnimation: (
+    payload: Omit<
+      import("@/lib/store/game").LastDraftPick,
+      "seq"
+    >,
+  ) => void;
 }) {
   const { state } = useGameStore();
   const currentPickerId = loop?.pickOrder[loop.pickerIndex] ?? null;
@@ -170,12 +205,55 @@ function DraftingLoopModal({
       return;
     }
     if (handMode === "pay" && pickedBill) {
+      // Capture the bill's DOM rect BEFORE dispatch — the modal
+      // unmounts in the same render cycle (picker advances to a bot
+      // on the auto-pass below, which trips the open-gate to false),
+      // so the revealed-bill node is gone by the time DraftPickFlight
+      // measures positions.
+      const billEl = document.querySelector<HTMLElement>(
+        `[data-revealed-bill-id="${pickedBill.id}"]`,
+      );
+      const r = billEl?.getBoundingClientRect();
+      const billStartRect = r
+        ? { x: r.left, y: r.top, w: r.width, h: r.height }
+        : { x: window.innerWidth / 2, y: window.innerHeight / 2, w: 220, h: 140 };
+
+      // The spent card snapshot is for the flight ghost's chrome.
+      const spent = hand.find((c) => c.id === cardId);
+
+      // The engine's `placeBillInSlot` deposits into the first empty
+      // slot the player owns — mirror that here so the animation
+      // knows where to fly to, without waiting on the post-dispatch
+      // state. If we miss (e.g. no slot, engine rejects), the flight
+      // component bails harmlessly when its slot query returns null.
+      const humanPlayer = state?.players.find((p) => p.id === humanId);
+      const occupied = new Set(
+        (state?.allBarrels ?? [])
+          .filter((b) => b.ownerId === humanId)
+          .map((b) => b.slotId),
+      );
+      const destSlot = humanPlayer?.rickhouseSlots.find((s) => !occupied.has(s.id));
+
       dispatch({
         type: "DRAFT_TAKE_BILL",
         playerId: humanId,
         mashBillId: pickedBill.id,
         paymentCardId: cardId,
       });
+      // Engine rule: TAKE_BILL keeps pickerIndex on the same player.
+      // Auto-pass so the loop rotates to the next picker; this is what
+      // closes the modal (open-gate flips when picker != human) and
+      // lets autoplay step the bots through the rest of the loop.
+      dispatch({ type: "DRAFT_PASS", playerId: humanId });
+      if (spent && destSlot) {
+        triggerDraftPickAnimation({
+          spentCard: spent,
+          mashBillName: pickedBill.name,
+          slotId: destSlot.id,
+          ownerId: humanId,
+          billStartRect,
+        });
+      }
       setPickedBillId(null);
     }
   };
@@ -525,6 +603,7 @@ function BillTile({
       type="button"
       onClick={interactive ? onClick : undefined}
       disabled={!interactive}
+      data-revealed-bill-id={bill.id}
       className={[
         "flex w-[220px] flex-col rounded-xl border-2 px-3.5 py-3 text-left transition-transform duration-150",
         chrome.border,

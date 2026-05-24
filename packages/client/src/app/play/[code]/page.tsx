@@ -22,6 +22,7 @@ import { use, useEffect, useState } from "react";
 
 import DemandRollModal from "../components/DemandRollModal";
 import DistilleryDraftModal from "../components/DistilleryDraftModal";
+import DraftPickFlight from "../components/DraftPickFlight";
 import DrawBillOverlay from "../components/DrawBillOverlay";
 import DrawPhaseModal from "../components/DrawPhaseModal";
 import GameBoard from "../components/GameBoard";
@@ -222,6 +223,9 @@ export default function PlayCodePage({ params }: Props) {
           ScalingHost) so its `fixed inset-0` covers the full viewport
           rather than being scoped to the scaled design canvas. */}
       <DrawBillOverlay />
+      {/* Draft-pick flight — fires when the human commits a bill.
+          Page-root mount for the same containing-block reason. */}
+      <DraftPickFlight />
       {multiplayerError ? (
         <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
           <div className="pointer-events-auto flex max-w-md items-start gap-3 rounded-md border-2 border-rose-500/70 bg-rose-950/95 px-4 py-3 shadow-[0_8px_22px_rgba(0,0,0,.5)]">
