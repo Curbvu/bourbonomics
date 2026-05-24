@@ -100,10 +100,12 @@ export function applyBuyOperationsCard(
   draft.market.splice(action.marketSlotIndex, 1);
 
   // Copy the spec into the player's operationsHand with a fresh id +
-  // current round.
+  // current round. The `owned` namespace separates hand-side ids from
+  // the market-side `ops_${defId}_${idx}` space so they can never
+  // collide as supply counts change (e.g. when copies drop to 1).
   player.operationsHand.push({
     ...spec,
-    id: `ops_${spec.defId}_${draft.idCounter++}`,
+    id: `ops_owned_${spec.defId}_${draft.idCounter++}`,
     drawnInRound: draft.round,
   });
 

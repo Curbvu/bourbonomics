@@ -348,8 +348,12 @@ describe("PLAY_OPERATIONS_CARD — Insider Buyer", () => {
 
     // v2.11: try to buy a $4 card with 2 rep — should succeed under the
     // half-cost rule (ceil(4/2) = 2 rep). The conveyor has Specialty
-    // Labor cards at $4 in the v2.11 supply.
-    const target = state.market.find((c) => (c.cost ?? 1) === 4);
+    // Labor cards at $4 in the v2.11 supply. v3.3: exclude `operations`
+    // since those route through BUY_OPERATIONS_CARD and would surface
+    // first under the new market distribution.
+    const target = state.market.find(
+      (c) => (c.cost ?? 1) === 4 && c.type !== "operations",
+    );
     if (!target) return; // skip if seed didn't surface a $4 card
     const slotIdx = state.market.findIndex((c) => c.id === target.id);
     state = {

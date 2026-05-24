@@ -973,19 +973,19 @@ interface BandCardSpec {
 }
 
 const SPECIALTY_SPECS: BandCardSpec[] = [
-  { defId: "superior_cask", displayName: "Superior Cask", flavor: "Hand-picked stave, certified char.", subtype: "cask", copies: 2 },
-  { defId: "superior_corn", displayName: "Superior Corn", flavor: "Heirloom kernels, single-farm.", subtype: "corn", copies: 2 },
-  { defId: "superior_rye", displayName: "Superior Rye", flavor: "Reserve cut, sharper edge.", subtype: "rye", copies: 2 },
-  { defId: "superior_barley", displayName: "Superior Barley", flavor: "Floor-malted, water-blessed.", subtype: "barley", copies: 2 },
-  { defId: "superior_wheat", displayName: "Superior Wheat", flavor: "Estate harvest, soft as silk.", subtype: "wheat", copies: 2 },
+  { defId: "superior_cask", displayName: "Superior Cask", flavor: "Hand-picked stave, certified char.", subtype: "cask", copies: 4 },
+  { defId: "superior_corn", displayName: "Superior Corn", flavor: "Heirloom kernels, single-farm.", subtype: "corn", copies: 4 },
+  { defId: "superior_rye", displayName: "Superior Rye", flavor: "Reserve cut, sharper edge.", subtype: "rye", copies: 4 },
+  { defId: "superior_barley", displayName: "Superior Barley", flavor: "Floor-malted, water-blessed.", subtype: "barley", copies: 4 },
+  { defId: "superior_wheat", displayName: "Superior Wheat", flavor: "Estate harvest, soft as silk.", subtype: "wheat", copies: 4 },
 ];
 
-const HERITAGE_SPECS: Omit<BandCardSpec, "copies">[] = [
-  { defId: "heritage_cask", displayName: "Heritage Cask", flavor: "Cooper's reserve stave, decades seasoned.", subtype: "cask" },
-  { defId: "heritage_corn", displayName: "Heritage Corn", flavor: "Pre-prohibition kernel, hand-saved.", subtype: "corn" },
-  { defId: "heritage_rye", displayName: "Heritage Rye", flavor: "The headline rye, top of the bill.", subtype: "rye" },
-  { defId: "heritage_barley", displayName: "Heritage Barley", flavor: "Heirloom strain, floor-malted by name.", subtype: "barley" },
-  { defId: "heritage_wheat", displayName: "Heritage Wheat", flavor: "Estate wheat, hand-threshed.", subtype: "wheat" },
+const HERITAGE_SPECS: BandCardSpec[] = [
+  { defId: "heritage_cask", displayName: "Heritage Cask", flavor: "Cooper's reserve stave, decades seasoned.", subtype: "cask", copies: 2 },
+  { defId: "heritage_corn", displayName: "Heritage Corn", flavor: "Pre-prohibition kernel, hand-saved.", subtype: "corn", copies: 2 },
+  { defId: "heritage_rye", displayName: "Heritage Rye", flavor: "The headline rye, top of the bill.", subtype: "rye", copies: 2 },
+  { defId: "heritage_barley", displayName: "Heritage Barley", flavor: "Heirloom strain, floor-malted by name.", subtype: "barley", copies: 2 },
+  { defId: "heritage_wheat", displayName: "Heritage Wheat", flavor: "Estate wheat, hand-threshed.", subtype: "wheat", copies: 2 },
 ];
 
 export function defaultMarketSupply(): Card[] {
@@ -993,11 +993,15 @@ export function defaultMarketSupply(): Card[] {
   let idx = 0;
 
   // ── Common ($1, 1 unit) — basic 5 subtypes ─────────────────────
-  for (let i = 0; i < 5; i++) cards.push(makeResourceCard("cask", "supply", idx++));
-  for (let i = 0; i < 5; i++) cards.push(makeResourceCard("corn", "supply", idx++));
-  for (let i = 0; i < 5; i++) cards.push(makeResourceCard("rye", "supply", idx++));
-  for (let i = 0; i < 5; i++) cards.push(makeResourceCard("barley", "supply", idx++));
-  for (let i = 0; i < 5; i++) cards.push(makeResourceCard("wheat", "supply", idx++));
+  // v3.3: bumped from 5 → 7 copies per subtype so commons land at
+  // ~54% of the resource pool (per user-set 50% target). Pairs with
+  // bumped Specialty (×4) + Heritage (×2) for 65/20/15 across
+  // {resources, ops, investments} on a market draw.
+  for (let i = 0; i < 7; i++) cards.push(makeResourceCard("cask", "supply", idx++));
+  for (let i = 0; i < 7; i++) cards.push(makeResourceCard("corn", "supply", idx++));
+  for (let i = 0; i < 7; i++) cards.push(makeResourceCard("rye", "supply", idx++));
+  for (let i = 0; i < 7; i++) cards.push(makeResourceCard("barley", "supply", idx++));
+  for (let i = 0; i < 7; i++) cards.push(makeResourceCard("wheat", "supply", idx++));
 
   // ── Specialty ($2, 1 unit) — luxury upgrades that satisfy
   //   `minSpecialty.<subtype>` gates. No uniform on-sale bonus — the
@@ -1026,18 +1030,20 @@ export function defaultMarketSupply(): Card[] {
   //   populated bonus yet — they currently differ from Specialty only
   //   in price.
   for (const spec of HERITAGE_SPECS) {
-    cards.push(
-      makePremiumResource({
-        defId: spec.defId,
-        displayName: spec.displayName,
-        flavor: spec.flavor,
-        subtype: spec.subtype,
-        resourceCount: 1,
-        cost: 3,
-        specialty: true,
-        index: idx++,
-      }),
-    );
+    for (let i = 0; i < spec.copies; i++) {
+      cards.push(
+        makePremiumResource({
+          defId: spec.defId,
+          displayName: spec.displayName,
+          flavor: spec.flavor,
+          subtype: spec.subtype,
+          resourceCount: 1,
+          cost: 3,
+          specialty: true,
+          index: idx++,
+        }),
+      );
+    }
   }
 
   // ── Labor ─────────────────────────────────────────────────────
@@ -1071,7 +1077,11 @@ export function defaultMarketSupply(): Card[] {
   // (every card has `implemented: false`). Cards enter the unified
   // market and are buyable — the purchase removes the card and
   // charges the cost, but no effect fires yet.
-  for (const inv of defaultInvestmentCatalog()) {
+  //
+  // v3.3: cap at 15 of the 16 catalog entries so investments land
+  // at the user-set 15% slice of the market deck (matches the 65/20/15
+  // split across {resources, ops, investments}).
+  for (const inv of defaultInvestmentCatalog().slice(0, 15)) {
     cards.push(wrapInvestmentForMarket(inv, idx++));
   }
 
