@@ -27,6 +27,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { GamePhase, GameState } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
@@ -68,6 +69,15 @@ function visiblePhase(state: GameState): DisplayPhase | null {
 export default function GameTopBar() {
   const { state, autoplay, setAutoplay, step, clear } = useGameStore();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // The modal portals to document.body to escape ScalingHost's
+  // `transform: scale(...)` containing block (otherwise the backdrop
+  // anchors to the 1680px design canvas and leaves the rest of the
+  // viewport uncovered). Mounted only after first client paint to
+  // avoid SSR-side `document` access.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!confirmOpen) return;
@@ -164,48 +174,51 @@ export default function GameTopBar() {
         </div>
       </div>
 
-      {confirmOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Quit current game"
-          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 backdrop-blur-sm"
-          onClick={() => setConfirmOpen(false)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setConfirmOpen(false);
-          }}
-        >
-          <div
-            role="document"
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-lg border border-rose-700 bg-slate-900 p-5 shadow-[0_8px_32px_rgba(0,0,0,.5)]"
-          >
-            <h2 className="font-display text-xl font-semibold text-amber-100">
-              Quit this game?
-            </h2>
-            <p className="mt-2 text-sm text-slate-300">
-              The current round-{state.round} match will be cleared from your
-              browser. The main menu will let you start fresh.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800"
+      {confirmOpen && mounted
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Quit current game"
+              className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 backdrop-blur-sm"
+              onClick={() => setConfirmOpen(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setConfirmOpen(false);
+              }}
+            >
+              <div
+                role="document"
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md rounded-lg border border-rose-700 bg-slate-900 p-5 shadow-[0_8px_32px_rgba(0,0,0,.5)]"
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={quit}
-                className="rounded-md border border-rose-700 bg-gradient-to-b from-rose-500 to-rose-700 px-3.5 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-rose-400 hover:to-rose-600"
-              >
-                Quit game ↵
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                <h2 className="font-display text-xl font-semibold text-amber-100">
+                  Quit this game?
+                </h2>
+                <p className="mt-2 text-sm text-slate-300">
+                  The current round-{state.round} match will be cleared from your
+                  browser. The main menu will let you start fresh.
+                </p>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmOpen(false)}
+                    className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={quit}
+                    className="rounded-md border border-rose-700 bg-gradient-to-b from-rose-500 to-rose-700 px-3.5 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-rose-400 hover:to-rose-600"
+                  >
+                    Quit game ↵
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </header>
   );
 }

@@ -35,14 +35,22 @@ export default function ScalingHost({ children }: { children: ReactNode }) {
   const [scale, setScale] = useState<number>(1);
   const innerRef = useRef<HTMLDivElement>(null);
 
+  const outerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const update = () => {
       const inner = innerRef.current;
+      const outer = outerRef.current;
       const contentHeight = inner ? inner.scrollHeight : DESIGN_HEIGHT_FALLBACK;
       const effectiveHeight = Math.max(contentHeight, DESIGN_HEIGHT_FALLBACK);
-      const sx = window.innerWidth / DESIGN_WIDTH;
-      const sy = window.innerHeight / effectiveHeight;
+      // Measure the OUTER wrapper rather than the full viewport: the
+      // GameTopBar now lives outside ScalingHost, so the remaining
+      // height the scaled canvas can use is < viewport.
+      const availableWidth = outer?.clientWidth ?? window.innerWidth;
+      const availableHeight = outer?.clientHeight ?? window.innerHeight;
+      const sx = availableWidth / DESIGN_WIDTH;
+      const sy = availableHeight / effectiveHeight;
       setScale(Math.min(sx, sy, 1));
     };
     update();
@@ -62,12 +70,13 @@ export default function ScalingHost({ children }: { children: ReactNode }) {
 
   return (
     <div
+      ref={outerRef}
       style={{
-        // Center the scaled canvas inside the viewport. The outer
-        // wrapper fills the viewport and clips overflow; the inner
-        // canvas is the design-size box that gets scaled.
-        width: "100vw",
-        height: "100vh",
+        // Fill the parent flex slot (was 100vw/100vh — GameTopBar now
+        // sits above ScalingHost and reserves its own height, so we
+        // use 100% to fit the remaining area cleanly).
+        width: "100%",
+        height: "100%",
         overflow: "hidden",
         display: "flex",
         alignItems: "flex-start",

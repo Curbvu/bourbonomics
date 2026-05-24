@@ -199,19 +199,24 @@ export default function PlayCodePage({ params }: Props) {
           bottom edge. Setup modals are siblings (rendered outside the
           scaled host) so their portals position against the live
           viewport. */}
-      <ScalingHost>
-        <div className="flex h-full flex-col">
-          <GameTopBar />
-          <RoomBanner code={code} />
-          {inLobby ? (
-            <WaitingRoom code={code} />
-          ) : (
-            <GameErrorBoundary>
-              <GameBoard />
-            </GameErrorBoundary>
-          )}
+      {/* GameTopBar + RoomBanner live OUTSIDE ScalingHost so they span
+          the full viewport width on wide monitors (they were clipped
+          to ScalingHost's 1680px design canvas before). */}
+      <div className="flex h-full flex-col">
+        <GameTopBar />
+        <RoomBanner code={code} />
+        <div className="flex-1 overflow-hidden">
+          <ScalingHost>
+            {inLobby ? (
+              <WaitingRoom code={code} />
+            ) : (
+              <GameErrorBoundary>
+                <GameBoard />
+              </GameErrorBoundary>
+            )}
+          </ScalingHost>
         </div>
-      </ScalingHost>
+      </div>
       {/* Setup-phase modals — each one self-gates on phase + the
           local connection's seat (`humanSeatPlayerId` in the store).
           Only the seat the engine is currently waiting on sees the

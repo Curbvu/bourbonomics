@@ -62,14 +62,20 @@ export default function PlayPage() {
         `,
       }}
     >
-      <ScalingHost>
-        <div className="flex h-full flex-col">
-          <GameTopBar />
-          <GameErrorBoundary>
-            <GameBoard />
-          </GameErrorBoundary>
+      {/* GameTopBar lives OUTSIDE ScalingHost so its header strip spans
+          the full viewport width on wide monitors. Inside ScalingHost
+          it was clamped to the 1680px design canvas, leaving a bright
+          uncovered strip to its right. */}
+      <div className="flex h-full flex-col">
+        <GameTopBar />
+        <div className="flex-1 overflow-hidden">
+          <ScalingHost>
+            <GameErrorBoundary>
+              <GameBoard />
+            </GameErrorBoundary>
+          </ScalingHost>
         </div>
-      </ScalingHost>
+      </div>
       {/* Setup-phase modals — render unconditionally; each component
           self-gates on phase + humanWaitingOn (or autoplay). */}
       <DistilleryDraftModal />
