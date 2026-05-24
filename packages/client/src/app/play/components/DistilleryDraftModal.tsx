@@ -49,17 +49,17 @@ export default function DistilleryDraftModal() {
       role="dialog"
       aria-modal="true"
       aria-label="Pick your distillery"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/85 p-6 backdrop-blur"
     >
       <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[560px] w-[760px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+        className="pointer-events-none fixed left-1/2 top-1/2 h-[560px] w-[760px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
         style={{
           background:
             "radial-gradient(circle, rgba(251,191,36,0.32) 0%, transparent 65%)",
         }}
       />
 
-      <div className="relative flex max-w-[1180px] flex-col items-center gap-6">
+      <div className="relative flex w-full max-w-[1180px] flex-col items-center gap-6">
         <div className="text-center">
           <div className="font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
             Setup · Distillery selection
