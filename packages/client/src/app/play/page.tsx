@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import DemandRollModal from "./components/DemandRollModal";
 import DistilleryDraftModal from "./components/DistilleryDraftModal";
+import DrawBillOverlay from "./components/DrawBillOverlay";
 import DrawPhaseModal from "./components/DrawPhaseModal";
 import GameBoard from "./components/GameBoard";
 import GameErrorBoundary from "./components/ErrorBoundary";
@@ -72,6 +73,10 @@ export default function PlayPage() {
       <StarterDeckDraftModal />
       <DemandRollModal />
       <DrawPhaseModal />
+      {/* Drafting-loop modal — mounted at the page root (outside
+          ScalingHost) so its `fixed inset-0` covers the full viewport
+          rather than being scoped to the scaled design canvas. */}
+      <DrawBillOverlay />
       {/* Mounted last so it sits above DrawPhaseModal in the DOM stack
           (z-55 vs z-50). The player reads the year-pass recap, hits
           Begin year, and the draw modal underneath becomes interactive. */}

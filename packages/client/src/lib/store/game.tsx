@@ -1558,8 +1558,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     if (isActionPhase) {
       // Only step when the cursor is on a bot — humans drive their own turns.
-      const current = state.players[state.currentPlayerIndex];
-      if (!current || current.isBot === false) return;
+      // Exception: a drafting loop is a modal sub-phase where the active
+      // picker (`loop.pickOrder[pickerIndex]`) drives the action, not the
+      // cursor's currentPlayer. The cursor stays parked on the initiator
+      // (often the human) while picks rotate through the table, so gating
+      // on the cursor here would freeze every bot pick inside the loop.
+      // `awaitingHumanInput` above already yields when the *picker* is a
+      // human, so it's safe to skip the cursor check when a loop is live.
+      if (!state.draftingLoop) {
+        const current = state.players[state.currentPlayerIndex];
+        if (!current || current.isBot === false) return;
+      }
     }
 
     // Action-phase pacing: 320ms felt like the bot was machine-gunning
