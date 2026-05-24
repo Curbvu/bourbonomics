@@ -67,14 +67,18 @@ export default function BuyOverlay() {
   // player entered buy mode. Now `position: fixed` above the action
   // bar so the rest of the screen stays put. Mount point in HandTray
   // is unchanged; only the layout stance moved.
+  //
+  // v3.7: lifted to overlay the bottom of the distillery panel
+  // (rickhouse area) rather than the hand. Empirically the hand-tray
+  // strip is ~230–260px tall, so anchoring at bottom ~280px puts the
+  // chip over the rickhouse's caption row — where the player's eye
+  // is already focused on the picked target's destination.
   return (
     <div
       role="status"
       aria-live="polite"
       className="pointer-events-none fixed inset-x-0 z-40 flex justify-center animate-bb-tour-pop"
-      // Anchor just above the action bar (~38px tall). Adjust if the
-      // action bar's height ever changes meaningfully.
-      style={{ bottom: 42 }}
+      style={{ bottom: 280 }}
     >
       <div
         className="pointer-events-auto mx-3 flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/70 bg-gradient-to-b from-amber-900/85 to-slate-950/95 px-4 py-2 shadow-[0_-2px_24px_rgba(240,201,112,.25),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-md"

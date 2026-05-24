@@ -49,7 +49,7 @@ export default function DistilleryDraftModal() {
       role="dialog"
       aria-modal="true"
       aria-label="Pick your distillery"
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/85 p-6 backdrop-blur"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur"
     >
       <div
         className="pointer-events-none fixed left-1/2 top-1/2 h-[560px] w-[760px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
@@ -59,20 +59,24 @@ export default function DistilleryDraftModal() {
         }}
       />
 
-      <div className="relative flex w-full max-w-[1180px] flex-col items-center gap-6">
+      <div className="relative flex max-h-full w-full max-w-[1240px] flex-col items-center gap-3">
         <div className="text-center">
-          <div className="font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
+          <div className="font-mono text-[10px] uppercase tracking-[.18em] text-amber-300">
             Setup · Distillery selection
           </div>
-          <div className="mt-1 font-display text-2xl font-semibold text-amber-100">
-            Pick your distillery — every other player will pick a different one
+          <div className="mt-0.5 font-display text-xl font-semibold text-amber-100">
+            Pick your distillery
           </div>
-          <div className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
-            {humanWaitingOn.name} is on the clock · {pool.length} cards remaining
+          <div className="mt-0.5 font-mono text-[9.5px] uppercase tracking-[.14em] text-slate-400">
+            {humanWaitingOn.name} on the clock · {pool.length} remaining · every player picks a different one
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* v3.7: 4-column layout so all 4 distillery cards land in one
+            row and the modal never scrolls. Cards shrink horizontally
+            and lose the bottom CTA strip (the Start button below is
+            the single source of truth for committing). */}
+        <div className="grid w-full grid-cols-2 gap-3 md:grid-cols-4">
           {pool.map((def) => (
             <DistilleryCardTile
               key={def.id}
@@ -88,7 +92,7 @@ export default function DistilleryDraftModal() {
           onClick={confirm}
           disabled={!selectedDef}
           className={[
-            "rounded-md border px-6 py-2.5 font-sans text-sm font-bold uppercase tracking-[.05em] transition-all",
+            "rounded-md border px-6 py-2 font-sans text-sm font-bold uppercase tracking-[.05em] transition-all",
             selectedDef
               ? "border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 text-slate-950 shadow-[0_0_0_3px_rgba(251,191,36,0.30),inset_0_1px_0_rgba(255,255,255,0.25)] hover:from-amber-200 hover:to-amber-400"
               : "cursor-not-allowed border-slate-700 bg-slate-900 text-slate-600 shadow-none",
@@ -101,10 +105,6 @@ export default function DistilleryDraftModal() {
         >
           {selectedDef ? `Start ${selectedDef.name} ↵` : "Select a distillery"}
         </button>
-
-        <div className="font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
-          {selectedDef ? "click Start to confirm" : "click a card to select it"}
-        </div>
       </div>
     </div>
   );
@@ -126,42 +126,42 @@ function DistilleryCardTile({
       aria-pressed={selected}
       aria-label={`Select ${def.name}`}
       className={[
-        "group flex h-[440px] w-[300px] cursor-pointer flex-col rounded-xl border-2 p-5 text-left shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-all",
+        "group flex h-[360px] cursor-pointer flex-col rounded-xl border-2 p-3.5 text-left shadow-[0_6px_18px_rgba(0,0,0,0.45)] transition-all",
         selected
-          ? "-translate-y-1 border-amber-300 bg-gradient-to-b from-amber-700/50 via-amber-900/50 to-slate-950 shadow-[0_0_0_3px_rgba(251,191,36,0.55),0_8px_24px_rgba(0,0,0,0.45)]"
+          ? "-translate-y-0.5 border-amber-300 bg-gradient-to-b from-amber-700/50 via-amber-900/50 to-slate-950 shadow-[0_0_0_3px_rgba(251,191,36,0.55),0_8px_24px_rgba(0,0,0,0.45)]"
           : "border-amber-700 bg-gradient-to-b from-amber-700/30 via-amber-900/40 to-slate-950 hover:border-amber-400 hover:shadow-[0_0_0_3px_rgba(251,191,36,0.25),0_8px_24px_rgba(0,0,0,0.45)]",
       ].join(" ")}
     >
-      <header className="flex items-baseline justify-between">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-amber-300">
+      <header className="flex items-baseline justify-between gap-1">
+        <span className="font-mono text-[9px] font-semibold uppercase tracking-[.16em] text-amber-300">
           Distillery · {def.difficulty}
         </span>
         {selected ? (
-          <span className="rounded border border-amber-300 bg-amber-300/20 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.10em] text-amber-100">
+          <span className="rounded border border-amber-300 bg-amber-300/20 px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.10em] text-amber-100">
             Selected
           </span>
         ) : null}
       </header>
 
-      <h3 className="mt-3 font-display text-2xl font-semibold leading-tight text-amber-100">
+      <h3 className="mt-2 font-display text-[19px] font-semibold leading-tight text-amber-100">
         {def.name}
       </h3>
       {def.flavorText ? (
-        <p className="mt-1 font-display text-[13px] italic leading-snug text-amber-200/85">
+        <p className="mt-0.5 line-clamp-2 font-display text-[12px] italic leading-snug text-amber-200/85">
           {def.flavorText}
         </p>
       ) : null}
 
-      <div className="mt-4 flex flex-col gap-2 text-[12px] leading-snug">
-        <div>
-          <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-emerald-300">
+      <div className="mt-2.5 flex flex-1 flex-col gap-2 text-[11.5px] leading-snug">
+        <div className="flex-1">
+          <div className="font-mono text-[9px] font-semibold uppercase tracking-[.14em] text-emerald-300">
             Card text
           </div>
-          <p className="mt-1 line-clamp-6 text-emerald-100/95">{def.cardText}</p>
+          <p className="mt-0.5 line-clamp-6 text-emerald-100/95">{def.cardText}</p>
         </div>
-        <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-baseline justify-between gap-2 pt-1">
           <div>
-            <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-sky-300">
+            <div className="font-mono text-[9px] font-semibold uppercase tracking-[.14em] text-sky-300">
               Slots
             </div>
             <div className="text-sky-100/95">
@@ -170,30 +170,17 @@ function DistilleryCardTile({
             </div>
           </div>
           <div className="text-right">
-            <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-fuchsia-300">
+            <div className="font-mono text-[9px] font-semibold uppercase tracking-[.14em] text-fuchsia-300">
               Axis
             </div>
             <div className="text-fuchsia-100/95">{def.axis}</div>
           </div>
         </div>
         {!def.implemented ? (
-          <p className="font-mono text-[9px] uppercase tracking-[.12em] text-amber-300/80">
-            Preview · ability not yet resolved by engine
+          <p className="font-mono text-[8.5px] uppercase tracking-[.12em] text-amber-300/80">
+            Preview · ability not yet resolved
           </p>
         ) : null}
-      </div>
-
-      <div className="mt-auto pt-4">
-        <span
-          className={[
-            "inline-flex items-center gap-2 rounded-md border px-4 py-1.5 font-sans text-xs font-bold uppercase tracking-[.05em] shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors",
-            selected
-              ? "border-amber-300 bg-gradient-to-b from-amber-200 to-amber-400 text-slate-950"
-              : "border-amber-500 bg-gradient-to-b from-amber-500 to-amber-700 text-slate-950 group-hover:from-amber-400 group-hover:to-amber-600",
-          ].join(" ")}
-        >
-          {selected ? "Selected ✓" : "Select this card"}
-        </span>
       </div>
     </button>
   );

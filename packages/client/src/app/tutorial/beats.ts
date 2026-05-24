@@ -186,7 +186,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-buy-cooper",
     kind: "await-action",
     title: "Buy the Cooper",
-    body: "Click **Buy market**, pick the Cooper at slot 1, then tag a **Labor card** (🔨) from your hand. Pay **1 rep + 1 Labor** ($1 + $1 = $2). Rep and Labor are fully fungible — you could pay 2 rep instead, or 2 Labor.",
+    body: "Click **Buy market** then pick the **Cooper** (the first card). Tag a **Labor card** (🔨) from your hand to pay. Pay **1 rep + 1 Labor** ($1 + $1 = $2). Rep and Labor are fully fungible — you could pay 2 rep instead, or 2 Labor.",
     spotlight: { kind: "action-button", action: "buy" },
     postEngageSpotlight: { kind: "market-slot", slotIndex: 0 },
     matches: (action) => {
@@ -284,8 +284,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-age-prompt",
     kind: "prompt",
-    title: "Add an aging year",
-    body: "Click your barrel, then any hand card to add 1 year. (Or drag.)",
+    title: "Aging Phase",
+    body: "The **Aging Phase** is now active — barrels age on every turn. Pick any card from your hand and click your barrel to commit 1 year. (Or drag.)",
     spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
   },
   {
