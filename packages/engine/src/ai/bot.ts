@@ -41,17 +41,19 @@ const RICKHOUSE_SLOT_HARD_CAP = 6;
 // `chooseDraftAction` instead of the main `chooseAction` planner.
 // ---------------------------------------------------------------
 
-// v3.1: lowered both thresholds — at 3 / 6 the bot was sitting on
-// barrels for most of a game. Most bills pay 1–2 rep at low/mid
-// demand and 3+ only when age and demand both align, which is a
-// rare coincidence in the early-mid game. The bot would wait,
-// rarely sell, and the human had no opponent pressure on the
-// market. Lowered to 2 / 4 so the bot:
-//   - sells anything paying ≥2 rep (typical mid-demand cell)
-//   - sells age 4+ for any positive reward (don't sit on stale)
-//   - still sells aggressively in the final round (unchanged).
-const SELL_REWARD_THRESHOLD = 2;
-const SELL_PRESSURE_AGE = 4; // sell aged barrels even at low reward
+// v3.6: tuned again after a 26-round playtest where two bots ended
+// with 0 rep. The 2/4 split (sell at ≥2 rep, or age 4+ at ≥1) still
+// stranded bots on age-2-3 barrels paying 1 rep that they treated as
+// "not worth selling." Lowered to 1/3 so:
+//   - bot sells the moment a barrel pays ≥1 rep (rep IS the score)
+//   - age 3+ barrels close out at any positive reward
+//   - final round still flushes everything reward > 0 (unchanged).
+const SELL_REWARD_THRESHOLD = 1;
+const SELL_PRESSURE_AGE = 3; // sell aged barrels even at low reward
+// Endgame closeout: when fewer than this many rounds remain on the
+// bourbon clock, the bot also flushes barrels that pay 0 rep — better
+// to clear the slot for a reusable bill than to die holding stock.
+const ENDGAME_FLUSH_ROUNDS = 3;
 
 export function chooseAction(state: GameState, playerId: string): GameAction {
   // Setup phase: distillery picks come through the runner, but expose a helper.
@@ -506,10 +508,16 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
   if (!best) return null;
 
   const finalRound = state.finalRoundTriggered;
+  // Endgame closeout: when the bourbon deck is almost dry the game's
+  // last few rounds are imminent. Flush even reward-0 sales so we
+  // don't end with stock that became un-sellable.
+  const endgameFlush =
+    state.bourbonDeck.length <= ENDGAME_FLUSH_ROUNDS || finalRound;
   const passesThreshold =
     best.reward >= SELL_REWARD_THRESHOLD ||
     (best.age >= SELL_PRESSURE_AGE && best.reward > 0) ||
-    (finalRound && best.reward > 0);
+    (finalRound && best.reward > 0) ||
+    endgameFlush; // age≥2 already gated above; this captures 0-rep flush
   if (!passesThreshold) return null;
 
   // v2.6 Gold-award choice. The bot's preference order:

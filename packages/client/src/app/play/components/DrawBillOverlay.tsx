@@ -240,11 +240,11 @@ function DraftingLoopModal({
         mashBillId: pickedBill.id,
         paymentCardId: cardId,
       });
-      // Engine rule: TAKE_BILL keeps pickerIndex on the same player.
-      // Auto-pass so the loop rotates to the next picker; this is what
-      // closes the modal (open-gate flips when picker != human) and
-      // lets autoplay step the bots through the rest of the loop.
-      dispatch({ type: "DRAFT_PASS", playerId: humanId });
+      // v3.6: NO auto-pass. The engine keeps pickerIndex on the same
+      // player after TAKE_BILL, so the human can keep grabbing bills —
+      // one card per pick — until they hit Pass (or until bills run
+      // out / they have no rickhouse slots left). The Pass button in
+      // the footer is now the only way the loop rotates.
       if (spent && destSlot) {
         triggerDraftPickAnimation({
           spentCard: spent,

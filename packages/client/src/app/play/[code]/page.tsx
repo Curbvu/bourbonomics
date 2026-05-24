@@ -22,6 +22,7 @@ import { use, useEffect, useState } from "react";
 
 import AgingPhaseModal from "../components/AgingPhaseModal";
 import CardInspectModal from "../components/CardInspectModal";
+import GameOverPanel from "../components/GameOverPanel";
 import DemandRollModal from "../components/DemandRollModal";
 import DistilleryDraftModal from "../components/DistilleryDraftModal";
 import DraftPickFlight from "../components/DraftPickFlight";
@@ -235,6 +236,8 @@ export default function PlayCodePage({ params }: Props) {
       <DrawBillOverlay />
       {/* CardInspectModal — same containing-block reason. */}
       <CardInspectModal />
+      {/* Final-standings modal. */}
+      <GameOverPanel />
       {/* Draft-pick flight — fires when the human commits a bill.
           Page-root mount for the same containing-block reason. */}
       <DraftPickFlight />

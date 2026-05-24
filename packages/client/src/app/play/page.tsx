@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import AgingPhaseModal from "./components/AgingPhaseModal";
 import CardInspectModal from "./components/CardInspectModal";
+import GameOverPanel from "./components/GameOverPanel";
 import DemandRollModal from "./components/DemandRollModal";
 import DistilleryDraftModal from "./components/DistilleryDraftModal";
 import DraftPickFlight from "./components/DraftPickFlight";
@@ -95,6 +96,8 @@ export default function PlayPage() {
           backdrop that needs to cover the right rail (which sits
           outside ScalingHost on wide screens). */}
       <CardInspectModal />
+      {/* Game-over standings — same containing-block reason. */}
+      <GameOverPanel />
       {/* Draft-pick flight — fires when the human commits a bill.
           Page-root mount for the same containing-block reason; sibling
           to the modal so the flight starts the same frame the modal

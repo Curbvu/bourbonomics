@@ -37,7 +37,6 @@
 
 import { useEffect } from "react";
 import { useGameStore } from "@/lib/store/game";
-import GameOverPanel from "./GameOverPanel";
 import HandTray from "./HandTray";
 import AgeFlight from "./AgeFlight";
 import MakeFlight from "./MakeFlight";
@@ -116,8 +115,9 @@ export default function GameBoard() {
 
   return (
     <div className="flex flex-1 flex-col" style={{ minHeight: 0 }}>
-      {/* Game-over overlays sit above everything else when the round ends. */}
-      {state.phase === "ended" ? <GameOverPanel /> : null}
+      {/* GameOverPanel mounts at the page root (play/page.tsx) so its
+          fullscreen modal backdrop covers the entire viewport rather
+          than being scoped to the scaled design canvas. */}
 
       {/* Three-area grid: rivals | stage+hand | log. Each region wears
           a .bb-panel class for the floating-card chrome; the 12px gap
