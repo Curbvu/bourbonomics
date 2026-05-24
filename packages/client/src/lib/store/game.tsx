@@ -1174,6 +1174,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setAgeIntroSeen(true);
   }, []);
 
+  // v3.2 — auto-dismiss the inspect modal when control passes to a bot.
+  // The player opened it during their own turn; once the cursor leaves
+  // their seat, the full-screen detail panel just obscures the board
+  // (especially during bot-driven phases like Aging / Sell / Demand).
+  useEffect(() => {
+    if (!inspect) return;
+    const s = store.state;
+    if (!s) return;
+    const seatId = multiplayerMode
+      ? multiplayerMode.playerId
+      : s.players.find((p) => !p.isBot)?.id;
+    if (!seatId) return;
+    const current = s.players[s.currentPlayerIndex];
+    if (!current || current.id !== seatId) {
+      setInspect(null);
+    }
+  }, [store.state, inspect, multiplayerMode]);
+
   // v3.1 — auto-fire age via a useEffect watching ageMode instead of
   // queueing microtasks from inside the setState updater. Two prior
   // attempts had silent failure modes:

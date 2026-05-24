@@ -1362,6 +1362,9 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
 }
 
 function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: string }) {
+  const { humanSeatPlayerId } = useGameStore();
+  const isLocalPlayer =
+    humanSeatPlayerId != null && barrel.ownerId === humanSeatPlayerId;
   const { state } = useGameStore();
   const bill = barrel.attachedMashBill;
   const tier = tierOrCommon(bill?.tier);
@@ -1399,7 +1402,12 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
     >
       <header className="flex items-baseline justify-between gap-3">
         <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
-          {ownerName ? `${ownerName}'s barrel` : "Barrel"} · {chrome.label_text}
+          {isLocalPlayer
+            ? "Your barrel"
+            : ownerName
+              ? `${ownerName}'s barrel`
+              : "Barrel"}{" "}
+          · {chrome.label_text}
         </span>
         <span
           className={
