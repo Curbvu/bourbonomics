@@ -598,6 +598,36 @@ function BillTile({
       ? "ring-2 ring-amber-300 ring-offset-2 ring-offset-slate-950 scale-[1.02]"
       : "hover:scale-[1.02] hover:brightness-110 cursor-pointer";
 
+  // Pull every non-null cell so we can quote the floor/peak rep range.
+  const cells: number[] = [];
+  for (const row of bill.rewardGrid) {
+    for (const c of row) if (c != null) cells.push(c);
+  }
+  const peak = cells.length ? Math.max(...cells) : 0;
+  const floor = cells.length ? Math.min(...cells) : 0;
+  const ageReq = bill.ageBands[0] ?? 2;
+
+  // Compact recipe sentence — "1 Cask · ≥2 Corn · ≥1 Rye · no Wheat ·
+  // Specialty Rye". Shorter than the full inspect view; just enough to
+  // gauge whether the bill fits the player's hand.
+  const r = bill.recipe ?? {};
+  const sp = r.minSpecialty ?? {};
+  const recipeBits: string[] = ["1 Cask"];
+  const minCorn = Math.max(1, r.minCorn ?? 0);
+  recipeBits.push(`≥${minCorn} Corn`);
+  if ((r.minRye ?? 0) > 0) recipeBits.push(`≥${r.minRye} Rye`);
+  if ((r.minBarley ?? 0) > 0) recipeBits.push(`≥${r.minBarley} Barley`);
+  if ((r.minWheat ?? 0) > 0) recipeBits.push(`≥${r.minWheat} Wheat`);
+  if (r.maxRye === 0) recipeBits.push("no Rye");
+  if (r.maxWheat === 0) recipeBits.push("no Wheat");
+
+  const specialtyBits: string[] = [];
+  if ((sp.cask ?? 0) > 0) specialtyBits.push(`${sp.cask}× Spec Cask`);
+  if ((sp.corn ?? 0) > 0) specialtyBits.push(`${sp.corn}× Spec Corn`);
+  if ((sp.rye ?? 0) > 0) specialtyBits.push(`${sp.rye}× Spec Rye`);
+  if ((sp.barley ?? 0) > 0) specialtyBits.push(`${sp.barley}× Spec Barley`);
+  if ((sp.wheat ?? 0) > 0) specialtyBits.push(`${sp.wheat}× Spec Wheat`);
+
   return (
     <button
       type="button"
@@ -605,7 +635,7 @@ function BillTile({
       disabled={!interactive}
       data-revealed-bill-id={bill.id}
       className={[
-        "flex w-[220px] flex-col rounded-xl border-2 px-3.5 py-3 text-left transition-transform duration-150",
+        "flex w-[260px] flex-col rounded-xl border-2 px-4 py-3.5 text-left transition-transform duration-150",
         chrome.border,
         chrome.gradient,
         chrome.glow,
@@ -617,11 +647,11 @@ function BillTile({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className={`font-display text-[15px] font-bold leading-tight ${chrome.titleInk}`}>
+          <div className={`font-display text-[17px] font-bold leading-tight ${chrome.titleInk}`}>
             {bill.name}
           </div>
           {bill.slogan ? (
-            <div className="mt-0.5 line-clamp-2 font-display text-[11px] italic leading-snug text-slate-400">
+            <div className="mt-0.5 line-clamp-2 font-display text-[11.5px] italic leading-snug text-slate-400">
               “{bill.slogan}”
             </div>
           ) : null}
@@ -633,11 +663,52 @@ function BillTile({
         </span>
       </div>
 
-      <div className="mt-2.5 rounded border border-slate-800/70 bg-slate-950/40 px-2 py-2">
+      {/* Reward range + age gate — the two numbers a player cares about
+          most when deciding whether to grab a bill. */}
+      <div className="mt-3 flex items-end justify-between gap-2 rounded border border-amber-700/40 bg-slate-950/55 px-2.5 py-1.5">
+        <div>
+          <div className="font-mono text-[8.5px] font-semibold uppercase tracking-[.14em] text-amber-300/80">
+            Rep range
+          </div>
+          <div className={`font-display text-[18px] font-bold leading-none ${chrome.titleInk}`}>
+            {floor}<span className="text-slate-500">–</span>{peak}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="font-mono text-[8.5px] font-semibold uppercase tracking-[.14em] text-sky-300/80">
+            Ages from
+          </div>
+          <div className="font-display text-[16px] font-bold leading-none text-sky-100">
+            {ageReq}y
+          </div>
+        </div>
+        {bill.goldAward ? (
+          <div className="text-right">
+            <div className="font-mono text-[8.5px] font-semibold uppercase tracking-[.14em] text-yellow-300/85">
+              Gold
+            </div>
+            <div className="font-display text-[14px] font-bold leading-none text-yellow-100">
+              ✦
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Recipe — pips first (visual scan), then a compact sentence
+          underneath spelling out the constraints in words. */}
+      <div className="mt-2 rounded border border-slate-800/70 bg-slate-950/40 px-2 py-2">
         <div className="mb-1 text-center font-mono text-[8px] uppercase tracking-[.16em] text-slate-500">
           Recipe
         </div>
         <RecipePips bill={bill} />
+        <div className="mt-1.5 text-center font-mono text-[9.5px] leading-snug text-slate-300">
+          {recipeBits.join(" · ")}
+        </div>
+        {specialtyBits.length > 0 ? (
+          <div className="mt-0.5 text-center font-mono text-[9px] leading-snug text-violet-300/90">
+            {specialtyBits.join(" · ")}
+          </div>
+        ) : null}
       </div>
     </button>
   );
