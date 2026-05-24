@@ -340,6 +340,17 @@ export interface GameStore {
   setAgeBarrel: (barrelId: string) => void;
   /** Pick a hand card. Auto-fires AGE_BOURBON when both fields are set. */
   setAgeCard: (cardId: string) => void;
+  /** True once the local seat has dismissed the aging-phase intro modal
+   *  for the current aging window. Reset to false the next time the
+   *  player enters an aging window (needsAgeBarrels flips false→true). */
+  ageIntroSeen: boolean;
+  /** Mark the aging-phase intro as seen — dismisses the modal and lets
+   *  the progress banner take over for the remaining picks. */
+  markAgeIntroSeen: () => void;
+  /** Snapshot of how many barrels were ageable when the aging window
+   *  opened. The progress banner uses this to render "N of M aged"
+   *  without drifting as barrels become ineligible mid-phase. */
+  ageTotalThisPhase: number | null;
   /** Interactive draw-bill state, null when not drawing. */
   drawBillMode: DrawBillMode | null;
   startDrawBillMode: () => void;
@@ -509,6 +520,9 @@ const Ctx = createContext<GameStore>({
   cancelAgeMode: noop,
   setAgeBarrel: noop,
   setAgeCard: noop,
+  ageIntroSeen: false,
+  markAgeIntroSeen: noop,
+  ageTotalThisPhase: null,
   drawBillMode: null,
   startDrawBillMode: noop,
   cancelDrawBillMode: noop,
@@ -589,6 +603,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [inspect, setInspect] = useState<InspectPayload | null>(null);
   const [buyMode, setBuyMode] = useState<BuyMode | null>(null);
   const [ageMode, setAgeMode] = useState<AgeMode | null>(null);
+  const [ageIntroSeen, setAgeIntroSeen] = useState<boolean>(false);
+  const [ageTotalThisPhase, setAgeTotalThisPhase] = useState<number | null>(null);
+  // Tracks the previous `needsAgeBarrels` flag for the local seat so the
+  // intro-modal + total-count snapshot reset exactly on the false→true
+  // transition (not every render that satisfies the condition).
+  const prevNeedsAgeRef = useRef<boolean>(false);
   const [drawBillMode, setDrawBillMode] = useState<DrawBillMode | null>(null);
   const [makeMode, setMakeMode] = useState<MakeMode | null>(null);
   const [sellMode, setSellMode] = useState<SellMode | null>(null);
@@ -1095,21 +1115,64 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // aging commit. The user can still Cancel out (gives up the turn via
   // PASS_TURN); without this, they'd see no UI prompt and wonder why
   // every other action is rejecting.
+  //
+  // v3.2 — also resets ageIntroSeen + snapshots ageTotalThisPhase on the
+  // false→true transition so the AgingPhaseModal can show once per
+  // window and the banner can render a stable "N of M aged" count.
   useEffect(() => {
     const s = store.state;
-    if (!s || s.phase !== "action") return;
+    if (!s || s.phase !== "action") {
+      if (prevNeedsAgeRef.current) {
+        prevNeedsAgeRef.current = false;
+        setAgeIntroSeen(false);
+        setAgeTotalThisPhase(null);
+      }
+      return;
+    }
     const seatId = multiplayerMode
       ? multiplayerMode.playerId
       : s.players.find((p) => !p.isBot)?.id;
     if (!seatId) return;
     const me = s.players.find((p) => p.id === seatId);
     if (!me) return;
-    if (s.players[s.currentPlayerIndex]?.id !== seatId) return;
-    if (!me.needsAgeBarrels) return;
+    if (s.players[s.currentPlayerIndex]?.id !== seatId) {
+      if (prevNeedsAgeRef.current) {
+        prevNeedsAgeRef.current = false;
+        setAgeIntroSeen(false);
+        setAgeTotalThisPhase(null);
+      }
+      return;
+    }
+    if (!me.needsAgeBarrels) {
+      if (prevNeedsAgeRef.current) {
+        prevNeedsAgeRef.current = false;
+        setAgeIntroSeen(false);
+        setAgeTotalThisPhase(null);
+      }
+      return;
+    }
     if (me.needsDemandRoll) return; // demand modal still owns the screen
+    // false→true transition: capture ageable-barrel count for the banner.
+    if (!prevNeedsAgeRef.current) {
+      prevNeedsAgeRef.current = true;
+      setAgeIntroSeen(false);
+      const total = s.allBarrels.filter(
+        (b) =>
+          b.ownerId === seatId &&
+          b.phase === "aging" &&
+          !(b.completedInRound != null && s.round <= b.completedInRound) &&
+          !b.inspectedThisRound &&
+          (!b.agedThisRound || b.extraAgesAvailable > 0),
+      ).length;
+      setAgeTotalThisPhase(total);
+    }
     if (ageMode) return;
     setAgeMode({ pickedBarrelId: null, pickedCardId: null });
   }, [store.state, multiplayerMode, ageMode]);
+
+  const markAgeIntroSeen = useCallback(() => {
+    setAgeIntroSeen(true);
+  }, []);
 
   // v3.1 — auto-fire age via a useEffect watching ageMode instead of
   // queueing microtasks from inside the setState updater. Two prior
@@ -1872,6 +1935,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       cancelAgeMode,
       setAgeBarrel,
       setAgeCard,
+      ageIntroSeen,
+      markAgeIntroSeen,
+      ageTotalThisPhase,
       drawBillMode,
       startDrawBillMode,
       cancelDrawBillMode,
@@ -1947,6 +2013,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       cancelAgeMode,
       setAgeBarrel,
       setAgeCard,
+      ageIntroSeen,
+      markAgeIntroSeen,
+      ageTotalThisPhase,
       drawBillMode,
       startDrawBillMode,
       cancelDrawBillMode,

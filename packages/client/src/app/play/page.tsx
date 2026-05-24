@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import AgingPhaseModal from "./components/AgingPhaseModal";
 import DemandRollModal from "./components/DemandRollModal";
 import DistilleryDraftModal from "./components/DistilleryDraftModal";
 import DraftPickFlight from "./components/DraftPickFlight";
@@ -74,6 +75,11 @@ export default function PlayPage() {
       <StarterDeckDraftModal />
       <DemandRollModal />
       <DrawPhaseModal />
+      {/* Aging-phase intro — appears the moment the local seat owes
+          aging commits; once dismissed, AgeOverlay's banner takes over
+          for the remaining card→barrel picks. Page-root mount so its
+          `fixed inset-0` covers the full viewport. */}
+      <AgingPhaseModal />
       {/* Drafting-loop modal — mounted at the page root (outside
           ScalingHost) so its `fixed inset-0` covers the full viewport
           rather than being scoped to the scaled design canvas. */}

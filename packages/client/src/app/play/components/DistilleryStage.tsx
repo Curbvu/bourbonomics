@@ -705,16 +705,16 @@ function Barrel({
         />
       ) : null}
       {/* "Needs resources" call-out ring — sits behind a non-aging
-          barrel so the eye knows this slot is waiting on the player. */}
+          barrel so the eye knows this slot is waiting on the player.
+          Pulses softly so the eye snaps to "build me." */}
       {!isAging ? (
         <span
           aria-hidden
-          className="absolute inset-0 transition-opacity"
+          className="bb-construction-glow absolute inset-0"
           style={{
             background:
-              "radial-gradient(48% 56% at 50% 52%, rgba(125,166,223,.32), transparent 72%)",
+              "radial-gradient(48% 56% at 50% 52%, rgba(125,166,223,.42), transparent 72%)",
             filter: "blur(10px)",
-            opacity: selected ? 1 : 0.85,
           }}
         />
       ) : null}
@@ -734,14 +734,14 @@ function Barrel({
               "#43321f 16px, #43321f 30px," +
               "#321f12 30px, #321f12 32px)," +
               "linear-gradient(180deg, #4a341f 0%, #2a1a0e 100%)"
-            : // Cool, desaturated wood — reads as "raw stave" vs.
-              // aging's "charred + soaked."
+            : // Neutral grey staves — reads as "raw / under construction"
+              // and clearly distinct from aging's charred-bourbon wood.
               "repeating-linear-gradient(90deg," +
-              "#322b22 0px, #322b22 14px," +
-              "#221c16 14px, #221c16 16px," +
-              "#3a342a 16px, #3a342a 30px," +
-              "#272118 30px, #272118 32px)," +
-              "linear-gradient(180deg, #3d3528 0%, #1c1812 100%)",
+              "#3a3d42 0px, #3a3d42 14px," +
+              "#25272a 14px, #25272a 16px," +
+              "#4a4e54 16px, #4a4e54 30px," +
+              "#2e3034 30px, #2e3034 32px)," +
+              "linear-gradient(180deg, #444851 0%, #1d1f22 100%)",
           boxShadow: isAging
             ? "inset 0 4px 8px rgba(255,255,255,.10), inset 0 -8px 18px rgba(0,0,0,.55), inset 10px 0 14px rgba(0,0,0,.55), inset -10px 0 14px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.55)"
             : // No warm inner glow; outer shadow stays so it still
@@ -918,7 +918,7 @@ function BarrelNeedsPlate({ needs }: { needs: BarrelNeed[] }) {
     return (
       <span
         aria-hidden
-        className="absolute left-1/2 top-1/2 grid h-[44px] w-[44px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full"
+        className="absolute left-1/2 top-1/2 grid h-[58px] w-[58px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full"
         style={{
           background:
             "radial-gradient(circle at 35% 30%, rgba(125,166,223,.55), rgba(50,80,120,.55) 65%, rgba(20,30,50,.55) 100%)",
@@ -926,35 +926,35 @@ function BarrelNeedsPlate({ needs }: { needs: BarrelNeed[] }) {
             "inset 0 2px 3px rgba(255,255,255,.2), inset 0 -2px 4px rgba(0,0,0,.5), 0 0 10px rgba(125,166,223,.4)",
         }}
       >
-        <span className="font-display text-[18px] font-bold text-sky-100">?</span>
+        <span className="font-display text-[24px] font-bold text-sky-100">?</span>
       </span>
     );
   }
   return (
     <span
       aria-hidden
-      className="absolute left-1/2 top-1/2 flex max-w-[88px] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[2px] rounded-md px-1.5 py-1"
+      className="absolute left-1/2 top-1/2 flex max-w-[120px] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[3px] rounded-md px-2 py-1.5"
       style={{
         background:
-          "linear-gradient(180deg, rgba(8,10,14,.78), rgba(4,6,10,.88))",
+          "linear-gradient(180deg, rgba(8,10,14,.86), rgba(4,6,10,.94))",
         boxShadow:
-          "inset 0 1px 0 rgba(255,255,255,.10), inset 0 -1px 0 rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.5)",
-        border: "1px solid rgba(125,166,223,.35)",
+          "inset 0 1px 0 rgba(255,255,255,.10), inset 0 -1px 0 rgba(0,0,0,.6), 0 2px 8px rgba(0,0,0,.55)",
+        border: "1px solid rgba(125,166,223,.55)",
       }}
     >
       <span
-        className="font-mono text-[7px] font-bold uppercase tracking-[.16em] text-sky-200/80"
+        className="font-mono text-[10px] font-bold uppercase tracking-[.16em] text-sky-200/90"
       >
         Needs
       </span>
       {needs.slice(0, 4).map((n) => (
         <span
           key={n.subtype}
-          className="flex items-center gap-1 font-mono text-[10px] font-bold leading-none"
+          className="flex items-center gap-1.5 font-mono text-[14px] font-bold leading-none"
           style={{ color: SUB_INK[n.subtype] }}
         >
           <span className="tabular-nums">{n.count}×</span>
-          <span className="flex h-3 w-3 items-center justify-center">
+          <span className="flex h-4 w-4 items-center justify-center text-[14px]">
             {RESOURCE_GLYPH[n.subtype]}
           </span>
         </span>

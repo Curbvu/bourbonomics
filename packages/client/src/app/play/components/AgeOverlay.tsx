@@ -1,57 +1,96 @@
 "use client";
 
 /**
- * AgeOverlay — sticky status bar for interactive Age mode.
+ * AgeOverlay — progress banner for the per-turn Aging window.
  *
- * Aging is conceptually the "Age Phase" of a round (one card committed
- * face-down per barrel), distinct from the main Action Phase actions —
- * but the engine collapses it into the action phase as `AGE_BOURBON`.
- *
- * v2.8: **auto-fire on completion** — the moment the player has both
- * picks (barrel from Rickhouse + card from hand), the store dispatches
- * AGE_BOURBON without a Confirm click. This overlay is now purely
- * informational: it tells the player what step they're on and lets
- * them bail out, but never blocks on a button press.
+ * Aging is forced when `needsAgeBarrels` is true on the local seat. The
+ * intro is owned by `AgingPhaseModal`; this banner runs *after* the
+ * player dismisses that modal, prompting them through each remaining
+ * card→barrel commit. AGE_BOURBON auto-fires on the second pick (no
+ * Confirm button), so this is purely informational + a Cancel escape.
  */
 
 import { useGameStore } from "@/lib/store/game";
 
 export default function AgeOverlay() {
-  const { state, ageMode, cancelAgeMode } = useGameStore();
+  const {
+    state,
+    ageMode,
+    cancelAgeMode,
+    ageIntroSeen,
+    ageTotalThisPhase,
+    multiplayerMode,
+  } = useGameStore();
   if (!state || !ageMode) return null;
-  const human = state.players.find((p) => !p.isBot);
-  if (!human) return null;
+  // The intro modal owns the screen while it's open. Banner waits.
+  if (!ageIntroSeen) return null;
+
+  const seatId = multiplayerMode
+    ? multiplayerMode.playerId
+    : state.players.find((p) => !p.isBot)?.id;
+  if (!seatId) return null;
+  const me = state.players.find((p) => p.id === seatId);
+  if (!me) return null;
 
   const barrel = ageMode.pickedBarrelId
     ? state.allBarrels.find((b) => b.id === ageMode.pickedBarrelId)
     : null;
   const card = ageMode.pickedCardId
-    ? human.hand.find((c) => c.id === ageMode.pickedCardId)
+    ? me.hand.find((c) => c.id === ageMode.pickedCardId)
     : null;
 
+  // Remaining ageable barrels = same predicate as canEnterAgeMode in
+  // ActionBar.tsx; mirrored here so the count drops as barrels finish.
+  const remaining = state.allBarrels.filter(
+    (b) =>
+      b.ownerId === seatId &&
+      b.phase === "aging" &&
+      !(b.completedInRound != null && state.round <= b.completedInRound) &&
+      !b.inspectedThisRound &&
+      (!b.agedThisRound || b.extraAgesAvailable > 0),
+  ).length;
+  const total = ageTotalThisPhase ?? remaining;
+  const done = Math.max(0, total - remaining);
+
   let prompt: string;
-  if (!barrel && !card) {
-    prompt =
-      "Pick an aging barrel in your Rickhouse and any card in your hand — either order is fine. Auto-confirms on second pick.";
-  } else if (!barrel) {
-    prompt = "Now pick an aging barrel in your Rickhouse — it'll commit instantly.";
+  if (!card && !barrel) {
+    prompt = "Pick a card from your hand, then a barrel in your rickhouse.";
   } else if (!card) {
-    prompt = "Now pick any card in your hand — it'll commit instantly.";
+    prompt = "Now pick a card from your hand — it commits instantly.";
+  } else if (!barrel) {
+    prompt = "Now pick a barrel in your rickhouse — it commits instantly.";
   } else {
-    // Both picked — auto-fire is on the way; this state is transient.
     prompt = "Aging…";
   }
 
   return (
-    <div className="border-t border-amber-700/60 bg-gradient-to-b from-amber-950/50 to-slate-950 px-[18px] py-2">
+    <div
+      className="relative border-t border-amber-700/60 bg-gradient-to-b from-amber-950/55 to-slate-950 px-[18px] py-2.5"
+    >
+      {/* Glowing left rule so the banner reads as a "live phase strip" */}
+      <span
+        aria-hidden
+        className="absolute inset-y-1 left-0 w-[3px] rounded-r-sm"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(240,201,112,.9), rgba(176,106,56,.5))",
+          boxShadow: "0 0 10px rgba(240,201,112,.55)",
+        }}
+      />
       <div className="flex flex-wrap items-center gap-3">
-        <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-amber-100">
-          Aging
+        <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.16em] text-amber-100">
+          Aging Phase
         </span>
-        <span className="font-display text-[13px] font-semibold text-amber-100">
+        <span className="font-display text-[15px] font-semibold text-amber-100">
           {barrel
             ? `${barrel.attachedMashBill?.name ?? "barrel"} · age ${barrel.age} → ${barrel.age + 1}`
-            : "no barrel picked"}
+            : "Commit a card to a barrel"}
+        </span>
+        <span
+          className="rounded border border-amber-700/60 bg-slate-950/60 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-amber-200"
+          aria-label={`Aged ${done} of ${total}`}
+        >
+          {done} of {total} aged
         </span>
         {card ? (
           <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-300">
@@ -61,9 +100,6 @@ export default function AgeOverlay() {
             </span>
           </span>
         ) : null}
-        {/* Cancel button sits next to the picks, not pushed to the far
-            right — keeps the mouse close to where the player just
-            clicked. Age auto-fires on the second pick (no Confirm). */}
         <button
           type="button"
           onClick={cancelAgeMode}
@@ -71,7 +107,7 @@ export default function AgeOverlay() {
         >
           Cancel
         </button>
-        <span className="font-mono text-[10px] italic text-slate-400">
+        <span className="font-mono text-[10.5px] italic text-slate-400">
           {prompt}
         </span>
       </div>

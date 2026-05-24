@@ -488,6 +488,18 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
   animation: ember 3.2s ease-in-out infinite;
 }
 
+/* `bb-construction-pulse` — sky-blue halo behind building (non-aging)
+   barrels. Slow breathing pulse so the eye reads "waiting on you."
+   Paired with the grey stave treatment in DistilleryStage. */
+@keyframes bb-construction-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.95; }
+}
+.bb-construction-glow {
+  animation: bb-construction-pulse 2.6s ease-in-out infinite;
+  will-change: opacity;
+}
+
 /* `pour` — TopBar demand meter brass stripes scroll horizontally. */
 @keyframes pour {
   0%   { background-position: 0 0; }
