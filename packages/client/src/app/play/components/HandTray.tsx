@@ -161,8 +161,40 @@ export default function HandTray() {
           )}
         </Section>
 
-        {/* Discard pile + Sold stack (right) */}
+        {/* Right cluster: Ops (if any) → Discard → Sold. Ops sits
+            inline with the hand instead of in a separate strip below
+            so the bottom of the screen doesn't grow another row. */}
         <div className="flex items-stretch gap-3">
+          {focused.operationsHand.length > 0 ? (
+            <div
+              data-bb-zone="hand-ops"
+              className="flex flex-col items-center justify-center gap-1 rounded-md border border-[#3b2818] bg-slate-950/40 px-2 py-1.5"
+            >
+              <span className="font-mono text-[8.5px] font-bold uppercase tracking-[.18em] text-amber-300/80">
+                Ops · Pending
+              </span>
+              <div className="relative pointer-events-none">
+                <div className="opacity-30 [filter:grayscale(1)_brightness(0.5)]">
+                  <CardAccordion>
+                    {focused.operationsHand.map((c, i) => (
+                      <OpsCard key={c.id} card={c} indexInRow={i} />
+                    ))}
+                  </CardAccordion>
+                </div>
+                <div
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                  aria-hidden
+                >
+                  <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/90 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-amber-200 shadow-[0_3px_12px_rgba(0,0,0,.65)]">
+                    Pending
+                  </span>
+                </div>
+              </div>
+              <span className="font-mono text-[9px] uppercase tracking-[.14em] text-slate-500 tabular-nums">
+                {focused.operationsHand.length} cards
+              </span>
+            </div>
+          ) : null}
           <DramaticPile
             label="Discard"
             count={focused.discard.length}
@@ -170,39 +202,8 @@ export default function HandTray() {
             purchaseTarget
           />
           <SoldStack count={focused.barrelsSold} />
-          {/* Operations (pending) folded into a small overlay strip
-              below the piles so the row stays clean. */}
         </div>
       </div>
-
-      {/* Operations row — pending future release, kept for visual
-          continuity. Collapsed under the main row so it doesn't fight
-          the new deck-builder layout for attention. */}
-      {focused.operationsHand.length > 0 ? (
-        <div className="border-t border-[#3b2818] px-[18px] py-1.5">
-          <Section
-            caption="ops · pending"
-            count={focused.operationsHand.length}
-            zone="hand-ops"
-          >
-            <div className="relative pointer-events-none opacity-30 [filter:grayscale(1)_brightness(0.5)]">
-              <CardAccordion>
-                {focused.operationsHand.map((c, i) => (
-                  <OpsCard key={c.id} card={c} indexInRow={i} />
-                ))}
-              </CardAccordion>
-              <div
-                className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-100 [filter:grayscale(0)]"
-                aria-hidden
-              >
-                <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/85 px-2.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-amber-200 shadow-[0_3px_12px_rgba(0,0,0,.65)]">
-                  Pending
-                </span>
-              </div>
-            </div>
-          </Section>
-        </div>
-      ) : null}
     </div>
   );
 }
