@@ -41,7 +41,11 @@ The game ends when the **last mash bill leaves the bourbon supply**. Most reputa
 # 🎬 Setup
 
 ### Step 1 — Distillery selection
-Players pick distilleries in **reverse snake order** from a shared pool of four: Vanilla, High-Rye House, Wheated Baron, Connoisseur Estate. No two players share a distillery. See [§Distillery Profiles](#-distillery-profiles).
+Players pick distilleries from a shared pool of four: **Vanilla**, **High-Rye House**, **Wheated Baron**, **Connoisseur Estate**. No two players share a distillery. See [§Distillery Profiles](#-distillery-profiles).
+
+**Pick order — humans before bots.** Humans pick first, in reverse-snake order within the human group (last human seat picks first among humans). Any bots pick after every human has picked, also in reverse-snake within the bot group. In an all-human room this collapses to plain reverse-snake — last seat picks first.
+
+> **Why humans first?** Bots prefer Connoisseur > Vanilla > High-Rye > Wheated. Under plain reverse-snake the human at seat 0 picked last in solo, and bots stripped the easier distilleries first. Promoting humans ahead of bots restores access to the level-playing-field options (notably Vanilla).
 
 ### Step 2 — Starting rep
 Each distillery's stake lands on the rep track at setup:
@@ -61,19 +65,25 @@ This is *starting* rep — not earned — but it counts toward your final score 
 - **Wheated Baron** — 0 starting bills + 1 pre-aged wheated barrel (age 1).
 - **Connoisseur Estate** — **4** starting bills, filling every slot Staged.
 
-### Step 4 — Starter pool draft (random deal + trade window)
-Build the starter pool: per player, **6 cask · 4 corn · 3 grain (1 rye / 1 barley / 1 wheat) · 3 Generic Labor = 16 cards**, plus an 8-card buffer for the stuck-hand safety valve. Shuffle and **deal 16 cards face-up** to each player.
+### Step 4 — Starter pool draft (locked composition + trade window)
+Every player's starter hand is built from the canonical per-player block: **6 cask · 4 corn · 3 grain (1 rye / 1 barley / 1 wheat) · 3 Generic Labor = 16 cards**. The composition is locked — every player begins with the exact same mix, only the draw order varies per seed. An additional 8-card buffer (2 cask · 1 corn · 1 rye · 1 barley · 1 wheat · 2 Generic Labor) sits aside in `starterUndealtPool` for the stuck-hand safety valve.
 
-**Trade window — 3 minutes.** Players negotiate **1-for-1 trades** in any order, public and mutual.
+The cards are dealt face-up so every player can read their hand and the others' hands during the trade window.
+
+> **Distillery starter mods.** **High-Rye House** adds **+2 Specialty Rye** to its dealt hand (18 cards), satisfying its `minSpecialty.rye` floor right out of the gate. No other distillery currently modifies the starter hand.
+
+**Trade window.** Players negotiate **1-for-1 trades** in any order, public and mutual.
 
 **Stuck-hand swap.** Once during the trade window, a player may return up to 3 cards to the pool and draw the same number off the top.
 
-When the timer expires (or every player has passed), shuffle your final 16 cards into your starter deck. Premium variants — **Specialty** and **Heritage** — only enter via the market.
+When every player passes, shuffle your final cards into your starter deck. Premium variants — **Specialty** and **Heritage** — only enter via the market.
+
+> **UI status (current alpha).** Trading + stuck-hand swap are live in the engine (`STARTER_TRADE` and `STARTER_SWAP` actions) but the trade UI in `StarterDeckDraftModal` is not yet wired — humans review their dealt hand and click **Shuffle Deck** to pass; bots auto-pass. Both UI surfaces will land in a follow-up frontend pass.
 
 ### Step 5 — First hand
 - Each player **draws 8 cards** from their starter deck.
 ### Step 6 — Board setup
-- **Unified market:** 10 cards face-up from a single shuffled supply containing **resources** (Common $1 / Specialty $2 / Heritage $3), **Specialty Labor** (Marketing $4, Cooper $4, Architect $4), **operations cards**, and **investment cards**. Generic Labor is **not** sold; the 2 in your starter deck are all you'll ever own.
+- **Unified market:** 10 cards face-up from a single shuffled supply containing **resources** (Common $1 / Specialty $2 / Heritage $3), **Specialty Labor** (Marketing $4, Cooper $4, Architect $4), **operations cards**, and **investment cards**. Generic Labor is **not** sold; the 3 in your starter deck are all you'll ever own.
 - **Bourbon deck:** mash bills face-down. No face-up bill row — bills are acquired exclusively through the **Drafting Loop**.
 - **Demand:** starts at 0.
 - Pick a start player.
@@ -238,7 +248,7 @@ Cost is paid in **reputation** and/or **Labor cards** from hand. Rep and Labor a
 - **Cooper** (Specialty Labor) — +2 toward market resource buys.
 - **Marketing** (Specialty Labor) — +2 toward ops buys (no help on market resources).
 - **Architect** (Specialty Labor) — +2 toward investment buys.
-- **Generic Labor** — +1 toward any buy. (You only get 2 in your starter deck — finite.)
+- **Generic Labor** — +1 toward any buy. (You only get 3 in your starter deck — finite.)
 
 Rep can never go below 0.
 
@@ -368,7 +378,7 @@ The deck contains **resource cards** (cask, corn, grain — premiums come from t
 ### Card types
 
 - **Resource** — cask, corn, wheat, rye, barley. Needed to make bourbon.
-- **Labor** — sweat equity. Generic Labor (+1 anywhere) lives only in the starter deck (2 per player, finite — there is no central Hire pile). Specialty Labor (Cooper +2 toward market resources, Marketing +2 toward ops, Architect +2 toward investments) appears in the unified market and is the only way new Labor enters your deck.
+- **Labor** — sweat equity. Generic Labor (+1 anywhere) lives only in the starter deck (3 per player, finite — there is no central Hire pile). Specialty Labor (Cooper +2 toward market resources, Marketing +2 toward ops, Architect +2 toward investments) appears in the unified market and is the only way new Labor enters your deck.
 - **Operations** — bought from the unified market. Held in your operations hand; play as a free interruption (one-shot).
 - **Investment** — bought from the unified market. Long-term effects; effects are pending implementation in the current alpha.
 
@@ -392,7 +402,7 @@ The Specialty Labor strip:
 | **Cooper** | $4 | Market resources (+2 toward market resource buys) |
 | **Architect** | $4 | Investments (+2 toward investment buys) |
 
-Generic Labor is not sold — your 2 starter-deck Generic Labor cards are the only Generic Labor you'll ever own. Specialty Labor (above) is the only way new Labor enters your deck.
+Generic Labor is not sold — your 3 starter-deck Generic Labor cards are the only Generic Labor you'll ever own. Specialty Labor (above) is the only way new Labor enters your deck.
 
 ---
 
@@ -544,6 +554,10 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 ---
 
 # 📜 Changelog
+
+- **v2.14.2** — **"Human Picks First."** Setup-pick order changed: humans pick before any bots in distillery selection and the starter trade window. Reverse-snake is preserved within the human group AND within the bot group, so an all-human room still resolves to the original `[last seat, …, first seat]` order. The fix targets solo: with the bot's preference list (Connoisseur > Vanilla > High-Rye > Wheated) and reverse-snake across the whole seating, the human at seat 0 always picked last and bots routinely stripped Vanilla (the level-playing-field baseline) from the pool. Vanilla is now reliably available to the human in solo.
+
+- **v2.14.1** — **"Locked Starter Composition."** Starter-pool dealing is no longer a global shuffle across `(numPlayers × 16) + buffer` cards — every player now receives the canonical PER_PLAYER block (6 cask + 4 corn + 1 rye + 1 barley + 1 wheat + 3 Generic Labor) shuffled internally for draw-order variance. Previously a single global shuffle could hand one player 6 Generic Labor and another zero; the trade window's 1-for-1 swaps couldn't close that swing. Composition is now locked per seat; the shared buffer still backs the stuck-hand safety valve. Regression test pins the exact tally on every dealt hand.
 
 - **v2.14** — **"The Drafting Loop" + "Smoother Starter."**
 
