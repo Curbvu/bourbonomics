@@ -32,6 +32,7 @@ import { useGameStore } from "@/lib/store/game";
 import { TIER_INK, tierOrCommon, type TierChrome } from "./tierStyles";
 import { dragCarriesMakeCard, readMakeDragPayload } from "./dragMake";
 import { RESOURCE_GLYPH } from "./handCardStyles";
+import { useZoneFocusClass, useZoneFocusStyle } from "./pickerFocus";
 
 // ─────────────────────────────────────────────────────────────────────
 // Subtype palette for mash pips. Warm bourbon set; mirrors the tokens
@@ -73,12 +74,15 @@ export default function DistilleryStage() {
   const slotsTotal = player.rickhouseSlots.length;
   const filled = myBarrels.length;
   const distillery = player.distillery;
+  const focusClass = useZoneFocusClass("rickhouse-self");
+  const focusStyle = useZoneFocusStyle("rickhouse-self");
   if (!distillery) return null;
 
   return (
     <section
       data-bb-zone="distillery-stage"
-      className="bb-panel bb-panel--stage flex min-h-0 flex-col gap-3.5 px-[22px] py-4"
+      className={`bb-panel bb-panel--stage flex min-h-0 flex-col gap-3.5 px-[22px] py-4 ${focusClass}`}
+      style={focusStyle}
     >
       {/* 1. Stage tag strip */}
       <div className="flex items-baseline gap-3">

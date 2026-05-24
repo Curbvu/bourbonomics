@@ -35,6 +35,7 @@ import type {
 } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import { RESOURCE_LABEL, laborGlyphFor } from "./handCardStyles";
+import { useZoneFocusClass, useZoneFocusStyle } from "./pickerFocus";
 import { TIER_INK, tierOrCommon } from "./tierStyles";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -105,11 +106,14 @@ export default function MarketRow() {
     startBuyMode();
   };
 
+  const focusClass = useZoneFocusClass("market-conveyor");
+  const focusStyle = useZoneFocusStyle("market-conveyor");
+
   return (
     <section
       data-bb-zone="market-row"
-      className="bb-panel bb-panel--market flex flex-col gap-2"
-      style={{ padding: "12px 16px 14px 16px" }}
+      className={`bb-panel bb-panel--market flex flex-col gap-2 ${focusClass}`}
+      style={{ padding: "12px 16px 14px 16px", ...focusStyle }}
     >
       {/* Header strip */}
       <div className="flex items-baseline gap-3">

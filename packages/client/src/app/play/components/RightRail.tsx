@@ -13,13 +13,16 @@
  */
 
 import EventLog from "./EventLog";
+import { useZoneFocusClass, useZoneFocusStyle } from "./pickerFocus";
 
 export default function RightRail() {
+  const focusClass = useZoneFocusClass("log-rail");
+  const focusStyle = useZoneFocusStyle("log-rail");
   return (
     <aside
       data-bb-zone="right-rail"
-      className="bb-panel bb-panel--log flex min-h-0 flex-col gap-2 overflow-hidden px-3 py-3"
-      style={{ gridArea: "log" }}
+      className={`bb-panel bb-panel--log flex min-h-0 flex-col gap-2 overflow-hidden px-3 py-3 ${focusClass}`}
+      style={{ gridArea: "log", ...focusStyle }}
     >
       <header className="flex items-center justify-between">
         <h2

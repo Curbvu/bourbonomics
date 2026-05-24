@@ -29,7 +29,7 @@ import PlayerSwatch from "./PlayerSwatch";
 import { buyDomainForTarget } from "./buyDomain";
 import { CornerCost } from "./cardCorners";
 import { setMakeDragPayload } from "./dragMake";
-import { useZoneFocusClass, type FocusZone } from "./pickerFocus";
+import { useZoneFocusClass, useZoneFocusStyle, type FocusZone } from "./pickerFocus";
 import {
   CARD_SIZE_CLASS,
   HAND_CARD_OVERLAP,
@@ -578,6 +578,7 @@ function Section({
   children: React.ReactNode;
 }) {
   const focusClass = useZoneFocusClass(zone ?? "hand-resources");
+  const focusStyle = useZoneFocusStyle(zone ?? "hand-resources");
   const applyFocus = zone != null;
   return (
     <div
@@ -587,6 +588,7 @@ function Section({
         grow ? "min-w-0 flex-1" : "flex-shrink-0",
         applyFocus ? focusClass : "",
       ].join(" ")}
+      style={applyFocus ? focusStyle : undefined}
     >
       <div className="flex flex-col items-end justify-between py-1">
         <VerticalCaption>{caption}</VerticalCaption>

@@ -19,6 +19,7 @@
 
 import type { GameState } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
+import { useZoneFocusClass, useZoneFocusStyle } from "./pickerFocus";
 import { PLAYER_HEX, paletteIndex } from "./playerColors";
 import { TIER_INK, tierOrCommon } from "./tierStyles";
 
@@ -38,13 +39,15 @@ export default function OpponentRail() {
     .map((p, i) => ({ player: p, seatIndex: i }))
     .filter(({ player }) => player.id !== youId);
 
+  const focusClass = useZoneFocusClass("rickhouse-others");
+  const focusStyle = useZoneFocusStyle("rickhouse-others");
   if (opponents.length === 0) return null;
 
   return (
     <aside
       data-rickhouse-row="true"
-      className="bb-panel bb-panel--rivals scroll-thin flex min-h-0 flex-col gap-[10px] overflow-auto px-[12px] py-3"
-      style={{ gridArea: "rivals" }}
+      className={`bb-panel bb-panel--rivals scroll-thin flex min-h-0 flex-col gap-[10px] overflow-auto px-[12px] py-3 ${focusClass}`}
+      style={{ gridArea: "rivals", ...focusStyle }}
     >
       <header className="flex items-baseline justify-between">
         <h2
