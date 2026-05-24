@@ -19,6 +19,7 @@
 
 import type { GameState } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
+import { useZoneFocusClass, useZoneFocusStyle } from "./pickerFocus";
 import { PLAYER_HEX, paletteIndex } from "./playerColors";
 import { TIER_INK, tierOrCommon } from "./tierStyles";
 
@@ -38,13 +39,15 @@ export default function OpponentRail() {
     .map((p, i) => ({ player: p, seatIndex: i }))
     .filter(({ player }) => player.id !== youId);
 
+  const focusClass = useZoneFocusClass("rickhouse-others");
+  const focusStyle = useZoneFocusStyle("rickhouse-others");
   if (opponents.length === 0) return null;
 
   return (
     <aside
       data-rickhouse-row="true"
-      className="bb-panel bb-panel--rivals scroll-thin flex min-h-0 flex-col gap-[10px] overflow-auto px-[12px] py-3"
-      style={{ gridArea: "rivals" }}
+      className={`bb-panel bb-panel--rivals scroll-thin flex min-h-0 flex-col gap-[10px] overflow-auto px-[12px] py-3 ${focusClass}`}
+      style={{ gridArea: "rivals", ...focusStyle }}
     >
       <header className="flex items-baseline justify-between">
         <h2
@@ -89,6 +92,7 @@ function OpponentCard({
   return (
     <div
       data-bb-zone="opponent-rickhouse"
+      data-opponent-tile={player.id}
       className="flex flex-col gap-2 rounded-[9px] border bg-[linear-gradient(180deg,rgba(34,23,16,.65),rgba(20,14,8,.65))] p-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-colors"
       style={{
         borderColor: isOnClock ? "rgba(240,201,112,.55)" : "var(--rule)",

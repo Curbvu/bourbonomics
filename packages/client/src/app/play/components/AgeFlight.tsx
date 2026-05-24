@@ -29,7 +29,7 @@ interface ActiveFlight {
 }
 
 export default function AgeFlight() {
-  const { lastAge } = useGameStore();
+  const { lastAge, humanSeatPlayerId } = useGameStore();
   const [active, setActive] = useState<ActiveFlight | null>(null);
 
   // Re-trigger on every new seq.
@@ -38,34 +38,50 @@ export default function AgeFlight() {
     setActive({ snapshot: lastAge, source: null, delta: null });
   }, [lastAge?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Step 1: locate the source (hand tray) so we can position the
-  // ghost at the player's hand before the translate kicks in.
+  // Step 1: locate the source. For the human, the spent card came
+  // from the hand tray, so we fly up from there. For a bot, there's
+  // no on-screen hand — start the ghost at the bot's tile so the
+  // animation feels like "a card came out of their stack" rather
+  // than appearing from nowhere on the human's hand row.
   useEffect(() => {
     if (!active) return;
     if (active.source != null) return;
-    const tray = document.querySelector<HTMLElement>("[data-hand-tray]");
-    if (!tray) {
+    const isHuman = active.snapshot.ownerId === humanSeatPlayerId;
+    const sourceEl = isHuman
+      ? document.querySelector<HTMLElement>("[data-hand-tray]")
+      : document.querySelector<HTMLElement>(
+          `[data-opponent-tile="${active.snapshot.ownerId}"]`,
+        );
+    if (!sourceEl) {
       setActive(null);
       return;
     }
-    const rect = tray.getBoundingClientRect();
+    const rect = sourceEl.getBoundingClientRect();
     setActive({
       ...active,
       source: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
     });
-  }, [active]);
+  }, [active, humanSeatPlayerId]);
 
   // Step 2: after a brief spawn pause (so the ghost is visible at the
   // hand position for a beat), compute the destination and start the
-  // translate transition.
+  // translate transition. Human destination is the rickhouse slot;
+  // bot destination is the bot's tile (same as source — the ghost
+  // resolves in place, but the spawn-then-fade still reads as "they
+  // aged something").
   useEffect(() => {
     if (!active) return;
     if (active.source == null) return;
     if (active.delta != null) return;
     const t = window.setTimeout(() => {
-      const target = document.querySelector<HTMLElement>(
-        `[data-slot-id="${active.snapshot.slotId}"]`,
-      );
+      const isHuman = active.snapshot.ownerId === humanSeatPlayerId;
+      const target = isHuman
+        ? document.querySelector<HTMLElement>(
+            `[data-slot-id="${active.snapshot.slotId}"]`,
+          )
+        : document.querySelector<HTMLElement>(
+            `[data-opponent-tile="${active.snapshot.ownerId}"]`,
+          );
       if (!target) {
         setActive(null);
         return;
@@ -80,7 +96,7 @@ export default function AgeFlight() {
       setActive({ ...active, delta: { dx, dy, scale } });
     }, SPAWN_MS);
     return () => window.clearTimeout(t);
-  }, [active]);
+  }, [active, humanSeatPlayerId]);
 
   // Step 3: clear after the full flight finishes.
   useEffect(() => {

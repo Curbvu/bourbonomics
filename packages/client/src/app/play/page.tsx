@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import AgingPhaseModal from "./components/AgingPhaseModal";
+import CardInspectModal from "./components/CardInspectModal";
+import GameOverPanel from "./components/GameOverPanel";
 import DemandRollModal from "./components/DemandRollModal";
 import DistilleryDraftModal from "./components/DistilleryDraftModal";
+import DraftPickFlight from "./components/DraftPickFlight";
+import DrawBillOverlay from "./components/DrawBillOverlay";
 import DrawPhaseModal from "./components/DrawPhaseModal";
 import GameBoard from "./components/GameBoard";
 import GameErrorBoundary from "./components/ErrorBoundary";
@@ -58,20 +63,46 @@ export default function PlayPage() {
         `,
       }}
     >
-      <ScalingHost>
-        <div className="flex h-full flex-col">
-          <GameTopBar />
-          <GameErrorBoundary>
-            <GameBoard />
-          </GameErrorBoundary>
+      {/* GameTopBar lives OUTSIDE ScalingHost so its header strip spans
+          the full viewport width on wide monitors. Inside ScalingHost
+          it was clamped to the 1680px design canvas, leaving a bright
+          uncovered strip to its right. */}
+      <div className="flex h-full flex-col">
+        <GameTopBar />
+        <div className="flex-1 overflow-hidden">
+          <ScalingHost>
+            <GameErrorBoundary>
+              <GameBoard />
+            </GameErrorBoundary>
+          </ScalingHost>
         </div>
-      </ScalingHost>
+      </div>
       {/* Setup-phase modals — render unconditionally; each component
           self-gates on phase + humanWaitingOn (or autoplay). */}
       <DistilleryDraftModal />
       <StarterDeckDraftModal />
       <DemandRollModal />
       <DrawPhaseModal />
+      {/* Aging-phase intro — appears the moment the local seat owes
+          aging commits; once dismissed, AgeOverlay's banner takes over
+          for the remaining card→barrel picks. Page-root mount so its
+          `fixed inset-0` covers the full viewport. */}
+      <AgingPhaseModal />
+      {/* Drafting-loop modal — mounted at the page root (outside
+          ScalingHost) so its `fixed inset-0` covers the full viewport
+          rather than being scoped to the scaled design canvas. */}
+      <DrawBillOverlay />
+      {/* CardInspectModal — same containing-block reason: a fullscreen
+          backdrop that needs to cover the right rail (which sits
+          outside ScalingHost on wide screens). */}
+      <CardInspectModal />
+      {/* Game-over standings — same containing-block reason. */}
+      <GameOverPanel />
+      {/* Draft-pick flight — fires when the human commits a bill.
+          Page-root mount for the same containing-block reason; sibling
+          to the modal so the flight starts the same frame the modal
+          unmounts. */}
+      <DraftPickFlight />
       {/* Mounted last so it sits above DrawPhaseModal in the DOM stack
           (z-55 vs z-50). The player reads the year-pass recap, hits
           Begin year, and the draw modal underneath becomes interactive. */}

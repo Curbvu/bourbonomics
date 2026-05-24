@@ -12,6 +12,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import {
+  laborContribution,
   type Card,
   type GameState,
   type OperationsCard,
@@ -22,13 +23,13 @@ import { useGameStore } from "@/lib/store/game";
 import ActionBar from "./ActionBar";
 import BuyOverlay from "./BuyOverlay";
 import AgeOverlay from "./AgeOverlay";
-import DrawBillOverlay from "./DrawBillOverlay";
 import MakeOverlay from "./MakeOverlay";
 import SellOverlay from "./SellOverlay";
 import PlayerSwatch from "./PlayerSwatch";
+import { buyDomainForTarget } from "./buyDomain";
 import { CornerCost } from "./cardCorners";
 import { setMakeDragPayload } from "./dragMake";
-import { useZoneFocusClass, type FocusZone } from "./pickerFocus";
+import { useZoneFocusClass, useZoneFocusStyle, type FocusZone } from "./pickerFocus";
 import {
   CARD_SIZE_CLASS,
   HAND_CARD_OVERLAP,
@@ -79,11 +80,15 @@ export default function HandTray() {
     >
       {/* Interactive overlays. Only one of these ever paints at a time
           (each gates on its own mode flag); kept mounted here so the
-          mode-pickers can land right above the hand. */}
+          mode-pickers can land right above the hand.
+
+          DrawBillOverlay is mounted at the page root instead, outside
+          ScalingHost — it's a true fullscreen modal and the
+          `transform: scale(...)` on ScalingHost would otherwise scope
+          its `position: fixed` to the design canvas. */}
       <BuyOverlay />
       <AgeOverlay />
       <SellOverlay />
-      <DrawBillOverlay />
       <MakeOverlay />
 
       {/* Action bar — restyled mono brass buttons. */}
@@ -156,8 +161,40 @@ export default function HandTray() {
           )}
         </Section>
 
-        {/* Discard pile + Sold stack (right) */}
+        {/* Right cluster: Ops (if any) → Discard → Sold. Ops sits
+            inline with the hand instead of in a separate strip below
+            so the bottom of the screen doesn't grow another row. */}
         <div className="flex items-stretch gap-3">
+          {focused.operationsHand.length > 0 ? (
+            <div
+              data-bb-zone="hand-ops"
+              className="flex flex-col items-center justify-center gap-1 rounded-md border border-[#3b2818] bg-slate-950/40 px-2 py-1.5"
+            >
+              <span className="font-mono text-[8.5px] font-bold uppercase tracking-[.18em] text-amber-300/80">
+                Ops · Pending
+              </span>
+              <div className="relative pointer-events-none">
+                <div className="opacity-30 [filter:grayscale(1)_brightness(0.5)]">
+                  <CardAccordion>
+                    {focused.operationsHand.map((c, i) => (
+                      <OpsCard key={c.id} card={c} indexInRow={i} />
+                    ))}
+                  </CardAccordion>
+                </div>
+                <div
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                  aria-hidden
+                >
+                  <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/90 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-amber-200 shadow-[0_3px_12px_rgba(0,0,0,.65)]">
+                    Pending
+                  </span>
+                </div>
+              </div>
+              <span className="font-mono text-[9px] uppercase tracking-[.14em] text-slate-500 tabular-nums">
+                {focused.operationsHand.length} cards
+              </span>
+            </div>
+          ) : null}
           <DramaticPile
             label="Discard"
             count={focused.discard.length}
@@ -165,39 +202,8 @@ export default function HandTray() {
             purchaseTarget
           />
           <SoldStack count={focused.barrelsSold} />
-          {/* Operations (pending) folded into a small overlay strip
-              below the piles so the row stays clean. */}
         </div>
       </div>
-
-      {/* Operations row — pending future release, kept for visual
-          continuity. Collapsed under the main row so it doesn't fight
-          the new deck-builder layout for attention. */}
-      {focused.operationsHand.length > 0 ? (
-        <div className="border-t border-[#3b2818] px-[18px] py-1.5">
-          <Section
-            caption="ops · pending"
-            count={focused.operationsHand.length}
-            zone="hand-ops"
-          >
-            <div className="relative pointer-events-none opacity-30 [filter:grayscale(1)_brightness(0.5)]">
-              <CardAccordion>
-                {focused.operationsHand.map((c, i) => (
-                  <OpsCard key={c.id} card={c} indexInRow={i} />
-                ))}
-              </CardAccordion>
-              <div
-                className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-100 [filter:grayscale(0)]"
-                aria-hidden
-              >
-                <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/85 px-2.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-amber-200 shadow-[0_3px_12px_rgba(0,0,0,.65)]">
-                  Pending
-                </span>
-              </div>
-            </div>
-          </Section>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -572,6 +578,7 @@ function Section({
   children: React.ReactNode;
 }) {
   const focusClass = useZoneFocusClass(zone ?? "hand-resources");
+  const focusStyle = useZoneFocusStyle(zone ?? "hand-resources");
   const applyFocus = zone != null;
   return (
     <div
@@ -581,6 +588,7 @@ function Section({
         grow ? "min-w-0 flex-1" : "flex-shrink-0",
         applyFocus ? focusClass : "",
       ].join(" ")}
+      style={applyFocus ? focusStyle : undefined}
     >
       <div className="flex flex-col items-end justify-between py-1">
         <VerticalCaption>{caption}</VerticalCaption>
@@ -718,6 +726,7 @@ const liftClass =
 
 function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
   const {
+    state,
     setInspect,
     buyMode,
     toggleBuySpend,
@@ -775,8 +784,17 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
   // on `!drawStep1`) keeps working without renames.
   const drawStep1 = false;
   void drawBillMode;
+  // v3.4: when in buy mode WITH a picked target, resource cards can
+  // never contribute to payment (only Labor cards can), so they dim
+  // out of the way. When no target is picked yet, fall back to the
+  // generic "you're in a picker" soft emerald.
+  // Dimming uses inline style (not Tailwind utility) because Turbopack
+  // + Tailwind v4 wasn't generating opacity-30 / saturate-50 / arbitrary
+  // values for these strings at build time — inline `style` is robust.
+  const buyTargetPicked = inBuyMode && buyMode!.pickedTarget != null;
+  const buyIneligible = buyTargetPicked && !isBuySelected;
   const buyClass = tutorialLocked
-    ? "opacity-30 saturate-50"
+    ? "pointer-events-none"
     : tutorialHighlighted && !inAnyPicker && !isMultiSelected
       ? // Soft amber highlight on the cards the active beat wants the
         // player to act on. Skipped when the player has already toggled
@@ -793,17 +811,23 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
           ? ""
           : isSelected
             ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-            : inAgeMode
-              ? // v2.9: every hand card is a legal age payment, so light
-                // them all up with a soft sky glow — same idiom as the
-                // ageable rickhouse barrels — so the player can see at a
-                // glance that ANY card here commits.
-                "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
-              : inDrawBillMode
-                ? "ring-2 ring-sky-400/60"
-                : inSellMode
-                  ? "ring-2 ring-amber-300/60"
-                  : "ring-2 ring-emerald-400/60";
+            : buyIneligible
+              ? "pointer-events-none"
+              : inAgeMode
+                ? // v2.9: every hand card is a legal age payment, so light
+                  // them all up with a soft sky glow — same idiom as the
+                  // ageable rickhouse barrels — so the player can see at a
+                  // glance that ANY card here commits.
+                  "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
+                : inDrawBillMode
+                  ? "ring-2 ring-sky-400/60"
+                  : inSellMode
+                    ? "ring-2 ring-amber-300/60"
+                    : "ring-2 ring-emerald-400/60";
+  const dimStyle =
+    tutorialLocked || buyIneligible
+      ? { opacity: 0.3, filter: "saturate(0.5)" as const, transition: "none" as const }
+      : undefined;
   const onClick = (e: React.MouseEvent) => {
     if (tutorialLocked) {
       setInspect({ kind: "resource", card });
@@ -879,6 +903,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
         buyClass,
         isSelected ? "bb-hand-selected" : "",
       ].join(" ")}
+      style={dimStyle}
     >
       {isSelected ? (
         <span
@@ -938,6 +963,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
  */
 function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
   const {
+    state,
     setInspect,
     buyMode,
     toggleBuySpend,
@@ -976,19 +1002,47 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
   const isDrawSelected = inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
   const isMultiSelected = !inAnyPicker && selectedHandCardIds.includes(card.id);
   const isSelected = isBuySelected || isAgeSelected || isDrawSelected || isMultiSelected;
+  // v3.4: in buy mode WITH a picked target, a Labor card is eligible
+  // iff its `laborContribution` for the target's domain is > 0.
+  // Eligible Labor stays lit emerald; ineligible (wrong-domain
+  // specialty) dims out so the player sees what can actually pay.
+  let buyEligibleAndUnpicked = false;
+  let buyIneligibleAndUnpicked = false;
+  if (inBuyMode && !isBuySelected) {
+    const pickedSlot = buyMode!.pickedTarget;
+    if (pickedSlot != null) {
+      const target = state?.market[pickedSlot.slotIndex];
+      if (target) {
+        const domain = buyDomainForTarget(target);
+        if (laborContribution(card, domain) > 0) {
+          buyEligibleAndUnpicked = true;
+        } else {
+          buyIneligibleAndUnpicked = true;
+        }
+      }
+    }
+  }
   const buyClass = tutorialLocked
-    ? "opacity-30 saturate-50"
+    ? "pointer-events-none"
     : tutorialHighlighted && !inAnyPicker && !isMultiSelected
       ? "ring-2 ring-amber-300/70 shadow-[0_0_12px_rgba(252,211,77,.4)]"
       : isSelected
         ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-        : inAgeMode
-          ? "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
-          : inDrawBillMode
-            ? "ring-2 ring-sky-400/60"
-            : inBuyMode
-              ? "ring-2 ring-emerald-400/60"
-              : "";
+        : buyIneligibleAndUnpicked
+          ? "pointer-events-none"
+          : buyEligibleAndUnpicked
+            ? "ring-2 ring-emerald-400/80 shadow-[0_0_14px_rgba(110,231,183,.5)]"
+            : inAgeMode
+              ? "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
+              : inDrawBillMode
+                ? "ring-2 ring-sky-400/60"
+                : inBuyMode
+                  ? "ring-2 ring-emerald-400/60"
+                  : "";
+  const dimStyle =
+    tutorialLocked || buyIneligibleAndUnpicked
+      ? { opacity: 0.3, filter: "saturate(0.5)" as const, transition: "none" as const }
+      : undefined;
   const onClick = (e: React.MouseEvent) => {
     if (tutorialLocked) return;
     if (e.detail >= 2) return;
@@ -1016,6 +1070,7 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
         buyClass,
         isSelected ? "bb-hand-selected" : "",
       ].join(" ")}
+      style={dimStyle}
     >
       {isSelected ? (
         <span

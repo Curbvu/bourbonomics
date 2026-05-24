@@ -41,17 +41,29 @@ interface ActiveSale {
 }
 
 export default function SaleFlight() {
-  const { lastSale } = useGameStore();
+  const { lastSale, humanSeatPlayerId } = useGameStore();
   const [active, setActive] = useState<ActiveSale | null>(null);
 
   useEffect(() => {
     if (!lastSale) return;
-    const slot = document.querySelector<HTMLElement>(
-      `[data-slot-id="${lastSale.slotId}"]`,
-    );
-    const discard = document.querySelector<HTMLElement>(
-      '[data-purchase-target="discard"]',
-    );
+    const isHuman = lastSale.ownerId === humanSeatPlayerId;
+    // Origin: human's barrel slot for the human, bot's opponent tile
+    // for a bot (the bot's barrel doesn't have a DOM landmark).
+    const slot = isHuman
+      ? document.querySelector<HTMLElement>(
+          `[data-slot-id="${lastSale.slotId}"]`,
+        )
+      : document.querySelector<HTMLElement>(
+          `[data-opponent-tile="${lastSale.ownerId}"]`,
+        );
+    // Destination: human's discard pile vs the bot's opponent tile.
+    const discard = isHuman
+      ? document.querySelector<HTMLElement>(
+          '[data-purchase-target="discard"]',
+        )
+      : document.querySelector<HTMLElement>(
+          `[data-opponent-tile="${lastSale.ownerId}"]`,
+        );
     let startX = window.innerWidth / 2 - CARD_W / 2;
     let startY = window.innerHeight / 2 - CARD_H / 2;
     if (slot) {
@@ -77,7 +89,7 @@ export default function SaleFlight() {
     const last = STAGGER_MS * Math.max(0, visible.length - 1) + FLIGHT_MS;
     const id = window.setTimeout(() => setActive(null), last + 80);
     return () => window.clearTimeout(id);
-  }, [lastSale]);
+  }, [lastSale, humanSeatPlayerId]);
 
   if (!active) return null;
   const { cards, start, end, totalCount, key } = active;

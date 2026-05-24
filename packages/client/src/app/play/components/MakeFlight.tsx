@@ -17,7 +17,7 @@ const FLIGHT_MS = 720;
 const SPAWN_MS = 320;
 
 export default function MakeFlight() {
-  const { lastMake } = useGameStore();
+  const { lastMake, humanSeatPlayerId } = useGameStore();
   const [active, setActive] = useState<{
     snapshot: LastMake;
     delta: { dx: number; dy: number; scale: number } | null;
@@ -31,14 +31,22 @@ export default function MakeFlight() {
   }, [lastMake?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // After the spawn animation finishes, compute the destination and
-  // start the translate transition.
+  // start the translate transition. The destination depends on who
+  // acted: human → their distillery slot in DistilleryStage; bot →
+  // their tile in OpponentRail (the only on-screen representation
+  // we render for non-local seats).
   useEffect(() => {
     if (!active) return;
     if (active.delta != null) return;
     const t = window.setTimeout(() => {
-      const target = document.querySelector(
-        `[data-slot-id="${active.snapshot.slotId}"]`,
-      ) as HTMLElement | null;
+      const isHuman = active.snapshot.ownerId === humanSeatPlayerId;
+      const target = isHuman
+        ? (document.querySelector(
+            `[data-slot-id="${active.snapshot.slotId}"]`,
+          ) as HTMLElement | null)
+        : (document.querySelector(
+            `[data-opponent-tile="${active.snapshot.ownerId}"]`,
+          ) as HTMLElement | null);
       if (!target) {
         // No destination — abort; the element will fade itself out below.
         setActive(null);
@@ -57,7 +65,7 @@ export default function MakeFlight() {
       setActive({ snapshot: active.snapshot, delta: { dx, dy, scale } });
     }, SPAWN_MS);
     return () => window.clearTimeout(t);
-  }, [active]);
+  }, [active, humanSeatPlayerId]);
 
   // Clear after the full flight finishes.
   useEffect(() => {

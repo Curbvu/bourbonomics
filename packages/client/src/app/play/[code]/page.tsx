@@ -20,8 +20,13 @@
 
 import { use, useEffect, useState } from "react";
 
+import AgingPhaseModal from "../components/AgingPhaseModal";
+import CardInspectModal from "../components/CardInspectModal";
+import GameOverPanel from "../components/GameOverPanel";
 import DemandRollModal from "../components/DemandRollModal";
 import DistilleryDraftModal from "../components/DistilleryDraftModal";
+import DraftPickFlight from "../components/DraftPickFlight";
+import DrawBillOverlay from "../components/DrawBillOverlay";
 import DrawPhaseModal from "../components/DrawPhaseModal";
 import GameBoard from "../components/GameBoard";
 import GameErrorBoundary from "../components/ErrorBoundary";
@@ -195,19 +200,24 @@ export default function PlayCodePage({ params }: Props) {
           bottom edge. Setup modals are siblings (rendered outside the
           scaled host) so their portals position against the live
           viewport. */}
-      <ScalingHost>
-        <div className="flex h-full flex-col">
-          <GameTopBar />
-          <RoomBanner code={code} />
-          {inLobby ? (
-            <WaitingRoom code={code} />
-          ) : (
-            <GameErrorBoundary>
-              <GameBoard />
-            </GameErrorBoundary>
-          )}
+      {/* GameTopBar + RoomBanner live OUTSIDE ScalingHost so they span
+          the full viewport width on wide monitors (they were clipped
+          to ScalingHost's 1680px design canvas before). */}
+      <div className="flex h-full flex-col">
+        <GameTopBar />
+        <RoomBanner code={code} />
+        <div className="flex-1 overflow-hidden">
+          <ScalingHost>
+            {inLobby ? (
+              <WaitingRoom code={code} />
+            ) : (
+              <GameErrorBoundary>
+                <GameBoard />
+              </GameErrorBoundary>
+            )}
+          </ScalingHost>
         </div>
-      </ScalingHost>
+      </div>
       {/* Setup-phase modals — each one self-gates on phase + the
           local connection's seat (`humanSeatPlayerId` in the store).
           Only the seat the engine is currently waiting on sees the
@@ -217,6 +227,20 @@ export default function PlayCodePage({ params }: Props) {
       <StarterDeckDraftModal />
       <DemandRollModal />
       <DrawPhaseModal />
+      {/* Aging-phase intro — explains the forced aging window once per
+          turn; AgeOverlay takes over for the per-barrel picks. */}
+      <AgingPhaseModal />
+      {/* Drafting-loop modal — mounted at the page root (outside
+          ScalingHost) so its `fixed inset-0` covers the full viewport
+          rather than being scoped to the scaled design canvas. */}
+      <DrawBillOverlay />
+      {/* CardInspectModal — same containing-block reason. */}
+      <CardInspectModal />
+      {/* Final-standings modal. */}
+      <GameOverPanel />
+      {/* Draft-pick flight — fires when the human commits a bill.
+          Page-root mount for the same containing-block reason. */}
+      <DraftPickFlight />
       {multiplayerError ? (
         <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
           <div className="pointer-events-auto flex max-w-md items-start gap-3 rounded-md border-2 border-rose-500/70 bg-rose-950/95 px-4 py-3 shadow-[0_8px_22px_rgba(0,0,0,.5)]">

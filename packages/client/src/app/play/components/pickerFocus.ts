@@ -14,6 +14,7 @@
  * registered zone is implicitly dimmed UNLESS its token is in the set.
  */
 
+import type { CSSProperties } from "react";
 import { useGameStore } from "@/lib/store/game";
 
 export type FocusZone =
@@ -25,7 +26,8 @@ export type FocusZone =
   | "market-ops"
   | "market-investments"
   | "rickhouse-self"
-  | "rickhouse-others";
+  | "rickhouse-others"
+  | "log-rail";
 
 function useFocusedZones(): Set<FocusZone> | null {
   const { makeMode, ageMode, drawBillMode, buyMode, sellMode } = useGameStore();
@@ -70,7 +72,48 @@ export function useZoneFocusClass(zone: FocusZone): string {
   const focus = useFocusedZones();
   if (!focus) return "transition-[opacity,filter] duration-300";
   if (focus.has(zone)) {
-    return "transition-[opacity,filter] duration-300 [filter:brightness(1.05)]";
+    return "transition-[opacity,filter] duration-300 bb-zone-focus";
   }
-  return "transition-[opacity,filter] duration-300 opacity-30 saturate-50 pointer-events-none";
+  // Use a globals.css utility — Tailwind v4's JIT was inconsistently
+  // omitting opacity-N / saturate-N from the bundle when the only
+  // reference was in this hook's return string.
+  return "transition-[opacity,filter] duration-300 bb-zone-dim";
+}
+
+/**
+ * Style-prop counterpart to `useZoneFocusClass`. Returns an inline
+ * style object that consumers can spread onto their root element.
+ * Robust against Tailwind/Turbopack tree-shaking — the dim chrome
+ * is set via concrete CSSStyleDeclaration properties, not utility
+ * classes the scanner has to recognise.
+ */
+export function useZoneFocusStyle(zone: FocusZone): CSSProperties {
+  const focus = useFocusedZones();
+  if (!focus) {
+    // Explicit reset so a recent dim/focus transition lands cleanly
+    // when the picker closes — without `opacity: 1` etc, React leaves
+    // the previous values painted on the element.
+    return { opacity: 1, filter: "none", pointerEvents: "auto", transition: "none" };
+  }
+  if (focus.has(zone)) {
+    // Explicit opacity/pointerEvents/transition so transitioning OUT
+    // of dim state lands cleanly at 1 (otherwise the previous dim's
+    // 0.3 stays painted because of the transition quirk).
+    return {
+      opacity: 1,
+      filter: "brightness(1.05)",
+      pointerEvents: "auto",
+      transition: "none",
+    };
+  }
+  // `transition: none` defeats the `transition-[opacity,filter]`
+  // baseline on these panels — a cascade quirk leaves transitioned
+  // values pinned at the start state, so dim style would otherwise
+  // never reach 0.3 / saturate(0.5) (it would read as opacity 1).
+  return {
+    opacity: 0.3,
+    filter: "saturate(0.5)",
+    pointerEvents: "none",
+    transition: "none",
+  };
 }

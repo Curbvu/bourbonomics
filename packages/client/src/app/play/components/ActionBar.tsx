@@ -42,9 +42,6 @@ export default function ActionBar() {
     buyMode,
     startBuyMode,
     cancelBuyMode,
-    ageMode,
-    startAgeMode,
-    cancelAgeMode,
     drawBillMode,
     startDrawBillMode,
     cancelDrawBillMode,
@@ -64,7 +61,6 @@ export default function ActionBar() {
   const isHumanTurn = state.players[state.currentPlayerIndex]?.id === human.id;
   const disabledByTurn = !isHumanTurn || autoplay;
   const inBuyMode = buyMode != null;
-  const inAgeMode = ageMode != null;
   const inDrawBillMode = drawBillMode != null;
   const inMakeMode = makeMode != null;
   const inSellMode = sellMode != null;
@@ -76,11 +72,9 @@ export default function ActionBar() {
   // buying mode. The actual chosen card / payment comes from the
   // interactive overlay.
   const buyEntry = canEnterBuyMode(state, human);
-  // Age is a "phase activity" — it has its own picker (AgeOverlay) for
-  // selecting which barrel + which pay-card to commit. The bar gates
-  // entry on whether the player has at least one ageable barrel and at
-  // least one card in hand.
-  const ageEntry = canEnterAgeMode(state, human);
+  // Aging has no Action-bar entry — the engine forces it via
+  // `needsAgeBarrels`, AgingPhaseModal explains the phase, and
+  // AgeOverlay's banner tracks progress through the remaining picks.
   // Draw-bill picker gating — needs at least one card in hand and at
   // least one mash bill in the bourbon deck.
   const drawBillEntry = canEnterDrawBillMode(state, human);
@@ -93,26 +87,6 @@ export default function ActionBar() {
         <span className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-500">
           {isHumanTurn ? "Your turn" : "Waiting…"}
         </span>
-        <span className="mx-1 h-[20px] w-px bg-slate-800" aria-hidden />
-
-        {/* Age is the lone "phase" control — separate chrome (sky/blue)
-            and labeled with a barrel glyph so the player reads it as a
-            distinct concept from the regular Action Phase actions. */}
-        <PhaseButton
-          label="🛢 Age barrel"
-          inMode={inAgeMode}
-          enabled={!disabledByTurn && ageEntry.canAge}
-          tooltip={
-            disabledByTurn
-              ? "Wait for your turn"
-              : inAgeMode
-                ? "Cancel the in-progress aging"
-                : ageEntry.reason ??
-                  "Pick a barrel in your Rickhouse, then a card in hand to commit."
-          }
-          onStart={startAgeMode}
-          onCancel={cancelAgeMode}
-        />
         <span className="mx-1 h-[20px] w-px bg-slate-800" aria-hidden />
 
         <PickerButton
@@ -201,50 +175,6 @@ export default function ActionBar() {
         />
       </div>
     </div>
-  );
-}
-
-function PhaseButton({
-  label,
-  inMode,
-  enabled,
-  tooltip,
-  onStart,
-  onCancel,
-}: {
-  label: string;
-  inMode: boolean;
-  enabled: boolean;
-  tooltip: string;
-  onStart: () => void;
-  onCancel: () => void;
-}) {
-  if (inMode) {
-    return (
-      <button
-        type="button"
-        onClick={onCancel}
-        title={tooltip}
-        className="rounded-md border border-rose-500 bg-rose-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-rose-100 transition-colors hover:border-rose-400 hover:bg-rose-800/40"
-      >
-        Cancel age
-      </button>
-    );
-  }
-  return (
-    <button
-      type="button"
-      disabled={!enabled}
-      onClick={enabled ? onStart : undefined}
-      title={tooltip}
-      className={
-        enabled
-          ? "rounded-md border border-sky-500/70 bg-sky-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-sky-100 transition-colors hover:border-sky-300 hover:bg-sky-800/40"
-          : "rounded-md border border-slate-800 bg-slate-950/60 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-slate-600 cursor-not-allowed"
-      }
-    >
-      {label}
-    </button>
   );
 }
 
@@ -352,31 +282,6 @@ function canEnterMakeMode(
     return { canMake: false, reason: "Your rickhouse is full." };
   }
   return { canMake: true };
-}
-
-function canEnterAgeMode(
-  state: GameState,
-  player: PlayerState,
-): { canAge: boolean; reason?: string } {
-  if (player.hand.length === 0) {
-    return { canAge: false, reason: "Your hand is empty — nothing to commit." };
-  }
-  // Mirrors `validateAgeBourbon` so the button greys out the moment
-  // every barrel would be rejected: ready / construction barrels still
-  // being built, barrels that just finished this round (first age N+1),
-  // inspected ones, or barrels that already aged this round.
-  const ageable = state.allBarrels.some(
-    (b) =>
-      b.ownerId === player.id &&
-      b.phase === "aging" &&
-      !(b.completedInRound != null && state.round <= b.completedInRound) &&
-      !b.inspectedThisRound &&
-      (!b.agedThisRound || b.extraAgesAvailable > 0),
-  );
-  if (!ageable) {
-    return { canAge: false, reason: "No ageable barrels in your Rickhouse." };
-  }
-  return { canAge: true };
 }
 
 function BuyButton({

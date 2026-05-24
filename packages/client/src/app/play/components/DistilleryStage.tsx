@@ -31,6 +31,8 @@ import { validateAction } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import { TIER_INK, tierOrCommon, type TierChrome } from "./tierStyles";
 import { dragCarriesMakeCard, readMakeDragPayload } from "./dragMake";
+import { RESOURCE_GLYPH } from "./handCardStyles";
+import { useZoneFocusClass, useZoneFocusStyle } from "./pickerFocus";
 
 // ─────────────────────────────────────────────────────────────────────
 // Subtype palette for mash pips. Warm bourbon set; mirrors the tokens
@@ -72,12 +74,15 @@ export default function DistilleryStage() {
   const slotsTotal = player.rickhouseSlots.length;
   const filled = myBarrels.length;
   const distillery = player.distillery;
+  const focusClass = useZoneFocusClass("rickhouse-self");
+  const focusStyle = useZoneFocusStyle("rickhouse-self");
   if (!distillery) return null;
 
   return (
     <section
       data-bb-zone="distillery-stage"
-      className="bb-panel bb-panel--stage flex min-h-0 flex-col gap-3.5 px-[22px] py-4"
+      className={`bb-panel bb-panel--stage flex min-h-0 flex-col gap-3.5 px-[22px] py-4 ${focusClass}`}
+      style={focusStyle}
     >
       {/* 1. Stage tag strip */}
       <div className="flex items-baseline gap-3">
@@ -673,6 +678,12 @@ function Barrel({
   selected: boolean;
 }) {
   const isAging = barrel.phase === "aging";
+  // "needs resources" covers `ready` (bill placed, no commits yet) and
+  // `construction` (partially committed). These barrels are visibly
+  // different from aging ones: cooler/desaturated wood, dim hoops, no
+  // halo, no glowing medallion. Instead the body carries an "open"
+  // staves treatment so the eye reads it as "raw, waiting on cards."
+  const needs = isAging ? [] : computeBarrelNeeds(barrel);
   return (
     <div className="relative grid h-[156px] w-full place-items-center">
       {/* Ground shadow */}
@@ -685,7 +696,7 @@ function Barrel({
           filter: "blur(2px)",
         }}
       />
-      {/* Aging halo */}
+      {/* Aging halo — only on aging barrels. */}
       {isAging ? (
         <span
           aria-hidden
@@ -697,69 +708,118 @@ function Barrel({
           }}
         />
       ) : null}
-      {/* Barrel body */}
+      {/* "Needs resources" call-out ring — sits behind a non-aging
+          barrel so the eye knows this slot is waiting on the player.
+          Pulses softly so the eye snaps to "build me." */}
+      {!isAging ? (
+        <span
+          aria-hidden
+          className="bb-construction-glow absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(48% 56% at 50% 52%, rgba(125,166,223,.42), transparent 72%)",
+            filter: "blur(10px)",
+          }}
+        />
+      ) : null}
+      {/* Barrel body — warm chocolate when aging, cool slate when
+          waiting on cards. The hoops also lose their brass shine on
+          non-aging so the whole silhouette reads as "raw." */}
       <div
         className="relative"
         style={{
           width: 122,
           height: 148,
           borderRadius: "44% / 16%",
-          background:
-            "repeating-linear-gradient(90deg," +
-            "#3a2515 0px, #3a2515 14px," +
-            "#2a1a10 14px, #2a1a10 16px," +
-            "#43321f 16px, #43321f 30px," +
-            "#321f12 30px, #321f12 32px)," +
-            "linear-gradient(180deg, #4a341f 0%, #2a1a0e 100%)",
-          boxShadow:
-            "inset 0 4px 8px rgba(255,255,255,.10), inset 0 -8px 18px rgba(0,0,0,.55), inset 10px 0 14px rgba(0,0,0,.55), inset -10px 0 14px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.55)",
+          background: isAging
+            ? "repeating-linear-gradient(90deg," +
+              "#3a2515 0px, #3a2515 14px," +
+              "#2a1a10 14px, #2a1a10 16px," +
+              "#43321f 16px, #43321f 30px," +
+              "#321f12 30px, #321f12 32px)," +
+              "linear-gradient(180deg, #4a341f 0%, #2a1a0e 100%)"
+            : // Neutral grey staves — reads as "raw / under construction"
+              // and clearly distinct from aging's charred-bourbon wood.
+              "repeating-linear-gradient(90deg," +
+              "#3a3d42 0px, #3a3d42 14px," +
+              "#25272a 14px, #25272a 16px," +
+              "#4a4e54 16px, #4a4e54 30px," +
+              "#2e3034 30px, #2e3034 32px)," +
+              "linear-gradient(180deg, #444851 0%, #1d1f22 100%)",
+          boxShadow: isAging
+            ? "inset 0 4px 8px rgba(255,255,255,.10), inset 0 -8px 18px rgba(0,0,0,.55), inset 10px 0 14px rgba(0,0,0,.55), inset -10px 0 14px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.55)"
+            : // No warm inner glow; outer shadow stays so it still
+              // looks like a 3D object.
+              "inset 0 4px 8px rgba(255,255,255,.05), inset 0 -10px 22px rgba(0,0,0,.65), inset 10px 0 14px rgba(0,0,0,.55), inset -10px 0 14px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.55)",
         }}
       >
-        {/* Five brass hoops */}
-        <Hoop top={8} />
-        <Hoop top={26} />
-        <Hoop top="50%" />
-        <Hoop bottom={26} />
-        <Hoop bottom={8} />
+        {/* Five hoops — brass on aging, iron-grey on non-aging. */}
+        <Hoop top={8} dim={!isAging} />
+        <Hoop top={26} dim={!isAging} />
+        <Hoop top="50%" dim={!isAging} />
+        <Hoop bottom={26} dim={!isAging} />
+        <Hoop bottom={8} dim={!isAging} />
 
-        {/* Top lid */}
-        <span
-          aria-hidden
-          className="absolute left-1/2 top-1 -translate-x-1/2"
-          style={{
-            width: "86%",
-            height: 14,
-            borderRadius: "50%",
-            background:
-              "radial-gradient(60% 100% at 50% 30%, #3d2615 0%, #1c1108 100%)",
-            boxShadow:
-              "inset 0 2px 3px rgba(255,255,255,.15), inset 0 -3px 4px rgba(0,0,0,.5)",
-          }}
-        />
+        {/* Top lid — kept on aging, "open" (gap with darker void)
+            on non-aging so it reads as "fillable." */}
+        {isAging ? (
+          <span
+            aria-hidden
+            className="absolute left-1/2 top-1 -translate-x-1/2"
+            style={{
+              width: "86%",
+              height: 14,
+              borderRadius: "50%",
+              background:
+                "radial-gradient(60% 100% at 50% 30%, #3d2615 0%, #1c1108 100%)",
+              boxShadow:
+                "inset 0 2px 3px rgba(255,255,255,.15), inset 0 -3px 4px rgba(0,0,0,.5)",
+            }}
+          />
+        ) : (
+          <span
+            aria-hidden
+            className="absolute left-1/2 top-1 -translate-x-1/2"
+            style={{
+              width: "86%",
+              height: 14,
+              borderRadius: "50%",
+              background:
+                "radial-gradient(60% 100% at 50% 60%, #050403 0%, #0a0805 75%, #1a1410 100%)",
+              boxShadow:
+                "inset 0 2px 4px rgba(0,0,0,.85), inset 0 -1px 2px rgba(0,0,0,.5)",
+            }}
+          />
+        )}
 
-        {/* Year medallion */}
-        <span
-          aria-hidden
-          className={`absolute left-1/2 top-1/2 grid h-[50px] w-[50px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full ${isAging ? "ember" : ""}`}
-          style={{
-            background:
-              "radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%)",
-            boxShadow: `inset 0 2px 3px rgba(255,255,255,.4), inset 0 -2px 4px rgba(0,0,0,.5), 0 0 12px ${band.glow}`,
-          }}
-        >
+        {/* Center plate — year medallion on aging barrels, needed-
+            resources stack on barrels waiting for cards. */}
+        {isAging ? (
           <span
-            className="font-display text-[22px] font-bold leading-none"
-            style={{ color: "#2a1a10" }}
+            aria-hidden
+            className="ember absolute left-1/2 top-1/2 grid h-[50px] w-[50px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%)",
+              boxShadow: `inset 0 2px 3px rgba(255,255,255,.4), inset 0 -2px 4px rgba(0,0,0,.5), 0 0 12px ${band.glow}`,
+            }}
           >
-            {barrel.age}
+            <span
+              className="font-display text-[22px] font-bold leading-none"
+              style={{ color: "#2a1a10" }}
+            >
+              {barrel.age}
+            </span>
+            <span
+              className="absolute bottom-[5px] font-mono text-[7px] font-bold tracking-[.2em]"
+              style={{ color: "#2a1a10" }}
+            >
+              YR
+            </span>
           </span>
-          <span
-            className="absolute bottom-[5px] font-mono text-[7px] font-bold tracking-[.2em]"
-            style={{ color: "#2a1a10" }}
-          >
-            YR
-          </span>
-        </span>
+        ) : (
+          <BarrelNeedsPlate needs={needs} />
+        )}
       </div>
     </div>
   );
@@ -768,9 +828,13 @@ function Barrel({
 function Hoop({
   top,
   bottom,
+  dim = false,
 }: {
   top?: number | string;
   bottom?: number | string;
+  /** When true, render an iron-grey hoop (used on non-aging barrels)
+   *  so the barrel reads as "raw" — no brass shine. */
+  dim?: boolean;
 }) {
   return (
     <span
@@ -784,12 +848,121 @@ function Hoop({
               ? `${bottom}px`
               : bottom
             : undefined,
-        background:
-          "linear-gradient(180deg, #f0c970 0%, #c69d52 50%, #6b3d1d 100%)",
-        boxShadow:
-          "inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.4)",
+        background: dim
+          ? "linear-gradient(180deg, #6e6457 0%, #4a4338 50%, #1f1c17 100%)"
+          : "linear-gradient(180deg, #f0c970 0%, #c69d52 50%, #6b3d1d 100%)",
+        boxShadow: dim
+          ? "inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 0 rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.4)"
+          : "inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.4)",
       }}
     />
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Needs helpers — compute what the barrel is still waiting on and
+// render them as a stack of `[count]× [glyph]` rows on the barrel.
+// ─────────────────────────────────────────────────────────────────────
+
+type SubKey = "cask" | "corn" | "rye" | "barley" | "wheat";
+
+interface BarrelNeed {
+  subtype: SubKey;
+  count: number;
+}
+
+/**
+ * What's still required to advance this barrel to aging — recipe
+ * minimums minus already-committed cards. Mirrors MashPips' tally
+ * logic but returns the OUTSTANDING counts only (positives) so the
+ * caller can render a compact "still needs" overlay.
+ *
+ * Subtypes appear in the canonical cask→corn→rye→barley→wheat order
+ * so multiple barrels read consistently.
+ */
+function computeBarrelNeeds(barrel: Barrel): BarrelNeed[] {
+  const tally: Record<SubKey, number> = {
+    cask: 0,
+    corn: 0,
+    rye: 0,
+    barley: 0,
+    wheat: 0,
+  };
+  for (const c of barrel.productionCards) {
+    if (c.type !== "resource" || !c.subtype) continue;
+    const n = c.resourceCount ?? 1;
+    if (c.subtype in tally) tally[c.subtype as SubKey] += n;
+  }
+  const recipe = barrel.attachedMashBill?.recipe ?? {};
+  const mins: Record<SubKey, number> = {
+    cask: 1,
+    corn: Math.max(1, recipe.minCorn ?? 0),
+    rye: recipe.minRye ?? 0,
+    barley: recipe.minBarley ?? 0,
+    wheat: recipe.minWheat ?? 0,
+  };
+  const out: BarrelNeed[] = [];
+  for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as SubKey[]) {
+    const need = Math.max(0, mins[sub] - tally[sub]);
+    if (need > 0) out.push({ subtype: sub, count: need });
+  }
+  return out;
+}
+
+/**
+ * Center plate shown on non-aging barrels in place of the year
+ * medallion — a stack of "Nx [glyph]" rows for every resource the
+ * barrel is still missing. Falls back to a soft "?" disc when there
+ * are no outstanding needs (covers the unlikely race where the
+ * barrel transitions out of aging or has a recipe with everything
+ * already committed).
+ */
+function BarrelNeedsPlate({ needs }: { needs: BarrelNeed[] }) {
+  if (needs.length === 0) {
+    return (
+      <span
+        aria-hidden
+        className="absolute left-1/2 top-1/2 grid h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle at 35% 30%, rgba(125,166,223,.55), rgba(50,80,120,.55) 65%, rgba(20,30,50,.55) 100%)",
+          boxShadow:
+            "inset 0 2px 4px rgba(255,255,255,.2), inset 0 -2px 6px rgba(0,0,0,.5), 0 0 14px rgba(125,166,223,.45)",
+        }}
+      >
+        <span className="font-display text-[44px] font-bold leading-none text-sky-100">?</span>
+      </span>
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className="absolute left-1/2 top-1/2 flex w-[108px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-2 rounded-lg px-2 py-3"
+      style={{
+        background:
+          "linear-gradient(180deg, rgba(8,10,14,.92), rgba(4,6,10,.97))",
+        boxShadow:
+          "inset 0 1px 0 rgba(255,255,255,.12), inset 0 -1px 0 rgba(0,0,0,.65), 0 4px 14px rgba(0,0,0,.6)",
+        border: "1.5px solid rgba(125,166,223,.7)",
+        minHeight: 116,
+      }}
+    >
+      <span className="font-mono text-[13px] font-bold uppercase tracking-[.18em] text-sky-200">
+        Needs
+      </span>
+      {needs.slice(0, 4).map((n) => (
+        <span
+          key={n.subtype}
+          className="flex items-center gap-2 font-mono text-[20px] font-bold leading-none"
+          style={{ color: SUB_INK[n.subtype] }}
+        >
+          <span className="tabular-nums">{n.count}×</span>
+          <span className="flex h-6 w-6 items-center justify-center text-[20px] leading-none">
+            {RESOURCE_GLYPH[n.subtype]}
+          </span>
+        </span>
+      ))}
+    </span>
   );
 }
 

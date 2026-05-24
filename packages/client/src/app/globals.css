@@ -488,6 +488,34 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
   animation: ember 3.2s ease-in-out infinite;
 }
 
+/* `.bb-zone-dim` / `.bb-zone-focus` — picker-mode focus dimming. The
+   `useZoneFocusClass` hook returns one of these on every registered
+   zone container; only the focused zone keeps its brightness while
+   every other panel mutes out of the way. Hand-rolled because
+   Tailwind v4's JIT scanner inconsistently emits opacity-N / saturate-N
+   utilities for strings inside hooks, and inline-style assignment
+   wasn't an option when the hook just returns a className. */
+.bb-zone-dim {
+  opacity: 0.3;
+  filter: saturate(0.5);
+  pointer-events: none;
+}
+.bb-zone-focus {
+  filter: brightness(1.05);
+}
+
+/* `bb-construction-pulse` — sky-blue halo behind building (non-aging)
+   barrels. Slow breathing pulse so the eye reads "waiting on you."
+   Paired with the grey stave treatment in DistilleryStage. */
+@keyframes bb-construction-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.95; }
+}
+.bb-construction-glow {
+  animation: bb-construction-pulse 2.6s ease-in-out infinite;
+  will-change: opacity;
+}
+
 /* `pour` — TopBar demand meter brass stripes scroll horizontally. */
 @keyframes pour {
   0%   { background-position: 0 0; }

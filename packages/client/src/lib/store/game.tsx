@@ -74,6 +74,7 @@ import {
   type SocketStatus,
 } from "./socket";
 import type { SpotlightTarget } from "@/app/tutorial/types";
+import { buyDomainForTarget } from "@/app/play/components/buyDomain";
 
 // Storage key is versioned and bumped whenever the engine schema or
 // canonical catalog changes (so legacy saves don't crash on hydrate).
@@ -195,6 +196,10 @@ export interface SellMode {
  */
 export interface LastPurchase {
   card: Card;
+  /** Buyer's player id. Used by PurchaseFlight to route bot purchases
+   *  to the bot's tile in OpponentRail instead of the human's
+   *  discard pile. */
+  ownerId: string;
   seq: number;
 }
 
@@ -244,6 +249,34 @@ export interface LastAge {
 }
 
 /**
+ * Last-drafted-bill snapshot. Bumped on a human's `DRAFT_TAKE_BILL`
+ * (bots are log-only by design). `DraftPickFlight` reads this to play
+ * the card→pile + bill→slot two-part animation that bridges the gap
+ * between the drafting modal closing and the bill appearing in its
+ * new home.
+ *
+ * `billStartRect` is captured by the modal's click handler BEFORE the
+ * dispatch fires, because the modal unmounts in the same render and
+ * the revealed-bill DOM node is gone by the time the flight runs.
+ * The card-spent half of the animation starts from `[data-hand-tray]`
+ * which stays mounted, so it's measured live at flight time.
+ */
+export interface LastDraftPick {
+  /** The hand card the human spent to pay for the bill. */
+  spentCard: Card;
+  /** The mash bill that landed in their slot. */
+  mashBillName: string;
+  /** Destination slot for the bill→slot half of the flight. */
+  slotId: string;
+  ownerId: string;
+  /** Viewport-coords rect of the BillTile at click time. The modal
+   *  unmounts on dispatch, so we capture this synchronously before
+   *  the React render that hides the bill. */
+  billStartRect: { x: number; y: number; w: number; h: number };
+  seq: number;
+}
+
+/**
  * Multiplayer-mode marker. When set, the store is bound to a remote
  * room: `dispatch` sends actions over the WebSocket instead of
  * applying them locally, and the autoplay loop is disabled (the
@@ -271,6 +304,7 @@ interface AtomicStore {
   lastMake: LastMake | null;
   lastSale: LastSale | null;
   lastAge: LastAge | null;
+  lastDraftPick: LastDraftPick | null;
 }
 
 export interface GameStore {
@@ -307,6 +341,17 @@ export interface GameStore {
   setAgeBarrel: (barrelId: string) => void;
   /** Pick a hand card. Auto-fires AGE_BOURBON when both fields are set. */
   setAgeCard: (cardId: string) => void;
+  /** True once the local seat has dismissed the aging-phase intro modal
+   *  for the current aging window. Reset to false the next time the
+   *  player enters an aging window (needsAgeBarrels flips false→true). */
+  ageIntroSeen: boolean;
+  /** Mark the aging-phase intro as seen — dismisses the modal and lets
+   *  the progress banner take over for the remaining picks. */
+  markAgeIntroSeen: () => void;
+  /** Snapshot of how many barrels were ageable when the aging window
+   *  opened. The progress banner uses this to render "N of M aged"
+   *  without drifting as barrels become ineligible mid-phase. */
+  ageTotalThisPhase: number | null;
   /** Interactive draw-bill state, null when not drawing. */
   drawBillMode: DrawBillMode | null;
   startDrawBillMode: () => void;
@@ -375,6 +420,17 @@ export interface GameStore {
   lastSale: LastSale | null;
   /** Animation trigger — most recent AGE_BOURBON snapshot. */
   lastAge: LastAge | null;
+  /** Animation trigger — most recent human DRAFT_TAKE_BILL snapshot.
+   *  Populated only for the local human (bot picks are log-only). */
+  lastDraftPick: LastDraftPick | null;
+  /** Push a draft-pick animation snapshot. Called by DrawBillOverlay
+   *  right after dispatching DRAFT_TAKE_BILL — the modal owns all the
+   *  inputs (spent card, bill, destination slot, captured bill rect),
+   *  so we bypass the capture-from-action plumbing the other flights
+   *  use. The store auto-bumps `seq`. */
+  triggerDraftPickAnimation: (
+    payload: Omit<LastDraftPick, "seq">,
+  ) => void;
   /** When non-null, the store is bound to a remote multi-player room.
    *  See `MultiplayerMode` for what that means for dispatch + autoplay. */
   multiplayerMode: MultiplayerMode | null;
@@ -465,6 +521,9 @@ const Ctx = createContext<GameStore>({
   cancelAgeMode: noop,
   setAgeBarrel: noop,
   setAgeCard: noop,
+  ageIntroSeen: false,
+  markAgeIntroSeen: noop,
+  ageTotalThisPhase: null,
   drawBillMode: null,
   startDrawBillMode: noop,
   cancelDrawBillMode: noop,
@@ -494,6 +553,8 @@ const Ctx = createContext<GameStore>({
   lastMake: null,
   lastSale: null,
   lastAge: null,
+  lastDraftPick: null,
+  triggerDraftPickAnimation: noop,
   multiplayerMode: null,
   multiplayerStatus: "idle",
   roster: [],
@@ -534,6 +595,7 @@ const EMPTY_STORE: AtomicStore = {
   lastMake: null,
   lastSale: null,
   lastAge: null,
+  lastDraftPick: null,
 };
 
 export function GameProvider({ children }: { children: ReactNode }) {
@@ -542,6 +604,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [inspect, setInspect] = useState<InspectPayload | null>(null);
   const [buyMode, setBuyMode] = useState<BuyMode | null>(null);
   const [ageMode, setAgeMode] = useState<AgeMode | null>(null);
+  const [ageIntroSeen, setAgeIntroSeen] = useState<boolean>(false);
+  const [ageTotalThisPhase, setAgeTotalThisPhase] = useState<number | null>(null);
+  // Tracks the previous `needsAgeBarrels` flag for the local seat so the
+  // intro-modal + total-count snapshot reset exactly on the false→true
+  // transition (not every render that satisfies the condition).
+  const prevNeedsAgeRef = useRef<boolean>(false);
   const [drawBillMode, setDrawBillMode] = useState<DrawBillMode | null>(null);
   const [makeMode, setMakeMode] = useState<MakeMode | null>(null);
   const [sellMode, setSellMode] = useState<SellMode | null>(null);
@@ -608,6 +676,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastMake: null,
           lastSale: null,
           lastAge: null,
+          lastDraftPick: null,
         });
       }
       const auto = window.localStorage.getItem(AUTOPLAY_KEY);
@@ -761,6 +830,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [multiplayerMode],
   );
 
+  // Draft-pick animation trigger. The DrawBillOverlay calls this
+  // synchronously after dispatching DRAFT_TAKE_BILL so the
+  // DraftPickFlight overlay can run after the modal unmounts. We
+  // bump the store's `seqCounter` so the new snapshot's `seq` is
+  // strictly greater than any prior animation key — that's what the
+  // flight component's `useEffect` watches to retrigger.
+  const triggerDraftPickAnimation = useCallback(
+    (payload: Omit<LastDraftPick, "seq">) => {
+      setStore((prev) => {
+        const seq = prev.seqCounter + 1;
+        return {
+          ...prev,
+          seqCounter: seq,
+          lastDraftPick: { ...payload, seq },
+        };
+      });
+    },
+    [],
+  );
+
   // ---------------------------------------------------------------
   // Multi-player wiring
   // ---------------------------------------------------------------
@@ -795,6 +884,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             lastMake: null,
             lastSale: null,
             lastAge: null,
+            lastDraftPick: null,
           });
           break;
         case "state":
@@ -1026,21 +1116,82 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // aging commit. The user can still Cancel out (gives up the turn via
   // PASS_TURN); without this, they'd see no UI prompt and wonder why
   // every other action is rejecting.
+  //
+  // v3.2 — also resets ageIntroSeen + snapshots ageTotalThisPhase on the
+  // false→true transition so the AgingPhaseModal can show once per
+  // window and the banner can render a stable "N of M aged" count.
   useEffect(() => {
     const s = store.state;
-    if (!s || s.phase !== "action") return;
+    if (!s || s.phase !== "action") {
+      if (prevNeedsAgeRef.current) {
+        prevNeedsAgeRef.current = false;
+        setAgeIntroSeen(false);
+        setAgeTotalThisPhase(null);
+      }
+      return;
+    }
     const seatId = multiplayerMode
       ? multiplayerMode.playerId
       : s.players.find((p) => !p.isBot)?.id;
     if (!seatId) return;
     const me = s.players.find((p) => p.id === seatId);
     if (!me) return;
-    if (s.players[s.currentPlayerIndex]?.id !== seatId) return;
-    if (!me.needsAgeBarrels) return;
+    if (s.players[s.currentPlayerIndex]?.id !== seatId) {
+      if (prevNeedsAgeRef.current) {
+        prevNeedsAgeRef.current = false;
+        setAgeIntroSeen(false);
+        setAgeTotalThisPhase(null);
+      }
+      return;
+    }
+    if (!me.needsAgeBarrels) {
+      if (prevNeedsAgeRef.current) {
+        prevNeedsAgeRef.current = false;
+        setAgeIntroSeen(false);
+        setAgeTotalThisPhase(null);
+      }
+      return;
+    }
     if (me.needsDemandRoll) return; // demand modal still owns the screen
+    // false→true transition: capture ageable-barrel count for the banner.
+    if (!prevNeedsAgeRef.current) {
+      prevNeedsAgeRef.current = true;
+      setAgeIntroSeen(false);
+      const total = s.allBarrels.filter(
+        (b) =>
+          b.ownerId === seatId &&
+          b.phase === "aging" &&
+          !(b.completedInRound != null && s.round <= b.completedInRound) &&
+          !b.inspectedThisRound &&
+          (!b.agedThisRound || b.extraAgesAvailable > 0),
+      ).length;
+      setAgeTotalThisPhase(total);
+    }
     if (ageMode) return;
     setAgeMode({ pickedBarrelId: null, pickedCardId: null });
   }, [store.state, multiplayerMode, ageMode]);
+
+  const markAgeIntroSeen = useCallback(() => {
+    setAgeIntroSeen(true);
+  }, []);
+
+  // v3.2 — auto-dismiss the inspect modal when control passes to a bot.
+  // The player opened it during their own turn; once the cursor leaves
+  // their seat, the full-screen detail panel just obscures the board
+  // (especially during bot-driven phases like Aging / Sell / Demand).
+  useEffect(() => {
+    if (!inspect) return;
+    const s = store.state;
+    if (!s) return;
+    const seatId = multiplayerMode
+      ? multiplayerMode.playerId
+      : s.players.find((p) => !p.isBot)?.id;
+    if (!seatId) return;
+    const current = s.players[s.currentPlayerIndex];
+    if (!current || current.id !== seatId) {
+      setInspect(null);
+    }
+  }, [store.state, inspect, multiplayerMode]);
 
   // v3.1 — auto-fire age via a useEffect watching ageMode instead of
   // queueing microtasks from inside the setState updater. Two prior
@@ -1095,12 +1246,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const picked = market[target.slotIndex];
     if (!picked) return;
     const cost = picked.cost ?? 1;
-    const laborDomain: "ops" | "market_resource" | "investment" =
-      picked.type === "operations"
-        ? "ops"
-        : picked.type === "investment"
-          ? "investment"
-          : "market_resource";
+    const laborDomain = buyDomainForTarget(picked);
     const laborCardIds = buyMode.spendCardIds.filter((id) => {
       const c = human.hand.find((x) => x.id === id);
       return c?.type === "labor";
@@ -1558,8 +1704,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     if (isActionPhase) {
       // Only step when the cursor is on a bot — humans drive their own turns.
-      const current = state.players[state.currentPlayerIndex];
-      if (!current || current.isBot === false) return;
+      // Exception: a drafting loop is a modal sub-phase where the active
+      // picker (`loop.pickOrder[pickerIndex]`) drives the action, not the
+      // cursor's currentPlayer. The cursor stays parked on the initiator
+      // (often the human) while picks rotate through the table, so gating
+      // on the cursor here would freeze every bot pick inside the loop.
+      // `awaitingHumanInput` above already yields when the *picker* is a
+      // human, so it's safe to skip the cursor check when a loop is live.
+      if (!state.draftingLoop) {
+        const current = state.players[state.currentPlayerIndex];
+        if (!current || current.isBot === false) return;
+      }
     }
 
     // Action-phase pacing: 320ms felt like the bot was machine-gunning
@@ -1627,6 +1782,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastMake: null,
       lastSale: null,
       lastAge: null,
+      lastDraftPick: null,
     });
     setAutoplayState(false);
     setInspect(null);
@@ -1667,6 +1823,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastMake: null,
       lastSale: null,
       lastAge: null,
+      lastDraftPick: null,
     });
     setAutoplayState(false);
     setInspect(null);
@@ -1703,6 +1860,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastMake: null,
           lastSale: null,
           lastAge: null,
+          lastDraftPick: null,
         });
         return;
       }
@@ -1791,6 +1949,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       cancelAgeMode,
       setAgeBarrel,
       setAgeCard,
+      ageIntroSeen,
+      markAgeIntroSeen,
+      ageTotalThisPhase,
       drawBillMode,
       startDrawBillMode,
       cancelDrawBillMode,
@@ -1820,6 +1981,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastMake: store.lastMake,
       lastSale: store.lastSale,
       lastAge: store.lastAge,
+      lastDraftPick: store.lastDraftPick,
+      triggerDraftPickAnimation,
       multiplayerMode,
       multiplayerStatus,
       roster,
@@ -1864,6 +2027,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       cancelAgeMode,
       setAgeBarrel,
       setAgeCard,
+      ageIntroSeen,
+      markAgeIntroSeen,
+      ageTotalThisPhase,
       drawBillMode,
       startDrawBillMode,
       cancelDrawBillMode,
@@ -1889,6 +2055,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       toggleHandSelection,
       clearHandSelection,
       commitHandCardImmediate,
+      triggerDraftPickAnimation,
       multiplayerMode,
       multiplayerStatus,
       roster,
@@ -1955,7 +2122,7 @@ function capturePurchase(
   if (action.type === "BUY_FROM_MARKET" || action.type === "BUY_OPERATIONS_CARD") {
     const bought = prev.state.market[action.marketSlotIndex];
     if (!bought) return prev.lastPurchase;
-    return { card: bought, seq };
+    return { card: bought, ownerId: action.playerId, seq };
   }
   return prev.lastPurchase;
 }

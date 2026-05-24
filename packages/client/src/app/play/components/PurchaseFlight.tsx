@@ -31,7 +31,7 @@ const CARD_W = 100;
 const CARD_H = 140;
 
 export default function PurchaseFlight() {
-  const { lastPurchase } = useGameStore();
+  const { lastPurchase, humanSeatPlayerId } = useGameStore();
   // Local mirror so we keep painting through the animation even after
   // the store moves on to the next purchase.
   const [active, setActive] = useState<
@@ -40,11 +40,16 @@ export default function PurchaseFlight() {
 
   useEffect(() => {
     if (!lastPurchase) return;
-    // Measure the discard tile so the card lands exactly on it. Falls
-    // back to a sensible bottom-left translate if the DOM isn't ready.
-    const target = document.querySelector<HTMLElement>(
-      '[data-purchase-target="discard"]',
-    );
+    // Route the landing: human purchases fly to the discard pile in
+    // the hand tray; bot (or other-seat) purchases fly to that
+    // player's tile in OpponentRail so the visual feedback shows up
+    // where they actually live on screen.
+    const isHuman = lastPurchase.ownerId === humanSeatPlayerId;
+    const target = isHuman
+      ? document.querySelector<HTMLElement>('[data-purchase-target="discard"]')
+      : document.querySelector<HTMLElement>(
+          `[data-opponent-tile="${lastPurchase.ownerId}"]`,
+        );
     let dx = -window.innerWidth * 0.4;
     let dy = window.innerHeight * 0.7;
     if (target) {
@@ -59,7 +64,7 @@ export default function PurchaseFlight() {
     setActive({ card: lastPurchase.card, key: lastPurchase.seq, dx, dy });
     const id = window.setTimeout(() => setActive(null), FLIGHT_MS);
     return () => window.clearTimeout(id);
-  }, [lastPurchase]);
+  }, [lastPurchase, humanSeatPlayerId]);
 
   if (!active) return null;
 
