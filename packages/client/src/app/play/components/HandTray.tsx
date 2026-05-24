@@ -22,7 +22,6 @@ import { useGameStore } from "@/lib/store/game";
 import ActionBar from "./ActionBar";
 import BuyOverlay from "./BuyOverlay";
 import AgeOverlay from "./AgeOverlay";
-import DrawBillOverlay from "./DrawBillOverlay";
 import MakeOverlay from "./MakeOverlay";
 import SellOverlay from "./SellOverlay";
 import PlayerSwatch from "./PlayerSwatch";
@@ -79,11 +78,15 @@ export default function HandTray() {
     >
       {/* Interactive overlays. Only one of these ever paints at a time
           (each gates on its own mode flag); kept mounted here so the
-          mode-pickers can land right above the hand. */}
+          mode-pickers can land right above the hand.
+
+          DrawBillOverlay is mounted at the page root instead, outside
+          ScalingHost — it's a true fullscreen modal and the
+          `transform: scale(...)` on ScalingHost would otherwise scope
+          its `position: fixed` to the design canvas. */}
       <BuyOverlay />
       <AgeOverlay />
       <SellOverlay />
-      <DrawBillOverlay />
       <MakeOverlay />
 
       {/* Action bar — restyled mono brass buttons. */}
