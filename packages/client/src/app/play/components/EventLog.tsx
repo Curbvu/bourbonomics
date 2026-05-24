@@ -60,7 +60,15 @@ export default function EventLog() {
   return (
     <div
       ref={ref}
-      className="scroll-thin max-h-[60vh] overflow-y-auto lg:h-full lg:max-h-none"
+      // Cap height in DESIGN pixels (ScalingHost canvas is 1680×900; the
+      // right rail's header eats ~50px, so 820 leaves the log filling
+      // the rest without spilling). The cap MUST stay fixed regardless
+      // of entry count — otherwise the log grows → ScalingHost's
+      // ResizeObserver fires on the inner div's scrollHeight →
+      // recompute scale → whole canvas visibly resizes on every new
+      // entry. The pre-fix `lg:max-h-none` removed the cap on desktop
+      // and triggered exactly that loop.
+      className="scroll-thin h-[820px] max-h-[820px] overflow-y-auto"
     >
       {log.length === 0 ? (
         <p

@@ -89,6 +89,7 @@ function OpponentCard({
   return (
     <div
       data-bb-zone="opponent-rickhouse"
+      data-opponent-tile={player.id}
       className="flex flex-col gap-2 rounded-[9px] border bg-[linear-gradient(180deg,rgba(34,23,16,.65),rgba(20,14,8,.65))] p-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-colors"
       style={{
         borderColor: isOnClock ? "rgba(240,201,112,.55)" : "var(--rule)",

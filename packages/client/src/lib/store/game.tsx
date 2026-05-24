@@ -195,6 +195,10 @@ export interface SellMode {
  */
 export interface LastPurchase {
   card: Card;
+  /** Buyer's player id. Used by PurchaseFlight to route bot purchases
+   *  to the bot's tile in OpponentRail instead of the human's
+   *  discard pile. */
+  ownerId: string;
   seq: number;
 }
 
@@ -2035,7 +2039,7 @@ function capturePurchase(
   if (action.type === "BUY_FROM_MARKET" || action.type === "BUY_OPERATIONS_CARD") {
     const bought = prev.state.market[action.marketSlotIndex];
     if (!bought) return prev.lastPurchase;
-    return { card: bought, seq };
+    return { card: bought, ownerId: action.playerId, seq };
   }
   return prev.lastPurchase;
 }
