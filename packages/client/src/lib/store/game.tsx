@@ -74,6 +74,7 @@ import {
   type SocketStatus,
 } from "./socket";
 import type { SpotlightTarget } from "@/app/tutorial/types";
+import { buyDomainForTarget } from "@/app/play/components/buyDomain";
 
 // Storage key is versioned and bumped whenever the engine schema or
 // canonical catalog changes (so legacy saves don't crash on hydrate).
@@ -1245,12 +1246,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const picked = market[target.slotIndex];
     if (!picked) return;
     const cost = picked.cost ?? 1;
-    const laborDomain: "ops" | "market_resource" | "investment" =
-      picked.type === "operations"
-        ? "ops"
-        : picked.type === "investment"
-          ? "investment"
-          : "market_resource";
+    const laborDomain = buyDomainForTarget(picked);
     const laborCardIds = buyMode.spendCardIds.filter((id) => {
       const c = human.hand.find((x) => x.id === id);
       return c?.type === "labor";

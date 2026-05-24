@@ -20,6 +20,7 @@ import {
   type Card,
   type GameState,
 } from "@bourbonomics/engine";
+import { buyDomainForTarget } from "./buyDomain";
 import { MoneyText } from "./money";
 
 export default function BuyOverlay() {
@@ -30,12 +31,7 @@ export default function BuyOverlay() {
 
   const target = resolveTarget(state, buyMode.pickedTarget);
   const cost = target?.cost ?? null;
-  const laborDomain: "ops" | "market_resource" | "investment" =
-    target?.type === "operations"
-      ? "ops"
-      : target?.type === "investment"
-        ? "investment"
-        : "market_resource";
+  const laborDomain = target ? buyDomainForTarget(target.card) : "market_resource";
 
   // only Labor cards contribute. Non-Labor selections in
   // `spendCardIds` are ignored at confirm time (store filter); we
@@ -66,9 +62,23 @@ export default function BuyOverlay() {
     prompt = "Ready to buy. Confirm to dispatch.";
   }
 
+  // v3.4: floating bar — used to be in-flow inside HandTray, which
+  // pushed the action bar / status / hand fan downward whenever the
+  // player entered buy mode. Now `position: fixed` above the action
+  // bar so the rest of the screen stays put. Mount point in HandTray
+  // is unchanged; only the layout stance moved.
   return (
-    <div className="border-t border-amber-700/60 bg-gradient-to-b from-amber-900/40 to-slate-950 px-[18px] py-2">
-      <div className="flex flex-wrap items-center gap-3">
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-0 z-40 flex justify-center animate-bb-tour-pop"
+      // Anchor just above the action bar (~38px tall). Adjust if the
+      // action bar's height ever changes meaningfully.
+      style={{ bottom: 42 }}
+    >
+      <div
+        className="pointer-events-auto mx-3 flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/70 bg-gradient-to-b from-amber-900/85 to-slate-950/95 px-4 py-2 shadow-[0_-2px_24px_rgba(240,201,112,.25),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-md"
+      >
         <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-amber-100">
           Buying
         </span>

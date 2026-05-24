@@ -73,7 +73,7 @@ const TIER_GLOW: Record<string, string> = {
 };
 
 export default function MarketRow() {
-  const { state, multiplayerMode, startBuyMode, setBuyTarget } = useGameStore();
+  const { state, multiplayerMode, startBuyMode, setBuyTarget, buyMode } = useGameStore();
   if (!state) return null;
 
   // Mirror DistilleryStage's seat-id logic so the affordability check
@@ -187,6 +187,7 @@ export default function MarketRow() {
               card={card}
               slotIndex={i}
               affordable={reputation >= (card.cost ?? 1)}
+              picked={buyMode?.pickedTarget?.slotIndex === i}
               onBuy={() => onCardBuy(i, reputation >= (card.cost ?? 1))}
             />
           ))}
@@ -303,11 +304,13 @@ function MarketRowCard({
   card,
   slotIndex,
   affordable,
+  picked,
   onBuy,
 }: {
   card: Card;
   slotIndex: number;
   affordable: boolean;
+  picked: boolean;
   onBuy: () => void;
 }) {
   const { kindLabel, glyph, subInk, tier } = resolveCardKind(card);
@@ -324,15 +327,22 @@ function MarketRowCard({
   const name = displayName(card);
   const slogan = flavorText(card);
 
+  // v3.4: when this slot is the picked target in buy mode, lock in
+  // amber chrome so the player's eye keeps the "this is what you're
+  // buying" anchor as they move to the hand. Hover state skips while
+  // picked so it doesn't overwrite the ring.
+  const pickedShadow =
+    "inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 3px rgba(252,211,77,.85), 0 0 28px rgba(252,211,77,.45)";
+
   // Hover lift handled inline via style mutation (mockup pattern). The
   // CSS transition declared on the button animates both directions.
   const onMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (dim) return;
+    if (dim || picked) return;
     e.currentTarget.style.transform = "translateY(-4px)";
     e.currentTarget.style.boxShadow = `inset 0 1px 0 rgba(255,255,255,.08), 0 10px 24px ${tierGlow}, 0 0 0 1px ${tierInk}99`;
   };
   const onMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (dim) return;
+    if (dim || picked) return;
     e.currentTarget.style.transform = "translateY(0)";
     e.currentTarget.style.boxShadow = `inset 0 1px 0 rgba(255,255,255,.06), 0 4px 12px ${tierGlow}`;
   };
@@ -345,6 +355,7 @@ function MarketRowCard({
       onMouseLeave={onMouseLeave}
       disabled={dim}
       data-market-slot-index={slotIndex}
+      data-market-picked={picked || undefined}
       className="relative flex flex-col text-left"
       style={{
         flexShrink: 0,
@@ -352,18 +363,26 @@ function MarketRowCard({
         height: 212,
         padding: "11px 12px 12px 12px",
         borderRadius: 9,
-        border: `1px solid ${dim ? "var(--rule)" : `${tierInk}66`}`,
+        border: `1px solid ${picked ? "rgba(252,211,77,.9)" : dim ? "var(--rule)" : `${tierInk}66`}`,
         background: dim
           ? "linear-gradient(180deg, rgba(34,23,16,.55), rgba(20,14,8,.85))"
           : `linear-gradient(180deg, ${tierInk}1f 0%, rgba(20,14,8,.95) 70%)`,
-        boxShadow: dim
-          ? "inset 0 1px 0 rgba(255,255,255,.04)"
-          : `inset 0 1px 0 rgba(255,255,255,.06), 0 4px 12px ${tierGlow}`,
+        boxShadow: picked
+          ? pickedShadow
+          : dim
+            ? "inset 0 1px 0 rgba(255,255,255,.04)"
+            : `inset 0 1px 0 rgba(255,255,255,.06), 0 4px 12px ${tierGlow}`,
+        transform: picked ? "translateY(-4px)" : undefined,
         color: "var(--ink)",
         cursor: dim ? "not-allowed" : "pointer",
         opacity: dim ? 0.55 : 1,
-        transition:
-          "transform 200ms cubic-bezier(.22,1,.36,1), box-shadow 200ms ease, border-color 200ms ease",
+        // Picked path skips the box-shadow/border transition because
+        // an upstream cascade quirk leaves the transitioned values
+        // pinned to their start. Transform still animates so the lift
+        // reads as a deliberate "selected" affordance.
+        transition: picked
+          ? "transform 200ms cubic-bezier(.22,1,.36,1)"
+          : "transform 200ms cubic-bezier(.22,1,.36,1), box-shadow 200ms ease, border-color 200ms ease",
         scrollSnapAlign: "start",
       }}
     >
