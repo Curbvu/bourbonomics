@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import AgingPhaseModal from "./components/AgingPhaseModal";
+import CardInspectModal from "./components/CardInspectModal";
 import DemandRollModal from "./components/DemandRollModal";
 import DistilleryDraftModal from "./components/DistilleryDraftModal";
 import DraftPickFlight from "./components/DraftPickFlight";
@@ -84,6 +85,10 @@ export default function PlayPage() {
           ScalingHost) so its `fixed inset-0` covers the full viewport
           rather than being scoped to the scaled design canvas. */}
       <DrawBillOverlay />
+      {/* CardInspectModal — same containing-block reason: a fullscreen
+          backdrop that needs to cover the right rail (which sits
+          outside ScalingHost on wide screens). */}
+      <CardInspectModal />
       {/* Draft-pick flight — fires when the human commits a bill.
           Page-root mount for the same containing-block reason; sibling
           to the modal so the flight starts the same frame the modal

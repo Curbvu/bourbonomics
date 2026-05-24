@@ -37,7 +37,6 @@
 
 import { useEffect } from "react";
 import { useGameStore } from "@/lib/store/game";
-import CardInspectModal from "./CardInspectModal";
 import GameOverPanel from "./GameOverPanel";
 import HandTray from "./HandTray";
 import AgeFlight from "./AgeFlight";
@@ -162,8 +161,9 @@ export default function GameBoard() {
           via MarketRow cards skip the drawer entirely. */}
       <MarketDrawer open={marketOpen} onClose={cancelBuyMode} />
 
-      {/* Modal stack — preserved unchanged. */}
-      <CardInspectModal />
+      {/* CardInspectModal mounts at the page root (see play/page.tsx)
+          so its `position: fixed` covers the full viewport rather
+          than being scoped to the scaled design canvas (ScalingHost). */}
 
       {/* Flight animations — preserved unchanged. */}
       <PurchaseFlight />

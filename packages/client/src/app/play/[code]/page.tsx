@@ -21,6 +21,7 @@
 import { use, useEffect, useState } from "react";
 
 import AgingPhaseModal from "../components/AgingPhaseModal";
+import CardInspectModal from "../components/CardInspectModal";
 import DemandRollModal from "../components/DemandRollModal";
 import DistilleryDraftModal from "../components/DistilleryDraftModal";
 import DraftPickFlight from "../components/DraftPickFlight";
@@ -227,6 +228,8 @@ export default function PlayCodePage({ params }: Props) {
           ScalingHost) so its `fixed inset-0` covers the full viewport
           rather than being scoped to the scaled design canvas. */}
       <DrawBillOverlay />
+      {/* CardInspectModal — same containing-block reason. */}
+      <CardInspectModal />
       {/* Draft-pick flight — fires when the human commits a bill.
           Page-root mount for the same containing-block reason. */}
       <DraftPickFlight />
