@@ -82,45 +82,54 @@ export default function DistilleryStage() {
   return (
     <section
       data-bb-zone="distillery-stage"
-      className={`bb-panel bb-panel--stage flex min-h-0 flex-col gap-3.5 px-[22px] py-4 ${focusClass}`}
-      style={focusStyle}
+      className="bb-panel bb-panel--stage flex min-h-0 flex-col"
     >
-      {/* 1. Stage tag strip */}
-      <div className="flex items-baseline gap-3">
-        <span className="stage-tag">Your Distillery</span>
-        <span
-          aria-hidden
-          className="h-px flex-1"
-          style={{
-            background: "linear-gradient(90deg, var(--rule), transparent)",
-          }}
+      {/* Content wrapper takes the picker-focus dim. The section
+          itself stays at opacity:1 so children rendered outside this
+          wrapper (the BuyOverlay) aren't multiplied by the rickhouse
+          dim — CSS `opacity` builds a stacking context and would
+          otherwise drag the modal down to 30% during a buy. */}
+      <div
+        className={`flex min-h-0 flex-1 flex-col gap-3.5 px-[22px] py-4 ${focusClass}`}
+        style={focusStyle}
+      >
+        {/* 1. Stage tag strip */}
+        <div className="flex items-baseline gap-3">
+          <span className="stage-tag">Your Distillery</span>
+          <span
+            aria-hidden
+            className="h-px flex-1"
+            style={{
+              background: "linear-gradient(90deg, var(--rule), transparent)",
+            }}
+          />
+          <span className="label-sm">
+            <span style={{ color: "var(--gold)" }}>{filled}</span>
+            <span style={{ color: "var(--mute)" }}>/{slotsTotal} slots</span>
+          </span>
+        </div>
+
+        {/* 2. Identity plate */}
+        <IdentityPlate
+          name={distillery.name}
+          flavor={distillery.flavorText ?? ""}
+          ability={distillery.cardText ?? ""}
+          rep={player.reputation}
+          sold={player.barrelsSold}
         />
-        <span className="label-sm">
-          <span style={{ color: "var(--gold)" }}>{filled}</span>
-          <span style={{ color: "var(--mute)" }}>/{slotsTotal} slots</span>
-        </span>
+
+        {/* 3. Rickhouse stage */}
+        <Rickhouse
+          slots={player.rickhouseSlots}
+          barrels={myBarrels}
+          state={state}
+          isHumanRow={true}
+        />
       </div>
 
-      {/* 2. Identity plate */}
-      <IdentityPlate
-        name={distillery.name}
-        flavor={distillery.flavorText ?? ""}
-        ability={distillery.cardText ?? ""}
-        rep={player.reputation}
-        sold={player.barrelsSold}
-      />
-
-      {/* 3. Rickhouse stage */}
-      <Rickhouse
-        slots={player.rickhouseSlots}
-        barrels={myBarrels}
-        state={state}
-        isHumanRow={true}
-      />
-
-      {/* Buy-purchase panel — mounts here (not in HandTray) so its
-          `absolute inset-0` covers exactly this distillery section
-          while the market row + action bar stay visible. */}
+      {/* Buy-purchase panel — sibling of the dim-wrapper so its
+          `absolute inset-0` covers the section without inheriting
+          the picker-focus opacity. */}
       <BuyOverlay />
     </section>
   );
