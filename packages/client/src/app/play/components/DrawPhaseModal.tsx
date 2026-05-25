@@ -19,15 +19,62 @@ import { useGameStore } from "@/lib/store/game";
 const FAN_REVEAL_MS = 700;
 
 export default function DrawPhaseModal() {
-  const { state, autoplay, humanSeatPlayerId, dispatch } = useGameStore();
+  const {
+    state,
+    autoplay,
+    humanSeatPlayerId,
+    dispatch,
+    yearPassDismissedForRound,
+  } = useGameStore();
   const [stage, setStage] = useState<"idle" | "drawing" | "settled">("idle");
   // Guard against React strict-mode double-dispatching the same draw.
   const dispatchedRef = useRef<number>(-1);
+  // Guard against the auto-trigger effect firing twice for the same
+  // round (e.g., dependency churn after the YearPass dismissal).
+  const autoStartedRef = useRef<number>(-1);
 
   const round = state?.round ?? 0;
   useEffect(() => {
     setStage("idle");
+    autoStartedRef.current = -1;
   }, [round]);
+
+  // Auto-trigger the fan animation as soon as the player is ready to
+  // see it — round 1 immediately, round 2+ once they've dismissed the
+  // YearPassModal interstitial. Replaces the old "Draw cards ↵" button
+  // (the player is going to draw their hand regardless; the click was
+  // ceremony, not choice).
+  const phase = state?.phase;
+  const human = humanSeatPlayerId
+    ? state?.players.find((p) => p.id === humanSeatPlayerId)
+    : null;
+  const humanHasDrawn = human
+    ? state?.playerIdsCompletedPhase.includes(human.id) ?? false
+    : false;
+  const yearPassCleared =
+    round === 1 || yearPassDismissedForRound === round;
+  useEffect(() => {
+    if (autoplay) return;
+    if (phase !== "draw") return;
+    if (!human) return;
+    if (humanHasDrawn) return;
+    if (!yearPassCleared) return;
+    if (autoStartedRef.current === round) return;
+    if (stage !== "idle") return;
+    if (dispatchedRef.current === round) return;
+    autoStartedRef.current = round;
+    setStage("drawing");
+    const id = window.setTimeout(() => setStage("settled"), FAN_REVEAL_MS);
+    return () => window.clearTimeout(id);
+  }, [
+    autoplay,
+    phase,
+    human,
+    humanHasDrawn,
+    yearPassCleared,
+    round,
+    stage,
+  ]);
 
   // After the fan animation, dispatch DRAW_HAND once per round.
   // `humanSeatPlayerId` is THIS connection's seat — in MP each
@@ -49,26 +96,7 @@ export default function DrawPhaseModal() {
   if (!state) return null;
   if (state.phase !== "draw") return null;
   if (autoplay) return null;
-
-  const human = humanSeatPlayerId
-    ? state.players.find((p) => p.id === humanSeatPlayerId)
-    : null;
   if (!human) return null;
-
-  // v3.1: stay mounted during the gap between "human drew" and "phase
-  // flips to action." Otherwise the player saw a stark few-hundred-ms
-  // window of bare board between the draw modal disappearing and the
-  // demand-roll modal appearing — the choppy transition the user
-  // flagged. With a "waiting on opponents" state the dim never lifts;
-  // the next modal slides in over the same backdrop.
-  const humanHasDrawn = state.playerIdsCompletedPhase.includes(human.id);
-
-  const startDraw = () => {
-    if (stage !== "idle") return;
-    if (dispatchedRef.current === round) return;
-    setStage("drawing");
-    window.setTimeout(() => setStage("settled"), FAN_REVEAL_MS);
-  };
 
   const willDrawCount = Math.min(human.handSize, human.deck.length + human.discard.length);
 
@@ -121,23 +149,19 @@ export default function DrawPhaseModal() {
             discardLeft={human.discard.length}
           />
 
-          <button
-            type="button"
-            onClick={startDraw}
-            disabled={stage !== "idle"}
-            className={[
-              "rounded-md border px-6 py-2.5 font-sans text-sm font-bold uppercase tracking-[.05em] transition-all",
-              stage === "idle"
-                ? "border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 text-slate-950 shadow-[0_0_0_3px_rgba(251,191,36,0.30),inset_0_1px_0_rgba(255,255,255,0.25)] hover:from-amber-200 hover:to-amber-400"
-                : "cursor-not-allowed border-slate-700 bg-slate-900 text-slate-600 shadow-none",
-            ].join(" ")}
+          {/* Passive status caption — the draw now auto-fires from the
+              effect above; the only feedback the player needs is which
+              part of the animation they're watching. */}
+          <span
+            className="font-mono text-[10px] uppercase tracking-[.18em] text-indigo-300/80"
+            aria-live="polite"
           >
             {stage === "idle"
-              ? "Draw cards ↵"
+              ? "Pulling your hand…"
               : stage === "drawing"
                 ? "Drawing…"
                 : "Drawn ✓"}
-          </button>
+          </span>
         </div>
       )}
     </div>

@@ -394,6 +394,16 @@ export interface GameStore {
   /** Mark the aging-phase intro as seen — dismisses the modal and lets
    *  the progress banner take over for the remaining picks. */
   markAgeIntroSeen: () => void;
+  /** Round number whose YearPassModal the local seat dismissed. `null`
+   *  before any dismissal this game; the value naturally invalidates on
+   *  the next round (round 5 dismissal !== current round 6) so no reset
+   *  effect is needed. Drives DrawPhaseModal's auto-trigger: once this
+   *  matches `state.round`, the draw animation fires without the player
+   *  having to click a second button. */
+  yearPassDismissedForRound: number | null;
+  /** Stamp the current round as the dismissed one — fires when the
+   *  player clicks "Begin year" (or hits Enter/Space) in YearPassModal. */
+  markYearPassDismissed: () => void;
   /** Snapshot of how many barrels were ageable when the aging window
    *  opened. The progress banner uses this to render "N of M aged"
    *  without drifting as barrels become ineligible mid-phase. */
@@ -572,6 +582,8 @@ const Ctx = createContext<GameStore>({
   setAgeCard: noop,
   ageIntroSeen: false,
   markAgeIntroSeen: noop,
+  yearPassDismissedForRound: null,
+  markYearPassDismissed: noop,
   ageTotalThisPhase: null,
   drawBillMode: null,
   startDrawBillMode: noop,
@@ -683,6 +695,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [buyMode, setBuyMode] = useState<BuyMode | null>(null);
   const [ageMode, setAgeMode] = useState<AgeMode | null>(null);
   const [ageIntroSeen, setAgeIntroSeen] = useState<boolean>(false);
+  const [yearPassDismissedForRound, setYearPassDismissedForRound] = useState<
+    number | null
+  >(null);
   const [ageTotalThisPhase, setAgeTotalThisPhase] = useState<number | null>(null);
   // Tracks the previous `needsAgeBarrels` flag for the local seat so the
   // intro-modal + total-count snapshot reset exactly on the false→true
@@ -1273,6 +1288,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const markAgeIntroSeen = useCallback(() => {
     setAgeIntroSeen(true);
   }, []);
+
+  // YearPassModal "Begin year" handler — stamps the current round so
+  // DrawPhaseModal's auto-trigger fires the fan animation immediately.
+  // The value naturally invalidates the next round (state.round !==
+  // dismissedForRound), no reset effect needed.
+  const markYearPassDismissed = useCallback(() => {
+    setYearPassDismissedForRound(store.state?.round ?? null);
+  }, [store.state]);
 
   // v3.2 — auto-dismiss the inspect modal when control passes to a bot.
   // The player opened it during their own turn; once the cursor leaves
@@ -2053,6 +2076,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setAgeCard,
       ageIntroSeen,
       markAgeIntroSeen,
+      yearPassDismissedForRound,
+      markYearPassDismissed,
       ageTotalThisPhase,
       drawBillMode,
       startDrawBillMode,
@@ -2134,6 +2159,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setAgeCard,
       ageIntroSeen,
       markAgeIntroSeen,
+      yearPassDismissedForRound,
+      markYearPassDismissed,
       ageTotalThisPhase,
       drawBillMode,
       startDrawBillMode,

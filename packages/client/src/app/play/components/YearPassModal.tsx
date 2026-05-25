@@ -16,7 +16,7 @@
  * straight through draw).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import type { GameAction, GameState } from "@bourbonomics/engine";
 import { useGameStore, type LogEntry } from "@/lib/store/game";
@@ -103,17 +103,15 @@ function summarizeRound(
 }
 
 export default function YearPassModal() {
-  const { state, autoplay, humanSeatPlayerId, log, seatMeta } = useGameStore();
-  const [dismissedRound, setDismissedRound] = useState<number | null>(null);
-
-  // Reset the dismissal guard whenever the round actually changes —
-  // otherwise dismissing on round 4 would auto-dismiss round 5.
-  const round = state?.round ?? 0;
-  useEffect(() => {
-    if (dismissedRound != null && dismissedRound !== round) {
-      setDismissedRound(null);
-    }
-  }, [round, dismissedRound]);
+  const {
+    state,
+    autoplay,
+    humanSeatPlayerId,
+    log,
+    seatMeta,
+    yearPassDismissedForRound,
+    markYearPassDismissed,
+  } = useGameStore();
 
   // Compute visibility BEFORE the early returns so the keyboard effect
   // can gate on the same condition. Avoids attaching a global keydown
@@ -127,27 +125,28 @@ export default function YearPassModal() {
       humanSeatPlayerId &&
       human &&
       !state.playerIdsCompletedPhase.includes(human.id) &&
-      dismissedRound !== state.round,
+      yearPassDismissedForRound !== state.round,
   );
 
   // Keyboard: Enter / Space dismisses, matching the other phase modals'
   // ↵ affordance. Only attach while the modal is showing — otherwise
   // we'd intercept Enter on every page (including focused buttons in
   // other modals, which would dispatch them AND dismiss us at once).
-  // preventDefault / stopPropagation so a focused "Draw cards" button
-  // underneath doesn't fire from the same keypress.
+  // preventDefault / stopPropagation so the underlying draw-phase auto-
+  // trigger doesn't see the same keypress (it's listening for Enter to
+  // start the draw animation post-dismiss).
   useEffect(() => {
     if (!isVisible) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         e.stopPropagation();
-        if (state) setDismissedRound(state.round);
+        markYearPassDismissed();
       }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [isVisible, state]);
+  }, [isVisible, markYearPassDismissed]);
 
   if (!isVisible || !state || !human) return null;
 
@@ -242,7 +241,7 @@ export default function YearPassModal() {
         <div className="flex justify-center">
           <button
             type="button"
-            onClick={() => setDismissedRound(state.round)}
+            onClick={markYearPassDismissed}
             className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-8 py-2.5 font-sans text-sm font-bold uppercase tracking-[.05em] text-slate-950 shadow-[0_0_0_3px_rgba(251,191,36,0.30),inset_0_1px_0_rgba(255,255,255,0.25)] transition hover:from-amber-200 hover:to-amber-400"
           >
             Begin year ↵
