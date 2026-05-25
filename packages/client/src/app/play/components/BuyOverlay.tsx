@@ -1,17 +1,20 @@
 "use client";
 
 /**
- * BuyOverlay — full-screen purchase modal.
+ * BuyOverlay — purchase panel that overlays the distillery stage.
  *
  * Opens once the player has picked a market card while in Buy mode.
- * Covers the distillery so the purchase reads as the moment that
- * matters — the player can see the target card large, the rep being
- * spent in huge type, and any Labor cards from their hand they're
- * applying. Confirming dispatches BUY_FROM_MARKET.
+ * Mounts as an `absolute inset-0` child of the distillery section so
+ * it covers exactly that rectangle — the player keeps the market row
+ * and action bar visible above/below while the purchase reads as the
+ * moment that matters: target card large, rep being spent in huge
+ * type, any Labor cards from their hand they're applying. Confirming
+ * dispatches BUY_FROM_MARKET.
  *
  * Pre-pick state (Buy mode active but no target yet) shows a small
- * floating hint instead — picking the actual market card happens
- * through the normal market click handlers.
+ * floating hint anchored to the bottom of the same panel — picking
+ * the actual market card happens through the normal market click
+ * handlers up in MarketRow.
  */
 
 import { useEffect } from "react";
@@ -42,16 +45,16 @@ export default function BuyOverlay() {
 
   const target = resolveTarget(state, buyMode.pickedTarget);
 
-  // Pre-pick hint — small floating chip telling the player to click a
-  // market card. The modal itself only mounts once a target exists so
-  // it doesn't sit empty on screen.
+  // Pre-pick hint — small chip pinned to the bottom of the distillery
+  // panel telling the player to click a market card. The full modal
+  // only mounts once a target exists so the panel doesn't go dark
+  // while the player is still picking.
   if (!target) {
     return (
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 z-40 flex justify-center"
-        style={{ bottom: 280 }}
+        className="pointer-events-none absolute inset-x-0 bottom-3 z-40 flex justify-center"
       >
         <div className="pointer-events-auto mx-3 flex items-center gap-3 rounded-lg border border-amber-500/70 bg-gradient-to-b from-amber-900/85 to-slate-950/95 px-4 py-2 shadow-[0_-2px_24px_rgba(240,201,112,.25)] backdrop-blur-md">
           <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-amber-100">
@@ -107,19 +110,20 @@ export default function BuyOverlay() {
       role="dialog"
       aria-modal="true"
       aria-label="Confirm purchase"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur"
+      className="absolute inset-0 z-40 flex items-stretch justify-center overflow-hidden rounded-[12px] bg-slate-950/85 p-3 backdrop-blur"
     >
-      {/* Ambient glow behind the modal — same idiom as the Drafting Loop */}
+      {/* Ambient glow behind the modal — sized to the distillery panel
+          rather than the viewport. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[640px] w-[1100px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[820px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
         style={{
           background:
             "radial-gradient(circle, rgba(251,191,36,0.22) 0%, transparent 65%)",
         }}
       />
 
-      <div className="relative flex max-h-full w-full max-w-[1180px] flex-col gap-6 overflow-y-auto rounded-2xl border-2 border-amber-500/60 bg-gradient-to-b from-slate-950 to-slate-900/95 p-8 shadow-[0_24px_64px_rgba(0,0,0,.55)]">
+      <div className="relative flex w-full flex-col gap-4 overflow-y-auto rounded-xl border-2 border-amber-500/60 bg-gradient-to-b from-slate-950 to-slate-900/95 p-5 shadow-[0_24px_64px_rgba(0,0,0,.55)]">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -144,8 +148,8 @@ export default function BuyOverlay() {
         </div>
 
         {/* Body — target card on the left, huge rep stat on the right */}
-        <div className="grid items-stretch gap-6 md:grid-cols-[auto_1fr]">
-          <div className="flex flex-col items-center gap-3 rounded-xl border border-amber-700/40 bg-slate-950/55 p-5">
+        <div className="grid items-stretch gap-4 md:grid-cols-[auto_1fr]">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-amber-700/40 bg-slate-950/55 p-4">
             <div className="font-mono text-[10px] uppercase tracking-[.18em] text-amber-300/80">
               You're buying
             </div>
@@ -159,13 +163,13 @@ export default function BuyOverlay() {
             />
           </div>
 
-          <div className="flex flex-col items-stretch gap-4 rounded-xl border border-amber-700/40 bg-slate-950/55 p-6">
+          <div className="flex flex-col items-stretch gap-3 rounded-xl border border-amber-700/40 bg-slate-950/55 p-5">
             <div className="text-center">
               <div className="font-mono text-[11px] uppercase tracking-[.22em] text-amber-300/85">
                 Rep you'll spend
               </div>
               <div
-                className={`mt-1 font-display text-[88px] font-bold leading-none tabular-nums drop-shadow-[0_4px_12px_rgba(0,0,0,.55)] ${
+                className={`mt-1 font-display text-[72px] font-bold leading-none tabular-nums drop-shadow-[0_4px_12px_rgba(0,0,0,.55)] ${
                   canAfford ? "text-amber-100" : "text-rose-300"
                 }`}
               >
