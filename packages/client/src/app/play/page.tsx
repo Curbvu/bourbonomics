@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import AgingPhaseModal from "./components/AgingPhaseModal";
 import BotTurnBanner from "./components/BotTurnBanner";
 import CardInspectModal from "./components/CardInspectModal";
 import GameOverPanel from "./components/GameOverPanel";
@@ -85,11 +84,6 @@ export default function PlayPage() {
       <StarterDeckDraftModal />
       <DemandRollModal />
       <DrawPhaseModal />
-      {/* Aging-phase intro — appears the moment the local seat owes
-          aging commits; once dismissed, AgeOverlay's banner takes over
-          for the remaining card→barrel picks. Page-root mount so its
-          `fixed inset-0` covers the full viewport. */}
-      <AgingPhaseModal />
       {/* Drafting-loop modal — mounted at the page root (outside
           ScalingHost) so its `fixed inset-0` covers the full viewport
           rather than being scoped to the scaled design canvas. */}

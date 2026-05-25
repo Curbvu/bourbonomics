@@ -96,8 +96,8 @@ export default function DemandRollModal() {
   if (autoplay) return null;
   // v3.5: never show the dice modal when it's a bot's turn — the engine
   // rolls for them in the same tick and the modal would only flash on
-  // screen before disappearing. Mirrors the local-seat guard already
-  // used by AgingPhaseModal etc.
+  // screen before disappearing. Mirrors the local-seat guard used by
+  // the other phase modals.
   if (state.players[state.currentPlayerIndex]?.isBot) return null;
   // v2.9: each player rolls demand at the top of their own action
   // turn. In MP only the seat the engine is on the clock for sees the

@@ -20,7 +20,6 @@
 
 import { use, useEffect, useState } from "react";
 
-import AgingPhaseModal from "../components/AgingPhaseModal";
 import BotTurnBanner from "../components/BotTurnBanner";
 import CardInspectModal from "../components/CardInspectModal";
 import GameOverPanel from "../components/GameOverPanel";
@@ -229,9 +228,6 @@ export default function PlayCodePage({ params }: Props) {
       <StarterDeckDraftModal />
       <DemandRollModal />
       <DrawPhaseModal />
-      {/* Aging-phase intro — explains the forced aging window once per
-          turn; AgeOverlay takes over for the per-barrel picks. */}
-      <AgingPhaseModal />
       {/* Drafting-loop modal — mounted at the page root (outside
           ScalingHost) so its `fixed inset-0` covers the full viewport
           rather than being scoped to the scaled design canvas. */}
