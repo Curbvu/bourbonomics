@@ -179,6 +179,7 @@ export default function ActionBar() {
           disabledByTurn={disabledByTurn}
           tooltipIdle="End your turn for the round. Cards in hand are held for cleanup."
           primary
+          dataAction="pass"
         />
       </div>
     </div>
@@ -341,6 +342,7 @@ function SmartButton({
   disabledByTurn,
   tooltipIdle,
   primary = false,
+  dataAction,
 }: {
   label: string;
   action: GameAction | null;
@@ -349,6 +351,9 @@ function SmartButton({
   disabledByTurn: boolean;
   tooltipIdle: string;
   primary?: boolean;
+  // Tutorial spotlight hook — when provided, renders `data-bb-action`
+  // so the SpotlightLayer can pin a ring on this button.
+  dataAction?: string;
 }) {
   let enabled = false;
   let tooltip = tooltipIdle;
@@ -374,6 +379,7 @@ function SmartButton({
     : enabled
       ? "rounded-md border border-emerald-700/60 bg-emerald-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-emerald-100 transition-colors hover:border-emerald-400 hover:bg-emerald-800/40"
       : "rounded-md border border-slate-800 bg-slate-950/60 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-slate-600 cursor-not-allowed";
+  const dataAttr = dataAction ? { "data-bb-action": dataAction } : {};
   return (
     <button
       type="button"
@@ -381,6 +387,7 @@ function SmartButton({
       onClick={onClick}
       title={tooltip}
       className={baseClasses}
+      {...dataAttr}
     >
       {label}
     </button>

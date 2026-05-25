@@ -19,6 +19,7 @@ import type { Card, GameState, MashBill } from "./types";
 import {
   makeLaborCard,
   makeMashBill,
+  makePremiumResource,
   makeResourceCard,
 } from "./cards";
 import { buildVanillaDistilleryFor } from "./distilleries";
@@ -86,24 +87,30 @@ export function buildTutorialHeritageBill(idx = 0): MashBill {
 }
 
 /**
- * The Cooper Labor card the player buys in the new Buy beat. Built
- * once with a stable id so the tutorial controller can find it on the
- * conveyor and later re-locate it in the player's discard for the
- * round-2 draw.
+ * The Specialty Wheat (Superior Wheat) resource card the player buys
+ * in the year-1 Buy beat. Built with a stable id so the tutorial
+ * controller can find it on the conveyor and later trace it in the
+ * player's discard.
  *
- * Cooper is Specialty Labor (+2 toward market resource buys). It's
- * the only way new Labor enters the player's deck in the new design,
- * so this beat demonstrates both unified-rep payment (rep + Labor or
- * Labor-only) and the "Specialty Labor enters via market" rule.
+ * Why a resource instead of a Specialty Labor card: year-1 is the
+ * only round where the player still holds the 2 Generic Labor from
+ * their starter hand, so a $2 buy is comfortably affordable. We also
+ * avoid introducing the Labor-domain mechanic this early — the buy
+ * teaches the unified-rep payment (rep + Labor) without piling on a
+ * new card category.
  */
-export function buildTutorialCooperLabor(): Card {
-  const cooper = makeLaborCard({
-    subtype: "cooper",
+export function buildTutorialSpecialtyWheat(): Card {
+  return makePremiumResource({
+    defId: "superior_wheat",
+    displayName: "Superior Wheat",
+    flavor: "Estate harvest, soft as silk.",
+    subtype: "wheat",
+    resourceCount: 1,
+    cost: 2,
+    specialty: true,
     ownerLabel: "tutorial",
     index: 1,
   });
-  cooper.cost = 2;
-  return cooper;
 }
 
 /**
@@ -111,14 +118,12 @@ export function buildTutorialCooperLabor(): Card {
  *
  *   2 cask + 2 corn + 2 rye(common) + 2 Generic Labor (🔨)
  *
- * Sizing rationale: Beat 1 commits 1 cask + 1 corn + 1 rye to
+ * Sizing rationale: the Make beat commits 1 cask + 1 corn + 1 rye to
  * Backroad (3 cards), leaving 1 cask + 1 corn + 1 rye + 2 Labor.
- * The new Cooper-buy beat spends 0 rep + 1 Labor (the Cooper costs
- * $2, fully covered by one Generic Labor +1 plus one rep — or by
- * the player's choice with rep alone). Aging consumes the rest.
- *
- * The 2 Generic Labor in hand are the only Generic Labor this
- * tutorial player will ever own — the central Hire pile is gone.
+ * The year-1 Buy beat picks up the $2 Specialty Wheat — covered by
+ * the 2 Generic Labor in hand (or by rep, since the Vanilla
+ * distillery starts at 5 rep). End-Turn discards the rest and
+ * redraws the backup deck for round 2's Age + Sell beats.
  */
 export function buildTutorialStartingHand(): Card[] {
   const hand: Card[] = [];
@@ -190,14 +195,14 @@ function buildBotStartingBills(): MashBill[] {
 }
 
 /**
- * Conveyor stack for the tutorial. The Cooper Labor card lives at
+ * Conveyor stack for the tutorial. The Specialty Wheat card lives at
  * slot 0 (the only buyable target during the Buy beat); the rest are
  * filler resources. No Capital — the tutorial deck and market contain
  * Labor and resources only.
  */
 function buildTutorialMarketConveyor(): Card[] {
   const cards: Card[] = [];
-  cards.push(buildTutorialCooperLabor());
+  cards.push(buildTutorialSpecialtyWheat());
   // Filler — appears in the conveyor but is not interactive during the
   // tutorial. Distinct cards so they look natural rather than a cloned row.
   let idx = 200;

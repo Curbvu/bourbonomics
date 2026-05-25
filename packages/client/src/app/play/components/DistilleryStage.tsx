@@ -449,6 +449,7 @@ function useSlotInteraction(
     endDragMake,
     selectedHandCardIds,
     clearHandSelection,
+    tutorialSpotlight,
   } = useGameStore();
 
   const [dragHover, setDragHover] = useState(false);
@@ -553,12 +554,31 @@ function useSlotInteraction(
     !barrel.inspectedThisRound &&
     (!barrel.agedThisRound || barrel.extraAgesAvailable > 0);
 
+  // Tutorial sticky-pick: when a tutorial spotlight is anchored on
+  // this rickhouse slot AND the player has already engaged the picker
+  // on this same barrel, swallow a repeat click. Without this the
+  // toggle-off behavior in setAgeBarrel / setSellBarrel turns a
+  // double-click into a "stuck — barrel got un-picked, popup still
+  // says pick a card" state.
+  const spotlitSlotId =
+    tutorialSpotlight?.kind === "rickhouse-slot"
+      ? `slot_${tutorialSpotlight.ownerId}_${tutorialSpotlight.slotIndex}`
+      : null;
+  const tutorialAnchoredToThisSlot =
+    isHumanRow &&
+    tutorialSpotlight != null &&
+    ((spotlitSlotId != null && spotlitSlotId === slot.id) ||
+      (tutorialSpotlight.kind === "rickhouse-row" &&
+        tutorialSpotlight.ownerId === ownerId));
+
   const onClick = () => {
     if (barrel && saleable) {
+      if (tutorialAnchoredToThisSlot && isSellPicked) return;
       setSellBarrel(barrel.id);
       return;
     }
     if (barrel && ageable) {
+      if (tutorialAnchoredToThisSlot && isAgePicked) return;
       setAgeBarrel(barrel.id);
       return;
     }
