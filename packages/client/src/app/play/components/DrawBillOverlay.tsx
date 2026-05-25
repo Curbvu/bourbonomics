@@ -317,7 +317,7 @@ function DraftingLoopModal({
       role="dialog"
       aria-modal="true"
       aria-label="Drafting Loop"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur"
     >
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 h-[600px] w-[1000px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
@@ -327,7 +327,7 @@ function DraftingLoopModal({
         }}
       />
 
-      <div className="relative flex max-h-full w-full max-w-[1180px] flex-col gap-5 overflow-y-auto rounded-xl border border-amber-700/50 bg-gradient-to-b from-slate-950 to-slate-900/95 p-6 shadow-[0_24px_64px_rgba(0,0,0,.55)]">
+      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[1180px] flex-col gap-3 overflow-hidden rounded-xl border border-amber-700/50 bg-gradient-to-b from-slate-950 to-slate-900/95 px-5 py-4 shadow-[0_24px_64px_rgba(0,0,0,.55)]">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -552,8 +552,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-      <div className="mb-2 flex items-baseline justify-between">
+    <div className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
+      <div className="mb-1.5 flex items-baseline justify-between">
         <span className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
           {label}
         </span>
@@ -617,7 +617,7 @@ function BillTile({
       disabled={!interactive}
       data-revealed-bill-id={bill.id}
       className={[
-        "flex w-[280px] flex-col rounded-xl border-2 px-4 py-3.5 text-left transition-transform duration-150",
+        "flex w-[260px] flex-col rounded-xl border-2 px-3 py-2.5 text-left transition-transform duration-150",
         chrome.border,
         chrome.gradient,
         chrome.glow,
@@ -629,17 +629,17 @@ function BillTile({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className={`font-display text-[17px] font-bold leading-tight ${chrome.titleInk}`}>
+          <div className={`font-display text-[16px] font-bold leading-tight ${chrome.titleInk}`}>
             {bill.name}
           </div>
           {bill.slogan ? (
-            <div className="mt-0.5 line-clamp-2 font-display text-[11.5px] italic leading-snug text-slate-400">
+            <div className="mt-0.5 line-clamp-1 font-display text-[11.5px] italic leading-snug text-slate-400">
               “{bill.slogan}”
             </div>
           ) : null}
         </div>
         <span
-          className={`flex-shrink-0 rounded border px-1.5 py-[2px] font-mono text-[12px] font-bold uppercase tracking-[.10em] ${chrome.pill}`}
+          className={`flex-shrink-0 rounded border px-1.5 py-[2px] font-mono text-[11px] font-bold uppercase tracking-[.10em] ${chrome.pill}`}
         >
           {chrome.label_text}
         </span>
@@ -648,7 +648,7 @@ function BillTile({
       {/* Rep table — the full age × demand payout grid, so a player can
           see exactly what each (age band, demand band) cell is worth and
           which cells trigger Silver / Gold. */}
-      <div className="mt-3 rounded border border-amber-700/40 bg-slate-950/55 px-2 py-1.5">
+      <div className="mt-2 rounded border border-amber-700/40 bg-slate-950/55 px-2 py-1.5">
         <div className="mb-1 flex items-baseline justify-between">
           <span className="font-mono text-[11px] font-semibold uppercase tracking-[.14em] text-amber-300/80">
             Rep payout
@@ -662,7 +662,7 @@ function BillTile({
 
       {/* Ingredients — pip glance + chip-style breakdown showing exactly
           which cards the bill consumes. */}
-      <div className="mt-2 rounded border border-slate-800/70 bg-slate-950/40 px-2 py-2">
+      <div className="mt-1.5 rounded border border-slate-800/70 bg-slate-950/40 px-2 py-1.5">
         <div className="mb-1 text-center font-mono text-[11px] uppercase tracking-[.16em] text-slate-500">
           Ingredients
         </div>
