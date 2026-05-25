@@ -371,11 +371,11 @@ Bills move only via the actions listed above — never by Trade.
 
 # 🃏 Hand and Deck
 
-Each player draws **8 cards** at the start of every round (9 if they saved a card last round). No max hand size during a turn.
+Each player draws **8 cards** at the start of round 1 (9 if they saved a card). No max hand size during a turn.
 
-**End Turn = discard + redraw (v3.9).** When a player ends their turn, every resource and Labor card still in hand is sent to discard, and the player immediately redraws back up to **8 cards**. The redraw is the last thing that happens on their turn before the cursor passes to the next seat. Operations cards in hand persist across turns and rounds — they are never discarded by End Turn.
+**End Turn = discard + redraw (v3.9).** When a player ends their turn, every resource and Labor card still in hand is sent to discard and the player immediately redraws back up to **8 cards**. The redraw is the last thing that happens on their turn before the cursor passes to the next seat. Operations cards in hand persist across turns and rounds — they are never discarded by End Turn.
 
-At cleanup (round end), any cards still in hand discard as usual; round-level resets (aging flags, drafting-loop allowance, market refresh, start-player rotation) run in the cleanup phase, and the next round's draw phase deals each player a fresh 8 cards on top of their now-empty hand. In practice, End Turn keeps the hand topped up between turns within a round; the round-end draw is the same shape as the End-Turn redraw.
+There is no second discard at round end. Cleanup runs round-level resets (aging flags, drafting-loop allowance, market refresh, start-player rotation) but leaves each player's hand alone — the v3.9 End-Turn redraw is the source of truth for the next round's starting hand. The round's draw phase still fires for orchestration, but it's a top-up: zero cards drawn when the hand is already at handSize.
 
 The deck contains **resource cards** (cask, corn, grain — premiums come from the market) and **Labor cards** (sweat equity that supplements rep on purchases).
 
