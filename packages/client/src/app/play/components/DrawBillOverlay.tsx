@@ -25,23 +25,21 @@
  *      surface renders as a read-only preview with "Waiting on X…".
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type {
+  AwardCondition,
   Card,
   GameAction,
   MashBill,
-  ResourceSubtype,
 } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import {
-  LABOR_CHROME,
   RESOURCE_CHROME,
   RESOURCE_GLYPH,
-  RESOURCE_LABEL,
-  laborGlyphFor,
 } from "./handCardStyles";
-import { TIER_CHROME, tierOrCommon } from "./tierStyles";
+import { TIER_CHROME, tierOrCommon, type TierChrome } from "./tierStyles";
 import RecipePips from "./RecipePips";
+import HandCardTile from "./HandCardTile";
 
 export default function DraftingLoopOverlay() {
   const {
@@ -400,12 +398,13 @@ function DraftingLoopModal({
             ) : (
               <div className="flex flex-wrap items-stretch gap-1.5">
                 {draftPile.map((card) => (
-                  <CardTile
+                  <HandCardTile
                     key={card.id}
                     card={card}
                     selected={selectedPileIds.includes(card.id)}
                     interactive={pileInteractive}
                     onClick={() => onPileToggle(card.id)}
+                    tone="amber"
                   />
                 ))}
               </div>
@@ -429,13 +428,13 @@ function DraftingLoopModal({
           ) : (
             <div className="flex flex-wrap items-stretch gap-1.5">
               {hand.map((card) => (
-                <CardTile
+                <HandCardTile
                   key={card.id}
                   card={card}
                   interactive={handMode !== "view"}
                   selected={false}
                   onClick={() => onHandClick(card.id)}
-                  tone={handMode === "pay" ? "pay" : handMode === "seed" ? "seed" : "view"}
+                  tone={handMode === "pay" ? "emerald" : "amber"}
                 />
               ))}
             </div>
@@ -598,35 +597,16 @@ function BillTile({
       ? "ring-2 ring-amber-300 ring-offset-2 ring-offset-slate-950 scale-[1.02]"
       : "hover:scale-[1.02] hover:brightness-110 cursor-pointer";
 
-  // Pull every non-null cell so we can quote the floor/peak rep range.
+  // Pull every non-null cell so we can quote the floor/peak rep range
+  // in the table footer.
   const cells: number[] = [];
   for (const row of bill.rewardGrid) {
     for (const c of row) if (c != null) cells.push(c);
   }
   const peak = cells.length ? Math.max(...cells) : 0;
   const floor = cells.length ? Math.min(...cells) : 0;
-  const ageReq = bill.ageBands[0] ?? 2;
 
-  // Compact recipe sentence — "1 Cask · ≥2 Corn · ≥1 Rye · no Wheat ·
-  // Specialty Rye". Shorter than the full inspect view; just enough to
-  // gauge whether the bill fits the player's hand.
-  const r = bill.recipe ?? {};
-  const sp = r.minSpecialty ?? {};
-  const recipeBits: string[] = ["1 Cask"];
-  const minCorn = Math.max(1, r.minCorn ?? 0);
-  recipeBits.push(`≥${minCorn} Corn`);
-  if ((r.minRye ?? 0) > 0) recipeBits.push(`≥${r.minRye} Rye`);
-  if ((r.minBarley ?? 0) > 0) recipeBits.push(`≥${r.minBarley} Barley`);
-  if ((r.minWheat ?? 0) > 0) recipeBits.push(`≥${r.minWheat} Wheat`);
-  if (r.maxRye === 0) recipeBits.push("no Rye");
-  if (r.maxWheat === 0) recipeBits.push("no Wheat");
-
-  const specialtyBits: string[] = [];
-  if ((sp.cask ?? 0) > 0) specialtyBits.push(`${sp.cask}× Spec Cask`);
-  if ((sp.corn ?? 0) > 0) specialtyBits.push(`${sp.corn}× Spec Corn`);
-  if ((sp.rye ?? 0) > 0) specialtyBits.push(`${sp.rye}× Spec Rye`);
-  if ((sp.barley ?? 0) > 0) specialtyBits.push(`${sp.barley}× Spec Barley`);
-  if ((sp.wheat ?? 0) > 0) specialtyBits.push(`${sp.wheat}× Spec Wheat`);
+  const ingredients = buildIngredientChips(bill);
 
   return (
     <button
@@ -635,7 +615,7 @@ function BillTile({
       disabled={!interactive}
       data-revealed-bill-id={bill.id}
       className={[
-        "flex w-[260px] flex-col rounded-xl border-2 px-4 py-3.5 text-left transition-transform duration-150",
+        "flex w-[280px] flex-col rounded-xl border-2 px-4 py-3.5 text-left transition-transform duration-150",
         chrome.border,
         chrome.gradient,
         chrome.glow,
@@ -663,127 +643,319 @@ function BillTile({
         </span>
       </div>
 
-      {/* Reward range + age gate — the two numbers a player cares about
-          most when deciding whether to grab a bill. */}
-      <div className="mt-3 flex items-end justify-between gap-2 rounded border border-amber-700/40 bg-slate-950/55 px-2.5 py-1.5">
-        <div>
-          <div className="font-mono text-[8.5px] font-semibold uppercase tracking-[.14em] text-amber-300/80">
-            Rep range
-          </div>
-          <div className={`font-display text-[18px] font-bold leading-none ${chrome.titleInk}`}>
-            {floor}<span className="text-slate-500">–</span>{peak}
-          </div>
+      {/* Rep table — the full age × demand payout grid, so a player can
+          see exactly what each (age band, demand band) cell is worth and
+          which cells trigger Silver / Gold. */}
+      <div className="mt-3 rounded border border-amber-700/40 bg-slate-950/55 px-2 py-1.5">
+        <div className="mb-1 flex items-baseline justify-between">
+          <span className="font-mono text-[8.5px] font-semibold uppercase tracking-[.14em] text-amber-300/80">
+            Rep payout
+          </span>
+          <span className="font-mono text-[8.5px] tracking-[.10em] text-slate-400">
+            <span className={chrome.titleInk}>{floor}–{peak}</span>
+          </span>
         </div>
-        <div className="text-right">
-          <div className="font-mono text-[8.5px] font-semibold uppercase tracking-[.14em] text-sky-300/80">
-            Ages from
-          </div>
-          <div className="font-display text-[16px] font-bold leading-none text-sky-100">
-            {ageReq}y
-          </div>
-        </div>
-        {bill.goldAward ? (
-          <div className="text-right">
-            <div className="font-mono text-[8.5px] font-semibold uppercase tracking-[.14em] text-yellow-300/85">
-              Gold
-            </div>
-            <div className="font-display text-[14px] font-bold leading-none text-yellow-100">
-              ✦
-            </div>
-          </div>
-        ) : null}
+        <MiniRepTable bill={bill} chrome={chrome} />
       </div>
 
-      {/* Recipe — pips first (visual scan), then a compact sentence
-          underneath spelling out the constraints in words. */}
+      {/* Ingredients — pip glance + chip-style breakdown showing exactly
+          which cards the bill consumes. */}
       <div className="mt-2 rounded border border-slate-800/70 bg-slate-950/40 px-2 py-2">
         <div className="mb-1 text-center font-mono text-[8px] uppercase tracking-[.16em] text-slate-500">
-          Recipe
+          Ingredients
         </div>
         <RecipePips bill={bill} />
-        <div className="mt-1.5 text-center font-mono text-[9.5px] leading-snug text-slate-300">
-          {recipeBits.join(" · ")}
+        <div className="mt-1.5 flex flex-wrap justify-center gap-1">
+          {ingredients.map((chip, i) => (
+            <span
+              key={i}
+              className={[
+                "inline-flex items-center gap-1 rounded border px-1.5 py-[2px] font-mono text-[9px] uppercase tracking-[.06em]",
+                chip.specialty
+                  ? "border-amber-300/70 bg-amber-700/30 text-amber-100"
+                  : chip.forbidden
+                    ? "border-rose-700/50 bg-rose-950/30 opacity-80"
+                    : chip.wild
+                      ? "border-slate-600/60 bg-slate-900/60 text-slate-200"
+                      : "border-white/10 bg-slate-950/70 text-slate-100",
+              ].join(" ")}
+            >
+              <span className={`relative inline-block text-[11px] leading-none ${chip.tint}`}>
+                {chip.glyph}
+                {chip.forbidden ? (
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 grid place-items-center text-[12px] font-bold leading-none text-rose-300"
+                  >
+                    ✕
+                  </span>
+                ) : null}
+              </span>
+              <span>
+                {chip.count && chip.count > 1 ? `${chip.count}× ` : ""}
+                {chip.label}
+              </span>
+            </span>
+          ))}
         </div>
-        {specialtyBits.length > 0 ? (
-          <div className="mt-0.5 text-center font-mono text-[9px] leading-snug text-violet-300/90">
-            {specialtyBits.join(" · ")}
-          </div>
-        ) : null}
       </div>
     </button>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Card tile — used for both hand cards and draft-pile cards.
-// Mirrors the visual treatment of StarterDeckDraftModal's DealtCardTile
-// so cards in the modal read as the same physical objects as the hand.
+// Mini rep table — compact version of CardInspectModal's RewardMatrix.
+// Same axis convention (age ↓, demand →) and same gold/silver tinting
+// so a player who's studied bills in the inspect modal reads this
+// the same way at a glance.
 // ─────────────────────────────────────────────────────────────────────
 
-function CardTile({
-  card,
-  selected,
-  interactive,
-  onClick,
-  tone = "view",
+function MiniRepTable({
+  bill,
+  chrome,
 }: {
-  card: Card;
-  selected: boolean;
-  interactive: boolean;
-  onClick: () => void;
-  tone?: "view" | "seed" | "pay" | "pile";
+  bill: MashBill;
+  chrome: TierChrome;
 }) {
-  const isLabor = card.type === "labor";
-  const subtype = card.subtype as ResourceSubtype | undefined;
-  const chrome = isLabor
-    ? LABOR_CHROME
-    : subtype
-      ? RESOURCE_CHROME[subtype]
-      : LABOR_CHROME;
-  const laborSubtypeLabel =
-    card.laborSubtype === "marketing" ? "Marketing" :
-    card.laborSubtype === "cooper" ? "Cooper" :
-    card.laborSubtype === "architect" ? "Architect" :
-    "Labor";
-  const label = isLabor
-    ? laborSubtypeLabel
-    : subtype
-      ? RESOURCE_LABEL[subtype]
-      : "Card";
-  const glyph = isLabor
-    ? laborGlyphFor(card.laborSubtype)
-    : subtype
-      ? RESOURCE_GLYPH[subtype]
-      : "?";
-  const count = card.resourceCount ?? 1;
-  const showCount = !isLabor && count > 1;
-
-  const ringClass = selected
-    ? "ring-2 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_18px_rgba(251,191,36,.45)]"
-    : interactive
-      ? tone === "pay"
-        ? "hover:ring-2 hover:ring-emerald-300 hover:scale-[1.05] cursor-pointer"
-        : "hover:ring-2 hover:ring-amber-300 hover:scale-[1.05] cursor-pointer"
-      : "opacity-80 cursor-default";
-
+  const ageLabels = bill.ageBands.map((_, i) => bandLabel(bill.ageBands, i, "y"));
+  const demandLabels = bill.demandBands.map((_, i) => bandLabel(bill.demandBands, i));
+  const cols = bill.demandBands.length;
   return (
-    <button
-      type="button"
-      onClick={interactive ? onClick : undefined}
-      disabled={!interactive}
-      title={card.displayName ?? label}
-      className={[
-        "flex h-[110px] w-[78px] flex-col items-center justify-center gap-1 overflow-hidden rounded-md border-2 shadow-[0_4px_10px_rgba(0,0,0,.45)] transition-transform duration-150",
-        chrome.gradient,
-        chrome.border,
-        ringClass,
-      ].join(" ")}
+    <div
+      className="grid items-stretch gap-[3px]"
+      style={{ gridTemplateColumns: `auto repeat(${cols}, minmax(0, 1fr))` }}
     >
-      <span className={`text-3xl ${chrome.ink}`}>{glyph}</span>
-      <span className={`font-mono text-[9px] uppercase tracking-[.12em] ${chrome.label}`}>
-        {label}
-        {showCount ? ` ×${count}` : ""}
-      </span>
-    </button>
+      <div
+        className="flex items-end justify-end pr-0.5 font-mono text-[7.5px] font-semibold uppercase leading-tight tracking-[.10em] text-slate-500"
+      >
+        <span className="text-right">
+          age ↓<br />dem →
+        </span>
+      </div>
+      {demandLabels.map((label, ci) => (
+        <div
+          key={`dh-${ci}`}
+          className={`grid place-items-center rounded-[3px] bg-slate-900/60 py-[2px] font-mono text-[9px] font-bold uppercase tabular-nums ${chrome.label}`}
+        >
+          {label}
+        </div>
+      ))}
+
+      {bill.rewardGrid.map((row, ri) => {
+        const nextAge = bill.ageBands[ri + 1];
+        const ageHi = nextAge ?? Infinity;
+        return (
+          <Fragment key={`r-${ri}`}>
+            <div
+              className={`grid place-items-center rounded-[3px] bg-slate-900/60 px-1 font-mono text-[9px] font-bold uppercase tabular-nums ${chrome.label}`}
+            >
+              {ageLabels[ri]}
+            </div>
+            {row.map((cell, ci) => {
+              const nextDemand = bill.demandBands[ci + 1];
+              const demandHi = nextDemand ?? Infinity;
+              const award = cellAward(bill, cell, ageHi, demandHi);
+              return (
+                <div
+                  key={`${ri}-${ci}`}
+                  className={[
+                    "relative grid h-9 place-items-center rounded-[3px] border border-white/10",
+                    awardCellBg(award, cell),
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "font-display text-[15px] font-bold leading-none tabular-nums drop-shadow-[0_1px_3px_rgba(0,0,0,.5)]",
+                      cell == null
+                        ? "text-slate-600"
+                        : award != null
+                          ? "text-slate-950"
+                          : chrome.titleInk,
+                    ].join(" ")}
+                  >
+                    {cell ?? "—"}
+                  </span>
+                  {award ? (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute right-[1px] top-[1px] text-[9px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.55)]"
+                    >
+                      {award === "gold" ? "🥇" : "🥈"}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </Fragment>
+        );
+      })}
+    </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Ingredient chip builder — mirrors CardInspectModal's RecipeGrid so
+// the bill reads the same way in both surfaces. Specialty cards
+// satisfy both their per-subtype minimum AND the `minSpecialty` floor,
+// so the plain chip count is reduced by the specialty count for that
+// subtype (no phantom "1 cask + 1 specialty cask" double-count).
+// ─────────────────────────────────────────────────────────────────────
+
+interface IngredientChip {
+  glyph: string;
+  label: string;
+  count?: number;
+  tint: string;
+  wild?: boolean;
+  specialty?: boolean;
+  forbidden?: boolean;
+}
+
+function buildIngredientChips(bill: MashBill): IngredientChip[] {
+  const r = bill.recipe ?? {};
+  const sp = r.minSpecialty ?? {};
+  const items: IngredientChip[] = [];
+
+  const minCorn = Math.max(1, r.minCorn ?? 0);
+  const minRye = r.minRye ?? 0;
+  const minBarley = r.minBarley ?? 0;
+  const minWheat = r.minWheat ?? 0;
+
+  const plainCask = Math.max(0, 1 - (sp.cask ?? 0));
+  const plainCorn = Math.max(0, minCorn - (sp.corn ?? 0));
+  const plainRye = Math.max(0, minRye - (sp.rye ?? 0));
+  const plainBarley = Math.max(0, minBarley - (sp.barley ?? 0));
+  const plainWheat = Math.max(0, minWheat - (sp.wheat ?? 0));
+
+  if (plainCask > 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.cask,
+      label: "Cask",
+      count: plainCask > 1 ? plainCask : undefined,
+      tint: RESOURCE_CHROME.cask.label,
+    });
+  }
+  if (plainCorn > 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.corn,
+      label: "Corn",
+      count: plainCorn,
+      tint: RESOURCE_CHROME.corn.label,
+    });
+  }
+  if (plainRye > 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.rye,
+      label: "Rye",
+      count: plainRye,
+      tint: RESOURCE_CHROME.rye.label,
+    });
+  }
+  if (plainBarley > 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.barley,
+      label: "Barley",
+      count: plainBarley,
+      tint: RESOURCE_CHROME.barley.label,
+    });
+  }
+  if (plainWheat > 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.wheat,
+      label: "Wheat",
+      count: plainWheat,
+      tint: RESOURCE_CHROME.wheat.label,
+    });
+  }
+
+  // Wild grain — when no specific grain is required, the universal
+  // rule still demands ≥1 grain of any kind.
+  const namedGrain = minRye + minBarley + minWheat;
+  const minTotal = r.minTotalGrain ?? 0;
+  const wildGrain = namedGrain === 0 ? 1 : Math.max(0, minTotal - namedGrain);
+  if (wildGrain > 0) {
+    items.push({
+      glyph: "✦",
+      label: "Any grain",
+      count: wildGrain,
+      tint: "text-slate-300",
+      wild: true,
+    });
+  }
+
+  for (const s of ["cask", "corn", "rye", "barley", "wheat"] as const) {
+    const n = sp[s];
+    if (n && n > 0) {
+      items.push({
+        glyph: RESOURCE_GLYPH[s],
+        label: `★ Spec ${s.charAt(0).toUpperCase() + s.slice(1)}`,
+        count: n > 1 ? n : undefined,
+        tint: RESOURCE_CHROME[s].label,
+        specialty: true,
+      });
+    }
+  }
+
+  if (r.maxRye === 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.rye,
+      label: "No rye",
+      tint: RESOURCE_CHROME.rye.label,
+      forbidden: true,
+    });
+  }
+  if (r.maxWheat === 0) {
+    items.push({
+      glyph: RESOURCE_GLYPH.wheat,
+      label: "No wheat",
+      tint: RESOURCE_CHROME.wheat.label,
+      forbidden: true,
+    });
+  }
+
+  return items;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Award / band helpers — light copies of CardInspectModal's versions
+// so the BillTile renders the same gold/silver tinting and band labels
+// without pulling in the modal's whole detail layout.
+// ─────────────────────────────────────────────────────────────────────
+
+function bandLabel(bands: readonly number[], idx: number, suffix = ""): string {
+  const lo = bands[idx]!;
+  const next = bands[idx + 1];
+  if (next == null) return `${lo}+${suffix}`;
+  return next - 1 === lo ? `${lo}${suffix}` : `${lo}–${next - 1}${suffix}`;
+}
+
+function cellAward(
+  bill: MashBill,
+  reward: number | null,
+  ageHi: number,
+  demandHi: number,
+): "gold" | "silver" | null {
+  if (reward == null) return null;
+  const fires = (cond: AwardCondition | undefined): boolean => {
+    if (!cond) return false;
+    if (cond.minAge != null && cond.minAge >= ageHi) return false;
+    if (cond.minDemand != null && cond.minDemand >= demandHi) return false;
+    if (cond.minReward != null && reward < cond.minReward) return false;
+    return true;
+  };
+  if (fires(bill.goldAward)) return "gold";
+  if (fires(bill.silverAward)) return "silver";
+  return null;
+}
+
+function awardCellBg(award: "gold" | "silver" | null, cell: number | null): string {
+  if (cell == null) return "bg-slate-900/40";
+  if (award === "gold") {
+    return "bg-gradient-to-b from-amber-300 to-amber-500 shadow-[0_0_8px_rgba(252,211,77,.35)]";
+  }
+  if (award === "silver") {
+    return "bg-gradient-to-b from-slate-300 to-slate-400";
+  }
+  return "bg-slate-950/70";
+}
+

@@ -1,141 +1,270 @@
 "use client";
 
 /**
- * BuyOverlay — sticky control bar for interactive Buy mode.
+ * BuyOverlay — full-screen purchase modal.
  *
- * Renders only when `buyMode` is non-null. Shows the in-progress
- * purchase as rep + Labor: cost is paid from the player's rep track,
- * optionally supplemented by Labor cards tagged from hand (Cooper +2
- * toward market resources, Marketing +2 toward ops, Generic +1
- * anywhere). Rep and Labor are fully fungible — any cost can be paid
- * in rep, Labor, or a mix.
+ * Opens once the player has picked a market card while in Buy mode.
+ * Covers the distillery so the purchase reads as the moment that
+ * matters — the player can see the target card large, the rep being
+ * spent in huge type, and any Labor cards from their hand they're
+ * applying. Confirming dispatches BUY_FROM_MARKET.
  *
- * The conveyor + ops row + hand do their own click wiring (MarketCenter
- * + HandTray); this component is the contract surface — it tells the
- * player what to do next and lets them commit.
+ * Pre-pick state (Buy mode active but no target yet) shows a small
+ * floating hint instead — picking the actual market card happens
+ * through the normal market click handlers.
  */
 
+import { useEffect } from "react";
 import { useGameStore } from "@/lib/store/game";
-import {
-  type Card,
-  type GameState,
-} from "@bourbonomics/engine";
+import { type Card, type GameState } from "@bourbonomics/engine";
 import { buyDomainForTarget } from "./buyDomain";
 import { MoneyText } from "./money";
+import HandCardTile from "./HandCardTile";
 
 export default function BuyOverlay() {
-  const { state, buyMode, cancelBuyMode, confirmBuy } = useGameStore();
+  const { state, buyMode, cancelBuyMode, confirmBuy, toggleBuySpend } = useGameStore();
+
+  // Esc closes the modal. Wired up unconditionally before any early
+  // returns so React's hook order stays stable across the "buy mode
+  // off / hint only / full modal" render paths.
+  useEffect(() => {
+    if (!buyMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancelBuyMode();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [buyMode, cancelBuyMode]);
+
   if (!state || !buyMode) return null;
   const human = state.players.find((p) => !p.isBot);
   if (!human) return null;
 
   const target = resolveTarget(state, buyMode.pickedTarget);
-  const cost = target?.cost ?? null;
-  const laborDomain = target ? buyDomainForTarget(target.card) : "market_resource";
 
-  // only Labor cards contribute. Non-Labor selections in
-  // `spendCardIds` are ignored at confirm time (store filter); we
-  // mirror that here so the overlay totals match what dispatches.
-  const selectedLabor = human.hand.filter(
-    (c) => c.type === "labor" && buyMode.spendCardIds.includes(c.id),
-  );
+  // Pre-pick hint — small floating chip telling the player to click a
+  // market card. The modal itself only mounts once a target exists so
+  // it doesn't sit empty on screen.
+  if (!target) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-none fixed inset-x-0 z-40 flex justify-center"
+        style={{ bottom: 280 }}
+      >
+        <div className="pointer-events-auto mx-3 flex items-center gap-3 rounded-lg border border-amber-500/70 bg-gradient-to-b from-amber-900/85 to-slate-950/95 px-4 py-2 shadow-[0_-2px_24px_rgba(240,201,112,.25)] backdrop-blur-md">
+          <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-amber-100">
+            Buying
+          </span>
+          <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-300">
+            Pick a card from the market or operations row.
+          </span>
+          <button
+            type="button"
+            onClick={cancelBuyMode}
+            className="rounded-md border border-rose-700/60 bg-rose-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-rose-100 transition-colors hover:border-rose-400 hover:bg-rose-800/40"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const cost = target.cost;
+  const laborDomain = buyDomainForTarget(target.card);
+
+  // Labor cards in hand the player can apply. Non-Labor cards cannot
+  // pay for purchases under the unified rep system — they're filtered
+  // out so the modal hand row reads truthfully.
+  const laborInHand = human.hand.filter((c) => c.type === "labor");
+  const selectedLabor = laborInHand.filter((c) => buyMode.spendCardIds.includes(c.id));
   const laborContrib = selectedLabor.reduce((acc, c) => {
     if (c.laborDomain === "any") return acc + (c.laborContribution ?? 1);
     if (c.laborDomain === laborDomain) return acc + (c.laborContribution ?? 2);
     return acc;
   }, 0);
-  const repPortion = cost != null ? Math.max(0, cost - laborContrib) : 0;
+  const repPortion = Math.max(0, cost - laborContrib);
+  const overpaid = laborContrib > cost;
+  const canAfford = repPortion <= human.reputation;
   const canConfirm =
-    target != null &&
-    cost != null &&
-    repPortion <= human.reputation &&
-    (cost === 0 || repPortion > 0 || selectedLabor.length > 0);
+    canAfford && (cost === 0 || repPortion > 0 || selectedLabor.length > 0);
 
-  let prompt: string;
-  if (!target) {
-    prompt = "Pick a card from the market or operations row.";
-  } else if (cost != null && repPortion > human.reputation) {
-    prompt = `Need ${repPortion} rep — you have ${human.reputation}.`;
-  } else if (cost != null) {
-    prompt = `Pay ${repPortion} rep${selectedLabor.length ? ` + ${selectedLabor.length} Labor` : ""}. Tag Labor cards from hand to reduce the rep cost.`;
-  } else {
-    prompt = "Ready to buy. Confirm to dispatch.";
-  }
+  // Build a one-line readable summary of the labor selection so the
+  // big rep number isn't the only feedback the player gets.
+  const laborSummary = selectedLabor.length
+    ? selectedLabor
+        .map((c) => {
+          const sub = c.laborSubtype ?? "labor";
+          return sub[0]!.toUpperCase() + sub.slice(1);
+        })
+        .join(" + ")
+    : null;
 
-  // v3.4: floating bar — used to be in-flow inside HandTray, which
-  // pushed the action bar / status / hand fan downward whenever the
-  // player entered buy mode. Now `position: fixed` above the action
-  // bar so the rest of the screen stays put. Mount point in HandTray
-  // is unchanged; only the layout stance moved.
-  //
-  // v3.7: lifted to overlay the bottom of the distillery panel
-  // (rickhouse area) rather than the hand. Empirically the hand-tray
-  // strip is ~230–260px tall, so anchoring at bottom ~280px puts the
-  // chip over the rickhouse's caption row — where the player's eye
-  // is already focused on the picked target's destination.
   return (
     <div
-      role="status"
-      aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 z-40 flex justify-center animate-bb-tour-pop"
-      style={{ bottom: 280 }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Confirm purchase"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur"
     >
+      {/* Ambient glow behind the modal — same idiom as the Drafting Loop */}
       <div
-        className="pointer-events-auto mx-3 flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/70 bg-gradient-to-b from-amber-900/85 to-slate-950/95 px-4 py-2 shadow-[0_-2px_24px_rgba(240,201,112,.25),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-md"
-      >
-        <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-amber-100">
-          Buying
-        </span>
-        <span className="font-display text-[13px] font-semibold text-amber-100">
-          {target ? targetLabel(target) : "—"}
-        </span>
-        {cost != null ? (
-          <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-300">
-            cost{" "}
-            <MoneyText n={cost} className="font-bold text-amber-200" />{" "}
-            · pay{" "}
-            <MoneyText
-              n={repPortion}
-              className={`font-bold ${repPortion <= human.reputation ? "text-emerald-300" : "text-rose-300"}`}
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[640px] w-[1100px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(251,191,36,0.22) 0%, transparent 65%)",
+        }}
+      />
+
+      <div className="relative flex max-h-full w-full max-w-[1180px] flex-col gap-6 overflow-y-auto rounded-2xl border-2 border-amber-500/60 bg-gradient-to-b from-slate-950 to-slate-900/95 p-8 shadow-[0_24px_64px_rgba(0,0,0,.55)]">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="font-mono text-[11px] uppercase tracking-[.20em] text-amber-300">
+              Purchase
+            </div>
+            <div className="mt-1 font-display text-3xl font-semibold text-amber-100">
+              {targetLabel(target)}
+            </div>
+            <div className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
+              {target.card.flavor ?? "Tag Labor cards from hand to reduce the rep cost, then confirm."}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={cancelBuyMode}
+            aria-label="Cancel purchase"
+            className="rounded-md border border-rose-700/60 bg-rose-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-rose-100 transition-colors hover:border-rose-400 hover:bg-rose-800/40"
+          >
+            Cancel ✕
+          </button>
+        </div>
+
+        {/* Body — target card on the left, huge rep stat on the right */}
+        <div className="grid items-stretch gap-6 md:grid-cols-[auto_1fr]">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-amber-700/40 bg-slate-950/55 p-5">
+            <div className="font-mono text-[10px] uppercase tracking-[.18em] text-amber-300/80">
+              You're buying
+            </div>
+            <HandCardTile
+              card={target.card}
+              size="lg"
+              interactive={false}
+              selected
+              tone="amber"
+              showCost
             />
-            {" rep"}
-            {selectedLabor.length ? (
-              <span className="text-slate-500">
-                {" "}
-                + {selectedLabor.length} Labor
-              </span>
+          </div>
+
+          <div className="flex flex-col items-stretch gap-4 rounded-xl border border-amber-700/40 bg-slate-950/55 p-6">
+            <div className="text-center">
+              <div className="font-mono text-[11px] uppercase tracking-[.22em] text-amber-300/85">
+                Rep you'll spend
+              </div>
+              <div
+                className={`mt-1 font-display text-[88px] font-bold leading-none tabular-nums drop-shadow-[0_4px_12px_rgba(0,0,0,.55)] ${
+                  canAfford ? "text-amber-100" : "text-rose-300"
+                }`}
+              >
+                {repPortion}
+              </div>
+              <div className="mt-1 font-mono text-[11px] uppercase tracking-[.14em] text-slate-400">
+                of <span className="text-amber-200">{human.reputation}</span> available
+                {cost !== repPortion ? (
+                  <>
+                    {" · "}
+                    <span className="text-slate-500">card lists at</span>{" "}
+                    <MoneyText n={cost} className="font-bold text-amber-200" />
+                  </>
+                ) : null}
+              </div>
+            </div>
+
+            {laborContrib > 0 ? (
+              <div className="rounded-lg border border-emerald-700/50 bg-emerald-950/40 px-4 py-2 text-center font-mono text-[11px] uppercase tracking-[.12em] text-emerald-200">
+                <span className="font-bold text-emerald-100">
+                  −{Math.min(laborContrib, cost)}
+                </span>{" "}
+                rep covered by Labor{laborSummary ? ` (${laborSummary})` : ""}
+                {overpaid ? (
+                  <span className="ml-1 text-amber-200/90">
+                    · {laborContrib - cost} wasted
+                  </span>
+                ) : null}
+              </div>
             ) : null}
-          </span>
-        ) : (
-          <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-500">
-            no slot picked yet
-          </span>
-        )}
-        {/* Action buttons sit right next to the data — was previously
-            pushed to the far right by a flex-1 spacer, which forced a
-            long mouse trip from the picked card to Confirm. */}
-        <button
-          type="button"
-          onClick={cancelBuyMode}
-          className="rounded-md border border-rose-700/60 bg-rose-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-rose-100 transition-colors hover:border-rose-400 hover:bg-rose-800/40"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          disabled={!canConfirm}
-          onClick={canConfirm ? confirmBuy : undefined}
-          className={
-            canConfirm
-              ? "confirm-ready rounded-md border border-amber-300 bg-gradient-to-b from-amber-300 to-amber-600 px-5 py-1.5 font-sans text-[13px] font-bold uppercase tracking-[.07em] text-slate-950 hover:from-amber-200 hover:to-amber-500"
-              : "rounded-md border border-slate-800 bg-slate-900 px-5 py-1.5 font-sans text-[13px] font-bold uppercase tracking-[.07em] text-slate-600 cursor-not-allowed"
-          }
-        >
-          Confirm ↵
-        </button>
-        <span className="font-mono text-[10px] italic text-slate-400">
-          {prompt}
-        </span>
+
+            {!canAfford ? (
+              <div className="rounded-lg border border-rose-700/60 bg-rose-950/40 px-4 py-2 text-center font-mono text-[11px] uppercase tracking-[.12em] text-rose-200">
+                Need {repPortion} rep — you have {human.reputation}. Tag a Labor card.
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Labor row from hand — the only cards that can pay. Renders
+            the real card visuals so the player sees specialty/heritage
+            status as they shop. */}
+        <div className="rounded-xl border border-slate-800 bg-slate-950/55 p-4">
+          <div className="mb-2 flex items-baseline justify-between">
+            <span className="font-mono text-[11px] uppercase tracking-[.18em] text-slate-300">
+              Apply Labor from your hand
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+              {laborInHand.length === 0
+                ? "no Labor cards in hand"
+                : `${selectedLabor.length} of ${laborInHand.length} tagged`}
+            </span>
+          </div>
+          {laborInHand.length === 0 ? (
+            <div className="rounded border border-dashed border-slate-700/70 px-3 py-5 text-center font-mono text-[11px] italic text-slate-500">
+              No Labor cards to apply — pay the full rep cost or cancel.
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-stretch gap-2">
+              {laborInHand.map((card) => {
+                const isSelected = buyMode.spendCardIds.includes(card.id);
+                return (
+                  <HandCardTile
+                    key={card.id}
+                    card={card}
+                    size="md"
+                    interactive
+                    selected={isSelected}
+                    onClick={() => toggleBuySpend(card.id)}
+                    tone="emerald"
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-800 pt-4">
+          <button
+            type="button"
+            onClick={cancelBuyMode}
+            className="rounded-md border border-slate-600 bg-slate-800/60 px-4 py-2 font-mono text-[12px] font-semibold uppercase tracking-[.08em] text-slate-200 hover:bg-slate-700/60"
+          >
+            ← Back
+          </button>
+          <button
+            type="button"
+            disabled={!canConfirm}
+            onClick={canConfirm ? confirmBuy : undefined}
+            className={
+              canConfirm
+                ? "confirm-ready rounded-md border-2 border-amber-300 bg-gradient-to-b from-amber-300 to-amber-600 px-8 py-2.5 font-sans text-[15px] font-bold uppercase tracking-[.10em] text-slate-950 shadow-[0_4px_16px_rgba(252,211,77,.4)] hover:from-amber-200 hover:to-amber-500"
+                : "rounded-md border-2 border-slate-800 bg-slate-900 px-8 py-2.5 font-sans text-[15px] font-bold uppercase tracking-[.10em] text-slate-600 cursor-not-allowed"
+            }
+          >
+            Confirm purchase ↵
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -176,4 +305,3 @@ function targetLabel(t: TargetView): string {
   const count = card.resourceCount && card.resourceCount > 1 ? `${card.resourceCount}× ` : "";
   return `${count}${subCap}`;
 }
-
