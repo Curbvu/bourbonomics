@@ -31,6 +31,7 @@ import {
   type ResourceSubtype,
 } from "@bourbonomics/engine";
 import { buyDomainForTarget } from "./buyDomain";
+import HandCardTile from "./HandCardTile";
 import {
   RESOURCE_GLYPH,
   RESOURCE_LABEL,
@@ -188,90 +189,54 @@ export default function BuyOverlay() {
           </button>
         </header>
 
-        {/* ─ Body ─ Hero card · Ledger ────────────────────────────── */}
-        <div className="grid min-h-0 flex-1 gap-6 md:grid-cols-[minmax(180px,230px)_1fr]">
+        {/* ─ Body ─ three big areas: Hero · Apply · Rep ──────────────── */}
+        <div className="grid min-h-0 flex-1 gap-6 md:grid-cols-[minmax(190px,240px)_1fr_minmax(220px,280px)]">
           <CardHero card={target.card} chrome={chrome} tierChrome={tierChrome} tierInk={tierInk} />
-          <Ledger
-            cost={cost}
-            laborCovered={Math.min(laborContrib, cost)}
-            laborGross={laborContrib}
-            overpaid={overpaid}
+          <ApplyPanel
+            laborInHand={laborInHand}
+            laborDomain={laborDomain}
+            tagged={buyMode.spendCardIds}
+            onToggle={toggleBuySpend}
+          />
+          <RepPanel
             repPortion={repPortion}
             available={human.reputation}
             canAfford={canAfford}
+            overpaid={overpaid}
+            laborGross={laborContrib}
+            cost={cost}
           />
         </div>
 
-        {/* ─ Footer ─ Hand chips · hint · buttons ───────────────────── */}
-        <footer className="flex flex-col gap-3 border-t border-[#3b2818] pt-3">
-          <div className="flex items-baseline gap-3">
-            <span className="stage-tag">Apply from your hand</span>
-            <span
-              aria-hidden
-              className="h-px flex-1"
-              style={{
-                background:
-                  "linear-gradient(90deg, var(--rule), transparent)",
-              }}
-            />
-            <span className="label-sm">
-              <span style={{ color: "var(--gold)" }}>
-                {selectedLabor.length}
-              </span>
-              <span style={{ color: "var(--mute)" }}>
-                {" "}
-                of {human.hand.length} tagged
-              </span>
-            </span>
-          </div>
-
-          {human.hand.length === 0 ? (
-            <div className="rounded border border-dashed border-[#3b2818] px-3 py-3 text-center font-mono text-[11px] italic text-[var(--mute)]">
-              Hand is empty — pay the full rep cost or cancel.
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-stretch gap-1.5">
-              {human.hand.map((c) => (
-                <HandChip
-                  key={c.id}
-                  card={c}
-                  laborDomain={laborDomain}
-                  tagged={buyMode.spendCardIds.includes(c.id)}
-                  onToggle={() => toggleBuySpend(c.id)}
-                />
-              ))}
-            </div>
-          )}
-
-          <div className="mt-1 flex items-center gap-3">
-            <Hint
-              cost={cost}
-              repPortion={repPortion}
-              available={human.reputation}
-              canAfford={canAfford}
-              overpaid={overpaid}
-            />
-            <span className="flex-1" />
-            <button
-              type="button"
-              onClick={cancelBuyMode}
-              className="rounded-md border border-[#3b2818] bg-[rgba(34,23,16,.7)] px-4 py-2 font-mono text-[10.5px] font-bold uppercase tracking-[.18em] text-[var(--ink-muted)] transition-colors hover:bg-[rgba(46,32,22,.85)]"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={!canConfirm}
-              onClick={canConfirm ? confirmBuy : undefined}
-              className={
-                canConfirm
-                  ? "confirm-ready rounded-md border border-amber-300 bg-gradient-to-b from-amber-300 to-amber-600 px-6 py-2 font-mono text-[11px] font-extrabold uppercase tracking-[.22em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.5),0_6px_18px_rgba(240,201,112,.35)] transition-transform hover:-translate-y-px"
-                  : "rounded-md border border-[#3b2818] bg-[rgba(34,23,16,.7)] px-6 py-2 font-mono text-[11px] font-extrabold uppercase tracking-[.22em] text-[var(--whisper)] cursor-not-allowed"
-              }
-            >
-              Confirm Purchase ↵
-            </button>
-          </div>
+        {/* ─ Footer ─ hint · Cancel · Confirm ────────────────────────── */}
+        <footer className="flex items-center gap-3 border-t border-[#3b2818] pt-3">
+          <Hint
+            cost={cost}
+            repPortion={repPortion}
+            available={human.reputation}
+            canAfford={canAfford}
+            overpaid={overpaid}
+          />
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={cancelBuyMode}
+            className="rounded-md border border-[#3b2818] bg-[rgba(34,23,16,.7)] px-4 py-2 font-mono text-[10.5px] font-bold uppercase tracking-[.18em] text-[var(--ink-muted)] transition-colors hover:bg-[rgba(46,32,22,.85)]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!canConfirm}
+            onClick={canConfirm ? confirmBuy : undefined}
+            className={
+              canConfirm
+                ? "confirm-ready rounded-md border border-amber-300 bg-gradient-to-b from-amber-300 to-amber-600 px-6 py-2 font-mono text-[11px] font-extrabold uppercase tracking-[.22em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.5),0_6px_18px_rgba(240,201,112,.35)] transition-transform hover:-translate-y-px"
+                : "rounded-md border border-[#3b2818] bg-[rgba(34,23,16,.7)] px-6 py-2 font-mono text-[11px] font-extrabold uppercase tracking-[.22em] text-[var(--whisper)] cursor-not-allowed"
+            }
+          >
+            Confirm Purchase ↵
+          </button>
         </footer>
       </div>
     </div>
@@ -353,41 +318,40 @@ function CardHero({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Ledger — itemized receipt + horizontal rep meter.
+// Apply panel — middle column. Real card tiles for every Labor card
+// in hand, each toggleable as payment with a "covers ฿N" badge below.
+// Non-Labor cards live in the hand strip outside the modal — only
+// applicable cards surface here so the player's eye goes to actions.
 // ─────────────────────────────────────────────────────────────────────
 
-function Ledger({
-  cost,
-  laborCovered,
-  laborGross,
-  overpaid,
-  repPortion,
-  available,
-  canAfford,
+function ApplyPanel({
+  laborInHand,
+  laborDomain,
+  tagged,
+  onToggle,
 }: {
-  cost: number;
-  /** Labor applied to the cost (capped at `cost`). */
-  laborCovered: number;
-  /** Total Labor contribution before capping — used to flag overpayment. */
-  laborGross: number;
-  overpaid: boolean;
-  repPortion: number;
-  available: number;
-  canAfford: boolean;
+  laborInHand: Card[];
+  laborDomain: ReturnType<typeof buyDomainForTarget>;
+  tagged: string[];
+  onToggle: (id: string) => void;
 }) {
+  const selectedCount = laborInHand.reduce(
+    (n, c) => (tagged.includes(c.id) ? n + 1 : n),
+    0,
+  );
   return (
     <div
-      className="flex min-w-0 flex-col rounded-xl px-5 pb-3.5 pt-4"
+      className="flex min-w-0 flex-col rounded-xl px-5 pb-4 pt-4"
       style={{
         border: "1px solid rgba(110,80,50,.45)",
         background:
-          "repeating-linear-gradient(0deg, transparent 0 28px, rgba(110,80,50,.06) 28px 29px), linear-gradient(180deg, rgba(28,18,11,.85), rgba(18,12,8,.95))",
+          "linear-gradient(180deg, rgba(28,18,11,.78), rgba(18,12,8,.92))",
         boxShadow:
           "inset 0 1px 0 rgba(240,201,112,.10), 0 8px 22px rgba(0,0,0,.45)",
       }}
     >
       <div className="flex items-baseline gap-3">
-        <span className="stage-tag">Ledger</span>
+        <span className="stage-tag">Apply toward purchase</span>
         <span
           aria-hidden
           className="h-px flex-1"
@@ -396,149 +360,166 @@ function Ledger({
               "linear-gradient(90deg, rgba(110,80,50,.5), transparent)",
           }}
         />
-        <span className="label-sm">Itemized for the table</span>
+        <span className="label-sm">
+          <span style={{ color: "var(--gold)" }}>{selectedCount}</span>
+          <span style={{ color: "var(--mute)" }}>
+            {" "}
+            of {laborInHand.length} tagged
+          </span>
+        </span>
       </div>
 
-      <div className="mt-3 flex flex-col gap-0.5">
-        <LedgerLine
-          label="Card lists at"
-          right={<Coin amount={cost} />}
-        />
-        <LedgerLine
-          label="Labor applied"
-          dim={laborCovered === 0}
-          right={<Delta amount={laborCovered} dim={laborCovered === 0} />}
-        />
-        {/* Capital from hand — placeholder until the engine grows that
-            affordance. Reads ฿0 today so the ledger structure stays
-            stable; the chip row below already disables non-Labor cards. */}
-        <LedgerLine label="Capital from hand" dim right={<Delta amount={0} dim />} />
+      {laborInHand.length === 0 ? (
         <div
-          aria-hidden
-          className="my-1.5 h-px"
-          style={{ background: "rgba(110,80,50,.45)" }}
-        />
-        <LedgerLine
-          big
-          label="Rep you'll spend"
-          right={
-            <Coin
-              amount={repPortion}
-              big
-              tone={repPortion === 0 ? "gold" : canAfford ? "ink" : "rose"}
-            />
-          }
-        />
-      </div>
-
-      {/* Rep meter */}
-      <div className="mt-auto pt-3">
-        <RepMeter
-          spend={repPortion}
-          available={available}
-          canAfford={canAfford}
-          overpaid={overpaid}
-          laborGross={laborGross}
-          cost={cost}
-        />
-      </div>
+          className="mt-4 flex flex-1 items-center justify-center rounded-md border border-dashed px-4 py-6 text-center font-display text-[13.5px] italic"
+          style={{
+            borderColor: "rgba(110,80,50,.45)",
+            color: "var(--mute)",
+          }}
+        >
+          No Labor cards in hand — pay the full rep cost or cancel.
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-wrap items-stretch gap-2.5">
+          {laborInHand.map((c) => {
+            const covers = laborContribution(c, laborDomain);
+            const wrongDomain = covers === 0;
+            const isTagged = tagged.includes(c.id);
+            return (
+              <div key={c.id} className="flex flex-col items-center gap-1.5">
+                <HandCardTile
+                  card={c}
+                  size="md"
+                  interactive={!wrongDomain}
+                  selected={isTagged}
+                  onClick={
+                    wrongDomain ? undefined : () => onToggle(c.id)
+                  }
+                  tone="amber"
+                  dim={wrongDomain}
+                />
+                <span
+                  className="rounded-md border px-2 py-[2px] font-mono text-[9.5px] font-bold uppercase tracking-[.12em]"
+                  style={
+                    wrongDomain
+                      ? {
+                          borderColor: "rgba(110,80,50,.45)",
+                          color: "var(--whisper)",
+                          background: "rgba(34,23,16,.55)",
+                        }
+                      : isTagged
+                        ? {
+                            borderColor: "rgba(252,211,77,.7)",
+                            color: "#1a120b",
+                            background:
+                              "linear-gradient(180deg, #f0c970, #c69d52)",
+                          }
+                        : {
+                            borderColor: "rgba(252,211,77,.4)",
+                            color: "var(--gold)",
+                            background: "rgba(240,201,112,.08)",
+                          }
+                  }
+                >
+                  {wrongDomain ? "wrong domain" : `covers ฿${covers}`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-function LedgerLine({
-  label,
-  right,
-  big,
-  dim,
+// ─────────────────────────────────────────────────────────────────────
+// Rep panel — right column. Big "rep you'll spend" stat with the meter
+// underneath; the whole purchase resolves to this single number.
+// ─────────────────────────────────────────────────────────────────────
+
+function RepPanel({
+  repPortion,
+  available,
+  canAfford,
+  overpaid,
+  laborGross,
+  cost,
 }: {
-  label: string;
-  right: ReactNode;
-  big?: boolean;
-  dim?: boolean;
+  repPortion: number;
+  available: number;
+  canAfford: boolean;
+  overpaid: boolean;
+  laborGross: number;
+  cost: number;
 }) {
+  const isFree = repPortion === 0 && cost > 0;
+  const bigColor = !canAfford
+    ? "var(--rose)"
+    : isFree
+      ? "var(--gold)"
+      : "var(--ink)";
   return (
     <div
-      className={`flex items-baseline justify-between ${big ? "py-1" : "py-[3px]"} ${dim ? "opacity-55" : ""}`}
-    >
-      <span
-        className={
-          big
-            ? "font-display text-base font-semibold tracking-[.005em]"
-            : "font-sans text-[13px] font-medium"
-        }
-        style={{ color: big ? "var(--ink)" : "var(--ink-muted)" }}
-      >
-        {label}
-      </span>
-      <span
-        aria-hidden
-        className="mx-2.5 -translate-y-[3px] flex-1 border-b border-dotted"
-        style={{
-          borderColor: big
-            ? "rgba(110,80,50,.45)"
-            : "rgba(110,80,50,.25)",
-        }}
-      />
-      {right}
-    </div>
-  );
-}
-
-function Coin({
-  amount,
-  big = false,
-  tone = "ink",
-}: {
-  amount: number;
-  big?: boolean;
-  tone?: "ink" | "gold" | "rose";
-}) {
-  const fontSize = big ? 28 : 14;
-  const color =
-    tone === "gold"
-      ? "var(--gold)"
-      : tone === "rose"
-        ? "var(--rose)"
-        : "var(--ink)";
-  return (
-    <span
-      className="inline-flex items-baseline gap-1 font-display font-semibold tabular-nums tracking-[.01em]"
-      style={{ fontSize, color }}
-    >
-      <span
-        className="font-mono"
-        style={{ fontSize: fontSize * 0.55, color: "var(--brass)", opacity: 0.8 }}
-      >
-        ฿
-      </span>
-      <span>{amount}</span>
-    </span>
-  );
-}
-
-function Delta({
-  amount,
-  dim,
-}: {
-  amount: number;
-  dim?: boolean;
-}) {
-  const sign = amount === 0 ? "" : "−";
-  const abs = Math.abs(amount);
-  return (
-    <span
-      className="inline-flex items-baseline gap-[3px] font-mono text-[13px] font-bold tabular-nums"
+      className="flex min-w-0 flex-col items-stretch rounded-xl px-5 pb-4 pt-4"
       style={{
-        color: dim
-          ? "var(--whisper)"
-          : "var(--emerald)",
+        border: "1px solid rgba(110,80,50,.45)",
+        background:
+          "radial-gradient(120% 80% at 50% 0%, rgba(240,201,112,.10), transparent 65%), linear-gradient(180deg, rgba(28,18,11,.85), rgba(18,12,8,.95))",
+        boxShadow:
+          "inset 0 1px 0 rgba(240,201,112,.18), 0 8px 22px rgba(0,0,0,.45)",
       }}
     >
-      {sign ? <span>{sign}</span> : null}
-      <span className="font-mono text-[10px] opacity-80">฿</span>
-      <span>{abs}</span>
-    </span>
+      <div className="flex items-baseline gap-3">
+        <span className="stage-tag">Rep you'll spend</span>
+        <span
+          aria-hidden
+          className="h-px flex-1"
+          style={{
+            background:
+              "linear-gradient(90deg, rgba(110,80,50,.5), transparent)",
+          }}
+        />
+      </div>
+
+      {/* Big number */}
+      <div className="flex flex-1 flex-col items-center justify-center py-2">
+        <div
+          className="flex items-baseline gap-2 font-display font-bold leading-none tabular-nums tracking-[.005em]"
+          style={{
+            color: bigColor,
+            textShadow:
+              "0 2px 0 rgba(0,0,0,.45), 0 0 28px rgba(240,201,112,.22)",
+          }}
+        >
+          <span
+            className="font-mono"
+            style={{
+              fontSize: 36,
+              color: "var(--brass)",
+              opacity: 0.85,
+            }}
+          >
+            ฿
+          </span>
+          <span style={{ fontSize: 96 }}>{repPortion}</span>
+        </div>
+        <div
+          className="mt-1 font-mono text-[10.5px] uppercase tracking-[.16em]"
+          style={{ color: "var(--ink-muted)" }}
+        >
+          of <span style={{ color: "var(--gold)" }}>{available}</span> available
+        </div>
+      </div>
+
+      <RepMeter
+        spend={repPortion}
+        available={available}
+        canAfford={canAfford}
+        overpaid={overpaid}
+        laborGross={laborGross}
+        cost={cost}
+      />
+    </div>
   );
 }
 
@@ -618,102 +599,6 @@ function RepMeter({
         </span>
       ) : null}
     </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Hand chip — one toggle per card in hand. Labor pays via
-// laborContribution; non-Labor renders disabled with a "pays nothing"
-// affordance so the player sees why they can't tag it.
-// ─────────────────────────────────────────────────────────────────────
-
-function HandChip({
-  card,
-  laborDomain,
-  tagged,
-  onToggle,
-}: {
-  card: Card;
-  laborDomain: ReturnType<typeof buyDomainForTarget>;
-  tagged: boolean;
-  onToggle: () => void;
-}) {
-  const isLabor = card.type === "labor";
-  const covers = isLabor ? laborContribution(card, laborDomain) : 0;
-  const subInkRaw =
-    card.type === "labor"
-      ? "#c69d52"
-      : SUB_INK[(card.subtype as ResourceSubtype | undefined) ?? "cask"];
-  const glyph: ReactNode = isLabor
-    ? laborGlyphFor(card.laborSubtype)
-    : RESOURCE_GLYPH[(card.subtype as ResourceSubtype) ?? "cask"] ?? "◇";
-  const label = isLabor
-    ? labelForLabor(card.laborSubtype)
-    : RESOURCE_LABEL[(card.subtype as ResourceSubtype) ?? "cask"] ?? "Card";
-  // Why "pays nothing": only Labor cards contribute to a purchase under
-  // the unified rep system; non-Labor are visible but inert.
-  const disabled = !isLabor || covers === 0;
-  const reasonDisabled = !isLabor
-    ? "Only Labor cards can pay for purchases."
-    : covers === 0
-      ? `${labelForLabor(card.laborSubtype)} Labor doesn't apply to this purchase (wrong domain).`
-      : "";
-  return (
-    <button
-      type="button"
-      onClick={disabled ? undefined : onToggle}
-      disabled={disabled}
-      title={
-        disabled
-          ? reasonDisabled
-          : `Tag this card to cover ฿${covers} of the cost.`
-      }
-      className={[
-        "inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 transition-transform",
-        tagged
-          ? "border border-amber-300 bg-gradient-to-b from-[rgba(240,201,112,.18)] to-[rgba(176,106,56,.08)] shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_4px_14px_rgba(240,201,112,.25)]"
-          : disabled
-            ? "border border-[#3b2818] bg-[rgba(20,14,8,.55)] opacity-55 cursor-not-allowed"
-            : "border border-[#3b2818] bg-gradient-to-b from-[rgba(34,23,16,.75)] to-[rgba(20,14,8,.85)] hover:-translate-y-px hover:border-emerald-500/60",
-      ].join(" ")}
-    >
-      <span
-        className="grid h-[18px] w-[18px] place-items-center rounded font-display text-[13px] font-bold leading-none"
-        style={{
-          background: tagged
-            ? "var(--gold)"
-            : "rgba(34,23,16,.5)",
-          color: tagged ? "#1a120b" : subInkRaw,
-          border: tagged ? "0" : `1px solid ${subInkRaw}55`,
-        }}
-        aria-hidden
-      >
-        {tagged ? "✓" : glyph}
-      </span>
-      <span
-        className="font-sans text-[12px] font-semibold"
-        style={{ color: tagged ? "var(--ink)" : "var(--ink-muted)" }}
-      >
-        {card.displayName ?? label}
-      </span>
-      <span
-        className="font-mono text-[9.5px] font-bold uppercase tracking-[.10em]"
-        style={{
-          color: !isLabor
-            ? "var(--whisper)"
-            : covers === 0
-              ? "var(--whisper)"
-              : "var(--gold)",
-          opacity: tagged ? 1 : 0.7,
-        }}
-      >
-        {!isLabor
-          ? "pays nothing"
-          : covers === 0
-            ? "wrong domain"
-            : `covers ฿${covers}`}
-      </span>
-    </button>
   );
 }
 
