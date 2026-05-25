@@ -141,7 +141,8 @@ function IdentityPlate({
     <div
       className="relative grid items-center gap-[22px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[14px]"
       style={{
-        gridTemplateColumns: "auto 1fr auto",
+        // crest · BIG REP · name+ability · sold
+        gridTemplateColumns: "auto auto 1fr auto",
         background:
           "linear-gradient(180deg, rgba(58,40,24,.75) 0%, rgba(34,23,16,.85) 65%, rgba(20,14,8,.85) 100%)",
         boxShadow:
@@ -191,6 +192,36 @@ function IdentityPlate({
         />
       </div>
 
+      {/* BIG Reputation — between the crest and the title. Reads as
+          the scoreboard for the whole match. Dashed right rule
+          mirrors the divider before the Sold column on the far side. */}
+      <div
+        className="flex flex-col items-center justify-center leading-none"
+        style={{
+          paddingRight: 22,
+          borderRight: "1px dashed rgba(110,80,50,.45)",
+        }}
+      >
+        <span
+          className="font-display font-bold tracking-[.01em]"
+          style={{
+            fontSize: 64,
+            lineHeight: 0.9,
+            color: "var(--gold)",
+            textShadow:
+              "0 1px 0 rgba(0,0,0,.5), 0 0 22px rgba(240,201,112,.35)",
+          }}
+        >
+          {rep}
+        </span>
+        <span
+          className="label-sm mt-1.5"
+          style={{ color: "var(--brass)" }}
+        >
+          Reputation
+        </span>
+      </div>
+
       {/* Name + flavor + ability */}
       <div className="min-w-0">
         <div className="flex flex-wrap items-baseline gap-2.5">
@@ -219,13 +250,14 @@ function IdentityPlate({
         ) : null}
       </div>
 
-      {/* Stats */}
+      {/* Stats — Reputation now lives inline next to the crest. Only
+          Sold stays here, promoted to `big` so the right column
+          doesn't visually collapse. */}
       <div
         className="flex items-stretch gap-3.5 pl-[18px]"
         style={{ borderLeft: "1px dashed rgba(110,80,50,.45)" }}
       >
-        <Stat label="Reputation" value={rep} big />
-        <Stat label="Sold" value={sold} />
+        <Stat label="Sold" value={sold} big />
       </div>
     </div>
   );

@@ -4,9 +4,11 @@
  * v3 "Distillery-first" top bar.
  *
  * Three-cluster header: brand block (left), phase pip row (center),
- * demand meter + bourbon chip + Step/Auto/Quit (right). Reputation
- * moved off the top bar — the human's rep lives in DistilleryStage
- * and opponent rep lives in OpponentRail under the new layout.
+ * bourbon chip + Step/Auto/Quit (right). Reputation moved off the
+ * top bar — the human's rep lives in DistilleryStage and opponent
+ * rep lives in OpponentRail under the new layout. Demand moved
+ * off the top bar too — it's now the vertical thermometer column
+ * between the Rivals rail and the Stage area (DemandThermometer).
  *
  * Phase pips:
  *   - Past phases: slate fill, check icon, mute label.
@@ -14,16 +16,12 @@
  *     index number in ink-dark, gold label.
  *   - Future phases: outline only.
  *
- * Demand meter:
- *   - 140×14 brass-striped horizontal bar, scaled to `demand / 12`.
- *   - Stripes scroll via the `pour` keyframe (continuous flow).
- *
  * Bourbon chip:
  *   - Pill with brass border + warm gradient fill. Shows the bourbon
  *     deck count (the doomsday clock).
  *
- * Preserves `data-bb-zone="demand"` and `data-bb-zone="supply-counter"`
- * for tutorial spotlight anchors.
+ * Preserves `data-bb-zone="supply-counter"` for tutorial spotlight
+ * anchors. (`data-bb-zone="demand"` now lives on DemandThermometer.)
  */
 
 import { useEffect, useState } from "react";
@@ -144,11 +142,12 @@ export default function GameTopBar() {
         <span aria-hidden />
       )}
 
-      {/* Right cluster: demand + bourbon + controls */}
+      {/* Right cluster: bourbon + controls. Demand has moved to the
+          vertical thermometer between the Rivals rail and the
+          Stage area — see DemandThermometer.tsx. */}
       <div className="flex items-center gap-3">
         {showRoundChrome ? (
           <>
-            <DemandMeter value={state.demand} />
             <BourbonChip
               remaining={state.bourbonDeck.length}
               finalRound={state.finalRoundTriggered}
@@ -313,45 +312,6 @@ function SetupBanner({ phase }: { phase: "distillery_selection" | "starter_deck_
   return (
     <div className="flex flex-1 items-center justify-center font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
       {label}
-    </div>
-  );
-}
-
-// -----------------------------
-// Demand meter (brass-striped, animated by `pour`)
-// -----------------------------
-
-function DemandMeter({ value }: { value: number }) {
-  const target = 12;
-  const pct = Math.min(1, value / target);
-  return (
-    <div
-      data-bb-zone="demand"
-      className="flex items-center gap-2.5 rounded-md border border-[#3b2818] bg-[rgba(22,15,10,.7)] px-3 py-1.5"
-    >
-      <span className="label-sm">Demand</span>
-      <div
-        className="relative h-[14px] w-[140px] overflow-hidden rounded-full border border-[var(--whisper)]"
-        style={{
-          background: "linear-gradient(180deg,#0a0604,#15100a)",
-          boxShadow: "inset 0 2px 4px rgba(0,0,0,.6)",
-        }}
-      >
-        <div
-          className="absolute inset-y-0 left-0 pour"
-          style={{
-            width: `${pct * 100}%`,
-            background:
-              "repeating-linear-gradient(135deg, #f0c970 0 8px, #c69d52 8px 16px)",
-            backgroundSize: "24px 24px",
-            boxShadow: "0 0 10px rgba(240,201,112,.55)",
-          }}
-        />
-      </div>
-      <span className="font-mono text-[12px] font-semibold tabular-nums leading-none">
-        <span style={{ color: "var(--gold)" }}>{value}</span>
-        <span style={{ color: "var(--mute)" }}>/{target}</span>
-      </span>
     </div>
   );
 }

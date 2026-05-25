@@ -39,6 +39,7 @@ import { useEffect } from "react";
 import { useGameStore } from "@/lib/store/game";
 import HandTray from "./HandTray";
 import AgeFlight from "./AgeFlight";
+import DemandThermometer from "./DemandThermometer";
 import MakeFlight from "./MakeFlight";
 import MarketDrawer from "./MarketDrawer";
 import MarketRow from "./MarketRow";
@@ -127,10 +128,14 @@ export default function GameBoard() {
         style={{
           // Rivals 280px (was 230) so opponent cards' name + handle +
           // mini-rickhouse range strips don't crowd. Log stays 290 so
-          // Tasting Notes entries don't wrap mid-sentence.
-          gridTemplateColumns: "280px 1fr 290px",
+          // Tasting Notes entries don't wrap mid-sentence. Demand
+          // thermometer column (96px) sits between Rivals and Stage
+          // and spans the full main-area height so the liquid level
+          // reads alongside both the rickhouse and the hand.
+          gridTemplateColumns: "280px 96px 1fr 290px",
           gridTemplateRows: "1fr auto",
-          gridTemplateAreas: '"rivals stage log" "rivals hand log"',
+          gridTemplateAreas:
+            '"rivals demand stage log" "rivals demand hand log"',
           gap: 12,
           padding: 12,
           background:
@@ -138,6 +143,7 @@ export default function GameBoard() {
         }}
       >
         <OpponentRail />
+        <DemandThermometer rolled={state.demand} target={12} />
 
         {/* Stage area — flex column with MarketRow above DistilleryStage.
             Each child is its own floating panel; the wrapper just stacks
