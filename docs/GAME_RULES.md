@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (current alpha — "Unified Market").** Distillery selection (4-distillery picker), slot-bound mash bills, incremental production, single-step selling, a unified 10-card market (resources + Labor + ops + investments together), trading, doomsday-deck endgame. Reputation is the unified currency for both VP and spending; Labor cards supplement rep on purchases. Generic Labor is finite per player (2 in the starter deck, no central pile, no Hire). Investment cards ship in the market but their on-buy effects are still effect-pending. Multiplayer is live (host a 4-char-code room from `/multiplayer`).
+> **Scope (current alpha — v3.0 "Friction Pass").** Distillery selection (4-distillery picker), slot-bound mash bills, incremental production, single-step selling, a unified 10-card market (resources + Labor + ops + investments together; supply weighted toward resources / Commons — see [§Supply composition](#supply-composition)), trading, doomsday-deck endgame, Drafting Loop for bill acquisition (take any number in a row, one card per bill). Reputation is the unified currency for both VP and spending; Labor cards supplement rep on purchases. Generic Labor is finite per player (3 in the starter deck, no central pile, no Hire). Investment cards ship in the market but their on-buy effects are still effect-pending. Multiplayer is live (host a 4-char-code room from `/multiplayer`).
 
 ---
 
@@ -224,6 +224,18 @@ The market is a **single 10-card face-up row** containing a mix of:
 - **Specialty Labor** ($4 — Cooper, Marketing, Architect)
 - **Operations cards** (one-shot effects with various costs)
 - **Investments** (long-term effects — *effects pending implementation*)
+
+### Supply composition
+
+The face-down supply is mixed so that any 10-card draw skews toward what players need most. Target ratios (excluding the 3 Specialty Labor cards):
+
+| Category | Share | Composition |
+|---|:-:|---|
+| **Resources** | ~65% | ~54% Common · ~31% Specialty · ~15% Heritage |
+| **Operations** | ~20% | one copy of each ops card |
+| **Investments** | ~15% | flat distribution across the catalog |
+
+The bias toward Commons (and especially toward resources overall) means most draws have something usable for an in-progress recipe; Commons deplete first as players buy them down, gradually shifting the market toward premium / specialty / ops mid-game.
 
 Mash bills are NOT in this market — they live face-down in the bourbon deck and only surface during the [§Drafting Loop](#draft-mash-bills-the-drafting-loop).
 
@@ -544,6 +556,23 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 ---
 
 # 📜 Changelog
+
+- **v3.0** — **"Friction Pass."** A round of UX-driven changes (mostly client) plus two engine tunings:
+
+  **Engine**
+  - **Market supply rebalanced.** The face-down supply now targets ~65% resources / ~20% operations / ~15% investments (was roughly 37/45/15). Inside resources, about 54% are Common (was ~63%). Pool drops from 107 → 103 cards — round/game length unchanged. Bias toward common resources keeps early hands buildable; the share of ops/specialty rises naturally as commons get bought down. See [§Supply composition](#supply-composition).
+  - **Bot sells more aggressively.** `SELL_REWARD_THRESHOLD` lowered (sells at any positive reward, not ≥2); `SELL_PRESSURE_AGE` lowered to 3 (was 4); new endgame-closeout rule flushes even reward-0 barrels in the final ~3 rounds so bots don't die holding stock. Fixes a 26-round playtest where two bots finished with 0 rep.
+  - **Drafting Loop multi-take confirmed.** The engine has always supported "take N bills in a row (one card each)" per [§Draft Mash Bills](#draft-mash-bills-the-drafting-loop) §2 — a stale auto-pass in the modal was racing the player to a single take. Pass button is now the only way the loop rotates.
+
+  **UI / UX (no rule changes)**
+  - **Aging phase reframed as a forced sub-phase.** Removed the "Age barrel" Action-bar button (aging was already required every turn). New `AgingPhaseModal` introduces the phase + a progress banner ("N of M aged") replaces the old sticky strip. Demand-roll modal now suppressed on bot turns (used to flash on screen for ~50ms).
+  - **Buy flow eligibility chrome.** Picked market card gets an amber ring; resource cards dim when paying (only Labor can supplement rep); wrong-domain Labor dims (Marketing for ops, Cooper for market resources, Architect for investments). Make flow gets the same dim treatment for Labor cards (they can't satisfy recipes).
+  - **Bot-turn signal.** Active opponent's tile breathes a gold halo; a top-center chip says "X is taking their turn…" while autoplay drives a bot.
+  - **Toast notifications.** Engine rejections (illegal commits, stale-state dispatches) now surface a top-right toast with the reason — used to fail silently with the picker stuck open.
+  - **Modals consolidated.** Quit-game, final standings, and card-inspect modals all portal to page root so backdrops cover the full viewport (used to be clipped to the 1680px design canvas on wide monitors).
+  - **Mash-bill draft tiles enriched.** Drafting Loop's revealed bills show rep range, age threshold, Gold badge, and a one-line recipe sentence (was just name + slogan + pip strip).
+  - **Right-click any market card** to open the full inspect modal (parity with hand cards + barrels).
+  - **Barrel chrome.** Building (non-aging) barrels render with neutral grey staves + a pulsing sky halo; aging barrels keep the warm wood + ember treatment. NEEDS plate enlarged so it covers most of the barrel face.
 
 - **v2.14** — **"The Drafting Loop" + "Smoother Starter."**
 
