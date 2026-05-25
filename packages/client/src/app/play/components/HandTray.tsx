@@ -112,12 +112,23 @@ export default function HandTray() {
           ScalingHost — it's a true fullscreen modal and the
           `transform: scale(...)` on ScalingHost would otherwise scope
           its `position: fixed` to the design canvas. */}
-      <AgeOverlay />
-      <SellOverlay />
-      <MakeOverlay />
+      {/* Phase / mode banner slot — reserves a fixed 44px so the layout
+          below doesn't shift when AgeOverlay/SellOverlay/MakeOverlay
+          pop in or out. The three are mutually exclusive (only one
+          mode is active at a time), so this single slot covers all
+          three. */}
+      <div className="min-h-[44px]">
+        <AgeOverlay />
+        <SellOverlay />
+        <MakeOverlay />
+      </div>
 
-      {/* Action bar — restyled mono brass buttons. */}
-      <ActionBar />
+      {/* Action bar slot — reserves 34px so the bottom panel keeps its
+          shape between phases. ActionBar self-gates on the action
+          phase; outside it, the slot stays empty but pinned. */}
+      <div className="min-h-[34px]">
+        <ActionBar />
+      </div>
 
       {/* Status strip — context-aware italic sentence tied to the
           active picker mode. Pulled from the new HandStripStatus
