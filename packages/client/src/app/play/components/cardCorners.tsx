@@ -12,7 +12,7 @@
 import { MoneyText } from "./money";
 
 const TAB_BASE =
-  "absolute top-0 right-0 z-10 inline-flex h-[16px] min-w-[22px] items-center justify-center rounded-tr-[4px] rounded-bl-[5px] border-b border-l px-1 font-mono text-[9px] font-bold leading-none";
+  "absolute top-0 right-0 z-10 inline-flex h-[16px] min-w-[22px] items-center justify-center rounded-tr-[4px] rounded-bl-[5px] border-b border-l px-1 font-mono text-[12px] font-bold leading-none";
 
 export function CornerCost({ cost }: { cost: number }) {
   return (

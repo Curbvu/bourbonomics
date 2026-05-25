@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Main menu — shown whenever `useGameStore.state` is null.
+ * Game setup menu — shown whenever `useGameStore.state` is null.
+ * Configures the player seat + bot seats, then starts a new game.
  *
- * Same visual style as v1's MainMenu, simplified for v2:
- * difficulty pickers stay on the form (cosmetic) but every seat plays
+ * Difficulty pickers stay on the form (cosmetic) but every seat plays
  * via the heuristic bot since v2 is computer-only for now.
  */
 
@@ -32,7 +32,7 @@ const DIFFICULTY_OPTIONS: { id: Difficulty; label: string; hint: string }[] = [
   { id: "hard", label: "Hard", hint: "Tighter pruning" },
 ];
 
-export default function MainMenu() {
+export default function GameSetupMenu() {
   const { newGame } = useGameStore();
   const [playerName, setPlayerName] = useState("You");
   const [bots, setBots] = useState<BotSeat[]>(DEFAULT_BOTS);
@@ -103,7 +103,7 @@ export default function MainMenu() {
             <span className="font-display text-2xl font-semibold tracking-[.01em] text-amber-100">
               Bourbonomics
             </span>
-            <span className="font-mono text-[11px] uppercase tracking-[.18em] text-slate-500">
+            <span className="font-mono text-[13px] uppercase tracking-[.18em] text-slate-500">
               distillery management · solo vs. computer
             </span>
           </div>
@@ -112,7 +112,7 @@ export default function MainMenu() {
         {/* Player + seat config */}
         <section className="flex flex-col gap-4 rounded-lg border border-slate-800 bg-slate-900/70 p-5">
           <div>
-            <label className="mb-1 block font-mono text-[11px] font-semibold uppercase tracking-[.14em] text-slate-400">
+            <label className="mb-1 block font-mono text-[13px] font-semibold uppercase tracking-[.14em] text-slate-400">
               Your baron name
             </label>
             <input
@@ -127,10 +127,10 @@ export default function MainMenu() {
 
           <div>
             <div className="mb-2 flex items-baseline justify-between gap-3">
-              <span className="font-mono text-[11px] font-semibold uppercase tracking-[.14em] text-slate-400">
+              <span className="font-mono text-[13px] font-semibold uppercase tracking-[.14em] text-slate-400">
                 Opponents · {bots.length} bot{bots.length === 1 ? "" : "s"}
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+              <span className="font-mono text-[12px] uppercase tracking-[.12em] text-slate-500">
                 {totalSeats} seats total
               </span>
             </div>
@@ -163,7 +163,7 @@ export default function MainMenu() {
                           title={opt.hint}
                           aria-pressed={selected}
                           className={[
-                            "rounded border px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[.08em] transition-colors",
+                            "rounded border px-2.5 py-1 font-mono text-[12px] font-semibold uppercase tracking-[.08em] transition-colors",
                             selected
                               ? "border-amber-500 bg-amber-700/[0.30] text-amber-100"
                               : "border-slate-700 bg-slate-900 text-slate-400 hover:border-amber-500/60 hover:text-amber-200",
@@ -184,7 +184,7 @@ export default function MainMenu() {
                         ? "Need at least 1 bot opponent"
                         : `Remove ${b.name}`
                     }
-                    className="rounded border border-slate-700 bg-slate-900 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[.05em] text-slate-400 transition-colors hover:border-rose-500/60 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-700 disabled:hover:text-slate-400"
+                    className="rounded border border-slate-700 bg-slate-900 px-2 py-0.5 font-mono text-[12px] font-semibold uppercase tracking-[.05em] text-slate-400 transition-colors hover:border-rose-500/60 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-700 disabled:hover:text-slate-400"
                   >
                     remove
                   </button>
@@ -195,7 +195,7 @@ export default function MainMenu() {
               <button
                 type="button"
                 onClick={addBot}
-                className="mt-2 rounded border border-dashed border-slate-700 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.08em] text-slate-300 transition-colors hover:border-amber-500/60 hover:text-amber-200"
+                className="mt-2 rounded border border-dashed border-slate-700 px-3 py-1.5 font-mono text-[13px] font-semibold uppercase tracking-[.08em] text-slate-300 transition-colors hover:border-amber-500/60 hover:text-amber-200"
               >
                 + add bot
               </button>
@@ -213,7 +213,7 @@ export default function MainMenu() {
           >
             Start distillery ↵
           </button>
-          <span className="font-mono text-[11px] text-slate-500">
+          <span className="font-mono text-[13px] text-slate-500">
             Solo vs. {bots.length} bot{bots.length === 1 ? "" : "s"} · seed
             randomised · computer-only
           </span>
@@ -221,7 +221,7 @@ export default function MainMenu() {
 
         {/* Footer */}
         <footer className="mt-4 border-t border-slate-800 pt-4">
-          <p className="font-mono text-[11px] leading-relaxed text-slate-500">
+          <p className="font-mono text-[13px] leading-relaxed text-slate-500">
             Read the{" "}
             <a
               href="/rules"

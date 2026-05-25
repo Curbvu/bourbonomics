@@ -70,7 +70,7 @@ export default function RoomBanner({ code }: { code: string }) {
   return (
     <div className="border-b border-amber-800/40 bg-gradient-to-r from-amber-950/40 via-slate-950 to-rose-950/30 px-[18px] py-1.5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-rose-300">
+        <span className="font-mono text-[12px] font-bold uppercase tracking-[.18em] text-rose-300">
           Room
         </span>
         <span className="font-display text-xl font-bold tabular-nums tracking-[0.2em] text-amber-200">
@@ -79,7 +79,7 @@ export default function RoomBanner({ code }: { code: string }) {
         <button
           type="button"
           onClick={onCopy}
-          className="rounded border border-amber-500/60 bg-amber-900/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[.14em] text-amber-200 transition-colors hover:border-amber-300 hover:bg-amber-800/40"
+          className="rounded border border-amber-500/60 bg-amber-900/30 px-2 py-0.5 font-mono text-[12px] uppercase tracking-[.14em] text-amber-200 transition-colors hover:border-amber-300 hover:bg-amber-800/40"
         >
           {copied ? "copied!" : "copy share link"}
         </button>
@@ -89,7 +89,7 @@ export default function RoomBanner({ code }: { code: string }) {
           <button
             type="button"
             onClick={releaseSeat}
-            className="font-mono text-[10px] uppercase tracking-[.14em] text-slate-400 hover:text-rose-300"
+            className="font-mono text-[12px] uppercase tracking-[.14em] text-slate-400 hover:text-rose-300"
             title="Drop your seat — opens it back up for someone else to claim."
           >
             release seat
@@ -98,7 +98,7 @@ export default function RoomBanner({ code }: { code: string }) {
         <button
           type="button"
           onClick={leaveMultiplayer}
-          className="font-mono text-[10px] uppercase tracking-[.14em] text-slate-400 hover:text-rose-300"
+          className="font-mono text-[12px] uppercase tracking-[.14em] text-slate-400 hover:text-rose-300"
         >
           leave
         </button>
@@ -120,7 +120,7 @@ export default function RoomBanner({ code }: { code: string }) {
       </div>
 
       {waitingForUnclaimedSeat ? (
-        <p className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-amber-300">
+        <p className="mt-1 font-mono text-[12px] uppercase tracking-[.14em] text-amber-300">
           ⏳ Waiting on{" "}
           <span className="font-bold">{waitingForUnclaimedSeat.name}</span>{" "}
           — share the room link to fill the seat.
@@ -128,7 +128,7 @@ export default function RoomBanner({ code }: { code: string }) {
       ) : null}
 
       {claimError ? (
-        <p className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-rose-300">
+        <p className="mt-1 font-mono text-[12px] uppercase tracking-[.14em] text-rose-300">
           {claimError}
         </p>
       ) : null}
@@ -171,7 +171,7 @@ function SeatChip({
         type="button"
         onClick={onClaim}
         disabled={claiming}
-        className={`rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[.14em] transition-colors hover:bg-rose-900/50 disabled:opacity-50 ${tone}`}
+        className={`rounded border px-2 py-0.5 font-mono text-[12px] uppercase tracking-[.14em] transition-colors hover:bg-rose-900/50 disabled:opacity-50 ${tone}`}
       >
         {claiming ? "claiming…" : `claim ${label}`}
       </button>
@@ -179,7 +179,7 @@ function SeatChip({
   }
   return (
     <span
-      className={`rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[.14em] ${tone}`}
+      className={`rounded border px-2 py-0.5 font-mono text-[12px] uppercase tracking-[.14em] ${tone}`}
     >
       {label}
     </span>
@@ -197,7 +197,7 @@ function StatusPill({ status }: { status: string }) {
           : "border-slate-600 text-slate-400";
   return (
     <span
-      className={`rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[.14em] ${tone}`}
+      className={`rounded border px-2 py-0.5 font-mono text-[12px] uppercase tracking-[.14em] ${tone}`}
     >
       {status}
     </span>

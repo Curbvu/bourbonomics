@@ -66,7 +66,7 @@ export default function TutorialPage() {
     return (
       <main className="min-h-screen bg-slate-950 px-6 py-16 text-slate-100">
         <div className="mx-auto max-w-md text-center">
-          <p className="font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
+          <p className="font-mono text-[13px] uppercase tracking-[.18em] text-amber-300">
             Tutorial
           </p>
           <h1 className="mt-2 font-display text-3xl font-bold">

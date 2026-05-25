@@ -138,7 +138,7 @@ export function dealStarterHands(
  * currently only `bonusSpecialtyRye` (High-Rye House: +2).
  */
 export function applyDistilleryStarterModifications(
-  target: Draft<Card[]>,
+  target: Card[] | Draft<Card[]>,
   player: Pick<PlayerState, "id">,
   distillery: Distillery,
 ): void {

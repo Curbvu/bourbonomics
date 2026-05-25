@@ -36,7 +36,7 @@ export default function ToastStack() {
           aria-label={`${t.title}${t.detail ? `: ${t.detail}` : ""} — click to dismiss`}
         >
           <span
-            className={`font-mono text-[10px] font-bold uppercase tracking-[.16em] ${
+            className={`font-mono text-[12px] font-bold uppercase tracking-[.16em] ${
               t.kind === "error" ? "text-rose-200" : "text-sky-200"
             }`}
           >
@@ -48,7 +48,7 @@ export default function ToastStack() {
               {t.detail}
             </span>
           ) : null}
-          <span className="mt-0.5 font-mono text-[9px] uppercase tracking-[.14em] text-slate-500">
+          <span className="mt-0.5 font-mono text-[12px] uppercase tracking-[.14em] text-slate-500">
             click to dismiss
           </span>
         </button>

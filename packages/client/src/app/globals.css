@@ -479,13 +479,44 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
 }
 
 /* `ember` — barrel year medallion when phase=aging. Subtle warm glow
-   pulse implying the spirit is alive inside the staves. */
+   pulse implying the spirit is alive inside the staves. Kept as a
+   fallback / shared base; aging barrels actually render one of the
+   two state-specific variants below. */
 @keyframes ember {
   0%, 100% { box-shadow: 0 0 8px rgba(240, 201, 112, 0.35); }
   50%      { box-shadow: 0 0 14px rgba(240, 201, 112, 0.55); }
 }
 .ember {
   animation: ember 3.2s ease-in-out infinite;
+}
+
+/* `ember-needs` — aging barrel still owed its round age commit. A
+   bright, faster pulse with a radiating amber ring so it pops as a
+   "do this next" cue. */
+@keyframes ember-needs {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(240, 201, 112, 0.55),
+      0 0 0 0 rgba(245, 158, 11, 0.65);
+  }
+  50% {
+    box-shadow:
+      0 0 22px rgba(245, 158, 11, 0.85),
+      0 0 0 8px rgba(245, 158, 11, 0);
+  }
+}
+.ember-needs {
+  animation: ember-needs 1.6s ease-in-out infinite;
+}
+
+/* `ember-aged` — barrel has eaten its age card this round. Slow,
+   quiet pulse — fed and settled. */
+@keyframes ember-aged {
+  0%, 100% { box-shadow: 0 0 6px rgba(240, 201, 112, 0.28); }
+  50%      { box-shadow: 0 0 10px rgba(240, 201, 112, 0.38); }
+}
+.ember-aged {
+  animation: ember-aged 4.8s ease-in-out infinite;
 }
 
 /* `.bb-zone-dim` / `.bb-zone-focus` — picker-mode focus dimming. The

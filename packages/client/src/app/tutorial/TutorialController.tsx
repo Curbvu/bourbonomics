@@ -557,7 +557,7 @@ function CoachMark({
       key={beat.id}
       className={wrapperClass}
     >
-      <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-[.14em] text-amber-300/85">
+      <div className="flex items-center justify-between font-mono text-[12px] uppercase tracking-[.14em] text-amber-300/85">
         <ChapterProgress beatIndex={beatIndex} totalBeats={totalBeats} />
         <SkipLink />
       </div>
@@ -570,7 +570,7 @@ function CoachMark({
           <button
             type="button"
             onClick={onBack}
-            className="font-mono text-[10px] uppercase tracking-[.16em] text-slate-400 hover:text-amber-200"
+            className="font-mono text-[12px] uppercase tracking-[.16em] text-slate-400 hover:text-amber-200"
           >
             ← Back to previous step
           </button>
@@ -631,7 +631,7 @@ function PromptCard({
               <button
                 type="button"
                 onClick={onBack}
-                className="rounded-md border-2 border-slate-600 bg-slate-900 px-4 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-200 hover:border-slate-400"
+                className="rounded-md border-2 border-slate-600 bg-slate-900 px-4 py-2 font-mono text-[13px] uppercase tracking-[.14em] text-slate-200 hover:border-slate-400"
               >
                 ← Back
               </button>
@@ -646,12 +646,12 @@ function PromptCard({
               <button
                 type="button"
                 onClick={onContinue}
-                className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
+                className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[13px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
               >
                 {beat.ctaLabel ?? "Continue ↵"}
               </button>
             ) : (
-              <span className="font-mono text-[10px] italic text-amber-200/70">
+              <span className="font-mono text-[12px] italic text-amber-200/70">
                 Right-click to continue
               </span>
             )}
@@ -684,7 +684,7 @@ function ChapterCard({
           key={beat.id}
           className="animate-bb-tour-pop w-full max-w-lg rounded-xl border-2 border-amber-400/80 bg-slate-900 p-7 shadow-[0_8px_40px_rgba(0,0,0,.7),0_0_36px_rgba(251,191,36,.18),inset_0_1px_0_rgba(251,191,36,.10)]"
         >
-          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[.20em] text-amber-300">
+          <div className="flex items-center justify-between font-mono text-[12px] uppercase tracking-[.20em] text-amber-300">
             <span>Lesson {chapter.number} · {chapter.label}</span>
             <SkipLink />
           </div>
@@ -701,7 +701,7 @@ function ChapterCard({
               <button
                 type="button"
                 onClick={onBack}
-                className="rounded-md border-2 border-slate-600 bg-slate-900 px-4 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-200 hover:border-slate-400"
+                className="rounded-md border-2 border-slate-600 bg-slate-900 px-4 py-2 font-mono text-[13px] uppercase tracking-[.14em] text-slate-200 hover:border-slate-400"
               >
                 ← Back
               </button>
@@ -711,7 +711,7 @@ function ChapterCard({
             <button
               type="button"
               onClick={onContinue}
-              className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-6 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
+              className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-6 py-2 font-mono text-[13px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
             >
               {beat.ctaLabel ?? "Let's go ↵"}
             </button>
@@ -752,7 +752,7 @@ function DecisionCard({
               <button
                 type="button"
                 onClick={onContinue}
-                className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
+                className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[13px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
               >
                 Continue ↵
               </button>
@@ -786,7 +786,7 @@ function TransitionScreen({ beat }: { beat: Beat }) {
   return (
     <div className="pointer-events-auto fixed inset-0 z-50 flex flex-col items-center justify-center gap-8 bg-slate-950/95 px-6 text-center backdrop-blur">
       <div>
-        <div className="font-mono text-[11px] uppercase tracking-[.20em] text-amber-300">
+        <div className="font-mono text-[13px] uppercase tracking-[.20em] text-amber-300">
           {beat.subtitle ?? "Time passes…"}
         </div>
         <h2 className="mt-2 font-display text-4xl font-bold text-amber-100">
@@ -828,7 +828,7 @@ function CelebrateCard({ beat, onContinue }: { beat: Beat; onContinue: () => voi
   return (
     <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-6 backdrop-blur">
       <div className="w-full max-w-md rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-950/95 to-slate-900/95 p-6 text-center shadow-[0_0_60px_rgba(251,191,36,.45)]">
-        <div className="font-mono text-[11px] uppercase tracking-[.20em] text-amber-300">
+        <div className="font-mono text-[13px] uppercase tracking-[.20em] text-amber-300">
           Award unlocked
         </div>
         <h3 className="mt-1 font-display text-3xl font-bold text-amber-100">
@@ -844,7 +844,7 @@ function CelebrateCard({ beat, onContinue }: { beat: Beat; onContinue: () => voi
           <button
             type="button"
             onClick={onContinue}
-            className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-6 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
+            className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-6 py-2 font-mono text-[13px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
           >
             {beat.ctaLabel ?? "Continue"}
           </button>
@@ -886,14 +886,14 @@ function FinaleCard({
           <button
             type="button"
             onClick={onReplay}
-            className="rounded-md border-2 border-slate-600 bg-slate-900 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-200 hover:border-slate-400"
+            className="rounded-md border-2 border-slate-600 bg-slate-900 px-5 py-2 font-mono text-[13px] uppercase tracking-[.14em] text-slate-200 hover:border-slate-400"
           >
             {beat.replayLabel ?? "Replay tutorial"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] hover:from-amber-200 hover:to-amber-400"
+            className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[13px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] hover:from-amber-200 hover:to-amber-400"
           >
             {beat.closeLabel ?? "Start a real game"}
           </button>
@@ -919,14 +919,14 @@ function DoneScreen({
           <button
             type="button"
             onClick={onReplay}
-            className="rounded-md border-2 border-slate-600 bg-slate-900 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-200"
+            className="rounded-md border-2 border-slate-600 bg-slate-900 px-5 py-2 font-mono text-[13px] uppercase tracking-[.14em] text-slate-200"
           >
             Replay
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950"
+            className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[13px] uppercase tracking-[.14em] text-slate-950"
           >
             Back to menu
           </button>
@@ -940,7 +940,7 @@ function SkipLink() {
   return (
     <Link
       href="/"
-      className="font-mono text-[10px] uppercase tracking-[.16em] text-slate-500 hover:text-amber-200"
+      className="font-mono text-[12px] uppercase tracking-[.16em] text-slate-500 hover:text-amber-200"
     >
       Skip tutorial ↵
     </Link>

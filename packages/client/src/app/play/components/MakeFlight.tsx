@@ -102,7 +102,7 @@ export default function MakeFlight() {
           opacity: delta == null ? 1 : 0.9,
         }}
       >
-        <span className="font-mono text-[8px] uppercase tracking-[.18em] text-amber-300">
+        <span className="font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
           New Barrel
         </span>
         <h4 className="line-clamp-2 font-display text-[13px] font-bold leading-tight text-amber-50 drop-shadow-[0_1px_4px_rgba(0,0,0,.45)]">

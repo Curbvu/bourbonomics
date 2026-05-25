@@ -129,7 +129,7 @@ export default function SaleFlight() {
       })}
       {totalCount > MAX_VISIBLE ? (
         <div
-          className="absolute font-mono text-[10px] font-bold uppercase tracking-[.18em] text-amber-200"
+          className="absolute font-mono text-[12px] font-bold uppercase tracking-[.18em] text-amber-200"
           style={{
             left: `${start.x + CARD_W + 4}px`,
             top: `${start.y - 6}px`,
@@ -176,7 +176,7 @@ function FlightFace({ card }: { card: Card }) {
           chrome.border,
         ].join(" ")}
       >
-        <span className={`text-[7px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+        <span className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           Labor
         </span>
         <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
@@ -186,7 +186,7 @@ function FlightFace({ card }: { card: Card }) {
           >
             {laborGlyphFor(card.laborSubtype)}
           </span>
-          <span className={`mt-0.5 font-mono text-[7px] uppercase tracking-[.16em] ${chrome.label}`}>
+          <span className={`mt-0.5 font-mono text-[11px] uppercase tracking-[.16em] ${chrome.label}`}>
             +{contribution}
           </span>
         </div>
@@ -204,10 +204,10 @@ function FlightFace({ card }: { card: Card }) {
         chrome.border,
       ].join(" ")}
     >
-      <span className={`text-[7px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+      <span className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
         {RESOURCE_LABEL[subtype]}
       </span>
-      <h4 className={`mt-0.5 font-display text-[10px] font-bold leading-tight ${chrome.ink}`}>
+      <h4 className={`mt-0.5 font-display text-[12px] font-bold leading-tight ${chrome.ink}`}>
         {count > 1 ? `${count}×` : ""} {RESOURCE_LABEL[subtype]}
       </h4>
       <div

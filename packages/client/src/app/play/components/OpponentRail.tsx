@@ -165,7 +165,7 @@ function OpponentCard({
             <div
               key={i}
               title={bill ? `${bill.name} · ${range} rep` : "empty slot"}
-              className="grid h-[34px] flex-1 place-items-center rounded-[5px] border font-mono text-[9.5px] font-semibold uppercase tracking-[.12em]"
+              className="grid h-[34px] flex-1 place-items-center rounded-[5px] border font-mono text-[12px] font-semibold uppercase tracking-[.12em]"
               style={{
                 borderColor: barrel ? cellInk : "var(--whisper)",
                 background: barrel

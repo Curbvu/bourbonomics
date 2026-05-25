@@ -27,7 +27,6 @@ interface PlayerRoundSummary {
   seatIndex: number;
   logoId: string | null | undefined;
   barrelsSold: number;
-  repGained: number;
   totalRep: number;
 }
 
@@ -65,15 +64,12 @@ function summarizeRound(
     Math.min(12, demandEnd - demandRises + sales.length),
   );
 
-  // SELL_BOURBON no longer carries the rep total in its
-  // payload. We count barrels sold from the action log and report 0
-  // repGained for the per-round delta — the recap chip will show
-  // sales count but not the exact rep delta until the engine
-  // surfaces it on a future state snapshot.
+  // SELL_BOURBON no longer carries the rep total in its payload, so the
+  // recap shows sales count + running total only. A per-round rep delta
+  // can come back once the engine surfaces it on a state snapshot.
   const perPlayer: PlayerRoundSummary[] = state.players.map((p, seatIndex) => {
     const meta = seatMeta.find((m) => m.id === p.id);
     let barrelsSold = 0;
-    const repGained = 0;
     for (const entry of prevLog) {
       const a = entry.action as GameAction;
       if (a.type === "SELL_BOURBON" && a.playerId === p.id) {
@@ -86,7 +82,6 @@ function summarizeRound(
       seatIndex,
       logoId: meta?.logoId,
       barrelsSold,
-      repGained,
       totalRep: p.reputation,
     };
   });
@@ -183,7 +178,7 @@ export default function YearPassModal() {
       <div className="relative flex w-full max-w-2xl flex-col items-stretch gap-6">
         {/* Headline. */}
         <div className="text-center">
-          <div className="font-mono text-[11px] uppercase tracking-[.20em] text-amber-300">
+          <div className="font-mono text-[13px] uppercase tracking-[.20em] text-amber-300">
             A new year begins
           </div>
           <h1 className="mt-1 font-display text-6xl font-bold tracking-tight text-amber-100 drop-shadow-[0_3px_12px_rgba(0,0,0,.6)]">
@@ -194,7 +189,7 @@ export default function YearPassModal() {
         {/* Last-round recap. */}
         <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-5 shadow-[0_8px_32px_rgba(0,0,0,.45)]">
           <div className="flex items-baseline justify-between">
-            <div className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
+            <div className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
               Round {summary.prevRound} recap
             </div>
             <DemandSummary
@@ -215,7 +210,7 @@ export default function YearPassModal() {
 
         {/* Turn order for the upcoming round. */}
         <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-5 shadow-[0_8px_32px_rgba(0,0,0,.45)]">
-          <div className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
+          <div className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
             Turn order · Round {state.round}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -231,7 +226,7 @@ export default function YearPassModal() {
               />
             ))}
           </div>
-          <div className="mt-2 font-mono text-[9px] uppercase tracking-[.14em] text-slate-500">
+          <div className="mt-2 font-mono text-[12px] uppercase tracking-[.14em] text-slate-500">
             Last round&apos;s closer opens this one — the bookend rule.
           </div>
         </section>
@@ -274,7 +269,7 @@ function DemandSummary({
   return (
     <div
       title={`${rises} roll${rises === 1 ? "" : "s"} rose · ${holds} held`}
-      className="flex items-baseline gap-1.5 font-mono text-[10px] uppercase tracking-[.10em] text-slate-400"
+      className="flex items-baseline gap-1.5 font-mono text-[12px] uppercase tracking-[.10em] text-slate-400"
     >
       <span>demand</span>
       <span className="font-bold tabular-nums text-slate-200">{start}</span>
@@ -289,7 +284,6 @@ function DemandSummary({
 
 function PlayerRecapRow({ summary }: { summary: PlayerRoundSummary }) {
   const sold = summary.barrelsSold;
-  const banked = summary.repGained;
   return (
     <div className="flex items-center gap-3 rounded-md border border-slate-800/80 bg-slate-950/40 px-3 py-2">
       <PlayerSwatch
@@ -302,24 +296,15 @@ function PlayerRecapRow({ summary }: { summary: PlayerRoundSummary }) {
         {summary.name}
       </span>
       {sold > 0 ? (
-        <span className="font-mono text-[10px] uppercase tracking-[.10em] text-amber-200">
+        <span className="font-mono text-[12px] uppercase tracking-[.10em] text-amber-200">
           sold {sold}
         </span>
       ) : (
-        <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-600">
+        <span className="font-mono text-[12px] uppercase tracking-[.10em] text-slate-600">
           held
         </span>
       )}
-      {banked > 0 ? (
-        <span className="font-mono text-[10px] uppercase tracking-[.10em] text-emerald-300">
-          +{banked} rep
-        </span>
-      ) : (
-        <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-700">
-          +0
-        </span>
-      )}
-      <span className="font-mono text-[11px] font-bold tabular-nums text-amber-300">
+      <span className="font-mono text-[13px] font-bold tabular-nums text-amber-300">
         {summary.totalRep}
       </span>
     </div>
@@ -352,7 +337,7 @@ function TurnOrderChip({
     >
       <span
         className={[
-          "grid h-4 w-4 place-items-center rounded-full font-mono text-[9px] font-bold leading-none",
+          "grid h-4 w-4 place-items-center rounded-full font-mono text-[12px] font-bold leading-none",
           isStart
             ? "bg-amber-400 text-slate-950"
             : "bg-slate-800 text-slate-400",
@@ -369,14 +354,14 @@ function TurnOrderChip({
       />
       <span
         className={[
-          "font-mono text-[10px] uppercase tracking-[.08em]",
+          "font-mono text-[12px] uppercase tracking-[.08em]",
           isStart ? "text-amber-100" : "text-slate-300",
         ].join(" ")}
       >
         {name}
       </span>
       {isHuman ? (
-        <span className="font-mono text-[8px] uppercase tracking-[.10em] text-slate-500">
+        <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-500">
           you
         </span>
       ) : null}

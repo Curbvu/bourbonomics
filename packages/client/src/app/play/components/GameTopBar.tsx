@@ -26,6 +26,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 
 import type { GamePhase, GameState } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
@@ -66,6 +67,7 @@ function visiblePhase(state: GameState): DisplayPhase | null {
 
 export default function GameTopBar() {
   const { state, autoplay, setAutoplay, step, clear } = useGameStore();
+  const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   // The modal portals to document.body to escape ScalingHost's
   // `transform: scale(...)` containing block (otherwise the backdrop
@@ -91,6 +93,7 @@ export default function GameTopBar() {
   const quit = () => {
     clear();
     setConfirmOpen(false);
+    router.push("/");
   };
 
   const active = visiblePhase(state);
@@ -201,7 +204,7 @@ export default function GameTopBar() {
                   <button
                     type="button"
                     onClick={() => setConfirmOpen(false)}
-                    className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800"
+                    className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 font-mono text-[13px] font-semibold uppercase tracking-[.05em] text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800"
                   >
                     Cancel
                   </button>
@@ -277,7 +280,7 @@ function PhasePip({
       aria-current={isActive ? "step" : undefined}
     >
       <span
-        className={["grid h-[18px] w-[18px] place-items-center rounded-full font-mono text-[10px] font-bold leading-none", isActive ? "pip-active" : ""].join(" ")}
+        className={["grid h-[18px] w-[18px] place-items-center rounded-full font-mono text-[12px] font-bold leading-none", isActive ? "pip-active" : ""].join(" ")}
         style={{
           background: isActive
             ? "linear-gradient(180deg,#f0c970,#c69d52)"
@@ -292,7 +295,7 @@ function PhasePip({
         {isPast ? "✓" : index}
       </span>
       <span
-        className="font-mono text-[10px] uppercase tracking-[.18em]"
+        className="font-mono text-[12px] uppercase tracking-[.18em]"
         style={{
           color: isActive ? "var(--gold)" : "var(--mute)",
           fontWeight: isActive ? 700 : 500,
@@ -310,7 +313,7 @@ function SetupBanner({ phase }: { phase: "distillery_selection" | "starter_deck_
       ? "Setup · pick your distillery"
       : "Setup · build your starter deck";
   return (
-    <div className="flex flex-1 items-center justify-center font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
+    <div className="flex flex-1 items-center justify-center font-mono text-[13px] uppercase tracking-[.18em] text-amber-300">
       {label}
     </div>
   );
@@ -351,7 +354,7 @@ function BourbonChip({
         {remaining}
       </span>
       {finalRound ? (
-        <span className="rounded bg-amber-500 px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] text-slate-950">
+        <span className="rounded bg-amber-500 px-1 py-px font-mono text-[11px] font-bold uppercase tracking-[.10em] text-slate-950">
           final
         </span>
       ) : null}

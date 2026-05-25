@@ -27,13 +27,13 @@ export default function WaitingRoom({ code }: { code: string }) {
         {/* Heading — room code + claim count, same chrome as the
             in-game RickhouseRow header. */}
         <div className="text-center">
-          <p className="font-mono text-[10px] uppercase tracking-[.18em] text-rose-300">
+          <p className="font-mono text-[12px] uppercase tracking-[.18em] text-rose-300">
             waiting room
           </p>
           <h1 className="mt-2 font-display text-6xl font-bold tracking-[.1em] text-amber-300 drop-shadow-[0_2px_8px_rgba(0,0,0,.6)]">
             {code}
           </h1>
-          <p className="mt-3 font-mono text-[11px] uppercase tracking-[.14em] text-slate-400">
+          <p className="mt-3 font-mono text-[13px] uppercase tracking-[.14em] text-slate-400">
             {claimedHumans} of {totalHumans} human{" "}
             {totalHumans === 1 ? "seat" : "seats"} claimed
             {openHumanSeats > 0 ? (
@@ -70,7 +70,7 @@ export default function WaitingRoom({ code }: { code: string }) {
                 Start game →
               </button>
               {openHumanSeats > 0 ? (
-                <p className="font-mono text-[10px] uppercase tracking-[.14em] text-slate-500">
+                <p className="font-mono text-[12px] uppercase tracking-[.14em] text-slate-500">
                   Heads up — {openHumanSeats} unclaimed{" "}
                   {openHumanSeats === 1 ? "seat is closed" : "seats are closed"}{" "}
                   when you start.
@@ -139,17 +139,17 @@ function SeatRow({
             {displayName}
           </span>
           {isHostSeat ? (
-            <span className="rounded bg-amber-700/30 px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-[.08em] text-amber-200">
+            <span className="rounded bg-amber-700/30 px-1.5 py-px font-mono text-[12px] font-bold uppercase tracking-[.08em] text-amber-200">
               host
             </span>
           ) : null}
         </div>
-        <p className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+        <p className="font-mono text-[12px] uppercase tracking-[.12em] text-slate-500">
           Seat {seatIndex + 1} · {seat.isBot ? "Computer" : "Human"}
         </p>
       </div>
       <span
-        className={`rounded border px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.14em] ${tagTone}`}
+        className={`rounded border px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.14em] ${tagTone}`}
       >
         {tag}
       </span>

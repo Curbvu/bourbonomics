@@ -93,7 +93,7 @@ export default function RecipePips({ bill }: { bill: MashBill }) {
         >
           {p.forbidden ? (
             <span
-              className="pointer-events-none absolute inset-0 flex items-center justify-center text-[8px] leading-none text-slate-100"
+              className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] leading-none text-slate-100"
               aria-hidden
             >
               ✕

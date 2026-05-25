@@ -331,13 +331,13 @@ function DraftingLoopModal({
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
+            <div className="font-mono text-[13px] uppercase tracking-[.18em] text-amber-300">
               Drafting loop
             </div>
             <div className="mt-1 font-display text-2xl font-semibold text-amber-100">
               {status.title}
             </div>
-            <div className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
+            <div className="mt-1 font-mono text-[12px] uppercase tracking-[.14em] text-slate-400">
               {status.subtitle}
             </div>
           </div>
@@ -401,6 +401,7 @@ function DraftingLoopModal({
                   <HandCardTile
                     key={card.id}
                     card={card}
+                    size="md"
                     selected={selectedPileIds.includes(card.id)}
                     interactive={pileInteractive}
                     onClick={() => onPileToggle(card.id)}
@@ -431,6 +432,7 @@ function DraftingLoopModal({
                 <HandCardTile
                   key={card.id}
                   card={card}
+                  size="md"
                   interactive={handMode !== "view"}
                   selected={false}
                   onClick={() => onHandClick(card.id)}
@@ -450,7 +452,7 @@ function DraftingLoopModal({
                   <button
                     type="button"
                     onClick={takeCards}
-                    className="rounded-md border border-emerald-500 bg-emerald-900/40 px-4 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.08em] text-emerald-100 hover:bg-emerald-800/50"
+                    className="rounded-md border border-emerald-500 bg-emerald-900/40 px-4 py-1.5 font-mono text-[13px] font-semibold uppercase tracking-[.08em] text-emerald-100 hover:bg-emerald-800/50"
                   >
                     Take {selectedPileIds.length} card{selectedPileIds.length === 1 ? "" : "s"} →
                   </button>
@@ -459,7 +461,7 @@ function DraftingLoopModal({
                   <button
                     type="button"
                     onClick={() => setPickedBillId(null)}
-                    className="rounded-md border border-slate-600 bg-slate-800/60 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[.06em] text-slate-200 hover:bg-slate-700/60"
+                    className="rounded-md border border-slate-600 bg-slate-800/60 px-3 py-1.5 font-mono text-[13px] uppercase tracking-[.06em] text-slate-200 hover:bg-slate-700/60"
                   >
                     ← Back
                   </button>
@@ -467,18 +469,18 @@ function DraftingLoopModal({
                 <button
                   type="button"
                   onClick={onPass}
-                  className="rounded-md border border-slate-500 bg-slate-800/60 px-4 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.08em] text-slate-100 hover:bg-slate-700/60"
+                  className="rounded-md border border-slate-500 bg-slate-800/60 px-4 py-1.5 font-mono text-[13px] font-semibold uppercase tracking-[.08em] text-slate-100 hover:bg-slate-700/60"
                 >
                   Pass →
                 </button>
               </>
             ) : (
-              <span className="font-mono text-[11px] italic text-slate-400">
+              <span className="font-mono text-[13px] italic text-slate-400">
                 Waiting on {picker?.name ?? currentPickerId}…
               </span>
             )
           ) : seedMode ? (
-            <span className="font-mono text-[10px] italic text-slate-500">
+            <span className="font-mono text-[12px] italic text-slate-500">
               Pick a card from your hand to seed the loop.
             </span>
           ) : null}
@@ -552,11 +554,11 @@ function Section({
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
       <div className="mb-2 flex items-baseline justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
+        <span className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
           {label}
         </span>
         {hint ? (
-          <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+          <span className="font-mono text-[12px] uppercase tracking-[.12em] text-slate-500">
             {hint}
           </span>
         ) : null}
@@ -568,7 +570,7 @@ function Section({
 
 function EmptyRow({ message }: { message: string }) {
   return (
-    <div className="rounded border border-dashed border-slate-700/70 px-3 py-4 text-center font-mono text-[10px] italic text-slate-500">
+    <div className="rounded border border-dashed border-slate-700/70 px-3 py-4 text-center font-mono text-[12px] italic text-slate-500">
       {message}
     </div>
   );
@@ -637,7 +639,7 @@ function BillTile({
           ) : null}
         </div>
         <span
-          className={`flex-shrink-0 rounded border px-1.5 py-[2px] font-mono text-[9px] font-bold uppercase tracking-[.10em] ${chrome.pill}`}
+          className={`flex-shrink-0 rounded border px-1.5 py-[2px] font-mono text-[12px] font-bold uppercase tracking-[.10em] ${chrome.pill}`}
         >
           {chrome.label_text}
         </span>
@@ -648,10 +650,10 @@ function BillTile({
           which cells trigger Silver / Gold. */}
       <div className="mt-3 rounded border border-amber-700/40 bg-slate-950/55 px-2 py-1.5">
         <div className="mb-1 flex items-baseline justify-between">
-          <span className="font-mono text-[8.5px] font-semibold uppercase tracking-[.14em] text-amber-300/80">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[.14em] text-amber-300/80">
             Rep payout
           </span>
-          <span className="font-mono text-[8.5px] tracking-[.10em] text-slate-400">
+          <span className="font-mono text-[11px] tracking-[.10em] text-slate-400">
             <span className={chrome.titleInk}>{floor}–{peak}</span>
           </span>
         </div>
@@ -661,7 +663,7 @@ function BillTile({
       {/* Ingredients — pip glance + chip-style breakdown showing exactly
           which cards the bill consumes. */}
       <div className="mt-2 rounded border border-slate-800/70 bg-slate-950/40 px-2 py-2">
-        <div className="mb-1 text-center font-mono text-[8px] uppercase tracking-[.16em] text-slate-500">
+        <div className="mb-1 text-center font-mono text-[11px] uppercase tracking-[.16em] text-slate-500">
           Ingredients
         </div>
         <RecipePips bill={bill} />
@@ -670,7 +672,7 @@ function BillTile({
             <span
               key={i}
               className={[
-                "inline-flex items-center gap-1 rounded border px-1.5 py-[2px] font-mono text-[9px] uppercase tracking-[.06em]",
+                "inline-flex items-center gap-1 rounded border px-1.5 py-[2px] font-mono text-[12px] uppercase tracking-[.06em]",
                 chip.specialty
                   ? "border-amber-300/70 bg-amber-700/30 text-amber-100"
                   : chip.forbidden
@@ -680,7 +682,7 @@ function BillTile({
                       : "border-white/10 bg-slate-950/70 text-slate-100",
               ].join(" ")}
             >
-              <span className={`relative inline-block text-[11px] leading-none ${chip.tint}`}>
+              <span className={`relative inline-block text-[13px] leading-none ${chip.tint}`}>
                 {chip.glyph}
                 {chip.forbidden ? (
                   <span
@@ -726,7 +728,7 @@ function MiniRepTable({
       style={{ gridTemplateColumns: `auto repeat(${cols}, minmax(0, 1fr))` }}
     >
       <div
-        className="flex items-end justify-end pr-0.5 font-mono text-[7.5px] font-semibold uppercase leading-tight tracking-[.10em] text-slate-500"
+        className="flex items-end justify-end pr-0.5 font-mono text-[11px] font-semibold uppercase leading-tight tracking-[.10em] text-slate-500"
       >
         <span className="text-right">
           age ↓<br />dem →
@@ -735,7 +737,7 @@ function MiniRepTable({
       {demandLabels.map((label, ci) => (
         <div
           key={`dh-${ci}`}
-          className={`grid place-items-center rounded-[3px] bg-slate-900/60 py-[2px] font-mono text-[9px] font-bold uppercase tabular-nums ${chrome.label}`}
+          className={`grid place-items-center rounded-[3px] bg-slate-900/60 py-[2px] font-mono text-[12px] font-bold uppercase tabular-nums ${chrome.label}`}
         >
           {label}
         </div>
@@ -747,7 +749,7 @@ function MiniRepTable({
         return (
           <Fragment key={`r-${ri}`}>
             <div
-              className={`grid place-items-center rounded-[3px] bg-slate-900/60 px-1 font-mono text-[9px] font-bold uppercase tabular-nums ${chrome.label}`}
+              className={`grid place-items-center rounded-[3px] bg-slate-900/60 px-1 font-mono text-[12px] font-bold uppercase tabular-nums ${chrome.label}`}
             >
               {ageLabels[ri]}
             </div>
@@ -778,7 +780,7 @@ function MiniRepTable({
                   {award ? (
                     <span
                       aria-hidden
-                      className="pointer-events-none absolute right-[1px] top-[1px] text-[9px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.55)]"
+                      className="pointer-events-none absolute right-[1px] top-[1px] text-[12px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.55)]"
                     >
                       {award === "gold" ? "🥇" : "🥈"}
                     </span>

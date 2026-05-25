@@ -76,7 +76,7 @@ export default function IntroSequence({ onDone, onQuit }: IntroSequenceProps) {
       <button
         type="button"
         onClick={onQuit}
-        className="absolute right-6 top-6 font-mono text-[11px] uppercase tracking-[.18em] text-slate-500 transition hover:text-amber-200"
+        className="absolute right-6 top-6 font-mono text-[13px] uppercase tracking-[.18em] text-slate-500 transition hover:text-amber-200"
       >
         Quit to menu ↵
       </button>
@@ -101,7 +101,7 @@ export default function IntroSequence({ onDone, onQuit }: IntroSequenceProps) {
             has("objective") ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
           ].join(" ")}
         >
-          <div className="font-mono text-[11px] uppercase tracking-[.20em] text-amber-300">
+          <div className="font-mono text-[13px] uppercase tracking-[.20em] text-amber-300">
             Your objective
           </div>
           <div className="mt-3 font-display text-2xl font-bold leading-tight text-amber-100 sm:text-3xl">

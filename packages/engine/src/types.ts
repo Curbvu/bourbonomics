@@ -221,14 +221,6 @@ export interface MashBill {
   silverAward?: AwardCondition;
   goldAward?: AwardCondition;
   /**
-   * Vestigial. Pre-v2.14 this was the rep cost to draw a face-up bill.
-   * The face-up bill row is retired and bills cost no rep — only a card
-   * paid into the draft pile during the Drafting Loop. Field retained
-   * in the data model so old fixtures and the bill catalog still type-
-   * check; nothing reads it.
-   */
-  cost?: number;
-  /**
    * Marks the bill as scripted-tutorial-only. Filtered out of the
    * public bourbon deck and the Bourbon Cards gallery so it never
    * appears in real games. Set on the rebuild's Backroad Batch and

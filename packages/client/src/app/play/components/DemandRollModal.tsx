@@ -135,13 +135,13 @@ export default function DemandRollModal() {
 
       <div className="relative flex flex-col items-center gap-5">
         <div className="text-center">
-          <div className="font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
+          <div className="font-mono text-[13px] uppercase tracking-[.18em] text-amber-300">
             Round {state.round} · Your demand roll
           </div>
           <div className="mt-1 font-display text-2xl font-semibold text-amber-100">
             Roll 2 dice to set the market temperature
           </div>
-          <div className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
+          <div className="mt-1 font-mono text-[12px] uppercase tracking-[.14em] text-slate-400">
             current demand · <span className="text-amber-200 tabular-nums">{state.demand}/12</span>
             {isSettled ? (
               <>

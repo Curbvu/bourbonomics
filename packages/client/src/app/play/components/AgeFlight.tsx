@@ -136,7 +136,7 @@ export default function AgeFlight() {
           opacity: delta == null ? 1 : 0.85,
         }}
       >
-        <span className={`font-mono text-[8px] uppercase tracking-[.18em] ${chrome.tag}`}>
+        <span className={`font-mono text-[11px] uppercase tracking-[.18em] ${chrome.tag}`}>
           Aging
         </span>
         <h4 className={`mt-1 line-clamp-2 font-display text-[12px] font-bold leading-tight ${chrome.title}`}>

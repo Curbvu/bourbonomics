@@ -84,7 +84,7 @@ export default function ActionBar() {
   return (
     <div data-bb-zone="action-bar" className="border-t border-slate-800 bg-slate-950/95 px-[18px] py-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-500">
+        <span className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-500">
           {isHumanTurn ? "Your turn" : "Waiting…"}
         </span>
         <span className="mx-1 h-[20px] w-px bg-slate-800" aria-hidden />
@@ -362,8 +362,8 @@ function SmartButton({
   };
   const baseClasses = primary
     ? enabled
-      ? "rounded-md border border-amber-500 bg-gradient-to-b from-amber-500 to-amber-700 px-3 py-1 font-sans text-[11px] font-bold uppercase tracking-[.05em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-amber-400 hover:to-amber-600"
-      : "rounded-md border border-slate-800 bg-slate-900 px-3 py-1 font-sans text-[11px] font-bold uppercase tracking-[.05em] text-slate-600 cursor-not-allowed"
+      ? "rounded-md border border-amber-500 bg-gradient-to-b from-amber-500 to-amber-700 px-3 py-1 font-sans text-[13px] font-bold uppercase tracking-[.05em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] transition-colors hover:from-amber-400 hover:to-amber-600"
+      : "rounded-md border border-slate-800 bg-slate-900 px-3 py-1 font-sans text-[13px] font-bold uppercase tracking-[.05em] text-slate-600 cursor-not-allowed"
     : enabled
       ? "rounded-md border border-emerald-700/60 bg-emerald-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-emerald-100 transition-colors hover:border-emerald-400 hover:bg-emerald-800/40"
       : "rounded-md border border-slate-800 bg-slate-950/60 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-slate-600 cursor-not-allowed";
