@@ -28,7 +28,6 @@ import DemandRollModal from "../components/DemandRollModal";
 import DistilleryDraftModal from "../components/DistilleryDraftModal";
 import DraftPickFlight from "../components/DraftPickFlight";
 import DrawBillOverlay from "../components/DrawBillOverlay";
-import DrawPhaseModal from "../components/DrawPhaseModal";
 import GameBoard from "../components/GameBoard";
 import GameErrorBoundary from "../components/ErrorBoundary";
 import GameTopBar from "../components/GameTopBar";
@@ -227,7 +226,6 @@ export default function PlayCodePage({ params }: Props) {
       <DistilleryDraftModal />
       <StarterDeckDraftModal />
       <DemandRollModal />
-      <DrawPhaseModal />
       {/* Drafting-loop modal — mounted at the page root (outside
           ScalingHost) so its `fixed inset-0` covers the full viewport
           rather than being scoped to the scaled design canvas. */}

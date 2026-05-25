@@ -390,9 +390,9 @@ export interface GameStore {
   /** Round number whose YearPassModal the local seat dismissed. `null`
    *  before any dismissal this game; the value naturally invalidates on
    *  the next round (round 5 dismissal !== current round 6) so no reset
-   *  effect is needed. Drives DrawPhaseModal's auto-trigger: once this
-   *  matches `state.round`, the draw animation fires without the player
-   *  having to click a second button. */
+   *  effect is needed. Gates the orchestrator's auto-step in the draw
+   *  phase — once this matches `state.round`, the auto-step resumes
+   *  and DRAW_HAND fires for the human (same as bots). */
   yearPassDismissedForRound: number | null;
   /** Stamp the current round as the dismissed one — fires when the
    *  player clicks "Begin year" (or hits Enter/Space) in YearPassModal. */
@@ -1272,8 +1272,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [store.state, multiplayerMode, ageMode]);
 
   // YearPassModal "Begin year" handler — stamps the current round so
-  // DrawPhaseModal's auto-trigger fires the fan animation immediately.
-  // The value naturally invalidates the next round (state.round !==
+  // the orchestrator's draw-phase auto-step (gated on this flag for
+  // round 2+) resumes immediately and dispatches DRAW_HAND for the
+  // human. The value naturally invalidates the next round (state.round !==
   // dismissedForRound), no reset effect needed.
   const markYearPassDismissed = useCallback(() => {
     setYearPassDismissedForRound(store.state?.round ?? null);
@@ -1796,13 +1797,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (awaitingHumanInput(state)) return;
 
     if (isDrawPhase) {
-      // Pause if the human hasn't drawn yet — their modal owns the screen.
-      const human = state.players.find((p) => !p.isBot);
-      if (human && !state.playerIdsCompletedPhase.includes(human.id)) {
-        const nextDrawer = state.players.find(
-          (p) => !state.playerIdsCompletedPhase.includes(p.id),
-        );
-        if (!nextDrawer || !nextDrawer.isBot) return;
+      // v3.10: the DrawPhaseModal cutscene is gone — the orchestrator
+      // draws for the human too. The only thing that should pause the
+      // step here is the YearPassModal (round 2+ interstitial). Once
+      // the player dismisses it, the auto-step resumes and draws fire
+      // back-to-back with the usual 180ms cadence.
+      if (state.round > 1 && yearPassDismissedForRound !== state.round) {
+        const human = state.players.find((p) => !p.isBot);
+        if (human && !state.playerIdsCompletedPhase.includes(human.id)) {
+          return;
+        }
       }
     }
 
@@ -1831,7 +1835,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const delay = isActionPhase ? 800 : 180;
     const id = window.setTimeout(step, delay);
     return () => window.clearTimeout(id);
-  }, [multiplayerMode, tutorialActive, store.state, step]);
+  }, [multiplayerMode, tutorialActive, store.state, step, yearPassDismissedForRound]);
 
   const newGame = useCallback((cfg: NewGameConfig) => {
     const fullCatalog = defaultMashBillCatalog();

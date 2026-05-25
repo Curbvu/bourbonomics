@@ -5,11 +5,10 @@
  * round 1 to mark the year passing, recap the round that just ended,
  * and preview the upcoming turn order.
  *
- * Stack order: this modal sits at z-55, above DrawPhaseModal (z-50).
- * Both render on `phase === "draw"`. The player reads the recap, hits
- * Continue, this modal returns null, and DrawPhaseModal underneath
- * becomes interactive — no coordination state needed beyond a per-round
- * "I've seen this" guard.
+ * Renders at z-55 on `phase === "draw"`. The player reads the recap,
+ * hits "Begin year", and this modal returns null — at which point the
+ * store's orchestrator auto-step resumes and dispatches DRAW_HAND for
+ * the human (same path bots take). No DrawPhaseModal cutscene anymore.
  *
  * Skipped on round 1 (no previous round to summarize), in autoplay,
  * and for any seat that doesn't have a human attached (bots auto-step

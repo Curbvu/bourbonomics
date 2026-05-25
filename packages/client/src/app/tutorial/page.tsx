@@ -97,8 +97,8 @@ export default function TutorialPage() {
         </div>
       </ScalingHost>
       {/* The tutorial owns its own demand / draw cadence, so we deliberately
-          DO NOT mount DemandRollModal / DrawPhaseModal here — the controller
-          dispatches those actions on its own clock. */}
+          DO NOT mount DemandRollModal here — the controller dispatches
+          those actions on its own clock. */}
       <TutorialController />
     </main>
   );

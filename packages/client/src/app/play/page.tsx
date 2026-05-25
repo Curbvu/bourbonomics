@@ -9,7 +9,6 @@ import DemandRollModal from "./components/DemandRollModal";
 import DistilleryDraftModal from "./components/DistilleryDraftModal";
 import DraftPickFlight from "./components/DraftPickFlight";
 import DrawBillOverlay from "./components/DrawBillOverlay";
-import DrawPhaseModal from "./components/DrawPhaseModal";
 import GameBoard from "./components/GameBoard";
 import GameErrorBoundary from "./components/ErrorBoundary";
 import GameTopBar from "./components/GameTopBar";
@@ -83,7 +82,6 @@ export default function PlayPage() {
       <DistilleryDraftModal />
       <StarterDeckDraftModal />
       <DemandRollModal />
-      <DrawPhaseModal />
       {/* Drafting-loop modal — mounted at the page root (outside
           ScalingHost) so its `fixed inset-0` covers the full viewport
           rather than being scoped to the scaled design canvas. */}
@@ -104,8 +102,8 @@ export default function PlayPage() {
           to the modal so the flight starts the same frame the modal
           unmounts. */}
       <DraftPickFlight />
-      {/* Mounted last so it sits above DrawPhaseModal in the DOM stack
-          (z-55 vs z-50). The player reads the year-pass recap, hits
+      {/* Year-pass interstitial — z-55, mounted last so it sits over
+          the rest of the canvas. The player reads the year-pass recap, hits
           Begin year, and the draw modal underneath becomes interactive. */}
       <YearPassModal />
     </main>
