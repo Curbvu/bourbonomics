@@ -93,7 +93,12 @@ function OpponentCard({
     <div
       data-bb-zone="opponent-rickhouse"
       data-opponent-tile={player.id}
-      className="flex flex-col gap-2 rounded-[9px] border bg-[linear-gradient(180deg,rgba(34,23,16,.65),rgba(20,14,8,.65))] p-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-colors"
+      className={[
+        "flex flex-col gap-2 rounded-[9px] border bg-[linear-gradient(180deg,rgba(34,23,16,.65),rgba(20,14,8,.65))] p-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-colors",
+        // v3.8: gold halo breathes while this player is on the clock,
+        // so the human's eye snaps to whoever's currently acting.
+        isOnClock ? "bb-onclock-pulse" : "",
+      ].join(" ")}
       style={{
         borderColor: isOnClock ? "rgba(240,201,112,.55)" : "var(--rule)",
       }}

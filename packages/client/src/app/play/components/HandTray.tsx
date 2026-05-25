@@ -1022,13 +1022,17 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
       }
     }
   }
+  // v3.8: Labor cards can never satisfy a mash-bill recipe — dim them
+  // in Make mode the same way Buy mode dims ineligible cards. Mirrors
+  // the symmetric "what's clickable right now" affordance.
+  const makeIneligible = inMakeMode;
   const buyClass = tutorialLocked
     ? "pointer-events-none"
     : tutorialHighlighted && !inAnyPicker && !isMultiSelected
       ? "ring-2 ring-amber-300/70 shadow-[0_0_12px_rgba(252,211,77,.4)]"
       : isSelected
         ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-        : buyIneligibleAndUnpicked
+        : buyIneligibleAndUnpicked || makeIneligible
           ? "pointer-events-none"
           : buyEligibleAndUnpicked
             ? "ring-2 ring-emerald-400/80 shadow-[0_0_14px_rgba(110,231,183,.5)]"
@@ -1040,7 +1044,7 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
                   ? "ring-2 ring-emerald-400/60"
                   : "";
   const dimStyle =
-    tutorialLocked || buyIneligibleAndUnpicked
+    tutorialLocked || buyIneligibleAndUnpicked || makeIneligible
       ? { opacity: 0.3, filter: "saturate(0.5)" as const, transition: "none" as const }
       : undefined;
   const onClick = (e: React.MouseEvent) => {

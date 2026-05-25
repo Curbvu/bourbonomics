@@ -113,6 +113,45 @@ export interface LogEntry {
  * card-shape renderer to use. Click handlers in MarketCenter / HandTray
  * call `setInspect` with one of these.
  */
+/**
+ * Map an engine action type to a player-facing title for toasts.
+ * Generic verb leads with "Couldn't…" so the user reads the cause
+ * (passed in the detail) without parsing screaming snake_case.
+ */
+function humanizeActionType(type: string): string {
+  const map: Record<string, string> = {
+    MAKE_BOURBON: "Couldn't make bourbon",
+    AGE_BOURBON: "Couldn't age that barrel",
+    SELL_BOURBON: "Couldn't sell that barrel",
+    BUY_FROM_MARKET: "Couldn't buy",
+    BUY_OPERATIONS_CARD: "Couldn't buy ops card",
+    INITIATE_DRAFTING_LOOP: "Couldn't start the draft",
+    DRAFT_TAKE_BILL: "Couldn't take that bill",
+    DRAFT_TAKE_CARD: "Couldn't take from the pile",
+    DRAFT_PASS: "Couldn't pass",
+    PASS_TURN: "Couldn't pass turn",
+    TRADE: "Trade rejected",
+    PLAY_OPERATIONS_CARD: "Couldn't play ops card",
+    ROLL_DEMAND: "Couldn't roll demand",
+    DRAW_HAND: "Couldn't draw",
+  };
+  return map[type] ?? `Couldn't ${type.toLowerCase().replace(/_/g, " ")}`;
+}
+
+/**
+ * Transient toast notification — surfaced via ToastStack at page root.
+ * Pushed by the dispatch path on engine rejections, or by the socket
+ * layer on server errors. Players can dismiss early by clicking; the
+ * store also auto-prunes when `expiresAt < Date.now()`.
+ */
+export interface Toast {
+  id: number;
+  kind: "error" | "info";
+  title: string;
+  detail?: string;
+  expiresAt: number;
+}
+
 export type InspectPayload =
   | { kind: "resource"; card: Card; ownerName?: string }
   | { kind: "labor"; card: Card; ownerName?: string }
@@ -326,6 +365,13 @@ export interface GameStore {
   /** Currently-inspected card payload (modal render target), or null. */
   inspect: InspectPayload | null;
   setInspect: (payload: InspectPayload | null) => void;
+  /** Transient notifications surfaced via the ToastStack at page root.
+   *  Pushed when the engine rejects a dispatched action, or when the
+   *  multiplayer socket surfaces a server error. Auto-expire after a
+   *  few seconds; the user can also dismiss by clicking. */
+  toasts: Toast[];
+  pushToast: (toast: Omit<Toast, "id" | "expiresAt">) => void;
+  dismissToast: (id: number) => void;
   /** Interactive market-buy state, null when not in buying mode. */
   buyMode: BuyMode | null;
   startBuyMode: () => void;
@@ -510,6 +556,9 @@ const Ctx = createContext<GameStore>({
   humanSeatPlayerId: null,
   inspect: null,
   setInspect: noop,
+  toasts: [],
+  pushToast: noop,
+  dismissToast: noop,
   buyMode: null,
   startBuyMode: noop,
   cancelBuyMode: noop,
@@ -602,6 +651,35 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [store, setStore] = useState<AtomicStore>(EMPTY_STORE);
   const [autoplay, setAutoplayState] = useState(false);
   const [inspect, setInspect] = useState<InspectPayload | null>(null);
+
+  // v3.8 toast channel — engine rejections + multiplayer errors surface
+  // as transient pop-ups via ToastStack at page root. Auto-prune at 500ms
+  // intervals so expired entries don't linger forever even without user
+  // interaction.
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastIdRef = useRef<number>(0);
+  const pushToast = useCallback(
+    (toast: Omit<Toast, "id" | "expiresAt">) => {
+      const id = ++toastIdRef.current;
+      const expiresAt = Date.now() + 4000;
+      setToasts((prev) => [{ ...toast, id, expiresAt }, ...prev].slice(0, 4));
+    },
+    [],
+  );
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+  useEffect(() => {
+    if (toasts.length === 0) return;
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      setToasts((prev) => {
+        const next = prev.filter((t) => t.expiresAt > now);
+        return next.length === prev.length ? prev : next;
+      });
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [toasts.length]);
   const [buyMode, setBuyMode] = useState<BuyMode | null>(null);
   const [ageMode, setAgeMode] = useState<AgeMode | null>(null);
   const [ageIntroSeen, setAgeIntroSeen] = useState<boolean>(false);
@@ -799,6 +877,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
             `[bourbonomics] applyAction rejected ${final.type} by ${actorId}: ${reason}`,
             { action: final, error: err, phase: prev.state.phase, round: prev.state.round },
           );
+          // v3.8: surface a toast so the player actually sees the
+          // rejection (the picker stays open otherwise and the UI
+          // looks frozen). Only the local human's actions get the
+          // toast — bot/scripted rejections still log to console only.
+          // (This branch is solo-only; multiplayer dispatch returned
+          // above, so `multiplayerMode` is already null here.)
+          const localSeatId = prev.state.players.find((p) => !p.isBot)?.id;
+          if (actorId === localSeatId) {
+            pushToast({
+              kind: "error",
+              title: humanizeActionType(final.type),
+              detail: reason,
+            });
+          }
           return prev;
         }
         if (tutorialActiveRef.current) {
@@ -925,6 +1017,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
           // eslint-disable-next-line no-console
           console.error("multiplayer:", msg.reason);
           setMultiplayerError(msg.reason);
+          // Mirror as a toast so the rejection sits in the same
+          // notification channel as local engine errors.
+          pushToast({
+            kind: "error",
+            title: "Server rejected action",
+            detail: msg.reason,
+          });
           break;
         case "ping":
           // No-op; the server sometimes pings to keep idle sockets alive.
@@ -1938,6 +2037,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       humanSeatPlayerId,
       inspect,
       setInspect,
+      toasts,
+      pushToast,
+      dismissToast,
       buyMode,
       startBuyMode,
       cancelBuyMode,
@@ -2016,6 +2118,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       humanWaitingOn,
       humanSeatPlayerId,
       inspect,
+      toasts,
+      pushToast,
+      dismissToast,
       buyMode,
       startBuyMode,
       cancelBuyMode,

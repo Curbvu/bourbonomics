@@ -21,8 +21,10 @@
 import { use, useEffect, useState } from "react";
 
 import AgingPhaseModal from "../components/AgingPhaseModal";
+import BotTurnBanner from "../components/BotTurnBanner";
 import CardInspectModal from "../components/CardInspectModal";
 import GameOverPanel from "../components/GameOverPanel";
+import ToastStack from "../components/ToastStack";
 import DemandRollModal from "../components/DemandRollModal";
 import DistilleryDraftModal from "../components/DistilleryDraftModal";
 import DraftPickFlight from "../components/DraftPickFlight";
@@ -238,6 +240,10 @@ export default function PlayCodePage({ params }: Props) {
       <CardInspectModal />
       {/* Final-standings modal. */}
       <GameOverPanel />
+      {/* Bot-turn banner + Toast stack — page-root mount so they
+          anchor to the true viewport, not the scaled canvas. */}
+      <BotTurnBanner />
+      <ToastStack />
       {/* Draft-pick flight — fires when the human commits a bill.
           Page-root mount for the same containing-block reason. */}
       <DraftPickFlight />

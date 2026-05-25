@@ -516,6 +516,31 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
   will-change: opacity;
 }
 
+/* `bb-onclock-pulse` — gold halo on the OpponentRail tile of the
+   on-clock player. Slow breathe paired with BotTurnBanner so the eye
+   has both a row-level and a banner-level cue for "this bot is now
+   acting." */
+@keyframes bb-onclock-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 201, 112, 0); }
+  50%      { box-shadow: 0 0 0 4px rgba(240, 201, 112, 0.30); }
+}
+.bb-onclock-pulse {
+  animation: bb-onclock-pulse 2s ease-in-out infinite;
+  will-change: box-shadow;
+}
+
+/* `.bb-onclock-dots` — staggered ellipsis used inside BotTurnBanner. */
+@keyframes bb-onclock-dot {
+  0%, 80%, 100% { opacity: 0.25; }
+  40%           { opacity: 1; }
+}
+.bb-onclock-dots span {
+  display: inline-block;
+  animation: bb-onclock-dot 1.4s ease-in-out infinite;
+}
+.bb-onclock-dots span:nth-child(2) { animation-delay: 0.18s; }
+.bb-onclock-dots span:nth-child(3) { animation-delay: 0.36s; }
+
 /* `pour` — TopBar demand meter brass stripes scroll horizontally. */
 @keyframes pour {
   0%   { background-position: 0 0; }
