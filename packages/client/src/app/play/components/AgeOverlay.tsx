@@ -3,11 +3,11 @@
 /**
  * AgeOverlay — progress banner for the per-turn Aging window.
  *
- * Aging is forced when `needsAgeBarrels` is true on the local seat. The
- * intro is owned by `AgingPhaseModal`; this banner runs *after* the
- * player dismisses that modal, prompting them through each remaining
- * card→barrel commit. AGE_BOURBON auto-fires on the second pick (no
- * Confirm button), so this is purely informational + a Cancel escape.
+ * Aging is forced when `needsAgeBarrels` is true on the local seat —
+ * the store auto-engages ageMode the moment that flips true. This
+ * banner prompts the player through each card→barrel commit (AGE_BOURBON
+ * auto-fires on the second pick; no Confirm button), so the banner is
+ * purely informational + a Cancel escape.
  */
 
 import { useGameStore } from "@/lib/store/game";
@@ -17,13 +17,10 @@ export default function AgeOverlay() {
     state,
     ageMode,
     cancelAgeMode,
-    ageIntroSeen,
     ageTotalThisPhase,
     multiplayerMode,
   } = useGameStore();
   if (!state || !ageMode) return null;
-  // The intro modal owns the screen while it's open. Banner waits.
-  if (!ageIntroSeen) return null;
 
   const seatId = multiplayerMode
     ? multiplayerMode.playerId

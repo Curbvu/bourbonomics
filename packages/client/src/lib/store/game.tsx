@@ -387,13 +387,16 @@ export interface GameStore {
   setAgeBarrel: (barrelId: string) => void;
   /** Pick a hand card. Auto-fires AGE_BOURBON when both fields are set. */
   setAgeCard: (cardId: string) => void;
-  /** True once the local seat has dismissed the aging-phase intro modal
-   *  for the current aging window. Reset to false the next time the
-   *  player enters an aging window (needsAgeBarrels flips false→true). */
-  ageIntroSeen: boolean;
-  /** Mark the aging-phase intro as seen — dismisses the modal and lets
-   *  the progress banner take over for the remaining picks. */
-  markAgeIntroSeen: () => void;
+  /** Round number whose YearPassModal the local seat dismissed. `null`
+   *  before any dismissal this game; the value naturally invalidates on
+   *  the next round (round 5 dismissal !== current round 6) so no reset
+   *  effect is needed. Gates the orchestrator's auto-step in the draw
+   *  phase — once this matches `state.round`, the auto-step resumes
+   *  and DRAW_HAND fires for the human (same as bots). */
+  yearPassDismissedForRound: number | null;
+  /** Stamp the current round as the dismissed one — fires when the
+   *  player clicks "Begin year" (or hits Enter/Space) in YearPassModal. */
+  markYearPassDismissed: () => void;
   /** Snapshot of how many barrels were ageable when the aging window
    *  opened. The progress banner uses this to render "N of M aged"
    *  without drifting as barrels become ineligible mid-phase. */
@@ -570,8 +573,8 @@ const Ctx = createContext<GameStore>({
   cancelAgeMode: noop,
   setAgeBarrel: noop,
   setAgeCard: noop,
-  ageIntroSeen: false,
-  markAgeIntroSeen: noop,
+  yearPassDismissedForRound: null,
+  markYearPassDismissed: noop,
   ageTotalThisPhase: null,
   drawBillMode: null,
   startDrawBillMode: noop,
@@ -682,7 +685,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [toasts.length]);
   const [buyMode, setBuyMode] = useState<BuyMode | null>(null);
   const [ageMode, setAgeMode] = useState<AgeMode | null>(null);
-  const [ageIntroSeen, setAgeIntroSeen] = useState<boolean>(false);
+  const [yearPassDismissedForRound, setYearPassDismissedForRound] = useState<
+    number | null
+  >(null);
   const [ageTotalThisPhase, setAgeTotalThisPhase] = useState<number | null>(null);
   // Tracks the previous `needsAgeBarrels` flag for the local seat so the
   // intro-modal + total-count snapshot reset exactly on the false→true
@@ -1216,15 +1221,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // PASS_TURN); without this, they'd see no UI prompt and wonder why
   // every other action is rejecting.
   //
-  // v3.2 — also resets ageIntroSeen + snapshots ageTotalThisPhase on the
-  // false→true transition so the AgingPhaseModal can show once per
-  // window and the banner can render a stable "N of M aged" count.
+  // v3.2 — snapshot ageTotalThisPhase on the false→true transition so
+  // the AgeOverlay banner can render a stable "N of M aged" count
+  // without drifting as barrels become ineligible mid-phase.
   useEffect(() => {
     const s = store.state;
     if (!s || s.phase !== "action") {
       if (prevNeedsAgeRef.current) {
         prevNeedsAgeRef.current = false;
-        setAgeIntroSeen(false);
         setAgeTotalThisPhase(null);
       }
       return;
@@ -1238,7 +1242,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (s.players[s.currentPlayerIndex]?.id !== seatId) {
       if (prevNeedsAgeRef.current) {
         prevNeedsAgeRef.current = false;
-        setAgeIntroSeen(false);
         setAgeTotalThisPhase(null);
       }
       return;
@@ -1246,7 +1249,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!me.needsAgeBarrels) {
       if (prevNeedsAgeRef.current) {
         prevNeedsAgeRef.current = false;
-        setAgeIntroSeen(false);
         setAgeTotalThisPhase(null);
       }
       return;
@@ -1255,7 +1257,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     // false→true transition: capture ageable-barrel count for the banner.
     if (!prevNeedsAgeRef.current) {
       prevNeedsAgeRef.current = true;
-      setAgeIntroSeen(false);
       const total = s.allBarrels.filter(
         (b) =>
           b.ownerId === seatId &&
@@ -1270,9 +1271,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setAgeMode({ pickedBarrelId: null, pickedCardId: null });
   }, [store.state, multiplayerMode, ageMode]);
 
-  const markAgeIntroSeen = useCallback(() => {
-    setAgeIntroSeen(true);
-  }, []);
+  // YearPassModal "Begin year" handler — stamps the current round so
+  // the orchestrator's draw-phase auto-step (gated on this flag for
+  // round 2+) resumes immediately and dispatches DRAW_HAND for the
+  // human. The value naturally invalidates the next round (state.round !==
+  // dismissedForRound), no reset effect needed.
+  const markYearPassDismissed = useCallback(() => {
+    setYearPassDismissedForRound(store.state?.round ?? null);
+  }, [store.state]);
 
   // v3.2 — auto-dismiss the inspect modal when control passes to a bot.
   // The player opened it during their own turn; once the cursor leaves
@@ -1791,13 +1797,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (awaitingHumanInput(state)) return;
 
     if (isDrawPhase) {
-      // Pause if the human hasn't drawn yet — their modal owns the screen.
-      const human = state.players.find((p) => !p.isBot);
-      if (human && !state.playerIdsCompletedPhase.includes(human.id)) {
-        const nextDrawer = state.players.find(
-          (p) => !state.playerIdsCompletedPhase.includes(p.id),
-        );
-        if (!nextDrawer || !nextDrawer.isBot) return;
+      // v3.10: the DrawPhaseModal cutscene is gone — the orchestrator
+      // draws for the human too. The only thing that should pause the
+      // step here is the YearPassModal (round 2+ interstitial). Once
+      // the player dismisses it, the auto-step resumes and draws fire
+      // back-to-back with the usual 180ms cadence.
+      if (state.round > 1 && yearPassDismissedForRound !== state.round) {
+        const human = state.players.find((p) => !p.isBot);
+        if (human && !state.playerIdsCompletedPhase.includes(human.id)) {
+          return;
+        }
       }
     }
 
@@ -1826,7 +1835,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const delay = isActionPhase ? 800 : 180;
     const id = window.setTimeout(step, delay);
     return () => window.clearTimeout(id);
-  }, [multiplayerMode, tutorialActive, store.state, step]);
+  }, [multiplayerMode, tutorialActive, store.state, step, yearPassDismissedForRound]);
 
   const newGame = useCallback((cfg: NewGameConfig) => {
     const fullCatalog = defaultMashBillCatalog();
@@ -2051,8 +2060,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       cancelAgeMode,
       setAgeBarrel,
       setAgeCard,
-      ageIntroSeen,
-      markAgeIntroSeen,
+      yearPassDismissedForRound,
+      markYearPassDismissed,
       ageTotalThisPhase,
       drawBillMode,
       startDrawBillMode,
@@ -2132,8 +2141,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       cancelAgeMode,
       setAgeBarrel,
       setAgeCard,
-      ageIntroSeen,
-      markAgeIntroSeen,
+      yearPassDismissedForRound,
+      markYearPassDismissed,
       ageTotalThisPhase,
       drawBillMode,
       startDrawBillMode,

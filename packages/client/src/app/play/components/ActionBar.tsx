@@ -73,8 +73,8 @@ export default function ActionBar() {
   // interactive overlay.
   const buyEntry = canEnterBuyMode(state, human);
   // Aging has no Action-bar entry — the engine forces it via
-  // `needsAgeBarrels`, AgingPhaseModal explains the phase, and
-  // AgeOverlay's banner tracks progress through the remaining picks.
+  // `needsAgeBarrels` (the store auto-engages ageMode), and AgeOverlay's
+  // banner tracks progress through the remaining picks.
   // Draw-bill picker gating — needs at least one card in hand and at
   // least one mash bill in the bourbon deck.
   const drawBillEntry = canEnterDrawBillMode(state, human);
