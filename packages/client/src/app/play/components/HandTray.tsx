@@ -42,7 +42,7 @@ import {
 import { MoneyText } from "./money";
 
 export default function HandTray() {
-  const { state, seatMeta, multiplayerMode } = useGameStore();
+  const { state, seatMeta, multiplayerMode, lastDrawHand } = useGameStore();
   if (!state) return null;
   // In multiplayer, the tray belongs to whichever seat THIS connection
   // owns — not the first non-bot, which would be the host on every
@@ -151,7 +151,7 @@ export default function HandTray() {
           {handCards.length === 0 ? (
             <EmptyPill>no cards</EmptyPill>
           ) : (
-            <HandFan>
+            <HandFan dealKey={lastDrawHand?.seq ?? 0}>
               {handCards.map((c, i) =>
                 c.type === "labor" ? (
                   <LaborCard key={c.id} card={c} indexInRow={i} />
@@ -661,7 +661,16 @@ function CardAccordion({ children }: { children: React.ReactNode }) {
  * Slots stretch the container to `(n - 1) * stride + cardW`, which
  * the parent flex centers via `justify-center`.
  */
-function HandFan({ children }: { children: React.ReactNode }) {
+function HandFan({
+  children,
+  dealKey,
+}: {
+  children: React.ReactNode;
+  /** Bumped each time DRAW_HAND lands for the human. Used as the
+   *  inner wrapper's React key so the slots remount on each new
+   *  round and replay the `hand-deal-in` keyframe. */
+  dealKey: number;
+}) {
   const slots = React.Children.toArray(children);
   const n = slots.length;
   const cardW = 100;
@@ -671,6 +680,8 @@ function HandFan({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex min-w-0 flex-1 items-end justify-center py-2 pl-2 pr-3">
       <div
+        key={dealKey}
+        className="hand-fan-dealt"
         style={{
           position: "relative",
           width: totalW,
@@ -695,6 +706,7 @@ function HandFan({ children }: { children: React.ReactNode }) {
                 width: cardW,
                 transform: `translateY(${lift}px) rotate(${rot}deg)`,
                 zIndex: i,
+                animationDelay: `${i * 50}ms`,
               }}
             >
               {child}

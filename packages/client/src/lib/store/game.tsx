@@ -300,6 +300,29 @@ export interface LastAge {
  * The card-spent half of the animation starts from `[data-hand-tray]`
  * which stays mounted, so it's measured live at flight time.
  */
+/**
+ * End-turn-discard snapshot. Bumped by ActionBar's End-turn button on
+ * the click that dispatches PASS_TURN. The cards are the human's hand
+ * at click time; `EndTurnFlight` reads this and animates each card
+ * flying from the hand area to the discard tile in HandTray.
+ */
+export interface LastEndTurnDiscard {
+  cards: Card[];
+  ownerId: string;
+  seq: number;
+}
+
+/**
+ * Deal-hand snapshot. Bumped whenever a DRAW_HAND action lands for the
+ * local human. `HandFan` keys its wrapper off this seq so a new round
+ * remounts the slots and replays the `deal-in` keyframe.
+ */
+export interface LastDrawHand {
+  ownerId: string;
+  count: number;
+  seq: number;
+}
+
 export interface LastDraftPick {
   /** The hand card the human spent to pay for the bill. */
   spentCard: Card;
@@ -344,6 +367,8 @@ interface AtomicStore {
   lastSale: LastSale | null;
   lastAge: LastAge | null;
   lastDraftPick: LastDraftPick | null;
+  lastEndTurnDiscard: LastEndTurnDiscard | null;
+  lastDrawHand: LastDrawHand | null;
 }
 
 export interface GameStore {
@@ -472,6 +497,15 @@ export interface GameStore {
   /** Animation trigger — most recent human DRAFT_TAKE_BILL snapshot.
    *  Populated only for the local human (bot picks are log-only). */
   lastDraftPick: LastDraftPick | null;
+  /** Animation trigger — fired by the End-turn button BEFORE dispatching
+   *  PASS_TURN so EndTurnFlight can fan the current hand into the
+   *  discard pile while the engine wipes the hand state. */
+  lastEndTurnDiscard: LastEndTurnDiscard | null;
+  triggerEndTurnDiscardAnimation: (cards: Card[], ownerId: string) => void;
+  /** Animation trigger — bumped whenever DRAW_HAND lands for the local
+   *  human. HandFan keys its slots off this seq so the new round's
+   *  cards remount and replay the `deal-in` keyframe. */
+  lastDrawHand: LastDrawHand | null;
   /** Push a draft-pick animation snapshot. Called by DrawBillOverlay
    *  right after dispatching DRAFT_TAKE_BILL — the modal owns all the
    *  inputs (spent card, bill, destination slot, captured bill rect),
@@ -606,6 +640,9 @@ const Ctx = createContext<GameStore>({
   lastSale: null,
   lastAge: null,
   lastDraftPick: null,
+  lastEndTurnDiscard: null,
+  triggerEndTurnDiscardAnimation: noop,
+  lastDrawHand: null,
   triggerDraftPickAnimation: noop,
   multiplayerMode: null,
   multiplayerStatus: "idle",
@@ -648,6 +685,8 @@ const EMPTY_STORE: AtomicStore = {
   lastSale: null,
   lastAge: null,
   lastDraftPick: null,
+  lastEndTurnDiscard: null,
+  lastDrawHand: null,
 };
 
 export function GameProvider({ children }: { children: ReactNode }) {
@@ -760,6 +799,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastSale: null,
           lastAge: null,
           lastDraftPick: null,
+          lastEndTurnDiscard: null,
+          lastDrawHand: null,
         });
       }
       const auto = window.localStorage.getItem(AUTOPLAY_KEY);
@@ -817,6 +858,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const lastMake = captureMake(prev, result.state, result.action, seq);
       const lastSale = captureSale(prev, result.action, seq);
       const lastAge = captureAge(prev, result.action, seq);
+      const lastDrawHand = captureDrawHand(prev, result.action, seq);
       return {
         ...prev,
         state: result.state,
@@ -826,6 +868,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         lastMake,
         lastSale,
         lastAge,
+        lastDrawHand: lastDrawHand ?? prev.lastDrawHand,
       };
     });
   }, []);
@@ -912,6 +955,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const lastMake = captureMake(prev, next, final, seq);
         const lastSale = captureSale(prev, final, seq);
         const lastAge = captureAge(prev, final, seq);
+        const lastDrawHand = captureDrawHand(prev, final, seq);
         return {
           ...prev,
           state: next,
@@ -921,6 +965,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastMake,
           lastSale,
           lastAge,
+          lastDrawHand: lastDrawHand ?? prev.lastDrawHand,
         };
       });
     },
@@ -941,6 +986,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
           ...prev,
           seqCounter: seq,
           lastDraftPick: { ...payload, seq },
+        };
+      });
+    },
+    [],
+  );
+
+  const triggerEndTurnDiscardAnimation = useCallback(
+    (cards: Card[], ownerId: string) => {
+      if (cards.length === 0) return;
+      setStore((prev) => {
+        const seq = prev.seqCounter + 1;
+        return {
+          ...prev,
+          seqCounter: seq,
+          lastEndTurnDiscard: { cards, ownerId, seq },
         };
       });
     },
@@ -982,6 +1042,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
             lastSale: null,
             lastAge: null,
             lastDraftPick: null,
+          lastEndTurnDiscard: null,
+          lastDrawHand: null,
           });
           break;
         case "state":
@@ -1891,6 +1953,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastSale: null,
       lastAge: null,
       lastDraftPick: null,
+          lastEndTurnDiscard: null,
+          lastDrawHand: null,
     });
     setAutoplayState(false);
     setInspect(null);
@@ -1932,6 +1996,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastSale: null,
       lastAge: null,
       lastDraftPick: null,
+          lastEndTurnDiscard: null,
+          lastDrawHand: null,
     });
     setAutoplayState(false);
     setInspect(null);
@@ -1969,6 +2035,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastSale: null,
           lastAge: null,
           lastDraftPick: null,
+          lastEndTurnDiscard: null,
+          lastDrawHand: null,
         });
         return;
       }
@@ -2093,6 +2161,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       lastSale: store.lastSale,
       lastAge: store.lastAge,
       lastDraftPick: store.lastDraftPick,
+      lastEndTurnDiscard: store.lastEndTurnDiscard,
+      triggerEndTurnDiscardAnimation,
+      lastDrawHand: store.lastDrawHand,
       triggerDraftPickAnimation,
       multiplayerMode,
       multiplayerStatus,
@@ -2319,4 +2390,22 @@ function captureAge(
     cardSubtype: card?.subtype ?? card?.type ?? "card",
     seq,
   };
+}
+
+/**
+ * Snapshot DRAW_HAND landings so HandFan can re-key its slots and
+ * replay the `deal-in` keyframe. Returns null for non-DRAW_HAND
+ * actions so the caller can preserve the previous snapshot when no
+ * deal happened — the round's deal-in animation should still be
+ * available to replay on a re-render.
+ */
+function captureDrawHand(
+  prev: AtomicStore,
+  action: GameAction,
+  seq: number,
+): LastDrawHand | null {
+  if (action.type !== "DRAW_HAND") return null;
+  const nextPlayer = prev.state?.players.find((p) => p.id === action.playerId);
+  const count = nextPlayer?.hand.length ?? 0;
+  return { ownerId: action.playerId, count, seq };
 }
