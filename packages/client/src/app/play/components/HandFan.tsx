@@ -37,7 +37,13 @@ export default function HandFan({
     <div className="relative flex min-w-0 flex-1 items-end justify-center py-2 pl-2 pr-3">
       <div
         key={dealKey}
-        className="hand-fan-dealt"
+        // Only opt into the deal-in keyframe when dealKey > 0 (the
+        // in-game HandTray passing lastDrawHand.seq). Surfaces that
+        // render an EXISTING hand — drafting modal, buy modal —
+        // pass no dealKey and skip the animation entirely so the
+        // CSS keyframe's translateY doesn't fight the inline
+        // fan-arc transform on every parent re-render.
+        className={dealKey > 0 ? "hand-fan-dealt" : undefined}
         style={{
           position: "relative",
           width: totalW,

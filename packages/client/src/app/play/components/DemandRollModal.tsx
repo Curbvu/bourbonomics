@@ -33,14 +33,37 @@ type RollState =
 const DROP_MS = 1050;     // matches die-drop keyframe
 const SETTLE_MS = 700;    // dwell on the result before dispatching
 
+// Total time the deal-in fan keyframe needs to play out before another
+// blocking modal can render over the hand area. Matches the
+// `hand-deal-in` duration (520ms) plus the worst-case per-slot stagger
+// (8 cards × 50ms = 400ms) plus a small buffer.
+const DEAL_FAN_MS = 1000;
+
 export default function DemandRollModal() {
-  const { state, autoplay, multiplayerMode, humanSeatPlayerId, dispatch } = useGameStore();
+  const { state, autoplay, multiplayerMode, humanSeatPlayerId, dispatch, lastDrawHand } = useGameStore();
   const [phase, setPhase] = useState<RollState>({ kind: "idle" });
   const [tickValues, setTickValues] = useState<[number, number]>([1, 1]);
+  // Hold the modal off until the deal-in fan animation has had time to
+  // play. When lastDrawHand bumps for the human, start a `dealReady`
+  // timer; the modal stays hidden until it fires. Without this gate,
+  // the demand-roll modal pops over the hand the same frame the
+  // deal-fan animation starts, so the player never sees the deal-in.
+  const [dealReady, setDealReady] = useState(true);
+  const dealSeqRef = useRef<number>(lastDrawHand?.seq ?? 0);
+  useEffect(() => {
+    const currentSeq = lastDrawHand?.seq ?? 0;
+    if (currentSeq > dealSeqRef.current) {
+      dealSeqRef.current = currentSeq;
+      setDealReady(false);
+      const id = window.setTimeout(() => setDealReady(true), DEAL_FAN_MS);
+      return () => window.clearTimeout(id);
+    }
+  }, [lastDrawHand?.seq]);
   // v2.9: demand is rolled per-turn, not per-round. Reset the dice
   // animation each time a fresh roll is required (every time the
   // current player flips to a human who needs to roll).
   const armed =
+    dealReady &&
     state?.phase === "action" &&
     state.players[state.currentPlayerIndex]?.needsDemandRoll === true;
   const turnKey = armed ? `${state.round}:${state.currentPlayerIndex}` : "";

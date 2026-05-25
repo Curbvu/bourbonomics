@@ -357,8 +357,12 @@ function DraftingLoopModal({
 
         {/* Body — flex-1 min-h-0 lets the sections collectively share
             the remaining height between header and footer without
-            pushing the footer off-screen. */}
-        <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+            pushing the footer off-screen. `overflow-visible` here is
+            intentional: the modal root keeps the rounded-corner clip,
+            but a hover-lifted hand card needs to extend past the
+            hand-section's bottom edge into the footer gutter without
+            being sheared. */}
+        <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-visible">
         {/* Revealed mash bills — only after the loop is live. In seed
             mode the bills haven't been pulled yet, so the section would
             sit empty and confuse the read; skip it entirely. */}
@@ -370,11 +374,13 @@ function DraftingLoopModal({
                 ? "none left"
                 : `${revealedBills.length} on offer`
             }
+            flex
+            minHeight={260}
           >
             {revealedBills.length === 0 ? (
               <EmptyRow message="The bourbon deck had nothing more to reveal." />
             ) : (
-              <div className="flex flex-wrap items-stretch gap-3">
+              <div className="flex h-full w-full items-stretch gap-3 overflow-x-auto">
                 {revealedBills.map((bill) => (
                   <BillTile
                     key={bill.id}
@@ -398,11 +404,12 @@ function DraftingLoopModal({
                 ? "empty"
                 : `${draftPile.length} card${draftPile.length === 1 ? "" : "s"}`
             }
+            height={180}
           >
             {draftPile.length === 0 ? (
               <EmptyRow message="No cards in the pile yet." />
             ) : (
-              <div className="flex flex-wrap items-stretch gap-1.5">
+              <div className="flex w-full items-center gap-1.5 overflow-x-auto">
                 {draftPile.map((card) => (
                   <HandCardTile
                     key={card.id}
@@ -430,6 +437,8 @@ function DraftingLoopModal({
                 : "Your hand"
           }
           hint={`${hand.length} card${hand.length === 1 ? "" : "s"}`}
+          height={loop ? 220 : 240}
+          allowOverflow
         >
           {hand.length === 0 ? (
             <EmptyRow message="Your hand is empty." />
@@ -556,14 +565,43 @@ function Section({
   label,
   hint,
   children,
+  height,
+  minHeight,
+  flex,
+  allowOverflow,
 }: {
   label: string;
   hint?: string;
   children: React.ReactNode;
+  /** Fixed pixel height so the modal layout is deterministic — the
+   *  section keeps this height regardless of viewport size. Mutually
+   *  exclusive with `flex`. */
+  height?: number;
+  /** Lower bound when `flex` is true — the section can shrink to this
+   *  but no further. */
+  minHeight?: number;
+  /** If true, the section becomes `flex-1 min-h-0` so it absorbs
+   *  viewport squeeze instead of pushing siblings off-screen. Use on
+   *  the section whose content is OK to clip / scroll internally. */
+  flex?: boolean;
+  /** If true, drop the outer + inner `overflow-hidden` so children can
+   *  visibly lift past the section's bottom edge (used by the hand row
+   *  so hover-lifted cards aren't sheared). */
+  allowOverflow?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
-      <div className="mb-1.5 flex items-baseline justify-between">
+    <div
+      className={[
+        "flex flex-col rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2",
+        flex ? "min-h-0 flex-1" : "flex-shrink-0",
+        allowOverflow ? "overflow-visible" : "overflow-hidden",
+      ].join(" ")}
+      style={{
+        ...(height != null ? { height } : null),
+        ...(minHeight != null ? { minHeight } : null),
+      }}
+    >
+      <div className="mb-1.5 flex flex-shrink-0 items-baseline justify-between">
         <span className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
           {label}
         </span>
@@ -573,7 +611,14 @@ function Section({
           </span>
         ) : null}
       </div>
-      {children}
+      <div
+        className={[
+          "flex min-h-0 flex-1 items-stretch",
+          allowOverflow ? "overflow-visible" : "overflow-hidden",
+        ].join(" ")}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -627,7 +672,7 @@ function BillTile({
       disabled={!interactive}
       data-revealed-bill-id={bill.id}
       className={[
-        "flex w-[260px] flex-col rounded-xl border-2 px-3 py-2.5 text-left transition-transform duration-150",
+        "flex h-full w-[260px] flex-shrink-0 flex-col overflow-hidden rounded-xl border-2 px-3 py-2.5 text-left transition-transform duration-150",
         chrome.border,
         chrome.gradient,
         chrome.glow,
@@ -677,12 +722,12 @@ function BillTile({
           Ingredients
         </div>
         <RecipePips bill={bill} />
-        <div className="mt-1.5 flex flex-wrap justify-center gap-1">
+        <div className="mt-1.5 grid grid-cols-2 gap-1">
           {ingredients.map((chip, i) => (
             <span
               key={i}
               className={[
-                "inline-flex items-center gap-1 rounded border px-1.5 py-[2px] font-mono text-[12px] uppercase tracking-[.06em]",
+                "inline-flex items-center justify-center gap-1 rounded border px-1 py-[1px] font-mono text-[11px] uppercase tracking-[.04em]",
                 chip.specialty
                   ? "border-amber-300/70 bg-amber-700/30 text-amber-100"
                   : chip.forbidden
@@ -771,7 +816,7 @@ function MiniRepTable({
                 <div
                   key={`${ri}-${ci}`}
                   className={[
-                    "relative grid h-9 place-items-center rounded-[3px] border border-white/10",
+                    "relative grid h-7 place-items-center rounded-[3px] border border-white/10",
                     awardCellBg(award, cell),
                   ].join(" ")}
                 >

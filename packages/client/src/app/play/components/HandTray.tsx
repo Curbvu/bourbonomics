@@ -42,8 +42,29 @@ import {
 } from "./handCardStyles";
 import { MoneyText } from "./money";
 
+// While the End-turn discard flight is airborne, hide the hand row so
+// the freshly-redrawn cards don't pop into place behind the flying
+// silhouettes. After the flight clears, the row re-mounts and the
+// deal-in keyframe runs on the new hand. Tuned to match EndTurnFlight's
+// FLIGHT_MS (720ms) plus per-card stagger.
+const DISCARD_FLIGHT_HIDE_MS = 760;
+
 export default function HandTray() {
-  const { state, seatMeta, multiplayerMode, lastDrawHand } = useGameStore();
+  const { state, seatMeta, multiplayerMode, lastDrawHand, lastEndTurnDiscard } = useGameStore();
+  // Gate the hand row's mount on whether a discard flight is active.
+  // We watch lastEndTurnDiscard.seq; on each bump we hide the row for
+  // a short window so the discard flight can play out cleanly.
+  const [handVisible, setHandVisible] = React.useState(true);
+  const lastDiscardSeqRef = React.useRef<number>(lastEndTurnDiscard?.seq ?? 0);
+  React.useEffect(() => {
+    const seq = lastEndTurnDiscard?.seq ?? 0;
+    if (seq > lastDiscardSeqRef.current) {
+      lastDiscardSeqRef.current = seq;
+      setHandVisible(false);
+      const id = window.setTimeout(() => setHandVisible(true), DISCARD_FLIGHT_HIDE_MS);
+      return () => window.clearTimeout(id);
+    }
+  }, [lastEndTurnDiscard?.seq]);
   if (!state) return null;
   // In multiplayer, the tray belongs to whichever seat THIS connection
   // owns — not the first non-bot, which would be the host on every
@@ -149,7 +170,13 @@ export default function HandTray() {
           grow
           zone="hand-resources"
         >
-          {handCards.length === 0 ? (
+          {!handVisible ? (
+            // Brief blank window while the discard flight clears. The
+            // hand state has already been redrawn in the store, but
+            // we hold the row off-screen so the new cards don't pop
+            // into the fan while ghost cards are still flying out.
+            <div className="h-[156px]" aria-hidden />
+          ) : handCards.length === 0 ? (
             <EmptyPill>no cards</EmptyPill>
           ) : (
             <HandFan dealKey={lastDrawHand?.seq ?? 0}>

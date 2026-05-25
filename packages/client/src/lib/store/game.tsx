@@ -2404,8 +2404,13 @@ function captureDrawHand(
   action: GameAction,
   seq: number,
 ): LastDrawHand | null {
-  if (action.type !== "DRAW_HAND") return null;
+  // v3.9: both DRAW_HAND (round-start) and PASS_TURN (end-of-turn
+  // redraw) repopulate the player's hand and should re-key the fan.
+  // Only fire for the local human — bot redraws would otherwise
+  // restart the deal-in keyframe mid-play.
+  if (action.type !== "DRAW_HAND" && action.type !== "PASS_TURN") return null;
   const nextPlayer = prev.state?.players.find((p) => p.id === action.playerId);
-  const count = nextPlayer?.hand.length ?? 0;
+  if (!nextPlayer || nextPlayer.isBot) return null;
+  const count = nextPlayer.hand.length;
   return { ownerId: action.playerId, count, seq };
 }
