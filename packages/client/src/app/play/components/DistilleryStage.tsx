@@ -562,33 +562,40 @@ function useSlotInteraction(
       setAgeBarrel(barrel.id);
       return;
     }
-    if (isLegalClickMake) {
-      try {
-        dispatch({
-          type: "MAKE_BOURBON",
-          playerId: ownerId,
-          slotId: slot.id,
-          cardIds: selectedHandCardIds,
-        });
-        clearHandSelection();
-      } catch {
-        /* swallow */
+    // v3.10: if hand cards are selected, treat the click as an attempted
+    // commit and let the engine validate. Silent fall-through to inspect
+    // used to hide the rejection reason ("must age a barrel first",
+    // "recipe requires exactly 2 total grain", etc.) — now the engine's
+    // toast pipeline surfaces it.
+    if (selectedHandCardIds.length > 0 && (canDropMake || canDropAge)) {
+      if (canDropAge && barrel && selectedHandCardIds.length === 1) {
+        try {
+          dispatch({
+            type: "AGE_BOURBON",
+            playerId: ownerId,
+            barrelId: barrel.id,
+            cardId: selectedHandCardIds[0]!,
+          });
+          clearHandSelection();
+        } catch {
+          /* swallow — engine pushed the toast */
+        }
+        return;
       }
-      return;
-    }
-    if (isLegalClickAge && barrel) {
-      try {
-        dispatch({
-          type: "AGE_BOURBON",
-          playerId: ownerId,
-          barrelId: barrel.id,
-          cardId: selectedHandCardIds[0]!,
-        });
-        clearHandSelection();
-      } catch {
-        /* swallow */
+      if (canDropMake) {
+        try {
+          dispatch({
+            type: "MAKE_BOURBON",
+            playerId: ownerId,
+            slotId: slot.id,
+            cardIds: selectedHandCardIds,
+          });
+          clearHandSelection();
+        } catch {
+          /* swallow — engine pushed the toast */
+        }
+        return;
       }
-      return;
     }
     if (canAutoAge && barrel) {
       startAgeMode();
@@ -608,11 +615,17 @@ function useSlotInteraction(
   };
 
   const onDragOver = (e: React.DragEvent) => {
-    if (!isLegalForDrag) return;
+    // v3.10: accept the drop on any plausible target (owned slot, on
+    // turn, non-aging for MAKE / aging for AGE). The legal/illegal
+    // green highlight still comes from `isLegalForDrag` via
+    // `dropTargetState` — but the drop itself fires either way so the
+    // engine can push a toast if the player's drop turns out to be
+    // illegal. Silent rejection on drop is the bug we're fixing.
+    if (!canDropMake && !canDropAge) return;
     if (!dragCarriesMakeCard(e)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    if (!dragHover) setDragHover(true);
+    if (isLegalForDrag && !dragHover) setDragHover(true);
   };
   const onDragEnter = onDragOver;
   const onDragLeave = () => {
@@ -625,35 +638,33 @@ function useSlotInteraction(
     const cardIds = readMakeDragPayload(e);
     if (cardIds.length === 0) return;
     e.preventDefault();
+    // No pre-flight validate — dispatch unconditionally and let the
+    // engine's rejection path push a toast with the actual reason.
     if (canDropAge && barrel) {
       if (cardIds.length !== 1) return;
-      const action = {
-        type: "AGE_BOURBON" as const,
-        playerId: ownerId,
-        barrelId: barrel.id,
-        cardId: cardIds[0]!,
-      };
-      if (!validateAction(state, action).legal) return;
       try {
-        dispatch(action);
+        dispatch({
+          type: "AGE_BOURBON",
+          playerId: ownerId,
+          barrelId: barrel.id,
+          cardId: cardIds[0]!,
+        });
         clearHandSelection();
       } catch {
-        /* swallow */
+        /* swallow — engine pushed the toast */
       }
       return;
     }
-    const action = {
-      type: "MAKE_BOURBON" as const,
-      playerId: ownerId,
-      slotId: slot.id,
-      cardIds,
-    };
-    if (!validateAction(state, action).legal) return;
     try {
-      dispatch(action);
+      dispatch({
+        type: "MAKE_BOURBON",
+        playerId: ownerId,
+        slotId: slot.id,
+        cardIds,
+      });
       clearHandSelection();
     } catch {
-      /* swallow */
+      /* swallow — engine pushed the toast */
     }
   };
 
