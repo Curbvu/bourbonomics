@@ -117,19 +117,37 @@ export default function BuyOverlay() {
       role="dialog"
       aria-modal="true"
       aria-label="Confirm purchase"
-      className="absolute inset-0 z-40 flex items-stretch justify-center overflow-hidden rounded-[12px] bg-slate-950/85 p-3 backdrop-blur"
+      className="absolute inset-0 z-40 flex items-stretch justify-center overflow-hidden rounded-[12px] bg-slate-950/95 p-3 backdrop-blur-md"
     >
       {/* Ambient glow behind the dialog — tier-tinted so the panel
-          inherits the colour temperature of whatever's being bought. */}
+          inherits the colour temperature of whatever's being bought.
+          v3.10: punched up so the modal reads as the focal point of
+          the screen, not just another panel laid over the distillery. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[820px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[460px] w-[900px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
         style={{
-          background: `radial-gradient(circle, ${tierInk}38 0%, transparent 65%)`,
+          background: `radial-gradient(circle, ${tierInk}80 0%, ${tierInk}33 35%, transparent 70%)`,
+        }}
+      />
+      {/* Second halo — narrower amber wash on top of the tier tint so
+          the brass border has something to glow against. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[300px] w-[640px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(252,211,77,.30) 0%, transparent 65%)",
         }}
       />
 
-      <div className="relative flex w-full flex-col gap-4 overflow-y-auto rounded-xl border-2 border-amber-500/60 bg-gradient-to-b from-slate-950 to-slate-900/95 p-5 shadow-[0_24px_64px_rgba(0,0,0,.55)]">
+      <div
+        className="relative flex w-full flex-col gap-4 overflow-y-auto rounded-xl border-[3px] border-amber-300 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 p-5"
+        style={{
+          boxShadow:
+            "inset 0 1px 0 rgba(252,211,77,.35), inset 0 0 0 1px rgba(252,211,77,.18), 0 0 48px rgba(252,211,77,.45), 0 24px 64px rgba(0,0,0,.75)",
+        }}
+      >
         {/* ─ Header ────────────────────────────────────────────────── */}
         <header className="flex items-start gap-4 border-b border-[#3b2818] pb-3">
           <div className="min-w-0 flex-1">
