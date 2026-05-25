@@ -25,7 +25,7 @@
  *      surface renders as a read-only preview with "Waiting on X…".
  */
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import type {
   AwardCondition,
   Card,
@@ -802,7 +802,7 @@ function MiniRepTable({
 // ─────────────────────────────────────────────────────────────────────
 
 interface IngredientChip {
-  glyph: string;
+  glyph: ReactNode;
   label: string;
   count?: number;
   tint: string;

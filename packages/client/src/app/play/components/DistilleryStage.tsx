@@ -29,6 +29,7 @@ import { useState, useMemo, type ReactNode } from "react";
 import type { Barrel, GameState, MashBill, RickhouseSlot } from "@bourbonomics/engine";
 import { validateAction } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
+import BuyOverlay from "./BuyOverlay";
 import { TIER_INK, tierOrCommon, type TierChrome } from "./tierStyles";
 import { dragCarriesMakeCard, readMakeDragPayload } from "./dragMake";
 import { RESOURCE_GLYPH } from "./handCardStyles";
@@ -116,6 +117,11 @@ export default function DistilleryStage() {
         state={state}
         isHumanRow={true}
       />
+
+      {/* Buy-purchase panel — mounts here (not in HandTray) so its
+          `absolute inset-0` covers exactly this distillery section
+          while the market row + action bar stay visible. */}
+      <BuyOverlay />
     </section>
   );
 }

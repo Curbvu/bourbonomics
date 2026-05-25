@@ -21,7 +21,6 @@ import {
 } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import ActionBar from "./ActionBar";
-import BuyOverlay from "./BuyOverlay";
 import AgeOverlay from "./AgeOverlay";
 import MakeOverlay from "./MakeOverlay";
 import SellOverlay from "./SellOverlay";
@@ -82,11 +81,15 @@ export default function HandTray() {
           (each gates on its own mode flag); kept mounted here so the
           mode-pickers can land right above the hand.
 
+          BuyOverlay lives inside DistilleryStage now so it can overlay
+          just that section instead of the full screen — `absolute
+          inset-0` against the panel rather than `fixed inset-0`
+          against the design canvas.
+
           DrawBillOverlay is mounted at the page root instead, outside
           ScalingHost — it's a true fullscreen modal and the
           `transform: scale(...)` on ScalingHost would otherwise scope
           its `position: fixed` to the design canvas. */}
-      <BuyOverlay />
       <AgeOverlay />
       <SellOverlay />
       <MakeOverlay />
