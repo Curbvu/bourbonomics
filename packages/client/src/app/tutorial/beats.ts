@@ -7,9 +7,15 @@
  * four chapters:
  *
  *   Chapter 1 — Make bourbon (3 ingredient commits)
- *   Chapter 2 — Hire a Cooper from the market (rep + Labor payment)
- *   Chapter 3 — Age your barrel
+ *   Chapter 2 — Age your barrel
+ *   Chapter 3 — Hire a Cooper from the market (rep + Labor payment)
  *   Chapter 4 — Sell
+ *
+ * The Hire/Age order is intentional: the player makes the barrel in
+ * round 1, the round rolls over, they age it once in round 2's age
+ * phase, then they spend round 2's action phase hiring the Cooper.
+ * That puts the Cooper prompt right after the player has felt aging
+ * for the first time, instead of dropping it mid-make.
  *
  * Why not ship as a tree / branching script? Every player gets the
  * same path. There IS a "false decision" but both branches advance
@@ -167,52 +173,20 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-1-aftermath",
     kind: "prompt",
     title: "Aging",
-    body: "Backroad Batch is **Aging**. You'll add 1 aging card each round to keep it maturing.",
+    body: "Backroad Batch is now **ready** and is **aging**.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
   },
 
   // ════════════════════════════════════════════════════════════════
-  // CHAPTER 2 — Hire from the market
+  // CHAPTER 2 — Age your barrel
   // ════════════════════════════════════════════════════════════════
   {
     id: "lesson-2-intro",
     kind: "prompt",
-    title: "Hire a Cooper",
-    body: "The market has a **Cooper** today — Specialty Labor (🪓) that gives **+2 toward resource buys**. Specialty Labor is the only way new Labor enters your deck — your 2 Generic Labor (🔨) are all you'd ever own otherwise.",
-    spotlight: { kind: "none" },
-    chapter: { number: 2, label: "Hire" },
-  },
-  {
-    id: "beat-buy-cooper",
-    kind: "await-action",
-    title: "Buy the Cooper",
-    body: "Click the **Cooper**, then tag a **Labor card** (🔨) from your hand to pay.",
-    spotlight: { kind: "market-slot", slotIndex: 0 },
-    tapHint: { selector: "[data-market-slot-index='0']" },
-    matches: (action) => {
-      if (action.type !== "BUY_FROM_MARKET") return false;
-      if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
-      return action.marketSlotIndex === 0;
-    },
-  },
-  {
-    id: "beat-buy-aftermath",
-    kind: "prompt",
-    title: "Cooper hired",
-    body: "Your new Cooper landed in your discard — it'll shuffle into your deck next reshuffle. Generic Labor is finite; Specialty Labor is how your hand grows.",
-    spotlight: { kind: "none" },
-  },
-
-  // ════════════════════════════════════════════════════════════════
-  // CHAPTER 3 — Age your barrel
-  // ════════════════════════════════════════════════════════════════
-  {
-    id: "lesson-3-intro",
-    kind: "prompt",
     title: "Age your barrel",
     body: "Every round, an aging barrel needs 1 card to keep maturing. Older bourbon pays more — when you sell at the right time.",
     spotlight: { kind: "none" },
-    chapter: { number: 3, label: "Age" },
+    chapter: { number: 2, label: "Age" },
   },
   {
     id: "beat-age-time-passes",
@@ -294,6 +268,13 @@ export const TUTORIAL_BEATS: Beat[] = [
     title: "Age Backroad Batch",
     body: "Drag any card onto Backroad Batch to age it 1 year.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
+    // Same ghost-card+cursor drag animation as the Make sub-beats
+    // (beat-1a/1b/1c). Any hand card is a legal age payment, so the
+    // picker just grabs the first one for the demonstration loop.
+    dragHint: {
+      pickHandCard: () => true,
+      slotIndex: 0,
+    },
     matches: (action, state) => {
       if (action.type !== "AGE_BOURBON") return false;
       if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
@@ -315,6 +296,41 @@ export const TUTORIAL_BEATS: Beat[] = [
     title: "+1 year",
     body: "Backroad just ticked to age 1. Selling needs age 2 — one more year.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
+  },
+
+  // ════════════════════════════════════════════════════════════════
+  // CHAPTER 3 — Hire from the market
+  // The player is now in round 2's action phase (the age phase
+  // wrapped up when Backroad ticked to age 1). Hiring the Cooper
+  // happens here, then the Sell chapter passes the turn to the bot.
+  // ════════════════════════════════════════════════════════════════
+  {
+    id: "lesson-3-intro",
+    kind: "prompt",
+    title: "Hire a Cooper",
+    body: "The market has a **Cooper** today — Specialty Labor (🪓) that gives **+2 toward resource buys**. Specialty Labor is the only way new Labor enters your deck — your 2 Generic Labor (🔨) are all you'd ever own otherwise.",
+    spotlight: { kind: "none" },
+    chapter: { number: 3, label: "Hire" },
+  },
+  {
+    id: "beat-buy-cooper",
+    kind: "await-action",
+    title: "Buy the Cooper",
+    body: "Click the **Cooper**, then tag a **Labor card** (🔨) from your hand to pay.",
+    spotlight: { kind: "market-slot", slotIndex: 0 },
+    tapHint: { selector: "[data-market-slot-index='0']" },
+    matches: (action) => {
+      if (action.type !== "BUY_FROM_MARKET") return false;
+      if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
+      return action.marketSlotIndex === 0;
+    },
+  },
+  {
+    id: "beat-buy-aftermath",
+    kind: "prompt",
+    title: "Cooper hired",
+    body: "Your new Cooper landed in your discard — it'll shuffle into your deck next reshuffle. Generic Labor is finite; Specialty Labor is how your hand grows.",
+    spotlight: { kind: "none" },
   },
 
   // ════════════════════════════════════════════════════════════════

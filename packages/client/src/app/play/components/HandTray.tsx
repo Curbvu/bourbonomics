@@ -99,13 +99,12 @@ export default function HandTray() {
           component below to keep the JSX tidy. */}
       <HandStripStatus />
 
-      {/* Identity + reputation strip — compact. The whole strip carries
-          `data-bb-zone="reputation"` so the tutorial spotlight has a
-          tall enough hit-box to ring. */}
-      <div
-        data-bb-zone="reputation"
-        className="flex items-center gap-3 border-b border-[#3b2818] px-[18px] py-1"
-      >
+      {/* Identity strip — compact player handle (swatch + name +
+          distillery + hand count). Reputation used to live here too
+          and carried `data-bb-zone="reputation"`; rep now sits as a
+          64px gold numeral on the IdentityPlate next to the crest,
+          so the spotlight anchor moved up there. */}
+      <div className="flex items-center gap-3 border-b border-[#3b2818] px-[18px] py-1">
         <div className="flex items-center gap-2">
           <PlayerSwatch
             seatIndex={playerIndex}

@@ -194,8 +194,12 @@ function IdentityPlate({
 
       {/* BIG Reputation — between the crest and the title. Reads as
           the scoreboard for the whole match. Dashed right rule
-          mirrors the divider before the Sold column on the far side. */}
+          mirrors the divider before the Sold column on the far side.
+          `data-bb-zone="reputation"` anchors the tutorial spotlight
+          here (it used to live on the player-handle strip in
+          HandTray before rep moved up). */}
       <div
+        data-bb-zone="reputation"
         className="flex flex-col items-center justify-center leading-none"
         style={{
           paddingRight: 22,
