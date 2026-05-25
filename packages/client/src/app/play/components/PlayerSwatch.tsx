@@ -12,7 +12,7 @@ import { logoFor } from "./playerLogos";
 type Size = "xs" | "sm" | "md" | "lg";
 
 const SIZE: Record<Size, { box: string; glyph: string }> = {
-  xs: { box: "h-4 w-4", glyph: "text-[10px]" },
+  xs: { box: "h-4 w-4", glyph: "text-[12px]" },
   sm: { box: "h-5 w-5", glyph: "text-[12px]" },
   md: { box: "h-7 w-7", glyph: "text-[16px]" },
   lg: { box: "h-9 w-9", glyph: "text-[20px]" },

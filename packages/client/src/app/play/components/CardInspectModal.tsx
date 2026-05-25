@@ -236,7 +236,7 @@ function CountsBadge({
         Counts as {count} {baseLabel}
       </div>
       {aliases.length ? (
-        <div className={`mt-1 font-mono text-[11px] uppercase tracking-[.14em] ${chrome.label}`}>
+        <div className={`mt-1 font-mono text-[13px] uppercase tracking-[.14em] ${chrome.label}`}>
           subs for {aliases.map((a) => RESOURCE_LABEL[a]).join(" / ")}
         </div>
       ) : null}
@@ -251,7 +251,7 @@ function CountsBadge({
 function UseBox({ children }: { children: ReactNode }) {
   return (
     <div className="rounded-lg border border-white/10 bg-slate-950/60 p-4">
-      <span className="font-mono text-[11px] uppercase tracking-[.15em] text-slate-400">
+      <span className="font-mono text-[13px] uppercase tracking-[.15em] text-slate-400">
         Use
       </span>
       <p className="mt-1.5 text-[15px] leading-snug text-slate-100">{children}</p>
@@ -313,7 +313,7 @@ function EffectBox({ phase, lines }: { phase: EffectPhase; lines: string[] }) {
         <span className="font-mono text-[12px] font-semibold uppercase tracking-[.15em] text-amber-300">
           {PHASE_LABEL[phase]}
         </span>
-        <span className="font-mono text-[10px] italic uppercase tracking-[.12em] text-amber-200/65">
+        <span className="font-mono text-[12px] italic uppercase tracking-[.12em] text-amber-200/65">
           {PHASE_HINT[phase]}
         </span>
       </div>
@@ -459,7 +459,7 @@ function RewardMatrix({
       >
         {/* Header row: axis legend in the corner + demand band labels */}
         <div
-          className={`flex items-center justify-end pr-1.5 font-mono text-[11px] uppercase tracking-[.18em] ${chrome.label} opacity-80`}
+          className={`flex items-center justify-end pr-1.5 font-mono text-[13px] uppercase tracking-[.18em] ${chrome.label} opacity-80`}
         >
           <span aria-hidden>↓ age · demand →</span>
         </div>
@@ -522,7 +522,7 @@ function RewardMatrix({
                     {isLive ? (
                       <span
                         aria-hidden
-                        className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-full border border-emerald-300 bg-emerald-500/95 px-1.5 py-[1px] font-mono text-[8px] font-bold uppercase tracking-[.14em] text-slate-950 shadow-[0_2px_6px_rgba(0,0,0,.5)]"
+                        className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-full border border-emerald-300 bg-emerald-500/95 px-1.5 py-[1px] font-mono text-[11px] font-bold uppercase tracking-[.14em] text-slate-950 shadow-[0_2px_6px_rgba(0,0,0,.5)]"
                       >
                         Now
                       </span>
@@ -537,7 +537,7 @@ function RewardMatrix({
       {/* Inline award legend — same idiom as the encyclopedia. Only
           shows the bands the bill actually carries. */}
       {hasAwards ? (
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 font-mono text-[10px] uppercase tracking-[.12em] text-slate-400">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 font-mono text-[12px] uppercase tracking-[.12em] text-slate-400">
           {bill.silverAward ? (
             <span className="flex items-center gap-1.5">
               <span className="text-[12px]" aria-hidden>🥈</span>
@@ -623,7 +623,7 @@ function SectionHeading({ label, tone }: { label: string; tone: string }) {
         aria-hidden
       />
       <span
-        className={`font-mono text-[10px] font-bold uppercase tracking-[.32em] ${tone}`}
+        className={`font-mono text-[12px] font-bold uppercase tracking-[.32em] ${tone}`}
       >
         {label}
       </span>
@@ -815,7 +815,7 @@ function RecipeGrid({ bill }: { bill: MashBill }) {
           <span
             key={i}
             className={[
-              "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[11px] uppercase tracking-[.10em] shadow-[inset_0_1px_0_rgba(255,255,255,.06)]",
+              "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[13px] uppercase tracking-[.10em] shadow-[inset_0_1px_0_rgba(255,255,255,.06)]",
               item.specialty
                 ? "border-amber-300 bg-amber-700/35 shadow-[0_0_8px_rgba(252,211,77,.25)]"
                 : "border-white/10 bg-slate-950/70",
@@ -887,7 +887,7 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
           they're looking at. */}
       <header className="relative flex items-center justify-between pr-12">
         <span
-          className={`rounded border-2 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[.24em] shadow-[inset_0_1px_0_rgba(255,255,255,.18)] ${chrome.pill}`}
+          className={`rounded border-2 px-2.5 py-1 font-mono text-[12px] font-bold uppercase tracking-[.24em] shadow-[inset_0_1px_0_rgba(255,255,255,.18)] ${chrome.pill}`}
         >
           {chrome.label_text}
         </span>
@@ -936,7 +936,7 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
           ornamental heading. */}
       <SectionHeading label="Rewards" tone={chrome.label} />
       <RewardMatrix bill={bill} chrome={chrome} />
-      <div className="text-center font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
+      <div className="text-center font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
         rep range{" "}
         <span className={`font-bold ${chrome.titleInk}`}>
           {floor}–{peak}
@@ -947,7 +947,7 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
           investment to make one barrel (basic = 1, specialty = 2, plus
           1 card paid into the Drafting Loop). Useful for ranking bills
           against each other while balancing payouts. */}
-      <div className="mt-1 flex items-center justify-center gap-5 border-t border-white/10 pt-2 font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
+      <div className="mt-1 flex items-center justify-center gap-5 border-t border-white/10 pt-2 font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
         <span
           className="flex items-center gap-1.5"
           title="Implicit build cost: 1 per basic resource + 2 per specialty + 1 card paid into the Drafting Loop"
@@ -974,10 +974,10 @@ function OperationsDetail({ card }: { card: OperationsCard }) {
     >
       <DetailCornerCost cost={card.cost} />
       <header className="flex items-baseline justify-between pr-12">
-        <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`font-mono text-[13px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           Operations
         </span>
-        <span className={`font-mono text-[10px] uppercase tracking-[.12em] ${chrome.label} opacity-70`}>
+        <span className={`font-mono text-[12px] uppercase tracking-[.12em] ${chrome.label} opacity-70`}>
           acquired r{card.drawnInRound}
         </span>
       </header>
@@ -997,7 +997,7 @@ function OperationsDetail({ card }: { card: OperationsCard }) {
         </div>
       </div>
       <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
-        <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
+        <span className="font-mono text-[12px] uppercase tracking-[.15em] text-slate-400">
           Effect
         </span>
         <p className="mt-1 text-[13px] leading-snug text-slate-100">
@@ -1044,7 +1044,7 @@ function InvestmentDetail({ card }: { card: InvestmentCard }) {
     >
       <DetailCornerCost cost={card.cost} />
       <header className="flex items-baseline justify-between pr-12">
-        <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`font-mono text-[13px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           Investment · {card.tier}
         </span>
       </header>
@@ -1054,7 +1054,7 @@ function InvestmentDetail({ card }: { card: InvestmentCard }) {
       <p className={`font-display text-[13px] italic leading-snug ${chrome.label} opacity-95`}>
         {card.short}
       </p>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[.12em] text-slate-400">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[12px] uppercase tracking-[.12em] text-slate-400">
         <span>
           category{" "}
           <span className={`font-bold ${chrome.ink}`}>{card.category}</span>
@@ -1077,7 +1077,7 @@ function InvestmentDetail({ card }: { card: InvestmentCard }) {
         ) : null}
       </div>
       <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
-        <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
+        <span className="font-mono text-[12px] uppercase tracking-[.15em] text-slate-400">
           Card text
         </span>
         <p className="mt-1 text-[13px] leading-snug text-slate-100">
@@ -1085,14 +1085,14 @@ function InvestmentDetail({ card }: { card: InvestmentCard }) {
         </p>
       </div>
       <div className="rounded-lg border border-white/10 bg-slate-950/40 p-3">
-        <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
+        <span className="font-mono text-[12px] uppercase tracking-[.15em] text-slate-400">
           Description
         </span>
         <p className="mt-1 text-[12px] leading-snug text-slate-300">
           {card.description}
         </p>
       </div>
-      <p className="font-mono text-[10px] uppercase tracking-[.12em] text-amber-300/80">
+      <p className="font-mono text-[12px] uppercase tracking-[.12em] text-amber-300/80">
         Preview · investment effects are not yet resolved by the engine.
       </p>
     </article>
@@ -1278,14 +1278,14 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
   return (
     <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
+        <span className="font-mono text-[12px] uppercase tracking-[.15em] text-slate-400">
           Recipe progress
         </span>
         <span
           className={
             allSatisfied
-              ? "rounded border border-emerald-400/60 bg-emerald-700/30 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.10em] text-emerald-200"
-              : "rounded border border-sky-400/60 bg-sky-700/30 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.10em] text-sky-200"
+              ? "rounded border border-emerald-400/60 bg-emerald-700/30 px-1.5 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.10em] text-emerald-200"
+              : "rounded border border-sky-400/60 bg-sky-700/30 px-1.5 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.10em] text-sky-200"
           }
         >
           {allSatisfied ? "ready to age" : "still building"}
@@ -1299,7 +1299,7 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
             <li
               key={r.key}
               className={[
-                "flex items-center gap-2 rounded border px-2 py-1.5 font-mono text-[11px]",
+                "flex items-center gap-2 rounded border px-2 py-1.5 font-mono text-[13px]",
                 satisfied
                   ? "border-emerald-400/30 bg-emerald-900/15"
                   : r.specialty
@@ -1328,13 +1328,13 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
                 <span className="text-slate-200">{r.required}</span>
               </span>
               {r.over > 0 ? (
-                <span className="ml-1 rounded border border-slate-700 bg-slate-900 px-1 py-px text-[9px] uppercase tracking-[.10em] text-slate-400">
+                <span className="ml-1 rounded border border-slate-700 bg-slate-900 px-1 py-px text-[12px] uppercase tracking-[.10em] text-slate-400">
                   +{r.over} extra
                 </span>
               ) : satisfied ? (
                 <span aria-hidden className="text-emerald-300">✓</span>
               ) : (
-                <span className="rounded border border-amber-500/40 bg-amber-900/20 px-1 py-px text-[9px] font-bold uppercase tracking-[.10em] text-amber-200">
+                <span className="rounded border border-amber-500/40 bg-amber-900/20 px-1 py-px text-[12px] font-bold uppercase tracking-[.10em] text-amber-200">
                   +{remaining} needed
                 </span>
               )}
@@ -1351,7 +1351,7 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
       {/* Forbidden / capped grains, surfaced separately so the row
           stays focused on what's needed. */}
       {recipe.maxRye === 0 || recipe.maxWheat === 0 ? (
-        <p className="mt-1 font-mono text-[9.5px] uppercase tracking-[.10em] text-rose-300/80">
+        <p className="mt-1 font-mono text-[12px] uppercase tracking-[.10em] text-rose-300/80">
           {recipe.maxRye === 0 ? "no rye allowed" : ""}
           {recipe.maxRye === 0 && recipe.maxWheat === 0 ? " · " : ""}
           {recipe.maxWheat === 0 ? "no wheat allowed" : ""}
@@ -1401,7 +1401,7 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
       ].join(" ")}
     >
       <header className="flex items-baseline justify-between gap-3">
-        <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`font-mono text-[13px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           {isLocalPlayer
             ? "Your barrel"
             : ownerName
@@ -1412,10 +1412,10 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
         <span
           className={
             isAging
-              ? "rounded border border-amber-400/60 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.10em] text-amber-200"
+              ? "rounded border border-amber-400/60 bg-amber-700/30 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.10em] text-amber-200"
               : barrel.phase === "construction"
-                ? "rounded border border-sky-400/60 bg-sky-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.10em] text-sky-200"
-                : "rounded border border-slate-500/70 bg-slate-700/40 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.10em] text-slate-200"
+                ? "rounded border border-sky-400/60 bg-sky-700/30 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.10em] text-sky-200"
+                : "rounded border border-slate-500/70 bg-slate-700/40 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.10em] text-slate-200"
           }
         >
           {isAging
@@ -1450,7 +1450,7 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
       </div>
 
       {/* Lifecycle facts */}
-      <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/10 bg-slate-950/55 p-3 font-mono text-[11px] uppercase tracking-[.10em] text-slate-400">
+      <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/10 bg-slate-950/55 p-3 font-mono text-[13px] uppercase tracking-[.10em] text-slate-400">
         <BarrelFact
           label="Phase"
           value={
@@ -1484,7 +1484,7 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
       barrel.inspectedThisRound ||
       barrel.agedThisRound ? (
         <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
-          <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
+          <span className="font-mono text-[12px] uppercase tracking-[.15em] text-slate-400">
             Modifiers
           </span>
           <ul className="mt-1 space-y-0.5 text-[12px] leading-snug text-slate-100">
@@ -1507,7 +1507,7 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
 
       {/* Committed pile, by pile and subtype. */}
       <div className="rounded-lg border border-white/10 bg-slate-950/55 p-3">
-        <span className="font-mono text-[10px] uppercase tracking-[.15em] text-slate-400">
+        <span className="font-mono text-[12px] uppercase tracking-[.15em] text-slate-400">
           Committed pile
         </span>
         <div className="mt-2 grid gap-2">
@@ -1551,10 +1551,10 @@ function CommittedRow({ label, cards }: { label: string; cards: Card[] }) {
   if (cards.length === 0) {
     return (
       <div className="flex items-center gap-2">
-        <span className="w-20 font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+        <span className="w-20 font-mono text-[12px] uppercase tracking-[.12em] text-slate-500">
           {label}
         </span>
-        <span className="font-mono text-[11px] italic text-slate-600">none yet</span>
+        <span className="font-mono text-[13px] italic text-slate-600">none yet</span>
       </div>
     );
   }
@@ -1568,7 +1568,7 @@ function CommittedRow({ label, cards }: { label: string; cards: Card[] }) {
   }
   return (
     <div className="flex items-center gap-2">
-      <span className="w-20 font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+      <span className="w-20 font-mono text-[12px] uppercase tracking-[.12em] text-slate-500">
         {label}
       </span>
       <div className="flex flex-wrap items-center gap-1">
@@ -1587,7 +1587,7 @@ function CommittedRow({ label, cards }: { label: string; cards: Card[] }) {
           );
         })}
       </div>
-      <span className="ml-auto flex flex-wrap items-baseline gap-1.5 font-mono text-[10px] uppercase tracking-[.10em] text-slate-400">
+      <span className="ml-auto flex flex-wrap items-baseline gap-1.5 font-mono text-[12px] uppercase tracking-[.10em] text-slate-400">
         {Array.from(counts.entries()).map(([k, n]) => (
           <span key={k}>
             {n}× {k}

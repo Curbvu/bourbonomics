@@ -122,7 +122,7 @@ export default function HandTray() {
               {focused.name}
             </span>
             <span
-              className="font-mono text-[9px] uppercase tracking-[.12em]"
+              className="font-mono text-[12px] uppercase tracking-[.12em]"
               style={{ color: "var(--mute)" }}
             >
               {focused.distillery?.name ?? "no distillery"} · hand{" "}
@@ -172,7 +172,7 @@ export default function HandTray() {
               data-bb-zone="hand-ops"
               className="flex flex-col items-center justify-center gap-1 rounded-md border border-[#3b2818] bg-slate-950/40 px-2 py-1.5"
             >
-              <span className="font-mono text-[8.5px] font-bold uppercase tracking-[.18em] text-amber-300/80">
+              <span className="font-mono text-[11px] font-bold uppercase tracking-[.18em] text-amber-300/80">
                 Ops · Pending
               </span>
               <div className="relative pointer-events-none">
@@ -187,12 +187,12 @@ export default function HandTray() {
                   className="pointer-events-none absolute inset-0 flex items-center justify-center"
                   aria-hidden
                 >
-                  <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/90 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-amber-200 shadow-[0_3px_12px_rgba(0,0,0,.65)]">
+                  <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/90 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.16em] text-amber-200 shadow-[0_3px_12px_rgba(0,0,0,.65)]">
                     Pending
                   </span>
                 </div>
               </div>
-              <span className="font-mono text-[9px] uppercase tracking-[.14em] text-slate-500 tabular-nums">
+              <span className="font-mono text-[12px] uppercase tracking-[.14em] text-slate-500 tabular-nums">
                 {focused.operationsHand.length} cards
               </span>
             </div>
@@ -493,7 +493,7 @@ function PileTile({
           aria-hidden
         />
       ) : null}
-      <span className={`mt-0.5 font-mono text-[9px] font-semibold uppercase tracking-[.18em] ${palette.label}`}>
+      <span className={`mt-0.5 font-mono text-[12px] font-semibold uppercase tracking-[.18em] ${palette.label}`}>
         {label}
       </span>
       <span
@@ -506,7 +506,7 @@ function PileTile({
       >
         {count}
       </span>
-      <span className={`mb-0.5 font-mono text-[8px] uppercase tracking-[.14em] ${palette.label}`}>
+      <span className={`mb-0.5 font-mono text-[11px] uppercase tracking-[.14em] ${palette.label}`}>
         cards
       </span>
       <style>{`
@@ -550,7 +550,7 @@ function focusedPlayer(state: GameState): PlayerState | null {
 function SpectatorTray() {
   return (
     <div className="border-t border-slate-800 bg-slate-950/90 px-[18px] py-3 text-center">
-      <p className="font-mono text-[11px] uppercase tracking-[.18em] text-slate-400">
+      <p className="font-mono text-[13px] uppercase tracking-[.18em] text-slate-400">
         ðŸ‘ Spectating
       </p>
       <p className="mt-1 text-[12px] text-slate-400">
@@ -595,7 +595,7 @@ function Section({
       <div className="flex flex-col items-end justify-between py-1">
         <VerticalCaption>{caption}</VerticalCaption>
         {count !== undefined ? (
-          <span className="font-mono text-[9px] uppercase tracking-[.12em] tabular-nums text-slate-600">
+          <span className="font-mono text-[12px] uppercase tracking-[.12em] tabular-nums text-slate-600">
             {count}
           </span>
         ) : null}
@@ -608,7 +608,7 @@ function Section({
 function VerticalCaption({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="self-stretch font-mono text-[10px] uppercase tracking-[.12em] text-slate-500"
+      className="self-stretch font-mono text-[12px] uppercase tracking-[.12em] text-slate-500"
       style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
     >
       {children}
@@ -627,7 +627,7 @@ function Divider() {
 
 function EmptyPill({ children }: { children: React.ReactNode }) {
   return (
-    <span className="self-center rounded border border-dashed border-slate-700 px-2.5 py-1 font-mono text-[11px] italic text-slate-500">
+    <span className="self-center rounded border border-dashed border-slate-700 px-2.5 py-1 font-mono text-[13px] italic text-slate-500">
       {children}
     </span>
   );
@@ -909,7 +909,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     >
       {isSelected ? (
         <span
-          className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
+          className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[12px] font-bold shadow-md"
           aria-hidden
         >
           ✓
@@ -922,11 +922,11 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
         aria-hidden
       />
       <div className="flex items-baseline justify-center px-7">
-        <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`text-[13px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           {RESOURCE_LABEL[subtype]}
         </span>
         {count > 1 ? (
-          <span className={`ml-1 rounded border px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[.10em] ${chrome.borderSoft} ${chrome.ink}`}>
+          <span className={`ml-1 rounded border px-1 py-px font-mono text-[11px] font-bold uppercase tracking-[.10em] ${chrome.borderSoft} ${chrome.ink}`}>
             ×{count}
           </span>
         ) : null}
@@ -935,7 +935,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
         {card.displayName ?? (count > 1 ? `${count}× ${RESOURCE_LABEL[subtype]}` : RESOURCE_LABEL[subtype])}
       </h4>
       {card.flavor ? (
-        <p className={`mt-0.5 line-clamp-2 font-display text-[8.5px] italic leading-snug ${chrome.label} opacity-90`}>
+        <p className={`mt-0.5 line-clamp-2 font-display text-[11px] italic leading-snug ${chrome.label} opacity-90`}>
           {card.flavor}
         </p>
       ) : null}
@@ -1080,7 +1080,7 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     >
       {isSelected ? (
         <span
-          className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold shadow-md"
+          className="pointer-events-none absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-slate-950 text-[12px] font-bold shadow-md"
           aria-hidden
         >
           ✓
@@ -1093,7 +1093,7 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
         aria-hidden
       />
       <div className="flex items-baseline justify-center px-7">
-        <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`text-[13px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           Labor
         </span>
       </div>
@@ -1101,7 +1101,7 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
         {card.displayName ?? subtypeLabel}
       </h4>
       {card.flavor ? (
-        <p className={`mt-0.5 line-clamp-2 font-display text-[8.5px] italic leading-snug ${chrome.label} opacity-90`}>
+        <p className={`mt-0.5 line-clamp-2 font-display text-[11px] italic leading-snug ${chrome.label} opacity-90`}>
           {card.flavor}
         </p>
       ) : null}
@@ -1112,7 +1112,7 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
         >
           {laborGlyphFor(card.laborSubtype)}
         </span>
-        <span className={`mt-1 font-mono text-[9px] uppercase tracking-[.18em] ${chrome.label}`}>
+        <span className={`mt-1 font-mono text-[12px] uppercase tracking-[.18em] ${chrome.label}`}>
           +{contribution} · {subtypeLabel === "Worker" ? "any buy" : subtypeLabel.toLowerCase()}
         </span>
       </div>
@@ -1136,7 +1136,7 @@ function OpsCard({ card, indexInRow }: { card: OperationsCard; indexInRow: numbe
         aria-hidden
       />
       <div className="flex items-baseline justify-between">
-        <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
+        <span className={`text-[13px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
           Ops
         </span>
       </div>
@@ -1144,7 +1144,7 @@ function OpsCard({ card, indexInRow }: { card: OperationsCard; indexInRow: numbe
         {card.name}
       </h4>
       {card.flavor ? (
-        <p className={`mt-0.5 line-clamp-2 font-display text-[8.5px] italic leading-snug ${chrome.label} opacity-90`}>
+        <p className={`mt-0.5 line-clamp-2 font-display text-[11px] italic leading-snug ${chrome.label} opacity-90`}>
           {card.flavor}
         </p>
       ) : null}

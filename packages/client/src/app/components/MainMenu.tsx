@@ -182,7 +182,7 @@ function MenuTile({
     >
       <div className="min-w-0">
         <span
-          className={`font-mono text-[11px] font-semibold uppercase tracking-[.18em] ${a.eyebrow}`}
+          className={`font-mono text-[13px] font-semibold uppercase tracking-[.18em] ${a.eyebrow}`}
         >
           {eyebrow}
         </span>

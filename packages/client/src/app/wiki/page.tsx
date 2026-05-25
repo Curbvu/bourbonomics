@@ -103,7 +103,7 @@ function TabButton({
       onClick={onClick}
       aria-pressed={active}
       className={[
-        "rounded-md px-4 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[.14em] transition-colors",
+        "rounded-md px-4 py-1.5 font-mono text-[13px] font-bold uppercase tracking-[.14em] transition-colors",
         active
           ? "bg-amber-500/20 text-amber-100 shadow-[inset_0_0_0_1px_rgba(252,211,77,.5)]"
           : "text-slate-400 hover:text-slate-200",
@@ -228,7 +228,7 @@ function BillCard({ bill }: { bill: MashBill }) {
           ) : null}
         </div>
         <span
-          className={`flex-shrink-0 rounded-md border-2 px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-[.10em] ${chrome.pill}`}
+          className={`flex-shrink-0 rounded-md border-2 px-2.5 py-1 font-mono text-[13px] font-bold uppercase tracking-[.10em] ${chrome.pill}`}
           title={`Rarity: ${chrome.label_text}`}
         >
           {chrome.label_text}
@@ -242,7 +242,7 @@ function BillCard({ bill }: { bill: MashBill }) {
       <SectionLabel>Recipe</SectionLabel>
       <RecipeChips bill={bill} />
 
-      <footer className="mt-4 flex items-center justify-between border-t border-slate-700/60 pt-2.5 font-mono text-[11px] uppercase tracking-[.12em] text-slate-400">
+      <footer className="mt-4 flex items-center justify-between border-t border-slate-700/60 pt-2.5 font-mono text-[13px] uppercase tracking-[.12em] text-slate-400">
         <span
           className="flex items-center gap-1.5"
           title="Implicit build cost: 1 per basic resource + 2 per specialty + 1 card paid into the Drafting Loop"
@@ -330,7 +330,7 @@ function BillDetailPanel({ bill, onBack }: { bill: MashBill; onBack: () => void 
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="mb-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.15em] text-slate-400">
+    <h3 className="mb-1.5 font-mono text-[13px] font-semibold uppercase tracking-[.15em] text-slate-400">
       {children}
     </h3>
   );
@@ -339,8 +339,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean }) {
   const cellPad = large ? "h-16" : "h-12";
   const cellText = large ? "text-[26px]" : "text-[20px]";
-  const headerText = large ? "text-[12px]" : "text-[11px]";
-  const cornerText = large ? "text-[10px]" : "text-[9px]";
+  const headerText = large ? "text-[12px]" : "text-[13px]";
+  const cornerText = large ? "text-[12px]" : "text-[12px]";
 
   return (
     <div className="rounded-lg border border-slate-700/60 bg-slate-950/65 p-2.5">
@@ -417,7 +417,7 @@ function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean
                     {award ? (
                       <span
                         aria-hidden
-                        className="pointer-events-none absolute right-0.5 top-0.5 text-[11px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.55)]"
+                        className="pointer-events-none absolute right-0.5 top-0.5 text-[13px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,.55)]"
                       >
                         {award === "gold" ? "🥇" : "🥈"}
                       </span>
@@ -430,7 +430,7 @@ function PayoffMatrix({ bill, large = false }: { bill: MashBill; large?: boolean
         })}
       </div>
       {bill.silverAward || bill.goldAward ? (
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 font-mono text-[10px] uppercase tracking-[.12em] text-slate-400">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 font-mono text-[12px] uppercase tracking-[.12em] text-slate-400">
           {bill.silverAward ? (
             <span className="flex items-center gap-1.5">
               <span className="text-[12px]">🥈</span>
@@ -553,7 +553,7 @@ function RecipeChipPill({ chip }: { chip: RecipeChip }) {
         className="inline-flex items-center gap-1.5 rounded-md border border-rose-400/60 bg-rose-900/30 px-2.5 py-1 font-display text-[14px] font-semibold text-rose-100"
         title={chip.label}
       >
-        <span className="font-mono text-[11px] text-rose-300">✕</span>
+        <span className="font-mono text-[13px] text-rose-300">✕</span>
         <span>{chip.label}</span>
       </span>
     );
@@ -688,7 +688,7 @@ function DistilleryCard({ def }: { def: Distillery }) {
   return (
     <article className="flex h-full flex-col rounded-xl border-2 border-amber-700 bg-gradient-to-b from-amber-700/30 via-amber-900/40 to-slate-950 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
       <header className="flex items-baseline justify-between">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-amber-300">
+        <span className="font-mono text-[12px] font-semibold uppercase tracking-[.18em] text-amber-300">
           Distillery · {def.difficulty.replace("-", " · ")}
         </span>
       </header>
@@ -702,14 +702,14 @@ function DistilleryCard({ def }: { def: Distillery }) {
       ) : null}
       <div className="mt-4 flex flex-col gap-2 text-[12px] leading-snug">
         <div>
-          <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-emerald-300">
+          <div className="font-mono text-[12px] font-semibold uppercase tracking-[.16em] text-emerald-300">
             Card text
           </div>
           <p className="mt-1 line-clamp-5 text-emerald-100/95">{def.cardText}</p>
         </div>
         <div className="flex items-baseline justify-between gap-2">
           <div>
-            <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-sky-300">
+            <div className="font-mono text-[12px] font-semibold uppercase tracking-[.16em] text-sky-300">
               Slots
             </div>
             <div className="text-sky-100/95">
@@ -718,7 +718,7 @@ function DistilleryCard({ def }: { def: Distillery }) {
             </div>
           </div>
           <div className="text-right">
-            <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] text-fuchsia-300">
+            <div className="font-mono text-[12px] font-semibold uppercase tracking-[.16em] text-fuchsia-300">
               Axis
             </div>
             <div className="text-fuchsia-100/95">{def.axis}</div>
@@ -748,7 +748,7 @@ function DistilleryDetailPanel({
       <article className="rounded-xl border-2 border-amber-700 bg-gradient-to-b from-amber-700/30 via-amber-900/40 to-slate-950 px-7 py-6 shadow-[0_8px_24px_rgba(0,0,0,.45)]">
         <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-amber-300">
+            <span className="font-mono text-[12px] font-semibold uppercase tracking-[.18em] text-amber-300">
               Distillery · {def.difficulty.replace("-", " · ")}
             </span>
             <h2 className="mt-2 font-display text-4xl font-bold leading-tight text-amber-100">
@@ -812,7 +812,7 @@ function Stat({
   };
   return (
     <div>
-      <div className={`font-mono text-[9.5px] font-semibold uppercase tracking-[.16em] ${ink[accent]}`}>
+      <div className={`font-mono text-[12px] font-semibold uppercase tracking-[.16em] ${ink[accent]}`}>
         {label}
       </div>
       <div className="text-slate-100">{value}</div>
@@ -865,7 +865,7 @@ function InvestmentsPanel() {
       </nav>
 
       {!anyImplemented ? (
-        <p className="mb-4 rounded-md border border-amber-700/60 bg-amber-900/20 px-3 py-2 font-mono text-[11px] uppercase tracking-[.12em] text-amber-300">
+        <p className="mb-4 rounded-md border border-amber-700/60 bg-amber-900/20 px-3 py-2 font-mono text-[13px] uppercase tracking-[.12em] text-amber-300">
           Preview · investment effects are not resolved by the engine yet
         </p>
       ) : null}
@@ -926,7 +926,7 @@ function InvestmentCardTile({ card }: { card: InvestmentCard }) {
     >
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <span className={`font-mono text-[10px] font-semibold uppercase tracking-[.16em] ${chrome.label}`}>
+          <span className={`font-mono text-[12px] font-semibold uppercase tracking-[.16em] ${chrome.label}`}>
             Invest · {card.tier}
           </span>
           <h3 className={`mt-1 font-display text-xl font-bold leading-tight ${chrome.ink}`}>
@@ -948,7 +948,7 @@ function InvestmentCardTile({ card }: { card: InvestmentCard }) {
         {card.text}
       </p>
 
-      <footer className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-700/60 pt-3 font-mono text-[10px] uppercase tracking-[.12em] text-slate-400">
+      <footer className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-700/60 pt-3 font-mono text-[12px] uppercase tracking-[.12em] text-slate-400">
         <span>
           <span className="text-slate-500">cat:</span>{" "}
           <span className="text-slate-200">{card.category}</span>
@@ -958,7 +958,7 @@ function InvestmentCardTile({ card }: { card: InvestmentCard }) {
           <span className="text-slate-200">{card.archetype}</span>
         </span>
         {!card.implemented ? (
-          <span className="ml-auto rounded border border-amber-500/60 px-1.5 py-0.5 text-[9px] text-amber-300">
+          <span className="ml-auto rounded border border-amber-500/60 px-1.5 py-0.5 text-[12px] text-amber-300">
             preview
           </span>
         ) : null}
@@ -993,7 +993,7 @@ function InvestmentDetailPanel({
       >
         <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <span className={`font-mono text-[10px] font-semibold uppercase tracking-[.16em] ${chrome.label}`}>
+            <span className={`font-mono text-[12px] font-semibold uppercase tracking-[.16em] ${chrome.label}`}>
               Invest · {card.tier}
             </span>
             <h2 className={`mt-2 font-display text-4xl font-bold leading-tight ${chrome.ink}`}>
@@ -1041,7 +1041,7 @@ function InvestmentDetailPanel({
               />
             </div>
             {!card.implemented ? (
-              <p className="rounded-md border border-amber-500/60 bg-amber-900/20 px-3 py-2 font-mono text-[11px] uppercase tracking-[.12em] text-amber-300">
+              <p className="rounded-md border border-amber-500/60 bg-amber-900/20 px-3 py-2 font-mono text-[13px] uppercase tracking-[.12em] text-amber-300">
                 Preview · this card's effect is not yet resolved by the engine
               </p>
             ) : null}

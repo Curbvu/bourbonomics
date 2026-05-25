@@ -72,10 +72,10 @@ export default function BuyOverlay() {
         className="pointer-events-none absolute inset-x-0 bottom-3 z-40 flex justify-center"
       >
         <div className="pointer-events-auto mx-3 flex items-center gap-3 rounded-lg border border-amber-500/70 bg-gradient-to-b from-amber-900/85 to-slate-950/95 px-4 py-2 shadow-[0_-2px_24px_rgba(240,201,112,.25)] backdrop-blur-md">
-          <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-amber-100">
+          <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.14em] text-amber-100">
             Buying
           </span>
-          <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-300">
+          <span className="font-mono text-[13px] uppercase tracking-[.10em] text-slate-300">
             Pick a card from the market or operations row.
           </span>
           <button
@@ -183,7 +183,7 @@ export default function BuyOverlay() {
             type="button"
             onClick={cancelBuyMode}
             aria-label="Cancel purchase"
-            className="rounded-md border border-[#3b2818] bg-[rgba(34,23,16,.7)] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[.18em] text-[var(--ink-muted)] transition-colors hover:border-rose-400/60 hover:text-rose-200"
+            className="rounded-md border border-[#3b2818] bg-[rgba(34,23,16,.7)] px-3 py-1 font-mono text-[12px] font-bold uppercase tracking-[.18em] text-[var(--ink-muted)] transition-colors hover:border-rose-400/60 hover:text-rose-200"
           >
             Cancel ✕
           </button>
@@ -231,8 +231,8 @@ export default function BuyOverlay() {
             onClick={canConfirm ? confirmBuy : undefined}
             className={
               canConfirm
-                ? "confirm-ready rounded-md border border-amber-300 bg-gradient-to-b from-amber-300 to-amber-600 px-6 py-2 font-mono text-[11px] font-extrabold uppercase tracking-[.22em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.5),0_6px_18px_rgba(240,201,112,.35)] transition-transform hover:-translate-y-px"
-                : "rounded-md border border-[#3b2818] bg-[rgba(34,23,16,.7)] px-6 py-2 font-mono text-[11px] font-extrabold uppercase tracking-[.22em] text-[var(--whisper)] cursor-not-allowed"
+                ? "confirm-ready rounded-md border border-amber-300 bg-gradient-to-b from-amber-300 to-amber-600 px-6 py-2 font-mono text-[13px] font-extrabold uppercase tracking-[.22em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.5),0_6px_18px_rgba(240,201,112,.35)] transition-transform hover:-translate-y-px"
+                : "rounded-md border border-[#3b2818] bg-[rgba(34,23,16,.7)] px-6 py-2 font-mono text-[13px] font-extrabold uppercase tracking-[.22em] text-[var(--whisper)] cursor-not-allowed"
             }
           >
             Confirm Purchase ↵
@@ -270,7 +270,7 @@ function CardHero({
       {/* Kind label + brass price */}
       <div className="mb-1.5 flex items-baseline justify-between">
         <span
-          className="font-mono text-[8.5px] font-bold uppercase tracking-[.18em]"
+          className="font-mono text-[11px] font-bold uppercase tracking-[.18em]"
           style={{ color: tierInk }}
         >
           {chrome.kindLabel}
@@ -307,7 +307,7 @@ function CardHero({
       </div>
       <div className="mt-1.5 flex items-center justify-between">
         <span
-          className={`rounded border px-[7px] py-px font-mono text-[8.5px] font-bold uppercase tracking-[.14em] ${tierChrome.pill}`}
+          className={`rounded border px-[7px] py-px font-mono text-[11px] font-bold uppercase tracking-[.14em] ${tierChrome.pill}`}
         >
           {tierChrome.label_text}
         </span>
@@ -399,7 +399,7 @@ function ApplyPanel({
                   dim={wrongDomain}
                 />
                 <span
-                  className="rounded-md border px-2 py-[2px] font-mono text-[9.5px] font-bold uppercase tracking-[.12em]"
+                  className="rounded-md border px-2 py-[2px] font-mono text-[12px] font-bold uppercase tracking-[.12em]"
                   style={
                     wrongDomain
                       ? {
@@ -594,7 +594,7 @@ function RepMeter({
         />
       </div>
       {overpaid ? (
-        <span className="font-mono text-[10px] tracking-[.08em] text-rose-300">
+        <span className="font-mono text-[12px] tracking-[.08em] text-rose-300">
           Overpaying by ฿{laborGross - cost} — untag a chip to clean up.
         </span>
       ) : null}
@@ -658,7 +658,7 @@ function BrassPrice({ amount }: { amount: number }) {
           "inset 0 1px 0 rgba(255,255,255,.45), 0 2px 4px rgba(0,0,0,.5)",
       }}
     >
-      <span className="text-[10px] opacity-75">฿</span>
+      <span className="text-[12px] opacity-75">฿</span>
       <span>{amount}</span>
     </span>
   );

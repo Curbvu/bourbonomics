@@ -150,7 +150,7 @@ export default function MarketRow() {
         <button
           type="button"
           onClick={onOpenFull}
-          className="rounded-[5px] border border-[#3b2818] px-2.5 py-[3px] font-mono text-[9px] font-semibold uppercase tracking-[.16em]"
+          className="rounded-[5px] border border-[#3b2818] px-2.5 py-[3px] font-mono text-[12px] font-semibold uppercase tracking-[.16em]"
           style={{
             background: "rgba(34,23,16,.6)",
             color: "var(--ink-muted)",

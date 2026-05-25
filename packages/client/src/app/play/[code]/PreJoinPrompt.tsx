@@ -26,7 +26,7 @@ export default function PreJoinPrompt({
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-16 text-slate-100">
       <div className="mx-auto max-w-md">
-        <p className="font-mono text-[11px] uppercase tracking-[.18em] text-slate-500">
+        <p className="font-mono text-[13px] uppercase tracking-[.18em] text-slate-500">
           joining room
         </p>
         <h1 className="mt-1 font-display text-4xl font-bold tracking-[.08em] text-amber-300">
@@ -45,7 +45,7 @@ export default function PreJoinPrompt({
           className="mt-6 flex flex-col gap-3"
         >
           <label className="block">
-            <span className="font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-slate-400">
+            <span className="font-mono text-[13px] font-semibold uppercase tracking-[.18em] text-slate-400">
               Display name
             </span>
             <input

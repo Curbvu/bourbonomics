@@ -329,7 +329,7 @@ function SettingsPanel({
             </label>
             <span className="font-mono text-sm tabular-nums text-amber-200">
               {settings.mashBillCount}
-              <span className="ml-1 text-[10px] text-slate-500">/ {CATALOG_SIZE}</span>
+              <span className="ml-1 text-[12px] text-slate-500">/ {CATALOG_SIZE}</span>
             </span>
           </div>
           <input
@@ -342,7 +342,7 @@ function SettingsPanel({
             onChange={(e) => onPatch({ mashBillCount: Number(e.target.value) })}
             className="w-full accent-amber-500"
           />
-          <p className="mt-1 text-[11px] leading-snug text-slate-500">
+          <p className="mt-1 text-[13px] leading-snug text-slate-500">
             Lower = shorter game. The deck running dry triggers the final round.
           </p>
         </div>
@@ -392,7 +392,7 @@ function PresetButton({
       <span className="font-display text-[13px] font-bold leading-tight">{label}</span>
       <span
         className={[
-          "mt-0.5 font-mono text-[9.5px] uppercase tracking-[.10em]",
+          "mt-0.5 font-mono text-[12px] uppercase tracking-[.10em]",
           active ? "text-amber-300/90" : "text-slate-500",
         ].join(" ")}
       >
@@ -427,12 +427,12 @@ function ToggleRow({
         <span className="flex items-baseline gap-2">
           <span className="font-display text-sm font-semibold text-slate-100">{label}</span>
           {tag ? (
-            <span className="rounded border border-amber-500/60 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[.10em] text-amber-300">
+            <span className="rounded border border-amber-500/60 px-1.5 py-0.5 font-mono text-[12px] uppercase tracking-[.10em] text-amber-300">
               {tag}
             </span>
           ) : null}
         </span>
-        <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">
+        <span className="mt-0.5 block text-[13px] leading-snug text-slate-500">
           {description}
         </span>
       </span>

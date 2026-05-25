@@ -125,7 +125,7 @@ function FlightFace({ card }: { card: Card }) {
           chrome.border,
         ].join(" ")}
       >
-        <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+        <span className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
           Labor
         </span>
         <div className={`mt-auto flex flex-col items-center ${chrome.ink}`}>
@@ -135,7 +135,7 @@ function FlightFace({ card }: { card: Card }) {
           >
             {laborGlyphFor(card.laborSubtype)}
           </span>
-          <span className={`mt-0.5 font-mono text-[8px] uppercase tracking-[.16em] ${chrome.label}`}>
+          <span className={`mt-0.5 font-mono text-[11px] uppercase tracking-[.16em] ${chrome.label}`}>
             +{contribution}
           </span>
         </div>
@@ -153,10 +153,10 @@ function FlightFace({ card }: { card: Card }) {
         chrome.border,
       ].join(" ")}
     >
-      <span className={`text-[8px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
+      <span className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${chrome.label}`}>
         {RESOURCE_LABEL[subtype]}
       </span>
-      <h4 className={`mt-0.5 font-display text-[11px] font-bold leading-tight ${chrome.ink}`}>
+      <h4 className={`mt-0.5 font-display text-[13px] font-bold leading-tight ${chrome.ink}`}>
         {count > 1 ? `${count}×` : ""} {RESOURCE_LABEL[subtype]}
       </h4>
       <div

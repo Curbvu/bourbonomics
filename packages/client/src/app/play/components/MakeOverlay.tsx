@@ -73,19 +73,19 @@ export default function MakeOverlay() {
   return (
     <div className="border-t border-amber-700/60 bg-gradient-to-b from-amber-950/50 to-slate-950 px-[18px] py-2">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-amber-100">
+        <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.14em] text-amber-100">
           Making
         </span>
         <span className="font-display text-[13px] font-semibold text-amber-100">
           {effectiveBill ? effectiveBill.name : "no ready slot"}
         </span>
         {effectiveBill ? (
-          <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-400">
+          <span className="font-mono text-[12px] uppercase tracking-[.10em] text-slate-400">
             recipe: {recipeSummary(effectiveBill)}
           </span>
         ) : null}
         {tagged.length > 0 ? (
-          <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-300">
+          <span className="font-mono text-[13px] uppercase tracking-[.10em] text-slate-300">
             tagged{" "}
             <span className="font-bold text-emerald-300">
               {tagged.length} card{tagged.length === 1 ? "" : "s"}
@@ -113,10 +113,10 @@ export default function MakeOverlay() {
         >
           Confirm ↵
         </button>
-        <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
+        <span className="font-mono text-[12px] uppercase tracking-[.10em] text-slate-500">
           {slotsFree}/{slotsTotal} free
         </span>
-        <span className="font-mono text-[10px] italic text-slate-400">
+        <span className="font-mono text-[12px] italic text-slate-400">
           {prompt}
         </span>
       </div>

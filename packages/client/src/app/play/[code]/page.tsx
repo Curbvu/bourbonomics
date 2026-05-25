@@ -162,7 +162,7 @@ export default function PlayCodePage({ params }: Props) {
     return (
       <main className="min-h-screen bg-slate-950 px-6 py-16 text-slate-100">
         <div className="mx-auto max-w-xl text-center">
-          <p className="font-mono text-[11px] uppercase tracking-[.18em] text-slate-500">
+          <p className="font-mono text-[13px] uppercase tracking-[.18em] text-slate-500">
             {multiplayerStatus === "connecting"
               ? "connecting…"
               : multiplayerStatus === "open"
@@ -245,7 +245,7 @@ export default function PlayCodePage({ params }: Props) {
         <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
           <div className="pointer-events-auto flex max-w-md items-start gap-3 rounded-md border-2 border-rose-500/70 bg-rose-950/95 px-4 py-3 shadow-[0_8px_22px_rgba(0,0,0,.5)]">
             <div className="flex-1">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-rose-300">
+              <p className="font-mono text-[12px] font-bold uppercase tracking-[.18em] text-rose-300">
                 Server error
               </p>
               <p className="mt-1 font-display text-sm text-rose-100">
@@ -256,7 +256,7 @@ export default function PlayCodePage({ params }: Props) {
               type="button"
               onClick={clearMultiplayerError}
               aria-label="Dismiss"
-              className="rounded border border-rose-500/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[.14em] text-rose-200 hover:bg-rose-900/40"
+              className="rounded border border-rose-500/50 px-2 py-0.5 font-mono text-[12px] uppercase tracking-[.14em] text-rose-200 hover:bg-rose-900/40"
             >
               ×
             </button>

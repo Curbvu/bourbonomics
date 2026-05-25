@@ -34,13 +34,13 @@ export default function GameOverPanel() {
       <section className="relative w-full max-w-[640px] rounded-xl border-2 border-amber-700 bg-gradient-to-b from-amber-950/80 to-slate-950 px-7 py-6 shadow-[0_20px_60px_rgba(0,0,0,.6)]">
         <header className="flex items-baseline justify-between gap-4">
           <div>
-            <div className="font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
+            <div className="font-mono text-[13px] uppercase tracking-[.18em] text-amber-300">
               Match Complete
             </div>
             <h2 className="mt-1 font-display text-3xl font-semibold text-amber-100">
               Final Standings
             </h2>
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
+            <p className="mt-1 font-mono text-[12px] uppercase tracking-[.14em] text-slate-400">
               ended after round {state.round}
             </p>
           </div>
@@ -86,12 +86,12 @@ export default function GameOverPanel() {
                   }`}
                 >
                   {s.reputation}
-                  <span className="ml-1 text-[10px] font-medium text-amber-300/70">
+                  <span className="ml-1 text-[12px] font-medium text-amber-300/70">
                     rep
                   </span>
                 </span>
                 <span className="flex-1" />
-                <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-500">
+                <span className="font-mono text-[12px] uppercase tracking-[.10em] text-slate-500">
                   {s.barrelsSold} sold · deck {s.deckSize}
                 </span>
               </li>

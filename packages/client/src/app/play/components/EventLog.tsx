@@ -250,7 +250,7 @@ function findBarrelBySlot(
 function ColorChip({ age }: { age: number }) {
   const c = bourbonColor(age);
   return (
-    <span className={`font-mono text-[10px] uppercase tracking-[.10em] ${c.textClass}`}>
+    <span className={`font-mono text-[12px] uppercase tracking-[.10em] ${c.textClass}`}>
       {c.name}
     </span>
   );

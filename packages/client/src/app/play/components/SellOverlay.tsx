@@ -36,7 +36,7 @@ export default function SellOverlay() {
   return (
     <div className="border-t border-amber-700/60 bg-gradient-to-b from-amber-950/50 to-slate-950 px-[18px] py-2">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-amber-100">
+        <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.14em] text-amber-100">
           Selling
         </span>
         <span className="font-display text-[13px] font-semibold text-amber-100">
@@ -51,7 +51,7 @@ export default function SellOverlay() {
         >
           Cancel
         </button>
-        <span className="font-mono text-[10px] italic text-slate-400">{prompt}</span>
+        <span className="font-mono text-[12px] italic text-slate-400">{prompt}</span>
       </div>
     </div>
   );

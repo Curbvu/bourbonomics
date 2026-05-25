@@ -225,7 +225,7 @@ export default function DraftPickFlight() {
       >
         <span className={`text-3xl ${chrome.ink}`}>{cardGlyph}</span>
         <span
-          className={`font-mono text-[9px] uppercase tracking-[.12em] ${chrome.label}`}
+          className={`font-mono text-[12px] uppercase tracking-[.12em] ${chrome.label}`}
         >
           {cardLabel}
         </span>
@@ -249,7 +249,7 @@ export default function DraftPickFlight() {
           opacity: billDelta == null ? 1 : 0.9,
         }}
       >
-        <div className="font-mono text-[10px] uppercase tracking-[.18em] text-amber-300">
+        <div className="font-mono text-[12px] uppercase tracking-[.18em] text-amber-300">
           New Bill
         </div>
         <h4 className="mt-1 line-clamp-2 font-display text-[14px] font-bold leading-tight text-amber-50 drop-shadow-[0_1px_4px_rgba(0,0,0,.5)]">

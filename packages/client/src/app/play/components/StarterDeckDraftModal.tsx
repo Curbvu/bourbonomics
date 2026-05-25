@@ -61,13 +61,13 @@ export default function StarterDeckDraftModal() {
 
       <div className="relative flex max-h-full w-full max-w-[1180px] flex-col items-center gap-5 overflow-y-auto">
         <div className="text-center">
-          <div className="font-mono text-[11px] uppercase tracking-[.18em] text-amber-300">
+          <div className="font-mono text-[13px] uppercase tracking-[.18em] text-amber-300">
             Setup · Starter trade window
           </div>
           <div className="mt-1 font-display text-2xl font-semibold text-amber-100">
             Review your dealt starter hand
           </div>
-          <div className="mt-1 font-mono text-[10px] uppercase tracking-[.14em] text-slate-400">
+          <div className="mt-1 font-mono text-[12px] uppercase tracking-[.14em] text-slate-400">
             {humanWaitingOn.name}
             {humanWaitingOn.distillery ? <> · {humanWaitingOn.distillery.name}</> : null}
             {" · "}
@@ -77,10 +77,10 @@ export default function StarterDeckDraftModal() {
 
         <div className="w-full rounded-lg border border-slate-800 bg-slate-950/60 p-3">
           <div className="mb-2 flex items-baseline justify-between">
-            <span className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
+            <span className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
               Your starter hand
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[.12em] text-slate-500">
+            <span className="font-mono text-[12px] uppercase tracking-[.12em] text-slate-500">
               face-up · trade UI coming soon
             </span>
           </div>
@@ -141,7 +141,7 @@ function DealtCardTile({ card }: { card: Card }) {
       ].join(" ")}
     >
       <span className={`text-2xl ${chrome.ink}`}>{glyph}</span>
-      <span className={`font-mono text-[8px] uppercase tracking-[.14em] ${chrome.label}`}>
+      <span className={`font-mono text-[11px] uppercase tracking-[.14em] ${chrome.label}`}>
         {label}
         {showCount ? ` ×${count}` : ""}
       </span>

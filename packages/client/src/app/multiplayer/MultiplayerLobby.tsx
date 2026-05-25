@@ -107,7 +107,7 @@ export default function MultiplayerLobby() {
       {/* Display name — shared by both flows. */}
       <section className="rounded-md border border-slate-700 bg-slate-900/40 px-5 py-4">
         <label className="block">
-          <span className="font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-slate-400">
+          <span className="font-mono text-[13px] font-semibold uppercase tracking-[.18em] text-slate-400">
             Display name
           </span>
           <input
@@ -151,7 +151,7 @@ export default function MultiplayerLobby() {
         </div>
 
         <p
-          className={`mt-3 font-mono text-[11px] uppercase tracking-[.14em] ${
+          className={`mt-3 font-mono text-[13px] uppercase tracking-[.14em] ${
             overcap || undercap ? "text-rose-300" : "text-slate-500"
           }`}
         >
@@ -225,7 +225,7 @@ function SeatSlider({
 }) {
   return (
     <label className="block">
-      <span className="font-mono text-[11px] font-semibold uppercase tracking-[.18em] text-slate-400">
+      <span className="font-mono text-[13px] font-semibold uppercase tracking-[.18em] text-slate-400">
         {label}
       </span>
       <input
@@ -237,7 +237,7 @@ function SeatSlider({
         disabled={disabled}
         className="mt-1.5 w-full"
       />
-      <div className="flex justify-between font-mono text-[10px] uppercase tracking-[.14em] text-slate-500">
+      <div className="flex justify-between font-mono text-[12px] uppercase tracking-[.14em] text-slate-500">
         {ticks.map((t) => (
           <span key={t}>{t}</span>
         ))}

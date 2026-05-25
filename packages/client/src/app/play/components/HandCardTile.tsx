@@ -27,37 +27,45 @@ const SIZE_CHROME: Record<HandCardTileSize, {
   box: string;
   glyph: string;
   name: string;
+  flavor: string;
   sublabel: string;
   starBadge: string;
   costBadge: string;
   countBadge: string;
+  showFlavor: boolean;
 }> = {
   sm: {
-    box: "h-[110px] w-[78px] gap-1 px-1 py-1.5",
-    glyph: "text-[28px]",
-    name: "text-[9px] tracking-[.10em]",
-    sublabel: "text-[7.5px] tracking-[.10em]",
-    starBadge: "text-[10px] px-1 py-[1px]",
-    costBadge: "text-[9px] px-1 py-[1px]",
-    countBadge: "text-[9px] px-1",
+    box: "h-[120px] w-[86px] gap-1 px-1 py-1.5",
+    glyph: "text-[30px]",
+    name: "text-[12px] leading-tight",
+    flavor: "text-[11px] leading-snug",
+    sublabel: "text-[11px] tracking-[.10em]",
+    starBadge: "text-[12px] px-1 py-[1px]",
+    costBadge: "text-[12px] px-1 py-[1px]",
+    countBadge: "text-[12px] px-1",
+    showFlavor: false,
   },
   md: {
-    box: "h-[140px] w-[100px] gap-1 px-1.5 py-2",
-    glyph: "text-[36px]",
-    name: "text-[10px] tracking-[.10em]",
-    sublabel: "text-[8.5px] tracking-[.12em]",
-    starBadge: "text-[11px] px-1 py-[1px]",
-    costBadge: "text-[10px] px-1.5 py-[1px]",
-    countBadge: "text-[10px] px-1.5",
+    box: "h-[170px] w-[114px] gap-1 px-2 py-2",
+    glyph: "text-[38px]",
+    name: "text-[14px] leading-tight",
+    flavor: "text-[11px] leading-snug",
+    sublabel: "text-[11px] tracking-[.12em]",
+    starBadge: "text-[13px] px-1 py-[1px]",
+    costBadge: "text-[12px] px-1.5 py-[1px]",
+    countBadge: "text-[12px] px-1.5",
+    showFlavor: true,
   },
   lg: {
-    box: "h-[200px] w-[140px] gap-1.5 px-2 py-2.5",
+    box: "h-[210px] w-[148px] gap-1.5 px-2 py-2.5",
     glyph: "text-[56px]",
-    name: "text-[12px] tracking-[.12em]",
-    sublabel: "text-[10px] tracking-[.14em]",
+    name: "text-[15px] leading-tight",
+    flavor: "text-[12px] leading-snug",
+    sublabel: "text-[12px] tracking-[.14em]",
     starBadge: "text-[14px] px-1.5 py-[2px]",
     costBadge: "text-[12px] px-1.5 py-[1px]",
     countBadge: "text-[12px] px-1.5",
+    showFlavor: true,
   },
 };
 
@@ -182,10 +190,17 @@ export default function HandCardTile({
         {glyph}
       </span>
       <span
-        className={`max-w-[95%] truncate text-center font-mono font-semibold uppercase ${sz.name} ${chrome.label}`}
+        className={`line-clamp-2 max-w-[95%] text-center font-display font-bold drop-shadow-[0_1px_3px_rgba(0,0,0,.35)] ${sz.name} ${chrome.ink}`}
       >
         {displayName}
       </span>
+      {sz.showFlavor && card.flavor ? (
+        <span
+          className={`line-clamp-2 max-w-[95%] text-center font-display italic opacity-90 ${sz.flavor} ${chrome.label}`}
+        >
+          {card.flavor}
+        </span>
+      ) : null}
       {isSpecialty ? (
         <span className={`font-mono uppercase text-amber-200/85 ${sz.sublabel}`}>
           Specialty

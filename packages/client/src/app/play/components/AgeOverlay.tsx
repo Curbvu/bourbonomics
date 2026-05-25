@@ -75,7 +75,7 @@ export default function AgeOverlay() {
         }}
       />
       <div className="flex flex-wrap items-center gap-3">
-        <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.16em] text-amber-100">
+        <span className="rounded border border-amber-500 bg-amber-700/30 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.16em] text-amber-100">
           Aging Phase
         </span>
         <span className="font-display text-[15px] font-semibold text-amber-100">
@@ -84,13 +84,13 @@ export default function AgeOverlay() {
             : "Commit a card to a barrel"}
         </span>
         <span
-          className="rounded border border-amber-700/60 bg-slate-950/60 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-amber-200"
+          className="rounded border border-amber-700/60 bg-slate-950/60 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.14em] text-amber-200"
           aria-label={`Aged ${done} of ${total}`}
         >
           {done} of {total} aged
         </span>
         {card ? (
-          <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-300">
+          <span className="font-mono text-[13px] uppercase tracking-[.10em] text-slate-300">
             paying with{" "}
             <span className="font-bold text-emerald-300">
               {cardLabel(card)}

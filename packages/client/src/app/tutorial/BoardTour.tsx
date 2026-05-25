@@ -124,7 +124,7 @@ export default function BoardTour({ onDone, onQuit }: BoardTourProps) {
           key={stop.id}
           className="animate-bb-tour-pop rounded-xl border-2 border-amber-400/80 bg-slate-900 p-5 shadow-[0_8px_40px_rgba(0,0,0,.7),0_0_36px_rgba(251,191,36,.18),inset_0_1px_0_rgba(251,191,36,.10)]"
         >
-          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[.18em] text-amber-300">
+          <div className="flex items-center justify-between font-mono text-[12px] uppercase tracking-[.18em] text-amber-300">
             <span>Tour · {stopIdx + 1} / {STOPS.length}</span>
             <button
               type="button"
@@ -140,7 +140,7 @@ export default function BoardTour({ onDone, onQuit }: BoardTourProps) {
             <button
               type="button"
               onClick={advance}
-              className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[11px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
+              className="rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2 font-mono text-[13px] uppercase tracking-[.14em] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,.25)] transition hover:from-amber-200 hover:to-amber-400"
             >
               {stopIdx + 1 === STOPS.length ? "Start playing" : "Continue ↵"}
             </button>

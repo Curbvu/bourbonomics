@@ -61,13 +61,13 @@ export default function DistilleryDraftModal() {
 
       <div className="relative flex max-h-full w-full max-w-[1240px] flex-col items-center gap-3">
         <div className="text-center">
-          <div className="font-mono text-[10px] uppercase tracking-[.18em] text-amber-300">
+          <div className="font-mono text-[12px] uppercase tracking-[.18em] text-amber-300">
             Setup · Distillery selection
           </div>
           <div className="mt-0.5 font-display text-xl font-semibold text-amber-100">
             Pick your distillery
           </div>
-          <div className="mt-0.5 font-mono text-[9.5px] uppercase tracking-[.14em] text-slate-400">
+          <div className="mt-0.5 font-mono text-[12px] uppercase tracking-[.14em] text-slate-400">
             {humanWaitingOn.name} on the clock · {pool.length} remaining · every player picks a different one
           </div>
         </div>
@@ -133,11 +133,11 @@ function DistilleryCardTile({
       ].join(" ")}
     >
       <header className="flex items-baseline justify-between gap-1">
-        <span className="font-mono text-[9px] font-semibold uppercase tracking-[.16em] text-amber-300">
+        <span className="font-mono text-[12px] font-semibold uppercase tracking-[.16em] text-amber-300">
           Distillery · {def.difficulty}
         </span>
         {selected ? (
-          <span className="rounded border border-amber-300 bg-amber-300/20 px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.10em] text-amber-100">
+          <span className="rounded border border-amber-300 bg-amber-300/20 px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-[.10em] text-amber-100">
             Selected
           </span>
         ) : null}
@@ -154,14 +154,14 @@ function DistilleryCardTile({
 
       <div className="mt-2.5 flex flex-1 flex-col gap-2 text-[11.5px] leading-snug">
         <div className="flex-1">
-          <div className="font-mono text-[9px] font-semibold uppercase tracking-[.14em] text-emerald-300">
+          <div className="font-mono text-[12px] font-semibold uppercase tracking-[.14em] text-emerald-300">
             Card text
           </div>
           <p className="mt-0.5 line-clamp-6 text-emerald-100/95">{def.cardText}</p>
         </div>
         <div className="flex items-baseline justify-between gap-2 pt-1">
           <div>
-            <div className="font-mono text-[9px] font-semibold uppercase tracking-[.14em] text-sky-300">
+            <div className="font-mono text-[12px] font-semibold uppercase tracking-[.14em] text-sky-300">
               Slots
             </div>
             <div className="text-sky-100/95">
@@ -170,14 +170,14 @@ function DistilleryCardTile({
             </div>
           </div>
           <div className="text-right">
-            <div className="font-mono text-[9px] font-semibold uppercase tracking-[.14em] text-fuchsia-300">
+            <div className="font-mono text-[12px] font-semibold uppercase tracking-[.14em] text-fuchsia-300">
               Axis
             </div>
             <div className="text-fuchsia-100/95">{def.axis}</div>
           </div>
         </div>
         {!def.implemented ? (
-          <p className="font-mono text-[8.5px] uppercase tracking-[.12em] text-amber-300/80">
+          <p className="font-mono text-[11px] uppercase tracking-[.12em] text-amber-300/80">
             Preview · ability not yet resolved
           </p>
         ) : null}

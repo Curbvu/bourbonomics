@@ -221,7 +221,7 @@ function MarketCard({
         </h4>
         {card.flavor ? (
           <p
-            className="mt-1 line-clamp-2 font-display text-[11px] italic leading-snug"
+            className="mt-1 line-clamp-2 font-display text-[13px] italic leading-snug"
             style={{ color: "var(--mute)" }}
           >
             {card.flavor}
@@ -239,7 +239,7 @@ function MarketCard({
             {laborGlyphFor(sub)}
           </span>
           <span
-            className="rounded px-1.5 py-px font-mono text-[8px] font-bold uppercase tracking-[.12em]"
+            className="rounded px-1.5 py-px font-mono text-[11px] font-bold uppercase tracking-[.12em]"
             style={{
               border: `1px solid ${TIER_INK.common}`,
               color: TIER_INK.common,
@@ -275,7 +275,7 @@ function MarketCard({
         </h4>
         {spec.flavor ? (
           <p
-            className="mt-1 line-clamp-2 font-display text-[11px] italic leading-snug"
+            className="mt-1 line-clamp-2 font-display text-[13px] italic leading-snug"
             style={{ color: "var(--mute)" }}
           >
             {spec.flavor}
@@ -293,7 +293,7 @@ function MarketCard({
             ⚡
           </span>
           <span
-            className="rounded px-1.5 py-px font-mono text-[8px] font-bold uppercase tracking-[.12em]"
+            className="rounded px-1.5 py-px font-mono text-[11px] font-bold uppercase tracking-[.12em]"
             style={{
               border: `1px solid ${chrome.label}`,
               color: chrome.label,
@@ -327,7 +327,7 @@ function MarketCard({
           {spec.name}
         </h4>
         <p
-          className="mt-1 line-clamp-3 font-display text-[10px] italic leading-snug"
+          className="mt-1 line-clamp-3 font-display text-[12px] italic leading-snug"
           style={{ color: "rgba(130,201,163,.85)" }}
         >
           {spec.short}
@@ -337,7 +337,7 @@ function MarketCard({
             📈
           </span>
           <span
-            className="rounded px-1.5 py-px font-mono text-[7.5px] font-bold uppercase tracking-[.12em]"
+            className="rounded px-1.5 py-px font-mono text-[11px] font-bold uppercase tracking-[.12em]"
             style={{ color: "rgba(130,201,163,.85)" }}
           >
             effect pending
@@ -375,7 +375,7 @@ function MarketCard({
       </h4>
       {card.flavor ? (
         <p
-          className="mt-1 line-clamp-2 font-display text-[11px] italic leading-snug"
+          className="mt-1 line-clamp-2 font-display text-[13px] italic leading-snug"
           style={{ color: "var(--mute)" }}
         >
           {card.flavor}
@@ -386,7 +386,7 @@ function MarketCard({
           {RESOURCE_GLYPH[subtype]}
         </span>
         <span
-          className="rounded px-1.5 py-px font-mono text-[8px] font-bold uppercase tracking-[.12em]"
+          className="rounded px-1.5 py-px font-mono text-[11px] font-bold uppercase tracking-[.12em]"
           style={{
             border: `1px solid ${tierInk}`,
             color: tierInk,
@@ -434,12 +434,12 @@ function DrawerCard({
     >
       <div className="mb-1 flex items-baseline justify-between">
         <span
-          className={`font-mono text-[8.5px] font-bold uppercase tracking-[.18em] ${labelColor}`}
+          className={`font-mono text-[11px] font-bold uppercase tracking-[.18em] ${labelColor}`}
         >
           {kindLabel}
         </span>
         <span
-          className="rounded px-1.5 font-mono text-[10px] font-bold"
+          className="rounded px-1.5 font-mono text-[12px] font-bold"
           style={{
             background: "linear-gradient(180deg, #f0c970, #c69d52)",
             color: "#1a120b",

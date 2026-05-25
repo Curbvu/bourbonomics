@@ -178,7 +178,7 @@ export default function YearPassModal() {
       <div className="relative flex w-full max-w-2xl flex-col items-stretch gap-6">
         {/* Headline. */}
         <div className="text-center">
-          <div className="font-mono text-[11px] uppercase tracking-[.20em] text-amber-300">
+          <div className="font-mono text-[13px] uppercase tracking-[.20em] text-amber-300">
             A new year begins
           </div>
           <h1 className="mt-1 font-display text-6xl font-bold tracking-tight text-amber-100 drop-shadow-[0_3px_12px_rgba(0,0,0,.6)]">
@@ -189,7 +189,7 @@ export default function YearPassModal() {
         {/* Last-round recap. */}
         <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-5 shadow-[0_8px_32px_rgba(0,0,0,.45)]">
           <div className="flex items-baseline justify-between">
-            <div className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
+            <div className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
               Round {summary.prevRound} recap
             </div>
             <DemandSummary
@@ -210,7 +210,7 @@ export default function YearPassModal() {
 
         {/* Turn order for the upcoming round. */}
         <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-5 shadow-[0_8px_32px_rgba(0,0,0,.45)]">
-          <div className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-400">
+          <div className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
             Turn order · Round {state.round}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -226,7 +226,7 @@ export default function YearPassModal() {
               />
             ))}
           </div>
-          <div className="mt-2 font-mono text-[9px] uppercase tracking-[.14em] text-slate-500">
+          <div className="mt-2 font-mono text-[12px] uppercase tracking-[.14em] text-slate-500">
             Last round&apos;s closer opens this one — the bookend rule.
           </div>
         </section>
@@ -269,7 +269,7 @@ function DemandSummary({
   return (
     <div
       title={`${rises} roll${rises === 1 ? "" : "s"} rose · ${holds} held`}
-      className="flex items-baseline gap-1.5 font-mono text-[10px] uppercase tracking-[.10em] text-slate-400"
+      className="flex items-baseline gap-1.5 font-mono text-[12px] uppercase tracking-[.10em] text-slate-400"
     >
       <span>demand</span>
       <span className="font-bold tabular-nums text-slate-200">{start}</span>
@@ -296,15 +296,15 @@ function PlayerRecapRow({ summary }: { summary: PlayerRoundSummary }) {
         {summary.name}
       </span>
       {sold > 0 ? (
-        <span className="font-mono text-[10px] uppercase tracking-[.10em] text-amber-200">
+        <span className="font-mono text-[12px] uppercase tracking-[.10em] text-amber-200">
           sold {sold}
         </span>
       ) : (
-        <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-600">
+        <span className="font-mono text-[12px] uppercase tracking-[.10em] text-slate-600">
           held
         </span>
       )}
-      <span className="font-mono text-[11px] font-bold tabular-nums text-amber-300">
+      <span className="font-mono text-[13px] font-bold tabular-nums text-amber-300">
         {summary.totalRep}
       </span>
     </div>
@@ -337,7 +337,7 @@ function TurnOrderChip({
     >
       <span
         className={[
-          "grid h-4 w-4 place-items-center rounded-full font-mono text-[9px] font-bold leading-none",
+          "grid h-4 w-4 place-items-center rounded-full font-mono text-[12px] font-bold leading-none",
           isStart
             ? "bg-amber-400 text-slate-950"
             : "bg-slate-800 text-slate-400",
@@ -354,14 +354,14 @@ function TurnOrderChip({
       />
       <span
         className={[
-          "font-mono text-[10px] uppercase tracking-[.08em]",
+          "font-mono text-[12px] uppercase tracking-[.08em]",
           isStart ? "text-amber-100" : "text-slate-300",
         ].join(" ")}
       >
         {name}
       </span>
       {isHuman ? (
-        <span className="font-mono text-[8px] uppercase tracking-[.10em] text-slate-500">
+        <span className="font-mono text-[11px] uppercase tracking-[.10em] text-slate-500">
           you
         </span>
       ) : null}

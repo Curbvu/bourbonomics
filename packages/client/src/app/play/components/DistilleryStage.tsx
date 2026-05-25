@@ -344,7 +344,7 @@ function Rickhouse({
       {/* Plaque */}
       <div
         aria-hidden
-        className="absolute left-1/2 top-[-2px] -translate-x-1/2 rounded-b-[6px] px-3.5 py-[3px] font-mono text-[9px] font-bold uppercase tracking-[.22em]"
+        className="absolute left-1/2 top-[-2px] -translate-x-1/2 rounded-b-[6px] px-3.5 py-[3px] font-mono text-[12px] font-bold uppercase tracking-[.22em]"
         style={{
           background: "linear-gradient(180deg, #f0c970, #b06a38)",
           color: "#2a1a10",
@@ -740,6 +740,10 @@ function Barrel({
   selected: boolean;
 }) {
   const isAging = barrel.phase === "aging";
+  // Within `aging`, split on whether this barrel has eaten its age
+  // card this round — drives the medallion's two animation states
+  // (urgent pulse vs. settled glow).
+  const needsAgeThisRound = isAging && !barrel.agedThisRound;
   // "needs resources" covers `ready` (bill placed, no commits yet) and
   // `construction` (partially committed). These barrels are visibly
   // different from aging ones: cooler/desaturated wood, dim hoops, no
@@ -859,7 +863,7 @@ function Barrel({
         {isAging ? (
           <span
             aria-hidden
-            className="ember absolute left-1/2 top-1/2 grid h-[50px] w-[50px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full"
+            className={`${needsAgeThisRound ? "ember-needs" : "ember-aged"} absolute left-1/2 top-1/2 grid h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full`}
             style={{
               background:
                 "radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%)",
@@ -867,13 +871,13 @@ function Barrel({
             }}
           >
             <span
-              className="font-display text-[22px] font-bold leading-none"
+              className="font-display text-[64px] font-bold leading-none"
               style={{ color: "#2a1a10" }}
             >
               {barrel.age}
             </span>
             <span
-              className="absolute bottom-[5px] font-mono text-[7px] font-bold tracking-[.2em]"
+              className="absolute bottom-[8px] font-mono text-[12px] font-bold tracking-[.2em]"
               style={{ color: "#2a1a10" }}
             >
               YR
@@ -1241,7 +1245,7 @@ function EmptySlot({
         >
           <div className="flex flex-col items-center gap-1">
             <span
-              className="grid h-[18px] w-[18px] place-items-center rounded-full font-display text-[11px]"
+              className="grid h-[18px] w-[18px] place-items-center rounded-full font-display text-[13px]"
               style={{
                 border: "1px solid var(--whisper)",
                 color: "var(--mute)",
@@ -1250,7 +1254,7 @@ function EmptySlot({
               +
             </span>
             <span
-              className="font-mono text-[9px] font-bold uppercase tracking-[.24em]"
+              className="font-mono text-[12px] font-bold uppercase tracking-[.24em]"
               style={{ color: "var(--whisper)" }}
             >
               Open
