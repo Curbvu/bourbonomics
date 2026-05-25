@@ -863,21 +863,26 @@ function Barrel({
         {isAging ? (
           <span
             aria-hidden
-            className={`${needsAgeThisRound ? "ember-needs" : "ember-aged"} absolute left-1/2 top-1/2 grid h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full`}
+            className={`${needsAgeThisRound ? "ember-needs" : "ember-aged"} absolute left-1/2 top-1/2 block h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 rounded-full`}
             style={{
               background:
                 "radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%)",
               boxShadow: `inset 0 2px 3px rgba(255,255,255,.4), inset 0 -2px 4px rgba(0,0,0,.5), 0 0 12px ${band.glow}`,
             }}
           >
+            {/* Digit + YR are absolutely positioned with explicit
+                top/bottom offsets so the two never overlap regardless
+                of the digit's font metrics. The grid+place-items-center
+                approach centered both as a single column and ended up
+                pinning YR against the digit's descender. */}
             <span
-              className="font-display text-[64px] font-bold leading-none"
+              className="absolute left-1/2 top-[6px] -translate-x-1/2 font-display text-[58px] font-bold leading-none"
               style={{ color: "#2a1a10" }}
             >
               {barrel.age}
             </span>
             <span
-              className="absolute bottom-[8px] font-mono text-[12px] font-bold tracking-[.2em]"
+              className="absolute bottom-[6px] left-1/2 -translate-x-1/2 font-mono text-[12px] font-bold tracking-[.2em]"
               style={{ color: "#2a1a10" }}
             >
               YR

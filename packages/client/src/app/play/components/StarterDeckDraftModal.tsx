@@ -14,14 +14,7 @@
  */
 
 import { useGameStore } from "@/lib/store/game";
-import type { Card, ResourceSubtype } from "@bourbonomics/engine";
-import {
-  LABOR_CHROME,
-  RESOURCE_CHROME,
-  RESOURCE_GLYPH,
-  RESOURCE_LABEL,
-  laborGlyphFor,
-} from "./handCardStyles";
+import HandCardTile from "./HandCardTile";
 
 export default function StarterDeckDraftModal() {
   const { state, humanWaitingOn, humanSeatPlayerId, dispatch } = useGameStore();
@@ -59,7 +52,7 @@ export default function StarterDeckDraftModal() {
         }}
       />
 
-      <div className="relative flex max-h-full w-full max-w-[1180px] flex-col items-center gap-5 overflow-y-auto">
+      <div className="relative flex max-h-[calc(100vh-3rem)] w-full max-w-[1180px] flex-col items-center gap-4 overflow-hidden">
         <div className="text-center">
           <div className="font-mono text-[13px] uppercase tracking-[.18em] text-amber-300">
             Setup · Starter trade window
@@ -84,9 +77,9 @@ export default function StarterDeckDraftModal() {
               face-up · trade UI coming soon
             </span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap justify-center gap-1.5">
             {handTiles.map((c) => (
-              <DealtCardTile key={c.id} card={c} />
+              <HandCardTile key={c.id} card={c} size="sm" />
             ))}
           </div>
         </div>
@@ -105,46 +98,3 @@ export default function StarterDeckDraftModal() {
   );
 }
 
-function DealtCardTile({ card }: { card: Card }) {
-  const isLabor = card.type === "labor";
-  const subtype = card.subtype as ResourceSubtype | undefined;
-  const chrome = isLabor
-    ? LABOR_CHROME
-    : subtype
-      ? RESOURCE_CHROME[subtype]
-      : LABOR_CHROME;
-  const laborSubtypeLabel =
-    card.laborSubtype === "marketing" ? "Marketing" :
-    card.laborSubtype === "cooper" ? "Cooper" :
-    card.laborSubtype === "architect" ? "Architect" :
-    "Labor";
-  const label = isLabor
-    ? laborSubtypeLabel
-    : subtype
-      ? RESOURCE_LABEL[subtype]
-      : "Card";
-  const glyph = isLabor
-    ? laborGlyphFor(card.laborSubtype)
-    : subtype
-      ? RESOURCE_GLYPH[subtype]
-      : "?";
-  const count = card.resourceCount ?? 1;
-  const showCount = !isLabor && (card.resourceCount ?? 1) > 1;
-
-  return (
-    <div
-      title={card.displayName ?? label}
-      className={[
-        "flex h-[80px] w-[58px] flex-col items-center justify-center gap-1 overflow-hidden rounded-md border-2 shadow-[0_4px_10px_rgba(0,0,0,.45)] ring-1 ring-white/10",
-        chrome.gradient,
-        chrome.border,
-      ].join(" ")}
-    >
-      <span className={`text-2xl ${chrome.ink}`}>{glyph}</span>
-      <span className={`font-mono text-[11px] uppercase tracking-[.14em] ${chrome.label}`}>
-        {label}
-        {showCount ? ` ×${count}` : ""}
-      </span>
-    </div>
-  );
-}

@@ -21,6 +21,7 @@ import {
 } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import ActionBar from "./ActionBar";
+import HandFan from "./HandFan";
 import AgeOverlay from "./AgeOverlay";
 import MakeOverlay from "./MakeOverlay";
 import SellOverlay from "./SellOverlay";
@@ -41,8 +42,29 @@ import {
 } from "./handCardStyles";
 import { MoneyText } from "./money";
 
+// While the End-turn discard flight is airborne, hide the hand row so
+// the freshly-redrawn cards don't pop into place behind the flying
+// silhouettes. After the flight clears, the row re-mounts and the
+// deal-in keyframe runs on the new hand. Tuned to match EndTurnFlight's
+// FLIGHT_MS (720ms) plus per-card stagger.
+const DISCARD_FLIGHT_HIDE_MS = 760;
+
 export default function HandTray() {
-  const { state, seatMeta, multiplayerMode } = useGameStore();
+  const { state, seatMeta, multiplayerMode, lastDrawHand, lastEndTurnDiscard } = useGameStore();
+  // Gate the hand row's mount on whether a discard flight is active.
+  // We watch lastEndTurnDiscard.seq; on each bump we hide the row for
+  // a short window so the discard flight can play out cleanly.
+  const [handVisible, setHandVisible] = React.useState(true);
+  const lastDiscardSeqRef = React.useRef<number>(lastEndTurnDiscard?.seq ?? 0);
+  React.useEffect(() => {
+    const seq = lastEndTurnDiscard?.seq ?? 0;
+    if (seq > lastDiscardSeqRef.current) {
+      lastDiscardSeqRef.current = seq;
+      setHandVisible(false);
+      const id = window.setTimeout(() => setHandVisible(true), DISCARD_FLIGHT_HIDE_MS);
+      return () => window.clearTimeout(id);
+    }
+  }, [lastEndTurnDiscard?.seq]);
   if (!state) return null;
   // In multiplayer, the tray belongs to whichever seat THIS connection
   // owns — not the first non-bot, which would be the host on every
@@ -90,12 +112,23 @@ export default function HandTray() {
           ScalingHost — it's a true fullscreen modal and the
           `transform: scale(...)` on ScalingHost would otherwise scope
           its `position: fixed` to the design canvas. */}
-      <AgeOverlay />
-      <SellOverlay />
-      <MakeOverlay />
+      {/* Phase / mode banner slot — reserves a fixed 44px so the layout
+          below doesn't shift when AgeOverlay/SellOverlay/MakeOverlay
+          pop in or out. The three are mutually exclusive (only one
+          mode is active at a time), so this single slot covers all
+          three. */}
+      <div className="min-h-[44px]">
+        <AgeOverlay />
+        <SellOverlay />
+        <MakeOverlay />
+      </div>
 
-      {/* Action bar — restyled mono brass buttons. */}
-      <ActionBar />
+      {/* Action bar slot — reserves 34px so the bottom panel keeps its
+          shape between phases. ActionBar self-gates on the action
+          phase; outside it, the slot stays empty but pinned. */}
+      <div className="min-h-[34px]">
+        <ActionBar />
+      </div>
 
       {/* Status strip — context-aware italic sentence tied to the
           active picker mode. Pulled from the new HandStripStatus
@@ -148,10 +181,16 @@ export default function HandTray() {
           grow
           zone="hand-resources"
         >
-          {handCards.length === 0 ? (
+          {!handVisible ? (
+            // Brief blank window while the discard flight clears. The
+            // hand state has already been redrawn in the store, but
+            // we hold the row off-screen so the new cards don't pop
+            // into the fan while ghost cards are still flying out.
+            <div className="h-[156px]" aria-hidden />
+          ) : handCards.length === 0 ? (
             <EmptyPill>no cards</EmptyPill>
           ) : (
-            <HandFan>
+            <HandFan dealKey={lastDrawHand?.seq ?? 0}>
               {handCards.map((c, i) =>
                 c.type === "labor" ? (
                   <LaborCard key={c.id} card={c} indexInRow={i} />
@@ -647,64 +686,8 @@ function CardAccordion({ children }: { children: React.ReactNode }) {
   );
 }
 
-/**
- * Fan-arrange a hand of cards on a shallow arc per the v3 design.
- * Each child sits in an absolutely-positioned `.hand-fan-card` slot
- * with inline `transform: translateY(...) rotate(...)`. CSS picks up
- * the hover override (translateY(-22px) scale(1.04) rotate(0)) to
- * pull the focused card upright at z-index 40.
- *
- * Card width assumed at 100px (matches `CARD_SIZE_CLASS`); the slot
- * "stride" (visible width per card after overlap) is 70px, giving a
- * 30px overlap so an 8-card hand fits comfortably under 800px.
- *
- * Slots stretch the container to `(n - 1) * stride + cardW`, which
- * the parent flex centers via `justify-center`.
- */
-function HandFan({ children }: { children: React.ReactNode }) {
-  const slots = React.Children.toArray(children);
-  const n = slots.length;
-  const cardW = 100;
-  const stride = 70; // visible width per slot after overlap
-  const totalW = n > 0 ? (n - 1) * stride + cardW : 0;
-  const mid = (n - 1) / 2;
-  return (
-    <div className="relative flex min-w-0 flex-1 items-end justify-center py-2 pl-2 pr-3">
-      <div
-        style={{
-          position: "relative",
-          width: totalW,
-          height: 156,
-        }}
-      >
-        {slots.map((child, i) => {
-          const off = i - mid;
-          const rot = off * 3.2;
-          const lift = Math.abs(off) * 2.4;
-          const x = i * stride;
-          return (
-            <div
-              key={
-                React.isValidElement(child) && child.key != null
-                  ? child.key
-                  : i
-              }
-              className="hand-fan-card"
-              style={{
-                left: x,
-                width: cardW,
-                transform: `translateY(${lift}px) rotate(${rot}deg)`,
-                zIndex: i,
-              }}
-            >
-              {child}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+// HandFan moved to its own module (./HandFan) so the drafting modal
+// can reuse the same fanned layout. Imported above.
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (

@@ -40,6 +40,7 @@ import {
 import { TIER_CHROME, tierOrCommon, type TierChrome } from "./tierStyles";
 import RecipePips from "./RecipePips";
 import HandCardTile from "./HandCardTile";
+import HandFan from "./HandFan";
 
 export default function DraftingLoopOverlay() {
   const {
@@ -317,7 +318,7 @@ function DraftingLoopModal({
       role="dialog"
       aria-modal="true"
       aria-label="Drafting Loop"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur"
     >
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 h-[600px] w-[1000px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
@@ -327,9 +328,10 @@ function DraftingLoopModal({
         }}
       />
 
-      <div className="relative flex max-h-full w-full max-w-[1180px] flex-col gap-5 overflow-y-auto rounded-xl border border-amber-700/50 bg-gradient-to-b from-slate-950 to-slate-900/95 p-6 shadow-[0_24px_64px_rgba(0,0,0,.55)]">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[1180px] flex-col overflow-hidden rounded-xl border border-amber-700/50 bg-gradient-to-b from-slate-950 to-slate-900/95 px-5 py-4 shadow-[0_24px_64px_rgba(0,0,0,.55)]">
+        {/* Header — flex-shrink-0 so it stays pinned at the top even
+            when the body shrinks. */}
+        <div className="flex flex-shrink-0 items-start justify-between gap-4">
           <div>
             <div className="font-mono text-[13px] uppercase tracking-[.18em] text-amber-300">
               Drafting loop
@@ -353,6 +355,14 @@ function DraftingLoopModal({
           ) : null}
         </div>
 
+        {/* Body — flex-1 min-h-0 lets the sections collectively share
+            the remaining height between header and footer without
+            pushing the footer off-screen. `overflow-visible` here is
+            intentional: the modal root keeps the rounded-corner clip,
+            but a hover-lifted hand card needs to extend past the
+            hand-section's bottom edge into the footer gutter without
+            being sheared. */}
+        <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-visible">
         {/* Revealed mash bills — only after the loop is live. In seed
             mode the bills haven't been pulled yet, so the section would
             sit empty and confuse the read; skip it entirely. */}
@@ -364,11 +374,13 @@ function DraftingLoopModal({
                 ? "none left"
                 : `${revealedBills.length} on offer`
             }
+            flex
+            minHeight={140}
           >
             {revealedBills.length === 0 ? (
               <EmptyRow message="The bourbon deck had nothing more to reveal." />
             ) : (
-              <div className="flex flex-wrap items-stretch gap-3">
+              <div className="flex h-full w-full items-stretch gap-2 overflow-x-auto">
                 {revealedBills.map((bill) => (
                   <BillTile
                     key={bill.id}
@@ -383,7 +395,9 @@ function DraftingLoopModal({
           </Section>
         ) : null}
 
-        {/* Draft pile — only when a loop is live (no pile in seed mode) */}
+        {/* Draft pile — only when a loop is live (no pile in seed mode).
+            Uses HandCardTile size="sm" to keep the row short so bills
+            keep most of the modal real estate. */}
         {loop ? (
           <Section
             label="Draft pile"
@@ -392,16 +406,17 @@ function DraftingLoopModal({
                 ? "empty"
                 : `${draftPile.length} card${draftPile.length === 1 ? "" : "s"}`
             }
+            height={150}
           >
             {draftPile.length === 0 ? (
               <EmptyRow message="No cards in the pile yet." />
             ) : (
-              <div className="flex flex-wrap items-stretch gap-1.5">
+              <div className="flex w-full items-center gap-1.5 overflow-x-auto">
                 {draftPile.map((card) => (
                   <HandCardTile
                     key={card.id}
                     card={card}
-                    size="md"
+                    size="sm"
                     selected={selectedPileIds.includes(card.id)}
                     interactive={pileInteractive}
                     onClick={() => onPileToggle(card.id)}
@@ -413,7 +428,9 @@ function DraftingLoopModal({
           </Section>
         ) : null}
 
-        {/* Your hand */}
+        {/* Your hand — same fan layout as the in-game HandTray so the
+            modal hand reads as the player's actual hand. Uses sm size
+            to keep the section compact under shorter viewports. */}
         <Section
           label={
             handMode === "seed"
@@ -423,28 +440,33 @@ function DraftingLoopModal({
                 : "Your hand"
           }
           hint={`${hand.length} card${hand.length === 1 ? "" : "s"}`}
+          height={loop ? 180 : 200}
+          allowOverflow
         >
           {hand.length === 0 ? (
             <EmptyRow message="Your hand is empty." />
           ) : (
-            <div className="flex flex-wrap items-stretch gap-1.5">
+            <HandFan>
               {hand.map((card) => (
                 <HandCardTile
                   key={card.id}
                   card={card}
-                  size="md"
+                  size="sm"
                   interactive={handMode !== "view"}
                   selected={false}
                   onClick={() => onHandClick(card.id)}
                   tone={handMode === "pay" ? "emerald" : "amber"}
                 />
               ))}
-            </div>
+            </HandFan>
           )}
         </Section>
+        </div>
 
-        {/* Action footer */}
-        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-800 pt-4">
+        {/* Action footer — pinned with flex-shrink-0 so Pass / Take /
+            Back / status are always reachable even when the modal is
+            squeezed. */}
+        <div className="mt-3 flex flex-shrink-0 flex-wrap items-center justify-end gap-3 border-t border-slate-800 pt-3">
           {loop ? (
             isHumansTurn ? (
               <>
@@ -546,14 +568,43 @@ function Section({
   label,
   hint,
   children,
+  height,
+  minHeight,
+  flex,
+  allowOverflow,
 }: {
   label: string;
   hint?: string;
   children: React.ReactNode;
+  /** Fixed pixel height so the modal layout is deterministic — the
+   *  section keeps this height regardless of viewport size. Mutually
+   *  exclusive with `flex`. */
+  height?: number;
+  /** Lower bound when `flex` is true — the section can shrink to this
+   *  but no further. */
+  minHeight?: number;
+  /** If true, the section becomes `flex-1 min-h-0` so it absorbs
+   *  viewport squeeze instead of pushing siblings off-screen. Use on
+   *  the section whose content is OK to clip / scroll internally. */
+  flex?: boolean;
+  /** If true, drop the outer + inner `overflow-hidden` so children can
+   *  visibly lift past the section's bottom edge (used by the hand row
+   *  so hover-lifted cards aren't sheared). */
+  allowOverflow?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-      <div className="mb-2 flex items-baseline justify-between">
+    <div
+      className={[
+        "flex flex-col rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2",
+        flex ? "min-h-0 flex-1" : "flex-shrink-0",
+        allowOverflow ? "overflow-visible" : "overflow-hidden",
+      ].join(" ")}
+      style={{
+        ...(height != null ? { height } : null),
+        ...(minHeight != null ? { minHeight } : null),
+      }}
+    >
+      <div className="mb-1.5 flex flex-shrink-0 items-baseline justify-between">
         <span className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
           {label}
         </span>
@@ -563,7 +614,14 @@ function Section({
           </span>
         ) : null}
       </div>
-      {children}
+      <div
+        className={[
+          "flex min-h-0 flex-1 items-stretch",
+          allowOverflow ? "overflow-visible" : "overflow-hidden",
+        ].join(" ")}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -617,7 +675,7 @@ function BillTile({
       disabled={!interactive}
       data-revealed-bill-id={bill.id}
       className={[
-        "flex w-[280px] flex-col rounded-xl border-2 px-4 py-3.5 text-left transition-transform duration-150",
+        "flex h-full w-[220px] flex-shrink-0 flex-col overflow-hidden rounded-xl border-2 px-2 py-2 text-left transition-transform duration-150",
         chrome.border,
         chrome.gradient,
         chrome.glow,
@@ -627,52 +685,49 @@ function BillTile({
         .join(" ")}
       title={bill.name}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-1.5">
         <div className="min-w-0 flex-1">
-          <div className={`font-display text-[17px] font-bold leading-tight ${chrome.titleInk}`}>
+          <div className={`font-display text-[14px] font-bold leading-tight ${chrome.titleInk}`}>
             {bill.name}
           </div>
           {bill.slogan ? (
-            <div className="mt-0.5 line-clamp-2 font-display text-[11.5px] italic leading-snug text-slate-400">
+            <div className="mt-0.5 line-clamp-1 font-display text-[11px] italic leading-snug text-slate-400">
               “{bill.slogan}”
             </div>
           ) : null}
         </div>
         <span
-          className={`flex-shrink-0 rounded border px-1.5 py-[2px] font-mono text-[12px] font-bold uppercase tracking-[.10em] ${chrome.pill}`}
+          className={`flex-shrink-0 rounded border px-1 py-[1px] font-mono text-[11px] font-bold uppercase tracking-[.08em] ${chrome.pill}`}
         >
           {chrome.label_text}
         </span>
       </div>
 
-      {/* Rep table — the full age × demand payout grid, so a player can
-          see exactly what each (age band, demand band) cell is worth and
-          which cells trigger Silver / Gold. */}
-      <div className="mt-3 rounded border border-amber-700/40 bg-slate-950/55 px-2 py-1.5">
-        <div className="mb-1 flex items-baseline justify-between">
-          <span className="font-mono text-[11px] font-semibold uppercase tracking-[.14em] text-amber-300/80">
-            Rep payout
+      {/* Rep table — the full age × demand payout grid. */}
+      <div className="mt-1.5 rounded border border-amber-700/40 bg-slate-950/55 px-1.5 py-1">
+        <div className="mb-0.5 flex items-baseline justify-between">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[.12em] text-amber-300/80">
+            Rep
           </span>
-          <span className="font-mono text-[11px] tracking-[.10em] text-slate-400">
+          <span className="font-mono text-[11px] tracking-[.08em] text-slate-400">
             <span className={chrome.titleInk}>{floor}–{peak}</span>
           </span>
         </div>
         <MiniRepTable bill={bill} chrome={chrome} />
       </div>
 
-      {/* Ingredients — pip glance + chip-style breakdown showing exactly
-          which cards the bill consumes. */}
-      <div className="mt-2 rounded border border-slate-800/70 bg-slate-950/40 px-2 py-2">
-        <div className="mb-1 text-center font-mono text-[11px] uppercase tracking-[.16em] text-slate-500">
+      {/* Ingredients — pip glance + chip-style breakdown. */}
+      <div className="mt-1 rounded border border-slate-800/70 bg-slate-950/40 px-1.5 py-1">
+        <div className="mb-0.5 text-center font-mono text-[11px] uppercase tracking-[.12em] text-slate-500">
           Ingredients
         </div>
         <RecipePips bill={bill} />
-        <div className="mt-1.5 flex flex-wrap justify-center gap-1">
+        <div className="mt-1 grid grid-cols-2 gap-[3px]">
           {ingredients.map((chip, i) => (
             <span
               key={i}
               className={[
-                "inline-flex items-center gap-1 rounded border px-1.5 py-[2px] font-mono text-[12px] uppercase tracking-[.06em]",
+                "inline-flex items-center justify-center gap-1 rounded border px-1 py-0 font-mono text-[11px] uppercase tracking-[.04em]",
                 chip.specialty
                   ? "border-amber-300/70 bg-amber-700/30 text-amber-100"
                   : chip.forbidden
@@ -761,7 +816,7 @@ function MiniRepTable({
                 <div
                   key={`${ri}-${ci}`}
                   className={[
-                    "relative grid h-9 place-items-center rounded-[3px] border border-white/10",
+                    "relative grid h-6 place-items-center rounded-[3px] border border-white/10",
                     awardCellBg(award, cell),
                   ].join(" ")}
                 >

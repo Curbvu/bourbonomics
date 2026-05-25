@@ -51,6 +51,7 @@ export default function ActionBar() {
     sellMode,
     startSellMode,
     cancelSellMode,
+    triggerEndTurnDiscardAnimation,
   } = useGameStore();
   if (!state) return null;
   if (state.phase !== "action") return null;
@@ -168,7 +169,13 @@ export default function ActionBar() {
           label="End turn ↵"
           action={pass}
           state={state}
-          dispatch={dispatch}
+          dispatch={(a) => {
+            // Capture the human's current hand BEFORE dispatching so
+            // EndTurnFlight can fly each card to the discard pile while
+            // the engine clears the hand state synchronously.
+            triggerEndTurnDiscardAnimation(human.hand.slice(), human.id);
+            dispatch(a);
+          }}
           disabledByTurn={disabledByTurn}
           tooltipIdle="End your turn for the round. Cards in hand are held for cleanup."
           primary

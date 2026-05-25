@@ -8,6 +8,7 @@ import ToastStack from "./components/ToastStack";
 import DemandRollModal from "./components/DemandRollModal";
 import DistilleryDraftModal from "./components/DistilleryDraftModal";
 import DraftPickFlight from "./components/DraftPickFlight";
+import EndTurnFlight from "./components/EndTurnFlight";
 import DrawBillOverlay from "./components/DrawBillOverlay";
 import GameBoard from "./components/GameBoard";
 import GameErrorBoundary from "./components/ErrorBoundary";
@@ -102,6 +103,10 @@ export default function PlayPage() {
           to the modal so the flight starts the same frame the modal
           unmounts. */}
       <DraftPickFlight />
+      {/* End-turn → discard flight — fires when the human presses
+          "End turn"; fans each held card to the discard tile while
+          the engine clears the hand. */}
+      <EndTurnFlight />
       {/* Year-pass interstitial — z-55, mounted last so it sits over
           the rest of the canvas. The player reads the year-pass recap, hits
           Begin year, and the draw modal underneath becomes interactive. */}

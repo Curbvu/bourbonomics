@@ -89,6 +89,13 @@ export function actionPhaseComplete(state: GameState): boolean {
  * or — for hand-empty players whose turn must still be advanced — when an
  * action handler determines no further play is available. Individual main
  * actions (Make / Age / Sell / Buy / Draw / Trade) do NOT end the turn.
+ *
+ * v3.9: End-Turn now also discards the player's resource + Labor cards
+ * and immediately redraws back up to 8 — see GAME_RULES.md §Hand and
+ * Deck. Operations cards in hand are NOT touched. The redraw is the
+ * final thing that happens on the player's turn before the cursor
+ * passes; an empty deck reshuffles the discard back in mid-redraw via
+ * `drawWithReshuffle`.
  */
 export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
   const player = draft.players.find((p) => p.id === playerId)!;
@@ -96,6 +103,29 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
   // Insider Buyer's half-cost is a "this turn" effect — drop it on
   // turn end so an unused discount can't carry forward.
   player.pendingHalfCostMarketBuy = false;
+
+  // v3.9: discard the held resource + Labor hand and redraw 8 fresh
+  // cards. Operations cards live in `operationsHand` and aren't
+  // touched. We pull the saved card (if any) on top, mirroring the
+  // round-start draw path.
+  if (player.hand.length > 0) {
+    player.discard.push(...player.hand);
+    player.hand = [];
+  }
+  const result = drawWithReshuffle(
+    player.deck.slice(),
+    player.discard.slice(),
+    player.handSize,
+    draft.rngState,
+  );
+  player.hand.push(...result.drawn);
+  player.deck = result.deck;
+  player.discard = result.discard;
+  draft.rngState = result.rngState;
+  if (player.savedCard) {
+    player.hand.push(player.savedCard);
+    player.savedCard = null;
+  }
 
   if (actionPhaseComplete(draft)) {
     runCleanupPhase(draft);
