@@ -40,6 +40,7 @@ import {
 import { TIER_CHROME, tierOrCommon, type TierChrome } from "./tierStyles";
 import RecipePips from "./RecipePips";
 import HandCardTile from "./HandCardTile";
+import HandFan from "./HandFan";
 
 export default function DraftingLoopOverlay() {
   const {
@@ -327,9 +328,10 @@ function DraftingLoopModal({
         }}
       />
 
-      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[1180px] flex-col gap-3 overflow-hidden rounded-xl border border-amber-700/50 bg-gradient-to-b from-slate-950 to-slate-900/95 px-5 py-4 shadow-[0_24px_64px_rgba(0,0,0,.55)]">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[1180px] flex-col overflow-hidden rounded-xl border border-amber-700/50 bg-gradient-to-b from-slate-950 to-slate-900/95 px-5 py-4 shadow-[0_24px_64px_rgba(0,0,0,.55)]">
+        {/* Header — flex-shrink-0 so it stays pinned at the top even
+            when the body shrinks. */}
+        <div className="flex flex-shrink-0 items-start justify-between gap-4">
           <div>
             <div className="font-mono text-[13px] uppercase tracking-[.18em] text-amber-300">
               Drafting loop
@@ -353,6 +355,10 @@ function DraftingLoopModal({
           ) : null}
         </div>
 
+        {/* Body — flex-1 min-h-0 lets the sections collectively share
+            the remaining height between header and footer without
+            pushing the footer off-screen. */}
+        <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
         {/* Revealed mash bills — only after the loop is live. In seed
             mode the bills haven't been pulled yet, so the section would
             sit empty and confuse the read; skip it entirely. */}
@@ -413,7 +419,8 @@ function DraftingLoopModal({
           </Section>
         ) : null}
 
-        {/* Your hand */}
+        {/* Your hand — same fan layout as the in-game HandTray so the
+            modal hand reads as the player's actual hand. */}
         <Section
           label={
             handMode === "seed"
@@ -427,7 +434,7 @@ function DraftingLoopModal({
           {hand.length === 0 ? (
             <EmptyRow message="Your hand is empty." />
           ) : (
-            <div className="flex flex-wrap items-stretch gap-1.5">
+            <HandFan>
               {hand.map((card) => (
                 <HandCardTile
                   key={card.id}
@@ -439,12 +446,15 @@ function DraftingLoopModal({
                   tone={handMode === "pay" ? "emerald" : "amber"}
                 />
               ))}
-            </div>
+            </HandFan>
           )}
         </Section>
+        </div>
 
-        {/* Action footer */}
-        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-800 pt-4">
+        {/* Action footer — pinned with flex-shrink-0 so Pass / Take /
+            Back / status are always reachable even when the modal is
+            squeezed. */}
+        <div className="mt-3 flex flex-shrink-0 flex-wrap items-center justify-end gap-3 border-t border-slate-800 pt-3">
           {loop ? (
             isHumansTurn ? (
               <>
