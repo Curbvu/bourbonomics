@@ -31,6 +31,7 @@ import BoardTour from "./BoardTour";
 import Confetti from "./Confetti";
 import Dice from "./Dice";
 import DragHintAnimation from "./DragHintAnimation";
+import TapHintAnimation from "./TapHintAnimation";
 import { TUTORIAL_BEATS, chapterProgressFor, spotlightSpecialtyRye } from "./beats";
 import type { Beat, SpotlightTarget } from "./types";
 import { RichText, SpotlightLayer } from "./Spotlight";
@@ -377,10 +378,16 @@ export default function TutorialController() {
     );
   })();
 
+  const tapHint =
+    beat && beat.kind === "await-action" && beat.tapHint ? (
+      <TapHintAnimation selector={beat.tapHint.selector} />
+    ) : null;
+
   return (
     <>
       <SpotlightLayer target={liveSpotlight} />
       {dragHint}
+      {tapHint}
       <BeatOverlay
         beat={beat}
         decisionReply={decisionReply}

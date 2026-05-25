@@ -152,6 +152,15 @@ export interface AwaitActionBeat extends BeatBase {
     pickHandCard: (card: Card) => boolean;
     slotIndex: number;
   };
+  /**
+   * Optional stationary click demonstration. The controller renders a
+   * pulsing tap cursor over the element matching `selector`. Used when
+   * the player just needs to click one spot (a market card, an action
+   * button) rather than drag from A to B.
+   */
+  tapHint?: {
+    selector: string;
+  };
 }
 
 export interface DecisionBeat extends BeatBase {

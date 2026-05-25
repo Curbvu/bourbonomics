@@ -186,9 +186,9 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-buy-cooper",
     kind: "await-action",
     title: "Buy the Cooper",
-    body: "Click **Buy market** then pick the **Cooper** (the first card). Tag a **Labor card** (🔨) from your hand to pay. Pay **1 rep + 1 Labor** ($1 + $1 = $2). Rep and Labor are fully fungible — you could pay 2 rep instead, or 2 Labor.",
-    spotlight: { kind: "action-button", action: "buy" },
-    postEngageSpotlight: { kind: "market-slot", slotIndex: 0 },
+    body: "Click the **Cooper**, then tag a **Labor card** (🔨) from your hand to pay.",
+    spotlight: { kind: "market-slot", slotIndex: 0 },
+    tapHint: { selector: "[data-market-slot-index='0']" },
     matches: (action) => {
       if (action.type !== "BUY_FROM_MARKET") return false;
       if (action.playerId !== TUTORIAL_HUMAN_ID) return false;

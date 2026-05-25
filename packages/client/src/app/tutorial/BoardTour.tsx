@@ -44,25 +44,25 @@ const STOPS: TourStop[] = [
   {
     id: "hand",
     title: "Your Hand",
-    body: "Eight cards a round. **Casks**, **corn**, **grains** (rye / barley / wheat), and **Labor** (🔨). Resources build barrels; **Labor cards age them or pay for buys**. You start with just 2 Labor — guard them.",
+    body: "This is your hand. You draw **8 cards** a round.",
     spotlight: { kind: "hand-cards", cardIds: [] },
   },
   {
     id: "market",
     title: "The Market",
-    body: "Ten cards for sale. Pay with **rep**, **Labor** (🔨), or any mix — they're fungible. The market sometimes stocks **Specialty Labor**: **Cooper** (🪓) gives +2 on resource buys, **Marketing** (📣) gives +2 on ops. Specialty Labor is the only way new Labor enters your deck.",
+    body: "This is where you **buy cards**.",
     spotlight: { kind: "market-row" },
   },
   {
     id: "demand",
     title: "The Demand Track",
-    body: "Higher demand = bigger payouts. **You roll 2 dice to start each turn — beat the current demand and it ticks up by 1.** It **drops every time someone sells.**",
+    body: "**Demand** determines what your bourbon sells for.",
     spotlight: { kind: "demand" },
   },
   {
     id: "supply",
     title: "The Bourbon Supply",
-    body: "More bourbon recipes live in this deck. Tap **Draft bills** to seed a draft pile with one card and reveal 3 bills — take any number for 1 card each, then the pile passes left so others can scavenge or take. **When the deck runs dry, the game ends.**",
+    body: "Number of bourbons left in the game. **When it hits 0, the game ends.**",
     spotlight: { kind: "supply" },
   },
   {
