@@ -25,16 +25,26 @@ export function applyDrawHand(
   action: DrawHandAction,
 ): void {
   const player = draft.players.find((p) => p.id === action.playerId)!;
-  const result = drawWithReshuffle(
-    player.deck.slice(),
-    player.discard.slice(),
-    player.handSize,
-    draft.rngState,
-  );
-  player.hand.push(...result.drawn);
-  player.deck = result.deck;
-  player.discard = result.discard;
-  draft.rngState = result.rngState;
+
+  // v3.9: PASS_TURN already discards + redraws the player's hand at
+  // end-of-turn, so DRAW_HAND only tops up to handSize. In a normal
+  // round-2-onwards transition the hand is already at handSize and
+  // this is a no-op (the draw event still lands in the orchestrator
+  // so the action phase opens correctly). Round 1's initial deal
+  // still draws the full handSize because the hand starts empty.
+  const needed = Math.max(0, player.handSize - player.hand.length);
+  if (needed > 0) {
+    const result = drawWithReshuffle(
+      player.deck.slice(),
+      player.discard.slice(),
+      needed,
+      draft.rngState,
+    );
+    player.hand.push(...result.drawn);
+    player.deck = result.deck;
+    player.discard = result.discard;
+    draft.rngState = result.rngState;
+  }
 
   // pull the saved card (if any) into hand on top of the
   // 8-card deal. So a player who saved last round draws 9 effective

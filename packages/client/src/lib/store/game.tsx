@@ -2405,12 +2405,19 @@ function captureDrawHand(
   seq: number,
 ): LastDrawHand | null {
   // v3.9: both DRAW_HAND (round-start) and PASS_TURN (end-of-turn
-  // redraw) repopulate the player's hand and should re-key the fan.
-  // Only fire for the local human — bot redraws would otherwise
+  // redraw) can repopulate the player's hand and should re-key the
+  // fan. Only fire for the local human — bot draws would otherwise
   // restart the deal-in keyframe mid-play.
   if (action.type !== "DRAW_HAND" && action.type !== "PASS_TURN") return null;
-  const nextPlayer = prev.state?.players.find((p) => p.id === action.playerId);
-  if (!nextPlayer || nextPlayer.isBot) return null;
-  const count = nextPlayer.hand.length;
-  return { ownerId: action.playerId, count, seq };
+  const player = prev.state?.players.find((p) => p.id === action.playerId);
+  if (!player || player.isBot) return null;
+  // After v3.9, the round-2-onwards DRAW_HAND is a no-op because
+  // PASS_TURN already topped the hand back up at end-of-turn. Skip
+  // the bump in that case so the fan doesn't re-trigger the deal-in
+  // animation for the same hand the user already saw fan in on
+  // their last End-Turn.
+  if (action.type === "DRAW_HAND" && player.hand.length >= player.handSize) {
+    return null;
+  }
+  return { ownerId: action.playerId, count: player.hand.length, seq };
 }

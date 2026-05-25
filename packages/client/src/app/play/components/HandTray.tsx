@@ -112,21 +112,21 @@ export default function HandTray() {
           ScalingHost — it's a true fullscreen modal and the
           `transform: scale(...)` on ScalingHost would otherwise scope
           its `position: fixed` to the design canvas. */}
-      {/* Phase / mode banner slot — reserves a fixed 44px so the layout
-          below doesn't shift when AgeOverlay/SellOverlay/MakeOverlay
-          pop in or out. The three are mutually exclusive (only one
-          mode is active at a time), so this single slot covers all
-          three. */}
-      <div className="min-h-[44px]">
+      {/* Phase / mode banner slot — fixed 44px so the bottom panel
+          doesn't flicker as AgeOverlay/SellOverlay/MakeOverlay's
+          inner content changes during a multi-step pick. The three
+          are mutually exclusive (only one mode is active at a time),
+          so this single slot covers all three. */}
+      <div className="h-[44px] overflow-hidden">
         <AgeOverlay />
         <SellOverlay />
         <MakeOverlay />
       </div>
 
-      {/* Action bar slot — reserves 34px so the bottom panel keeps its
-          shape between phases. ActionBar self-gates on the action
-          phase; outside it, the slot stays empty but pinned. */}
-      <div className="min-h-[34px]">
+      {/* Action bar slot — fixed 34px. ActionBar self-gates on the
+          action phase; outside it the slot stays empty but pinned at
+          the same height so the layout doesn't jump. */}
+      <div className="h-[34px] overflow-hidden">
         <ActionBar />
       </div>
 

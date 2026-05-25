@@ -139,21 +139,21 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
 }
 
 /**
- * Cleanup: discard remaining hand cards, reset per-round flags, rotate
- * the start player one seat counter-clockwise, and advance to the next
- * round (or end the game if the final round was triggered).
+ * Cleanup: reset per-round flags, rotate the start player one seat
+ * counter-clockwise, and advance to the next round (or end the game
+ * if the final round was triggered).
  *
- * Operations cards are NOT discarded at end of round — they persist across
- * rounds until played.
+ * v3.9: hands are NOT discarded here — PASS_TURN already cleared and
+ * repopulated each player's hand at end-of-turn, so cleanup's job is
+ * pure round bookkeeping. DRAW_HAND in the new round's draw phase is
+ * a top-up (see `applyDrawHand`) and is a no-op when the hand is
+ * already at handSize. Operations cards persist across rounds either
+ * way.
  */
 export function runCleanupPhase(draft: Draft<GameState>): void {
   draft.phase = "cleanup";
 
   for (const p of draft.players) {
-    if (p.hand.length > 0) {
-      p.discard.push(...p.hand);
-      p.hand = [];
-    }
     p.outForRound = false;
     p.demandSurgeActive = false;
     p.pendingHalfCostMarketBuy = false;

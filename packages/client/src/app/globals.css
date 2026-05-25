@@ -490,33 +490,67 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
   animation: ember 3.2s ease-in-out infinite;
 }
 
-/* `ember-needs` — aging barrel still owed its round age commit. A
-   bright, faster pulse with a radiating amber ring so it pops as a
-   "do this next" cue. */
+/* `ember-needs` — aging barrel still owed its round age commit.
+   Aggressively distinct from `.ember-aged`: hot amber medallion with
+   a saturated orange glow, a radiating ring that pulses outward, AND
+   a subtle scale pulse so the eye snaps to "do this next" the
+   instant a player looks at their rickhouse. */
 @keyframes ember-needs {
   0%, 100% {
     box-shadow:
-      0 0 10px rgba(240, 201, 112, 0.55),
-      0 0 0 0 rgba(245, 158, 11, 0.65);
+      0 0 14px rgba(245, 158, 11, 0.75),
+      0 0 28px rgba(245, 158, 11, 0.55),
+      0 0 0 0 rgba(245, 158, 11, 0.85);
+    filter: brightness(1.15) saturate(1.2);
+    transform: translate(-50%, -50%) scale(1);
   }
   50% {
     box-shadow:
-      0 0 22px rgba(245, 158, 11, 0.85),
-      0 0 0 8px rgba(245, 158, 11, 0);
+      0 0 22px rgba(252, 211, 77, 1),
+      0 0 36px rgba(245, 158, 11, 0.75),
+      0 0 0 12px rgba(245, 158, 11, 0);
+    filter: brightness(1.3) saturate(1.35);
+    transform: translate(-50%, -50%) scale(1.05);
   }
 }
 .ember-needs {
-  animation: ember-needs 1.6s ease-in-out infinite;
+  animation: ember-needs 1.4s ease-in-out infinite;
+  will-change: transform, box-shadow, filter;
 }
 
-/* `ember-aged` — barrel has eaten its age card this round. Slow,
-   quiet pulse — fed and settled. */
-@keyframes ember-aged {
-  0%, 100% { box-shadow: 0 0 6px rgba(240, 201, 112, 0.28); }
-  50%      { box-shadow: 0 0 10px rgba(240, 201, 112, 0.38); }
-}
+/* `ember-aged` — barrel has already eaten its age card this round.
+   Fully settled: NO animation, dimmed + desaturated brass so it
+   reads as "done" against the live `ember-needs` siblings. */
 .ember-aged {
-  animation: ember-aged 4.8s ease-in-out infinite;
+  animation: none;
+  filter: brightness(0.7) saturate(0.55);
+  box-shadow: 0 0 4px rgba(240, 201, 112, 0.18);
+}
+
+/* `.ember-aged-check` — the small check badge stamped on top of an
+   aged medallion to confirm the player committed a card this round.
+   Pure CSS so we don't have to thread state through another span. */
+.ember-aged-check {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-weight: 900;
+  font-size: 13px;
+  color: #0c0805;
+  background: linear-gradient(180deg, #82c9a3, #4f9c6f);
+  border: 2px solid #2a1a10;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+  z-index: 2;
+}
+.ember-aged-check::after {
+  content: "\2713"; /* check mark */
 }
 
 /* `.bb-zone-dim` / `.bb-zone-focus` — picker-mode focus dimming. The

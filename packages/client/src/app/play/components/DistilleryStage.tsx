@@ -887,6 +887,12 @@ function Barrel({
             >
               YR
             </span>
+            {/* Aged barrels get a green check badge so the "done"
+                state is unmistakable at a glance even before the
+                viewer notices the dimmer/desaturated medallion. */}
+            {!needsAgeThisRound ? (
+              <span className="ember-aged-check" aria-label="Aged this round" />
+            ) : null}
           </span>
         ) : (
           <BarrelNeedsPlate needs={needs} />
