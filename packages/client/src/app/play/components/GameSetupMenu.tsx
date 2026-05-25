@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Main menu — shown whenever `useGameStore.state` is null.
+ * Game setup menu — shown whenever `useGameStore.state` is null.
+ * Configures the player seat + bot seats, then starts a new game.
  *
- * Same visual style as v1's MainMenu, simplified for v2:
- * difficulty pickers stay on the form (cosmetic) but every seat plays
+ * Difficulty pickers stay on the form (cosmetic) but every seat plays
  * via the heuristic bot since v2 is computer-only for now.
  */
 
@@ -32,7 +32,7 @@ const DIFFICULTY_OPTIONS: { id: Difficulty; label: string; hint: string }[] = [
   { id: "hard", label: "Hard", hint: "Tighter pruning" },
 ];
 
-export default function MainMenu() {
+export default function GameSetupMenu() {
   const { newGame } = useGameStore();
   const [playerName, setPlayerName] = useState("You");
   const [bots, setBots] = useState<BotSeat[]>(DEFAULT_BOTS);

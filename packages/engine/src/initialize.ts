@@ -67,7 +67,7 @@ export function initializeGame(config: GameConfig): GameState {
       // starter draft path won't see this player) and shuffle.
       const seedDeck = explicitDeck.slice();
       if (distillery) {
-        applyDistilleryStarterModifications(seedDeck as unknown as Draft<Card[]>, p, distillery);
+        applyDistilleryStarterModifications(seedDeck, p, distillery);
       }
       const shuffled = shuffleCards(seedDeck, rngState);
       // v2.14: no round-1 Labor rig. The starter composition (3 Labor

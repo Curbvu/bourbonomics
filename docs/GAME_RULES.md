@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (current alpha — "Unified Market").** Distillery selection (4-distillery picker), slot-bound mash bills, incremental production, single-step selling, a unified 10-card market (resources + Labor + ops + investments together), trading, doomsday-deck endgame. Reputation is the unified currency for both VP and spending; Labor cards supplement rep on purchases. Generic Labor is finite per player (2 in the starter deck, no central pile, no Hire). Investment cards ship in the market but their on-buy effects are still effect-pending. Multiplayer is live (host a 4-char-code room from `/multiplayer`).
+> **Scope (current alpha — "Unified Market").** Distillery selection (4-distillery picker), slot-bound mash bills, incremental production, single-step selling, a unified 10-card market (resources + Labor + ops + investments together), trading, doomsday-deck endgame. Reputation is the unified currency for both VP and spending; Labor cards supplement rep on purchases. Generic Labor is finite per player (3 in the starter deck, no central pile, no Hire). Investment cards ship in the market but their on-buy effects are still effect-pending. Multiplayer is live (host a 4-char-code room from `/multiplayer`).
 
 ---
 

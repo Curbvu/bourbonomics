@@ -402,8 +402,6 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
 // from the market. No central Hire pile, no top-up.
 // ============================================================
 
-export const STARTER_DECK_SIZE = 16;
-
 export function defaultStarterCards(playerLabel: string): Card[] {
   const cards: Card[] = [];
   let idx = 0;

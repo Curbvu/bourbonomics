@@ -27,7 +27,6 @@ interface PlayerRoundSummary {
   seatIndex: number;
   logoId: string | null | undefined;
   barrelsSold: number;
-  repGained: number;
   totalRep: number;
 }
 
@@ -65,15 +64,12 @@ function summarizeRound(
     Math.min(12, demandEnd - demandRises + sales.length),
   );
 
-  // SELL_BOURBON no longer carries the rep total in its
-  // payload. We count barrels sold from the action log and report 0
-  // repGained for the per-round delta — the recap chip will show
-  // sales count but not the exact rep delta until the engine
-  // surfaces it on a future state snapshot.
+  // SELL_BOURBON no longer carries the rep total in its payload, so the
+  // recap shows sales count + running total only. A per-round rep delta
+  // can come back once the engine surfaces it on a state snapshot.
   const perPlayer: PlayerRoundSummary[] = state.players.map((p, seatIndex) => {
     const meta = seatMeta.find((m) => m.id === p.id);
     let barrelsSold = 0;
-    const repGained = 0;
     for (const entry of prevLog) {
       const a = entry.action as GameAction;
       if (a.type === "SELL_BOURBON" && a.playerId === p.id) {
@@ -86,7 +82,6 @@ function summarizeRound(
       seatIndex,
       logoId: meta?.logoId,
       barrelsSold,
-      repGained,
       totalRep: p.reputation,
     };
   });
@@ -289,7 +284,6 @@ function DemandSummary({
 
 function PlayerRecapRow({ summary }: { summary: PlayerRoundSummary }) {
   const sold = summary.barrelsSold;
-  const banked = summary.repGained;
   return (
     <div className="flex items-center gap-3 rounded-md border border-slate-800/80 bg-slate-950/40 px-3 py-2">
       <PlayerSwatch
@@ -308,15 +302,6 @@ function PlayerRecapRow({ summary }: { summary: PlayerRoundSummary }) {
       ) : (
         <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-600">
           held
-        </span>
-      )}
-      {banked > 0 ? (
-        <span className="font-mono text-[10px] uppercase tracking-[.10em] text-emerald-300">
-          +{banked} rep
-        </span>
-      ) : (
-        <span className="font-mono text-[10px] uppercase tracking-[.10em] text-slate-700">
-          +0
         </span>
       )}
       <span className="font-mono text-[11px] font-bold tabular-nums text-amber-300">

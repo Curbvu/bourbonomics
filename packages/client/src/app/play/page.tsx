@@ -12,7 +12,7 @@ import DrawBillOverlay from "./components/DrawBillOverlay";
 import GameBoard from "./components/GameBoard";
 import GameErrorBoundary from "./components/ErrorBoundary";
 import GameTopBar from "./components/GameTopBar";
-import MainMenu from "./components/MainMenu";
+import GameSetupMenu from "./components/GameSetupMenu";
 import ScalingHost from "./components/ScalingHost";
 import StarterDeckDraftModal from "./components/StarterDeckDraftModal";
 import YearPassModal from "./components/YearPassModal";
@@ -47,7 +47,7 @@ export default function PlayPage() {
     };
   }, []);
 
-  if (!state) return <MainMenu />;
+  if (!state) return <GameSetupMenu />;
 
   return (
     <main

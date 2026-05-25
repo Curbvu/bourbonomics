@@ -14,14 +14,14 @@ This is an npm-workspaces monorepo.
 
 ```
 packages/
-└── engine/        Pure TypeScript game engine — no DOM, no fetch.
-                   Action-based reducer with seeded RNG and immer-driven state.
+├── engine/        Pure TypeScript game engine — no DOM, no fetch.
+│                  Action-based reducer with seeded RNG and immer-driven state.
+├── client/        Next.js 16 (App Router) React UI. The `npm run dev` target.
+└── server/        WebSocket multiplayer host. Lambda + DynamoDB, deployed via SST.
 ```
 
-Future packages (per the implementation guide):
-- `packages/client` — React UI (planned)
-- `packages/server` — WebSocket multiplayer host (planned)
-- `packages/content` — JSON catalogs of mash bills, investments, operations cards, market supply (planned)
+Planned (not yet scaffolded):
+- `packages/content` — JSON catalogs of mash bills, investments, operations cards, market supply.
 
 ## Getting started
 
@@ -50,15 +50,4 @@ const next = applyAction(state, { type: "ROLL_DEMAND", roll: [3, 4] });
 
 ### Rickhouses
 
-The six rickhouses map to the **[Kentucky Bourbon Trail® regions](https://kybourbontrail.com/regions/)**:
-
-| Region      | Capacity |
-|-------------|----------|
-| Northern    | 3        |
-| Louisville  | 5        |
-| Central     | 4        |
-| Lexington   | 5        |
-| Bardstown   | 6        |
-| Western     | 3        |
-
-Total capacity: **26 barrels**.
+Each player has their own rickhouse — **4 slots** by default, all equivalent. The Rickhouse Expansion Permit ops card raises the cap to 6. See [`docs/GAME_RULES.md`](docs/GAME_RULES.md) §The Rickhouse for the slot lifecycle (Open → Staged → Building → Aging) and per-distillery overrides.
