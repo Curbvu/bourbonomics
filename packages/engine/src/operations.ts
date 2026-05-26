@@ -10,9 +10,8 @@ import type { OperationsCard, OperationsCardDefId } from "./types";
 // script that generates this file from the YAML; until then, keep the
 // two in sync by hand.
 //
-// Only entries marked `implemented: true` are minted into the deck.
-// Design-only entries are documented but skipped, so the engine never
-// produces an OperationsCard for an effect it cannot resolve.
+// Lean catalog: 10 implemented ops cards, 24 copies minted at game
+// start.
 // ============================================================
 
 interface OpsCardSpec {
@@ -28,16 +27,13 @@ interface OpsCardSpec {
 
 const SPECS: OpsCardSpec[] = [
   // ── Demand manipulation ─────────────────────────────────────────
-  // (Unified Rep) cost rebalance: every dollar of cost is now a
-  // victory point sacrificed (rep IS the score), so the old
-  // 2/3/4/5/6 ladder was rebalanced. New ladder caps at 5.
   {
     defId: "market_manipulation",
     name: "Market Manipulation",
     description: "Move the Demand Track up or down by 1.",
     flavor: "A whisper, a wink, a lever pulled.",
     cost: 2,
-    copies: 1,
+    copies: 3,
     implemented: true,
   },
   {
@@ -46,7 +42,7 @@ const SPECS: OpsCardSpec[] = [
     description: "Demand increases by 2 immediately (capped at 12).",
     flavor: "The whole town's drinking tonight.",
     cost: 3,
-    copies: 1,
+    copies: 2,
     implemented: true,
   },
   {
@@ -55,11 +51,9 @@ const SPECS: OpsCardSpec[] = [
     description: "Demand decreases by 2 immediately (floored at 0).",
     flavor: "Too much bourbon, not enough thirst.",
     cost: 2,
-    copies: 1,
+    copies: 2,
     implemented: true,
   },
-
-  // ── Counter-play / flood enable ─────────────────────────────────
   {
     defId: "demand_surge",
     name: "Demand Surge",
@@ -67,7 +61,7 @@ const SPECS: OpsCardSpec[] = [
       "The Demand Track does not drop when you sell your next barrel this round.",
     flavor: "Hold the price — they'll come back.",
     cost: 3,
-    copies: 1,
+    copies: 2,
     implemented: true,
   },
 
@@ -78,91 +72,44 @@ const SPECS: OpsCardSpec[] = [
     description: "Age one of your barrels twice this round instead of once.",
     flavor: "Skip a winter, ship by spring.",
     cost: 3,
-    copies: 1,
+    copies: 3,
     implemented: true,
   },
   {
-    defId: "forced_cure",
-    name: "Forced Cure",
+    defId: "wild_mash",
+    name: "Wild Mash",
     description:
-      "Place an extra aging card on one of your barrels for one extra year this round.",
-    flavor: "An extra year, on the house.",
-    cost: 3,
-    copies: 1,
-    implemented: true,
-  },
-  {
-    defId: "mash_futures",
-    name: "Mash Futures",
-    description:
-      "Pre-play. Your next Make Bourbon needs 1 fewer grain card (minimum 1 grain still required).",
-    flavor: "Grain on credit, due at the still.",
+      "This turn, treat 1 cask card in your hand as a wild grain when committing to a recipe (or treat 1 grain card as a cask).",
+    flavor: "Whatever's in the hopper, that's the recipe.",
     cost: 2,
-    copies: 1,
-    implemented: true,
-  },
-  {
-    defId: "coopers_contract",
-    name: "Cooper's Contract",
-    description:
-      "Pre-play. Your next Make Bourbon may use 0 cask cards instead of the required 1.",
-    flavor: "The barrels can wait. The bourbon can't.",
-    cost: 1,
-    copies: 1,
+    copies: 3,
     implemented: true,
   },
 
-  // ── Market & economy ────────────────────────────────────────────
+  // ── Defensive ───────────────────────────────────────────────────
   {
-    defId: "market_corner",
-    name: "Market Corner",
+    defId: "regulatory_inspection",
+    name: "Regulatory Inspection",
     description:
-      "Take one face-up market card into your hand without paying its cost. Refill the market.",
-    flavor: "Bought the shelf before anyone else looked.",
+      "Target an aging barrel of any player. That barrel may not be aged this round.",
+    flavor: "Inspector says: not this round.",
     cost: 3,
-    copies: 1,
-    implemented: true,
-  },
-  {
-    defId: "insider_buyer",
-    name: "Insider Buyer",
-    description:
-      "Discard the entire 10-card market conveyor and refill from supply.",
-    flavor: "The conveyor blinks. The conveyor obeys.",
-    cost: 2,
-    copies: 1,
-    implemented: true,
-  },
-  {
-    defId: "kentucky_connection",
-    name: "Kentucky Connection",
-    description: "Draw 2 cards from your resource deck.",
-    flavor: "Old friend. Two cards on the way.",
-    cost: 1,
-    copies: 1,
-    implemented: true,
-  },
-  {
-    defId: "bottling_run",
-    name: "Bottling Run",
-    description: "Every player draws 1 card from their resource deck.",
-    flavor: "Run the line, share the bottles.",
-    cost: 2,
-    copies: 1,
-    implemented: true,
-  },
-  {
-    defId: "cash_out",
-    name: "Cash Out",
-    description:
-      "Discard any number of resource cards from your hand. Gain 1 reputation for every 2 discarded (round down).",
-    flavor: "Trade the grain for a story worth telling.",
-    cost: 1,
-    copies: 1,
+    copies: 3,
     implemented: true,
   },
 
-  // ── Endgame & clock ─────────────────────────────────────────────
+  // ── Sale amplifiers ─────────────────────────────────────────────
+  {
+    defId: "rating_boost",
+    name: "Rating Boost",
+    description: "Pre-play. Your next Sell Bourbon gains +2 reputation.",
+    flavor: "Critic's pick, just in time.",
+    cost: 3,
+    copies: 2,
+    implemented: true,
+  },
+
+  // ── Endgame / draw ──────────────────────────────────────────────
   {
     defId: "allocation",
     name: "Allocation",
@@ -170,72 +117,16 @@ const SPECS: OpsCardSpec[] = [
       "Draw 2 mash bills from the Bourbon deck without paying their normal cost.",
     flavor: "Two recipes off the truck — no questions.",
     cost: 3,
-    copies: 1,
+    copies: 2,
     implemented: true,
   },
-
-  // ── Defensive / reactive ────────────────────────────────────────
   {
-    defId: "regulatory_inspection",
-    name: "Regulatory Inspection",
-    description:
-      "Target a barrel of any player. That barrel may not be aged this round.",
-    flavor: "Inspector says: not this round.",
+    defId: "kentucky_connection",
+    name: "Kentucky Connection",
+    description: "Draw 2 cards from your resource deck.",
+    flavor: "Old friend. Two cards on the way.",
     cost: 3,
-    copies: 1,
-    implemented: true,
-  },
-  {
-    defId: "barrel_broker",
-    name: "Barrel Broker",
-    description:
-      "Transfer one of your barrels to another player's empty rickhouse slot for a card payment.",
-    flavor: "A handshake, and a slot opens up.",
-    cost: 4,
-    copies: 1,
-    implemented: true,
-  },
-  {
-    defId: "blend",
-    name: "Blend",
-    description:
-      "Combine two of your own barrels into one. Higher age, higher-value mash bill, all cards.",
-    flavor: "Two barrels in. One legend out.",
-    cost: 4,
-    copies: 1,
-    implemented: true,
-  },
-
-  // ── Sale amplifiers / persistent buffs ─────────────────────────
-  {
-    defId: "rating_boost",
-    name: "Rating Boost",
-    description: "Pre-play. Your next Sell Bourbon gains +2 reputation.",
-    flavor: "Critic's pick, just in time.",
-    cost: 3,
-    copies: 1,
-    implemented: true,
-  },
-  {
-    defId: "master_distiller",
-    name: "Master Distiller",
-    description:
-      "Choose one of your barrels. For the rest of the game, that barrel reads its grid as if demand were 2 higher.",
-    flavor: "He reads the demand like a forecast.",
-    cost: 5,
-    copies: 1,
-    implemented: true,
-  },
-
-  // ── Persistent infrastructure ───────────────────────────────────
-  {
-    defId: "rickhouse_expansion_permit",
-    name: "Rickhouse Expansion Permit",
-    description:
-      "Permanently gain 1 additional rickhouse slot (max 6 total).",
-    flavor: "Plans approved. Pour the foundation.",
-    cost: 5,
-    copies: 1,
+    copies: 2,
     implemented: true,
   },
 ];

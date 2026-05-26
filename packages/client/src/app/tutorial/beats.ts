@@ -4,18 +4,19 @@
  * renders the right surface per beat kind.
  *
  * The tutorial teaches one barrel end-to-end (Backroad Batch) across
- * four chapters:
+ * four player-visible chapters:
  *
  *   Chapter 1 — Make bourbon (3 ingredient commits)
- *   Chapter 2 — Age your barrel
- *   Chapter 3 — Hire a Cooper from the market (rep + Labor payment)
+ *   Chapter 2 — Buy a resource from the market (Specialty Wheat, $2)
+ *   Chapter 3 — Age your barrel (after the round rolls over)
  *   Chapter 4 — Sell
  *
- * The Hire/Age order is intentional: the player makes the barrel in
- * round 1, the round rolls over, they age it once in round 2's age
- * phase, then they spend round 2's action phase hiring the Cooper.
- * That puts the Cooper prompt right after the player has felt aging
- * for the first time, instead of dropping it mid-make.
+ * The Make + Buy chapters live inside Year 1: the player makes the
+ * barrel and then spends their leftover Labor on Specialty Wheat
+ * before passing the turn. Year 2 is the "what happens to the
+ * barrel" half of the lesson — Age, then Sell. The second round
+ * roll-over (Year 2 → engine round 3) is invisible plumbing so the
+ * player perceives Age + Sell as one continuous Year-2 beat.
  *
  * Why not ship as a tree / branching script? Every player gets the
  * same path. There IS a "false decision" but both branches advance
@@ -40,17 +41,6 @@ function findHumanBarrelByBillDef(
     (b) => b.ownerId === TUTORIAL_HUMAN_ID && b.attachedMashBill.defId === billDefId,
   );
   return barrel ? { barrelId: barrel.id, slotId: barrel.slotId } : null;
-}
-
-/** Find the bot's lone aging barrel (the pre-staged one). */
-function findBotAgingBarrel(state: GameState): { barrelId: string; cardId: string | null } | null {
-  const barrel = state.allBarrels.find(
-    (b) => b.ownerId === TUTORIAL_BOT_ID && b.phase === "aging",
-  );
-  if (!barrel) return null;
-  const bot = state.players.find((p) => p.id === TUTORIAL_BOT_ID);
-  const card = bot?.hand[0];
-  return { barrelId: barrel.id, cardId: card?.id ?? null };
 }
 
 /** Tally cumulative resource counts in a barrel's production pile. */
@@ -100,7 +90,7 @@ function findHandCard(state: GameState, predicate: (c: Card) => boolean): string
 
 export const TUTORIAL_BEATS: Beat[] = [
   // ════════════════════════════════════════════════════════════════
-  // CHAPTER 1 — Make bourbon
+  // CHAPTER 1 — Make bourbon (Year 1)
   // ════════════════════════════════════════════════════════════════
   {
     id: "lesson-1-intro",
@@ -172,59 +162,91 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-1-aftermath",
     kind: "prompt",
-    title: "Aging",
-    body: "Backroad Batch is now **ready** and is **aging**.",
+    title: "That's it for year 1",
+    body: "Backroad Batch is now **aging**. But before we end the year, let's grab a resource from the market — you'll need it for future recipes.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
   },
 
   // ════════════════════════════════════════════════════════════════
-  // CHAPTER 2 — Age your barrel
+  // CHAPTER 2 — Buy a resource (still Year 1)
   // ════════════════════════════════════════════════════════════════
   {
     id: "lesson-2-intro",
     kind: "prompt",
-    title: "Age your barrel",
-    body: "Every round, an aging barrel needs 1 card to keep maturing. Older bourbon pays more — when you sell at the right time.",
+    title: "Buy a resource",
+    body: "The market has **Specialty Wheat** today — a premium grain that counts toward any 'specialty wheat' recipe gate. You'll always need fresh resources to keep making bourbon.",
     spotlight: { kind: "none" },
-    chapter: { number: 2, label: "Age" },
+    chapter: { number: 2, label: "Buy" },
   },
   {
-    id: "beat-age-time-passes",
+    id: "beat-buy-wheat",
+    kind: "await-action",
+    title: "Buy Specialty Wheat",
+    body: "Click **Specialty Wheat**, then tag any **Labor card** (🔨) from your hand to pay the $2 cost.",
+    spotlight: { kind: "market-slot", slotIndex: 0 },
+    tapHint: { selector: "[data-market-slot-index='0']" },
+    matches: (action) => {
+      if (action.type !== "BUY_FROM_MARKET") return false;
+      if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
+      return action.marketSlotIndex === 0;
+    },
+  },
+  {
+    id: "beat-buy-aftermath",
+    kind: "prompt",
+    title: "Wheat in the deck",
+    body: "Specialty Wheat landed in your discard — it'll shuffle into your deck for a future round.",
+    spotlight: { kind: "none" },
+  },
+
+  // ════════════════════════════════════════════════════════════════
+  // CHAPTER 3 — End Turn → Aging (Year 2)
+  // The player ends the year explicitly, then we silently roll over
+  // into Year 2 and announce the Aging Phase as a chapter card.
+  // ════════════════════════════════════════════════════════════════
+  {
+    id: "beat-end-turn-prompt",
+    kind: "prompt",
+    title: "End the year",
+    body: "That's all our actions for the first year. Hit **End Turn**.",
+    spotlight: { kind: "action-button", action: "pass" },
+  },
+  {
+    id: "beat-end-turn-await",
+    kind: "await-action",
+    title: "End your turn",
+    body: "Click **End Turn** in the action bar.",
+    spotlight: { kind: "action-button", action: "pass" },
+    matches: (action) => {
+      if (action.type !== "PASS_TURN") return false;
+      return action.playerId === TUTORIAL_HUMAN_ID;
+    },
+  },
+  {
+    id: "beat-r1-bot-pass",
+    kind: "scripted",
+    body: "(internal — bot passes so the round can flip)",
+    delayMs: 80,
+    build: (state) => {
+      const current = state.players[state.currentPlayerIndex];
+      if (!current || current.outForRound) return [];
+      if (current.id !== TUTORIAL_BOT_ID) return [];
+      return [{ type: "PASS_TURN", playerId: TUTORIAL_BOT_ID }];
+    },
+  },
+  {
+    id: "beat-r2-time-passes",
     kind: "transition",
     title: "Time passes…",
-    subtitle: "Round 2",
+    subtitle: "Year 2",
     body: "Round ends. Decks reshuffle.",
     fakeRolls: [{ dice: [1, 1] }],
     durationMs: 2400,
   },
   {
-    id: "beat-age-end-round",
+    id: "beat-r2-pin-start-player",
     kind: "scripted",
-    body: "(internal — pass turn for both, run cleanup, refresh draws)",
-    delayMs: 80,
-    build: (state) => {
-      const current = state.players[state.currentPlayerIndex];
-      if (current && !current.outForRound) {
-        return [{ type: "PASS_TURN", playerId: current.id }];
-      }
-      return [];
-    },
-  },
-  {
-    id: "beat-age-bot-pass",
-    kind: "scripted",
-    body: "(internal — second pass)",
-    delayMs: 80,
-    build: (state) => {
-      const current = state.players[state.currentPlayerIndex];
-      if (!current || current.outForRound) return [];
-      return [{ type: "PASS_TURN", playerId: current.id }];
-    },
-  },
-  {
-    id: "beat-age-pin-start-player",
-    kind: "scripted",
-    body: "(internal — round-2 opens on the human, not the rotated bookend)",
+    body: "(internal — round-2 opens on the human)",
     delayMs: 40,
     mutate: (state) => {
       const next = structuredClone(state);
@@ -234,7 +256,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     build: () => [],
   },
   {
-    id: "beat-age-draw-human",
+    id: "beat-r2-draw-human",
     kind: "scripted",
     body: "(internal — human draws round-2 hand)",
     delayMs: 80,
@@ -245,7 +267,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     },
   },
   {
-    id: "beat-age-draw-bot",
+    id: "beat-r2-draw-bot",
     kind: "scripted",
     body: "(internal — bot draws)",
     delayMs: 80,
@@ -256,17 +278,18 @@ export const TUTORIAL_BEATS: Beat[] = [
     },
   },
   {
-    id: "beat-age-prompt",
+    id: "lesson-3-intro",
     kind: "prompt",
-    title: "Aging Phase",
-    body: "The **Aging Phase** is now active — barrels age on every turn. Pick any card from your hand and click your barrel to commit 1 year. (Or drag.)",
-    spotlight: { kind: "rickhouse-row", ownerId: TUTORIAL_HUMAN_ID },
+    title: "Aging",
+    body: "Every year, your aging barrels need a card to keep maturing. Older bourbon pays more when you sell.",
+    spotlight: { kind: "none" },
+    chapter: { number: 3, label: "Age" },
   },
   {
     id: "beat-age-backroad",
     kind: "await-action",
     title: "Age Backroad Batch",
-    body: "Drag any card onto Backroad Batch to age it 1 year.",
+    body: "Drag any card onto **Backroad Batch** to age it 1 year.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
     // Same ghost-card+cursor drag animation as the Make sub-beats
     // (beat-1a/1b/1c). Any hand card is a legal age payment, so the
@@ -294,103 +317,44 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-age-aftermath",
     kind: "prompt",
     title: "+1 year",
-    body: "Backroad just ticked to age 1. Selling needs age 2 — one more year.",
+    body: "Backroad just picked up a year. Now let's sell it.",
     spotlight: { kind: "rickhouse-slot", ownerId: TUTORIAL_HUMAN_ID, slotIndex: 0 },
   },
 
   // ════════════════════════════════════════════════════════════════
-  // CHAPTER 3 — Hire from the market
-  // The player is now in round 2's action phase (the age phase
-  // wrapped up when Backroad ticked to age 1). Hiring the Cooper
-  // happens here, then the Sell chapter passes the turn to the bot.
+  // CHAPTER 4 — Sell (still Year 2 for the player)
+  // Engine plumbing: we silently roll the round once more so Backroad
+  // lands on MIN_SELL_AGE. No visible transition — the player still
+  // perceives this as the same "year 2" beat.
   // ════════════════════════════════════════════════════════════════
   {
-    id: "lesson-3-intro",
-    kind: "prompt",
-    title: "Hire a Cooper",
-    body: "The market has a **Cooper** today — Specialty Labor (🪓) that gives **+2 toward resource buys**. Specialty Labor is the only way new Labor enters your deck — your 2 Generic Labor (🔨) are all you'd ever own otherwise.",
-    spotlight: { kind: "none" },
-    chapter: { number: 3, label: "Hire" },
-  },
-  {
-    id: "beat-buy-cooper",
-    kind: "await-action",
-    title: "Buy the Cooper",
-    body: "Click the **Cooper**, then tag a **Labor card** (🔨) from your hand to pay.",
-    spotlight: { kind: "market-slot", slotIndex: 0 },
-    tapHint: { selector: "[data-market-slot-index='0']" },
-    matches: (action) => {
-      if (action.type !== "BUY_FROM_MARKET") return false;
-      if (action.playerId !== TUTORIAL_HUMAN_ID) return false;
-      return action.marketSlotIndex === 0;
-    },
-  },
-  {
-    id: "beat-buy-aftermath",
-    kind: "prompt",
-    title: "Cooper hired",
-    body: "Your new Cooper landed in your discard — it'll shuffle into your deck next reshuffle. Generic Labor is finite; Specialty Labor is how your hand grows.",
-    spotlight: { kind: "none" },
-  },
-
-  // ════════════════════════════════════════════════════════════════
-  // CHAPTER 4 — Sell
-  // ════════════════════════════════════════════════════════════════
-  {
-    id: "lesson-4-intro",
-    kind: "prompt",
-    title: "Sell at the right time",
-    body: "Selling earns reputation — but it also drops the market's demand for everyone. Watch what your opponent does.",
-    spotlight: { kind: "none" },
-    chapter: { number: 4, label: "Sell" },
-  },
-  {
-    id: "beat-sell-pass-human",
+    id: "beat-sell-silent-human-pass",
     kind: "scripted",
-    body: "(internal — human ends turn so the bot can sell)",
-    delayMs: 600,
-    build: () => [{ type: "PASS_TURN", playerId: TUTORIAL_HUMAN_ID }],
-  },
-  {
-    id: "beat-sell-bot-sells",
-    kind: "scripted",
-    body: "(internal — scripted bot sale)",
-    delayMs: 800,
-    build: (state) => {
-      const target = findBotAgingBarrel(state);
-      if (!target) return [];
-      return [
-        {
-          type: "SELL_BOURBON",
-          playerId: TUTORIAL_BOT_ID,
-          barrelId: target.barrelId,
-        },
-      ];
-    },
-  },
-  {
-    id: "beat-sell-modal",
-    kind: "prompt",
-    title: "Demand dropped",
-    body: "Opponent sold. **Demand: 2 → 1.** Now's your moment.",
-    spotlight: { kind: "demand" },
-    ctaLabel: "What now?",
-  },
-  {
-    id: "beat-sell-bot-pass",
-    kind: "scripted",
-    body: "(internal — bot finishes its turn after selling)",
-    delayMs: 80,
+    body: "(internal — silent round-flip prep, human side)",
+    delayMs: 60,
     build: (state) => {
       const current = state.players[state.currentPlayerIndex];
-      if (!current || current.id !== TUTORIAL_BOT_ID) return [];
+      if (!current || current.outForRound) return [];
+      if (current.id !== TUTORIAL_HUMAN_ID) return [];
+      return [{ type: "PASS_TURN", playerId: TUTORIAL_HUMAN_ID }];
+    },
+  },
+  {
+    id: "beat-sell-silent-bot-pass",
+    kind: "scripted",
+    body: "(internal — silent round-flip prep, bot side)",
+    delayMs: 60,
+    build: (state) => {
+      const current = state.players[state.currentPlayerIndex];
+      if (!current || current.outForRound) return [];
+      if (current.id !== TUTORIAL_BOT_ID) return [];
       return [{ type: "PASS_TURN", playerId: TUTORIAL_BOT_ID }];
     },
   },
   {
-    id: "beat-sell-round-3-pin-start-player",
+    id: "beat-sell-pin-start-player",
     kind: "scripted",
-    body: "(internal — round 3 opens on the human)",
+    body: "(internal — next round opens on the human)",
     delayMs: 40,
     mutate: (state) => {
       const next = structuredClone(state);
@@ -400,20 +364,20 @@ export const TUTORIAL_BEATS: Beat[] = [
     build: () => [],
   },
   {
-    id: "beat-sell-round-3-draw-human",
+    id: "beat-sell-draw-human",
     kind: "scripted",
     body: "(internal)",
-    delayMs: 80,
+    delayMs: 60,
     build: (state) =>
       state.phase === "draw" && !state.playerIdsCompletedPhase.includes(TUTORIAL_HUMAN_ID)
         ? [{ type: "DRAW_HAND", playerId: TUTORIAL_HUMAN_ID }]
         : [],
   },
   {
-    id: "beat-sell-round-3-draw-bot",
+    id: "beat-sell-draw-bot",
     kind: "scripted",
     body: "(internal)",
-    delayMs: 80,
+    delayMs: 60,
     build: (state) =>
       state.phase === "draw" && !state.playerIdsCompletedPhase.includes(TUTORIAL_BOT_ID)
         ? [{ type: "DRAW_HAND", playerId: TUTORIAL_BOT_ID }]
@@ -422,7 +386,7 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-sell-passive-age-backroad",
     kind: "scripted",
-    body: "(internal — Backroad picks up its second year across the round break so it lands on MIN_SELL_AGE)",
+    body: "(internal — Backroad picks up its second year across the silent round break so it lands on MIN_SELL_AGE)",
     delayMs: 40,
     mutate: (state) => {
       const next = structuredClone(state);
@@ -447,6 +411,14 @@ export const TUTORIAL_BEATS: Beat[] = [
       return next;
     },
     build: () => [],
+  },
+  {
+    id: "lesson-4-intro",
+    kind: "prompt",
+    title: "Sell your bourbon",
+    body: "Time to cash in. Selling Backroad earns reputation — the score that wins the game.",
+    spotlight: { kind: "none" },
+    chapter: { number: 4, label: "Sell" },
   },
   {
     id: "beat-sell-backroad",
@@ -493,7 +465,6 @@ export const TUTORIAL_BEATS: Beat[] = [
     bullets: [
       "Built a recipe.",
       "Aged your barrel.",
-      "Waited for demand.",
       "Sold for rep.",
     ],
     closeLabel: "Start a real game",

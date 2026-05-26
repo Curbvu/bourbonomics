@@ -370,6 +370,7 @@ export type InvestmentTrigger =
   | "on_make"
   | "on_age"
   | "on_complete"
+  | "on_complete_recipe"
   | "on_buy_market"
   | "turn_start"
   | "round_end"
@@ -532,23 +533,13 @@ export type OperationsCardDefId =
   | "market_manipulation"
   | "bourbon_boom"
   | "glut"
-  | "regulatory_inspection"
+  | "demand_surge"
   | "rushed_shipment"
-  | "forced_cure"
-  | "barrel_broker"
-  | "market_corner"
-  | "insider_buyer"
-  | "kentucky_connection"
-  | "bottling_run"
-  | "cash_out"
-  | "allocation"
-  | "rickhouse_expansion_permit"
-  | "mash_futures"
-  | "coopers_contract"
+  | "regulatory_inspection"
   | "rating_boost"
-  | "master_distiller"
-  | "blend"
-  | "demand_surge";
+  | "allocation"
+  | "kentucky_connection"
+  | "wild_mash";
 
 export interface OperationsCard {
   id: string;
@@ -658,6 +649,12 @@ export interface PlayerState {
   name: string;
   /** AI-controlled? Defaults to false (human). */
   isBot?: boolean;
+  /**
+   * Bot AI skill knob. Read by `ai/bot.ts` to vary buy thresholds and
+   * the Drafting Loop policy. Ignored for human seats; defaults to
+   * `"normal"` when unset on a bot.
+   */
+  difficulty?: BotDifficulty;
 
   /** Distillery selected during setup. Null until SELECT_DISTILLERY resolves. */
   distillery: Distillery | null;
@@ -700,6 +697,16 @@ export interface PlayerState {
   barrelsSold: number;
 
   /**
+   * Permanent prestige counter. Earned by triggering Gold awards on
+   * sale (and, for Connoisseur Estate, Silver awards too). Each point
+   * adds +1 reputation to every future Silver- or Gold-triggering
+   * sale. Does NOT apply to base sales that hit no award.
+   *
+   * Prestige is monotonic — never decreases. No cap.
+   */
+  prestige: number;
+
+  /**
    * Save slot — at cleanup, the player may set aside ONE card
    * from their hand into this slot. The saved card joins next round's
    * 8-card draw on top, so the player effectively draws 9 the round
@@ -731,6 +738,12 @@ export interface PlayerState {
    * +N reputation on top of the grid reward. Persists until consumed.
    */
   pendingRatingBoost: number;
+  /**
+   * Set when the player plays Wild Mash this turn. Consumed by the
+   * next MAKE_BOURBON action (one substitution, then cleared regardless
+   * of whether it was used). Cleared on PASS_TURN too.
+   */
+  pendingWildMashToken?: boolean;
   /**
    * v2.9: each player rolls demand at the start of their own action
    * turn (instead of one global roll per round). This flag is set
@@ -878,6 +891,12 @@ export interface GameState {
   bourbonDeck: MashBill[];
   bourbonDiscard: MashBill[];
   /**
+   * Bills retired by Gold awards. Removed from circulation entirely
+   * — they will not return to the bourbon deck or discard. Tracked
+   * here so the UI can show a graveyard of past Gold sales.
+   */
+  retiredBills: MashBill[];
+  /**
    * Active Drafting Loop sub-phase, if any. While non-null, the only
    * legal actions are `DRAFT_TAKE_BILL`, `DRAFT_TAKE_CARD`, and
    * `DRAFT_PASS`, routed to `draftingLoop.pickOrder[pickerIndex]`
@@ -905,9 +924,16 @@ export interface GameState {
 // Game Config (for initializeGame)
 // -----------------------------
 
+/**
+ * Bot AI skill knob. Drives the per-action heuristic in `ai/bot.ts` —
+ * EV thresholds, reputation floors, and the Drafting Loop policy. Human
+ * seats leave this unset.
+ */
+export type BotDifficulty = "easy" | "normal" | "hard";
+
 export interface GameConfig {
   seed: number;
-  players: { id: string; name: string; isBot?: boolean }[];
+  players: { id: string; name: string; isBot?: boolean; difficulty?: BotDifficulty }[];
   /** Pre-built starter decks per player (alternative to running the draft). */
   starterDecks?: Card[][];
   /** Pre-drafted mash bills per player (alternative to running the draft). */
@@ -940,7 +966,7 @@ export interface NewGameSeat {
   /** Cosmetic — picks the avatar asset shown in the seat strip. */
   logoId?: string;
   /** Bot difficulty selector. Ignored for human seats. */
-  difficulty?: "easy" | "normal" | "hard";
+  difficulty?: BotDifficulty;
 }
 
 /**
@@ -1014,29 +1040,13 @@ export type PlayOperationsCardParams =
   | { defId: "market_manipulation"; direction: "up" | "down" }
   | { defId: "bourbon_boom" }
   | { defId: "glut" }
-  | { defId: "regulatory_inspection"; targetBarrelId: string }
+  | { defId: "demand_surge" }
   | { defId: "rushed_shipment"; targetBarrelId: string }
-  | { defId: "forced_cure"; targetBarrelId: string }
-  | {
-      defId: "barrel_broker";
-      sourceBarrelId: string;
-      targetPlayerId: string;
-      targetSlotId: string;
-      paymentCardIds: string[];
-    }
-  | { defId: "market_corner"; marketSlotIndex: number }
-  | { defId: "insider_buyer" }
-  | { defId: "kentucky_connection" }
-  | { defId: "bottling_run" }
-  | { defId: "cash_out" }
-  | { defId: "allocation" }
-  | { defId: "rickhouse_expansion_permit" }
-  | { defId: "mash_futures" }
-  | { defId: "coopers_contract" }
+  | { defId: "regulatory_inspection"; targetBarrelId: string }
   | { defId: "rating_boost" }
-  | { defId: "master_distiller"; targetBarrelId: string }
-  | { defId: "blend"; barrel1Id: string; barrel2Id: string }
-  | { defId: "demand_surge" };
+  | { defId: "allocation" }
+  | { defId: "kentucky_connection" }
+  | { defId: "wild_mash" };
 
 export type GameAction =
   | { type: "SELECT_DISTILLERY"; playerId: string; distilleryId: string }
@@ -1077,22 +1087,24 @@ export type GameAction =
       playerId: string;
       slotId: string;
       cardIds: string[];
+      /**
+       * Wild Mash one-shot role swap. When set, the named card in
+       * `cardIds` is treated as the given role for recipe
+       * satisfaction (a cask as a grain unit, or a grain as a cask).
+       * Requires `pendingWildMashToken` to be set on the player.
+       */
+      wildMashSwap?: { cardId: string; treatAs: "cask" | "grain" };
     }
   | { type: "AGE_BOURBON"; playerId: string; barrelId: string; cardId: string }
   | {
       // Sale is single-step. Grid value + bonuses are auto-clamped to
       // the tier floor (3/4/5) and added to the player's rep track.
-      // No split prompt.
+      // Prestige (+1 per point) is added on top whenever Silver or
+      // Gold triggers. Bill destination: discard (Silver / none) or
+      // retired (Gold).
       type: "SELL_BOURBON";
       playerId: string;
       barrelId: string;
-      goldChoice?: "convert" | "keep" | "decline";
-      /**
-       * v2.10 Connoisseur Estate: Open-slot Convert allows the target
-       * slot to be empty (no barrel record). The Gold bill lands in
-       * the open slot as a "ready" barrel.
-       */
-      goldConvertTargetSlotId?: string;
     }
   | {
       // Pay rep + Labor cards. `rep` is the reputation portion of the

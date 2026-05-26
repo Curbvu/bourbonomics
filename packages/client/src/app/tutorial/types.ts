@@ -23,7 +23,7 @@ export type SpotlightTarget =
       // ActionBar toolbar button. The `action` value matches the
       // `data-bb-action` attribute the button is rendered with.
       kind: "action-button";
-      action: "sell" | "make" | "buy" | "age" | "draw-bill";
+      action: "sell" | "make" | "buy" | "age" | "draw-bill" | "pass";
     }
   | { kind: "none" };
 

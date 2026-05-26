@@ -214,13 +214,12 @@ There is no split prompt — the engine resolves the rep total and lands it dire
 
 ### Awards
 
-Some bills grant awards on sale — they manipulate **slot state**, not card draws.
+Some bills grant awards on sale — they grant **prestige**, a permanent multiplier on future premium sales.
 
-- **Silver** — bill stays in the now-empty slot as **Staged**. Slot does NOT open.
-- **Gold** — player chooses:
-  - **Convert.** Replace another of your slots' bill with the Gold one, provided that slot's committed cards satisfy the Gold recipe. The replaced bill goes to bourbon discard. *Connoisseur Estate may Convert into an Open slot — no recipe check.*
-  - **Keep.** Silver-style retention: bill stays in the selling slot as Staged.
-  - **Decline.** Bill to discard; slot opens.
+- **Silver** — Bonus rep on this sale (per the bill's Silver value). Slot opens normally; bill goes to discard.
+- **Gold** — Bonus rep on this sale (per the bill's Gold value) AND you gain **1 prestige point**. Slot opens normally; bill is *retired* (removed from the game, not just discarded — your distillery has graduated past it).
+
+**Prestige.** Each prestige point you hold adds **+1 reputation to every future Silver or Gold sale** you make. Prestige is permanent and stacks. There is no cap, but Gold-eligible bills are rare enough that 3–4 prestige in a game is exceptional. Prestige does NOT apply to base sales (sales that don't hit Silver or Gold thresholds).
 
 Gold takes precedence if both Silver and Gold trigger. Gold does NOT trigger the final round — only the bourbon supply running out does.
 
@@ -341,7 +340,7 @@ Voluntary. Cards remaining in your hand stay until cleanup. Operations cards per
 | **Building** | ✅ | partial | — | — |
 | **Aging** | ✅ | recipe complete | ✅ | — |
 
-Lifecycle: `Open` → (Draft) → `Staged` → (Make, first commit) → `Building` → (Make, recipe complete) → `Aging` → (Sell) → `Open` (or `Staged` on Silver / Gold-Keep).
+Lifecycle: `Open` → (Draft) → `Staged` → (Make, first commit) → `Building` → (Make, recipe complete) → `Aging` → (Sell) → `Open`.
 
 When **all** slots hold a bill, you cannot take a new one — sell or finish a barrel first.
 
@@ -357,8 +356,6 @@ Recipes that determine each barrel's reward grid. **Bills are slot-bound** — t
 - **Drafting Loop action** — the standard in-game bill acquisition (see [§Draft Mash Bills](#draft-mash-bills-the-drafting-loop)).
 - **Allocation** ops card — up to 2 bills free, capped by Open slots.
 - **Barrel Broker** ops card — transfers a completed barrel (with its bill) to another player.
-- **Gold Convert award** — replaces another slot's bill with the Gold one.
-
 ### Public information
 
 Every bill is **public the moment it's slotted** — recipe, grid, awards, all visible to all players.
@@ -502,7 +499,7 @@ The baseline. Pick for an introductory game.
 
 ### Connoisseur Estate — "The Diversified"
 - *Starting state:* 6 starting rep, drafts **4 mash bills** at setup — every slot ships Staged.
-- *Permanent ability:* When you trigger a Gold award, Convert may target an **Open slot** (no recipe check).
+- *Permanent ability:* When you trigger a Silver award you gain **1 prestige**; when you trigger a Gold award you gain **2 prestige** (every other distillery gains 0 / 1).
 - *Constraint:* Slotted-bill cap of 4 — even with Rickhouse Expansion Permit, slots 5/6 are overflow only (transferred barrels, never freshly drafted bills).
 
 ---
@@ -558,6 +555,8 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 ---
 
 # 📜 Changelog
+
+- **v2.15** — **"Prestige."** Gold Convert/Keep/Decline collapsed into a single outcome: take the rep, **retire the bill** (removed from the game entirely, not just discarded), gain **1 prestige point**. Silver simplified to a one-shot bonus — bill goes to discard, slot opens (no more "stays Staged"). New permanent **prestige counter** on every player; each point adds +1 rep to every future Silver- or Gold-triggering sale (base sales unaffected). Connoisseur Estate reworked as the prestige specialist: +1 extra prestige on Silver (now 1) and +1 extra on Gold (now 2). The Open-slot Convert ability is retired. Bot scoring rewired around prestige acquisition: Gold-eligible bills are valued higher at draft time and selling now factors in both prestige earned and the prestige already on the player's track. New `retiredBills` array on game state tracks the graveyard of past Gold sales for UI presentation. Retiring Gold bills accelerates the final-round trigger (the bourbon supply runs out faster) — intended.
 
 - **v2.14.2** — **"Human Picks First."** Setup-pick order changed: humans pick before any bots in distillery selection and the starter trade window. Reverse-snake is preserved within the human group AND within the bot group, so an all-human room still resolves to the original `[last seat, …, first seat]` order. The fix targets solo: with the bot's preference list (Connoisseur > Vanilla > High-Rye > Wheated) and reverse-snake across the whole seating, the human at seat 0 always picked last and bots routinely stripped Vanilla (the level-playing-field baseline) from the pool. Vanilla is now reliably available to the human in solo.
 

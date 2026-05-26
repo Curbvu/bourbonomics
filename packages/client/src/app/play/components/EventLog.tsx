@@ -195,12 +195,47 @@ function describe(
         </>
       );
     }
-    case "SELL_BOURBON":
-      // sale is single-step. Engine resolves total rep (grid +
-      // bonuses, clamped to tier floor) on apply. We don't have the
-      // resolved total in the action payload anymore — log the action
-      // without a specific number to avoid drift.
-      return <>{who(a.playerId)} sold a barrel.</>;
+    case "SELL_BOURBON": {
+      // Engine resolves total rep on apply. The log carries an
+      // optional `saleOutcome` captured at dispatch time so we can
+      // show the bill name, award (Silver/Gold), and any prestige
+      // gained without re-deriving them here.
+      const out = e.saleOutcome;
+      if (!out) return <>{who(a.playerId)} sold a barrel.</>;
+      const billLabel = (
+        <em className="not-italic text-amber-200">{out.billName}</em>
+      );
+      if (out.award === "gold") {
+        return (
+          <>
+            {who(a.playerId)} sold {billLabel}{" "}
+            <span className="font-semibold text-amber-300">· Gold</span>{" "}
+            <span className="text-amber-200">(bill retired</span>
+            {out.prestigeGained > 0 ? (
+              <span className="text-amber-200">, +{out.prestigeGained} ★</span>
+            ) : null}
+            <span className="text-amber-200">)</span>.
+          </>
+        );
+      }
+      if (out.award === "silver") {
+        return (
+          <>
+            {who(a.playerId)} sold {billLabel}{" "}
+            <span className="font-semibold text-zinc-300">· Silver</span>
+            {out.prestigeGained > 0 ? (
+              <span className="text-amber-200"> (+{out.prestigeGained} ★)</span>
+            ) : null}
+            .
+          </>
+        );
+      }
+      return (
+        <>
+          {who(a.playerId)} sold {billLabel}.
+        </>
+      );
+    }
     case "BUY_FROM_MARKET":
       return <>{who(a.playerId)} bought a card from the market.</>;
     case "BUY_OPERATIONS_CARD":

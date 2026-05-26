@@ -100,6 +100,29 @@ function tallyCard(totals: ResourceTotals, card: Card): void {
 }
 
 /**
+ * Wild Mash: when the player invokes the swap on a card already
+ * counted in `totals`, this helper *removes* that card's original
+ * contribution so the swap can re-attribute it to the chosen role
+ * during recipe satisfaction. Called once per commit, only when
+ * `wildMashSwap` is set in the action payload.
+ */
+function untallyCard(totals: ResourceTotals, card: Card): void {
+  if (card.type !== "resource") return;
+  if (suppliesResource(card, "cask")) totals.caskSources -= 1;
+  totals.corn -= resourceUnits(card, "corn");
+  totals.rye -= resourceUnits(card, "rye");
+  totals.barley -= resourceUnits(card, "barley");
+  totals.wheat -= resourceUnits(card, "wheat");
+  if (card.specialty) {
+    totals.specialtyCask -= resourceUnits(card, "cask");
+    totals.specialtyCorn -= resourceUnits(card, "corn");
+    totals.specialtyRye -= resourceUnits(card, "rye");
+    totals.specialtyBarley -= resourceUnits(card, "barley");
+    totals.specialtyWheat -= resourceUnits(card, "wheat");
+  }
+}
+
+/**
  * Recipe minimums for this player + bill, with distillery and pre-
  * played discounts (Mash Futures, Cooper's Contract) baked in.
  *
@@ -379,6 +402,27 @@ export function validateMakeBourbon(
     }
   }
 
+  // ---- Wild Mash swap precondition ----
+  // The action may carry a `wildMashSwap` that flips one committed
+  // card's role. Validate the token-and-id contract before we tally
+  // anything else — totals depend on the swap target.
+  let swapRole: "cask" | "grain" | null = null;
+  if (action.wildMashSwap) {
+    if (!player.pendingWildMashToken) {
+      return {
+        legal: false,
+        reason: "Wild Mash swap requires the Wild Mash token to be set",
+      };
+    }
+    if (!action.cardIds.includes(action.wildMashSwap.cardId)) {
+      return {
+        legal: false,
+        reason: `Wild Mash swap card ${action.wildMashSwap.cardId} is not in the commit`,
+      };
+    }
+    swapRole = action.wildMashSwap.treatAs;
+  }
+
   // ---- Cumulative resource totals (existing pile + this commit) ----
   const cardById = new Map(player.hand.map((c) => [c.id, c]));
   const totals = emptyTotals();
@@ -398,6 +442,28 @@ export function validateMakeBourbon(
       };
     }
     tallyCard(totals, card);
+  }
+  // If a Wild Mash swap is in play, peel that card's original
+  // subtype contribution back out and re-attribute it to the chosen
+  // role. The role-credit is a single plain unit — Specialty floors
+  // don't benefit from the swap. Role assignment is deterministic
+  // (rye > barley > wheat) so the over-commit guards and
+  // `recipeSatisfied` see the same effective totals.
+  if (action.wildMashSwap) {
+    const swapCard = cardById.get(action.wildMashSwap.cardId)!;
+    untallyCard(totals, swapCard);
+    if (swapRole === "cask") {
+      totals.caskSources += 1;
+    } else {
+      // "grain": apply to the most-under-served named-grain floor,
+      // falling through to the wildcard slot (assigned to `rye` for
+      // accounting) when every floor is met.
+      const mins = effectiveRecipeMins(player, existingBarrel.attachedMashBill);
+      if (totals.rye < mins.minRye) totals.rye += 1;
+      else if (totals.barley < mins.minBarley) totals.barley += 1;
+      else if (totals.wheat < mins.minWheat) totals.wheat += 1;
+      else totals.rye += 1;
+    }
   }
 
   const mins = effectiveRecipeMins(player, existingBarrel.attachedMashBill);
@@ -520,6 +586,27 @@ export function applyMakeBourbon(
   // Completion check.
   const totals = emptyTotals();
   for (const card of barrel.productionCards) tallyCard(totals, card);
+  // Re-apply the Wild Mash swap into the completion-check totals so
+  // the role attribution matches the validator. The swap card lives
+  // in the production pile under its original subtype; here we peel
+  // its original contribution and credit the chosen role.
+  if (action.wildMashSwap) {
+    const swapCard = barrel.productionCards.find(
+      (c) => c.id === action.wildMashSwap!.cardId,
+    );
+    if (swapCard) {
+      untallyCard(totals, swapCard);
+      if (action.wildMashSwap.treatAs === "cask") {
+        totals.caskSources += 1;
+      } else {
+        const mins = effectiveRecipeMins(player, barrel.attachedMashBill);
+        if (totals.rye < mins.minRye) totals.rye += 1;
+        else if (totals.barley < mins.minBarley) totals.barley += 1;
+        else if (totals.wheat < mins.minWheat) totals.wheat += 1;
+        else totals.rye += 1;
+      }
+    }
+  }
   const result = recipeSatisfied(player, barrel.attachedMashBill, totals);
   if (result.ok) {
     barrel.phase = "aging";
@@ -529,6 +616,9 @@ export function applyMakeBourbon(
     // never completes, the discount stays armed for a future build.
     player.pendingMakeDiscount = null;
   }
+  // Wild Mash token: one MAKE_BOURBON consumes it whether or not the
+  // player invoked the swap. No carry-over.
+  player.pendingWildMashToken = false;
   // v2.2: production does NOT end the player's turn — the active player
   // continues taking actions until they pass or run out of legal plays.
 }

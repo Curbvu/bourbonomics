@@ -234,17 +234,28 @@ describe("v2.10 â€” Distillery ability hooks", () => {
     ).toThrow(/wheated/i);
   });
 
-  it("Connoisseur Estate: Gold Convert lands the Gold bill in an Open slot", () => {
+  it("Connoisseur Estate: Gold sale grants +2 prestige; Silver sale grants +1", () => {
     const goldBill = makeMashBill(
       {
-        defId: "test_gold_open",
-        name: "Gold Open",
+        defId: "test_gold_connoisseur",
+        name: "Gold Connoisseur",
         ageBands: [2, 4, 6],
         demandBands: [2, 4, 6],
         rewardGrid: [[1, 2, 3], [2, 4, 5], [3, 5, 6]],
         goldAward: { minAge: 5, minDemand: 5 },
       },
       600,
+    );
+    const silverBill = makeMashBill(
+      {
+        defId: "test_silver_connoisseur",
+        name: "Silver Connoisseur",
+        ageBands: [2, 4, 6],
+        demandBands: [2, 4, 6],
+        rewardGrid: [[1, 2, 3], [2, 4, 5], [3, 5, 6]],
+        silverAward: { minAge: 4, minDemand: 4 },
+      },
+      601,
     );
     let state = initializeGame({
       seed: 1,
@@ -262,38 +273,43 @@ describe("v2.10 â€” Distillery ability hooks", () => {
       startingDemand: 6,
     });
     state = advanceToActionPhase(state, [1, 1]);
-    // Clear v2.9 per-turn age gate â€” these tests don't exercise it.
     state = {
       ...state,
       players: state.players.map((p) => ({ ...p, needsAgeBarrels: false })),
     };
-    // Clear Connoisseur's auto-drafted barrels so we have at least
-    // one open slot besides the sale slot.
+    // Clear Connoisseur's auto-drafted barrels so we have a clean stage.
     state = {
       ...state,
       allBarrels: state.allBarrels.filter((b) => b.ownerId !== "p1"),
     };
-    // Place an age-5 barrel for p1 with the Gold bill attached.
-    // placeBarrel defaults completedInRound to 0 (round-gap satisfied).
+
+    // Gold sale → +2 prestige (Connoisseur).
     state = placeBarrel(state, "p1", goldBill, 5);
-    const selling = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!;
-    // Find a different open slot.
-    const occupied = new Set(state.allBarrels.map((b) => b.slotId));
-    const openSlot = state.players[0]!.rickhouseSlots.find((s) => !occupied.has(s.id))!;
+    const goldBarrel = state.allBarrels.find(
+      (b) => b.ownerId === "p1" && b.phase === "aging",
+    )!;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
-      barrelId: selling.id,
-goldChoice: "convert",
-      goldConvertTargetSlotId: openSlot.id,
+      barrelId: goldBarrel.id,
     });
-    // The open slot now holds a ready barrel with the Gold bill.
-    const landed = state.allBarrels.find((b) => b.slotId === openSlot.id);
-    expect(landed).toBeDefined();
-    expect(landed!.phase).toBe("ready");
-    expect(landed!.attachedMashBill.id).toBe(goldBill.id);
-    // Selling slot opens fully.
-    expect(state.allBarrels.some((b) => b.slotId === selling.slotId)).toBe(false);
+    expect(state.players.find((p) => p.id === "p1")!.prestige).toBe(2);
+    // Bill retired — not in deck or discard.
+    expect(state.retiredBills.some((b) => b.id === goldBill.id)).toBe(true);
+    expect(state.bourbonDiscard.some((b) => b.id === goldBill.id)).toBe(false);
+
+    // Silver sale → +1 prestige (Connoisseur), bill to discard.
+    state = placeBarrel(state, "p1", silverBill, 5);
+    const silverBarrel = state.allBarrels.find(
+      (b) => b.ownerId === "p1" && b.phase === "aging",
+    )!;
+    state = applyAction(state, {
+      type: "SELL_BOURBON",
+      playerId: "p1",
+      barrelId: silverBarrel.id,
+    });
+    expect(state.players.find((p) => p.id === "p1")!.prestige).toBe(3);
+    expect(state.bourbonDiscard.some((b) => b.id === silverBill.id)).toBe(true);
   });
 
   it("High-Rye House: +1 rep stacks on rye bills (minRye â‰¥ 1)", () => {

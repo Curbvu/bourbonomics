@@ -31,6 +31,7 @@ import { produce } from "immer";
 import {
   applyAction,
   awaitingHumanInput,
+  awardConditionMet,
   buildTutorialInitialState,
   buildVanillaDistilleryFor,
   computeFinalScores,
@@ -104,8 +105,24 @@ export interface LogEntry {
    * can describe ephemeral effects after the fact.
    *   - `drawn`: cards added to a player's hand by this action
    *     (DRAW_HAND, occasionally buy-side draws).
+   *   - `saleOutcome`: SELL_BOURBON only — which award fired and how
+   *     much prestige the seller gained. Used to render "+1 Prestige"
+   *     and "bill retired" callouts in the log.
    */
   drawn?: Card[];
+  saleOutcome?: SaleOutcome;
+}
+
+/**
+ * Sale resolution summary captured at apply-time so the EventLog can
+ * describe the outcome of a SELL_BOURBON action after the bill has
+ * already left the table. Computed by diffing prev/next state +
+ * re-running the award predicates.
+ */
+export interface SaleOutcome {
+  billName: string;
+  award: "silver" | "gold" | null;
+  prestigeGained: number;
 }
 
 /**
@@ -853,6 +870,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         action: result.action,
         round: result.state.round,
         drawn: captureDrawn(prev.state, result.state, result.action),
+        saleOutcome: captureSaleOutcome(prev.state, result.state, result.action),
       };
       const lastPurchase = capturePurchase(prev, result.action, seq);
       const lastMake = captureMake(prev, result.state, result.action, seq);
@@ -950,6 +968,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           action: final,
           round: next.round,
           drawn: captureDrawn(prev.state, next, final),
+          saleOutcome: captureSaleOutcome(prev.state, next, final),
         };
         const lastPurchase = capturePurchase(prev, final, seq);
         const lastMake = captureMake(prev, next, final, seq);
@@ -1062,6 +1081,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
                   action,
                   round: msg.state.round,
                   drawn: prev.state ? captureDrawn(prev.state, msg.state, action) : undefined,
+                  saleOutcome: captureSaleOutcome(prev.state, msg.state, action),
                 }
               : null;
             const lastPurchase = action ? capturePurchase(prev, action, seq) : prev.lastPurchase;
@@ -1907,6 +1927,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       name: s.name,
       // The human seat is interactive during setup; bots play themselves.
       isBot: i !== 0,
+      // Difficulty drives the bot AI's buy thresholds + Drafting Loop
+      // policy in `ai/bot.ts`. Human seat has no difficulty.
+      difficulty: i === 0 ? undefined : s.difficulty,
     }));
     const meta = seats.map((s, i) => ({
       id: i === 0 ? "human" : `bot${i}`,
@@ -2334,6 +2357,45 @@ function captureMake(
     ownerId: barrel.ownerId,
     mashBillName: barrel.attachedMashBill?.name ?? "Unnamed barrel",
     seq,
+  };
+}
+
+/**
+ * Resolve the award + prestige change for a SELL_BOURBON action by
+ * looking at the seller's barrel in `prevState` (it's gone from
+ * `nextState`) and diffing prestige across the two. Returns `null`
+ * for non-sales or when state is missing — callers should leave the
+ * LogEntry's `saleOutcome` field undefined in that case.
+ */
+function captureSaleOutcome(
+  prevState: GameState | null,
+  nextState: GameState | null,
+  action: GameAction,
+): SaleOutcome | undefined {
+  if (action.type !== "SELL_BOURBON") return undefined;
+  if (!prevState || !nextState) return undefined;
+  const barrel = prevState.allBarrels.find((b) => b.id === action.barrelId);
+  if (!barrel) return undefined;
+  const bill = barrel.attachedMashBill;
+  const reward = computeReward(bill, barrel.age, prevState.demand, {
+    demandBandOffset: barrel.demandBandOffset,
+    gridRepOffset: barrel.gridRepOffset,
+  });
+  const gold =
+    bill.goldAward != null &&
+    awardConditionMet(bill.goldAward, barrel.age, prevState.demand, reward);
+  const silver =
+    !gold &&
+    bill.silverAward != null &&
+    awardConditionMet(bill.silverAward, barrel.age, prevState.demand, reward);
+  const prevPrestige =
+    prevState.players.find((p) => p.id === action.playerId)?.prestige ?? 0;
+  const nextPrestige =
+    nextState.players.find((p) => p.id === action.playerId)?.prestige ?? 0;
+  return {
+    billName: bill.name,
+    award: gold ? "gold" : silver ? "silver" : null,
+    prestigeGained: Math.max(0, nextPrestige - prevPrestige),
   };
 }
 

@@ -78,7 +78,7 @@ const STOPS: TourStop[] = [
     // stop) hands off to the play phase.
     id: "play-prelude",
     title: "How you play",
-    body: "Make bourbon, age bourbon, then sell it for reputation. The distillery with the most reputation when all the bourbon is gone is the winner.",
+    body: "Make bourbon, age bourbon, then sell it. Let's start by making your first bourbon.",
     spotlight: { kind: "none" },
   },
 ];

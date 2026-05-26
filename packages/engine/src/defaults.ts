@@ -81,22 +81,6 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
   const specs: Omit<InvestmentCard, "id">[] = [
     // ───────────── Small (cost 2-4) ─────────────
     {
-      defId: "trade_school",
-      name: "Trade School",
-      cost: 3,
-      tier: "small",
-      category: "deck",
-      triggers: ["round_end"],
-      archetype: "engine",
-      rateLimited: true,
-      rateLimitScope: "1/round",
-      short: "Free trash, every round",
-      text: "At end of every round, you may trash 1 card from your hand for free. The spent card is removed from the game.",
-      description:
-        "A persistent deck-thinning engine. Standard 'Trash a Card' costs 1 to trash 1 — Trade School removes that tax and lets you sculpt your deck across the whole game without giving up tempo.",
-      implemented: false,
-    },
-    {
       defId: "tasting_room",
       name: "Tasting Room",
       cost: 4,
@@ -109,21 +93,6 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       text: "When you sell a barrel age 5 or older, gain +2 reputation.",
       description:
         "A small but reliable bonus for patient cellar play. Cheap because the age-5 gate is hard to satisfy early — a freshly-completed barrel needs three rounds of aging before this card pays out at all.",
-      implemented: false,
-    },
-    {
-      defId: "insider_network",
-      name: "Insider Network",
-      cost: 3,
-      tier: "small",
-      category: "info",
-      triggers: ["other_player_action"],
-      archetype: "flex",
-      rateLimited: false,
-      short: "See what's coming",
-      text: "Whenever any other player rolls demand, you may peek at the top 2 mash bills of the bourbon deck.",
-      description:
-        "A pure information engine. You don't score directly, but you'll know what bills are about to flip face-up — useful for timing bill draws, blind-deck draws, and even sale timing if you can predict opponents.",
       implemented: false,
     },
     {
@@ -143,127 +112,51 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       implemented: false,
     },
     {
-      defId: "marketing_budget",
-      name: "Marketing Budget",
-      cost: 3,
-      tier: "small",
-      category: "market",
-      triggers: ["on_buy_market"],
-      archetype: "flex",
-      rateLimited: true,
-      rateLimitScope: "1/round",
-      short: "One discount per round",
-      text: "Once per round, when you buy a card from the market, that card costs 1 less (floor 1).",
-      description:
-        "A small recurring discount on market purchases. The savings compound across a long game — over 8 rounds, that's 8 saved cards if you buy every round.",
-      implemented: false,
-    },
-    {
-      defId: "recipe_archive",
-      name: "Recipe Archive",
-      cost: 2,
-      tier: "small",
-      category: "slots",
-      triggers: ["on_sell"],
-      archetype: "volume",
-      rateLimited: false,
-      short: "Common bills stick around",
-      text: "When a barrel sells with no award, the bill stays Staged in the slot instead of going to the bourbon discard.",
-      description:
-        "Synthesizes Silver-style retention into common bills. Without this card, selling an unawarded barrel opens the slot fully — Recipe Archive lets that recipe stick around, ready for fresh commits next turn.",
-      implemented: false,
-    },
-    {
-      defId: "counter_cyclical_fund",
-      name: "Counter-Cyclical Fund",
+      defId: "distillers_guild",
+      name: "Distiller's Guild",
       cost: 4,
       tier: "small",
-      category: "sales",
-      triggers: ["on_sell"],
-      archetype: "flex",
+      category: "deck",
+      triggers: ["on_complete_recipe"],
+      archetype: "engine",
       rateLimited: false,
-      short: "Survive a soft market",
-      text: "When you sell at demand 3 or lower, read the grid as if demand were +3 (so demand 3 reads as demand 6).",
+      short: "Draw on completion",
+      text: "Whenever one of your barrels completes its recipe and enters the aging phase, draw 1 card.",
       description:
-        "Lets you sell into low-demand markets without taking the bad-market payout. A useful hedge when demand crashes mid-game — instead of waiting for recovery, you can liquidate at demand 2 and read the grid at demand 5.",
+        "Pays builders. Where Grain Contract refunds the first grain each round, Distiller's Guild fires every time a recipe satisfies — pairs naturally with multi-bill production pushes and Allocation.",
       implemented: false,
     },
 
     // ───────────── Medium (cost 5-8) ─────────────
     {
-      defId: "cooperage_stake",
-      name: "Cooperage Stake",
+      defId: "cooperage",
+      name: "Cooperage",
       cost: 5,
       tier: "medium",
       category: "deck",
       triggers: ["on_make"],
       archetype: "volume",
-      rateLimited: false,
-      short: "Every cask draws a card",
-      text: "Whenever you commit a cask to a barrel, draw 1 card.",
-      description:
-        "The cask-economy engine. Cask is the universal recipe requirement — every barrel needs exactly 1 — so this card fires reliably across the entire game. Functions almost like a permanent +1 to draws per barrel built.",
-      implemented: false,
-    },
-    {
-      defId: "distribution_deal",
-      name: "Distribution Deal",
-      cost: 6,
-      tier: "medium",
-      category: "deck",
-      triggers: ["on_sell"],
-      archetype: "volume",
-      rateLimited: false,
-      short: "Sales refill the hand",
-      text: "When you sell a barrel, draw 2 cards from your deck.",
-      description:
-        "Solves the 'selling drains your deck' problem. Without it, high-volume sellers find their hand thinning round over round. With it, every sale puts cards back in your hand — making 'sell often' a viable archetype.",
-      implemented: false,
-    },
-    {
-      defId: "brand_equity",
-      name: "Brand Equity",
-      cost: 7,
-      tier: "medium",
-      category: "sales",
-      triggers: ["on_sell"],
-      archetype: "engine",
-      rateLimited: false,
-      short: "Sales snowball",
-      text: "When you sell a barrel, gain +1 reputation per barrel previously sold this game (cap +5).",
-      description:
-        "The classic snowball. Bought round 2 and triggered on every subsequent sale, this card can pay 1+1+2+3+4+5+5+5 = 26 reputation across 8 sales. Bought round 6, you might only see two activations. Timing is everything.",
-      implemented: false,
-    },
-    {
-      defId: "distillation_license",
-      name: "Distillation License",
-      cost: 5,
-      tier: "medium",
-      category: "sales",
-      triggers: ["on_complete"],
-      archetype: "volume",
-      rateLimited: false,
-      short: "Reward for finishing",
-      text: "When a barrel transitions from Building to Aging (recipe satisfied), gain +1 reputation immediately.",
-      description:
-        "Rewards completion, not selling. The only investment that pays you for finishing a recipe regardless of whether the barrel ever sells — useful as a hedge against the final round, where uncompleted barrels are a total loss.",
-      implemented: false,
-    },
-    {
-      defId: "trade_lobby",
-      name: "Trade Lobby",
-      cost: 6,
-      tier: "medium",
-      category: "demand",
-      triggers: ["turn_start"],
-      archetype: "flex",
       rateLimited: true,
       rateLimitScope: "1/round",
-      short: "Nudge demand each round",
-      text: "At the start of your turn, after rolling demand, you may shift demand by ±1 (your choice). Once per round.",
+      short: "First cask refunds a card",
+      text: "The first time each round you commit any cask card to a barrel, draw 1 card.",
       description:
-        "A permanent mini-Market-Manipulation. Where the ops card costs 3 for one shift, Trade Lobby gives you a shift every round for the rest of the game — a far better long-term deal but a worse short-term price.",
+        "Cask-side counterpart to Grain Contract. Casks are scarce — every production cycle uses one — so Cooperage rewards the player going wide on barrels.",
+      implemented: false,
+    },
+    {
+      defId: "master_distiller",
+      name: "Master Distiller",
+      cost: 6,
+      tier: "medium",
+      category: "sales",
+      triggers: ["round_end"],
+      archetype: "patience",
+      rateLimited: false,
+      short: "Old barrels pay rent",
+      text: "At end of each round, gain +1 reputation for each of your aging barrels age 10 or older.",
+      description:
+        "Persistent patience reward. The age-10 gate is intentionally severe — by the time a barrel hits 10, the player has already paid 8+ aging cards for it. This card is the answer to 'what do I do with this hoard of old barrels' for players running the patient long-hold strategy.",
       implemented: false,
     },
     {
@@ -281,21 +174,6 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "A boom-time amplifier. Sells into hot markets are already the best sales — Hedge Fund makes them dramatically better, and prevents the usual 'selling tanks demand' feedback loop. Useless if you sell into low markets.",
       implemented: false,
     },
-    {
-      defId: "rd_department",
-      name: "R&D Department",
-      cost: 8,
-      tier: "medium",
-      category: "market",
-      triggers: ["on_buy_market"],
-      archetype: "specialty",
-      rateLimited: false,
-      short: "Specialty cards, half off",
-      text: "When you buy a Specialty or Heritage card from the market, that card costs 1 less (floor 1), AND it goes to your hand instead of your discard.",
-      description:
-        "A premium-card engine. Specialty and Heritage cards ($2–$3) cost $1 less under R&D Department AND skip the discard pile — they land straight in hand for the next action. The defining card for specialty-heavy strategies.",
-      implemented: false,
-    },
 
     // ───────────── Large (cost 8-15) ─────────────
     {
@@ -310,82 +188,22 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       short: "One barrel reads +2 demand",
       text: "On purchase, choose one of your aging barrels. For the rest of the game, that specific barrel reads its grid as if demand were +2 when sold.",
       description:
-        "Migrated from the ops deck (formerly Master Distiller) into investments where the permanent effect properly belongs. The most accessible large investment and a strong pick for patient players who plan to age a single high-value barrel for many rounds.",
-      implemented: false,
-    },
-    {
-      defId: "premium_label",
-      name: "Premium Label",
-      cost: 9,
-      tier: "large",
-      category: "sales",
-      triggers: ["on_sell"],
-      archetype: "specialty",
-      rateLimited: false,
-      short: "Specialty barrels pay extra",
-      text: "When you sell a barrel containing 2 or more Specialty or Heritage cards, gain +3 reputation.",
-      description:
-        "Doubles down on the specialty axis. With the uniform Specialty bonus retired, Premium Label is now the headline reason to stack specialty in a single barrel — a flat +3 on top of any per-card Heritage bonus.",
-      implemented: false,
-    },
-    {
-      defId: "land_acquisition",
-      name: "Land Acquisition",
-      cost: 10,
-      tier: "large",
-      category: "slots",
-      triggers: ["on_purchase"],
-      archetype: "engine",
-      rateLimited: false,
-      short: "+1 permanent rickhouse slot",
-      text: "Permanently +1 rickhouse slot (max 6, stacks with Rickhouse Expansion Permit and similar effects).",
-      description:
-        "Migrated from the ops deck (formerly Rickhouse Expansion Permit at cost 6) into investments at cost 10, reflecting the actual long-term value of a permanent slot. Strong for engine players who want to push 5+ barrels through the pipeline.",
+        "A strong pick for patient players who plan to age a single high-value barrel for many rounds.",
       implemented: false,
     },
     {
       defId: "bonded_warehouse",
       name: "Bonded Warehouse",
-      cost: 12,
+      cost: 10,
       tier: "large",
       category: "aging",
-      triggers: ["on_purchase", "passive_permanent"],
-      archetype: "patience",
+      triggers: ["on_purchase", "on_age"],
+      archetype: "engine",
       rateLimited: false,
-      short: "One slot ages itself",
-      text: "On purchase, designate one of your slots as 'bonded.' Barrels in the bonded slot age 1 year automatically each round and do not require an aging card from your hand on your turn.",
+      short: "Aging refunds in one slot",
+      text: "On purchase, designate one of your slots as 'bonded.' Whenever you commit an aging card to a barrel in the bonded slot, draw 1 card.",
       description:
-        "The first card to directly attack v2.9's mandatory holding-cost mechanic. With one slot bonded, you save 5–8 aging cards across the rest of the game. Pairs naturally with Tasting Room and Vintage Reserve.",
-      implemented: false,
-    },
-    {
-      defId: "vintage_reserve",
-      name: "Vintage Reserve",
-      cost: 13,
-      tier: "large",
-      category: "sales",
-      triggers: ["on_sell"],
-      archetype: "patience",
-      rateLimited: false,
-      short: "Triple value at age 7+",
-      text: "When you sell a barrel age 7 or older, triple the grid value of that sale.",
-      description:
-        "The hold-for-the-long-game wager. A 7-year barrel at high demand might pay 8 reputation off the grid — Vintage Reserve makes it 24. The biggest single-sale payout in the game, gated behind one of the hardest setups.",
-      implemented: false,
-    },
-    {
-      defId: "bourbon_hall_of_fame",
-      name: "Bourbon Hall of Fame",
-      cost: 15,
-      tier: "large",
-      category: "endgame",
-      triggers: ["final_scoring"],
-      archetype: "flex",
-      rateLimited: false,
-      short: "+1 rep per distinct bill sold",
-      text: "At the end of the game, gain +1 reputation per distinct mash bill name you sold during the game (cap +6).",
-      description:
-        "The diversification objective — the only investment whose payout is end-game only. Pushes against the spam-one-bill strategy by rewarding breadth of production. The most expensive card in the deck.",
+        "Doesn't break the aging-card economy — the aging card is still spent. But it refunds the tempo cost, so the bonded slot becomes the home for your long-hold barrels. Pairs with Master Distiller and Tasting Room.",
       implemented: false,
     },
   ];
@@ -1071,15 +889,11 @@ export function defaultMarketSupply(): Card[] {
   }
 
   // ── Investments ───────────────────────────────────────────────
-  // The 16-card investment catalog ships as effect-pending stubs
+  // The 8-card investment catalog ships as effect-pending stubs
   // (every card has `implemented: false`). Cards enter the unified
   // market and are buyable — the purchase removes the card and
   // charges the cost, but no effect fires yet.
-  //
-  // v3.3: cap at 15 of the 16 catalog entries so investments land
-  // at the user-set 15% slice of the market deck (matches the 65/20/15
-  // split across {resources, ops, investments}).
-  for (const inv of defaultInvestmentCatalog().slice(0, 15)) {
+  for (const inv of defaultInvestmentCatalog()) {
     cards.push(wrapInvestmentForMarket(inv, idx++));
   }
 

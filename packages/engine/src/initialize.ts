@@ -81,6 +81,7 @@ export function initializeGame(config: GameConfig): GameState {
       id: p.id,
       name: p.name,
       isBot: p.isBot ?? false,
+      difficulty: p.difficulty,
       distillery,
       rickhouseSlots: distillery ? buildRickhouseSlots(p.id, distillery) : [],
       hand: [],
@@ -95,6 +96,10 @@ export function initializeGame(config: GameConfig): GameState {
       reputation: distilleryStartingRep(distillery),
       handSize: startingHandSize,
       barrelsSold: 0,
+      // Prestige starts at 0 for everyone (including bots). Earned
+      // permanently by Gold awards on sale; +1 rep on every future
+      // Silver/Gold-triggering sale.
+      prestige: 0,
       // Save slot starts empty. Carries one card across the
       // cleanup boundary when used.
       savedCard: null,
@@ -103,6 +108,7 @@ export function initializeGame(config: GameConfig): GameState {
       pendingHalfCostMarketBuy: false,
       pendingMakeDiscount: null,
       pendingRatingBoost: 0,
+      pendingWildMashToken: false,
       // Set when the action-phase cursor lands on the player; cleared
       // by ROLL_DEMAND. False at init since the game enters draw first.
       needsDemandRoll: false,
@@ -205,6 +211,7 @@ export function initializeGame(config: GameConfig): GameState {
     marketDiscard: [],
     bourbonDeck: bourbonShuffled,
     bourbonDiscard: [],
+    retiredBills: [],
     draftingLoop: null,
     demand: startingDemand,
     demandRolls: [],

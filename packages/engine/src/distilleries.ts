@@ -14,8 +14,10 @@ import type { Distillery, RickhouseSlot } from "./types";
 //                                 floor on wheated bills, cannot commit
 //                                 rye cards to barrels.
 //   • Connoisseur Estate        — Drafts 4 bills at setup, max-4 slotted
-//                                 bills, Gold Convert can land in an
-//                                 Open slot.
+//                                 bills. The prestige specialist: gains
+//                                 +1 extra prestige on every Silver or
+//                                 Gold sale (Silver → 1 prestige,
+//                                 Gold → 2 prestige).
 //
 // Source of truth: `packages/engine/content/distilleries.yaml`. Keep
 // this file and the YAML in sync by hand.
@@ -108,11 +110,11 @@ const SPECS: DistillerySpec[] = [
     maxSlottedBills: 4,
     startingRep: 6,
     cardText:
-      "Drafts 4 mash bills at setup instead of 3. Slotted-bill cap is 4 (Rickhouse Expansion Permit unlocks slots 5–6 for transferred barrels only). When you trigger a Gold award, Convert may land the Gold bill in an Open slot (no recipe check).",
+      "Drafts 4 mash bills at setup instead of 3. Slotted-bill cap is 4 (Rickhouse Expansion Permit unlocks slots 5–6 for transferred barrels only). When you trigger a Silver award you gain 1 prestige; when you trigger a Gold award you gain 2 prestige (every other distillery gains 0 / 1).",
     description:
-      "A diversified portfolio: four bills in the rickhouse from day one, four buyers on retainer, and a Gold award that can reshape the lineup mid-game. The Estate plays diversification as identity — never put all your bourbon in one bill.",
+      "A diversified portfolio: four bills in the rickhouse from day one, four buyers on retainer, and a prestige bonus that turns every premium sale into compounding upside. The Estate plays diversification as identity — every barrel is a brick in the brand.",
     strategyNote:
-      "Setup ships you Staged on every slot, so first-turn options are wider than anyone's. The Open-slot Convert is the deck-shaping move — sell a Gold, paste the recipe into an empty slot, build it next round.",
+      "Setup ships you Staged on every slot, so first-turn options are wider than anyone's. Every Silver or Gold you land grows the prestige multiplier — chase bills with reachable awards and the +1-per-sale floor adds up fast.",
     difficulty: "intermediate-advanced",
     axis: "slots / deck-shaping",
     implemented: true,

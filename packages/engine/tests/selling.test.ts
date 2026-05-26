@@ -231,11 +231,11 @@ describe("SELL_BOURBON — single-step v2.11 sale", () => {
     ).toThrow(/do not own/);
   });
 
-  it("Silver retention: bill stays in the slot as a 'ready' barrel", () => {
+  it("Silver award: bill goes to discard, slot opens, no prestige granted", () => {
     const silverBill = makeMashBill(
       {
-        defId: "silver_retain",
-        name: "Silver Retain",
+        defId: "silver_basic",
+        name: "Silver Basic",
         ageBands: [2, 4, 6],
         demandBands: [2, 4, 6],
         rewardGrid: [
@@ -256,9 +256,98 @@ describe("SELL_BOURBON — single-step v2.11 sale", () => {
       playerId: "p1",
       barrelId,
     });
-    const slotBarrel = state.allBarrels.find((b) => b.id === barrelId);
-    // Bill stays — barrel becomes "ready" again with same slot id.
-    expect(slotBarrel?.phase).toBe("ready");
-    expect(slotBarrel?.attachedMashBill.defId).toBe("silver_retain");
+    // Slot opens — barrel record is gone.
+    expect(state.allBarrels.find((b) => b.id === barrelId)).toBeUndefined();
+    // Bill cycles into the bourbon discard.
+    expect(state.bourbonDiscard.some((b) => b.defId === "silver_basic")).toBe(true);
+    // No prestige for Vanilla on Silver.
+    expect(state.players.find((p) => p.id === "p1")!.prestige).toBe(0);
+  });
+
+  it("Gold award: bill retired, slot opens, +1 prestige granted", () => {
+    const goldBill = makeMashBill(
+      {
+        defId: "gold_basic",
+        name: "Gold Basic",
+        ageBands: [2, 4, 6],
+        demandBands: [2, 4, 6],
+        rewardGrid: [
+          [1, 2, 3],
+          [2, 4, 5],
+          [3, 5, 6],
+        ],
+        goldAward: { minAge: 4, minDemand: 4 },
+      },
+      350,
+    );
+    let state = makeTestGame({ startingDemand: 5 });
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p1", goldBill, 5);
+    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
+    state = applyAction(state, {
+      type: "SELL_BOURBON",
+      playerId: "p1",
+      barrelId,
+    });
+    // Slot opens.
+    expect(state.allBarrels.find((b) => b.id === barrelId)).toBeUndefined();
+    // Bill retired — not in deck OR discard.
+    expect(state.bourbonDiscard.some((b) => b.defId === "gold_basic")).toBe(false);
+    expect(state.bourbonDeck.some((b) => b.defId === "gold_basic")).toBe(false);
+    expect(state.retiredBills.some((b) => b.defId === "gold_basic")).toBe(true);
+    // +1 prestige.
+    expect(state.players.find((p) => p.id === "p1")!.prestige).toBe(1);
+  });
+
+  it("prestige adds +1 rep per point to Silver/Gold sales but not base sales", () => {
+    const baseBill = testBill("common");
+    const silverBill = makeMashBill(
+      {
+        defId: "silver_prestige_check",
+        name: "Silver",
+        ageBands: [2, 4, 6],
+        demandBands: [2, 4, 6],
+        rewardGrid: [[1, 2, 3], [2, 4, 5], [3, 5, 6]],
+        silverAward: { minAge: 4, minDemand: 4 },
+      },
+      360,
+    );
+    let state = makeTestGame({ startingDemand: 5 });
+    state = advanceToActionPhase(state, [1, 1]);
+    // Seed player with 3 prestige directly.
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1" ? { ...p, prestige: 3 } : p,
+      ),
+    };
+    // Base sale (no award): prestige NOT applied.
+    state = placeBarrel(state, "p1", baseBill, 5);
+    const baseBarrelId = state.allBarrels.find(
+      (b) => b.ownerId === "p1" && b.phase === "aging",
+    )!.id;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    state = applyAction(state, {
+      type: "SELL_BOURBON",
+      playerId: "p1",
+      barrelId: baseBarrelId,
+    });
+    // Grid value at age 5 / demand 5 = 4. Floor 3 not binding. No prestige.
+    expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(beforeRep + 4);
+
+    // Silver sale: prestige IS applied.
+    state = placeBarrel(state, "p1", silverBill, 5);
+    const silverBarrelId = state.allBarrels.find(
+      (b) => b.ownerId === "p1" && b.phase === "aging",
+    )!.id;
+    const beforeSilverRep = state.players.find((p) => p.id === "p1")!.reputation;
+    state = applyAction(state, {
+      type: "SELL_BOURBON",
+      playerId: "p1",
+      barrelId: silverBarrelId,
+    });
+    // Demand dropped to 4 after the first sale. Grid at age 5 / demand 4 = 4.
+    // Silver triggers (minAge 4, minDemand 4). Prestige adds +3.
+    expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(beforeSilverRep + 4 + 3);
   });
 });
