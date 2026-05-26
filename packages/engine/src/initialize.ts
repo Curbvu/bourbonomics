@@ -81,6 +81,7 @@ export function initializeGame(config: GameConfig): GameState {
       id: p.id,
       name: p.name,
       isBot: p.isBot ?? false,
+      difficulty: p.difficulty,
       distillery,
       rickhouseSlots: distillery ? buildRickhouseSlots(p.id, distillery) : [],
       hand: [],

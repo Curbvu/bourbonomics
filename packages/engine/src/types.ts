@@ -658,6 +658,12 @@ export interface PlayerState {
   name: string;
   /** AI-controlled? Defaults to false (human). */
   isBot?: boolean;
+  /**
+   * Bot AI skill knob. Read by `ai/bot.ts` to vary buy thresholds and
+   * the Drafting Loop policy. Ignored for human seats; defaults to
+   * `"normal"` when unset on a bot.
+   */
+  difficulty?: BotDifficulty;
 
   /** Distillery selected during setup. Null until SELECT_DISTILLERY resolves. */
   distillery: Distillery | null;
@@ -905,9 +911,16 @@ export interface GameState {
 // Game Config (for initializeGame)
 // -----------------------------
 
+/**
+ * Bot AI skill knob. Drives the per-action heuristic in `ai/bot.ts` —
+ * EV thresholds, reputation floors, and the Drafting Loop policy. Human
+ * seats leave this unset.
+ */
+export type BotDifficulty = "easy" | "normal" | "hard";
+
 export interface GameConfig {
   seed: number;
-  players: { id: string; name: string; isBot?: boolean }[];
+  players: { id: string; name: string; isBot?: boolean; difficulty?: BotDifficulty }[];
   /** Pre-built starter decks per player (alternative to running the draft). */
   starterDecks?: Card[][];
   /** Pre-drafted mash bills per player (alternative to running the draft). */
@@ -940,7 +953,7 @@ export interface NewGameSeat {
   /** Cosmetic — picks the avatar asset shown in the seat strip. */
   logoId?: string;
   /** Bot difficulty selector. Ignored for human seats. */
-  difficulty?: "easy" | "normal" | "hard";
+  difficulty?: BotDifficulty;
 }
 
 /**

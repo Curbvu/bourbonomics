@@ -541,7 +541,7 @@ async function pickFreshCode(): Promise<string> {
  */
 function bootstrapGame(cfg: NewMultiplayerGameConfig): GameState {
   const catalog = defaultMashBillCatalog();
-  const players: { id: string; name: string; isBot?: boolean }[] = [];
+  const players: Parameters<typeof initializeGame>[0]["players"] = [];
   // Seat 0 — host.
   players.push({ id: "human0", name: cfg.host.name, isBot: false });
   // Extra human seats.
@@ -552,9 +552,15 @@ function bootstrapGame(cfg: NewMultiplayerGameConfig): GameState {
       isBot: false,
     });
   }
-  // Bot seats.
+  // Bot seats. Forward the lobby-selected difficulty so `ai/bot.ts`
+  // can scale its buy thresholds / Drafting Loop policy per seat.
   cfg.bots.forEach((b, i) => {
-    players.push({ id: `bot${i + 1}`, name: b.name, isBot: true });
+    players.push({
+      id: `bot${i + 1}`,
+      name: b.name,
+      isBot: true,
+      difficulty: b.difficulty,
+    });
   });
 
   const seed = cfg.seed ?? Math.floor(Math.random() * 0xffff_ffff);

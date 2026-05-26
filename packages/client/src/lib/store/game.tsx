@@ -1907,6 +1907,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       name: s.name,
       // The human seat is interactive during setup; bots play themselves.
       isBot: i !== 0,
+      // Difficulty drives the bot AI's buy thresholds + Drafting Loop
+      // policy in `ai/bot.ts`. Human seat has no difficulty.
+      difficulty: i === 0 ? undefined : s.difficulty,
     }));
     const meta = seats.map((s, i) => ({
       id: i === 0 ? "human" : `bot${i}`,
