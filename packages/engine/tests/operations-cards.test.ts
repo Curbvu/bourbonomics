@@ -1,8 +1,8 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import { applyAction } from "../src/engine.js";
 import { makeMashBill, makeResourceCard } from "../src/cards.js";
 import type { OperationsCard, OperationsCardDefId } from "../src/types.js";
-import { advanceToActionPhase, giveHand, giveRep, makeTestGame, placeBarrel } from "./helpers.js";
+import { advanceToActionPhase, giveHand, makeTestGame, placeBarrel } from "./helpers.js";
 
 const bill = () =>
   makeMashBill(
@@ -169,7 +169,6 @@ describe("PLAY_OPERATIONS_CARD — Rushed Shipment", () => {
       barrelId,
       cardId: "card_p1_corn_0",
     });
-    // v2.2: AGE doesn't end the turn — p1 chains into the bonus age.
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
@@ -198,54 +197,9 @@ describe("PLAY_OPERATIONS_CARD — Demand Surge", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId: state.allBarrels.find((b) => b.phase === "aging")!.id,
-});
+    });
     expect(state.demand).toBe(before);
     expect(state.players.find((p) => p.id === "p1")!.demandSurgeActive).toBe(false);
-  });
-});
-
-// Distressed Sale Notice was removed alongside the Rush to Market mechanic.
-
-describe("PLAY_OPERATIONS_CARD — Market Corner", () => {
-  it("takes a face-up market card into hand without paying", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state, [1, 1]);
-    const targetCard = state.market[0]!;
-    const { state: s, cardId } = giveOpsCard(state, "p1", "market_corner");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "market_corner",
-      marketSlotIndex: 0,
-    });
-    expect(state.market[0]!.id).not.toBe(targetCard.id);
-    expect(state.players.find((p) => p.id === "p1")!.hand.some((c) => c.id === targetCard.id)).toBe(true);
-  });
-});
-
-describe("PLAY_OPERATIONS_CARD — Blend", () => {
-  it("merges two of your barrels into one with combined cards", () => {
-    // v2.6: opt out of the helper's default 1 ready barrel so we get a
-    // clean rickhouse for the two test-placed aging barrels.
-    let state = makeTestGame({ startingMashBills: [[], []] });
-    state = advanceToActionPhase(state, [1, 1]);
-    const slots = state.players.find((p) => p.id === "p1")!.rickhouseSlots;
-    state = placeBarrel(state, "p1", bill(), 2, slots[0]!.id);
-    state = placeBarrel(state, "p1", bill(), 4, slots[1]!.id);
-    const ids = state.allBarrels.filter((b) => b.ownerId === "p1" && b.phase === "aging").map((b) => b.id);
-    const { state: s, cardId } = giveOpsCard(state, "p1", "blend");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "blend",
-      barrel1Id: ids[0]!,
-      barrel2Id: ids[1]!,
-    });
-    const survivors = state.allBarrels.filter((b) => b.ownerId === "p1");
-    expect(survivors).toHaveLength(1);
-    expect(survivors[0]!.age).toBe(6); // 2 + 4 aging cards combined
   });
 });
 
@@ -312,69 +266,6 @@ describe("PLAY_OPERATIONS_CARD — Glut", () => {
   });
 });
 
-describe("PLAY_OPERATIONS_CARD — Insider Buyer", () => {
-  it("sweeps the conveyor and refills 10 fresh cards", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state, [1, 1]);
-    const initialIds = state.market.map((c) => c.id);
-    const { state: s, cardId } = giveOpsCard(state, "p1", "insider_buyer");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "insider_buyer",
-    });
-    expect(state.market).toHaveLength(10);
-    // None of the original conveyor cards should still occupy the row
-    // (they all went to discard before the redeal pulled fresh ones).
-    const overlap = state.market.filter((c) => initialIds.includes(c.id));
-    // Some overlap is possible if the supply reshuffled the discard back in,
-    // but a full match would suggest the sweep didn't actually happen.
-    expect(overlap.length).toBeLessThan(initialIds.length);
-  });
-
-  it("grants a one-shot half-cost discount on the next BUY_FROM_MARKET", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state, [1, 1]);
-    const { state: s, cardId } = giveOpsCard(state, "p1", "insider_buyer");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "insider_buyer",
-    });
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.pendingHalfCostMarketBuy).toBe(true);
-
-    // v2.11: try to buy a $4 card with 2 rep — should succeed under the
-    // half-cost rule (ceil(4/2) = 2 rep). The conveyor has Specialty
-    // Labor cards at $4 in the v2.11 supply. v3.3: exclude `operations`
-    // since those route through BUY_OPERATIONS_CARD and would surface
-    // first under the new market distribution.
-    const target = state.market.find(
-      (c) => (c.cost ?? 1) === 4 && c.type !== "operations",
-    );
-    if (!target) return; // skip if seed didn't surface a $4 card
-    const slotIdx = state.market.findIndex((c) => c.id === target.id);
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1" ? { ...p, reputation: 2, hand: [] } : p,
-      ),
-    };
-    state = applyAction(state, {
-      type: "BUY_FROM_MARKET",
-      playerId: "p1",
-      marketSlotIndex: slotIdx,
-      rep: 2,
-      laborCardIds: [],
-    });
-    const p1After = state.players.find((p) => p.id === "p1")!;
-    // Discount consumed.
-    expect(p1After.pendingHalfCostMarketBuy).toBe(false);
-  });
-});
-
 describe("PLAY_OPERATIONS_CARD — Kentucky Connection", () => {
   it("draws 2 cards into the player's hand", () => {
     let state = makeTestGame();
@@ -392,100 +283,6 @@ describe("PLAY_OPERATIONS_CARD — Kentucky Connection", () => {
   });
 });
 
-describe("PLAY_OPERATIONS_CARD — Bottling Run", () => {
-  it("every player draws 1 card", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state, [1, 1]);
-    const before = state.players.map((p) => p.hand.length);
-    const { state: s, cardId } = giveOpsCard(state, "p1", "bottling_run");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "bottling_run",
-    });
-    state.players.forEach((p, i) => {
-      expect(p.hand.length).toBe((before[i] ?? 0) + 1);
-    });
-  });
-});
-
-describe("PLAY_OPERATIONS_CARD — Cash Out (v2.11)", () => {
-  it("discards resources from hand and grants 1 rep per 2 discarded (round down)", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state, [1, 1]);
-    // Seed a known hand: 5 corn cards. Cash Out should clear all 5
-    // resource cards and add floor(5/2) = 2 rep.
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1"
-          ? {
-              ...p,
-              hand: Array.from({ length: 5 }, (_, i) => ({
-                id: `card_p1_corn_t${i}`,
-                cardDefId: "corn",
-                type: "resource",
-                subtype: "corn",
-                resourceCount: 1,
-                cost: 1,
-              })),
-            }
-          : p,
-      ),
-    };
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
-    const { state: s, cardId } = giveOpsCard(state, "p1", "cash_out");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "cash_out",
-    });
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    // All resources cleared from hand.
-    expect(p1.hand.filter((c) => c.type === "resource")).toHaveLength(0);
-    // Discard holds the 5 spent corn cards.
-    expect(p1.discard.filter((c) => c.cardDefId === "corn")).toHaveLength(5);
-    // Reputation up by floor(5/2) = 2.
-    expect(p1.reputation).toBe(beforeRep + 2);
-  });
-
-  it("is illegal when fewer than 2 resource cards in hand", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state, [1, 1]);
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1"
-          ? {
-              ...p,
-              hand: [
-                {
-                  id: "only_one_corn",
-                  cardDefId: "corn",
-                  type: "resource",
-                  subtype: "corn",
-                  resourceCount: 1,
-                  cost: 1,
-                },
-              ],
-            }
-          : p,
-      ),
-    };
-    const { state: s, cardId } = giveOpsCard(state, "p1", "cash_out");
-    expect(() =>
-      applyAction(s, {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: "p1",
-        cardId,
-        defId: "cash_out",
-      }),
-    ).toThrow(/at least 2 resource/);
-  });
-});
-
 describe("PLAY_OPERATIONS_CARD — Allocation", () => {
   it("v2.6: draws up to 2 mash bills from the deck into the player's open slots as 'ready' barrels", () => {
     let state = makeTestGame();
@@ -493,8 +290,6 @@ describe("PLAY_OPERATIONS_CARD — Allocation", () => {
     const p1Id = "p1";
     const beforeSlotted = state.allBarrels.filter((b) => b.ownerId === p1Id).length;
     const beforeDeck = state.bourbonDeck.length;
-    // p1 has 4 slots, 3 occupied by drafted ready barrels — 1 open. So
-    // Allocation lands at most 1 bill (capped by open-slot count).
     const { state: s, cardId } = giveOpsCard(state, p1Id, "allocation");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
@@ -507,132 +302,6 @@ describe("PLAY_OPERATIONS_CARD — Allocation", () => {
     expect(drawn).toBeGreaterThan(0);
     expect(drawn).toBeLessThanOrEqual(2);
     expect(state.bourbonDeck.length).toBe(beforeDeck - drawn);
-  });
-});
-
-describe("PLAY_OPERATIONS_CARD — Rickhouse Expansion Permit", () => {
-  it("adds a permanent slot to the player's rickhouse", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state, [1, 1]);
-    const before = state.players.find((p) => p.id === "p1")!.rickhouseSlots.length;
-    const { state: s, cardId } = giveOpsCard(state, "p1", "rickhouse_expansion_permit");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "rickhouse_expansion_permit",
-    });
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.rickhouseSlots.length).toBe(before + 1);
-  });
-});
-
-describe("PLAY_OPERATIONS_CARD — Forced Cure", () => {
-  it("grants a bonus age slot on a barrel (same shape as Rushed Shipment)", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state, [1, 1]);
-    state = placeBarrel(state, "p1", bill(), 0);
-    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    const { state: s, cardId } = giveOpsCard(state, "p1", "forced_cure");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "forced_cure",
-      targetBarrelId: barrelId,
-    });
-    expect(state.allBarrels.find((b) => b.phase === "aging")!.extraAgesAvailable).toBe(1);
-  });
-
-  it("rejects targeting an opponent's barrel", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state, [1, 1]);
-    state = placeBarrel(state, "p2", bill(), 0);
-    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    const { state: s, cardId } = giveOpsCard(state, "p1", "forced_cure");
-    expect(() =>
-      applyAction(s, {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: "p1",
-        cardId,
-        defId: "forced_cure",
-        targetBarrelId: barrelId,
-      }),
-    ).toThrow(/your own/);
-  });
-});
-
-describe("PLAY_OPERATIONS_CARD — Mash Futures", () => {
-  it("relaxes a recipe grain min by 1 on the next MAKE", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state);
-    // Build a bill that requires 2 rye, drafted onto p1.
-    const stiffBill = makeMashBill(
-      {
-        defId: "stiff_rye",
-        name: "Stiff Rye",
-        ageBands: [2, 4, 6],
-        demandBands: [2, 4, 6],
-        rewardGrid: [[1, 2, 3], [2, 4, 5], [3, 5, 6]],
-        recipe: { minRye: 2 },
-      },
-      0,
-    );
-    // v2.6: bills live on slots — seed the stiff bill as a "ready" barrel.
-    state = placeReadySlot(state, "p1", stiffBill);
-    const { state: s, cardId } = giveOpsCard(state, "p1", "mash_futures");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "mash_futures",
-    });
-    expect(state.players.find((p) => p.id === "p1")!.pendingMakeDiscount).toBe("grain");
-    // Hand: cask + corn + 1 rye (only 1 rye but discount knocks the min from 2 → 1).
-    state = giveHand(state, "p1", [
-      makeResourceCard("cask", "p1", 0),
-      makeResourceCard("corn", "p1", 1),
-      makeResourceCard("rye", "p1", 2),
-    ]);
-    const slot = state.players[0]!.rickhouseSlots[0]!.id;
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],      slotId: slot,
-    });
-    // Discount consumed.
-    expect(state.players.find((p) => p.id === "p1")!.pendingMakeDiscount).toBeNull();
-    expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(1);
-  });
-});
-
-describe("PLAY_OPERATIONS_CARD — Cooper's Contract", () => {
-  it("lets a MAKE proceed with 0 cask cards", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state);
-    const { state: s, cardId } = giveOpsCard(state, "p1", "coopers_contract");
-    state = applyAction(s, {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: "p1",
-      cardId,
-      defId: "coopers_contract",
-    });
-    expect(state.players.find((p) => p.id === "p1")!.pendingMakeDiscount).toBe("cask");
-    // Caskless mash — corn + rye only. v2.6: bills live on slots, so
-    // we commit to the player's first ready barrel.
-    state = giveHand(state, "p1", [
-      makeResourceCard("corn", "p1", 0),
-      makeResourceCard("rye", "p1", 1),
-    ]);
-    const readyBarrel = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "ready")!;
-    state = applyAction(state, {
-      type: "MAKE_BOURBON",
-      playerId: "p1",
-      cardIds: ["card_p1_corn_0", "card_p1_rye_1"],
-      slotId: readyBarrel.slotId,
-    });
-    expect(state.allBarrels.find((b) => b.slotId === readyBarrel.slotId)!.phase).toBe("aging");
-    expect(state.players.find((p) => p.id === "p1")!.pendingMakeDiscount).toBeNull();
   });
 });
 
@@ -651,95 +320,79 @@ describe("PLAY_OPERATIONS_CARD — Rating Boost", () => {
     });
     expect(state.players.find((p) => p.id === "p1")!.pendingRatingBoost).toBe(2);
     const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
-    // age 4, demand 5: row 1, col 1, reward 4. +2 from Rating Boost = 6 net.
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
-});
+    });
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(beforeRep + 4 + 2);
-    // Boost consumed.
     expect(p1.pendingRatingBoost).toBe(0);
   });
 });
 
-describe("PLAY_OPERATIONS_CARD — Master Distiller", () => {
-  it("permanently shifts the targeted barrel's demand-band reading at sale", () => {
-    let state = makeTestGame({ startingDemand: 4 });
-    state = advanceToActionPhase(state, [1, 1]);
-    state = placeBarrel(state, "p1", bill(), 4);
-    const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    const { state: s, cardId } = giveOpsCard(state, "p1", "master_distiller");
+describe("PLAY_OPERATIONS_CARD — Wild Mash", () => {
+  it("lets a cask substitute for a rye min on a 2-rye recipe", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state);
+    const ryeHeavy = makeMashBill(
+      {
+        defId: "wild_mash_rye",
+        name: "Wild Mash Rye Test",
+        ageBands: [2, 4, 6],
+        demandBands: [2, 4, 6],
+        rewardGrid: [[1, 2, 3], [2, 4, 5], [3, 5, 6]],
+        recipe: { minRye: 2 },
+      },
+      0,
+    );
+    state = placeReadySlot(state, "p1", ryeHeavy);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "wild_mash");
     state = applyAction(s, {
       type: "PLAY_OPERATIONS_CARD",
       playerId: "p1",
       cardId,
-      defId: "master_distiller",
-      targetBarrelId: barrelId,
+      defId: "wild_mash",
     });
-    expect(state.allBarrels.find((b) => b.phase === "aging")!.demandBandOffset).toBe(2);
-    // age 4, demand 4: base row 1, col 1 = 4. With +2 band offset col
-    // shifts up to col 2 (capped) → reward 5.
-    state = applyAction(state, {
-      type: "SELL_BOURBON",
-      playerId: "p1",
-      barrelId,
-});
-    expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(0);
-  });
-});
+    expect(state.players.find((p) => p.id === "p1")!.pendingWildMashToken).toBe(true);
 
-describe("BUY_OPERATIONS_CARD — from the unified market", () => {
-  it("transfers the spec to operationsHand and refills the slot", () => {
-    let state = makeTestGame();
-    state = advanceToActionPhase(state);
-    // Find the first operations slot in the unified market.
-    const slotIndex = state.market.findIndex((c) => c.type === "operations");
-    if (slotIndex < 0) return; // skip if no ops surfaced in the default seed
-    const marketCard = state.market[slotIndex]!;
-    const spec = marketCard.opSpec!;
-    const cost = marketCard.cost ?? spec.cost;
-    const initialMarket = state.market.length;
-    state = giveRep(state, "p1", 10);
-    state = giveHand(state, "p1", []);
-
+    // Hand: 1 real cask + 1 real corn + 1 real rye + 1 extra cask (the
+    // swap target). 2-rye recipe needs total grain 2 and ≥2 rye — with
+    // 1 actual rye, the swap-as-grain cask fills the gap.
+    state = giveHand(state, "p1", [
+      makeResourceCard("cask", "p1", 0),
+      makeResourceCard("corn", "p1", 1),
+      makeResourceCard("rye", "p1", 2),
+      makeResourceCard("cask", "p1", 3),
+    ]);
+    const readyBarrel = state.allBarrels.find(
+      (b) => b.ownerId === "p1" && b.phase === "ready" && b.attachedMashBill.defId === "wild_mash_rye",
+    )!;
     state = applyAction(state, {
-      type: "BUY_OPERATIONS_CARD",
+      type: "MAKE_BOURBON",
       playerId: "p1",
-      marketSlotIndex: slotIndex,
-      rep: cost,
-      laborCardIds: [],
+      slotId: readyBarrel.slotId,
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2", "card_p1_cask_3"],
+      wildMashSwap: { cardId: "card_p1_cask_3", treatAs: "grain" },
     });
-
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    // Spec copied into operations hand with a fresh id + drawnInRound.
-    const owned = p1.operationsHand.find((c) => c.defId === spec.defId);
-    expect(owned).toBeDefined();
-    expect(owned!.id).not.toBe(spec.id);
-    expect(owned!.drawnInRound).toBe(state.round);
-    // Cost paid; market slot refilled or shrunk if supply was empty.
-    expect(p1.reputation).toBe(10 - cost);
-    expect(state.market.length).toBeLessThanOrEqual(initialMarket);
-    // The bought card is gone from the market (matched by id).
-    expect(state.market.every((c) => c.id !== marketCard.id)).toBe(true);
+    const barrelAfter = state.allBarrels.find((b) => b.slotId === readyBarrel.slotId)!;
+    expect(barrelAfter.phase).toBe("aging");
+    // Token consumed regardless of whether the swap fired.
+    expect(state.players.find((p) => p.id === "p1")!.pendingWildMashToken).toBe(false);
   });
 
-  it("rejects a resource target (use BUY_FROM_MARKET)", () => {
+  it("clears the token on PASS_TURN even when no swap was used", () => {
     let state = makeTestGame();
-    state = advanceToActionPhase(state);
-    const slotIndex = state.market.findIndex((c) => c.type === "resource");
-    if (slotIndex < 0) return;
-    state = giveRep(state, "p1", 10);
-    state = giveHand(state, "p1", []);
-    expect(() =>
-      applyAction(state, {
-        type: "BUY_OPERATIONS_CARD",
-        playerId: "p1",
-        marketSlotIndex: slotIndex,
-        rep: 1,
-        laborCardIds: [],
-      }),
-    ).toThrow(/not an operations card/);
+    state = advanceToActionPhase(state, [1, 1]);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "wild_mash");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "wild_mash",
+    });
+    expect(state.players.find((p) => p.id === "p1")!.pendingWildMashToken).toBe(true);
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    expect(state.players.find((p) => p.id === "p1")!.pendingWildMashToken).toBe(false);
   });
 });

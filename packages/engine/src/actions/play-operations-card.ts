@@ -1,10 +1,8 @@
 import type { Draft } from "immer";
 import type {
-  Card,
   GameAction,
   GameState,
   OperationsCard,
-  RickhouseSlot,
   ValidationResult,
 } from "../types";
 import { drawWithReshuffle } from "../deck";
@@ -12,7 +10,6 @@ import {
   emptySlotsFor,
   isCurrentPlayer,
   maybeTriggerFinalRound,
-  slottedBillCount,
 } from "../state";
 import { placeBillInSlot } from "../starter-pool";
 
@@ -20,8 +17,6 @@ type PlayOperationsCardAction = Extract<GameAction, { type: "PLAY_OPERATIONS_CAR
 
 const DEMAND_MIN = 0;
 const DEMAND_MAX = 12;
-const MARKET_SIZE = 10;
-const RICKHOUSE_SLOT_HARD_CAP = 6;
 
 export function validatePlayOperationsCard(
   state: GameState,
@@ -81,106 +76,12 @@ export function validatePlayOperationsCard(
       return { legal: true };
     }
 
-    case "barrel_broker": {
-      const sourceBarrel = state.allBarrels.find((b) => b.id === action.sourceBarrelId);
-      if (!sourceBarrel) {
-        return { legal: false, reason: `barrel ${action.sourceBarrelId} not found` };
-      }
-      if (sourceBarrel.ownerId !== player.id) {
-        return { legal: false, reason: "Barrel Broker requires one of your own barrels" };
-      }
-      if (sourceBarrel.phase !== "aging") {
-        return { legal: false, reason: "barrel is still under construction" };
-      }
-      const targetPlayer = state.players.find((p) => p.id === action.targetPlayerId);
-      if (!targetPlayer) {
-        return { legal: false, reason: `unknown target player ${action.targetPlayerId}` };
-      }
-      if (targetPlayer.id === player.id) {
-        return { legal: false, reason: "cannot Barrel Broker to yourself" };
-      }
-      const targetSlot = targetPlayer.rickhouseSlots.find((s) => s.id === action.targetSlotId);
-      if (!targetSlot) {
-        return { legal: false, reason: "target slot is not on the recipient's distillery" };
-      }
-      // v2.6: target slot must be FULLY OPEN — no bill, no commits.
-      // A "ready" slot already holds a bill, so it isn't a valid drop
-      // target for a transferred barrel.
-      const slotOccupied = state.allBarrels.some((b) => b.slotId === action.targetSlotId);
-      if (slotOccupied) {
-        return { legal: false, reason: "target slot already holds a bill or barrel" };
-      }
-      // v2.6: recipient's slotted-bill cap (Connoisseur Estate) gates
-      // incoming transfers too — a transferred barrel arrives with its
-      // bill attached.
-      const recipientCap = targetPlayer.distillery?.maxSlottedBills;
-      if (
-        recipientCap !== undefined &&
-        slottedBillCount(state, targetPlayer.id) >= recipientCap
-      ) {
-        return {
-          legal: false,
-          reason: `${targetPlayer.distillery!.name} caps slotted bills at ${recipientCap}`,
-        };
-      }
-      // Payment cards must be in target player's hand.
-      const targetHand = new Set(targetPlayer.hand.map((c) => c.id));
-      for (const id of action.paymentCardIds) {
-        if (!targetHand.has(id)) {
-          return { legal: false, reason: `payment card ${id} is not in ${targetPlayer.id}'s hand` };
-        }
-      }
-      return { legal: true };
-    }
-
-    case "market_corner": {
-      const slot = state.market[action.marketSlotIndex];
-      if (!slot) {
-        return {
-          legal: false,
-          reason: `market slot ${action.marketSlotIndex} is empty or out of range`,
-        };
-      }
-      return { legal: true };
-    }
-
-    case "blend": {
-      if (action.barrel1Id === action.barrel2Id) {
-        return { legal: false, reason: "Blend requires two distinct barrels" };
-      }
-      const b1 = state.allBarrels.find((b) => b.id === action.barrel1Id);
-      const b2 = state.allBarrels.find((b) => b.id === action.barrel2Id);
-      if (!b1 || !b2) return { legal: false, reason: "one or both barrels not found" };
-      if (b1.ownerId !== player.id || b2.ownerId !== player.id) {
-        return { legal: false, reason: "Blend requires two of your own barrels" };
-      }
-      if (b1.phase !== "aging" || b2.phase !== "aging") {
-        return { legal: false, reason: "Blend requires two aging-phase barrels" };
-      }
-      return { legal: true };
-    }
-
     case "demand_surge":
     case "bourbon_boom":
     case "glut":
-    case "insider_buyer":
     case "kentucky_connection":
-    case "bottling_run":
+    case "wild_mash":
       return { legal: true };
-
-    case "cash_out": {
-      // needs at least 2 resource cards to gain any rep
-      // (1 rep per 2 discarded, round down). Below 2, the card has
-      // no effect — block the play to avoid a wasted ops slot.
-      const resourceCount = player.hand.filter((c) => c.type === "resource").length;
-      if (resourceCount < 2) {
-        return {
-          legal: false,
-          reason: "Cash Out needs at least 2 resource cards in hand (pays 1 rep per 2)",
-        };
-      }
-      return { legal: true };
-    }
 
     case "allocation": {
       // v2.6: still legal even with zero open slots (the card is
@@ -192,59 +93,12 @@ export function validatePlayOperationsCard(
       return { legal: true };
     }
 
-    case "rickhouse_expansion_permit": {
-      const cap = player.distillery?.maxSlots ?? RICKHOUSE_SLOT_HARD_CAP;
-      if (player.rickhouseSlots.length >= cap) {
-        const note =
-          player.distillery?.maxSlots !== undefined
-            ? `${player.distillery.name} cannot expand past ${cap} slots`
-            : `rickhouse already at the ${cap}-slot cap`;
-        return { legal: false, reason: note };
-      }
-      return { legal: true };
-    }
-
-    case "forced_cure": {
-      const target = state.allBarrels.find((b) => b.id === action.targetBarrelId);
-      if (!target) return { legal: false, reason: `barrel ${action.targetBarrelId} not found` };
-      if (target.ownerId !== player.id) {
-        return { legal: false, reason: "Forced Cure targets one of your own barrels" };
-      }
-      if (target.phase !== "aging") {
-        return { legal: false, reason: "barrel is still under construction" };
-      }
-      return { legal: true };
-    }
-
-    case "mash_futures":
-    case "coopers_contract": {
-      if (player.pendingMakeDiscount != null) {
-        return {
-          legal: false,
-          reason: "you already have a pre-played production discount queued",
-        };
-      }
-      return { legal: true };
-    }
-
     case "rating_boost": {
       if (player.pendingRatingBoost > 0) {
         return {
           legal: false,
           reason: "a Rating Boost is already queued for your next sale",
         };
-      }
-      return { legal: true };
-    }
-
-    case "master_distiller": {
-      const target = state.allBarrels.find((b) => b.id === action.targetBarrelId);
-      if (!target) return { legal: false, reason: `barrel ${action.targetBarrelId} not found` };
-      if (target.ownerId !== player.id) {
-        return { legal: false, reason: "Master Distiller targets one of your own barrels" };
-      }
-      if (target.phase !== "aging") {
-        return { legal: false, reason: "barrel is still under construction" };
       }
       return { legal: true };
     }
@@ -281,79 +135,6 @@ export function applyPlayOperationsCard(
       break;
     }
 
-    case "barrel_broker": {
-      const targetPlayer = draft.players.find((p) => p.id === action.targetPlayerId)!;
-      const sourceBarrel = draft.allBarrels.find((b) => b.id === action.sourceBarrelId)!;
-      // Move payment cards from target's hand to source player's discard.
-      const paySet = new Set(action.paymentCardIds);
-      const newTargetHand: Card[] = [];
-      const payment: Card[] = [];
-      for (const c of targetPlayer.hand) {
-        if (paySet.has(c.id)) payment.push(c);
-        else newTargetHand.push(c);
-      }
-      targetPlayer.hand = newTargetHand;
-      player.discard.push(...payment);
-      // Transfer barrel ownership and slot.
-      sourceBarrel.ownerId = targetPlayer.id;
-      sourceBarrel.slotId = action.targetSlotId;
-      break;
-    }
-
-    case "market_corner": {
-      const [card] = draft.market.splice(action.marketSlotIndex, 1);
-      player.hand.push(card!);
-      // Refill conveyor (single draw with reshuffle if needed).
-      if (draft.marketSupplyDeck.length > 0 || draft.marketDiscard.length > 0) {
-        const result = drawWithReshuffle(
-          draft.marketSupplyDeck.slice(),
-          draft.marketDiscard.slice(),
-          1,
-          draft.rngState,
-        );
-        if (result.drawn.length > 0) {
-          draft.market.push(result.drawn[0]!);
-        }
-        draft.marketSupplyDeck = result.deck;
-        draft.marketDiscard = result.discard;
-        draft.rngState = result.rngState;
-      }
-      break;
-    }
-
-    case "blend": {
-      const b1Idx = draft.allBarrels.findIndex((b) => b.id === action.barrel1Id);
-      const b2Idx = draft.allBarrels.findIndex((b) => b.id === action.barrel2Id);
-      const b1 = draft.allBarrels[b1Idx]!;
-      const b2 = draft.allBarrels[b2Idx]!;
-
-      // Validation guarantees both barrels are aging-phase with bills.
-      const bill1 = b1.attachedMashBill!;
-      const bill2 = b2.attachedMashBill!;
-      const peak1 = peakReward(bill1);
-      const peak2 = peakReward(bill2);
-      const keepFirst = peak1 >= peak2;
-      const keptBill = keepFirst ? bill1 : bill2;
-      const discardedBill = keepFirst ? bill2 : bill1;
-
-      // Survivor occupies b1's slot; b2 is removed.
-      b1.attachedMashBill = keptBill;
-      b1.age = Math.max(b1.age, b2.age);
-      b1.agingCards = [...b1.agingCards, ...b2.agingCards];
-      b1.productionCardDefIds = [...b1.productionCardDefIds, ...b2.productionCardDefIds];
-      // age counter is a function of agingCards.length post-blend
-      b1.age = b1.agingCards.length;
-      // Preserve agedThisRound only if either was already aged.
-      b1.agedThisRound = b1.agedThisRound || b2.agedThisRound;
-      b1.inspectedThisRound = b1.inspectedThisRound || b2.inspectedThisRound;
-      b1.extraAgesAvailable = b1.extraAgesAvailable + b2.extraAgesAvailable;
-
-      draft.bourbonDiscard.push(discardedBill);
-      // Remove b2 from allBarrels (mind index ordering after b1 was edited).
-      draft.allBarrels.splice(b2Idx, 1);
-      break;
-    }
-
     case "demand_surge": {
       player.demandSurgeActive = true;
       break;
@@ -369,29 +150,6 @@ export function applyPlayOperationsCard(
       break;
     }
 
-    case "insider_buyer": {
-      // Sweep the conveyor into the market discard, then deal a fresh
-      // 10 from the supply (drawing through reshuffle if needed).
-      draft.marketDiscard.push(...draft.market);
-      draft.market = [];
-      const want = MARKET_SIZE;
-      const result = drawWithReshuffle(
-        draft.marketSupplyDeck.slice(),
-        draft.marketDiscard.slice(),
-        want,
-        draft.rngState,
-      );
-      draft.market.push(...result.drawn);
-      draft.marketSupplyDeck = result.deck;
-      draft.marketDiscard = result.discard;
-      draft.rngState = result.rngState;
-      // Bonus from the spec: the next BUY_FROM_MARKET this turn pays
-      // half the printed cost (rounded up, min 1¢). Cleared on the
-      // purchase, on PASS_TURN, or in cleanup.
-      player.pendingHalfCostMarketBuy = true;
-      break;
-    }
-
     case "kentucky_connection": {
       const result = drawWithReshuffle(
         player.deck.slice(),
@@ -403,39 +161,6 @@ export function applyPlayOperationsCard(
       player.deck = result.deck;
       player.discard = result.discard;
       draft.rngState = result.rngState;
-      break;
-    }
-
-    case "bottling_run": {
-      // Each player draws 1 from their own deck (with reshuffle).
-      for (const p of draft.players) {
-        const result = drawWithReshuffle(
-          p.deck.slice(),
-          p.discard.slice(),
-          1,
-          draft.rngState,
-        );
-        p.hand.push(...result.drawn);
-        p.deck = result.deck;
-        p.discard = result.discard;
-        draft.rngState = result.rngState;
-      }
-      break;
-    }
-
-    case "cash_out": {
-      // Discard every resource card from hand; gain 1 rep per 2
-      // discarded (round down). The "trade grain for rep" valve.
-      const kept: Card[] = [];
-      const discarded: Card[] = [];
-      for (const c of player.hand) {
-        if (c.type === "resource") discarded.push(c);
-        else kept.push(c);
-      }
-      player.hand = kept;
-      player.discard.push(...discarded);
-      const gained = Math.floor(discarded.length / 2);
-      player.reputation += gained;
       break;
     }
 
@@ -464,31 +189,6 @@ export function applyPlayOperationsCard(
       break;
     }
 
-    case "rickhouse_expansion_permit": {
-      const newSlot: RickhouseSlot = {
-        id: `slot_${player.id}_perm_${draft.idCounter++}`,
-        ownerId: player.id,
-      };
-      player.rickhouseSlots.push(newSlot);
-      break;
-    }
-
-    case "forced_cure": {
-      const target = draft.allBarrels.find((b) => b.id === action.targetBarrelId)!;
-      target.extraAgesAvailable += 1;
-      break;
-    }
-
-    case "mash_futures": {
-      player.pendingMakeDiscount = "grain";
-      break;
-    }
-
-    case "coopers_contract": {
-      player.pendingMakeDiscount = "cask";
-      break;
-    }
-
     case "rating_boost": {
       // Stacks: a player who somehow held two could queue +4. Validate
       // currently rejects a second copy, so this is just defensive.
@@ -496,9 +196,11 @@ export function applyPlayOperationsCard(
       break;
     }
 
-    case "master_distiller": {
-      const target = draft.allBarrels.find((b) => b.id === action.targetBarrelId)!;
-      target.demandBandOffset += 2;
+    case "wild_mash": {
+      // One-shot pre-play token. Consumed by the next MAKE_BOURBON
+      // (whether or not the player invokes the swap), and cleared on
+      // PASS_TURN if the player never builds. No carry across turns.
+      player.pendingWildMashToken = true;
       break;
     }
   }
@@ -509,14 +211,4 @@ export function applyPlayOperationsCard(
   // rebuyable supply, which is too generous.)
   void card;
   // Playing an ops card does NOT consume the action — turn does not end.
-}
-
-function peakReward(bill: { rewardGrid: (number | null)[][] }): number {
-  let max = 0;
-  for (const row of bill.rewardGrid) {
-    for (const cell of row) {
-      if (cell !== null && cell > max) max = cell;
-    }
-  }
-  return max;
 }

@@ -103,6 +103,9 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
   // Insider Buyer's half-cost is a "this turn" effect — drop it on
   // turn end so an unused discount can't carry forward.
   player.pendingHalfCostMarketBuy = false;
+  // Wild Mash: any pre-played token that didn't get consumed by a
+  // MAKE_BOURBON this turn drops at turn end. No carry-over.
+  player.pendingWildMashToken = false;
 
   // v3.9: discard the held resource + Labor hand and redraw 8 fresh
   // cards. Operations cards live in `operationsHand` and aren't

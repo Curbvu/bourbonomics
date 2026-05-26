@@ -13,8 +13,6 @@ import { resourceUnits, suppliesResource } from "../cards";
 import { computeReward } from "../rewards";
 import { emptySlotsFor, getPlayerBarrels, slottedBillCount } from "../state";
 
-const RICKHOUSE_SLOT_HARD_CAP = 6;
-
 // ---------------------------------------------------------------
 // Heuristic bot.
 //
@@ -256,33 +254,6 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
     }
   }
 
-  // Market Corner: only if there's a high-value premium we can't otherwise afford.
-  // "afford" = current rep (Labor cards we don't model here as
-  // a hard discount; this is a rough upper bound).
-  const mc = playable.find((c) => c.defId === "market_corner");
-  if (mc) {
-    const spending = player.reputation;
-    let bestSlot = -1;
-    let bestCost = 0;
-    for (let i = 0; i < state.market.length; i++) {
-      const card = state.market[i]!;
-      const cost = card.cost ?? 1;
-      if (cost > spending && cost > bestCost) {
-        bestCost = cost;
-        bestSlot = i;
-      }
-    }
-    if (bestSlot >= 0) {
-      return {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: player.id,
-        cardId: mc.id,
-        defId: "market_corner",
-        marketSlotIndex: bestSlot,
-      };
-    }
-  }
-
   // Regulatory Inspection: target an opponent's most-aged barrel.
   const ri = playable.find((c) => c.defId === "regulatory_inspection");
   if (ri) {
@@ -306,26 +277,6 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
       };
     }
   }
-
-  // Blend: combine any two of our barrels.
-  const bl = playable.find((c) => c.defId === "blend");
-  if (bl) {
-    const myBarrels = getPlayerBarrels(state, player.id);
-    if (myBarrels.length >= 2) {
-      return {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: player.id,
-        cardId: bl.id,
-        defId: "blend",
-        barrel1Id: myBarrels[0]!.id,
-        barrel2Id: myBarrels[1]!.id,
-      };
-    }
-  }
-
-  // Barrel Broker is omitted — needs cross-player negotiation we don't model.
-
-  // ── New v2.2.x ops cards ──────────────────────────────────────────
 
   // Bourbon Boom: same trigger as Market Manipulation up — a saleable
   // barrel benefits from higher demand.
@@ -358,25 +309,6 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
     }
   }
 
-  // Insider Buyer: refresh the conveyor when at least one card is too
-  // expensive AND we have rep to buy the refreshed offerings.
-  const ib = playable.find((c) => c.defId === "insider_buyer");
-  if (ib) {
-    const spending = player.reputation;
-    const cheapestVisible = state.market.reduce(
-      (lo: number, c) => Math.min(lo, c.cost ?? 1),
-      Infinity,
-    );
-    if (spending >= cheapestVisible) {
-      return {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: player.id,
-        cardId: ib.id,
-        defId: "insider_buyer",
-      };
-    }
-  }
-
   // Kentucky Connection: free draws are always good while we can use
   // them — fire it if our hand has room (under handSize).
   const kc = playable.find((c) => c.defId === "kentucky_connection");
@@ -387,33 +319,6 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
       cardId: kc.id,
       defId: "kentucky_connection",
     };
-  }
-
-  // Bottling Run: helps everyone but us first — fire when our hand is
-  // small (we benefit relatively most when behind on cards).
-  const br = playable.find((c) => c.defId === "bottling_run");
-  if (br && player.hand.length <= 3) {
-    return {
-      type: "PLAY_OPERATIONS_CARD",
-      playerId: player.id,
-      cardId: br.id,
-      defId: "bottling_run",
-    };
-  }
-
-  // Cash Out: convert junk grain to rep when our hand is mostly
-  // resources we won't use this round.
-  const co = playable.find((c) => c.defId === "cash_out");
-  if (co) {
-    const resourceCount = player.hand.filter((c) => c.type === "resource").length;
-    if (resourceCount >= 3) {
-      return {
-        type: "PLAY_OPERATIONS_CARD",
-        playerId: player.id,
-        cardId: co.id,
-        defId: "cash_out",
-      };
-    }
   }
 
   // Allocation: free mash bills are always strong if we have at least
@@ -429,19 +334,37 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
     };
   }
 
-  // Rickhouse Expansion Permit: take it whenever we're not already at
-  // the cap and our rickhouse is currently full (slot pressure). The
-  // distillery may impose a stricter cap (Broker = 4).
-  const rep = playable.find((c) => c.defId === "rickhouse_expansion_permit");
-  const slotCap = player.distillery?.maxSlots ?? RICKHOUSE_SLOT_HARD_CAP;
-  if (rep && player.rickhouseSlots.length < slotCap) {
-    const occupied = state.allBarrels.filter((b) => b.ownerId === player.id).length;
-    if (occupied >= player.rickhouseSlots.length) {
+  // Rating Boost: play right before a planned sale to amplify the payout.
+  const ratingBoost = playable.find((c) => c.defId === "rating_boost");
+  if (ratingBoost && player.pendingRatingBoost === 0) {
+    const sale = chooseSale(state, player);
+    if (sale && sale.type === "SELL_BOURBON") {
       return {
         type: "PLAY_OPERATIONS_CARD",
         playerId: player.id,
-        cardId: rep.id,
-        defId: "rickhouse_expansion_permit",
+        cardId: ratingBoost.id,
+        defId: "rating_boost",
+      };
+    }
+  }
+
+  // Wild Mash: pre-play when we're holding extra cask but short a
+  // named grain. The conservative gate: hand has 2+ casks AND a
+  // planned in-flight bill demands a named grain we're under-served
+  // on. The bot won't actually invoke the swap on MAKE_BOURBON (not
+  // plumbed through `chooseMakeBourbon`), so this gate is mostly to
+  // surface the card; v1 acceptance.
+  const wild = playable.find((c) => c.defId === "wild_mash");
+  if (wild && !player.pendingWildMashToken) {
+    const caskInHand = player.hand.filter(
+      (c) => c.type === "resource" && suppliesResource(c, "cask"),
+    ).length;
+    if (caskInHand >= 2) {
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: wild.id,
+        defId: "wild_mash",
       };
     }
   }
@@ -1362,20 +1285,16 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
  * cross-player negotiation) are intentionally excluded.
  */
 const OPS_BUY_PREFERENCE: OperationsCard["defId"][] = [
-  "demand_surge",       // straight protection on a planned sale
+  "demand_surge",
   "market_manipulation",
   "bourbon_boom",
   "rushed_shipment",
   "kentucky_connection",
-  "market_corner",
-  "blend",
-  "cash_out",
-  "regulatory_inspection",
-  "glut",
-  "insider_buyer",
-  "bottling_run",
+  "rating_boost",
   "allocation",
-  "rickhouse_expansion_permit",
+  "wild_mash",
+  "glut",
+  "regulatory_inspection",
 ];
 
 const OPS_BOT_PLAYABLE = new Set<OperationsCard["defId"]>([
@@ -1384,15 +1303,11 @@ const OPS_BOT_PLAYABLE = new Set<OperationsCard["defId"]>([
   "bourbon_boom",
   "rushed_shipment",
   "kentucky_connection",
-  "market_corner",
-  "blend",
-  "cash_out",
-  "regulatory_inspection",
-  "glut",
-  "insider_buyer",
-  "bottling_run",
+  "rating_boost",
   "allocation",
-  "rickhouse_expansion_permit",
+  "wild_mash",
+  "glut",
+  "regulatory_inspection",
 ]);
 
 // -----------------------------

@@ -370,6 +370,7 @@ export type InvestmentTrigger =
   | "on_make"
   | "on_age"
   | "on_complete"
+  | "on_complete_recipe"
   | "on_buy_market"
   | "turn_start"
   | "round_end"
@@ -532,23 +533,13 @@ export type OperationsCardDefId =
   | "market_manipulation"
   | "bourbon_boom"
   | "glut"
-  | "regulatory_inspection"
+  | "demand_surge"
   | "rushed_shipment"
-  | "forced_cure"
-  | "barrel_broker"
-  | "market_corner"
-  | "insider_buyer"
-  | "kentucky_connection"
-  | "bottling_run"
-  | "cash_out"
-  | "allocation"
-  | "rickhouse_expansion_permit"
-  | "mash_futures"
-  | "coopers_contract"
+  | "regulatory_inspection"
   | "rating_boost"
-  | "master_distiller"
-  | "blend"
-  | "demand_surge";
+  | "allocation"
+  | "kentucky_connection"
+  | "wild_mash";
 
 export interface OperationsCard {
   id: string;
@@ -737,6 +728,12 @@ export interface PlayerState {
    * +N reputation on top of the grid reward. Persists until consumed.
    */
   pendingRatingBoost: number;
+  /**
+   * Set when the player plays Wild Mash this turn. Consumed by the
+   * next MAKE_BOURBON action (one substitution, then cleared regardless
+   * of whether it was used). Cleared on PASS_TURN too.
+   */
+  pendingWildMashToken?: boolean;
   /**
    * v2.9: each player rolls demand at the start of their own action
    * turn (instead of one global roll per round). This flag is set
@@ -1027,29 +1024,13 @@ export type PlayOperationsCardParams =
   | { defId: "market_manipulation"; direction: "up" | "down" }
   | { defId: "bourbon_boom" }
   | { defId: "glut" }
-  | { defId: "regulatory_inspection"; targetBarrelId: string }
+  | { defId: "demand_surge" }
   | { defId: "rushed_shipment"; targetBarrelId: string }
-  | { defId: "forced_cure"; targetBarrelId: string }
-  | {
-      defId: "barrel_broker";
-      sourceBarrelId: string;
-      targetPlayerId: string;
-      targetSlotId: string;
-      paymentCardIds: string[];
-    }
-  | { defId: "market_corner"; marketSlotIndex: number }
-  | { defId: "insider_buyer" }
-  | { defId: "kentucky_connection" }
-  | { defId: "bottling_run" }
-  | { defId: "cash_out" }
-  | { defId: "allocation" }
-  | { defId: "rickhouse_expansion_permit" }
-  | { defId: "mash_futures" }
-  | { defId: "coopers_contract" }
+  | { defId: "regulatory_inspection"; targetBarrelId: string }
   | { defId: "rating_boost" }
-  | { defId: "master_distiller"; targetBarrelId: string }
-  | { defId: "blend"; barrel1Id: string; barrel2Id: string }
-  | { defId: "demand_surge" };
+  | { defId: "allocation" }
+  | { defId: "kentucky_connection" }
+  | { defId: "wild_mash" };
 
 export type GameAction =
   | { type: "SELECT_DISTILLERY"; playerId: string; distilleryId: string }
@@ -1090,6 +1071,13 @@ export type GameAction =
       playerId: string;
       slotId: string;
       cardIds: string[];
+      /**
+       * Wild Mash one-shot role swap. When set, the named card in
+       * `cardIds` is treated as the given role for recipe
+       * satisfaction (a cask as a grain unit, or a grain as a cask).
+       * Requires `pendingWildMashToken` to be set on the player.
+       */
+      wildMashSwap?: { cardId: string; treatAs: "cask" | "grain" };
     }
   | { type: "AGE_BOURBON"; playerId: string; barrelId: string; cardId: string }
   | {
