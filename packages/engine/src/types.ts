@@ -697,6 +697,16 @@ export interface PlayerState {
   barrelsSold: number;
 
   /**
+   * Permanent prestige counter. Earned by triggering Gold awards on
+   * sale (and, for Connoisseur Estate, Silver awards too). Each point
+   * adds +1 reputation to every future Silver- or Gold-triggering
+   * sale. Does NOT apply to base sales that hit no award.
+   *
+   * Prestige is monotonic — never decreases. No cap.
+   */
+  prestige: number;
+
+  /**
    * Save slot — at cleanup, the player may set aside ONE card
    * from their hand into this slot. The saved card joins next round's
    * 8-card draw on top, so the player effectively draws 9 the round
@@ -880,6 +890,12 @@ export interface GameState {
 
   bourbonDeck: MashBill[];
   bourbonDiscard: MashBill[];
+  /**
+   * Bills retired by Gold awards. Removed from circulation entirely
+   * — they will not return to the bourbon deck or discard. Tracked
+   * here so the UI can show a graveyard of past Gold sales.
+   */
+  retiredBills: MashBill[];
   /**
    * Active Drafting Loop sub-phase, if any. While non-null, the only
    * legal actions are `DRAFT_TAKE_BILL`, `DRAFT_TAKE_CARD`, and
@@ -1083,17 +1099,12 @@ export type GameAction =
   | {
       // Sale is single-step. Grid value + bonuses are auto-clamped to
       // the tier floor (3/4/5) and added to the player's rep track.
-      // No split prompt.
+      // Prestige (+1 per point) is added on top whenever Silver or
+      // Gold triggers. Bill destination: discard (Silver / none) or
+      // retired (Gold).
       type: "SELL_BOURBON";
       playerId: string;
       barrelId: string;
-      goldChoice?: "convert" | "keep" | "decline";
-      /**
-       * v2.10 Connoisseur Estate: Open-slot Convert allows the target
-       * slot to be empty (no barrel record). The Gold bill lands in
-       * the open slot as a "ready" barrel.
-       */
-      goldConvertTargetSlotId?: string;
     }
   | {
       // Pay rep + Labor cards. `rep` is the reputation portion of the

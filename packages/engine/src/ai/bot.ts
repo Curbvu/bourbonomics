@@ -150,9 +150,11 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
 // Distillery selection
 // -----------------------------
 
-// v2.10 distillery preference. Bot picks the leftmost match available
-// in the pool. Connoisseur Estate's deck-shaping edge and 4-bill draft
-// give it the strongest opening; Vanilla is the safe baseline.
+// Distillery preference. Bot picks the leftmost match available in
+// the pool. Connoisseur Estate is now the prestige specialist (+1
+// extra prestige on Silver, +1 extra on Gold) on top of its 4-bill
+// setup, so it stays the strongest opener; Vanilla is the safe
+// baseline.
 const DISTILLERY_PREFERENCE: Distillery["bonus"][] = [
   "connoisseur_estate",
   "vanilla",
@@ -427,14 +429,21 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
       demandBandOffset: b.demandBandOffset,
       gridRepOffset: b.gridRepOffset,
     });
-    // v2.10: Gold-eligible sales are the only path to mid-game deck
-    // shaping (Convert / split into card draws). Score them higher
-    // so the bot prefers Gold-eligible barrels at equal grid value.
+    // Prestige era: Gold-eligible sales grant +1 permanent prestige
+    // (Connoisseur +2) AND retire the bill — a structurally large
+    // upside even at the same grid cell. Silver triggers also matter
+    // because prestige adds +1 rep to every future Silver/Gold sale.
     const goldEligibleHere =
       bill.goldAward != null &&
       b.age >= (bill.goldAward.minAge ?? 0) &&
       state.demand >= (bill.goldAward.minDemand ?? 0) &&
       grid >= (bill.goldAward.minReward ?? 0);
+    const silverEligibleHere =
+      !goldEligibleHere &&
+      bill.silverAward != null &&
+      b.age >= (bill.silverAward.minAge ?? 0) &&
+      state.demand >= (bill.silverAward.minDemand ?? 0) &&
+      grid >= (bill.silverAward.minReward ?? 0);
     // v2.10 High-Rye House: +1 rep on rye-bill sales nudges these
     // forward at equal grid.
     const distilleryBonus =
@@ -445,7 +454,25 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
             bill.recipe?.maxRye === 0
           ? player.distillery.saleMods.bonusRepOnBill.rep
           : 0;
-    const score = grid + (goldEligibleHere ? Math.ceil(grid * 0.5) : 0) + distilleryBonus;
+    // Prestige already earned adds directly to this sale's rep when
+    // Silver or Gold triggers; chase that bonus first.
+    const prestigeBonus =
+      (goldEligibleHere || silverEligibleHere) ? player.prestige : 0;
+    // EV bump for *gaining* prestige: 1 prestige × ~4 future premium
+    // sales = +4 expected rep. Connoisseur gains 2 prestige on Gold
+    // and 1 on Silver, so the multiplier scales.
+    const isConnoisseur = player.distillery?.bonus === "connoisseur_estate";
+    const prestigeGainedHere = goldEligibleHere
+      ? (isConnoisseur ? 2 : 1)
+      : silverEligibleHere && isConnoisseur
+        ? 1
+        : 0;
+    const PRESTIGE_FUTURE_EV = 4;
+    const score =
+      grid +
+      distilleryBonus +
+      prestigeBonus +
+      prestigeGainedHere * PRESTIGE_FUTURE_EV;
     if (best === null || score > best.score) {
       best = { barrelId: b.id, reward: grid, age: b.age, bill, score };
     }
@@ -465,154 +492,11 @@ function chooseSale(state: GameState, player: PlayerState): GameAction | null {
     endgameFlush; // age≥2 already gated above; this captures 0-rep flush
   if (!passesThreshold) return null;
 
-  // v2.6 Gold-award choice. The bot's preference order:
-  //   1. Convert into the highest-peak slot we own whose committed
-  //      cards already satisfy the Gold bill's recipe (free upgrade).
-  //   2. Keep — bill stays in the now-empty slot for re-use.
-  //   3. (Decline only if neither above applies, which currently never
-  //      happens since "keep" is always legal.)
-  let goldChoice: "convert" | "keep" | "decline" | undefined;
-  let goldConvertTargetSlotId: string | undefined;
-  const goldEligible =
-    best.bill.goldAward != null &&
-    best.bill.goldAward.minAge !== undefined &&
-    best.age >= (best.bill.goldAward.minAge ?? 0) &&
-    state.demand >= (best.bill.goldAward.minDemand ?? 0) &&
-    best.reward >= (best.bill.goldAward.minReward ?? 0);
-  if (goldEligible) {
-    const convertTarget = pickGoldConvertTarget(state, player, best.barrelId, best.bill);
-    if (convertTarget) {
-      goldChoice = "convert";
-      goldConvertTargetSlotId = convertTarget;
-    } else {
-      goldChoice = "keep";
-    }
-  }
-
   return {
     type: "SELL_BOURBON",
     playerId: player.id,
     barrelId: best.barrelId,
-    // single-step sale — rep total + tier floor are applied
-    // by the engine. No split fields.
-    ...(goldChoice ? { goldChoice } : {}),
-    ...(goldConvertTargetSlotId ? { goldConvertTargetSlotId } : {}),
   };
-}
-
-/**
- * v2.6 Gold Convert target picker. Walks the seller's other slots and
- * finds one whose currently-committed cards already satisfy the Gold
- * bill's recipe. Returns the slot id with the highest current peak
- * (most upside from being relabeled with a Gold recipe), or null if
- * no slot qualifies.
- */
-function pickGoldConvertTarget(
-  state: GameState,
-  player: PlayerState,
-  sellingBarrelId: string,
-  goldBill: MashBill,
-): string | null {
-  // v2.10 Connoisseur Estate: empty slots count as Convert targets —
-  // no recipe check (no committed cards) and no displaced bill, so
-  // they're strictly better than overwriting an existing slot.
-  if (player.distillery?.bonus === "connoisseur_estate") {
-    const sellingSlotId = state.allBarrels.find((b) => b.id === sellingBarrelId)?.slotId;
-    const occupied = new Set(
-      state.allBarrels
-        .filter((b) => b.ownerId === player.id && b.id !== sellingBarrelId)
-        .map((b) => b.slotId),
-    );
-    const emptySlot = player.rickhouseSlots.find(
-      (s) => !occupied.has(s.id) && s.id !== sellingSlotId,
-    );
-    if (emptySlot) return emptySlot.id;
-  }
-  const candidates = state.allBarrels.filter(
-    (b) => b.id !== sellingBarrelId && b.ownerId === player.id,
-  );
-  let best: { slotId: string; existingPeak: number } | null = null;
-  for (const b of candidates) {
-    if (!recipeSatisfiedByPile(player, goldBill, b.productionCards)) continue;
-    const existingPeak = peakReward(b.attachedMashBill);
-    if (!best || existingPeak < best.existingPeak) {
-      // We want to OVERWRITE the lowest-peak existing bill — that's
-      // the slot where converting to Gold gives the biggest upside.
-      best = { slotId: b.slotId, existingPeak };
-    }
-  }
-  return best?.slotId ?? null;
-}
-
-/**
- * Predicate: does `pile` **exactly** satisfy `bill`'s recipe under the
- * v2.10 rules? Mirrors `make-bourbon.recipeSatisfied`. Used by the
- * bot's Gold Convert picker to decide whether a slot's current pile
- * would survive a recipe relabel.
- */
-function recipeSatisfiedByPile(
-  player: PlayerState,
-  bill: MashBill,
-  pile: Card[],
-): boolean {
-  const recipe = bill.recipe ?? {};
-  let cask = 0,
-    plainCask = 0,
-    corn = 0,
-    rye = 0,
-    barley = 0,
-    wheat = 0;
-  let spCask = 0,
-    spCorn = 0,
-    spRye = 0,
-    spBarley = 0,
-    spWheat = 0;
-  for (const c of pile) {
-    if (c.type !== "resource") continue;
-    const count = c.resourceCount ?? 1;
-    if (c.subtype === "cask") {
-      cask += count;
-      if (!c.specialty) plainCask += count;
-    }
-    if (c.subtype === "corn") corn += count;
-    if (c.subtype === "rye") rye += count;
-    if (c.subtype === "barley") barley += count;
-    if (c.subtype === "wheat") wheat += count;
-    if (c.specialty) {
-      if (c.subtype === "cask") spCask += count;
-      if (c.subtype === "corn") spCorn += count;
-      if (c.subtype === "rye") spRye += count;
-      if (c.subtype === "barley") spBarley += count;
-      if (c.subtype === "wheat") spWheat += count;
-    }
-  }
-  const sp = recipe.minSpecialty ?? {};
-  const minCorn = Math.max(Math.max(1, recipe.minCorn ?? 0), sp.corn ?? 0);
-  const minRye = Math.max(recipe.minRye ?? 0, sp.rye ?? 0);
-  const minBarley = Math.max(recipe.minBarley ?? 0, sp.barley ?? 0);
-  const minWheat = Math.max(recipe.minWheat ?? 0, sp.wheat ?? 0);
-  const namedGrainSum = minRye + minBarley + minWheat;
-  const minTotal = Math.max(
-    recipe.minTotalGrain ?? 0,
-    namedGrainSum === 0 ? 1 : namedGrainSum,
-  );
-  if (cask !== 1) return false;
-  if ((sp.cask ?? 0) >= 1 && plainCask > 0) return false;
-  // Corn exact; per-grain floors; total grain exact (matches engine).
-  if (corn !== minCorn) return false;
-  if (rye < minRye) return false;
-  if (barley < minBarley) return false;
-  if (wheat < minWheat) return false;
-  if (recipe.maxRye !== undefined && rye > recipe.maxRye) return false;
-  if (recipe.maxWheat !== undefined && wheat > recipe.maxWheat) return false;
-  const grain = rye + barley + wheat;
-  if (grain !== minTotal) return false;
-  if (spCask < (sp.cask ?? 0)) return false;
-  if (spCorn < (sp.corn ?? 0)) return false;
-  if (spRye < (sp.rye ?? 0)) return false;
-  if (spBarley < (sp.barley ?? 0)) return false;
-  if (spWheat < (sp.wheat ?? 0)) return false;
-  return true;
 }
 
 // -----------------------------
@@ -1554,6 +1438,19 @@ function scoreBillForPlayer(
   }
   if (bonus === "wheated_baron" && bill.recipe?.maxRye === 0) {
     score += synergyBonus;
+  }
+  // Prestige-aware drafting: a Gold-eligible bill that the bot can
+  // plausibly reach is worth +1 prestige (Connoisseur: +2) every time
+  // it sells. Treat a reachable Gold as +4 expected rep (1 prestige
+  // × ~4 future premium sales). Silver gets a smaller nudge (+1) —
+  // it doesn't grant prestige outside Connoisseur, but it does
+  // trigger the prestige multiplier on this sale.
+  if (bill.goldAward != null) {
+    const goldNudge = bonus === "connoisseur_estate" ? 8 : 4;
+    score += goldNudge;
+  } else if (bill.silverAward != null) {
+    score += 1;
+    if (bonus === "connoisseur_estate") score += 3; // grants prestige too
   }
   // Hard only: reachability penalty. If the bill demands a Specialty
   // subtype the player has neither in hand, in deck, nor visible in

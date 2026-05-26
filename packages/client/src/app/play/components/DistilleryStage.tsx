@@ -46,6 +46,9 @@ const SUB_INK: Record<string, string> = {
   barley: "#82c9a3",
   wheat: "#7da6df",
   labor: "#c69d52",
+  // Wildcard grain — neutral slate so it reads as "any subtype works"
+  // and stays visually distinct from every named grain ink above.
+  any: "#b7c2d3",
 };
 
 const TIER_BAND: Record<
@@ -116,6 +119,7 @@ export default function DistilleryStage() {
           ability={distillery.cardText ?? ""}
           rep={player.reputation}
           sold={player.barrelsSold}
+          prestige={player.prestige}
         />
 
         {/* 3. Rickhouse stage */}
@@ -145,12 +149,14 @@ function IdentityPlate({
   ability,
   rep,
   sold,
+  prestige,
 }: {
   name: string;
   flavor: string;
   ability: string;
   rep: number;
   sold: number;
+  prestige: number;
 }) {
   return (
     <div
@@ -269,15 +275,48 @@ function IdentityPlate({
         ) : null}
       </div>
 
-      {/* Stats — Reputation now lives inline next to the crest. Only
-          Sold stays here, promoted to `big` so the right column
-          doesn't visually collapse. */}
+      {/* Stats — Reputation now lives inline next to the crest. Sold
+          stays here, promoted to `big` so the right column doesn't
+          visually collapse. Prestige sits beside Sold as a small star
+          badge; it only appears once the player has earned at least
+          one prestige point (Gold sale, or Silver for Connoisseur). */}
       <div
         className="flex items-stretch gap-3.5 pl-[18px]"
         style={{ borderLeft: "1px dashed rgba(110,80,50,.45)" }}
       >
         <Stat label="Sold" value={sold} big />
+        {prestige > 0 ? <PrestigeBadge value={prestige} /> : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Prestige badge — small star + count, shown only when prestige > 0.
+ * Visually distinct from Sold (smaller, brass-gold gradient, "★" mark)
+ * so a player at 2 prestige and 7 sold reads as "two awards, seven
+ * total sales" at a glance.
+ */
+function PrestigeBadge({ value }: { value: number }) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center leading-none"
+      title="Prestige — adds +1 rep to every future Silver or Gold sale"
+      data-bb-zone="prestige"
+    >
+      <span
+        className="font-display font-bold tracking-[.01em]"
+        style={{
+          fontSize: 26,
+          color: "var(--gold)",
+          textShadow: "0 0 12px rgba(240,201,112,.45)",
+        }}
+      >
+        ★{value}
+      </span>
+      <span className="label-sm mt-1" style={{ color: "var(--brass)" }}>
+        Prestige
+      </span>
     </div>
   );
 }
@@ -961,7 +1000,7 @@ function Hoop({
 // render them as a stack of `[count]× [glyph]` rows on the barrel.
 // ─────────────────────────────────────────────────────────────────────
 
-type SubKey = "cask" | "corn" | "rye" | "barley" | "wheat";
+type SubKey = "cask" | "corn" | "rye" | "barley" | "wheat" | "any";
 
 interface BarrelNeed {
   subtype: SubKey;
@@ -978,7 +1017,8 @@ interface BarrelNeed {
  * so multiple barrels read consistently.
  */
 function computeBarrelNeeds(barrel: Barrel): BarrelNeed[] {
-  const tally: Record<SubKey, number> = {
+  type NamedKey = "cask" | "corn" | "rye" | "barley" | "wheat";
+  const tally: Record<NamedKey, number> = {
     cask: 0,
     corn: 0,
     rye: 0,
@@ -988,21 +1028,55 @@ function computeBarrelNeeds(barrel: Barrel): BarrelNeed[] {
   for (const c of barrel.productionCards) {
     if (c.type !== "resource" || !c.subtype) continue;
     const n = c.resourceCount ?? 1;
-    if (c.subtype in tally) tally[c.subtype as SubKey] += n;
+    if (c.subtype in tally) tally[c.subtype as NamedKey] += n;
   }
   const recipe = barrel.attachedMashBill?.recipe ?? {};
-  const mins: Record<SubKey, number> = {
+  const minCorn = Math.max(1, recipe.minCorn ?? 0);
+  const minRye = recipe.minRye ?? 0;
+  const minBarley = recipe.minBarley ?? 0;
+  const minWheat = recipe.minWheat ?? 0;
+  const namedGrainFloor = minRye + minBarley + minWheat;
+  // Same formula RecipePips/mashBillBuildCost use — the universal
+  // "≥1 grain" rule guarantees at least one grain even when the recipe
+  // is silent. Anything beyond the sum of named-grain floors is a
+  // wildcard "any grain" slot the player can fill with any subtype.
+  const minTotalGrain = Math.max(
+    recipe.minTotalGrain ?? 0,
+    namedGrainFloor === 0 ? 1 : namedGrainFloor,
+  );
+
+  const mins: Record<NamedKey, number> = {
     cask: 1,
-    corn: Math.max(1, recipe.minCorn ?? 0),
-    rye: recipe.minRye ?? 0,
-    barley: recipe.minBarley ?? 0,
-    wheat: recipe.minWheat ?? 0,
+    corn: minCorn,
+    rye: minRye,
+    barley: minBarley,
+    wheat: minWheat,
   };
   const out: BarrelNeed[] = [];
-  for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as SubKey[]) {
+  let namedGrainShortfall = 0;
+  for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as NamedKey[]) {
     const need = Math.max(0, mins[sub] - tally[sub]);
     if (need > 0) out.push({ subtype: sub, count: need });
+    // minTotalGrain in the engine counts rye+barley+wheat only — corn
+    // is tracked separately (see make-bourbon.ts totalGrain helper).
+    // Exclude corn and cask from the named-grain shortfall.
+    if (sub === "rye" || sub === "barley" || sub === "wheat") {
+      namedGrainShortfall += need;
+    }
   }
+  // Wildcard grain — minTotalGrain (rye+barley+wheat only) over the
+  // sum of named non-corn grain floors, less any grain the player has
+  // already committed past those floors. Without this row the needs
+  // plate falls back to the "?" disc when a recipe has
+  // minTotalGrain > namedGrainFloor and every named min is satisfied
+  // (e.g. High Rickhouse Select: minRye/Barley/Wheat each 1,
+  // minTotalGrain 4 — committing one of each still owes one wild grain).
+  const committedGrain = tally.rye + tally.barley + tally.wheat;
+  const wildNeed = Math.max(
+    0,
+    minTotalGrain - committedGrain - namedGrainShortfall,
+  );
+  if (wildNeed > 0) out.push({ subtype: "any", count: wildNeed });
   return out;
 }
 
@@ -1050,12 +1124,13 @@ function BarrelNeedsPlate({ needs }: { needs: BarrelNeed[] }) {
       {needs.slice(0, 4).map((n) => (
         <span
           key={n.subtype}
+          title={n.subtype === "any" ? "any grain" : n.subtype}
           className="flex items-center gap-2 font-mono text-[20px] font-bold leading-none"
           style={{ color: SUB_INK[n.subtype] }}
         >
           <span className="tabular-nums">{n.count}×</span>
           <span className="flex h-6 w-6 items-center justify-center text-[20px] leading-none">
-            {RESOURCE_GLYPH[n.subtype]}
+            {n.subtype === "any" ? "✱" : RESOURCE_GLYPH[n.subtype]}
           </span>
         </span>
       ))}
@@ -1224,6 +1299,47 @@ function MashPips({ barrel }: { barrel: Barrel }) {
             boxShadow: filled
               ? `0 0 6px ${SUB_INK[sub]}66`
               : `inset 0 0 0 1.5px ${SUB_INK[sub]}88`,
+          }}
+        />,
+      );
+    }
+  }
+  // Wildcard "any grain" pips — recipes whose minTotalGrain exceeds the
+  // sum of named-grain floors have extra slots the player can fill with
+  // any grain. Mirrors RecipePips' hollow-ring treatment and the
+  // BarrelNeedsPlate's "✱" callout so the caption strip stays honest.
+  const namedGrainFloor =
+    (minimums.rye ?? 0) + (minimums.barley ?? 0) + (minimums.wheat ?? 0);
+  const minTotalGrain = Math.max(
+    recipe.minTotalGrain ?? 0,
+    namedGrainFloor === 0 ? 1 : namedGrainFloor,
+  );
+  const wildSlots = Math.max(0, minTotalGrain - namedGrainFloor);
+  if (wildSlots > 0) {
+    // Engine's minTotalGrain counts rye+barley+wheat only (corn is its
+    // own track), so the wildcard tally excludes corn.
+    const grainCommitted =
+      (tally.rye ?? 0) + (tally.barley ?? 0) + (tally.wheat ?? 0);
+    const grainCountedAgainstNamed =
+      Math.min(tally.rye ?? 0, minimums.rye ?? 0) +
+      Math.min(tally.barley ?? 0, minimums.barley ?? 0) +
+      Math.min(tally.wheat ?? 0, minimums.wheat ?? 0);
+    const overflow = Math.max(0, grainCommitted - grainCountedAgainstNamed);
+    const filledWild = recipeSatisfied
+      ? wildSlots
+      : Math.min(wildSlots, overflow);
+    for (let i = 0; i < wildSlots; i++) {
+      const filled = i < filledWild;
+      pips.push(
+        <span
+          key={`any-${i}`}
+          title="any grain"
+          className="inline-block h-[9px] w-[9px] rounded-full"
+          style={{
+            background: filled ? SUB_INK.any : "transparent",
+            boxShadow: filled
+              ? `0 0 6px ${SUB_INK.any}66`
+              : `inset 0 0 0 1.5px ${SUB_INK.any}88`,
           }}
         />,
       );

@@ -96,6 +96,10 @@ export function initializeGame(config: GameConfig): GameState {
       reputation: distilleryStartingRep(distillery),
       handSize: startingHandSize,
       barrelsSold: 0,
+      // Prestige starts at 0 for everyone (including bots). Earned
+      // permanently by Gold awards on sale; +1 rep on every future
+      // Silver/Gold-triggering sale.
+      prestige: 0,
       // Save slot starts empty. Carries one card across the
       // cleanup boundary when used.
       savedCard: null,
@@ -207,6 +211,7 @@ export function initializeGame(config: GameConfig): GameState {
     marketDiscard: [],
     bourbonDeck: bourbonShuffled,
     bourbonDiscard: [],
+    retiredBills: [],
     draftingLoop: null,
     demand: startingDemand,
     demandRolls: [],
