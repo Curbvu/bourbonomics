@@ -534,14 +534,6 @@ export function chapterProgressFor(beatIndex: number): {
   return { chapterLabel: label, chapterNumber: number, position, total };
 }
 
-/** Helper kept for the controller's spotlight injection (legacy). */
-export function spotlightSpecialtyRye(_state: GameState): string | null {
-  // slim cut: Specialty Rye is no longer purchased in the
-  // tutorial. Kept as a noop export so the controller doesn't break
-  // on import if it still references it.
-  return null;
-}
-
 /** Convenience: pick a hand card the player can use to age. */
 export function pickAnyHandCard(state: GameState): string | null {
   return findHandCard(state, () => true);

@@ -381,7 +381,12 @@ function DraftingLoopModal({
             {revealedBills.length === 0 ? (
               <EmptyRow message="The bourbon deck had nothing more to reveal." />
             ) : (
-              <div className="flex h-full w-full items-stretch gap-2 overflow-x-auto">
+              // Wrap instead of horizontal-scroll: the reveal cap is 3
+              // bills (engine constant), so they fit in one row at the
+              // design scale. A scrollbar would only appear if a future
+              // change uncapped that — CLAUDE.md forbids it; wrapping
+              // surfaces the regression visually instead.
+              <div className="flex h-full w-full flex-wrap items-stretch justify-center gap-2">
                 {revealedBills.map((bill) => (
                   <BillTile
                     key={bill.id}
@@ -412,7 +417,12 @@ function DraftingLoopModal({
             {draftPile.length === 0 ? (
               <EmptyRow message="No cards in the pile yet." />
             ) : (
-              <div className="flex w-full items-center gap-1.5 overflow-x-auto">
+              // Wrap-not-scroll for the same reason as the bills row
+              // above. The draft pile grows as players seed in cards,
+              // but the modal width can hold ~6–7 sm tiles per line;
+              // wrapping degrades gracefully to multi-line and never
+              // breaks the no-scrollbar rule.
+              <div className="flex w-full flex-wrap items-center justify-center gap-1.5">
                 {draftPile.map((card) => (
                   <HandCardTile
                     key={card.id}

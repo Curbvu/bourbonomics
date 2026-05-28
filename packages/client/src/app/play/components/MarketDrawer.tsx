@@ -140,10 +140,13 @@ export default function MarketDrawer({
           </button>
         </div>
 
-        {/* Body */}
+        {/* Body — no scroll per CLAUDE.md gameplay rule. The drawer
+            caps at 80vh and the conveyor is fixed at 10 cards; any
+            content that wouldn't fit indicates a regression worth
+            seeing as a clip, not a silent scrollbar. */}
         <div
           data-market-conveyor
-          className="scroll-thin flex flex-col gap-4 overflow-auto px-[22px] py-5"
+          className="flex flex-col gap-4 overflow-hidden px-[22px] py-5"
         >
           <div className="flex items-baseline gap-2.5">
             <span className="stage-tag">Conveyor</span>

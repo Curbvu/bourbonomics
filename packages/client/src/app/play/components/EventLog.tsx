@@ -60,10 +60,16 @@ export default function EventLog() {
   return (
     <div
       ref={ref}
-      // Cap height in DESIGN pixels (ScalingHost canvas is 1680×900; the
-      // right rail's header eats ~50px, so 820 leaves the log filling
-      // the rest without spilling). The cap MUST stay fixed regardless
-      // of entry count — otherwise the log grows → ScalingHost's
+      // INTENTIONAL EXEMPTION to CLAUDE.md's "no scrollbars in
+      // gameplay" rule. The Tasting Notes log is an append-only
+      // history surface — it grows unbounded over a 14-round game and
+      // there's no reasonable way to compress old entries without
+      // losing the play-by-play. The acceptable alternatives (cap
+      // visible entries / push history to a separate page) would
+      // erase context the player relies on, so we keep the rail
+      // capped + scrollable. The 820px cap (design pixels at
+      // ScalingHost's 1680×900 canvas) MUST stay fixed regardless of
+      // entry count — otherwise the log grows → ScalingHost's
       // ResizeObserver fires on the inner div's scrollHeight →
       // recompute scale → whole canvas visibly resizes on every new
       // entry. The pre-fix `lg:max-h-none` removed the cap on desktop
