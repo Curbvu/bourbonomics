@@ -697,22 +697,50 @@ export interface LineCardInstance {
 }
 
 /**
- * A line on the table — either the flagship (bound to a Line Board
- * via `lineBoardId`) or a secondary line (lineBoardId === null,
- * always built around 1+ stacked Line Cards).
+ * Per-slot in-play state on a v3.1 Bourbon Line. A slot is empty until
+ * a bottle is placed; rewards fire exactly once on the empty→filled
+ * transition (tracked via `rewardFired`).
+ */
+export interface SlotState {
+  filled: boolean;
+  bottle: Bottle | null;
+  rewardFired: boolean;
+}
+
+/**
+ * A line on the table.
+ *
+ * v3.1 slotted shape (flagship only in phase 5): `slots` is populated
+ * with 5 SlotState entries; bottles fill left-to-right gated by the
+ * board's per-slot requirement + Line Restriction. `completionBonusTriggered`
+ * latches true the moment the final slot fills.
+ *
+ * v3.0 legacy fields (`stackedCards`, `bottles`) are preserved for
+ * client UI compatibility during the v3.1 engine refit:
+ *   - `bottles` mirrors filled-slot bottles in slot order.
+ *   - `stackedCards` is always `[]` on a v3.1 flagship (line cards no
+ *     longer stack onto flagships).
+ * Both fields will be removed in the v3.1 UI pass.
+ *
+ * Secondary lines remain Line-shaped with `slots` undefined and
+ * `stackedCards` empty in phase 5 (secondary construction lands in
+ * phase 7).
  */
 export interface Line {
   id: string;
   /** Flagship lines reference a LineBoard; secondaries are null. */
   lineBoardId: string | null;
-  /**
-   * Line Card instances stacked onto this line (in order of placement).
-   * Each card's predicate applies AND with the board's and any other
-   * cards' predicates. Bonuses fire in order (board first, then
-   * stacked cards).
-   */
+  /** Legacy v3.0 stack — always [] on a v3.1 flagship. */
   stackedCards: LineCardInstance[];
+  /** Legacy v3.0 mirror of filled slot bottles, in slot order. */
   bottles: Bottle[];
+  /**
+   * v3.1 slot layout. Length 5 on a flagship that's been bound to a
+   * FlagshipLineBoardDef; undefined on legacy / unbound lines.
+   */
+  slots?: SlotState[];
+  /** v3.1 — set true the moment the final slot fills. Latching. */
+  completionBonusTriggered?: boolean;
 }
 
 // -----------------------------
@@ -880,6 +908,37 @@ export interface PlayerState {
    * player only.
    */
   pendingBottlePlacement: { bottle: Bottle } | null;
+
+  // ─── v3.1 Bourbon Lines — persistent completion-bonus effects ───
+  //
+  // Each flag below latches when the flagship's Line Completion Bonus
+  // fires. Read at the points the effect applies (sale resolution,
+  // drafting loop reveal, end-game scoring). Never resets — the bonus
+  // is permanent once earned.
+
+  /**
+   * Wheated Baron — Baron's Vintage Reserve completion.
+   * Common-rarity bills sold by this player do not drop demand on sale.
+   */
+  commonSalesIgnoreDemandDrop: boolean;
+  /**
+   * High-Rye House — Master's Cut completion.
+   * One-shot: the next Drafting Loop this player initiates reveals 5
+   * bills instead of 3. Cleared after the loop consumes it.
+   */
+  draftingLoopReveals5Next: boolean;
+  /**
+   * Connoisseur Estate — Curator's Choice completion.
+   * End-game prestige scoring doubles (2 rep per prestige, not 1) on
+   * this player's score breakdown.
+   */
+  prestigeScoringDoubled: boolean;
+  /**
+   * Vanilla Distillery — Standard Master completion.
+   * Each inventory bottle scores +5 rep on top of the baseline +1.
+   * Stacks with the inventory baseline at end-game.
+   */
+  inventoryBottleBonusActive: boolean;
 }
 
 // -----------------------------

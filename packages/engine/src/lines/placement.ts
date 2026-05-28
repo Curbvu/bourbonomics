@@ -5,30 +5,71 @@ import type {
   Line,
   MashBill,
   PlayerState,
+  SlotState,
 } from "../types";
 import { getLineBoardDef } from "./boards";
-import { getLineCardDef } from "./cards";
+import { FLAGSHIP_SLOT_COUNT } from "./defs";
 import { deriveBottleProfile } from "./tags";
 
 /**
- * True iff `bottle` satisfies every constraint on `line` — the Line
- * Board predicate (if present) AND every stacked Line Card predicate.
- *
- * Unknown defIds are treated as `true` so a corrupted save doesn't
- * brick the placement. The lookup misses are silent; rules will fire
- * during scoring later (where they default to 0) and the loss is
- * obvious from the score breakdown.
+ * v3.1 — the leftmost slot that's empty, or -1 if the line is full
+ * (or hasn't been seeded with slots yet). Slots must fill in order;
+ * this is the only legal target for a fresh placement.
  */
-export function canPlaceOnLine(bottle: Bottle, line: Line): boolean {
-  if (line.lineBoardId) {
-    const board = getLineBoardDef(line.lineBoardId);
-    if (board && !board.predicate(bottle, line)) return false;
+export function nextOpenSlotIndex(line: Line): number {
+  if (!line.slots) return -1;
+  for (let i = 0; i < line.slots.length; i++) {
+    if (!line.slots[i]!.filled) return i;
   }
-  for (const cardInstance of line.stackedCards) {
-    const def = getLineCardDef(cardInstance.defId);
-    if (def && !def.predicate(bottle, line)) return false;
+  return -1;
+}
+
+/**
+ * v3.1 — true iff the bottle is legal at the given slot on a flagship
+ * Bourbon Line. Checks:
+ *   1. The slot index is the next-open one (left-to-right enforcement).
+ *   2. The board's Line Restriction (if any).
+ *   3. The slot's individual Placement Requirement.
+ *
+ * The flagship's board is looked up via `line.lineBoardId`; an unknown
+ * id (corrupted save) fails closed.
+ */
+export function canPlaceInFlagshipSlot(
+  bottle: Bottle,
+  line: Line,
+  slotIndex: number,
+  player: PlayerState,
+): boolean {
+  if (!line.slots) return false;
+  if (slotIndex < 0 || slotIndex >= line.slots.length) return false;
+  if (line.slots[slotIndex]!.filled) return false;
+  if (slotIndex !== nextOpenSlotIndex(line)) return false;
+  if (!line.lineBoardId) return false;
+  const board = getLineBoardDef(line.lineBoardId);
+  if (!board) return false;
+  if (board.lineRestriction) {
+    if (!board.lineRestriction.check({ bottle, line, player })) return false;
   }
-  return true;
+  const slotDef = board.slots[slotIndex];
+  if (!slotDef) return false;
+  return slotDef.requirement.check({ bottle, line, slotIndex, player });
+}
+
+/**
+ * v3.0 compatibility wrapper. The legacy "can this bottle land on
+ * this line" predicate now maps to "can it land in the next-open
+ * flagship slot." Secondaries return false in v3.1 phase 5 — they
+ * have no slots yet and are not a viable destination.
+ */
+export function canPlaceOnLine(
+  bottle: Bottle,
+  line: Line,
+  player: PlayerState,
+): boolean {
+  if (!line.slots) return false;
+  const idx = nextOpenSlotIndex(line);
+  if (idx < 0) return false;
+  return canPlaceInFlagshipSlot(bottle, line, idx, player);
 }
 
 /**
@@ -74,7 +115,10 @@ export function findLineById(
 }
 
 /** Mint a fresh line id from the game's idCounter. */
-export function mintLineId(draft: { idCounter: number }, kind: "secondary"): string {
+export function mintLineId(
+  draft: { idCounter: number },
+  kind: "secondary",
+): string {
   return `line_${kind}_${draft.idCounter++}`;
 }
 
@@ -83,15 +127,50 @@ export function mintBottleId(draft: { idCounter: number }): string {
   return `bottle_${draft.idCounter++}`;
 }
 
-/** Build an empty flagship line bound to a Line Board id. */
+/**
+ * Build a fresh flagship line for a player. When `lineBoardId` resolves
+ * to a known board, the line ships with `FLAGSHIP_SLOT_COUNT` empty
+ * slots and is ready to receive bottles. When the id is empty / unknown
+ * (pre-distillery-selection state), slots stays undefined and the line
+ * is inert until `bindFlagshipBoard` is called.
+ */
 export function buildFlagshipLine(lineBoardId: string, playerId: string): Line {
+  const slots = emptySlots(lineBoardId);
   return {
     id: `line_flagship_${playerId}`,
-    lineBoardId,
+    lineBoardId: lineBoardId || null,
     stackedCards: [],
     bottles: [],
+    slots,
+    completionBonusTriggered: false,
   };
 }
+
+/**
+ * Switch a flagship line's bound board (called during SELECT_DISTILLERY
+ * once a player picks their distillery). Resets slots to empty since
+ * the new board may have a different slot count / requirement set.
+ */
+export function bindFlagshipBoard(line: Line, lineBoardId: string): void {
+  line.lineBoardId = lineBoardId;
+  line.slots = emptySlots(lineBoardId);
+  line.bottles = [];
+  line.completionBonusTriggered = false;
+}
+
+function emptySlots(lineBoardId: string): SlotState[] | undefined {
+  if (!lineBoardId) return undefined;
+  const board = getLineBoardDef(lineBoardId);
+  if (!board) return undefined;
+  return Array.from({ length: board.slots.length }, () => ({
+    filled: false,
+    bottle: null,
+    rewardFired: false,
+  }));
+}
+
+// Re-export the constant so consumers don't need a separate import.
+export { FLAGSHIP_SLOT_COUNT };
 
 /**
  * True if `state` is mid-pending for the named player.

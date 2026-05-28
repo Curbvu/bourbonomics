@@ -49,7 +49,7 @@ export default function BottlePlacementModal() {
   const flagshipBoard = player.flagshipLine.lineBoardId
     ? getLineBoardDef(player.flagshipLine.lineBoardId)
     : null;
-  const flagshipOk = canPlaceOnLine(bottle, player.flagshipLine);
+  const flagshipOk = canPlaceOnLine(bottle, player.flagshipLine, player);
   const flagshipAction: GameAction = {
     type: "PLACE_BOTTLE",
     playerId: player.id,
@@ -99,7 +99,7 @@ export default function BottlePlacementModal() {
 
             {/* Existing secondaries */}
             {player.secondaryLines.map((line, idx) => {
-              const ok = canPlaceOnLine(bottle, line);
+              const ok = canPlaceOnLine(bottle, line, player);
               const action: GameAction = {
                 type: "PLACE_BOTTLE",
                 playerId: player.id,
@@ -131,7 +131,7 @@ export default function BottlePlacementModal() {
                     stackedCards: [inst],
                     bottles: [],
                   };
-                  if (!canPlaceOnLine(bottle, candidate)) return null;
+                  if (!canPlaceOnLine(bottle, candidate, player)) return null;
                   const action: GameAction = {
                     type: "PLACE_BOTTLE",
                     playerId: player.id,

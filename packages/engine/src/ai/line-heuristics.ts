@@ -198,13 +198,23 @@ function scorePlacement(
   line: Line,
   player: PlayerState,
 ): number {
-  if (!canPlaceOnLine(bottle, line)) return -Infinity;
+  if (!canPlaceOnLine(bottle, line, player)) return -Infinity;
   const before = scoreLine(line, player);
-  const after = scoreLine(
-    { ...line, bottles: [...line.bottles, bottle] },
-    player,
-  );
+  // v3.1 slot scoring: model the placement by marking the next-open
+  // slot filled. v3.0 secondary scoring (still 0 in phase 5) falls
+  // through harmlessly.
+  const slots = line.slots
+    ? line.slots.map((s, i) =>
+        i === firstUnfilled(line.slots!) ? { ...s, filled: true, bottle } : s,
+      )
+    : line.slots;
+  const after = scoreLine({ ...line, slots, bottles: [...line.bottles, bottle] }, player);
   return after - before;
+}
+
+function firstUnfilled(slots: { filled: boolean }[]): number {
+  for (let i = 0; i < slots.length; i++) if (!slots[i]!.filled) return i;
+  return -1;
 }
 
 /**

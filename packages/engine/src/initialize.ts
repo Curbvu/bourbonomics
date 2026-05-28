@@ -140,6 +140,11 @@ export function initializeGame(config: GameConfig): GameState {
       pendingInitialLineCardDraft: null,
       pendingLineCardDraw: null,
       pendingBottlePlacement: null,
+      // ── v3.1 Bourbon Lines persistent flags (off until earned) ──
+      commonSalesIgnoreDemandDrop: false,
+      draftingLoopReveals5Next: false,
+      prestigeScoringDoubled: false,
+      inventoryBottleBonusActive: false,
     };
   });
 

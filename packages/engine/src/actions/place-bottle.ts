@@ -4,37 +4,35 @@ import type {
   GameAction,
   GameState,
   Line,
-  LineCardInstance,
   PlayerState,
   ValidationResult,
 } from "../types";
 import { isCurrentPlayer } from "../state";
-import { canPlaceOnLine, mintLineId } from "../lines/placement";
-import { applyPlacementBonuses } from "../lines/bonuses";
+import { getLineBoardDef } from "../lines/boards";
+import {
+  canPlaceInFlagshipSlot,
+  nextOpenSlotIndex,
+} from "../lines/placement";
 
 type PlaceBottleAction = Extract<GameAction, { type: "PLACE_BOTTLE" }>;
 
-const MAX_SECONDARY_LINES = 2;
-
 /**
- * v3.0 Line system — resolve the pending bottle placement set by
- * the immediately preceding SELL_BOURBON. Destinations:
+ * v3.1 Bourbon Lines — resolve the pending bottle placement set by
+ * the immediately preceding SELL_BOURBON.
  *
  *   { kind: "flagship" }
- *     Place on the player's flagship line. Must satisfy the Line
- *     Board + every stacked Line Card predicate.
- *
- *   { kind: "secondary", lineId }
- *     Place on an existing secondary line. Must satisfy every
- *     stacked Line Card predicate.
- *
- *   { kind: "new-secondary", lineCardInstanceIds }
- *     Create a new secondary line stacked with 1+ Line Cards from
- *     hand. Bottle must satisfy every played card's predicate.
- *     Capped at 2 secondaries per player.
+ *     Place into the next-open slot of the flagship Line. Must
+ *     satisfy the board's Line Restriction AND the slot's individual
+ *     Placement Requirement. Slot reward fires on fill; if it was
+ *     the final slot, the Completion Bonus fires too.
  *
  *   { kind: "inventory" }
- *     Always valid. Bottle scores 1 rep at end of game.
+ *     Always legal. Scores +1 rep at end of game (+5 more if
+ *     Vanilla's Completion Bonus has triggered).
+ *
+ *   { kind: "secondary" | "new-secondary" }
+ *     Not viable in v3.1 phase 5 — secondary line construction lands
+ *     in phase 7 (PLAY_LINE_CARD).
  */
 export function validatePlaceBottle(
   state: GameState,
@@ -54,81 +52,28 @@ export function validatePlaceBottle(
   switch (action.destination.kind) {
     case "inventory":
       return { legal: true };
-    case "flagship":
-      if (!canPlaceOnLine(bottle, player.flagshipLine)) {
-        return {
-          legal: false,
-          reason: "bottle does not satisfy the flagship line's constraints",
-        };
+    case "flagship": {
+      const flagship = player.flagshipLine;
+      const idx = nextOpenSlotIndex(flagship);
+      if (idx < 0) {
+        return { legal: false, reason: "your flagship Bourbon Line is full" };
       }
-      return { legal: true };
-    case "secondary": {
-      const dest = action.destination;
-      const target = player.secondaryLines.find((l) => l.id === dest.lineId);
-      if (!target) {
-        return {
-          legal: false,
-          reason: `secondary line ${dest.lineId} not found`,
-        };
-      }
-      if (!canPlaceOnLine(bottle, target)) {
-        return {
-          legal: false,
-          reason: "bottle does not satisfy the secondary line's constraints",
-        };
-      }
-      return { legal: true };
-    }
-    case "new-secondary": {
-      if (player.secondaryLines.length >= MAX_SECONDARY_LINES) {
-        return {
-          legal: false,
-          reason: `you already have ${MAX_SECONDARY_LINES} secondary lines`,
-        };
-      }
-      const ids = action.destination.lineCardInstanceIds;
-      if (ids.length < 1) {
-        return {
-          legal: false,
-          reason: "a new secondary line requires at least 1 Line Card",
-        };
-      }
-      const handById = new Map(
-        player.lineCardHand.map((c) => [c.instanceId, c]),
-      );
-      const used = new Set<string>();
-      const stacked: LineCardInstance[] = [];
-      for (const id of ids) {
-        const card = handById.get(id);
-        if (!card) {
-          return {
-            legal: false,
-            reason: `Line Card ${id} is not in your hand`,
-          };
-        }
-        if (used.has(id)) {
-          return { legal: false, reason: `duplicate Line Card ${id}` };
-        }
-        used.add(id);
-        stacked.push(card);
-      }
-      // Build a candidate line and check the bottle satisfies every
-      // played card.
-      const candidate: Line = {
-        id: "candidate",
-        lineBoardId: null,
-        stackedCards: stacked,
-        bottles: [],
-      };
-      if (!canPlaceOnLine(bottle, candidate)) {
+      if (!canPlaceInFlagshipSlot(bottle, flagship, idx, player)) {
         return {
           legal: false,
           reason:
-            "bottle does not satisfy the new secondary line's constraints",
+            "bottle does not satisfy the flagship's Line Restriction or the next-open slot's requirement",
         };
       }
       return { legal: true };
     }
+    case "secondary":
+    case "new-secondary":
+      return {
+        legal: false,
+        reason:
+          "secondary Bourbon Lines are not yet implemented (lands in v3.1 phase 6+)",
+      };
     default:
       return {
         legal: false,
@@ -145,53 +90,65 @@ export function applyPlaceBottle(
   const pending = player.pendingBottlePlacement!;
   const bottle = pending.bottle as Bottle;
 
-  let target: Draft<Line> | null = null;
   switch (action.destination.kind) {
     case "inventory":
       player.inventory.push(bottle);
       player.pendingBottlePlacement = null;
       return;
-    case "flagship":
-      target = player.flagshipLine;
-      break;
-    case "secondary": {
-      const dest = action.destination;
-      const found = player.secondaryLines.find((l) => l.id === dest.lineId);
-      if (!found) return; // unreachable post-validation
-      target = found;
-      break;
-    }
-    case "new-secondary": {
-      const dest = action.destination;
-      // Pull each cited card out of hand (in the order given so
-      // stackedCards mirrors play order).
-      const stacked: LineCardInstance[] = [];
-      for (const id of dest.lineCardInstanceIds) {
-        const idx = player.lineCardHand.findIndex((c) => c.instanceId === id);
-        if (idx >= 0) {
-          const [card] = player.lineCardHand.splice(idx, 1);
-          stacked.push(card!);
-        }
+    case "flagship": {
+      const flagship = player.flagshipLine;
+      if (!flagship.slots || !flagship.lineBoardId) {
+        // Unreachable post-validation; bail without crashing.
+        player.pendingBottlePlacement = null;
+        return;
       }
-      const newLine: Line = {
-        id: mintLineId(draft, "secondary"),
-        lineBoardId: null,
-        stackedCards: stacked,
-        bottles: [],
-      };
-      player.secondaryLines.push(newLine);
-      target = player.secondaryLines[player.secondaryLines.length - 1]!;
-      break;
-    }
-  }
+      const idx = nextOpenSlotIndex(flagship);
+      if (idx < 0) {
+        player.pendingBottlePlacement = null;
+        return;
+      }
+      // Fill the slot, mirror to the legacy bottles array for UI compat.
+      flagship.slots[idx]!.filled = true;
+      flagship.slots[idx]!.bottle = bottle;
+      flagship.bottles.push(bottle);
 
-  if (!target) return;
-  target.bottles.push(bottle);
-  applyPlacementBonuses(
-    bottle,
-    target as Line,
-    draft,
-    player as Draft<PlayerState>,
-  );
-  player.pendingBottlePlacement = null;
+      const board = getLineBoardDef(flagship.lineBoardId);
+      if (!board) {
+        player.pendingBottlePlacement = null;
+        return;
+      }
+
+      // Fire the slot reward exactly once.
+      if (!flagship.slots[idx]!.rewardFired) {
+        board.slots[idx]!.reward.fire({
+          bottle,
+          line: flagship as Line,
+          slotIndex: idx,
+          draft,
+          player: player as Draft<PlayerState>,
+        });
+        flagship.slots[idx]!.rewardFired = true;
+      }
+
+      // If this was the final slot, fire the Completion Bonus exactly
+      // once. `completionBonusTriggered` latches true.
+      const isFinalSlot = idx === board.slots.length - 1;
+      if (isFinalSlot && !flagship.completionBonusTriggered) {
+        flagship.completionBonusTriggered = true;
+        board.completionBonus.fire({
+          line: flagship as Line,
+          draft,
+          player: player as Draft<PlayerState>,
+        });
+      }
+
+      player.pendingBottlePlacement = null;
+      return;
+    }
+    case "secondary":
+    case "new-secondary":
+      // Validation rejects these in v3.1 phase 5. Unreachable.
+      player.pendingBottlePlacement = null;
+      return;
+  }
 }
