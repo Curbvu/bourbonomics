@@ -30,6 +30,7 @@ import type { Barrel, GameState, MashBill, RickhouseSlot } from "@bourbonomics/e
 import { validateAction } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import BuyOverlay from "./BuyOverlay";
+import LineStrip from "./LineStrip";
 import { TIER_INK, tierOrCommon, type TierChrome } from "./tierStyles";
 import { dragCarriesMakeCard, readMakeDragPayload } from "./dragMake";
 import { RESOURCE_GLYPH } from "./handCardStyles";
@@ -129,6 +130,11 @@ export default function DistilleryStage() {
           state={state}
           isHumanRow={true}
         />
+
+        {/* 4. v3.0 Line system — roomy strip for the human's own
+             brand portfolio. Renders nothing until there's something
+             to show (board bound, bottles placed, cards in hand). */}
+        <LineStrip player={player} state={state} density="roomy" />
       </div>
 
       {/* Buy-purchase panel — sibling of the dim-wrapper so its

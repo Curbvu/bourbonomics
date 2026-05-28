@@ -14,6 +14,8 @@ import GameBoard from "./components/GameBoard";
 import GameErrorBoundary from "./components/ErrorBoundary";
 import GameTopBar from "./components/GameTopBar";
 import GameSetupMenu from "./components/GameSetupMenu";
+import LineCardDraftModal from "./components/LineCardDraftModal";
+import BottlePlacementModal from "./components/BottlePlacementModal";
 import ScalingHost from "./components/ScalingHost";
 import StarterDeckDraftModal from "./components/StarterDeckDraftModal";
 import YearPassModal from "./components/YearPassModal";
@@ -82,6 +84,12 @@ export default function PlayPage() {
           self-gates on phase + humanWaitingOn (or autoplay). */}
       <DistilleryDraftModal />
       <StarterDeckDraftModal />
+      {/* v3.0 Line system — both modals self-gate on the local
+          human's pending state (initial draft / mid-game draw for
+          LineCardDraftModal; pendingBottlePlacement for
+          BottlePlacementModal). */}
+      <LineCardDraftModal />
+      <BottlePlacementModal />
       <DemandRollModal />
       {/* Drafting-loop modal — mounted at the page root (outside
           ScalingHost) so its `fixed inset-0` covers the full viewport

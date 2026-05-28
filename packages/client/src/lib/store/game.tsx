@@ -34,6 +34,7 @@ import {
   awardConditionMet,
   buildTutorialInitialState,
   buildVanillaDistilleryFor,
+  chooseBottlePlacement,
   computeFinalScores,
   computeReward,
   defaultMashBillCatalog,
@@ -75,7 +76,10 @@ import {
   type SocketStatus,
 } from "./socket";
 import type { SpotlightTarget } from "@/app/tutorial/types";
-import { buyDomainForTarget } from "@/app/play/components/buyDomain";
+import {
+  buyDomainForTarget,
+  laborContributionTotal,
+} from "@/app/play/components/buyDomain";
 
 // Storage key is versioned and bumped whenever the engine schema or
 // canonical catalog changes (so legacy saves don't crash on hydrate).
@@ -962,6 +966,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
         if (tutorialActiveRef.current) {
           next = clearTutorialGates(next);
         }
+        // v3.0 Line system: a sale leaves the human with
+        // `pendingBottlePlacement` set. Auto-chain a PLACE_BOTTLE for
+        // the local seat so the bottle flows straight to their
+        // flagship row (or a valid secondary; inventory as a last
+        // resort) without making them click a modal every sale.
+        const localSeatId = prev.state.players.find((p) => !p.isBot)?.id;
+        const localPlayer = localSeatId
+          ? next.players.find((p) => p.id === localSeatId)
+          : null;
+        if (localPlayer?.pendingBottlePlacement) {
+          const auto = chooseBottlePlacement(next, localPlayer);
+          if (auto) {
+            try {
+              next = applyAction(next, auto);
+            } catch {
+              // Fall through and let BottlePlacementModal surface as
+              // the manual fallback — engine rejected the auto-pick.
+            }
+          }
+        }
         const seq = prev.seqCounter + 1;
         const entry: LogEntry = {
           seq,
@@ -1234,18 +1258,51 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const toggleBuySpend = useCallback((cardId: string) => {
-    setBuyMode((prev) => {
-      if (!prev) return prev;
-      const has = prev.spendCardIds.includes(cardId);
-      return {
-        ...prev,
-        spendCardIds: has
-          ? prev.spendCardIds.filter((id) => id !== cardId)
-          : [...prev.spendCardIds, cardId],
-      };
-    });
-  }, []);
+  // Reject adds that would push labor contribution strictly above the
+  // picked target's cost — the engine accepts overpayment but it
+  // wastes Labor cards. Removals are always allowed. With no
+  // pickedTarget yet, allow the toggle so the overlay can reconcile
+  // once a target lands.
+  const toggleBuySpend = useCallback(
+    (cardId: string) => {
+      setBuyMode((prev) => {
+        if (!prev) return prev;
+        const has = prev.spendCardIds.includes(cardId);
+        if (has) {
+          return {
+            ...prev,
+            spendCardIds: prev.spendCardIds.filter((id) => id !== cardId),
+          };
+        }
+        const picked = prev.pickedTarget;
+        const state = store.state;
+        if (picked && state) {
+          const target = state.market[picked.slotIndex];
+          const human = state.players.find((p) => !p.isBot);
+          if (target && human) {
+            const cost = target.cost ?? 1;
+            const domain = buyDomainForTarget(target);
+            const selectedNow = human.hand.filter((c) =>
+              prev.spendCardIds.includes(c.id),
+            );
+            const addition = human.hand.find((c) => c.id === cardId);
+            if (!addition) return prev;
+            const projected =
+              laborContributionTotal(selectedNow, domain) +
+              (addition.type === "labor"
+                ? laborContributionTotal([addition], domain)
+                : 0);
+            if (projected > cost) return prev;
+          }
+        }
+        return {
+          ...prev,
+          spendCardIds: [...prev.spendCardIds, cardId],
+        };
+      });
+    },
+    [store.state],
+  );
 
   // Age-mode helpers — mirrors the buy flow but with two single-select
   // slots: which of your barrels gets the year, and which one card from
