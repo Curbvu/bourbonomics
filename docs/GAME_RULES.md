@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (current alpha — "Lines & Bottles").** Distillery selection (4-distillery picker), slot-bound mash bills, incremental production, single-step selling that produces bottles for the new Lines portfolio system, a unified 10-card market (resources + Labor + ops + investments together), trading, doomsday-deck endgame. Reputation is the unified currency for both VP and spending; Labor cards supplement rep on purchases. Generic Labor is finite per player (3 in the starter deck, no central pile, no Hire). Lines & Bottles ship: every sale produces a Bottle that lands on the player's flagship line, a secondary line, or inventory, and the full Line pile scores at game end on top of banked rep. Investment cards ship in the market but their on-buy effects are still effect-pending. Multiplayer is live (host a 4-char-code room from `/multiplayer`).
+> **Scope (current alpha — "Bourbon Lines").** Distillery selection (4-distillery picker), slot-bound mash bills, incremental production, single-step selling that produces bottles for the v3.1 Bourbon Lines slotted-board system, a unified 10-card market (resources + Labor + ops + investments together), trading, doomsday-deck endgame. Reputation is the unified currency for both VP and spending; Labor cards supplement rep on purchases. Generic Labor is finite per player (3 in the starter deck, no central pile, no Hire). **Bourbon Lines (v3.1).** Each player owns a pre-claimed flagship Line Board with 5 named slots (escalating rewards, a Completion Bonus, and a Line-level Restriction) plus up to 2 secondary Lines built ad-hoc by playing slot-positioned Line Cards in order. Every sale produces a Bottle that places into the next open slot of an eligible Line (or inventory). Slot rewards fire on fill, the Completion Bonus fires on the final slot, end-game scoring sums slot values + bonuses + inventory and penalizes empty Line Card slots. Investment cards ship in the market but their on-buy effects are still effect-pending. Multiplayer is live (host a 4-char-code room from `/multiplayer`).
 
 ---
 
@@ -34,7 +34,7 @@ Your turn opens with your own demand roll and one aging card committed to **ever
 
 ### Winning
 
-The game ends when the **last mash bill leaves the bourbon supply**. Every player then scores their **Lines & Bottles** portfolio on top of banked reputation (flagship Line Board + stacked Line Cards + inventory bottles). Most reputation wins; tiebreakers: most barrels sold, then shared victory. See [§Lines & Bottles](#-lines--bottles).
+The game ends when the **last mash bill leaves the bourbon supply**. Every player then scores their **Bourbon Lines** portfolio on top of banked reputation (filled slot values + Completion Bonuses + inventory bottles − empty Line Card slot penalties). Most reputation wins; tiebreakers: most barrels sold, then shared victory. See [§Bourbon Lines](#-bourbon-lines).
 
 ---
 
@@ -85,7 +85,7 @@ When every player passes, shuffle your final cards into your starter deck. Premi
 ### Step 6 — Board setup
 - **Unified market:** 10 cards face-up from a single shuffled supply containing **resources** (Common $1 / Specialty $2 / Heritage $3), **Specialty Labor** (Marketing $4, Cooper $4, Architect $4), **operations cards**, and **investment cards**. Generic Labor is **not** sold; the 3 in your starter deck are all you'll ever own.
 - **Bourbon deck:** mash bills face-down. No face-up bill row — bills are acquired exclusively through the **Drafting Loop**.
-- **Line Cards & flagship boards:** every player is dealt **4 Line Cards** (keep exactly 2) and pre-claims a **flagship Line Board** that defines their portfolio's end-game scoring rule. See [§Lines & Bottles](#-lines--bottles).
+- **Line Cards & flagship Line Boards:** every player pre-claims their distillery's **flagship Line Board** — a 5-slot lineup with a Line Restriction, escalating slot rewards, and a Completion Bonus. Every player is also dealt **4 Line Cards** (keep exactly 2); these are individual slot-positioned cards used to build up to 2 secondary Lines during play. See [§Bourbon Lines](#-bourbon-lines).
 - **Demand:** starts at 0.
 - Pick a start player.
 
@@ -208,11 +208,11 @@ Sell any of your **aging** barrels that is **age ≥ 2** AND has been in Aging f
 5. Add the total to your **reputation** track.
 6. Demand drops by 1 (floor 0), unless an effect skips the drop.
 7. Cards under the barrel return to your discard.
-8. The bill becomes a **Bottle** that must be placed on one of your **Lines** (or in inventory) before you can take other actions. See [§Lines & Bottles](#-lines--bottles).
+8. The bill becomes a **Bottle** that must be placed in the **next open slot** of one of your Bourbon Lines (or in inventory) before you can take other actions. If the bottle satisfies both the slot's requirement AND the Line's Restriction, the slot fills and its reward fires immediately. See [§Bourbon Lines](#-bourbon-lines).
 
 The tier floor guarantees every sale clears its baseline build cost — even a Common bill at age 2 / demand 2 pays 3 rep. Higher-rarity bills float higher floors because their build costs are higher (more Specialty cards).
 
-There is no split prompt — the engine resolves the rep total and lands it directly. Bottle placement auto-routes to the flagship when legal; an explicit picker only opens when the choice matters.
+There is no split prompt — the engine resolves the rep total and lands it directly. Bottle placement auto-routes to the flagship's next open slot when legal; an explicit picker only opens when multiple slots are eligible or when inventory might be the better call.
 
 ### Awards
 
@@ -368,58 +368,187 @@ Bills move only via the actions listed above — never by Trade.
 
 ---
 
-# 🍾 Lines & Bottles
+# 🍾 Bourbon Lines
 
-Each barrel you **sell** also produces a **Bottle** — a frozen snapshot of the bill (recipe tags, cask rarity, age, sale demand). Bottles are placed onto **Lines** — your brand portfolio — where they score at game end alongside the per-sale reputation.
+Each barrel you **sell** also produces a **Bottle** — a frozen snapshot of the bill (recipe tags, cask rarity, age, sale demand). Bottles fill the named **slots** of your **Bourbon Lines** — physical brand-portfolio boards in front of you — and each filled slot fires an immediate reward. Building a Line all the way to its final slot triggers the **Line Completion Bonus** — the game's biggest single payoff outside of banked rep.
 
-> Lines are the long-game scoring track. The reputation you bank from individual sales is your tactical score; your line portfolio is your strategic one. A focused flagship and one or two themed secondaries usually beat a scattered "anything-goes" board.
+> Bourbon Lines are the long-game scoring track. The reputation you bank from individual sales is your tactical score; the Lines you build out slot-by-slot are your strategic one. A completed flagship plus one well-built secondary usually beats a board sprinkled with half-finished Lines.
 
-### Setup: initial Line Card draft
-
-At game start, every player is dealt **4 Line Cards** face-down and must **keep exactly 2** — the picks shape your portfolio direction (rye-heavy, wheated, premium-press, etc.). Discarded cards go to the bottom of the Line Card deck.
-
-The initial draft must be resolved before you can take any other action. The other 2 cards return to the bottom of the Line Card deck.
-
-### The board: flagship + secondaries + inventory
+## The boards: flagship + secondaries + inventory
 
 Every player has:
 
-- **1 flagship line** — pre-claimed at setup with a **Line Board** that defines its end-game scoring rule (Volume Series, Depth, Premium Press, etc.). The flagship is the only line you can never delete.
-- **Up to 2 secondary lines** — created when you place a bottle "on a new line" during a sale. Each secondary requires you to **stack ≥1 Line Card** onto it from your hand at creation; the stacked cards both gate placement (their `predicate`) AND contribute to scoring.
-- **Inventory** — a fallback bucket for bottles that don't fit any line. Each inventory bottle scores a flat **+1 rep** at game end.
+- **1 flagship Bourbon Line** — pre-claimed at setup. A 5-slot board defined by your distillery (Wheated Baron's "Baron's Lineup," High-Rye House's "House Lineup," etc.) with a Line-level Restriction, named slots with individual requirements, escalating slot rewards, and a thematic Completion Bonus. The flagship is yours for the whole game and cannot be discarded.
+- **Up to 2 secondary Bourbon Lines** — built ad-hoc during play by playing **Line Cards** (each Line Card is one named slot at a specific position 1–5). A new secondary is established by playing a slot-1 Line Card; the line then extends one slot at a time as you play slot-2, slot-3, etc. cards onto it.
+- **Inventory** — a fallback bucket for bottles that don't satisfy any open slot. Each inventory bottle scores **+1 rep** at game end. No constraints.
 
-### Bottle placement (after every sale)
+## Slot anatomy
 
-When you sell, the engine derives the Bottle's profile and then offers you placement targets:
+Each slot on every Line carries four pieces of data:
 
-1. **Flagship** — if the flagship's Line Board predicate accepts the bottle, this is usually the right choice. The flagship's score rule fires for the whole pile at end-game.
-2. **Existing secondary** — if you have one with a predicate the bottle satisfies.
-3. **New secondary** — costs ≥1 Line Card from hand (stacked onto the new line). Caps at 2 secondaries per player.
-4. **Inventory** — always legal. Flat +1 rep per bottle, no constraints.
+| Field | Meaning |
+|---|---|
+| **Name** | The product this slot represents (e.g., "Baron's Cask Strength"). |
+| **Placement requirement** | Conditions a bottle must satisfy to occupy this slot (recipe / cask / age / demand-at-sale). |
+| **Slot reward** | Effect that fires the moment the slot transitions empty → filled. Escalates left-to-right. |
+| **End-game value** | Rep contributed by this slot at game end if filled. |
 
-Placement is **mandatory** — you cannot take other actions until the bottle lands. The UI auto-routes to your flagship when legal; the explicit picker only appears when the choice matters.
+Slots fill **left-to-right**. You cannot place a bottle in slot N+1 until slot N is filled.
 
-### Drawing more Line Cards mid-game
+A Line may also carry a **Line Restriction** that applies to *all* slots (e.g., "every bottle must have minWheat ≥ 1"). To place a bottle in any slot, the bottle must satisfy BOTH the Line Restriction AND the slot's individual requirement.
 
-Once per round (free action) you may **draw up to 3 Line Cards** off the top of the deck and **keep ≥1**. The unkept cards return to the bottom of the deck. Use this to refresh your hand toward a theme your sales are leaning into.
+## Bottle placement (after every sale)
 
-### Extending a line
+When you sell, the engine derives the bottle's profile (recipe tags, cask rarity, age, demand at sale) and offers placement targets in this preference order:
 
-The **Extend Line** action lets you stack a Line Card from hand onto **any** of your existing lines (flagship or secondary). Stacked cards add their score rule on top of the Line Board's — every line scores its base rule plus every card stacked on it. Cards never come back off a line.
+1. **Flagship — next open slot.** If the bottle satisfies the flagship's Line Restriction and the next open slot's requirement, this is usually the auto-choice.
+2. **Existing secondary — next open slot.** Same eligibility check against any secondary you've built.
+3. **Inventory.** Always legal. +1 rep at game end.
 
-### End-game scoring
+Placement is **mandatory** — you cannot take other actions until the bottle lands. The UI auto-routes to the flagship's next open slot when it's the only legal target; the explicit picker only opens when more than one target is eligible or when inventory might be the better tactical choice.
 
-When the bourbon supply runs out, every line scores independently:
+## Slot rewards
 
-- **Flagship + each secondary** — Line Board's `endGameScore` rule + each stacked card's `endGameScore` rule, all summed across the bottles in that line. Unknown defIds (corrupted save) contribute 0.
-- **Empty lines with stacked cards** — pay a **−2 rep penalty per stacked card**. (An empty line with no cards is harmless.)
-- **Inventory** — +1 rep per bottle, flat.
+Slot rewards fire **exactly once**, the moment the slot transitions empty → filled. They escalate as you move down the Line:
 
-The total lands on each player's reputation; the winner is whoever has the highest reputation after Line scoring. Tiebreakers: most barrels sold, then shared victory.
+| Position | Typical reward magnitude |
+|---|---|
+| Slot 1 | small immediate (+1 rep, draw 1, +1 demand on next sale) |
+| Slot 2 | moderate (+2 rep, draw 2, +1 prestige) |
+| Slot 3 | strong (+3 rep, or persistent round-long effect, or +2 prestige) |
+| Slot 4 | powerful (+5 rep + a triggered effect) |
+| Slot 5 | dramatic effect + the Line Completion Bonus |
 
-### Why this matters
+Reward types fall into four families: **immediate** (rep / prestige / cards / next-sale demand bump), **persistent** (effect lasts until end of round or a specific trigger), **triggered** (one-shot fires on a later condition), and **defensive** (block targeting / block a demand drop).
 
-The Line system rewards **planning your sales for placement**. A bottle's recipe tags + cask rarity + age + sale demand are frozen the moment you sell, so trying to retrofit a portfolio late is expensive: empty lines penalize you, and Specialty bottles you needed for a Premium Press secondary can't be unsold.
+## Line Completion Bonus
+
+When the final slot of a Line fills, the **Completion Bonus** fires. Completion Bonuses typically combine substantial rep (+5 to +12) with a thematic flourish — a persistent effect, an end-game multiplier, or a one-shot windfall. They are the single biggest swing the Lines system delivers; building all the way to a Completion Bonus is the system's headline strategic goal.
+
+## Line Cards (building secondary Lines)
+
+Each Line Card is **one named slot at a specific position** (1–5). A Line Card carries:
+
+- A name and slot position
+- A placement requirement
+- A slot reward
+- An end-game value
+- *(slot-1 cards only)* a Line Restriction that the entire Line inherits
+
+To **establish a new secondary Line**, play a slot-1 Line Card from your hand — it becomes the Line's first slot (and locks in the Line Restriction, if the card carries one). To **extend an existing secondary**, play a Line Card whose slot position matches the next-open position on that Line. You cannot play a slot-3 card to a Line that doesn't yet have its slot-2 card filled. Slot cards never come off a Line once played.
+
+Each player may have **at most 2 secondary Lines** in play.
+
+### Theme families
+
+The 25-card base-game Line Card deck spans five theme families, each with one card at every position (5 × 5 = 25):
+
+- **Heritage** — Heritage-cask led; high-rarity climb (cask Strength → Master's Reserve → Legacy).
+- **High-Rye** — minRye-gated; rye Single Barrel → Master's Selection → Legendary Cut.
+- **Counter-Cyclical** — low-demand sales rewarded; Working Class → Hidden Gem → The Quiet Legend.
+- **Volume** — volume-of-sales driven; Daily Sipper → Bartender's Pick → America's Bourbon.
+- **Wild / Universal** — loose-requirement opportunists at various positions, with smaller rewards. Useful for filling gaps when you've drifted between themes.
+
+Drawing within a family creates synergy (each slot's requirement aligns with the rest); drawing across families creates challenging hybrid Lines with looser narratives but more flexibility.
+
+### Line Card slot distribution
+
+| Slot position | Cards in 25-card deck |
+|---|---|
+| Slot 1 | 11 |
+| Slot 2 | 7 |
+| Slot 3 | 4 |
+| Slot 4 | 2 |
+| Slot 5 | 1 |
+
+This mirrors a real production curve: many entry-level products, few flagship masterpieces. The scarcity of slot-4 and slot-5 cards makes deep secondaries genuinely rare.
+
+## Line Card actions
+
+- **Initial Line Card draft (setup).** Every player is dealt 4 Line Cards face-down and must keep exactly 2 before the first round begins. The 2 unkept cards return to the bottom of the Line Card deck. Resolved before any other setup action; auto-routes the player whose turn it is in the UI.
+- **Draw Line Cards (once per round, free action).** Reveal up to 3 Line Cards from the top of the deck, keep ≥1, return the rest to the bottom. Use this to push toward a theme your sales are leaning into.
+- **Play Line Card (free action).** Play a slot-1 Line Card from hand to open a new secondary Line, OR play a Line Card whose slot position matches an existing Line's next-open position to extend that Line.
+
+## End-game scoring
+
+When the bourbon supply runs out, every Line scores independently:
+
+- **Filled slot values.** Sum the end-game value of every filled slot on the Line (flagship or secondary).
+- **Completion Bonus.** If every slot on the Line is filled, add the Completion Bonus.
+- **Empty Line Card slots.** Each Line Card on a secondary Line whose slot is empty at game end pays a **−2 rep penalty**.
+
+**Flagship slots have no failure penalty.** The flagship board was a gift, not a bet — leaving slot 5 unfilled costs you the Completion Bonus and that slot's end-game value, but not a penalty on top.
+
+**Inventory bottles** score +1 rep each, flat.
+
+Total: banked rep + flagship Line scoring + secondary Line scoring + inventory − secondary Line Card failure penalties.
+
+## Flagship Lines (one per distillery)
+
+Each base-game distillery ships a themed flagship Line Board. Licensed expansions will ship real-brand boards in the same format.
+
+### Wheated Baron — "The Baron's Lineup"
+
+**Line Restriction:** every bottle must have `minWheat ≥ 1`.
+
+| # | Slot | Requirement | Reward | Value |
+|---|---|---|---|:-:|
+| 1 | Baron's Select | any wheated bottle | +1 rep | +1 |
+| 2 | Baron's Reserve | aged 3+ years | draw 2 cards | +2 |
+| 3 | Baron's Cask Strength | sold at demand 5+ | +3 rep | +3 |
+| 4 | Baron's Heritage | Heritage cask | +2 prestige | +5 |
+| 5 | Baron's Vintage Reserve | Heritage cask, aged 7+, all prior slots filled with bottles from your own production (not received via trade or Barrel Broker) | +5 rep, +2 prestige, draw 3 cards | +8 |
+
+**Completion Bonus:** +10 rep; all your Common-bill sales for the remainder of the game **do not drop demand**.
+
+### High-Rye House — "The House Lineup"
+
+**Line Restriction:** every bottle must have `minRye ≥ 2`.
+
+| # | Slot | Requirement | Reward | Value |
+|---|---|---|---|:-:|
+| 1 | House Original | any rye-heavy bottle | draw 1 card | +1 |
+| 2 | House Reserve | aged 4+ years | +2 rep | +2 |
+| 3 | House Single Barrel | Specialty or Heritage cask | +1 prestige | +4 |
+| 4 | House Limited Release | bill rarity Rare+ | +3 rep, gain 1 Specialty card from the market into hand | +6 |
+| 5 | House Master's Cut | aged 7+, bill rarity Epic+, demand 6+ at sale | +5 rep, draw 3 cards, +2 prestige | +8 |
+
+**Completion Bonus:** +10 rep; your next Drafting Loop reveals **5 bills** instead of 3 (you keep one for free, the rest pass around the table as normal).
+
+### Connoisseur Estate — "The Estate Collection"
+
+**Line Restriction:** no two bottles on this Line may share their primary recipe tag (rye-heavy / wheated / pure-corn / triple-grain / heritage-recipe — derived from the bill's recipe).
+
+| # | Slot | Requirement | Reward | Value |
+|---|---|---|---|:-:|
+| 1 | Estate Foundation | any bottle | +1 rep | +2 |
+| 2 | Estate Single Origin | single-grain bottle (one grain type only) | +1 prestige | +3 |
+| 3 | Estate Heritage Series | Heritage cask | +2 rep, draw 1 card | +5 |
+| 4 | Estate Master Blend | bill uses all 3 grain types | +2 prestige, +2 rep | +7 |
+| 5 | Estate Curator's Choice | bill rarity Epic+, aged 6+ | +5 rep, +3 prestige | +10 |
+
+**Completion Bonus:** +12 rep; end-game prestige scoring **doubles** (2 rep per prestige point instead of 1).
+
+### Vanilla Distillery — "The Vanilla Standard"
+
+**Line Restriction:** none. Any bottle may be placed.
+
+| # | Slot | Requirement | Reward | Value |
+|---|---|---|---|:-:|
+| 1 | Standard | any bottle | +1 rep | +2 |
+| 2 | Standard Reserve | aged 3+ years | +1 rep | +3 |
+| 3 | Standard Premium | Specialty cask | +2 rep | +4 |
+| 4 | Standard Heritage | Heritage cask, aged 5+ | +3 rep, draw 2 cards | +5 |
+| 5 | Standard Master | Heritage cask, aged 7+, demand 5+ at sale | +5 rep, +2 prestige | +8 |
+
+**Completion Bonus:** +10 rep; +5 rep at end of game for each bottle in your inventory (rewarding the broad "produce a lot" strategy).
+
+## Strategic notes
+
+- **Sequence over type.** You can't skip a slot. Plan production with the next-open slot in mind — sometimes a "weaker" sale unlocks a "stronger" slot later.
+- **Public boards = readable plans.** Every slot is face-up. Opponents can see what bottles you need next and fight you for the matching market cards.
+- **Depth vs. breadth.** Complete one flagship for a Completion Bonus, or build wide across secondaries? Both strategies are mathematically viable — the slot system makes the trade-off concrete. The Maker's-vs-Buffalo-Trace question, made literal.
+- **Line Card timing.** Draw too early and you commit to slots you can't fill (the −2 penalty hits hard). Draw too late and your secondaries are too shallow. The mid-round Draw Line Cards action lets you adjust as your production direction firms up.
 
 ---
 
@@ -612,6 +741,8 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 ---
 
 # 📜 Changelog
+
+- **v3.1** — **"Bourbon Lines."** The Line system is restructured around named, slotted boards. Each flagship Line now consists of **5 themed slots** with named products (e.g., Baron's Select → Baron's Reserve → Baron's Cask Strength → Baron's Heritage → Baron's Vintage Reserve), each carrying its own placement requirement, its own immediate reward, and its own end-game value. Slots fill **left-to-right** with sold bottles that satisfy both the slot's requirement and the Line's overarching **Line Restriction**. Each filled slot fires its reward immediately (Wingspan-style escalating bonuses: small at slot 1, dramatic at slot 4); completing all 5 slots triggers a substantial **Line Completion Bonus** (typically +10 rep plus a thematic flourish — persistent effect, end-game multiplier, or one-shot windfall). Secondary Lines are now built via Line Cards, each card representing **a single named slot at a fixed position** (1–5) with its own requirement / reward / value. The 25-card base-game deck spans five theme families (Heritage / High-Rye / Counter-Cyclical / Volume / Wild) across all 5 positions, weighted toward slot-1 (11 cards) down to slot-5 (1 card). New action **Play Line Card** replaces v3.0 EXTEND_LINE: slot-1 cards establish new secondaries (and lock in the Line Restriction), higher-position cards extend an existing Line one position at a time. Empty Line Card slots at game end still pay −2 rep each; flagship slots have no penalty. The four base-game distilleries each get a unique themed lineup: Wheated Baron's "Baron's Lineup" (minWheat-gated), High-Rye House's "House Lineup" (minRye≥2), Connoisseur Estate's "Estate Collection" (no-repeat-recipe-tag), Vanilla Distillery's "Standard" (unrestricted, inventory-rewarding completion). Licensed expansions ship real-brand Lines in the same format. v3.0 actions DRAW_LINE_CARDS / CHOOSE_INITIAL_LINE_CARDS / KEEP_LINE_CARDS / PLACE_BOTTLE carry forward (PLACE_BOTTLE now targets a slot index, not a line pile); EXTEND_LINE retires in favor of PLAY_LINE_CARD.
 
 - **v3.0** — **"Lines & Bottles."** Every sale now produces a **Bottle** (frozen bill snapshot) that must be placed on a **Line** — the player's brand portfolio — or in **inventory**. Each player gets 1 flagship line (pre-claimed Line Board defining the end-game score rule) + up to 2 secondary lines (created on-the-fly by stacking ≥1 Line Card from hand) + inventory (flat +1 rep / bottle). Initial Line Card draft seeded at game init: 4 dealt, **keep 2**. Mid-game **Draw Line Cards** action (once per round, free): reveal up to 3, keep ≥1. **Extend Line** action stacks a Line Card onto any existing line for additional score rules. Final score adds the full Lines pile on top of banked rep: flagship board + every stacked card's `endGameScore` rule + inventory. Empty lines with stacked cards pay **−2 rep per card** (the only Line scoring penalty). 25 base-game Line Card definitions covering recipe themes (rye / wheated / pure-corn / triple-grain / heritage-recipe), cask rarity (heritage-cask / specialty-cask / common-cask), age band, market demand, and volume/breadth axes. New engine actions: CHOOSE_INITIAL_LINE_CARDS, DRAW_LINE_CARDS, KEEP_LINE_CARDS, EXTEND_LINE, PLACE_BOTTLE; new gate flags on player state (pendingInitialLineCardDraft, pendingLineCardDraw, pendingBottlePlacement) the engine's validateAction enforces so the resolution can't be skipped.
 
