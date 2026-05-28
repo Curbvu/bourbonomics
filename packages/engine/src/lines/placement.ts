@@ -8,6 +8,7 @@ import type {
   SlotState,
 } from "../types";
 import { getLineBoardDef } from "./boards";
+import { getLineCardDef } from "./cards";
 import { FLAGSHIP_SLOT_COUNT } from "./defs";
 import { deriveBottleProfile } from "./tags";
 
@@ -58,8 +59,7 @@ export function canPlaceInFlagshipSlot(
 /**
  * v3.0 compatibility wrapper. The legacy "can this bottle land on
  * this line" predicate now maps to "can it land in the next-open
- * flagship slot." Secondaries return false in v3.1 phase 5 — they
- * have no slots yet and are not a viable destination.
+ * slot of this line" — flagship or secondary.
  */
 export function canPlaceOnLine(
   bottle: Bottle,
@@ -69,7 +69,50 @@ export function canPlaceOnLine(
   if (!line.slots) return false;
   const idx = nextOpenSlotIndex(line);
   if (idx < 0) return false;
-  return canPlaceInFlagshipSlot(bottle, line, idx, player);
+  if (line.lineBoardId) {
+    return canPlaceInFlagshipSlot(bottle, line, idx, player);
+  }
+  return canPlaceInSecondarySlot(bottle, line, idx, player);
+}
+
+/**
+ * v3.1 — true iff the bottle is legal at the given slot on a
+ * SECONDARY Bourbon Line. Checks:
+ *   1. The slot index is the next-open one (left-to-right).
+ *   2. The Line Restriction inherited from the slot-1 card (if any).
+ *   3. The slot's individual Placement Requirement (from the Line
+ *      Card occupying this slot position).
+ */
+export function canPlaceInSecondarySlot(
+  bottle: Bottle,
+  line: Line,
+  slotIndex: number,
+  player: PlayerState,
+): boolean {
+  if (!line.slots) return false;
+  if (slotIndex < 0 || slotIndex >= line.slots.length) return false;
+  if (line.slots[slotIndex]!.filled) return false;
+  if (slotIndex !== nextOpenSlotIndex(line)) return false;
+
+  // The secondary line's stackedCards[k] is the Line Card whose
+  // requirement gates slot k. The Line Restriction (if any) lives on
+  // stackedCards[0]'s def.
+  const cards = line.stackedCards;
+  if (!cards || cards.length <= slotIndex) return false;
+
+  const slotCardDef = getLineCardDef(cards[slotIndex]!.defId);
+  if (!slotCardDef) return false;
+
+  const slot1Def = getLineCardDef(cards[0]!.defId);
+  const restriction = slot1Def?.lineRestriction;
+  if (restriction && !restriction.check({ bottle, line, player })) return false;
+
+  return slotCardDef.requirement.check({
+    bottle,
+    line,
+    slotIndex,
+    player,
+  });
 }
 
 /**

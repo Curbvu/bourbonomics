@@ -45,6 +45,7 @@ import {
 } from "./actions/keep-line-cards";
 import { applyExtendLine, validateExtendLine } from "./actions/extend-line";
 import { applyPlaceBottle, validatePlaceBottle } from "./actions/place-bottle";
+import { applyPlayLineCard, validatePlayLineCard } from "./actions/play-line-card";
 import { scoreEndGameLines } from "./lines/scoring";
 
 export class IllegalActionError extends Error {
@@ -198,6 +199,8 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateKeepLineCards(state, action);
     case "EXTEND_LINE":
       return validateExtendLine(state, action);
+    case "PLAY_LINE_CARD":
+      return validatePlayLineCard(state, action);
     case "PLACE_BOTTLE":
       return validatePlaceBottle(state, action);
     default:
@@ -293,6 +296,9 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
       return;
     case "EXTEND_LINE":
       applyExtendLine(draft, action);
+      return;
+    case "PLAY_LINE_CARD":
+      applyPlayLineCard(draft, action);
       return;
     case "PLACE_BOTTLE":
       applyPlaceBottle(draft, action);

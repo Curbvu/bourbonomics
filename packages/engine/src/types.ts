@@ -1395,14 +1395,29 @@ export type GameAction =
       keepInstanceIds: string[];
     }
   | {
-      // v3.0 Line system — stack a Line Card from hand onto an
-      // existing line (flagship or secondary). Constraint applies to
-      // FUTURE placements only — existing bottles are unaffected.
-      // Free action.
+      // v3.0 Line system — RETIRED in v3.1. validateExtendLine returns
+      // illegal; replaced by PLAY_LINE_CARD which adds positioned slots
+      // to secondary lines.
       type: "EXTEND_LINE";
       playerId: string;
       targetLineId: string;
       lineCardInstanceId: string;
+    }
+  | {
+      // v3.1 Bourbon Lines — play a Line Card from hand to either
+      // open a new secondary line (slot-1 cards only; cap of 2
+      // secondaries) or extend an existing secondary by adding its
+      // next-open slot position. Slot-position 3 cannot be played
+      // until the secondary already has slots 1 and 2; etc. Free
+      // action during the action phase.
+      type: "PLAY_LINE_CARD";
+      playerId: string;
+      lineCardInstanceId: string;
+      /**
+       * `null` to open a new secondary. Otherwise the secondary's
+       * line id to extend.
+       */
+      targetLineId: string | null;
     }
   | {
       // v3.0 Line system — resolve the pending bottle placement set
