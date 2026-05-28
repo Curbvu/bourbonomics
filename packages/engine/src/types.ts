@@ -641,6 +641,81 @@ export interface Barrel {
 }
 
 // -----------------------------
+// Lines (v3.0 — "The Line System")
+// -----------------------------
+//
+// When a barrel sells, its bill flips into a Bottle that joins one of
+// the player's lines. Each distillery is pre-bound to a flagship Line
+// Board (one of four, see `lines/boards.ts`); players may also stack
+// Line Cards onto the flagship or seed up to 2 secondary lines. Lines
+// score on their own at the end of the game (see `lines/scoring.ts`).
+//
+// Predicates / bonuses / scoring rules are inline TS functions on the
+// definitions in `lines/boards.ts` and `lines/cards.ts`, looked up
+// from `lineBoardId` / `defId` at evaluation time.
+
+export interface Bottle {
+  /** Unique instance id. */
+  bottleId: string;
+  /** Source MashBill instance id. */
+  originalBillId: string;
+  /** Source MashBill catalog id (defId). */
+  billDefId: string;
+  name: string;
+  /**
+   * Derived once at sale time from recipe + cask cards. Treat as
+   * immutable — predicates only read it. (Not declared `readonly`
+   * because Immer's WritableDraft proxy can't satisfy a readonly
+   * array.)
+   */
+  recipeTags: string[];
+  /**
+   * Primary recipe tag for Variety / Depth Line predicates. Derived
+   * once at sale time — first of: high-rye, rye, wheated, barley,
+   * pure-corn, triple-grain, neutral.
+   */
+  primaryRecipeTag: string;
+  /**
+   * Exactly one of: "common-cask" | "specialty-cask" | "heritage-cask".
+   * Derived from the highest-grade cask card committed to the barrel.
+   */
+  caskTag: string;
+  rarity: MashBillTier;
+  ageAtSale: number;
+  demandAtSale: number;
+  placedOnRound: number;
+}
+
+/**
+ * A Line Card instance held in hand or stacked onto a line. The
+ * underlying card definition (predicate + bonus + scoring) lives in
+ * `lines/cards.ts` keyed by `defId`.
+ */
+export interface LineCardInstance {
+  instanceId: string;
+  defId: string;
+}
+
+/**
+ * A line on the table — either the flagship (bound to a Line Board
+ * via `lineBoardId`) or a secondary line (lineBoardId === null,
+ * always built around 1+ stacked Line Cards).
+ */
+export interface Line {
+  id: string;
+  /** Flagship lines reference a LineBoard; secondaries are null. */
+  lineBoardId: string | null;
+  /**
+   * Line Card instances stacked onto this line (in order of placement).
+   * Each card's predicate applies AND with the board's and any other
+   * cards' predicates. Bonuses fire in order (board first, then
+   * stacked cards).
+   */
+  stackedCards: LineCardInstance[];
+  bottles: Bottle[];
+}
+
+// -----------------------------
 // Player
 // -----------------------------
 
@@ -766,6 +841,45 @@ export interface PlayerState {
    * initiator (e.g. all 3 revealed bills are illegal for them).
    */
   draftingLoopUsedThisRound: boolean;
+
+  // ─── v3.0 Line system ────────────────────────────────────────
+  /**
+   * Flagship line, bound to the distillery's Line Board at setup.
+   * Always present (lineBoardId set). Empty `bottles` and
+   * `stackedCards` at game start.
+   */
+  flagshipLine: Line;
+  /**
+   * Up to 2 secondary lines, each created via PLACE_BOTTLE with
+   * destination `new-secondary` (1+ Line Cards from hand).
+   */
+  secondaryLines: Line[];
+  /** Line Card instances held privately. */
+  lineCardHand: LineCardInstance[];
+  /** Bottles not placed on any line. Scores 1 rep each at end game. */
+  inventory: Bottle[];
+  /**
+   * v3.0: each player may DRAW_LINE_CARDS at most once per round.
+   * Reset to false at cleanup.
+   */
+  hasDrawnLineCardsThisRound: boolean;
+  /**
+   * Set at game init — 4 Line Cards dealt face-up. Player must keep
+   * exactly 2 via CHOOSE_INITIAL_LINE_CARDS before taking any
+   * action-phase action. Cleared once resolved.
+   */
+  pendingInitialLineCardDraft: { cards: LineCardInstance[] } | null;
+  /**
+   * Set by DRAW_LINE_CARDS — up to 3 cards revealed. Player must
+   * keep ≥1 via KEEP_LINE_CARDS before any other action.
+   */
+  pendingLineCardDraw: { cards: LineCardInstance[] } | null;
+  /**
+   * Set at the end of SELL_BOURBON — the new Bottle must be placed
+   * via PLACE_BOTTLE before any other action. Blocks the active
+   * player only.
+   */
+  pendingBottlePlacement: { bottle: Bottle } | null;
 }
 
 // -----------------------------
@@ -916,6 +1030,13 @@ export interface GameState {
 
   /** Monotonic counter for IDs of entities created mid-game (e.g. barrels). */
   idCounter: number;
+
+  /**
+   * v3.0: shared Line Card supply. Convention matches `bourbonDeck` —
+   * top of deck = end of array; "bottom" (where KEEP_LINE_CARDS
+   * returns rejected cards) = front of array.
+   */
+  lineCardDeck: LineCardInstance[];
 
   actionHistory: GameAction[];
 }
@@ -1192,7 +1313,51 @@ export type GameAction =
       playerId: string;
       cardId: string;
     }
-  | { type: "PASS_TURN"; playerId: string };
+  | { type: "PASS_TURN"; playerId: string }
+  | {
+      // v3.0 Line system — resolve the 4-card initial draft dealt at
+      // game init. Keep exactly 2; the other 2 return to the bottom
+      // of the lineCardDeck in the order given.
+      type: "CHOOSE_INITIAL_LINE_CARDS";
+      playerId: string;
+      keepInstanceIds: string[];
+    }
+  | {
+      // v3.0 Line system — reveal up to 3 Line Cards from the deck
+      // into `pendingLineCardDraw`. Once per round. Free action.
+      type: "DRAW_LINE_CARDS";
+      playerId: string;
+    }
+  | {
+      // v3.0 Line system — resolve a pending draw by keeping ≥1
+      // revealed card. The rest return to the bottom of the deck.
+      type: "KEEP_LINE_CARDS";
+      playerId: string;
+      keepInstanceIds: string[];
+    }
+  | {
+      // v3.0 Line system — stack a Line Card from hand onto an
+      // existing line (flagship or secondary). Constraint applies to
+      // FUTURE placements only — existing bottles are unaffected.
+      // Free action.
+      type: "EXTEND_LINE";
+      playerId: string;
+      targetLineId: string;
+      lineCardInstanceId: string;
+    }
+  | {
+      // v3.0 Line system — resolve the pending bottle placement set
+      // by the immediately preceding SELL_BOURBON. The placement
+      // choice determines which line (if any) receives the bottle
+      // and fires placement bonuses.
+      type: "PLACE_BOTTLE";
+      playerId: string;
+      destination:
+        | { kind: "flagship" }
+        | { kind: "secondary"; lineId: string }
+        | { kind: "new-secondary"; lineCardInstanceIds: string[] }
+        | { kind: "inventory" };
+    };
 
 // -----------------------------
 // Engine API
@@ -1205,9 +1370,25 @@ export interface ValidationResult {
 
 export interface ScoreResult {
   playerId: string;
+  /** Banked reputation at game end (existing). */
   reputation: number;
   deckSize: number;          // hand + deck + discard (smaller wins tiebreak)
   barrelsSold: number;
+  /**
+   * v3.0 Line system — end-game score contribution from the
+   * flagship line (Line Board + stacked Line Cards). May be negative
+   * when stacked cards sit on an empty flagship (−2 per card).
+   */
+  flagshipScore: number;
+  /** v3.0 — per-secondary-line score. Length 0..2. */
+  secondaryScores: number[];
+  /** v3.0 — 1 rep per bottle placed in inventory. */
+  inventoryScore: number;
+  /**
+   * v3.0 — total score used for ranking. Equals
+   * reputation + flagshipScore + Σ secondaryScores + inventoryScore.
+   */
+  total: number;
   rank: number;              // 1-based; ties share rank
 }
 

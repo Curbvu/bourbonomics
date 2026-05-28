@@ -293,6 +293,12 @@ describe("v2.10 â€” Distillery ability hooks", () => {
       playerId: "p1",
       barrelId: goldBarrel.id,
     });
+    // v3.0: drain the pending bottle placement before the next sale.
+    state = applyAction(state, {
+      type: "PLACE_BOTTLE",
+      playerId: "p1",
+      destination: { kind: "inventory" },
+    });
     expect(state.players.find((p) => p.id === "p1")!.prestige).toBe(2);
     // Bill retired — not in deck or discard.
     expect(state.retiredBills.some((b) => b.id === goldBill.id)).toBe(true);
@@ -307,6 +313,11 @@ describe("v2.10 â€” Distillery ability hooks", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId: silverBarrel.id,
+    });
+    state = applyAction(state, {
+      type: "PLACE_BOTTLE",
+      playerId: "p1",
+      destination: { kind: "inventory" },
     });
     expect(state.players.find((p) => p.id === "p1")!.prestige).toBe(3);
     expect(state.bourbonDiscard.some((b) => b.id === silverBill.id)).toBe(true);

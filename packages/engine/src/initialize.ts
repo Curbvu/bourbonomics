@@ -4,6 +4,7 @@ import type {
   Distillery,
   GameConfig,
   GameState,
+  LineCardInstance,
   PlayerState,
 } from "./types";
 import {
@@ -19,6 +20,9 @@ import {
   placeStartingBarrel,
   topUpSlottedBillsForDistillery,
 } from "./starter-pool";
+import { buildLineCardInstances } from "./lines/cards";
+import { buildFlagshipLine } from "./lines/placement";
+import { lineBoardForDistillery } from "./lines/boards";
 
 const DEFAULT_HAND_SIZE = 8;
 const DEFAULT_DEMAND = 0;
@@ -77,6 +81,14 @@ export function initializeGame(config: GameConfig): GameState {
       rngState = shuffled.rngState;
     }
 
+    // v3.0 Line system — flagship line is bound to the distillery
+    // at distillery-pick time (now if pre-assigned, otherwise inside
+    // SELECT_DISTILLERY apply). Lines for unpicked distilleries
+    // carry `lineBoardId: null` as a placeholder.
+    const flagshipBoard = distillery
+      ? lineBoardForDistillery(distillery.bonus) ?? null
+      : null;
+
     return {
       id: p.id,
       name: p.name,
@@ -118,6 +130,16 @@ export function initializeGame(config: GameConfig): GameState {
       // v2.14: each player gets one Drafting Loop initiation per round.
       // Reset at cleanup.
       draftingLoopUsedThisRound: false,
+      // ── v3.0 Line system ──
+      flagshipLine: buildFlagshipLine(flagshipBoard?.id ?? "", p.id),
+      secondaryLines: [],
+      lineCardHand: [],
+      inventory: [],
+      hasDrawnLineCardsThisRound: false,
+      // Filled in below from the shuffled line card deck.
+      pendingInitialLineCardDraft: null,
+      pendingLineCardDraw: null,
+      pendingBottlePlacement: null,
     };
   });
 
@@ -192,6 +214,24 @@ export function initializeGame(config: GameConfig): GameState {
   // not as a separate global phase. Setup lands directly in draw.
   else phase = "draw";
 
+  // v3.0 Line system — build & shuffle the shared Line Card deck,
+  // then deal each player 4 cards into `pendingInitialLineCardDraft`.
+  // The player must resolve via CHOOSE_INITIAL_LINE_CARDS before
+  // taking any action-phase action.
+  const lineCardSeed = buildLineCardInstances();
+  const lineCardShuffle = shuffleCards(lineCardSeed, rngState);
+  rngState = lineCardShuffle.rngState;
+  let lineCardDeck = lineCardShuffle.shuffled;
+  const INITIAL_DRAFT_SIZE = 4;
+  for (const player of players) {
+    const dealSize = Math.min(INITIAL_DRAFT_SIZE, lineCardDeck.length);
+    if (dealSize === 0) break;
+    const top = lineCardDeck.slice(lineCardDeck.length - dealSize);
+    const drawn: LineCardInstance[] = top.slice().reverse();
+    lineCardDeck = lineCardDeck.slice(0, lineCardDeck.length - dealSize);
+    player.pendingInitialLineCardDraft = { cards: drawn };
+  }
+
   const initialState: GameState = {
     seed: config.seed,
     rngState,
@@ -219,6 +259,7 @@ export function initializeGame(config: GameConfig): GameState {
     finalRoundTriggerPlayerIndex: null,
     playerIdsCompletedPhase: [],
     idCounter: 1,
+    lineCardDeck,
     actionHistory: [],
   };
 
