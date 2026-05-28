@@ -882,22 +882,35 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (isGameOver(prev.state)) return prev;
       const result = stepOrchestrator(prev.state);
       if (!result) return prev; // awaiting human input
+      // Tutorial mode: re-clear engine-set per-turn gates the
+      // orchestrator may have re-armed. PASS_TURN rotates the active
+      // seat and sets `next.needsDemandRoll = true`; bot autoplay
+      // running through `step()` would otherwise leave that flag set
+      // on the human, silently blocking every subsequent tutorial
+      // dispatch (Beat 3 "Age Backroad Batch" couldn't fire because
+      // the engine's validateAction gate rejected with "must roll
+      // demand"). The dispatch path already passes through
+      // clearTutorialGates — mirror it here so EVERY state transition
+      // gets the same cleanup while the tutorial is active.
+      const nextState = tutorialActiveRef.current
+        ? clearTutorialGates(result.state)
+        : result.state;
       const seq = prev.seqCounter + 1;
       const entry: LogEntry = {
         seq,
         action: result.action,
-        round: result.state.round,
-        drawn: captureDrawn(prev.state, result.state, result.action),
-        saleOutcome: captureSaleOutcome(prev.state, result.state, result.action),
+        round: nextState.round,
+        drawn: captureDrawn(prev.state, nextState, result.action),
+        saleOutcome: captureSaleOutcome(prev.state, nextState, result.action),
       };
       const lastPurchase = capturePurchase(prev, result.action, seq);
-      const lastMake = captureMake(prev, result.state, result.action, seq);
+      const lastMake = captureMake(prev, nextState, result.action, seq);
       const lastSale = captureSale(prev, result.action, seq);
       const lastAge = captureAge(prev, result.action, seq);
       const lastDrawHand = captureDrawHand(prev, result.action, seq);
       return {
         ...prev,
-        state: result.state,
+        state: nextState,
         log: [...prev.log, entry].slice(-400),
         seqCounter: seq,
         lastPurchase,
