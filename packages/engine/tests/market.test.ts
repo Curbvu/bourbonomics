@@ -7,7 +7,7 @@ import { advanceToActionPhase, giveHand, giveRep, makeTestGame } from "./helpers
 // fungible — any cost can be paid in rep, Labor, or any mix.
 
 describe("BUY_FROM_MARKET — unified rep payment", () => {
-  it("happy path: pays rep, purchased card goes to discard, market refills", () => {
+  it("happy path: pays rep, purchased card lands in hand, market refills", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state);
     // The unified market mixes types — pick the first non-operations
@@ -30,10 +30,41 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
     });
 
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.discard.some((c) => c.id === purchased.id)).toBe(true);
+    expect(p1.hand.some((c) => c.id === purchased.id)).toBe(true);
     expect(p1.reputation).toBe(10 - cost);
     expect(state.market.length).toBe(initialMarket);
     expect(state.market.some((c) => c.id === purchased.id)).toBe(false);
+  });
+
+  it("buying a $1 resource with no labor lands the card in hand (hand grows by 1)", () => {
+    let state = makeTestGame({
+      marketSupply: [
+        makeResourceCard("rye", "supply", 200, true, 1),
+        makeResourceCard("rye", "supply", 201, true, 1),
+        makeResourceCard("rye", "supply", 202, true, 1),
+        makeResourceCard("rye", "supply", 203, true, 1),
+        makeResourceCard("rye", "supply", 204, true, 1),
+        makeResourceCard("rye", "supply", 205, true, 1),
+      ],
+    });
+    state = advanceToActionPhase(state);
+    const purchased = state.market[0]!;
+    state = giveRep(state, "p1", 1);
+    state = giveHand(state, "p1", []);
+    const handBefore = state.players.find((p) => p.id === "p1")!.hand.length;
+
+    state = applyAction(state, {
+      type: "BUY_FROM_MARKET",
+      playerId: "p1",
+      marketSlotIndex: 0,
+      rep: 1,
+      laborCardIds: [],
+    });
+
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    expect(p1.hand.some((c) => c.id === purchased.id)).toBe(true);
+    expect(p1.discard.some((c) => c.id === purchased.id)).toBe(false);
+    expect(p1.hand.length).toBe(handBefore + 1);
   });
 
   it("rejects insufficient rep", () => {
@@ -209,7 +240,7 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.reputation).toBe(0);
     expect(p1.discard.some((c) => c.id === architect.id)).toBe(true);
-    expect(p1.discard.some((c) => c.id === target.id)).toBe(true);
+    expect(p1.hand.some((c) => c.id === target.id)).toBe(true);
   });
 
   it("BUY_FROM_MARKET accepts an investment-type target (effect-pending stub)", () => {
@@ -229,8 +260,8 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
       laborCardIds: [],
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    // Cost paid, card moved to discard, market refilled (or empty).
-    expect(p1.discard.some((c) => c.id === target.id)).toBe(true);
+    // Cost paid, card moved to hand, market refilled (or empty).
+    expect(p1.hand.some((c) => c.id === target.id)).toBe(true);
     expect(state.market.every((c) => c.id !== target.id)).toBe(true);
   });
 

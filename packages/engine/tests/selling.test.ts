@@ -332,6 +332,12 @@ describe("SELL_BOURBON — single-step v2.11 sale", () => {
       playerId: "p1",
       barrelId: baseBarrelId,
     });
+    // v3.0 Line system: drain the pending placement before the next sale.
+    state = applyAction(state, {
+      type: "PLACE_BOTTLE",
+      playerId: "p1",
+      destination: { kind: "inventory" },
+    });
     // Grid value at age 5 / demand 5 = 4. Floor 3 not binding. No prestige.
     expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(beforeRep + 4);
 
@@ -345,6 +351,11 @@ describe("SELL_BOURBON — single-step v2.11 sale", () => {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId: silverBarrelId,
+    });
+    state = applyAction(state, {
+      type: "PLACE_BOTTLE",
+      playerId: "p1",
+      destination: { kind: "inventory" },
     });
     // Demand dropped to 4 after the first sale. Grid at age 5 / demand 4 = 4.
     // Silver triggers (minAge 4, minDemand 4). Prestige adds +3.

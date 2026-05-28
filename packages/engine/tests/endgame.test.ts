@@ -232,6 +232,13 @@ describe("Integration smoke test — minimal full game", () => {
       playerId: "p1",
       barrelId,
     });
+    // v3.0 Line system: send the resulting bottle to inventory so
+    // the pending placement clears before PASS_TURN.
+    state = applyAction(state, {
+      type: "PLACE_BOTTLE",
+      playerId: "p1",
+      destination: { kind: "inventory" },
+    });
     // v2.2: SELL did not end p1's turn — they must explicitly pass.
     expect(state.currentPlayerIndex).toBe(0);
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });

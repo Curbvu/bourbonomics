@@ -5,6 +5,26 @@ import { applyAction } from "../src/engine.js";
 import type { Card, GameConfig, GameState } from "../src/types.js";
 
 /**
+ * v3.0 Line system: resolve every player's initial Line Card draft
+ * by keeping the first 2 dealt cards. Most tests don't care about
+ * the draft mechanic and want to skip past it; tests that DO care
+ * should set up their own scenario instead of calling this.
+ */
+export function resolveAllInitialLineCardDrafts(state: GameState): GameState {
+  let s = state;
+  for (const p of state.players) {
+    const pending = p.pendingInitialLineCardDraft;
+    if (!pending || pending.cards.length === 0) continue;
+    s = applyAction(s, {
+      type: "CHOOSE_INITIAL_LINE_CARDS",
+      playerId: p.id,
+      keepInstanceIds: pending.cards.slice(0, 2).map((c) => c.instanceId),
+    });
+  }
+  return s;
+}
+
+/**
  * Build a deterministic test game.
  *
  * Defaults: 2 players, seed=1, default starter decks (16 cards each), each
@@ -54,7 +74,11 @@ export function makeTestGame(overrides: Partial<GameConfig> = {}): GameState {
     baseConfig.starterDecks = baseConfig.players.map((p) => defaultStarterCards(p.id));
   }
 
-  return initializeGame(baseConfig);
+  // v3.0 Line system: resolve the initial Line Card draft up-front
+  // so the returned state is action-phase ready (matches the
+  // pre-v3 contract). Tests that exercise the initial-draft
+  // mechanic should construct their own state without this helper.
+  return resolveAllInitialLineCardDrafts(initializeGame(baseConfig));
 }
 
 /**
@@ -69,11 +93,46 @@ export function passTurn(
   roll: [number, number] = [3, 3],
 ): GameState {
   let s = state;
+  // v3.0 Line system: clear any pending Line state before passing
+  // (mirrors the bot stub's defaults — inventory for bottles, keep
+  // first 1 for draws). Tests that exercise Line decisions should
+  // dispatch the resolving action explicitly instead.
+  s = autoResolveLinePending(s, playerId);
   const player = s.players.find((p) => p.id === playerId);
   if (player?.needsDemandRoll) {
     s = applyAction(s, { type: "ROLL_DEMAND", playerId, roll });
   }
   return applyAction(s, { type: "PASS_TURN", playerId });
+}
+
+/**
+ * Internal: resolve `pendingBottlePlacement` (→ inventory) and
+ * `pendingLineCardDraw` (→ keep first 1) for `playerId` so the
+ * normal-turn-flow helpers (`passTurn`, `advanceToNextRound`) can
+ * advance past pending Line state without test churn.
+ */
+function autoResolveLinePending(
+  state: GameState,
+  playerId: string,
+): GameState {
+  let s = state;
+  const p = () => s.players.find((x) => x.id === playerId);
+  if (p()?.pendingBottlePlacement) {
+    s = applyAction(s, {
+      type: "PLACE_BOTTLE",
+      playerId,
+      destination: { kind: "inventory" },
+    });
+  }
+  if (p()?.pendingLineCardDraw) {
+    const cards = p()!.pendingLineCardDraw!.cards;
+    s = applyAction(s, {
+      type: "KEEP_LINE_CARDS",
+      playerId,
+      keepInstanceIds: [cards[0]!.instanceId],
+    });
+  }
+  return s;
 }
 
 /**
@@ -90,7 +149,10 @@ export function advanceToActionPhase(
   state: GameState,
   roll: [number, number] = [3, 3],
 ): GameState {
-  let s = state;
+  // v3.0 Line system: tests built directly via initializeGame may
+  // still have pending initial drafts. Resolve them up-front so the
+  // first ROLL_DEMAND isn't gated.
+  let s = resolveAllInitialLineCardDrafts(state);
   for (const p of s.players) {
     s = applyAction(s, { type: "DRAW_HAND", playerId: p.id });
   }

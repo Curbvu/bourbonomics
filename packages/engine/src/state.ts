@@ -162,6 +162,8 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
     p.pendingHalfCostMarketBuy = false;
     // v2.14: each player gets one Drafting Loop initiation per round.
     p.draftingLoopUsedThisRound = false;
+    // v3.0: each player gets one Line Card draw per round.
+    p.hasDrawnLineCardsThisRound = false;
     // savedCard intentionally NOT cleared — it carries into
     // next round's draw (see DRAW_HAND apply).
   }

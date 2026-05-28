@@ -22,6 +22,7 @@ import { useGameStore } from "@/lib/store/game";
 import { useZoneFocusClass, useZoneFocusStyle } from "./pickerFocus";
 import { PLAYER_HEX, paletteIndex } from "./playerColors";
 import { TIER_INK, tierOrCommon } from "./tierStyles";
+import LineStrip from "./LineStrip";
 
 export default function OpponentRail() {
   const { state, multiplayerMode } = useGameStore();
@@ -190,6 +191,11 @@ function OpponentCard({
           );
         })}
       </div>
+
+      {/* v3.0: Line system inline strip — flagship board + bottle dots
+          + secondary line minis + hand/inventory counters. Compact
+          density keeps the row under ~28px. */}
+      <LineStrip player={player} state={state} density="compact" />
 
       {/* Counters: hand · deck · disc · sold */}
       <div className="flex justify-between" style={{ color: "var(--mute)" }}>

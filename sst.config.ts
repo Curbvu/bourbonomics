@@ -63,6 +63,13 @@ export default $config({
     const domain = siteDomain
       ? {
           name: siteDomain,
+          // Prod only: send `www.<apex>` → `<apex>` via a CloudFront 301.
+          // The existing CERTIFICATE_ARN is a wildcard that already
+          // covers `www`, so we only need to declare the redirect. dev
+          // and stg deploy to bare subdomains (no www variant exists).
+          ...(stage === "prod" && apexDomain
+            ? { redirects: [`www.${apexDomain}`] }
+            : {}),
           dns: sst.aws.dns({ zone: hostedZoneId! }),
           cert: certificateArn!,
         }

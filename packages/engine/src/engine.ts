@@ -31,6 +31,21 @@ import {
   validatePlayOperationsCard,
 } from "./actions/play-operations-card";
 import { applySaveCard, validateSaveCard } from "./actions/save-card";
+import {
+  applyChooseInitialLineCards,
+  validateChooseInitialLineCards,
+} from "./actions/choose-initial-line-cards";
+import {
+  applyDrawLineCards,
+  validateDrawLineCards,
+} from "./actions/draw-line-cards";
+import {
+  applyKeepLineCards,
+  validateKeepLineCards,
+} from "./actions/keep-line-cards";
+import { applyExtendLine, validateExtendLine } from "./actions/extend-line";
+import { applyPlaceBottle, validatePlaceBottle } from "./actions/place-bottle";
+import { scoreEndGameLines } from "./lines/scoring";
 
 export class IllegalActionError extends Error {
   constructor(
@@ -61,37 +76,78 @@ export function validateAction(state: GameState, action: GameAction): Validation
         reason: "must complete the active Drafting Loop first",
       };
     }
-  } else if (
-    // v2.9: in the action phase, the current player must roll demand
-    // before doing anything else. PLAY_OPERATIONS_CARD stays free since
-    // it's a 0-cost prelude historically — but every other "real" action
-    // is gated on the per-turn demand roll.
-    state.phase === "action" &&
-    action.type !== "ROLL_DEMAND" &&
-    action.type !== "PLAY_OPERATIONS_CARD"
-  ) {
+  } else {
+    // v3.0 Line system — pending placement / draw / initial draft
+    // gate the active player to the resolving action. These fire
+    // ahead of the demand-roll / age guards so the initial draft
+    // (carried over from setup) is resolved before the very first
+    // ROLL_DEMAND can fire.
     const current = state.players[state.currentPlayerIndex];
-    if (current && current.needsDemandRoll) {
-      return {
-        legal: false,
-        reason: `${current.id} must roll demand before taking other actions`,
-      };
-    }
-    // After the demand roll, the player must commit one card to an
-    // aging barrel before sales / buys / trades / new builds. The
-    // narrow allow-list (AGE / PASS / SAVE_CARD) lets them satisfy
-    // the cost, give up the turn, or save a card (free).
-    if (current && current.needsAgeBarrels) {
-      const allowedDuringAgePhase = new Set([
-        "AGE_BOURBON",
-        "PASS_TURN",
-        "SAVE_CARD",
-      ]);
-      if (!allowedDuringAgePhase.has(action.type)) {
+    if (current && current.pendingBottlePlacement) {
+      if (action.type !== "PLACE_BOTTLE") {
         return {
           legal: false,
-          reason: `${current.id} must age a barrel before taking other actions`,
+          reason: `${current.id} must place the sold bottle before taking other actions`,
         };
+      }
+    }
+    if (current && current.pendingLineCardDraw) {
+      if (action.type !== "KEEP_LINE_CARDS") {
+        return {
+          legal: false,
+          reason: `${current.id} must resolve their Line Card draw before taking other actions`,
+        };
+      }
+    }
+    if (
+      state.phase === "action" &&
+      current &&
+      current.pendingInitialLineCardDraft
+    ) {
+      if (action.type !== "CHOOSE_INITIAL_LINE_CARDS") {
+        return {
+          legal: false,
+          reason: `${current.id} must resolve their initial Line Card draft first`,
+        };
+      }
+    }
+    if (
+      // v2.9: in the action phase, the current player must roll demand
+      // before doing anything else. PLAY_OPERATIONS_CARD stays free since
+      // it's a 0-cost prelude historically — but every other "real" action
+      // is gated on the per-turn demand roll. v3.0: Line-resolving
+      // actions (CHOOSE_INITIAL_LINE_CARDS, KEEP_LINE_CARDS,
+      // PLACE_BOTTLE) are also exempt since they discharge pending
+      // state that must clear BEFORE the player can roll demand.
+      state.phase === "action" &&
+      action.type !== "ROLL_DEMAND" &&
+      action.type !== "PLAY_OPERATIONS_CARD" &&
+      action.type !== "CHOOSE_INITIAL_LINE_CARDS" &&
+      action.type !== "KEEP_LINE_CARDS" &&
+      action.type !== "PLACE_BOTTLE"
+    ) {
+      if (current && current.needsDemandRoll) {
+        return {
+          legal: false,
+          reason: `${current.id} must roll demand before taking other actions`,
+        };
+      }
+      // After the demand roll, the player must commit one card to an
+      // aging barrel before sales / buys / trades / new builds. The
+      // narrow allow-list (AGE / PASS / SAVE_CARD) lets them satisfy
+      // the cost, give up the turn, or save a card (free).
+      if (current && current.needsAgeBarrels) {
+        const allowedDuringAgePhase = new Set([
+          "AGE_BOURBON",
+          "PASS_TURN",
+          "SAVE_CARD",
+        ]);
+        if (!allowedDuringAgePhase.has(action.type)) {
+          return {
+            legal: false,
+            reason: `${current.id} must age a barrel before taking other actions`,
+          };
+        }
       }
     }
   }
@@ -134,6 +190,16 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateSaveCard(state, action);
     case "PASS_TURN":
       return validatePassTurn(state, action);
+    case "CHOOSE_INITIAL_LINE_CARDS":
+      return validateChooseInitialLineCards(state, action);
+    case "DRAW_LINE_CARDS":
+      return validateDrawLineCards(state, action);
+    case "KEEP_LINE_CARDS":
+      return validateKeepLineCards(state, action);
+    case "EXTEND_LINE":
+      return validateExtendLine(state, action);
+    case "PLACE_BOTTLE":
+      return validatePlaceBottle(state, action);
     default:
       return { legal: false, reason: `unhandled action type: ${(action as { type: string }).type}` };
   }
@@ -216,6 +282,21 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
     case "PASS_TURN":
       applyPassTurn(draft, action);
       return;
+    case "CHOOSE_INITIAL_LINE_CARDS":
+      applyChooseInitialLineCards(draft, action);
+      return;
+    case "DRAW_LINE_CARDS":
+      applyDrawLineCards(draft, action);
+      return;
+    case "KEEP_LINE_CARDS":
+      applyKeepLineCards(draft, action);
+      return;
+    case "EXTEND_LINE":
+      applyExtendLine(draft, action);
+      return;
+    case "PLACE_BOTTLE":
+      applyPlaceBottle(draft, action);
+      return;
     default:
       throw new IllegalActionError(`unhandled action type: ${(action as { type: string }).type}`, action);
   }
@@ -226,22 +307,35 @@ export function isGameOver(state: GameState): boolean {
 }
 
 /**
- * Tiebreakers (per rules):
- *   1. Most reputation
- *   2. Fewest cards remaining in deck (lean engine wins)
+ * Final scores (v3.0 — Line system).
+ *
+ * Sort key (highest first):
+ *   1. total (reputation + flagship + Σ secondary + inventory)
+ *   2. Fewest cards remaining in deck
  *   3. Most barrels sold
- *   4. Shared rank
+ *
+ * The pre-3.0 `reputation` field is preserved as the banked-rep
+ * value (sale rewards + placement bonuses + prestige etc.); the new
+ * `total` is what ranks players. Ties share rank.
  */
 export function computeFinalScores(state: GameState): ScoreResult[] {
-  const rows = state.players.map((p) => ({
-    playerId: p.id,
-    reputation: p.reputation,
-    deckSize: p.hand.length + p.deck.length + p.discard.length,
-    barrelsSold: p.barrelsSold,
-    rank: 0,
-  }));
+  const rows: ScoreResult[] = state.players.map((p) => {
+    const breakdown = scoreEndGameLines(p);
+    const total = p.reputation + breakdown.total;
+    return {
+      playerId: p.id,
+      reputation: p.reputation,
+      deckSize: p.hand.length + p.deck.length + p.discard.length,
+      barrelsSold: p.barrelsSold,
+      flagshipScore: breakdown.flagshipScore,
+      secondaryScores: breakdown.secondaryScores,
+      inventoryScore: breakdown.inventoryScore,
+      total,
+      rank: 0,
+    };
+  });
   rows.sort((a, b) => {
-    if (b.reputation !== a.reputation) return b.reputation - a.reputation;
+    if (b.total !== a.total) return b.total - a.total;
     if (a.deckSize !== b.deckSize) return a.deckSize - b.deckSize;
     return b.barrelsSold - a.barrelsSold;
   });
@@ -249,7 +343,7 @@ export function computeFinalScores(state: GameState): ScoreResult[] {
   for (let i = 0; i < rows.length; i++) {
     if (
       i > 0 &&
-      (rows[i]!.reputation !== rows[i - 1]!.reputation ||
+      (rows[i]!.total !== rows[i - 1]!.total ||
         rows[i]!.deckSize !== rows[i - 1]!.deckSize ||
         rows[i]!.barrelsSold !== rows[i - 1]!.barrelsSold)
     ) {

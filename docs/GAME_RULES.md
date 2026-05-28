@@ -251,7 +251,7 @@ Cost is paid in **reputation** and/or **Labor cards** from hand. Rep and Labor a
 
 Rep can never go below 0.
 
-Both the purchased card and any spent Labor cards go to your **discard**. The empty market slot refills from the supply.
+The purchased card lands directly in your **hand** so you can use it this turn. Any spent Labor cards go to your **discard**. The empty market slot refills from the supply. (End Turn discards everything in hand and redraws — see v3.9 — so a bought card you don't use this turn naturally cycles into your deck at turn end.)
 
 ## Buy Operations Card
 
@@ -259,7 +259,7 @@ Same payment model as a resource buy — the engine routes ops targets through a
 
 ## Buy Investment
 
-Same payment model. The bought investment goes to your **discard** with a placeholder marker; on-buy effects are not yet wired (every catalog entry ships `implemented: false` in this wave). Architect Labor (+2) is the matching specialty.
+Same payment model. The bought investment lands in your **hand** with a placeholder marker; on-buy effects are not yet wired (every catalog entry ships `implemented: false` in this wave). Architect Labor (+2) is the matching specialty.
 
 ## Draft Mash Bills (The Drafting Loop)
 

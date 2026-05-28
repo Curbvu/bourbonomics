@@ -81,6 +81,12 @@ export default function ActionBar() {
   const drawBillEntry = canEnterDrawBillMode(state, human);
   const trade = bestTrade(state, human);
   const pass: GameAction = { type: "PASS_TURN", playerId: human.id };
+  // v3.0: free Line Card draw — once per round, deck non-empty,
+  // not final round. validateAction returns the precise reason.
+  const drawLineCards: GameAction = {
+    type: "DRAW_LINE_CARDS",
+    playerId: human.id,
+  };
 
   return (
     <div data-bb-zone="action-bar" className="border-t border-slate-800 bg-slate-950/95 px-[18px] py-1.5">
@@ -159,6 +165,14 @@ export default function ActionBar() {
           dispatch={dispatch}
           disabledByTurn={disabledByTurn}
           tooltipIdle="Swap your cheapest card with the first available partner's."
+        />
+        <SmartButton
+          label="Draw line"
+          action={drawLineCards}
+          state={state}
+          dispatch={dispatch}
+          disabledByTurn={disabledByTurn}
+          tooltipIdle="Draw 3 Line Cards; keep at least 1. Once per round, free action."
         />
         {/* Play Ops button removed — operations cards are pending future
             release; the placeholder button cluttered the bar. */}
