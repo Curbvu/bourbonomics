@@ -14,7 +14,7 @@
  * highlighting all stay in lockstep.
  */
 
-import type { Card } from "@bourbonomics/engine";
+import { laborContribution, type Card } from "@bourbonomics/engine";
 
 export type BuyLaborDomain = "ops" | "market_resource" | "investment";
 
@@ -22,4 +22,20 @@ export function buyDomainForTarget(target: Card): BuyLaborDomain {
   if (target.type === "operations") return "ops";
   if (target.type === "investment") return "investment";
   return "market_resource";
+}
+
+/**
+ * Sum the labor contribution of `selected` toward `domain`. Mirrors the
+ * engine's payment math used by BUY_FROM_MARKET / BUY_OPERATIONS_CARD.
+ * Shared by `BuyOverlay` (cost preview) and the store's overpay gate
+ * so they cannot drift.
+ */
+export function laborContributionTotal(
+  selected: readonly Card[],
+  domain: BuyLaborDomain,
+): number {
+  return selected.reduce(
+    (acc, c) => acc + (c.type === "labor" ? laborContribution(c, domain) : 0),
+    0,
+  );
 }

@@ -76,6 +76,13 @@ function difficultyOf(player: PlayerState): BotDifficulty {
 }
 
 export function chooseAction(state: GameState, playerId: string): GameAction {
+  // v3.0 Line system — auto-resolve any pending Line choice the bot
+  // is sitting on. Sensible defaults only; richer heuristics ship in
+  // a follow-up PR. Runs BEFORE phase checks so initial drafts (held
+  // through setup) clear in time for the first action turn.
+  const pendingResolver = resolvePendingLineChoice(state, playerId);
+  if (pendingResolver) return pendingResolver;
+
   // Setup phase: distillery picks come through the runner, but expose a helper.
   if (state.phase === "distillery_selection") {
     return chooseDistilleryAction(state, playerId);
@@ -139,7 +146,14 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
   // const buyOps = chooseBuyOpsCard(state, player);
   // if (buyOps) return buyOps;
 
-  // 7) Initiate the Drafting Loop as a fallback (last legal main action).
+  // 7) v3.0: free Line Card draw if mid-game runway + low exposure.
+  //    Slotted after buys but before the Drafting Loop fallback so it
+  //    fills the "nothing better to do" beat without crowding out
+  //    actual builds.
+  const lineDraw = chooseDrawLineCards(state, player);
+  if (lineDraw) return lineDraw;
+
+  // 8) Initiate the Drafting Loop as a fallback (last legal main action).
   const initiate = chooseInitiateDraftingLoop(state, player);
   if (initiate) return initiate;
 
@@ -1502,4 +1516,58 @@ function pickJunkCardForPile(player: PlayerState): string | null {
   );
   if (specialties.length > 0) return specialties[0]!.id;
   return player.hand[0]!.id;
+}
+
+// -----------------------------
+// v3.0 Line system — pending-choice resolver
+// -----------------------------
+//
+// Delegates to `ai/line-heuristics.ts` for the actual scoring. This
+// function is invoked at the top of `chooseAction` so it can also
+// short-circuit setup phases (a bot whose initial draft is still
+// pending will resolve it here before the runner emits anything else).
+
+import {
+  chooseBottlePlacement,
+  chooseDrawLineCards,
+  chooseKeepInstanceIds,
+  pickBestInstances,
+} from "./line-heuristics";
+
+function resolvePendingLineChoice(
+  state: GameState,
+  playerId: string,
+): GameAction | null {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return null;
+  if (player.pendingInitialLineCardDraft) {
+    const offered = player.pendingInitialLineCardDraft.cards;
+    const kept = pickBestInstances(offered, 2, player);
+    return {
+      type: "CHOOSE_INITIAL_LINE_CARDS",
+      playerId,
+      keepInstanceIds: kept.map((c) => c.instanceId),
+    };
+  }
+  if (player.pendingLineCardDraw) {
+    const offered = player.pendingLineCardDraw.cards;
+    return {
+      type: "KEEP_LINE_CARDS",
+      playerId,
+      keepInstanceIds: chooseKeepInstanceIds(offered, player),
+    };
+  }
+  if (player.pendingBottlePlacement) {
+    const placement = chooseBottlePlacement(state, player);
+    if (placement) return placement;
+    // Defensive fallback — every game should reach the inventory leg
+    // of chooseBottlePlacement; this only fires if a future refactor
+    // forgets it.
+    return {
+      type: "PLACE_BOTTLE",
+      playerId,
+      destination: { kind: "inventory" },
+    };
+  }
+  return null;
 }

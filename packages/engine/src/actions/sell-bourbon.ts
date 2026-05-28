@@ -14,6 +14,10 @@ import { collectSaleSignals } from "../card-effects";
 import { drawWithReshuffle } from "../deck";
 import { awardConditionMet, computeReward } from "../rewards";
 import { isCurrentPlayer } from "../state";
+import {
+  createBottleFromSale,
+  mintBottleId,
+} from "../lines/placement";
 
 type SellBourbonAction = Extract<GameAction, { type: "SELL_BOURBON" }>;
 
@@ -202,5 +206,21 @@ export function applySellBourbon(
   } else if (draft.demand > 0) {
     draft.demand -= 1;
   }
+
+  // v3.0 Line system — flip the bill to a Bottle and stash it as
+  // pendingBottlePlacement. The player (or bot stub) must dispatch
+  // PLACE_BOTTLE next to choose where the bottle lands. The original
+  // bill stays in its existing pile (discard / retired) — the Bottle
+  // carries the snapshot data.
+  const bottle = createBottleFromSale(
+    attached,
+    barrel,
+    draft.demand,
+    barrel.age,
+    draft.round,
+    mintBottleId(draft),
+  );
+  player.pendingBottlePlacement = { bottle };
+
   // v2.2: selling does NOT end the player's turn.
 }

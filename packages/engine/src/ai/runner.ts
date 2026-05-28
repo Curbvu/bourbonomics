@@ -115,6 +115,17 @@ export function nextOrchestratorAction(state: GameState): GameAction | null {
       }
       const current = state.players[state.currentPlayerIndex];
       if (!current) throw new Error("no current player in action phase");
+      // v3.0 Line system: pending placements / draws / initial drafts
+      // must resolve before ROLL_DEMAND. Route to `chooseAction` so
+      // the bot's resolver fires; for human seats yield.
+      if (
+        current.pendingBottlePlacement ||
+        current.pendingLineCardDraw ||
+        current.pendingInitialLineCardDraft
+      ) {
+        if (current.isBot === false) return null;
+        return chooseAction(state, current.id);
+      }
       // v2.9: each turn opens with the current player rolling demand.
       // The orchestrator emits ROLL_DEMAND for them when armed; for a
       // human seat it returns null and the modal collects the click.

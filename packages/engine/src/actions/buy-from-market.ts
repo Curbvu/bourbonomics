@@ -129,11 +129,14 @@ export function applyBuyFromMarket(
   for (const c of spentLabor) applySpendEffect(player, c);
   player.discard.push(...spentLabor);
 
-  // The bought card itself goes to the player's discard. (For
-  // investment cards, the on-buy effect is a no-op today — the spec
-  // is `implemented: false` across the catalog. The Card stays in
-  // discard so the player can still see what they bought.)
-  player.discard.push(purchased);
+  // The bought card lands directly in the player's hand so it can be
+  // used this turn. End Turn (v3.9) discards everything in hand and
+  // redraws, so a card bought and unspent naturally cycles into the
+  // deck at turn end. (For investment cards, the on-buy effect is a
+  // no-op today — the spec is `implemented: false` across the catalog;
+  // the Card sits in hand so the player can still see what they
+  // bought.)
+  player.hand.push(purchased);
 
   // Consume the Insider Buyer half-cost flag (one shot).
   player.pendingHalfCostMarketBuy = false;

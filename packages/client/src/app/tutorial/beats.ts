@@ -194,8 +194,8 @@ export const TUTORIAL_BEATS: Beat[] = [
   {
     id: "beat-buy-aftermath",
     kind: "prompt",
-    title: "Wheat in the deck",
-    body: "Specialty Wheat landed in your discard — it'll shuffle into your deck for a future round.",
+    title: "Wheat in your hand",
+    body: "Specialty Wheat is in your hand — ready to use this turn.",
     spotlight: { kind: "none" },
   },
 
@@ -205,17 +205,15 @@ export const TUTORIAL_BEATS: Beat[] = [
   // into Year 2 and announce the Aging Phase as a chapter card.
   // ════════════════════════════════════════════════════════════════
   {
-    id: "beat-end-turn-prompt",
-    kind: "prompt",
-    title: "End the year",
-    body: "That's all our actions for the first year. Hit **End Turn**.",
-    spotlight: { kind: "action-button", action: "pass" },
-  },
-  {
+    // Single await-action beat — the player clicks End Turn, the
+    // matcher catches PASS_TURN, and we advance. A prompt beat preceded
+    // this one historically; the player would click End Turn during
+    // the prompt, dispatch through, and the next beat (this one) would
+    // miss the already-fired action. Removing the prompt is the fix.
     id: "beat-end-turn-await",
     kind: "await-action",
-    title: "End your turn",
-    body: "Click **End Turn** in the action bar.",
+    title: "End the year",
+    body: "That's all our actions for year 1. Click **End Turn** in the action bar.",
     spotlight: { kind: "action-button", action: "pass" },
     matches: (action) => {
       if (action.type !== "PASS_TURN") return false;

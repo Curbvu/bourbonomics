@@ -105,8 +105,14 @@ export default function BuyOverlay() {
   const repPortion = Math.max(0, cost - laborContrib);
   const overpaid = laborContrib > cost;
   const canAfford = repPortion <= human.reputation;
+  // Belt-and-suspenders: the store's toggleBuySpend already rejects
+  // selections that would overpay, but gate the Confirm button
+  // explicitly too so a stale selection can never resolve into a
+  // wasteful dispatch.
   const canConfirm =
-    canAfford && (cost === 0 || repPortion > 0 || selectedLabor.length > 0);
+    !overpaid &&
+    canAfford &&
+    (cost === 0 || repPortion > 0 || selectedLabor.length > 0);
 
   const chrome = resolveCardChrome(target.card);
   const tierChrome = TIER_CHROME[chrome.tier];
