@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (current alpha — "Unified Market").** Distillery selection (4-distillery picker), slot-bound mash bills, incremental production, single-step selling, a unified 10-card market (resources + Labor + ops + investments together), trading, doomsday-deck endgame. Reputation is the unified currency for both VP and spending; Labor cards supplement rep on purchases. Generic Labor is finite per player (3 in the starter deck, no central pile, no Hire). Investment cards ship in the market but their on-buy effects are still effect-pending. Multiplayer is live (host a 4-char-code room from `/multiplayer`).
+> **Scope (current alpha — "Lines & Bottles").** Distillery selection (4-distillery picker), slot-bound mash bills, incremental production, single-step selling that produces bottles for the new Lines portfolio system, a unified 10-card market (resources + Labor + ops + investments together), trading, doomsday-deck endgame. Reputation is the unified currency for both VP and spending; Labor cards supplement rep on purchases. Generic Labor is finite per player (3 in the starter deck, no central pile, no Hire). Lines & Bottles ship: every sale produces a Bottle that lands on the player's flagship line, a secondary line, or inventory, and the full Line pile scores at game end on top of banked rep. Investment cards ship in the market but their on-buy effects are still effect-pending. Multiplayer is live (host a 4-char-code room from `/multiplayer`).
 
 ---
 
@@ -34,7 +34,7 @@ Your turn opens with your own demand roll and one aging card committed to **ever
 
 ### Winning
 
-The game ends when the **last mash bill leaves the bourbon supply**. Most reputation wins; tiebreakers: most barrels sold, then shared victory.
+The game ends when the **last mash bill leaves the bourbon supply**. Every player then scores their **Lines & Bottles** portfolio on top of banked reputation (flagship Line Board + stacked Line Cards + inventory bottles). Most reputation wins; tiebreakers: most barrels sold, then shared victory. See [§Lines & Bottles](#-lines--bottles).
 
 ---
 
@@ -85,6 +85,7 @@ When every player passes, shuffle your final cards into your starter deck. Premi
 ### Step 6 — Board setup
 - **Unified market:** 10 cards face-up from a single shuffled supply containing **resources** (Common $1 / Specialty $2 / Heritage $3), **Specialty Labor** (Marketing $4, Cooper $4, Architect $4), **operations cards**, and **investment cards**. Generic Labor is **not** sold; the 3 in your starter deck are all you'll ever own.
 - **Bourbon deck:** mash bills face-down. No face-up bill row — bills are acquired exclusively through the **Drafting Loop**.
+- **Line Cards & flagship boards:** every player is dealt **4 Line Cards** (keep exactly 2) and pre-claims a **flagship Line Board** that defines their portfolio's end-game scoring rule. See [§Lines & Bottles](#-lines--bottles).
 - **Demand:** starts at 0.
 - Pick a start player.
 
@@ -207,10 +208,11 @@ Sell any of your **aging** barrels that is **age ≥ 2** AND has been in Aging f
 5. Add the total to your **reputation** track.
 6. Demand drops by 1 (floor 0), unless an effect skips the drop.
 7. Cards under the barrel return to your discard.
+8. The bill becomes a **Bottle** that must be placed on one of your **Lines** (or in inventory) before you can take other actions. See [§Lines & Bottles](#-lines--bottles).
 
 The tier floor guarantees every sale clears its baseline build cost — even a Common bill at age 2 / demand 2 pays 3 rep. Higher-rarity bills float higher floors because their build costs are higher (more Specialty cards).
 
-There is no split prompt — the engine resolves the rep total and lands it directly.
+There is no split prompt — the engine resolves the rep total and lands it directly. Bottle placement auto-routes to the flagship when legal; an explicit picker only opens when the choice matters.
 
 ### Awards
 
@@ -363,6 +365,61 @@ Every bill is **public the moment it's slotted** — recipe, grid, awards, all v
 ### Bills are not tradeable
 
 Bills move only via the actions listed above — never by Trade.
+
+---
+
+# 🍾 Lines & Bottles
+
+Each barrel you **sell** also produces a **Bottle** — a frozen snapshot of the bill (recipe tags, cask rarity, age, sale demand). Bottles are placed onto **Lines** — your brand portfolio — where they score at game end alongside the per-sale reputation.
+
+> Lines are the long-game scoring track. The reputation you bank from individual sales is your tactical score; your line portfolio is your strategic one. A focused flagship and one or two themed secondaries usually beat a scattered "anything-goes" board.
+
+### Setup: initial Line Card draft
+
+At game start, every player is dealt **4 Line Cards** face-down and must **keep exactly 2** — the picks shape your portfolio direction (rye-heavy, wheated, premium-press, etc.). Discarded cards go to the bottom of the Line Card deck.
+
+The initial draft must be resolved before you can take any other action. The other 2 cards return to the bottom of the Line Card deck.
+
+### The board: flagship + secondaries + inventory
+
+Every player has:
+
+- **1 flagship line** — pre-claimed at setup with a **Line Board** that defines its end-game scoring rule (Volume Series, Depth, Premium Press, etc.). The flagship is the only line you can never delete.
+- **Up to 2 secondary lines** — created when you place a bottle "on a new line" during a sale. Each secondary requires you to **stack ≥1 Line Card** onto it from your hand at creation; the stacked cards both gate placement (their `predicate`) AND contribute to scoring.
+- **Inventory** — a fallback bucket for bottles that don't fit any line. Each inventory bottle scores a flat **+1 rep** at game end.
+
+### Bottle placement (after every sale)
+
+When you sell, the engine derives the Bottle's profile and then offers you placement targets:
+
+1. **Flagship** — if the flagship's Line Board predicate accepts the bottle, this is usually the right choice. The flagship's score rule fires for the whole pile at end-game.
+2. **Existing secondary** — if you have one with a predicate the bottle satisfies.
+3. **New secondary** — costs ≥1 Line Card from hand (stacked onto the new line). Caps at 2 secondaries per player.
+4. **Inventory** — always legal. Flat +1 rep per bottle, no constraints.
+
+Placement is **mandatory** — you cannot take other actions until the bottle lands. The UI auto-routes to your flagship when legal; the explicit picker only appears when the choice matters.
+
+### Drawing more Line Cards mid-game
+
+Once per round (free action) you may **draw up to 3 Line Cards** off the top of the deck and **keep ≥1**. The unkept cards return to the bottom of the deck. Use this to refresh your hand toward a theme your sales are leaning into.
+
+### Extending a line
+
+The **Extend Line** action lets you stack a Line Card from hand onto **any** of your existing lines (flagship or secondary). Stacked cards add their score rule on top of the Line Board's — every line scores its base rule plus every card stacked on it. Cards never come back off a line.
+
+### End-game scoring
+
+When the bourbon supply runs out, every line scores independently:
+
+- **Flagship + each secondary** — Line Board's `endGameScore` rule + each stacked card's `endGameScore` rule, all summed across the bottles in that line. Unknown defIds (corrupted save) contribute 0.
+- **Empty lines with stacked cards** — pay a **−2 rep penalty per stacked card**. (An empty line with no cards is harmless.)
+- **Inventory** — +1 rep per bottle, flat.
+
+The total lands on each player's reputation; the winner is whoever has the highest reputation after Line scoring. Tiebreakers: most barrels sold, then shared victory.
+
+### Why this matters
+
+The Line system rewards **planning your sales for placement**. A bottle's recipe tags + cask rarity + age + sale demand are frozen the moment you sell, so trying to retrofit a portfolio late is expensive: empty lines penalize you, and Specialty bottles you needed for a Premium Press secondary can't be unsold.
 
 ---
 
@@ -555,6 +612,8 @@ It's about **knowing what to lock up, what to let go, and when the world is read
 ---
 
 # 📜 Changelog
+
+- **v3.0** — **"Lines & Bottles."** Every sale now produces a **Bottle** (frozen bill snapshot) that must be placed on a **Line** — the player's brand portfolio — or in **inventory**. Each player gets 1 flagship line (pre-claimed Line Board defining the end-game score rule) + up to 2 secondary lines (created on-the-fly by stacking ≥1 Line Card from hand) + inventory (flat +1 rep / bottle). Initial Line Card draft seeded at game init: 4 dealt, **keep 2**. Mid-game **Draw Line Cards** action (once per round, free): reveal up to 3, keep ≥1. **Extend Line** action stacks a Line Card onto any existing line for additional score rules. Final score adds the full Lines pile on top of banked rep: flagship board + every stacked card's `endGameScore` rule + inventory. Empty lines with stacked cards pay **−2 rep per card** (the only Line scoring penalty). 25 base-game Line Card definitions covering recipe themes (rye / wheated / pure-corn / triple-grain / heritage-recipe), cask rarity (heritage-cask / specialty-cask / common-cask), age band, market demand, and volume/breadth axes. New engine actions: CHOOSE_INITIAL_LINE_CARDS, DRAW_LINE_CARDS, KEEP_LINE_CARDS, EXTEND_LINE, PLACE_BOTTLE; new gate flags on player state (pendingInitialLineCardDraft, pendingLineCardDraw, pendingBottlePlacement) the engine's validateAction enforces so the resolution can't be skipped.
 
 - **v2.15** — **"Prestige."** Gold Convert/Keep/Decline collapsed into a single outcome: take the rep, **retire the bill** (removed from the game entirely, not just discarded), gain **1 prestige point**. Silver simplified to a one-shot bonus — bill goes to discard, slot opens (no more "stays Staged"). New permanent **prestige counter** on every player; each point adds +1 rep to every future Silver- or Gold-triggering sale (base sales unaffected). Connoisseur Estate reworked as the prestige specialist: +1 extra prestige on Silver (now 1) and +1 extra on Gold (now 2). The Open-slot Convert ability is retired. Bot scoring rewired around prestige acquisition: Gold-eligible bills are valued higher at draft time and selling now factors in both prestige earned and the prestige already on the player's track. New `retiredBills` array on game state tracks the graveyard of past Gold sales for UI presentation. Retiring Gold bills accelerates the final-round trigger (the bourbon supply runs out faster) — intended.
 
