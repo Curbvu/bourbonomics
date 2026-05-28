@@ -12,6 +12,7 @@ export * from "./card-effects";
 export * from "./starter-pool";
 export * from "./initialize";
 export * from "./engine";
+export * from "./recipe-floors";
 export * from "./ai/bot";
 export * from "./ai/runner";
 export * from "./ai/line-heuristics";

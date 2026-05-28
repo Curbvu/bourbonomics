@@ -27,11 +27,12 @@
  */
 
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
-import type {
-  AwardCondition,
-  Card,
-  GameAction,
-  MashBill,
+import {
+  computeRecipeFloors,
+  type AwardCondition,
+  type Card,
+  type GameAction,
+  type MashBill,
 } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import {
@@ -880,91 +881,58 @@ interface IngredientChip {
 }
 
 function buildIngredientChips(bill: MashBill): IngredientChip[] {
-  const r = bill.recipe ?? {};
-  const sp = r.minSpecialty ?? {};
+  const f = computeRecipeFloors(bill.recipe);
   const items: IngredientChip[] = [];
 
-  const minCorn = Math.max(1, r.minCorn ?? 0);
-  const minRye = r.minRye ?? 0;
-  const minBarley = r.minBarley ?? 0;
-  const minWheat = r.minWheat ?? 0;
-
-  const plainCask = Math.max(0, 1 - (sp.cask ?? 0));
-  const plainCorn = Math.max(0, minCorn - (sp.corn ?? 0));
-  const plainRye = Math.max(0, minRye - (sp.rye ?? 0));
-  const plainBarley = Math.max(0, minBarley - (sp.barley ?? 0));
-  const plainWheat = Math.max(0, minWheat - (sp.wheat ?? 0));
-
-  if (plainCask > 0) {
+  // Plain chips first — `f.<sub>.plain` deducts the specialty floor
+  // so a recipe like `minCask:1 + minSpecialty.cask:1` skips the
+  // redundant plain cask chip and only renders the Specialty Cask
+  // entry below.
+  if (f.cask.plain > 0) {
     items.push({
       glyph: RESOURCE_GLYPH.cask,
       label: "Cask",
-      count: plainCask > 1 ? plainCask : undefined,
+      count: f.cask.plain > 1 ? f.cask.plain : undefined,
       tint: RESOURCE_CHROME.cask.label,
     });
   }
-  if (plainCorn > 0) {
-    items.push({
-      glyph: RESOURCE_GLYPH.corn,
-      label: "Corn",
-      count: plainCorn,
-      tint: RESOURCE_CHROME.corn.label,
-    });
-  }
-  if (plainRye > 0) {
-    items.push({
-      glyph: RESOURCE_GLYPH.rye,
-      label: "Rye",
-      count: plainRye,
-      tint: RESOURCE_CHROME.rye.label,
-    });
-  }
-  if (plainBarley > 0) {
-    items.push({
-      glyph: RESOURCE_GLYPH.barley,
-      label: "Barley",
-      count: plainBarley,
-      tint: RESOURCE_CHROME.barley.label,
-    });
-  }
-  if (plainWheat > 0) {
-    items.push({
-      glyph: RESOURCE_GLYPH.wheat,
-      label: "Wheat",
-      count: plainWheat,
-      tint: RESOURCE_CHROME.wheat.label,
-    });
+  for (const sub of ["corn", "rye", "barley", "wheat"] as const) {
+    if (f[sub].plain > 0) {
+      items.push({
+        glyph: RESOURCE_GLYPH[sub],
+        label: sub.charAt(0).toUpperCase() + sub.slice(1),
+        count: f[sub].plain,
+        tint: RESOURCE_CHROME[sub].label,
+      });
+    }
   }
 
   // Wild grain — when no specific grain is required, the universal
   // rule still demands ≥1 grain of any kind.
-  const namedGrain = minRye + minBarley + minWheat;
-  const minTotal = r.minTotalGrain ?? 0;
-  const wildGrain = namedGrain === 0 ? 1 : Math.max(0, minTotal - namedGrain);
-  if (wildGrain > 0) {
+  if (f.grain.wildSlots > 0) {
     items.push({
       glyph: "✦",
       label: "Any grain",
-      count: wildGrain,
+      count: f.grain.wildSlots,
       tint: "text-slate-300",
       wild: true,
     });
   }
 
-  for (const s of ["cask", "corn", "rye", "barley", "wheat"] as const) {
-    const n = sp[s];
-    if (n && n > 0) {
+  for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
+    const n = f[sub].specialty;
+    if (n > 0) {
       items.push({
-        glyph: RESOURCE_GLYPH[s],
-        label: `★ Spec ${s.charAt(0).toUpperCase() + s.slice(1)}`,
+        glyph: RESOURCE_GLYPH[sub],
+        label: `★ Spec ${sub.charAt(0).toUpperCase() + sub.slice(1)}`,
         count: n > 1 ? n : undefined,
-        tint: RESOURCE_CHROME[s].label,
+        tint: RESOURCE_CHROME[sub].label,
         specialty: true,
       });
     }
   }
 
-  if (r.maxRye === 0) {
+  if (f.forbidsRye) {
     items.push({
       glyph: RESOURCE_GLYPH.rye,
       label: "No rye",
@@ -972,7 +940,7 @@ function buildIngredientChips(bill: MashBill): IngredientChip[] {
       forbidden: true,
     });
   }
-  if (r.maxWheat === 0) {
+  if (f.forbidsWheat) {
     items.push({
       glyph: RESOURCE_GLYPH.wheat,
       label: "No wheat",
