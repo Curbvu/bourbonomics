@@ -87,9 +87,9 @@ export default function LineCardTile({
 
   const ink = def ? THEME_INK[def.themeTag] ?? FALLBACK_INK : FALLBACK_INK;
   const baseClasses =
-    "relative flex flex-col gap-1 rounded-[6px] border bg-gradient-to-b from-[rgba(34,23,16,.85)] to-[rgba(20,14,8,.95)] px-2 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-transform";
+    "relative flex flex-col gap-2 rounded-[10px] border bg-gradient-to-b from-[rgba(34,23,16,.85)] to-[rgba(20,14,8,.95)] px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.05),0_6px_18px_rgba(0,0,0,.45)] transition-transform";
   const interactiveClasses = interactive
-    ? "cursor-pointer hover:scale-[1.02] hover:shadow-[0_0_0_2px_rgba(240,201,112,.25)]"
+    ? "cursor-pointer hover:scale-[1.03] hover:shadow-[0_0_0_2px_rgba(240,201,112,.30),0_8px_24px_rgba(0,0,0,.5)]"
     : "";
   const selectedClasses = selected
     ? "ring-2 ring-amber-300 ring-offset-2 ring-offset-slate-950"
@@ -102,32 +102,32 @@ export default function LineCardTile({
       onClick={interactive ? onClick : undefined}
       className={`${baseClasses} ${interactiveClasses} ${selectedClasses}`}
       style={{
-        width: 132,
-        minHeight: 88,
+        width: 220,
+        minHeight: 200,
         borderColor: selected ? "var(--gold)" : ink,
       }}
     >
       <span
         aria-hidden
-        className="absolute inset-x-0 top-0 h-[3px] rounded-t-[5px]"
+        className="absolute inset-x-0 top-0 h-[5px] rounded-t-[9px]"
         style={{ background: ink }}
       />
       <span
-        className="mt-1 font-display text-[12px] font-semibold leading-tight"
+        className="mt-2 font-display text-[18px] font-semibold leading-tight"
         style={{ color: "var(--ink)" }}
       >
         {def?.name ?? "Unknown Line Card"}
       </span>
       {def ? (
         <span
-          className="font-mono text-[9px] italic leading-snug"
+          className="font-mono text-[12px] italic leading-snug"
           style={{ color: "var(--ink-muted)" }}
         >
           {def.flavorText}
         </span>
       ) : null}
       <span
-        className="mt-auto self-start rounded border px-1 py-px font-mono text-[8.5px] uppercase tracking-[.08em]"
+        className="mt-auto self-start rounded border px-2 py-[3px] font-mono text-[10.5px] uppercase tracking-[.10em]"
         style={{ borderColor: ink, color: ink }}
       >
         {def?.themeTag ?? instance.defId}

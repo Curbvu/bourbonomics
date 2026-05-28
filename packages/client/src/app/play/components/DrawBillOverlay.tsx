@@ -12,7 +12,8 @@
  * imports in HandTray / GameBoard.
  *
  * Click flow:
- *   1. ActionBar "Draft bills" opens the modal in **seed** state.
+ *   1. The "+ Draft Mash Bill" launcher on the human's next-available
+ *      rickhouse slot (DistilleryStage) opens the modal in **seed** state.
  *   2. Clicking any card in the modal's hand row immediately
  *      dispatches `INITIATE_DRAFTING_LOOP` — no separate confirm step.
  *   3. With the loop active and on your turn:

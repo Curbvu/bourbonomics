@@ -16,7 +16,7 @@ import { useEffect, useState } from "react";
 import { TUTORIAL_HUMAN_ID } from "@bourbonomics/engine";
 import type { SpotlightTarget } from "./types";
 
-function findSpotlightElement(target: SpotlightTarget): Element | null {
+export function findSpotlightElement(target: SpotlightTarget): Element | null {
   switch (target.kind) {
     case "rickhouse-slot": {
       const slotId = `slot_${target.ownerId}_${target.slotIndex}`;
