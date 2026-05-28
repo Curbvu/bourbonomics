@@ -1,32 +1,56 @@
 import type { Line, PlayerState } from "../types";
 import { getLineBoardDef } from "./boards";
+import { getLineCardDef } from "./cards";
 
 const INVENTORY_REP_PER_BOTTLE = 1;
 const VANILLA_BONUS_REP_PER_INVENTORY_BOTTLE = 5;
+const SECONDARY_EMPTY_SLOT_PENALTY = -2;
 
 /**
- * v3.1 — end-game score for one Line. Sums each filled slot's
- * `endGameValue` from the bound board definition. Secondary lines
- * (no `slots` field in phase 5) score 0. Unknown board ids score 0.
+ * v3.1 — end-game score for one Line.
+ *
+ * Flagship: sums each filled slot's endGameValue from the bound
+ * board. No failure penalty — the flagship board was a gift, not a
+ * bet.
+ *
+ * Secondary: sums each filled slot's endGameValue (read from the
+ * Line Card at that slot position) AND pays a -2 rep penalty for
+ * each Line Card slot still empty at game end.
  *
  * Slot rewards and the Completion Bonus's immediate rep have already
  * been credited to `player.reputation` during play; they are NOT
  * counted again here.
  *
- * Phase 5 deliberately omits secondary line failure penalties (no
- * secondaries to penalize) and the persistent end-game multipliers
- * like Connoisseur's `prestigeScoringDoubled` (those land alongside
- * end-game prestige scoring in phase 8).
+ * Phase 5 deliberately omits Connoisseur's prestigeScoringDoubled —
+ * there is no baseline end-game prestige scoring rule yet to double.
+ * When one is introduced, this is where the multiplier lands.
  */
 export function scoreLine(line: Line, _player: PlayerState): number {
   if (!line.slots) return 0;
-  if (!line.lineBoardId) return 0;
-  const board = getLineBoardDef(line.lineBoardId);
-  if (!board) return 0;
+
+  if (line.lineBoardId) {
+    const board = getLineBoardDef(line.lineBoardId);
+    if (!board) return 0;
+    let total = 0;
+    for (let i = 0; i < line.slots.length; i++) {
+      if (line.slots[i]!.filled) {
+        total += board.slots[i]?.endGameValue ?? 0;
+      }
+    }
+    return total;
+  }
+
+  // Secondary line — slot values come from the Line Cards at each slot.
   let total = 0;
   for (let i = 0; i < line.slots.length; i++) {
+    const inst = line.stackedCards[i];
+    if (!inst) continue;
+    const def = getLineCardDef(inst.defId);
+    if (!def) continue;
     if (line.slots[i]!.filled) {
-      total += board.slots[i]?.endGameValue ?? 0;
+      total += def.endGameValue;
+    } else {
+      total += SECONDARY_EMPTY_SLOT_PENALTY;
     }
   }
   return total;
