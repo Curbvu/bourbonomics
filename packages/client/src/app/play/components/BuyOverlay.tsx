@@ -148,8 +148,15 @@ export default function BuyOverlay() {
         }}
       />
 
+      {/* No scroll: the modal is designed to fit at the canvas scale
+          (CLAUDE.md rule 1). The previous `overflow-y-auto` was a
+          safety fallback that would surface a scrollbar if content
+          ever spilled — exactly the gameplay scrollbar the rules
+          forbid. Switch to `overflow-hidden` so layout regressions
+          surface as a visual clip during dev (drives a tightening
+          pass) rather than a silent UX violation in prod. */}
       <div
-        className="relative flex w-full flex-col gap-4 overflow-y-auto rounded-xl border-[3px] border-amber-300 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 p-5"
+        className="relative flex w-full flex-col gap-4 overflow-hidden rounded-xl border-[3px] border-amber-300 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 p-5"
         style={{
           boxShadow:
             "inset 0 1px 0 rgba(252,211,77,.35), inset 0 0 0 1px rgba(252,211,77,.18), 0 0 48px rgba(252,211,77,.45), 0 24px 64px rgba(0,0,0,.75)",

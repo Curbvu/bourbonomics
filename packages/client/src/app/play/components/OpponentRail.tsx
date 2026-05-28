@@ -47,7 +47,10 @@ export default function OpponentRail() {
   return (
     <aside
       data-rickhouse-row="true"
-      className={`bb-panel bb-panel--rivals scroll-thin flex min-h-0 flex-col gap-[10px] overflow-auto px-[12px] py-3 ${focusClass}`}
+      // No scroll per CLAUDE.md. Up to 3 opponents share this column at
+      // the design scale — they fit. If a future 4+ player layout
+      // needs more, the tiles need to be tightened, not scrolled.
+      className={`bb-panel bb-panel--rivals flex min-h-0 flex-col gap-[10px] overflow-hidden px-[12px] py-3 ${focusClass}`}
       style={{ gridArea: "rivals", ...focusStyle }}
     >
       <header className="flex items-baseline justify-between">

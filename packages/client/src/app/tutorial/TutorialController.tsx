@@ -33,7 +33,7 @@ import Confetti from "./Confetti";
 import Dice from "./Dice";
 import DragHintAnimation from "./DragHintAnimation";
 import TapHintAnimation from "./TapHintAnimation";
-import { TUTORIAL_BEATS, chapterProgressFor, spotlightSpecialtyRye } from "./beats";
+import { TUTORIAL_BEATS, chapterProgressFor } from "./beats";
 import type { Beat, SpotlightTarget } from "./types";
 import { RichText, SpotlightLayer, findSpotlightElement } from "./Spotlight";
 
@@ -166,8 +166,19 @@ export default function TutorialController() {
         // re-validates inside `applyAction`; this is the gate that
         // gives advance() the same authority.
         if (!hasAdvanceWhen) {
-          const validation = validateAction(current, final);
-          if (validation.legal) {
+          // Defense in depth: validateAction's docstring promises
+          // "never throws" (engine.ts:61), but a validator with an
+          // undefended `.length` on a missing payload field would
+          // crash the React tree mid-reducer if it slipped through.
+          // Treat any throw as "engine would reject" — drop advance,
+          // let the dispatch path's own catch handle it.
+          let legal = false;
+          try {
+            legal = validateAction(current, final).legal;
+          } catch {
+            legal = false;
+          }
+          if (legal) {
             setTimeout(() => advance(), 0);
           }
         }
@@ -273,14 +284,10 @@ export default function TutorialController() {
 
   // ── Spotlight derivation ─────────────────────────────────────────
   // Memoized on STABLE inputs so the resulting object reference doesn't
-  // change every render. The previous version returned a fresh object
-  // for the rigged-rye case on every render, and the store-mirror
-  // useEffect below has it in its deps — that combo blew up React's
-  // re-render guard with "Maximum update depth exceeded".
-  const ryeIdForSpotlight =
-    state && beat?.spotlight?.kind === "hand-card" && beat.spotlight.cardId === ""
-      ? spotlightSpecialtyRye(state)
-      : null;
+  // change every render. (The original rigged-rye injection that lived
+  // here is gone — Specialty Rye is no longer scripted in the tutorial.
+  // If a future beat needs runtime-resolved hand-card targeting, restore
+  // a resolver and add its result to the useMemo dep list.)
   // For action-button spotlights, the corresponding picker mode being
   // active means the player has already clicked the button — flip the
   // spotlight to the beat's `postEngageSpotlight` so the next click
@@ -302,11 +309,6 @@ export default function TutorialController() {
               : false;
   const liveSpotlight = useMemo<SpotlightTarget | undefined>(() => {
     if (!beat || !beat.spotlight) return undefined;
-    if (beat.spotlight.kind === "hand-card" && beat.spotlight.cardId === "") {
-      return ryeIdForSpotlight
-        ? { kind: "hand-card", cardId: ryeIdForSpotlight }
-        : { kind: "none" };
-    }
     if (
       isActionButton &&
       actionButtonModeActive &&
@@ -317,7 +319,6 @@ export default function TutorialController() {
     return beat.spotlight;
   }, [
     beat,
-    ryeIdForSpotlight,
     isActionButton,
     actionButtonModeActive,
   ]);
