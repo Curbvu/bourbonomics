@@ -64,7 +64,7 @@ const TIER_BAND: Record<
 };
 
 export default function DistilleryStage() {
-  const { state, multiplayerMode } = useGameStore();
+  const { state, multiplayerMode, startDrawBillMode } = useGameStore();
   if (!state) return null;
 
   // Mirror HandTray's seat-id logic so the hero plate always renders
@@ -82,6 +82,20 @@ export default function DistilleryStage() {
   const focusClass = useZoneFocusClass("rickhouse-self");
   const focusStyle = useZoneFocusStyle("rickhouse-self");
   if (!distillery) return null;
+
+  // Drafting Loop launcher gating — mirrors ActionBar.canEnterDrawBillMode
+  // so the on-barrel "+" button only lights up when the human can
+  // actually initiate the loop right now.
+  const isHumanTurn =
+    state.phase === "action" &&
+    state.players[state.currentPlayerIndex]?.id === player.id;
+  const canDraftBill =
+    isHumanTurn &&
+    state.draftingLoop == null &&
+    !state.finalRoundTriggered &&
+    !player.draftingLoopUsedThisRound &&
+    player.hand.length > 0 &&
+    state.bourbonDeck.length > 0;
 
   return (
     <section
@@ -129,6 +143,8 @@ export default function DistilleryStage() {
           barrels={myBarrels}
           state={state}
           isHumanRow={true}
+          canDraftBill={canDraftBill}
+          onDraftBill={startDrawBillMode}
         />
 
         {/* 4. v3.0 Line system — roomy strip for the human's own
@@ -364,12 +380,30 @@ function Rickhouse({
   barrels,
   state,
   isHumanRow,
+  canDraftBill = false,
+  onDraftBill,
 }: {
   slots: RickhouseSlot[];
   barrels: Barrel[];
   state: GameState;
   isHumanRow: boolean;
+  /** True iff the human can initiate the Drafting Loop right now. Only
+   *  meaningful on the human's own rickhouse. */
+  canDraftBill?: boolean;
+  /** Click handler for the "+ Draft Mash Bill" launcher rendered on
+   *  the first empty slot. */
+  onDraftBill?: () => void;
 }) {
+  // Find the slot id of the first (leftmost) empty slot, so EmptySlot
+  // can decide whether to render the green draft-launcher chrome or
+  // the regular dashed "open" silhouette. Bots' rickhouses never light
+  // up the launcher (`canDraftBill` stays false off the human row).
+  const firstEmptySlotId = (() => {
+    for (const slot of slots) {
+      if (!barrels.some((b) => b.slotId === slot.id)) return slot.id;
+    }
+    return null;
+  })();
   return (
     <div
       className="relative flex-1 overflow-hidden rounded-[14px] border border-[#3b2818] px-[26px] pb-[18px] pt-[26px]"
@@ -421,12 +455,19 @@ function Rickhouse({
               />
             );
           }
+          const isDraftLauncher =
+            isHumanRow &&
+            canDraftBill &&
+            slot.id === firstEmptySlotId &&
+            onDraftBill != null;
           return (
             <EmptySlot
               key={slot.id}
               slot={slot}
               state={state}
               isHumanRow={isHumanRow}
+              isDraftLauncher={isDraftLauncher}
+              onDraftBill={onDraftBill}
             />
           );
         })}
@@ -1362,11 +1403,98 @@ function EmptySlot({
   slot,
   state,
   isHumanRow,
+  isDraftLauncher = false,
+  onDraftBill,
 }: {
   slot: RickhouseSlot;
   state: GameState;
   isHumanRow: boolean;
+  /** When true, this is the "next available" empty slot for the human
+   *  player AND they can currently initiate the Drafting Loop — render
+   *  the green "+" launcher button instead of the dashed silhouette. */
+  isDraftLauncher?: boolean;
+  onDraftBill?: () => void;
 }) {
+  // Render the on-barrel draft launcher in place of the regular slot
+  // interaction. Drag-drop/click-commit are intentionally bypassed here
+  // — a slot with no mash bill has no legal MAKE/AGE drop, so we lose
+  // nothing by reserving the click for the draft action.
+  if (isDraftLauncher && onDraftBill) {
+    return (
+      <button
+        type="button"
+        data-slot-id={slot.id}
+        data-bb-action="draw-bill"
+        onClick={onDraftBill}
+        title="Draft a new mash bill into this barrel"
+        className="group relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform hover:-translate-y-[3px]"
+      >
+        <div className="relative grid h-[156px] w-full place-items-center">
+          {/* Emerald halo so the call-to-action reads at a glance. */}
+          <span
+            aria-hidden
+            className="absolute inset-0 transition-opacity group-hover:opacity-100"
+            style={{
+              background:
+                "radial-gradient(50% 60% at 50% 50%, rgba(52,211,153,.45), transparent 70%)",
+              filter: "blur(10px)",
+              opacity: 0.8,
+            }}
+          />
+          <div
+            className="relative grid h-[148px] w-[122px] place-items-center"
+            style={{
+              borderRadius: "44% / 16%",
+              border: "2px solid rgba(52,211,153,.75)",
+              background:
+                "radial-gradient(60% 60% at 50% 45%, rgba(52,211,153,.20), rgba(8,30,22,.85) 78%)",
+              boxShadow:
+                "inset 0 1px 0 rgba(167,243,208,.35), 0 0 0 1px rgba(52,211,153,.25), 0 6px 22px rgba(16,185,129,.35)",
+            }}
+          >
+            <div className="flex flex-col items-center gap-2">
+              <span
+                aria-hidden
+                className="grid h-10 w-10 place-items-center rounded-full font-display text-[26px] font-bold leading-none"
+                style={{
+                  background: "linear-gradient(180deg, #34d399, #059669)",
+                  color: "#052b1d",
+                  boxShadow:
+                    "inset 0 1px 0 rgba(255,255,255,.45), 0 2px 10px rgba(16,185,129,.55)",
+                }}
+              >
+                +
+              </span>
+              <span
+                className="text-center font-mono text-[10.5px] font-bold uppercase leading-tight tracking-[.18em]"
+                style={{ color: "#a7f3d0" }}
+              >
+                Draft
+                <br />
+                Mash Bill
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          className="mt-3 w-full rounded-[9px] border text-center font-mono uppercase"
+          style={{
+            padding: "12px 12px",
+            fontSize: 12,
+            letterSpacing: ".22em",
+            borderColor: "rgba(52,211,153,.7)",
+            background:
+              "linear-gradient(180deg, rgba(16,185,129,.20), rgba(6,40,28,.7))",
+            color: "#a7f3d0",
+            boxShadow: "0 0 12px rgba(16,185,129,.20)",
+          }}
+        >
+          Draft Bill
+        </div>
+      </button>
+    );
+  }
+
   const interaction = useSlotInteraction(slot, null, state, isHumanRow);
   const selected = interaction.dropTargetState != null;
   return (

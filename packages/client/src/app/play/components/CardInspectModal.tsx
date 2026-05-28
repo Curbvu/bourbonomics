@@ -1178,59 +1178,78 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
   const minRye = recipe.minRye ?? 0;
   const minBarley = recipe.minBarley ?? 0;
   const minTotalGrain = Math.max(recipe.minTotalGrain ?? 0, 1);
+  const sp = recipe.minSpecialty ?? {};
+
+  // Dedupe rule: when a subtype has a specialty floor that fully
+  // covers its basic minimum (e.g. `minCask: 1 + minSpecialty.cask:
+  // 1`), don't render a plain "Cask" row alongside the "Specialty
+  // Cask" row — they describe the same slot. Only when the specialty
+  // floor is smaller than the basic minimum do we need both: one
+  // "Specialty X" row for the gated portion, and the basic row whose
+  // `required` is reduced by the specialty floor (the remaining
+  // plain-only units).
+  const plainCaskNeed = Math.max(0, 1 - (sp.cask ?? 0));
+  const plainCornNeed = Math.max(0, minCorn - (sp.corn ?? 0));
+  const plainRyeNeed = Math.max(0, minRye - (sp.rye ?? 0));
+  const plainBarleyNeed = Math.max(0, minBarley - (sp.barley ?? 0));
+  const plainWheatNeed = Math.max(0, minWheat - (sp.wheat ?? 0));
 
   const rows: RecipeRow[] = [];
-  // Cask — always exactly 1.
-  rows.push({
-    key: "cask",
-    glyph: RESOURCE_GLYPH.cask,
-    label: "Cask",
-    tint: RESOURCE_CHROME.cask.label,
-    required: 1,
-    current: tally.cask,
-    over: Math.max(0, tally.cask - 1),
-  });
-  // Corn — universal ≥1 plus any recipe min.
-  rows.push({
-    key: "corn",
-    glyph: RESOURCE_GLYPH.corn,
-    label: "Corn",
-    tint: RESOURCE_CHROME.corn.label,
-    required: minCorn,
-    current: tally.corn,
-    over: Math.max(0, tally.corn - minCorn),
-  });
-  if (minRye > 0) {
+  // Cask — universal 1, minus whatever the specialty floor already
+  // owns. Drop the row entirely when specialty fully covers.
+  if (plainCaskNeed > 0) {
+    rows.push({
+      key: "cask",
+      glyph: RESOURCE_GLYPH.cask,
+      label: "Cask",
+      tint: RESOURCE_CHROME.cask.label,
+      required: plainCaskNeed,
+      current: Math.max(0, tally.cask - tally.specialty.cask),
+      over: 0,
+    });
+  }
+  if (plainCornNeed > 0) {
+    rows.push({
+      key: "corn",
+      glyph: RESOURCE_GLYPH.corn,
+      label: "Corn",
+      tint: RESOURCE_CHROME.corn.label,
+      required: plainCornNeed,
+      current: Math.max(0, tally.corn - tally.specialty.corn),
+      over: 0,
+    });
+  }
+  if (plainRyeNeed > 0) {
     rows.push({
       key: "rye",
       glyph: RESOURCE_GLYPH.rye,
       label: "Rye",
       tint: RESOURCE_CHROME.rye.label,
-      required: minRye,
-      current: tally.rye,
-      over: Math.max(0, tally.rye - minRye),
+      required: plainRyeNeed,
+      current: Math.max(0, tally.rye - tally.specialty.rye),
+      over: 0,
     });
   }
-  if (minBarley > 0) {
+  if (plainBarleyNeed > 0) {
     rows.push({
       key: "barley",
       glyph: RESOURCE_GLYPH.barley,
       label: "Barley",
       tint: RESOURCE_CHROME.barley.label,
-      required: minBarley,
-      current: tally.barley,
-      over: Math.max(0, tally.barley - minBarley),
+      required: plainBarleyNeed,
+      current: Math.max(0, tally.barley - tally.specialty.barley),
+      over: 0,
     });
   }
-  if (minWheat > 0) {
+  if (plainWheatNeed > 0) {
     rows.push({
       key: "wheat",
       glyph: RESOURCE_GLYPH.wheat,
       label: "Wheat",
       tint: RESOURCE_CHROME.wheat.label,
-      required: minWheat,
-      current: tally.wheat,
-      over: Math.max(0, tally.wheat - minWheat),
+      required: plainWheatNeed,
+      current: Math.max(0, tally.wheat - tally.specialty.wheat),
+      over: 0,
     });
   }
   // "Any grain" universal: only show when the named grains don't
@@ -1253,10 +1272,9 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
   // payouts behind market-only Specialty cards. The engine treats a
   // Specialty card as satisfying both the basic per-subtype minimum
   // AND the specialty floor (one Superior Rye covers minRye:1 +
-  // minSpecialty:{rye:1}). Showing a dedicated row here so the
-  // player sees why their pile reads "ready" on basics but the
-  // engine still won't transition the slot to Aging.
-  const sp = recipe.minSpecialty ?? {};
+  // minSpecialty:{rye:1}). The plain-row dedup above already drops
+  // the redundant basic row when specialty covers it — this loop
+  // renders the specialty row itself with the ★ marker.
   for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
     const need = sp[sub] ?? 0;
     if (need > 0) {

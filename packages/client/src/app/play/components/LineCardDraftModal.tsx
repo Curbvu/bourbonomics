@@ -126,27 +126,27 @@ export default function LineCardDraftModal() {
       className="fixed inset-0 z-[56] flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur"
     >
       <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[520px] w-[820px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[640px] w-[1100px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
         style={{
           background:
             "radial-gradient(circle, rgba(251,191,36,0.22) 0%, transparent 65%)",
         }}
       />
-      <div className="relative flex max-h-[calc(100vh-3rem)] w-full max-w-[860px] flex-col items-center gap-4">
+      <div className="relative flex max-h-[calc(100vh-3rem)] w-full max-w-[1180px] flex-col items-center gap-6">
         <div className="text-center">
-          <div className="font-mono text-[12px] uppercase tracking-[.18em] text-amber-300">
+          <div className="font-mono text-[14px] uppercase tracking-[.22em] text-amber-300">
             {subtitle}
           </div>
-          <div className="mt-1 font-display text-2xl font-semibold text-amber-100">
+          <div className="mt-2 font-display text-4xl font-semibold text-amber-100">
             {title}
           </div>
-          <div className="mt-1 max-w-[680px] font-mono text-[11.5px] uppercase tracking-[.12em] text-slate-400">
+          <div className="mt-2 max-w-[820px] font-mono text-[13px] uppercase tracking-[.14em] text-slate-400">
             {hint}
           </div>
         </div>
 
-        <div className="w-full rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-          <div className="flex flex-wrap justify-center gap-2">
+        <div className="w-full rounded-xl border border-slate-800 bg-slate-950/60 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,.04),0_12px_36px_rgba(0,0,0,.55)]">
+          <div className="flex flex-wrap justify-center gap-5">
             {mode.cards.map((inst) => (
               <LineCardTile
                 key={inst.instanceId}
@@ -166,8 +166,8 @@ export default function LineCardDraftModal() {
             onClick={onConfirm}
             className={
               canConfirm
-                ? "rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-6 py-2 font-sans text-sm font-bold uppercase tracking-[.05em] text-slate-950 shadow-[0_0_0_3px_rgba(251,191,36,0.30),inset_0_1px_0_rgba(255,255,255,0.25)] transition-all hover:from-amber-200 hover:to-amber-400"
-                : "cursor-not-allowed rounded-md border border-slate-800 bg-slate-900 px-6 py-2 font-sans text-sm font-bold uppercase tracking-[.05em] text-slate-600"
+                ? "rounded-md border border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 px-9 py-3 font-sans text-base font-bold uppercase tracking-[.06em] text-slate-950 shadow-[0_0_0_3px_rgba(251,191,36,0.30),inset_0_1px_0_rgba(255,255,255,0.25)] transition-all hover:from-amber-200 hover:to-amber-400"
+                : "cursor-not-allowed rounded-md border border-slate-800 bg-slate-900 px-9 py-3 font-sans text-base font-bold uppercase tracking-[.06em] text-slate-600"
             }
           >
             {confirmLabel}

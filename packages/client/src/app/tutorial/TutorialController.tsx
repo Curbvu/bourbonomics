@@ -34,7 +34,7 @@ import DragHintAnimation from "./DragHintAnimation";
 import TapHintAnimation from "./TapHintAnimation";
 import { TUTORIAL_BEATS, chapterProgressFor, spotlightSpecialtyRye } from "./beats";
 import type { Beat, SpotlightTarget } from "./types";
-import { RichText, SpotlightLayer } from "./Spotlight";
+import { RichText, SpotlightLayer, findSpotlightElement } from "./Spotlight";
 
 export const TUTORIAL_COMPLETE_KEY = "bourbonomics:tutorial-complete";
 
@@ -524,6 +524,105 @@ function ChapterProgress({
   );
 }
 
+/**
+ * Hook: track the live bounding box of the beat's spotlight target.
+ * Returns `null` for beats whose spotlight is "none" / "action-button"
+ * (those positions are handled separately) so the caller can fall
+ * through to the static positioning.
+ *
+ * Polled 4× per second to mirror SpotlightLayer — layout shifts from
+ * mode toggles, drawer opens, hand reshuffles keep both the ring and
+ * the callout glued to the target without listening for every event.
+ */
+function useSpotlightBox(target: SpotlightTarget | undefined): DOMRect | null {
+  const [box, setBox] = useState<DOMRect | null>(null);
+  useEffect(() => {
+    if (!target || target.kind === "none" || target.kind === "action-button") {
+      setBox(null);
+      return;
+    }
+    const measure = () => {
+      const el = findSpotlightElement(target);
+      const next = el?.getBoundingClientRect() ?? null;
+      setBox((prev) => {
+        if (!prev || !next) return next;
+        if (
+          Math.abs(prev.top - next.top) < 0.5 &&
+          Math.abs(prev.left - next.left) < 0.5 &&
+          Math.abs(prev.width - next.width) < 0.5 &&
+          Math.abs(prev.height - next.height) < 0.5
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    };
+    measure();
+    const onResize = () => measure();
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onResize, true);
+    const id = window.setInterval(measure, 250);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onResize, true);
+      window.clearInterval(id);
+    };
+  }, [target]);
+  return box;
+}
+
+const COACH_MARK_WIDTH = 320;
+const COACH_MARK_GAP = 16;
+
+/**
+ * Convert a spotlight bounding box into absolute top/left for the
+ * coach-mark card. Prefer placing the card to the RIGHT of the
+ * spotlight (most layouts have the rickhouse / market on the left
+ * half), fall back to the LEFT when there's no room. When the box
+ * is wider than half the viewport (full-row targets like the hand
+ * tray) place the card ABOVE the target instead.
+ */
+function pinCoachMarkToBox(
+  box: DOMRect,
+  viewport: { w: number; h: number },
+): { top: number; left: number } {
+  const rightSpace = viewport.w - box.right - COACH_MARK_GAP * 2;
+  const leftSpace = box.left - COACH_MARK_GAP * 2;
+  const isWideTarget = box.width > viewport.w * 0.55;
+
+  // Centered vertical anchor on the target, clamped so the card
+  // never tucks under the top bar or runs off the bottom of the
+  // viewport (estimated card height ~180px).
+  const verticalAnchor = box.top + box.height / 2 - 80;
+  const clampedTop = Math.max(72, Math.min(viewport.h - 220, verticalAnchor));
+
+  if (isWideTarget) {
+    // Stack above the target — leaves the spotlight ring uncovered
+    // and centers the card over the row.
+    return {
+      top: Math.max(72, box.top - 200),
+      left: Math.max(
+        COACH_MARK_GAP,
+        Math.min(viewport.w - COACH_MARK_WIDTH - COACH_MARK_GAP, box.left + box.width / 2 - COACH_MARK_WIDTH / 2),
+      ),
+    };
+  }
+  if (rightSpace >= COACH_MARK_WIDTH) {
+    return { top: clampedTop, left: box.right + COACH_MARK_GAP };
+  }
+  if (leftSpace >= COACH_MARK_WIDTH) {
+    return { top: clampedTop, left: box.left - COACH_MARK_WIDTH - COACH_MARK_GAP };
+  }
+  // No room either side — fall back to centered-above.
+  return {
+    top: Math.max(72, box.top - 200),
+    left: Math.max(
+      COACH_MARK_GAP,
+      Math.min(viewport.w - COACH_MARK_WIDTH - COACH_MARK_GAP, box.left + box.width / 2 - COACH_MARK_WIDTH / 2),
+    ),
+  };
+}
+
 function CoachMark({
   beat,
   beatIndex,
@@ -538,24 +637,46 @@ function CoachMark({
   onBack: () => void;
 }) {
   // Action-button beats spotlight a control in the bottom action bar
-  // (Sell, Make, Buy, etc.). Pinning the coach mark to top-right made
-  // the player's eyes ping-pong across the screen — read the prompt
-  // top-right, find the highlighted button bottom-left. Anchor the
-  // mark just above the action bar instead so the spotlight ring and
-  // the instructions sit in the same visual cluster.
+  // (Sell, Make, Buy, etc.). Anchor just above the action bar so the
+  // spotlight ring and the instructions sit in the same visual cluster.
   const nearActionBar =
     beat.kind === "await-action" && beat.spotlight?.kind === "action-button";
-  // bottom-52 (208px) clears the action bar AND the hand tray below it
-  // — the action bar isn't `fixed`, it sits in flex flow above the
-  // hand cards, so we need to clear both. The card sits just above the
-  // SELL/MAKE/etc. spotlight ring instead of competing with the hand.
+
+  // Every other spotlight (rickhouse-slot, market-slot, hand-card, …)
+  // is anchored next to the spotlit element so the player's eyes
+  // don't have to ping-pong between top-right copy and bottom-left
+  // target. Box updates poll on a 250ms interval so the card tracks
+  // layout shifts (drawer open, hand reshuffle).
+  const box = useSpotlightBox(beat.spotlight);
+  const [viewport, setViewport] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const apply = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, []);
+
+  // Animation key flips when the position changes meaningfully so the
+  // pop-in plays each time the card relocates instead of just on
+  // beat change.
+  const positioned = box && viewport.w > 0 ? pinCoachMarkToBox(box, viewport) : null;
+
+  const baseClass =
+    "animate-bb-tour-pop pointer-events-auto fixed z-50 w-[320px] rounded-xl border-2 border-amber-400/80 bg-slate-900 p-4 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_28px_rgba(251,191,36,.16),inset_0_1px_0_rgba(251,191,36,.10)] transition-[top,left] duration-200 ease-out";
   const wrapperClass = nearActionBar
-    ? "animate-bb-tour-pop pointer-events-auto fixed inset-x-0 bottom-52 z-50 mx-auto w-[360px] rounded-xl border-2 border-amber-400/80 bg-slate-900 p-4 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_28px_rgba(251,191,36,.16),inset_0_1px_0_rgba(251,191,36,.10)]"
-    : "animate-bb-tour-pop pointer-events-auto fixed right-6 top-20 z-50 w-[360px] rounded-xl border-2 border-amber-400/80 bg-slate-900 p-4 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_28px_rgba(251,191,36,.16),inset_0_1px_0_rgba(251,191,36,.10)]";
+    ? `${baseClass} inset-x-0 bottom-52 mx-auto`
+    : positioned
+      ? baseClass
+      : `${baseClass} right-6 top-20`;
+  const wrapperStyle =
+    !nearActionBar && positioned
+      ? { top: positioned.top, left: positioned.left }
+      : undefined;
   return (
     <div
       key={beat.id}
       className={wrapperClass}
+      style={wrapperStyle}
     >
       <div className="flex items-center justify-between font-mono text-[12px] uppercase tracking-[.14em] text-amber-300/85">
         <ChapterProgress beatIndex={beatIndex} totalBeats={totalBeats} />

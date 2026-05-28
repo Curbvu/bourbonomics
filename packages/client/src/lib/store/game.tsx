@@ -56,16 +56,30 @@ import {
 } from "@bourbonomics/engine";
 
 /**
- * v2.9 introduced two per-turn gates: `needsDemandRoll` and
- * `needsAgeBarrels`. The tutorial leaves both dormant — every beat
- * teaches a voluntary action, not a per-turn cost — so the dispatch
- * path runs this on every result while the tutorial is active.
+ * The tutorial walks the player through Make/Sell/Age only — none of
+ * the per-turn cost / per-flow gates that the live engine enforces
+ * are relevant to the scripted beats. This helper zeroes every gate
+ * that would otherwise reject the tutorial's MAKE_BOURBON / SELL etc.
+ * dispatches:
+ *   - v2.9 per-turn costs: `needsDemandRoll`, `needsAgeBarrels`.
+ *   - v3.0 Line system: `pendingInitialLineCardDraft` (initialize
+ *     pre-seeds 4 Line Cards per seat — the engine refuses every
+ *     non-CHOOSE_INITIAL_LINE_CARDS action while this is set);
+ *     `pendingLineCardDraw` and `pendingBottlePlacement` for the same
+ *     reason (KEEP_LINE_CARDS / PLACE_BOTTLE-only gates).
+ * The dispatch path runs this on every result while the tutorial is
+ * active so flags re-set by engine logic in a later beat (e.g. a
+ * sale setting `pendingBottlePlacement`) are nuked before the next
+ * tick.
  */
 function clearTutorialGates(state: GameState): GameState {
   return produce(state, (draft) => {
     for (const p of draft.players) {
       p.needsDemandRoll = false;
       p.needsAgeBarrels = false;
+      p.pendingInitialLineCardDraft = null;
+      p.pendingLineCardDraw = null;
+      p.pendingBottlePlacement = null;
     }
   });
 }

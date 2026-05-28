@@ -21,7 +21,9 @@
  *   ✓ Draw bill          — interactive picker (sacrifice card → top-of-deck
  *                          blind draw)
  *   ✓ Buy from Market    — most-expensive affordable conveyor card
- *   ✓ Draw a Mash Bill   — auto-spend the cheapest hand card
+ *   ✓ Draft Mash Bill    — launcher lives on the human's "next
+ *                          available" rickhouse slot (DistilleryStage),
+ *                          not the action bar
  *   ✓ Trade              — first eligible partner, swap the cheapest cards
  *   ✓ End Turn           — voluntary turn-end; held cards discard at cleanup
  */
@@ -42,9 +44,6 @@ export default function ActionBar() {
     buyMode,
     startBuyMode,
     cancelBuyMode,
-    drawBillMode,
-    startDrawBillMode,
-    cancelDrawBillMode,
     makeMode,
     startMakeMode,
     cancelMakeMode,
@@ -62,7 +61,6 @@ export default function ActionBar() {
   const isHumanTurn = state.players[state.currentPlayerIndex]?.id === human.id;
   const disabledByTurn = !isHumanTurn || autoplay;
   const inBuyMode = buyMode != null;
-  const inDrawBillMode = drawBillMode != null;
   const inMakeMode = makeMode != null;
   const inSellMode = sellMode != null;
 
@@ -76,9 +74,8 @@ export default function ActionBar() {
   // Aging has no Action-bar entry — the engine forces it via
   // `needsAgeBarrels` (the store auto-engages ageMode), and AgeOverlay's
   // banner tracks progress through the remaining picks.
-  // Draw-bill picker gating — needs at least one card in hand and at
-  // least one mash bill in the bourbon deck.
-  const drawBillEntry = canEnterDrawBillMode(state, human);
+  // Drafting Loop also has no Action-bar entry — the launcher lives on
+  // the human's "next available" rickhouse slot (see DistilleryStage).
   const trade = bestTrade(state, human);
   const pass: GameAction = { type: "PASS_TURN", playerId: human.id };
   // v3.0: free Line Card draw — once per round, deck non-empty,
@@ -141,22 +138,6 @@ export default function ActionBar() {
           }
           onStart={startBuyMode}
           onCancel={cancelBuyMode}
-        />
-        <PickerButton
-          label="Draft bills"
-          inMode={inDrawBillMode}
-          enabled={!disabledByTurn && drawBillEntry.canDraw}
-          tooltip={
-            disabledByTurn
-              ? "Wait for your turn"
-              : inDrawBillMode
-                ? "Cancel the in-progress draft"
-                : drawBillEntry.reason ??
-                  "Pick a card to seed the draft pile; 3 mash bills are revealed for the table."
-          }
-          onStart={startDrawBillMode}
-          onCancel={cancelDrawBillMode}
-          cancelLabel="Cancel draft"
         />
         <SmartButton
           label="Trade"
@@ -258,28 +239,6 @@ function PickerButton({
       {label}
     </button>
   );
-}
-
-function canEnterDrawBillMode(
-  state: GameState,
-  player: PlayerState,
-): { canDraw: boolean; reason?: string } {
-  if (state.draftingLoop) {
-    return { canDraw: false, reason: "A Drafting Loop is already in progress." };
-  }
-  if (state.finalRoundTriggered) {
-    return { canDraw: false, reason: "The Drafting Loop is not legal in the final round." };
-  }
-  if (player.draftingLoopUsedThisRound) {
-    return { canDraw: false, reason: "You've already initiated the loop this round." };
-  }
-  if (player.hand.length === 0) {
-    return { canDraw: false, reason: "Your hand is empty — nothing to seed the pile with." };
-  }
-  if (state.bourbonDeck.length === 0) {
-    return { canDraw: false, reason: "Bourbon deck is empty — no bills left to reveal." };
-  }
-  return { canDraw: true };
 }
 
 function canEnterMakeMode(
