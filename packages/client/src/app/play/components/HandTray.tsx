@@ -255,7 +255,7 @@ export default function HandTray() {
 // ─────────────────────────────────────────────────────────────────────
 
 function HandStripStatus() {
-  const { buyMode, ageMode, sellMode, drawBillMode, makeMode } = useGameStore();
+  const { buyMode, ageMode, sellMode, draftingLoopMode, makeMode } = useGameStore();
   let activeKey: string | null = null;
   let label = "Idle";
   let msg = "Choose an action to continue your turn.";
@@ -277,7 +277,7 @@ function HandStripStatus() {
     activeKey = "buy";
     label = "Buy";
     msg = "Pick a market card and a payment from your hand.";
-  } else if (drawBillMode) {
+  } else if (draftingLoopMode) {
     activeKey = "draft";
     label = "Draft";
     msg = "Spend a card to seed the draft pile (initiate the Drafting Loop).";
@@ -723,8 +723,8 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     toggleBuySpend,
     ageMode,
     setAgeCard,
-    drawBillMode,
-    toggleDrawBillSpend,
+    draftingLoopMode,
+    toggleDraftingLoopSpend,
     makeMode,
     toggleMakeSpend,
     sellMode,
@@ -751,19 +751,19 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
   const cost = card.cost ?? 1;
   const inBuyMode = buyMode != null;
   const inAgeMode = ageMode != null;
-  const inDrawBillMode = drawBillMode != null;
+  const inDraftingLoopMode = draftingLoopMode != null;
   const inMakeMode = makeMode != null;
   const inSellMode = sellMode != null;
   const isBuySelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
   const isAgeSelected = inAgeMode && ageMode!.pickedCardId === card.id;
   const isDrawSelected =
-    inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
+    inDraftingLoopMode && draftingLoopMode!.spendCardIds.includes(card.id);
   const isMakeSelected = inMakeMode && makeMode!.spendCardIds.includes(card.id);
   // v2.10: sell mode no longer has a per-card pick — barrel click
   // auto-fires the sale. Kept the flag so isSellSelected uniformly
   // resolves to false without restructuring the boolean ladder.
   const isSellSelected = false;
-  const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode || inSellMode;
+  const inAnyPicker = inBuyMode || inAgeMode || inDraftingLoopMode || inMakeMode || inSellMode;
   // v2.10 multi-select — only meaningful when no picker mode is open;
   // the pickers own selection semantics themselves.
   const isMultiSelected = !inAnyPicker && selectedHandCardIds.includes(card.id);
@@ -774,7 +774,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
   // the downstream click-routing path below (which gates seed-tagging
   // on `!drawStep1`) keeps working without renames.
   const drawStep1 = false;
-  void drawBillMode;
+  void draftingLoopMode;
   // v3.4: when in buy mode WITH a picked target, resource cards can
   // never contribute to payment (only Labor cards can), so they dim
   // out of the way. When no target is picked yet, fall back to the
@@ -810,7 +810,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
                   // ageable rickhouse barrels — so the player can see at a
                   // glance that ANY card here commits.
                   "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
-                : inDrawBillMode
+                : inDraftingLoopMode
                   ? "ring-2 ring-sky-400/60"
                   : inSellMode
                     ? "ring-2 ring-amber-300/60"
@@ -829,7 +829,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
     // commit cleanly. Single clicks (detail===1) still toggle.
     if (e.detail >= 2) return;
     if (inMakeMode) toggleMakeSpend(card.id);
-    else if (inDrawBillMode && !drawStep1) toggleDrawBillSpend(card.id);
+    else if (inDraftingLoopMode && !drawStep1) toggleDraftingLoopSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
     else if (inBuyMode) toggleBuySpend(card.id);
     // v2.10: sell mode is barrel-only; clicks in hand ignore.
@@ -875,7 +875,7 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
       title={
         inMakeMode
           ? `${isMakeSelected ? "Unselect" : "Tag"} this card · double-click to commit it solo`
-          : inDrawBillMode
+          : inDraftingLoopMode
             ? `${isDrawSelected ? "Unselect" : "Sacrifice"} this card to draw the top mash bill`
             : inAgeMode
               ? `${isAgeSelected ? "Unselect" : "Commit"} this card to age the picked barrel · double-click for instant commit`
@@ -960,8 +960,8 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     toggleBuySpend,
     ageMode,
     setAgeCard,
-    drawBillMode,
-    toggleDrawBillSpend,
+    draftingLoopMode,
+    toggleDraftingLoopSpend,
     makeMode,
     sellMode,
     selectedHandCardIds,
@@ -984,13 +984,13 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
   const cost = card.cost ?? 1;
   const inBuyMode = buyMode != null;
   const inAgeMode = ageMode != null;
-  const inDrawBillMode = drawBillMode != null;
+  const inDraftingLoopMode = draftingLoopMode != null;
   const inMakeMode = makeMode != null;
   const inSellMode = sellMode != null;
-  const inAnyPicker = inBuyMode || inAgeMode || inDrawBillMode || inMakeMode || inSellMode;
+  const inAnyPicker = inBuyMode || inAgeMode || inDraftingLoopMode || inMakeMode || inSellMode;
   const isBuySelected = inBuyMode && buyMode!.spendCardIds.includes(card.id);
   const isAgeSelected = inAgeMode && ageMode!.pickedCardId === card.id;
-  const isDrawSelected = inDrawBillMode && drawBillMode!.spendCardIds.includes(card.id);
+  const isDrawSelected = inDraftingLoopMode && draftingLoopMode!.spendCardIds.includes(card.id);
   const isMultiSelected = !inAnyPicker && selectedHandCardIds.includes(card.id);
   const isSelected = isBuySelected || isAgeSelected || isDrawSelected || isMultiSelected;
   // v3.4: in buy mode WITH a picked target, a Labor card is eligible
@@ -1045,7 +1045,7 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
             ? "ring-2 ring-emerald-400/80 shadow-[0_0_14px_rgba(110,231,183,.5)]"
             : inAgeMode
               ? "ring-2 ring-sky-300 shadow-[0_0_12px_rgba(125,211,252,.4)]"
-              : inDrawBillMode
+              : inDraftingLoopMode
                 ? "ring-2 ring-sky-400/60"
                 : inBuyMode
                   ? "ring-2 ring-emerald-400/60"
@@ -1058,7 +1058,7 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     if (tutorialLocked) return;
     if (e.detail >= 2) return;
     if (inBuyMode) toggleBuySpend(card.id);
-    else if (inDrawBillMode) toggleDrawBillSpend(card.id);
+    else if (inDraftingLoopMode) toggleDraftingLoopSpend(card.id);
     else if (inAgeMode) setAgeCard(card.id);
     else if (!inAnyPicker) toggleHandSelection(card.id);
   };

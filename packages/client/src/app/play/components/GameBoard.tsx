@@ -56,12 +56,12 @@ export default function GameBoard() {
     makeMode,
     ageMode,
     sellMode,
-    drawBillMode,
+    draftingLoopMode,
     cancelBuyMode,
     cancelMakeMode,
     cancelAgeMode,
     cancelSellMode,
-    cancelDrawBillMode,
+    cancelDraftingLoopMode,
   } = useGameStore();
 
   // Esc → cancel the active picker mode. MarketDrawer also handles
@@ -82,9 +82,9 @@ export default function GameBoard() {
       } else if (sellMode) {
         e.preventDefault();
         cancelSellMode();
-      } else if (drawBillMode) {
+      } else if (draftingLoopMode) {
         e.preventDefault();
-        cancelDrawBillMode();
+        cancelDraftingLoopMode();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -94,12 +94,12 @@ export default function GameBoard() {
     makeMode,
     ageMode,
     sellMode,
-    drawBillMode,
+    draftingLoopMode,
     cancelBuyMode,
     cancelMakeMode,
     cancelAgeMode,
     cancelSellMode,
-    cancelDrawBillMode,
+    cancelDraftingLoopMode,
   ]);
 
   if (!state) return null;

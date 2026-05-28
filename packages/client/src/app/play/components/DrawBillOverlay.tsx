@@ -8,8 +8,8 @@
  * inside a single centered modal so the player can see every relevant
  * surface — revealed bills, draft pile, hand — at once.
  *
- * The component name `DrawBillOverlay` is kept for the existing
- * imports in HandTray / GameBoard.
+ * Exported as `DraftingLoopOverlay`; the file name `DrawBillOverlay.tsx`
+ * is kept as a stable import path (avoids churn across page roots).
  *
  * Click flow:
  *   1. The "+ Draft Mash Bill" launcher on the human's next-available
@@ -47,8 +47,8 @@ import HandFan from "./HandFan";
 export default function DraftingLoopOverlay() {
   const {
     state,
-    drawBillMode,
-    cancelDrawBillMode,
+    draftingLoopMode,
+    cancelDraftingLoopMode,
     dispatch,
     multiplayerMode,
     triggerDraftPickAnimation,
@@ -73,7 +73,7 @@ export default function DraftingLoopOverlay() {
     loop != null &&
     human != null &&
     loop.pickOrder[loop.pickerIndex] === human.id;
-  const open = drawBillMode != null || humanIsPicker;
+  const open = draftingLoopMode != null || humanIsPicker;
 
   // Body data-attr is kept so any CSS focus-modes that listened to the
   // legacy overlay continue to apply. Mirrors the modal's open gate.
@@ -90,18 +90,18 @@ export default function DraftingLoopOverlay() {
     };
   }, [open]);
 
-  // Clear drawBillMode the instant a Drafting Loop becomes active. The
-  // store sets drawBillMode when the human clicks "Draft bills" and
+  // Clear draftingLoopMode the instant a Drafting Loop becomes active. The
+  // store sets draftingLoopMode when the human clicks "Draft bills" and
   // never clears it on its own — pre-refactor that didn't matter
   // because the modal stayed open through the whole loop, but the new
-  // "close once picker advances past human" gate uses `drawBillMode`
+  // "close once picker advances past human" gate uses `draftingLoopMode`
   // as a seed-mode signal. Letting it linger after the loop ends
   // would flip the modal right back into seed mode the moment the
   // bots wrap their picks. The seedMode-vs-active hand-off only
-  // works if drawBillMode is dropped on entry to the live loop.
+  // works if draftingLoopMode is dropped on entry to the live loop.
   useEffect(() => {
-    if (loop && drawBillMode) cancelDrawBillMode();
-  }, [loop, drawBillMode, cancelDrawBillMode]);
+    if (loop && draftingLoopMode) cancelDraftingLoopMode();
+  }, [loop, draftingLoopMode, cancelDraftingLoopMode]);
 
   if (!open) return null;
   if (!human) return null;
@@ -111,8 +111,8 @@ export default function DraftingLoopOverlay() {
       humanId={human.id}
       hand={human.hand}
       loop={loop}
-      seedMode={drawBillMode != null && loop == null}
-      cancelSeed={cancelDrawBillMode}
+      seedMode={draftingLoopMode != null && loop == null}
+      cancelSeed={cancelDraftingLoopMode}
       dispatch={dispatch}
       triggerDraftPickAnimation={triggerDraftPickAnimation}
     />
@@ -196,7 +196,7 @@ function DraftingLoopModal({
   const onHandClick = (cardId: string) => {
     if (handMode === "seed") {
       // Dispatch and let the engine accept/reject. On success the
-      // `loop` effect below clears drawBillMode; on rejection the
+      // `loop` effect below clears draftingLoopMode; on rejection the
       // modal stays in seed mode so the user can pick another card.
       dispatch({
         type: "INITIATE_DRAFTING_LOOP",
@@ -647,7 +647,18 @@ function EmptyRow({ message }: { message: string }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Mash bill card tile (compact)
+// Mash bill card tile (compact).
+//
+// CLAUDE.md rule 2 mandates that **resource cards** share one visual
+// treatment via HandCardTile. Mash bills are NOT resource cards — they
+// are recipes that get committed to a slot, then satisfied by resource
+// cards. The render is fundamentally different: a bill needs a rarity
+// pill, a reward grid, and an ingredient breakdown, none of which
+// HandCardTile carries. BillTile is the canonical bill-side equivalent
+// of HandCardTile — documented here so static audits flagging "custom
+// card renderer" don't try to merge the two. If a future surface needs
+// to render a bill, it should reach for BillTile (export it from this
+// file if needed) rather than rolling its own.
 // ─────────────────────────────────────────────────────────────────────
 
 function BillTile({

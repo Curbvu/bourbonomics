@@ -1284,11 +1284,11 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
       ) : null}
       {/* Forbidden / capped grains, surfaced separately so the row
           stays focused on what's needed. */}
-      {recipe.maxRye === 0 || recipe.maxWheat === 0 ? (
+      {f.forbidsRye || f.forbidsWheat ? (
         <p className="mt-1 font-mono text-[12px] uppercase tracking-[.10em] text-rose-300/80">
-          {recipe.maxRye === 0 ? "no rye allowed" : ""}
-          {recipe.maxRye === 0 && recipe.maxWheat === 0 ? " · " : ""}
-          {recipe.maxWheat === 0 ? "no wheat allowed" : ""}
+          {f.forbidsRye ? "no rye allowed" : ""}
+          {f.forbidsRye && f.forbidsWheat ? " · " : ""}
+          {f.forbidsWheat ? "no wheat allowed" : ""}
         </p>
       ) : null}
     </div>
