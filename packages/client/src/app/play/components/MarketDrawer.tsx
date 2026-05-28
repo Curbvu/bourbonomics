@@ -45,7 +45,7 @@ export default function MarketDrawer({
   open: boolean;
   onClose: () => void;
 }) {
-  const { state, startBuyMode, setBuyTarget } = useGameStore();
+  const { state, startBuyMode, setBuyTarget, tutorialSpotlight } = useGameStore();
 
   // Esc closes the drawer.
   useEffect(() => {
@@ -67,6 +67,15 @@ export default function MarketDrawer({
     setBuyTarget({ slotIndex });
   };
 
+  // During an active tutorial spotlight, drop the drawer's full-screen
+  // backdrop so the tutorial's own dim layer shows through. Without
+  // this, the drawer's `rgba(8,5,3,.78)` + 6px blur stacks on top of
+  // the tutorial dim and the hand tray below — making the spotlit
+  // slot look muted and hiding the Labor card the player needs to
+  // click. The drawer's content panel still renders normally; only
+  // the wrapper background is gated.
+  const dimDuringTutorial = tutorialSpotlight == null;
+
   return (
     <div
       role="dialog"
@@ -74,9 +83,10 @@ export default function MarketDrawer({
       aria-label="The market"
       className="fixed inset-0 z-[60] flex flex-col items-stretch justify-start p-8"
       style={{
-        background:
-          "radial-gradient(60% 60% at 50% 40%, rgba(213,150,80,.18), transparent 70%), rgba(8,5,3,.78)",
-        backdropFilter: "blur(6px)",
+        background: dimDuringTutorial
+          ? "radial-gradient(60% 60% at 50% 40%, rgba(213,150,80,.18), transparent 70%), rgba(8,5,3,.78)"
+          : "transparent",
+        backdropFilter: dimDuringTutorial ? "blur(6px)" : undefined,
         animation: "log-in 220ms ease-out both",
       }}
       onClick={onClose}
@@ -155,14 +165,20 @@ export default function MarketDrawer({
               gridTemplateColumns: "repeat(auto-fit, minmax(132px, 1fr))",
             }}
           >
-            {state.market.map((c, i) => (
-              <MarketCard
-                key={c.id}
-                card={c}
-                slotIndex={i}
-                onClick={() => onCardClick(i)}
-              />
-            ))}
+            {state.market.map((c, i) => {
+              const tutorialPulse =
+                tutorialSpotlight?.kind === "market-slot" &&
+                tutorialSpotlight.slotIndex === i;
+              return (
+                <MarketCard
+                  key={c.id}
+                  card={c}
+                  slotIndex={i}
+                  onClick={() => onCardClick(i)}
+                  tutorialPulse={tutorialPulse}
+                />
+              );
+            })}
           </div>
         </div>
       </div>
@@ -179,10 +195,17 @@ function MarketCard({
   card,
   slotIndex,
   onClick,
+  tutorialPulse = false,
 }: {
   card: Card;
   slotIndex: number;
   onClick: () => void;
+  /**
+   * Tutorial-pulse passes through to DrawerCard so the spotlight is
+   * visible inside the high-z drawer panel — the global SpotlightLayer
+   * ring sits at z-40 below the drawer and would otherwise be hidden.
+   */
+  tutorialPulse?: boolean;
 }) {
   // Cards are wider than the conveyor row's 100×140; the drawer can
   // afford bigger silhouettes. Tier chrome drives border + glow.
@@ -212,6 +235,7 @@ function MarketCard({
         border={chrome.border}
         labelColor={chrome.label}
         ink={chrome.ink}
+        tutorialPulse={tutorialPulse}
       >
         <h4
           className="mt-0.5 line-clamp-2 font-display text-[16px] font-semibold leading-tight"
@@ -266,6 +290,7 @@ function MarketCard({
         border={chrome.border}
         labelColor={chrome.label}
         ink={chrome.ink}
+        tutorialPulse={tutorialPulse}
       >
         <h4
           className="mt-0.5 line-clamp-2 font-display text-[16px] font-semibold leading-tight"
@@ -319,6 +344,7 @@ function MarketCard({
         border="border-[#82c9a3]/60"
         labelColor="text-[#82c9a3]"
         ink="text-[#f0e3c8]"
+        tutorialPulse={tutorialPulse}
       >
         <h4
           className="mt-0.5 line-clamp-2 font-display text-[15px] font-semibold leading-tight"
@@ -366,6 +392,7 @@ function MarketCard({
       border={chrome.border}
       labelColor={chrome.label}
       ink={chrome.ink}
+      tutorialPulse={tutorialPulse}
     >
       <h4
         className="mt-0.5 line-clamp-2 font-display text-[16px] font-semibold leading-tight"
@@ -409,6 +436,7 @@ function DrawerCard({
   border,
   labelColor,
   children,
+  tutorialPulse = false,
 }: {
   cost: number;
   slotIndex: number;
@@ -420,13 +448,14 @@ function DrawerCard({
   labelColor: string;
   ink: string;
   children: React.ReactNode;
+  tutorialPulse?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       data-market-slot-index={slotIndex}
-      className={`relative flex flex-col rounded-[10px] border p-2.5 text-left transition-all hover:-translate-y-[2px] ${gradient} ${border}`}
+      className={`relative flex flex-col rounded-[10px] border p-2.5 text-left transition-all hover:-translate-y-[2px] ${gradient} ${border} ${tutorialPulse ? "ring-2 ring-amber-300 shadow-[0_0_24px_rgba(252,211,77,.55)]" : ""}`}
       style={{
         boxShadow: `inset 0 1px 0 rgba(255,255,255,.06), 0 4px 14px ${tierInk}33`,
         minHeight: 156,

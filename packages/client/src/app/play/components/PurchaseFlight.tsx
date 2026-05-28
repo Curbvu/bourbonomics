@@ -6,9 +6,9 @@
  * Reads `lastPurchase` from the store (bumped by every BUY_FROM_MARKET
  * dispatch — bot or human). Spawns an absolutely-positioned card
  * silhouette that slides + fades from a start point near the market
- * row to the **discard pile** (bottom-left, marked with
- * `data-purchase-target="discard"` in HandTray). The discard tile
- * pulses on landing so the player sees the pile actually grow.
+ * row to the **hand tray** (marked with `data-purchase-target="hand"`
+ * in HandTray) — bought cards go straight to hand so the player can
+ * use them this turn.
  *
  * Falls back to a fixed bottom-left translate when no target element
  * is mounted yet (e.g. during the very first paint).
@@ -40,13 +40,13 @@ export default function PurchaseFlight() {
 
   useEffect(() => {
     if (!lastPurchase) return;
-    // Route the landing: human purchases fly to the discard pile in
-    // the hand tray; bot (or other-seat) purchases fly to that
-    // player's tile in OpponentRail so the visual feedback shows up
-    // where they actually live on screen.
+    // Route the landing: human purchases fly to the hand tray; bot
+    // (or other-seat) purchases fly to that player's tile in
+    // OpponentRail so the visual feedback shows up where they
+    // actually live on screen.
     const isHuman = lastPurchase.ownerId === humanSeatPlayerId;
     const target = isHuman
-      ? document.querySelector<HTMLElement>('[data-purchase-target="discard"]')
+      ? document.querySelector<HTMLElement>('[data-purchase-target="hand"]')
       : document.querySelector<HTMLElement>(
           `[data-opponent-tile="${lastPurchase.ownerId}"]`,
         );

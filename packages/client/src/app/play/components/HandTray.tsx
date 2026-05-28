@@ -26,7 +26,7 @@ import AgeOverlay from "./AgeOverlay";
 import MakeOverlay from "./MakeOverlay";
 import SellOverlay from "./SellOverlay";
 import PlayerSwatch from "./PlayerSwatch";
-import { buyDomainForTarget } from "./buyDomain";
+import { buyDomainForTarget, laborContributionTotal } from "./buyDomain";
 import { CornerCost } from "./cardCorners";
 import { setMakeDragPayload } from "./dragMake";
 import { useZoneFocusClass, useZoneFocusStyle, type FocusZone } from "./pickerFocus";
@@ -96,6 +96,7 @@ export default function HandTray() {
   return (
     <div
       data-hand-tray="true"
+      data-purchase-target="hand"
       className="bb-panel bb-panel--hand overflow-hidden"
       style={{ gridArea: "hand" }}
     >
@@ -240,7 +241,7 @@ export default function HandTray() {
             label="Discard"
             count={focused.discard.length}
             tone="rose"
-            purchaseTarget
+            saleTarget
           />
           <SoldStack count={focused.barrelsSold} />
         </div>
@@ -311,12 +312,17 @@ function DramaticPile({
   label,
   count,
   tone,
-  purchaseTarget = false,
+  saleTarget = false,
 }: {
   label: string;
   count: number;
   tone: "amber" | "rose";
-  purchaseTarget?: boolean;
+  /**
+   * Marks this pile as the destination for `SaleFlight` (sold barrels
+   * fan into discard). Bought cards now fly to the hand tray instead
+   * — the hand tray carries `data-purchase-target="hand"` for that.
+   */
+  saleTarget?: boolean;
 }) {
   const palette =
     tone === "amber"
@@ -334,7 +340,7 @@ function DramaticPile({
     <div
       className="relative flex flex-col items-center justify-end"
       style={{ width: 84, height: 142 }}
-      data-purchase-target={purchaseTarget ? "discard" : undefined}
+      data-purchase-target={saleTarget ? "discard" : undefined}
       title={`${label} · ${count} card${count === 1 ? "" : "s"}`}
     >
       {/* Stacked-card layers behind the top face */}
@@ -991,16 +997,32 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
   // iff its `laborContribution` for the target's domain is > 0.
   // Eligible Labor stays lit emerald; ineligible (wrong-domain
   // specialty) dims out so the player sees what can actually pay.
+  // Additionally: tagging this card would push the total payment
+  // strictly above cost (overpay). Block the click via the same dim
+  // affordance — the store rejects the toggle anyway.
   let buyEligibleAndUnpicked = false;
   let buyIneligibleAndUnpicked = false;
+  let buyWouldOverpay = false;
   if (inBuyMode && !isBuySelected) {
     const pickedSlot = buyMode!.pickedTarget;
     if (pickedSlot != null) {
       const target = state?.market[pickedSlot.slotIndex];
-      if (target) {
+      const human = state?.players.find((p) => !p.isBot);
+      if (target && human) {
         const domain = buyDomainForTarget(target);
         if (laborContribution(card, domain) > 0) {
           buyEligibleAndUnpicked = true;
+          const cost = target.cost ?? 1;
+          const selectedNow = human.hand.filter((c) =>
+            buyMode!.spendCardIds.includes(c.id),
+          );
+          const projected =
+            laborContributionTotal(selectedNow, domain) +
+            laborContribution(card, domain);
+          if (projected > cost) {
+            buyWouldOverpay = true;
+            buyEligibleAndUnpicked = false;
+          }
         } else {
           buyIneligibleAndUnpicked = true;
         }
@@ -1017,7 +1039,7 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
       ? "ring-2 ring-amber-300/70 shadow-[0_0_12px_rgba(252,211,77,.4)]"
       : isSelected
         ? "ring-4 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_24px_rgba(252,211,77,.55)]"
-        : buyIneligibleAndUnpicked || makeIneligible
+        : buyIneligibleAndUnpicked || buyWouldOverpay || makeIneligible
           ? "pointer-events-none"
           : buyEligibleAndUnpicked
             ? "ring-2 ring-emerald-400/80 shadow-[0_0_14px_rgba(110,231,183,.5)]"
@@ -1029,7 +1051,7 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
                   ? "ring-2 ring-emerald-400/60"
                   : "";
   const dimStyle =
-    tutorialLocked || buyIneligibleAndUnpicked || makeIneligible
+    tutorialLocked || buyIneligibleAndUnpicked || buyWouldOverpay || makeIneligible
       ? { opacity: 0.3, filter: "saturate(0.5)" as const, transition: "none" as const }
       : undefined;
   const onClick = (e: React.MouseEvent) => {
@@ -1044,12 +1066,21 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
     e.preventDefault();
     setInspect({ kind: "labor", card });
   };
+  const buyTitle = buyWouldOverpay
+    ? `${subtypeLabel} Labor (would overpay — unselect another Labor first)`
+    : isBuySelected
+      ? `Unselect ${subtypeLabel} Labor`
+      : `Tag ${subtypeLabel} Labor — covers +${contribution} of this cost`;
   return (
     <button
       type="button"
       onClick={onClick}
       onContextMenu={onContextMenu}
-      title={`${subtypeLabel} Labor — contributes +${contribution} toward matching-domain purchases. Generic Labor also ages barrels.`}
+      title={
+        inBuyMode
+          ? buyTitle
+          : `${subtypeLabel} Labor — contributes +${contribution} toward matching-domain purchases. Generic Labor also ages barrels.`
+      }
       className={[
         baseCardChrome,
         chrome.gradient,
