@@ -74,8 +74,14 @@ export function validateBuyFromMarket(
   }
 
   // Validate Labor card ids — they must be in hand, be Labor type,
-  // and be uniquely listed.
-  const laborIds = action.laborCardIds;
+  // and be uniquely listed. Defend against an `undefined` payload
+  // shape: the validator's docstring (engine.ts:61) promises "never
+  // throws; safe for UI gating", so a malformed dispatch must come
+  // back as `legal: false`, not a TypeError on `.length`. This is
+  // load-bearing for the tutorial controller's pre-dispatch
+  // validateAction guard — any throw here crashes the entire React
+  // tree mid-reducer.
+  const laborIds = action.laborCardIds ?? [];
   if (new Set(laborIds).size !== laborIds.length) {
     return { legal: false, reason: "duplicate Labor card id in payment" };
   }
@@ -118,7 +124,9 @@ export function applyBuyFromMarket(
 
   // Discard Labor cards (firing any on_spend effects — Lender's Note
   // style — though no Labor card currently declares such an effect).
-  const laborSet = new Set(action.laborCardIds);
+  // Match the defensive default from validateBuyFromMarket so an
+  // action shape without laborCardIds applies cleanly with 0 labor.
+  const laborSet = new Set(action.laborCardIds ?? []);
   const newHand: Card[] = [];
   const spentLabor: Card[] = [];
   for (const card of player.hand) {

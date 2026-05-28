@@ -166,8 +166,19 @@ export default function TutorialController() {
         // re-validates inside `applyAction`; this is the gate that
         // gives advance() the same authority.
         if (!hasAdvanceWhen) {
-          const validation = validateAction(current, final);
-          if (validation.legal) {
+          // Defense in depth: validateAction's docstring promises
+          // "never throws" (engine.ts:61), but a validator with an
+          // undefended `.length` on a missing payload field would
+          // crash the React tree mid-reducer if it slipped through.
+          // Treat any throw as "engine would reject" — drop advance,
+          // let the dispatch path's own catch handle it.
+          let legal = false;
+          try {
+            legal = validateAction(current, final).legal;
+          } catch {
+            legal = false;
+          }
+          if (legal) {
             setTimeout(() => advance(), 0);
           }
         }

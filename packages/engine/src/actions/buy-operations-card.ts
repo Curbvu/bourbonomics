@@ -62,7 +62,10 @@ export function validateBuyOperationsCard(
     };
   }
 
-  const laborIds = action.laborCardIds;
+  // Defend against `undefined` payload shape — validateAction's
+  // contract is "never throws" (engine.ts:61). Mirrors the same fix
+  // in buy-from-market.ts.
+  const laborIds = action.laborCardIds ?? [];
   if (new Set(laborIds).size !== laborIds.length) {
     return { legal: false, reason: "duplicate Labor card id in payment" };
   }
@@ -111,8 +114,9 @@ export function applyBuyOperationsCard(
 
   player.reputation -= action.rep;
 
-  // Discard the Labor cards used as payment.
-  const laborSet = new Set(action.laborCardIds);
+  // Discard the Labor cards used as payment. Match the validator's
+  // defensive default so a missing laborCardIds applies as 0 labor.
+  const laborSet = new Set(action.laborCardIds ?? []);
   const newHand: Card[] = [];
   const spent: Card[] = [];
   for (const c of player.hand) {
