@@ -1,398 +1,462 @@
-import type { Draft } from "immer";
+import type { LineCardInstance } from "../types";
 import type {
-  GameState,
-  LineCardInstance,
-  PlayerState,
-} from "../types";
-import type { LineCardDef } from "./defs";
+  LineCardDef,
+  LineRestriction,
+  SlotRequirement,
+  SlotReward,
+} from "./defs";
 import { drawOneFor } from "./boards";
 
-/**
- * Helper: bump the player's prestige by N. Prestige is monotonic
- * (see PlayerState.prestige docs), so this only ever adds.
- */
-function addPrestige(player: Draft<PlayerState>, n: number): void {
-  player.prestige += n;
+// ─── Reward primitives ─────────────────────────────────────────
+
+function giveRep(n: number): SlotReward {
+  return {
+    label: `+${n} rep`,
+    fire: ({ player }) => {
+      player.reputation += n;
+    },
+  };
 }
 
-/** Helper: grant flat rep immediately on placement. */
-function addRep(player: Draft<PlayerState>, n: number): void {
-  player.reputation += n;
+function givePrestige(n: number): SlotReward {
+  return {
+    label: `+${n} prestige`,
+    fire: ({ player }) => {
+      player.prestige += n;
+    },
+  };
 }
 
-/** Helper: bump global demand by N (clamped to 0..12). */
-function bumpDemand(draft: Draft<GameState>, n: number): void {
-  draft.demand = Math.max(0, Math.min(12, draft.demand + n));
+function drawCards(n: number): SlotReward {
+  return {
+    label: `draw ${n} card${n === 1 ? "" : "s"}`,
+    fire: ({ draft, player }) => {
+      for (let i = 0; i < n; i++) drawOneFor(draft, player);
+    },
+  };
 }
 
-/**
- * Cap a line's per-card scoring contribution from a given card so a
- * single high-multiplier card can't run away. `actualCount` is the
- * number of qualifying bottles; `perBottle` is the rep per bottle;
- * `maxBottles` is the cap on counted bottles for this card.
- */
-function cappedPerBottle(
-  actualCount: number,
-  perBottle: number,
-  maxBottles: number,
-): number {
-  return Math.min(actualCount, maxBottles) * perBottle;
+function compound(label: string, parts: SlotReward[]): SlotReward {
+  return {
+    label,
+    fire: (args) => {
+      for (const r of parts) r.fire(args);
+    },
+  };
 }
 
-/**
- * The 25 base-game Line Card definitions.
- *
- * Categories:
- *   - Recipe (8)
- *   - Quality / Cask (5)
- *   - Age / Maturity (5)
- *   - Market / Demand (4)
- *   - Volume / Breadth (3)
- *
- * Cards are referenced by `defId`. Multiple instances of the same
- * defId may exist in the shared deck (see `buildLineCardDeck` for
- * the base copy counts).
- */
+// ─── Requirement primitives ────────────────────────────────────
+
+const anyBottle: SlotRequirement = {
+  label: "any bottle",
+  check: () => true,
+};
+
+function ageGte(n: number): SlotRequirement {
+  return {
+    label: `aged ${n}+ years`,
+    check: ({ bottle }) => bottle.ageAtSale >= n,
+  };
+}
+
+function ageBetween(lo: number, hi: number): SlotRequirement {
+  return {
+    label: `aged ${lo}–${hi} years`,
+    check: ({ bottle }) =>
+      bottle.ageAtSale >= lo && bottle.ageAtSale <= hi,
+  };
+}
+
+function demandLte(n: number): SlotRequirement {
+  return {
+    label: `sold at demand ≤ ${n}`,
+    check: ({ bottle }) => bottle.demandAtSale <= n,
+  };
+}
+
+function demandGte(n: number): SlotRequirement {
+  return {
+    label: `sold at demand ${n}+`,
+    check: ({ bottle }) => bottle.demandAtSale >= n,
+  };
+}
+
+const heritageCask: SlotRequirement = {
+  label: "Heritage cask",
+  check: ({ bottle }) => bottle.caskTag === "heritage-cask",
+};
+
+const specialtyOrHeritageCask: SlotRequirement = {
+  label: "Specialty or Heritage cask",
+  check: ({ bottle }) =>
+    bottle.caskTag === "specialty-cask" || bottle.caskTag === "heritage-cask",
+};
+
+const RARITY_RANK: Record<string, number> = {
+  common: 0,
+  uncommon: 1,
+  rare: 2,
+  epic: 3,
+  legendary: 4,
+};
+
+function rarityGte(min: "uncommon" | "rare" | "epic"): SlotRequirement {
+  const threshold = RARITY_RANK[min] ?? 0;
+  return {
+    label: `bill rarity ${min[0]!.toUpperCase()}${min.slice(1)}+`,
+    check: ({ bottle }) => (RARITY_RANK[bottle.rarity] ?? 0) >= threshold,
+  };
+}
+
+function rarityLte(max: "common" | "uncommon"): SlotRequirement {
+  const threshold = RARITY_RANK[max] ?? 0;
+  return {
+    label: `bill rarity ${max[0]!.toUpperCase()}${max.slice(1)} or lower`,
+    check: ({ bottle }) => (RARITY_RANK[bottle.rarity] ?? 0) <= threshold,
+  };
+}
+
+const ryeHeavy: SlotRequirement = {
+  label: "rye-heavy bottle",
+  check: ({ bottle }) =>
+    bottle.primaryRecipeTag === "high-rye" || bottle.primaryRecipeTag === "rye",
+};
+
+function and(label: string, parts: SlotRequirement[]): SlotRequirement {
+  return {
+    label,
+    check: (args) => parts.every((p) => p.check(args)),
+  };
+}
+
+function or(label: string, parts: SlotRequirement[]): SlotRequirement {
+  return {
+    label,
+    check: (args) => parts.some((p) => p.check(args)),
+  };
+}
+
+// ─── Line Restriction primitives ───────────────────────────────
+
+const restrictHeritageCask: LineRestriction = {
+  label: "every bottle must be Heritage cask",
+  check: ({ bottle }) => bottle.caskTag === "heritage-cask",
+};
+
+const restrictRye: LineRestriction = {
+  label: "every bottle must have minRye ≥ 1",
+  check: ({ bottle }) => bottle.recipeTags.includes("rye"),
+};
+
+const restrictLowDemand: LineRestriction = {
+  label: "every bottle must be sold at demand ≤ 4",
+  check: ({ bottle }) => bottle.demandAtSale <= 4,
+};
+
+// ─── The 25 base-game Line Cards ───────────────────────────────
+// 5 theme families × 5 slot positions = 25 cards. Each family has a
+// complete 1→5 progression; drawing within a family creates synergy,
+// drawing across families creates challenging hybrid Lines. Wild
+// cards are loose-requirement universals useful when a player's
+// production drifts between themes. (The spec's suggested
+// 11/7/4/2/1 slot-distribution is approximated as 5/5/5/5/5; the
+// family completeness is the more useful design property to keep.)
+
 const CARDS: LineCardDef[] = [
-  // ─── Recipe (8) ──────────────────────────────────────────────
+  // ═══ Heritage family ═══════════════════════════════════════════
   {
-    id: "lc_high_rye_line",
-    name: "High-Rye Line",
-    flavorText: "Pepper at the front. Always.",
-    themeTag: "rye",
-    predicate: (b) => b.recipeTags.includes("rye"),
-    perBottleBonus: ({ draft, player }) => drawOneFor(draft, player),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.recipeTags.includes("rye")).length,
-  },
-  {
-    id: "lc_wheated_line",
-    name: "Wheated Line",
-    flavorText: "Soft pour, slow burn.",
-    themeTag: "wheated",
-    predicate: (b) => b.recipeTags.includes("wheated"),
-    perBottleBonus: ({ draft }) => bumpDemand(draft, 1),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.recipeTags.includes("wheated")).length,
-  },
-  {
-    id: "lc_barley_forward_line",
-    name: "Barley-Forward Line",
-    flavorText: "Toast, bread, butter on the back.",
-    themeTag: "barley",
-    predicate: (b) => b.recipeTags.includes("barley"),
-    // Brief: "gain 1 generic Labor from supply". We don't model an
-    // unbounded labor supply mid-action — settle for +1 rep as the
-    // closest implementable approximation. Tuned conservatively.
-    perBottleBonus: ({ player }) => addRep(player, 1),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.recipeTags.includes("barley")).length,
-  },
-  {
-    id: "lc_pure_corn_line",
-    name: "Pure Corn Line",
-    flavorText: "Sweetcorn, butter, nothing else.",
-    themeTag: "pure-corn",
-    predicate: (b) => b.recipeTags.includes("pure-corn"),
-    perBottleBonus: ({ player }) => addRep(player, 1),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.recipeTags.includes("pure-corn")).length * 2,
-  },
-  {
-    id: "lc_triple_grain_line",
-    name: "Triple Grain Line",
-    flavorText: "All three grains — bold flavor.",
-    themeTag: "triple-grain",
-    predicate: (b) => b.recipeTags.includes("triple-grain"),
-    perBottleBonus: ({ draft, player }) => {
-      drawOneFor(draft, player);
-      drawOneFor(draft, player);
-    },
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.recipeTags.includes("triple-grain")).length * 5,
-  },
-  {
-    id: "lc_high_rye_tradition_card",
-    name: "High-Rye Tradition",
-    flavorText: "Three parts pepper to one part everything else.",
-    themeTag: "high-rye",
-    predicate: (b) => b.recipeTags.includes("high-rye"),
-    perBottleBonus: ({ player }) => addPrestige(player, 1),
-    endGameScore: (line) =>
-      cappedPerBottle(
-        line.bottles.filter((b) => b.recipeTags.includes("high-rye")).length,
-        3,
-        4,
-      ),
-  },
-  {
-    id: "lc_bourbon_heritage_line",
-    name: "Bourbon Heritage Line",
-    flavorText: "Corn-forward classics from the back of the rickhouse.",
-    themeTag: "heritage-recipe",
-    predicate: (b) =>
-      // minCorn >= 3 isn't directly tagged; approximate via NOT
-      // pure-corn (which gates ≥4 corn + no grain) and via rarity
-      // common/uncommon. The intent is "heritage everyman bills"; the
-      // cask grade is not part of this predicate (Heritage Cask Line
-      // covers that axis).
-      (b.rarity === "common" || b.rarity === "uncommon") &&
-      !b.recipeTags.includes("triple-grain"),
-    perBottleBonus: () => {
-      // No per-placement bonus.
-    },
-    endGameScore: (line) =>
-      line.bottles.filter(
-        (b) =>
-          (b.rarity === "common" || b.rarity === "uncommon") &&
-          !b.recipeTags.includes("triple-grain"),
-      ).length,
-  },
-  {
-    id: "lc_single_grain_line",
-    name: "Single Grain Line",
-    flavorText: "One grain, one voice.",
-    themeTag: "single-grain",
-    predicate: (b) => b.recipeTags.includes("single-grain"),
-    perBottleBonus: ({ player }) => addRep(player, 1),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.recipeTags.includes("single-grain")).length * 2,
-  },
-
-  // ─── Quality / Cask (5) ──────────────────────────────────────
-  {
-    id: "lc_heritage_cask_line",
-    name: "Heritage Cask Line",
-    flavorText: "Cooper's reserve, decades-seasoned.",
+    id: "lc_heritage_foundation",
+    name: "Heritage Foundation",
+    flavorText: "The cooperage talks; the wood does the work.",
     themeTag: "heritage-cask",
-    predicate: (b) => b.caskTag === "heritage-cask",
-    perBottleBonus: ({ player }) => addRep(player, 2),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.caskTag === "heritage-cask").length * 2,
+    themeFamily: "heritage",
+    slotPosition: 1,
+    requirement: heritageCask,
+    reward: giveRep(1),
+    endGameValue: 1,
+    lineRestriction: restrictHeritageCask,
   },
   {
-    id: "lc_specialty_cask_line",
-    name: "Specialty Cask Line",
-    flavorText: "Single-farm cooperage upgrades.",
+    id: "lc_heritage_aged",
+    name: "Heritage Aged",
+    flavorText: "Years married to staves the cooper hand-selected.",
+    themeTag: "heritage-cask",
+    themeFamily: "heritage",
+    slotPosition: 2,
+    requirement: ageGte(4),
+    reward: drawCards(1),
+    endGameValue: 2,
+  },
+  {
+    id: "lc_heritage_cask_strength",
+    name: "Heritage Cask Strength",
+    flavorText: "Uncut, unfiltered, undiluted.",
+    themeTag: "heritage-cask",
+    themeFamily: "heritage",
+    slotPosition: 3,
+    requirement: demandGte(5),
+    reward: compound("+2 rep, +1 prestige", [giveRep(2), givePrestige(1)]),
+    endGameValue: 4,
+  },
+  {
+    id: "lc_heritage_masters_reserve",
+    name: "Heritage Master's Reserve",
+    flavorText: "Locked away when the stocks first turned amber.",
+    themeTag: "heritage-cask",
+    themeFamily: "heritage",
+    slotPosition: 4,
+    requirement: and("Rare+ bill, aged 6+", [rarityGte("rare"), ageGte(6)]),
+    reward: compound("+3 rep, +1 prestige", [giveRep(3), givePrestige(1)]),
+    endGameValue: 6,
+  },
+  {
+    id: "lc_heritage_legacy",
+    name: "Heritage Legacy",
+    flavorText: "Three generations argue over which one made it.",
+    themeTag: "heritage-cask",
+    themeFamily: "heritage",
+    slotPosition: 5,
+    requirement: and("Epic+ bill, aged 7+", [rarityGte("epic"), ageGte(7)]),
+    reward: compound("+5 rep, +2 prestige, draw 2 cards", [
+      giveRep(5),
+      givePrestige(2),
+      drawCards(2),
+    ]),
+    endGameValue: 8,
+  },
+
+  // ═══ High-Rye family ═══════════════════════════════════════════
+  {
+    id: "lc_rye_original",
+    name: "Rye Original",
+    flavorText: "Bite. Heat. Dryness on the tail.",
+    themeTag: "rye",
+    themeFamily: "high-rye",
+    slotPosition: 1,
+    requirement: ryeHeavy,
+    reward: giveRep(1),
+    endGameValue: 1,
+    lineRestriction: restrictRye,
+  },
+  {
+    id: "lc_rye_reserve",
+    name: "Rye Reserve",
+    flavorText: "Set aside the day the rickhouse first held.",
+    themeTag: "rye",
+    themeFamily: "high-rye",
+    slotPosition: 2,
+    requirement: ageGte(3),
+    reward: drawCards(1),
+    endGameValue: 2,
+  },
+  {
+    id: "lc_rye_single_barrel",
+    name: "Rye Single Barrel",
+    flavorText: "One barrel, one signature, one master's pick.",
     themeTag: "specialty-cask",
-    predicate: (b) => b.caskTag === "specialty-cask",
-    perBottleBonus: ({ player }) => addRep(player, 1),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.caskTag === "specialty-cask").length,
+    themeFamily: "high-rye",
+    slotPosition: 3,
+    requirement: specialtyOrHeritageCask,
+    reward: giveRep(2),
+    endGameValue: 3,
   },
   {
-    id: "lc_premium_line",
-    name: "Premium Line",
-    flavorText: "Top-shelf, allocated, hard to find.",
-    themeTag: "premium",
-    predicate: (b) =>
-      b.rarity === "rare" || b.rarity === "epic" || b.rarity === "legendary",
-    perBottleBonus: ({ player }) => addPrestige(player, 1),
-    endGameScore: (line) =>
-      cappedPerBottle(
-        line.bottles.filter(
-          (b) =>
-            b.rarity === "rare" ||
-            b.rarity === "epic" ||
-            b.rarity === "legendary",
-        ).length,
-        3,
-        4,
-      ),
+    id: "lc_rye_masters_selection",
+    name: "Rye Master's Selection",
+    flavorText: "Bottled the morning the master called it.",
+    themeTag: "rye",
+    themeFamily: "high-rye",
+    slotPosition: 4,
+    requirement: rarityGte("rare"),
+    reward: compound("+3 rep, +1 prestige", [giveRep(3), givePrestige(1)]),
+    endGameValue: 5,
   },
   {
-    id: "lc_boutique_line",
-    name: "Boutique Line",
-    flavorText: "Two bottles a year. Three if the weather holds.",
-    themeTag: "boutique",
-    predicate: (b) => b.rarity === "epic" || b.rarity === "legendary",
-    perBottleBonus: ({ player }) => addPrestige(player, 2),
-    endGameScore: (line) =>
-      cappedPerBottle(
-        line.bottles.filter(
-          (b) => b.rarity === "epic" || b.rarity === "legendary",
-        ).length,
-        8,
-        2,
-      ),
-  },
-  {
-    id: "lc_common_cask_line",
-    name: "Common Cask Line",
-    flavorText: "The everyman pour. Cheap and steady.",
-    themeTag: "common-cask",
-    predicate: (b) => b.caskTag === "common-cask",
-    perBottleBonus: () => {
-      // No bonus.
-    },
-    endGameScore: (line) => {
-      const matching = line.bottles.filter(
-        (b) => b.caskTag === "common-cask",
-      ).length;
-      return matching + (line.bottles.length >= 4 ? 3 : 0);
-    },
+    id: "lc_rye_legendary_cut",
+    name: "Rye Legendary Cut",
+    flavorText: "Only one in fifty barrels makes the cut.",
+    themeTag: "rye",
+    themeFamily: "high-rye",
+    slotPosition: 5,
+    requirement: and("Epic+ bill, demand 6+", [rarityGte("epic"), demandGte(6)]),
+    reward: compound("+5 rep, draw 2 cards, +1 prestige", [
+      giveRep(5),
+      drawCards(2),
+      givePrestige(1),
+    ]),
+    endGameValue: 8,
   },
 
-  // ─── Age / Maturity (5) ──────────────────────────────────────
+  // ═══ Counter-Cyclical family ═══════════════════════════════════
   {
-    id: "lc_reserve_line",
-    name: "Reserve Line",
-    flavorText: "Patient stock, ready when called.",
-    themeTag: "aged-4",
-    predicate: (b) => b.ageAtSale >= 4,
-    perBottleBonus: ({ player }) => addRep(player, 1),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.ageAtSale >= 4).length * 2,
+    id: "lc_working_class",
+    name: "Working Class",
+    flavorText: "The bottle on the bar before the crowd shows up.",
+    themeTag: "counter-cyclical",
+    themeFamily: "counter-cyclical",
+    slotPosition: 1,
+    requirement: demandLte(3),
+    reward: giveRep(2),
+    endGameValue: 2,
+    lineRestriction: restrictLowDemand,
   },
   {
-    id: "lc_vintage_line",
-    name: "Vintage Line",
-    flavorText: "Six summers under, every drop earned.",
-    themeTag: "aged-6",
-    predicate: (b) => b.ageAtSale >= 6,
-    perBottleBonus: ({ player }) => addRep(player, 2),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.ageAtSale >= 6).length * 3,
+    id: "lc_hidden_gem",
+    name: "Hidden Gem",
+    flavorText: "Not on the menu. Ask the bartender.",
+    themeTag: "counter-cyclical",
+    themeFamily: "counter-cyclical",
+    slotPosition: 2,
+    requirement: rarityLte("uncommon"),
+    reward: drawCards(1),
+    endGameValue: 2,
   },
   {
-    id: "lc_single_barrel_select",
-    name: "Single Barrel Select",
-    flavorText: "One stave, one signature.",
-    themeTag: "aged-8",
-    predicate: (b) => b.ageAtSale >= 8,
-    perBottleBonus: ({ player }) => addPrestige(player, 1),
-    endGameScore: (line) =>
-      cappedPerBottle(
-        line.bottles.filter((b) => b.ageAtSale >= 8).length,
-        5,
-        3,
-      ),
+    id: "lc_bargain_hunters_find",
+    name: "Bargain Hunter's Find",
+    flavorText: "Six dollars, smuggled in from upstate.",
+    themeTag: "counter-cyclical",
+    themeFamily: "counter-cyclical",
+    slotPosition: 3,
+    requirement: ageBetween(2, 4),
+    reward: giveRep(3),
+    endGameValue: 3,
   },
   {
-    id: "lc_young_stock_line",
-    name: "Young Stock Line",
-    flavorText: "Bright, hot, ready early.",
-    themeTag: "aged-young",
-    predicate: (b) => b.ageAtSale >= 2 && b.ageAtSale <= 3,
-    perBottleBonus: ({ draft, player }) => drawOneFor(draft, player),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.ageAtSale >= 2 && b.ageAtSale <= 3).length,
+    id: "lc_underdog_reserve",
+    name: "Underdog Reserve",
+    flavorText: "The shelf nobody walks past, until they do.",
+    themeTag: "counter-cyclical",
+    themeFamily: "counter-cyclical",
+    slotPosition: 4,
+    requirement: and("demand ≤ 3, aged 4+", [demandLte(3), ageGte(4)]),
+    reward: compound("+4 rep, draw 1 card", [giveRep(4), drawCards(1)]),
+    endGameValue: 5,
   },
   {
-    id: "lc_aged_excellence_line",
-    name: "Aged Excellence Line",
-    flavorText: "Five-plus, and the buyers know it.",
-    themeTag: "aged-5",
-    predicate: (b) => b.ageAtSale >= 5,
-    perBottleBonus: ({ player }) => addPrestige(player, 1),
-    endGameScore: (line) => {
-      const matching = line.bottles.filter((b) => b.ageAtSale >= 5).length;
-      return matching * 2 + (matching >= 3 ? 5 : 0);
-    },
-  },
-
-  // ─── Market / Demand (4) ─────────────────────────────────────
-  {
-    id: "lc_high_demand_line",
-    name: "High-Demand Line",
-    flavorText: "The phone's been ringing for a month.",
-    themeTag: "demand-high",
-    predicate: (b) => b.demandAtSale >= 7,
-    perBottleBonus: ({ player }) => addRep(player, 1),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.demandAtSale >= 7).length * 2,
-  },
-  {
-    id: "lc_counter_cyclical_line",
-    name: "Counter-Cyclical Line",
-    flavorText: "When the room walks away, we walk in.",
-    themeTag: "demand-low",
-    predicate: (b) => b.demandAtSale <= 3,
-    perBottleBonus: ({ player }) => addRep(player, 2),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.demandAtSale <= 3).length * 2,
-  },
-  {
-    id: "lc_premium_press_line",
-    name: "Premium Press Line",
-    flavorText: "Reviewed, awarded, allocated.",
-    themeTag: "premium-press",
-    predicate: (b) =>
-      b.demandAtSale >= 5 &&
-      (b.rarity === "rare" || b.rarity === "epic" || b.rarity === "legendary"),
-    perBottleBonus: ({ player }) => addPrestige(player, 1),
-    endGameScore: (line) =>
-      cappedPerBottle(
-        line.bottles.filter(
-          (b) =>
-            b.demandAtSale >= 5 &&
-            (b.rarity === "rare" ||
-              b.rarity === "epic" ||
-              b.rarity === "legendary"),
-        ).length,
-        5,
-        3,
-      ),
-  },
-  {
-    id: "lc_market_leader_line",
-    name: "Market Leader Line",
-    flavorText: "First on every shelf this week.",
-    themeTag: "demand-leader",
-    // Brief calls for "sold at the highest demand this round". We
-    // don't track per-round demand maxima yet; approximate with
-    // demandAtSale >= 8 (top third of the 0..12 band).
-    predicate: (b) => b.demandAtSale >= 8,
-    perBottleBonus: ({ player }) => addRep(player, 2),
-    endGameScore: (line) =>
-      line.bottles.filter((b) => b.demandAtSale >= 8).length * 3,
+    id: "lc_the_quiet_legend",
+    name: "The Quiet Legend",
+    flavorText: "Whispered about in the back room. Never on the wall.",
+    themeTag: "counter-cyclical",
+    themeFamily: "counter-cyclical",
+    slotPosition: 5,
+    requirement: and("Rare+ bill, demand ≤ 3", [rarityGte("rare"), demandLte(3)]),
+    reward: compound("+6 rep, +2 prestige", [giveRep(6), givePrestige(2)]),
+    endGameValue: 8,
   },
 
-  // ─── Volume / Breadth (3) ────────────────────────────────────
+  // ═══ Volume family ═════════════════════════════════════════════
   {
-    id: "lc_volume_series",
-    name: "Volume Series",
-    flavorText: "More bottles, more shelves.",
+    id: "lc_daily_sipper",
+    name: "Daily Sipper",
+    flavorText: "First pour after closing, every night.",
     themeTag: "volume",
-    predicate: () => true,
-    perBottleBonus: () => {
-      // No bonus.
-    },
-    endGameScore: (line) =>
-      line.bottles.length + (line.bottles.length >= 5 ? 5 : 0),
+    themeFamily: "volume",
+    slotPosition: 1,
+    requirement: anyBottle,
+    reward: giveRep(1),
+    endGameValue: 1,
   },
   {
-    id: "lc_depth_line",
-    name: "Depth Line",
-    flavorText: "One bill, deep as the well.",
-    themeTag: "depth",
-    predicate: (b, line) =>
-      line.bottles.length === 0 ||
-      line.bottles[0]!.primaryRecipeTag === b.primaryRecipeTag,
-    perBottleBonus: () => {
-      // No bonus.
-    },
-    endGameScore: (line) => {
-      // Each bottle scores rep equal to its 1-based position, capped at 5.
-      let total = 0;
-      for (let i = 0; i < line.bottles.length; i++) {
-        total += Math.min(i + 1, 5);
-      }
-      return total;
-    },
+    id: "lc_house_standard",
+    name: "House Standard",
+    flavorText: "When in doubt, this is the answer.",
+    themeTag: "volume",
+    themeFamily: "volume",
+    slotPosition: 2,
+    requirement: anyBottle,
+    reward: drawCards(1),
+    endGameValue: 2,
   },
   {
-    id: "lc_variety_line",
-    name: "Variety Line",
-    flavorText: "Different bill, every label.",
-    themeTag: "variety",
-    predicate: (b, line) =>
-      !line.bottles.some((x) => x.primaryRecipeTag === b.primaryRecipeTag),
-    perBottleBonus: ({ draft, player }) => drawOneFor(draft, player),
-    endGameScore: (line) => {
-      const unique = new Set(line.bottles.map((b) => b.primaryRecipeTag));
-      return unique.size * 3;
-    },
+    id: "lc_bartenders_pick",
+    name: "Bartender's Pick",
+    flavorText: "When the patron says \"surprise me.\"",
+    themeTag: "volume",
+    themeFamily: "volume",
+    slotPosition: 3,
+    requirement: demandGte(4),
+    reward: giveRep(2),
+    endGameValue: 3,
+  },
+  {
+    id: "lc_crowd_favorite",
+    name: "Crowd Favorite",
+    flavorText: "The one Saturday night drinks dry.",
+    themeTag: "demand-high",
+    themeFamily: "volume",
+    slotPosition: 4,
+    requirement: or("Rare+ OR demand 6+", [rarityGte("rare"), demandGte(6)]),
+    reward: compound("+3 rep, draw 1 card", [giveRep(3), drawCards(1)]),
+    endGameValue: 4,
+  },
+  {
+    id: "lc_americas_bourbon",
+    name: "America's Bourbon",
+    flavorText: "Shipped to every state in the union by 1873.",
+    themeTag: "demand-high",
+    themeFamily: "volume",
+    slotPosition: 5,
+    requirement: and("Rare+ bill, demand 6+", [rarityGte("rare"), demandGte(6)]),
+    reward: compound("+5 rep, draw 3 cards", [giveRep(5), drawCards(3)]),
+    endGameValue: 7,
+  },
+
+  // ═══ Wild family ═══════════════════════════════════════════════
+  {
+    id: "lc_open_lot",
+    name: "Open Lot",
+    flavorText: "Whatever fills the gap.",
+    themeTag: "volume",
+    themeFamily: "wild",
+    slotPosition: 1,
+    requirement: anyBottle,
+    reward: giveRep(1),
+    endGameValue: 1,
+  },
+  {
+    id: "lc_versatile_blend",
+    name: "Versatile Blend",
+    flavorText: "Fit for any setting, willing for most.",
+    themeTag: "volume",
+    themeFamily: "wild",
+    slotPosition: 2,
+    requirement: anyBottle,
+    reward: giveRep(1),
+    endGameValue: 1,
+  },
+  {
+    id: "lc_all_comers_cask",
+    name: "All-Comers Cask",
+    flavorText: "Aged 'til it was time to stop arguing.",
+    themeTag: "common-cask",
+    themeFamily: "wild",
+    slotPosition: 3,
+    requirement: anyBottle,
+    reward: giveRep(2),
+    endGameValue: 2,
+  },
+  {
+    id: "lc_free_form_reserve",
+    name: "Free-Form Reserve",
+    flavorText: "Pulled from whichever rick caught the light.",
+    themeTag: "common-cask",
+    themeFamily: "wild",
+    slotPosition: 4,
+    requirement: rarityGte("uncommon"),
+    reward: giveRep(3),
+    endGameValue: 4,
+  },
+  {
+    id: "lc_independent_spirit",
+    name: "Independent Spirit",
+    flavorText: "No house, no story, no apology.",
+    themeTag: "boutique",
+    themeFamily: "wild",
+    slotPosition: 5,
+    requirement: ageGte(6),
+    reward: compound("+5 rep, draw 1 card", [giveRep(5), drawCards(1)]),
+    endGameValue: 6,
   },
 ];
 
@@ -407,9 +471,8 @@ export function allLineCardDefs(): readonly LineCardDef[] {
 }
 
 /**
- * Base copies per Line Card defId. The brief calls for ~25 cards in
- * the base game — exactly 25 unique defs with 1 copy each. Future
- * expansions can mint multiples via this table.
+ * Base copies per Line Card defId. 25 unique defs × 1 copy each in
+ * the base game. Future expansions can mint multiples via this table.
  */
 const BASE_DECK_COPIES: ReadonlyMap<string, number> = new Map(
   CARDS.map((c) => [c.id, 1] as const),

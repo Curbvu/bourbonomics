@@ -120,10 +120,17 @@ export function scoreLineCardForPlayer(
       DISTILLERY_THEME_PREFS[distilleryBonus].includes(def.themeTag);
     if (!isWantedNarrow) score -= NARROW_PENALTY;
   }
-  // Flagship reinforcement: a card whose predicate matches bottles
-  // already on the flagship is a free score multiplier.
+  // Flagship reinforcement: a card whose requirement accepts bottles
+  // already on the flagship is a free score multiplier. v3.1 routes
+  // through the slot-aware requirement check (slotIndex 0 stands in
+  // for "could this card hold any of these bottles in some slot").
   const flagshipMatches = player.flagshipLine.bottles.filter((b) =>
-    def.predicate(b, player.flagshipLine),
+    def.requirement.check({
+      bottle: b,
+      line: player.flagshipLine,
+      slotIndex: 0,
+      player,
+    }),
   ).length;
   score +=
     Math.min(flagshipMatches, FLAGSHIP_REINFORCE_CAP) *

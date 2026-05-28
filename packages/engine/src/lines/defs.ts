@@ -15,8 +15,10 @@ import type {
 // PLAY_LINE_CARD / repurposing for slot positions is phase 6.
 // ═════════════════════════════════════════════════════════════════
 
+/** @deprecated v3.0 — kept only so the deprecated LineBoardDef below compiles. */
 export type PlacementPredicate = (bottle: Bottle, line: Line) => boolean;
 
+/** @deprecated v3.0 — kept only so the deprecated LineBoardDef below compiles. */
 export type PlacementBonus = (args: {
   bottle: Bottle;
   lineRef: Line;
@@ -24,16 +26,42 @@ export type PlacementBonus = (args: {
   player: Draft<PlayerState>;
 }) => void;
 
+/** @deprecated v3.0 — kept only so the deprecated LineBoardDef below compiles. */
 export type ScoringRule = (line: Line, player: PlayerState) => number;
 
+/**
+ * v3.1 Line Card definition. Each card is one named slot at a fixed
+ * position (1..FLAGSHIP_SLOT_COUNT). Stack cards in slot order onto a
+ * secondary line: slot-1 establishes the line (and locks in the
+ * optional Line Restriction), higher-position cards extend it one
+ * slot at a time.
+ *
+ * `themeTag` retains the v3.0 fine-grained string (rye / heritage-cask
+ * / volume / etc.) so DISTILLERY_THEME_PREFS in the bot heuristics
+ * keeps working; the new `themeFamily` is the five-family taxonomy
+ * the v3.1 spec calls out for synergy framing.
+ */
 export interface LineCardDef {
   id: string;
   name: string;
   flavorText: string;
   themeTag: string;
-  predicate: PlacementPredicate;
-  perBottleBonus: PlacementBonus;
-  endGameScore: ScoringRule;
+  themeFamily:
+    | "heritage"
+    | "high-rye"
+    | "counter-cyclical"
+    | "volume"
+    | "wild";
+  slotPosition: 1 | 2 | 3 | 4 | 5;
+  requirement: SlotRequirement;
+  reward: SlotReward;
+  endGameValue: number;
+  /**
+   * Set only on slot-1 cards. When the card is played to open a new
+   * secondary Bourbon Line, this Restriction binds to the whole line
+   * and gates every subsequent slot.
+   */
+  lineRestriction?: LineRestriction;
 }
 
 /**
