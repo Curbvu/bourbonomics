@@ -19,7 +19,7 @@
  * exclusion without flipping the card.
  */
 
-import type { MashBill } from "@bourbonomics/engine";
+import { computeRecipeFloors, type MashBill } from "@bourbonomics/engine";
 
 const PIP_COLORS: Record<string, string> = {
   cask: "bg-amber-400",
@@ -43,46 +43,21 @@ interface PipSpec {
 }
 
 function buildPips(bill: MashBill): PipSpec[] {
-  const r = bill.recipe ?? {};
-  const sp = r.minSpecialty ?? {};
-  const minCorn = Math.max(1, r.minCorn ?? 0);
-  const minRye = r.minRye ?? 0;
-  const minBarley = r.minBarley ?? 0;
-  const minWheat = r.minWheat ?? 0;
-  const namedGrain = minRye + minBarley + minWheat;
-  // The universal rule guarantees ≥1 grain. If the recipe has no
-  // named-grain min, surface a single "any grain" pip so the player
-  // sees the requirement; otherwise the named ones cover it.
-  const minTotal = Math.max(r.minTotalGrain ?? 0, namedGrain === 0 ? 1 : namedGrain);
-  const wildGrain = Math.max(0, minTotal - namedGrain);
-
-  // Specialty floors absorb plain pips one-for-one. A recipe with
-  // `minCask:1 + minSpecialty.cask:1` should render ONE specialty
-  // cask pip, not "1 plain + 1 specialty" (which would imply two
-  // casks — engine only ever wants 1).
-  const plainCask = Math.max(0, 1 - (sp.cask ?? 0));
-  const plainCorn = Math.max(0, minCorn - (sp.corn ?? 0));
-  const plainRye = Math.max(0, minRye - (sp.rye ?? 0));
-  const plainBarley = Math.max(0, minBarley - (sp.barley ?? 0));
-  const plainWheat = Math.max(0, minWheat - (sp.wheat ?? 0));
-
+  const f = computeRecipeFloors(bill.recipe);
   const pips: PipSpec[] = [];
-  if (plainCask > 0) {
+  // Plain pips first — `f.<sub>.plain` already deducts the specialty
+  // floor one-for-one, so a `minCask:1 + minSpecialty.cask:1` recipe
+  // renders ONE specialty cask pip, not "1 plain + 1 specialty"
+  // (which would imply two casks — engine only ever wants 1).
+  if (f.cask.plain > 0) {
     pips.push({ key: "cask", color: PIP_COLORS.cask! });
   }
-  for (let i = 0; i < plainCorn; i++) {
-    pips.push({ key: `corn-${i}`, color: PIP_COLORS.corn! });
+  for (const sub of ["corn", "rye", "barley", "wheat"] as const) {
+    for (let i = 0; i < f[sub].plain; i++) {
+      pips.push({ key: `${sub}-${i}`, color: PIP_COLORS[sub]! });
+    }
   }
-  for (let i = 0; i < plainRye; i++) {
-    pips.push({ key: `rye-${i}`, color: PIP_COLORS.rye! });
-  }
-  for (let i = 0; i < plainBarley; i++) {
-    pips.push({ key: `barley-${i}`, color: PIP_COLORS.barley! });
-  }
-  for (let i = 0; i < plainWheat; i++) {
-    pips.push({ key: `wheat-${i}`, color: PIP_COLORS.wheat! });
-  }
-  for (let i = 0; i < wildGrain; i++) {
+  for (let i = 0; i < f.grain.wildSlots; i++) {
     pips.push({ key: `wild-${i}`, color: "bg-transparent", wild: true });
   }
   // Specialty pips — one per subtype slot. The star-outline glyph
@@ -90,8 +65,7 @@ function buildPips(bill: MashBill): PipSpec[] {
   // the subtype-tinted disc reads as "this needs a market-bought
   // Specialty card" at a glance.
   for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
-    const n = sp[sub] ?? 0;
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < f[sub].specialty; i++) {
       pips.push({
         key: `sp-${sub}-${i}`,
         color: PIP_COLORS[sub] ?? "bg-amber-300",
@@ -99,10 +73,10 @@ function buildPips(bill: MashBill): PipSpec[] {
       });
     }
   }
-  if (r.maxRye === 0) {
+  if (f.forbidsRye) {
     pips.push({ key: "no-rye", color: PIP_COLORS.rye!, forbidden: true });
   }
-  if (r.maxWheat === 0) {
+  if (f.forbidsWheat) {
     pips.push({ key: "no-wheat", color: PIP_COLORS.wheat!, forbidden: true });
   }
   return pips;

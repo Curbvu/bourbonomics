@@ -27,7 +27,7 @@
 
 import { useState, useMemo, type ReactNode } from "react";
 import type { Barrel, GameState, MashBill, RickhouseSlot } from "@bourbonomics/engine";
-import { validateAction } from "@bourbonomics/engine";
+import { computeRecipeFloors, validateAction } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import BuyOverlay from "./BuyOverlay";
 import LineStrip from "./LineStrip";
@@ -1094,60 +1094,22 @@ function computeBarrelNeeds(barrel: Barrel): BarrelNeed[] {
       if (c.specialty) specialtyTally[c.subtype as NamedKey] += n;
     }
   }
-  const recipe = barrel.attachedMashBill?.recipe ?? {};
-  const sp = recipe.minSpecialty ?? {};
-  const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  const minRye = recipe.minRye ?? 0;
-  const minBarley = recipe.minBarley ?? 0;
-  const minWheat = recipe.minWheat ?? 0;
-  // Effective per-grain floor (matches engine.effectiveRecipeMins):
-  // the engine treats `max(basic, specialty)` as the per-subtype min,
-  // so a `minRye:1 + minSpecialty.rye:2` recipe is "2 rye total, both
-  // specialty." Use the effective floor for the wildcard math below
-  // so the grain accounting matches what the engine actually checks.
-  const effRye = Math.max(minRye, sp.rye ?? 0);
-  const effBarley = Math.max(minBarley, sp.barley ?? 0);
-  const effWheat = Math.max(minWheat, sp.wheat ?? 0);
-  const namedGrainFloor = effRye + effBarley + effWheat;
-  const minTotalGrain = Math.max(
-    recipe.minTotalGrain ?? 0,
-    namedGrainFloor === 0 ? 1 : namedGrainFloor,
-  );
+  const f = computeRecipeFloors(barrel.attachedMashBill?.recipe);
 
-  const basicMins: Record<NamedKey, number> = {
-    cask: 1,
-    corn: minCorn,
-    rye: minRye,
-    barley: minBarley,
-    wheat: minWheat,
-  };
-  const specialtyMins: Record<NamedKey, number> = {
-    cask: sp.cask ?? 0,
-    corn: sp.corn ?? 0,
-    rye: sp.rye ?? 0,
-    barley: sp.barley ?? 0,
-    wheat: sp.wheat ?? 0,
-  };
   const specialtyRows: BarrelNeed[] = [];
   const plainRows: BarrelNeed[] = [];
   let namedGrainShortfall = 0;
   for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as NamedKey[]) {
     // Specialty shortfall first — engine treats a specialty card as
     // satisfying BOTH the specialty floor AND the basic per-subtype min.
-    const specialtyNeed = Math.max(
-      0,
-      specialtyMins[sub] - specialtyTally[sub],
-    );
+    const specialtyNeed = Math.max(0, f[sub].specialty - specialtyTally[sub]);
     if (specialtyNeed > 0) {
       specialtyRows.push({ subtype: sub, count: specialtyNeed, specialty: true });
     }
-    // Plain shortfall = basic floor minus specialty floor (specialty
-    // covers that portion) minus plain cards already committed.
+    // Plain shortfall comes from `f.<sub>.plain` (already deducts
+    // specialty) minus plain cards already committed.
     const plainHave = tally[sub] - specialtyTally[sub];
-    const plainNeed = Math.max(
-      0,
-      basicMins[sub] - specialtyMins[sub] - plainHave,
-    );
+    const plainNeed = Math.max(0, f[sub].plain - plainHave);
     if (plainNeed > 0) {
       plainRows.push({ subtype: sub, count: plainNeed });
     }
@@ -1163,7 +1125,7 @@ function computeBarrelNeeds(barrel: Barrel): BarrelNeed[] {
   const committedGrain = tally.rye + tally.barley + tally.wheat;
   const wildNeed = Math.max(
     0,
-    minTotalGrain - committedGrain - namedGrainShortfall,
+    f.grain.total - committedGrain - namedGrainShortfall,
   );
   const out: BarrelNeed[] = [...specialtyRows, ...plainRows];
   if (wildNeed > 0) out.push({ subtype: "any", count: wildNeed });
@@ -1410,32 +1372,13 @@ function MashPips({ barrel }: { barrel: Barrel }) {
       if (c.specialty) specialtyTally[c.subtype as SubKey] += n;
     }
   }
-  const recipe = barrel.attachedMashBill?.recipe ?? {};
-  const sp = recipe.minSpecialty ?? {};
-  const basicMins: Record<SubKey, number> = {
-    cask: 1,
-    corn: Math.max(1, recipe.minCorn ?? 0),
-    rye: recipe.minRye ?? 0,
-    barley: recipe.minBarley ?? 0,
-    wheat: recipe.minWheat ?? 0,
-  };
-  // Specialty floors absorb plain pips one-for-one (a specialty card
-  // satisfies the basic minimum too — see engine's effectiveRecipeMins).
-  // So the plain-pip count for each subtype is `max(0, basic - sp)`.
-  const specialtyMins: Record<SubKey, number> = {
-    cask: sp.cask ?? 0,
-    corn: sp.corn ?? 0,
-    rye: sp.rye ?? 0,
-    barley: sp.barley ?? 0,
-    wheat: sp.wheat ?? 0,
-  };
+  const recipe = barrel.attachedMashBill?.recipe;
+  const f = computeRecipeFloors(recipe);
   const recipeSatisfied = barrel.phase === "aging";
 
   const pips: ReactNode[] = [];
   for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
-    const plainNeed = recipeSatisfied
-      ? 0
-      : Math.max(0, basicMins[sub] - specialtyMins[sub]);
+    const plainNeed = recipeSatisfied ? 0 : f[sub].plain;
     const plainHave = Math.max(0, tally[sub] - specialtyTally[sub]);
     const plainSlots = Math.max(plainHave, plainNeed);
     for (let i = 0; i < plainSlots; i++) {
@@ -1457,7 +1400,7 @@ function MashPips({ barrel }: { barrel: Barrel }) {
     // Specialty pips — slightly larger, with an amber halo + ★ so the
     // player sees at a glance that this slot demands a market-only
     // Specialty / Heritage card.
-    const specialtyNeed = recipeSatisfied ? 0 : specialtyMins[sub];
+    const specialtyNeed = recipeSatisfied ? 0 : f[sub].specialty;
     const specialtyHave = specialtyTally[sub];
     const specialtySlots = Math.max(specialtyHave, specialtyNeed);
     for (let i = 0; i < specialtySlots; i++) {
@@ -1489,28 +1432,20 @@ function MashPips({ barrel }: { barrel: Barrel }) {
   // sum of named-grain floors have extra slots the player can fill with
   // any grain. Mirrors RecipePips' hollow-ring treatment and the
   // BarrelNeedsPlate's "✱" callout so the caption strip stays honest.
-  // Effective per-grain floor matches the engine's effectiveRecipeMins
-  // (max of basic and specialty) so a recipe like
-  // `minRye:1 + minSpecialty.rye:2` reads as needing 2 rye minimum,
-  // not 1.
-  const effRyeFloor = Math.max(basicMins.rye, specialtyMins.rye);
-  const effBarleyFloor = Math.max(basicMins.barley, specialtyMins.barley);
-  const effWheatFloor = Math.max(basicMins.wheat, specialtyMins.wheat);
-  const namedGrainFloor = effRyeFloor + effBarleyFloor + effWheatFloor;
-  const minTotalGrain = Math.max(
-    recipe.minTotalGrain ?? 0,
-    namedGrainFloor === 0 ? 1 : namedGrainFloor,
-  );
-  const wildSlots = Math.max(0, minTotalGrain - namedGrainFloor);
+  // `f.grain.wildSlots` already accounts for effective named-grain
+  // floors (max of basic and specialty) so a recipe like
+  // `minRye:1 + minSpecialty.rye:2` reads as needing 2 rye minimum
+  // before any wildcard slot opens up.
+  const wildSlots = f.grain.wildSlots;
   if (wildSlots > 0) {
     // Engine's minTotalGrain counts rye+barley+wheat only (corn is its
     // own track), so the wildcard tally excludes corn.
     const grainCommitted =
       (tally.rye ?? 0) + (tally.barley ?? 0) + (tally.wheat ?? 0);
     const grainCountedAgainstNamed =
-      Math.min(tally.rye, effRyeFloor) +
-      Math.min(tally.barley, effBarleyFloor) +
-      Math.min(tally.wheat, effWheatFloor);
+      Math.min(tally.rye, f.rye.effective) +
+      Math.min(tally.barley, f.barley.effective) +
+      Math.min(tally.wheat, f.wheat.effective);
     const overflow = Math.max(0, grainCommitted - grainCountedAgainstNamed);
     const filledWild = recipeSatisfied
       ? wildSlots

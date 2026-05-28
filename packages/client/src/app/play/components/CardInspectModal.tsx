@@ -22,7 +22,7 @@ import type {
   OperationsCard,
   ResourceSubtype,
 } from "@bourbonomics/engine";
-import { bandIndex, mashBillBuildCost } from "@bourbonomics/engine";
+import { bandIndex, computeRecipeFloors, mashBillBuildCost } from "@bourbonomics/engine";
 import { useGameStore, type InspectPayload } from "@/lib/store/game";
 import {
   LABOR_CHROME,
@@ -692,94 +692,61 @@ interface RecipeChipSpec {
  */
 function RecipeGrid({ bill }: { bill: MashBill }) {
   const r = bill.recipe ?? {};
-  const sp = r.minSpecialty ?? {};
+  const f = computeRecipeFloors(r);
   const items: RecipeChipSpec[] = [];
 
-  const minCorn = Math.max(1, r.minCorn ?? 0);
-  const minRye = r.minRye ?? 0;
-  const minBarley = r.minBarley ?? 0;
-  const minWheat = r.minWheat ?? 0;
-
-  const plainCask = Math.max(0, 1 - (sp.cask ?? 0));
-  const plainCorn = Math.max(0, minCorn - (sp.corn ?? 0));
-  const plainRye = Math.max(0, minRye - (sp.rye ?? 0));
-  const plainBarley = Math.max(0, minBarley - (sp.barley ?? 0));
-  const plainWheat = Math.max(0, minWheat - (sp.wheat ?? 0));
-
-  if (plainCask > 0) {
+  // Plain chips — `f.<sub>.plain` already deducts the specialty floor
+  // so a recipe like `minCask:1 + minSpecialty.cask:1` renders the
+  // single Specialty Cask chip below (and skips the redundant plain
+  // Cask chip here).
+  if (f.cask.plain > 0) {
     items.push({
       glyph: RESOURCE_GLYPH.cask,
       label: "Cask",
-      count: plainCask > 1 ? plainCask : undefined,
+      count: f.cask.plain > 1 ? f.cask.plain : undefined,
       tint: RESOURCE_CHROME.cask.label,
     });
   }
-  if (plainCorn > 0) {
-    items.push({
-      glyph: RESOURCE_GLYPH.corn,
-      label: "Corn",
-      count: plainCorn,
-      tint: RESOURCE_CHROME.corn.label,
-    });
-  }
-  if (plainRye > 0) {
-    items.push({
-      glyph: RESOURCE_GLYPH.rye,
-      label: "Rye",
-      count: plainRye,
-      tint: RESOURCE_CHROME.rye.label,
-    });
-  }
-  if (plainBarley > 0) {
-    items.push({
-      glyph: RESOURCE_GLYPH.barley,
-      label: "Barley",
-      count: plainBarley,
-      tint: RESOURCE_CHROME.barley.label,
-    });
-  }
-  if (plainWheat > 0) {
-    items.push({
-      glyph: RESOURCE_GLYPH.wheat,
-      label: "Wheat",
-      count: plainWheat,
-      tint: RESOURCE_CHROME.wheat.label,
-    });
+  for (const sub of ["corn", "rye", "barley", "wheat"] as const) {
+    if (f[sub].plain > 0) {
+      items.push({
+        glyph: RESOURCE_GLYPH[sub],
+        label: sub.charAt(0).toUpperCase() + sub.slice(1),
+        count: f[sub].plain,
+        tint: RESOURCE_CHROME[sub].label,
+      });
+    }
   }
 
   // Wild grain — when no specific grain is required, the universal
   // rule still demands ≥1 grain of any kind. Surface that explicitly
   // so commons don't feel under-specified.
-  const namedGrain = minRye + minBarley + minWheat;
-  const minTotal = r.minTotalGrain ?? 0;
-  const wildGrain =
-    namedGrain === 0 ? 1 : Math.max(0, minTotal - namedGrain);
-  if (wildGrain > 0) {
+  if (f.grain.wildSlots > 0) {
     items.push({
       glyph: "✦",
       label: "Any grain",
-      count: wildGrain,
+      count: f.grain.wildSlots,
       tint: "text-slate-300",
       wild: true,
     });
   }
 
   // v2.7.2: per-subtype Specialty requirements as their own chips.
-  for (const s of ["cask", "corn", "rye", "barley", "wheat"] as const) {
-    const n = sp[s];
-    if (n && n > 0) {
+  for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
+    const n = f[sub].specialty;
+    if (n > 0) {
       items.push({
-        glyph: RESOURCE_GLYPH[s],
-        label: `★ Specialty ${s.charAt(0).toUpperCase() + s.slice(1)}`,
+        glyph: RESOURCE_GLYPH[sub],
+        label: `★ Specialty ${sub.charAt(0).toUpperCase() + sub.slice(1)}`,
         count: n > 1 ? n : undefined,
-        tint: RESOURCE_CHROME[s].label,
+        tint: RESOURCE_CHROME[sub].label,
         specialty: true,
       });
     }
   }
 
   // Caps — `0` reads as forbidden, positive caps as a ceiling.
-  if (r.maxRye === 0) {
+  if (f.forbidsRye) {
     items.push({
       glyph: RESOURCE_GLYPH.rye,
       label: "No rye",
@@ -793,7 +760,7 @@ function RecipeGrid({ bill }: { bill: MashBill }) {
       tint: RESOURCE_CHROME.rye.label,
     });
   }
-  if (r.maxWheat === 0) {
+  if (f.forbidsWheat) {
     items.push({
       glyph: RESOURCE_GLYPH.wheat,
       label: "No wheat",
@@ -1170,101 +1137,50 @@ function tallyCommittedPile(cards: Card[]): {
  */
 function RecipeProgress({ barrel }: { barrel: Barrel }) {
   const bill = barrel.attachedMashBill;
-  const recipe = bill.recipe ?? {};
+  const f = computeRecipeFloors(bill.recipe);
   const tally = tallyCommittedPile(barrel.productionCards);
 
-  const minWheat = recipe.minWheat ?? 0;
-  const minCorn = Math.max(1, recipe.minCorn ?? 0);
-  const minRye = recipe.minRye ?? 0;
-  const minBarley = recipe.minBarley ?? 0;
-  const minTotalGrain = Math.max(recipe.minTotalGrain ?? 0, 1);
-  const sp = recipe.minSpecialty ?? {};
-
-  // Dedupe rule: when a subtype has a specialty floor that fully
-  // covers its basic minimum (e.g. `minCask: 1 + minSpecialty.cask:
-  // 1`), don't render a plain "Cask" row alongside the "Specialty
-  // Cask" row — they describe the same slot. Only when the specialty
-  // floor is smaller than the basic minimum do we need both: one
-  // "Specialty X" row for the gated portion, and the basic row whose
-  // `required` is reduced by the specialty floor (the remaining
-  // plain-only units).
-  const plainCaskNeed = Math.max(0, 1 - (sp.cask ?? 0));
-  const plainCornNeed = Math.max(0, minCorn - (sp.corn ?? 0));
-  const plainRyeNeed = Math.max(0, minRye - (sp.rye ?? 0));
-  const plainBarleyNeed = Math.max(0, minBarley - (sp.barley ?? 0));
-  const plainWheatNeed = Math.max(0, minWheat - (sp.wheat ?? 0));
-
   const rows: RecipeRow[] = [];
-  // Cask — universal 1, minus whatever the specialty floor already
-  // owns. Drop the row entirely when specialty fully covers.
-  if (plainCaskNeed > 0) {
+  // Plain rows — `f.<sub>.plain` already deducts the specialty floor,
+  // so a recipe like `minCask:1 + minSpecialty.cask:1` skips the
+  // plain Cask row (specialty fully covers it) and renders the
+  // Specialty Cask row below.
+  if (f.cask.plain > 0) {
     rows.push({
       key: "cask",
       glyph: RESOURCE_GLYPH.cask,
       label: "Cask",
       tint: RESOURCE_CHROME.cask.label,
-      required: plainCaskNeed,
+      required: f.cask.plain,
       current: Math.max(0, tally.cask - tally.specialty.cask),
       over: 0,
     });
   }
-  if (plainCornNeed > 0) {
-    rows.push({
-      key: "corn",
-      glyph: RESOURCE_GLYPH.corn,
-      label: "Corn",
-      tint: RESOURCE_CHROME.corn.label,
-      required: plainCornNeed,
-      current: Math.max(0, tally.corn - tally.specialty.corn),
-      over: 0,
-    });
-  }
-  if (plainRyeNeed > 0) {
-    rows.push({
-      key: "rye",
-      glyph: RESOURCE_GLYPH.rye,
-      label: "Rye",
-      tint: RESOURCE_CHROME.rye.label,
-      required: plainRyeNeed,
-      current: Math.max(0, tally.rye - tally.specialty.rye),
-      over: 0,
-    });
-  }
-  if (plainBarleyNeed > 0) {
-    rows.push({
-      key: "barley",
-      glyph: RESOURCE_GLYPH.barley,
-      label: "Barley",
-      tint: RESOURCE_CHROME.barley.label,
-      required: plainBarleyNeed,
-      current: Math.max(0, tally.barley - tally.specialty.barley),
-      over: 0,
-    });
-  }
-  if (plainWheatNeed > 0) {
-    rows.push({
-      key: "wheat",
-      glyph: RESOURCE_GLYPH.wheat,
-      label: "Wheat",
-      tint: RESOURCE_CHROME.wheat.label,
-      required: plainWheatNeed,
-      current: Math.max(0, tally.wheat - tally.specialty.wheat),
-      over: 0,
-    });
+  for (const sub of ["corn", "rye", "barley", "wheat"] as const) {
+    if (f[sub].plain > 0) {
+      rows.push({
+        key: sub,
+        glyph: RESOURCE_GLYPH[sub],
+        label: sub.charAt(0).toUpperCase() + sub.slice(1),
+        tint: RESOURCE_CHROME[sub].label,
+        required: f[sub].plain,
+        current: Math.max(0, tally[sub] - tally.specialty[sub]),
+        over: 0,
+      });
+    }
   }
   // "Any grain" universal: only show when the named grains don't
   // already cover the total-grain minimum.
-  const namedGrainMins = minRye + minBarley + minWheat;
   const totalGrainCommitted = tally.rye + tally.barley + tally.wheat;
-  if (namedGrainMins < minTotalGrain) {
+  if (f.grain.wildSlots > 0) {
     rows.push({
       key: "any-grain",
       glyph: "✦",
       label: "Any grain",
       tint: "text-slate-300",
-      required: minTotalGrain,
+      required: f.grain.total,
       current: totalGrainCommitted,
-      over: Math.max(0, totalGrainCommitted - minTotalGrain),
+      over: Math.max(0, totalGrainCommitted - f.grain.total),
     });
   }
 
@@ -1276,7 +1192,7 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
   // the redundant basic row when specialty covers it — this loop
   // renders the specialty row itself with the ★ marker.
   for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
-    const need = sp[sub] ?? 0;
+    const need = f[sub].specialty;
     if (need > 0) {
       rows.push({
         key: `specialty-${sub}`,
