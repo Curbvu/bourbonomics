@@ -18,8 +18,6 @@
  *                          chrome because aging is a *phase* activity, not
  *                          one of the regular Action Phase actions
  *   ✓ Sell Bourbon       — highest-reward 2yo+ barrel, take all rep
- *   ✓ Draw bill          — interactive picker (sacrifice card → top-of-deck
- *                          blind draw)
  *   ✓ Buy from Market    — most-expensive affordable conveyor card
  *   ✓ Draft Mash Bill    — launcher lives on the human's "next
  *                          available" rickhouse slot (DistilleryStage),
