@@ -1052,16 +1052,23 @@ type SubKey = "cask" | "corn" | "rye" | "barley" | "wheat" | "any";
 interface BarrelNeed {
   subtype: SubKey;
   count: number;
+  /** True for a `recipe.minSpecialty.<sub>` shortfall — the player must
+   *  commit a Specialty/Heritage-flagged card of this subtype, not a
+   *  plain one. Rendered with a ★ marker so the distinction is
+   *  unmissable. */
+  specialty?: boolean;
 }
 
 /**
  * What's still required to advance this barrel to aging — recipe
- * minimums minus already-committed cards. Mirrors MashPips' tally
- * logic but returns the OUTSTANDING counts only (positives) so the
- * caller can render a compact "still needs" overlay.
+ * minimums (basic + specialty) minus already-committed cards. Mirrors
+ * MashPips' tally logic but returns the OUTSTANDING counts only
+ * (positives) so the caller can render a compact "still needs" overlay.
  *
- * Subtypes appear in the canonical cask→corn→rye→barley→wheat order
- * so multiple barrels read consistently.
+ * Specialty rows come first so the player sees the strictest
+ * requirements at the top of the limited 4-row plate — a recipe with
+ * `minSpecialty.cask: 1` reads as "1 Specialty Cask" rather than the
+ * looser "1 cask" the engine will then reject.
  */
 function computeBarrelNeeds(barrel: Barrel): BarrelNeed[] {
   type NamedKey = "cask" | "corn" | "rye" | "barley" | "wheat";
@@ -1072,57 +1079,93 @@ function computeBarrelNeeds(barrel: Barrel): BarrelNeed[] {
     barley: 0,
     wheat: 0,
   };
+  const specialtyTally: Record<NamedKey, number> = {
+    cask: 0,
+    corn: 0,
+    rye: 0,
+    barley: 0,
+    wheat: 0,
+  };
   for (const c of barrel.productionCards) {
     if (c.type !== "resource" || !c.subtype) continue;
     const n = c.resourceCount ?? 1;
-    if (c.subtype in tally) tally[c.subtype as NamedKey] += n;
+    if (c.subtype in tally) {
+      tally[c.subtype as NamedKey] += n;
+      if (c.specialty) specialtyTally[c.subtype as NamedKey] += n;
+    }
   }
   const recipe = barrel.attachedMashBill?.recipe ?? {};
+  const sp = recipe.minSpecialty ?? {};
   const minCorn = Math.max(1, recipe.minCorn ?? 0);
   const minRye = recipe.minRye ?? 0;
   const minBarley = recipe.minBarley ?? 0;
   const minWheat = recipe.minWheat ?? 0;
-  const namedGrainFloor = minRye + minBarley + minWheat;
-  // Same formula RecipePips/mashBillBuildCost use — the universal
-  // "≥1 grain" rule guarantees at least one grain even when the recipe
-  // is silent. Anything beyond the sum of named-grain floors is a
-  // wildcard "any grain" slot the player can fill with any subtype.
+  // Effective per-grain floor (matches engine.effectiveRecipeMins):
+  // the engine treats `max(basic, specialty)` as the per-subtype min,
+  // so a `minRye:1 + minSpecialty.rye:2` recipe is "2 rye total, both
+  // specialty." Use the effective floor for the wildcard math below
+  // so the grain accounting matches what the engine actually checks.
+  const effRye = Math.max(minRye, sp.rye ?? 0);
+  const effBarley = Math.max(minBarley, sp.barley ?? 0);
+  const effWheat = Math.max(minWheat, sp.wheat ?? 0);
+  const namedGrainFloor = effRye + effBarley + effWheat;
   const minTotalGrain = Math.max(
     recipe.minTotalGrain ?? 0,
     namedGrainFloor === 0 ? 1 : namedGrainFloor,
   );
 
-  const mins: Record<NamedKey, number> = {
+  const basicMins: Record<NamedKey, number> = {
     cask: 1,
     corn: minCorn,
     rye: minRye,
     barley: minBarley,
     wheat: minWheat,
   };
-  const out: BarrelNeed[] = [];
+  const specialtyMins: Record<NamedKey, number> = {
+    cask: sp.cask ?? 0,
+    corn: sp.corn ?? 0,
+    rye: sp.rye ?? 0,
+    barley: sp.barley ?? 0,
+    wheat: sp.wheat ?? 0,
+  };
+  const specialtyRows: BarrelNeed[] = [];
+  const plainRows: BarrelNeed[] = [];
   let namedGrainShortfall = 0;
   for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as NamedKey[]) {
-    const need = Math.max(0, mins[sub] - tally[sub]);
-    if (need > 0) out.push({ subtype: sub, count: need });
-    // minTotalGrain in the engine counts rye+barley+wheat only — corn
-    // is tracked separately (see make-bourbon.ts totalGrain helper).
-    // Exclude corn and cask from the named-grain shortfall.
+    // Specialty shortfall first — engine treats a specialty card as
+    // satisfying BOTH the specialty floor AND the basic per-subtype min.
+    const specialtyNeed = Math.max(
+      0,
+      specialtyMins[sub] - specialtyTally[sub],
+    );
+    if (specialtyNeed > 0) {
+      specialtyRows.push({ subtype: sub, count: specialtyNeed, specialty: true });
+    }
+    // Plain shortfall = basic floor minus specialty floor (specialty
+    // covers that portion) minus plain cards already committed.
+    const plainHave = tally[sub] - specialtyTally[sub];
+    const plainNeed = Math.max(
+      0,
+      basicMins[sub] - specialtyMins[sub] - plainHave,
+    );
+    if (plainNeed > 0) {
+      plainRows.push({ subtype: sub, count: plainNeed });
+    }
     if (sub === "rye" || sub === "barley" || sub === "wheat") {
-      namedGrainShortfall += need;
+      // For the wildcard tally below — total per-grain shortfall,
+      // counting both plain and specialty needs.
+      namedGrainShortfall += specialtyNeed + plainNeed;
     }
   }
   // Wildcard grain — minTotalGrain (rye+barley+wheat only) over the
-  // sum of named non-corn grain floors, less any grain the player has
-  // already committed past those floors. Without this row the needs
-  // plate falls back to the "?" disc when a recipe has
-  // minTotalGrain > namedGrainFloor and every named min is satisfied
-  // (e.g. High Rickhouse Select: minRye/Barley/Wheat each 1,
-  // minTotalGrain 4 — committing one of each still owes one wild grain).
+  // sum of effective named non-corn grain floors, less any grain the
+  // player has already committed past those floors.
   const committedGrain = tally.rye + tally.barley + tally.wheat;
   const wildNeed = Math.max(
     0,
     minTotalGrain - committedGrain - namedGrainShortfall,
   );
+  const out: BarrelNeed[] = [...specialtyRows, ...plainRows];
   if (wildNeed > 0) out.push({ subtype: "any", count: wildNeed });
   return out;
 }
@@ -1168,19 +1211,51 @@ function BarrelNeedsPlate({ needs }: { needs: BarrelNeed[] }) {
       <span className="font-mono text-[13px] font-bold uppercase tracking-[.18em] text-sky-200">
         Needs
       </span>
-      {needs.slice(0, 4).map((n) => (
-        <span
-          key={n.subtype}
-          title={n.subtype === "any" ? "any grain" : n.subtype}
-          className="flex items-center gap-2 font-mono text-[20px] font-bold leading-none"
-          style={{ color: SUB_INK[n.subtype] }}
-        >
-          <span className="tabular-nums">{n.count}×</span>
-          <span className="flex h-6 w-6 items-center justify-center text-[20px] leading-none">
-            {n.subtype === "any" ? "✱" : RESOURCE_GLYPH[n.subtype]}
+      {needs.slice(0, 4).map((n) => {
+        const isSpecialty = !!n.specialty;
+        const label =
+          n.subtype === "any"
+            ? "any grain"
+            : isSpecialty
+              ? `Specialty ${n.subtype}`
+              : n.subtype;
+        return (
+          <span
+            key={`${n.specialty ? "sp-" : ""}${n.subtype}`}
+            title={label}
+            className="flex items-center gap-2 font-mono text-[20px] font-bold leading-none"
+            style={{ color: SUB_INK[n.subtype] }}
+          >
+            <span className="tabular-nums">{n.count}×</span>
+            <span
+              className="relative flex h-6 w-6 items-center justify-center text-[20px] leading-none"
+              style={
+                isSpecialty
+                  ? {
+                      borderRadius: "999px",
+                      boxShadow:
+                        "0 0 0 1.5px rgba(252,211,77,.9), 0 0 8px rgba(252,211,77,.45)",
+                    }
+                  : undefined
+              }
+            >
+              {n.subtype === "any" ? "✱" : RESOURCE_GLYPH[n.subtype]}
+              {isSpecialty ? (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute -right-1.5 -top-1.5 font-display text-[10px] font-bold leading-none"
+                  style={{
+                    color: "rgba(252,211,77,1)",
+                    textShadow: "0 0 4px rgba(252,211,77,.8)",
+                  }}
+                >
+                  ★
+                </span>
+              ) : null}
+            </span>
           </span>
-        </span>
-      ))}
+        );
+      })}
     </span>
   );
 }
@@ -1307,7 +1382,20 @@ function MashPips({ barrel }: { barrel: Barrel }) {
   // recipe minimum so the player sees both "what I've put in" and
   // "what's still required". Mirrors the v2 RickhouseRow mashPip logic
   // but recolored to the warm subtype ink palette.
-  const tally: Record<string, number> = {
+  type SubKey = "cask" | "corn" | "rye" | "barley" | "wheat";
+  const tally: Record<SubKey, number> = {
+    cask: 0,
+    corn: 0,
+    rye: 0,
+    barley: 0,
+    wheat: 0,
+  };
+  // Specialty-only tally — counts cards flagged `c.specialty === true`
+  // so we can render the per-subtype specialty floor as its own pip
+  // distinct from the plain count. Without this a Specialty-Cask
+  // recipe would show one indistinguishable "cask" pip and the player
+  // would commit a plain cask, then get a silent engine rejection.
+  const specialtyTally: Record<SubKey, number> = {
     cask: 0,
     corn: 0,
     rye: 0,
@@ -1317,25 +1405,41 @@ function MashPips({ barrel }: { barrel: Barrel }) {
   for (const c of barrel.productionCards) {
     if (c.type !== "resource" || !c.subtype) continue;
     const n = c.resourceCount ?? 1;
-    if (c.subtype in tally) tally[c.subtype] = (tally[c.subtype] ?? 0) + n;
+    if (c.subtype in tally) {
+      tally[c.subtype as SubKey] += n;
+      if (c.specialty) specialtyTally[c.subtype as SubKey] += n;
+    }
   }
   const recipe = barrel.attachedMashBill?.recipe ?? {};
-  const minimums = {
+  const sp = recipe.minSpecialty ?? {};
+  const basicMins: Record<SubKey, number> = {
     cask: 1,
     corn: Math.max(1, recipe.minCorn ?? 0),
     rye: recipe.minRye ?? 0,
     barley: recipe.minBarley ?? 0,
     wheat: recipe.minWheat ?? 0,
-  } as Record<string, number>;
+  };
+  // Specialty floors absorb plain pips one-for-one (a specialty card
+  // satisfies the basic minimum too — see engine's effectiveRecipeMins).
+  // So the plain-pip count for each subtype is `max(0, basic - sp)`.
+  const specialtyMins: Record<SubKey, number> = {
+    cask: sp.cask ?? 0,
+    corn: sp.corn ?? 0,
+    rye: sp.rye ?? 0,
+    barley: sp.barley ?? 0,
+    wheat: sp.wheat ?? 0,
+  };
   const recipeSatisfied = barrel.phase === "aging";
 
   const pips: ReactNode[] = [];
   for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
-    const have = tally[sub] ?? 0;
-    const need = recipeSatisfied ? 0 : minimums[sub] ?? 0;
-    const slots = Math.max(have, need);
-    for (let i = 0; i < slots; i++) {
-      const filled = i < have;
+    const plainNeed = recipeSatisfied
+      ? 0
+      : Math.max(0, basicMins[sub] - specialtyMins[sub]);
+    const plainHave = Math.max(0, tally[sub] - specialtyTally[sub]);
+    const plainSlots = Math.max(plainHave, plainNeed);
+    for (let i = 0; i < plainSlots; i++) {
+      const filled = i < plainHave;
       pips.push(
         <span
           key={`${sub}-${i}`}
@@ -1350,13 +1454,49 @@ function MashPips({ barrel }: { barrel: Barrel }) {
         />,
       );
     }
+    // Specialty pips — slightly larger, with an amber halo + ★ so the
+    // player sees at a glance that this slot demands a market-only
+    // Specialty / Heritage card.
+    const specialtyNeed = recipeSatisfied ? 0 : specialtyMins[sub];
+    const specialtyHave = specialtyTally[sub];
+    const specialtySlots = Math.max(specialtyHave, specialtyNeed);
+    for (let i = 0; i < specialtySlots; i++) {
+      const filled = i < specialtyHave;
+      pips.push(
+        <span
+          key={`sp-${sub}-${i}`}
+          title={`Specialty ${sub}`}
+          className="relative inline-block h-[11px] w-[11px] rounded-full"
+          style={{
+            background: filled ? SUB_INK[sub] : "transparent",
+            boxShadow: filled
+              ? `0 0 6px ${SUB_INK[sub]}66, 0 0 0 1px rgba(252,211,77,.9)`
+              : `inset 0 0 0 1.5px ${SUB_INK[sub]}88, 0 0 0 1px rgba(252,211,77,.6)`,
+          }}
+        >
+          <span
+            className="pointer-events-none absolute inset-0 flex items-center justify-center text-[8px] font-bold leading-none"
+            style={{ color: filled ? "#2a1a10" : "rgba(252,211,77,.95)" }}
+            aria-hidden
+          >
+            ★
+          </span>
+        </span>,
+      );
+    }
   }
   // Wildcard "any grain" pips — recipes whose minTotalGrain exceeds the
   // sum of named-grain floors have extra slots the player can fill with
   // any grain. Mirrors RecipePips' hollow-ring treatment and the
   // BarrelNeedsPlate's "✱" callout so the caption strip stays honest.
-  const namedGrainFloor =
-    (minimums.rye ?? 0) + (minimums.barley ?? 0) + (minimums.wheat ?? 0);
+  // Effective per-grain floor matches the engine's effectiveRecipeMins
+  // (max of basic and specialty) so a recipe like
+  // `minRye:1 + minSpecialty.rye:2` reads as needing 2 rye minimum,
+  // not 1.
+  const effRyeFloor = Math.max(basicMins.rye, specialtyMins.rye);
+  const effBarleyFloor = Math.max(basicMins.barley, specialtyMins.barley);
+  const effWheatFloor = Math.max(basicMins.wheat, specialtyMins.wheat);
+  const namedGrainFloor = effRyeFloor + effBarleyFloor + effWheatFloor;
   const minTotalGrain = Math.max(
     recipe.minTotalGrain ?? 0,
     namedGrainFloor === 0 ? 1 : namedGrainFloor,
@@ -1368,9 +1508,9 @@ function MashPips({ barrel }: { barrel: Barrel }) {
     const grainCommitted =
       (tally.rye ?? 0) + (tally.barley ?? 0) + (tally.wheat ?? 0);
     const grainCountedAgainstNamed =
-      Math.min(tally.rye ?? 0, minimums.rye ?? 0) +
-      Math.min(tally.barley ?? 0, minimums.barley ?? 0) +
-      Math.min(tally.wheat ?? 0, minimums.wheat ?? 0);
+      Math.min(tally.rye, effRyeFloor) +
+      Math.min(tally.barley, effBarleyFloor) +
+      Math.min(tally.wheat, effWheatFloor);
     const overflow = Math.max(0, grainCommitted - grainCountedAgainstNamed);
     const filledWild = recipeSatisfied
       ? wildSlots
