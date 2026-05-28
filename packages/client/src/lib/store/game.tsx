@@ -229,10 +229,10 @@ export interface AgeMode {
  * `INITIATE_DRAFTING_LOOP` and closes the mode; the engine then
  * surfaces the active loop in `state.draftingLoop` and the
  * `DraftingLoopOverlay` takes over for the rest of the loop. Kept
- * under the legacy `drawBillMode` field name to avoid renames across
+ * under the legacy `draftingLoopMode` field name to avoid renames across
  * a dozen UI consumers — it's the same "you're in a picker" state.
  */
-export interface DrawBillMode {
+export interface DraftingLoopMode {
   /** Selected seed card id, or null while the user is still choosing. */
   spendCardIds: string[];
 }
@@ -462,16 +462,16 @@ export interface GameStore {
    *  without drifting as barrels become ineligible mid-phase. */
   ageTotalThisPhase: number | null;
   /** Interactive draw-bill state, null when not drawing. */
-  drawBillMode: DrawBillMode | null;
-  startDrawBillMode: () => void;
-  cancelDrawBillMode: () => void;
+  draftingLoopMode: DraftingLoopMode | null;
+  startDraftingLoopMode: () => void;
+  cancelDraftingLoopMode: () => void;
   /** Step 1: pick a face-up bill OR pick the blind top-of-deck target. */
-  setDrawBillTarget: (target: { mashBillId: string } | { blind: true }) => void;
+  setDraftingLoopTarget: (target: { mashBillId: string } | { blind: true }) => void;
   /** Step 2: toggle a pay card. */
-  toggleDrawBillSpend: (cardId: string) => void;
+  toggleDraftingLoopSpend: (cardId: string) => void;
   /** Back from step 2 → step 1. */
-  resetDrawBillTarget: () => void;
-  confirmDrawBill: () => void;
+  resetDraftingLoopTarget: () => void;
+  confirmDraftingLoop: () => void;
   /** Interactive make-bourbon state, null when not making. */
   makeMode: MakeMode | null;
   startMakeMode: () => void;
@@ -645,13 +645,13 @@ const Ctx = createContext<GameStore>({
   yearPassDismissedForRound: null,
   markYearPassDismissed: noop,
   ageTotalThisPhase: null,
-  drawBillMode: null,
-  startDrawBillMode: noop,
-  cancelDrawBillMode: noop,
-  setDrawBillTarget: noop,
-  toggleDrawBillSpend: noop,
-  resetDrawBillTarget: noop,
-  confirmDrawBill: noop,
+  draftingLoopMode: null,
+  startDraftingLoopMode: noop,
+  cancelDraftingLoopMode: noop,
+  setDraftingLoopTarget: noop,
+  toggleDraftingLoopSpend: noop,
+  resetDraftingLoopTarget: noop,
+  confirmDraftingLoop: noop,
   makeMode: null,
   startMakeMode: noop,
   cancelMakeMode: noop,
@@ -767,7 +767,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // intro-modal + total-count snapshot reset exactly on the false→true
   // transition (not every render that satisfies the condition).
   const prevNeedsAgeRef = useRef<boolean>(false);
-  const [drawBillMode, setDrawBillMode] = useState<DrawBillMode | null>(null);
+  const [draftingLoopMode, setDraftingLoopMode] = useState<DraftingLoopMode | null>(null);
   const [makeMode, setMakeMode] = useState<MakeMode | null>(null);
   const [sellMode, setSellMode] = useState<SellMode | null>(null);
 
@@ -1551,14 +1551,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dispatch(action);
   }, [buyMode, store.state, dispatch]);
 
-  // v2.14 Initiate-Drafting-Loop picker. The user picks one card from
+  // Initiate-Drafting-Loop picker. The user picks one card from
   // hand to seed the draft pile; confirm dispatches
-  // INITIATE_DRAFTING_LOOP and the engine takes over from there. The
-  // legacy "Draw bill" picker shape is retained (single field) so the
-  // dozen UI consumers that gate on `drawBillMode != null` keep
-  // working without renames.
-  const startDrawBillMode = useCallback(() => {
-    setDrawBillMode({ spendCardIds: [] });
+  // INITIATE_DRAFTING_LOOP and the engine takes over from there. Single
+  // `draftingLoopMode` field lights the seed modal; UI consumers gate
+  // on `draftingLoopMode != null`.
+  const startDraftingLoopMode = useCallback(() => {
+    setDraftingLoopMode({ spendCardIds: [] });
     setBuyMode(null);
     setAgeMode(null);
     setMakeMode(null);
@@ -1566,11 +1565,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setSelectedHandCardIds([]);
   }, []);
 
-  const cancelDrawBillMode = useCallback(() => {
-    setDrawBillMode(null);
+  const cancelDraftingLoopMode = useCallback(() => {
+    setDraftingLoopMode(null);
   }, []);
 
-  const setDrawBillTarget = useCallback(
+  const setDraftingLoopTarget = useCallback(
     (_target: { mashBillId: string } | { blind: true }) => {
       // No-op under v2.14 — there's no face-up bill row or blind-top
       // target to pick. Retained as a no-op so legacy MarketCenter
@@ -1579,8 +1578,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const toggleDrawBillSpend = useCallback((cardId: string) => {
-    setDrawBillMode((prev) => {
+  const toggleDraftingLoopSpend = useCallback((cardId: string) => {
+    setDraftingLoopMode((prev) => {
       if (!prev) return prev;
       // Single-card picker — selecting a different card replaces the
       // previous selection (no multi-card seed today).
@@ -1591,13 +1590,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const resetDrawBillTarget = useCallback(() => {
-    setDrawBillMode((prev) => (prev ? { spendCardIds: [] } : prev));
+  const resetDraftingLoopTarget = useCallback(() => {
+    setDraftingLoopMode((prev) => (prev ? { spendCardIds: [] } : prev));
   }, []);
 
-  const confirmDrawBill = useCallback(() => {
-    if (!drawBillMode) return;
-    const cardId = drawBillMode.spendCardIds[0];
+  const confirmDraftingLoop = useCallback(() => {
+    if (!draftingLoopMode) return;
+    const cardId = draftingLoopMode.spendCardIds[0];
     if (!cardId) return;
     const human = store.state?.players.find((p) => !p.isBot);
     if (!human) return;
@@ -1606,9 +1605,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       playerId: human.id,
       cardId,
     };
-    setDrawBillMode(null);
+    setDraftingLoopMode(null);
     dispatch(action);
-  }, [drawBillMode, store.state, dispatch]);
+  }, [draftingLoopMode, store.state, dispatch]);
 
   // Make-mode helpers — two-step picker: (1) pick a mash bill from your
   // hand, (2) tag the production cards. Slot is auto-picked (first free)
@@ -1617,7 +1616,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setMakeMode({ pickedMashBillId: null, spendCardIds: [] });
     setBuyMode(null);
     setAgeMode(null);
-    setDrawBillMode(null);
+    setDraftingLoopMode(null);
     setInspect(null);
     setSelectedHandCardIds([]);
   }, []);
@@ -1696,7 +1695,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setSellMode({ pickedBarrelId: null });
     setBuyMode(null);
     setAgeMode(null);
-    setDrawBillMode(null);
+    setDraftingLoopMode(null);
     setMakeMode(null);
     setInspect(null);
     setSelectedHandCardIds([]);
@@ -1852,6 +1851,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (awaitingHumanInput(store.state)) return;
+    // Yield on the human's turn in the action phase. `awaitingHumanInput`
+    // above only catches setup phases + drafting-loop pickers; without
+    // this guard the user-toggled Auto button would call step() during
+    // a human's action turn, and the orchestrator's `chooseAction` would
+    // happily auto-resolve a fake play (engine.ts validateAction's
+    // human-must-act gates — needsDemandRoll, needsAgeBarrels — are
+    // cleared in tutorial mode by `clearTutorialGates`, so they don't
+    // block the call). Mirrors the per-phase auto-resolve effect below
+    // that already has the same check.
+    if (store.state.phase === "action" && !store.state.draftingLoop) {
+      const current = store.state.players[store.state.currentPlayerIndex];
+      if (!current || current.isBot === false) return;
+    }
     const id = window.setTimeout(step, AUTO_STEP_MS);
     return () => window.clearTimeout(id);
   }, [autoplay, multiplayerMode, store.state, step]);
@@ -1892,17 +1904,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Same bail-out for draw-bill mode.
   useEffect(() => {
-    if (!drawBillMode) return;
+    if (!draftingLoopMode) return;
     const state = store.state;
     if (!state || state.phase !== "action") {
-      setDrawBillMode(null);
+      setDraftingLoopMode(null);
       return;
     }
     const current = state.players[state.currentPlayerIndex];
     if (!current || current.isBot) {
-      setDrawBillMode(null);
+      setDraftingLoopMode(null);
     }
-  }, [store.state, drawBillMode]);
+  }, [store.state, draftingLoopMode]);
 
   // Same bail-out for sell mode.
   useEffect(() => {
@@ -2067,7 +2079,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setInspect(null);
     setBuyMode(null);
     setAgeMode(null);
-    setDrawBillMode(null);
+    setDraftingLoopMode(null);
     setMakeMode(null);
     setSellMode(null);
   }, []);
@@ -2078,7 +2090,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setInspect(null);
     setBuyMode(null);
     setAgeMode(null);
-    setDrawBillMode(null);
+    setDraftingLoopMode(null);
     setMakeMode(null);
     setSellMode(null);
   }, []);
@@ -2110,7 +2122,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setInspect(null);
     setBuyMode(null);
     setAgeMode(null);
-    setDrawBillMode(null);
+    setDraftingLoopMode(null);
     setMakeMode(null);
     setSellMode(null);
   }, []);
@@ -2238,13 +2250,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       yearPassDismissedForRound,
       markYearPassDismissed,
       ageTotalThisPhase,
-      drawBillMode,
-      startDrawBillMode,
-      cancelDrawBillMode,
-      setDrawBillTarget,
-      toggleDrawBillSpend,
-      resetDrawBillTarget,
-      confirmDrawBill,
+      draftingLoopMode,
+      startDraftingLoopMode,
+      cancelDraftingLoopMode,
+      setDraftingLoopTarget,
+      toggleDraftingLoopSpend,
+      resetDraftingLoopTarget,
+      confirmDraftingLoop,
       makeMode,
       startMakeMode,
       cancelMakeMode,
@@ -2322,13 +2334,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       yearPassDismissedForRound,
       markYearPassDismissed,
       ageTotalThisPhase,
-      drawBillMode,
-      startDrawBillMode,
-      cancelDrawBillMode,
-      setDrawBillTarget,
-      toggleDrawBillSpend,
-      resetDrawBillTarget,
-      confirmDrawBill,
+      draftingLoopMode,
+      startDraftingLoopMode,
+      cancelDraftingLoopMode,
+      setDraftingLoopTarget,
+      toggleDraftingLoopSpend,
+      resetDraftingLoopTarget,
+      confirmDraftingLoop,
       makeMode,
       startMakeMode,
       cancelMakeMode,

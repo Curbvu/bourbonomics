@@ -49,11 +49,12 @@ export default function TutorialController() {
     setTutorialActionTransform,
     setTutorialSpotlight,
     setTutorialHandFilter,
+    setAutoplay,
     sellMode,
     makeMode,
     buyMode,
     ageMode,
-    drawBillMode,
+    draftingLoopMode,
     inspect,
     setInspect,
     endTutorial,
@@ -209,6 +210,21 @@ export default function TutorialController() {
     }
   }, [state, beat, phase, advance]);
 
+  // ── Pause autoplay on await-action beats ─────────────────────────
+  // The user-toggled Auto button drives the orchestrator's step loop
+  // without checking the tutorial's beat state. If autoplay is on when
+  // the tutorial reaches a beat that requires a human action (corn
+  // drop, market buy, sell pick), step() happily keeps firing bot
+  // turns — which rotates the active seat past the human, advances
+  // the round, and eventually rolls the game forward by ~14 years
+  // past every scripted beat with no recourse. Force autoplay off so
+  // the player can actually do the thing the beat is asking for.
+  useEffect(() => {
+    if (phase !== "play") return;
+    if (!beat || beat.kind !== "await-action") return;
+    setAutoplay(false);
+  }, [beat, phase, setAutoplay]);
+
   // ── Auto-advance prompt beats that gate on an inspect target ─────
   // When a prompt declares `awaitInspectBarrelDefId`, the user must
   // right-click the matching barrel to advance. The Continue button
@@ -305,7 +321,7 @@ export default function TutorialController() {
           : actionButtonAction === "age"
             ? ageMode != null
             : actionButtonAction === "draw-bill"
-              ? drawBillMode != null
+              ? draftingLoopMode != null
               : false;
   const liveSpotlight = useMemo<SpotlightTarget | undefined>(() => {
     if (!beat || !beat.spotlight) return undefined;

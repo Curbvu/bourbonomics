@@ -30,7 +30,7 @@ export type FocusZone =
   | "log-rail";
 
 function useFocusedZones(): Set<FocusZone> | null {
-  const { makeMode, ageMode, drawBillMode, buyMode, sellMode } = useGameStore();
+  const { makeMode, ageMode, draftingLoopMode, buyMode, sellMode } = useGameStore();
 
   if (makeMode) {
     return makeMode.pickedMashBillId
@@ -47,7 +47,7 @@ function useFocusedZones(): Set<FocusZone> | null {
       ? new Set<FocusZone>(["hand-resources"])
       : new Set<FocusZone>(["rickhouse-self"]);
   }
-  if (drawBillMode) {
+  if (draftingLoopMode) {
     // v2.14: the Drafting Loop initiate picker is a single-step hand-
     // card pick. Always focus the hand.
     return new Set<FocusZone>(["hand-resources"]);

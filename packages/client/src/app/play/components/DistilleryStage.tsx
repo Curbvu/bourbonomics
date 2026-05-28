@@ -64,7 +64,7 @@ const TIER_BAND: Record<
 };
 
 export default function DistilleryStage() {
-  const { state, multiplayerMode, startDrawBillMode } = useGameStore();
+  const { state, multiplayerMode, startDraftingLoopMode } = useGameStore();
   if (!state) return null;
 
   // Mirror HandTray's seat-id logic so the hero plate always renders
@@ -83,7 +83,7 @@ export default function DistilleryStage() {
   const focusStyle = useZoneFocusStyle("rickhouse-self");
   if (!distillery) return null;
 
-  // Drafting Loop launcher gating — mirrors ActionBar.canEnterDrawBillMode
+  // Drafting Loop launcher gating — mirrors ActionBar.canEnterDraftingLoopMode
   // so the on-barrel "+" button only lights up when the human can
   // actually initiate the loop right now.
   const isHumanTurn =
@@ -144,7 +144,7 @@ export default function DistilleryStage() {
           state={state}
           isHumanRow={true}
           canDraftBill={canDraftBill}
-          onDraftBill={startDrawBillMode}
+          onDraftBill={startDraftingLoopMode}
         />
 
         {/* 4. v3.0 Line system — roomy strip for the human's own
