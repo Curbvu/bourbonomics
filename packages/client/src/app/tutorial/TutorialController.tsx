@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   TUTORIAL_HUMAN_ID,
+  validateAction,
   type GameAction,
   type GameState,
 } from "@bourbonomics/engine";
@@ -153,10 +154,22 @@ export default function TutorialController() {
         // If the beat has an `advanceWhen` predicate, leave progression
         // to the state-watch effect — the player may need to dispatch
         // several partial actions (e.g. drag-and-drop one card at a
-        // time) before the goal state lands. Without `advanceWhen`,
-        // a single matching action means the goal is reached.
+        // time) before the goal state lands.
+        //
+        // Without `advanceWhen`, a single matching+legal action means
+        // the goal is reached. We pre-run the engine's pure
+        // `validateAction` before scheduling advance so a malformed
+        // dispatch that passes the beat's loose `matches` predicate
+        // but the engine then throws on (illegal repSpend shape,
+        // missing seat, stale snapshot) doesn't silently advance the
+        // tutorial while leaving state unchanged. The dispatch path
+        // re-validates inside `applyAction`; this is the gate that
+        // gives advance() the same authority.
         if (!hasAdvanceWhen) {
-          setTimeout(() => advance(), 0);
+          const validation = validateAction(current, final);
+          if (validation.legal) {
+            setTimeout(() => advance(), 0);
+          }
         }
         return final;
       });
