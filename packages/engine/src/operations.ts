@@ -190,11 +190,11 @@ const SPECS: OpsCardSpec[] = [
     defId: "sabotage",
     name: "Sabotage",
     description:
-      "Choose an opponent's aging barrel. Discard 1 committed resource card from it; the barrel is dumped (bill returns to the bill hand).",
+      "Choose an opponent's aging barrel. Discard 1 committed resource card from it; the barrel is dumped (bill stays attached, rebuild from scratch).",
     flavor: "Someone left the valve open. Or the bunghole. Or the door. All three.",
     cost: 4,
     copies: 2,
-    implemented: false,
+    implemented: true,
   },
   {
     defId: "whiskey_raid",

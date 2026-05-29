@@ -175,9 +175,29 @@ export function validatePlayOperationsCard(
       return { legal: true };
     }
 
+    case "sabotage": {
+      const target = state.allBarrels.find((b) => b.id === action.targetBarrelId);
+      if (!target) {
+        return { legal: false, reason: `barrel ${action.targetBarrelId} not found` };
+      }
+      if (target.ownerId === player.id) {
+        return { legal: false, reason: "Sabotage targets opponents' barrels" };
+      }
+      if (target.phase !== "aging") {
+        return { legal: false, reason: "barrel is still under construction" };
+      }
+      const committed = [...target.productionCards, ...target.agingCards];
+      if (!committed.some((c) => c.id === action.targetCardId)) {
+        return {
+          legal: false,
+          reason: `card ${action.targetCardId} is not committed to the barrel`,
+        };
+      }
+      return { legal: true };
+    }
+
     // Catalog-only until handlers land — reject explicitly so any
     // mis-routed dispatch produces a clean engine error.
-    case "sabotage":
     case "whiskey_raid":
     case "coopers_contract":
     case "grain_futures":
@@ -337,8 +357,39 @@ export function applyPlayOperationsCard(
       break;
     }
 
+    case "sabotage": {
+      // Dump the target's barrel: bill stays attached (slot keeps its
+      // recipe; opponent can rebuild against it), every committed
+      // production + aging card returns to the opponent's discard,
+      // barrel resets to "ready" phase. The `targetCardId` lookup
+      // already happened in the validator — naming it doesn't change
+      // the math here since every card is discarded regardless, but
+      // surfacing it lets the UI / log call out the targeted card by
+      // name when narrating the attack.
+      const target = draft.allBarrels.find(
+        (b) => b.id === action.targetBarrelId,
+      )!;
+      const opp = draft.players.find((p) => p.id === target.ownerId)!;
+      // All committed + aging cards return to the opponent's discard
+      // (production cards lose their `returns_to_hand_on_sale` privilege
+      // when the barrel doesn't reach a sale).
+      opp.discard.push(...target.productionCards, ...target.agingCards);
+      target.productionCards = [];
+      target.agingCards = [];
+      target.productionCardDefIds = [];
+      target.age = 0;
+      target.phase = "ready";
+      target.completedInRound = null;
+      target.inspectedThisRound = false;
+      target.skipNextRoundAging = false;
+      target.extraAgesAvailable = 0;
+      target.gridRepOffset = 0;
+      target.demandBandOffset = 0;
+      target.agedThisRound = false;
+      break;
+    }
+
     // Catalog-only — handlers land with their respective phases.
-    case "sabotage":
     case "whiskey_raid":
     case "coopers_contract":
     case "grain_futures":
