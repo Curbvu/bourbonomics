@@ -50,7 +50,11 @@ export default function ScalingHost({ children }: { children: ReactNode }) {
       const availableHeight = outer?.clientHeight ?? window.innerHeight;
       const sx = availableWidth / DESIGN_WIDTH;
       const sy = availableHeight / effectiveHeight;
-      setScale(Math.min(sx, sy, 1));
+      // No `1` cap: on monitors wider/taller than the 1680×900 design
+      // canvas we want the board to scale UP and fill the viewport
+      // rather than leaving dead gutter on the sides. The limiting
+      // axis still wins, so the canvas always fits without scrollbars.
+      setScale(Math.min(sx, sy));
       setContentH(effectiveHeight);
     };
     update();
