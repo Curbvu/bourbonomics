@@ -102,8 +102,21 @@ import {
 // these fields and `state.bourbonFaceUp` would still be present —
 // any component that reads it would crash. New key forces a clean
 // slate for anyone with a pre-v2.14 save.
-const STORAGE_KEY = "bourbonomics:v2.14.0-game";
+// v3.5 — bumped from the long-running v2.14 key because the
+// PlayerState shape changed in three load-bearing ways since:
+//   - v3.3 renamed `reputation` → `capital` and added a new
+//     `reputation` field (end-game accumulator).
+//   - v3.4 added `tags` to MashBill and Bottle, plus
+//     `firstSaleOfRoundPending` on PlayerState.
+//   - v3.5 removed `savedCard` and added `warehouseSlot`,
+//     `warehouseUnlocked`, and `investments` on PlayerState.
+//
+// `loadAndMigrate()` below tries the new key first, then walks
+// back through the prior keys and forward-migrates the shape so
+// in-flight games survive the upgrade.
+const STORAGE_KEY = "bourbonomics:v3.5.0-game";
 const AUTOPLAY_KEY = "bourbonomics:v2.14.0-autoplay";
+const LEGACY_GAME_KEYS = ["bourbonomics:v2.14.0-game"];
 const AUTO_STEP_MS = 280;
 
 // `NewGameSeat` and `NewGameConfig` now live in `@bourbonomics/engine`
@@ -146,6 +159,108 @@ export interface SaleOutcome {
  * card-shape renderer to use. Click handlers in MarketCenter / HandTray
  * call `setInspect` with one of these.
  */
+/**
+ * v3.5 — Load a saved game blob, forward-migrating its shape if it
+ * was written under a legacy key. Returns null when nothing's
+ * persisted or the blob is unreadable.
+ *
+ * Migration rules applied (in order):
+ *   1. v3.5: drop `savedCard` from every player; if it held a card,
+ *      push that card onto the player's `hand`.
+ *      Initialize `warehouseSlot` to null, `warehouseUnlocked` to
+ *      false, `investments` to [] on every player.
+ *   2. v3.4: ensure every MashBill/Bottle carries a `tags` array
+ *      (older saves pre-date the tag taxonomy — empty array is the
+ *      safe default; the v3.4 tests don't care about persisted tag
+ *      sets and the next sale recomputes them at the catalog edge
+ *      via `deriveBillTags`).
+ *      Add `firstSaleOfRoundPending: true` on every player so the
+ *      Vanilla bump fires correctly on the round after load.
+ *   3. v3.3: rename `reputation` → `capital`; add a fresh
+ *      `reputation: 0` (end-game accumulator).
+ *      Add the `capital` / `reputation` split on ScoreResult is a
+ *      runtime computation; legacy `ScoreResult` blobs aren't
+ *      persisted in the live store, so no migration is needed here.
+ *
+ * After migration the blob is re-saved under the v3.5 key and the
+ * legacy keys are cleaned up. Re-saves happen via the normal
+ * persistence effect (next setStore() write), so this function
+ * just returns the migrated payload.
+ */
+type PersistedBlob = {
+  state: GameState;
+  log: LogEntry[];
+  seatMeta: AtomicStore["seatMeta"];
+};
+function loadAndMigrate(): PersistedBlob | null {
+  // Try the current key first.
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const blob = JSON.parse(raw) as PersistedBlob;
+      return migrateBlob(blob);
+    }
+  } catch {
+    // ignore — fall through to legacy probe.
+  }
+  for (const legacyKey of LEGACY_GAME_KEYS) {
+    try {
+      const raw = window.localStorage.getItem(legacyKey);
+      if (!raw) continue;
+      const blob = JSON.parse(raw) as PersistedBlob;
+      const migrated = migrateBlob(blob);
+      // Drop the legacy key so the next save doesn't double-write.
+      try {
+        window.localStorage.removeItem(legacyKey);
+      } catch {
+        // ignore quota / private-mode failures.
+      }
+      return migrated;
+    } catch {
+      // continue probing.
+    }
+  }
+  return null;
+}
+
+function migrateBlob(blob: PersistedBlob): PersistedBlob {
+  if (!blob?.state?.players) return blob;
+  const state = blob.state as GameState & {
+    players: Array<{
+      // Legacy / shifting fields the migration touches.
+      savedCard?: Card | null;
+      reputation?: number;
+      capital?: number;
+      warehouseSlot?: Card | null;
+      warehouseUnlocked?: boolean;
+      investments?: unknown[];
+      firstSaleOfRoundPending?: boolean;
+      hand?: Card[];
+    }>;
+  };
+  for (const p of state.players) {
+    // v3.5 — Save Slot → Warehouse
+    if (p.savedCard) {
+      p.hand = [...(p.hand ?? []), p.savedCard];
+    }
+    delete p.savedCard;
+    if (p.warehouseSlot === undefined) p.warehouseSlot = null;
+    if (p.warehouseUnlocked === undefined) p.warehouseUnlocked = false;
+    if (!Array.isArray(p.investments)) p.investments = [];
+    // v3.4 — first-sale flag (default true; cleanup re-arms anyway
+    // for Vanilla players)
+    if (p.firstSaleOfRoundPending === undefined) p.firstSaleOfRoundPending = true;
+    // v3.3 — reputation field repurposed; reputation as Capital
+    // becomes `capital`. Pre-v3.3 blobs have `reputation` only; new
+    // `reputation` field starts at 0 (end-game accumulator).
+    if (p.capital === undefined && typeof p.reputation === "number") {
+      p.capital = p.reputation;
+      p.reputation = 0;
+    }
+  }
+  return blob;
+}
+
 /**
  * Map an engine action type to a player-facing title for toasts.
  * Generic verb leads with "Couldn't…" so the user reads the cause
@@ -815,13 +930,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as {
-          state: GameState;
-          log: LogEntry[];
-          seatMeta: AtomicStore["seatMeta"];
-        };
+      const saved = loadAndMigrate();
+      if (saved) {
         setStore({
           state: saved.state,
           log: saved.log ?? [],

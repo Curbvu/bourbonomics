@@ -67,11 +67,19 @@ export function buildStarterMashBill(key: StarterBillKey, instance: number): Mas
 }
 
 // ============================================================
-// Investment catalog — wired up but display-only. Cards appear in the
-// Investments row of the market and in the Card Inspect modal, but the
-// engine does not resolve their effects yet (every entry has
-// `implemented: false`). When the mechanic ships, flip the flag and add
-// resolution to the relevant phase handler.
+// Investment catalog — v3.5 "Investment Rebuild."
+//
+// 32 cards distributed 8 small / 13 medium / 11 large, grounded in
+// real-world distillery capital expenditures: stills, mash tuns,
+// fermenters, warehouses, cooperages, climate control, bottling
+// lines, visitor centers, sales offices, marketing departments.
+//
+// All entries are `implemented: false` for v3.5. They appear in the
+// market and the Card Inspect modal but the engine does not yet
+// resolve their effects — the v3.6 wave wires effect resolution
+// per category (on_sell bonuses, on_make refunds, on_buy_market
+// discounts, passive_permanent flags, …). The ONLY on-buy effect
+// that fires today is the Warehouse unlock (see buy-from-market.ts).
 //
 // Source of truth: `packages/engine/content/investments.yaml`. Keep
 // the YAML and this catalog in sync by hand until a build script lands.
@@ -79,7 +87,7 @@ export function buildStarterMashBill(key: StarterBillKey, instance: number): Mas
 
 export function defaultInvestmentCatalog(): InvestmentCard[] {
   const specs: Omit<InvestmentCard, "id">[] = [
-    // ───────────── Small (cost 2-4) ─────────────
+    // ─────────────── Small (cost 3–4) ───────────────
     {
       defId: "tasting_room",
       name: "Tasting Room",
@@ -89,10 +97,10 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       triggers: ["on_sell"],
       archetype: "patience",
       rateLimited: false,
-      short: "Reward the patient sale",
-      text: "When you sell a barrel age 5 or older, gain +2 reputation.",
+      short: "Patient sales pay extra",
+      text: "When you sell a barrel aged 5 or older, gain +1 Capital.",
       description:
-        "A small but reliable bonus for patient cellar play. Cheap because the age-5 gate is hard to satisfy early — a freshly-completed barrel needs three rounds of aging before this card pays out at all.",
+        "Reliable small bonus for patient cellar play. Pairs with Vintage Reserve and Tasting Notes. Repriced from the v3.4 catalog (3→4) and per-sale value (2→1).",
       implemented: false,
     },
     {
@@ -108,55 +116,151 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       short: "First grain refunds a card",
       text: "The first time each round you commit any grain card to a barrel, draw 1 card.",
       description:
-        "A modest deck-cycling engine for production-heavy players. Once per round, your first grain commitment pays you back a card — slightly offsetting the holding cost of running multiple barrels in parallel.",
+        "Deck-cycling engine for production-heavy players. Once per round, your first grain commitment pays you back a card — slightly offsetting the holding cost of running multiple barrels in parallel.",
       implemented: false,
     },
     {
-      defId: "distillers_guild",
-      name: "Distiller's Guild",
+      defId: "tasting_notes",
+      name: "Tasting Notes",
+      cost: 3,
+      tier: "small",
+      category: "deck",
+      triggers: ["on_sell"],
+      archetype: "engine",
+      rateLimited: false,
+      short: "Reward placement over inventory",
+      text: "When you sell a barrel AND place the resulting bottle on a portfolio slot, draw 2 cards. If the bottle goes to inventory instead, draw 1 card.",
+      description:
+        "Pushes against the 'stash everything in inventory' pattern. Direct portfolio interaction — the only Small-tier card that touches the v3.2 portfolio system.",
+      implemented: false,
+    },
+    {
+      defId: "field_office",
+      name: "Field Office",
+      cost: 4,
+      tier: "small",
+      category: "info",
+      triggers: ["on_purchase"],
+      archetype: "flex",
+      rateLimited: false,
+      short: "Scout the secondary pool",
+      text: "On purchase, look at every face-up secondary portfolio's full slot table. Reveal any one to all players (the rest stay your private knowledge until they're drafted).",
+      description:
+        "Information card for second-portfolio meta. Asymmetric — you know more, you control disclosure.",
+      implemented: false,
+    },
+    {
+      defId: "warehouse",
+      name: "Warehouse",
       cost: 4,
       tier: "small",
       category: "deck",
-      triggers: ["on_complete_recipe"],
-      archetype: "engine",
+      triggers: ["passive_permanent"],
+      archetype: "flex",
       rateLimited: false,
-      short: "Draw on completion",
-      text: "Whenever one of your barrels completes its recipe and enters the aging phase, draw 1 card.",
+      short: "Carry one card between rounds",
+      text:
+        "On purchase, gain a private Warehouse slot. At any time during your turn, you may set aside one card from your hand into your Warehouse. The Warehouse holds at most one card. The stored card persists across rounds and is not discarded at End Turn. On any future turn, you may move the Warehouse card back into your hand as a free action.",
       description:
-        "Pays builders. Where Grain Contract refunds the first grain each round, Distiller's Guild fires every time a recipe satisfies — pairs naturally with multi-bill production pushes and Allocation.",
+        "The only persistent-card-storage option in v3.5 — the free Save Slot is gone. Every player will want one. The Warehouse unlock fires immediately on buy (see PlayerState.warehouseUnlocked); the in/out flow lands with the v3.6 effect wave.",
+      implemented: false,
+    },
+    {
+      defId: "visitor_center",
+      name: "Visitor Center",
+      cost: 4,
+      tier: "small",
+      category: "sales",
+      triggers: ["on_sell"],
+      archetype: "flex",
+      rateLimited: false,
+      short: "Tourists buy bottles",
+      text:
+        "When you sell a barrel, gain +1 Capital. If the barrel's source bill carries the `gold-eligible` or `silver-eligible` tag, gain +2 Capital instead.",
+      description:
+        "Tag-aware (v3.4). Bourbon tourism is real revenue. Pays on every sale regardless of age; bigger payoff on award-eligible bills.",
+      implemented: false,
+    },
+    {
+      defId: "rail_spur",
+      name: "Rail Spur",
+      cost: 3,
+      tier: "small",
+      category: "market",
+      triggers: ["on_buy_market"],
+      archetype: "tempo",
+      rateLimited: true,
+      rateLimitScope: "1/round",
+      short: "Direct shipments",
+      text: "The first market purchase you make each round costs 1 less Capital (floor 1).",
+      description:
+        "Persistent buy discount. Works on any market card.",
+      implemented: false,
+    },
+    {
+      defId: "cellar_foreman",
+      name: "Cellar Foreman",
+      cost: 4,
+      tier: "small",
+      category: "deck",
+      triggers: ["turn_start"],
+      archetype: "flex",
+      rateLimited: true,
+      rateLimitScope: "1/round",
+      short: "Draw before aging",
+      text: "At the start of your turn, after rolling demand but before paying aging costs, draw 1 card. Once per round.",
+      description:
+        "Repurposed in v3.5 from a broken 'skip aging' design. Aging cards ARE age (v3.5 invariant), so no card can advance age without committing one. Cellar Foreman now pays a small draw instead — helps cover aging commits.",
       implemented: false,
     },
 
-    // ───────────── Medium (cost 5-8) ─────────────
+    // ─────────────── Medium (cost 5–8) ───────────────
     {
-      defId: "cooperage",
-      name: "Cooperage",
+      defId: "marketing_department",
+      name: "Marketing Department",
       cost: 5,
       tier: "medium",
-      category: "deck",
-      triggers: ["on_make"],
-      archetype: "volume",
+      category: "demand",
+      triggers: ["turn_start"],
+      archetype: "flex",
       rateLimited: true,
       rateLimitScope: "1/round",
-      short: "First cask refunds a card",
-      text: "The first time each round you commit any cask card to a barrel, draw 1 card.",
+      short: "Reroll one demand die",
+      text: "At the start of your turn, after rolling your 2d6 demand roll, you may reroll one of the two dice. Once per round.",
       description:
-        "Cask-side counterpart to Grain Contract. Casks are scarce — every production cycle uses one — so Cooperage rewards the player going wide on barrels.",
+        "Smooths variance on the demand check that opens your turn. Useful for hot-market specialists who need a specific demand to fire their on-sell bonuses.",
       implemented: false,
     },
     {
-      defId: "master_distiller",
-      name: "Master Distiller",
+      defId: "trade_lobby",
+      name: "Trade Lobby",
       cost: 6,
       tier: "medium",
-      category: "sales",
-      triggers: ["round_end"],
-      archetype: "patience",
-      rateLimited: false,
-      short: "Old barrels pay rent",
-      text: "At end of each round, gain +1 reputation for each of your aging barrels age 10 or older.",
+      category: "demand",
+      triggers: ["turn_start"],
+      archetype: "flex",
+      rateLimited: true,
+      rateLimitScope: "1/round",
+      short: "Nudge demand each round",
+      text: "At the start of your turn, after rolling demand, you may shift demand by ±1 (your choice). Once per round.",
       description:
-        "Persistent patience reward. The age-10 gate is intentionally severe — by the time a barrel hits 10, the player has already paid 8+ aging cards for it. This card is the answer to 'what do I do with this hoard of old barrels' for players running the patient long-hold strategy.",
+        "Direct demand control. Asymmetric — only the owner gets the nudge.",
+      implemented: false,
+    },
+    {
+      defId: "distillery_tour_program",
+      name: "Distillery Tour Program",
+      cost: 6,
+      tier: "medium",
+      category: "demand",
+      triggers: ["passive_permanent"],
+      archetype: "flex",
+      rateLimited: false,
+      short: "Personal demand floor of 4",
+      text:
+        "For all of your own bourbon sales and grid lookups, treat current demand as 4 if it would otherwise be lower. Other players' sales and demand interactions are unaffected.",
+      description:
+        "Asymmetric, single-player benefit. Doesn't modify the shared demand track. Repurposed in v3.5 from a clunkier draft.",
       implemented: false,
     },
     {
@@ -168,42 +272,335 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       triggers: ["on_sell"],
       archetype: "tempo",
       rateLimited: false,
-      short: "Hot markets pay double",
-      text: "When you sell at demand 8 or higher, gain +3 reputation, AND demand drops by 0 instead of 1 from your sale.",
+      short: "Hot markets pay extra",
+      text: "When you sell at demand 8 or higher, gain +3 Capital. Demand does not drop from your sale.",
       description:
         "A boom-time amplifier. Sells into hot markets are already the best sales — Hedge Fund makes them dramatically better, and prevents the usual 'selling tanks demand' feedback loop. Useless if you sell into low markets.",
       implemented: false,
     },
+    {
+      defId: "rd_department",
+      name: "R&D Department",
+      cost: 8,
+      tier: "medium",
+      category: "market",
+      triggers: ["on_buy_market"],
+      archetype: "specialty",
+      rateLimited: false,
+      short: "Specialty cards, half off",
+      text:
+        "When you buy a Specialty or Heritage card from the market, that card costs 1 less Capital (floor 1).",
+      description:
+        "v3.5 simplification — the old 'plus to hand' clause is redundant now that all market purchases route to hand by default. Only the Capital discount remains.",
+      implemented: false,
+    },
+    {
+      defId: "master_blender",
+      name: "Master Blender",
+      cost: 7,
+      tier: "medium",
+      category: "production",
+      triggers: ["on_make"],
+      archetype: "flex",
+      rateLimited: false,
+      short: "Corn extremes pay off",
+      text:
+        "When you complete a recipe with committed corn count ≤ 2 or ≥ 5, gain +2 Capital and +1 Reputation. The +1 Reputation banks immediately and is not subject to portfolio scoring.",
+      description:
+        "One of two cards in the catalog that pays Reputation directly (the other is the endgame trio). Plays into the corn-extreme tags (`corn-light` / `corn-heavy`).",
+      implemented: false,
+    },
+    {
+      defId: "estate_bottling",
+      name: "Estate Bottling",
+      cost: 8,
+      tier: "medium",
+      category: "endgame",
+      triggers: ["on_purchase", "passive_permanent"],
+      archetype: "engine",
+      rateLimited: false,
+      short: "Make secondaries safer",
+      text:
+        "On purchase: the next time you take the Draft Second Portfolio action, it costs 0 Generic Labor instead of 1. For the rest of the game, your second portfolio's failure penalty is reduced to 1 Reputation per unfilled required slot (cap −5 instead of −10).",
+      description:
+        "Dedicated second-portfolio enabler. Mandatory for Vanilla's flagship Mastery, which requires a second portfolio. The free draft is a one-shot; the reduced penalty is permanent.",
+      implemented: false,
+    },
+    {
+      defId: "heritage_cooperage",
+      name: "Heritage Cooperage",
+      cost: 7,
+      tier: "medium",
+      category: "production",
+      triggers: ["on_sell"],
+      archetype: "specialty",
+      rateLimited: false,
+      short: "Heritage commits return on sale",
+      text:
+        "When you sell a barrel whose completed recipe used at least one Heritage card, return all Heritage cards from that barrel to your hand instead of to discard.",
+      description:
+        "Heritage recycling. Renamed from 'Heritage Cellars' in v3.5 for thematic accuracy — a cooperage builds casks, which is where the Heritage component lives.",
+      implemented: false,
+    },
+    {
+      defId: "bottling_line",
+      name: "Bottling Line",
+      cost: 8,
+      tier: "medium",
+      category: "sales",
+      triggers: ["on_sell"],
+      archetype: "engine",
+      rateLimited: true,
+      rateLimitScope: "1/round",
+      short: "Reclaim your cask",
+      text:
+        "The first time each round you sell a barrel, return the cask card from that barrel to your hand instead of your discard.",
+      description:
+        "Cask-recycling engine. Pairs with Cooperage (which refunds the first cask commit each round) for tight cask economy.",
+      implemented: false,
+    },
+    {
+      defId: "yeast_lab",
+      name: "Yeast Lab",
+      cost: 6,
+      tier: "medium",
+      category: "production",
+      triggers: ["on_make"],
+      archetype: "patience",
+      rateLimited: true,
+      rateLimitScope: "1/round",
+      short: "Reliable fermentation",
+      text:
+        "The first time each round you complete a recipe (the barrel transitions from Building to Aging), draw 2 cards.",
+      description:
+        "Pays the completion moment, not the commit moment — rewards finishing recipes rather than starting them.",
+      implemented: false,
+    },
+    {
+      defId: "bottling_plant",
+      name: "Bottling Plant",
+      cost: 7,
+      tier: "medium",
+      category: "sales",
+      triggers: ["on_sell"],
+      archetype: "volume",
+      rateLimited: false,
+      short: "Streamlined operations",
+      text: "When you sell a barrel, draw 1 card and gain +1 Capital. No round limit.",
+      description:
+        "Steady sales engine — pays per barrel, every barrel, no gates. The volume-archetype workhorse at this price point.",
+      implemented: false,
+    },
+    {
+      defId: "sales_office",
+      name: "Sales Office",
+      cost: 7,
+      tier: "medium",
+      category: "market",
+      triggers: ["turn_start"],
+      archetype: "flex",
+      rateLimited: true,
+      rateLimitScope: "1/round",
+      short: "Pre-market briefing",
+      text:
+        "At the start of your turn, look at the top 3 cards of the market supply deck. You may rearrange them or discard one (refill from supply if discarded). Once per round.",
+      description:
+        "Information + light control over the market refresh. Useful for timing a Specialty/Heritage drop.",
+      implemented: false,
+    },
+    {
+      defId: "rickhouse_office",
+      name: "Rickhouse Office",
+      cost: 6,
+      tier: "medium",
+      category: "deck",
+      triggers: ["turn_start"],
+      archetype: "tempo",
+      rateLimited: true,
+      rateLimitScope: "1/round",
+      short: "Draw two before aging",
+      text: "At the start of your turn, after rolling demand but before paying aging costs, draw 2 cards. Once per round.",
+      description:
+        "Repurposed in v3.5 from a broken 'skip aging' design — under the v3.5 invariant, aging cards ARE age. Rickhouse Office now buys you the cards to pay the cost, two at a time. Steeper price than Cellar Foreman; doubled draw.",
+      implemented: false,
+    },
+    {
+      defId: "cooperage",
+      name: "Cooperage",
+      cost: 6,
+      tier: "medium",
+      category: "production",
+      triggers: ["on_make"],
+      archetype: "engine",
+      rateLimited: true,
+      rateLimitScope: "1/round",
+      short: "First cask, free",
+      text:
+        "The first time each round you commit any cask card (Common, Specialty, or Heritage) to a barrel, return that cask to your hand instead of locking it with the barrel.",
+      description:
+        "Cask-side engine — the cask is literally not spent on the first commit. Pairs with Bottling Line for double cask recycling.",
+      implemented: false,
+    },
+    {
+      defId: "climate_controlled_warehouse",
+      name: "Climate-Controlled Warehouse",
+      cost: 7,
+      tier: "medium",
+      category: "aging",
+      triggers: ["on_purchase", "passive_permanent"],
+      archetype: "patience",
+      rateLimited: false,
+      short: "Consistent aging, no surprises",
+      text:
+        "On purchase, designate one of your slots as 'climate-controlled.' Barrels in this slot are immune to ops cards that target aging negatively (Regulatory Inspection, Forced Cure, others). Other players cannot interfere with this slot's aging.",
+      description:
+        "Real-world AC warehouses are a controversial industry move — they produce more consistent but arguably less complex bourbon. In game terms: defensive immunity.",
+      implemented: false,
+    },
 
-    // ───────────── Large (cost 8-15) ─────────────
+    // ─────────────── Large (cost 9–15) ───────────────
     {
       defId: "brand_ambassador",
       name: "Brand Ambassador",
-      cost: 8,
+      cost: 9,
       tier: "large",
       category: "sales",
       triggers: ["on_purchase", "passive_permanent"],
       archetype: "patience",
       rateLimited: false,
       short: "One barrel reads +2 demand",
-      text: "On purchase, choose one of your aging barrels. For the rest of the game, that specific barrel reads its grid as if demand were +2 when sold.",
+      text:
+        "On purchase, choose one of your aging barrels. For the rest of the game, that specific barrel reads its grid as if demand were +2 when sold.",
       description:
-        "A strong pick for patient players who plan to age a single high-value barrel for many rounds.",
+        "Strong pick for patient players who plan to age a single high-value barrel for many rounds.",
+      implemented: false,
+    },
+    {
+      defId: "premium_label",
+      name: "Premium Label",
+      cost: 10,
+      tier: "large",
+      category: "sales",
+      triggers: ["on_sell"],
+      archetype: "specialty",
+      rateLimited: false,
+      short: "Specialty barrels pay extra",
+      text:
+        "When you sell a barrel containing 2 or more Specialty or Heritage cards, gain +3 Capital.",
+      description:
+        "Rewards specialty-heavy production lines. Stacks per sale.",
+      implemented: false,
+    },
+    {
+      defId: "aging_warehouse",
+      name: "Aging Warehouse",
+      cost: 11,
+      tier: "large",
+      category: "slots",
+      triggers: ["on_purchase"],
+      archetype: "engine",
+      rateLimited: false,
+      short: "+1 permanent rickhouse slot",
+      text:
+        "Permanently +1 rickhouse slot (max 6, stacks with Rickhouse Expansion Permit and similar effects).",
+      description:
+        "Renamed from 'Land Acquisition' in v3.5 for thematic accuracy — actual physical warehouses, not real estate plays.",
       implemented: false,
     },
     {
       defId: "bonded_warehouse",
       name: "Bonded Warehouse",
-      cost: 10,
+      cost: 12,
       tier: "large",
       category: "aging",
-      triggers: ["on_purchase", "on_age"],
-      archetype: "engine",
+      triggers: ["on_purchase", "passive_permanent"],
+      archetype: "patience",
       rateLimited: false,
-      short: "Aging refunds in one slot",
-      text: "On purchase, designate one of your slots as 'bonded.' Whenever you commit an aging card to a barrel in the bonded slot, draw 1 card.",
+      short: "Bonded slot returns aging cards",
+      text:
+        "On purchase, designate one of your slots as 'bonded.' When a barrel in the bonded slot sells, all aging cards committed to it return to your hand instead of going to discard.",
       description:
-        "Doesn't break the aging-card economy — the aging card is still spent. But it refunds the tempo cost, so the bonded slot becomes the home for your long-hold barrels. Pairs with Master Distiller and Tasting Room.",
+        "Repurposed in v3.5 from a broken 'auto-age' draft. Now an aging-card recycler — every long-hold barrel in the bonded slot pays back its aging cost on sale.",
+      implemented: false,
+    },
+    {
+      defId: "vintage_reserve",
+      name: "Vintage Reserve",
+      cost: 13,
+      tier: "large",
+      category: "sales",
+      triggers: ["on_sell"],
+      archetype: "patience",
+      rateLimited: false,
+      short: "Triple grid at age 7+",
+      text:
+        "When you sell a barrel age 7 or older, triple the grid value of that sale (applied before tier-floor clamping).",
+      description:
+        "Late-game patience payoff. The grid value gets tripled BEFORE the tier floor clamps, so high-grid bills benefit; low-grid bills still floor.",
+      implemented: false,
+    },
+    {
+      defId: "bourbon_hall_of_fame",
+      name: "Bourbon Hall of Fame",
+      cost: 15,
+      tier: "large",
+      category: "endgame",
+      triggers: ["final_scoring"],
+      archetype: "flex",
+      rateLimited: false,
+      short: "+1 Reputation per distinct bill sold",
+      text:
+        "At the end of the game, gain +1 Reputation per distinct mash bill name you sold during the game (cap +6 Reputation).",
+      description:
+        "End-game scoring card. Rewards diversification across distinct bills rather than repetition of one bill.",
+      implemented: false,
+    },
+    {
+      defId: "master_distiller",
+      name: "Master Distiller",
+      cost: 12,
+      tier: "large",
+      category: "production",
+      triggers: ["passive_permanent"],
+      archetype: "patience",
+      rateLimited: false,
+      short: "Your bills' tags expand",
+      text:
+        "On purchase, choose any one tag from: `wheated`, `rye-heavy`, `single-grain`, `triple-grain`. For the rest of the game, every barrel you complete is treated as if its source bill carried that tag for slot eligibility, Brand Restriction, and Mastery Condition purposes.",
+      description:
+        "Tag-expansion engine (v3.4). Lets a high-rye player pretend to be wheated for slot purposes, etc. The chosen tag is locked at purchase.",
+      implemented: false,
+    },
+    {
+      defId: "column_still",
+      name: "Column Still",
+      cost: 10,
+      tier: "large",
+      category: "production",
+      triggers: ["on_make"],
+      archetype: "volume",
+      rateLimited: false,
+      short: "Industrial-scale production",
+      text:
+        "When you Make Bourbon, you may commit to up to TWO different Staged or Building slots in a single Make Bourbon action (your commit cards split across the two slots however you choose).",
+      description:
+        "Renamed from 'Distillery Expansion' in v3.5. A column still is the real-world large-scale production unit — pairs with multi-bill build pushes.",
+      implemented: false,
+    },
+    {
+      defId: "climate_controlled_rickhouse",
+      name: "Climate-Controlled Rickhouse",
+      cost: 12,
+      tier: "large",
+      category: "aging",
+      triggers: ["on_purchase", "passive_permanent"],
+      archetype: "patience",
+      rateLimited: false,
+      short: "All slots immune to aging interference",
+      text:
+        "All of your rickhouse slots are treated as climate-controlled — barrels in any of your slots are immune to ops cards that target aging negatively (Regulatory Inspection, Forced Cure, others).",
+      description:
+        "All-slots scaled version of Climate-Controlled Warehouse. Defensive blockbuster.",
       implemented: false,
     },
   ];

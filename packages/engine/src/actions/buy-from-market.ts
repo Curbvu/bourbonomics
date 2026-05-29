@@ -137,14 +137,34 @@ export function applyBuyFromMarket(
   for (const c of spentLabor) applySpendEffect(player, c);
   player.discard.push(...spentLabor);
 
-  // The bought card lands directly in the player's hand so it can be
-  // used this turn. End Turn (v3.9) discards everything in hand and
-  // redraws, so a card bought and unspent naturally cycles into the
-  // deck at turn end. (For investment cards, the on-buy effect is a
-  // no-op today — the spec is `implemented: false` across the catalog;
-  // the Card sits in hand so the player can still see what they
-  // bought.)
-  player.hand.push(purchased);
+  // v3.5 — routing:
+  //   - resources / Specialty Labor → hand (used this turn or
+  //     cycled to discard at End Turn).
+  //   - investments → straight to `player.investments` (never
+  //     touches `hand`). On-purchase effects fire immediately and
+  //     passive_permanent triggers stay registered for the rest of
+  //     the game. The v3.5 catalog is `implemented: false` end to
+  //     end, so the storage is dormant until the v3.6 effect wave.
+  //
+  //     We picked Option (a) from the brief — direct placement,
+  //     never hand — because the round-trip through hand would
+  //     create a one-frame window where the card is selectable as
+  //     "in hand" (and could be saved to Warehouse, traded, etc.),
+  //     none of which makes sense for an investment.
+  if (purchased.type === "investment" && purchased.investmentSpec) {
+    player.investments.push({
+      ...purchased.investmentSpec,
+      id: `inv_owned_${purchased.investmentSpec.defId}_${draft.idCounter++}`,
+    });
+    // Side-effect: if this investment is the Warehouse, engage the
+    // player's warehouse slot. Effects are `implemented: false` in
+    // v3.5, so this flag is the *only* on-buy side effect today.
+    if (purchased.investmentSpec.defId === "warehouse") {
+      player.warehouseUnlocked = true;
+    }
+  } else {
+    player.hand.push(purchased);
+  }
 
   // Consume the Insider Buyer half-cost flag (one shot).
   player.pendingHalfCostMarketBuy = false;

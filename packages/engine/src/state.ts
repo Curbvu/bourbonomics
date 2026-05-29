@@ -109,8 +109,10 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
 
   // v3.9: discard the held resource + Labor hand and redraw 8 fresh
   // cards. Operations cards live in `operationsHand` and aren't
-  // touched. We pull the saved card (if any) on top, mirroring the
-  // round-start draw path.
+  // touched. v3.5: the free Save Slot is gone — the Warehouse
+  // investment card carries one card across this boundary instead
+  // (and effects are `implemented: false`, so even the Warehouse
+  // path doesn't fire here yet; see v3.6 wave).
   if (player.hand.length > 0) {
     player.discard.push(...player.hand);
     player.hand = [];
@@ -125,10 +127,6 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
   player.deck = result.deck;
   player.discard = result.discard;
   draft.rngState = result.rngState;
-  if (player.savedCard) {
-    player.hand.push(player.savedCard);
-    player.savedCard = null;
-  }
 
   if (actionPhaseComplete(draft)) {
     runCleanupPhase(draft);
@@ -171,8 +169,9 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
     if (p.distillery?.bonus === "vanilla") {
       p.firstSaleOfRoundPending = true;
     }
-    // savedCard intentionally NOT cleared — it carries into
-    // next round's draw (see DRAW_HAND apply).
+    // v3.5: warehouseSlot intentionally NOT cleared — the
+    // Warehouse investment carries one card across rounds. Effects
+    // are `implemented: false` in v3.5 so this is dormant storage.
   }
 
   for (const b of draft.allBarrels) {

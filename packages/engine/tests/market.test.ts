@@ -10,10 +10,14 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
   it("happy path: pays rep, purchased card lands in hand, market refills", () => {
     let state = makeTestGame();
     state = advanceToActionPhase(state);
-    // The unified market mixes types — pick the first non-operations
-    // slot since BUY_FROM_MARKET rejects ops targets (those use
-    // BUY_OPERATIONS_CARD).
-    const slotIndex = state.market.findIndex((c) => c.type !== "operations");
+    // The unified market mixes types — pick the first
+    // resource/labor slot. BUY_FROM_MARKET rejects ops targets
+    // (those use BUY_OPERATIONS_CARD); v3.5 routes investments
+    // directly to `player.investments`, never via hand, so they
+    // don't satisfy "lands in hand" either.
+    const slotIndex = state.market.findIndex(
+      (c) => c.type !== "operations" && c.type !== "investment",
+    );
     expect(slotIndex).toBeGreaterThanOrEqual(0);
     const purchased = state.market[slotIndex]!;
     const cost = purchased.cost ?? 1;
@@ -240,7 +244,13 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.capital).toBe(0);
     expect(p1.discard.some((c) => c.id === architect.id)).toBe(true);
-    expect(p1.hand.some((c) => c.id === target.id)).toBe(true);
+    // v3.5: investments route directly to `player.investments` —
+    // they never sit in hand. The bought spec is matched by defId
+    // since the engine mints a fresh `inv_owned_*` instance id.
+    const expectedDefId = target.investmentSpec?.defId;
+    expect(expectedDefId).toBeDefined();
+    expect(p1.investments.some((i) => i.defId === expectedDefId)).toBe(true);
+    expect(p1.hand.some((c) => c.id === target.id)).toBe(false);
   });
 
   it("BUY_FROM_MARKET accepts an investment-type target (effect-pending stub)", () => {
@@ -260,8 +270,11 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
       laborCardIds: [],
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    // Cost paid, card moved to hand, market refilled (or empty).
-    expect(p1.hand.some((c) => c.id === target.id)).toBe(true);
+    // v3.5: cost paid; investment routes directly to
+    // `player.investments` (never via hand); market slot vacated.
+    const expectedDefId = target.investmentSpec?.defId;
+    expect(p1.investments.some((i) => i.defId === expectedDefId)).toBe(true);
+    expect(p1.hand.some((c) => c.id === target.id)).toBe(false);
     expect(state.market.every((c) => c.id !== target.id)).toBe(true);
   });
 

@@ -26,8 +26,15 @@ describe("initializeGame", () => {
       expect(p.capital).toBe(5);
       expect(p.reputation).toBe(0);
       expect(p.handSize).toBe(8);
-      // Save slot starts empty — no Labor seed.
-      expect(p.savedCard).toBeNull();
+      // v3.5: free Save Slot removed. Warehouse slot starts empty
+      // and locked; engages only after the Warehouse investment is
+      // purchased (effects are `implemented: false` in v3.5, so the
+      // unlock path is dormant — the field is the storage shape).
+      expect(p.warehouseSlot).toBeNull();
+      expect(p.warehouseUnlocked).toBe(false);
+      // v3.5: investments start empty; bought investments transfer
+      // here directly at BUY_FROM_MARKET (never via hand).
+      expect(p.investments).toEqual([]);
     }
   });
 

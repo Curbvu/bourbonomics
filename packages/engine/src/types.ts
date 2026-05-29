@@ -1061,12 +1061,37 @@ export interface PlayerState {
   prestige: number;
 
   /**
-   * Save slot — at cleanup, the player may set aside ONE card
-   * from their hand into this slot. The saved card joins next round's
-   * 8-card draw on top, so the player effectively draws 9 the round
-   * after a Save. Holds at most one card; null when empty.
+   * v3.5 — Warehouse slot. Engages only after the player buys the
+   * Warehouse investment card; until then this stays null and any
+   * SET_WAREHOUSE attempt is invalid. While `warehouseUnlocked` is
+   * true, the slot holds at most one card; the stored card persists
+   * across End Turn (the v3.9 discard-and-redraw) and round
+   * cleanup, and the player can pull it back to hand at any time.
+   *
+   * Replaces the v3.4 free Save Slot — every player previously had
+   * one regardless of distillery / investments. v3.5 removes that
+   * default; the Warehouse investment is now the only persistent-
+   * card-storage option.
    */
-  savedCard: Card | null;
+  warehouseSlot: Card | null;
+  /**
+   * v3.5 — True once the player has purchased the Warehouse
+   * investment. Drives both the Warehouse slot's activation AND the
+   * client UI's visibility. Effects are `implemented: false` in the
+   * v3.5 catalog, so this flag is dormant until the v3.6 wave wires
+   * effect resolution.
+   */
+  warehouseUnlocked: boolean;
+  /**
+   * v3.5 — Investment cards the player has bought. Bought
+   * investments transfer directly here at BUY_FROM_MARKET apply
+   * (they never sit in `hand`); their on-purchase effects fire
+   * immediately and any passive_permanent triggers stay registered
+   * for the rest of the game. Engine resolution is deferred — every
+   * v3.5 catalog entry is `implemented: false`; this field is the
+   * storage shape the v3.6 wave reads against.
+   */
+  investments: InvestmentCard[];
 
   outForRound: boolean;                     // hand exhausted in current action phase
 
@@ -1644,14 +1669,6 @@ export type GameAction =
       playerId: string;
       cardId: string;
     } & PlayOperationsCardParams)
-  | {
-      // At cleanup, set aside one card from your hand into the Save
-      // slot. Saved card joins next round's draw on top of the 8-card
-      // deal. Only one card may be saved at a time.
-      type: "SAVE_CARD";
-      playerId: string;
-      cardId: string;
-    }
   | { type: "PASS_TURN"; playerId: string }
   | {
       // v3.0 Line system — resolve the pending bottle placement set

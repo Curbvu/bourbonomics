@@ -115,9 +115,16 @@ export function initializeGame(config: GameConfig): GameState {
       // permanently by Gold awards on sale; +1 Capital on every
       // future Silver/Gold-triggering sale.
       prestige: 0,
-      // Save slot starts empty. Carries one card across the
-      // cleanup boundary when used.
-      savedCard: null,
+      // v3.5 — Warehouse slot starts empty and locked. Only
+      // engages once the player buys the Warehouse investment card
+      // (effects are `implemented: false` in v3.5, so the unlock
+      // path is wired for v3.6 — this field is the storage shape).
+      warehouseSlot: null,
+      warehouseUnlocked: false,
+      // v3.5 — Investments owned by the player. Bought investment
+      // cards transfer directly here at BUY_FROM_MARKET (never
+      // touching `hand`). Empty at init.
+      investments: [],
       outForRound: false,
       demandSurgeActive: false,
       pendingHalfCostMarketBuy: false,

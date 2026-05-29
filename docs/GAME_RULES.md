@@ -4,7 +4,7 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 **Players:** 2–4 · **Length:** ~30–60 min · **Complexity:** Medium
 
-> **Scope (current alpha — "Tagged Bills + Five Distilleries").** Five-distillery picker (Standard / Vanilla / High-Rye House / Wheated Baron / Connoisseur Estate; Standard is a human-only beginner pick), slot-bound mash bills (with `minCorn`/`maxCorn` ranges, now carrying a printed tag set derived from recipe / rarity / award eligibility), incremental production, single-step selling that produces bottles for the v3.2 Brand Portfolio system, a unified 10-card market (resources + Labor + ops + investments together), trading, doomsday-deck endgame. **Capital is the in-game spendable currency (v3.3)**; sales credit Capital, purchases deduct it. **Reputation is the end-game-only score** — Brand Portfolio events (slot end-game values, Signature Bonuses, Completion/Theme/Mastery bonuses, minus the second-portfolio failure penalty) accrue here at game end. Banked Capital still counts 1:1 toward final score (`total = capital + reputation`). Labor cards supplement Capital on purchases. Generic Labor is finite per player (3 in the starter deck, plus +1 for High-Rye House; no central pile, no Hire). **Brand Portfolios.** Each player owns a pre-claimed flagship portfolio bound to their distillery — a 3–7 slot product lineup with **required** (solid-outline) and **optional** (dotted-outline) slots grouped into **tiers**. Slot requirements gate on age + ingredients + strength (corn count) + demand-at-sale, referenced by **tag string keys** (v3.4). Filling a slot fires an immediate **non-rep utility** reward; filling it with the slot's **signature bill** also fires a Signature Bonus. End-game scoring is three cumulative tiers: **Completion** (all required filled), **Theme** (every filled slot satisfies the soft Brand Restriction), **Mastery** (every filled slot meets the strict purity condition). Players may spend 1 Generic Labor to **draft a second portfolio** mid-game from a shared face-up pool (N+2 boards). Inventory is an unscored buffer; bottles retrieve back to slots at 1 Generic Labor each. A drafted second portfolio that fails to reach Completion pays −2 Reputation per unfilled required slot (capped −10); the flagship has no penalty. Investment cards ship in the market but their on-buy effects are still effect-pending. Multiplayer is live (host a 4-char-code room from `/multiplayer`). Version history lives in [`GAME_VERSION.md`](./GAME_VERSION.md).
+> **Scope (current alpha — "Investment Rebuild + Save Slot Removal").** Five-distillery picker (Standard / Vanilla / High-Rye House / Wheated Baron / Connoisseur Estate; Standard is a human-only beginner pick), slot-bound mash bills (with `minCorn`/`maxCorn` ranges, carrying a printed tag set derived from recipe / rarity / award eligibility), incremental production, single-step selling that produces bottles for the v3.2 Brand Portfolio system, a unified 10-card market (resources + Labor + ops + investments together), trading, doomsday-deck endgame. **Capital is the in-game spendable currency (v3.3)**; sales credit Capital, purchases deduct it. **Reputation is the end-game-only score** — Brand Portfolio events (slot end-game values, Signature Bonuses, Completion/Theme/Mastery bonuses, minus the second-portfolio failure penalty) accrue here at game end. Banked Capital still counts 1:1 toward final score (`total = capital + reputation`). Labor cards supplement Capital on purchases. Generic Labor is finite per player (3 in the starter deck, plus +1 for High-Rye House; no central pile, no Hire). **v3.5 rule changes.** The free Save Slot is removed — the **Warehouse** investment card (cost 4) is now the only persistent-card-storage option. All market purchases route to the buyer's hand by default; investment cards are the one exception (they transfer directly to the player's investments area as permanent passives). The aging mechanic is formally clarified: **aging cards committed to a barrel ARE the barrel's age** (`barrel.age === barrel.agingCards.length`) — no effect can advance age without committing a card. **Brand Portfolios.** Each player owns a pre-claimed flagship portfolio bound to their distillery — a 3–7 slot product lineup with **required** (solid-outline) and **optional** (dotted-outline) slots grouped into **tiers**. Slot requirements gate on age + ingredients + strength (corn count) + demand-at-sale, referenced by **tag string keys** (v3.4). Filling a slot fires an immediate **non-rep utility** reward; filling it with the slot's **signature bill** also fires a Signature Bonus. End-game scoring is three cumulative tiers: **Completion** (all required filled), **Theme** (every filled slot satisfies the soft Brand Restriction), **Mastery** (every filled slot meets the strict purity condition). Players may spend 1 Generic Labor to **draft a second portfolio** mid-game from a shared face-up pool (N+2 boards). Inventory is an unscored buffer; bottles retrieve back to slots at 1 Generic Labor each. A drafted second portfolio that fails to reach Completion pays −2 Reputation per unfilled required slot (capped −10); the flagship has no penalty. **Investment catalog rebuilt to 32 cards** grounded in real-world distillery capital expenditures (stills, mash tuns, fermenters, warehouses, cooperages, climate control, bottling lines, visitor centers, sales offices, marketing departments); effects are still effect-pending (`implemented: false`) outside the Warehouse unlock. Multiplayer is live (host a 4-char-code room from `/multiplayer`). Version history lives in [`GAME_VERSION.md`](./GAME_VERSION.md).
 
 ---
 
@@ -95,7 +95,7 @@ When every player passes, shuffle your final cards into your starter deck. Premi
 
 Three phases per round:
 
-1. **Draw** — each player draws 8 cards. A player who used the **Save slot** last round adds the saved card on top, drawing effectively 9 that round.
+1. **Draw** — each player draws 8 cards. v3.5: the free Save Slot has been removed — the **Warehouse** investment card is now the only way to persist a single card between rounds, and any card stashed there joins next round's hand on the Draw phase.
 2. **Action** — players take full turns in rotated order. Each turn runs as **Roll demand → Age every aging barrel → Take actions**.
 3. **Cleanup** — unused resource and Labor cards go to discard; per-round flags reset; **the 10 market cards cycle out to the market discard and 10 fresh cards are dealt from the supply**; start player rotates one seat counter-clockwise.
 
@@ -124,6 +124,8 @@ After rolling demand, you **must commit one card from hand to every one of your 
 - **Generic Labor** is legal as an aging card (sweat equity in the warehouse). Specialty Labor cards (Marketing, Cooper, Architect) are not.
 - If you have no cards left, only `PASS_TURN` is legal — your un-aged barrels stay un-aged this round.
 
+**v3.5 invariant — aging cards ARE the age counter.** A barrel's age is literally the number of aging cards committed to it (`barrel.age === barrel.agingCards.length`). Aging is not a tempo cost separate from age — aging cards _are_ age. No effect in the game can "skip aging" while still incrementing the age counter; no effect can advance age without committing an aging card. Cards in the v3.4 catalog that promised auto-aging or skipped-aging shortcuts were retired or repurposed in v3.5 for this reason.
+
 When the barrel sells, all aging cards go to your discard.
 
 ---
@@ -138,7 +140,6 @@ After rolling demand and paying the aging cost, take **any number** of these fre
 - **Buy Operations Card** — same; Marketing Labor discounts ops.
 - **Draft Mash Bills** — initiate the **Drafting Loop**: spend 1 card to reveal 3 bills, take any number for 1 card each, then pass the remainder around the table. Once per round per player.
 - **Trade** — exchange cards with another player. Mash bills are not tradeable.
-- **Save Card** — set aside one card from hand into your Save slot for next round's draw.
 - **Retrieve Bottle from Inventory** — spend 1 Generic Labor from hand to move one Bottle out of inventory and onto any portfolio slot it satisfies. Unlimited per turn (bounded by available Generic Labor + eligible slots). See [§Brand Portfolios](#-brand-portfolios).
 - **Draft Second Portfolio** — spend 1 Generic Labor from hand to claim one of the face-up secondary portfolios next to the play area. Once per game per player; illegal in the final round. See [§Brand Portfolios](#-brand-portfolios).
 - **Play Operations Card** — free interruption at any time.
@@ -250,16 +251,16 @@ Mash bills are NOT in this market — they live face-down in the bourbon deck an
 
 ## Buy from the Market
 
-Cost is paid in **reputation** and/or **Labor cards** from hand. Rep and Labor are **fully fungible** — any cost can be paid in rep, Labor, or any mix.
+Cost is paid in **Capital** and/or **Labor cards** from hand. Capital and Labor are **fully fungible** — any cost can be paid in Capital, Labor, or any mix.
 
 - **Cooper** (Specialty Labor) — +2 toward market resource buys.
 - **Marketing** (Specialty Labor) — +2 toward ops buys (no help on market resources).
 - **Architect** (Specialty Labor) — +2 toward investment buys.
 - **Generic Labor** — +1 toward any buy. (You only get 3 in your starter deck — finite.)
 
-Rep can never go below 0.
+Capital can never go below 0.
 
-The purchased card lands directly in your **hand** so you can use it this turn. Any spent Labor cards go to your **discard**. The empty market slot refills from the supply. (End Turn discards everything in hand and redraws — see v3.9 — so a bought card you don't use this turn naturally cycles into your deck at turn end.)
+**v3.5 routing.** Every market purchase lands in the buyer's hand, available the same turn. This covers resource cards, ops cards, and Specialty Labor. **Investment cards are the only exception** — they activate immediately on purchase as permanent passives and transfer directly to the player's investments area (they never touch hand). Spent Labor cards go to discard. The empty market slot refills from the supply. End Turn discards everything in hand and redraws — see v3.9 — so a bought resource you don't use this turn naturally cycles into your deck at turn end.
 
 ## Buy Operations Card
 
@@ -267,7 +268,7 @@ Same payment model as a resource buy — the engine routes ops targets through a
 
 ## Buy Investment
 
-Same payment model. The bought investment lands in your **hand** with a placeholder marker; on-buy effects are not yet wired (every catalog entry ships `implemented: false` in this wave). Architect Labor (+2) is the matching specialty.
+Same payment model. v3.5: the bought investment transfers directly to your **investments area** (the on-purchase effect fires immediately and the card stays in front of you as a permanent passive — it never sits in hand). The Warehouse unlock is the only on-purchase side effect the engine resolves today; every other v3.5 catalog entry ships `implemented: false` (effect resolution lands in v3.6). Architect Labor (+2) is the matching specialty.
 
 ## Draft Mash Bills (The Drafting Loop)
 
@@ -315,15 +316,9 @@ Strategic considerations:
 
 Bills acquired through the Drafting Loop land as Staged like any other bill draft. Standard rules apply — no aging this turn, recipe satisfaction requires commits in following turns.
 
-## Save Card
+## Warehouse (replaces the v3.4 Save Slot)
 
-At any point during your turn, set aside one card from your hand into your **Save slot**. Only resource and Labor cards may be saved.
-
-- Holds at most one card.
-- Persists across rounds.
-- On the next round's draw, the saved card joins your 8-card hand (so you draw 9 effectively).
-
-Strategic use: keep a Cooper card for the round you plan to buy a Heritage, or save a Specialty Rye for the round you'll commit it.
+The free Save Slot is gone in v3.5. The **Warehouse** investment card (cost 4) is now the only way to carry a single card between rounds. Buying the Warehouse engages a private Warehouse slot for that player; at any time on their turn they may set aside one card from hand into the Warehouse (holds at most one), and on any future turn they may move the Warehouse card back into hand as a free action. The stored card persists across rounds and is **not** discarded at End Turn. Strategic use is the same as the old Save Slot — keep a Cooper for the round you plan to buy a Heritage, or stash a Specialty Rye for the round you'll commit it — but now you have to invest 4 Capital to get the ability.
 
 ## Trade
 
@@ -684,6 +679,63 @@ Operations cards held before the final round can be played; new ops cards bought
 | **Barrel Broker** | 4 | Transfer one of your aging barrels to another player's Open slot for a card payment. |
 | **Master Distiller** | 5 | Persistent. One barrel reads grid at demand +2. |
 | **Rickhouse Expansion Permit** | 5 | Permanently +1 rickhouse slot (max 6). |
+
+---
+
+# 💼 Investment Cards (v3.5)
+
+Bought from the unified market like every other card. Per [§Buy Investment](#buy-investment), investments transfer directly to your **investments area** on purchase (they never sit in hand) and stay as permanent passives in front of you. The Warehouse unlock is the only on-purchase effect the engine resolves today — every other v3.5 entry ships `implemented: false` until the v3.6 effect-resolution wave.
+
+The v3.5 catalog is **32 cards** distributed 8 small (cost 3–4) · 13 medium (cost 5–8) · 11 large (cost 9–15), grounded in real-world distillery capital expenditures.
+
+### Small tier (cost 3–4)
+
+| Card | Cost | Category | Text (short) |
+|---|:-:|---|---|
+| **Tasting Room** | 4 | sales | Sell a barrel aged 5+ → +1 Capital. |
+| **Grain Contract** | 4 | deck | First grain commit each round → draw 1. |
+| **Tasting Notes** | 3 | deck | Sell → bottle on slot draws 2, bottle to inventory draws 1. |
+| **Field Office** | 4 | info | On purchase, peek every face-up secondary portfolio's full slot table; reveal one. |
+| **Warehouse** | 4 | deck | Persistent 1-card slot across rounds. The v3.5 replacement for the free Save Slot. |
+| **Visitor Center** | 4 | sales | Sell → +1 Capital (+2 if the bill is `gold-eligible` or `silver-eligible`). |
+| **Rail Spur** | 3 | market | First market purchase each round costs 1 less Capital (floor 1). |
+| **Cellar Foreman** | 4 | deck | Turn start (after demand roll, before aging): draw 1. Once per round. |
+
+### Medium tier (cost 5–8)
+
+| Card | Cost | Category | Text (short) |
+|---|:-:|---|---|
+| **Marketing Department** | 5 | demand | Reroll one demand die at turn start. Once per round. |
+| **Trade Lobby** | 6 | demand | Shift demand ±1 at turn start. Once per round. |
+| **Distillery Tour Program** | 6 | demand | Your sales / grid lookups treat demand as 4 if lower. |
+| **Hedge Fund** | 7 | sales | Sell at demand 8+ → +3 Capital; demand doesn't drop. |
+| **R&D Department** | 8 | market | Specialty / Heritage buys cost 1 less Capital (floor 1). |
+| **Master Blender** | 7 | production | Complete recipe with corn ≤ 2 or ≥ 5 → +2 Capital and +1 Reputation. |
+| **Estate Bottling** | 8 | endgame | Next Draft Second Portfolio is free; second-portfolio failure penalty halves. |
+| **Heritage Cooperage** | 7 | production | Sell barrel with ≥1 Heritage card → all Heritage cards return to hand. |
+| **Bottling Line** | 8 | sales | First sale each round returns the cask to hand instead of discard. |
+| **Yeast Lab** | 6 | production | First recipe completion each round → draw 2. |
+| **Bottling Plant** | 7 | sales | Sell → draw 1 and +1 Capital. No round limit. |
+| **Sales Office** | 7 | market | Turn start: peek top 3 supply cards; rearrange or discard one. Once per round. |
+| **Rickhouse Office** | 6 | deck | Turn start (after demand, before aging): draw 2. Once per round. |
+| **Cooperage** | 6 | production | First cask commit each round returns the cask to hand. |
+| **Climate-Controlled Warehouse** | 7 | aging | Designate one slot; immune to aging-negative ops. |
+
+### Large tier (cost 9–15)
+
+| Card | Cost | Category | Text (short) |
+|---|:-:|---|---|
+| **Brand Ambassador** | 9 | sales | Choose one barrel; reads grid at demand +2 forever. |
+| **Premium Label** | 10 | sales | Sell barrel containing ≥2 Specialty/Heritage cards → +3 Capital. |
+| **Aging Warehouse** | 11 | slots | +1 permanent rickhouse slot (max 6). |
+| **Bonded Warehouse** | 12 | aging | Designate one slot as bonded; aging cards return to hand on sale from that slot. |
+| **Vintage Reserve** | 13 | sales | Sell barrel age 7+ → triple the grid value (before tier-floor clamp). |
+| **Bourbon Hall of Fame** | 15 | endgame | End of game: +1 Reputation per distinct bill sold (cap +6). |
+| **Master Distiller** | 12 | production | Choose one tag (`wheated` / `rye-heavy` / `single-grain` / `triple-grain`); every barrel you complete inherits it. |
+| **Column Still** | 10 | production | Make Bourbon may commit to up to TWO Staged/Building slots in one action. |
+| **Climate-Controlled Rickhouse** | 12 | aging | All your slots are climate-controlled (aging-negative ops immunity). |
+
+Source-of-truth specs live in `packages/engine/content/investments.yaml`. The cards in the table above are exactly the entries shipped by `defaultInvestmentCatalog()` in `packages/engine/src/defaults.ts`.
 
 ---
 

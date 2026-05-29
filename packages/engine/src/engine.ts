@@ -30,7 +30,6 @@ import {
   applyPlayOperationsCard,
   validatePlayOperationsCard,
 } from "./actions/play-operations-card";
-import { applySaveCard, validateSaveCard } from "./actions/save-card";
 import { applyPlaceBottle, validatePlaceBottle } from "./actions/place-bottle";
 import {
   applyRetrieveBottle,
@@ -105,13 +104,14 @@ export function validateAction(state: GameState, action: GameAction): Validation
       }
       // After the demand roll, the player must commit one card to an
       // aging barrel before sales / buys / trades / new builds. The
-      // narrow allow-list (AGE / PASS / SAVE_CARD) lets them satisfy
-      // the cost, give up the turn, or save a card (free).
+      // narrow allow-list (AGE / PASS) lets them satisfy the cost or
+      // give up the turn. v3.5 removed SAVE_CARD from the allow-list
+      // (and from the engine entirely — the free Save Slot is gone;
+      // the Warehouse investment replaces it).
       if (current && current.needsAgeBarrels) {
         const allowedDuringAgePhase = new Set([
           "AGE_BOURBON",
           "PASS_TURN",
-          "SAVE_CARD",
         ]);
         if (!allowedDuringAgePhase.has(action.type)) {
           return {
@@ -157,8 +157,6 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateTrade(state, action);
     case "PLAY_OPERATIONS_CARD":
       return validatePlayOperationsCard(state, action);
-    case "SAVE_CARD":
-      return validateSaveCard(state, action);
     case "PASS_TURN":
       return validatePassTurn(state, action);
     case "PLACE_BOTTLE":
@@ -242,9 +240,6 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
       return;
     case "PLAY_OPERATIONS_CARD":
       applyPlayOperationsCard(draft, action);
-      return;
-    case "SAVE_CARD":
-      applySaveCard(draft, action);
       return;
     case "PASS_TURN":
       applyPassTurn(draft, action);
