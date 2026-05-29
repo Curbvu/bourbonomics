@@ -1147,6 +1147,22 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
   const tally = tallyCommittedPile(barrel.productionCards);
 
   const rows: RecipeRow[] = [];
+  // Specialty-first fill policy: every committed specialty card
+  // consumes a specialty-floor slot first, and only the *overflow*
+  // (extra specialty beyond what the floor needs) counts toward the
+  // plain row. Engine semantics are unchanged — a specialty card still
+  // satisfies both floors at commit time — this just keeps the panel
+  // honest about which slot a given card is "occupying," so a recipe
+  // like `minRye:2 + minSpecialty.rye:1` reads as ready-to-age when
+  // two Specialty Ryes are committed instead of stranding the plain
+  // row at 0/1.
+  const specCounted = {
+    cask: Math.min(tally.specialty.cask, f.cask.specialty),
+    corn: Math.min(tally.specialty.corn, f.corn.specialty),
+    rye: Math.min(tally.specialty.rye, f.rye.specialty),
+    barley: Math.min(tally.specialty.barley, f.barley.specialty),
+    wheat: Math.min(tally.specialty.wheat, f.wheat.specialty),
+  } as const;
   // Plain rows — `f.<sub>.plain` already deducts the specialty floor,
   // so a recipe like `minCask:1 + minSpecialty.cask:1` skips the
   // plain Cask row (specialty fully covers it) and renders the
@@ -1158,7 +1174,7 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
       label: "Cask",
       tint: RESOURCE_CHROME.cask.label,
       required: f.cask.plain,
-      current: Math.max(0, tally.cask - tally.specialty.cask),
+      current: Math.min(f.cask.plain, tally.cask - specCounted.cask),
       over: 0,
     });
   }
@@ -1170,7 +1186,7 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
         label: sub.charAt(0).toUpperCase() + sub.slice(1),
         tint: RESOURCE_CHROME[sub].label,
         required: f[sub].plain,
-        current: Math.max(0, tally[sub] - tally.specialty[sub]),
+        current: Math.min(f[sub].plain, tally[sub] - specCounted[sub]),
         over: 0,
       });
     }
@@ -1206,8 +1222,11 @@ function RecipeProgress({ barrel }: { barrel: Barrel }) {
         label: `Specialty ${sub.charAt(0).toUpperCase()}${sub.slice(1)}`,
         tint: RESOURCE_CHROME[sub].label,
         required: need,
-        current: tally.specialty[sub],
-        over: Math.max(0, tally.specialty[sub] - need),
+        // Cap the displayed count at the requirement so a second
+        // Specialty card doesn't read as "2 / 1 + 1 extra" — its
+        // overflow is already credited to the plain row above.
+        current: specCounted[sub],
+        over: 0,
         specialty: true,
       });
     }
