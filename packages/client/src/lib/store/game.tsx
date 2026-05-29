@@ -543,6 +543,12 @@ export interface GameStore {
    *  (auto) when a sale leaves a pending placement. */
   portfolioDrawerOpen: boolean;
   setPortfolioDrawerOpen: (open: boolean) => void;
+  /** v3.6 — Operations-card play modal. Holds the in-flight ops card
+   *  id while the player is picking targets. PlayOpsModal self-gates
+   *  on this; HandTray's OpsCard click sets it; the modal clears it
+   *  on dispatch / cancel. */
+  playOpsCardId: string | null;
+  setPlayOpsCardId: (cardId: string | null) => void;
   /** Transient notifications surfaced via the ToastStack at page root.
    *  Pushed when the engine rejects a dispatched action, or when the
    *  multiplayer socket surfaces a server error. Auto-expire after a
@@ -748,6 +754,8 @@ const Ctx = createContext<GameStore>({
   setInspect: noop,
   portfolioDrawerOpen: false,
   setPortfolioDrawerOpen: noop,
+  playOpsCardId: null,
+  setPlayOpsCardId: noop,
   toasts: [],
   pushToast: noop,
   dismissToast: noop,
@@ -853,6 +861,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // resolves with a pending placement (the BottlePlacementModal handles
   // that case independently, so this flag stays orthogonal).
   const [portfolioDrawerOpen, setPortfolioDrawerOpen] = useState(false);
+  // v3.6 — Operations-card play modal target. While set, PlayOpsModal
+  // is open and the human is picking targets for the named ops card.
+  const [playOpsCardId, setPlayOpsCardId] = useState<string | null>(null);
 
   // v3.8 toast channel — engine rejections + multiplayer errors surface
   // as transient pop-ups via ToastStack at page root. Auto-prune at 500ms
@@ -2355,6 +2366,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setInspect,
       portfolioDrawerOpen,
       setPortfolioDrawerOpen,
+      playOpsCardId,
+      setPlayOpsCardId,
       toasts,
       pushToast,
       dismissToast,
@@ -2440,6 +2453,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       humanSeatPlayerId,
       inspect,
       portfolioDrawerOpen,
+      playOpsCardId,
       toasts,
       pushToast,
       dismissToast,
