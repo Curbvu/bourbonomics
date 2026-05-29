@@ -369,6 +369,16 @@ function DraftingLoopModal({
             mode the bills haven't been pulled yet, so the section would
             sit empty and confuse the read; skip it entirely. */}
         {loop ? (
+          // Section sizes to the *tallest* revealed bill instead of
+          // claiming `flex-1` and then cropping with overflow-hidden.
+          // A 3-band Epic bill (with a `NO RYE` chip on a 5th row of
+          // ingredients) is meaningfully taller than a 2-band Uncommon
+          // one — clamping every tile to the section's height was
+          // chopping off the bottom of the taller card. Letting the
+          // section grow keeps the proportions intact and surfaces
+          // every chip + cell. Modal still maxes at viewport height
+          // (`max-h-[calc(100vh-2rem)]`), so this can't grow the
+          // dialog past the screen.
           <Section
             label="Revealed mash bills"
             hint={
@@ -376,18 +386,15 @@ function DraftingLoopModal({
                 ? "none left"
                 : `${revealedBills.length} on offer`
             }
-            flex
-            minHeight={140}
           >
             {revealedBills.length === 0 ? (
               <EmptyRow message="The bourbon deck had nothing more to reveal." />
             ) : (
-              // Wrap instead of horizontal-scroll: the reveal cap is 3
-              // bills (engine constant), so they fit in one row at the
-              // design scale. A scrollbar would only appear if a future
-              // change uncapped that — CLAUDE.md forbids it; wrapping
-              // surfaces the regression visually instead.
-              <div className="flex h-full w-full flex-wrap items-stretch justify-center gap-2">
+              // `items-stretch` (no h-full on the tiles) leaves the
+              // tallest bill at its natural height and stretches the
+              // shorter siblings up to match, so the row visually
+              // aligns without any tile being cropped.
+              <div className="flex w-full flex-wrap items-stretch justify-center gap-2">
                 {revealedBills.map((bill) => (
                   <BillTile
                     key={bill.id}
@@ -698,7 +705,11 @@ function BillTile({
       disabled={!interactive}
       data-revealed-bill-id={bill.id}
       className={[
-        "flex h-full w-[220px] flex-shrink-0 flex-col overflow-hidden rounded-xl border-2 px-2 py-2 text-left transition-transform duration-150",
+        // No `h-full`: each tile sizes to its own content. The
+        // section's `items-stretch` then equalizes shorter siblings
+        // up to the tallest tile, so the row aligns visually without
+        // any tile being cropped from above (CLAUDE.md rule #1).
+        "flex w-[220px] flex-shrink-0 flex-col overflow-hidden rounded-xl border-2 px-2 py-2 text-left transition-transform duration-150",
         chrome.border,
         chrome.gradient,
         chrome.glow,

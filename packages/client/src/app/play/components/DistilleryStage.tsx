@@ -1155,9 +1155,12 @@ function computeBarrelNeeds(barrel: Barrel): BarrelNeed[] {
     if (specialtyNeed > 0) {
       specialtyRows.push({ subtype: sub, count: specialtyNeed, specialty: true });
     }
-    // Plain shortfall comes from `f.<sub>.plain` (already deducts
-    // specialty) minus plain cards already committed.
-    const plainHave = tally[sub] - specialtyTally[sub];
+    // Specialty-first fill: only specialty commits up to the specialty
+    // floor are "consumed" by the specialty quota — the rest spill
+    // over and count toward the plain shortfall, mirroring the engine's
+    // per-subtype total check (tally[sub] >= max(basic, specialty)).
+    const specialtyCounted = Math.min(specialtyTally[sub], f[sub].specialty);
+    const plainHave = tally[sub] - specialtyCounted;
     const plainNeed = Math.max(0, f[sub].plain - plainHave);
     if (plainNeed > 0) {
       plainRows.push({ subtype: sub, count: plainNeed });
@@ -1427,8 +1430,14 @@ function MashPips({ barrel }: { barrel: Barrel }) {
 
   const pips: ReactNode[] = [];
   for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
+    // Specialty-first fill (matches RecipeProgress + BarrelNeedsPlate):
+    // specialty commits beyond the specialty floor render as plain
+    // pips, so a second Specialty Rye on a `minRye:2 + minSpec.rye:1`
+    // recipe fills the second slot of the plain row instead of piling
+    // an "extra" ★ pip past the specialty floor.
+    const specialtyCounted = Math.min(specialtyTally[sub], f[sub].specialty);
     const plainNeed = recipeSatisfied ? 0 : f[sub].plain;
-    const plainHave = Math.max(0, tally[sub] - specialtyTally[sub]);
+    const plainHave = Math.max(0, tally[sub] - specialtyCounted);
     const plainSlots = Math.max(plainHave, plainNeed);
     for (let i = 0; i < plainSlots; i++) {
       const filled = i < plainHave;
@@ -1448,9 +1457,10 @@ function MashPips({ barrel }: { barrel: Barrel }) {
     }
     // Specialty pips — slightly larger, with an amber halo + ★ so the
     // player sees at a glance that this slot demands a market-only
-    // Specialty / Heritage card.
+    // Specialty / Heritage card. Capped at the specialty floor so
+    // overflow shows up as plain pips above instead.
     const specialtyNeed = recipeSatisfied ? 0 : f[sub].specialty;
-    const specialtyHave = specialtyTally[sub];
+    const specialtyHave = specialtyCounted;
     const specialtySlots = Math.max(specialtyHave, specialtyNeed);
     for (let i = 0; i < specialtySlots; i++) {
       const filled = i < specialtyHave;
