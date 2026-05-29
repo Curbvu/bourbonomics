@@ -100,11 +100,12 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
     return { type: "PASS_TURN", playerId };
   }
 
-  // 1) Operations cards are pending future release — bots don't play
-  //    them and don't buy them. (Card pool still mints them so the
-  //    market chrome stays consistent; just nothing interacts.)
-  // const opsPlay = chooseOpsPlay(state, player);
-  // if (opsPlay) return opsPlay;
+  // 1) v3.6 — bot now plays operations cards. The chooseOpsPlay
+  //    function walks the heuristics in cost-then-impact order; the
+  //    first card with a sensible target gets played. Ops plays don't
+  //    consume the turn so they happen BEFORE every other action.
+  const opsPlay = chooseOpsPlay(state, player);
+  if (opsPlay) return opsPlay;
 
   if (player.hand.length === 0) {
     return { type: "PASS_TURN", playerId };
@@ -143,9 +144,11 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
   const buy = chooseBuy(state, player);
   if (buy) return buy;
 
-  // 6) Ops buying disabled — pending future release.
-  // const buyOps = chooseBuyOpsCard(state, player);
-  // if (buyOps) return buyOps;
+  // 6) v3.6 — bot now buys operations cards via the OPS_BUY_PREFERENCE
+  //    ranking. Constructive plays rank above attacks so a bot building
+  //    a sale doesn't skip a Demand Surge for a Sabotage.
+  const buyOps = chooseBuyOpsCard(state, player);
+  if (buyOps) return buyOps;
 
   // v3.2: Line Card draw heuristic retired alongside the Line Card
   // subsystem. The Draft Second Portfolio heuristic will land in the
@@ -387,7 +390,301 @@ function chooseOpsPlay(state: GameState, player: PlayerState): GameAction | null
     }
   }
 
+  // ─── v3.6 aggression-axis play heuristics ─────────────────────────
+  //
+  // Cheaper / lower-risk attacks come first. Each card has a small
+  // guard so the bot doesn't fire it when it can't actually hurt
+  // anyone (empty target hand, no opponent barrel, etc.).
+
+  // Slow Pour: target the opponent's most-aged un-flagged barrel. Hits
+  // *next* round so it's strongest as a delaying tactic against bots
+  // racing the same demand spike.
+  const slow = playable.find((c) => c.defId === "slow_pour");
+  if (slow) {
+    let bestId: string | null = null;
+    let bestAge = -1;
+    for (const b of state.allBarrels) {
+      if (b.ownerId === player.id) continue;
+      if (b.phase !== "aging") continue;
+      if (b.skipNextRoundAging) continue;
+      if (b.age > bestAge) {
+        bestAge = b.age;
+        bestId = b.id;
+      }
+    }
+    if (bestId) {
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: slow.id,
+        defId: "slow_pour",
+        targetBarrelId: bestId,
+      };
+    }
+  }
+
+  // Spoiled Batch: random discard against the opponent with the
+  // largest hand (most likely to lose something valuable).
+  const spoil = playable.find((c) => c.defId === "spoiled_batch");
+  if (spoil) {
+    const target = pickRichestOpponent(state, player, (p) => p.hand.length);
+    if (target && target.hand.length > 0) {
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: spoil.id,
+        defId: "spoiled_batch",
+        targetPlayerId: target.id,
+      };
+    }
+  }
+
+  // Audit: target the opponent with the largest hand and grab their
+  // most-expensive card (since the bot effectively sees all hands at
+  // the engine layer, "choose card of your choice" is unambiguous).
+  const audit = playable.find((c) => c.defId === "audit");
+  if (audit) {
+    const target = pickRichestOpponent(state, player, (p) => p.hand.length);
+    if (target && target.hand.length > 0) {
+      const victim = pickHighestCostCard(target);
+      if (victim) {
+        return {
+          type: "PLAY_OPERATIONS_CARD",
+          playerId: player.id,
+          cardId: audit.id,
+          defId: "audit",
+          targetPlayerId: target.id,
+          targetCardId: victim.id,
+        };
+      }
+    }
+  }
+
+  // Counterfeit Bottles: tank an opponent's next sale. Target the
+  // opponent with the most barrels ready to sell.
+  const counterfeit = playable.find((c) => c.defId === "counterfeit_bottles");
+  if (counterfeit) {
+    const target = pickRichestOpponent(state, player, (p) =>
+      state.allBarrels.filter(
+        (b) =>
+          b.ownerId === p.id && b.phase === "aging" && b.age >= 2,
+      ).length,
+    );
+    if (target) {
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: counterfeit.id,
+        defId: "counterfeit_bottles",
+        targetPlayerId: target.id,
+      };
+    }
+  }
+
+  // Federal Inspector: punish the wealthiest opponent + grab their
+  // best card. Capital is a direct VP rebate at end-game, so −2 here
+  // is genuinely painful for a leader.
+  const fed = playable.find((c) => c.defId === "federal_inspector");
+  if (fed) {
+    const target = pickRichestOpponent(state, player, (p) => p.capital);
+    if (target && target.hand.length > 0) {
+      const victim = pickHighestCostCard(target);
+      if (victim) {
+        return {
+          type: "PLAY_OPERATIONS_CARD",
+          playerId: player.id,
+          cardId: fed.id,
+          defId: "federal_inspector",
+          targetPlayerId: target.id,
+          targetCardId: victim.id,
+        };
+      }
+    }
+  }
+
+  // Whiskey Raid: only if we have an open slot AND a high-value young
+  // barrel to grab. Dice odds favor the defender; we accept the bet
+  // when the target barrel has at least one specialty card already
+  // committed (transferred barrels keep their pile, which is the real
+  // value swing).
+  const raid = playable.find((c) => c.defId === "whiskey_raid");
+  if (raid && state.pendingRaid == null) {
+    const slotsOpen = emptySlotsFor(state, player.id).length;
+    if (slotsOpen > 0) {
+      let bestId: string | null = null;
+      let bestScore = -1;
+      for (const b of state.allBarrels) {
+        if (b.ownerId === player.id) continue;
+        if (b.phase !== "aging") continue;
+        if (b.age > 2) continue;
+        const piledValue = b.productionCards.length + b.agingCards.length;
+        const specialtyBonus = b.productionCards.filter(
+          (c) => c.type === "resource" && c.specialty,
+        ).length * 3;
+        const score = piledValue + specialtyBonus;
+        if (score > bestScore) {
+          bestScore = score;
+          bestId = b.id;
+        }
+      }
+      if (bestId != null && bestScore >= 2) {
+        return {
+          type: "PLAY_OPERATIONS_CARD",
+          playerId: player.id,
+          cardId: raid.id,
+          defId: "whiskey_raid",
+          targetBarrelId: bestId,
+        };
+      }
+    }
+  }
+
+  // Sabotage: the nuclear option. Target an opponent's most-aged +
+  // most-loaded barrel — the dump throws away every committed and
+  // aging card. Pick the single highest-cost committed card as the
+  // "targeted" name so the engine log narrates a sensible loss.
+  const sab = playable.find((c) => c.defId === "sabotage");
+  if (sab) {
+    let bestId: string | null = null;
+    let bestScore = -1;
+    let bestVictimId: string | null = null;
+    for (const b of state.allBarrels) {
+      if (b.ownerId === player.id) continue;
+      if (b.phase !== "aging") continue;
+      const pile = [...b.productionCards, ...b.agingCards];
+      if (pile.length === 0) continue;
+      const specialtyCount = pile.filter(
+        (c) => c.type === "resource" && c.specialty,
+      ).length;
+      // Prefer barrels with more committed material, weighting
+      // specialty cards heavily (they can't be replaced from deck).
+      const score = pile.length + specialtyCount * 4 + b.age;
+      if (score > bestScore) {
+        bestScore = score;
+        bestId = b.id;
+        // Pick the most expensive card as the call-out.
+        let bestCost = -1;
+        for (const c of pile) {
+          const cost = c.cost ?? 1;
+          if (cost > bestCost) {
+            bestCost = cost;
+            bestVictimId = c.id;
+          }
+        }
+      }
+    }
+    if (bestId != null && bestVictimId != null && bestScore >= 3) {
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: player.id,
+        cardId: sab.id,
+        defId: "sabotage",
+        targetBarrelId: bestId,
+        targetCardId: bestVictimId,
+      };
+    }
+  }
+
   return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// v3.6 helpers — opponent targeting + raid defense
+// ─────────────────────────────────────────────────────────────────────
+
+/** Pick the non-self player that maximizes `score`. Ties favor the
+ *  first in seat order. Returns null if no opponent qualifies. */
+function pickRichestOpponent(
+  state: GameState,
+  player: PlayerState,
+  score: (p: PlayerState) => number,
+): PlayerState | null {
+  let best: PlayerState | null = null;
+  let bestScore = -Infinity;
+  for (const p of state.players) {
+    if (p.id === player.id) continue;
+    const s = score(p);
+    if (s > bestScore) {
+      bestScore = s;
+      best = p;
+    }
+  }
+  return best;
+}
+
+/** Pick the highest-cost card in a player's hand, breaking ties by
+ *  preferring resources over labor (resources are usually more
+ *  valuable per-card in mid-late game). Returns null on empty hand. */
+function pickHighestCostCard(player: PlayerState): Card | null {
+  if (player.hand.length === 0) return null;
+  let best: Card | null = null;
+  let bestCost = -1;
+  for (const c of player.hand) {
+    const cost = c.cost ?? 1;
+    const tiebreak = c.type === "resource" ? 0.5 : 0;
+    if (cost + tiebreak > bestCost) {
+      bestCost = cost + tiebreak;
+      best = c;
+    }
+  }
+  return best;
+}
+
+/**
+ * Whiskey Raid defense — pick how many cards (X) the defending bot
+ * should discard against the in-flight attacker roll.
+ *
+ * Strategy: aim for ~55% defender odds (defender wins ties, so this
+ * is "comfortably likely"). Walk X from 0 upward and stop at the
+ * first X that meets the threshold (or runs out of hand). Pick the
+ * cheapest cards first — defenders should bleed Generic Labor /
+ * common resources before specialty cards.
+ *
+ * Watchman bonus is folded into the threshold automatically since
+ * RAID_DEFENSE_DECLARE reads the count internally.
+ */
+export function chooseRaidDefense(
+  state: GameState,
+): Extract<GameAction, { type: "RAID_DEFENSE_DECLARE" }> | null {
+  const raid = state.pendingRaid;
+  if (!raid) return null;
+  const defender = state.players.find((p) => p.id === raid.defenderId);
+  if (!defender) return null;
+  const watchmen = defender.investments.filter(
+    (i) => i.defId === "watchman",
+  ).length;
+
+  // Sort hand by ascending value so we spend the cheapest first.
+  const sorted = [...defender.hand].sort((a, b) => {
+    // Generic labor + corn are the cheapest fodder; bias toward them.
+    const cost = (c: Card) => (c.cost ?? 1) + (c.specialty ? 5 : 0);
+    return cost(a) - cost(b);
+  });
+
+  const odds = (x: number): number => {
+    let wins = 0;
+    for (let a = 1; a <= 6; a++) {
+      for (let b = 1; b <= 6; b++) {
+        if (a + b + x + watchmen >= raid.attackerRoll) wins++;
+      }
+    }
+    return wins / 36;
+  };
+
+  // Walk X upward until we hit ~55% defender odds OR we run out of
+  // cheap fodder. Specialty cards stay out of the discard list.
+  const TARGET_ODDS = 0.55;
+  const discardCardIds: string[] = [];
+  for (const c of sorted) {
+    if (odds(discardCardIds.length) >= TARGET_ODDS) break;
+    if (c.specialty) break;
+    discardCardIds.push(c.id);
+  }
+  return {
+    type: "RAID_DEFENSE_DECLARE",
+    defenderId: defender.id,
+    discardCardIds,
+  };
 }
 
 function chooseDemandDirection(state: GameState, player: PlayerState): "up" | "down" | null {
@@ -1185,6 +1482,8 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
  * cross-player negotiation) are intentionally excluded.
  */
 const OPS_BUY_PREFERENCE: OperationsCard["defId"][] = [
+  // Constructive plays — go before attacks because they help us
+  // directly without taking resources off the table.
   "demand_surge",
   "market_manipulation",
   "bourbon_boom",
@@ -1195,6 +1494,16 @@ const OPS_BUY_PREFERENCE: OperationsCard["defId"][] = [
   "wild_mash",
   "glut",
   "regulatory_inspection",
+  // v3.6 attacks. Cheaper attacks rank higher — Slow Pour and
+  // Spoiled Batch are $1 fire-and-forget, while Whiskey Raid and
+  // Sabotage are situational big hits.
+  "slow_pour",
+  "spoiled_batch",
+  "audit",
+  "counterfeit_bottles",
+  "federal_inspector",
+  "whiskey_raid",
+  "sabotage",
 ];
 
 const OPS_BOT_PLAYABLE = new Set<OperationsCard["defId"]>([
@@ -1208,6 +1517,17 @@ const OPS_BOT_PLAYABLE = new Set<OperationsCard["defId"]>([
   "wild_mash",
   "glut",
   "regulatory_inspection",
+  // v3.6 — every implemented attack card is now bot-playable.
+  // Cooper's Contract / Grain Futures intentionally excluded
+  // (committed via MAKE_BOURBON, not played; bot make-bourbon
+  // planner doesn't yet substitute them in).
+  "slow_pour",
+  "spoiled_batch",
+  "audit",
+  "counterfeit_bottles",
+  "federal_inspector",
+  "whiskey_raid",
+  "sabotage",
 ]);
 
 // -----------------------------

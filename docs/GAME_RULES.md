@@ -655,36 +655,47 @@ Bought from the **unified market** (any of the 10 face-up slots that happens to 
 
 Operations cards held before the final round can be played; new ops cards bought during the final round **cannot** be played that round.
 
-### The full deck
+### The live catalog
 
-| Card | Cost (rep) | Effect |
-|---|:-:|---|
-| **Cooper's Contract** | 1 | Pre-play. Next Make Bourbon may use 0 cask. |
-| **Cash Out** | 1 | Discard any number of resource cards; gain 1 rep per 2 discarded (round down). |
-| **Kentucky Connection** | 1 | Draw 2 cards. |
-| **Market Manipulation** | 2 | Move demand ±1. |
-| **Glut** | 2 | Demand −2 (floor 0). |
-| **Mash Futures** | 2 | Pre-play. Next Make Bourbon grain min −1. |
-| **Insider Buyer** | 2 | Discard the entire 10-card market; refill from supply. Your next market buy this turn pays half price (round up, floor 1). |
-| **Bottling Run** | 2 | Every player draws 1. |
-| **Bourbon Boom** | 3 | Demand +2 (cap 12). |
-| **Demand Surge** | 3 | Your next sale this round does not drop demand. |
-| **Rushed Shipment** | 3 | Age one of your barrels twice this round. |
-| **Forced Cure** | 3 | +1 aging card on a barrel for an extra year. |
-| **Allocation** | 3 | Draw up to 2 mash bills free, capped by Open slots. |
-| **Rating Boost** | 3 | Pre-play. Next sale +2 reputation. |
-| **Regulatory Inspection** | 3 | Target an aging barrel. It cannot be aged this round. |
-| **Market Corner** | 3 | Take a face-up market card free into your hand. |
-| **Blend** | 4 | Combine two of your own barrels into one. |
-| **Barrel Broker** | 4 | Transfer one of your aging barrels to another player's Open slot for a card payment. |
-| **Master Distiller** | 5 | Persistent. One barrel reads grid at demand +2. |
-| **Rickhouse Expansion Permit** | 5 | Permanently +1 rickhouse slot (max 6). |
+The numbers below match `packages/engine/content/operations.yaml`
+(the canonical catalog the engine ships from). The deck holds the
+**copies** column of each row × the listed card. The v3.6
+aggression-axis additions are detailed in the next section.
 
-> **The table above is partially stale.** It enumerates the v3.1
-> ops catalog. The lean v3.2 cut (commit `90df94c`) reduced the deck
-> to 10 implemented cards; the v3.6 aggression-axis cut (below) adds
-> 9 more. `packages/engine/content/operations.yaml` is the canonical
-> live catalog.
+| Card | Cost | Copies | Effect |
+|---|:-:|:-:|---|
+| **Kentucky Connection** | 1 | 2 | Draw 2 cards from your resource deck. |
+| **Market Manipulation** | 2 | 3 | Move the demand track ±1. |
+| **Glut** | 2 | 2 | Demand −2 (floor 0). |
+| **Wild Mash** | 2 | 3 | Pre-play. This turn, treat 1 cask card in your hand as a wild grain when committing to a recipe (or treat 1 grain as a cask). |
+| **Bourbon Boom** | 3 | 2 | Demand +2 (cap 12). |
+| **Demand Surge** | 3 | 2 | Your next sale this round does not drop demand. |
+| **Rushed Shipment** | 3 | 3 | Age one of your barrels twice this round. |
+| **Rating Boost** | 3 | 2 | Pre-play. Next sale +2 reputation. |
+| **Regulatory Inspection** | 3 | 3 | Target an aging barrel of any player. It may not be aged this round. |
+| **Allocation** | 3 | 2 | Draw up to 2 mash bills free from the bourbon deck, capped by your Open slots and (if you have one) by your distillery's max-slotted-bill cap. |
+| **Cooper's Contract** ⚐ | 1 | 2 | Commit-as-resource (cask). See v3.6 section. |
+| **Slow Pour** | 1 | 3 | Attack — Choose an aging barrel. It does not age next round. |
+| **Spoiled Batch** | 1 | 3 | Attack — Choose an opponent. They discard 1 random card from their hand. |
+| **Grain Futures** ⚐ | 2 | 2 | Commit-as-resource (any grain). See v3.6 section. |
+| **Audit** | 2 | 2 | Attack — Reveal an opponent's hand. They discard 1 card of your choice. |
+| **Counterfeit Bottles** | 2 | 2 | Attack — An opponent's next sale reads the grid as if demand were 2 lower (floor 0). Tier floor still applies. Stacks. |
+| **Federal Inspector** | 3 | 2 | Attack — Choose an opponent. They lose 2 Capital (floored at 0) and discard 1 card of your choice. |
+| **Whiskey Raid** | 3 | 2 | Attack — Target an opponent's aging barrel of age ≤ 2. Blind dice contest. See v3.6 section. |
+| **Sabotage** | 4 | 2 | Attack — Choose an opponent's aging barrel. Discard 1 committed resource card from it; the barrel is dumped (bill stays attached). |
+
+**Total:** 19 distinct cards, 47 copies. Cards marked ⚐ are
+**committed during MAKE_BOURBON** instead of played via
+PLAY_OPERATIONS_CARD — the engine rejects a play attempt with a
+"committed via MAKE_BOURBON, not played" message.
+
+> **Removed in earlier passes.** The v3.1 deck shipped a long tail
+> of effects that never resolved cleanly — Blend, Barrel Broker,
+> Rickhouse Expansion Permit, Cash Out, Insider Buyer, Bottling Run,
+> Forced Cure, Market Corner, Mash Futures, Master Distiller. Commit
+> `90df94c` (v3.2 prep) dropped them; commit `41bcf8f` and after
+> (v3.6) added the modern attack axis above. None of the listed
+> v3.1-only cards are in the deck today.
 
 ## v3.6 — Aggression axis (added)
 
