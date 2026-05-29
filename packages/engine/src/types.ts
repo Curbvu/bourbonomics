@@ -635,7 +635,21 @@ export type OperationsCardDefId =
   | "rating_boost"
   | "allocation"
   | "kentucky_connection"
-  | "wild_mash";
+  | "wild_mash"
+  // v3.6 aggression-axis additions. The five simple attacks fire
+  // immediately on PLAY_OPERATIONS_CARD; Whiskey Raid / Sabotage /
+  // Cooper's Contract / Grain Futures introduce new mechanics
+  // (commit-as-resource, blind dice contest) and are catalog-only
+  // until their handlers land.
+  | "slow_pour"
+  | "spoiled_batch"
+  | "audit"
+  | "counterfeit_bottles"
+  | "federal_inspector"
+  | "sabotage"
+  | "whiskey_raid"
+  | "coopers_contract"
+  | "grain_futures";
 
 export interface OperationsCard {
   id: string;
@@ -720,6 +734,10 @@ export interface Barrel {
   agedThisRound: boolean;
   /** Set by Regulatory Inspection — barrel cannot be aged this round. */
   inspectedThisRound: boolean;
+  /** v3.6 Slow Pour — set when an opponent queues a next-round age
+   *  skip. Round cleanup promotes this into `inspectedThisRound` for
+   *  the new round and clears the flag. */
+  skipNextRoundAging: boolean;
   /** Set by Rushed Shipment — barrel may be aged once more this round. */
   extraAgesAvailable: number;
   /**
@@ -1117,6 +1135,14 @@ export interface PlayerState {
    * +N reputation on top of the grid reward. Persists until consumed.
    */
   pendingRatingBoost: number;
+  /**
+   * v3.6 Counterfeit Bottles — queued one-shot −demand applied to this
+   * player's next SELL_BOURBON grid read. Cleared after one sale.
+   * Floors the grid demand at 0; tier floor still applies to the final
+   * reward. Stacks numerically if multiple Counterfeit Bottles are
+   * thrown at the same player before they sell.
+   */
+  nextSaleDemandPenalty: number;
   /**
    * Set when the player plays Wild Mash this turn. Consumed by the
    * next MAKE_BOURBON action (one substitution, then cleared regardless
@@ -1531,7 +1557,34 @@ export type PlayOperationsCardParams =
   | { defId: "rating_boost" }
   | { defId: "allocation" }
   | { defId: "kentucky_connection" }
-  | { defId: "wild_mash" };
+  | { defId: "wild_mash" }
+  // v3.6 aggression: target an opponent's aging barrel — it skips a
+  // round of aging next round (not this round; that's Regulatory
+  // Inspection's role).
+  | { defId: "slow_pour"; targetBarrelId: string }
+  // v3.6 aggression: target an opponent — engine discards one card
+  // from their hand at random (RNG-driven, deterministic per seed).
+  | { defId: "spoiled_batch"; targetPlayerId: string }
+  // v3.6 aggression: target an opponent + card in their hand. The
+  // client reveals the hand to the attacker; engine only enforces
+  // the discard.
+  | { defId: "audit"; targetPlayerId: string; targetCardId: string }
+  // v3.6 aggression: queue a one-shot −demand on the target's next
+  // sale. Reads their grid as if demand were 2 lower (floor 0); tier
+  // floor still applies.
+  | { defId: "counterfeit_bottles"; targetPlayerId: string }
+  // v3.6 aggression: opponent loses 2 capital (clamped to 0) AND
+  // discards 1 chosen card.
+  | {
+      defId: "federal_inspector";
+      targetPlayerId: string;
+      targetCardId: string;
+    }
+  // v3.6 aggression — design-only until commit-as-resource lands.
+  | { defId: "sabotage"; targetBarrelId: string; targetCardId: string }
+  | { defId: "whiskey_raid"; targetBarrelId: string }
+  | { defId: "coopers_contract" }
+  | { defId: "grain_futures" };
 
 export type GameAction =
   | { type: "SELECT_DISTILLERY"; playerId: string; distilleryId: string }

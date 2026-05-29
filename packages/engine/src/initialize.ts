@@ -130,6 +130,7 @@ export function initializeGame(config: GameConfig): GameState {
       pendingHalfCostMarketBuy: false,
       pendingMakeDiscount: null,
       pendingRatingBoost: 0,
+      nextSaleDemandPenalty: 0,
       pendingWildMashToken: false,
       // Set when the action-phase cursor lands on the player; cleared
       // by ROLL_DEMAND. False at init since the game enters draw first.

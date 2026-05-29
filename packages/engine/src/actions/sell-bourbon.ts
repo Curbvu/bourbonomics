@@ -106,11 +106,18 @@ export function applySellBourbon(
   // v2.10: sell action no longer costs a card from hand. Mandatory
   // per-turn aging (v2.9) is the sole holding cost.
 
+  // v3.6 Counterfeit Bottles — if an opponent queued one (or more)
+  // Counterfeit Bottles on this player, their grid read uses
+  // `max(0, demand − penalty)` instead of `demand`. Tier floor below
+  // still applies, so the sale always clears its baseline. Award
+  // checks (Gold / Silver) read the *unmodified* demand to keep the
+  // counterfeit purely an *economic* penalty, not a prestige one.
+  const gridDemand = Math.max(0, draft.demand - player.nextSaleDemandPenalty);
   // Collect themed-card sale signals BEFORE any mutation so the
   // computed reward + bonus rep + return-to-hand list match what
   // validation accepted.
-  const signals = collectSaleSignals(barrel, { demand: draft.demand });
-  const reward = computeSaleGridReward(attached, barrel, draft.demand, signals);
+  const signals = collectSaleSignals(barrel, { demand: gridDemand });
+  const reward = computeSaleGridReward(attached, barrel, gridDemand, signals);
 
   // single-step sale. Sum everything that adds
   // rep at sale — grid reward, themed-card per-card bonuses, Rating
@@ -150,6 +157,10 @@ export function applySellBourbon(
   player.capital += total;
   // Consume the boost — one-shot per sale.
   if (ratingBoost > 0) player.pendingRatingBoost = 0;
+  // v3.6 — Counterfeit Bottles penalty clears after a single sale,
+  // even if it didn't actually reduce the grid (e.g. demand was
+  // already 0). One queued counterfeit = one consumed counterfeit.
+  if (player.nextSaleDemandPenalty > 0) player.nextSaleDemandPenalty = 0;
   // v3.4 — Consume the first-sale-of-round flag only on Vanilla
   // players. For everyone else, the flag stays true (does nothing)
   // — keeps the bump scoped to Vanilla without polluting non-Vanilla
