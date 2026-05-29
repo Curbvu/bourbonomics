@@ -1,69 +1,52 @@
 import type { Line, PlayerState } from "../types";
 import { getLineBoardDef } from "./boards";
-import { getLineCardDef } from "./cards";
 
-const INVENTORY_REP_PER_BOTTLE = 1;
+// v3.2 — inventory scores zero per the spec. The +1/bottle baseline
+// from v3.1 is removed. The Vanilla Standard Master completion bonus
+// (+5/inventory bottle) STILL applies if its flag has fired — that's
+// a flagship reward, not the baseline rule.
 const VANILLA_BONUS_REP_PER_INVENTORY_BOTTLE = 5;
-const SECONDARY_EMPTY_SLOT_PENALTY = -2;
 
 /**
- * v3.1 — end-game score for one Line.
+ * v3.2 — end-game score for one Line.
  *
  * Flagship: sums each filled slot's endGameValue from the bound
  * board. No failure penalty — the flagship board was a gift, not a
  * bet.
  *
- * Secondary: sums each filled slot's endGameValue (read from the
- * Line Card at that slot position) AND pays a -2 rep penalty for
- * each Line Card slot still empty at game end.
+ * Secondary lines: empty in v3.2 phase 16 (Line Card secondaries are
+ * removed; Brand Portfolio secondaries land in a follow-on phase).
  *
  * Slot rewards and the Completion Bonus's immediate rep have already
  * been credited to `player.reputation` during play; they are NOT
  * counted again here.
  *
- * Phase 5 deliberately omits Connoisseur's prestigeScoringDoubled —
- * there is no baseline end-game prestige scoring rule yet to double.
- * When one is introduced, this is where the multiplier lands.
+ * The Connoisseur prestigeScoringDoubled flag remains a no-op until a
+ * baseline end-game prestige scoring rule exists.
  */
 export function scoreLine(line: Line, _player: PlayerState): number {
   if (!line.slots) return 0;
-
-  if (line.lineBoardId) {
-    const board = getLineBoardDef(line.lineBoardId);
-    if (!board) return 0;
-    let total = 0;
-    for (let i = 0; i < line.slots.length; i++) {
-      if (line.slots[i]!.filled) {
-        total += board.slots[i]?.endGameValue ?? 0;
-      }
-    }
-    return total;
-  }
-
-  // Secondary line — slot values come from the Line Cards at each slot.
+  if (!line.lineBoardId) return 0;
+  const board = getLineBoardDef(line.lineBoardId);
+  if (!board) return 0;
   let total = 0;
   for (let i = 0; i < line.slots.length; i++) {
-    const inst = line.stackedCards[i];
-    if (!inst) continue;
-    const def = getLineCardDef(inst.defId);
-    if (!def) continue;
     if (line.slots[i]!.filled) {
-      total += def.endGameValue;
-    } else {
-      total += SECONDARY_EMPTY_SLOT_PENALTY;
+      total += board.slots[i]?.endGameValue ?? 0;
     }
   }
   return total;
 }
 
 /**
- * v3.1 inventory scoring. Baseline +1 rep per bottle, plus +5 rep per
- * bottle if Vanilla's Standard Master Completion Bonus has triggered.
+ * v3.2 inventory scoring. **Inventory baseline is zero** (v3.1's
+ * +1/bottle is removed). The Vanilla flagship's Standard Master
+ * Completion Bonus still adds +5 rep per inventory bottle when its
+ * flag has triggered.
  */
 export function scoreInventory(player: PlayerState): number {
-  const baseline = player.inventory.length * INVENTORY_REP_PER_BOTTLE;
-  if (!player.inventoryBottleBonusActive) return baseline;
-  return baseline + player.inventory.length * VANILLA_BONUS_REP_PER_INVENTORY_BOTTLE;
+  if (!player.inventoryBottleBonusActive) return 0;
+  return player.inventory.length * VANILLA_BONUS_REP_PER_INVENTORY_BOTTLE;
 }
 
 /**

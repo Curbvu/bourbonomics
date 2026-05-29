@@ -9,18 +9,13 @@ import type {
 } from "../types";
 import { isCurrentPlayer } from "../state";
 import { getLineBoardDef } from "../lines/boards";
-import { getLineCardDef } from "../lines/cards";
-import {
-  canPlaceInFlagshipSlot,
-  canPlaceInSecondarySlot,
-  nextOpenSlotIndex,
-} from "../lines/placement";
+import { canPlaceInFlagshipSlot, nextOpenSlotIndex } from "../lines/placement";
 
 type PlaceBottleAction = Extract<GameAction, { type: "PLACE_BOTTLE" }>;
 
 /**
- * v3.1 Bourbon Lines — resolve the pending bottle placement set by
- * the immediately preceding SELL_BOURBON.
+ * v3.2 Brand Portfolios — resolve the pending bottle placement set
+ * by the immediately preceding SELL_BOURBON.
  *
  *   { kind: "flagship" }
  *     Place into the next-open slot of the flagship Line. Must
@@ -28,19 +23,14 @@ type PlaceBottleAction = Extract<GameAction, { type: "PLACE_BOTTLE" }>;
  *     Placement Requirement. Slot reward fires on fill; if it was
  *     the final slot, the Completion Bonus fires too.
  *
- *   { kind: "secondary", lineId }
- *     Place into the next-open slot of the named secondary. Must
- *     satisfy the slot-1 card's Line Restriction (if any) AND the
- *     individual slot card's requirement. Slot reward fires on fill.
- *     Secondary lines have no completion bonus.
- *
  *   { kind: "inventory" }
- *     Always legal. Scores +1 rep at end of game (+5 more if
- *     Vanilla's Completion Bonus has triggered).
+ *     Always legal. Inventory scores zero at end of game in v3.2;
+ *     bottles can be retrieved later for 1 Generic Labor each.
  *
- *   { kind: "new-secondary" }
- *     Retired. Use PLAY_LINE_CARD with `targetLineId: null` to open
- *     a secondary, then PLACE_BOTTLE on it.
+ *   { kind: "secondary" | "new-secondary" }
+ *     v3.1 destinations — retired in v3.2 (Line Card secondary lines
+ *     are removed). The Brand Portfolio second-portfolio destination
+ *     lands in a follow-on phase.
  */
 export function validatePlaceBottle(
   state: GameState,
@@ -75,36 +65,12 @@ export function validatePlaceBottle(
       }
       return { legal: true };
     }
-    case "secondary": {
-      const dest = action.destination;
-      const target = player.secondaryLines.find((l) => l.id === dest.lineId);
-      if (!target) {
-        return {
-          legal: false,
-          reason: `secondary line ${dest.lineId} not found`,
-        };
-      }
-      const idx = nextOpenSlotIndex(target);
-      if (idx < 0) {
-        return {
-          legal: false,
-          reason: "that secondary Bourbon Line has no open slot",
-        };
-      }
-      if (!canPlaceInSecondarySlot(bottle, target, idx, player)) {
-        return {
-          legal: false,
-          reason:
-            "bottle does not satisfy the secondary's Line Restriction or the next-open slot card's requirement",
-        };
-      }
-      return { legal: true };
-    }
+    case "secondary":
     case "new-secondary":
       return {
         legal: false,
         reason:
-          "new-secondary via PLACE_BOTTLE is retired; play a slot-1 Line Card with PLAY_LINE_CARD first, then place onto it",
+          "secondary placement is retired in v3.2; the Brand Portfolio second-portfolio destination lands in a follow-on phase",
       };
     default:
       return {
@@ -169,43 +135,9 @@ export function applyPlaceBottle(
       player.pendingBottlePlacement = null;
       return;
     }
-    case "secondary": {
-      const dest = action.destination;
-      const target = player.secondaryLines.find((l) => l.id === dest.lineId);
-      if (!target || !target.slots) {
-        player.pendingBottlePlacement = null;
-        return;
-      }
-      const idx = nextOpenSlotIndex(target);
-      if (idx < 0) {
-        player.pendingBottlePlacement = null;
-        return;
-      }
-      target.slots[idx]!.filled = true;
-      target.slots[idx]!.bottle = bottle;
-      target.bottles.push(bottle);
-
-      const cardInstance = target.stackedCards[idx];
-      if (cardInstance) {
-        const def = getLineCardDef(cardInstance.defId);
-        if (def && !target.slots[idx]!.rewardFired) {
-          def.reward.fire({
-            bottle,
-            line: target as Line,
-            slotIndex: idx,
-            draft,
-            player: player as Draft<PlayerState>,
-          });
-          target.slots[idx]!.rewardFired = true;
-        }
-      }
-      // Secondary lines have no completion bonus in v3.1 (Line Cards
-      // don't carry one). Slot 5's own reward is the climax.
-      player.pendingBottlePlacement = null;
-      return;
-    }
+    case "secondary":
     case "new-secondary":
-      // Retired — validation rejects.
+      // Validation rejects these in v3.2. Unreachable.
       player.pendingBottlePlacement = null;
       return;
   }

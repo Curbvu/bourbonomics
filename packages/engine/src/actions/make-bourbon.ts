@@ -141,6 +141,8 @@ function effectiveRecipeMins(
   bill: MashBill,
 ): {
   minCorn: number;
+  /** v3.2 — upper bound on corn. Defaults to minCorn when recipe.maxCorn is unset. */
+  maxCorn: number;
   minRye: number;
   minBarley: number;
   minWheat: number;
@@ -194,6 +196,10 @@ function effectiveRecipeMins(
   minBarley = Math.max(minBarley, sp.barley ?? 0);
   minWheat = Math.max(minWheat, sp.wheat ?? 0);
   const minCorn = Math.max(Math.max(1, recipe.minCorn ?? 0), sp.corn ?? 0);
+  // v3.2 corn range: maxCorn defaults to minCorn (exact behavior,
+  // backwards-compatible with every pre-v3.2 bill). When set above
+  // minCorn, the player may commit any corn count in the range.
+  const maxCorn = Math.max(minCorn, recipe.maxCorn ?? minCorn);
   // Effective total grain = max(declared, sum of named grain mins, 1).
   // Universal rule guarantees ≥1 grain on every barrel; bills with no
   // grain minimums get an implicit 1-wildcard slot.
@@ -207,6 +213,7 @@ function effectiveRecipeMins(
   }
   return {
     minCorn,
+    maxCorn,
     minRye,
     minBarley,
     minWheat,
@@ -307,12 +314,26 @@ function recipeSatisfied(
     };
   }
   const mins = effectiveRecipeMins(player, bill);
-  // Corn is exact (every recipe specifies it explicitly or defaults
-  // to 1 via the universal rule).
-  if (totals.corn !== mins.minCorn)
+  // v3.2 — corn satisfies a RANGE [minCorn, maxCorn]. When the bill
+  // doesn't define maxCorn, effectiveRecipeMins defaults it to
+  // minCorn (exact behavior preserved). The player may commit any
+  // corn count inside the range; the choice is recorded on the
+  // Bottle as cornCount (strength axis for Brand Portfolio slots).
+  if (totals.corn < mins.minCorn)
     return {
       ok: false,
-      reason: `recipe requires exactly ${mins.minCorn} corn (have ${totals.corn})`,
+      reason:
+        mins.minCorn === mins.maxCorn
+          ? `recipe requires exactly ${mins.minCorn} corn (have ${totals.corn})`
+          : `recipe requires corn ≥ ${mins.minCorn} (have ${totals.corn})`,
+    };
+  if (totals.corn > mins.maxCorn)
+    return {
+      ok: false,
+      reason:
+        mins.minCorn === mins.maxCorn
+          ? `recipe requires exactly ${mins.minCorn} corn (have ${totals.corn})`
+          : `recipe allows corn ≤ ${mins.maxCorn} (have ${totals.corn})`,
     };
   // Per-grain floors. A recipe with `minRye: 2, minTotalGrain: 3`
   // is "2 rye + 1 wildcard grain"; the wildcard can land on any
@@ -517,10 +538,13 @@ export function validateMakeBourbon(
   if (totals.wheat > mins.maxWheat) {
     return { legal: false, reason: `recipe forbids wheat > ${mins.maxWheat}` };
   }
-  if (totals.corn > mins.minCorn)
+  if (totals.corn > mins.maxCorn)
     return {
       legal: false,
-      reason: `recipe requires exactly ${mins.minCorn} corn (would have ${totals.corn})`,
+      reason:
+        mins.minCorn === mins.maxCorn
+          ? `recipe requires exactly ${mins.minCorn} corn (would have ${totals.corn})`
+          : `recipe allows corn ≤ ${mins.maxCorn} (would have ${totals.corn})`,
     };
   const grain = totals.rye + totals.barley + totals.wheat;
   if (grain > mins.minTotalGrain)

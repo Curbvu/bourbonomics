@@ -143,6 +143,15 @@ export type CardEffect =
 /** Recipe constraint on the mash committed at production. Always tightens, never loosens. */
 export interface MashBillRecipe {
   minCorn?: number;
+  /**
+   * v3.2 — upper bound on corn commitment. When omitted, defaults to
+   * the effective minCorn (so existing bills behave as exact-corn
+   * recipes, preserving v3.1 semantics). When set explicitly above
+   * minCorn, players may commit any corn count within the range —
+   * the actual count is recorded on the Bottle and feeds the strength
+   * axis on Brand Portfolio slot requirements.
+   */
+  maxCorn?: number;
   minRye?: number;
   minBarley?: number;
   minWheat?: number;
@@ -683,13 +692,22 @@ export interface Bottle {
   rarity: MashBillTier;
   ageAtSale: number;
   demandAtSale: number;
+  /**
+   * v3.2 — actual corn count committed at production. Equals
+   * recipe.minCorn for bills with no corn range; equals the player's
+   * chosen amount for bills with `minCorn < maxCorn`. Read by Brand
+   * Portfolio slot requirements gating on the strength axis.
+   */
+  cornCount: number;
   placedOnRound: number;
 }
 
 /**
- * A Line Card instance held in hand or stacked onto a line. The
- * underlying card definition (predicate + bonus + scoring) lives in
- * `lines/cards.ts` keyed by `defId`.
+ * @deprecated v3.1 Line Card instance. The Line Card subsystem is
+ * removed in v3.2. This type is retained as an empty stub only so
+ * dead references in the Line interface and legacy GameAction
+ * variants continue to compile; nothing produces instances of it
+ * any more.
  */
 export interface LineCardInstance {
   instanceId: string;
@@ -870,38 +888,26 @@ export interface PlayerState {
    */
   draftingLoopUsedThisRound: boolean;
 
-  // ─── v3.0 Line system ────────────────────────────────────────
+  // ─── v3.2 Brand Portfolios ──────────────────────────────────
+  // The flagship line is retained as a Line for now (its `slots`
+  // field still drives v3.1 flagship behavior pending the v3.2
+  // Portfolio data-model swap). secondaryLines stays as an empty
+  // array — secondaries become a single optional drafted portfolio
+  // in the Portfolio model phase.
   /**
-   * Flagship line, bound to the distillery's Line Board at setup.
-   * Always present (lineBoardId set). Empty `bottles` and
-   * `stackedCards` at game start.
+   * Flagship line / portfolio. The shape transitions to a v3.2
+   * Portfolio in the Portfolio model phase. Until then, the v3.1
+   * `Line` shape carries placeholder slot data so games complete.
    */
   flagshipLine: Line;
   /**
-   * Up to 2 secondary lines, each created via PLACE_BOTTLE with
-   * destination `new-secondary` (1+ Line Cards from hand).
+   * Empty in v3.2 until the second-portfolio drafting flow is
+   * wired. Retained as an array on `Line` so v3.1-era client code
+   * that iterates this list compiles cleanly.
    */
   secondaryLines: Line[];
-  /** Line Card instances held privately. */
-  lineCardHand: LineCardInstance[];
-  /** Bottles not placed on any line. Scores 1 rep each at end game. */
+  /** Bottles not placed on any portfolio slot. Scores ZERO at end of game in v3.2. */
   inventory: Bottle[];
-  /**
-   * v3.0: each player may DRAW_LINE_CARDS at most once per round.
-   * Reset to false at cleanup.
-   */
-  hasDrawnLineCardsThisRound: boolean;
-  /**
-   * Set at game init — 4 Line Cards dealt face-up. Player must keep
-   * exactly 2 via CHOOSE_INITIAL_LINE_CARDS before taking any
-   * action-phase action. Cleared once resolved.
-   */
-  pendingInitialLineCardDraft: { cards: LineCardInstance[] } | null;
-  /**
-   * Set by DRAW_LINE_CARDS — up to 3 cards revealed. Player must
-   * keep ≥1 via KEEP_LINE_CARDS before any other action.
-   */
-  pendingLineCardDraw: { cards: LineCardInstance[] } | null;
   /**
    * Set at the end of SELL_BOURBON — the new Bottle must be placed
    * via PLACE_BOTTLE before any other action. Blocks the active
@@ -1092,8 +1098,9 @@ export interface GameState {
 
   /**
    * v3.0: shared Line Card supply. Convention matches `bourbonDeck` —
-   * top of deck = end of array; "bottom" (where KEEP_LINE_CARDS
-   * returns rejected cards) = front of array.
+   * top of deck = end of array. v3.2: always empty; the field is
+   * retained transiently for save-file compatibility while the
+   * Brand Portfolio drafting pool replaces it.
    */
   lineCardDeck: LineCardInstance[];
 
@@ -1373,52 +1380,6 @@ export type GameAction =
       cardId: string;
     }
   | { type: "PASS_TURN"; playerId: string }
-  | {
-      // v3.0 Line system — resolve the 4-card initial draft dealt at
-      // game init. Keep exactly 2; the other 2 return to the bottom
-      // of the lineCardDeck in the order given.
-      type: "CHOOSE_INITIAL_LINE_CARDS";
-      playerId: string;
-      keepInstanceIds: string[];
-    }
-  | {
-      // v3.0 Line system — reveal up to 3 Line Cards from the deck
-      // into `pendingLineCardDraw`. Once per round. Free action.
-      type: "DRAW_LINE_CARDS";
-      playerId: string;
-    }
-  | {
-      // v3.0 Line system — resolve a pending draw by keeping ≥1
-      // revealed card. The rest return to the bottom of the deck.
-      type: "KEEP_LINE_CARDS";
-      playerId: string;
-      keepInstanceIds: string[];
-    }
-  | {
-      // v3.0 Line system — RETIRED in v3.1. validateExtendLine returns
-      // illegal; replaced by PLAY_LINE_CARD which adds positioned slots
-      // to secondary lines.
-      type: "EXTEND_LINE";
-      playerId: string;
-      targetLineId: string;
-      lineCardInstanceId: string;
-    }
-  | {
-      // v3.1 Bourbon Lines — play a Line Card from hand to either
-      // open a new secondary line (slot-1 cards only; cap of 2
-      // secondaries) or extend an existing secondary by adding its
-      // next-open slot position. Slot-position 3 cannot be played
-      // until the secondary already has slots 1 and 2; etc. Free
-      // action during the action phase.
-      type: "PLAY_LINE_CARD";
-      playerId: string;
-      lineCardInstanceId: string;
-      /**
-       * `null` to open a new secondary. Otherwise the secondary's
-       * line id to extend.
-       */
-      targetLineId: string | null;
-    }
   | {
       // v3.0 Line system — resolve the pending bottle placement set
       // by the immediately preceding SELL_BOURBON. The placement

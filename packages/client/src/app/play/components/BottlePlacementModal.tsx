@@ -27,7 +27,6 @@ import type {
 import {
   canPlaceOnLine,
   getLineBoardDef,
-  getLineCardDef,
 } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import BottleChip from "./BottleChip";
@@ -120,44 +119,14 @@ export default function BottlePlacementModal() {
               );
             })}
 
-            {/* New-secondary options (one per accepting Line Card in hand) */}
-            {player.secondaryLines.length < 2
-              ? player.lineCardHand.map((inst) => {
-                  const def = getLineCardDef(inst.defId);
-                  if (!def) return null;
-                  const candidate: Line = {
-                    id: "candidate",
-                    lineBoardId: null,
-                    stackedCards: [inst],
-                    bottles: [],
-                  };
-                  if (!canPlaceOnLine(bottle, candidate, player)) return null;
-                  const action: GameAction = {
-                    type: "PLACE_BOTTLE",
-                    playerId: player.id,
-                    destination: {
-                      kind: "new-secondary",
-                      lineCardInstanceIds: [inst.instanceId],
-                    },
-                  };
-                  return (
-                    <PlacementCard
-                      key={`new-${inst.instanceId}`}
-                      title={`+ New: ${def.name}`}
-                      subtitle="Plays this Line Card from your hand"
-                      bottleCount={0}
-                      accent="emerald"
-                      enabled
-                      onClick={onPick(action)}
-                    />
-                  );
-                })
-              : null}
+            {/* v3.2: New-secondary via Line Cards is retired. The
+                Brand Portfolio second-portfolio pool draft lands as
+                a separate Action Bar button in a follow-on phase. */}
 
-            {/* Inventory (always available) */}
+            {/* Inventory (always available; v3.2 scores 0 at game end) */}
             <PlacementCard
               title="Send to inventory"
-              subtitle="+1 rep at game end · always legal"
+              subtitle="unscored buffer · always legal · retrieve later for 1 worker"
               bottleCount={player.inventory.length}
               accent="slate"
               enabled
@@ -185,12 +154,10 @@ export default function BottlePlacementModal() {
   );
 }
 
-function describeStack(line: Line): string {
-  if (line.stackedCards.length === 0) return "no constraints";
-  const names = line.stackedCards
-    .map((c) => getLineCardDef(c.defId)?.name)
-    .filter((n): n is string => Boolean(n));
-  return names.join(" + ");
+function describeStack(_line: Line): string {
+  // v3.2: secondaryLines is always empty until the Brand Portfolio
+  // second-portfolio system lands; this branch is unreachable.
+  return "no constraints";
 }
 
 function PlacementCard({

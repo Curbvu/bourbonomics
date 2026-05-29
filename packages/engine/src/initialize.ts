@@ -4,7 +4,6 @@ import type {
   Distillery,
   GameConfig,
   GameState,
-  LineCardInstance,
   PlayerState,
 } from "./types";
 import {
@@ -20,7 +19,6 @@ import {
   placeStartingBarrel,
   topUpSlottedBillsForDistillery,
 } from "./starter-pool";
-import { buildLineCardInstances } from "./lines/cards";
 import { buildFlagshipLine } from "./lines/placement";
 import { lineBoardForDistillery } from "./lines/boards";
 
@@ -130,17 +128,12 @@ export function initializeGame(config: GameConfig): GameState {
       // v2.14: each player gets one Drafting Loop initiation per round.
       // Reset at cleanup.
       draftingLoopUsedThisRound: false,
-      // ── v3.0 Line system ──
+      // ── v3.2 Brand Portfolios ──
       flagshipLine: buildFlagshipLine(flagshipBoard?.id ?? "", p.id),
       secondaryLines: [],
-      lineCardHand: [],
       inventory: [],
-      hasDrawnLineCardsThisRound: false,
-      // Filled in below from the shuffled line card deck.
-      pendingInitialLineCardDraft: null,
-      pendingLineCardDraw: null,
       pendingBottlePlacement: null,
-      // ── v3.1 Bourbon Lines persistent flags (off until earned) ──
+      // ── v3.1 flagship completion-bonus flags (off until earned) ──
       commonSalesIgnoreDemandDrop: false,
       draftingLoopReveals5Next: false,
       prestigeScoringDoubled: false,
@@ -219,23 +212,11 @@ export function initializeGame(config: GameConfig): GameState {
   // not as a separate global phase. Setup lands directly in draw.
   else phase = "draw";
 
-  // v3.0 Line system — build & shuffle the shared Line Card deck,
-  // then deal each player 4 cards into `pendingInitialLineCardDraft`.
-  // The player must resolve via CHOOSE_INITIAL_LINE_CARDS before
-  // taking any action-phase action.
-  const lineCardSeed = buildLineCardInstances();
-  const lineCardShuffle = shuffleCards(lineCardSeed, rngState);
-  rngState = lineCardShuffle.rngState;
-  let lineCardDeck = lineCardShuffle.shuffled;
-  const INITIAL_DRAFT_SIZE = 4;
-  for (const player of players) {
-    const dealSize = Math.min(INITIAL_DRAFT_SIZE, lineCardDeck.length);
-    if (dealSize === 0) break;
-    const top = lineCardDeck.slice(lineCardDeck.length - dealSize);
-    const drawn: LineCardInstance[] = top.slice().reverse();
-    lineCardDeck = lineCardDeck.slice(0, lineCardDeck.length - dealSize);
-    player.pendingInitialLineCardDraft = { cards: drawn };
-  }
+  // v3.2 — the v3.1 Line Card deck + initial 4-of/keep-2 draft are
+  // removed entirely. The Brand Portfolio drafting pool replaces
+  // them as a secondary objective; that pool lives on game state
+  // and is populated in a follow-on phase.
+  const lineCardDeck: never[] = [];
 
   const initialState: GameState = {
     seed: config.seed,

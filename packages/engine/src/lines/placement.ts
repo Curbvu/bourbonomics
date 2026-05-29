@@ -8,7 +8,6 @@ import type {
   SlotState,
 } from "../types";
 import { getLineBoardDef } from "./boards";
-import { getLineCardDef } from "./cards";
 import { FLAGSHIP_SLOT_COUNT } from "./defs";
 import { deriveBottleProfile } from "./tags";
 
@@ -57,9 +56,10 @@ export function canPlaceInFlagshipSlot(
 }
 
 /**
- * v3.0 compatibility wrapper. The legacy "can this bottle land on
- * this line" predicate now maps to "can it land in the next-open
- * slot of this line" — flagship or secondary.
+ * Compatibility wrapper. Routes flagship placement to the slot-aware
+ * helper; secondaries return false in v3.2 (the v3.1 Line Card stack
+ * model is removed and the v3.2 Portfolio replacement lands in a
+ * follow-on phase).
  */
 export function canPlaceOnLine(
   bottle: Bottle,
@@ -67,59 +67,19 @@ export function canPlaceOnLine(
   player: PlayerState,
 ): boolean {
   if (!line.slots) return false;
+  if (!line.lineBoardId) return false;
   const idx = nextOpenSlotIndex(line);
   if (idx < 0) return false;
-  if (line.lineBoardId) {
-    return canPlaceInFlagshipSlot(bottle, line, idx, player);
-  }
-  return canPlaceInSecondarySlot(bottle, line, idx, player);
-}
-
-/**
- * v3.1 — true iff the bottle is legal at the given slot on a
- * SECONDARY Bourbon Line. Checks:
- *   1. The slot index is the next-open one (left-to-right).
- *   2. The Line Restriction inherited from the slot-1 card (if any).
- *   3. The slot's individual Placement Requirement (from the Line
- *      Card occupying this slot position).
- */
-export function canPlaceInSecondarySlot(
-  bottle: Bottle,
-  line: Line,
-  slotIndex: number,
-  player: PlayerState,
-): boolean {
-  if (!line.slots) return false;
-  if (slotIndex < 0 || slotIndex >= line.slots.length) return false;
-  if (line.slots[slotIndex]!.filled) return false;
-  if (slotIndex !== nextOpenSlotIndex(line)) return false;
-
-  // The secondary line's stackedCards[k] is the Line Card whose
-  // requirement gates slot k. The Line Restriction (if any) lives on
-  // stackedCards[0]'s def.
-  const cards = line.stackedCards;
-  if (!cards || cards.length <= slotIndex) return false;
-
-  const slotCardDef = getLineCardDef(cards[slotIndex]!.defId);
-  if (!slotCardDef) return false;
-
-  const slot1Def = getLineCardDef(cards[0]!.defId);
-  const restriction = slot1Def?.lineRestriction;
-  if (restriction && !restriction.check({ bottle, line, player })) return false;
-
-  return slotCardDef.requirement.check({
-    bottle,
-    line,
-    slotIndex,
-    player,
-  });
+  return canPlaceInFlagshipSlot(bottle, line, idx, player);
 }
 
 /**
  * Create a Bottle from the sold bill + barrel. Derives recipe tags
  * once and freezes them — every downstream predicate reads the
- * frozen array. `bottleId` is minted from the GameState's idCounter
- * (mutated by the caller).
+ * frozen array. Also captures v3.2 `cornCount` (the actual corn
+ * committed at production, which feeds the strength axis on Brand
+ * Portfolio slot requirements). `bottleId` is minted from the
+ * GameState's idCounter (mutated by the caller).
  */
 export function createBottleFromSale(
   bill: MashBill,
@@ -130,6 +90,16 @@ export function createBottleFromSale(
   bottleId: string,
 ): Bottle {
   const profile = deriveBottleProfile(bill, barrel);
+  // v3.2 — count corn cards in the production pile. Plain, Specialty,
+  // and Heritage corn all carry `subtype === "corn"`. Wild Mash tokens
+  // swapped to "corn" stay in their original card identity in the
+  // pile; the swap intent isn't persisted on the barrel, so this
+  // undercounts by 1 in the rare Wild Mash → corn case. Bills relying
+  // on a strict corn count at sale should not depend on Wild Mash
+  // substitution for that count.
+  const cornCount = barrel.productionCards.filter(
+    (c) => c.type === "resource" && c.subtype === "corn",
+  ).length;
   return {
     bottleId,
     originalBillId: bill.id,
@@ -141,6 +111,7 @@ export function createBottleFromSale(
     rarity: bill.tier ?? "common",
     ageAtSale,
     demandAtSale,
+    cornCount,
     placedOnRound: round,
   };
 }
@@ -216,14 +187,11 @@ function emptySlots(lineBoardId: string): SlotState[] | undefined {
 export { FLAGSHIP_SLOT_COUNT };
 
 /**
- * True if `state` is mid-pending for the named player.
+ * True if `state` is mid-pending for the named player. In v3.2 only
+ * the bottle-placement pending state remains.
  */
 export function isPlayerBlockedByLinePending(player: PlayerState): boolean {
-  return (
-    player.pendingInitialLineCardDraft !== null ||
-    player.pendingLineCardDraw !== null ||
-    player.pendingBottlePlacement !== null
-  );
+  return player.pendingBottlePlacement !== null;
 }
 
 // re-export GameState to keep imports tidy on callers

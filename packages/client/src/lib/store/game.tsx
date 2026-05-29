@@ -77,8 +77,6 @@ function clearTutorialGates(state: GameState): GameState {
     for (const p of draft.players) {
       p.needsDemandRoll = false;
       p.needsAgeBarrels = false;
-      p.pendingInitialLineCardDraft = null;
-      p.pendingLineCardDraw = null;
       p.pendingBottlePlacement = null;
     }
   });

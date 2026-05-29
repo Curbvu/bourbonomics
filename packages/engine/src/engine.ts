@@ -31,21 +31,7 @@ import {
   validatePlayOperationsCard,
 } from "./actions/play-operations-card";
 import { applySaveCard, validateSaveCard } from "./actions/save-card";
-import {
-  applyChooseInitialLineCards,
-  validateChooseInitialLineCards,
-} from "./actions/choose-initial-line-cards";
-import {
-  applyDrawLineCards,
-  validateDrawLineCards,
-} from "./actions/draw-line-cards";
-import {
-  applyKeepLineCards,
-  validateKeepLineCards,
-} from "./actions/keep-line-cards";
-import { applyExtendLine, validateExtendLine } from "./actions/extend-line";
 import { applyPlaceBottle, validatePlaceBottle } from "./actions/place-bottle";
-import { applyPlayLineCard, validatePlayLineCard } from "./actions/play-line-card";
 import { scoreEndGameLines } from "./lines/scoring";
 
 export class IllegalActionError extends Error {
@@ -92,39 +78,15 @@ export function validateAction(state: GameState, action: GameAction): Validation
         };
       }
     }
-    if (current && current.pendingLineCardDraw) {
-      if (action.type !== "KEEP_LINE_CARDS") {
-        return {
-          legal: false,
-          reason: `${current.id} must resolve their Line Card draw before taking other actions`,
-        };
-      }
-    }
-    if (
-      state.phase === "action" &&
-      current &&
-      current.pendingInitialLineCardDraft
-    ) {
-      if (action.type !== "CHOOSE_INITIAL_LINE_CARDS") {
-        return {
-          legal: false,
-          reason: `${current.id} must resolve their initial Line Card draft first`,
-        };
-      }
-    }
     if (
       // v2.9: in the action phase, the current player must roll demand
       // before doing anything else. PLAY_OPERATIONS_CARD stays free since
-      // it's a 0-cost prelude historically — but every other "real" action
-      // is gated on the per-turn demand roll. v3.0: Line-resolving
-      // actions (CHOOSE_INITIAL_LINE_CARDS, KEEP_LINE_CARDS,
-      // PLACE_BOTTLE) are also exempt since they discharge pending
-      // state that must clear BEFORE the player can roll demand.
+      // it's a 0-cost prelude historically. v3.2: PLACE_BOTTLE is
+      // exempt since it discharges pending bottle placement that must
+      // clear BEFORE the player can roll demand.
       state.phase === "action" &&
       action.type !== "ROLL_DEMAND" &&
       action.type !== "PLAY_OPERATIONS_CARD" &&
-      action.type !== "CHOOSE_INITIAL_LINE_CARDS" &&
-      action.type !== "KEEP_LINE_CARDS" &&
       action.type !== "PLACE_BOTTLE"
     ) {
       if (current && current.needsDemandRoll) {
@@ -191,16 +153,6 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateSaveCard(state, action);
     case "PASS_TURN":
       return validatePassTurn(state, action);
-    case "CHOOSE_INITIAL_LINE_CARDS":
-      return validateChooseInitialLineCards(state, action);
-    case "DRAW_LINE_CARDS":
-      return validateDrawLineCards(state, action);
-    case "KEEP_LINE_CARDS":
-      return validateKeepLineCards(state, action);
-    case "EXTEND_LINE":
-      return validateExtendLine(state, action);
-    case "PLAY_LINE_CARD":
-      return validatePlayLineCard(state, action);
     case "PLACE_BOTTLE":
       return validatePlaceBottle(state, action);
     default:
@@ -284,21 +236,6 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
       return;
     case "PASS_TURN":
       applyPassTurn(draft, action);
-      return;
-    case "CHOOSE_INITIAL_LINE_CARDS":
-      applyChooseInitialLineCards(draft, action);
-      return;
-    case "DRAW_LINE_CARDS":
-      applyDrawLineCards(draft, action);
-      return;
-    case "KEEP_LINE_CARDS":
-      applyKeepLineCards(draft, action);
-      return;
-    case "EXTEND_LINE":
-      applyExtendLine(draft, action);
-      return;
-    case "PLAY_LINE_CARD":
-      applyPlayLineCard(draft, action);
       return;
     case "PLACE_BOTTLE":
       applyPlaceBottle(draft, action);
