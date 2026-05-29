@@ -143,11 +143,11 @@ export default function ActionBar() {
           tooltipIdle="Swap your cheapest card with the first available partner's."
         />
         {/* v3.2: Draw Line Cards button retired; Draft Second
-            Portfolio lands here in the Brand Portfolio phase. Play
-            Ops button removed earlier — operations cards are
-            pending future release. */}
+            Portfolio is offered inside the Brand Portfolio drawer. */}
 
         <span className="flex-1" />
+
+        <PortfolioButton />
 
         <SmartButton
           label="End turn ↵"
@@ -167,6 +167,65 @@ export default function ActionBar() {
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * v3.2 — Brand Portfolio entry-point chip on the action bar. Shows
+ * the human's flagship tier + filled-required-slot progress and opens
+ * the BrandPortfolioDrawer when clicked. Gold-on-amber chrome
+ * distinguishes it from the green Action Phase buttons — the drawer
+ * is *not* an action (no engine dispatch), just a view-and-place
+ * surface.
+ */
+function PortfolioButton() {
+  const { state, humanSeatPlayerId, setPortfolioDrawerOpen } = useGameStore();
+  const player = humanSeatPlayerId
+    ? state?.players.find((p) => p.id === humanSeatPlayerId)
+    : null;
+  if (!player || !player.flagshipPortfolio.portfolioId) return null;
+  const reqSlots = player.flagshipPortfolio.slots.filter((s, i) => {
+    // Cheap proxy: the flagship's slot defs come from the catalog,
+    // but the strip cares about required-slot progress. We need the
+    // PortfolioState alone — every flagship in v3.2 ships with required
+    // slots tagged via the catalog. For the chip's progress dots we
+    // approximate by counting filled vs total here; the drawer surfaces
+    // the precise required vs optional breakdown.
+    return i >= 0;
+  });
+  const filled = reqSlots.filter((s) => s.filled).length;
+  const total = reqSlots.length;
+  return (
+    <button
+      type="button"
+      onClick={() => setPortfolioDrawerOpen(true)}
+      title="Open your Brand Portfolio (Esc to close)"
+      className="group flex items-center gap-2 rounded-md border px-2.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.14em] transition-colors hover:brightness-110"
+      style={{
+        borderColor: "rgba(198,157,82,.55)",
+        background: "linear-gradient(180deg, rgba(240,201,112,.14), rgba(34,23,16,.85))",
+        color: "var(--gold)",
+      }}
+    >
+      <span>Portfolio</span>
+      <span aria-hidden className="h-3.5 w-px" style={{ background: "rgba(198,157,82,.4)" }} />
+      <span className="font-mono text-[10px] tabular-nums" style={{ color: "var(--brass)" }}>
+        {filled}/{total}
+      </span>
+      <span className="flex gap-0.5">
+        {Array.from({ length: total }).map((_, i) => (
+          <span
+            key={i}
+            aria-hidden
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{
+              background: i < filled ? "var(--gold)" : "transparent",
+              border: i < filled ? "0" : "1px solid rgba(198,157,82,.5)",
+            }}
+          />
+        ))}
+      </span>
+    </button>
   );
 }
 

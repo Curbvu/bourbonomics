@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import BotTurnBanner from "./components/BotTurnBanner";
+import BrandPortfolioDrawer from "./components/BrandPortfolioDrawer";
 import CardInspectModal from "./components/CardInspectModal";
 import GameOverPanel from "./components/GameOverPanel";
 import ToastStack from "./components/ToastStack";
@@ -86,6 +87,10 @@ export default function PlayPage() {
       {/* v3.2 — BottlePlacementModal self-gates on the local human's
           pendingBottlePlacement. The Line Card subsystem is removed. */}
       <BottlePlacementModal />
+      {/* v3.2 Brand Portfolio drawer — self-gates on portfolioDrawerOpen.
+          Page-root mount so its full-viewport backdrop covers the
+          entire screen. */}
+      <BrandPortfolioDrawer />
       <DemandRollModal />
       {/* Drafting-loop modal — mounted at the page root (outside
           ScalingHost) so its `fixed inset-0` covers the full viewport

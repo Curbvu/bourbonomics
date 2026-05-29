@@ -538,6 +538,11 @@ export interface GameStore {
   /** Currently-inspected card payload (modal render target), or null. */
   inspect: InspectPayload | null;
   setInspect: (payload: InspectPayload | null) => void;
+  /** v3.2 — Brand Portfolio overlay open flag. Surfaced from the
+   *  PortfolioStrip click, the action-bar Portfolio button, and
+   *  (auto) when a sale leaves a pending placement. */
+  portfolioDrawerOpen: boolean;
+  setPortfolioDrawerOpen: (open: boolean) => void;
   /** Transient notifications surfaced via the ToastStack at page root.
    *  Pushed when the engine rejects a dispatched action, or when the
    *  multiplayer socket surfaces a server error. Auto-expire after a
@@ -741,6 +746,8 @@ const Ctx = createContext<GameStore>({
   humanSeatPlayerId: null,
   inspect: null,
   setInspect: noop,
+  portfolioDrawerOpen: false,
+  setPortfolioDrawerOpen: noop,
   toasts: [],
   pushToast: noop,
   dismissToast: noop,
@@ -841,6 +848,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [store, setStore] = useState<AtomicStore>(EMPTY_STORE);
   const [autoplay, setAutoplayState] = useState(false);
   const [inspect, setInspect] = useState<InspectPayload | null>(null);
+  // v3.2 — Brand Portfolio drawer open flag. Page-root mount; opens on
+  // strip click, action-bar Portfolio button, or auto when a sale
+  // resolves with a pending placement (the BottlePlacementModal handles
+  // that case independently, so this flag stays orthogonal).
+  const [portfolioDrawerOpen, setPortfolioDrawerOpen] = useState(false);
 
   // v3.8 toast channel — engine rejections + multiplayer errors surface
   // as transient pop-ups via ToastStack at page root. Auto-prune at 500ms
@@ -2341,6 +2353,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       humanSeatPlayerId,
       inspect,
       setInspect,
+      portfolioDrawerOpen,
+      setPortfolioDrawerOpen,
       toasts,
       pushToast,
       dismissToast,
@@ -2425,6 +2439,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       humanWaitingOn,
       humanSeatPlayerId,
       inspect,
+      portfolioDrawerOpen,
       toasts,
       pushToast,
       dismissToast,
