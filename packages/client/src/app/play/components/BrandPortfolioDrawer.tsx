@@ -16,7 +16,7 @@
  * covers the whole viewport.
  */
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type {
   Bottle,
   GameAction,
@@ -26,6 +26,7 @@ import type {
   PlayerState,
 } from "@bourbonomics/engine";
 import {
+  eligibleSlotsForBottle,
   getPortfolio,
   scorePortfolio,
   slotEligibleForFill,
@@ -33,6 +34,13 @@ import {
 } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import BottleChip from "./BottleChip";
+
+interface RetrieveContext {
+  bottleId: string;
+  /** Set of `${kind}:${slotIndex}` keys identifying eligible slots. */
+  eligibleSet: Set<string>;
+  onPlace: (kind: "flagship" | "second", slotIndex: number) => void;
+}
 
 export default function BrandPortfolioDrawer() {
   const {
@@ -46,15 +54,34 @@ export default function BrandPortfolioDrawer() {
     ? state?.players.find((p) => p.id === humanSeatPlayerId)
     : null;
 
-  // Esc → close.
+  // Local retrieve-from-inventory mode. When set, the drawer shows
+  // eligible slots glowing and clicking one dispatches RETRIEVE_BOTTLE.
+  const [retrievingBottleId, setRetrievingBottleId] = useState<string | null>(
+    null,
+  );
+
+  // Esc → cancel retrieve first, otherwise close the drawer.
   useEffect(() => {
     if (!portfolioDrawerOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPortfolioDrawerOpen(false);
+      if (e.key !== "Escape") return;
+      if (retrievingBottleId) {
+        setRetrievingBottleId(null);
+      } else {
+        setPortfolioDrawerOpen(false);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [portfolioDrawerOpen, setPortfolioDrawerOpen]);
+  }, [portfolioDrawerOpen, setPortfolioDrawerOpen, retrievingBottleId]);
+
+  // If the drawer just closed (or the inventory bottle disappeared from
+  // state because some other path moved it), drop the retrieve target.
+  useEffect(() => {
+    if (!portfolioDrawerOpen && retrievingBottleId) {
+      setRetrievingBottleId(null);
+    }
+  }, [portfolioDrawerOpen, retrievingBottleId]);
 
   if (!portfolioDrawerOpen || !state || !player) return null;
   const flagship = getPortfolio(player.flagshipPortfolio.portfolioId);
@@ -93,6 +120,43 @@ export default function BrandPortfolioDrawer() {
     };
     dispatch(action);
   };
+
+  // Retrieve flow. Build a RetrieveContext only when there's an active
+  // target AND the player can actually pay (Generic Labor in hand). If
+  // labor is missing we still let the player *select* a bottle so they
+  // can see the eligibility highlights for planning, but the slots
+  // themselves stay un-clickable (canDispatch=false drops the onPlace).
+  const retrieveBottle = retrievingBottleId
+    ? player.inventory.find((b) => b.bottleId === retrievingBottleId) ?? null
+    : null;
+  const retrieveEligible = retrieveBottle
+    ? eligibleSlotsForBottle(retrieveBottle, player)
+    : [];
+  const onRetrievePlace = (
+    kind: "flagship" | "second",
+    slotIndex: number,
+  ) => {
+    if (!retrieveBottle || !genericLaborCardId) return;
+    const action: GameAction = {
+      type: "RETRIEVE_BOTTLE",
+      playerId: player.id,
+      bottleId: retrieveBottle.bottleId,
+      destination: { kind, slotIndex },
+      laborCardId: genericLaborCardId,
+    };
+    dispatch(action);
+    setRetrievingBottleId(null);
+  };
+  const retrieveContext: RetrieveContext | null =
+    retrieveBottle && genericLaborCardId
+      ? {
+          bottleId: retrieveBottle.bottleId,
+          eligibleSet: new Set(
+            retrieveEligible.map((e) => `${e.kind}:${e.slotIndex}`),
+          ),
+          onPlace: onRetrievePlace,
+        }
+      : null;
 
   return (
     <div
@@ -133,11 +197,24 @@ export default function BrandPortfolioDrawer() {
 
         {/* Body */}
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+          {/* Retrieve banner — shown while a bottle is selected for
+              retrieve. Displays the bottle + Cancel; tells the player
+              how many slots are eligible (or why nothing's clickable). */}
+          {retrieveBottle ? (
+            <RetrieveBanner
+              bottle={retrieveBottle}
+              eligibleCount={retrieveEligible.length}
+              hasLabor={genericLaborCardId != null}
+              onCancel={() => setRetrievingBottleId(null)}
+            />
+          ) : null}
+
           <PortfolioBoard
             kind="flagship"
             portfolio={flagship}
             state={player.flagshipPortfolio}
             player={player}
+            retrieveContext={retrieveContext}
             hero
           />
 
@@ -148,6 +225,7 @@ export default function BrandPortfolioDrawer() {
                 portfolio={second}
                 state={player.secondPortfolio}
                 player={player}
+                retrieveContext={retrieveContext}
               />
             ) : (
               <DraftPoolPanel
@@ -161,13 +239,24 @@ export default function BrandPortfolioDrawer() {
             <ScoringReadout flagship={flagship} second={second} player={player} />
           </div>
 
-          {/* If a second is drafted, also show the inventory + pool readout
-              in a compact footer row. */}
+          {/* Inventory section — always visible. Bottles become
+              clickable when at least one slot is eligible (otherwise
+              the click would always fail). The Generic Labor cost is
+              surfaced in the header. */}
+          <InventoryPanel
+            inventory={player.inventory}
+            hasLabor={genericLaborCardId != null}
+            selectedBottleId={retrievingBottleId}
+            onSelect={setRetrievingBottleId}
+            playerEligibleCount={(bottle) =>
+              eligibleSlotsForBottle(bottle, player).length
+            }
+          />
+
+          {/* When a second is drafted, the pool moves to a compact
+              footer chip so the player can still see what's undrafted. */}
           {second && player.secondPortfolio ? (
-            <InventoryAndPool
-              inventory={player.inventory}
-              draftPool={draftPool}
-            />
+            <CompactPool draftPool={draftPool} />
           ) : null}
         </div>
       </div>
@@ -184,12 +273,14 @@ function PortfolioBoard({
   portfolio,
   state,
   player,
+  retrieveContext,
   hero,
 }: {
   kind: "flagship" | "second";
   portfolio: Portfolio;
   state: PortfolioState;
   player: PlayerState;
+  retrieveContext: RetrieveContext | null;
   hero?: boolean;
 }) {
   const score = scorePortfolio(portfolio, state, player);
@@ -249,14 +340,26 @@ function PortfolioBoard({
                 </span>
               </div>
               <div className="flex gap-2">
-                {tier.slotDefs.map((slotDef) => (
-                  <SlotCard
-                    key={slotDef.index}
-                    slotDef={slotDef}
-                    portfolio={portfolio}
-                    state={state}
-                  />
-                ))}
+                {tier.slotDefs.map((slotDef) => {
+                  const isRetrieveTarget =
+                    retrieveContext?.eligibleSet.has(
+                      `${kind}:${slotDef.index}`,
+                    ) ?? false;
+                  return (
+                    <SlotCard
+                      key={slotDef.index}
+                      slotDef={slotDef}
+                      portfolio={portfolio}
+                      state={state}
+                      isRetrieveTarget={isRetrieveTarget}
+                      onRetrieveClick={
+                        isRetrieveTarget
+                          ? () => retrieveContext!.onPlace(kind, slotDef.index)
+                          : undefined
+                      }
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -296,34 +399,54 @@ function SlotCard({
   slotDef,
   portfolio,
   state,
+  isRetrieveTarget,
+  onRetrieveClick,
 }: {
   slotDef: PortfolioSlotDef;
   portfolio: Portfolio;
   state: PortfolioState;
+  isRetrieveTarget?: boolean;
+  onRetrieveClick?: () => void;
 }) {
   const slot = state.slots[slotDef.index];
   if (!slot) return null;
   const isOpen = slotEligibleForFill(portfolio, state, slotDef.index);
   const locked = !slot.filled && !isOpen;
   const borderStyle = slotDef.required ? "solid" : "dashed";
-  const borderColor = slot.filled
-    ? "rgba(198,157,82,.6)"
-    : isOpen
-      ? "rgba(198,157,82,.45)"
-      : "rgba(110,80,50,.4)";
-  return (
-    <div
-      className="flex w-[164px] flex-col gap-1 rounded-lg px-2 py-2"
-      style={{
-        borderWidth: 1.5,
-        borderStyle,
-        borderColor,
-        background: slot.filled
-          ? "linear-gradient(180deg, rgba(58,40,24,.7), rgba(26,18,11,.9))"
-          : "linear-gradient(180deg, rgba(28,18,11,.7), rgba(16,11,7,.9))",
-        opacity: locked ? 0.58 : 1,
-      }}
-    >
+  // Retrieve target wins the border color so the eligible-for-this-
+  // bottle glow stands out from the regular open/filled palette.
+  const borderColor = isRetrieveTarget
+    ? "var(--gold)"
+    : slot.filled
+      ? "rgba(198,157,82,.6)"
+      : isOpen
+        ? "rgba(198,157,82,.45)"
+        : "rgba(110,80,50,.4)";
+  const sharedStyle = {
+    borderWidth: 1.5,
+    borderStyle,
+    borderColor,
+    background: isRetrieveTarget
+      ? "radial-gradient(70% 80% at 50% 30%, rgba(240,201,112,.2), rgba(20,14,8,.85) 65%)"
+      : slot.filled
+        ? "linear-gradient(180deg, rgba(58,40,24,.7), rgba(26,18,11,.9))"
+        : "linear-gradient(180deg, rgba(28,18,11,.7), rgba(16,11,7,.9))",
+    boxShadow: isRetrieveTarget
+      ? "0 0 0 2px rgba(240,201,112,.55), 0 8px 22px rgba(240,201,112,.3)"
+      : ("none" as const),
+    opacity: locked && !isRetrieveTarget ? 0.58 : 1,
+  };
+  const sharedClass = [
+    "flex w-[164px] flex-col gap-1 rounded-lg px-2 py-2 text-left",
+    onRetrieveClick
+      ? "cursor-pointer transition-transform hover:-translate-y-[2px] hover:brightness-110"
+      : "",
+  ].join(" ");
+  // Render as <button> only when a retrieve target click is actually
+  // wired — otherwise stay a non-interactive <div> to keep keyboard
+  // focus order clean.
+  const inner = (
+    <>
       <div className="flex items-baseline justify-between gap-1">
         <span
           className="font-mono text-[8.5px] font-bold uppercase tracking-[.12em]"
@@ -351,7 +474,11 @@ function SlotCard({
         {slotDef.requirement.label}
       </div>
       <div className="mt-auto flex flex-col gap-1 border-t border-slate-800/70 pt-1.5">
-        {slot.filled && slot.bottle ? (
+        {isRetrieveTarget ? (
+          <span className="font-mono text-[10px] font-bold uppercase tracking-[.14em] text-amber-300">
+            ↓ Place here
+          </span>
+        ) : slot.filled && slot.bottle ? (
           <div className="flex items-center gap-1.5">
             <BottleChip bottle={slot.bottle} size="xs" />
             <span className="truncate font-display text-[11px] italic text-slate-300">
@@ -381,6 +508,23 @@ function SlotCard({
           </div>
         ) : null}
       </div>
+    </>
+  );
+  if (onRetrieveClick) {
+    return (
+      <button
+        type="button"
+        onClick={onRetrieveClick}
+        className={sharedClass}
+        style={sharedStyle}
+      >
+        {inner}
+      </button>
+    );
+  }
+  return (
+    <div className={sharedClass} style={sharedStyle}>
+      {inner}
     </div>
   );
 }
@@ -600,65 +744,175 @@ function ScoreLine({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// InventoryAndPool — shown when a second portfolio is already drafted
-// (otherwise the DraftPoolPanel handles the pool slot directly).
+// InventoryPanel — bottles waiting to be retrieved. Clicking a bottle
+// (when at least one slot is eligible) sets the drawer into retrieve
+// mode; the selected bottle's eligible slots glow above.
 // ─────────────────────────────────────────────────────────────────────
 
-function InventoryAndPool({
+function InventoryPanel({
   inventory,
-  draftPool,
+  hasLabor,
+  selectedBottleId,
+  onSelect,
+  playerEligibleCount,
 }: {
   inventory: Bottle[];
-  draftPool: readonly string[];
+  hasLabor: boolean;
+  selectedBottleId: string | null;
+  onSelect: (id: string | null) => void;
+  playerEligibleCount: (bottle: Bottle) => number;
 }) {
   return (
-    <div className="grid flex-shrink-0 gap-3" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }}>
-      <section className="rounded-lg border border-slate-700/60 bg-slate-950/55 px-3 py-2">
-        <header className="mb-1 flex items-baseline gap-2">
-          <span className="font-mono text-[10.5px] font-bold uppercase tracking-[.18em] text-amber-300">
-            Inventory
+    <section className="flex-shrink-0 rounded-lg border border-slate-700/60 bg-slate-950/55 px-3 py-2">
+      <header className="mb-1.5 flex items-baseline gap-2">
+        <span className="font-mono text-[10.5px] font-bold uppercase tracking-[.18em] text-amber-300">
+          Inventory
+        </span>
+        <span className="font-mono text-[11px] text-slate-400">
+          {inventory.length} bottle{inventory.length === 1 ? "" : "s"} · scores 0 · retrieve for 1 Generic Labor
+        </span>
+        <span aria-hidden className="h-px flex-1" style={{ background: "linear-gradient(90deg, var(--rule), transparent)" }} />
+        {!hasLabor && inventory.length > 0 ? (
+          <span className="rounded border border-slate-700/60 bg-slate-900/50 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[.12em] text-slate-400">
+            Need 1 Generic Labor to retrieve
           </span>
-          <span className="font-mono text-[11px] text-slate-400">
-            {inventory.length} bottle{inventory.length === 1 ? "" : "s"} · scores 0
+        ) : null}
+      </header>
+      <div className="flex flex-wrap gap-2">
+        {inventory.length === 0 ? (
+          <span className="font-mono text-[10px] italic text-slate-500">
+            empty
           </span>
-        </header>
-        <div className="flex flex-wrap gap-1.5">
-          {inventory.length === 0 ? (
-            <span className="font-mono text-[10px] italic text-slate-500">empty</span>
-          ) : (
-            inventory.map((b) => (
-              <span key={b.bottleId} className="inline-flex items-center gap-1 rounded border border-amber-900/40 bg-slate-950/60 px-1.5 py-0.5">
+        ) : (
+          inventory.map((b) => {
+            const eligibleCount = playerEligibleCount(b);
+            const isSelected = b.bottleId === selectedBottleId;
+            const clickable = hasLabor && eligibleCount > 0;
+            return (
+              <button
+                key={b.bottleId}
+                type="button"
+                onClick={
+                  clickable
+                    ? () => onSelect(isSelected ? null : b.bottleId)
+                    : undefined
+                }
+                disabled={!clickable}
+                title={
+                  !hasLabor
+                    ? "Need 1 Generic Labor to retrieve"
+                    : eligibleCount === 0
+                      ? "No eligible slot for this bottle right now"
+                      : isSelected
+                        ? "Click again to cancel"
+                        : `${eligibleCount} eligible slot${eligibleCount === 1 ? "" : "s"} — click to highlight them`
+                }
+                className={[
+                  "inline-flex items-center gap-2 rounded border px-2 py-1 transition-all",
+                  isSelected
+                    ? "border-amber-400 bg-amber-900/30"
+                    : clickable
+                      ? "border-amber-900/50 bg-slate-950/60 hover:border-amber-500/70 hover:bg-amber-950/20"
+                      : "border-slate-700/40 bg-slate-950/40 opacity-65",
+                ].join(" ")}
+              >
                 <BottleChip bottle={b} size="xs" />
-                <span className="font-display text-[10.5px] italic text-slate-300">{b.name}</span>
-              </span>
-            ))
-          )}
-        </div>
-      </section>
-      <section className="rounded-lg border border-slate-700/60 bg-slate-950/55 px-3 py-2">
-        <header className="mb-1 flex items-baseline gap-2">
-          <span className="font-mono text-[10.5px] font-bold uppercase tracking-[.18em] text-amber-300">
-            Secondary Pool
-          </span>
-          <span className="font-mono text-[11px] text-slate-400">
-            {draftPool.length} undrafted
-          </span>
-        </header>
-        <div className="flex flex-wrap gap-1.5">
-          {draftPool.length === 0 ? (
-            <span className="font-mono text-[10px] italic text-slate-500">none left</span>
-          ) : (
-            draftPool.map((id) => {
-              const p = getPortfolio(id);
-              return p ? (
-                <span key={id} className="rounded border border-slate-700/60 bg-slate-950/60 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[.08em] text-slate-300">
-                  {p.name}
+                <span className="font-display text-[11px] italic text-slate-200">
+                  {b.name}
                 </span>
-              ) : null;
-            })
-          )}
+                <span className="font-mono text-[9px] uppercase tracking-[.08em] text-slate-500">
+                  {b.ageAtSale}y · {caskShort(b.caskTag)}
+                </span>
+                {isSelected ? (
+                  <span className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-amber-300">
+                    Retrieving →
+                  </span>
+                ) : clickable ? (
+                  <span className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-amber-400/70">
+                    {eligibleCount} slot{eligibleCount === 1 ? "" : "s"} →
+                  </span>
+                ) : null}
+              </button>
+            );
+          })
+        )}
+      </div>
+    </section>
+  );
+}
+
+function caskShort(tag: string): string {
+  if (tag === "heritage-cask") return "Heritage";
+  if (tag === "specialty-cask") return "Specialty";
+  return "Common";
+}
+
+// Compact pool chip row shown beneath the inventory when a second is
+// drafted — keeps the remaining pool visible without claiming a full
+// panel.
+function CompactPool({ draftPool }: { draftPool: readonly string[] }) {
+  if (draftPool.length === 0) return null;
+  return (
+    <div className="flex flex-shrink-0 flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/45 px-3 py-1.5">
+      <span className="font-mono text-[9.5px] uppercase tracking-[.14em] text-slate-400">
+        Pool remaining:
+      </span>
+      {draftPool.map((id) => {
+        const p = getPortfolio(id);
+        return p ? (
+          <span
+            key={id}
+            className="rounded border border-slate-700/60 bg-slate-950/60 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[.08em] text-slate-300"
+          >
+            {p.name}
+          </span>
+        ) : null;
+      })}
+    </div>
+  );
+}
+
+function RetrieveBanner({
+  bottle,
+  eligibleCount,
+  hasLabor,
+  onCancel,
+}: {
+  bottle: Bottle;
+  eligibleCount: number;
+  hasLabor: boolean;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="flex flex-shrink-0 items-center gap-3 rounded-lg border border-amber-500/70 bg-amber-950/30 px-3 py-2"
+      style={{
+        boxShadow: "0 0 0 1px rgba(240,201,112,.3), 0 8px 22px rgba(240,201,112,.18)",
+      }}
+    >
+      <BottleChip bottle={bottle} size="sm" />
+      <div className="min-w-0 flex-1">
+        <div className="font-mono text-[10px] uppercase tracking-[.16em] text-amber-300">
+          Retrieve from inventory
         </div>
-      </section>
+        <div className="truncate font-display text-[15px] font-semibold text-amber-100">
+          {bottle.name}
+        </div>
+        <div className="font-mono text-[10.5px] uppercase tracking-[.1em] text-slate-300">
+          {!hasLabor
+            ? "Need 1 Generic Labor — placement disabled"
+            : eligibleCount === 0
+              ? "No eligible slot — wait for a tier to unlock or stash a different bottle"
+              : `${eligibleCount} eligible slot${eligibleCount === 1 ? "" : "s"} glowing — click one to place (costs 1 Generic Labor)`}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="flex-shrink-0 rounded-md border border-slate-600 bg-slate-800/70 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[.16em] text-slate-100 hover:bg-slate-700/60"
+      >
+        Cancel ✕
+      </button>
     </div>
   );
 }
