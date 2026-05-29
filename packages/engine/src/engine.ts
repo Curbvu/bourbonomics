@@ -32,6 +32,14 @@ import {
 } from "./actions/play-operations-card";
 import { applySaveCard, validateSaveCard } from "./actions/save-card";
 import { applyPlaceBottle, validatePlaceBottle } from "./actions/place-bottle";
+import {
+  applyRetrieveBottle,
+  validateRetrieveBottle,
+} from "./actions/retrieve-bottle";
+import {
+  applyDraftSecondPortfolio,
+  validateDraftSecondPortfolio,
+} from "./actions/draft-second-portfolio";
 import { scoreEndGameLines } from "./lines/scoring";
 
 export class IllegalActionError extends Error {
@@ -155,6 +163,10 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validatePassTurn(state, action);
     case "PLACE_BOTTLE":
       return validatePlaceBottle(state, action);
+    case "RETRIEVE_BOTTLE":
+      return validateRetrieveBottle(state, action);
+    case "DRAFT_SECOND_PORTFOLIO":
+      return validateDraftSecondPortfolio(state, action);
     default:
       return { legal: false, reason: `unhandled action type: ${(action as { type: string }).type}` };
   }
@@ -239,6 +251,12 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
       return;
     case "PLACE_BOTTLE":
       applyPlaceBottle(draft, action);
+      return;
+    case "RETRIEVE_BOTTLE":
+      applyRetrieveBottle(draft, action);
+      return;
+    case "DRAFT_SECOND_PORTFOLIO":
+      applyDraftSecondPortfolio(draft, action);
       return;
     default:
       throw new IllegalActionError(`unhandled action type: ${(action as { type: string }).type}`, action);

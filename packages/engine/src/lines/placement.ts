@@ -5,81 +5,179 @@ import type {
   Line,
   MashBill,
   PlayerState,
-  SlotState,
+  Portfolio,
+  PortfolioState,
 } from "../types";
-import { getLineBoardDef } from "./boards";
-import { FLAGSHIP_SLOT_COUNT } from "./defs";
+import {
+  buildEmptyPortfolioState,
+  flagshipPortfolioForDistillery,
+  getPortfolio,
+} from "./boards";
 import { deriveBottleProfile } from "./tags";
 
+// ─── v3.2 portfolio placement helpers ──────────────────────────
+
 /**
- * v3.1 — the leftmost slot that's empty, or -1 if the line is full
- * (or hasn't been seeded with slots yet). Slots must fill in order;
- * this is the only legal target for a fresh placement.
+ * The next-open REQUIRED slot index for left-to-right enforcement.
+ * Returns -1 when every required slot is filled (or there are none).
+ *
+ * Optional slots do not appear here; they are eligible via
+ * `tierUnlockedAt`.
  */
-export function nextOpenSlotIndex(line: Line): number {
-  if (!line.slots) return -1;
-  for (let i = 0; i < line.slots.length; i++) {
-    if (!line.slots[i]!.filled) return i;
+export function nextOpenRequiredSlotIndex(
+  portfolio: Portfolio,
+  state: PortfolioState,
+): number {
+  for (const slotDef of portfolio.slots) {
+    if (!slotDef.required) continue;
+    if (!state.slots[slotDef.index]!.filled) return slotDef.index;
   }
   return -1;
 }
 
 /**
- * v3.1 — true iff the bottle is legal at the given slot on a flagship
- * Bourbon Line. Checks:
- *   1. The slot index is the next-open one (left-to-right enforcement).
- *   2. The board's Line Restriction (if any).
- *   3. The slot's individual Placement Requirement.
- *
- * The flagship's board is looked up via `line.lineBoardId`; an unknown
- * id (corrupted save) fails closed.
+ * True if a given tier has unlocked. Tier T is unlocked when its
+ * first REQUIRED slot is filled (per the v3.2 spec). Tiers with no
+ * required slots unlock as soon as the previous tier's required
+ * slots are all filled — i.e., when the tier becomes "current."
  */
-export function canPlaceInFlagshipSlot(
-  bottle: Bottle,
-  line: Line,
-  slotIndex: number,
-  player: PlayerState,
+export function tierUnlockedAt(
+  portfolio: Portfolio,
+  state: PortfolioState,
+  tierIndex: number,
 ): boolean {
-  if (!line.slots) return false;
-  if (slotIndex < 0 || slotIndex >= line.slots.length) return false;
-  if (line.slots[slotIndex]!.filled) return false;
-  if (slotIndex !== nextOpenSlotIndex(line)) return false;
-  if (!line.lineBoardId) return false;
-  const board = getLineBoardDef(line.lineBoardId);
-  if (!board) return false;
-  if (board.lineRestriction) {
-    if (!board.lineRestriction.check({ bottle, line, player })) return false;
+  const tier = portfolio.tiers[tierIndex];
+  if (!tier) return false;
+  const requiredInTier = tier.slotIndices
+    .map((i) => portfolio.slots[i]!)
+    .filter((s) => s.required);
+  if (requiredInTier.length > 0) {
+    // Unlocked when its FIRST required slot is filled.
+    const first = requiredInTier[0]!;
+    return state.slots[first.index]!.filled;
   }
-  const slotDef = board.slots[slotIndex];
-  if (!slotDef) return false;
-  return slotDef.requirement.check({ bottle, line, slotIndex, player });
+  // No required slots in this tier. Unlocked once every prior tier's
+  // required slots are filled (i.e., the tier is "current").
+  for (let t = 0; t < tierIndex; t++) {
+    const prev = portfolio.tiers[t]!;
+    for (const idx of prev.slotIndices) {
+      const def = portfolio.slots[idx]!;
+      if (def.required && !state.slots[idx]!.filled) return false;
+    }
+  }
+  return true;
 }
 
 /**
- * Compatibility wrapper. Routes flagship placement to the slot-aware
- * helper; secondaries return false in v3.2 (the v3.1 Line Card stack
- * model is removed and the v3.2 Portfolio replacement lands in a
- * follow-on phase).
+ * True if the given slot is eligible to receive a bottle right now,
+ * ignoring the bottle's content (i.e., just slot-order / tier
+ * eligibility).
+ *
+ * - Required slots: must be the next-open required slot.
+ * - Optional slots: their tier must have unlocked.
  */
-export function canPlaceOnLine(
-  bottle: Bottle,
-  line: Line,
-  player: PlayerState,
+export function slotEligibleForFill(
+  portfolio: Portfolio,
+  state: PortfolioState,
+  slotIndex: number,
 ): boolean {
-  if (!line.slots) return false;
-  if (!line.lineBoardId) return false;
-  const idx = nextOpenSlotIndex(line);
-  if (idx < 0) return false;
-  return canPlaceInFlagshipSlot(bottle, line, idx, player);
+  const slotDef = portfolio.slots[slotIndex];
+  if (!slotDef) return false;
+  if (state.slots[slotIndex]!.filled) return false;
+  if (slotDef.required) {
+    return nextOpenRequiredSlotIndex(portfolio, state) === slotIndex;
+  }
+  return tierUnlockedAt(portfolio, state, slotDef.tierIndex);
+}
+
+/**
+ * True iff the bottle satisfies the slot's individual requirement AND
+ * the slot is currently eligible (order / tier rules).
+ *
+ * The Brand Restriction is NOT checked here — it's a soft scoring
+ * guideline (Theme tier), never a placement gate.
+ */
+export function canPlaceInPortfolioSlot(args: {
+  bottle: Bottle;
+  portfolio: Portfolio;
+  state: PortfolioState;
+  slotIndex: number;
+  player: PlayerState;
+}): boolean {
+  const { bottle, portfolio, state, slotIndex, player } = args;
+  if (!slotEligibleForFill(portfolio, state, slotIndex)) return false;
+  const slotDef = portfolio.slots[slotIndex];
+  if (!slotDef) return false;
+  return slotDef.requirement.check({
+    bottle,
+    portfolio: state,
+    slotIndex,
+    player,
+  });
+}
+
+/**
+ * Enumerate every (portfolioKind, slotIndex) eligible for the bottle
+ * across the player's flagship and second portfolio. Returns plain
+ * objects so the caller can build placement options for UI / bot.
+ */
+export function eligibleSlotsForBottle(
+  bottle: Bottle,
+  player: PlayerState,
+): Array<{ kind: "flagship" | "second"; slotIndex: number; portfolioId: string }> {
+  const out: Array<{
+    kind: "flagship" | "second";
+    slotIndex: number;
+    portfolioId: string;
+  }> = [];
+  const flagship = getPortfolio(player.flagshipPortfolio.portfolioId);
+  if (flagship) {
+    for (const slotDef of flagship.slots) {
+      if (
+        canPlaceInPortfolioSlot({
+          bottle,
+          portfolio: flagship,
+          state: player.flagshipPortfolio,
+          slotIndex: slotDef.index,
+          player,
+        })
+      ) {
+        out.push({
+          kind: "flagship",
+          slotIndex: slotDef.index,
+          portfolioId: flagship.id,
+        });
+      }
+    }
+  }
+  if (player.secondPortfolio) {
+    const second = getPortfolio(player.secondPortfolio.portfolioId);
+    if (second) {
+      for (const slotDef of second.slots) {
+        if (
+          canPlaceInPortfolioSlot({
+            bottle,
+            portfolio: second,
+            state: player.secondPortfolio,
+            slotIndex: slotDef.index,
+            player,
+          })
+        ) {
+          out.push({
+            kind: "second",
+            slotIndex: slotDef.index,
+            portfolioId: second.id,
+          });
+        }
+      }
+    }
+  }
+  return out;
 }
 
 /**
  * Create a Bottle from the sold bill + barrel. Derives recipe tags
- * once and freezes them — every downstream predicate reads the
- * frozen array. Also captures v3.2 `cornCount` (the actual corn
- * committed at production, which feeds the strength axis on Brand
- * Portfolio slot requirements). `bottleId` is minted from the
- * GameState's idCounter (mutated by the caller).
+ * + cask tag + corn count and freezes them onto the Bottle.
  */
 export function createBottleFromSale(
   bill: MashBill,
@@ -90,13 +188,6 @@ export function createBottleFromSale(
   bottleId: string,
 ): Bottle {
   const profile = deriveBottleProfile(bill, barrel);
-  // v3.2 — count corn cards in the production pile. Plain, Specialty,
-  // and Heritage corn all carry `subtype === "corn"`. Wild Mash tokens
-  // swapped to "corn" stay in their original card identity in the
-  // pile; the swap intent isn't persisted on the barrel, so this
-  // undercounts by 1 in the rare Wild Mash → corn case. Bills relying
-  // on a strict corn count at sale should not depend on Wild Mash
-  // substitution for that count.
   const cornCount = barrel.productionCards.filter(
     (c) => c.type === "resource" && c.subtype === "corn",
   ).length;
@@ -116,83 +207,113 @@ export function createBottleFromSale(
   };
 }
 
-/**
- * Find a player's line (flagship or secondary) by id. Returns
- * `undefined` if not found.
- */
-export function findLineById(
-  player: PlayerState,
-  lineId: string,
-): Line | undefined {
-  if (player.flagshipLine.id === lineId) return player.flagshipLine;
-  return player.secondaryLines.find((l) => l.id === lineId);
-}
-
-/** Mint a fresh line id from the game's idCounter. */
-export function mintLineId(
-  draft: { idCounter: number },
-  kind: "secondary",
-): string {
-  return `line_${kind}_${draft.idCounter++}`;
-}
-
 /** Mint a fresh bottle id from the game's idCounter. */
 export function mintBottleId(draft: { idCounter: number }): string {
   return `bottle_${draft.idCounter++}`;
 }
 
 /**
- * Build a fresh flagship line for a player. When `lineBoardId` resolves
- * to a known board, the line ships with `FLAGSHIP_SLOT_COUNT` empty
- * slots and is ready to receive bottles. When the id is empty / unknown
- * (pre-distillery-selection state), slots stays undefined and the line
- * is inert until `bindFlagshipBoard` is called.
- */
-export function buildFlagshipLine(lineBoardId: string, playerId: string): Line {
-  const slots = emptySlots(lineBoardId);
-  return {
-    id: `line_flagship_${playerId}`,
-    lineBoardId: lineBoardId || null,
-    stackedCards: [],
-    bottles: [],
-    slots,
-    completionBonusTriggered: false,
-  };
-}
-
-/**
- * Switch a flagship line's bound board (called during SELECT_DISTILLERY
- * once a player picks their distillery). Resets slots to empty since
- * the new board may have a different slot count / requirement set.
- */
-export function bindFlagshipBoard(line: Line, lineBoardId: string): void {
-  line.lineBoardId = lineBoardId;
-  line.slots = emptySlots(lineBoardId);
-  line.bottles = [];
-  line.completionBonusTriggered = false;
-}
-
-function emptySlots(lineBoardId: string): SlotState[] | undefined {
-  if (!lineBoardId) return undefined;
-  const board = getLineBoardDef(lineBoardId);
-  if (!board) return undefined;
-  return Array.from({ length: board.slots.length }, () => ({
-    filled: false,
-    bottle: null,
-    rewardFired: false,
-  }));
-}
-
-// Re-export the constant so consumers don't need a separate import.
-export { FLAGSHIP_SLOT_COUNT };
-
-/**
- * True if `state` is mid-pending for the named player. In v3.2 only
- * the bottle-placement pending state remains.
+ * True if the player is blocked by a pending bottle placement (the
+ * only mid-turn gate in v3.2).
  */
 export function isPlayerBlockedByLinePending(player: PlayerState): boolean {
   return player.pendingBottlePlacement !== null;
 }
 
-// re-export GameState to keep imports tidy on callers
+/**
+ * Build the initial flagship PortfolioState for a player. Returns
+ * `null` for players without a distillery (pre-selection state); the
+ * caller should bind via `bindFlagshipPortfolio` once the distillery
+ * is picked.
+ */
+export function buildInitialFlagshipPortfolio(
+  player: { distillery: { bonus: string } | null },
+): PortfolioState {
+  if (!player.distillery) {
+    return {
+      portfolioId: "",
+      slots: [],
+      completionReached: false,
+    };
+  }
+  const flagship = flagshipPortfolioForDistillery(
+    player.distillery.bonus as Parameters<typeof flagshipPortfolioForDistillery>[0],
+  );
+  if (!flagship) {
+    return {
+      portfolioId: "",
+      slots: [],
+      completionReached: false,
+    };
+  }
+  return buildEmptyPortfolioState(flagship);
+}
+
+/**
+ * Rebind a player's flagship to a distillery's portfolio. Called by
+ * SELECT_DISTILLERY when a player picks (or is preassigned) their
+ * distillery. Resets slot state.
+ */
+export function bindFlagshipPortfolio(
+  player: { flagshipPortfolio: PortfolioState; distillery: { bonus: string } | null },
+): void {
+  player.flagshipPortfolio = buildInitialFlagshipPortfolio(player);
+}
+
+// ─── v3.1 compatibility (transitional) ─────────────────────────
+
+/**
+ * @deprecated v3.1 — accepting a Line shape. Always returns false;
+ * v3.2 placement routes through `canPlaceInPortfolioSlot` instead.
+ */
+export function canPlaceInFlagshipSlot(
+  _bottle: Bottle,
+  _line: Line,
+  _slotIndex: number,
+  _player: PlayerState,
+): boolean {
+  return false;
+}
+
+/**
+ * @deprecated v3.1 — always returns false. Replaced by
+ * `canPlaceInPortfolioSlot`.
+ */
+export function canPlaceOnLine(
+  _bottle: Bottle,
+  _line: Line,
+  _player: PlayerState,
+): boolean {
+  return false;
+}
+
+/**
+ * @deprecated v3.1 — always returns -1. Replaced by
+ * `nextOpenRequiredSlotIndex`.
+ */
+export function nextOpenSlotIndex(_line: Line): number {
+  return -1;
+}
+
+/**
+ * @deprecated v3.1 — returns an empty stub Line. Initialize the new
+ * `flagshipPortfolio` field on PlayerState instead.
+ */
+export function buildFlagshipLine(_lineBoardId: string, playerId: string): Line {
+  return {
+    id: `line_flagship_${playerId}`,
+    lineBoardId: null,
+    stackedCards: [],
+    bottles: [],
+    completionBonusTriggered: false,
+  };
+}
+
+/**
+ * @deprecated v3.1 — no-op stub.
+ */
+export function bindFlagshipBoard(_line: Line, _lineBoardId: string): void {
+  // no-op
+}
+
 export type { GameState };

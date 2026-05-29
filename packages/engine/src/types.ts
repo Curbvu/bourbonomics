@@ -4,6 +4,8 @@
 // Refer to docs/GAME_RULES.md for the canonical ruleset and
 // docs/IMPLEMENTATION_GUIDE.md for the architectural intent.
 
+import type { Draft } from "immer";
+
 // -----------------------------
 // Cards
 // -----------------------------
@@ -704,61 +706,182 @@ export interface Bottle {
 
 /**
  * @deprecated v3.1 Line Card instance. The Line Card subsystem is
- * removed in v3.2. This type is retained as an empty stub only so
- * dead references in the Line interface and legacy GameAction
- * variants continue to compile; nothing produces instances of it
- * any more.
+ * removed in v3.2. This stub type is retained transiently so legacy
+ * action-union references continue to compile.
  */
 export interface LineCardInstance {
   instanceId: string;
   defId: string;
 }
 
+// ─── v3.2 Brand Portfolios — in-play slot/portfolio state ──────
+
 /**
- * Per-slot in-play state on a v3.1 Bourbon Line. A slot is empty until
- * a bottle is placed; rewards fire exactly once on the empty→filled
- * transition (tracked via `rewardFired`).
+ * Per-slot in-play state on a v3.2 Brand Portfolio. A slot is empty
+ * until a bottle lands; on transition empty → filled the slot's
+ * `onFillReward` fires exactly once (latched via `rewardFired`). If
+ * the bottle's source bill matches the slot's `signatureBillDefId`,
+ * `signatureMatched` latches true and the Signature Bonus also fires.
  */
 export interface SlotState {
+  index: number;
   filled: boolean;
   bottle: Bottle | null;
   rewardFired: boolean;
+  signatureMatched: boolean;
 }
 
 /**
- * A line on the table.
- *
- * v3.1 slotted shape (flagship only in phase 5): `slots` is populated
- * with 5 SlotState entries; bottles fill left-to-right gated by the
- * board's per-slot requirement + Line Restriction. `completionBonusTriggered`
- * latches true the moment the final slot fills.
- *
- * v3.0 legacy fields (`stackedCards`, `bottles`) are preserved for
- * client UI compatibility during the v3.1 engine refit:
- *   - `bottles` mirrors filled-slot bottles in slot order.
- *   - `stackedCards` is always `[]` on a v3.1 flagship (line cards no
- *     longer stack onto flagships).
- * Both fields will be removed in the v3.1 UI pass.
- *
- * Secondary lines remain Line-shaped with `slots` undefined and
- * `stackedCards` empty in phase 5 (secondary construction lands in
- * phase 7).
+ * The runtime instance of a Brand Portfolio in front of a player.
+ * Carries the portfolio's design-time identity (`portfolioId` →
+ * portfolio catalog lookup) and the per-slot fill state.
+ */
+export interface PortfolioState {
+  /** References Portfolio.id in the portfolio catalog. */
+  portfolioId: string;
+  /** One SlotState per slot in the bound Portfolio.slots; same order. */
+  slots: SlotState[];
+  /**
+   * Latches true the moment the Completion tier is reached
+   * (all required slots filled). Used by UI to celebrate.
+   */
+  completionReached: boolean;
+}
+
+/**
+ * @deprecated v3.1 Line shape. The v3.2 Brand Portfolio replaces it.
+ * Kept as an inert stub interface only so any remaining mid-flight
+ * client UI references compile. New code should use PortfolioState.
  */
 export interface Line {
   id: string;
-  /** Flagship lines reference a LineBoard; secondaries are null. */
   lineBoardId: string | null;
-  /** Legacy v3.0 stack — always [] on a v3.1 flagship. */
   stackedCards: LineCardInstance[];
-  /** Legacy v3.0 mirror of filled slot bottles, in slot order. */
   bottles: Bottle[];
-  /**
-   * v3.1 slot layout. Length 5 on a flagship that's been bound to a
-   * FlagshipLineBoardDef; undefined on legacy / unbound lines.
-   */
   slots?: SlotState[];
-  /** v3.1 — set true the moment the final slot fills. Latching. */
   completionBonusTriggered?: boolean;
+}
+
+// ─── v3.2 Brand Portfolio — design-time types ──────────────────
+//
+// A Brand Portfolio is a fixed product-line board: 3–6 named slots
+// grouped into Tiers, a soft Brand Restriction (evaluated only at
+// end-game Theme scoring), and a strict Mastery Condition (evaluated
+// at end-game Mastery scoring). Required slots gate progression
+// left-to-right; optional slots fill in any order within their
+// unlocked tier. A tier unlocks the moment its first required slot
+// fills. Each slot fires a non-rep on-fill reward (and a Signature
+// Bonus if filled with its named signature bill).
+
+/**
+ * Placement gate on a single portfolio slot. Pure predicate over the
+ * bottle + portfolio context. `label` is rule text the UI surfaces.
+ */
+export interface PortfolioSlotRequirement {
+  label: string;
+  check: (args: {
+    bottle: Bottle;
+    portfolio: PortfolioState;
+    slotIndex: number;
+    player: PlayerState;
+  }) => boolean;
+}
+
+/**
+ * Soft thematic guideline applied at end-game Theme scoring. Does
+ * NOT gate placement — bottles can sit on slots they satisfy
+ * regardless of whether they satisfy the Brand Restriction.
+ */
+export interface BrandRestriction {
+  label: string;
+  check: (args: {
+    bottle: Bottle;
+    portfolio: PortfolioState;
+    player: PlayerState;
+  }) => boolean;
+}
+
+/**
+ * Strict purity condition applied at end-game Mastery scoring.
+ * Tighter than the Brand Restriction.
+ */
+export interface MasteryCondition {
+  label: string;
+  check: (args: {
+    bottle: Bottle;
+    portfolio: PortfolioState;
+    player: PlayerState;
+  }) => boolean;
+}
+
+/**
+ * Effect fired when a slot transitions empty → filled (or when a
+ * matched signature bonus fires alongside). Mutates the Immer draft
+ * directly per the engine's apply convention. On-fill rewards are
+ * NEVER mid-game rep — mid-game rep is the sale reward.
+ */
+export interface PortfolioSlotReward {
+  label: string;
+  fire: (args: {
+    bottle: Bottle;
+    portfolio: PortfolioState;
+    slotIndex: number;
+    draft: Draft<GameState>;
+    player: Draft<PlayerState>;
+  }) => void;
+}
+
+/**
+ * One slot's design data on a Portfolio.
+ */
+export interface PortfolioSlotDef {
+  /** 0-based index; matches PortfolioState.slots[index]. */
+  index: number;
+  name: string;
+  /**
+   * Required slots gate progression left-to-right; optional slots
+   * fill in any order within their unlocked tier. The UI prints
+   * required slots with a solid outline, optional with dotted.
+   */
+  required: boolean;
+  /** Which tier (index into Portfolio.tiers) this slot belongs to. */
+  tierIndex: number;
+  requirement: PortfolioSlotRequirement;
+  /** Bill defId — filling this slot with a bottle from that bill fires the signature bonus. */
+  signatureBillDefId: string | null;
+  onFillReward: PortfolioSlotReward;
+  /** Optional extra reward fired alongside on-fill when signature matched. */
+  signatureBonus: PortfolioSlotReward | null;
+  endGameValue: number;
+}
+
+/** Tier grouping inside a portfolio. */
+export interface TierDef {
+  index: number;
+  /** Slot indices belonging to this tier (any order). */
+  slotIndices: number[];
+}
+
+/**
+ * A complete Brand Portfolio definition. Pre-claimed at setup
+ * (flagships, bound to a distillery) or drafted mid-game from the
+ * shared face-up pool (secondaries).
+ */
+export interface Portfolio {
+  id: string;
+  name: string;
+  flavorText?: string;
+  /** Bound to a distillery for flagships; null for secondary pool. */
+  distilleryBonus: DistilleryBonus | null;
+  /** Null when the portfolio has no overarching restriction (e.g., Vanilla). */
+  brandRestriction: BrandRestriction | null;
+  masteryCondition: MasteryCondition;
+  /** 3–6 slots, indices 0..N-1. */
+  slots: PortfolioSlotDef[];
+  tiers: TierDef[];
+  completionBonus: number;
+  themeBonus: number;
+  masteryBonus: number;
 }
 
 // -----------------------------
@@ -889,23 +1012,26 @@ export interface PlayerState {
   draftingLoopUsedThisRound: boolean;
 
   // ─── v3.2 Brand Portfolios ──────────────────────────────────
-  // The flagship line is retained as a Line for now (its `slots`
-  // field still drives v3.1 flagship behavior pending the v3.2
-  // Portfolio data-model swap). secondaryLines stays as an empty
-  // array — secondaries become a single optional drafted portfolio
-  // in the Portfolio model phase.
+
   /**
-   * Flagship line / portfolio. The shape transitions to a v3.2
-   * Portfolio in the Portfolio model phase. Until then, the v3.1
-   * `Line` shape carries placeholder slot data so games complete.
+   * Flagship portfolio — bound to the player's distillery at setup.
+   * Always present once the distillery is selected. The bound
+   * Portfolio definition (slots, requirements, bonuses) lives in the
+   * portfolio catalog (`lines/boards.ts`).
    */
-  flagshipLine: Line;
+  flagshipPortfolio: PortfolioState;
   /**
-   * Empty in v3.2 until the second-portfolio drafting flow is
-   * wired. Retained as an array on `Line` so v3.1-era client code
-   * that iterates this list compiles cleanly.
+   * Optional second portfolio — drafted mid-game via
+   * DRAFT_SECOND_PORTFOLIO at a 1 Generic Labor cost. Null until
+   * drafted; once drafted, stays for the rest of the game.
    */
-  secondaryLines: Line[];
+  secondPortfolio: PortfolioState | null;
+  /**
+   * Latches true the moment the player drafts a second portfolio.
+   * Read by end-game scoring to apply the failure penalty (-2 per
+   * unfilled required slot, cap -10) if Completion isn't reached.
+   */
+  secondPortfolioDrafted: boolean;
   /** Bottles not placed on any portfolio slot. Scores ZERO at end of game in v3.2. */
   inventory: Bottle[];
   /**
@@ -914,6 +1040,12 @@ export interface PlayerState {
    * player only.
    */
   pendingBottlePlacement: { bottle: Bottle } | null;
+
+  // ─── @deprecated v3.1 holdovers retained transiently ───
+  /** @deprecated v3.1 — use flagshipPortfolio. Empty Line stub. */
+  flagshipLine: Line;
+  /** @deprecated v3.1 — use secondPortfolio. Always empty array. */
+  secondaryLines: Line[];
 
   // ─── v3.1 Bourbon Lines — persistent completion-bonus effects ───
   //
@@ -1103,6 +1235,23 @@ export interface GameState {
    * Brand Portfolio drafting pool replaces it.
    */
   lineCardDeck: LineCardInstance[];
+
+  /**
+   * v3.2 — Brand Portfolio second-portfolio draft pool. Holds the
+   * portfolio defIds available face-up next to the play area; once
+   * drafted via DRAFT_SECOND_PORTFOLIO, the id is removed. No
+   * refill — the pool shrinks for the rest of the game.
+   *
+   * Sized to (player count + 2) at setup; drawn from the supply
+   * deck below.
+   */
+  secondPortfolioDraftPool: string[];
+  /**
+   * Face-down remainder of secondary-pool portfolios not currently
+   * displayed face-up. Unused in the base game (no in-game refill),
+   * reserved for expansions that might add portfolios mid-supply.
+   */
+  secondPortfolioSupply: string[];
 
   actionHistory: GameAction[];
 }
@@ -1388,10 +1537,52 @@ export type GameAction =
       type: "PLACE_BOTTLE";
       playerId: string;
       destination:
-        | { kind: "flagship" }
+        | {
+            // v3.2 — place onto a specific slot of the player's
+            // flagship portfolio. Required slots must be the
+            // next-open one (left-to-right); optional slots must
+            // belong to a tier that has unlocked.
+            kind: "flagship";
+            slotIndex: number;
+          }
+        | {
+            // v3.2 — place onto a specific slot of the player's
+            // drafted second portfolio (must exist).
+            kind: "second";
+            slotIndex: number;
+          }
+        | { kind: "inventory" }
+        // v3.1 holdovers — validators reject; retained transiently
+        // so any pre-v3.2 transcript replays produce a clean error.
         | { kind: "secondary"; lineId: string }
-        | { kind: "new-secondary"; lineCardInstanceIds: string[] }
-        | { kind: "inventory" };
+        | { kind: "new-secondary"; lineCardInstanceIds: string[] };
+    }
+  | {
+      // v3.2 — retrieve one Bottle from inventory and place it on an
+      // eligible portfolio slot. Free action; costs 1 Generic Labor
+      // (auto-selected from hand). Unlimited per turn (bounded by
+      // available Labor + eligible slots).
+      type: "RETRIEVE_BOTTLE";
+      playerId: string;
+      bottleId: string;
+      destination:
+        | { kind: "flagship"; slotIndex: number }
+        | { kind: "second"; slotIndex: number };
+      /**
+       * Which Generic Labor card to spend (must be a Labor card in
+       * the player's hand with subtype "generic"). The engine
+       * verifies and routes it to discard.
+       */
+      laborCardId: string;
+    }
+  | {
+      // v3.2 — claim one of the face-up second-portfolio boards.
+      // Free action, once per game per player, illegal in the
+      // final round. Spends 1 Generic Labor from hand.
+      type: "DRAFT_SECOND_PORTFOLIO";
+      playerId: string;
+      portfolioId: string;
+      laborCardId: string;
     };
 
 // -----------------------------

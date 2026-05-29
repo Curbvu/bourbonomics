@@ -1,58 +1,149 @@
-import type { Line, PlayerState } from "../types";
-import { getLineBoardDef } from "./boards";
+import type {
+  PlayerState,
+  Portfolio,
+  PortfolioState,
+} from "../types";
+import { getPortfolio } from "./boards";
 
 // v3.2 — inventory scores zero per the spec. The +1/bottle baseline
-// from v3.1 is removed. The Vanilla Standard Master completion bonus
-// (+5/inventory bottle) STILL applies if its flag has fired — that's
-// a flagship reward, not the baseline rule.
-const VANILLA_BONUS_REP_PER_INVENTORY_BOTTLE = 5;
+// from v3.1 is removed.
+const SECOND_PORTFOLIO_FAILURE_PER_SLOT = -2;
+const SECOND_PORTFOLIO_FAILURE_CAP = -10;
 
 /**
- * v3.2 — end-game score for one Line.
+ * v3.2 — end-game score for one Brand Portfolio.
  *
- * Flagship: sums each filled slot's endGameValue from the bound
- * board. No failure penalty — the flagship board was a gift, not a
- * bet.
- *
- * Secondary lines: empty in v3.2 phase 16 (Line Card secondaries are
- * removed; Brand Portfolio secondaries land in a follow-on phase).
- *
- * Slot rewards and the Completion Bonus's immediate rep have already
- * been credited to `player.reputation` during play; they are NOT
- * counted again here.
- *
- * The Connoisseur prestigeScoringDoubled flag remains a no-op until a
- * baseline end-game prestige scoring rule exists.
+ * Scoring is cumulative across three tiers:
+ *   - Slot end-game values: sum of `endGameValue` over filled slots
+ *     (required + optional), plus +2 per slot whose Signature Bonus
+ *     matched (the spec's tuning starting point — see GAME_RULES.md).
+ *   - Completion tier: if every required slot is filled, add
+ *     `completionBonus`.
+ *   - Theme tier: if Completion AND every filled slot's bottle
+ *     satisfies the portfolio's BrandRestriction, add `themeBonus`.
+ *     A portfolio with `brandRestriction: null` (e.g., Vanilla)
+ *     auto-reaches Theme on Completion.
+ *   - Mastery tier: if Theme AND every filled slot satisfies the
+ *     MasteryCondition, add `masteryBonus`.
  */
-export function scoreLine(line: Line, _player: PlayerState): number {
-  if (!line.slots) return 0;
-  if (!line.lineBoardId) return 0;
-  const board = getLineBoardDef(line.lineBoardId);
-  if (!board) return 0;
-  let total = 0;
-  for (let i = 0; i < line.slots.length; i++) {
-    if (line.slots[i]!.filled) {
-      total += board.slots[i]?.endGameValue ?? 0;
+export function scorePortfolio(
+  portfolio: Portfolio,
+  state: PortfolioState,
+  player: PlayerState,
+): {
+  slotValues: number;
+  signatureBonuses: number;
+  completionBonus: number;
+  themeBonus: number;
+  masteryBonus: number;
+  total: number;
+  tier: "none" | "completion" | "theme" | "mastery";
+} {
+  // Slot values + signature bonuses.
+  let slotValues = 0;
+  let signatureBonuses = 0;
+  for (const slotDef of portfolio.slots) {
+    const slotState = state.slots[slotDef.index]!;
+    if (!slotState.filled) continue;
+    slotValues += slotDef.endGameValue;
+    if (slotState.signatureMatched) signatureBonuses += 2;
+  }
+
+  // Completion check.
+  const allRequiredFilled = portfolio.slots
+    .filter((s) => s.required)
+    .every((s) => state.slots[s.index]!.filled);
+  let completionBonus = 0;
+  let themeBonus = 0;
+  let masteryBonus = 0;
+  let tier: "none" | "completion" | "theme" | "mastery" = "none";
+
+  if (allRequiredFilled) {
+    completionBonus = portfolio.completionBonus;
+    tier = "completion";
+
+    // Theme check — every FILLED slot's bottle must satisfy the
+    // Brand Restriction. Empty optional slots don't count against.
+    const filledStates = state.slots.filter((s) => s.filled && s.bottle);
+    let themeReached = true;
+    if (portfolio.brandRestriction) {
+      themeReached = filledStates.every((s) =>
+        portfolio.brandRestriction!.check({
+          bottle: s.bottle!,
+          portfolio: state,
+          player,
+        }),
+      );
+    }
+    if (themeReached) {
+      themeBonus = portfolio.themeBonus;
+      tier = "theme";
+
+      // Mastery check — every filled slot satisfies the strict
+      // Mastery Condition.
+      const masteryReached = filledStates.every((s) =>
+        portfolio.masteryCondition.check({
+          bottle: s.bottle!,
+          portfolio: state,
+          player,
+        }),
+      );
+      if (masteryReached) {
+        masteryBonus = portfolio.masteryBonus;
+        tier = "mastery";
+      }
     }
   }
-  return total;
+
+  const total =
+    slotValues + signatureBonuses + completionBonus + themeBonus + masteryBonus;
+  return {
+    slotValues,
+    signatureBonuses,
+    completionBonus,
+    themeBonus,
+    masteryBonus,
+    total,
+    tier,
+  };
 }
 
 /**
- * v3.2 inventory scoring. **Inventory baseline is zero** (v3.1's
- * +1/bottle is removed). The Vanilla flagship's Standard Master
- * Completion Bonus still adds +5 rep per inventory bottle when its
- * flag has triggered.
+ * Failure penalty for the second portfolio: −2 rep per unfilled
+ * required slot, capped at −10. Only applies if the player drafted
+ * a second portfolio AND did not reach Completion on it. Flagship
+ * has no failure penalty.
  */
-export function scoreInventory(player: PlayerState): number {
-  if (!player.inventoryBottleBonusActive) return 0;
-  return player.inventory.length * VANILLA_BONUS_REP_PER_INVENTORY_BOTTLE;
+function secondPortfolioFailurePenalty(
+  player: PlayerState,
+): number {
+  if (!player.secondPortfolioDrafted) return 0;
+  if (!player.secondPortfolio) return 0;
+  const portfolio = getPortfolio(player.secondPortfolio.portfolioId);
+  if (!portfolio) return 0;
+  const completionReached = portfolio.slots
+    .filter((s) => s.required)
+    .every((s) => player.secondPortfolio!.slots[s.index]!.filled);
+  if (completionReached) return 0;
+  const unfilledRequired = portfolio.slots
+    .filter((s) => s.required)
+    .filter((s) => !player.secondPortfolio!.slots[s.index]!.filled).length;
+  const raw = unfilledRequired * SECOND_PORTFOLIO_FAILURE_PER_SLOT;
+  return Math.max(raw, SECOND_PORTFOLIO_FAILURE_CAP);
 }
 
 /**
- * Full Line-system end-game contribution for a player. Returns the
- * breakdown alongside the total so `computeFinalScores` can populate
- * the `ScoreResult` rows.
+ * v3.2 — inventory scores zero. Retained as a function so the
+ * end-game breakdown shape stays stable for UI consumers.
+ */
+export function scoreInventory(_player: PlayerState): number {
+  return 0;
+}
+
+/**
+ * Full Brand Portfolio end-game contribution for a player. Returns
+ * the same breakdown shape v3.1 used so computeFinalScores stays
+ * stable; flagshipScore + secondaryScores + inventoryScore + total.
  */
 export function scoreEndGameLines(player: PlayerState): {
   flagshipScore: number;
@@ -60,12 +151,35 @@ export function scoreEndGameLines(player: PlayerState): {
   inventoryScore: number;
   total: number;
 } {
-  const flagshipScore = scoreLine(player.flagshipLine, player);
-  const secondaryScores = player.secondaryLines.map((l) => scoreLine(l, player));
+  let flagshipScore = 0;
+  const flagship = getPortfolio(player.flagshipPortfolio.portfolioId);
+  if (flagship) {
+    const result = scorePortfolio(flagship, player.flagshipPortfolio, player);
+    flagshipScore = result.total;
+  }
+
+  const secondaryScores: number[] = [];
+  if (player.secondPortfolio) {
+    const second = getPortfolio(player.secondPortfolio.portfolioId);
+    if (second) {
+      const result = scorePortfolio(second, player.secondPortfolio, player);
+      // Apply the second-portfolio failure penalty (if any) inline.
+      const penalty = secondPortfolioFailurePenalty(player);
+      secondaryScores.push(result.total + penalty);
+    }
+  }
+
   const inventoryScore = scoreInventory(player);
   const total =
     flagshipScore +
     secondaryScores.reduce((a, b) => a + b, 0) +
     inventoryScore;
   return { flagshipScore, secondaryScores, inventoryScore, total };
+}
+
+/**
+ * @deprecated v3.1 — alias retained for any in-flight callers.
+ */
+export function scoreLine(): number {
+  return 0;
 }

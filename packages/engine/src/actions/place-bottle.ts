@@ -3,13 +3,16 @@ import type {
   Bottle,
   GameAction,
   GameState,
-  Line,
   PlayerState,
+  Portfolio,
+  PortfolioState,
   ValidationResult,
 } from "../types";
 import { isCurrentPlayer } from "../state";
-import { getLineBoardDef } from "../lines/boards";
-import { canPlaceInFlagshipSlot, nextOpenSlotIndex } from "../lines/placement";
+import { getPortfolio } from "../lines/boards";
+import {
+  canPlaceInPortfolioSlot,
+} from "../lines/placement";
 
 type PlaceBottleAction = Extract<GameAction, { type: "PLACE_BOTTLE" }>;
 
@@ -17,20 +20,21 @@ type PlaceBottleAction = Extract<GameAction, { type: "PLACE_BOTTLE" }>;
  * v3.2 Brand Portfolios — resolve the pending bottle placement set
  * by the immediately preceding SELL_BOURBON.
  *
- *   { kind: "flagship" }
- *     Place into the next-open slot of the flagship Line. Must
- *     satisfy the board's Line Restriction AND the slot's individual
- *     Placement Requirement. Slot reward fires on fill; if it was
- *     the final slot, the Completion Bonus fires too.
+ *   { kind: "flagship", slotIndex }
+ *     Place onto the named slot on the player's flagship portfolio.
+ *     Slot must be eligible (required: next-open; optional: tier
+ *     unlocked) and the bottle must satisfy the slot's requirement.
+ *     The Brand Restriction is NOT a placement gate.
+ *
+ *   { kind: "second", slotIndex }
+ *     Same, against the drafted second portfolio (must exist).
  *
  *   { kind: "inventory" }
- *     Always legal. Inventory scores zero at end of game in v3.2;
- *     bottles can be retrieved later for 1 Generic Labor each.
+ *     Always legal. Inventory scores zero at end of game; bottles
+ *     can be retrieved later via RETRIEVE_BOTTLE.
  *
  *   { kind: "secondary" | "new-secondary" }
- *     v3.1 destinations — retired in v3.2 (Line Card secondary lines
- *     are removed). The Brand Portfolio second-portfolio destination
- *     lands in a follow-on phase.
+ *     v3.1 holdovers — always rejected.
  */
 export function validatePlaceBottle(
   state: GameState,
@@ -51,26 +55,49 @@ export function validatePlaceBottle(
     case "inventory":
       return { legal: true };
     case "flagship": {
-      const flagship = player.flagshipLine;
-      const idx = nextOpenSlotIndex(flagship);
-      if (idx < 0) {
-        return { legal: false, reason: "your flagship Bourbon Line is full" };
-      }
-      if (!canPlaceInFlagshipSlot(bottle, flagship, idx, player)) {
+      const flagship = getPortfolio(player.flagshipPortfolio.portfolioId);
+      if (!flagship) {
         return {
           legal: false,
-          reason:
-            "bottle does not satisfy the flagship's Line Restriction or the next-open slot's requirement",
+          reason: "your flagship portfolio is not bound (distillery not selected)",
         };
       }
-      return { legal: true };
+      return validateSlotPlacement(
+        bottle,
+        flagship,
+        player.flagshipPortfolio,
+        action.destination.slotIndex,
+        player,
+      );
+    }
+    case "second": {
+      if (!player.secondPortfolio) {
+        return {
+          legal: false,
+          reason: "you have not drafted a second portfolio yet",
+        };
+      }
+      const second = getPortfolio(player.secondPortfolio.portfolioId);
+      if (!second) {
+        return {
+          legal: false,
+          reason: "your second portfolio's id is not in the catalog",
+        };
+      }
+      return validateSlotPlacement(
+        bottle,
+        second,
+        player.secondPortfolio,
+        action.destination.slotIndex,
+        player,
+      );
     }
     case "secondary":
     case "new-secondary":
       return {
         legal: false,
         reason:
-          "secondary placement is retired in v3.2; the Brand Portfolio second-portfolio destination lands in a follow-on phase",
+          "v3.1 secondary destinations are retired; place onto a portfolio slot via { kind: 'flagship' | 'second', slotIndex } or inventory",
       };
     default:
       return {
@@ -78,6 +105,47 @@ export function validatePlaceBottle(
         reason: `unknown placement destination kind`,
       };
   }
+}
+
+function validateSlotPlacement(
+  bottle: Bottle,
+  portfolio: Portfolio,
+  state: PortfolioState,
+  slotIndex: number,
+  player: PlayerState,
+): ValidationResult {
+  if (slotIndex < 0 || slotIndex >= portfolio.slots.length) {
+    return {
+      legal: false,
+      reason: `slot index ${slotIndex} out of range (portfolio has ${portfolio.slots.length} slots)`,
+    };
+  }
+  if (state.slots[slotIndex]!.filled) {
+    return { legal: false, reason: `slot ${slotIndex} is already filled` };
+  }
+  if (
+    !canPlaceInPortfolioSlot({
+      bottle,
+      portfolio,
+      state,
+      slotIndex,
+      player,
+    })
+  ) {
+    // Distinguish slot-order / tier-lock failures from requirement failures.
+    const slotDef = portfolio.slots[slotIndex]!;
+    if (slotDef.required) {
+      return {
+        legal: false,
+        reason: `slot ${slotIndex} ("${slotDef.name}") is required and must wait its turn (fill prior required slots first), or the bottle does not satisfy its requirement (${slotDef.requirement.label})`,
+      };
+    }
+    return {
+      legal: false,
+      reason: `slot ${slotIndex} ("${slotDef.name}") is in a locked tier or the bottle does not satisfy its requirement (${slotDef.requirement.label})`,
+    };
+  }
+  return { legal: true };
 }
 
 export function applyPlaceBottle(
@@ -93,52 +161,81 @@ export function applyPlaceBottle(
       player.inventory.push(bottle);
       player.pendingBottlePlacement = null;
       return;
-    case "flagship": {
-      const flagship = player.flagshipLine;
-      if (!flagship.slots || !flagship.lineBoardId) {
-        player.pendingBottlePlacement = null;
-        return;
-      }
-      const idx = nextOpenSlotIndex(flagship);
-      if (idx < 0) {
-        player.pendingBottlePlacement = null;
-        return;
-      }
-      flagship.slots[idx]!.filled = true;
-      flagship.slots[idx]!.bottle = bottle;
-      flagship.bottles.push(bottle);
-
-      const board = getLineBoardDef(flagship.lineBoardId);
-      if (!board) {
-        player.pendingBottlePlacement = null;
-        return;
-      }
-      if (!flagship.slots[idx]!.rewardFired) {
-        board.slots[idx]!.reward.fire({
-          bottle,
-          line: flagship as Line,
-          slotIndex: idx,
-          draft,
-          player: player as Draft<PlayerState>,
-        });
-        flagship.slots[idx]!.rewardFired = true;
-      }
-      const isFinalSlot = idx === board.slots.length - 1;
-      if (isFinalSlot && !flagship.completionBonusTriggered) {
-        flagship.completionBonusTriggered = true;
-        board.completionBonus.fire({
-          line: flagship as Line,
-          draft,
-          player: player as Draft<PlayerState>,
-        });
-      }
+    case "flagship":
+      fillSlot(draft, player, "flagship", action.destination.slotIndex, bottle);
       player.pendingBottlePlacement = null;
       return;
-    }
+    case "second":
+      fillSlot(draft, player, "second", action.destination.slotIndex, bottle);
+      player.pendingBottlePlacement = null;
+      return;
     case "secondary":
     case "new-secondary":
-      // Validation rejects these in v3.2. Unreachable.
+      // Rejected by validator — unreachable.
       player.pendingBottlePlacement = null;
       return;
+  }
+}
+
+/**
+ * Internal: fill a slot, fire its on-fill reward (and Signature
+ * Bonus if matched), and latch `completionReached` if the
+ * Completion tier was just achieved. Reused by RETRIEVE_BOTTLE.
+ */
+export function fillSlot(
+  draft: Draft<GameState>,
+  player: Draft<PlayerState>,
+  kind: "flagship" | "second",
+  slotIndex: number,
+  bottle: Bottle,
+): void {
+  const stateObj =
+    kind === "flagship" ? player.flagshipPortfolio : player.secondPortfolio;
+  if (!stateObj) return;
+  const portfolio = getPortfolio(stateObj.portfolioId);
+  if (!portfolio) return;
+  const slotState = stateObj.slots[slotIndex];
+  const slotDef = portfolio.slots[slotIndex];
+  if (!slotState || !slotDef) return;
+
+  slotState.filled = true;
+  slotState.bottle = bottle;
+
+  // Signature match detection — billDefId equality is the canonical
+  // signature relation per the spec.
+  const signatureMatched =
+    slotDef.signatureBillDefId !== null &&
+    bottle.billDefId === slotDef.signatureBillDefId;
+  slotState.signatureMatched = signatureMatched;
+
+  // On-fill reward, exactly once.
+  if (!slotState.rewardFired) {
+    slotDef.onFillReward.fire({
+      bottle,
+      portfolio: stateObj as PortfolioState,
+      slotIndex,
+      draft,
+      player,
+    });
+    slotState.rewardFired = true;
+  }
+
+  // Signature bonus, if matched.
+  if (signatureMatched && slotDef.signatureBonus) {
+    slotDef.signatureBonus.fire({
+      bottle,
+      portfolio: stateObj as PortfolioState,
+      slotIndex,
+      draft,
+      player,
+    });
+  }
+
+  // Latch completionReached if every required slot is now filled.
+  if (!stateObj.completionReached) {
+    const allRequiredFilled = portfolio.slots
+      .filter((s) => s.required)
+      .every((s) => stateObj.slots[s.index]!.filled);
+    if (allRequiredFilled) stateObj.completionReached = true;
   }
 }
