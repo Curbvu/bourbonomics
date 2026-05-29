@@ -5,6 +5,7 @@ import {
   chooseAction,
   chooseDistillery,
   chooseDraftAction,
+  chooseRaidDefense,
   chooseStarterPass,
 } from "./bot";
 
@@ -100,6 +101,18 @@ export function nextOrchestratorAction(state: GameState): GameAction | null {
       return { type: "DRAW_HAND", playerId: next.id };
     }
     case "action": {
+      // v3.6 — a Whiskey Raid takes priority over every other action.
+      // The defender (the player whose barrel was raided) must respond
+      // before any other action is legal. Route to the defender's
+      // bot heuristic; for human defenders we yield so the
+      // RaidDefenseModal collects the click.
+      if (state.pendingRaid) {
+        const defender = state.players.find(
+          (p) => p.id === state.pendingRaid!.defenderId,
+        );
+        if (defender && defender.isBot === false) return null;
+        return chooseRaidDefense(state);
+      }
       // v2.14: a Drafting Loop is a modal sub-phase. The active picker
       // (`loop.pickOrder[pickerIndex]`) may not be the current player.
       // Route to that picker's bot — or yield if they're a human.
