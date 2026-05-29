@@ -9,7 +9,7 @@ import {
   placeStartingBarrel,
   topUpSlottedBillsForDistillery,
 } from "../starter-pool";
-import { lineBoardForDistillery } from "../lines/boards";
+import { bindFlagshipPortfolio } from "../lines/placement";
 
 type SelectDistilleryAction = Extract<GameAction, { type: "SELECT_DISTILLERY" }>;
 
@@ -49,11 +49,9 @@ export function applySelectDistillery(
 
   player.distillery = distillery;
   player.rickhouseSlots = buildRickhouseSlots(player.id, distillery);
-  // v3.0: bind the flagship line to this distillery's Line Board.
-  const flagshipBoard = lineBoardForDistillery(distillery.bonus);
-  if (flagshipBoard) {
-    player.flagshipLine.lineBoardId = flagshipBoard.id;
-  }
+  // v3.2: bind the flagship portfolio to this distillery. Empty
+  // slots are seeded so the portfolio is ready to receive bottles.
+  bindFlagshipPortfolio(player);
 
   // Place the v2.4 pre-aged starting barrel (if any).
   placeStartingBarrel(draft, player, distillery);

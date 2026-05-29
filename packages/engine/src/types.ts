@@ -4,6 +4,8 @@
 // Refer to docs/GAME_RULES.md for the canonical ruleset and
 // docs/IMPLEMENTATION_GUIDE.md for the architectural intent.
 
+import type { Draft } from "immer";
+
 // -----------------------------
 // Cards
 // -----------------------------
@@ -143,6 +145,15 @@ export type CardEffect =
 /** Recipe constraint on the mash committed at production. Always tightens, never loosens. */
 export interface MashBillRecipe {
   minCorn?: number;
+  /**
+   * v3.2 — upper bound on corn commitment. When omitted, defaults to
+   * the effective minCorn (so existing bills behave as exact-corn
+   * recipes, preserving v3.1 semantics). When set explicitly above
+   * minCorn, players may commit any corn count within the range —
+   * the actual count is recorded on the Bottle and feeds the strength
+   * axis on Brand Portfolio slot requirements.
+   */
+  maxCorn?: number;
   minRye?: number;
   minBarley?: number;
   minWheat?: number;
@@ -683,36 +694,194 @@ export interface Bottle {
   rarity: MashBillTier;
   ageAtSale: number;
   demandAtSale: number;
+  /**
+   * v3.2 — actual corn count committed at production. Equals
+   * recipe.minCorn for bills with no corn range; equals the player's
+   * chosen amount for bills with `minCorn < maxCorn`. Read by Brand
+   * Portfolio slot requirements gating on the strength axis.
+   */
+  cornCount: number;
   placedOnRound: number;
 }
 
 /**
- * A Line Card instance held in hand or stacked onto a line. The
- * underlying card definition (predicate + bonus + scoring) lives in
- * `lines/cards.ts` keyed by `defId`.
+ * @deprecated v3.1 Line Card instance. The Line Card subsystem is
+ * removed in v3.2. This stub type is retained transiently so legacy
+ * action-union references continue to compile.
  */
 export interface LineCardInstance {
   instanceId: string;
   defId: string;
 }
 
+// ─── v3.2 Brand Portfolios — in-play slot/portfolio state ──────
+
 /**
- * A line on the table — either the flagship (bound to a Line Board
- * via `lineBoardId`) or a secondary line (lineBoardId === null,
- * always built around 1+ stacked Line Cards).
+ * Per-slot in-play state on a v3.2 Brand Portfolio. A slot is empty
+ * until a bottle lands; on transition empty → filled the slot's
+ * `onFillReward` fires exactly once (latched via `rewardFired`). If
+ * the bottle's source bill matches the slot's `signatureBillDefId`,
+ * `signatureMatched` latches true and the Signature Bonus also fires.
+ */
+export interface SlotState {
+  index: number;
+  filled: boolean;
+  bottle: Bottle | null;
+  rewardFired: boolean;
+  signatureMatched: boolean;
+}
+
+/**
+ * The runtime instance of a Brand Portfolio in front of a player.
+ * Carries the portfolio's design-time identity (`portfolioId` →
+ * portfolio catalog lookup) and the per-slot fill state.
+ */
+export interface PortfolioState {
+  /** References Portfolio.id in the portfolio catalog. */
+  portfolioId: string;
+  /** One SlotState per slot in the bound Portfolio.slots; same order. */
+  slots: SlotState[];
+  /**
+   * Latches true the moment the Completion tier is reached
+   * (all required slots filled). Used by UI to celebrate.
+   */
+  completionReached: boolean;
+}
+
+/**
+ * @deprecated v3.1 Line shape. The v3.2 Brand Portfolio replaces it.
+ * Kept as an inert stub interface only so any remaining mid-flight
+ * client UI references compile. New code should use PortfolioState.
  */
 export interface Line {
   id: string;
-  /** Flagship lines reference a LineBoard; secondaries are null. */
   lineBoardId: string | null;
-  /**
-   * Line Card instances stacked onto this line (in order of placement).
-   * Each card's predicate applies AND with the board's and any other
-   * cards' predicates. Bonuses fire in order (board first, then
-   * stacked cards).
-   */
   stackedCards: LineCardInstance[];
   bottles: Bottle[];
+  slots?: SlotState[];
+  completionBonusTriggered?: boolean;
+}
+
+// ─── v3.2 Brand Portfolio — design-time types ──────────────────
+//
+// A Brand Portfolio is a fixed product-line board: 3–6 named slots
+// grouped into Tiers, a soft Brand Restriction (evaluated only at
+// end-game Theme scoring), and a strict Mastery Condition (evaluated
+// at end-game Mastery scoring). Required slots gate progression
+// left-to-right; optional slots fill in any order within their
+// unlocked tier. A tier unlocks the moment its first required slot
+// fills. Each slot fires a non-rep on-fill reward (and a Signature
+// Bonus if filled with its named signature bill).
+
+/**
+ * Placement gate on a single portfolio slot. Pure predicate over the
+ * bottle + portfolio context. `label` is rule text the UI surfaces.
+ */
+export interface PortfolioSlotRequirement {
+  label: string;
+  check: (args: {
+    bottle: Bottle;
+    portfolio: PortfolioState;
+    slotIndex: number;
+    player: PlayerState;
+  }) => boolean;
+}
+
+/**
+ * Soft thematic guideline applied at end-game Theme scoring. Does
+ * NOT gate placement — bottles can sit on slots they satisfy
+ * regardless of whether they satisfy the Brand Restriction.
+ */
+export interface BrandRestriction {
+  label: string;
+  check: (args: {
+    bottle: Bottle;
+    portfolio: PortfolioState;
+    player: PlayerState;
+  }) => boolean;
+}
+
+/**
+ * Strict purity condition applied at end-game Mastery scoring.
+ * Tighter than the Brand Restriction.
+ */
+export interface MasteryCondition {
+  label: string;
+  check: (args: {
+    bottle: Bottle;
+    portfolio: PortfolioState;
+    player: PlayerState;
+  }) => boolean;
+}
+
+/**
+ * Effect fired when a slot transitions empty → filled (or when a
+ * matched signature bonus fires alongside). Mutates the Immer draft
+ * directly per the engine's apply convention. On-fill rewards are
+ * NEVER mid-game rep — mid-game rep is the sale reward.
+ */
+export interface PortfolioSlotReward {
+  label: string;
+  fire: (args: {
+    bottle: Bottle;
+    portfolio: PortfolioState;
+    slotIndex: number;
+    draft: Draft<GameState>;
+    player: Draft<PlayerState>;
+  }) => void;
+}
+
+/**
+ * One slot's design data on a Portfolio.
+ */
+export interface PortfolioSlotDef {
+  /** 0-based index; matches PortfolioState.slots[index]. */
+  index: number;
+  name: string;
+  /**
+   * Required slots gate progression left-to-right; optional slots
+   * fill in any order within their unlocked tier. The UI prints
+   * required slots with a solid outline, optional with dotted.
+   */
+  required: boolean;
+  /** Which tier (index into Portfolio.tiers) this slot belongs to. */
+  tierIndex: number;
+  requirement: PortfolioSlotRequirement;
+  /** Bill defId — filling this slot with a bottle from that bill fires the signature bonus. */
+  signatureBillDefId: string | null;
+  onFillReward: PortfolioSlotReward;
+  /** Optional extra reward fired alongside on-fill when signature matched. */
+  signatureBonus: PortfolioSlotReward | null;
+  endGameValue: number;
+}
+
+/** Tier grouping inside a portfolio. */
+export interface TierDef {
+  index: number;
+  /** Slot indices belonging to this tier (any order). */
+  slotIndices: number[];
+}
+
+/**
+ * A complete Brand Portfolio definition. Pre-claimed at setup
+ * (flagships, bound to a distillery) or drafted mid-game from the
+ * shared face-up pool (secondaries).
+ */
+export interface Portfolio {
+  id: string;
+  name: string;
+  flavorText?: string;
+  /** Bound to a distillery for flagships; null for secondary pool. */
+  distilleryBonus: DistilleryBonus | null;
+  /** Null when the portfolio has no overarching restriction (e.g., Vanilla). */
+  brandRestriction: BrandRestriction | null;
+  masteryCondition: MasteryCondition;
+  /** 3–6 slots, indices 0..N-1. */
+  slots: PortfolioSlotDef[];
+  tiers: TierDef[];
+  completionBonus: number;
+  themeBonus: number;
+  masteryBonus: number;
 }
 
 // -----------------------------
@@ -842,44 +1011,72 @@ export interface PlayerState {
    */
   draftingLoopUsedThisRound: boolean;
 
-  // ─── v3.0 Line system ────────────────────────────────────────
+  // ─── v3.2 Brand Portfolios ──────────────────────────────────
+
   /**
-   * Flagship line, bound to the distillery's Line Board at setup.
-   * Always present (lineBoardId set). Empty `bottles` and
-   * `stackedCards` at game start.
+   * Flagship portfolio — bound to the player's distillery at setup.
+   * Always present once the distillery is selected. The bound
+   * Portfolio definition (slots, requirements, bonuses) lives in the
+   * portfolio catalog (`lines/boards.ts`).
    */
-  flagshipLine: Line;
+  flagshipPortfolio: PortfolioState;
   /**
-   * Up to 2 secondary lines, each created via PLACE_BOTTLE with
-   * destination `new-secondary` (1+ Line Cards from hand).
+   * Optional second portfolio — drafted mid-game via
+   * DRAFT_SECOND_PORTFOLIO at a 1 Generic Labor cost. Null until
+   * drafted; once drafted, stays for the rest of the game.
    */
-  secondaryLines: Line[];
-  /** Line Card instances held privately. */
-  lineCardHand: LineCardInstance[];
-  /** Bottles not placed on any line. Scores 1 rep each at end game. */
+  secondPortfolio: PortfolioState | null;
+  /**
+   * Latches true the moment the player drafts a second portfolio.
+   * Read by end-game scoring to apply the failure penalty (-2 per
+   * unfilled required slot, cap -10) if Completion isn't reached.
+   */
+  secondPortfolioDrafted: boolean;
+  /** Bottles not placed on any portfolio slot. Scores ZERO at end of game in v3.2. */
   inventory: Bottle[];
-  /**
-   * v3.0: each player may DRAW_LINE_CARDS at most once per round.
-   * Reset to false at cleanup.
-   */
-  hasDrawnLineCardsThisRound: boolean;
-  /**
-   * Set at game init — 4 Line Cards dealt face-up. Player must keep
-   * exactly 2 via CHOOSE_INITIAL_LINE_CARDS before taking any
-   * action-phase action. Cleared once resolved.
-   */
-  pendingInitialLineCardDraft: { cards: LineCardInstance[] } | null;
-  /**
-   * Set by DRAW_LINE_CARDS — up to 3 cards revealed. Player must
-   * keep ≥1 via KEEP_LINE_CARDS before any other action.
-   */
-  pendingLineCardDraw: { cards: LineCardInstance[] } | null;
   /**
    * Set at the end of SELL_BOURBON — the new Bottle must be placed
    * via PLACE_BOTTLE before any other action. Blocks the active
    * player only.
    */
   pendingBottlePlacement: { bottle: Bottle } | null;
+
+  // ─── @deprecated v3.1 holdovers retained transiently ───
+  /** @deprecated v3.1 — use flagshipPortfolio. Empty Line stub. */
+  flagshipLine: Line;
+  /** @deprecated v3.1 — use secondPortfolio. Always empty array. */
+  secondaryLines: Line[];
+
+  // ─── v3.1 Bourbon Lines — persistent completion-bonus effects ───
+  //
+  // Each flag below latches when the flagship's Line Completion Bonus
+  // fires. Read at the points the effect applies (sale resolution,
+  // drafting loop reveal, end-game scoring). Never resets — the bonus
+  // is permanent once earned.
+
+  /**
+   * Wheated Baron — Baron's Vintage Reserve completion.
+   * Common-rarity bills sold by this player do not drop demand on sale.
+   */
+  commonSalesIgnoreDemandDrop: boolean;
+  /**
+   * High-Rye House — Master's Cut completion.
+   * One-shot: the next Drafting Loop this player initiates reveals 5
+   * bills instead of 3. Cleared after the loop consumes it.
+   */
+  draftingLoopReveals5Next: boolean;
+  /**
+   * Connoisseur Estate — Curator's Choice completion.
+   * End-game prestige scoring doubles (2 rep per prestige, not 1) on
+   * this player's score breakdown.
+   */
+  prestigeScoringDoubled: boolean;
+  /**
+   * Vanilla Distillery — Standard Master completion.
+   * Each inventory bottle scores +5 rep on top of the baseline +1.
+   * Stacks with the inventory baseline at end-game.
+   */
+  inventoryBottleBonusActive: boolean;
 }
 
 // -----------------------------
@@ -1033,10 +1230,28 @@ export interface GameState {
 
   /**
    * v3.0: shared Line Card supply. Convention matches `bourbonDeck` —
-   * top of deck = end of array; "bottom" (where KEEP_LINE_CARDS
-   * returns rejected cards) = front of array.
+   * top of deck = end of array. v3.2: always empty; the field is
+   * retained transiently for save-file compatibility while the
+   * Brand Portfolio drafting pool replaces it.
    */
   lineCardDeck: LineCardInstance[];
+
+  /**
+   * v3.2 — Brand Portfolio second-portfolio draft pool. Holds the
+   * portfolio defIds available face-up next to the play area; once
+   * drafted via DRAFT_SECOND_PORTFOLIO, the id is removed. No
+   * refill — the pool shrinks for the rest of the game.
+   *
+   * Sized to (player count + 2) at setup; drawn from the supply
+   * deck below.
+   */
+  secondPortfolioDraftPool: string[];
+  /**
+   * Face-down remainder of secondary-pool portfolios not currently
+   * displayed face-up. Unused in the base game (no in-game refill),
+   * reserved for expansions that might add portfolios mid-supply.
+   */
+  secondPortfolioSupply: string[];
 
   actionHistory: GameAction[];
 }
@@ -1315,37 +1530,6 @@ export type GameAction =
     }
   | { type: "PASS_TURN"; playerId: string }
   | {
-      // v3.0 Line system — resolve the 4-card initial draft dealt at
-      // game init. Keep exactly 2; the other 2 return to the bottom
-      // of the lineCardDeck in the order given.
-      type: "CHOOSE_INITIAL_LINE_CARDS";
-      playerId: string;
-      keepInstanceIds: string[];
-    }
-  | {
-      // v3.0 Line system — reveal up to 3 Line Cards from the deck
-      // into `pendingLineCardDraw`. Once per round. Free action.
-      type: "DRAW_LINE_CARDS";
-      playerId: string;
-    }
-  | {
-      // v3.0 Line system — resolve a pending draw by keeping ≥1
-      // revealed card. The rest return to the bottom of the deck.
-      type: "KEEP_LINE_CARDS";
-      playerId: string;
-      keepInstanceIds: string[];
-    }
-  | {
-      // v3.0 Line system — stack a Line Card from hand onto an
-      // existing line (flagship or secondary). Constraint applies to
-      // FUTURE placements only — existing bottles are unaffected.
-      // Free action.
-      type: "EXTEND_LINE";
-      playerId: string;
-      targetLineId: string;
-      lineCardInstanceId: string;
-    }
-  | {
       // v3.0 Line system — resolve the pending bottle placement set
       // by the immediately preceding SELL_BOURBON. The placement
       // choice determines which line (if any) receives the bottle
@@ -1353,10 +1537,52 @@ export type GameAction =
       type: "PLACE_BOTTLE";
       playerId: string;
       destination:
-        | { kind: "flagship" }
+        | {
+            // v3.2 — place onto a specific slot of the player's
+            // flagship portfolio. Required slots must be the
+            // next-open one (left-to-right); optional slots must
+            // belong to a tier that has unlocked.
+            kind: "flagship";
+            slotIndex: number;
+          }
+        | {
+            // v3.2 — place onto a specific slot of the player's
+            // drafted second portfolio (must exist).
+            kind: "second";
+            slotIndex: number;
+          }
+        | { kind: "inventory" }
+        // v3.1 holdovers — validators reject; retained transiently
+        // so any pre-v3.2 transcript replays produce a clean error.
         | { kind: "secondary"; lineId: string }
-        | { kind: "new-secondary"; lineCardInstanceIds: string[] }
-        | { kind: "inventory" };
+        | { kind: "new-secondary"; lineCardInstanceIds: string[] };
+    }
+  | {
+      // v3.2 — retrieve one Bottle from inventory and place it on an
+      // eligible portfolio slot. Free action; costs 1 Generic Labor
+      // (auto-selected from hand). Unlimited per turn (bounded by
+      // available Labor + eligible slots).
+      type: "RETRIEVE_BOTTLE";
+      playerId: string;
+      bottleId: string;
+      destination:
+        | { kind: "flagship"; slotIndex: number }
+        | { kind: "second"; slotIndex: number };
+      /**
+       * Which Generic Labor card to spend (must be a Labor card in
+       * the player's hand with subtype "generic"). The engine
+       * verifies and routes it to discard.
+       */
+      laborCardId: string;
+    }
+  | {
+      // v3.2 — claim one of the face-up second-portfolio boards.
+      // Free action, once per game per player, illegal in the
+      // final round. Spends 1 Generic Labor from hand.
+      type: "DRAFT_SECOND_PORTFOLIO";
+      playerId: string;
+      portfolioId: string;
+      laborCardId: string;
     };
 
 // -----------------------------

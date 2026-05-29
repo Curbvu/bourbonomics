@@ -4,7 +4,6 @@ import type {
   Distillery,
   GameConfig,
   GameState,
-  LineCardInstance,
   PlayerState,
 } from "./types";
 import {
@@ -20,9 +19,11 @@ import {
   placeStartingBarrel,
   topUpSlottedBillsForDistillery,
 } from "./starter-pool";
-import { buildLineCardInstances } from "./lines/cards";
-import { buildFlagshipLine } from "./lines/placement";
-import { lineBoardForDistillery } from "./lines/boards";
+import {
+  buildFlagshipLine,
+  buildInitialFlagshipPortfolio,
+} from "./lines/placement";
+import { secondaryPoolIds } from "./lines/boards";
 
 const DEFAULT_HAND_SIZE = 8;
 const DEFAULT_DEMAND = 0;
@@ -81,13 +82,10 @@ export function initializeGame(config: GameConfig): GameState {
       rngState = shuffled.rngState;
     }
 
-    // v3.0 Line system — flagship line is bound to the distillery
-    // at distillery-pick time (now if pre-assigned, otherwise inside
-    // SELECT_DISTILLERY apply). Lines for unpicked distilleries
-    // carry `lineBoardId: null` as a placeholder.
-    const flagshipBoard = distillery
-      ? lineBoardForDistillery(distillery.bonus) ?? null
-      : null;
+    // v3.2 Brand Portfolios — the flagship portfolio is bound to the
+    // distillery at distillery-pick time (now if pre-assigned,
+    // otherwise inside SELECT_DISTILLERY apply). Players without a
+    // distillery yet carry an empty portfolio stub.
 
     return {
       id: p.id,
@@ -130,16 +128,20 @@ export function initializeGame(config: GameConfig): GameState {
       // v2.14: each player gets one Drafting Loop initiation per round.
       // Reset at cleanup.
       draftingLoopUsedThisRound: false,
-      // ── v3.0 Line system ──
-      flagshipLine: buildFlagshipLine(flagshipBoard?.id ?? "", p.id),
-      secondaryLines: [],
-      lineCardHand: [],
+      // ── v3.2 Brand Portfolios ──
+      flagshipPortfolio: buildInitialFlagshipPortfolio({ distillery }),
+      secondPortfolio: null,
+      secondPortfolioDrafted: false,
       inventory: [],
-      hasDrawnLineCardsThisRound: false,
-      // Filled in below from the shuffled line card deck.
-      pendingInitialLineCardDraft: null,
-      pendingLineCardDraw: null,
       pendingBottlePlacement: null,
+      // ── v3.1 holdover stubs (no behavior; client UI compat only) ──
+      flagshipLine: buildFlagshipLine("", p.id),
+      secondaryLines: [],
+      // ── v3.1 flagship completion-bonus flags (off until earned) ──
+      commonSalesIgnoreDemandDrop: false,
+      draftingLoopReveals5Next: false,
+      prestigeScoringDoubled: false,
+      inventoryBottleBonusActive: false,
     };
   });
 
@@ -214,23 +216,19 @@ export function initializeGame(config: GameConfig): GameState {
   // not as a separate global phase. Setup lands directly in draw.
   else phase = "draw";
 
-  // v3.0 Line system — build & shuffle the shared Line Card deck,
-  // then deal each player 4 cards into `pendingInitialLineCardDraft`.
-  // The player must resolve via CHOOSE_INITIAL_LINE_CARDS before
-  // taking any action-phase action.
-  const lineCardSeed = buildLineCardInstances();
-  const lineCardShuffle = shuffleCards(lineCardSeed, rngState);
-  rngState = lineCardShuffle.rngState;
-  let lineCardDeck = lineCardShuffle.shuffled;
-  const INITIAL_DRAFT_SIZE = 4;
-  for (const player of players) {
-    const dealSize = Math.min(INITIAL_DRAFT_SIZE, lineCardDeck.length);
-    if (dealSize === 0) break;
-    const top = lineCardDeck.slice(lineCardDeck.length - dealSize);
-    const drawn: LineCardInstance[] = top.slice().reverse();
-    lineCardDeck = lineCardDeck.slice(0, lineCardDeck.length - dealSize);
-    player.pendingInitialLineCardDraft = { cards: drawn };
-  }
+  // v3.2 — the v3.1 Line Card deck is gone. The Brand Portfolio
+  // second-portfolio drafting pool replaces it: N+2 portfolios are
+  // laid out face-up at setup from the shared secondary-pool supply.
+  const lineCardDeck: never[] = [];
+  const supplyIds = secondaryPoolIds().slice();
+  // Deterministic order by id — the pool layout is public and
+  // doesn't depend on per-game RNG (matches the spec's "lay out
+  // face-up next to the play area" framing). Future expansions can
+  // shuffle if needed.
+  supplyIds.sort();
+  const poolSize = Math.min(supplyIds.length, players.length + 2);
+  const secondPortfolioDraftPool = supplyIds.slice(0, poolSize);
+  const secondPortfolioSupply = supplyIds.slice(poolSize);
 
   const initialState: GameState = {
     seed: config.seed,
@@ -260,6 +258,8 @@ export function initializeGame(config: GameConfig): GameState {
     playerIdsCompletedPhase: [],
     idCounter: 1,
     lineCardDeck,
+    secondPortfolioDraftPool,
+    secondPortfolioSupply,
     actionHistory: [],
   };
 

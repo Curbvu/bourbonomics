@@ -146,12 +146,9 @@ export function chooseAction(state: GameState, playerId: string): GameAction {
   // const buyOps = chooseBuyOpsCard(state, player);
   // if (buyOps) return buyOps;
 
-  // 7) v3.0: free Line Card draw if mid-game runway + low exposure.
-  //    Slotted after buys but before the Drafting Loop fallback so it
-  //    fills the "nothing better to do" beat without crowding out
-  //    actual builds.
-  const lineDraw = chooseDrawLineCards(state, player);
-  if (lineDraw) return lineDraw;
+  // v3.2: Line Card draw heuristic retired alongside the Line Card
+  // subsystem. The Draft Second Portfolio heuristic will land in the
+  // Brand Portfolio implementation phase.
 
   // 8) Initiate the Drafting Loop as a fallback (last legal main action).
   const initiate = chooseInitiateDraftingLoop(state, player);
@@ -1527,12 +1524,7 @@ function pickJunkCardForPile(player: PlayerState): string | null {
 // short-circuit setup phases (a bot whose initial draft is still
 // pending will resolve it here before the runner emits anything else).
 
-import {
-  chooseBottlePlacement,
-  chooseDrawLineCards,
-  chooseKeepInstanceIds,
-  pickBestInstances,
-} from "./line-heuristics";
+import { chooseBottlePlacement } from "./line-heuristics";
 
 function resolvePendingLineChoice(
   state: GameState,
@@ -1540,23 +1532,6 @@ function resolvePendingLineChoice(
 ): GameAction | null {
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return null;
-  if (player.pendingInitialLineCardDraft) {
-    const offered = player.pendingInitialLineCardDraft.cards;
-    const kept = pickBestInstances(offered, 2, player);
-    return {
-      type: "CHOOSE_INITIAL_LINE_CARDS",
-      playerId,
-      keepInstanceIds: kept.map((c) => c.instanceId),
-    };
-  }
-  if (player.pendingLineCardDraw) {
-    const offered = player.pendingLineCardDraw.cards;
-    return {
-      type: "KEEP_LINE_CARDS",
-      playerId,
-      keepInstanceIds: chooseKeepInstanceIds(offered, player),
-    };
-  }
   if (player.pendingBottlePlacement) {
     const placement = chooseBottlePlacement(state, player);
     if (placement) return placement;

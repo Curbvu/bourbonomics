@@ -22,7 +22,6 @@
 import type { Bottle, GameState, PlayerState } from "@bourbonomics/engine";
 import { getLineBoardDef } from "@bourbonomics/engine";
 import BottleChip from "./BottleChip";
-import LineCardTile from "./LineCardTile";
 
 export interface LineStripProps {
   player: PlayerState;
@@ -38,14 +37,13 @@ export default function LineStrip({
     ? getLineBoardDef(player.flagshipLine.lineBoardId)
     : null;
 
-  const handCount = player.lineCardHand.length;
+  // v3.2: lineCardHand removed. The strip is purely portfolio + inventory now.
+  const handCount = 0;
   const inventoryCount = player.inventory.length;
   const hasNothing =
     !flagshipBoard &&
     player.flagshipLine.bottles.length === 0 &&
-    player.flagshipLine.stackedCards.length === 0 &&
     player.secondaryLines.length === 0 &&
-    handCount === 0 &&
     inventoryCount === 0;
   if (hasNothing) return null;
 
@@ -70,8 +68,6 @@ export default function LineStrip({
         <LineRow
           label={flagshipBoard?.name ?? "Flagship"}
           bottles={player.flagshipLine.bottles}
-          stackedCardIds={player.flagshipLine.stackedCards.map((c) => c.defId)}
-          stackedInstances={player.flagshipLine.stackedCards}
           isFlagship
         />
         {player.secondaryLines.map((line, i) => (
@@ -79,8 +75,6 @@ export default function LineStrip({
             key={line.id}
             label={`Secondary ${i + 1}`}
             bottles={line.bottles}
-            stackedCardIds={line.stackedCards.map((c) => c.defId)}
-            stackedInstances={line.stackedCards}
           />
         ))}
         {player.secondaryLines.length === 0 ? (
@@ -91,7 +85,7 @@ export default function LineStrip({
               color: "var(--mute)",
             }}
           >
-            no secondary lines yet — play 1+ Line Cards on a sale
+            second portfolio — draft from the shared pool with 1 worker
           </div>
         ) : null}
       </div>
@@ -183,13 +177,10 @@ function SecondaryMini({
 function LineRow({
   label,
   bottles,
-  stackedInstances,
   isFlagship = false,
 }: {
   label: string;
   bottles: Bottle[];
-  stackedCardIds: string[];
-  stackedInstances: { instanceId: string; defId: string }[];
   isFlagship?: boolean;
 }) {
   return (
@@ -207,11 +198,6 @@ function LineRow({
         {isFlagship ? "★ " : ""}
         {label}
       </span>
-      <div className="flex flex-wrap items-center gap-1">
-        {stackedInstances.map((inst) => (
-          <LineCardTile key={inst.instanceId} instance={inst} size="xs" />
-        ))}
-      </div>
       <div className="ml-auto flex flex-wrap items-center gap-1">
         {bottles.length === 0 ? (
           <span

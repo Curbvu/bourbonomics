@@ -1,61 +1,10 @@
-import type { Draft } from "immer";
-import type {
-  Bottle,
-  DistilleryBonus,
-  GameState,
-  Line,
-  PlayerState,
-} from "../types";
+// v3.2 — the v3.1 LineBoardDef / FlagshipLineBoardDef / LineCardDef
+// types are removed. The Portfolio shape lives in src/types.ts and
+// the catalog lives in src/lines/boards.ts (which still uses the
+// `lines/` directory name as a transitional path).
+//
+// FLAGSHIP_SLOT_COUNT is preserved only as a hint constant; v3.2
+// portfolios are 3–6 slots so callers shouldn't depend on it.
 
-/**
- * Shared shape for a placement predicate. Reads only from the
- * candidate Bottle and (for Variety/Depth-style cards) the existing
- * line.
- */
-export type PlacementPredicate = (bottle: Bottle, line: Line) => boolean;
-
-/**
- * Placement bonus — fires when a Bottle joins a line. Mutates the
- * Immer draft directly. Pure-data deltas would compose better but
- * we're matching the rest of the engine's apply-style convention.
- *
- * `lineRef` is read-only-conceptually — bonuses should never mutate
- * the line's bottles or stackedCards directly (placement does that).
- */
-export type PlacementBonus = (args: {
-  bottle: Bottle;
-  lineRef: Line;
-  draft: Draft<GameState>;
-  player: Draft<PlayerState>;
-}) => void;
-
-/**
- * End-game scoring rule — called for each Line Board and each
- * stacked Line Card on a line that has at least one bottle. The
- * −2/card empty-line penalty is applied by `scoreLine` directly
- * (not by the rule), so rules need not check for emptiness.
- */
-export type ScoringRule = (line: Line, player: PlayerState) => number;
-
-export interface LineBoardDef {
-  id: string;
-  name: string;
-  flavorText: string;
-  /** Distillery this board is bound to. Pre-claimed at setup. */
-  distilleryBonus: DistilleryBonus;
-  /** Soft cap on bottles. Overflow allowed but doesn't score. */
-  capacity: number;
-  predicate: PlacementPredicate;
-  perBottleBonus: PlacementBonus;
-  endGameScore: ScoringRule;
-}
-
-export interface LineCardDef {
-  id: string;
-  name: string;
-  flavorText: string;
-  themeTag: string;
-  predicate: PlacementPredicate;
-  perBottleBonus: PlacementBonus;
-  endGameScore: ScoringRule;
-}
+/** @deprecated v3.1 — v3.2 portfolios have variable slot counts (3–6). */
+export const FLAGSHIP_SLOT_COUNT = 5;
