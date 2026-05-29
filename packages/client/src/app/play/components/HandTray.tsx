@@ -208,34 +208,10 @@ export default function HandTray() {
             so the bottom of the screen doesn't grow another row. */}
         <div className="flex items-stretch gap-3">
           {focused.operationsHand.length > 0 ? (
-            <div
-              data-bb-zone="hand-ops"
-              className="flex flex-col items-center justify-center gap-1 rounded-md border border-[#3b2818] bg-slate-950/40 px-2 py-1.5"
-            >
-              <span className="font-mono text-[11px] font-bold uppercase tracking-[.18em] text-amber-300/80">
-                Ops · Pending
-              </span>
-              <div className="relative pointer-events-none">
-                <div className="opacity-30 [filter:grayscale(1)_brightness(0.5)]">
-                  <CardAccordion>
-                    {focused.operationsHand.map((c, i) => (
-                      <OpsCard key={c.id} card={c} indexInRow={i} />
-                    ))}
-                  </CardAccordion>
-                </div>
-                <div
-                  className="pointer-events-none absolute inset-0 flex items-center justify-center"
-                  aria-hidden
-                >
-                  <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/90 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.16em] text-amber-200 shadow-[0_3px_12px_rgba(0,0,0,.65)]">
-                    Pending
-                  </span>
-                </div>
-              </div>
-              <span className="font-mono text-[12px] uppercase tracking-[.14em] text-slate-500 tabular-nums">
-                {focused.operationsHand.length} cards
-              </span>
-            </div>
+            <OpsPocket
+              cards={focused.operationsHand}
+              ownerId={focused.id}
+            />
           ) : null}
           <DramaticPile
             label="Discard"
@@ -572,6 +548,62 @@ function PileTile({
           animation: pile-count-bump-kf 520ms ease-out 480ms both;
         }
       `}</style>
+    </div>
+  );
+}
+
+/**
+ * v3.6 Ops pocket — replaces the old greyed-out "Pending" overlay.
+ * On the human's turn, each ops card becomes a clickable launcher that
+ * sets `playOpsCardId` on the store; PlayOpsModal then takes over with
+ * the appropriate targeting flow.
+ */
+function OpsPocket({ cards, ownerId }: { cards: OperationsCard[]; ownerId: string }) {
+  const { state, humanSeatPlayerId, setPlayOpsCardId } = useGameStore();
+  const isHumanFocus = humanSeatPlayerId === ownerId;
+  const isHumanTurn =
+    state?.phase === "action" &&
+    state.players[state.currentPlayerIndex]?.id === humanSeatPlayerId;
+  const interactive = isHumanFocus && isHumanTurn;
+  return (
+    <div
+      data-bb-zone="hand-ops"
+      className="flex flex-col items-center justify-center gap-1 rounded-md border border-[#3b2818] bg-slate-950/40 px-2 py-1.5"
+    >
+      <span className="font-mono text-[11px] font-bold uppercase tracking-[.18em] text-amber-300/80">
+        Ops {interactive ? "· Click to play" : "· Pending"}
+      </span>
+      <div className="relative">
+        <div
+          className={
+            interactive ? "" : "opacity-30 [filter:grayscale(1)_brightness(0.5)] pointer-events-none"
+          }
+        >
+          <CardAccordion>
+            {cards.map((c, i) => (
+              <OpsCard
+                key={c.id}
+                card={c}
+                indexInRow={i}
+                onClick={interactive ? () => setPlayOpsCardId(c.id) : undefined}
+              />
+            ))}
+          </CardAccordion>
+        </div>
+        {!interactive ? (
+          <div
+            className="pointer-events-none absolute inset-0 flex items-center justify-center"
+            aria-hidden
+          >
+            <span className="rotate-[-8deg] rounded border-2 border-amber-400/80 bg-slate-950/90 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-[.16em] text-amber-200 shadow-[0_3px_12px_rgba(0,0,0,.65)]">
+              Pending
+            </span>
+          </div>
+        ) : null}
+      </div>
+      <span className="font-mono text-[12px] uppercase tracking-[.14em] text-slate-500 tabular-nums">
+        {cards.length} card{cards.length === 1 ? "" : "s"}
+      </span>
     </div>
   );
 }
@@ -1133,15 +1165,40 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
   );
 }
 
-function OpsCard({ card, indexInRow }: { card: OperationsCard; indexInRow: number }) {
+function OpsCard({
+  card,
+  indexInRow,
+  onClick,
+}: {
+  card: OperationsCard;
+  indexInRow: number;
+  /** When provided, left-click plays the card via PlayOpsModal instead
+   *  of opening inspect. Right-click still opens inspect for read-only
+   *  rule text — same affordance pattern as the market row cards. */
+  onClick?: () => void;
+}) {
   const { setInspect } = useGameStore();
   const chrome = OPS_CHROME;
   const overlap = indexInRow === 0 ? "" : HAND_CARD_OVERLAP;
+  const handleClick = onClick
+    ? onClick
+    : () => setInspect({ kind: "operations", card });
+  const handleContext = onClick
+    ? (e: React.MouseEvent) => {
+        e.preventDefault();
+        setInspect({ kind: "operations", card });
+      }
+    : undefined;
   return (
     <button
       type="button"
-      onClick={() => setInspect({ kind: "operations", card })}
-      title={`${card.name} — ${card.description}`}
+      onClick={handleClick}
+      onContextMenu={handleContext}
+      title={
+        onClick
+          ? `Play ${card.name} — ${card.description} · right-click to inspect`
+          : `${card.name} — ${card.description}`
+      }
       className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass].join(" ")}
     >
       <div

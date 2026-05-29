@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import BotTurnBanner from "./components/BotTurnBanner";
 import BrandPortfolioDrawer from "./components/BrandPortfolioDrawer";
 import CardInspectModal from "./components/CardInspectModal";
+import PlayOpsModal from "./components/PlayOpsModal";
 import GameOverPanel from "./components/GameOverPanel";
 import ToastStack from "./components/ToastStack";
 import DemandRollModal from "./components/DemandRollModal";
@@ -91,6 +92,11 @@ export default function PlayPage() {
           Page-root mount so its full-viewport backdrop covers the
           entire screen. */}
       <BrandPortfolioDrawer />
+      {/* v3.6 Play Ops modal — self-gates on playOpsCardId. First
+          human-facing ops card flow; all 16 currently-implemented
+          cards route through here when the player clicks one in the
+          HandTray ops pocket. */}
+      <PlayOpsModal />
       <DemandRollModal />
       {/* Drafting-loop modal — mounted at the page root (outside
           ScalingHost) so its `fixed inset-0` covers the full viewport
