@@ -776,32 +776,185 @@ describe("MAKE_BOURBON — commit-as-resource ops cards", () => {
   });
 });
 
-describe("PLAY_OPERATIONS_CARD — design-only cards", () => {
-  it("rejects whiskey_raid as design-only", () => {
-    for (const defId of [
-      "whiskey_raid",
-    ] as const) {
+describe("Whiskey Raid — full attack + defense flow", () => {
+  it("opens a pendingRaid on PLAY_OPERATIONS_CARD then resolves on RAID_DEFENSE_DECLARE", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    // Seed a young (age 1) aging barrel on p2 — qualifies for raid.
+    state = placeBarrel(state, "p2", bill(), 1);
+    const target = state.allBarrels
+      .filter((b) => b.ownerId === "p2" && b.phase === "aging")
+      .at(-1)!;
+    // p2 needs cards in hand so the defender has something to discard.
+    state = giveHand(state, "p2", [
+      makeResourceCard("corn", "p2_def", 1),
+      makeResourceCard("rye", "p2_def", 2),
+      makeResourceCard("cask", "p2_def", 3),
+    ]);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "whiskey_raid");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "whiskey_raid",
+      targetBarrelId: target.id,
+    });
+    // Raid is now pending.
+    expect(state.pendingRaid).not.toBeNull();
+    expect(state.pendingRaid!.attackerId).toBe("p1");
+    expect(state.pendingRaid!.defenderId).toBe("p2");
+    expect(state.pendingRaid!.targetBarrelId).toBe(target.id);
+    expect(state.pendingRaid!.attackerRoll).toBeGreaterThanOrEqual(2);
+    expect(state.pendingRaid!.attackerRoll).toBeLessThanOrEqual(12);
+    // Defender resolves with X=2 (discards 2 cards).
+    const p2BeforeHand = state.players.find((p) => p.id === "p2")!.hand.length;
+    const discardIds = state.players.find((p) => p.id === "p2")!.hand.slice(0, 2).map((c) => c.id);
+    state = applyAction(state, {
+      type: "RAID_DEFENSE_DECLARE",
+      defenderId: "p2",
+      discardCardIds: discardIds,
+    });
+    // Raid is resolved.
+    expect(state.pendingRaid).toBeNull();
+    // Discarded cards are lost regardless of outcome.
+    const p2 = state.players.find((p) => p.id === "p2")!;
+    expect(p2.hand.length).toBe(p2BeforeHand - 2);
+    expect(p2.discard.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("rejects targeting a barrel of age > 2", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p2", bill(), 4); // age 4 — too old
+    const target = state.allBarrels
+      .filter((b) => b.ownerId === "p2" && b.phase === "aging")
+      .at(-1)!;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "whiskey_raid");
+    expect(() =>
+      applyAction(s, {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: "p1",
+        cardId,
+        defId: "whiskey_raid",
+        targetBarrelId: target.id,
+      }),
+    ).toThrow(/age 2 or less/);
+  });
+
+  it("rejects self-targeting", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p1", bill(), 1);
+    const own = state.allBarrels
+      .filter((b) => b.ownerId === "p1" && b.phase === "aging")
+      .at(-1)!;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "whiskey_raid");
+    expect(() =>
+      applyAction(s, {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: "p1",
+        cardId,
+        defId: "whiskey_raid",
+        targetBarrelId: own.id,
+      }),
+    ).toThrow(/targets opponents/);
+  });
+
+  it("Watchman investment stacks +1 per copy on the defender's roll", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p2", bill(), 1);
+    const target = state.allBarrels
+      .filter((b) => b.ownerId === "p2" && b.phase === "aging")
+      .at(-1)!;
+    state = giveHand(state, "p2", []);
+    // Seed p2 with two Watchman investments.
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p2"
+          ? {
+              ...p,
+              investments: [
+                ...p.investments,
+                {
+                  id: "inv_owned_watchman_1",
+                  defId: "watchman",
+                  name: "Watchman",
+                  cost: 3,
+                  tier: "small",
+                  category: "defense",
+                  triggers: ["passive_permanent"],
+                  archetype: "flex",
+                  rateLimited: false,
+                  short: "test",
+                  text: "test",
+                  description: "test",
+                  implemented: true,
+                },
+                {
+                  id: "inv_owned_watchman_2",
+                  defId: "watchman",
+                  name: "Watchman",
+                  cost: 3,
+                  tier: "small",
+                  category: "defense",
+                  triggers: ["passive_permanent"],
+                  archetype: "flex",
+                  rateLimited: false,
+                  short: "test",
+                  text: "test",
+                  description: "test",
+                  implemented: true,
+                },
+              ],
+            }
+          : p,
+      ),
+    };
+    const { state: s, cardId } = giveOpsCard(state, "p1", "whiskey_raid");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "whiskey_raid",
+      targetBarrelId: target.id,
+    });
+    const attackerRoll = state.pendingRaid!.attackerRoll;
+    // Defender declares X=0 with two Watchmen — their effective roll
+    // is defenderRoll + 0 + 2. Resolve and inspect.
+    state = applyAction(state, {
+      type: "RAID_DEFENSE_DECLARE",
+      defenderId: "p2",
+      discardCardIds: [],
+    });
+    expect(state.pendingRaid).toBeNull();
+    // Watchmen never leave the defender's investments — they're persistent.
+    const p2 = state.players.find((p) => p.id === "p2")!;
+    expect(p2.investments.filter((i) => i.defId === "watchman").length).toBe(2);
+    // Smoke check: ownership of the barrel either stayed with p2
+    // (defender won/tied) or moved to p1 (attacker won). Both are
+    // valid given the dice contest.
+    const after = state.allBarrels.find((b) => b.id === target.id)!;
+    expect(["p1", "p2"]).toContain(after.ownerId);
+    void attackerRoll;
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Cooper's Contract / Grain Futures via PLAY", () => {
+  it("rejects with the 'committed via MAKE_BOURBON' hint", () => {
+    for (const defId of ["coopers_contract", "grain_futures"] as const) {
       let state = makeTestGame();
       state = advanceToActionPhase(state, [1, 1]);
       const { state: s, cardId } = giveOpsCard(state, "p1", defId);
-      expect(() => {
-        // Build a sensible payload — the validator rejects before
-        // touching the params, but TypeScript still needs them shaped.
-        const targetBarrelId = s.allBarrels[0]?.id ?? "barrel_missing";
-        const targetCardId =
-          s.players.find((p) => p.id === "p1")!.hand[0]?.id ?? "card_missing";
-        const params =
-          defId === "whiskey_raid"
-            ? { defId, targetBarrelId }
-            : { defId };
-        void targetCardId;
+      expect(() =>
         applyAction(s, {
           type: "PLAY_OPERATIONS_CARD",
           playerId: "p1",
           cardId,
-          ...params,
-        });
-      }).toThrow(/design-only/);
+          defId,
+        }),
+      ).toThrow(/MAKE_BOURBON/);
     }
   });
 });

@@ -206,7 +206,7 @@ const SPECS: OpsCardSpec[] = [
     flavor: "They came over the back fence. Three barrels gone by morning.",
     cost: 3,
     copies: 2,
-    implemented: false,
+    implemented: true,
   },
   {
     defId: "coopers_contract",

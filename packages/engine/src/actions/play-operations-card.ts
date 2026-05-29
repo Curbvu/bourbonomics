@@ -6,7 +6,7 @@ import type {
   ValidationResult,
 } from "../types";
 import { drawWithReshuffle } from "../deck";
-import { rngRange } from "../rng";
+import { rngRange, roll2d6 } from "../rng";
 import {
   emptySlotsFor,
   isCurrentPlayer,
@@ -207,12 +207,42 @@ export function validatePlayOperationsCard(
         reason: `${action.defId} is committed via MAKE_BOURBON, not played`,
       };
 
-    // Catalog-only until handler lands.
-    case "whiskey_raid":
-      return {
-        legal: false,
-        reason: `${action.defId} is design-only — handler pending`,
-      };
+    case "whiskey_raid": {
+      // Can't open a new raid while another is pending.
+      if (state.pendingRaid) {
+        return {
+          legal: false,
+          reason: "another raid is already mid-flight",
+        };
+      }
+      const target = state.allBarrels.find((b) => b.id === action.targetBarrelId);
+      if (!target) {
+        return { legal: false, reason: `barrel ${action.targetBarrelId} not found` };
+      }
+      if (target.ownerId === player.id) {
+        return { legal: false, reason: "Whiskey Raid targets opponents' barrels" };
+      }
+      if (target.phase !== "aging") {
+        return { legal: false, reason: "barrel is still under construction" };
+      }
+      if (target.age > 2) {
+        return {
+          legal: false,
+          reason: `Whiskey Raid only targets barrels of age 2 or less (age ${target.age})`,
+        };
+      }
+      // The attacker needs an open slot to receive a successful
+      // transfer. Reject up front instead of letting the raid land
+      // with nowhere to go.
+      const slotsOpen = emptySlotsFor(state, player.id).length;
+      if (slotsOpen < 1) {
+        return {
+          legal: false,
+          reason: "no open rickhouse slot to receive a raided barrel",
+        };
+      }
+      return { legal: true };
+    }
   }
 }
 
@@ -397,8 +427,27 @@ export function applyPlayOperationsCard(
       break;
     }
 
-    // Catalog-only — handlers land with their respective phases.
-    case "whiskey_raid":
+    case "whiskey_raid": {
+      // Stage the attacker's roll and freeze the raid into
+      // state.pendingRaid for the defender to resolve via
+      // RAID_DEFENSE_DECLARE.
+      const target = draft.allBarrels.find(
+        (b) => b.id === action.targetBarrelId,
+      )!;
+      const [[a, b], nextState] = roll2d6(draft.rngState);
+      draft.rngState = nextState;
+      draft.pendingRaid = {
+        attackerId: player.id,
+        defenderId: target.ownerId,
+        targetBarrelId: target.id,
+        attackerRoll: a + b,
+      };
+      break;
+    }
+
+    // Cooper's Contract / Grain Futures are committed via
+    // MAKE_BOURBON; they should never reach this apply path because
+    // the validator rejects PLAY_OPERATIONS_CARD for them.
     case "coopers_contract":
     case "grain_futures":
       break;

@@ -179,7 +179,7 @@ cards:
     flavor: They came over the back fence. Three barrels gone by morning.
     cost: 3
     copies: 2
-    implemented: design
+    implemented: true
     tags: [attack, barrel, contest]
 
   - defId: coopers_contract

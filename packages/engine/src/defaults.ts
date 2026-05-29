@@ -198,6 +198,26 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       implemented: false,
     },
     {
+      // v3.6 — first investment with a live effect. Adds +1 per copy
+      // to the player's Whiskey Raid defense roll (RAID_DEFENSE_DECLARE
+      // reads count of investments with defId === "watchman"). Multiple
+      // Watchmen stack. Effect surfaces inside the raid resolution only;
+      // outside a raid the card is dormant chrome.
+      defId: "watchman",
+      name: "Watchman",
+      cost: 3,
+      tier: "small",
+      category: "defense",
+      triggers: ["passive_permanent"],
+      archetype: "flex",
+      rateLimited: false,
+      short: "Sleeps in the warehouse",
+      text: "Whenever an opponent targets one of your barrels with a Whiskey Raid (or future attack), add +1 to your defense roll. Multiple Watchmen stack.",
+      description:
+        "The first defensive investment. Pays off cumulatively across the game — every raid attempt against you reads its bonus. Two Watchmen take the attacker's odds at X=0 from ~42% to ~28%.",
+      implemented: true,
+    },
+    {
       defId: "cellar_foreman",
       name: "Cellar Foreman",
       cost: 4,

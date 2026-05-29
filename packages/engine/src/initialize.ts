@@ -268,6 +268,7 @@ export function initializeGame(config: GameConfig): GameState {
     bourbonDiscard: [],
     retiredBills: [],
     draftingLoop: null,
+    pendingRaid: null,
     demand: startingDemand,
     demandRolls: [],
     finalRoundTriggered: false,

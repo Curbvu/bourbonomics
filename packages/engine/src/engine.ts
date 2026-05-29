@@ -39,6 +39,10 @@ import {
   applyDraftSecondPortfolio,
   validateDraftSecondPortfolio,
 } from "./actions/draft-second-portfolio";
+import {
+  applyRaidDefenseDeclare,
+  validateRaidDefenseDeclare,
+} from "./actions/raid-defense-declare";
 import { scoreEndGameLines } from "./lines/scoring";
 
 export class IllegalActionError extends Error {
@@ -165,6 +169,8 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateRetrieveBottle(state, action);
     case "DRAFT_SECOND_PORTFOLIO":
       return validateDraftSecondPortfolio(state, action);
+    case "RAID_DEFENSE_DECLARE":
+      return validateRaidDefenseDeclare(state, action);
     default:
       return { legal: false, reason: `unhandled action type: ${(action as { type: string }).type}` };
   }
@@ -252,6 +258,9 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
       return;
     case "DRAFT_SECOND_PORTFOLIO":
       applyDraftSecondPortfolio(draft, action);
+      return;
+    case "RAID_DEFENSE_DECLARE":
+      applyRaidDefenseDeclare(draft, action);
       return;
     default:
       throw new IllegalActionError(`unhandled action type: ${(action as { type: string }).type}`, action);
