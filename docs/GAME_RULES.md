@@ -680,6 +680,103 @@ Operations cards held before the final round can be played; new ops cards bought
 | **Master Distiller** | 5 | Persistent. One barrel reads grid at demand +2. |
 | **Rickhouse Expansion Permit** | 5 | Permanently +1 rickhouse slot (max 6). |
 
+> **The table above is partially stale.** It enumerates the v3.1
+> ops catalog. The lean v3.2 cut (commit `90df94c`) reduced the deck
+> to 10 implemented cards; the v3.6 aggression-axis cut (below) adds
+> 9 more. `packages/engine/content/operations.yaml` is the canonical
+> live catalog.
+
+## v3.6 — Aggression axis (added)
+
+Until v3.5 the ops deck had a single griefing card (Regulatory
+Inspection). v3.6 adds **aggression as a strategic axis** with seven
+attack vectors across four price points, plus two production
+**commit-as-resource** contracts and the deck's first **defensive
+investment**.
+
+### Commit-as-resource — Cooper's Contract + Grain Futures
+
+| Card | Cost | Copies | Acts as |
+|---|:-:|:-:|---|
+| **Cooper's Contract** | 1 | 2 | 1 cask in a barrel commit |
+| **Grain Futures** | 2 | 2 | 1 grain in a barrel commit (any-grain wildcard, not a per-grain min) |
+
+Both cards are **committed** during `MAKE_BOURBON` from the player's
+operations hand — they are NOT played via PLAY_OPERATIONS_CARD. Each
+card occupies a single resource slot and is locked into the barrel
+until sale. **Specialty floors are never satisfied** by these cards —
+they are paper contracts, not actual casks/grain. The exact-recipe
+rule (v2.10) still applies: one cask slot per barrel, etc.
+
+On sale, the committed contract returns to the player's
+`opsDiscard` pile — separate from the resource discard, so paper
+contracts don't recycle into the resource deck.
+
+### The seven attack vectors
+
+| Card | $ | Effect |
+|---|:-:|---|
+| **Slow Pour** | 1 | Choose an aging barrel. It does not age **next** round. |
+| **Spoiled Batch** | 1 | Choose an opponent. They discard 1 random card from their hand. |
+| **Audit** | 2 | Reveal an opponent's hand. They discard 1 card of your choice. |
+| **Counterfeit Bottles** | 2 | An opponent's next sale reads the grid as if demand were 2 lower (floor 0). Tier floor still applies. Stacks. |
+| **Federal Inspector** | 3 | Choose an opponent. They lose 2 Capital (floored at 0) and discard 1 card of your choice. |
+| **Whiskey Raid** | 3 | Target an opponent's aging barrel of **age ≤ 2**. See defense flow below. |
+| **Sabotage** | 4 | Choose an opponent's aging barrel. Discard 1 committed resource card from it; the barrel is dumped (bill stays attached, rebuild from scratch). All cards in the barrel return to the opponent's discard. |
+
+### Whiskey Raid defense flow
+
+The signature aggression card runs as a **two-step blind dice
+contest**.
+
+1. Attacker plays Whiskey Raid, names the target barrel (age ≤ 2,
+   opponent only, attacker must have ≥1 open rickhouse slot).
+2. Engine rolls the attacker's **2d6** immediately and freezes the
+   raid into `state.pendingRaid`. No other action is legal on the
+   targeted barrel and no other raid may start until this one
+   resolves.
+3. Defender silently picks **X ≥ 0** cards from their hand to
+   discard as defense (declared blind, before any defender roll).
+4. Engine rolls defender 2d6 → `defenderRoll`. Defender total is
+   `defenderRoll + X + (count of Watchman investments)`.
+5. **Defender wins ties.** If defender total ≥ attacker total, the
+   barrel stays.
+6. Otherwise the attacker wins → the barrel transfers to one of
+   the attacker's open slots. Bill + every committed and aging
+   card travels with it. Slot mapping is the attacker's first open
+   slot.
+7. **Discarded cards are lost regardless of outcome.** Every card
+   the defender named is a real cost; nothing comes back.
+
+Resource math at typical X values (no Watchman):
+
+| X | Attacker's odds (defender wins ties) |
+|:-:|:-:|
+| 0 | ~42% |
+| 1 | ~33% |
+| 2 | ~25% |
+| 3 | ~17% |
+| 4 | ~11% |
+
+### Watchman investment
+
+| Card | Cost | Category | Effect |
+|---|:-:|---|---|
+| **Watchman** | 3 | defense | Persistent. Each copy adds **+1** to your raid defense roll. Multiple Watchmen stack. |
+
+The first investment with a live effect. Read inside
+`RAID_DEFENSE_DECLARE` (count of player.investments where
+`defId === "watchman"`). Outside a raid the card is dormant
+chrome.
+
+Why an investment and not an ops card:
+
+- Ops cards are one-shot; defense needs to be persistent.
+- Investments are the right home for permanent ongoing benefit.
+- "Specifies attacks as a category" — the engine reads the
+  Watchman count generically, so future attack cards that follow
+  the dice-contest pattern slot in for free.
+
 ---
 
 # 💼 Investment Cards (v3.5)
