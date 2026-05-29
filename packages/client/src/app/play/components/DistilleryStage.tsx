@@ -135,6 +135,8 @@ export default function DistilleryStage() {
           rep={player.capital}
           sold={player.barrelsSold}
           prestige={player.prestige}
+          warehouseUnlocked={player.warehouseUnlocked}
+          warehouseFilled={player.warehouseSlot != null}
         />
 
         {/* 3. Rickhouse stage */}
@@ -172,6 +174,8 @@ function IdentityPlate({
   rep,
   sold,
   prestige,
+  warehouseUnlocked,
+  warehouseFilled,
 }: {
   name: string;
   flavor: string;
@@ -179,6 +183,10 @@ function IdentityPlate({
   rep: number;
   sold: number;
   prestige: number;
+  /** v3.5 — true once the player buys the Warehouse investment. */
+  warehouseUnlocked: boolean;
+  /** v3.5 — true when something is currently stored in the warehouse. */
+  warehouseFilled: boolean;
 }) {
   return (
     <div
@@ -301,14 +309,55 @@ function IdentityPlate({
           stays here, promoted to `big` so the right column doesn't
           visually collapse. Prestige sits beside Sold as a small star
           badge; it only appears once the player has earned at least
-          one prestige point (Gold sale, or Silver for Connoisseur). */}
+          one prestige point (Gold sale, or Silver for Connoisseur).
+          Warehouse (v3.5) sits beside Prestige and only renders once
+          the player has bought the Warehouse investment card. */}
       <div
         className="flex items-stretch gap-3.5 pl-[18px]"
         style={{ borderLeft: "1px dashed rgba(110,80,50,.45)" }}
       >
         <Stat label="Sold" value={sold} big />
         {prestige > 0 ? <PrestigeBadge value={prestige} /> : null}
+        {warehouseUnlocked ? <WarehouseBadge filled={warehouseFilled} /> : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Warehouse badge (v3.5) — small icon + filled/empty indicator,
+ * shown only when the player owns the Warehouse investment. The
+ * Warehouse can hold at most one card across rounds; the engine's
+ * in/out flow is `implemented: false` in v3.5 (lands in v3.6), so
+ * this widget is presentation-only — it surfaces that the player has
+ * the slot and whether something's stored.
+ */
+function WarehouseBadge({ filled }: { filled: boolean }) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center leading-none"
+      title={
+        filled
+          ? "Warehouse — 1 card stored across rounds"
+          : "Warehouse — empty (capacity 1; persists across rounds)"
+      }
+      data-bb-zone="warehouse"
+    >
+      <span
+        className="font-display font-bold tracking-[.01em]"
+        style={{
+          fontSize: 26,
+          color: filled ? "var(--gold)" : "var(--mute)",
+          textShadow: filled
+            ? "0 0 12px rgba(240,201,112,.45)"
+            : "none",
+        }}
+      >
+        📦{filled ? "1" : "0"}
+      </span>
+      <span className="label-sm mt-1" style={{ color: "var(--brass)" }}>
+        Warehouse
+      </span>
     </div>
   );
 }

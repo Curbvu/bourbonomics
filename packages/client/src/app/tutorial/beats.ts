@@ -195,7 +195,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-buy-aftermath",
     kind: "prompt",
     title: "Wheat in your hand",
-    body: "Specialty Wheat is in your hand — ready to use this turn.",
+    body: "Specialty Wheat is in your hand — ready to use this turn. (Unused cards in hand get discarded at End Turn — if you want to carry a single card across rounds, the **Warehouse** investment card in the market gives you a private 1-card slot that persists.)",
     spotlight: { kind: "none" },
   },
 
