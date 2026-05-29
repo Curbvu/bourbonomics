@@ -23,6 +23,8 @@ interface OpsCardSpec {
   cost: number;
   copies: number;
   implemented: boolean;
+  /** v3.6 commit-as-resource — Cooper's Contract / Grain Futures. */
+  commitableAs?: "cask" | "grain";
 }
 
 const SPECS: OpsCardSpec[] = [
@@ -214,7 +216,8 @@ const SPECS: OpsCardSpec[] = [
     flavor: "The barrels can wait. The bourbon can't.",
     cost: 1,
     copies: 2,
-    implemented: false,
+    implemented: true,
+    commitableAs: "cask",
   },
   {
     defId: "grain_futures",
@@ -224,7 +227,8 @@ const SPECS: OpsCardSpec[] = [
     flavor: "Grain on credit, due at the still.",
     cost: 2,
     copies: 2,
-    implemented: false,
+    implemented: true,
+    commitableAs: "grain",
   },
 ];
 
@@ -243,6 +247,7 @@ export function defaultOperationsDeck(): OperationsCard[] {
         flavor: spec.flavor,
         cost: spec.cost,
         drawnInRound: 0,
+        ...(spec.commitableAs ? { commitableAs: spec.commitableAs } : {}),
       });
     }
   }

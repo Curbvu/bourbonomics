@@ -662,6 +662,17 @@ export interface OperationsCard {
   cost: number;
   /** Round in which the card was added to the player's operations hand. */
   drawnInRound: number;
+  /**
+   * v3.6 commit-as-resource hook (Cooper's Contract, Grain Futures).
+   * When set, the card is legal to include in `MAKE_BOURBON.cardIds`
+   * in place of an actual resource card of the named role. It counts
+   * toward the matching universal floor (`minCask` for cask, the
+   * `minTotalGrain` wildcard slot for grain) but never toward
+   * specialty floors or the bill's per-subtype grain mins (`minRye`
+   * etc.). On sale, the card returns to `player.opsDiscard` instead
+   * of `player.discard` per the v3.6 spec.
+   */
+  commitableAs?: "cask" | "grain";
 }
 
 // -----------------------------
@@ -1028,6 +1039,14 @@ export interface PlayerState {
   // barrels they own.
   /** Operations cards held in hand. Persist across rounds; played as a free action. */
   operationsHand: OperationsCard[];
+  /**
+   * v3.6 Cooper's Contract / Grain Futures discard pile. Commit-as-
+   * resource ops cards land here when the barrel they're committed
+   * to sells — never in the regular `discard` (which would mix paper
+   * contracts into the resource deck). Currently isolated; future
+   * mechanics may reshuffle this pile.
+   */
+  opsDiscard: OperationsCard[];
 
   /**
    * Face-up dealt hand during the `starter_deck_draft` phase (v2.4

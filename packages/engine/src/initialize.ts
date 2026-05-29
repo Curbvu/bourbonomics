@@ -99,6 +99,7 @@ export function initializeGame(config: GameConfig): GameState {
       deck,
       discard: [],
       operationsHand: [],
+      opsDiscard: [],
       starterHand: [],
       starterPassed: false,
       starterSwapUsed: false,

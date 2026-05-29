@@ -554,43 +554,86 @@ function PileTile({
 
 /**
  * v3.6 Ops pocket — replaces the old greyed-out "Pending" overlay.
- * On the human's turn, each ops card becomes a clickable launcher that
- * sets `playOpsCardId` on the store; PlayOpsModal then takes over with
- * the appropriate targeting flow.
+ *
+ * On the human's turn, each ops card becomes a clickable launcher.
+ * The click target depends on the active picker mode:
+ *
+ * - In Make Bourbon mode, ops cards with `commitableAs` (Cooper's
+ *   Contract, Grain Futures) become commit-eligible and clicking
+ *   them toggles their inclusion in `spendCardIds`. Other ops cards
+ *   stay non-interactive — they aren't commit-legal.
+ * - Outside Make mode, left-click sets `playOpsCardId` so the
+ *   PlayOpsModal opens with the right targeting flow. Cards that
+ *   don't have a play handler (Cooper's Contract / Grain Futures
+ *   without a make mode) stay non-interactive — the engine would
+ *   reject any PLAY_OPERATIONS_CARD dispatch anyway.
  */
 function OpsPocket({ cards, ownerId }: { cards: OperationsCard[]; ownerId: string }) {
-  const { state, humanSeatPlayerId, setPlayOpsCardId } = useGameStore();
+  const {
+    state,
+    humanSeatPlayerId,
+    setPlayOpsCardId,
+    makeMode,
+    toggleMakeSpend,
+  } = useGameStore();
   const isHumanFocus = humanSeatPlayerId === ownerId;
   const isHumanTurn =
     state?.phase === "action" &&
     state.players[state.currentPlayerIndex]?.id === humanSeatPlayerId;
-  const interactive = isHumanFocus && isHumanTurn;
+  const inMakeMode = makeMode != null;
+  const interactiveAny = isHumanFocus && isHumanTurn;
   return (
     <div
       data-bb-zone="hand-ops"
       className="flex flex-col items-center justify-center gap-1 rounded-md border border-[#3b2818] bg-slate-950/40 px-2 py-1.5"
     >
       <span className="font-mono text-[11px] font-bold uppercase tracking-[.18em] text-amber-300/80">
-        Ops {interactive ? "· Click to play" : "· Pending"}
+        Ops{" "}
+        {!interactiveAny
+          ? "· Pending"
+          : inMakeMode
+            ? "· Click commit-eligible"
+            : "· Click to play"}
       </span>
       <div className="relative">
         <div
           className={
-            interactive ? "" : "opacity-30 [filter:grayscale(1)_brightness(0.5)] pointer-events-none"
+            interactiveAny
+              ? ""
+              : "opacity-30 [filter:grayscale(1)_brightness(0.5)] pointer-events-none"
           }
         >
           <CardAccordion>
-            {cards.map((c, i) => (
-              <OpsCard
-                key={c.id}
-                card={c}
-                indexInRow={i}
-                onClick={interactive ? () => setPlayOpsCardId(c.id) : undefined}
-              />
-            ))}
+            {cards.map((c, i) => {
+              const isCommitable = c.commitableAs != null;
+              // Per-mode interactivity:
+              // - Make mode: only commitable cards are clickable.
+              // - Otherwise: only play-handled cards are clickable
+              //   (commitable cards alone aren't "playable").
+              const interactive =
+                interactiveAny &&
+                (inMakeMode ? isCommitable : !isCommitable);
+              const selected =
+                inMakeMode && makeMode?.spendCardIds.includes(c.id);
+              return (
+                <OpsCard
+                  key={c.id}
+                  card={c}
+                  indexInRow={i}
+                  selected={selected}
+                  onClick={
+                    interactive
+                      ? inMakeMode
+                        ? () => toggleMakeSpend(c.id)
+                        : () => setPlayOpsCardId(c.id)
+                      : undefined
+                  }
+                />
+              );
+            })}
           </CardAccordion>
         </div>
-        {!interactive ? (
+        {!interactiveAny ? (
           <div
             className="pointer-events-none absolute inset-0 flex items-center justify-center"
             aria-hidden
@@ -1169,13 +1212,19 @@ function OpsCard({
   card,
   indexInRow,
   onClick,
+  selected,
 }: {
   card: OperationsCard;
   indexInRow: number;
-  /** When provided, left-click plays the card via PlayOpsModal instead
-   *  of opening inspect. Right-click still opens inspect for read-only
+  /** When provided, left-click plays the card via PlayOpsModal (or
+   *  toggles commit selection in Make Bourbon mode for cards with
+   *  `commitableAs`). Right-click still opens inspect for read-only
    *  rule text — same affordance pattern as the market row cards. */
   onClick?: () => void;
+  /** v3.6 — surface make-mode commit selection on commitable ops
+   *  cards (Cooper's Contract / Grain Futures) with the same gold ring
+   *  the resource picker uses. */
+  selected?: boolean;
 }) {
   const { setInspect } = useGameStore();
   const chrome = OPS_CHROME;
@@ -1199,7 +1248,14 @@ function OpsCard({
           ? `Play ${card.name} — ${card.description} · right-click to inspect`
           : `${card.name} — ${card.description}`
       }
-      className={[baseCardChrome, chrome.gradient, chrome.border, overlap, liftClass].join(" ")}
+      className={[
+        baseCardChrome,
+        chrome.gradient,
+        chrome.border,
+        overlap,
+        liftClass,
+        selected ? "ring-2 ring-amber-300 ring-offset-2 ring-offset-slate-950" : "",
+      ].join(" ")}
     >
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
