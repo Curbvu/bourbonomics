@@ -66,14 +66,16 @@ function giveOpsCard(
   playerId: string,
   defId: OperationsCardDefId,
   drawnInRound = 0,
+  commitableAs?: "cask" | "grain",
 ) {
   const card: OperationsCard = {
-    id: `ops_test_${defId}_${playerId}`,
+    id: `ops_test_${defId}_${playerId}_${drawnInRound}`,
     defId,
     name: defId,
     description: "test card",
     cost: 4,
     drawnInRound,
+    ...(commitableAs ? { commitableAs } : {}),
   };
   return {
     state: {
@@ -638,12 +640,146 @@ describe("PLAY_OPERATIONS_CARD — Sabotage", () => {
   });
 });
 
+describe("MAKE_BOURBON — commit-as-resource ops cards", () => {
+  it("Cooper's Contract satisfies the cask floor + lands in opsDiscard on sale", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const b = bill();
+    state = placeReadySlot(state, "p1", b);
+    const { state: s, cardId } = giveOpsCard(
+      state,
+      "p1",
+      "coopers_contract",
+      0,
+      "cask",
+    );
+    // Hand: 1 corn (universal) + 1 rye (universal grain) + the
+    // cooper's contract acting as cask. The default bill has no
+    // recipe overrides so minCorn = 1, minTotalGrain = 1 apply.
+    const corn = makeResourceCard("corn", "p1_cc", 1);
+    const rye = makeResourceCard("rye", "p1_cc", 2);
+    let st = giveHand(s, "p1", [corn, rye]);
+    // Find the ready barrel we just placed.
+    const targetBarrel = st.allBarrels
+      .filter((br) => br.ownerId === "p1" && br.phase === "ready")
+      .at(-1)!;
+    st = applyAction(st, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      slotId: targetBarrel.slotId,
+      cardIds: [corn.id, rye.id, cardId],
+    });
+    const p1 = st.players.find((p) => p.id === "p1")!;
+    // Card consumed from operationsHand.
+    expect(p1.operationsHand.some((c) => c.id === cardId)).toBe(false);
+    // Barrel got the ops card embedded in productionCards.
+    const updated = st.allBarrels.find((b2) => b2.slotId === targetBarrel.slotId)!;
+    expect(updated.phase).toBe("aging");
+    const opsCommitted = updated.productionCards.filter(
+      (c) => c.type === "operations" && c.opSpec?.commitableAs === "cask",
+    );
+    expect(opsCommitted.length).toBe(1);
+    // Age the barrel artificially so SELL_BOURBON's age gate passes
+    // (production cards are committed; we just need to fast-forward).
+    // `completedInRound` rewound to round 0 so the "finished aging
+    // too recently" round-lag check also passes.
+    st = {
+      ...st,
+      allBarrels: st.allBarrels.map((b) =>
+        b.id === updated.id ? { ...b, age: 4, completedInRound: 0 } : b,
+      ),
+    };
+    // Sell the barrel — the ops card should land in opsDiscard, not discard.
+    st = applyAction(st, {
+      type: "SELL_BOURBON",
+      playerId: "p1",
+      barrelId: updated.id,
+    });
+    const p1After = st.players.find((p) => p.id === "p1")!;
+    expect(p1After.opsDiscard.some((o) => o.defId === "coopers_contract")).toBe(true);
+    expect(
+      p1After.discard.some(
+        (c) => c.type === "operations" && c.opSpec?.commitableAs === "cask",
+      ),
+    ).toBe(false);
+  });
+
+  it("Grain Futures satisfies minTotalGrain but not minRye", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    // Recipe needs minTotalGrain: 2 AND minRye: 1. Grain Futures
+    // counts toward total but NOT toward minRye, so two Grain Futures
+    // alone should NOT satisfy the recipe — we need at least 1 rye.
+    const recipeBill = makeMashBill(
+      {
+        defId: "gf_test",
+        name: "GF Test",
+        ageBands: [2, 4, 6],
+        demandBands: [2, 4, 6],
+        rewardGrid: [
+          [1, 2, 3],
+          [2, 4, 5],
+          [3, 5, 6],
+        ],
+        recipe: { minRye: 1, minTotalGrain: 2 },
+      },
+      200,
+    );
+    state = placeReadySlot(state, "p1", recipeBill);
+    const target = state.allBarrels
+      .filter((b) => b.ownerId === "p1" && b.phase === "ready")
+      .at(-1)!;
+    // Give the player a Cooper's Contract (cask) and two Grain Futures.
+    const { state: s1, cardId: cc } = giveOpsCard(
+      state,
+      "p1",
+      "coopers_contract",
+      0,
+      "cask",
+    );
+    const { state: s2, cardId: gf1 } = giveOpsCard(
+      s1,
+      "p1",
+      "grain_futures",
+      1,
+      "grain",
+    );
+    const { state: s3, cardId: gf2 } = giveOpsCard(
+      s2,
+      "p1",
+      "grain_futures",
+      2,
+      "grain",
+    );
+    // Hand: 1 corn (universal) — note: NO rye yet.
+    const corn = makeResourceCard("corn", "p1_gf", 1);
+    let st = giveHand(s3, "p1", [corn]);
+    // Replace one Grain Futures with an actual rye → recipe complete.
+    const rye = makeResourceCard("rye", "p1_gf", 2);
+    st = giveHand(s3, "p1", [corn, rye]);
+    st = applyAction(st, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      slotId: target.slotId,
+      cardIds: [corn.id, rye.id, cc, gf1],
+    });
+    const updated = st.allBarrels.find((b) => b.slotId === target.slotId)!;
+    expect(updated.phase).toBe("aging");
+    // 4 cards committed: corn + rye + cooper's contract + 1 grain future.
+    expect(updated.productionCards.length).toBe(4);
+    // The Grain Futures and Cooper's Contract end up in productionCards.
+    const opsInPile = updated.productionCards.filter(
+      (c) => c.type === "operations",
+    );
+    expect(opsInPile.length).toBe(2);
+    void gf2;
+  });
+});
+
 describe("PLAY_OPERATIONS_CARD — design-only cards", () => {
-  it("rejects whiskey_raid / coopers_contract / grain_futures as design-only", () => {
+  it("rejects whiskey_raid as design-only", () => {
     for (const defId of [
       "whiskey_raid",
-      "coopers_contract",
-      "grain_futures",
     ] as const) {
       let state = makeTestGame();
       state = advanceToActionPhase(state, [1, 1]);

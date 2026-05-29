@@ -196,11 +196,19 @@ export function validatePlayOperationsCard(
       return { legal: true };
     }
 
-    // Catalog-only until handlers land — reject explicitly so any
-    // mis-routed dispatch produces a clean engine error.
-    case "whiskey_raid":
+    // v3.6 commit-as-resource — these cards are committed via
+    // MAKE_BOURBON, not played via PLAY_OPERATIONS_CARD. Reject so a
+    // mis-routed dispatch produces a clean engine error instead of
+    // silently consuming the card.
     case "coopers_contract":
     case "grain_futures":
+      return {
+        legal: false,
+        reason: `${action.defId} is committed via MAKE_BOURBON, not played`,
+      };
+
+    // Catalog-only until handler lands.
+    case "whiskey_raid":
       return {
         legal: false,
         reason: `${action.defId} is design-only — handler pending`,

@@ -42,6 +42,13 @@ interface ResourceTotals {
   barley: number;
   wheat: number;
   /**
+   * v3.6 Grain Futures — counts toward `minTotalGrain` but never
+   * toward any per-grain min (`minRye`, `minBarley`, `minWheat`). A
+   * paper contract is "any grain" for the universal-rule check, not
+   * a specific subtype.
+   */
+  wildGrainSlots: number;
+  /**
    * per-subtype Specialty unit counts. Each Specialty or
    * Heritage card contributes its `resourceCount` (uniformly 1 in
    * every card is one unit). Used to satisfy
@@ -61,6 +68,7 @@ function emptyTotals(): ResourceTotals {
     rye: 0,
     barley: 0,
     wheat: 0,
+    wildGrainSlots: 0,
     specialtyCask: 0,
     specialtyCorn: 0,
     specialtyRye: 0,
@@ -70,7 +78,19 @@ function emptyTotals(): ResourceTotals {
 }
 
 function totalGrain(t: ResourceTotals): number {
-  return t.rye + t.barley + t.wheat;
+  return t.rye + t.barley + t.wheat + t.wildGrainSlots;
+}
+
+/**
+ * v3.6 — return the role this card commits as for recipe satisfaction.
+ * Resource cards: handled by tallyCard's normal subtype reading.
+ * Ops cards: only when `commitableAs` is set on the spec — Cooper's
+ * Contract acts as cask, Grain Futures as grain. Anything else returns
+ * null and contributes nothing.
+ */
+function opsCommitRole(card: Card): "cask" | "grain" | null {
+  if (card.type !== "operations") return null;
+  return card.opSpec?.commitableAs ?? null;
 }
 
 /**
@@ -84,6 +104,18 @@ function totalGrain(t: ResourceTotals): number {
  * so recipes with `minSpecialty` requirements can be checked.
  */
 function tallyCard(totals: ResourceTotals, card: Card): void {
+  // v3.6 commit-as-resource: ops cards with `commitableAs` count
+  // toward the matching universal floor but never toward specialty
+  // or per-grain mins. They're paper contracts, not actual cards.
+  const opsRole = opsCommitRole(card);
+  if (opsRole === "cask") {
+    totals.caskSources += 1;
+    return;
+  }
+  if (opsRole === "grain") {
+    totals.wildGrainSlots += 1;
+    return;
+  }
   if (card.type !== "resource") return;
   if (suppliesResource(card, "cask")) totals.caskSources += 1;
   totals.corn += resourceUnits(card, "corn");
@@ -107,6 +139,15 @@ function tallyCard(totals: ResourceTotals, card: Card): void {
  * `wildMashSwap` is set in the action payload.
  */
 function untallyCard(totals: ResourceTotals, card: Card): void {
+  const opsRole = opsCommitRole(card);
+  if (opsRole === "cask") {
+    totals.caskSources -= 1;
+    return;
+  }
+  if (opsRole === "grain") {
+    totals.wildGrainSlots -= 1;
+    return;
+  }
   if (card.type !== "resource") return;
   if (suppliesResource(card, "cask")) totals.caskSources -= 1;
   totals.corn -= resourceUnits(card, "corn");
@@ -416,9 +457,17 @@ export function validateMakeBourbon(
   if (new Set(action.cardIds).size !== cardCount) {
     return { legal: false, reason: "duplicate card id in commit list" };
   }
+  // v3.6 — commit-as-resource ops cards (Cooper's Contract / Grain
+  // Futures) live in `operationsHand`. Surface both pools to the
+  // integrity check, restricting the ops side to cards that actually
+  // carry `commitableAs` so a stray Bourbon Boom can't be dropped
+  // into a commit pile.
   const handIds = new Set(player.hand.map((c) => c.id));
+  const commitableOpsIds = new Set(
+    player.operationsHand.filter((c) => c.commitableAs).map((c) => c.id),
+  );
   for (const id of action.cardIds) {
-    if (!handIds.has(id)) {
+    if (!handIds.has(id) && !commitableOpsIds.has(id)) {
       return { legal: false, reason: `card ${id} is not in your hand` };
     }
   }
@@ -445,13 +494,35 @@ export function validateMakeBourbon(
   }
 
   // ---- Cumulative resource totals (existing pile + this commit) ----
-  const cardById = new Map(player.hand.map((c) => [c.id, c]));
+  // v3.6 commit-as-resource — ops cards with `commitableAs` (Cooper's
+  // Contract, Grain Futures) live in `operationsHand`, not `hand`.
+  // Surface both pools to the lookup so the validator can accept
+  // mixed-source commits. We wrap each ops card as a `Card` with
+  // `type: "operations"` + `opSpec` inline (matching the buy-from-
+  // market shape) so tallyCard's existing branch reads it cleanly.
+  const cardById = new Map<string, Card>(player.hand.map((c) => [c.id, c]));
+  for (const o of player.operationsHand) {
+    if (!o.commitableAs) continue;
+    cardById.set(o.id, {
+      id: o.id,
+      cardDefId: o.defId,
+      type: "operations",
+      cost: o.cost,
+      displayName: o.name,
+      flavor: o.flavor,
+      opSpec: o,
+    });
+  }
   const totals = emptyTotals();
   for (const card of existingBarrel.productionCards) tallyCard(totals, card);
   const banRye = player.distillery?.bonus === "wheated_baron";
   for (const id of action.cardIds) {
-    const card = cardById.get(id)!;
-    if (card.type !== "resource") {
+    const card = cardById.get(id);
+    if (!card) {
+      return { legal: false, reason: `card ${id} not in your hand` };
+    }
+    const opsRole = opsCommitRole(card);
+    if (card.type !== "resource" && opsRole == null) {
       return { legal: false, reason: `card ${id} cannot be committed to a barrel` };
     }
     // v2.10 Wheated Baron: rye cards cannot be committed to barrels.
@@ -561,12 +632,36 @@ export function applyMakeBourbon(
   action: MakeBourbonAction,
 ): void {
   const player = draft.players.find((p) => p.id === action.playerId)!;
-  const cardById = new Map(player.hand.map((c) => [c.id, c as Card]));
+  // v3.6 commit-as-resource — same as validate: surface ops cards
+  // from `operationsHand` (only those with `commitableAs`) alongside
+  // resource cards. We wrap them as Card with `type: "operations"`
+  // + `opSpec` so the downstream rendering / inspect APIs read them
+  // consistently, and on sale `routeBarrelCard` will use opSpec to
+  // route them to `opsDiscard` instead of `discard`.
+  const cardById = new Map<string, Card>(
+    player.hand.map((c) => [c.id, c as Card]),
+  );
+  for (const o of player.operationsHand) {
+    if (!o.commitableAs) continue;
+    cardById.set(o.id, {
+      id: o.id,
+      cardDefId: o.defId,
+      type: "operations",
+      cost: o.cost,
+      displayName: o.name,
+      flavor: o.flavor,
+      opSpec: o,
+    });
+  }
   const newCards: Card[] = action.cardIds.map((id) => cardById.get(id)!);
   const newCardIds = new Set(action.cardIds);
 
-  // Remove committed cards from the player's hand.
+  // Remove committed cards from the player's hand AND operationsHand
+  // (whichever pool held them).
   player.hand = player.hand.filter((c) => !newCardIds.has(c.id));
+  player.operationsHand = player.operationsHand.filter(
+    (c) => !newCardIds.has(c.id),
+  );
 
   // v2.6: the slot already holds a "ready" or "construction" barrel.
   // Validation guarantees we're committing to an existing one.

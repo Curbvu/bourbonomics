@@ -189,15 +189,22 @@ export function applySellBourbon(
   }
 
   // Cards under the barrel return home: those flagged
-  // `returns_to_hand_on_sale` go back to hand; everything else hits
-  // the discard pile.
+  // `returns_to_hand_on_sale` go back to hand; v3.6 commit-as-
+  // resource ops cards (Cooper's Contract / Grain Futures —
+  // `card.type === "operations"` with `commitableAs`) flip back into
+  // the player's `opsDiscard` so they don't pollute the resource
+  // deck; everything else hits the regular discard pile.
   const allBarrelCards: Card[] = [...barrel.productionCards, ...barrel.agingCards];
   for (const c of allBarrelCards) {
     if (signals.returnsToHand.has(c.id)) {
       player.hand.push(c);
-    } else {
-      player.discard.push(c);
+      continue;
     }
+    if (c.type === "operations" && c.opSpec && c.opSpec.commitableAs) {
+      player.opsDiscard.push(c.opSpec);
+      continue;
+    }
+    player.discard.push(c);
   }
 
   // ---------------------------------------------------------------
