@@ -30,13 +30,14 @@ const DEFAULT_DEMAND = 0;
 const MARKET_SIZE = 10;
 
 /**
- * Each player starts with this many rep on their track unless their
- * distillery overrides via `startingRep`. Vanilla = 5 by spec.
+ * v3.3 — Each player starts with this much Capital on their track
+ * unless their distillery overrides via `startingCapital`. Vanilla
+ * = 5 by spec. End-game Reputation always starts at 0.
  */
-const DEFAULT_STARTING_REP = 5;
+const DEFAULT_STARTING_CAPITAL = 5;
 
-function distilleryStartingRep(d: Distillery | null): number {
-  return d?.startingRep ?? DEFAULT_STARTING_REP;
+function distilleryStartingCapital(d: Distillery | null): number {
+  return d?.startingCapital ?? DEFAULT_STARTING_CAPITAL;
 }
 
 /**
@@ -101,14 +102,18 @@ export function initializeGame(config: GameConfig): GameState {
       starterHand: [],
       starterPassed: false,
       starterSwapUsed: false,
-      // starting rep is the player's distillery stake. Each
-      // distillery's value compensates its setup asymmetries.
-      reputation: distilleryStartingRep(distillery),
+      // v3.3 — Starting Capital is the player's distillery stake.
+      // Each distillery's value compensates its setup asymmetries.
+      capital: distilleryStartingCapital(distillery),
+      // v3.3 — Reputation is the end-game accumulator; starts at 0
+      // for every player. Brand Portfolio events at end-of-game
+      // populate it via computeFinalScores.
+      reputation: 0,
       handSize: startingHandSize,
       barrelsSold: 0,
       // Prestige starts at 0 for everyone (including bots). Earned
-      // permanently by Gold awards on sale; +1 rep on every future
-      // Silver/Gold-triggering sale.
+      // permanently by Gold awards on sale; +1 Capital on every
+      // future Silver/Gold-triggering sale.
       prestige: 0,
       // Save slot starts empty. Carries one card across the
       // cleanup boundary when used.
@@ -128,6 +133,9 @@ export function initializeGame(config: GameConfig): GameState {
       // v2.14: each player gets one Drafting Loop initiation per round.
       // Reset at cleanup.
       draftingLoopUsedThisRound: false,
+      // v3.4 — Vanilla's first-sale-of-round flag starts true so the
+      // very first sale on round 1 gets the bump. Reset at cleanup.
+      firstSaleOfRoundPending: true,
       // ── v3.2 Brand Portfolios ──
       flagshipPortfolio: buildInitialFlagshipPortfolio({ distillery }),
       secondPortfolio: null,

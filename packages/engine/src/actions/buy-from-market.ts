@@ -64,12 +64,12 @@ export function validateBuyFromMarket(
 
   // Validate rep portion.
   if (!Number.isInteger(action.rep) || action.rep < 0) {
-    return { legal: false, reason: "rep payment must be a non-negative integer" };
+    return { legal: false, reason: "Capital payment must be a non-negative integer" };
   }
-  if (action.rep > player.reputation) {
+  if (action.rep > player.capital) {
     return {
       legal: false,
-      reason: `not enough reputation: have ${player.reputation}, paying ${action.rep}`,
+      reason: `not enough Capital: have ${player.capital}, paying ${action.rep}`,
     };
   }
 
@@ -119,8 +119,8 @@ export function applyBuyFromMarket(
   // Remove the purchased card from the market.
   draft.market.splice(action.marketSlotIndex, 1);
 
-  // Spend rep.
-  player.reputation -= action.rep;
+  // v3.3 — Spend Capital (the in-game spendable wallet).
+  player.capital -= action.rep;
 
   // Discard Labor cards (firing any on_spend effects — Lender's Note
   // style — though no Labor card currently declares such an effect).

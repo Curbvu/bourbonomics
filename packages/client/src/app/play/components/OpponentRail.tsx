@@ -146,7 +146,7 @@ function OpponentCard({
               className="font-display text-[26px] font-bold leading-none"
               style={{ color: "var(--gold)" }}
             >
-              {player.reputation}
+              {player.capital}
             </div>
             <div className="label-sm" style={{ fontSize: 9.5 }}>
               Rep

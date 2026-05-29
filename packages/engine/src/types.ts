@@ -202,6 +202,35 @@ export type MashBillTier = "common" | "uncommon" | "rare" | "epic" | "legendary"
  */
 export type MashBillComplexityTier = 1 | 2 | 3;
 
+/**
+ * v3.4 — Bill / Bottle tag taxonomy.
+ *
+ * Tags are printed icons on a bill (and inherited by the Bottle it
+ * mints). Slot requirements, Brand Restrictions, and Mastery
+ * Conditions reference these by string key.
+ *
+ * Derivation lives in `src/tags.ts` and runs once per bill at the
+ * catalog edge (defaults.ts mints bills wired through deriveBillTags).
+ *
+ * Categories — see GAME_RULES.md §Tags for the canonical list:
+ *   - Grain     : `rye`, `wheat`, `barley`
+ *   - Strength  : `corn-heavy` (maxCorn ≥ 4) | `corn-light` (maxCorn ≤ 2)
+ *   - Profile   : `rye-heavy`, `wheated`, `single-grain`, `triple-grain`
+ *   - Quality   : `specialty`, `heritage`, `heritage-recipe`
+ *   - Awards    : `silver-eligible`, `gold-eligible`
+ *
+ * Bills carry every applicable tag; if more than 7 apply, the
+ * ceiling drop rules in `src/tags.ts` trim them in priority order
+ * before display. The full set is preserved on the data model — the
+ * 7-icon cap only affects rendering on the card face.
+ */
+export type BillTag =
+  | "rye" | "wheat" | "barley"
+  | "corn-heavy" | "corn-light"
+  | "rye-heavy" | "wheated" | "single-grain" | "triple-grain"
+  | "specialty" | "heritage" | "heritage-recipe"
+  | "silver-eligible" | "gold-eligible";
+
 export interface MashBill {
   id: string;                                // unique instance id
   defId: string;                             // references the catalog definition
@@ -238,6 +267,23 @@ export interface MashBill {
    * Heritage Reserve.
    */
   tutorialOnly?: boolean;
+  /**
+   * v3.4 — Optional explicit primary-grain tag breaker. When two
+   * grains tie for highest count (e.g., 2 rye + 2 wheat), this field
+   * decides which of `rye-heavy` / `wheated` (if any) gets emitted.
+   * When omitted, derivation falls back to highest count and emits
+   * neither tag on a tie — bills with no resolution typically pick
+   * up `triple-grain` instead.
+   */
+  primaryGrain?: "rye" | "wheat" | "barley";
+  /**
+   * v3.4 — Statically-derived tag set. Built once per bill (catalog
+   * edge); slot requirements, Brand Restrictions, and Mastery
+   * Conditions read from here. The Bottle inherits this verbatim on
+   * sale (see `Bottle.tags`). Always defined — empty array means no
+   * tags applied.
+   */
+  tags: BillTag[];
 }
 
 /**
@@ -256,6 +302,19 @@ export function saleFloorForBill(bill: MashBill): number {
   if (t === "epic" || t === "legendary") return 5;
   if (t === "rare") return 4;
   return 3;
+}
+
+/**
+ * v3.3 — Final score is the sum of banked Capital (the spendable
+ * currency held at game end) and earned Reputation (the end-game
+ * portfolio score). Banked Capital converts 1:1, so anything the
+ * player didn't spend during play still counts.
+ *
+ * Tiebreakers (most barrels sold, then shared victory) live in
+ * `computeFinalScores` — this helper returns only the numeric total.
+ */
+export function getFinalScore(player: Pick<PlayerState, "capital" | "reputation">): number {
+  return player.capital + player.reputation;
 }
 
 /**
@@ -448,7 +507,11 @@ export type DistilleryBonus =
   | "vanilla"
   | "high_rye_house"
   | "wheated_baron"
-  | "connoisseur_estate";
+  | "connoisseur_estate"
+  // v3.4 — Beginner / human-only pick. No ability, no constraint;
+  // ships 2 pre-drafted Tier-1 bills as Staged. Bot picker filters
+  // this out via `botPickable: false` on the catalog entry.
+  | "standard";
 
 /** v3 difficulty tier for the picker UI. */
 export type DistilleryDifficulty =
@@ -477,6 +540,21 @@ export interface DistilleryStarterPoolMods {
    * retired with the four-band economy).
    */
   bonusSpecialtyRye?: number;
+  /**
+   * v3.4 — Extra Generic Labor cards added to the dealt starter hand.
+   * High-Rye House gets +1 Generic Labor as a safety valve for its
+   * 3-Capital opening; other distilleries omit the field.
+   */
+  bonusGenericLabor?: number;
+  /**
+   * v3.4 — Engine pre-drafts this many random bills from the bourbon
+   * deck at setup and slots them Staged. Used by Standard Distillery
+   * (2 Tier-1 bills) and Connoisseur Estate (4 bills, any tier).
+   * Optional `preDraftedBillsTier` filters the pool to that
+   * `complexityTier` only.
+   */
+  preDraftedBills?: number;
+  preDraftedBillsTier?: MashBillComplexityTier;
 }
 
 export interface DistillerySaleMods {
@@ -504,11 +582,12 @@ export interface Distillery {
   /** Number of mash bills drafted during setup (default 3). */
   mashBillDraftSize?: number;
   /**
-   * rep the player starts on their track. Each
-   * distillery's stake compensates for its setup asymmetries — see
-   * GAME_RULES.md §Distillery Profiles. Defaults to 5 (Vanilla).
+   * v3.3 — Starting Capital the player begins with on their Capital
+   * track. Each distillery's stake compensates for its setup
+   * asymmetries — see GAME_RULES.md §Distillery Profiles. Defaults
+   * to 5 (Vanilla). Renamed from `startingRep` in v3.3.
    */
-  startingRep?: number;
+  startingCapital?: number;
   /**
    * v2.6: cap on the number of slots that may hold a bill at once. When
    * set, this distillery cannot draw additional bills past the cap even
@@ -534,6 +613,12 @@ export interface Distillery {
    * effects don't fire yet.
    */
   implemented: boolean;
+  /**
+   * v3.4 — Whether the bot distillery picker may select this entry.
+   * Standard Distillery sets `false` so it remains a human-only
+   * beginner pick. Defaults to `true` (omitted on the existing four).
+   */
+  botPickable?: boolean;
 }
 
 // -----------------------------
@@ -702,6 +787,15 @@ export interface Bottle {
    */
   cornCount: number;
   placedOnRound: number;
+  /**
+   * v3.4 — Tag set inherited verbatim from the source bill at sale
+   * time. Slot requirements / Brand Restrictions / Mastery
+   * predicates read this. Distinct from the legacy `recipeTags` /
+   * `primaryRecipeTag` / `caskTag` fields above, which remain in
+   * place to satisfy v3.2 / v3.3 portfolio predicates during the
+   * gradual v3.4 migration.
+   */
+  tags: BillTag[];
 }
 
 /**
@@ -930,11 +1024,27 @@ export interface PlayerState {
 
   // Counters.
   /**
-   * reputation is BOTH the victory-point track
-   * AND the spending currency. Earned from sales, spent on purchases.
-   * Must remain ≥ 0 at all times — purchase validation rejects a
-   * spend that would push rep below zero (the Labor exemption for
-   * cost-$1 cards leaves rep at 0, never negative).
+   * v3.3 — Capital is the in-game spendable currency. Earned from
+   * sales (grid value clamped to tier floor), spent on market /
+   * operations / investment purchases. Must remain ≥ 0 at all times —
+   * purchase validation rejects a spend that would push Capital
+   * below zero (the Labor exemption for cost-$1 cards leaves Capital
+   * at 0, never negative). Banked Capital still counts toward final
+   * score (1 Capital = 1 Reputation at end-game) — see
+   * `getFinalScore`. Renamed from `reputation` in v3.3.
+   */
+  capital: number;
+  /**
+   * v3.3 — Reputation is the end-game-only score accumulator.
+   * Accrues whenever a Brand Portfolio event fires: filled slot
+   * end-game values, Signature Bonuses, and Completion / Theme /
+   * Mastery tier bonuses. The second-portfolio failure penalty
+   * (−2 per unfilled required slot, cap −10) also deducts here at
+   * end-game scoring. Has no floor or ceiling — may go negative for
+   * a player who drafts and abandons a second portfolio.
+   *
+   * Mid-game spending NEVER reads or writes this field — Capital is
+   * the only spendable wallet. Final score = `capital + reputation`.
    */
   reputation: number;
   handSize: number;                         // default 8
@@ -1010,6 +1120,20 @@ export interface PlayerState {
    * initiator (e.g. all 3 revealed bills are illegal for them).
    */
   draftingLoopUsedThisRound: boolean;
+  /**
+   * v3.4 — Vanilla Distillery first-sale-of-round flag.
+   *
+   * Set true at cleanup; cleared on the player's first SELL_BOURBON
+   * of the round. While true AND the player's distillery is Vanilla,
+   * sale resolution adds +1 to the grid value BEFORE the tier-floor
+   * clamp. Non-Vanilla players still carry the flag but it has no
+   * effect (the sale handler gates on distillery bonus).
+   *
+   * The clamp ordering matters: a Tier-1 bill grid-paying 2 → 3
+   * before the +1 = 3 (no change, floor binds). A Tier-1 bill
+   * grid-paying 4 → 5 (real bump, floor doesn't bind).
+   */
+  firstSaleOfRoundPending: boolean;
 
   // ─── v3.2 Brand Portfolios ──────────────────────────────────
 
@@ -1596,23 +1720,36 @@ export interface ValidationResult {
 
 export interface ScoreResult {
   playerId: string;
-  /** Banked reputation at game end (existing). */
+  /**
+   * v3.3 — Banked Capital at game end. The in-game spendable
+   * currency the player still holds when the bourbon supply runs
+   * out. Counts 1:1 toward `total`.
+   */
+  capital: number;
+  /**
+   * v3.3 — Earned Reputation at game end. End-game-only score
+   * accumulated from Brand Portfolio events (filled slot end-game
+   * values, Signature Bonuses, Completion / Theme / Mastery tier
+   * bonuses) MINUS the second-portfolio failure penalty (−2 per
+   * unfilled required slot, cap −10) if applicable. May be negative.
+   */
   reputation: number;
   deckSize: number;          // hand + deck + discard (smaller wins tiebreak)
   barrelsSold: number;
   /**
-   * v3.0 Line system — end-game score contribution from the
-   * flagship line (Line Board + stacked Line Cards). May be negative
-   * when stacked cards sit on an empty flagship (−2 per card).
+   * @deprecated v3.0 Line system — end-game score contribution from
+   * the flagship line. v3.2 replaced lines with Brand Portfolios;
+   * v3.3 routes portfolio contributions into `reputation` directly.
+   * Always 0 under v3.3. Kept on the shape for transient
+   * backwards-compat with any UI still reading it.
    */
   flagshipScore: number;
-  /** v3.0 — per-secondary-line score. Length 0..2. */
+  /** @deprecated v3.0 — per-secondary-line score. Always [] under v3.3. */
   secondaryScores: number[];
-  /** v3.0 — 1 rep per bottle placed in inventory. */
+  /** @deprecated v3.0 — inventory bottle score. Always 0 under v3.2+. */
   inventoryScore: number;
   /**
-   * v3.0 — total score used for ranking. Equals
-   * reputation + flagshipScore + Σ secondaryScores + inventoryScore.
+   * v3.3 — total score used for ranking. Equals `capital + reputation`.
    */
   total: number;
   rank: number;              // 1-based; ties share rank

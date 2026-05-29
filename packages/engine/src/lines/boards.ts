@@ -99,6 +99,15 @@ const masteryVanillaAlwaysTrue: MasteryCondition = {
   check: () => true,
 };
 
+// v3.4 — Standard Distillery's flagship has no Mastery Condition.
+// Empty-condition portfolios reach Mastery the moment Theme reaches
+// (which, with no Brand Restriction, collapses to Completion). The
+// predicate is therefore always-true.
+const masteryAlwaysTrue: MasteryCondition = {
+  label: "no Mastery condition",
+  check: () => true,
+};
+
 // ─── Requirement helpers ─────────────────────────────────────────
 
 const anyBottle: PortfolioSlotRequirement = {
@@ -338,6 +347,11 @@ const PORTFOLIOS: Portfolio[] = [
         signatureBonus: gainFreeMarketCard(),
         endGameValue: 7,
       }),
+      // v3.4 — Slot 5 age requirement lowered from 8+ to 7+ for
+      // game-length safety. The spec's pressure-test tweak; pairs
+      // with the v3.3 Capital/Reputation split so the late-game push
+      // for the vintage reserve is reachable inside the doomsday
+      // clock's window.
       slot({
         index: 4,
         name: "Baron's Vintage Reserve",
@@ -554,6 +568,64 @@ const PORTFOLIOS: Portfolio[] = [
     completionBonus: 8,
     themeBonus: 0,
     masteryBonus: 10,
+  },
+
+  // ═══ Standard Distillery — "Standard Reserve" (v3.4 beginner) ══
+  // 3-slot flagship for the human-only beginner pick. No signature
+  // bills, no Brand Restriction, no Mastery condition — Completion
+  // / Theme / Mastery collapse into the same goal (fill all 3 slots).
+  // Slots gate on age only; bonuses are flat +3 each (the "all three
+  // light up at once" payoff for the simplest pick).
+  {
+    id: "pf_standard_reserve_beginner",
+    name: "Standard Reserve",
+    flavorText: "Easy pour. Easy ladder.",
+    distilleryBonus: "standard",
+    brandRestriction: noRestriction,
+    masteryCondition: masteryAlwaysTrue,
+    slots: [
+      slot({
+        index: 0,
+        name: "Standard",
+        required: true,
+        tierIndex: 0,
+        requirement: ageGte(2),
+        signatureBillDefId: null,
+        onFillReward: drawCards(1),
+        signatureBonus: null,
+        endGameValue: 3,
+      }),
+      slot({
+        index: 1,
+        name: "Reserve",
+        required: true,
+        tierIndex: 1,
+        requirement: ageGte(4),
+        signatureBillDefId: null,
+        onFillReward: compound("+1 prestige, draw 1", [givePrestige(1), drawCards(1)]),
+        signatureBonus: null,
+        endGameValue: 4,
+      }),
+      slot({
+        index: 2,
+        name: "Master's Pick",
+        required: true,
+        tierIndex: 2,
+        requirement: ageGte(6),
+        signatureBillDefId: null,
+        onFillReward: compound("+2 prestige, draw 2", [givePrestige(2), drawCards(2)]),
+        signatureBonus: null,
+        endGameValue: 5,
+      }),
+    ],
+    tiers: [
+      { index: 0, slotIndices: [0] },
+      { index: 1, slotIndices: [1] },
+      { index: 2, slotIndices: [2] },
+    ],
+    completionBonus: 3,
+    themeBonus: 3,
+    masteryBonus: 3,
   },
 
   // ═══ Secondary pool — Single-Origin Series ════════════════════

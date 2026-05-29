@@ -82,7 +82,9 @@ function summarizeRound(
       seatIndex,
       logoId: meta?.logoId,
       barrelsSold,
-      totalRep: p.reputation,
+      // v3.3 — "total rep" displayed in the year-pass recap is the
+      // running Capital wallet (the spendable currency).
+      totalRep: p.capital,
     };
   });
 

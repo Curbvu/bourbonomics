@@ -15,13 +15,16 @@ describe("initializeGame", () => {
     expect(state.finalRoundTriggered).toBe(false);
   });
 
-  it("gives each player a 16-card starter deck and Vanilla startingRep", () => {
+  it("gives each player a 16-card starter deck and Vanilla startingCapital", () => {
     const state = makeTestGame();
     for (const p of state.players) {
       expect(p.deck).toHaveLength(16);
       expect(p.hand).toHaveLength(0);
       expect(p.discard).toHaveLength(0);
-      expect(p.reputation).toBe(5);
+      // v3.3: Capital is the in-game spendable currency. Reputation
+      // starts at 0 and only accrues at end-game from portfolios.
+      expect(p.capital).toBe(5);
+      expect(p.reputation).toBe(0);
       expect(p.handSize).toBe(8);
       // Save slot starts empty — no Labor seed.
       expect(p.savedCard).toBeNull();

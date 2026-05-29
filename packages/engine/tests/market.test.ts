@@ -31,7 +31,7 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
 
     const p1 = state.players.find((p) => p.id === "p1")!;
     expect(p1.hand.some((c) => c.id === purchased.id)).toBe(true);
-    expect(p1.reputation).toBe(10 - cost);
+    expect(p1.capital).toBe(10 - cost);
     expect(state.market.length).toBe(initialMarket);
     expect(state.market.some((c) => c.id === purchased.id)).toBe(false);
   });
@@ -89,7 +89,7 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
         rep: 1,
         laborCardIds: [],
       }),
-    ).toThrow(/not enough reputation/);
+    ).toThrow(/not enough Capital/);
   });
 
   it("Labor card alone pays for a $1 buy (Generic, no rep spent)", () => {
@@ -115,7 +115,7 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
       laborCardIds: [labor.id],
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(0);
+    expect(p1.capital).toBe(0);
     expect(p1.discard.some((c) => c.id === labor.id)).toBe(true);
   });
 
@@ -143,7 +143,7 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
       laborCardIds: [a.id, b.id],
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(0);
+    expect(p1.capital).toBe(0);
     expect(p1.discard.some((c) => c.id === a.id)).toBe(true);
     expect(p1.discard.some((c) => c.id === b.id)).toBe(true);
   });
@@ -172,7 +172,7 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
       laborCardIds: [cooper.id],
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(0);
+    expect(p1.capital).toBe(0);
     expect(p1.discard.some((c) => c.id === cooper.id)).toBe(true);
   });
 
@@ -238,7 +238,7 @@ describe("BUY_FROM_MARKET — unified rep payment", () => {
       laborCardIds: [architect.id],
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(0);
+    expect(p1.capital).toBe(0);
     expect(p1.discard.some((c) => c.id === architect.id)).toBe(true);
     expect(p1.hand.some((c) => c.id === target.id)).toBe(true);
   });

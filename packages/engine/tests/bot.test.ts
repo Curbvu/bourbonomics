@@ -73,7 +73,7 @@ describe("playFullBotGame", () => {
     expect(scores).toHaveLength(2);
     expect(scores[0]!.rank).toBe(1);
     // At least one player should have made some progress.
-    const totalRep = scores.reduce((acc, s) => acc + s.reputation, 0);
+    const totalRep = scores.reduce((acc, s) => acc + s.capital, 0);
     expect(totalRep).toBeGreaterThanOrEqual(0);
   });
 
@@ -119,7 +119,7 @@ describe("playFullBotGame", () => {
     });
     const final = playFullBotGame(initial);
     expect(isGameOver(final)).toBe(true);
-    const someoneEndsPositive = final.players.some((p) => p.reputation > 0);
+    const someoneEndsPositive = final.players.some((p) => p.capital > 0);
     expect(someoneEndsPositive).toBe(true);
   });
 
@@ -135,8 +135,8 @@ describe("playFullBotGame", () => {
     };
     const a = playFullBotGame(initializeGame(config));
     const b = playFullBotGame(initializeGame(config));
-    expect(a.players.map((p) => p.reputation)).toEqual(
-      b.players.map((p) => p.reputation),
+    expect(a.players.map((p) => p.capital)).toEqual(
+      b.players.map((p) => p.capital),
     );
     expect(a.actionHistory.length).toBe(b.actionHistory.length);
     expect(a.round).toBe(b.round);

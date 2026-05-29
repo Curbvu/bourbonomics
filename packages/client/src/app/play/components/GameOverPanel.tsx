@@ -84,10 +84,11 @@ export default function GameOverPanel() {
                   className={`font-mono text-[16px] font-bold tabular-nums ${
                     isWinner ? "text-amber-200" : "text-amber-300"
                   }`}
+                  title={`Capital ${s.capital} + Reputation ${s.reputation}`}
                 >
-                  {s.reputation}
+                  {s.total}
                   <span className="ml-1 text-[12px] font-medium text-amber-300/70">
-                    rep
+                    score
                   </span>
                 </span>
                 <span className="flex-1" />

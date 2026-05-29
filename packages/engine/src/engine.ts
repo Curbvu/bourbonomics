@@ -268,29 +268,49 @@ export function isGameOver(state: GameState): boolean {
 }
 
 /**
- * Final scores (v3.0 — Line system).
+ * Final scores (v3.3 — Capital / Reputation split).
+ *
+ * Each player's score has two components:
+ *   - **Capital**: the in-game spendable currency the player still
+ *     holds at game end (banked sale rewards + prestige bonuses,
+ *     minus everything they spent during play).
+ *   - **Reputation**: the end-game-only score from Brand Portfolios
+ *     — slot end-game values + Signature Bonuses + Completion / Theme
+ *     / Mastery tier bonuses, MINUS the second-portfolio failure
+ *     penalty (−2 per unfilled required slot, cap −10) if applicable.
+ *
+ * Banked Capital converts 1:1 at scoring — `total = capital + reputation`.
  *
  * Sort key (highest first):
- *   1. total (reputation + flagship + Σ secondary + inventory)
+ *   1. total
  *   2. Fewest cards remaining in deck
  *   3. Most barrels sold
  *
- * The pre-3.0 `reputation` field is preserved as the banked-rep
- * value (sale rewards + placement bonuses + prestige etc.); the new
- * `total` is what ranks players. Ties share rank.
+ * Tiebreakers per GAME_RULES.md §Winning. Ties share rank.
  */
 export function computeFinalScores(state: GameState): ScoreResult[] {
   const rows: ScoreResult[] = state.players.map((p) => {
+    // Portfolio contribution lands in the Reputation field — the
+    // v3.3 end-game accumulator. The second-portfolio failure penalty
+    // is already folded into `breakdown.total` (deducted inline by
+    // scoreEndGameLines), so summing here just gives net Reputation.
     const breakdown = scoreEndGameLines(p);
-    const total = p.reputation + breakdown.total;
+    const capital = p.capital;
+    const reputation = breakdown.total;
+    const total = capital + reputation;
     return {
       playerId: p.id,
-      reputation: p.reputation,
+      capital,
+      reputation,
       deckSize: p.hand.length + p.deck.length + p.discard.length,
       barrelsSold: p.barrelsSold,
-      flagshipScore: breakdown.flagshipScore,
-      secondaryScores: breakdown.secondaryScores,
-      inventoryScore: breakdown.inventoryScore,
+      // v3.3 — `flagshipScore` / `secondaryScores` / `inventoryScore`
+      // are deprecated; routed at 0 so any UI still reading them
+      // doesn't double-count. The Reputation field above carries the
+      // real portfolio contribution.
+      flagshipScore: 0,
+      secondaryScores: [],
+      inventoryScore: 0,
       total,
       rank: 0,
     };

@@ -399,15 +399,16 @@ function canEnterBuyMode(
   if (state.market.length === 0) {
     return { canBuy: false, reason: "Market is empty" };
   }
-  // Wallet = rep + max Labor contribution. The engine enforces precise
-  // domain matching at apply time; this is an upper bound for gating.
+  // v3.3: Wallet = Capital + max Labor contribution. The engine
+  // enforces precise domain matching at apply time; this is an upper
+  // bound for gating.
   const laborContrib = player.hand.reduce(
     (acc, c) => acc + (c.type === "labor" ? c.laborContribution ?? 1 : 0),
     0,
   );
-  const wallet = player.reputation + laborContrib;
+  const wallet = player.capital + laborContrib;
   if (wallet === 0) {
-    return { canBuy: false, reason: "No rep or Labor — nothing to spend" };
+    return { canBuy: false, reason: "No Capital or Labor — nothing to spend" };
   }
   const cheapest = state.market.reduce(
     (lo: number, c) => Math.min(lo, c.cost ?? 1),

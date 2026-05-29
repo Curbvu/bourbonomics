@@ -204,6 +204,9 @@ export function createBottleFromSale(
     demandAtSale,
     cornCount,
     placedOnRound: round,
+    // v3.4 — Inherit the bill's v3.4 tag set verbatim. Legacy
+    // `recipeTags` above stays in place during the migration.
+    tags: bill.tags ?? [],
   };
 }
 

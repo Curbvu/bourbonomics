@@ -274,7 +274,7 @@ describe("Card effect — rep_on_commit_aging", () => {
       effect: { kind: "rep_on_commit_aging", when: "on_commit_aging", rep: 1 },
     };
     state = giveHand(state, "p1", [bond]);
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.capital;
     state = applyAction(state, {
       type: "AGE_BOURBON",
       playerId: "p1",
@@ -282,7 +282,7 @@ describe("Card effect — rep_on_commit_aging", () => {
       cardId: bond.id,
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(beforeRep + 1);
+    expect(p1.capital).toBe(beforeRep + 1);
   });
 });
 
@@ -324,7 +324,7 @@ describe("Card effect — rep_on_sale_flat", () => {
     };
     state = placeBarrelWithProductionCard(state, "p1", 4, spicy);
     const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.capital;
     // Standard bill at age 4, demand 5: row 1, col 1 → reward 4.
     state = applyAction(state, {
       type: "SELL_BOURBON",
@@ -333,7 +333,7 @@ describe("Card effect — rep_on_sale_flat", () => {
 });
     const p1 = state.players.find((p) => p.id === "p1")!;
     // 4 from the grid + 1 bonus from spicy_rye = 5.
-    expect(p1.reputation).toBe(beforeRep + 5);
+    expect(p1.capital).toBe(beforeRep + 5);
   });
 });
 
@@ -352,7 +352,7 @@ describe("Card effect — rep_on_sale_if_age_gte", () => {
     };
     state = placeBarrelWithProductionCard(state, "p1", 5, heavyChar);
     const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.capital;
     // age 5 → row 1 (band 4-5), demand 5 → col 1, reward 4. +2 from heavy_char.
     state = applyAction(state, {
       type: "SELL_BOURBON",
@@ -360,7 +360,7 @@ describe("Card effect — rep_on_sale_if_age_gte", () => {
       barrelId,
 });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(beforeRep + 4 + 2);
+    expect(p1.capital).toBe(beforeRep + 4 + 2);
   });
 
   it("does not trigger below the age threshold", () => {
@@ -377,7 +377,7 @@ describe("Card effect — rep_on_sale_if_age_gte", () => {
     };
     state = placeBarrelWithProductionCard(state, "p1", 3, heavyChar);
     const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.capital;
     // age 3 → row 0, demand 5 → col 1 (band 4-5), reward = 2. No bonus
     // fires (age < 4). v2.11: tier-1 floor (3) clamps the sale to ≥3.
     state = applyAction(state, {
@@ -386,7 +386,7 @@ describe("Card effect — rep_on_sale_if_age_gte", () => {
       barrelId,
 });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(beforeRep + 3);
+    expect(p1.capital).toBe(beforeRep + 3);
   });
 });
 
@@ -405,7 +405,7 @@ describe("Card effect — rep_on_sale_if_demand_gte", () => {
     };
     state = placeBarrelWithProductionCard(state, "p1", 5, highProof);
     const barrelId = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!.id;
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.capital;
     // age 5 → row 1 (band 4-5), demand 7 → col 2 (band 6+), reward = 5. +2 from high_proof.
     state = applyAction(state, {
       type: "SELL_BOURBON",
@@ -413,7 +413,7 @@ describe("Card effect — rep_on_sale_if_demand_gte", () => {
       barrelId,
 });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(beforeRep + 5 + 2);
+    expect(p1.capital).toBe(beforeRep + 5 + 2);
   });
 });
 
@@ -438,7 +438,7 @@ describe("Card effect — grid_demand_band_offset on_sale", () => {
       playerId: "p1",
       barrelId,
 });
-    expect(state.players.find((p) => p.id === "p1")!.reputation).toBeGreaterThanOrEqual(5);
+    expect(state.players.find((p) => p.id === "p1")!.capital).toBeGreaterThanOrEqual(5);
   });
 });
 
@@ -527,11 +527,11 @@ describe("Card effect — rep_on_market_spend", () => {
       cost: 8,
       effect: { kind: "rep_on_market_spend", when: "on_spend", rep: 1 },
     };
-    // Pay the $1 cost with 1 rep (Marketing Labor doesn't help on market resource buys).
+    // Pay the $1 cost with 1 Capital (Marketing Labor doesn't help on market resource buys).
     state = {
       ...state,
       players: state.players.map((p) =>
-        p.id === "p1" ? { ...p, reputation: 1, hand: [lender] } : p,
+        p.id === "p1" ? { ...p, capital: 1, hand: [lender] } : p,
       ),
     };
     state = applyAction(state, {
@@ -543,7 +543,7 @@ describe("Card effect — rep_on_market_spend", () => {
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     // Paid 1 rep; on_spend granted +1 rep. Net change: 0.
-    expect(p1.reputation).toBe(1);
+    expect(p1.capital).toBe(1);
   });
 });
 

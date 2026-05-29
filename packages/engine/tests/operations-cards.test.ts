@@ -319,14 +319,14 @@ describe("PLAY_OPERATIONS_CARD — Rating Boost", () => {
       defId: "rating_boost",
     });
     expect(state.players.find((p) => p.id === "p1")!.pendingRatingBoost).toBe(2);
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.capital;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.reputation).toBe(beforeRep + 4 + 2);
+    expect(p1.capital).toBe(beforeRep + 4 + 2);
     expect(p1.pendingRatingBoost).toBe(0);
   });
 });

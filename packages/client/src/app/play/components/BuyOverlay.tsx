@@ -37,7 +37,7 @@ import {
   RESOURCE_LABEL,
   laborGlyphFor,
 } from "./handCardStyles";
-import { TIER_CHROME, TIER_INK, tierOrCommon } from "./tierStyles";
+import { TIER_CHROME, TIER_INK } from "./tierStyles";
 
 export default function BuyOverlay() {
   const { state, buyMode, cancelBuyMode, confirmBuy, toggleBuySpend } = useGameStore();
@@ -104,7 +104,7 @@ export default function BuyOverlay() {
   );
   const repPortion = Math.max(0, cost - laborContrib);
   const overpaid = laborContrib > cost;
-  const canAfford = repPortion <= human.reputation;
+  const canAfford = repPortion <= human.capital;
   // Belt-and-suspenders: the store's toggleBuySpend already rejects
   // selections that would overpay, but gate the Confirm button
   // explicitly too so a stale selection can never resolve into a
@@ -213,7 +213,7 @@ export default function BuyOverlay() {
           />
           <RepPanel
             repPortion={repPortion}
-            available={human.reputation}
+            available={human.capital}
             canAfford={canAfford}
             overpaid={overpaid}
             laborGross={laborContrib}
@@ -226,7 +226,7 @@ export default function BuyOverlay() {
           <Hint
             cost={cost}
             repPortion={repPortion}
-            available={human.reputation}
+            available={human.capital}
             canAfford={canAfford}
             overpaid={overpaid}
           />
@@ -779,6 +779,3 @@ function labelForLabor(sub: string | undefined): string {
   return "Worker";
 }
 
-// Keep tierOrCommon referenced so future tier widening (e.g., legendary
-// market specials) doesn't need a separate import line.
-void tierOrCommon;

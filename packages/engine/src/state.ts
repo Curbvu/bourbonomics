@@ -162,6 +162,15 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
     p.pendingHalfCostMarketBuy = false;
     // v2.14: each player gets one Drafting Loop initiation per round.
     p.draftingLoopUsedThisRound = false;
+    // v3.4: re-arm Vanilla's first-sale-of-round flag for the round
+    // ahead. Only Vanilla players need it — non-Vanilla retain their
+    // current value (which is `false` for any path that opted out at
+    // init, including the test helper). This keeps the bump strictly
+    // scoped to Vanilla without leaking the flag into other
+    // distillery / test arithmetic.
+    if (p.distillery?.bonus === "vanilla") {
+      p.firstSaleOfRoundPending = true;
+    }
     // savedCard intentionally NOT cleared — it carries into
     // next round's draw (see DRAW_HAND apply).
   }

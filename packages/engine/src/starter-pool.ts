@@ -168,6 +168,23 @@ export function applyDistilleryStarterModifications(
       );
     }
   }
+
+  // v3.4 — High-Rye House safety valve. Their 3-Capital opening is
+  // brittle; an extra Generic Labor in the dealt hand widens the
+  // first-round play stack. Mint a Generic Labor card with the same
+  // shape the starter pool uses everywhere else.
+  if (mods.bonusGenericLabor && mods.bonusGenericLabor > 0) {
+    for (let i = 0; i < mods.bonusGenericLabor; i++) {
+      target.push({
+        id: `bonus_labor_${player.id}_${i}`,
+        cardDefId: "generic_labor",
+        type: "labor",
+        laborSubtype: "generic",
+        laborDomain: "any",
+        laborContribution: 1,
+      } as Card);
+    }
+  }
 }
 
 /**

@@ -132,7 +132,7 @@ export default function DistilleryStage() {
           name={distillery.name}
           flavor={distillery.flavorText ?? ""}
           ability={distillery.cardText ?? ""}
-          rep={player.reputation}
+          rep={player.capital}
           sold={player.barrelsSold}
           prestige={player.prestige}
         />

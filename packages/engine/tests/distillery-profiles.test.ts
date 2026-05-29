@@ -29,13 +29,56 @@ function gameWithDistilleries(bonuses: Distillery["bonus"][]): GameState {
   });
 }
 
-describe("v2.10 â€” Distillery roster", () => {
-  it("ships four distilleries: vanilla, high_rye_house, wheated_baron, connoisseur_estate", () => {
+describe("v3.4 — Distillery roster", () => {
+  it("ships five distilleries: standard, vanilla, high_rye_house, wheated_baron, connoisseur_estate", () => {
     const pool = defaultDistilleryPool();
     const bonuses = pool.map((d) => d.bonus).sort();
     expect(bonuses).toEqual(
-      ["connoisseur_estate", "high_rye_house", "vanilla", "wheated_baron"].sort(),
+      [
+        "connoisseur_estate",
+        "high_rye_house",
+        "standard",
+        "vanilla",
+        "wheated_baron",
+      ].sort(),
     );
+  });
+
+  it("Standard Distillery is human-only (botPickable: false); others are bot-pickable", () => {
+    const pool = defaultDistilleryPool();
+    const standard = pool.find((d) => d.bonus === "standard")!;
+    expect(standard.botPickable).toBe(false);
+    for (const bonus of [
+      "vanilla",
+      "high_rye_house",
+      "wheated_baron",
+      "connoisseur_estate",
+    ] as const) {
+      const d = pool.find((x) => x.bonus === bonus)!;
+      // `botPickable` is omitted (undefined) for the asymmetric four
+      // — the bot picker defaults undefined to true.
+      expect(d.botPickable).not.toBe(false);
+    }
+  });
+
+  it("v3.4 starting Capital — Standard 8, Vanilla 5, HRH 3, Baron 4, Connoisseur 7", () => {
+    const pool = defaultDistilleryPool();
+    const cap = (b: string) => pool.find((d) => d.bonus === b)!.startingCapital;
+    expect(cap("standard")).toBe(8);
+    expect(cap("vanilla")).toBe(5);
+    expect(cap("high_rye_house")).toBe(3);
+    expect(cap("wheated_baron")).toBe(4);
+    expect(cap("connoisseur_estate")).toBe(7);
+  });
+
+  it("v3.4 slot counts — HRH and Wheated Baron drop to 3", () => {
+    const pool = defaultDistilleryPool();
+    const slots = (b: string) => pool.find((d) => d.bonus === b)!.slots;
+    expect(slots("standard")).toBe(4);
+    expect(slots("vanilla")).toBe(4);
+    expect(slots("high_rye_house")).toBe(3);
+    expect(slots("wheated_baron")).toBe(3);
+    expect(slots("connoisseur_estate")).toBe(4);
   });
 
   it("Vanilla starts with 4 open slots, no slotted bills", () => {
@@ -364,7 +407,7 @@ describe("v2.10 â€” Distillery ability hooks", () => {
     };
     state = placeBarrel(state, "p1", ryeBill, 2);
     const barrel = state.allBarrels.find((b) => b.ownerId === "p1" && b.phase === "aging")!;
-    const beforeRep = state.players[0]!.reputation;
+    const beforeRep = state.players[0]!.capital;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
@@ -373,6 +416,91 @@ describe("v2.10 â€” Distillery ability hooks", () => {
     // v2.11: grid pays 3 rep + 1 from High-Rye distillery bonus = 4.
     // (Tier-1 floor is 3, so the +1 distillery bonus drives the total
     // above floor cleanly.)
-    expect(state.players[0]!.reputation - beforeRep).toBe(4);
+    expect(state.players[0]!.capital - beforeRep).toBe(4);
+  });
+
+  it("Vanilla v3.4: first sale of round adds +1 to grid value before tier-floor clamp", () => {
+    // Mid-grid bill — grid pays 4 at age 4 / demand 4 (Tier-1 floor is
+    // 3, doesn't bind). With Vanilla's +1, total = 5.
+    const midGridBill = makeMashBill(
+      {
+        defId: "test_vanilla_mid",
+        name: "Mid Grid",
+        ageBands: [4],
+        demandBands: [4],
+        rewardGrid: [[4]],
+      },
+      710,
+    );
+    let state = initializeGame({
+      seed: 1,
+      players: [
+        { id: "p1", name: "A" },
+        { id: "p2", name: "B" },
+      ],
+      startingDistilleries: [
+        pickDistillery("vanilla"),
+        pickDistillery("vanilla"),
+      ],
+      startingMashBills: [[], []],
+      bourbonDeck: defaultMashBillCatalog(),
+      starterDecks: [defaultStarterCards("p1"), defaultStarterCards("p2")],
+      startingDemand: 4,
+    });
+    state = advanceToActionPhase(state, [1, 1]);
+    state = {
+      ...state,
+      players: state.players.map((p) => ({ ...p, needsAgeBarrels: false })),
+    };
+    state = placeBarrel(state, "p1", midGridBill, 4);
+    const barrel = state.allBarrels.find(
+      (b) => b.ownerId === "p1" && b.phase === "aging",
+    )!;
+    expect(state.players[0]!.firstSaleOfRoundPending).toBe(true);
+    const before = state.players[0]!.capital;
+    state = applyAction(state, {
+      type: "SELL_BOURBON",
+      playerId: "p1",
+      barrelId: barrel.id,
+    });
+    // Grid 4 + Vanilla bump 1 = 5; tier-1 floor (3) doesn't bind.
+    expect(state.players[0]!.capital - before).toBe(5);
+    // Flag consumed.
+    expect(state.players[0]!.firstSaleOfRoundPending).toBe(false);
+  });
+
+  it("Vanilla v3.4: first-sale flag re-arms after cleanup", () => {
+    let state = initializeGame({
+      seed: 1,
+      players: [{ id: "p1", name: "A", isBot: true }, { id: "p2", name: "B", isBot: true }],
+      startingDistilleries: [pickDistillery("vanilla"), pickDistillery("vanilla")],
+      startingMashBills: [[], []],
+      bourbonDeck: defaultMashBillCatalog().slice(0, 6),
+      starterDecks: [defaultStarterCards("p1"), defaultStarterCards("p2")],
+    });
+    state = advanceToActionPhase(state, [1, 1]);
+    state = {
+      ...state,
+      players: state.players.map((p) => ({
+        ...p,
+        firstSaleOfRoundPending: false,
+        needsAgeBarrels: false,
+      })),
+    };
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    // Bot p2 still needs demand roll; clear it then pass.
+    state = applyAction(state, {
+      type: "ROLL_DEMAND",
+      playerId: "p2",
+      roll: [3, 3],
+    });
+    state = {
+      ...state,
+      players: state.players.map((p) => ({ ...p, needsAgeBarrels: false })),
+    };
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p2" });
+    // After cleanup the flag should be back to true.
+    expect(state.players[0]!.firstSaleOfRoundPending).toBe(true);
+    expect(state.players[1]!.firstSaleOfRoundPending).toBe(true);
   });
 });
