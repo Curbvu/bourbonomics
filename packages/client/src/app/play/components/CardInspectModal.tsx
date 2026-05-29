@@ -49,6 +49,12 @@ export default function CardInspectModal() {
 
   if (!inspect) return null;
 
+  // Mash bill + barrel inspects carry a reward matrix (up to 3×3+ cells);
+  // give them more horizontal room so the grid breathes. Resource / labor /
+  // ops / investment stay tighter — those are mostly prose + a single hero.
+  const wide = inspect.kind === "mashbill" || inspect.kind === "barrel";
+  const widthClass = wide ? "max-w-2xl" : "max-w-lg";
+
   return (
     <div
       role="dialog"
@@ -60,7 +66,7 @@ export default function CardInspectModal() {
       <div
         role="document"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md"
+        className={`relative w-full ${widthClass}`}
       >
         <button
           type="button"

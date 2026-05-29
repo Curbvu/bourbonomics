@@ -132,7 +132,13 @@ export default function GameBoard() {
           // thermometer column (96px) sits between Rivals and Stage
           // and spans the full main-area height so the liquid level
           // reads alongside both the rickhouse and the hand.
-          gridTemplateColumns: "280px 96px 1fr 290px",
+          // `minmax(0, 1fr)` instead of `1fr` so the stage column can
+          // SHRINK to its share of the remaining width. Plain `1fr` is
+          // `minmax(auto, 1fr)`, which lets the column grow to fit its
+          // content's intrinsic min-width and would push the whole
+          // board past the 1680px design canvas (BuyOverlay / MakeOverlay
+          // panels then escape the centered sleeve).
+          gridTemplateColumns: "280px 96px minmax(0, 1fr) 290px",
           gridTemplateRows: "1fr auto",
           gridTemplateAreas:
             '"rivals demand stage log" "rivals demand hand log"',

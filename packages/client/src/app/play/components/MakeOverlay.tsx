@@ -30,8 +30,7 @@ export default function MakeOverlay() {
   // commit cards to; bills are NOT pickable from hand anymore.
   const myBarrels = state.allBarrels.filter((b) => b.ownerId === human.id);
   const slotsTotal = human.rickhouseSlots.length;
-  const slotsUsed = myBarrels.length;
-  const slotsFree = slotsTotal - slotsUsed;
+  const slotsFree = slotsTotal - myBarrels.length;
   // Prefer a construction-phase slot already in progress; otherwise
   // pick the first ready slot. v2.7 lets a player keep committing to
   // the same slot in a single turn, so the per-turn filter is gone.
@@ -68,7 +67,6 @@ export default function MakeOverlay() {
   } else {
     prompt = "Ready to make. Confirm to dispatch.";
   }
-  void slotsFree;
 
   return (
     <div className="border-t border-amber-700/60 bg-gradient-to-b from-amber-950/50 to-slate-950 px-[18px] py-2">
