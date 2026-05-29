@@ -430,7 +430,8 @@ export type InvestmentCategory =
   | "slots"
   | "deck"
   | "info"
-  | "endgame";
+  | "endgame"
+  | "defense";
 
 /** Discrete moment at which the effect fires. Cards may carry several. */
 export type InvestmentTrigger =
@@ -1410,6 +1411,22 @@ export interface GameState {
    */
   draftingLoop: DraftingLoopState | null;
 
+  /**
+   * v3.6 Whiskey Raid — the in-flight raid awaiting a defense
+   * declaration. PLAY_OPERATIONS_CARD on `whiskey_raid` sets this
+   * (rolling the attacker's 2d6 in the same apply); the defender
+   * resolves it via RAID_DEFENSE_DECLARE. Until then no other action
+   * is legal on the targeted barrel and no other raid may start.
+   */
+  pendingRaid: {
+    attackerId: string;
+    defenderId: string;
+    targetBarrelId: string;
+    /** Attacker's pre-rolled 2d6 (sum). Stored so resolution is
+     *  deterministic against the defender's incoming X. */
+    attackerRoll: number;
+  } | null;
+
   demand: number;                           // 0..12
   demandRolls: { round: number; roll: [number, number]; result: "rise" | "hold" }[];
 
@@ -1796,6 +1813,21 @@ export type GameAction =
       playerId: string;
       portfolioId: string;
       laborCardId: string;
+    }
+  | {
+      // v3.6 Whiskey Raid defense — the defender's blind X
+      // declaration + dice contest resolution in a single apply.
+      // Engine rolls attacker 2d6 at PLAY_OPERATIONS_CARD time and
+      // stores it in `state.pendingRaid`; the defender then submits
+      // this action with the cards they're discarding as defense.
+      // Engine rolls defender 2d6 here, adds X + Watchman count,
+      // resolves transfer-or-stay, and clears `pendingRaid`.
+      // Discarded cards are lost regardless of outcome.
+      type: "RAID_DEFENSE_DECLARE";
+      defenderId: string;
+      /** Card instance ids from the defender's hand to discard. May
+       *  be empty (X = 0 — defender takes naked roll). */
+      discardCardIds: string[];
     };
 
 // -----------------------------

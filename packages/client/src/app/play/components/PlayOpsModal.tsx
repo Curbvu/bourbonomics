@@ -178,33 +178,46 @@ export default function PlayOpsModal() {
             </Group>
           ) : null}
 
-          {flow === "self-aging-barrel" || flow === "any-aging-barrel" ? (
-            <Group
-              label={
+          {flow === "self-aging-barrel" ||
+          flow === "any-aging-barrel" ||
+          flow === "opponent-aging-barrel-young" ? (
+            (() => {
+              const choices =
+                flow === "self-aging-barrel"
+                  ? myAgingBarrels
+                  : flow === "opponent-aging-barrel-young"
+                    ? opponentAgingBarrels.filter((b) => b.age <= 2)
+                    : allAgingBarrels;
+              const label =
                 flow === "self-aging-barrel"
                   ? "Choose one of your aging barrels"
-                  : "Choose any aging barrel"
-              }
-            >
-              {(flow === "self-aging-barrel"
-                ? myAgingBarrels
-                : allAgingBarrels
-              ).map((b) => (
-                <BarrelChoice
-                  key={b.id}
-                  barrel={b}
-                  ownerName={
-                    state.players.find((p) => p.id === b.ownerId)?.name ?? b.ownerId
-                  }
-                  active={targetBarrelId === b.id}
-                  onClick={() => setTargetBarrelId(b.id)}
-                />
-              ))}
-              {(flow === "self-aging-barrel" ? myAgingBarrels : allAgingBarrels)
-                .length === 0 ? (
-                <EmptyHint>No eligible aging barrel — try another card.</EmptyHint>
-              ) : null}
-            </Group>
+                  : flow === "opponent-aging-barrel-young"
+                    ? "Choose an opponent's young barrel (age ≤ 2)"
+                    : "Choose any aging barrel";
+              return (
+                <Group label={label}>
+                  {choices.map((b) => (
+                    <BarrelChoice
+                      key={b.id}
+                      barrel={b}
+                      ownerName={
+                        state.players.find((p) => p.id === b.ownerId)?.name ??
+                        b.ownerId
+                      }
+                      active={targetBarrelId === b.id}
+                      onClick={() => setTargetBarrelId(b.id)}
+                    />
+                  ))}
+                  {choices.length === 0 ? (
+                    <EmptyHint>
+                      {flow === "opponent-aging-barrel-young"
+                        ? "No opponent has a young (age ≤ 2) aging barrel right now."
+                        : "No eligible aging barrel — try another card."}
+                    </EmptyHint>
+                  ) : null}
+                </Group>
+              );
+            })()
           ) : null}
 
           {flow === "opponent" ||
@@ -335,6 +348,7 @@ type Flow =
   | "opponent"
   | "opponent-and-card"
   | "barrel-and-committed-card"
+  | "opponent-aging-barrel-young"
   | "design-only";
 
 function flowForCard(defId: OperationsCardDefId): Flow {
@@ -355,6 +369,7 @@ function flowForCard(defId: OperationsCardDefId): Flow {
     case "sabotage":
       return "barrel-and-committed-card";
     case "whiskey_raid":
+      return "opponent-aging-barrel-young";
     case "coopers_contract":
     case "grain_futures":
       return "design-only";
@@ -385,6 +400,7 @@ function isReady(flow: Flow, picks: Picks): boolean {
       return picks.direction != null;
     case "self-aging-barrel":
     case "any-aging-barrel":
+    case "opponent-aging-barrel-young":
       return picks.targetBarrelId != null;
     case "opponent":
       return picks.targetPlayerId != null;
@@ -403,6 +419,7 @@ function whyNotReady(flow: Flow, picks: Picks): string {
       return "Pick a direction";
     case "self-aging-barrel":
     case "any-aging-barrel":
+    case "opponent-aging-barrel-young":
       return "Pick a barrel";
     case "opponent":
       return "Pick an opponent";
@@ -500,6 +517,15 @@ function buildAction(
         targetBarrelId: picks.targetBarrelId,
         targetCardId: picks.targetCardId,
       };
+    case "whiskey_raid":
+      if (picks.targetBarrelId == null) return null;
+      return {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId,
+        cardId,
+        defId: "whiskey_raid",
+        targetBarrelId: picks.targetBarrelId,
+      };
     case "bourbon_boom":
     case "glut":
     case "demand_surge":
@@ -513,10 +539,10 @@ function buildAction(
         cardId,
         defId: card.defId,
       };
-    case "whiskey_raid":
     case "coopers_contract":
     case "grain_futures":
-      // Design-only — engine validator rejects. Never dispatch.
+      // Committed via MAKE_BOURBON, not played. Engine rejects
+      // PLAY_OPERATIONS_CARD for these.
       return null;
   }
 }

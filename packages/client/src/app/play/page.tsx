@@ -5,6 +5,7 @@ import BotTurnBanner from "./components/BotTurnBanner";
 import BrandPortfolioDrawer from "./components/BrandPortfolioDrawer";
 import CardInspectModal from "./components/CardInspectModal";
 import PlayOpsModal from "./components/PlayOpsModal";
+import RaidDefenseModal from "./components/RaidDefenseModal";
 import GameOverPanel from "./components/GameOverPanel";
 import ToastStack from "./components/ToastStack";
 import DemandRollModal from "./components/DemandRollModal";
@@ -97,6 +98,11 @@ export default function PlayPage() {
           cards route through here when the player clicks one in the
           HandTray ops pocket. */}
       <PlayOpsModal />
+      {/* v3.6 Whiskey Raid defense — self-gates on pendingRaid
+          targeting the local seat. Highest z-index of any modal:
+          when raided, the defender's choice is the only legal
+          action until the raid resolves. */}
+      <RaidDefenseModal />
       <DemandRollModal />
       {/* Drafting-loop modal — mounted at the page root (outside
           ScalingHost) so its `fixed inset-0` covers the full viewport
