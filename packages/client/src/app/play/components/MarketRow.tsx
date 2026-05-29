@@ -187,19 +187,23 @@ export default function MarketRow() {
           }}
         />
 
-        {/* Card track — fits the full market (typically 10 cards) at the
-            current panel width. No scroll affordances; if a future round
-            sneaks in extra inventory, native horizontal scroll still
-            works via touchpad / scroll wheel + shift. */}
+        {/* Card track — fits the full market (always 10 cards) inside
+            the stage column with zero horizontal scroll. Each card uses
+            `flex: 1 1 0` with a sane min/max so they share the
+            available width evenly; on wider canvases they cap at their
+            comfortable 160px width, and on tighter columns they shrink
+            together (still readable down to ~80px). Per CLAUDE.md rule
+            #1 the gameplay surface never scrolls — `overflow: hidden`
+            here enforces that even if a future round sneaks an extra
+            card in. */}
         <div
           data-market-conveyor
-          className="scroll-thin flex"
+          className="flex"
           style={{
             gap: 8,
             padding: "10px 4px 12px 4px",
-            overflowX: "auto",
-            overflowY: "visible",
-            scrollSnapType: "x proximity",
+            overflow: "hidden",
+            minWidth: 0,
           }}
         >
           {market.map((card, i) => (
@@ -392,10 +396,15 @@ function MarketRowCard({
       data-market-picked={picked || undefined}
       className="relative flex flex-col text-left"
       style={{
-        flexShrink: 0,
-        width: 160,
+        // Share the track's width evenly with every other card so the
+        // full market always fits with no horizontal scroll. The 160px
+        // cap preserves the comfortable design size on a wide canvas;
+        // the 78px floor keeps the smallest column-width case readable.
+        flex: "1 1 0",
+        minWidth: 78,
+        maxWidth: 160,
         height: 212,
-        padding: "11px 12px 12px 12px",
+        padding: "11px 10px 12px 10px",
         borderRadius: 9,
         border: `1px solid ${picked ? "rgba(252,211,77,.9)" : dim ? "var(--rule)" : `${tierInk}66`}`,
         background: dim
@@ -420,14 +429,21 @@ function MarketRowCard({
         scrollSnapAlign: "start",
       }}
     >
-      {/* Top row: kind label + price tag */}
-      <div className="flex items-baseline justify-between">
+      {/* Top row: kind label + price tag. `min-width: 0` on the label
+          lets flexbox actually shrink + ellipsize the kind text on
+          narrow cards, instead of pushing the PriceTag out the side. */}
+      <div className="flex items-baseline justify-between gap-1.5">
         <span
           className="font-mono font-bold uppercase"
           style={{
-            fontSize: 11,
-            letterSpacing: ".18em",
+            fontSize: 10.5,
+            letterSpacing: ".12em",
             color: tierInk,
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            flex: "1 1 auto",
           }}
         >
           {kindLabel}
@@ -450,13 +466,20 @@ function MarketRowCard({
         </span>
       </div>
 
-      {/* Name */}
+      {/* Name — clamped to 2 lines and a hair smaller so it survives
+          the narrow-card case (each card is ~84px wide when the full
+          market is on a 1080p screen) without spilling out. */}
       <div
         className="mt-1.5 font-display font-semibold"
         style={{
-          fontSize: 17,
+          fontSize: 15,
           color: "var(--ink)",
           lineHeight: 1.15,
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+          wordBreak: "break-word",
         }}
       >
         {name}
@@ -467,13 +490,14 @@ function MarketRowCard({
         <div
           className="mt-1 font-display italic"
           style={{
-            fontSize: 13,
+            fontSize: 12,
             color: "var(--mute)",
             lineHeight: 1.3,
             display: "-webkit-box",
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
+            wordBreak: "break-word",
           }}
         >
           {slogan}
@@ -482,20 +506,25 @@ function MarketRowCard({
 
       {/* Footer: tier pill + Buy → hint */}
       <div
-        className="mt-auto flex items-center justify-between pt-1.5"
+        className="mt-auto flex items-center justify-between gap-1 pt-1.5"
         style={{
           borderTop: "1px dotted rgba(110,80,50,.3)",
+          minWidth: 0,
         }}
       >
         <span
           className="font-mono font-bold uppercase"
           style={{
-            padding: "2px 7px",
+            padding: "2px 6px",
             borderRadius: 4,
             border: `1px solid ${tierInk}`,
             color: tierInk,
-            fontSize: 10.5,
-            letterSpacing: ".14em",
+            fontSize: 9.5,
+            letterSpacing: ".1em",
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
         >
           {tierKey === "uncommon"
@@ -512,9 +541,10 @@ function MarketRowCard({
           <span
             className="font-mono font-bold uppercase"
             style={{
-              fontSize: 11,
-              letterSpacing: ".16em",
+              fontSize: 10,
+              letterSpacing: ".1em",
               color: "var(--gold)",
+              flexShrink: 0,
             }}
           >
             Buy →
