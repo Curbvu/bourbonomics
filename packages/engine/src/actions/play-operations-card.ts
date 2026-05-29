@@ -6,6 +6,7 @@ import type {
   ValidationResult,
 } from "../types";
 import { drawWithReshuffle } from "../deck";
+import { rngRange } from "../rng";
 import {
   emptySlotsFor,
   isCurrentPlayer,
@@ -102,6 +103,88 @@ export function validatePlayOperationsCard(
       }
       return { legal: true };
     }
+
+    // v3.6 aggression — five simple attacks.
+    case "slow_pour": {
+      const target = state.allBarrels.find((b) => b.id === action.targetBarrelId);
+      if (!target) {
+        return { legal: false, reason: `barrel ${action.targetBarrelId} not found` };
+      }
+      if (target.phase !== "aging") {
+        return { legal: false, reason: "barrel is still under construction" };
+      }
+      return { legal: true };
+    }
+
+    case "spoiled_batch": {
+      if (action.targetPlayerId === player.id) {
+        return { legal: false, reason: "cannot target yourself" };
+      }
+      const opp = state.players.find((p) => p.id === action.targetPlayerId);
+      if (!opp) {
+        return { legal: false, reason: `player ${action.targetPlayerId} not found` };
+      }
+      if (opp.hand.length === 0) {
+        return { legal: false, reason: "target's hand is empty" };
+      }
+      return { legal: true };
+    }
+
+    case "audit": {
+      if (action.targetPlayerId === player.id) {
+        return { legal: false, reason: "cannot target yourself" };
+      }
+      const opp = state.players.find((p) => p.id === action.targetPlayerId);
+      if (!opp) {
+        return { legal: false, reason: `player ${action.targetPlayerId} not found` };
+      }
+      if (!opp.hand.some((c) => c.id === action.targetCardId)) {
+        return {
+          legal: false,
+          reason: `card ${action.targetCardId} is not in ${opp.name}'s hand`,
+        };
+      }
+      return { legal: true };
+    }
+
+    case "counterfeit_bottles": {
+      if (action.targetPlayerId === player.id) {
+        return { legal: false, reason: "cannot target yourself" };
+      }
+      const opp = state.players.find((p) => p.id === action.targetPlayerId);
+      if (!opp) {
+        return { legal: false, reason: `player ${action.targetPlayerId} not found` };
+      }
+      return { legal: true };
+    }
+
+    case "federal_inspector": {
+      if (action.targetPlayerId === player.id) {
+        return { legal: false, reason: "cannot target yourself" };
+      }
+      const opp = state.players.find((p) => p.id === action.targetPlayerId);
+      if (!opp) {
+        return { legal: false, reason: `player ${action.targetPlayerId} not found` };
+      }
+      if (!opp.hand.some((c) => c.id === action.targetCardId)) {
+        return {
+          legal: false,
+          reason: `card ${action.targetCardId} is not in ${opp.name}'s hand`,
+        };
+      }
+      return { legal: true };
+    }
+
+    // Catalog-only until handlers land — reject explicitly so any
+    // mis-routed dispatch produces a clean engine error.
+    case "sabotage":
+    case "whiskey_raid":
+    case "coopers_contract":
+    case "grain_futures":
+      return {
+        legal: false,
+        reason: `${action.defId} is design-only — handler pending`,
+      };
   }
 }
 
@@ -203,6 +286,63 @@ export function applyPlayOperationsCard(
       player.pendingWildMashToken = true;
       break;
     }
+
+    // v3.6 aggression — five simple attacks.
+    case "slow_pour": {
+      // Queue a skip for NEXT round. Round cleanup promotes
+      // `skipNextRoundAging` into `inspectedThisRound` for the new
+      // round, which AGE_BOURBON already respects.
+      const target = draft.allBarrels.find(
+        (b) => b.id === action.targetBarrelId,
+      )!;
+      target.skipNextRoundAging = true;
+      break;
+    }
+
+    case "spoiled_batch": {
+      const opp = draft.players.find((p) => p.id === action.targetPlayerId)!;
+      if (opp.hand.length === 0) break;
+      const [idx, nextState] = rngRange(draft.rngState, opp.hand.length);
+      draft.rngState = nextState;
+      const [discarded] = opp.hand.splice(idx, 1);
+      opp.discard.push(discarded!);
+      break;
+    }
+
+    case "audit": {
+      const opp = draft.players.find((p) => p.id === action.targetPlayerId)!;
+      const idx = opp.hand.findIndex((c) => c.id === action.targetCardId);
+      if (idx === -1) break;
+      const [discarded] = opp.hand.splice(idx, 1);
+      opp.discard.push(discarded!);
+      break;
+    }
+
+    case "counterfeit_bottles": {
+      const opp = draft.players.find((p) => p.id === action.targetPlayerId)!;
+      // Stacks numerically — two Counterfeit Bottles before the
+      // target sells = grid reads at demand − 4.
+      opp.nextSaleDemandPenalty += 2;
+      break;
+    }
+
+    case "federal_inspector": {
+      const opp = draft.players.find((p) => p.id === action.targetPlayerId)!;
+      opp.capital = Math.max(0, opp.capital - 2);
+      const idx = opp.hand.findIndex((c) => c.id === action.targetCardId);
+      if (idx !== -1) {
+        const [discarded] = opp.hand.splice(idx, 1);
+        opp.discard.push(discarded!);
+      }
+      break;
+    }
+
+    // Catalog-only — handlers land with their respective phases.
+    case "sabotage":
+    case "whiskey_raid":
+    case "coopers_contract":
+    case "grain_futures":
+      break;
   }
 
   // Played ops card is out of play permanently. (The unified-market

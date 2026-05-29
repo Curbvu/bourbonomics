@@ -176,7 +176,12 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
 
   for (const b of draft.allBarrels) {
     b.agedThisRound = false;
-    b.inspectedThisRound = false;
+    // v3.6 Slow Pour — a queued next-round skip promotes into the
+    // new round's inspectedThisRound flag, which AGE_BOURBON
+    // already respects. Honoring it here keeps Slow Pour's
+    // resolution path identical to Regulatory Inspection's.
+    b.inspectedThisRound = b.skipNextRoundAging === true;
+    b.skipNextRoundAging = false;
     b.extraAgesAvailable = 0;
   }
 

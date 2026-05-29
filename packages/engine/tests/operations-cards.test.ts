@@ -52,6 +52,7 @@ function placeReadySlot(
         productionRound: state.round,
         agedThisRound: false,
         inspectedThisRound: false,
+        skipNextRoundAging: false,
         extraAgesAvailable: 0,
         gridRepOffset: 0,
         demandBandOffset: 0,
@@ -394,5 +395,222 @@ describe("PLAY_OPERATIONS_CARD — Wild Mash", () => {
     expect(state.players.find((p) => p.id === "p1")!.pendingWildMashToken).toBe(true);
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
     expect(state.players.find((p) => p.id === "p1")!.pendingWildMashToken).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// v3.6 Aggression axis — five simple attack cards.
+// ─────────────────────────────────────────────────────────────────────
+
+describe("PLAY_OPERATIONS_CARD — Slow Pour", () => {
+  it("queues skipNextRoundAging on a target aging barrel", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p2", bill(), 1);
+    // Pick the barrel I just placed (the latest one for p2 that's aging).
+    const target = state.allBarrels
+      .filter((b) => b.ownerId === "p2" && b.phase === "aging")
+      .at(-1)!;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "slow_pour");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "slow_pour",
+      targetBarrelId: target.id,
+    });
+    const t = state.allBarrels.find((b) => b.id === target.id)!;
+    expect(t.skipNextRoundAging).toBe(true);
+    // ROUND_CLEANUP promotes skipNextRoundAging → inspectedThisRound.
+    expect(t.inspectedThisRound).toBe(false);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Spoiled Batch", () => {
+  it("discards one random card from the target's hand", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    state = giveHand(state, "p2", [
+      makeResourceCard("corn", "p2", 1),
+      makeResourceCard("rye", "p2", 2),
+      makeResourceCard("cask", "p2", 3),
+    ]);
+    const before = state.players.find((p) => p.id === "p2")!.hand.length;
+    const beforeDiscard = state.players.find((p) => p.id === "p2")!.discard.length;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "spoiled_batch");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "spoiled_batch",
+      targetPlayerId: "p2",
+    });
+    const p2 = state.players.find((p) => p.id === "p2")!;
+    expect(p2.hand.length).toBe(before - 1);
+    expect(p2.discard.length).toBe(beforeDiscard + 1);
+  });
+
+  it("rejects when target hand is empty", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    state = giveHand(state, "p2", []);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "spoiled_batch");
+    expect(() =>
+      applyAction(s, {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: "p1",
+        cardId,
+        defId: "spoiled_batch",
+        targetPlayerId: "p2",
+      }),
+    ).toThrow(/hand is empty/);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Audit", () => {
+  it("discards the chosen card from the target's hand", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const keepCard = makeResourceCard("corn", "p2", 1);
+    const targetCard = makeResourceCard("rye", "p2", 2);
+    state = giveHand(state, "p2", [keepCard, targetCard]);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "audit");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "audit",
+      targetPlayerId: "p2",
+      targetCardId: targetCard.id,
+    });
+    const p2 = state.players.find((p) => p.id === "p2")!;
+    expect(p2.hand.find((c) => c.id === targetCard.id)).toBeUndefined();
+    expect(p2.hand.find((c) => c.id === keepCard.id)).toBeDefined();
+    expect(p2.discard.find((c) => c.id === targetCard.id)).toBeDefined();
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Counterfeit Bottles", () => {
+  it("queues a one-shot demand penalty on the target's next sale", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const { state: s, cardId } = giveOpsCard(state, "p1", "counterfeit_bottles");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "counterfeit_bottles",
+      targetPlayerId: "p2",
+    });
+    expect(state.players.find((p) => p.id === "p2")!.nextSaleDemandPenalty).toBe(2);
+  });
+
+  it("stacks numerically — two Counterfeits = penalty of 4", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const { state: s1, cardId: id1 } = giveOpsCard(state, "p1", "counterfeit_bottles", 1);
+    state = applyAction(s1, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId: id1,
+      defId: "counterfeit_bottles",
+      targetPlayerId: "p2",
+    });
+    const { state: s2, cardId: id2 } = giveOpsCard(state, "p1", "counterfeit_bottles", 2);
+    state = applyAction(s2, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId: id2,
+      defId: "counterfeit_bottles",
+      targetPlayerId: "p2",
+    });
+    expect(state.players.find((p) => p.id === "p2")!.nextSaleDemandPenalty).toBe(4);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — Federal Inspector", () => {
+  it("docks 2 capital and discards the chosen card", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const fiKeep = makeResourceCard("corn", "p2", 1);
+    const fiTarget = makeResourceCard("rye", "p2", 2);
+    state = giveHand(state, "p2", [fiKeep, fiTarget]);
+    // Seed capital so we can observe the deduction.
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p2" ? { ...p, capital: 5 } : p,
+      ),
+    };
+    const { state: s, cardId } = giveOpsCard(state, "p1", "federal_inspector");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "federal_inspector",
+      targetPlayerId: "p2",
+      targetCardId: fiTarget.id,
+    });
+    const p2 = state.players.find((p) => p.id === "p2")!;
+    expect(p2.capital).toBe(3);
+    expect(p2.hand.find((c) => c.id === fiTarget.id)).toBeUndefined();
+    expect(p2.discard.find((c) => c.id === fiTarget.id)).toBeDefined();
+  });
+
+  it("floors capital at 0 when target has < 2 capital", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const fi2Target = makeResourceCard("rye", "p2", 1);
+    state = giveHand(state, "p2", [fi2Target]);
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p2" ? { ...p, capital: 1 } : p,
+      ),
+    };
+    const { state: s, cardId } = giveOpsCard(state, "p1", "federal_inspector");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "federal_inspector",
+      targetPlayerId: "p2",
+      targetCardId: fi2Target.id,
+    });
+    expect(state.players.find((p) => p.id === "p2")!.capital).toBe(0);
+  });
+});
+
+describe("PLAY_OPERATIONS_CARD — design-only cards", () => {
+  it("rejects sabotage / whiskey_raid / coopers_contract / grain_futures as design-only", () => {
+    for (const defId of [
+      "sabotage",
+      "whiskey_raid",
+      "coopers_contract",
+      "grain_futures",
+    ] as const) {
+      let state = makeTestGame();
+      state = advanceToActionPhase(state, [1, 1]);
+      const { state: s, cardId } = giveOpsCard(state, "p1", defId);
+      expect(() => {
+        // Build a sensible payload — the validator rejects before
+        // touching the params, but TypeScript still needs them shaped.
+        const targetBarrelId = s.allBarrels[0]?.id ?? "barrel_missing";
+        const targetCardId =
+          s.players.find((p) => p.id === "p1")!.hand[0]?.id ?? "card_missing";
+        const params =
+          defId === "sabotage"
+            ? { defId, targetBarrelId, targetCardId }
+            : defId === "whiskey_raid"
+              ? { defId, targetBarrelId }
+              : { defId };
+        applyAction(s, {
+          type: "PLAY_OPERATIONS_CARD",
+          playerId: "p1",
+          cardId,
+          ...params,
+        });
+      }).toThrow(/design-only/);
+    }
   });
 });
