@@ -130,7 +130,10 @@ describe("DRAW_HAND", () => {
     expect(p1.hand).toHaveLength(8);
     expect(p1.deck).toHaveLength(16 - 8);
     expect(p1.discard).toHaveLength(0);
-    expect(p1.savedCard).toBeNull();
+    // v3.5: Save Slot removed; Warehouse takes over as the only
+    // persistent-card-storage option (locked until purchased).
+    expect(p1.warehouseSlot).toBeNull();
+    expect(p1.warehouseUnlocked).toBe(false);
   });
 
   it("does NOT auto-deal an operations card on draw — ops are bought from market", () => {

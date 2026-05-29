@@ -118,7 +118,19 @@ export function applySellBourbon(
   // the bill's tier floor (3/4/5) so every sale clears its baseline.
   const ratingBoost = player.pendingRatingBoost;
   const distilleryBonusRep = distillerySaleBonusRep(player.distillery, attached);
-  const rawTotal = reward + signals.bonusRep + ratingBoost + distilleryBonusRep;
+  // v3.4 — Vanilla's first-sale-of-round +1 fires BEFORE the tier
+  // floor clamp (per spec). Applies only when the player's distillery
+  // bonus is `vanilla` AND the per-round flag hasn't been consumed
+  // yet. Cleared inline below regardless of distillery so the flag
+  // semantics ("first sale this round") stay consistent — only the
+  // numeric bump is Vanilla-only.
+  const vanillaFirstSaleBump =
+    player.distillery?.bonus === "vanilla" && player.firstSaleOfRoundPending
+      ? 1
+      : 0;
+  const rawTotal =
+    reward + signals.bonusRep + ratingBoost + distilleryBonusRep +
+    vanillaFirstSaleBump;
   const floor = saleFloorForBill(attached);
   // Prestige is added AFTER the tier floor, never below it. It only
   // applies when Silver or Gold triggers this sale; base sales (no
@@ -133,9 +145,21 @@ export function applySellBourbon(
   const prestigeBonus =
     (goldEligible || silverEligible) ? player.prestige : 0;
   const total = Math.max(rawTotal, floor) + prestigeBonus;
-  player.reputation += total;
+  // v3.3 — Sale credits Capital (the in-game spendable currency).
+  // Banked Capital still counts 1:1 toward final score at game end.
+  player.capital += total;
   // Consume the boost — one-shot per sale.
   if (ratingBoost > 0) player.pendingRatingBoost = 0;
+  // v3.4 — Consume the first-sale-of-round flag only on Vanilla
+  // players. For everyone else, the flag stays true (does nothing)
+  // — keeps the bump scoped to Vanilla without polluting non-Vanilla
+  // sale arithmetic.
+  if (
+    player.distillery?.bonus === "vanilla" &&
+    player.firstSaleOfRoundPending
+  ) {
+    player.firstSaleOfRoundPending = false;
+  }
 
   // Themed-card on-sale draw bonuses (e.g. a future Heritage card
   // declaring `draw_cards on_sale`). Kept independent of the rep

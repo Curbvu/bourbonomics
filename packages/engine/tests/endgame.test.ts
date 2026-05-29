@@ -104,7 +104,11 @@ describe("Final round trigger", () => {
 });
 
 describe("computeFinalScores", () => {
-  function blank(repA: number, repB: number, deckA = 0, deckB = 0, soldA = 0, soldB = 0) {
+  // v3.3: ranking now considers Capital + Reputation (the split). Pre-seed
+  // both fields; tests that only care about ranking by total score set
+  // Capital (the in-game wallet) since Reputation accrues from portfolios
+  // which an empty-portfolio test game can't easily populate.
+  function blank(capA: number, capB: number, deckA = 0, deckB = 0, soldA = 0, soldB = 0) {
     let state = makeTestGame();
     state = {
       ...state,
@@ -112,7 +116,7 @@ describe("computeFinalScores", () => {
         p.id === "p1"
           ? {
               ...p,
-              reputation: repA,
+              capital: capA,
               hand: [],
               deck: Array.from({ length: deckA }, (_, i) => makeResourceCard("corn", "p1", i)),
               discard: [],
@@ -120,7 +124,7 @@ describe("computeFinalScores", () => {
             }
           : {
               ...p,
-              reputation: repB,
+              capital: capB,
               hand: [],
               deck: Array.from({ length: deckB }, (_, i) => makeResourceCard("corn", "p2", i)),
               discard: [],
@@ -131,7 +135,7 @@ describe("computeFinalScores", () => {
     return state;
   }
 
-  it("ranks by reputation (highest first)", () => {
+  it("ranks by total score (highest first)", () => {
     const state = blank(10, 4);
     const scores = computeFinalScores(state);
     expect(scores[0]!.playerId).toBe("p1");
@@ -226,7 +230,7 @@ describe("Integration smoke test — minimal full game", () => {
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
     // v2.11: sale auto-pays grid + bonuses, clamped to tier floor.
     // Capture pre-sale rep so we can verify the delta.
-    const prevRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const prevRep = state.players.find((p) => p.id === "p1")!.capital;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
@@ -244,7 +248,7 @@ describe("Integration smoke test — minimal full game", () => {
     state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
     // Rep should have gone up by at least the tier-1 floor (3).
     expect(
-      state.players.find((p) => p.id === "p1")!.reputation,
+      state.players.find((p) => p.id === "p1")!.capital,
     ).toBeGreaterThanOrEqual(prevRep + 3);
     // v2.6: filter to aging-phase — the helper seeds 1 ready barrel
     // per player which persists through the sale.

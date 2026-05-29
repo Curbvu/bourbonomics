@@ -46,14 +46,10 @@ export function applyDrawHand(
     draft.rngState = result.rngState;
   }
 
-  // pull the saved card (if any) into hand on top of the
-  // 8-card deal. So a player who saved last round draws 9 effective
-  // cards this round. The Save slot then empties — only one card may
-  // be banked at a time.
-  if (player.savedCard) {
-    player.hand.push(player.savedCard);
-    player.savedCard = null;
-  }
+  // v3.5: the free Save Slot is gone. The Warehouse investment now
+  // carries one card across the round boundary (effects are
+  // `implemented: false` in v3.5 — no warehouse-pull logic fires
+  // here yet; see v3.6 wave).
 
   // Operations cards are NOT auto-drawn each round — players buy them
   // from the face-up ops row in the market (BUY_OPERATIONS_CARD).

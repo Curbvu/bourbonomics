@@ -54,17 +54,18 @@ const SELL_PRESSURE_AGE = 3; // sell aged barrels even at low reward
 // to clear the slot for a reusable bill than to die holding stock.
 const ENDGAME_FLUSH_ROUNDS = 3;
 
-// Difficulty knob for the buy heuristic. Reputation is both currency
-// AND victory points (see PlayerState.reputation docs), so a "buy"
-// that nets negative value is a direct VP leak. Every potential
-// purchase becomes an EV-vs-cost decision:
+// v3.3 — Difficulty knob for the buy heuristic. Capital is the
+// in-game spendable currency (see PlayerState.capital docs); banked
+// Capital still converts 1:1 to final score, so a "buy" that nets
+// negative value is a direct VP leak. Every potential purchase is
+// an EV-vs-cost decision:
 //   net = evForCard(card) - card.cost
 //   buy only if net >= NET_THRESHOLD[difficulty]
-// (An earlier draft also enforced a per-difficulty rep floor, but
-// that deadlocked long games — a bot with a ready bill and no
+// (An earlier draft also enforced a per-difficulty Capital floor,
+// but that deadlocked long games — a bot with a ready bill and no
 // matching cards in hand couldn't buy and couldn't initiate another
 // draft either, so the bourbon deck never drained. The EV gate
-// already kills the "buy junk to bottom-out rep" pattern by itself.)
+// already kills the "buy junk to bottom-out Capital" pattern.)
 const NET_THRESHOLD: Record<BotDifficulty, number> = {
   easy: -1,
   normal: 0,
@@ -194,6 +195,10 @@ function chooseDistilleryAction(state: GameState, playerId: string): GameAction 
   let best: Distillery | null = null;
   let bestRank = Infinity;
   for (const d of state.distilleryPool) {
+    // v3.4 — Skip distilleries flagged human-only (Standard
+    // Distillery). `botPickable: false` keeps the beginner pick
+    // available to humans even at the bot end of the picker order.
+    if (d.botPickable === false) continue;
     const rank = DISTILLERY_PREFERENCE.indexOf(d.bonus);
     const effective = rank === -1 ? DISTILLERY_PREFERENCE.length : rank;
     if (effective < bestRank) {
@@ -1033,7 +1038,7 @@ function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
         ? architectLabor.length * 2
         : cooperLabor.length * 2;
     const maxAffordable =
-      player.reputation + matchedLabor + genericLabor.length;
+      player.capital + matchedLabor + genericLabor.length;
     const cost = card.cost ?? 1;
     if (cost > maxAffordable) continue;
 
@@ -1046,7 +1051,7 @@ function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
       domain === "investment" ? architectLabor : cooperLabor,
       genericLabor,
     );
-    if (repCost > player.reputation) continue;
+    if (repCost > player.capital) continue;
 
     let ev = evForCard(state, player, card);
     if (difficulty === "easy") {
@@ -1080,7 +1085,7 @@ function chooseBuy(state: GameState, player: PlayerState): GameAction | null {
     covered += 1;
   }
   const rep = Math.max(0, best.cost - covered);
-  if (rep > player.reputation) return null;
+  if (rep > player.capital) return null;
 
   return {
     type: "BUY_FROM_MARKET",
@@ -1127,7 +1132,7 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
     (c) => c.type === "labor" && c.laborSubtype === "generic",
   );
   const laborMax = marketingLabor.length * 2 + genericLabor.length;
-  const maxAffordable = player.reputation + laborMax;
+  const maxAffordable = player.capital + laborMax;
 
   let best: { slotIndex: number; cost: number; rank: number } | null = null;
   for (let i = 0; i < state.market.length; i++) {
@@ -1163,7 +1168,7 @@ function chooseBuyOpsCard(state: GameState, player: PlayerState): GameAction | n
     covered += 1;
   }
   const rep = Math.max(0, best.cost - covered);
-  if (rep > player.reputation) return null;
+  if (rep > player.capital) return null;
 
   return {
     type: "BUY_OPERATIONS_CARD",
@@ -1408,7 +1413,7 @@ function canReachSpecialtyFloors(
   const genericLabor = player.hand.filter(
     (c) => c.type === "labor" && c.laborSubtype === "generic",
   ).length;
-  const buyBudget = player.reputation + cooperLabor * 2 + genericLabor;
+  const buyBudget = player.capital + cooperLabor * 2 + genericLabor;
   let unmetFromMarket = 0;
   for (const sub of ["cask", "corn", "rye", "barley", "wheat"] as const) {
     if ((sp[sub] ?? 0) === 0) continue;

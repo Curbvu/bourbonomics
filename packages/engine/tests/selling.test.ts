@@ -98,7 +98,7 @@ describe("SELL_BOURBON — single-step v2.11 sale", () => {
     expect(state.demand).toBe(6);
     state = placeBarrel(state, "p1", testBill(), 5);
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.capital;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
@@ -106,7 +106,7 @@ describe("SELL_BOURBON — single-step v2.11 sale", () => {
     });
     const p1 = state.players.find((p) => p.id === "p1")!;
     // Grid cell at age 5 / demand 6 = 5. Tier 1 floor = 3 (not binding).
-    expect(p1.reputation).toBe(beforeRep + 5);
+    expect(p1.capital).toBe(beforeRep + 5);
     expect(p1.barrelsSold).toBe(1);
     expect(state.demand).toBe(5);
     expect(state.allBarrels.filter((b) => b.phase !== "ready")).toHaveLength(0);
@@ -120,13 +120,13 @@ describe("SELL_BOURBON — single-step v2.11 sale", () => {
     state = advanceToActionPhase(state, [1, 1]);
     state = placeBarrel(state, "p1", testBill("common"), 2);
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.capital;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
     });
-    expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(beforeRep + 3);
+    expect(state.players.find((p) => p.id === "p1")!.capital).toBe(beforeRep + 3);
   });
 
   it("applies the epic floor (5) on a low grid sale", () => {
@@ -150,13 +150,13 @@ describe("SELL_BOURBON — single-step v2.11 sale", () => {
     state = advanceToActionPhase(state, [1, 1]);
     state = placeBarrel(state, "p1", epicBill, 2);
     const barrelId = state.allBarrels.find((b) => b.phase === "aging")!.id;
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.capital;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
     });
-    expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(beforeRep + 5);
+    expect(state.players.find((p) => p.id === "p1")!.capital).toBe(beforeRep + 5);
   });
 
   it("rejects selling a barrel that just finished aging this round (round-gap)", () => {
@@ -326,7 +326,7 @@ describe("SELL_BOURBON — single-step v2.11 sale", () => {
     const baseBarrelId = state.allBarrels.find(
       (b) => b.ownerId === "p1" && b.phase === "aging",
     )!.id;
-    const beforeRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const beforeRep = state.players.find((p) => p.id === "p1")!.capital;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
@@ -339,14 +339,14 @@ describe("SELL_BOURBON — single-step v2.11 sale", () => {
       destination: { kind: "inventory" },
     });
     // Grid value at age 5 / demand 5 = 4. Floor 3 not binding. No prestige.
-    expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(beforeRep + 4);
+    expect(state.players.find((p) => p.id === "p1")!.capital).toBe(beforeRep + 4);
 
     // Silver sale: prestige IS applied.
     state = placeBarrel(state, "p1", silverBill, 5);
     const silverBarrelId = state.allBarrels.find(
       (b) => b.ownerId === "p1" && b.phase === "aging",
     )!.id;
-    const beforeSilverRep = state.players.find((p) => p.id === "p1")!.reputation;
+    const beforeSilverRep = state.players.find((p) => p.id === "p1")!.capital;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
@@ -359,6 +359,6 @@ describe("SELL_BOURBON — single-step v2.11 sale", () => {
     });
     // Demand dropped to 4 after the first sale. Grid at age 5 / demand 4 = 4.
     // Silver triggers (minAge 4, minDemand 4). Prestige adds +3.
-    expect(state.players.find((p) => p.id === "p1")!.reputation).toBe(beforeSilverRep + 4 + 3);
+    expect(state.players.find((p) => p.id === "p1")!.capital).toBe(beforeSilverRep + 4 + 3);
   });
 });

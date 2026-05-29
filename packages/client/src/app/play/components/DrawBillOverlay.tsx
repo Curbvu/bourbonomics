@@ -726,11 +726,11 @@ function BillTile({
         </span>
       </div>
 
-      {/* Rep table — the full age × demand payout grid. */}
+      {/* Payout table — the full age × demand grid in Capital. */}
       <div className="mt-1.5 rounded border border-amber-700/40 bg-slate-950/55 px-1.5 py-1">
         <div className="mb-0.5 flex items-baseline justify-between">
           <span className="font-mono text-[11px] font-semibold uppercase tracking-[.12em] text-amber-300/80">
-            Rep
+            Cap
           </span>
           <span className="font-mono text-[11px] tracking-[.08em] text-slate-400">
             <span className={chrome.titleInk}>{floor}–{peak}</span>

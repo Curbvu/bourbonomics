@@ -53,12 +53,12 @@ export function validateBuyOperationsCard(
   const cost = card.cost ?? card.opSpec.cost;
 
   if (!Number.isInteger(action.rep) || action.rep < 0) {
-    return { legal: false, reason: "rep payment must be a non-negative integer" };
+    return { legal: false, reason: "Capital payment must be a non-negative integer" };
   }
-  if (action.rep > player.reputation) {
+  if (action.rep > player.capital) {
     return {
       legal: false,
-      reason: `not enough reputation: have ${player.reputation}, paying ${action.rep}`,
+      reason: `not enough Capital: have ${player.capital}, paying ${action.rep}`,
     };
   }
 
@@ -112,7 +112,8 @@ export function applyBuyOperationsCard(
     drawnInRound: draft.round,
   });
 
-  player.reputation -= action.rep;
+  // v3.3 — Spend Capital.
+  player.capital -= action.rep;
 
   // Discard the Labor cards used as payment. Match the validator's
   // defensive default so a missing laborCardIds applies as 0 labor.

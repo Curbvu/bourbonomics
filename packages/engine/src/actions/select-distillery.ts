@@ -49,8 +49,13 @@ export function applySelectDistillery(
 
   player.distillery = distillery;
   player.rickhouseSlots = buildRickhouseSlots(player.id, distillery);
-  // v3.2: bind the flagship portfolio to this distillery. Empty
-  // slots are seeded so the portfolio is ready to receive bottles.
+  // v3.4 — Re-stake Capital to the chosen distillery's value. At
+  // `initializeGame` the player's `capital` was seeded from a null
+  // distillery (default 5) because selection hadn't happened yet.
+  // Now that the distillery is known, overwrite with the real value.
+  // Vanilla 5, High-Rye House 3, Wheated Baron 4, Connoisseur 7,
+  // Standard 8 (see GAME_RULES.md §Distillery Profiles).
+  player.capital = distillery.startingCapital ?? player.capital;
   bindFlagshipPortfolio(player);
 
   // Place the v2.4 pre-aged starting barrel (if any).

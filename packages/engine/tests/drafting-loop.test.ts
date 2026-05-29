@@ -202,18 +202,16 @@ describe("DRAFT_TAKE_BILL", () => {
     expect(state.players.find((p) => p.id === "p1")!.hand).toHaveLength(0);
   });
 
-  it("rejects payment from outside the picker's hand (e.g. Save slot)", () => {
+  it("rejects payment from outside the picker's hand", () => {
+    // v3.5: the Save Slot is gone, so this regression test simulates
+    // an out-of-hand card by minting one that's never placed in hand
+    // (it could be a Warehouse contents, a deck card, etc. — the
+    // engine's invariant is the same: payment must come from hand).
     let state = makeTestGame({ bourbonDeck: makeBourbonDeck(3) });
     state = advanceToActionPhase(state);
     const seed = makeResourceCard("corn", "p1", 0);
-    const saved = makeResourceCard("corn", "p1-saved", 1);
+    const outOfHand = makeResourceCard("corn", "p1-stash", 1);
     state = giveHand(state, "p1", [seed]);
-    state = {
-      ...state,
-      players: state.players.map((p) =>
-        p.id === "p1" ? { ...p, savedCard: saved } : p,
-      ),
-    };
     state = applyAction(state, {
       type: "INITIATE_DRAFTING_LOOP",
       playerId: "p1",
@@ -225,7 +223,7 @@ describe("DRAFT_TAKE_BILL", () => {
         type: "DRAFT_TAKE_BILL",
         playerId: "p1",
         mashBillId: billId,
-        paymentCardId: saved.id,
+        paymentCardId: outOfHand.id,
       }),
     ).toThrow(/not in your hand/i);
   });

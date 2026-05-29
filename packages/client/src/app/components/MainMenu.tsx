@@ -16,7 +16,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-const STORAGE_KEY = "bourbonomics:v2.6.0-game";
+// v3.5 — keep this key in sync with `STORAGE_KEY` in
+// `lib/store/game.tsx`. The store handles legacy-key
+// forward-migration on load; this surface only renders the
+// "Resume" tile, so reading the current key is enough.
+const STORAGE_KEY = "bourbonomics:v3.5.0-game";
 const TUTORIAL_COMPLETE_KEY = "bourbonomics:tutorial-complete";
 
 interface SavedGameMeta {
@@ -93,7 +97,7 @@ export default function MainMenu() {
         href="/multiplayer"
         eyebrow="Multiplayer"
         title="Play with friends online"
-        subtitle="Mint a 4-char room code, share the link, race to the rep cap."
+        subtitle="Mint a 4-char room code, share the link, race for the highest final score."
         accent="rose"
       />
 

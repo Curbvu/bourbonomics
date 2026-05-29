@@ -93,7 +93,8 @@ export function applyAgingCommitEffect(
     if (e.kind === "draw_cards" && e.when === "on_commit_aging") {
       drawIntoHand(draft, player, e.n);
     } else if (e.kind === "rep_on_commit_aging" && e.when === "on_commit_aging") {
-      player.reputation += e.rep;
+      // v3.3 — Aging-commit `rep_*` effects credit Capital (in-game).
+      player.capital += e.rep;
     }
   }
 }
@@ -180,7 +181,8 @@ export function applySpendEffect(
 ): void {
   for (const e of flatten(card.effect)) {
     if (e.kind === "rep_on_market_spend" && e.when === "on_spend") {
-      player.reputation += e.rep;
+      // v3.3 — Market-spend `rep_*` effects credit Capital (in-game).
+      player.capital += e.rep;
     }
   }
 }

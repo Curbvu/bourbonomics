@@ -10,6 +10,7 @@ import type {
   OperationsCard,
   ResourceSubtype,
 } from "./types";
+import { deriveBillTags } from "./tags";
 
 // ----- Resource Card Factories -----
 
@@ -194,10 +195,12 @@ interface MashBillSpec {
   silverAward?: MashBill["silverAward"];
   goldAward?: MashBill["goldAward"];
   tutorialOnly?: boolean;
+  /** v3.4 — Tie-break for primary-grain tag derivation. */
+  primaryGrain?: MashBill["primaryGrain"];
 }
 
 export function makeMashBill(spec: MashBillSpec, instanceIndex: number): MashBill {
-  return {
+  const bill: MashBill = {
     id: `mb_${spec.defId}_${instanceIndex}`,
     defId: spec.defId,
     name: spec.name,
@@ -212,7 +215,13 @@ export function makeMashBill(spec: MashBillSpec, instanceIndex: number): MashBil
     silverAward: spec.silverAward,
     goldAward: spec.goldAward,
     tutorialOnly: spec.tutorialOnly,
+    primaryGrain: spec.primaryGrain,
+    // Tag set is filled in next so deriveBillTags can read the
+    // recipe / tier / award fields already in place on `bill`.
+    tags: [],
   };
+  bill.tags = deriveBillTags(bill);
+  return bill;
 }
 
 // ----- Resource Math Helpers -----

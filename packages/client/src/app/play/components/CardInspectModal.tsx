@@ -49,6 +49,12 @@ export default function CardInspectModal() {
 
   if (!inspect) return null;
 
+  // Mash bill + barrel inspects carry a reward matrix (up to 3×3+ cells);
+  // give them more horizontal room so the grid breathes. Resource / labor /
+  // ops / investment stay tighter — those are mostly prose + a single hero.
+  const wide = inspect.kind === "mashbill" || inspect.kind === "barrel";
+  const widthClass = wide ? "max-w-2xl" : "max-w-lg";
+
   return (
     <div
       role="dialog"
@@ -60,7 +66,7 @@ export default function CardInspectModal() {
       <div
         role="document"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md"
+        className={`relative w-full ${widthClass}`}
       >
         <button
           type="button"
@@ -200,8 +206,8 @@ function LaborDetail({ card }: { card: Card }) {
       ) : null}
       <UseBox>
         {sub === "generic" || !sub
-          ? `Tag in any purchase to discount the rep cost by ${contribution}. Generic Labor can also age a barrel — commit it to an aging slot in place of a resource. You only get 2 to start, and the central pile is gone, so spend them carefully.`
-          : `Tag in a matching ${domainText.replace(" purchases", "")} purchase to discount the rep cost by ${contribution}. Contributes 0 on other purchase types. Specialty Labor only enters your deck via the market — guard it.`}
+          ? `Tag in any purchase to discount the Capital cost by ${contribution}. Generic Labor can also age a barrel — commit it to an aging slot in place of a resource. You only get 3 to start, and the central pile is gone, so spend them carefully.`
+          : `Tag in a matching ${domainText.replace(" purchases", "")} purchase to discount the Capital cost by ${contribution}. Contributes 0 on other purchase types. Specialty Labor only enters your deck via the market — guard it.`}
       </UseBox>
     </article>
   );
@@ -360,15 +366,15 @@ function describeLeafEffect(effect: CardEffect): string | null {
     case "draw_cards":
       return `Draw ${effect.n} card${effect.n === 1 ? "" : "s"}.`;
     case "rep_on_sale_flat":
-      return `Gain +${effect.rep} reputation.`;
+      return `Gain +${effect.rep} Capital.`;
     case "rep_on_sale_if_age_gte":
-      return `Gain +${effect.rep} reputation if barrel age ≥ ${effect.age}.`;
+      return `Gain +${effect.rep} Capital if barrel age ≥ ${effect.age}.`;
     case "rep_on_sale_if_demand_gte":
-      return `Gain +${effect.rep} reputation if demand ≥ ${effect.demand}.`;
+      return `Gain +${effect.rep} Capital if demand ≥ ${effect.demand}.`;
     case "rep_on_commit_aging":
-      return `Gain +${effect.rep} reputation.`;
+      return `Gain +${effect.rep} Capital.`;
     case "rep_on_market_spend":
-      return `Gain +${effect.rep} reputation.`;
+      return `Gain +${effect.rep} Capital.`;
     case "bump_demand":
       return `Demand ${effect.delta >= 0 ? "+" : ""}${effect.delta}.`;
     case "skip_demand_drop":
@@ -382,7 +388,7 @@ function describeLeafEffect(effect: CardEffect): string | null {
         Math.abs(effect.offset) === 1 ? "" : "s"
       }.`;
     case "grid_rep_offset":
-      return `+${effect.offset} reputation at every grid band for the rest of the barrel's life.`;
+      return `+${effect.offset} Capital at every grid band for the rest of the barrel's life.`;
     case "returns_to_hand_on_sale":
       return "Returns to your hand instead of going to discard.";
     default:
@@ -904,7 +910,7 @@ function MashBillDetail({ bill }: { bill: MashBill }) {
       <SectionHeading label="Rewards" tone={chrome.label} />
       <RewardMatrix bill={bill} chrome={chrome} />
       <div className="text-center font-mono text-[12px] uppercase tracking-[.18em] text-slate-400">
-        rep range{" "}
+        Capital range{" "}
         <span className={`font-bold ${chrome.titleInk}`}>
           {floor}–{peak}
         </span>
@@ -1423,7 +1429,7 @@ function BarrelDetail({ barrel, ownerName }: { barrel: Barrel; ownerName?: strin
           </span>
           <ul className="mt-1 space-y-0.5 text-[12px] leading-snug text-slate-100">
             {barrel.gridRepOffset > 0 ? (
-              <li>+{barrel.gridRepOffset} reputation per grid cell at sale (Single Barrel Cask)</li>
+              <li>+{barrel.gridRepOffset} Capital per grid cell at sale (Single Barrel Cask)</li>
             ) : null}
             {barrel.demandBandOffset > 0 ? (
               <li>Reads grid as if demand were +{barrel.demandBandOffset} (Master Distiller)</li>

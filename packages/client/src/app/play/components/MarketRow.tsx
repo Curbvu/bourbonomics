@@ -83,7 +83,8 @@ export default function MarketRow() {
     ? multiplayerMode.playerId
     : state.players.find((p) => !p.isBot)?.id;
   const me = youId ? state.players.find((p) => p.id === youId) : null;
-  const reputation = me?.reputation ?? 0;
+  // v3.3 — wallet read is Capital (the spendable currency).
+  const reputation = me?.capital ?? 0;
 
   // v3.2.1: show the full market inline (no overflow cap). The track
   // still scrolls when the cards overflow the panel width, so a 10-card

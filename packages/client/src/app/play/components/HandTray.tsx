@@ -774,7 +774,6 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
   // the downstream click-routing path below (which gates seed-tagging
   // on `!drawStep1`) keeps working without renames.
   const drawStep1 = false;
-  void draftingLoopMode;
   // v3.4: when in buy mode WITH a picked target, resource cards can
   // never contribute to payment (only Labor cards can), so they dim
   // out of the way. When no target is picked yet, fall back to the

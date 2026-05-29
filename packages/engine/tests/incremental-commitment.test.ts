@@ -324,13 +324,18 @@ describe("incremental commitment — full lifecycle integration", () => {
     // v2.7.1: seed a spendable card for the sell-action cost; the
     // earlier age action emptied the hand.
     state = giveHand(state, "p1", [cap("p1", 99)]);
-    const repBefore = state.players.find((p) => p.id === "p1")!.reputation;
+    const repBefore = state.players.find((p) => p.id === "p1")!.capital;
     state = applyAction(state, {
       type: "SELL_BOURBON",
       playerId: "p1",
       barrelId,
 });
-    const repAfter = state.players.find((p) => p.id === "p1")!.reputation;
-    expect(repAfter - repBefore).toBe(3);
+    const repAfter = state.players.find((p) => p.id === "p1")!.capital;
+    // v3.4: Vanilla's first-sale-of-round bump (+1) fires on the
+    // round following cleanup, raising the grid 3 → 4 (still under
+    // the tier-1 floor of 3, so no clamp). The lifecycle test is
+    // primarily about reaching the sale; the +1 is the new Vanilla
+    // ability landing as expected.
+    expect(repAfter - repBefore).toBe(4);
   });
 });

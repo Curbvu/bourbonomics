@@ -57,7 +57,17 @@ export function makeTestGame(overrides: Partial<GameConfig> = {}): GameState {
   // v3.2: no initial Line Card draft to resolve — the v3.1 Line
   // Card subsystem is retired. initializeGame lands directly in
   // either distillery_selection / starter_deck_draft / draw.
-  return initializeGame(baseConfig);
+  const state = initializeGame(baseConfig);
+  // v3.4: tests default-opt-out of Vanilla's first-sale +1. The
+  // ability is exercised explicitly by `distillery-profiles.test.ts`;
+  // every other test would otherwise pick up an unintended +1 on
+  // its first sale and break unrelated assertions. Tests that want
+  // the bump set the flag back to true on the player they're
+  // exercising.
+  return {
+    ...state,
+    players: state.players.map((p) => ({ ...p, firstSaleOfRoundPending: false })),
+  };
 }
 
 /**
@@ -198,16 +208,28 @@ export function giveHand(state: GameState, playerId: string, cards: Card[]): Gam
 }
 
 /**
- * v2.11: set a player's reputation directly for unified-rep tests
- * (buys, bill draws, Cash Out, etc.).
+ * v3.3: set a player's Capital (in-game spendable currency) directly
+ * for spending tests (buys, bill draws, Cash Out, etc.). Renamed
+ * from `giveRep` in v3.3 — under the Capital/Reputation split, tests
+ * exercising in-game spending should set Capital, not the end-game
+ * Reputation accumulator.
  */
-export function giveRep(state: GameState, playerId: string, rep: number): GameState {
+export function giveCapital(state: GameState, playerId: string, capital: number): GameState {
   return {
     ...state,
     players: state.players.map((p) =>
-      p.id === playerId ? { ...p, reputation: rep } : p,
+      p.id === playerId ? { ...p, capital } : p,
     ),
   };
+}
+
+/**
+ * @deprecated v3.3 — Renamed to `giveCapital`. Old callers still
+ * reach this name; the body now writes Capital so spending tests
+ * behave identically to v3.2.
+ */
+export function giveRep(state: GameState, playerId: string, rep: number): GameState {
+  return giveCapital(state, playerId, rep);
 }
 
 /**

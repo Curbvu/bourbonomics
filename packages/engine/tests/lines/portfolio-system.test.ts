@@ -32,6 +32,9 @@ function bottleWith(overrides: Partial<Bottle> = {}): Bottle {
     demandAtSale: 5,
     cornCount: 4,
     placedOnRound: 1,
+    // v3.4 — Empty by default; tests that exercise tag-based slot
+    // requirements pass `tags: [...]` in overrides.
+    tags: [],
     ...overrides,
   };
 }
