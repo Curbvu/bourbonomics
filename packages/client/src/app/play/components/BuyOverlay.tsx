@@ -390,7 +390,7 @@ function ApplyPanel({
             color: "var(--mute)",
           }}
         >
-          No Labor cards in hand — pay the full rep cost or cancel.
+          No Labor cards in hand — pay the full Capital cost or cancel.
         </div>
       ) : (
         <div className="mt-3 flex flex-wrap items-stretch gap-2.5">
@@ -483,7 +483,7 @@ function RepPanel({
       }}
     >
       <div className="flex items-baseline gap-3">
-        <span className="stage-tag">Rep you'll spend</span>
+        <span className="stage-tag">Capital you'll spend</span>
         <span
           aria-hidden
           className="h-px flex-1"
@@ -562,7 +562,7 @@ function RepMeter({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between">
-        <span className="label-sm">Reputation</span>
+        <span className="label-sm">Capital</span>
         <span
           className="font-mono text-[10.5px] tracking-[.08em]"
           style={{ color: "var(--ink-muted)" }}
@@ -638,13 +638,13 @@ function Hint({
     text = "Untag a chip — overpaying the table.";
     color = "var(--rose)";
   } else if (!canAfford) {
-    text = `You need ฿${repPortion} rep but only have ฿${available}. Tag labor to cover the gap.`;
+    text = `You need ฿${repPortion} Capital but only have ฿${available}. Tag labor to cover the gap.`;
     color = "var(--rose)";
   } else if (cost > 0 && repPortion === 0) {
-    text = "Fully covered by hand — no rep spent.";
+    text = "Fully covered by hand — no Capital spent.";
     color = "var(--gold)";
   } else {
-    text = `Spend ฿${repPortion} rep to finish the purchase.`;
+    text = `Spend ฿${repPortion} Capital to finish the purchase.`;
     color = "var(--ink-muted)";
   }
   return (

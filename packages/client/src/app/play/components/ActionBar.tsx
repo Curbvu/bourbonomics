@@ -129,7 +129,7 @@ export default function ActionBar() {
               ? "Wait for your turn"
               : inBuyMode
                 ? "Cancel the in-progress purchase"
-                : buyEntry.reason ?? "Pick a market card. Pay with rep, Labor, or a mix."
+                : buyEntry.reason ?? "Pick a market card. Pay with Capital, Labor, or a mix."
           }
           onStart={startBuyMode}
           onCancel={cancelBuyMode}

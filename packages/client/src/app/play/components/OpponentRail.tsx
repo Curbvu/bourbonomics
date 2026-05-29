@@ -136,7 +136,7 @@ function OpponentCard({
             <span
               className="font-display text-[13px] font-bold leading-none"
               style={{ color: "var(--gold)" }}
-              title={`${player.prestige} prestige — +${player.prestige} rep on every Silver/Gold sale`}
+              title={`${player.prestige} prestige — +${player.prestige} Capital on every Silver/Gold sale`}
             >
               ★{player.prestige}
             </span>
@@ -149,7 +149,7 @@ function OpponentCard({
               {player.capital}
             </div>
             <div className="label-sm" style={{ fontSize: 9.5 }}>
-              Rep
+              Cap
             </div>
           </div>
         </div>

@@ -265,7 +265,7 @@ function IdentityPlate({
           className="label-sm mt-1.5"
           style={{ color: "var(--brass)" }}
         >
-          Reputation
+          Capital
         </span>
       </div>
 
@@ -323,7 +323,7 @@ function PrestigeBadge({ value }: { value: number }) {
   return (
     <div
       className="flex flex-col items-center justify-center leading-none"
-      title="Prestige — adds +1 rep to every future Silver or Gold sale"
+      title="Prestige — adds +1 Capital to every future Silver or Gold sale"
       data-bb-zone="prestige"
     >
       <span

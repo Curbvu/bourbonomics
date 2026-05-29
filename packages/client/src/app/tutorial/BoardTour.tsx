@@ -67,8 +67,8 @@ const STOPS: TourStop[] = [
   },
   {
     id: "reputation",
-    title: "Your Reputation",
-    body: "Reputation is the score. You earn it by **selling bourbon** — the rarer the recipe, the longer it ages, and the higher the demand at sale time, the more reputation you earn. **Get the highest reputation to win the game.**",
+    title: "Your Capital",
+    body: "**Capital** is your in-game currency. You earn it by **selling bourbon** — the rarer the recipe, the longer it ages, and the higher the demand at sale time, the more Capital you bank. Spend it on market buys, or hold it: at game end, every Capital you didn't spend counts toward your **final score** alongside any **Reputation** you earned from your Brand Portfolio. **Highest final score wins.**",
     spotlight: { kind: "reputation" },
   },
   {

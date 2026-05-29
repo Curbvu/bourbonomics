@@ -302,7 +302,7 @@ function BillDetailPanel({ bill, onBack }: { bill: MashBill; onBack: () => void 
 
         <section className="grid gap-5 md:grid-cols-2">
           <div>
-            <SectionLabel>Reward — reputation by age × demand</SectionLabel>
+            <SectionLabel>Reward — Capital by age × demand</SectionLabel>
             <PayoffMatrix bill={bill} large />
           </div>
           <div className="space-y-4">

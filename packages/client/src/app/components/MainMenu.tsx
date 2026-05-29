@@ -97,7 +97,7 @@ export default function MainMenu() {
         href="/multiplayer"
         eyebrow="Multiplayer"
         title="Play with friends online"
-        subtitle="Mint a 4-char room code, share the link, race to the rep cap."
+        subtitle="Mint a 4-char room code, share the link, race for the highest final score."
         accent="rose"
       />
 
