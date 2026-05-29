@@ -42,7 +42,7 @@ function genericLaborCard(id = "labor_test"): Card {
     cardDefId: "generic_labor",
     type: "labor",
     laborSubtype: "generic",
-    laborValue: 1,
+    laborContribution: 1,
   };
 }
 

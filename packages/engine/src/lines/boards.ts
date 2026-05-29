@@ -194,7 +194,7 @@ function gainGenericLabor(): PortfolioSlotReward {
         cardDefId: "generic_labor",
         type: "labor",
         laborSubtype: "generic",
-        laborValue: 1,
+        laborContribution: 1,
       } as Card);
     },
   };
