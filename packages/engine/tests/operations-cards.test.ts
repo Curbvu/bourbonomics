@@ -581,10 +581,66 @@ describe("PLAY_OPERATIONS_CARD — Federal Inspector", () => {
   });
 });
 
+describe("PLAY_OPERATIONS_CARD — Sabotage", () => {
+  it("dumps the target's aging barrel and returns its cards to the opponent's discard", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    const cask = makeResourceCard("cask", "sab_barrel", 0);
+    const corn = makeResourceCard("corn", "sab_barrel", 1);
+    state = placeBarrel(state, "p2", bill(), 2, undefined, {
+      productionCards: [cask, corn],
+    });
+    const target = state.allBarrels
+      .filter((b) => b.ownerId === "p2" && b.phase === "aging")
+      .at(-1)!;
+    const beforeDiscard = state.players.find((p) => p.id === "p2")!.discard.length;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "sabotage");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "sabotage",
+      targetBarrelId: target.id,
+      targetCardId: cask.id,
+    });
+    const dumped = state.allBarrels.find((b) => b.id === target.id)!;
+    expect(dumped.phase).toBe("ready");
+    expect(dumped.productionCards.length).toBe(0);
+    expect(dumped.agingCards.length).toBe(0);
+    expect(dumped.age).toBe(0);
+    // Bill is still attached — recipe planning is preserved per spec.
+    expect(dumped.attachedMashBill).toBeDefined();
+    // Opponent's discard grew by every card that was on the barrel.
+    // The placeBarrel helper auto-generated 2 aging cards (age=2) plus
+    // we passed 2 production cards, so 4 cards return to discard.
+    const opp = state.players.find((p) => p.id === "p2")!;
+    expect(opp.discard.length).toBe(beforeDiscard + 4);
+  });
+
+  it("rejects self-targeting", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p1", bill(), 1);
+    const own = state.allBarrels
+      .filter((b) => b.ownerId === "p1" && b.phase === "aging")
+      .at(-1)!;
+    const { state: s, cardId } = giveOpsCard(state, "p1", "sabotage");
+    expect(() =>
+      applyAction(s, {
+        type: "PLAY_OPERATIONS_CARD",
+        playerId: "p1",
+        cardId,
+        defId: "sabotage",
+        targetBarrelId: own.id,
+        targetCardId: own.agingCards[0]?.id ?? "missing",
+      }),
+    ).toThrow(/targets opponents/);
+  });
+});
+
 describe("PLAY_OPERATIONS_CARD — design-only cards", () => {
-  it("rejects sabotage / whiskey_raid / coopers_contract / grain_futures as design-only", () => {
+  it("rejects whiskey_raid / coopers_contract / grain_futures as design-only", () => {
     for (const defId of [
-      "sabotage",
       "whiskey_raid",
       "coopers_contract",
       "grain_futures",
@@ -599,11 +655,10 @@ describe("PLAY_OPERATIONS_CARD — design-only cards", () => {
         const targetCardId =
           s.players.find((p) => p.id === "p1")!.hand[0]?.id ?? "card_missing";
         const params =
-          defId === "sabotage"
-            ? { defId, targetBarrelId, targetCardId }
-            : defId === "whiskey_raid"
-              ? { defId, targetBarrelId }
-              : { defId };
+          defId === "whiskey_raid"
+            ? { defId, targetBarrelId }
+            : { defId };
+        void targetCardId;
         applyAction(s, {
           type: "PLAY_OPERATIONS_CARD",
           playerId: "p1",
