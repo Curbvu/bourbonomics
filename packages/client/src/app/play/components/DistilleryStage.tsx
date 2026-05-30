@@ -1320,7 +1320,7 @@ function CaptionCard({
       <div className="flex items-baseline justify-between gap-2">
         <span
           className="label-sm"
-          style={{ color: band.ink, fontSize: 13, letterSpacing: ".16em" }}
+          style={{ color: band.ink, fontSize: 16, letterSpacing: ".16em" }}
         >
           {band.label}
         </span>
@@ -1348,7 +1348,7 @@ function CaptionCard({
           {bill ? `${floor}–${peak}` : "—"}{" "}
           <span
             className="label-sm"
-            style={{ color: band.ink, opacity: 0.75, fontSize: 13 }}
+            style={{ color: band.ink, opacity: 0.75, fontSize: 16 }}
           >
             rep
           </span>
@@ -1388,7 +1388,7 @@ function PhaseStamp({ phase, age }: { phase: Barrel["phase"]; age: number }) {
     <span
       className="font-mono font-bold uppercase"
       style={{
-        fontSize: 13,
+        fontSize: 16,
         letterSpacing: ".14em",
         padding: "2px 8px",
         borderRadius: 5,
@@ -1629,7 +1629,7 @@ function EmptySlot({
             // height so the grid's items-stretch keeps this slot's
             // visual at the same Y as the BarrelCells' barrels.
             padding: "12px",
-            fontSize: 13,
+            fontSize: 16,
             letterSpacing: ".22em",
             borderColor: "rgba(52,211,153,.7)",
             background:
@@ -1699,7 +1699,7 @@ function EmptySlot({
           // height so the grid's items-stretch keeps this slot's
           // silhouette at the same Y as the BarrelCells' barrels.
           padding: "12px",
-          fontSize: 13,
+          fontSize: 16,
           letterSpacing: ".22em",
           borderColor: selected ? "var(--gold)" : "rgba(110,80,50,.45)",
           borderStyle: "dashed",

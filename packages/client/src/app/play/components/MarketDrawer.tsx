@@ -134,7 +134,7 @@ export default function MarketDrawer({
           </div>
           <span
             className="ml-2 font-display italic"
-            style={{ color: "var(--brass)", fontSize: 14 }}
+            style={{ color: "var(--brass)", fontSize: 16 }}
           >
             What the table is selling, this round.
           </span>

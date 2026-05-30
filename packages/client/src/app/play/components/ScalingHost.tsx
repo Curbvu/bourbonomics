@@ -118,6 +118,11 @@ export default function ScalingHost({ children }: { children: ReactNode }) {
       >
         <div
           ref={innerRef}
+          // `data-bb-scale-canvas` is the legibility-rule anchor in
+          // globals.css — the play-screen font-size floor applies only
+          // to children of this scaled canvas so the GameTopBar
+          // (which sits outside ScalingHost) keeps its native sizing.
+          data-bb-scale-canvas
           style={{
             width: `${designW}px`,
             minHeight: `${DESIGN_HEIGHT_FALLBACK}px`,

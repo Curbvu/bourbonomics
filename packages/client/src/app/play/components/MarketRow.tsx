@@ -156,7 +156,7 @@ export default function MarketRow() {
         <span className="stage-tag">The Market</span>
         <span
           className="font-display italic"
-          style={{ color: "var(--brass)", fontSize: 14 }}
+          style={{ color: "var(--brass)", fontSize: 16 }}
         >
           What the table is selling, this round.
         </span>
@@ -277,7 +277,7 @@ function PriceTag({
         letterSpacing: ".02em",
       }}
     >
-      <span style={{ fontSize: 13, opacity: 0.7 }}>฿</span>
+      <span style={{ fontSize: 16, opacity: 0.7 }}>฿</span>
       {amount}
     </span>
   );
@@ -469,7 +469,7 @@ function MarketRowCard({
         <span
           className="font-mono font-bold uppercase"
           style={{
-            fontSize: 13,
+            fontSize: 16,
             letterSpacing: ".12em",
             color: tierInk,
             minWidth: 0,
@@ -505,7 +505,7 @@ function MarketRowCard({
       <div
         className="mt-1.5 font-display font-semibold"
         style={{
-          fontSize: 15,
+          fontSize: 17,
           color: "var(--ink)",
           lineHeight: 1.15,
           display: "-webkit-box",
@@ -523,7 +523,7 @@ function MarketRowCard({
         <div
           className="mt-1 font-display italic"
           style={{
-            fontSize: 13,
+            fontSize: 16,
             color: "var(--mute)",
             lineHeight: 1.3,
             display: "-webkit-box",
@@ -552,7 +552,7 @@ function MarketRowCard({
             borderRadius: 4,
             border: `1px solid ${tierInk}`,
             color: tierInk,
-            fontSize: 13,
+            fontSize: 16,
             letterSpacing: ".1em",
             minWidth: 0,
             overflow: "hidden",
@@ -574,7 +574,7 @@ function MarketRowCard({
           <span
             className="font-mono font-bold uppercase"
             style={{
-              fontSize: 13,
+              fontSize: 16,
               letterSpacing: ".1em",
               color: "var(--gold)",
               flexShrink: 0,
