@@ -357,7 +357,7 @@ function DramaticPile({
       >
         <span
           className="label-sm"
-          style={{ color: palette.ink, fontSize: 9 }}
+          style={{ color: palette.ink, fontSize: 13 }}
         >
           {label}
         </span>
@@ -373,7 +373,7 @@ function DramaticPile({
         </span>
         <span
           className="label-sm"
-          style={{ fontSize: 8.5, color: "var(--mute)" }}
+          style={{ fontSize: 13, color: "var(--mute)" }}
         >
           cards
         </span>
@@ -400,7 +400,7 @@ function SoldStack({ count }: { count: number }) {
       >
         {count}
       </span>
-      <span className="label-sm" style={{ fontSize: 8 }}>
+      <span className="label-sm" style={{ fontSize: 13 }}>
         bottles
       </span>
     </div>

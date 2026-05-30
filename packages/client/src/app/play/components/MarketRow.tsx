@@ -149,14 +149,14 @@ export default function MarketRow() {
     <section
       data-bb-zone="market-row"
       className={`bb-panel bb-panel--market flex flex-col gap-2 ${focusClass}`}
-      style={{ padding: "12px 16px 14px 16px", ...focusStyle }}
+      style={{ padding: "8px 16px 10px 16px", ...focusStyle }}
     >
       {/* Header strip */}
       <div className="flex items-baseline gap-3">
         <span className="stage-tag">The Market</span>
         <span
           className="font-display italic"
-          style={{ color: "var(--brass)", fontSize: 12.5 }}
+          style={{ color: "var(--brass)", fontSize: 14 }}
         >
           What the table is selling, this round.
         </span>
@@ -277,7 +277,7 @@ function PriceTag({
         letterSpacing: ".02em",
       }}
     >
-      <span style={{ fontSize: 11.5, opacity: 0.7 }}>฿</span>
+      <span style={{ fontSize: 13, opacity: 0.7 }}>฿</span>
       {amount}
     </span>
   );
@@ -469,7 +469,7 @@ function MarketRowCard({
         <span
           className="font-mono font-bold uppercase"
           style={{
-            fontSize: 10.5,
+            fontSize: 13,
             letterSpacing: ".12em",
             color: tierInk,
             minWidth: 0,
@@ -523,7 +523,7 @@ function MarketRowCard({
         <div
           className="mt-1 font-display italic"
           style={{
-            fontSize: 12,
+            fontSize: 13,
             color: "var(--mute)",
             lineHeight: 1.3,
             display: "-webkit-box",
@@ -552,7 +552,7 @@ function MarketRowCard({
             borderRadius: 4,
             border: `1px solid ${tierInk}`,
             color: tierInk,
-            fontSize: 9.5,
+            fontSize: 13,
             letterSpacing: ".1em",
             minWidth: 0,
             overflow: "hidden",
@@ -574,7 +574,7 @@ function MarketRowCard({
           <span
             className="font-mono font-bold uppercase"
             style={{
-              fontSize: 10,
+              fontSize: 13,
               letterSpacing: ".1em",
               color: "var(--gold)",
               flexShrink: 0,
