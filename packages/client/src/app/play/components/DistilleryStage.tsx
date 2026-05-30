@@ -1015,14 +1015,23 @@ function Barrel({
 
         {/* Center plate — year medallion on aging barrels, needed-
             resources stack on barrels waiting for cards.
-            Sized at ~52% of the 122px barrel body so the medallion
-            reads as a stamp on the stave panel rather than an orb
-            engulfing the whole barrel. */}
+            Positioned via `inset:0 + margin:auto` so the medallion
+            sits dead-center of the 122×148 barrel body without
+            fighting the ember-needs keyframe's own transform
+            (translate-based centering was being eaten by the
+            animation and rendering the medallion offset to the
+            top). Sized at ~59% of the barrel width so it reads as
+            a stamp on the front face, not an orb. */}
         {isAging ? (
           <span
             aria-hidden
-            className={`${needsAgeThisRound ? "ember-needs" : "ember-aged"} absolute left-1/2 top-1/2 block h-[64px] w-[64px] -translate-x-1/2 -translate-y-1/2 rounded-full`}
+            className={`${needsAgeThisRound ? "ember-needs" : "ember-aged"} block rounded-full`}
             style={{
+              position: "absolute",
+              inset: 0,
+              margin: "auto",
+              width: 72,
+              height: 72,
               background:
                 "radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%)",
               boxShadow: `inset 0 2px 3px rgba(255,255,255,.4), inset 0 -2px 4px rgba(0,0,0,.5), 0 0 10px ${band.glow}`,
@@ -1034,13 +1043,13 @@ function Barrel({
                 approach centered both as a single column and ended up
                 pinning YR against the digit's descender. */}
             <span
-              className="absolute left-1/2 top-[4px] -translate-x-1/2 font-display text-[34px] font-bold leading-none"
+              className="absolute left-1/2 top-[6px] -translate-x-1/2 font-display text-[38px] font-bold leading-none"
               style={{ color: "#2a1a10" }}
             >
               {barrel.age}
             </span>
             <span
-              className="absolute bottom-[4px] left-1/2 -translate-x-1/2 font-mono text-[9px] font-bold tracking-[.18em]"
+              className="absolute bottom-[5px] left-1/2 -translate-x-1/2 font-mono text-[9.5px] font-bold tracking-[.18em]"
               style={{ color: "#2a1a10" }}
             >
               YR
