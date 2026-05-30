@@ -185,6 +185,12 @@ export const TUTORIAL_BEATS: Beat[] = [
     body: "Click **Specialty Wheat**, then tag any **Labor card** (🔨) from your hand to pay the $2 cost.",
     spotlight: { kind: "market-slot", slotIndex: 0 },
     tapHint: { selector: "[data-market-slot-index='0']" },
+    // Narrow the hand to Labor cards so a stray click on a resource
+    // can't tag it as payment (engine would reject the eventual
+    // BUY_FROM_MARKET — silent dead-end from the player's POV). The
+    // tutorial scenario seeds two Generic Labor cards in the starter
+    // hand, both costing $1 each, which together cover the $2 buy.
+    handCardFilter: (c) => c.type === "labor",
     matches: (action) => {
       if (action.type !== "BUY_FROM_MARKET") return false;
       if (action.playerId !== TUTORIAL_HUMAN_ID) return false;

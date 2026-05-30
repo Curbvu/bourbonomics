@@ -1073,7 +1073,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const transform = tutorialActionTransformRef.current;
         if (transform) {
           const out = transform(action, prev.state);
-          if (out === null) return prev;
+          if (out === null) {
+            // Silent drop = user clicked something off-script. Surface
+            // a toast so the click doesn't look like a no-op / freeze.
+            // Only fire for human-originated actions (bot / scripted
+            // dispatches happen during beats where the transform is
+            // null, so they never reach this branch).
+            const actor =
+              "playerId" in (action as Record<string, unknown>)
+                ? String((action as { playerId?: unknown }).playerId ?? "")
+                : "";
+            const localSeatId = prev.state.players.find((p) => !p.isBot)?.id;
+            if (actor && actor === localSeatId) {
+              pushToast({
+                kind: "info",
+                title: "Follow the highlighted step",
+                detail: "The tutorial is waiting on a specific action.",
+              });
+            }
+            return prev;
+          }
           final = out;
         }
         let next: GameState;

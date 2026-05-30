@@ -49,6 +49,8 @@ export default function ActionBar() {
     startSellMode,
     cancelSellMode,
     triggerEndTurnDiscardAnimation,
+    tutorialActive,
+    tutorialSpotlight,
   } = useGameStore();
   if (!state) return null;
   if (state.phase !== "action") return null;
@@ -61,6 +63,29 @@ export default function ActionBar() {
   const inBuyMode = buyMode != null;
   const inMakeMode = makeMode != null;
   const inSellMode = sellMode != null;
+
+  // Tutorial gating: during the on-rails walkthrough, the player should
+  // only have access to the action that the current spotlight is asking
+  // for. Cancel-state buttons (Make/Sell/Buy showing "Cancel X") are
+  // always allowed so the player can bail out of a picker. The Buy
+  // button is also allowed when the spotlight is on a market slot/row,
+  // because clicking Buy is the canonical entry into the drawer.
+  const tutorialAllows = (verb: "make" | "sell" | "buy" | "trade" | "pass") => {
+    if (!tutorialActive) return true;
+    if (verb === "make" && inMakeMode) return true;
+    if (verb === "sell" && inSellMode) return true;
+    if (verb === "buy" && inBuyMode) return true;
+    const spot = tutorialSpotlight;
+    if (!spot) return false;
+    if (spot.kind === "action-button" && spot.action === verb) return true;
+    if (
+      verb === "buy" &&
+      (spot.kind === "market-slot" || spot.kind === "market-row")
+    ) {
+      return true;
+    }
+    return false;
+  };
 
   const sellEntry = canEnterSellMode(state, human);
   const makeEntry = canEnterMakeMode(state, human);
@@ -91,30 +116,35 @@ export default function ActionBar() {
         <PickerButton
           label="Make"
           inMode={inMakeMode}
-          enabled={!disabledByTurn && makeEntry.canMake}
+          enabled={!disabledByTurn && makeEntry.canMake && tutorialAllows("make")}
           tooltip={
             disabledByTurn
               ? "Wait for your turn"
               : inMakeMode
                 ? "Cancel the in-progress production"
-                : makeEntry.reason ??
-                  "Pick a mash bill, then tag the cards to commit."
+                : !tutorialAllows("make")
+                  ? "Follow the highlighted step first"
+                  : makeEntry.reason ??
+                    "Pick a mash bill, then tag the cards to commit."
           }
           onStart={startMakeMode}
           onCancel={cancelMakeMode}
           cancelLabel="Cancel make"
+          dataAction="make"
         />
         <PickerButton
           label="Sell"
           inMode={inSellMode}
-          enabled={!disabledByTurn && sellEntry.canSell}
+          enabled={!disabledByTurn && sellEntry.canSell && tutorialAllows("sell")}
           tooltip={
             disabledByTurn
               ? "Wait for your turn"
               : inSellMode
                 ? "Cancel the in-progress sale"
-                : sellEntry.reason ??
-                  "Pick a sellable barrel in your Rickhouse — the sale resolves instantly."
+                : !tutorialAllows("sell")
+                  ? "Follow the highlighted step first"
+                  : sellEntry.reason ??
+                    "Pick a sellable barrel in your Rickhouse — the sale resolves instantly."
           }
           onStart={startSellMode}
           onCancel={cancelSellMode}
@@ -123,13 +153,15 @@ export default function ActionBar() {
         />
         <BuyButton
           inBuyMode={inBuyMode}
-          enabled={!disabledByTurn && buyEntry.canBuy}
+          enabled={!disabledByTurn && buyEntry.canBuy && tutorialAllows("buy")}
           tooltip={
             disabledByTurn
               ? "Wait for your turn"
               : inBuyMode
                 ? "Cancel the in-progress purchase"
-                : buyEntry.reason ?? "Pick a market card. Pay with Capital, Labor, or a mix."
+                : !tutorialAllows("buy")
+                  ? "Follow the highlighted step first"
+                  : buyEntry.reason ?? "Pick a market card. Pay with Capital, Labor, or a mix."
           }
           onStart={startBuyMode}
           onCancel={cancelBuyMode}
@@ -140,6 +172,7 @@ export default function ActionBar() {
           state={state}
           dispatch={dispatch}
           disabledByTurn={disabledByTurn}
+          tutorialBlocked={!tutorialAllows("trade")}
           tooltipIdle="Swap your cheapest card with the first available partner's."
         />
         {/* v3.2: Draw Line Cards button retired; Draft Second
@@ -161,6 +194,7 @@ export default function ActionBar() {
             dispatch(a);
           }}
           disabledByTurn={disabledByTurn}
+          tutorialBlocked={!tutorialAllows("pass")}
           tooltipIdle="End your turn for the round. Cards in hand are held for cleanup."
           primary
           dataAction="pass"
@@ -330,6 +364,7 @@ function BuyButton({
     return (
       <button
         type="button"
+        data-bb-action="buy"
         onClick={onCancel}
         title={tooltip}
         className="rounded-md border border-rose-500 bg-rose-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-rose-100 transition-colors hover:border-rose-400 hover:bg-rose-800/40"
@@ -341,6 +376,7 @@ function BuyButton({
   return (
     <button
       type="button"
+      data-bb-action="buy"
       disabled={!enabled}
       onClick={enabled ? onStart : undefined}
       title={tooltip}
@@ -361,6 +397,7 @@ function SmartButton({
   state,
   dispatch,
   disabledByTurn,
+  tutorialBlocked = false,
   tooltipIdle,
   primary = false,
   dataAction,
@@ -370,6 +407,9 @@ function SmartButton({
   state: GameState;
   dispatch: (a: GameAction) => void;
   disabledByTurn: boolean;
+  /** When true, the tutorial is steering the player elsewhere — disable
+   *  this button regardless of engine legality. */
+  tutorialBlocked?: boolean;
   tooltipIdle: string;
   primary?: boolean;
   // Tutorial spotlight hook — when provided, renders `data-bb-action`
@@ -380,6 +420,8 @@ function SmartButton({
   let tooltip = tooltipIdle;
   if (disabledByTurn) {
     tooltip = "Wait for your turn";
+  } else if (tutorialBlocked) {
+    tooltip = "Follow the highlighted step first";
   } else if (!action) {
     tooltip = "No legal play available";
   } else {
