@@ -984,19 +984,26 @@ function ResourceCard({ card, indexInRow }: { card: Card; indexInRow: number }) 
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
         aria-hidden
       />
-      <div className="flex items-baseline justify-center px-7">
-        <span className={`text-[13px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
-          {RESOURCE_LABEL[subtype]}
-        </span>
+      {/* Card name in display font — single source of truth. Replaces
+          the old top all-caps subtype label + redundant h4 below it
+          (which would render e.g. "CASK" stacked over "Common Cask"
+          — the name twice). Now the top reads "Common Cask" once,
+          in the same display face as the rest of the card chrome,
+          with a small ×N badge if the card carries multiple units. */}
+      <div className="flex items-baseline justify-center gap-1 px-7">
+        <h4
+          className={`line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}
+        >
+          {card.displayName ?? RESOURCE_LABEL[subtype]}
+        </h4>
         {count > 1 ? (
-          <span className={`ml-1 rounded border px-1 py-px font-mono text-[11px] font-bold uppercase tracking-[.10em] ${chrome.borderSoft} ${chrome.ink}`}>
+          <span
+            className={`rounded border px-1 py-px font-mono text-[11px] font-bold uppercase tracking-[.10em] ${chrome.borderSoft} ${chrome.ink}`}
+          >
             ×{count}
           </span>
         ) : null}
       </div>
-      <h4 className={`mt-1 line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}>
-        {card.displayName ?? (count > 1 ? `${count}× ${RESOURCE_LABEL[subtype]}` : RESOURCE_LABEL[subtype])}
-      </h4>
       {card.flavor ? (
         <p className={`mt-0.5 line-clamp-2 font-display text-[11px] italic leading-snug ${chrome.label} opacity-90`}>
           {card.flavor}
@@ -1180,13 +1187,15 @@ function LaborCard({ card, indexInRow }: { card: Card; indexInRow: number }) {
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
         aria-hidden
       />
-      <div className="flex items-baseline justify-center px-7">
-        <span className={`text-[13px] font-semibold uppercase tracking-[0.18em] ${chrome.label}`}>
-          Labor
-        </span>
-      </div>
-      <h4 className={`mt-0.5 line-clamp-1 font-display text-[14px] font-bold leading-tight ${chrome.ink}`}>
-        {card.displayName ?? subtypeLabel}
+      {/* Single source-of-truth name in the display face — same pattern
+          as ResourceCard above. The old "LABOR" all-caps top band on
+          top of a display-font "Worker" / "Cooper" line repeated the
+          card identity twice. The card type now reads from
+          displayName once, in the same face as the rest of the card. */}
+      <h4
+        className={`line-clamp-2 font-display text-[15px] font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${chrome.ink}`}
+      >
+        {card.displayName ?? `${subtypeLabel} Labor`}
       </h4>
       {card.flavor ? (
         <p className={`mt-0.5 line-clamp-2 font-display text-[11px] italic leading-snug ${chrome.label} opacity-90`}>
