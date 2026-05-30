@@ -609,6 +609,10 @@ export interface GameStore {
   cancelSellMode: () => void;
   /** v2.10: pick a barrel — the sale auto-fires (no card-spend step). */
   setSellBarrel: (barrelId: string) => void;
+  /** Fire a sale for one barrel immediately, no picker mode. Lets
+   *  on-barrel Sell buttons sell in a single click without engaging
+   *  Sell mode + then having to pick the barrel as a separate step. */
+  sellBarrelNow: (barrelId: string) => void;
   /**
    * v2.6 drag-and-drop state — the id of the PRIMARY hand card
    * currently being dragged onto a slot, or `null` when no drag is in
@@ -793,6 +797,7 @@ const Ctx = createContext<GameStore>({
   startSellMode: noop,
   cancelSellMode: noop,
   setSellBarrel: noop,
+  sellBarrelNow: noop,
   dragMake: null,
   dragMakeIds: [],
   startDragMake: noop,
@@ -2426,6 +2431,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       startSellMode,
       cancelSellMode,
       setSellBarrel,
+      sellBarrelNow: fireSell,
       dragMake,
       dragMakeIds,
       startDragMake,
@@ -2512,6 +2518,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       startSellMode,
       cancelSellMode,
       setSellBarrel,
+      fireSell,
       dragMake,
       dragMakeIds,
       startDragMake,
