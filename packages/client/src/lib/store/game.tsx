@@ -712,8 +712,11 @@ export interface GameStore {
   // ─── Tutorial hooks ──────────────────────────────────────────
   /** True while the on-rails tutorial owns the store. Cleared by `endTutorial`. */
   tutorialActive: boolean;
-  /** Inject the rigged tutorial GameState and switch the store into tutorial mode. */
-  startTutorial: () => void;
+  /** Inject the rigged tutorial GameState and switch the store into tutorial mode.
+   *  Optionally accepts a custom scenario builder — the advanced tutorial
+   *  passes its own `buildTutorialAdvancedInitialState`. Default is the
+   *  basic-tutorial scenario. */
+  startTutorial: (builder?: () => GameState) => void;
   /** Clear the tutorial state and flags. Returns the store to its empty shape. */
   endTutorial: () => void;
   /** Direct state mutation — used by the tutorial controller for time-skips,
@@ -2250,8 +2253,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ─── Tutorial mode ───────────────────────────────────────────
-  const startTutorial = useCallback(() => {
-    const fresh = clearTutorialGates(buildTutorialInitialState());
+  const startTutorial = useCallback((builder?: () => GameState) => {
+    const fresh = clearTutorialGates(
+      builder ? builder() : buildTutorialInitialState(),
+    );
     tutorialActiveRef.current = true;
     setTutorialActive(true);
     tutorialActionTransformRef.current = null;
