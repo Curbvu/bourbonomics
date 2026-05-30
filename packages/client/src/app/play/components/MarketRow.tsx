@@ -436,18 +436,31 @@ function MarketRowCard({
         flex: "1 1 0",
         minWidth: 78,
         maxWidth: 160,
-        height: 212,
+        // Card height tightened from 212 to 168 after the bottom
+        // pill + Buy → footer was removed — content actually fits in
+        // ~156px now and the extra 12px gives the title a comfortable
+        // breathing room without bloating the market row's chrome.
+        height: 168,
         padding: "11px 10px 12px 10px",
         borderRadius: 9,
-        border: `1px solid ${picked ? "rgba(252,211,77,.9)" : dim ? "var(--rule)" : `${tierInk}66`}`,
+        // Tier is the only "what kind of card is this" signal now that
+        // the bottom pill is gone — bump the border alpha to ~AA so
+        // each tier reads at a glance, and seat a brighter inner
+        // top edge that doubles as a tier accent stripe.
+        border: `1px solid ${picked ? "rgba(252,211,77,.9)" : dim ? "var(--rule)" : `${tierInk}aa`}`,
         background: dim
           ? "linear-gradient(180deg, rgba(34,23,16,.55), rgba(20,14,8,.85))"
-          : `linear-gradient(180deg, ${tierInk}1f 0%, rgba(20,14,8,.95) 70%)`,
+          : // Stronger tier tint (was 1f ≈ 12%, now 38 ≈ 22%) so the
+            // top half of the card visibly carries the tier color.
+            `linear-gradient(180deg, ${tierInk}38 0%, rgba(20,14,8,.95) 70%)`,
         boxShadow: picked
           ? pickedShadow
           : dim
             ? "inset 0 1px 0 rgba(255,255,255,.04)"
-            : `inset 0 1px 0 rgba(255,255,255,.06), 0 4px 12px ${tierGlow}`,
+            : // Add an inset top accent stripe (`inset 0 2px 0 ${tierInk}`)
+              // so the card reads as "tier-colored ribbon over slate" —
+              // mirrors what the bottom pill used to do at the top edge.
+              `inset 0 2px 0 ${tierInk}, inset 0 1px 0 rgba(255,255,255,.10), 0 4px 14px ${tierGlow}`,
         transform: picked ? "translateY(-4px)" : undefined,
         color: "var(--ink)",
         cursor: dim ? "not-allowed" : "pointer",
@@ -537,53 +550,10 @@ function MarketRowCard({
         </div>
       ) : null}
 
-      {/* Footer: tier pill + Buy → hint */}
-      <div
-        className="mt-auto flex items-center justify-between gap-1 pt-1.5"
-        style={{
-          borderTop: "1px dotted rgba(110,80,50,.3)",
-          minWidth: 0,
-        }}
-      >
-        <span
-          className="font-mono font-bold uppercase"
-          style={{
-            padding: "2px 6px",
-            borderRadius: 4,
-            border: `1px solid ${tierInk}`,
-            color: tierInk,
-            fontSize: 16,
-            letterSpacing: ".1em",
-            minWidth: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {tierKey === "uncommon"
-            ? "Uncommon"
-            : tierKey === "rare"
-              ? "Rare"
-              : tierKey === "epic"
-                ? "Epic"
-                : tierKey === "legendary"
-                  ? "Legendary"
-                  : "Common"}
-        </span>
-        {!dim ? (
-          <span
-            className="font-mono font-bold uppercase"
-            style={{
-              fontSize: 16,
-              letterSpacing: ".1em",
-              color: "var(--gold)",
-              flexShrink: 0,
-            }}
-          >
-            Buy →
-          </span>
-        ) : null}
-      </div>
+      {/* Tier is now communicated purely through chrome (border color,
+          background gradient, glow). No textual "UNCOMMON" pill, no
+          "BUY →" hint — the click affordance is implicit and the
+          tier reads from the card's hue. */}
     </button>
   );
 }
