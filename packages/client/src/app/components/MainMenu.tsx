@@ -22,6 +22,8 @@ import Link from "next/link";
 // "Resume" tile, so reading the current key is enough.
 const STORAGE_KEY = "bourbonomics:v3.5.0-game";
 const TUTORIAL_COMPLETE_KEY = "bourbonomics:tutorial-complete";
+const TUTORIAL_ADVANCED_COMPLETE_KEY =
+  "bourbonomics:tutorial-advanced-complete";
 
 interface SavedGameMeta {
   round: number;
@@ -32,6 +34,7 @@ interface SavedGameMeta {
 export default function MainMenu() {
   const [resume, setResume] = useState<SavedGameMeta | null>(null);
   const [tutorialDone, setTutorialDone] = useState(false);
+  const [advancedTutorialDone, setAdvancedTutorialDone] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -53,6 +56,11 @@ export default function MainMenu() {
       }
       if (window.localStorage.getItem(TUTORIAL_COMPLETE_KEY) === "true") {
         setTutorialDone(true);
+      }
+      if (
+        window.localStorage.getItem(TUTORIAL_ADVANCED_COMPLETE_KEY) === "true"
+      ) {
+        setAdvancedTutorialDone(true);
       }
     } catch {
       // Corrupt save — pretend it isn't there so the menu still renders.
@@ -82,6 +90,26 @@ export default function MainMenu() {
               : "Build, age, sell — every beat scripted, every lesson lands."
           }
           accent={tutorialDone ? "slate" : "violet"}
+        />
+      ) : null}
+
+      {hydrated && tutorialDone ? (
+        <MenuTile
+          href="/tutorial/advanced"
+          eyebrow={
+            advancedTutorialDone ? "Replay advanced tutorial" : "Advanced tutorial"
+          }
+          title={
+            advancedTutorialDone
+              ? "Walk through it again"
+              : "Everything the basic tutorial skipped"
+          }
+          subtitle={
+            advancedTutorialDone
+              ? "Distillery picks, Drafting Loop, portfolios, scoring — the whole 14-chapter tour."
+              : "Distillery picks, mash bills, Drafting Loop, demand, ops cards, portfolios, endgame — 14 chapters."
+          }
+          accent={advancedTutorialDone ? "slate" : "violet"}
         />
       ) : null}
 

@@ -41,7 +41,46 @@ export const TUTORIAL_COMPLETE_KEY = "bourbonomics:tutorial-complete";
 
 type Phase = "intro" | "tour" | "play" | "done";
 
-export default function TutorialController() {
+/**
+ * Props for re-using this controller in the advanced tutorial.
+ *
+ * The basic tutorial passes nothing — every default below points
+ * at the basic-tutorial beats / progress helper / localStorage key
+ * so the existing /tutorial route keeps working unchanged.
+ *
+ * The advanced tutorial passes its own:
+ *   - `beats` / `progressFor` from `./advanced/beats.ts`
+ *   - `completeKey = "bourbonomics:tutorial-advanced-complete"`
+ *   - `skipIntroTour = true` (advanced players don't need the
+ *      "this is your distillery" board tour again)
+ */
+export interface TutorialControllerProps {
+  /** Beat list to walk. Default: basic-tutorial beats. */
+  beats?: Beat[];
+  /** Chapter-progress reader. Default: basic-tutorial helper. */
+  progressFor?: (
+    beatIndex: number,
+  ) => {
+    chapterLabel: string;
+    chapterNumber: number;
+    position: number;
+    total: number;
+  } | null;
+  /** localStorage key to set on tutorial completion. */
+  completeKey?: string;
+  /** Skip the IntroSequence + BoardTour cinematic. The advanced
+   *  tutorial drops straight into chapter 1's distillery picker. */
+  skipIntroTour?: boolean;
+}
+
+export default function TutorialController({
+  beats: beatsProp,
+  progressFor: progressForProp,
+  completeKey = TUTORIAL_COMPLETE_KEY,
+  skipIntroTour = false,
+}: TutorialControllerProps = {}) {
+  const beats = beatsProp ?? TUTORIAL_BEATS;
+  const progressFor = progressForProp ?? chapterProgressFor;
   const {
     state,
     dispatch,
@@ -60,7 +99,9 @@ export default function TutorialController() {
     endTutorial,
   } = useGameStore();
 
-  const [phase, setPhase] = useState<Phase>("intro");
+  // Advanced tutorial skips the basic-tutorial intro cinematic + board
+  // tour and drops straight into chapter 1's distillery picker.
+  const [phase, setPhase] = useState<Phase>(skipIntroTour ? "play" : "intro");
   const [beatIndex, setBeatIndex] = useState(0);
   const [decisionReply, setDecisionReply] = useState<string | null>(null);
   const [confetti, setConfetti] = useState(false);
@@ -96,10 +137,10 @@ export default function TutorialController() {
   // matcher that's already been satisfied (state has moved past it).
   const findPreviousPromptIndex = useCallback((from: number): number => {
     for (let i = from - 1; i >= 0; i--) {
-      if (TUTORIAL_BEATS[i]?.kind === "prompt") return i;
+      if (beats[i]?.kind === "prompt") return i;
     }
     return -1;
-  }, []);
+  }, [beats]);
 
   const goBackToPreviousPrompt = useCallback(() => {
     const target = findPreviousPromptIndex(beatIndexRef.current);
@@ -108,7 +149,7 @@ export default function TutorialController() {
     beatIndexRef.current = target;
   }, [findPreviousPromptIndex]);
 
-  const beat: Beat | undefined = TUTORIAL_BEATS[beatIndex];
+  const beat: Beat | undefined = beats[beatIndex];
 
   // Track the previous beat index so we can detect forward advances
   // (used to close lingering inspect modals on a "walk through the
@@ -117,7 +158,7 @@ export default function TutorialController() {
   useEffect(() => {
     const prevIdx = prevBeatIndexRef.current;
     if (beatIndex > prevIdx) {
-      const prevBeat = TUTORIAL_BEATS[prevIdx];
+      const prevBeat = beats[prevIdx];
       if (
         prevBeat?.kind === "prompt" &&
         prevBeat.closeInspectOnAdvance
@@ -292,7 +333,7 @@ export default function TutorialController() {
     if (beat) return;
     setPhase("done");
     try {
-      window.localStorage.setItem(TUTORIAL_COMPLETE_KEY, "true");
+      window.localStorage.setItem(completeKey, "true");
     } catch {
       /* private mode — no-op */
     }
@@ -422,7 +463,8 @@ export default function TutorialController() {
         beat={beat}
         decisionReply={decisionReply}
         beatIndex={beatIndex}
-        totalBeats={TUTORIAL_BEATS.length}
+        totalBeats={beats.length}
+        progressFor={progressFor}
         canGoBack={findPreviousPromptIndex(beatIndex) >= 0}
         onContinue={advance}
         onBack={goBackToPreviousPrompt}
@@ -433,7 +475,7 @@ export default function TutorialController() {
         }}
         onFinaleClose={() => {
           try {
-            window.localStorage.setItem(TUTORIAL_COMPLETE_KEY, "true");
+            window.localStorage.setItem(completeKey, "true");
           } catch {
             /* ignore */
           }
@@ -456,6 +498,7 @@ function BeatOverlay({
   decisionReply,
   beatIndex,
   totalBeats,
+  progressFor,
   canGoBack,
   onContinue,
   onBack,
@@ -469,6 +512,12 @@ function BeatOverlay({
   decisionReply: string | null;
   beatIndex: number;
   totalBeats: number;
+  progressFor: (beatIndex: number) => {
+    chapterLabel: string;
+    chapterNumber: number;
+    position: number;
+    total: number;
+  } | null;
   canGoBack: boolean;
   onContinue: () => void;
   onBack: () => void;
@@ -487,6 +536,7 @@ function BeatOverlay({
         beat={beat}
         beatIndex={beatIndex}
         totalBeats={totalBeats}
+        progressFor={progressFor}
         canGoBack={canGoBack}
         onBack={onBack}
       />
@@ -541,11 +591,18 @@ function BeatOverlay({
 function ChapterProgress({
   beatIndex,
   totalBeats: _totalBeats,
+  progressFor,
 }: {
   beatIndex: number;
   totalBeats: number;
+  progressFor: (beatIndex: number) => {
+    chapterLabel: string;
+    chapterNumber: number;
+    position: number;
+    total: number;
+  } | null;
 }) {
-  const prog = chapterProgressFor(beatIndex);
+  const prog = progressFor(beatIndex);
   if (!prog) return <span>Tutorial</span>;
   return (
     <span>
@@ -657,12 +714,19 @@ function CoachMark({
   beat,
   beatIndex,
   totalBeats,
+  progressFor,
   canGoBack,
   onBack,
 }: {
   beat: Beat;
   beatIndex: number;
   totalBeats: number;
+  progressFor: (beatIndex: number) => {
+    chapterLabel: string;
+    chapterNumber: number;
+    position: number;
+    total: number;
+  } | null;
   canGoBack: boolean;
   onBack: () => void;
 }) {
@@ -709,7 +773,7 @@ function CoachMark({
       style={wrapperStyle}
     >
       <div className="flex items-center justify-between font-mono text-[12px] uppercase tracking-[.14em] text-amber-300/85">
-        <ChapterProgress beatIndex={beatIndex} totalBeats={totalBeats} />
+        <ChapterProgress beatIndex={beatIndex} totalBeats={totalBeats} progressFor={progressFor} />
         <SkipLink />
       </div>
       {beat.title ? (

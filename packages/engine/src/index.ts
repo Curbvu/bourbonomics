@@ -17,6 +17,7 @@ export * from "./ai/bot";
 export * from "./ai/runner";
 export * from "./ai/line-heuristics";
 export * from "./tutorial";
+export * from "./tutorial-advanced";
 // v3.0 Line system: re-export the lines/ barrel so UI code can
 // reach predicates, board defs, card defs, and scoring without
 // digging into engine internals.
