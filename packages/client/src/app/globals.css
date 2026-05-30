@@ -644,11 +644,13 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
 
 /* `.stage-tag` — all-caps brass section header. Used on
    "YOUR DISTILLERY", "THE MARKET", "Conveyor" stage strips.
-   Pre-scale 16px so it stays ≥ 12px post-scale on a 1920×1080
-   monitor where ScalingHost lands at ~0.75×. */
+   Native size (9px) lets the GameTopBar — which lives OUTSIDE
+   ScalingHost — render at its designed scale. Inside the scaled
+   play canvas, the override below pushes this to 16px so the
+   post-scale text clears the 1920×1080 legibility floor. */
 .stage-tag {
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -656,15 +658,27 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
 }
 
 /* `.label-sm` — the workhorse all-caps mono label (slot counts,
-   "Rep", "live" pill, counter captions). 16px for the same
-   legibility-after-scaling reason as `.stage-tag`. */
+   "Rep", "live" pill, counter captions). Same native + scoped
+   override pattern as `.stage-tag` above. */
 .label-sm {
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: 9.5px;
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--brass);
+}
+
+/* In-canvas size bump for the two workhorse small-text classes —
+   the play board sits under a ~0.75× scale, so a 16px source
+   renders at ~12px on a 1920×1080 monitor. Without this scope
+   the GameTopBar (rendered native, outside ScalingHost) would
+   pick up the bump too and look oversized. */
+[data-bb-scale-canvas] .stage-tag {
+  font-size: 16px;
+}
+[data-bb-scale-canvas] .label-sm {
+  font-size: 16px;
 }
 
 /* ─── Play-screen legibility floor (1920×1080 hard rule) ───────────

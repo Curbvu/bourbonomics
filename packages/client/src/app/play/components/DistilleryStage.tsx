@@ -874,14 +874,133 @@ function BarrelCell({
       onDragLeave={interaction.onDragLeave}
       onDrop={interaction.onDrop}
       title={titleText}
-      className="relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform"
+      className="group relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform"
       style={{
         transform: selected ? "translateY(-6px)" : "translateY(0)",
       }}
     >
+      <BarrelTopCaption barrel={barrel} band={band} selected={selected} />
       <Barrel barrel={barrel} band={band} selected={selected} />
-      <CaptionCard barrel={barrel} band={band} selected={selected} />
+      <BarrelBottomCaption barrel={barrel} band={band} selected={selected} />
     </button>
+  );
+}
+
+/**
+ * Above-the-barrel caption — bill name (tier-tinted) on the left, phase
+ * chip on the right. Replaces the top half of the old CaptionCard.
+ *
+ * Why a top caption: the user can scan a row of barrels and read
+ * "what am I making?" in a single eyeline, without their eye drifting
+ * down past the wood to the old footer panel. The phase chip lives
+ * up here too because phase ("Building" vs "Aging") is the single
+ * most-actionable piece of info per barrel.
+ */
+function BarrelTopCaption({
+  barrel,
+  band,
+  selected,
+}: {
+  barrel: Barrel;
+  band: { ink: string; glow: string; label: string };
+  selected: boolean;
+}) {
+  const bill = barrel.attachedMashBill;
+  return (
+    <div
+      className="mb-2 flex items-center justify-between gap-2 leading-tight"
+      style={{
+        // Thin tier-colored hairline under the name so the "title row"
+        // reads as its own visual band even without a heavy panel.
+        borderBottom: `1px solid ${selected ? "rgba(240,201,112,.55)" : `${band.ink}55`}`,
+        paddingBottom: 4,
+      }}
+    >
+      <span
+        className="font-display font-semibold tracking-[.01em]"
+        style={{
+          color: selected ? "var(--gold)" : "var(--ink)",
+          fontSize: 18,
+          textShadow: `0 1px 8px ${band.glow}`,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {bill?.name ?? "in progress"}
+      </span>
+      <PhaseStamp phase={barrel.phase} age={barrel.age} />
+    </div>
+  );
+}
+
+/**
+ * Below-the-barrel caption — slogan (italic, dimmer) + REP range +
+ * mash pips on a single compact row. Replaces the bottom half of the
+ * old CaptionCard. No heavy panel chrome — the slogan reads as a
+ * tasting note under the barrel, the REP/pip pair reads as the
+ * "current pour" gauge. Tier label is gone: the band of color on the
+ * top-caption hairline + the barrel's own halo carry the tier.
+ */
+function BarrelBottomCaption({
+  barrel,
+  band,
+  selected,
+}: {
+  barrel: Barrel;
+  band: { ink: string; glow: string; label: string };
+  selected: boolean;
+}) {
+  const bill = barrel.attachedMashBill;
+  const cells: number[] = [];
+  if (bill) {
+    for (const row of bill.rewardGrid) {
+      for (const c of row) if (c !== null) cells.push(c);
+    }
+  }
+  const peak = cells.length ? Math.max(...cells) : 0;
+  const floor = cells.length ? Math.min(...cells) : 0;
+  return (
+    <div
+      className="mt-2 flex flex-col gap-1.5 leading-tight"
+      style={{
+        opacity: selected ? 1 : 0.95,
+      }}
+    >
+      {bill?.slogan ? (
+        <div
+          className="font-display italic"
+          style={{
+            color: "var(--ink-muted)",
+            fontSize: 14,
+            lineHeight: 1.35,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            wordBreak: "break-word",
+          }}
+        >
+          {bill.slogan}
+        </div>
+      ) : null}
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className="font-display font-bold tracking-[.01em]"
+          style={{ color: band.ink, fontSize: 18 }}
+        >
+          {bill ? `${floor}–${peak}` : "—"}{" "}
+          <span
+            className="label-sm"
+            style={{ color: band.ink, opacity: 0.75 }}
+          >
+            rep
+          </span>
+        </span>
+        <MashPips barrel={barrel} />
+      </div>
+    </div>
   );
 }
 
@@ -1286,78 +1405,11 @@ function BarrelNeedsPlate({ needs }: { needs: BarrelNeed[] }) {
   );
 }
 
-function CaptionCard({
-  barrel,
-  band,
-  selected,
-}: {
-  barrel: Barrel;
-  band: { ink: string; glow: string; label: string };
-  selected: boolean;
-}) {
-  const bill = barrel.attachedMashBill;
-  const cells: number[] = [];
-  if (bill) {
-    for (const row of bill.rewardGrid) {
-      for (const c of row) if (c !== null) cells.push(c);
-    }
-  }
-  const peak = cells.length ? Math.max(...cells) : 0;
-  const floor = cells.length ? Math.min(...cells) : 0;
-  return (
-    <div
-      className="mt-3 w-full rounded-[9px] border text-left"
-      style={{
-        padding: "10px 12px 11px 12px",
-        borderColor: selected ? "var(--gold)" : `${band.ink}55`,
-        background:
-          "linear-gradient(180deg, rgba(34,23,16,.85), rgba(20,14,8,.95))",
-        boxShadow: selected
-          ? "0 0 0 2px rgba(240,201,112,.35), 0 6px 18px rgba(240,201,112,.25)"
-          : "inset 0 1px 0 rgba(255,255,255,.05)",
-      }}
-    >
-      <div className="flex items-baseline justify-between gap-2">
-        <span
-          className="label-sm"
-          style={{ color: band.ink, fontSize: 16, letterSpacing: ".16em" }}
-        >
-          {band.label}
-        </span>
-        <PhaseStamp phase={barrel.phase} age={barrel.age} />
-      </div>
-      <div
-        className="mt-1.5 font-display font-semibold leading-tight"
-        style={{ color: "var(--ink)", fontSize: 20 }}
-      >
-        {bill?.name ?? "in progress"}
-      </div>
-      {bill?.slogan ? (
-        <div
-          className="mt-1 font-display italic"
-          style={{ color: "var(--mute)", fontSize: 13.5, lineHeight: 1.35 }}
-        >
-          {bill.slogan}
-        </div>
-      ) : null}
-      <div className="mt-2.5 flex items-center justify-between gap-2">
-        <span
-          className="font-display font-bold tracking-[.01em]"
-          style={{ color: band.ink, fontSize: 20 }}
-        >
-          {bill ? `${floor}–${peak}` : "—"}{" "}
-          <span
-            className="label-sm"
-            style={{ color: band.ink, opacity: 0.75, fontSize: 16 }}
-          >
-            rep
-          </span>
-        </span>
-        <MashPips barrel={barrel} />
-      </div>
-    </div>
-  );
-}
+// `CaptionCard` removed in this revision — replaced by BarrelTopCaption
+// + BarrelBottomCaption on either side of the barrel. The old footer
+// panel doubled the chrome and pushed the name + REP gauge down past
+// the eye-line; splitting it lets the bill name read first, on top
+// of its barrel, with slogan + REP below.
 
 function PhaseStamp({ phase, age }: { phase: Barrel["phase"]; age: number }) {
   const map: Record<
