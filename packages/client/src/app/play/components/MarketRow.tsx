@@ -74,8 +74,24 @@ const TIER_GLOW: Record<string, string> = {
 };
 
 export default function MarketRow() {
-  const { state, multiplayerMode, startBuyMode, setBuyTarget, buyMode, setInspect } = useGameStore();
+  const {
+    state,
+    multiplayerMode,
+    startBuyMode,
+    setBuyTarget,
+    buyMode,
+    setInspect,
+    tutorialSpotlight,
+  } = useGameStore();
   if (!state) return null;
+
+  // Tutorial gate — mirrors MarketDrawer: when the spotlight pins a
+  // specific market slot, only that slot can be clicked through the
+  // persistent shelf. Other slots dim out of the way.
+  const tutorialPinnedSlot =
+    tutorialSpotlight?.kind === "market-slot"
+      ? tutorialSpotlight.slotIndex
+      : null;
 
   // Mirror DistilleryStage's seat-id logic so the affordability check
   // measures the local seat's wallet — never the wrong seat in MP.
@@ -96,6 +112,9 @@ export default function MarketRow() {
   // drives the payment selection — the row click only fixes the target.
   const onCardBuy = (slotIndex: number, affordable: boolean) => {
     if (!affordable) return;
+    if (tutorialPinnedSlot != null && slotIndex !== tutorialPinnedSlot) {
+      return;
+    }
     startBuyMode();
     setBuyTarget({ slotIndex });
   };
@@ -213,6 +232,9 @@ export default function MarketRow() {
               slotIndex={i}
               affordable={reputation >= (card.cost ?? 1)}
               picked={buyMode?.pickedTarget?.slotIndex === i}
+              tutorialBlocked={
+                tutorialPinnedSlot != null && i !== tutorialPinnedSlot
+              }
               onBuy={() => onCardBuy(i, reputation >= (card.cost ?? 1))}
               onInspect={() => onCardInspect(card)}
             />
@@ -331,6 +353,7 @@ function MarketRowCard({
   slotIndex,
   affordable,
   picked,
+  tutorialBlocked = false,
   onBuy,
   onInspect,
 }: {
@@ -338,6 +361,10 @@ function MarketRowCard({
   slotIndex: number;
   affordable: boolean;
   picked: boolean;
+  /** When the tutorial is steering the player toward a different slot,
+   *  dim this card and gate the left-click. Right-click still opens
+   *  inspect so the player can read what's blocked. */
+  tutorialBlocked?: boolean;
   onBuy: () => void;
   /** Right-click opens the full inspect modal — never blocked by
    *  affordability, so the player can read about cards they can't buy. */
@@ -348,7 +375,7 @@ function MarketRowCard({
   const tierInk = TIER_INK[tierKey];
   const tierGlow = TIER_GLOW[tierKey] ?? "rgba(185,166,132,.30)";
 
-  const dim = !affordable;
+  const dim = !affordable || tutorialBlocked;
   const cost = card.cost ?? 1;
 
   // Resolve display name + slogan. Each card type stores its name in a
@@ -391,7 +418,13 @@ function MarketRowCard({
       // Stay un-disabled so contextmenu still fires on unaffordable
       // cards — `disabled` blocks all native pointer events including
       // right-click. We gate the left-click ourselves via `dim`.
-      title={dim ? "Can't afford yet — right-click to inspect" : "Left-click to buy · right-click to inspect"}
+      title={
+        tutorialBlocked
+          ? "Follow the highlighted step first"
+          : dim
+            ? "Can't afford yet — right-click to inspect"
+            : "Left-click to buy · right-click to inspect"
+      }
       data-market-slot-index={slotIndex}
       data-market-picked={picked || undefined}
       className="relative flex flex-col text-left"

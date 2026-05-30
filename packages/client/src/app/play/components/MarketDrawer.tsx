@@ -59,7 +59,20 @@ export default function MarketDrawer({
 
   if (!open || !state) return null;
 
+  // Tutorial gate — when the spotlight pins a specific market slot,
+  // only that slot accepts clicks. Other slots are visually muted
+  // (see `tutorialBlocked` below) so a stray click on filler doesn't
+  // engage buy mode and silently dead-end on the BuyOverlay's
+  // confirm dispatch (which the tutorial transform would drop).
+  const tutorialPinnedSlot =
+    tutorialSpotlight?.kind === "market-slot"
+      ? tutorialSpotlight.slotIndex
+      : null;
+
   const onCardClick = (slotIndex: number) => {
+    if (tutorialPinnedSlot != null && slotIndex !== tutorialPinnedSlot) {
+      return;
+    }
     // Close the drawer immediately and engage the standard buyMode
     // flow — BuyOverlay will then drive the payment selection.
     onClose();
@@ -172,6 +185,8 @@ export default function MarketDrawer({
               const tutorialPulse =
                 tutorialSpotlight?.kind === "market-slot" &&
                 tutorialSpotlight.slotIndex === i;
+              const tutorialBlocked =
+                tutorialPinnedSlot != null && i !== tutorialPinnedSlot;
               return (
                 <MarketCard
                   key={c.id}
@@ -179,6 +194,7 @@ export default function MarketDrawer({
                   slotIndex={i}
                   onClick={() => onCardClick(i)}
                   tutorialPulse={tutorialPulse}
+                  tutorialBlocked={tutorialBlocked}
                 />
               );
             })}
@@ -199,6 +215,7 @@ function MarketCard({
   slotIndex,
   onClick,
   tutorialPulse = false,
+  tutorialBlocked = false,
 }: {
   card: Card;
   slotIndex: number;
@@ -209,6 +226,13 @@ function MarketCard({
    * ring sits at z-40 below the drawer and would otherwise be hidden.
    */
   tutorialPulse?: boolean;
+  /**
+   * Tutorial-blocked dims the card to ~30% and disables the click —
+   * the spotlight is pointing the player at a different slot and any
+   * dispatch from a wrong slot would silently get dropped by the
+   * tutorial transform. Better to remove the click target entirely.
+   */
+  tutorialBlocked?: boolean;
 }) {
   // Cards are wider than the conveyor row's 100×140; the drawer can
   // afford bigger silhouettes. Tier chrome drives border + glow.
@@ -239,6 +263,7 @@ function MarketCard({
         labelColor={chrome.label}
         ink={chrome.ink}
         tutorialPulse={tutorialPulse}
+        tutorialBlocked={tutorialBlocked}
       >
         <h4
           className="mt-0.5 line-clamp-2 font-display text-[16px] font-semibold leading-tight"
@@ -294,6 +319,7 @@ function MarketCard({
         labelColor={chrome.label}
         ink={chrome.ink}
         tutorialPulse={tutorialPulse}
+        tutorialBlocked={tutorialBlocked}
       >
         <h4
           className="mt-0.5 line-clamp-2 font-display text-[16px] font-semibold leading-tight"
@@ -348,6 +374,7 @@ function MarketCard({
         labelColor="text-[#82c9a3]"
         ink="text-[#f0e3c8]"
         tutorialPulse={tutorialPulse}
+        tutorialBlocked={tutorialBlocked}
       >
         <h4
           className="mt-0.5 line-clamp-2 font-display text-[15px] font-semibold leading-tight"
@@ -396,6 +423,7 @@ function MarketCard({
       labelColor={chrome.label}
       ink={chrome.ink}
       tutorialPulse={tutorialPulse}
+      tutorialBlocked={tutorialBlocked}
     >
       <h4
         className="mt-0.5 line-clamp-2 font-display text-[16px] font-semibold leading-tight"
@@ -440,6 +468,7 @@ function DrawerCard({
   labelColor,
   children,
   tutorialPulse = false,
+  tutorialBlocked = false,
 }: {
   cost: number;
   slotIndex: number;
@@ -452,16 +481,25 @@ function DrawerCard({
   ink: string;
   children: React.ReactNode;
   tutorialPulse?: boolean;
+  tutorialBlocked?: boolean;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={tutorialBlocked ? undefined : onClick}
+      disabled={tutorialBlocked}
+      title={
+        tutorialBlocked ? "Follow the highlighted step first" : undefined
+      }
       data-market-slot-index={slotIndex}
-      className={`relative flex flex-col rounded-[10px] border p-2.5 text-left transition-all hover:-translate-y-[2px] ${gradient} ${border} ${tutorialPulse ? "ring-2 ring-amber-300 shadow-[0_0_24px_rgba(252,211,77,.55)]" : ""}`}
+      className={`relative flex flex-col rounded-[10px] border p-2.5 text-left transition-all ${
+        tutorialBlocked ? "cursor-not-allowed" : "hover:-translate-y-[2px]"
+      } ${gradient} ${border} ${tutorialPulse ? "ring-2 ring-amber-300 shadow-[0_0_24px_rgba(252,211,77,.55)]" : ""}`}
       style={{
         boxShadow: `inset 0 1px 0 rgba(255,255,255,.06), 0 4px 14px ${tierInk}33`,
         minHeight: 156,
+        opacity: tutorialBlocked ? 0.32 : 1,
+        filter: tutorialBlocked ? "saturate(0.5)" : undefined,
       }}
     >
       <div className="mb-1 flex items-baseline justify-between">

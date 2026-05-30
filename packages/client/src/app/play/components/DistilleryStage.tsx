@@ -485,7 +485,7 @@ function Rickhouse({
 
       {/* Slot grid */}
       <div
-        className="relative mt-1.5 grid items-end gap-[22px]"
+        className="relative mt-1.5 grid items-stretch gap-[22px]"
         style={{
           gridTemplateColumns: `repeat(${slots.length}, minmax(0, 1fr))`,
           minHeight: 220,
@@ -1014,15 +1014,18 @@ function Barrel({
         )}
 
         {/* Center plate — year medallion on aging barrels, needed-
-            resources stack on barrels waiting for cards. */}
+            resources stack on barrels waiting for cards.
+            Sized at ~52% of the 122px barrel body so the medallion
+            reads as a stamp on the stave panel rather than an orb
+            engulfing the whole barrel. */}
         {isAging ? (
           <span
             aria-hidden
-            className={`${needsAgeThisRound ? "ember-needs" : "ember-aged"} absolute left-1/2 top-1/2 block h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 rounded-full`}
+            className={`${needsAgeThisRound ? "ember-needs" : "ember-aged"} absolute left-1/2 top-1/2 block h-[64px] w-[64px] -translate-x-1/2 -translate-y-1/2 rounded-full`}
             style={{
               background:
                 "radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%)",
-              boxShadow: `inset 0 2px 3px rgba(255,255,255,.4), inset 0 -2px 4px rgba(0,0,0,.5), 0 0 12px ${band.glow}`,
+              boxShadow: `inset 0 2px 3px rgba(255,255,255,.4), inset 0 -2px 4px rgba(0,0,0,.5), 0 0 10px ${band.glow}`,
             }}
           >
             {/* Digit + YR are absolutely positioned with explicit
@@ -1031,13 +1034,13 @@ function Barrel({
                 approach centered both as a single column and ended up
                 pinning YR against the digit's descender. */}
             <span
-              className="absolute left-1/2 top-[6px] -translate-x-1/2 font-display text-[58px] font-bold leading-none"
+              className="absolute left-1/2 top-[4px] -translate-x-1/2 font-display text-[34px] font-bold leading-none"
               style={{ color: "#2a1a10" }}
             >
               {barrel.age}
             </span>
             <span
-              className="absolute bottom-[6px] left-1/2 -translate-x-1/2 font-mono text-[12px] font-bold tracking-[.2em]"
+              className="absolute bottom-[4px] left-1/2 -translate-x-1/2 font-mono text-[9px] font-bold tracking-[.18em]"
               style={{ color: "#2a1a10" }}
             >
               YR
@@ -1611,9 +1614,12 @@ function EmptySlot({
           </div>
         </div>
         <div
-          className="mt-3 w-full rounded-[9px] border text-center font-mono uppercase"
+          className="mt-3 flex w-full flex-1 items-center justify-center rounded-[9px] border text-center font-mono uppercase"
           style={{
-            padding: "12px 12px",
+            // `flex-1` grows the caption to fill the remaining row
+            // height so the grid's items-stretch keeps this slot's
+            // visual at the same Y as the BarrelCells' barrels.
+            padding: "12px",
             fontSize: 12,
             letterSpacing: ".22em",
             borderColor: "rgba(52,211,153,.7)",
@@ -1678,9 +1684,12 @@ function EmptySlot({
         </div>
       </div>
       <div
-        className="mt-3 w-full rounded-[9px] border text-center font-mono uppercase"
+        className="mt-3 flex w-full flex-1 items-center justify-center rounded-[9px] border text-center font-mono uppercase"
         style={{
-          padding: "12px 12px",
+          // `flex-1` grows the caption to fill the remaining row
+          // height so the grid's items-stretch keeps this slot's
+          // silhouette at the same Y as the BarrelCells' barrels.
+          padding: "12px",
           fontSize: 12,
           letterSpacing: ".22em",
           borderColor: selected ? "var(--gold)" : "rgba(110,80,50,.45)",
