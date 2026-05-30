@@ -98,7 +98,7 @@ export default function EventLog() {
             >
               <span
                 className="label-sm flex-shrink-0"
-                style={{ fontSize: 13, color: "var(--whisper)" }}
+                style={{ fontSize: 16, color: "var(--whisper)" }}
               >
                 R{e.round}
               </span>

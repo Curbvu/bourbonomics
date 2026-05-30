@@ -644,11 +644,11 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
 
 /* `.stage-tag` — all-caps brass section header. Used on
    "YOUR DISTILLERY", "THE MARKET", "Conveyor" stage strips.
-   Pre-scale 14px so it stays ≥ 10px post-scale on a 1920×1080
-   monitor where ScalingHost lands at ~0.72×. */
+   Pre-scale 16px so it stays ≥ 12px post-scale on a 1920×1080
+   monitor where ScalingHost lands at ~0.75×. */
 .stage-tag {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -656,11 +656,11 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
 }
 
 /* `.label-sm` — the workhorse all-caps mono label (slot counts,
-   "Rep", "live" pill, counter captions). 14px for the same
+   "Rep", "live" pill, counter captions). 16px for the same
    legibility-after-scaling reason as `.stage-tag`. */
 .label-sm {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -668,47 +668,55 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
 }
 
 /* ─── Play-screen legibility floor (1920×1080 hard rule) ───────────
-   The ScalingHost shrinks the play canvas to fit (typically ~0.72×
+   The ScalingHost shrinks the play canvas to fit (typically ~0.75×
    on a 1920×1080 monitor after the GameTopBar takes its slice). The
-   smallest text we ship needs to render ≥ ~10px post-scale, which
-   means ≥ ~14px pre-scale.
+   smallest text we ship needs to render ≥ ~12px post-scale, which
+   means ≥ ~16px pre-scale.
 
-   We can't write a generic "clamp every font-size to ≥ 14px" rule
+   Scoped to `[data-bb-scale-canvas]` (the inner div ScalingHost
+   wraps the play board in) so the GameTopBar — which lives OUTSIDE
+   ScalingHost and is rendered at native pixel sizes — keeps its
+   original typography.
+
+   We can't write a generic "clamp every font-size to ≥ 16px" rule
    in CSS because there's no way to read an element's own font-size
    inside a `max()`. Instead we apply two safety nets:
 
-     1. Raise the play surface's default font-size to 16px so any
-        unsized text comfortably clears the floor (renders ~11.5px
+     1. Raise the scaled canvas's default font-size to 18px so any
+        unsized text comfortably clears the floor (renders ~13.5px
         post-scale on 1920×1080).
-     2. Override the Tailwind `text-[Npx]` utilities for N ≤ 13px
+     2. Override the Tailwind `text-[Npx]` utilities for N ≤ 15px
         directly. Components that set an inline `style.fontSize`
-        smaller than 14 get bumped by source-level edits — there's
+        smaller than 16 get bumped by source-level edits — there's
         no way to reach inline styles via a stylesheet.
 
    This is the hard rule for 1920×1080 legibility. If you find a
    text element rendering smaller than this, either:
-     - bump its source size to ≥ 14px, or
+     - bump its source size to ≥ 16px, or
      - drop a `text-[Npx]` utility that this rule catches.
 */
-[data-page="play"] {
-  font-size: 16px;
+[data-bb-scale-canvas] {
+  font-size: 18px;
   line-height: 1.4;
 }
-/* Block any sub-14px Tailwind arbitrary text utility on the play
-   surface. The attribute selectors match `text-[Npx]` for every
-   N ≤ 13, with the bracket escaped per CSS spec. */
-[data-page="play"] [class*="text-\[8px\]"],
-[data-page="play"] [class*="text-\[9px\]"],
-[data-page="play"] [class*="text-\[9.5px\]"],
-[data-page="play"] [class*="text-\[10px\]"],
-[data-page="play"] [class*="text-\[10.5px\]"],
-[data-page="play"] [class*="text-\[11px\]"],
-[data-page="play"] [class*="text-\[11.5px\]"],
-[data-page="play"] [class*="text-\[12px\]"],
-[data-page="play"] [class*="text-\[12.5px\]"],
-[data-page="play"] [class*="text-\[13px\]"],
-[data-page="play"] [class*="text-\[13.5px\]"] {
-  font-size: 14px !important;
+/* Block any sub-16px Tailwind arbitrary text utility on the scaled
+   canvas. The attribute selectors match `text-[Npx]` for every
+   N ≤ 15, with the bracket escaped per CSS spec. */
+[data-bb-scale-canvas] [class*="text-\[8px\]"],
+[data-bb-scale-canvas] [class*="text-\[9px\]"],
+[data-bb-scale-canvas] [class*="text-\[9.5px\]"],
+[data-bb-scale-canvas] [class*="text-\[10px\]"],
+[data-bb-scale-canvas] [class*="text-\[10.5px\]"],
+[data-bb-scale-canvas] [class*="text-\[11px\]"],
+[data-bb-scale-canvas] [class*="text-\[11.5px\]"],
+[data-bb-scale-canvas] [class*="text-\[12px\]"],
+[data-bb-scale-canvas] [class*="text-\[12.5px\]"],
+[data-bb-scale-canvas] [class*="text-\[13px\]"],
+[data-bb-scale-canvas] [class*="text-\[13.5px\]"],
+[data-bb-scale-canvas] [class*="text-\[14px\]"],
+[data-bb-scale-canvas] [class*="text-\[14.5px\]"],
+[data-bb-scale-canvas] [class*="text-\[15px\]"] {
+  font-size: 16px !important;
 }
 
 /* `.wood` — vertical stave + horizontal grain pattern for the

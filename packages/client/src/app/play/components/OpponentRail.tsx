@@ -126,7 +126,7 @@ function OpponentCard({
           </div>
           <div
             className="label-sm mt-[3px] truncate"
-            style={{ color: ink, fontSize: 13 }}
+            style={{ color: ink, fontSize: 16 }}
           >
             {player.distillery?.name ?? "no distillery"}
           </div>
@@ -148,7 +148,7 @@ function OpponentCard({
             >
               {player.capital}
             </div>
-            <div className="label-sm" style={{ fontSize: 13 }}>
+            <div className="label-sm" style={{ fontSize: 16 }}>
               Cap
             </div>
           </div>
@@ -225,7 +225,7 @@ function OpponentCard({
 
       {/* Slot count for clarity */}
       <div className="-mt-1 flex justify-end">
-        <span className="label-sm" style={{ fontSize: 13 }}>
+        <span className="label-sm" style={{ fontSize: 16 }}>
           <span style={{ color: "var(--gold)" }}>{filled}</span>
           <span style={{ color: "var(--mute)" }}>/{slotsTotal} slots</span>
         </span>
@@ -258,7 +258,7 @@ function Counter({
         </span>
         {v}
       </span>
-      <span className="label-sm" style={{ fontSize: 13 }}>
+      <span className="label-sm" style={{ fontSize: 16 }}>
         {label}
       </span>
     </div>

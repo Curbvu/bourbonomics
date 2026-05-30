@@ -257,7 +257,7 @@ function MiniSlot({
           background: slot.filled
             ? "radial-gradient(circle at 40% 30%, #d59650, #6b3d1d 90%)"
             : "transparent",
-          fontSize: 13,
+          fontSize: 16,
         }}
       >
         {slot.filled ? "🍾" : locked ? "🔒" : "+"}
@@ -379,7 +379,7 @@ function Counter({
         {glyph}
       </span>
       {v}
-      <span className="label-sm" style={{ fontSize: 13 }}>
+      <span className="label-sm" style={{ fontSize: 16 }}>
         {label}
       </span>
     </span>

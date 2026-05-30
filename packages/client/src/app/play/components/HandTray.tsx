@@ -264,7 +264,7 @@ function HandStripStatus() {
       className="border-b border-[#3b2818] px-[18px] py-[5px] font-display italic"
       style={{
         background: "rgba(20,14,8,.65)",
-        fontSize: 13,
+        fontSize: 16,
         letterSpacing: ".01em",
         color: active ? "var(--gold)" : "var(--ink-muted)",
       }}
@@ -357,7 +357,7 @@ function DramaticPile({
       >
         <span
           className="label-sm"
-          style={{ color: palette.ink, fontSize: 13 }}
+          style={{ color: palette.ink, fontSize: 16 }}
         >
           {label}
         </span>
@@ -373,7 +373,7 @@ function DramaticPile({
         </span>
         <span
           className="label-sm"
-          style={{ fontSize: 13, color: "var(--mute)" }}
+          style={{ fontSize: 16, color: "var(--mute)" }}
         >
           cards
         </span>
@@ -400,7 +400,7 @@ function SoldStack({ count }: { count: number }) {
       >
         {count}
       </span>
-      <span className="label-sm" style={{ fontSize: 13 }}>
+      <span className="label-sm" style={{ fontSize: 16 }}>
         bottles
       </span>
     </div>

@@ -45,7 +45,7 @@ export default function RightRail() {
           />
           <span
             className="font-mono uppercase tracking-[.14em]"
-            style={{ color: "var(--emerald)", fontSize: 13 }}
+            style={{ color: "var(--emerald)", fontSize: 16 }}
           >
             live
           </span>
