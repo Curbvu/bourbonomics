@@ -115,8 +115,13 @@ export default function GameTopBar() {
       <div className="flex items-center gap-3">
         <div
           aria-hidden
-          className="grid h-[38px] w-[38px] place-items-center rounded-md font-display text-[22px] font-bold leading-none"
+          className="grid h-[38px] w-[38px] place-items-center rounded-md font-display font-bold leading-none"
           style={{
+            // Inlined font-size for the same reason as PhasePip — see
+            // its comment. Keeps the GameTopBar pinned to native sizes
+            // regardless of Tailwind v4 + Turbopack's utility-generation
+            // quirks.
+            fontSize: 22,
             background:
               "radial-gradient(circle at 35% 30%, #f0c970, #b06a38 70%, #2a1a10)",
             color: "#1a120b",
@@ -127,10 +132,21 @@ export default function GameTopBar() {
           B
         </div>
         <div className="hidden flex-col leading-tight md:flex">
-          <span className="font-display text-[22px] font-semibold tracking-[.01em] text-[#f0e3c8]">
+          <span
+            className="font-display font-semibold tracking-[.01em] text-[#f0e3c8]"
+            style={{ fontSize: 22 }}
+          >
             Bourbonomics
           </span>
-          <span className="label-sm" style={{ color: "var(--brass)" }}>
+          <span
+            className="label-sm"
+            // Inline font-size overrides the play canvas's bumped
+            // `.label-sm` (which we can't reliably scope away in CSS
+            // because Tailwind v4/Turbopack merges the base + scoped
+            // rules). Native 9.5px keeps the header at its designed
+            // proportions.
+            style={{ color: "var(--brass)", fontSize: 9.5 }}
+          >
             Year {state.round} · Round {state.round}
           </span>
         </div>
@@ -280,8 +296,13 @@ function PhasePip({
       aria-current={isActive ? "step" : undefined}
     >
       <span
-        className={["grid h-[18px] w-[18px] place-items-center rounded-full font-mono text-[12px] font-bold leading-none", isActive ? "pip-active" : ""].join(" ")}
+        className={["grid h-[18px] w-[18px] place-items-center rounded-full font-mono font-bold leading-none", isActive ? "pip-active" : ""].join(" ")}
         style={{
+          // Inlined font-size: Tailwind v4 + Turbopack isn't reliably
+          // generating the `text-[12px]` arbitrary utility for the
+          // GameTopBar (lives outside ScalingHost so the legibility
+          // clamp can't reach it either). Inline keeps it pinned.
+          fontSize: 12,
           background: isActive
             ? "linear-gradient(180deg,#f0c970,#c69d52)"
             : isPast
@@ -295,8 +316,9 @@ function PhasePip({
         {isPast ? "✓" : index}
       </span>
       <span
-        className="font-mono text-[12px] uppercase tracking-[.18em]"
+        className="font-mono uppercase tracking-[.18em]"
         style={{
+          fontSize: 12,
           color: isActive ? "var(--gold)" : "var(--mute)",
           fontWeight: isActive ? 700 : 500,
         }}
@@ -313,7 +335,10 @@ function SetupBanner({ phase }: { phase: "distillery_selection" | "starter_deck_
       ? "Setup · pick your distillery"
       : "Setup · build your starter deck";
   return (
-    <div className="flex flex-1 items-center justify-center font-mono text-[13px] uppercase tracking-[.18em] text-amber-300">
+    <div
+      className="flex flex-1 items-center justify-center font-mono uppercase tracking-[.18em] text-amber-300"
+      style={{ fontSize: 13 }}
+    >
       {label}
     </div>
   );
@@ -344,17 +369,20 @@ function BourbonChip({
         boxShadow: "inset 0 1px 0 rgba(240,201,112,.35)",
       }}
     >
-      <span className="label-sm" style={{ color: "var(--gold)" }}>
+      <span className="label-sm" style={{ color: "var(--gold)", fontSize: 9.5 }}>
         Bourbon
       </span>
       <span
-        className="font-display text-[22px] font-bold leading-none tracking-[.01em]"
-        style={{ color: "var(--gold)" }}
+        className="font-display font-bold leading-none tracking-[.01em]"
+        style={{ color: "var(--gold)", fontSize: 22 }}
       >
         {remaining}
       </span>
       {finalRound ? (
-        <span className="rounded bg-amber-500 px-1 py-px font-mono text-[11px] font-bold uppercase tracking-[.10em] text-slate-950">
+        <span
+          className="rounded bg-amber-500 px-1 py-px font-mono font-bold uppercase tracking-[.10em] text-slate-950"
+          style={{ fontSize: 11 }}
+        >
           final
         </span>
       ) : null}
@@ -381,8 +409,9 @@ function ChromeBtn({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-[7px] border px-3 py-1.5 font-mono text-[10.5px] font-semibold uppercase tracking-[.16em]"
+      className="rounded-[7px] border px-3 py-1.5 font-mono font-semibold uppercase tracking-[.16em]"
       style={{
+        fontSize: 10.5,
         borderColor: isDanger
           ? "rgba(217,107,84,.55)"
           : isActive
