@@ -854,6 +854,7 @@ function BarrelCell({
   isHumanRow: boolean;
 }) {
   const interaction = useSlotInteraction(slot, barrel, state, isHumanRow);
+  const { sellBarrelNow } = useGameStore();
   const tier = tierOrCommon(barrel.attachedMashBill?.tier);
   const band = TIER_BAND[tier]!;
   const bill = barrel.attachedMashBill;
@@ -862,27 +863,79 @@ function BarrelCell({
     barrel.phase === "aging" ? "" : ` (${barrel.phase})`
   }`;
 
+  // Outer was a <button> but now contains the on-barrel Sell button —
+  // nested-button is invalid HTML. Switched to <div role="button"> with
+  // keyboard support so the cell still acts as a single clickable
+  // target while permitting an inline interactive Sell control.
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       data-slot-id={slot.id}
       data-drop-target={interaction.dropTargetState}
       onClick={interaction.onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          interaction.onClick();
+        }
+      }}
       onContextMenu={interaction.onContextMenu}
       onDragOver={interaction.onDragOver}
       onDragEnter={interaction.onDragEnter}
       onDragLeave={interaction.onDragLeave}
       onDrop={interaction.onDrop}
       title={titleText}
-      className="group relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform"
+      className="group relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
       style={{
         transform: selected ? "translateY(-6px)" : "translateY(0)",
       }}
     >
       <BarrelTopCaption barrel={barrel} band={band} selected={selected} />
       <Barrel barrel={barrel} band={band} selected={selected} />
+
+      {/* On-barrel one-click Sell button. Only renders on the human's
+          saleable barrels (`age >= 2`, aging, not sale-locked this
+          round). `stopPropagation` prevents the cell's own onClick
+          (which engages age mode or opens inspect) from also firing. */}
+      {isHumanRow && interaction.saleable ? (
+        <button
+          type="button"
+          data-bb-action="sell-barrel"
+          onClick={(e) => {
+            e.stopPropagation();
+            sellBarrelNow(barrel.id);
+          }}
+          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono font-bold uppercase tracking-[.16em] transition-colors"
+          style={{
+            fontSize: 13,
+            borderColor: "var(--gold)",
+            background:
+              "linear-gradient(180deg, rgba(240,201,112,.18), rgba(176,106,56,.12))",
+            color: "var(--gold)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,.10)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background =
+              "linear-gradient(180deg, #f0c970, #c69d52)";
+            e.currentTarget.style.color = "#1a120b";
+            e.currentTarget.style.boxShadow =
+              "inset 0 1px 0 rgba(255,255,255,.4), 0 4px 12px rgba(240,201,112,.35)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background =
+              "linear-gradient(180deg, rgba(240,201,112,.18), rgba(176,106,56,.12))";
+            e.currentTarget.style.color = "var(--gold)";
+            e.currentTarget.style.boxShadow =
+              "inset 0 1px 0 rgba(255,255,255,.10)";
+          }}
+        >
+          Sell Bottle →
+        </button>
+      ) : null}
+
       <BarrelBottomCaption barrel={barrel} band={band} selected={selected} />
-    </button>
+    </div>
   );
 }
 
@@ -1071,13 +1124,32 @@ function Barrel({
           width: 122,
           height: 148,
           borderRadius: "44% / 16%",
+          // `overflow: hidden` clips the charred chime rims (added
+          // below) to the ellipse so the burnt ends don't square off
+          // the outside of the barrel.
+          overflow: "hidden",
           background: isAging
-            ? "repeating-linear-gradient(90deg," +
-              "#3a2515 0px, #3a2515 14px," +
-              "#2a1a10 14px, #2a1a10 16px," +
-              "#43321f 16px, #43321f 30px," +
-              "#321f12 30px, #321f12 32px)," +
-              "linear-gradient(180deg, #4a341f 0%, #2a1a0e 100%)"
+            ? // 1) curved stave shading — lit center, dark edges (the
+              //    "belly") so the barrel reads as a 3D round object
+              //    instead of a flat vertical board.
+              "linear-gradient(90deg," +
+                "rgba(0,0,0,.55) 0%, rgba(0,0,0,.12) 14%," +
+                "rgba(255,236,200,.10) 42%, rgba(255,236,200,.14) 50%," +
+                "rgba(255,236,200,.10) 58%," +
+                "rgba(0,0,0,.12) 86%, rgba(0,0,0,.55) 100%)," +
+              // 2) fine stave seams — vertical 1px lines every 17px so
+              //    the eye reads individual staves, not a solid board.
+              "repeating-linear-gradient(90deg," +
+                "rgba(0,0,0,.45) 0px, rgba(0,0,0,.45) 1px," +
+                "transparent 1px, transparent 17px)," +
+              // 3) wood-grain streaks — subtle near-horizontal noise so
+              //    the wood reads as a natural surface.
+              "repeating-linear-gradient(86deg," +
+                "rgba(0,0,0,.05) 0px, rgba(0,0,0,.05) 2px," +
+                "rgba(255,220,170,.03) 2px, rgba(255,220,170,.03) 5px)," +
+              // 4) base oak — charred (darker) toward the ends, mid-
+              //    body warmer where the curve picks up light.
+              "linear-gradient(180deg,#1f130a 0%,#3a2414 14%,#4a341f 50%,#3a2414 86%,#1f130a 100%)"
             : // Neutral grey staves — reads as "raw / under construction"
               // and clearly distinct from aging's charred-bourbon wood.
               "repeating-linear-gradient(90deg," +
@@ -1087,18 +1159,66 @@ function Barrel({
               "#2e3034 30px, #2e3034 32px)," +
               "linear-gradient(180deg, #444851 0%, #1d1f22 100%)",
           boxShadow: isAging
-            ? "inset 0 4px 8px rgba(255,255,255,.10), inset 0 -8px 18px rgba(0,0,0,.55), inset 10px 0 14px rgba(0,0,0,.55), inset -10px 0 14px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.55)"
+            ? // Heavier inset shadows on the edges + bottom so the
+              //    curvature of the belly reads strongly.
+              "inset 0 6px 10px rgba(255,255,255,.10)," +
+              "inset 0 -10px 20px rgba(0,0,0,.6)," +
+              "inset 18px 0 22px rgba(0,0,0,.6)," +
+              "inset -18px 0 22px rgba(0,0,0,.6)," +
+              "0 14px 26px rgba(0,0,0,.6)"
             : // No warm inner glow; outer shadow stays so it still
               // looks like a 3D object.
               "inset 0 4px 8px rgba(255,255,255,.05), inset 0 -10px 22px rgba(0,0,0,.65), inset 10px 0 14px rgba(0,0,0,.55), inset -10px 0 14px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.55)",
         }}
       >
-        {/* Five hoops — brass on aging, iron-grey on non-aging. */}
-        <Hoop top={8} dim={!isAging} />
-        <Hoop top={26} dim={!isAging} />
-        <Hoop top="50%" dim={!isAging} />
-        <Hoop bottom={26} dim={!isAging} />
-        <Hoop bottom={8} dim={!isAging} />
+        {/* Four riveted hoops — thicker outer bands at the chime ends,
+            thinner inner bands at the quarter points. Brass on aging,
+            iron-grey on non-aging. Dropped the old mid `top="50%"`
+            hoop — reads cleaner with the new sheen stripe below. */}
+        <Hoop top={8} thick={9} dim={!isAging} />
+        <Hoop top={26} thick={6} dim={!isAging} />
+        <Hoop bottom={26} thick={6} dim={!isAging} />
+        <Hoop bottom={8} thick={9} dim={!isAging} />
+
+        {/* Charred chime rims (top + bottom burnt-oak caps) + a soft
+            vertical sheen down the belly. Aging-only — the grey
+            "needs resources" body keeps its raw look. The medallion
+            below sits on top of these at the same z-level. */}
+        {isAging ? (
+          <>
+            <span
+              aria-hidden
+              className="absolute inset-x-0 top-0 h-4"
+              style={{
+                background:
+                  "linear-gradient(180deg,#0f0805 0%,#241509 70%,transparent 100%)",
+                boxShadow: "inset 0 2px 3px rgba(255,255,255,.08)",
+              }}
+            />
+            <span
+              aria-hidden
+              className="absolute inset-x-0 bottom-0 h-4"
+              style={{
+                background:
+                  "linear-gradient(0deg,#0f0805 0%,#241509 70%,transparent 100%)",
+              }}
+            />
+            <span
+              aria-hidden
+              className="absolute"
+              style={{
+                top: "8%",
+                bottom: "8%",
+                left: "38%",
+                width: "12%",
+                background:
+                  "linear-gradient(90deg,transparent,rgba(255,240,210,.14),transparent)",
+                filter: "blur(3px)",
+                pointerEvents: "none",
+              }}
+            />
+          </>
+        ) : null}
 
         {/* Top lid — kept on aging, "open" (gap with darker void)
             on non-aging so it reads as "fillable." */}
@@ -1191,20 +1311,39 @@ function Barrel({
 function Hoop({
   top,
   bottom,
+  thick = 6,
   dim = false,
 }: {
   top?: number | string;
   bottom?: number | string;
-  /** When true, render an iron-grey hoop (used on non-aging barrels)
-   *  so the barrel reads as "raw" — no brass shine. */
+  /** Band height in px. Use ~9 for the outer quarter-hoops, ~6 for inner. */
+  thick?: number;
+  /** Iron-grey band for non-aging (raw) barrels — no brass shine. */
   dim?: boolean;
 }) {
+  const d = Math.max(4, thick - 2); // rivet diameter
+  const rivet = (left: string): React.CSSProperties => ({
+    position: "absolute",
+    top: "50%",
+    left,
+    transform: "translate(-50%,-50%)",
+    width: d,
+    height: d,
+    borderRadius: 999,
+    background: dim
+      ? "radial-gradient(circle at 35% 30%, #cfc6b6, #6e6457 55%, #1f1c17 100%)"
+      : "radial-gradient(circle at 35% 30%, #fff6df, #b8945a 55%, #4a2f15 100%)",
+    boxShadow:
+      "inset 0 -1px 1px rgba(0,0,0,.5), 0 1px 1px rgba(0,0,0,.45)",
+  });
   return (
     <span
       aria-hidden
-      className="absolute -left-[2%] -right-[2%] h-[5px] rounded-[2px]"
+      className="absolute -left-[2%] -right-[2%] rounded-[2px]"
       style={{
-        top: top != null ? (typeof top === "number" ? `${top}px` : top) : undefined,
+        height: thick,
+        top:
+          top != null ? (typeof top === "number" ? `${top}px` : top) : undefined,
         bottom:
           bottom != null
             ? typeof bottom === "number"
@@ -1213,12 +1352,16 @@ function Hoop({
             : undefined,
         background: dim
           ? "linear-gradient(180deg, #6e6457 0%, #4a4338 50%, #1f1c17 100%)"
-          : "linear-gradient(180deg, #f0c970 0%, #c69d52 50%, #6b3d1d 100%)",
-        boxShadow: dim
-          ? "inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 0 rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.4)"
-          : "inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.4)",
+          : // Polished steel/brass band — bright top highlight,
+            // deep bottom shadow, warm brass tone in the middle.
+            "linear-gradient(180deg, #6a4a2a 0%, #cdb27e 18%, #f3e2b4 38%, #b89358 60%, #5c3c1f 100%)",
+        boxShadow:
+          "inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 0 rgba(0,0,0,.6), 0 1px 2px rgba(0,0,0,.5)",
       }}
-    />
+    >
+      <span style={rivet("8%")} />
+      <span style={rivet("92%")} />
+    </span>
   );
 }
 
