@@ -93,7 +93,7 @@ export default function DemandThermometer({ rolled, target }: Props) {
         </div>
         <div
           className="label-sm"
-          style={{ fontSize: 8.5, color: "var(--mute)", marginTop: 2 }}
+          style={{ fontSize: 13, color: "var(--mute)", marginTop: 2 }}
         >
           this round
         </div>
@@ -328,7 +328,7 @@ export default function DemandThermometer({ rolled, target }: Props) {
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 9,
+                      fontSize: 13,
                       fontWeight: 700,
                       letterSpacing: ".06em",
                       lineHeight: 1,
@@ -355,14 +355,14 @@ export default function DemandThermometer({ rolled, target }: Props) {
       >
         <div
           className="label-sm"
-          style={{ fontSize: 8.5, color: "var(--mute)" }}
+          style={{ fontSize: 13, color: "var(--mute)" }}
         >
           Appetite
         </div>
         <div
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 10,
+            fontSize: 13,
             fontWeight: 600,
             letterSpacing: ".14em",
             textTransform: "uppercase",

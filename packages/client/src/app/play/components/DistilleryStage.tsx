@@ -108,7 +108,7 @@ export default function DistilleryStage() {
           dim — CSS `opacity` builds a stacking context and would
           otherwise drag the modal down to 30% during a buy. */}
       <div
-        className={`flex min-h-0 flex-1 flex-col gap-3.5 px-[22px] py-4 ${focusClass}`}
+        className={`flex min-h-0 flex-1 flex-col gap-2 px-[22px] py-2 ${focusClass}`}
         style={focusStyle}
       >
         {/* 1. Stage tag strip */}
@@ -190,7 +190,7 @@ function IdentityPlate({
 }) {
   return (
     <div
-      className="relative grid items-center gap-[22px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[14px]"
+      className="relative grid items-center gap-[22px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[8px]"
       style={{
         // crest · BIG REP · name+ability · sold
         gridTemplateColumns: "auto auto 1fr auto",
@@ -455,9 +455,9 @@ function Rickhouse({
   })();
   return (
     <div
-      className="relative flex-1 overflow-hidden rounded-[14px] border border-[#3b2818] px-[26px] pb-[18px] pt-[26px]"
+      className="relative flex-1 overflow-hidden rounded-[14px] border border-[#3b2818] px-[26px] pb-[12px] pt-[18px]"
       style={{
-        minHeight: 280,
+        minHeight: 240,
         background:
           "radial-gradient(120% 70% at 50% 0%, rgba(240,201,112,.10), transparent 55%), radial-gradient(80% 80% at 50% 110%, rgba(176,106,56,.12), transparent 65%), linear-gradient(180deg, #1e140c 0%, #150e08 100%)",
         boxShadow:
@@ -1320,7 +1320,7 @@ function CaptionCard({
       <div className="flex items-baseline justify-between gap-2">
         <span
           className="label-sm"
-          style={{ color: band.ink, fontSize: 10.5, letterSpacing: ".16em" }}
+          style={{ color: band.ink, fontSize: 13, letterSpacing: ".16em" }}
         >
           {band.label}
         </span>
@@ -1348,7 +1348,7 @@ function CaptionCard({
           {bill ? `${floor}–${peak}` : "—"}{" "}
           <span
             className="label-sm"
-            style={{ color: band.ink, opacity: 0.75, fontSize: 11 }}
+            style={{ color: band.ink, opacity: 0.75, fontSize: 13 }}
           >
             rep
           </span>
@@ -1388,7 +1388,7 @@ function PhaseStamp({ phase, age }: { phase: Barrel["phase"]; age: number }) {
     <span
       className="font-mono font-bold uppercase"
       style={{
-        fontSize: 10.5,
+        fontSize: 13,
         letterSpacing: ".14em",
         padding: "2px 8px",
         borderRadius: 5,
@@ -1629,7 +1629,7 @@ function EmptySlot({
             // height so the grid's items-stretch keeps this slot's
             // visual at the same Y as the BarrelCells' barrels.
             padding: "12px",
-            fontSize: 12,
+            fontSize: 13,
             letterSpacing: ".22em",
             borderColor: "rgba(52,211,153,.7)",
             background:
@@ -1699,7 +1699,7 @@ function EmptySlot({
           // height so the grid's items-stretch keeps this slot's
           // silhouette at the same Y as the BarrelCells' barrels.
           padding: "12px",
-          fontSize: 12,
+          fontSize: 13,
           letterSpacing: ".22em",
           borderColor: selected ? "var(--gold)" : "rgba(110,80,50,.45)",
           borderStyle: "dashed",
