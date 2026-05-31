@@ -631,13 +631,20 @@ body[data-dragging-make="true"] [data-drag-source="active"] {
 }
 
 /* `log-in` — LogRail entry entrance + MarketDrawer backdrop entrance.
-   240ms ease-out, 4px rise + opacity 0→1. */
+   240ms ease-out, ~6px rise. Resting state has to stay fully opaque:
+   with `animation-fill-mode: both` and `opacity: 0` in the keyframe,
+   a `.log-line` mounted while the canvas isn't actively compositing
+   (offscreen render, reduced-motion, certain scaled-canvas paints)
+   freezes at opacity 0 and the entire Tasting Notes list renders
+   blank even though the DOM is correct. Drop opacity from the
+   keyframe + drop `both` from the shorthand so the slide stays as
+   pure decoration. */
 @keyframes log-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(6px); }
+  to   { transform: translateY(0); }
 }
 .log-line {
-  animation: log-in 240ms ease-out both;
+  animation: log-in 240ms ease-out;
 }
 
 /* ─── Utility chrome classes ───────────────────────────────────── */

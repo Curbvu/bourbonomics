@@ -1,17 +1,22 @@
 "use client";
 
 /**
- * v3 vertical demand thermometer — board chrome, not a HUD widget.
+ * Horizontal demand bar — replaces the v3 vertical thermometer.
  *
- * Replaces the horizontal `DemandMeter` that lived in `GameTopBar`.
- * Occupies its own 96px column in the main grid between the Rivals
- * rail and the Stage area, spanning both rows so the liquid level
- * reads alongside both the rickhouse and the hand.
+ * Lives in a full-width row above the main play grid. Reads like a
+ * brass pressure gauge laid on its side: amber liquid fill, numbered
+ * ticks, and the table's "appetite" status on the right.
  *
- * Pulls `state.demand` from the game store via `GameBoard`; target
- * is currently hardcoded at 12 (the round-end ceiling). The bulb
- * is the reservoir and is always full — only the stem's liquid
- * column tracks `rolled / target`.
+ * Reuses the same appetite thresholds (Cold cellar / Warming / Hot
+ * pour / Sold out) and accent colors as the old vertical version so
+ * the spoken language ("the table is hot") stays consistent.
+ *
+ * Filename stays `DemandThermometer.tsx` and the default export keeps
+ * the `DemandThermometer` name so callers (`GameBoard`) don't have to
+ * re-thread imports — the body just changed orientation.
+ *
+ * Stamps `data-bb-zone="demand"` on the root so the existing tutorial
+ * Spotlight anchors keep working.
  */
 
 import type { CSSProperties } from "react";
@@ -27,7 +32,7 @@ export default function DemandThermometer({ rolled, target }: Props) {
   const ticks = Array.from({ length: target + 1 }, (_, i) => ({
     i,
     major: i === 0 || i === target || i % 4 === 0,
-    yPct: 100 - (i / target) * 100,
+    xPct: (i / target) * 100,
     reached: i <= rolled,
   }));
 
@@ -48,294 +53,185 @@ export default function DemandThermometer({ rolled, target }: Props) {
   }
 
   return (
-    <aside
+    <div
       aria-label="Round demand"
       data-bb-zone="demand"
       style={{
-        gridArea: "demand",
-        padding: "14px 10px",
-        borderRadius: 12,
-        border: "1px solid var(--rule)",
-        background:
-          "radial-gradient(80% 30% at 50% 0%, rgba(213,150,80,.10), transparent 70%)," +
-          "radial-gradient(60% 30% at 50% 100%, rgba(213,150,80,.10), transparent 70%)," +
-          "linear-gradient(180deg, rgba(26,18,11,.92), rgba(14,10,6,.95))",
-        boxShadow:
-          "inset 0 1px 0 rgba(240,201,112,.10), 0 4px 14px rgba(0,0,0,.4)",
+        flexShrink: 0,
         display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
+        alignItems: "center",
+        gap: 18,
+        padding: "8px 18px",
+        borderBottom: "1px solid var(--rule)",
+        background:
+          "radial-gradient(60% 200% at 18% 50%, rgba(213,150,80,.08), transparent 70%)," +
+          "linear-gradient(180deg, rgba(20,14,8,.9), rgba(12,8,5,.92))",
       }}
     >
-      {/* Header */}
-      <div style={{ textAlign: "center" }}>
-        <div className="label-sm" style={{ letterSpacing: ".22em" }}>
-          Demand
-        </div>
-        <div
-          style={{
-            marginTop: 4,
-            fontFamily: "var(--font-display)",
-            lineHeight: 1,
-            textShadow: "0 0 12px rgba(240,201,112,.35)",
-          }}
-        >
-          <span
-            style={{ fontSize: 28, fontWeight: 700, color: "var(--gold)" }}
-          >
-            {rolled}
-          </span>
-          <span
-            style={{ fontSize: 18, fontWeight: 700, color: "var(--mute)" }}
-          >
-            /{target}
-          </span>
-        </div>
-        <div
-          className="label-sm"
-          style={{ fontSize: 16, color: "var(--mute)", marginTop: 2 }}
-        >
-          this round
-        </div>
-      </div>
-
-      {/* Body — tube + tick column */}
+      {/* Readout — DEMAND label + big numeric + this round */}
       <div
-        aria-hidden="true"
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 26px",
-          gap: 6,
-          flex: 1,
-          minHeight: 200,
-          padding: "8px 4px 0 4px",
+          display: "flex",
+          alignItems: "baseline",
+          gap: 9,
+          flexShrink: 0,
         }}
       >
-        {/* Tube column */}
-        <div
+        <span
+          className="label-sm"
+          style={{ color: "var(--brass)", letterSpacing: ".22em" }}
+        >
+          Demand
+        </span>
+        <span
           style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "stretch",
-            minHeight: 0,
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: 26,
+            lineHeight: 1,
+            color: "var(--gold)",
+            textShadow: "0 0 12px rgba(240,201,112,.3)",
           }}
         >
-          {/* Brass cap */}
-          <div
-            style={{
-              width: 28,
-              height: 8,
-              margin: "0 auto",
-              borderRadius: "6px 6px 2px 2px",
-              background:
-                "linear-gradient(180deg, #f0c970 0%, #c69d52 60%, #7a5630 100%)",
-              boxShadow:
-                "inset 0 1px 0 rgba(255,255,255,.4), 0 1px 0 rgba(0,0,0,.5)",
-              border: "1px solid #5a3d20",
-              zIndex: 2,
-            }}
-          />
+          {rolled}
+          <span style={{ color: "var(--mute)", fontSize: 17, fontWeight: 500 }}>
+            /{target}
+          </span>
+        </span>
+        <span
+          className="label-sm"
+          style={{ fontSize: 12, color: "var(--mute)" }}
+        >
+          this round
+        </span>
+      </div>
 
-          {/* Stem */}
+      {/* Tube — flex:1 so it claims the leftover width */}
+      <div
+        aria-hidden
+        style={{
+          position: "relative",
+          flex: 1,
+          minWidth: 0,
+          height: 34,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+        }}
+      >
+        {/* Pill rail */}
+        <div
+          style={{
+            position: "relative",
+            height: 16,
+            borderRadius: 999,
+            background: "linear-gradient(180deg, #0a0604, #15100a)",
+            border: "1px solid #3b2818",
+            boxShadow: "inset 0 2px 5px rgba(0,0,0,.7)",
+            overflow: "hidden",
+          }}
+        >
+          {/* Liquid fill */}
           <div
-            style={{
-              position: "relative",
-              flex: 1,
-              width: 22,
-              margin: "-1px auto -1px auto",
-              background:
-                "linear-gradient(90deg," +
-                "rgba(0,0,0,.55) 0%," +
-                "rgba(0,0,0,.15) 20%," +
-                "rgba(255,255,255,.05) 50%," +
-                "rgba(0,0,0,.15) 80%," +
-                "rgba(0,0,0,.55) 100%)," +
-                "linear-gradient(180deg, #0a0604, #15100a)",
-              border: "1px solid #3b2818",
-              borderTop: "none",
-              borderBottom: "none",
-              boxShadow:
-                "inset 0 2px 6px rgba(0,0,0,.7), inset 0 -2px 6px rgba(0,0,0,.6)",
-              overflow: "hidden",
-            }}
+            className="bb-demand-fill"
+            style={
+              {
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: 0,
+                width: `${pct * 100}%`,
+                background:
+                  "linear-gradient(90deg," +
+                  "rgba(176,106,56,.95) 0%," +
+                  "rgba(213,150,80,.95) 60%," +
+                  "rgba(240,201,112,.98) 100%)",
+                boxShadow:
+                  "inset 0 6px 10px rgba(255,225,160,.3)," +
+                  "inset 0 -6px 10px rgba(0,0,0,.3)," +
+                  "0 0 14px rgba(240,201,112,.45)",
+                transition: "width 600ms cubic-bezier(.22, 1, .36, 1)",
+              } as CSSProperties
+            }
           >
-            {/* Liquid fill (bottom-anchored, animated top edge).
-                We use top+bottom rather than height:% because the
-                stem is a flex item whose height isn't a "definite"
-                size for percent-height resolution on an absolutely
-                positioned child — Chrome computes that height to
-                0px. Anchoring with top+bottom resolves correctly
-                and lets the transition ride the top edge as the
-                liquid rises. */}
+            {/* Pour shimmer */}
             <div
-              className="bb-demand-fill"
-              style={
-                {
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  top: `${(1 - pct) * 100}%`,
-                  bottom: 0,
-                  background:
-                    "linear-gradient(180deg," +
-                    "rgba(240,201,112,.95) 0%," +
-                    "rgba(213,150,80,.95) 35%," +
-                    "rgba(176,106,56,.95) 100%)",
-                  boxShadow:
-                    "inset 0 8px 14px rgba(255,225,160,.35)," +
-                    "inset 0 -8px 14px rgba(0,0,0,.35)," +
-                    "0 0 14px rgba(240,201,112,.45)",
-                  transition: "top 600ms cubic-bezier(.22, 1, .36, 1)",
-                } as CSSProperties
-              }
-            >
-              {/* Meniscus */}
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  height: 4,
-                  background:
-                    "linear-gradient(180deg, rgba(255,240,200,.85), rgba(240,201,112,0))",
-                  filter: "blur(1px)",
-                }}
-              />
-              {/* Pour shimmer */}
-              <div
-                className="pour"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background:
-                    "repeating-linear-gradient(135deg," +
-                    "rgba(255,255,255,.10) 0 6px," +
-                    "rgba(255,255,255,0) 6px 14px)",
-                  backgroundSize: "20px 20px",
-                  opacity: 0.6,
-                  mixBlendMode: "overlay",
-                }}
-              />
-            </div>
-
-            {/* Glass highlight (cylindrical curve fake) */}
+              className="pour"
+              aria-hidden
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "repeating-linear-gradient(135deg," +
+                  "rgba(255,255,255,.12) 0 6px," +
+                  "rgba(255,255,255,0) 6px 14px)",
+                backgroundSize: "20px 20px",
+                opacity: 0.55,
+                mixBlendMode: "overlay",
+              }}
+            />
+            {/* Leading meniscus on the right edge */}
             <div
+              aria-hidden
               style={{
                 position: "absolute",
                 top: 0,
                 bottom: 0,
-                left: 3,
+                right: 0,
                 width: 3,
                 background:
-                  "linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.05))",
-                pointerEvents: "none",
-              }}
-            />
-          </div>
-
-          {/* Bulb */}
-          <div
-            style={{
-              position: "relative",
-              width: 52,
-              height: 52,
-              margin: "-6px auto 0 auto",
-              borderRadius: "50%",
-              background:
-                "radial-gradient(circle at 35% 32%," +
-                "rgba(255,240,200,.6) 0%," +
-                "rgba(240,201,112,.95) 18%," +
-                "rgba(213,150,80,.95) 50%," +
-                "rgba(120,60,28,1) 100%)",
-              border: "1px solid #3b2818",
-              boxShadow:
-                "inset 0 -8px 18px rgba(0,0,0,.55)," +
-                "inset 0 6px 14px rgba(255,240,200,.35)," +
-                "0 0 18px rgba(240,201,112,.45)," +
-                "0 4px 8px rgba(0,0,0,.6)",
-            }}
-          >
-            {/* Specular highlight dot */}
-            <div
-              style={{
-                position: "absolute",
-                top: 8,
-                left: 10,
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background:
-                  "radial-gradient(circle, rgba(255,255,255,.85), rgba(255,255,255,0) 70%)",
-                filter: "blur(1px)",
+                  "linear-gradient(90deg, rgba(240,201,112,0), rgba(255,240,200,.9))",
+                filter: "blur(.5px)",
               }}
             />
           </div>
         </div>
 
-        {/* Tick column */}
+        {/* Tick row */}
         <div
-          style={{
-            position: "relative",
-            height: "100%",
-            paddingTop: 8,
-            paddingBottom: 58,
-          }}
+          style={{ position: "relative", height: 12, marginTop: 2 }}
         >
-          {ticks.map((t) => {
-            const ruleWidth = t.major ? 12 : 7;
-            const ruleHeight = t.major ? 2 : 1;
+          {ticks.map(({ i, major, xPct, reached }) => {
             let ruleColor: string;
-            let ruleShadow: string | undefined;
-            let ruleOpacity: number | undefined;
-            if (t.major && t.reached) {
-              ruleColor = "var(--gold)";
-              ruleShadow = "0 0 6px rgba(240,201,112,.55)";
-            } else if (t.major) {
-              ruleColor = "var(--brass)";
-            } else if (t.reached) {
-              ruleColor = "var(--brass)";
-            } else {
-              ruleColor = "var(--whisper)";
-              ruleOpacity = 0.8;
-            }
+            if (major && reached) ruleColor = "var(--gold)";
+            else if (major) ruleColor = "var(--brass)";
+            else if (reached) ruleColor = "var(--brass)";
+            else ruleColor = "var(--whisper)";
             return (
               <div
-                key={t.i}
+                key={i}
                 style={{
                   position: "absolute",
-                  top: `${t.yPct}%`,
-                  left: 0,
-                  right: 0,
-                  transform: "translateY(-50%)",
+                  left: `${xPct}%`,
+                  transform: "translateX(-50%)",
                   display: "flex",
+                  flexDirection: "column",
                   alignItems: "center",
-                  gap: 4,
-                  lineHeight: 1,
+                  gap: 1,
+                  pointerEvents: "none",
                 }}
               >
-                <span
+                <div
                   style={{
-                    display: "block",
-                    width: ruleWidth,
-                    height: ruleHeight,
+                    width: major ? 2 : 1,
+                    height: major ? 6 : 3,
                     background: ruleColor,
-                    boxShadow: ruleShadow,
-                    opacity: ruleOpacity,
+                    boxShadow: reached
+                      ? "0 0 5px rgba(240,201,112,.5)"
+                      : undefined,
                   }}
                 />
-                {t.major ? (
+                {major ? (
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 16,
+                      fontSize: 10.5,
                       fontWeight: 700,
-                      letterSpacing: ".06em",
                       lineHeight: 1,
-                      color: t.reached ? "var(--gold)" : "var(--mute)",
+                      color: reached ? "var(--gold)" : "var(--mute)",
                     }}
                   >
-                    {t.i}
+                    {i}
                   </span>
                 ) : null}
               </div>
@@ -344,35 +240,34 @@ export default function DemandThermometer({ rolled, target }: Props) {
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Appetite — context label on the right */}
       <div
         style={{
-          marginTop: 8,
-          paddingTop: 8,
-          borderTop: "1px dotted var(--rule)",
-          textAlign: "center",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          flexShrink: 0,
         }}
       >
-        <div
+        <span
           className="label-sm"
-          style={{ fontSize: 16, color: "var(--mute)" }}
+          style={{ fontSize: 12, color: "var(--mute)" }}
         >
           Appetite
-        </div>
-        <div
+        </span>
+        <span
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 16,
-            fontWeight: 600,
+            fontSize: 13,
+            fontWeight: 700,
             letterSpacing: ".14em",
             textTransform: "uppercase",
             color: appetiteColor,
-            marginTop: 2,
           }}
         >
           {appetiteLabel}
-        </div>
+        </span>
       </div>
-    </aside>
+    </div>
   );
 }

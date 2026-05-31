@@ -125,15 +125,28 @@ function OpponentCard({
           }}
         />
         <div className="min-w-0 flex-1">
+          {/* Wrap rather than ellipsis-truncate — at 280px column width
+              "VANILLA DIS…" / "CONNOISSEU…" were clipping mid-word.
+              Wrapping to two lines is fine; the tile already pads
+              vertically, and rare long names that need two lines beat
+              opaque clipping. */}
           <div
-            className="truncate font-display text-[17px] font-semibold leading-tight"
-            style={{ color: "var(--ink)" }}
+            className="font-display text-[17px] font-semibold leading-tight"
+            style={{
+              color: "var(--ink)",
+              wordBreak: "break-word",
+            }}
           >
             {player.name}
           </div>
           <div
-            className="label-sm mt-[3px] truncate"
-            style={{ color: ink, fontSize: 16 }}
+            className="label-sm mt-[3px]"
+            style={{
+              color: ink,
+              fontSize: 16,
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+            }}
           >
             {player.distillery?.name ?? "no distillery"}
           </div>

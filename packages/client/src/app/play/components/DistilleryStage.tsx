@@ -195,7 +195,7 @@ function IdentityPlate({
 }) {
   return (
     <div
-      className="relative grid items-center gap-[18px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[8px]"
+      className="relative grid shrink-0 items-center gap-[18px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[8px]"
       style={{
         // crest · Capital+Rep · name+ability · (prestige/warehouse badges + portfolio chip)
         gridTemplateColumns: "auto auto 1fr auto",
@@ -1021,7 +1021,7 @@ function BarrelCell({
       onDragLeave={interaction.onDragLeave}
       onDrop={interaction.onDrop}
       title={titleText}
-      className="group relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
+      className="group relative flex h-full min-h-0 cursor-pointer flex-col items-stretch justify-end border-0 bg-transparent p-0 text-left transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
       style={{
         transform: selected ? "translateY(-6px)" : "translateY(0)",
       }}
@@ -1126,7 +1126,13 @@ function Barrel({
     }
   }
   return (
-    <div className="relative grid h-[208px] w-full place-items-center">
+    // Fluid wrapper — fills whatever vertical space the rickhouse grid
+    // hands the cell. min-h is the floor at tight viewports; max-h
+    // caps growth on tall ones so the barrel doesn't outrun its
+    // proportions. The Barrel body inside reads `height: 100%` against
+    // this wrapper, so plate + medallion + hoop math scales smoothly
+    // between the two bounds.
+    <div className="relative grid h-full max-h-[276px] min-h-[166px] w-full flex-1 place-items-center">
       {/* Ground shadow */}
       <span
         aria-hidden
@@ -1170,7 +1176,14 @@ function Barrel({
         className="relative"
         style={{
           width: 122,
-          height: 200,
+          // Fluid height between 158px (legible floor) and 268px (cap
+          // before the staves stretch ugly). The 100% reads against
+          // the wrapper above, which itself is bounded by the cell —
+          // so the barrel breathes with the rickhouse height without
+          // ever overflowing into the hand strip.
+          height: "100%",
+          minHeight: 158,
+          maxHeight: 268,
           borderRadius: "44% / 16%",
           // `overflow: hidden` clips the charred chime rims (added
           // below) to the ellipse so the burnt ends don't square off
@@ -1859,9 +1872,9 @@ function EmptySlot({
         data-bb-action="draw-bill"
         onClick={onDraftBill}
         title="Draft a new mash bill into this barrel"
-        className="group relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform hover:-translate-y-[3px]"
+        className="group relative flex h-full min-h-0 cursor-pointer flex-col items-stretch justify-end border-0 bg-transparent p-0 text-left transition-transform hover:-translate-y-[3px]"
       >
-        <div className="relative grid h-[208px] w-full place-items-center">
+        <div className="relative grid h-full max-h-[276px] min-h-[166px] w-full flex-1 place-items-center">
           {/* Emerald halo so the call-to-action reads at a glance. */}
           <span
             aria-hidden
@@ -1874,7 +1887,7 @@ function EmptySlot({
             }}
           />
           <div
-            className="relative grid h-[200px] w-[122px] place-items-center"
+            className="relative grid h-full max-h-[268px] min-h-[158px] w-[122px] place-items-center"
             style={{
               borderRadius: "44% / 16%",
               border: "2px solid rgba(52,211,153,.75)",
@@ -1944,14 +1957,14 @@ function EmptySlot({
       onDragLeave={interaction.onDragLeave}
       onDrop={interaction.onDrop}
       title="Awaiting mash bill"
-      className="relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform"
+      className="relative flex h-full min-h-0 cursor-pointer flex-col items-stretch justify-end border-0 bg-transparent p-0 text-left transition-transform"
       style={{
         transform: selected ? "translateY(-3px)" : "translateY(0)",
       }}
     >
-      <div className="relative grid h-[208px] w-full place-items-center">
+      <div className="relative grid h-full max-h-[276px] min-h-[166px] w-full flex-1 place-items-center">
         <div
-          className="shelf-breathe relative grid h-[200px] w-[122px] place-items-center"
+          className="shelf-breathe relative grid h-full max-h-[268px] min-h-[158px] w-[122px] place-items-center"
           style={{
             borderRadius: "44% / 16%",
             border: "1.5px dashed rgba(198,157,82,.35)",
