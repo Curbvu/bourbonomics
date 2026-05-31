@@ -161,8 +161,10 @@ export default function HandTray() {
         <HandStripStatus inline />
       </div>
 
-      {/* Main row: DeckPile (left) | hand cards (center) | DiscardPile +
-          SoldStack (right). Mockup-style deck-builder layout. */}
+      {/* Main row: DeckPile (left) | hand cards (center) | DiscardPile
+          (right). Sold count moved up to the IdentityPlate's Sold
+          badge — having the same readout twice on screen was
+          redundant chrome. Mockup-style deck-builder layout. */}
       <div
         className="grid items-stretch gap-3 overflow-hidden px-[18px] py-2"
         style={{ gridTemplateColumns: "auto 1fr auto" }}
@@ -198,9 +200,12 @@ export default function HandTray() {
           )}
         </Section>
 
-        {/* Right cluster: Ops (if any) → Discard → Sold. Ops sits
-            inline with the hand instead of in a separate strip below
-            so the bottom of the screen doesn't grow another row. */}
+        {/* Right cluster: Ops (if any) → Discard. Ops sits inline with
+            the hand instead of in a separate strip below so the
+            bottom of the screen doesn't grow another row. The Sold
+            tile that used to terminate this cluster was redundant
+            with the IdentityPlate's Sold badge up top, so it's
+            retired. */}
         <div className="flex items-stretch gap-3">
           {focused.operationsHand.length > 0 ? (
             <OpsPocket
@@ -214,7 +219,6 @@ export default function HandTray() {
             tone="rose"
             saleTarget
           />
-          <SoldStack count={focused.barrelsSold} />
         </div>
       </div>
     </div>
@@ -399,30 +403,6 @@ function DramaticPile({
   );
 }
 
-function SoldStack({ count }: { count: number }) {
-  return (
-    <div
-      className="flex flex-col items-center justify-center gap-1.5 rounded-md border border-dashed"
-      style={{
-        width: 84,
-        height: 142,
-        borderColor: "rgba(110,80,50,.45)",
-        background: "rgba(20,14,8,.45)",
-      }}
-    >
-      <span className="label-sm">Sold</span>
-      <span
-        className="font-display font-bold leading-none"
-        style={{ fontSize: 32, color: "var(--ink)" }}
-      >
-        {count}
-      </span>
-      <span className="label-sm" style={{ fontSize: 16 }}>
-        bottles
-      </span>
-    </div>
-  );
-}
 
 /** Stable ordering inside the mixed Resources row. */
 const SUBTYPE_ORDER: Record<string, number> = {

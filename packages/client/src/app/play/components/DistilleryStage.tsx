@@ -136,7 +136,6 @@ export default function DistilleryStage() {
           ability={distillery.cardText ?? ""}
           capital={player.capital}
           reputation={player.reputation}
-          sold={player.barrelsSold}
           prestige={player.prestige}
           warehouseUnlocked={player.warehouseUnlocked}
           warehouseFilled={player.warehouseSlot != null}
@@ -172,7 +171,6 @@ function IdentityPlate({
   ability,
   capital,
   reputation,
-  sold,
   prestige,
   warehouseUnlocked,
   warehouseFilled,
@@ -186,7 +184,6 @@ function IdentityPlate({
   /** End-game accumulator — Brand Portfolio events fire here. Smaller
    *  readout next to capital so the player can track both scoreboards. */
   reputation: number;
-  sold: number;
   prestige: number;
   /** v3.5 — true once the player buys the Warehouse investment. */
   warehouseUnlocked: boolean;
@@ -200,8 +197,8 @@ function IdentityPlate({
     <div
       className="relative grid items-center gap-[18px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[8px]"
       style={{
-        // crest · Capital+Rep · name+ability · sold/prestige/warehouse · portfolio chip
-        gridTemplateColumns: "auto auto 1fr auto auto",
+        // crest · Capital+Rep · name+ability · (prestige/warehouse badges + portfolio chip)
+        gridTemplateColumns: "auto auto 1fr auto",
         background:
           "linear-gradient(180deg, rgba(58,40,24,.75) 0%, rgba(34,23,16,.85) 65%, rgba(20,14,8,.85) 100%)",
         boxShadow:
@@ -336,43 +333,36 @@ function IdentityPlate({
         ) : null}
       </div>
 
-      {/* Stats — Reputation now lives inline next to the crest. Sold
-          stays here, promoted to `big` so the right column doesn't
-          visually collapse. Prestige sits beside Sold as a small star
-          badge; it only appears once the player has earned at least
-          one prestige point (Gold sale, or Silver for Connoisseur).
-          Warehouse (v3.5) sits beside Prestige and only renders once
-          the player has bought the Warehouse investment card. */}
-      <div
-        className="flex items-stretch gap-3.5 pl-[18px]"
-        style={{ borderLeft: "1px dashed rgba(110,80,50,.45)" }}
-      >
-        <Stat label="Sold" value={sold} big />
+      {/* Right cluster — optional badges (prestige + warehouse) sit
+          alongside the Brand Portfolio chip in a single grid cell so
+          they share one visual column. Sold was retired here once
+          the chip's "Total Bourbons" stat covered the same count.
+          Prestige only renders when > 0; Warehouse only renders when
+          the investment is owned. The chip is the always-on entry
+          point for the BrandPortfolioDrawer. */}
+      <div className="flex items-center gap-3.5">
         {prestige > 0 ? <PrestigeBadge value={prestige} /> : null}
         {warehouseUnlocked ? <WarehouseBadge filled={warehouseFilled} /> : null}
+        <PortfolioChip player={player} />
       </div>
-
-      {/* Diminished Brand Portfolio chip — replaces the old roomy
-          LineStrip at the bottom of the stage. Click opens the
-          BrandPortfolioDrawer for the full tier board + slot picker.
-          Stamps `data-bb-zone="prestige"`-adjacent — the chip itself
-          is a single click target, no inner tooltips to fight. */}
-      <PortfolioChip player={player} />
     </div>
   );
 }
 
 /**
- * Compact one-click Brand Portfolio entry chip — lives in the top-right
- * of the IdentityPlate. Two-row layout: top reads as a riveted brass
- * placard with the brand mark + flagship name + CTA, bottom is a
- * data row carrying slot dots + filled count + a labeled inventory
- * readout. The full board (tier groups, slot details, second
- * portfolio) lives in the drawer the chip opens.
+ * Brand Portfolio entry chip — three stat columns mirroring the
+ * Capital + Rep scoreboard on the left of the IdentityPlate. Each
+ * column shows a big tabular number with a label below; the whole
+ * chip is the click target for the BrandPortfolioDrawer.
+ *
+ * - Inventory — bottles stashed (`player.inventory.length`).
+ * - Brand Portfolio — slots filled on the flagship, shown as
+ *   `filled/total` so the player can read both progress and ceiling.
+ * - Total Bourbons — every bottle the player is sitting on, across
+ *   stash + portfolio (= inventory + filled).
  *
  * When the player has a `pendingBottlePlacement`, the chip pulses
- * gold + swaps its CTA to "Place →" so the player can't miss that
- * the sale is mid-resolution and a placement choice is owed.
+ * gold so the mid-sale "you owe a placement" state can't be missed.
  */
 function PortfolioChip({ player }: { player: PlayerState }) {
   const { setPortfolioDrawerOpen } = useGameStore();
@@ -383,27 +373,21 @@ function PortfolioChip({ player }: { player: PlayerState }) {
   const filled = slots.filter((s) => s.filled).length;
   const total = slots.length;
   const inventory = player.inventory.length;
+  const totalBourbons = inventory + filled;
   const pending = player.pendingBottlePlacement != null;
-  // Short version of the flagship name — keeps the chip from blowing
-  // out the IdentityPlate's right column when the name is long. Picks
-  // off the redundant "Reserve"/"Collection"/"Lineup" suffix.
-  const shortName = flagship.name
-    .replace(/\s+(Reserve|Collection|Lineup|Selection|Vault)$/, "")
-    .slice(0, 22);
   return (
     <button
       type="button"
       onClick={() => setPortfolioDrawerOpen(true)}
       title={
         pending
-          ? "Place your sold bottle — click to open the portfolio board"
-          : `Open your Brand Portfolio · ${flagship.name} · ${filled}/${total} slots filled · ${inventory} bottle${inventory === 1 ? "" : "s"} in inventory`
+          ? `Place your sold bottle — click to open ${flagship.name}`
+          : `Open ${flagship.name} · ${filled}/${total} slots filled · ${inventory} in inventory · ${totalBourbons} bourbons total`
       }
-      className={`group relative flex flex-col items-stretch gap-[3px] rounded-[8px] border px-3 py-1.5 text-left transition-all hover:-translate-y-[1px] hover:brightness-[1.08] ${
+      className={`group relative flex items-stretch gap-[14px] rounded-[10px] border px-3 py-1.5 transition-all hover:-translate-y-[1px] hover:brightness-[1.08] ${
         pending ? "bb-onclock-pulse" : ""
       }`}
       style={{
-        minWidth: 220,
         borderColor: pending ? "var(--gold)" : "rgba(198,157,82,.55)",
         background:
           "radial-gradient(140% 120% at 0% 0%, rgba(240,201,112,.16), transparent 60%), linear-gradient(180deg, rgba(58,40,24,.92), rgba(20,14,8,.95))",
@@ -412,144 +396,94 @@ function PortfolioChip({ player }: { player: PlayerState }) {
           : "inset 0 1px 0 rgba(240,201,112,.22), inset 0 -1px 0 rgba(0,0,0,.45), 0 4px 14px rgba(0,0,0,.4)",
       }}
     >
-      {/* Brass corner ornament — mirrors the IdentityPlate's own
-          corner detail so the chip reads as a sibling of the plate
-          rather than a foreign tile. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute left-0 top-0 h-5 w-5"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(240,201,112,.45), transparent 65%)",
-          borderTopLeftRadius: 8,
-        }}
+      <PortfolioStat
+        value={inventory}
+        label={["Inventory", ""]}
+        accent={inventory > 0}
       />
-
-      {/* Row 1 — brand mark + label + flagship name + CTA */}
-      <div className="flex items-center gap-2 leading-none">
-        <span
-          aria-hidden
-          className="font-display"
-          style={{
-            fontSize: 13,
-            color: "var(--gold)",
-            textShadow: "0 0 8px rgba(240,201,112,.55)",
-          }}
-        >
-          ⌬
-        </span>
-        <span
-          className="font-mono font-bold uppercase"
-          style={{
-            fontSize: 9,
-            letterSpacing: ".22em",
-            color: "var(--brass)",
-          }}
-        >
-          Brand Portfolio
-        </span>
-        <span
-          aria-hidden
-          className="h-2.5 w-px self-center"
-          style={{ background: "rgba(198,157,82,.4)" }}
-        />
-        <span
-          className="truncate font-display"
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: "var(--ink)",
-            maxWidth: 110,
-            textShadow: "0 0 6px rgba(240,201,112,.25)",
-          }}
-        >
-          {shortName}
-        </span>
-        <span
-          className="ml-auto rounded border px-1.5 py-[2px] font-mono font-bold uppercase"
-          style={{
-            fontSize: 9,
-            letterSpacing: ".14em",
-            borderColor: pending ? "var(--gold)" : "rgba(198,157,82,.55)",
-            background: pending
-              ? "linear-gradient(180deg, rgba(240,201,112,.35), rgba(176,106,56,.18))"
-              : "linear-gradient(180deg, rgba(240,201,112,.16), rgba(34,23,16,.65))",
-            color: "var(--gold)",
-          }}
-        >
-          {pending ? "Place →" : "Open ↗"}
-        </span>
-      </div>
-
-      {/* Row 2 — slot dots + filled/total · inventory readout */}
-      <div className="flex items-center gap-2.5 leading-none">
-        <span className="flex items-center gap-[4px]">
-          {slots.map((s, i) => (
-            <span
-              key={i}
-              aria-hidden
-              className="inline-block h-[7px] w-[7px] rounded-full"
-              style={{
-                background: s.filled
-                  ? "radial-gradient(circle at 35% 30%, #f0c970, #6b3d1d 90%)"
-                  : "transparent",
-                border: s.filled ? "0" : "1px solid rgba(198,157,82,.55)",
-                boxShadow: s.filled
-                  ? "0 0 6px rgba(240,201,112,.55)"
-                  : "none",
-              }}
-            />
-          ))}
-        </span>
-        <span
-          className="font-mono font-bold tabular-nums"
-          style={{
-            fontSize: 11,
-            color: "var(--gold)",
-          }}
-        >
-          {filled}/{total}
-        </span>
-        <span
-          aria-hidden
-          className="h-2.5 w-px"
-          style={{ background: "rgba(198,157,82,.4)" }}
-        />
-        {/* Inventory readout — promoted from "▥ 0" to a labeled,
-            two-element pair so the count reads as inventory at a
-            glance. Number gets a tabular gold treatment, label sits
-            beside it in mono uppercase. */}
-        <span
-          className="flex items-baseline gap-1"
-          title={`${inventory} bottle${inventory === 1 ? "" : "s"} in inventory`}
-        >
-          <span aria-hidden style={{ color: "var(--brass)", fontSize: 11 }}>
-            ▥
-          </span>
-          <span
-            className="font-display font-bold tabular-nums"
-            style={{
-              fontSize: 13,
-              color: inventory > 0 ? "var(--gold)" : "var(--ink-muted)",
-              textShadow:
-                inventory > 0 ? "0 0 6px rgba(240,201,112,.4)" : "none",
-            }}
-          >
-            {inventory}
-          </span>
-          <span
-            className="font-mono font-bold uppercase"
-            style={{
-              fontSize: 8.5,
-              letterSpacing: ".18em",
-              color: "var(--brass)",
-            }}
-          >
-            Inventory
-          </span>
-        </span>
-      </div>
+      <DashedSep />
+      <PortfolioStat
+        value={`${filled}/${total}`}
+        label={["Brand", "Portfolio"]}
+        accent={filled > 0}
+      />
+      <DashedSep />
+      <PortfolioStat
+        value={totalBourbons}
+        label={["Total", "Bourbons"]}
+        accent={totalBourbons > 0}
+      />
     </button>
+  );
+}
+
+/**
+ * Stacked numeric + label cell used inside `PortfolioChip` — mirrors
+ * the Capital / Rep readout pattern on the left scoreboard so the
+ * three portfolio stats read as siblings of those scoreboard tiles.
+ * `label` is a two-element tuple so multi-word labels can stack
+ * cleanly without the chip ballooning horizontally; pass `""` for
+ * the second line to single-line a label while keeping vertical
+ * alignment across the three columns.
+ */
+function PortfolioStat({
+  value,
+  label,
+  accent,
+}: {
+  value: number | string;
+  label: [string, string];
+  /** When true (count > 0), the number reads gold + faint glow. */
+  accent: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center leading-none">
+      <span
+        className="font-display font-bold tabular-nums tracking-[.01em]"
+        style={{
+          fontSize: 26,
+          color: accent ? "var(--gold)" : "var(--ink)",
+          textShadow: accent
+            ? "0 0 10px rgba(240,201,112,.4), 0 1px 0 rgba(0,0,0,.45)"
+            : "0 1px 0 rgba(0,0,0,.45)",
+        }}
+      >
+        {value}
+      </span>
+      <span
+        className="mt-1 text-center font-mono font-bold uppercase"
+        style={{
+          fontSize: 8.5,
+          letterSpacing: ".16em",
+          lineHeight: 1.1,
+          color: "var(--brass)",
+        }}
+      >
+        {label[0]}
+        {label[1] ? (
+          <>
+            <br />
+            {label[1]}
+          </>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
+/** Dashed vertical rule between portfolio stats — matches the dashed
+ *  separator the IdentityPlate uses between its left scoreboard
+ *  (Capital + Rep) and the central name column. */
+function DashedSep() {
+  return (
+    <span
+      aria-hidden
+      className="self-stretch"
+      style={{
+        width: 1,
+        borderLeft: "1px dashed rgba(110,80,50,.55)",
+      }}
+    />
   );
 }
 
@@ -617,34 +551,6 @@ function PrestigeBadge({ value }: { value: number }) {
       <span className="label-sm mt-1" style={{ color: "var(--brass)" }}>
         Prestige
       </span>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  big = false,
-}: {
-  label: string;
-  value: number;
-  big?: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center leading-none">
-      <span
-        className="font-display font-bold tracking-[.01em]"
-        style={{
-          fontSize: big ? 40 : 24,
-          color: big ? "var(--gold)" : "var(--ink)",
-          textShadow: big
-            ? "0 1px 0 rgba(0,0,0,.4), 0 0 14px rgba(240,201,112,.25)"
-            : "none",
-        }}
-      >
-        {value}
-      </span>
-      <span className="label-sm mt-1">{label}</span>
     </div>
   );
 }
@@ -1273,25 +1179,29 @@ function Barrel({
           background: isAging
             ? // 1) curved stave shading — lit center, dark edges (the
               //    "belly") so the barrel reads as a 3D round object
-              //    instead of a flat vertical board.
+              //    instead of a flat vertical board. Warm amber
+              //    highlight in the center sells the bourbon-cask look.
               "linear-gradient(90deg," +
-                "rgba(0,0,0,.55) 0%, rgba(0,0,0,.12) 14%," +
-                "rgba(255,236,200,.10) 42%, rgba(255,236,200,.14) 50%," +
-                "rgba(255,236,200,.10) 58%," +
-                "rgba(0,0,0,.12) 86%, rgba(0,0,0,.55) 100%)," +
+                "rgba(0,0,0,.55) 0%, rgba(0,0,0,.10) 14%," +
+                "rgba(255,180,90,.12) 42%, rgba(255,200,120,.18) 50%," +
+                "rgba(255,180,90,.12) 58%," +
+                "rgba(0,0,0,.10) 86%, rgba(0,0,0,.55) 100%)," +
               // 2) fine stave seams — vertical 1px lines every 17px so
               //    the eye reads individual staves, not a solid board.
               "repeating-linear-gradient(90deg," +
                 "rgba(0,0,0,.45) 0px, rgba(0,0,0,.45) 1px," +
                 "transparent 1px, transparent 17px)," +
               // 3) wood-grain streaks — subtle near-horizontal noise so
-              //    the wood reads as a natural surface.
+              //    the wood reads as a natural surface. Warmer ochre
+              //    tone in the grain than before.
               "repeating-linear-gradient(86deg," +
-                "rgba(0,0,0,.05) 0px, rgba(0,0,0,.05) 2px," +
-                "rgba(255,220,170,.03) 2px, rgba(255,220,170,.03) 5px)," +
-              // 4) base oak — charred (darker) toward the ends, mid-
-              //    body warmer where the curve picks up light.
-              "linear-gradient(180deg,#1f130a 0%,#3a2414 14%,#4a341f 50%,#3a2414 86%,#1f130a 100%)"
+                "rgba(0,0,0,.06) 0px, rgba(0,0,0,.06) 2px," +
+                "rgba(255,200,130,.05) 2px, rgba(255,200,130,.05) 5px)," +
+              // 4) base oak — punchier bourbon-cask palette: charred
+              //    near-black at the chimes, saturated cask-amber at
+              //    the belly. Bumped saturation + warmth over the
+              //    previous muddier #4a341f mid-body.
+              "linear-gradient(180deg,#2a1606 0%,#5a3318 14%,#7a4823 50%,#5a3318 86%,#2a1606 100%)"
             : // Neutral grey staves — reads as "raw / under construction"
               // and clearly distinct from aging's charred-bourbon wood.
               "repeating-linear-gradient(90deg," +
@@ -1394,45 +1304,49 @@ function Barrel({
           />
         )}
 
-        {/* Top burned-in plate — tier label + bill name, branded onto
-            the barrel face. Aging barrels carry the full plate; non-
-            aging barrels skip it so the BarrelNeedsPlate (which
-            already takes the center stage) reads as the single focal
-            point and the bill name surfaces via hover/inspect. */}
+        {/* Top rim brand stamp — tier label + bill name burned onto
+            the chime cap, no plate backdrop. Real cooper-stamped
+            casks carry the brand on the head/rim, so this reads more
+            authentically than the old inset plate did. Heavy text-
+            shadow sells the "burned into wood" look; the text z-
+            indexes over the chime + first hoop band by virtue of
+            source order so it stays legible over the chrome. Aging
+            barrels carry the stamp; non-aging barrels skip it so
+            BarrelNeedsPlate stays the visual focal point.
+            Positioned at top:5 — sits across the chime cap (h-4)
+            and the first hoop band so the brand "wraps" the rim. */}
         {isAging ? (
           <span
-            className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center justify-center gap-[2px]"
+            className="pointer-events-none absolute left-1/2 z-[2] flex -translate-x-1/2 flex-col items-center justify-center leading-none"
             style={{
-              top: 24,
-              width: "80%",
-              padding: "4px 6px",
-              borderRadius: 4,
-              background:
-                "linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(20,8,4,.78) 100%)",
-              boxShadow: `inset 0 1px 2px rgba(0,0,0,.85), inset 0 -1px 0 rgba(255,220,170,.10), 0 0 0 1px ${band.ink}55, 0 1px 0 rgba(255,236,200,.12)`,
+              top: 5,
+              width: "86%",
             }}
           >
             <span
-              className="font-mono font-bold uppercase leading-none"
+              className="font-mono font-bold uppercase"
               style={{
-                fontSize: 8.5,
-                letterSpacing: ".22em",
+                fontSize: 8,
+                letterSpacing: ".24em",
                 color: band.ink,
-                textShadow: `0 0 6px ${band.glow}`,
+                textShadow: `0 1px 0 rgba(0,0,0,.95), 0 0 4px rgba(0,0,0,.85), 0 0 8px ${band.glow}`,
               }}
             >
               {band.label}
             </span>
             <span
-              className="font-display font-semibold leading-tight"
+              className="mt-[3px] font-display font-bold leading-none"
               style={{
-                fontSize: 12,
-                color: selected ? "var(--gold)" : "var(--ink)",
+                fontSize: 13,
+                color: selected ? "var(--gold)" : "#f5e6c8",
                 maxWidth: "100%",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                textShadow: "0 1px 0 rgba(0,0,0,.7), 0 0 4px rgba(0,0,0,.55)",
+                // Burned-in oak look — dark drop + warm halo so the
+                // brand reads as scorched wood under firelight.
+                textShadow:
+                  "0 1px 0 rgba(0,0,0,.95), 0 2px 4px rgba(0,0,0,.85), 0 0 6px rgba(255,180,90,.45)",
               }}
             >
               {bill?.name ?? "in progress"}
