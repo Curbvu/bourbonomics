@@ -26,11 +26,21 @@
  */
 
 import { useState, useMemo, type ReactNode } from "react";
-import type { Barrel, GameState, MashBill, RickhouseSlot } from "@bourbonomics/engine";
-import { computeRecipeFloors, validateAction } from "@bourbonomics/engine";
+import type {
+  Barrel,
+  GameState,
+  MashBill,
+  PlayerState,
+  RickhouseSlot,
+} from "@bourbonomics/engine";
+import {
+  computeRecipeFloors,
+  computeReward,
+  getPortfolio,
+  validateAction,
+} from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import BuyOverlay from "./BuyOverlay";
-import LineStrip from "./LineStrip";
 import { TIER_INK, tierOrCommon, type TierChrome } from "./tierStyles";
 import { dragCarriesMakeCard, readMakeDragPayload } from "./dragMake";
 import { RESOURCE_GLYPH } from "./handCardStyles";
@@ -76,8 +86,6 @@ export default function DistilleryStage() {
   if (!player) return null;
 
   const myBarrels = state.allBarrels.filter((b) => b.ownerId === player.id);
-  const slotsTotal = player.rickhouseSlots.length;
-  const filled = myBarrels.length;
   const distillery = player.distillery;
   const focusClass = useZoneFocusClass("rickhouse-self");
   const focusStyle = useZoneFocusStyle("rickhouse-self");
@@ -111,32 +119,27 @@ export default function DistilleryStage() {
         className={`flex min-h-0 flex-1 flex-col gap-2 px-[22px] py-2 ${focusClass}`}
         style={focusStyle}
       >
-        {/* 1. Stage tag strip */}
-        <div className="flex items-baseline gap-3">
-          <span className="stage-tag">Your Distillery</span>
-          <span
-            aria-hidden
-            className="h-px flex-1"
-            style={{
-              background: "linear-gradient(90deg, var(--rule), transparent)",
-            }}
-          />
-          <span className="label-sm">
-            <span style={{ color: "var(--gold)" }}>{filled}</span>
-            <span style={{ color: "var(--mute)" }}>/{slotsTotal} slots</span>
-          </span>
-        </div>
+        {/* Stage tag strip ("Your Distillery" + filled/total slots)
+             retired — the distillery name renders directly on the
+             IdentityPlate below, and the slot occupancy is implicit
+             from the rickhouse rendering. */}
 
-        {/* 2. Identity plate */}
+        {/* 1. Identity plate — capital + rep on the left, distillery
+             name + flavor + ability in the middle, the compact Brand
+             Portfolio chip + sold/prestige/warehouse readouts on the
+             right. The old bottom-of-stage roomy LineStrip got rolled
+             into the chip; players click the chip to open the
+             BrandPortfolioDrawer for the full board. */}
         <IdentityPlate
           name={distillery.name}
           flavor={distillery.flavorText ?? ""}
           ability={distillery.cardText ?? ""}
-          rep={player.capital}
-          sold={player.barrelsSold}
+          capital={player.capital}
+          reputation={player.reputation}
           prestige={player.prestige}
           warehouseUnlocked={player.warehouseUnlocked}
           warehouseFilled={player.warehouseSlot != null}
+          player={player}
         />
 
         {/* 3. Rickhouse stage */}
@@ -148,11 +151,6 @@ export default function DistilleryStage() {
           canDraftBill={canDraftBill}
           onDraftBill={startDraftingLoopMode}
         />
-
-        {/* 4. v3.0 Line system — roomy strip for the human's own
-             brand portfolio. Renders nothing until there's something
-             to show (board bound, bottles placed, cards in hand). */}
-        <LineStrip player={player} state={state} density="roomy" />
       </div>
 
       {/* Buy-purchase panel — sibling of the dim-wrapper so its
@@ -171,28 +169,35 @@ function IdentityPlate({
   name,
   flavor,
   ability,
-  rep,
-  sold,
+  capital,
+  reputation,
   prestige,
   warehouseUnlocked,
   warehouseFilled,
+  player,
 }: {
   name: string;
   flavor: string;
   ability: string;
-  rep: number;
-  sold: number;
+  /** Mid-game spendable + 1:1 final-score number. The big gold readout. */
+  capital: number;
+  /** End-game accumulator — Brand Portfolio events fire here. Smaller
+   *  readout next to capital so the player can track both scoreboards. */
+  reputation: number;
   prestige: number;
   /** v3.5 — true once the player buys the Warehouse investment. */
   warehouseUnlocked: boolean;
   /** v3.5 — true when something is currently stored in the warehouse. */
   warehouseFilled: boolean;
+  /** Threaded down for the PortfolioChip — needs flagship state +
+   *  inventory count to render the diminished summary. */
+  player: PlayerState;
 }) {
   return (
     <div
-      className="relative grid items-center gap-[22px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[8px]"
+      className="relative grid items-center gap-[18px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[8px]"
       style={{
-        // crest · BIG REP · name+ability · sold
+        // crest · Capital+Rep · name+ability · (prestige/warehouse badges + portfolio chip)
         gridTemplateColumns: "auto auto 1fr auto",
         background:
           "linear-gradient(180deg, rgba(58,40,24,.75) 0%, rgba(34,23,16,.85) 65%, rgba(20,14,8,.85) 100%)",
@@ -243,38 +248,61 @@ function IdentityPlate({
         />
       </div>
 
-      {/* BIG Reputation — between the crest and the title. Reads as
-          the scoreboard for the whole match. Dashed right rule
-          mirrors the divider before the Sold column on the far side.
-          `data-bb-zone="reputation"` anchors the tutorial spotlight
-          here (it used to live on the player-handle strip in
-          HandTray before rep moved up). */}
+      {/* Capital + Rep — side-by-side scoreboard between the crest
+          and the title. Capital is the spendable wallet + 1:1 final
+          score (the big gold number); Reputation is the end-game-only
+          accumulator that fires from Brand Portfolio events (smaller,
+          brass-tinted). Dashed right rule mirrors the divider before
+          the Sold column. `data-bb-zone="reputation"` anchors the
+          tutorial spotlight here. */}
       <div
         data-bb-zone="reputation"
-        className="flex flex-col items-center justify-center leading-none"
+        className="flex items-end gap-[14px] leading-none"
         style={{
-          paddingRight: 22,
+          paddingRight: 18,
           borderRight: "1px dashed rgba(110,80,50,.45)",
         }}
       >
-        <span
-          className="font-display font-bold tracking-[.01em]"
-          style={{
-            fontSize: 64,
-            lineHeight: 0.9,
-            color: "var(--gold)",
-            textShadow:
-              "0 1px 0 rgba(0,0,0,.5), 0 0 22px rgba(240,201,112,.35)",
-          }}
-        >
-          {rep}
-        </span>
-        <span
-          className="label-sm mt-1.5"
-          style={{ color: "var(--brass)" }}
-        >
-          Capital
-        </span>
+        <div className="flex flex-col items-center justify-center leading-none">
+          <span
+            className="font-display font-bold tracking-[.01em]"
+            style={{
+              fontSize: 56,
+              lineHeight: 0.9,
+              color: "var(--gold)",
+              textShadow:
+                "0 1px 0 rgba(0,0,0,.5), 0 0 22px rgba(240,201,112,.35)",
+            }}
+          >
+            {capital}
+          </span>
+          <span
+            className="label-sm mt-1.5"
+            style={{ color: "var(--brass)" }}
+          >
+            Capital
+          </span>
+        </div>
+        <div className="flex flex-col items-center justify-center leading-none">
+          <span
+            className="font-display font-bold tracking-[.01em]"
+            style={{
+              fontSize: 36,
+              lineHeight: 0.9,
+              color: "var(--ink)",
+              textShadow: "0 1px 0 rgba(0,0,0,.5)",
+            }}
+            title="End-game reputation — Brand Portfolio scoring fires here"
+          >
+            {reputation}
+          </span>
+          <span
+            className="label-sm mt-1.5"
+            style={{ color: "var(--mute)" }}
+          >
+            Rep
+          </span>
+        </div>
       </div>
 
       {/* Name + flavor + ability */}
@@ -305,22 +333,157 @@ function IdentityPlate({
         ) : null}
       </div>
 
-      {/* Stats — Reputation now lives inline next to the crest. Sold
-          stays here, promoted to `big` so the right column doesn't
-          visually collapse. Prestige sits beside Sold as a small star
-          badge; it only appears once the player has earned at least
-          one prestige point (Gold sale, or Silver for Connoisseur).
-          Warehouse (v3.5) sits beside Prestige and only renders once
-          the player has bought the Warehouse investment card. */}
-      <div
-        className="flex items-stretch gap-3.5 pl-[18px]"
-        style={{ borderLeft: "1px dashed rgba(110,80,50,.45)" }}
-      >
-        <Stat label="Sold" value={sold} big />
+      {/* Right cluster — optional badges (prestige + warehouse) sit
+          alongside the Brand Portfolio chip in a single grid cell so
+          they share one visual column. Sold was retired here once
+          the chip's "Total Bourbons" stat covered the same count.
+          Prestige only renders when > 0; Warehouse only renders when
+          the investment is owned. The chip is the always-on entry
+          point for the BrandPortfolioDrawer. */}
+      <div className="flex items-center gap-3.5">
         {prestige > 0 ? <PrestigeBadge value={prestige} /> : null}
         {warehouseUnlocked ? <WarehouseBadge filled={warehouseFilled} /> : null}
+        <PortfolioChip player={player} />
       </div>
     </div>
+  );
+}
+
+/**
+ * Brand Portfolio entry chip — three stat columns mirroring the
+ * Capital + Rep scoreboard on the left of the IdentityPlate. Each
+ * column shows a big tabular number with a label below; the whole
+ * chip is the click target for the BrandPortfolioDrawer.
+ *
+ * - Inventory — bottles stashed (`player.inventory.length`).
+ * - Brand Portfolio — slots filled on the flagship, shown as
+ *   `filled/total` so the player can read both progress and ceiling.
+ * - Total Bourbons — every bottle the player is sitting on, across
+ *   stash + portfolio (= inventory + filled).
+ *
+ * When the player has a `pendingBottlePlacement`, the chip pulses
+ * gold so the mid-sale "you owe a placement" state can't be missed.
+ */
+function PortfolioChip({ player }: { player: PlayerState }) {
+  const { setPortfolioDrawerOpen } = useGameStore();
+  const flagshipId = player.flagshipPortfolio.portfolioId;
+  const flagship = flagshipId ? getPortfolio(flagshipId) : null;
+  if (!flagship) return null;
+  const slots = player.flagshipPortfolio.slots;
+  const filled = slots.filter((s) => s.filled).length;
+  const total = slots.length;
+  const inventory = player.inventory.length;
+  const totalBourbons = inventory + filled;
+  const pending = player.pendingBottlePlacement != null;
+  return (
+    <button
+      type="button"
+      onClick={() => setPortfolioDrawerOpen(true)}
+      title={
+        pending
+          ? `Place your sold bottle — click to open ${flagship.name}`
+          : `Open ${flagship.name} · ${filled}/${total} slots filled · ${inventory} in inventory · ${totalBourbons} bourbons total`
+      }
+      className={`group relative flex items-stretch gap-[14px] rounded-[10px] border px-3 py-1.5 transition-all hover:-translate-y-[1px] hover:brightness-[1.08] ${
+        pending ? "bb-onclock-pulse" : ""
+      }`}
+      style={{
+        borderColor: pending ? "var(--gold)" : "rgba(198,157,82,.55)",
+        background:
+          "radial-gradient(140% 120% at 0% 0%, rgba(240,201,112,.16), transparent 60%), linear-gradient(180deg, rgba(58,40,24,.92), rgba(20,14,8,.95))",
+        boxShadow: pending
+          ? "0 0 0 1px rgba(240,201,112,.55), 0 6px 18px rgba(240,201,112,.28), inset 0 1px 0 rgba(240,201,112,.25)"
+          : "inset 0 1px 0 rgba(240,201,112,.22), inset 0 -1px 0 rgba(0,0,0,.45), 0 4px 14px rgba(0,0,0,.4)",
+      }}
+    >
+      <PortfolioStat
+        value={inventory}
+        label={["Inventory", ""]}
+        accent={inventory > 0}
+      />
+      <DashedSep />
+      <PortfolioStat
+        value={`${filled}/${total}`}
+        label={["Brand", "Portfolio"]}
+        accent={filled > 0}
+      />
+      <DashedSep />
+      <PortfolioStat
+        value={totalBourbons}
+        label={["Total", "Bourbons"]}
+        accent={totalBourbons > 0}
+      />
+    </button>
+  );
+}
+
+/**
+ * Stacked numeric + label cell used inside `PortfolioChip` — mirrors
+ * the Capital / Rep readout pattern on the left scoreboard so the
+ * three portfolio stats read as siblings of those scoreboard tiles.
+ * `label` is a two-element tuple so multi-word labels can stack
+ * cleanly without the chip ballooning horizontally; pass `""` for
+ * the second line to single-line a label while keeping vertical
+ * alignment across the three columns.
+ */
+function PortfolioStat({
+  value,
+  label,
+  accent,
+}: {
+  value: number | string;
+  label: [string, string];
+  /** When true (count > 0), the number reads gold + faint glow. */
+  accent: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center leading-none">
+      <span
+        className="font-display font-bold tabular-nums tracking-[.01em]"
+        style={{
+          fontSize: 26,
+          color: accent ? "var(--gold)" : "var(--ink)",
+          textShadow: accent
+            ? "0 0 10px rgba(240,201,112,.4), 0 1px 0 rgba(0,0,0,.45)"
+            : "0 1px 0 rgba(0,0,0,.45)",
+        }}
+      >
+        {value}
+      </span>
+      <span
+        className="mt-1 text-center font-mono font-bold uppercase"
+        style={{
+          fontSize: 8.5,
+          letterSpacing: ".16em",
+          lineHeight: 1.1,
+          color: "var(--brass)",
+        }}
+      >
+        {label[0]}
+        {label[1] ? (
+          <>
+            <br />
+            {label[1]}
+          </>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
+/** Dashed vertical rule between portfolio stats — matches the dashed
+ *  separator the IdentityPlate uses between its left scoreboard
+ *  (Capital + Rep) and the central name column. */
+function DashedSep() {
+  return (
+    <span
+      aria-hidden
+      className="self-stretch"
+      style={{
+        width: 1,
+        borderLeft: "1px dashed rgba(110,80,50,.55)",
+      }}
+    />
   );
 }
 
@@ -388,34 +551,6 @@ function PrestigeBadge({ value }: { value: number }) {
       <span className="label-sm mt-1" style={{ color: "var(--brass)" }}>
         Prestige
       </span>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  big = false,
-}: {
-  label: string;
-  value: number;
-  big?: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center leading-none">
-      <span
-        className="font-display font-bold tracking-[.01em]"
-        style={{
-          fontSize: big ? 40 : 24,
-          color: big ? "var(--gold)" : "var(--ink)",
-          textShadow: big
-            ? "0 1px 0 rgba(0,0,0,.4), 0 0 14px rgba(240,201,112,.25)"
-            : "none",
-        }}
-      >
-        {value}
-      </span>
-      <span className="label-sm mt-1">{label}</span>
     </div>
   );
 }
@@ -891,14 +1026,20 @@ function BarrelCell({
         transform: selected ? "translateY(-6px)" : "translateY(0)",
       }}
     >
-      <BarrelTopCaption barrel={barrel} band={band} selected={selected} />
       <Barrel barrel={barrel} band={band} selected={selected} />
 
-      {/* On-barrel one-click Sell button. Only renders on the human's
-          saleable barrels (`age >= 2`, aging, not sale-locked this
-          round). `stopPropagation` prevents the cell's own onClick
-          (which engages age mode or opens inspect) from also firing. */}
-      {isHumanRow && interaction.saleable ? (
+      {/* On-barrel one-click Sell button — the cell's last child so it
+          reads as the barrel's plinth. Renders only when saleable
+          (`age >= 2`, aging, not sale-locked this round) AND a bill is
+          attached (the engine can't pay without a recipe). Label spells
+          out the *projected* capital payout via `computeReward` so the
+          player can compare barrels at a glance — engine recomputes
+          on apply with tier-floor + bonuses, so this is a baseline
+          (actual ≥ shown).
+
+          `stopPropagation` keeps the cell's own onClick (which engages
+          age mode or opens inspect) from firing alongside. */}
+      {isHumanRow && interaction.saleable && bill ? (
         <button
           type="button"
           data-bb-action="sell-barrel"
@@ -906,6 +1047,7 @@ function BarrelCell({
             e.stopPropagation();
             sellBarrelNow(barrel.id);
           }}
+          title={`Sell this barrel — projected ${computeReward(bill, barrel.age, state.demand, { demandBandOffset: barrel.demandBandOffset, gridRepOffset: barrel.gridRepOffset })} capital. Pick inventory or a portfolio slot on the popup that follows.`}
           className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono font-bold uppercase tracking-[.16em] transition-colors"
           style={{
             fontSize: 13,
@@ -930,129 +1072,14 @@ function BarrelCell({
               "inset 0 1px 0 rgba(255,255,255,.10)";
           }}
         >
-          Sell Bottle →
+          Sell for{" "}
+          {computeReward(bill, barrel.age, state.demand, {
+            demandBandOffset: barrel.demandBandOffset,
+            gridRepOffset: barrel.gridRepOffset,
+          })}{" "}
+          capital
         </button>
       ) : null}
-
-      <BarrelBottomCaption barrel={barrel} band={band} selected={selected} />
-    </div>
-  );
-}
-
-/**
- * Above-the-barrel caption — bill name (tier-tinted) on the left, phase
- * chip on the right. Replaces the top half of the old CaptionCard.
- *
- * Why a top caption: the user can scan a row of barrels and read
- * "what am I making?" in a single eyeline, without their eye drifting
- * down past the wood to the old footer panel. The phase chip lives
- * up here too because phase ("Building" vs "Aging") is the single
- * most-actionable piece of info per barrel.
- */
-function BarrelTopCaption({
-  barrel,
-  band,
-  selected,
-}: {
-  barrel: Barrel;
-  band: { ink: string; glow: string; label: string };
-  selected: boolean;
-}) {
-  const bill = barrel.attachedMashBill;
-  return (
-    <div
-      className="mb-2 flex items-center justify-between gap-2 leading-tight"
-      style={{
-        // Thin tier-colored hairline under the name so the "title row"
-        // reads as its own visual band even without a heavy panel.
-        borderBottom: `1px solid ${selected ? "rgba(240,201,112,.55)" : `${band.ink}55`}`,
-        paddingBottom: 4,
-      }}
-    >
-      <span
-        className="font-display font-semibold tracking-[.01em]"
-        style={{
-          color: selected ? "var(--gold)" : "var(--ink)",
-          fontSize: 18,
-          textShadow: `0 1px 8px ${band.glow}`,
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {bill?.name ?? "in progress"}
-      </span>
-      <PhaseStamp phase={barrel.phase} age={barrel.age} />
-    </div>
-  );
-}
-
-/**
- * Below-the-barrel caption — slogan (italic, dimmer) + REP range +
- * mash pips on a single compact row. Replaces the bottom half of the
- * old CaptionCard. No heavy panel chrome — the slogan reads as a
- * tasting note under the barrel, the REP/pip pair reads as the
- * "current pour" gauge. Tier label is gone: the band of color on the
- * top-caption hairline + the barrel's own halo carry the tier.
- */
-function BarrelBottomCaption({
-  barrel,
-  band,
-  selected,
-}: {
-  barrel: Barrel;
-  band: { ink: string; glow: string; label: string };
-  selected: boolean;
-}) {
-  const bill = barrel.attachedMashBill;
-  const cells: number[] = [];
-  if (bill) {
-    for (const row of bill.rewardGrid) {
-      for (const c of row) if (c !== null) cells.push(c);
-    }
-  }
-  const peak = cells.length ? Math.max(...cells) : 0;
-  const floor = cells.length ? Math.min(...cells) : 0;
-  return (
-    <div
-      className="mt-2 flex flex-col gap-1.5 leading-tight"
-      style={{
-        opacity: selected ? 1 : 0.95,
-      }}
-    >
-      {bill?.slogan ? (
-        <div
-          className="font-display italic"
-          style={{
-            color: "var(--ink-muted)",
-            fontSize: 14,
-            lineHeight: 1.35,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-            wordBreak: "break-word",
-          }}
-        >
-          {bill.slogan}
-        </div>
-      ) : null}
-      <div className="flex items-center justify-between gap-2">
-        <span
-          className="font-display font-bold tracking-[.01em]"
-          style={{ color: band.ink, fontSize: 18 }}
-        >
-          {bill ? `${floor}–${peak}` : "—"}{" "}
-          <span
-            className="label-sm"
-            style={{ color: band.ink, opacity: 0.75 }}
-          >
-            rep
-          </span>
-        </span>
-        <MashPips barrel={barrel} />
-      </div>
     </div>
   );
 }
@@ -1077,8 +1104,29 @@ function Barrel({
   // halo, no glowing medallion. Instead the body carries an "open"
   // staves treatment so the eye reads it as "raw, waiting on cards."
   const needs = isAging ? [] : computeBarrelNeeds(barrel);
+  const bill = barrel.attachedMashBill;
+  // Rep range — min/max of the bill's reward grid, used on the bottom
+  // burned-in plate. Cheap inline scan (rewardGrid is small) so the
+  // plate doesn't need a separate caption component.
+  let floor = 0;
+  let peak = 0;
+  if (bill) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const row of bill.rewardGrid) {
+      for (const c of row) {
+        if (c == null) continue;
+        if (c < lo) lo = c;
+        if (c > hi) hi = c;
+      }
+    }
+    if (lo !== Infinity) {
+      floor = lo;
+      peak = hi;
+    }
+  }
   return (
-    <div className="relative grid h-[156px] w-full place-items-center">
+    <div className="relative grid h-[208px] w-full place-items-center">
       {/* Ground shadow */}
       <span
         aria-hidden
@@ -1122,7 +1170,7 @@ function Barrel({
         className="relative"
         style={{
           width: 122,
-          height: 148,
+          height: 200,
           borderRadius: "44% / 16%",
           // `overflow: hidden` clips the charred chime rims (added
           // below) to the ellipse so the burnt ends don't square off
@@ -1131,25 +1179,29 @@ function Barrel({
           background: isAging
             ? // 1) curved stave shading — lit center, dark edges (the
               //    "belly") so the barrel reads as a 3D round object
-              //    instead of a flat vertical board.
+              //    instead of a flat vertical board. Warm amber
+              //    highlight in the center sells the bourbon-cask look.
               "linear-gradient(90deg," +
-                "rgba(0,0,0,.55) 0%, rgba(0,0,0,.12) 14%," +
-                "rgba(255,236,200,.10) 42%, rgba(255,236,200,.14) 50%," +
-                "rgba(255,236,200,.10) 58%," +
-                "rgba(0,0,0,.12) 86%, rgba(0,0,0,.55) 100%)," +
+                "rgba(0,0,0,.55) 0%, rgba(0,0,0,.10) 14%," +
+                "rgba(255,180,90,.12) 42%, rgba(255,200,120,.18) 50%," +
+                "rgba(255,180,90,.12) 58%," +
+                "rgba(0,0,0,.10) 86%, rgba(0,0,0,.55) 100%)," +
               // 2) fine stave seams — vertical 1px lines every 17px so
               //    the eye reads individual staves, not a solid board.
               "repeating-linear-gradient(90deg," +
                 "rgba(0,0,0,.45) 0px, rgba(0,0,0,.45) 1px," +
                 "transparent 1px, transparent 17px)," +
               // 3) wood-grain streaks — subtle near-horizontal noise so
-              //    the wood reads as a natural surface.
+              //    the wood reads as a natural surface. Warmer ochre
+              //    tone in the grain than before.
               "repeating-linear-gradient(86deg," +
-                "rgba(0,0,0,.05) 0px, rgba(0,0,0,.05) 2px," +
-                "rgba(255,220,170,.03) 2px, rgba(255,220,170,.03) 5px)," +
-              // 4) base oak — charred (darker) toward the ends, mid-
-              //    body warmer where the curve picks up light.
-              "linear-gradient(180deg,#1f130a 0%,#3a2414 14%,#4a341f 50%,#3a2414 86%,#1f130a 100%)"
+                "rgba(0,0,0,.06) 0px, rgba(0,0,0,.06) 2px," +
+                "rgba(255,200,130,.05) 2px, rgba(255,200,130,.05) 5px)," +
+              // 4) base oak — punchier bourbon-cask palette: charred
+              //    near-black at the chimes, saturated cask-amber at
+              //    the belly. Bumped saturation + warmth over the
+              //    previous muddier #4a341f mid-body.
+              "linear-gradient(180deg,#2a1606 0%,#5a3318 14%,#7a4823 50%,#5a3318 86%,#2a1606 100%)"
             : // Neutral grey staves — reads as "raw / under construction"
               // and clearly distinct from aging's charred-bourbon wood.
               "repeating-linear-gradient(90deg," +
@@ -1252,15 +1304,96 @@ function Barrel({
           />
         )}
 
+        {/* Top rim brand stamp — tier label + bill name burned onto
+            the chime cap, no plate backdrop. Real cooper-stamped
+            casks carry the brand on the head/rim, so this reads more
+            authentically than the old inset plate did. Heavy text-
+            shadow sells the "burned into wood" look; the text z-
+            indexes over the chime + first hoop band by virtue of
+            source order so it stays legible over the chrome. Aging
+            barrels carry the stamp; non-aging barrels skip it so
+            BarrelNeedsPlate stays the visual focal point.
+            Positioned at top:5 — sits across the chime cap (h-4)
+            and the first hoop band so the brand "wraps" the rim. */}
+        {isAging ? (
+          <span
+            className="pointer-events-none absolute left-1/2 z-[2] flex -translate-x-1/2 flex-col items-center justify-center leading-none"
+            style={{
+              top: 5,
+              width: "86%",
+            }}
+          >
+            <span
+              className="font-mono font-bold uppercase"
+              style={{
+                fontSize: 8,
+                letterSpacing: ".24em",
+                color: band.ink,
+                textShadow: `0 1px 0 rgba(0,0,0,.95), 0 0 4px rgba(0,0,0,.85), 0 0 8px ${band.glow}`,
+              }}
+            >
+              {band.label}
+            </span>
+            <span
+              className="mt-[3px] font-display font-bold leading-none"
+              style={{
+                fontSize: 13,
+                color: selected ? "var(--gold)" : "#f5e6c8",
+                maxWidth: "100%",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                // Burned-in oak look — dark drop + warm halo so the
+                // brand reads as scorched wood under firelight.
+                textShadow:
+                  "0 1px 0 rgba(0,0,0,.95), 0 2px 4px rgba(0,0,0,.85), 0 0 6px rgba(255,180,90,.45)",
+              }}
+            >
+              {bill?.name ?? "in progress"}
+            </span>
+          </span>
+        ) : null}
+
+        {/* Bottom burned-in plate — rep range + mash pips. Aging only
+            (pip progress on non-aging is already conveyed by the
+            BarrelNeedsPlate). */}
+        {isAging ? (
+          <span
+            className="absolute left-1/2 flex -translate-x-1/2 items-center justify-between"
+            style={{
+              bottom: 24,
+              width: "82%",
+              padding: "4px 8px",
+              borderRadius: 4,
+              gap: 6,
+              background:
+                "linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(20,8,4,.78) 100%)",
+              boxShadow: `inset 0 1px 2px rgba(0,0,0,.85), inset 0 -1px 0 rgba(255,220,170,.10), 0 0 0 1px ${band.ink}55, 0 1px 0 rgba(255,236,200,.12)`,
+            }}
+          >
+            <span
+              className="font-display font-bold leading-none"
+              style={{
+                fontSize: 13,
+                color: band.ink,
+                textShadow: `0 0 6px ${band.glow}`,
+              }}
+            >
+              {bill ? `${floor}–${peak}` : "—"}
+            </span>
+            <MashPips barrel={barrel} />
+          </span>
+        ) : null}
+
         {/* Center plate — year medallion on aging barrels, needed-
             resources stack on barrels waiting for cards.
             Positioned via `inset:0 + margin:auto` so the medallion
-            sits dead-center of the 122×148 barrel body without
-            fighting the ember-needs keyframe's own transform
-            (translate-based centering was being eaten by the
-            animation and rendering the medallion offset to the
-            top). Sized at ~59% of the barrel width so it reads as
-            a stamp on the front face, not an orb. */}
+            sits dead-center of the barrel body without fighting the
+            ember-needs keyframe's own transform (translate-based
+            centering was being eaten by the animation and rendering
+            the medallion offset to the top). Sized at ~59% of the
+            barrel width so it reads as a stamp on the front face,
+            not an orb. */}
         {isAging ? (
           <span
             aria-hidden
@@ -1548,54 +1681,12 @@ function BarrelNeedsPlate({ needs }: { needs: BarrelNeed[] }) {
   );
 }
 
-// `CaptionCard` removed in this revision — replaced by BarrelTopCaption
-// + BarrelBottomCaption on either side of the barrel. The old footer
-// panel doubled the chrome and pushed the name + REP gauge down past
-// the eye-line; splitting it lets the bill name read first, on top
-// of its barrel, with slogan + REP below.
-
-function PhaseStamp({ phase, age }: { phase: Barrel["phase"]; age: number }) {
-  const map: Record<
-    Barrel["phase"],
-    { label: string; ink: string; bg: string; border: string }
-  > = {
-    aging: {
-      label: `Aging · ${age}y`,
-      ink: "var(--gold)",
-      bg: "rgba(240,201,112,.18)",
-      border: "rgba(240,201,112,.45)",
-    },
-    construction: {
-      label: "Building",
-      ink: "var(--sky)",
-      bg: "rgba(125,166,223,.18)",
-      border: "rgba(125,166,223,.45)",
-    },
-    ready: {
-      label: "Staged",
-      ink: "var(--ink-muted)",
-      bg: "rgba(110,80,50,.18)",
-      border: "rgba(110,80,50,.45)",
-    },
-  };
-  const s = map[phase];
-  return (
-    <span
-      className="font-mono font-bold uppercase"
-      style={{
-        fontSize: 16,
-        letterSpacing: ".14em",
-        padding: "2px 8px",
-        borderRadius: 5,
-        border: `1px solid ${s.border}`,
-        background: s.bg,
-        color: s.ink,
-      }}
-    >
-      {s.label}
-    </span>
-  );
-}
+// CaptionCard / BarrelTopCaption / BarrelBottomCaption / PhaseStamp all
+// retired — the bill name + tier label and the rep range + mash pips
+// now sit on burned-in plates inside the barrel body itself (see the
+// Barrel component above). The phase chip was dropped: the barrel's
+// own silhouette (charred-oak vs. cold-grey staves, medallion vs.
+// needs plate) already says "Aging" vs. "Building" louder than a chip.
 
 /** Pip row from the barrel's production cards + recipe minimums. */
 function MashPips({ barrel }: { barrel: Barrel }) {
@@ -1770,7 +1861,7 @@ function EmptySlot({
         title="Draft a new mash bill into this barrel"
         className="group relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform hover:-translate-y-[3px]"
       >
-        <div className="relative grid h-[156px] w-full place-items-center">
+        <div className="relative grid h-[208px] w-full place-items-center">
           {/* Emerald halo so the call-to-action reads at a glance. */}
           <span
             aria-hidden
@@ -1783,7 +1874,7 @@ function EmptySlot({
             }}
           />
           <div
-            className="relative grid h-[148px] w-[122px] place-items-center"
+            className="relative grid h-[200px] w-[122px] place-items-center"
             style={{
               borderRadius: "44% / 16%",
               border: "2px solid rgba(52,211,153,.75)",
@@ -1858,9 +1949,9 @@ function EmptySlot({
         transform: selected ? "translateY(-3px)" : "translateY(0)",
       }}
     >
-      <div className="relative grid h-[156px] w-full place-items-center">
+      <div className="relative grid h-[208px] w-full place-items-center">
         <div
-          className="shelf-breathe relative grid h-[148px] w-[122px] place-items-center"
+          className="shelf-breathe relative grid h-[200px] w-[122px] place-items-center"
           style={{
             borderRadius: "44% / 16%",
             border: "1.5px dashed rgba(198,157,82,.35)",

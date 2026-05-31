@@ -127,10 +127,9 @@ export default function GameBoard() {
         className="grid min-h-0 flex-1"
         style={{
           // Rivals 280px (was 230) so opponent cards' name + handle +
-          // mini-rickhouse range strips don't crowd. Log stays 290 so
-          // Tasting Notes entries don't wrap mid-sentence. Demand
-          // thermometer column (96px) sits between Rivals and Stage
-          // and spans the full main-area height so the liquid level
+          // mini-rickhouse range strips don't crowd. Demand thermometer
+          // column (96px) sits between the left column and the Stage,
+          // spanning the full main-area height so the liquid level
           // reads alongside both the rickhouse and the hand.
           // `minmax(0, 1fr)` instead of `1fr` so the stage column can
           // SHRINK to its share of the remaining width. Plain `1fr` is
@@ -138,17 +137,35 @@ export default function GameBoard() {
           // content's intrinsic min-width and would push the whole
           // board past the 1680px design canvas (BuyOverlay / MakeOverlay
           // panels then escape the centered sleeve).
-          gridTemplateColumns: "280px 96px minmax(0, 1fr) 290px",
+          //
+          // The Tasting Notes log used to sit in a dedicated 290px
+          // right column. It moved into the left column under Rivals
+          // so the stage/hand can claim the freed ~300px of width —
+          // RightRail still owns its own scrolling event list; the
+          // wrapper just stacks Rivals (top) + RightRail (fills the
+          // remainder) inside the single 280px left column.
+          gridTemplateColumns: "280px 96px minmax(0, 1fr)",
           gridTemplateRows: "1fr auto",
-          gridTemplateAreas:
-            '"rivals demand stage log" "rivals demand hand log"',
+          gridTemplateAreas: '"left demand stage" "left demand hand"',
           gap: 12,
           padding: 12,
           background:
             "radial-gradient(120% 70% at 50% 0%, rgba(176,106,56,.05), transparent 50%)",
         }}
       >
-        <OpponentRail />
+        {/* Left column — Rivals on top, Tasting Notes filling the rest.
+            Both child panels keep their own `gridArea` style attrs,
+            but those become no-ops inside this flex wrapper (which is
+            the actual grid item) and the components stay reusable
+            elsewhere (tutorial routes, etc.). */}
+        <div
+          className="flex min-h-0 flex-col gap-3"
+          style={{ gridArea: "left" }}
+        >
+          <OpponentRail />
+          <RightRail />
+        </div>
+
         <DemandThermometer rolled={state.demand} target={12} />
 
         {/* Stage area — flex column with MarketRow above DistilleryStage.
@@ -162,7 +179,6 @@ export default function GameBoard() {
           <DistilleryStage />
         </div>
 
-        <RightRail />
         {/* HandTray stamps `gridArea: "hand"` on its own root so it
             slots into the bottom-center area of this grid. */}
         <HandTray />

@@ -124,23 +124,16 @@ export default function HandTray() {
         <MakeOverlay />
       </div>
 
-      {/* Action bar slot — fixed 34px. ActionBar self-gates on the
-          action phase; outside it the slot stays empty but pinned at
-          the same height so the layout doesn't jump. */}
-      <div className="h-[34px] overflow-hidden">
-        <ActionBar />
-      </div>
-
-      {/* Status strip — context-aware italic sentence tied to the
-          active picker mode. Pulled from the new HandStripStatus
-          component below to keep the JSX tidy. */}
-      <HandStripStatus />
-
-      {/* Identity strip — compact player handle (swatch + name +
-          distillery + hand count). Reputation used to live here too
-          and carried `data-bb-zone="reputation"`; rep now sits as a
-          64px gold numeral on the IdentityPlate next to the crest,
-          so the spotlight anchor moved up there. */}
+      {/* Combined identity + controls + status row — one strip carries
+          the player handle, the turn controls, and the picker-mode
+          guidance line so we reclaim ~28px of vertical chrome. Old
+          layout had the status as its own row above; the buttons
+          floated on the far right with `ml-auto`. Per the user's
+          tightening pass: identity stays leftmost, buttons sit
+          immediately to its right (no gulf of empty space), the
+          context-aware status text fills the remainder and truncates
+          on overflow. Reputation moved up to the IdentityPlate's big
+          gold readout long ago, so this row carries no scoreboard. */}
       <div className="flex items-center gap-3 border-b border-[#3b2818] px-[18px] py-1">
         <div className="flex items-center gap-2">
           <PlayerSwatch
@@ -164,10 +157,14 @@ export default function HandTray() {
             </span>
           </div>
         </div>
+        <ActionBar />
+        <HandStripStatus inline />
       </div>
 
-      {/* Main row: DeckPile (left) | hand cards (center) | DiscardPile +
-          SoldStack (right). Mockup-style deck-builder layout. */}
+      {/* Main row: DeckPile (left) | hand cards (center) | DiscardPile
+          (right). Sold count moved up to the IdentityPlate's Sold
+          badge — having the same readout twice on screen was
+          redundant chrome. Mockup-style deck-builder layout. */}
       <div
         className="grid items-stretch gap-3 overflow-hidden px-[18px] py-2"
         style={{ gridTemplateColumns: "auto 1fr auto" }}
@@ -203,9 +200,12 @@ export default function HandTray() {
           )}
         </Section>
 
-        {/* Right cluster: Ops (if any) → Discard → Sold. Ops sits
-            inline with the hand instead of in a separate strip below
-            so the bottom of the screen doesn't grow another row. */}
+        {/* Right cluster: Ops (if any) → Discard. Ops sits inline with
+            the hand instead of in a separate strip below so the
+            bottom of the screen doesn't grow another row. The Sold
+            tile that used to terminate this cluster was redundant
+            with the IdentityPlate's Sold badge up top, so it's
+            retired. */}
         <div className="flex items-stretch gap-3">
           {focused.operationsHand.length > 0 ? (
             <OpsPocket
@@ -219,7 +219,6 @@ export default function HandTray() {
             tone="rose"
             saleTarget
           />
-          <SoldStack count={focused.barrelsSold} />
         </div>
       </div>
     </div>
@@ -230,11 +229,16 @@ export default function HandTray() {
 // v3 status strip — context-aware italic line keyed off the active mode
 // ─────────────────────────────────────────────────────────────────────
 
-function HandStripStatus() {
+function HandStripStatus({ inline = false }: { inline?: boolean } = {}) {
   const { buyMode, ageMode, sellMode, draftingLoopMode, makeMode } = useGameStore();
   let activeKey: string | null = null;
-  let label = "Idle";
-  let msg = "Choose an action to continue your turn.";
+  // Idle copy now spells out the implicit affordances on the screen
+  // (the dedicated Make / Sell / Buy buttons were retired in favor of
+  // direct on-board actions): drop hand cards on a barrel, click the
+  // market to buy, hit the on-barrel Sell Bottle button.
+  let label = "Your move";
+  let msg =
+    "Select hand cards, then a barrel to make or age · click the market to buy · sell from any barrel.";
   if (makeMode) {
     activeKey = "make";
     label = "Make";
@@ -259,6 +263,31 @@ function HandStripStatus() {
     msg = "Spend a card to seed the draft pile (initiate the Drafting Loop).";
   }
   const active = activeKey != null;
+  if (inline) {
+    // Inline variant — drops the standalone row chrome (background +
+    // border + padding) so the status text can sit on the identity
+    // row next to the action buttons. `min-w-0 flex-1` lets the row
+    // claim the leftover width and truncate gracefully when the
+    // context-aware message gets long.
+    return (
+      <span
+        className="flex min-w-0 flex-1 items-baseline gap-2 font-display italic"
+        style={{
+          fontSize: 14,
+          letterSpacing: ".01em",
+          color: active ? "var(--gold)" : "var(--ink-muted)",
+        }}
+      >
+        <span
+          className="label-sm flex-shrink-0"
+          style={{ color: active ? "var(--gold)" : "var(--mute)" }}
+        >
+          {label}
+        </span>
+        <span className="truncate">{msg}</span>
+      </span>
+    );
+  }
   return (
     <div
       className="border-b border-[#3b2818] px-[18px] py-[5px] font-display italic"
@@ -340,9 +369,13 @@ function DramaticPile({
           }}
         />
       ))}
-      {/* Top face */}
+      {/* Top face — single big tabular count. The "Deck"/"Discard" label
+          and the "cards" suffix used to flank it; both are now carried
+          by the wrapper's `title` tooltip so the card face reads as
+          the count itself. Pile identity stays legible via tone
+          (amber vs rose) + column position. */}
       <div
-        className="absolute flex flex-col items-center justify-between rounded-md"
+        className="absolute flex flex-col items-center justify-center rounded-md"
         style={{
           bottom: 8,
           left: 6,
@@ -356,56 +389,20 @@ function DramaticPile({
         }}
       >
         <span
-          className="label-sm"
-          style={{ color: palette.ink, fontSize: 16 }}
-        >
-          {label}
-        </span>
-        <span
-          className="font-display font-bold leading-none"
+          className="font-display font-bold leading-none tabular-nums"
           style={{
-            fontSize: 38,
+            fontSize: 44,
             color: palette.ink,
             textShadow: `0 0 12px ${palette.glow}`,
           }}
         >
           {count}
         </span>
-        <span
-          className="label-sm"
-          style={{ fontSize: 16, color: "var(--mute)" }}
-        >
-          cards
-        </span>
       </div>
     </div>
   );
 }
 
-function SoldStack({ count }: { count: number }) {
-  return (
-    <div
-      className="flex flex-col items-center justify-center gap-1.5 rounded-md border border-dashed"
-      style={{
-        width: 84,
-        height: 142,
-        borderColor: "rgba(110,80,50,.45)",
-        background: "rgba(20,14,8,.45)",
-      }}
-    >
-      <span className="label-sm">Sold</span>
-      <span
-        className="font-display font-bold leading-none"
-        style={{ fontSize: 32, color: "var(--ink)" }}
-      >
-        {count}
-      </span>
-      <span className="label-sm" style={{ fontSize: 16 }}>
-        bottles
-      </span>
-    </div>
-  );
-}
 
 /** Stable ordering inside the mixed Resources row. */
 const SUBTYPE_ORDER: Record<string, number> = {
