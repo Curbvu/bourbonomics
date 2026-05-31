@@ -115,7 +115,12 @@ export default function GameBoard() {
   const marketOpen = buyMode != null && buyMode.pickedTarget == null;
 
   return (
-    <div className="flex flex-1 flex-col" style={{ minHeight: 0 }}>
+    // `h-full` (not `flex-1`) so the chain from ScalingHost's fixed
+    // 1080-tall canvas down to <main> actually inherits height — the
+    // canvas is a block element, so `flex-1` here would fall back to
+    // content-sizing and the main grid would grow past 1080, clipping
+    // the hand at the bottom under the canvas's `overflow: hidden`.
+    <div className="flex h-full flex-col" style={{ minHeight: 0 }}>
       {/* GameOverPanel mounts at the page root (play/page.tsx) so its
           fullscreen modal backdrop covers the entire viewport rather
           than being scoped to the scaled design canvas. */}
