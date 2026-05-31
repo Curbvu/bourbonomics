@@ -1021,11 +1021,44 @@ function BarrelCell({
       onDragLeave={interaction.onDragLeave}
       onDrop={interaction.onDrop}
       title={titleText}
-      className="group relative flex h-full min-h-0 cursor-pointer flex-col items-stretch justify-end border-0 bg-transparent p-0 text-left transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
+      className="group relative flex h-full min-h-0 cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
       style={{
         transform: selected ? "translateY(-6px)" : "translateY(0)",
       }}
     >
+      {/* Bourbon name header — sits above each barrel so the bill is
+          legible regardless of phase. Previously the name was burned
+          onto the chime rim of aging barrels only; non-aging barrels
+          had no visible name at all. The header is `flex-shrink: 0`
+          so it never gets squeezed when the rickhouse tightens. */}
+      <div
+        className="mb-1 flex flex-col items-center leading-none"
+        style={{ flexShrink: 0 }}
+      >
+        <span
+          className="font-mono font-bold uppercase"
+          style={{
+            fontSize: 9,
+            letterSpacing: ".22em",
+            color: band.ink,
+            textShadow: `0 0 8px ${band.glow}`,
+          }}
+        >
+          {band.label}
+        </span>
+        <span
+          className="mt-[3px] truncate font-display font-semibold"
+          style={{
+            fontSize: 14,
+            color: selected ? "var(--gold)" : "var(--ink)",
+            maxWidth: "100%",
+            textShadow: "0 1px 0 rgba(0,0,0,.6), 0 0 6px rgba(0,0,0,.5)",
+          }}
+        >
+          {bill?.name ?? "Awaiting bill"}
+        </span>
+      </div>
+
       <Barrel barrel={barrel} band={band} selected={selected} />
 
       {/* On-barrel one-click Sell button — the cell's last child so it
@@ -1215,14 +1248,24 @@ function Barrel({
               //    the belly. Bumped saturation + warmth over the
               //    previous muddier #4a341f mid-body.
               "linear-gradient(180deg,#2a1606 0%,#5a3318 14%,#7a4823 50%,#5a3318 86%,#2a1606 100%)"
-            : // Neutral grey staves — reads as "raw / under construction"
-              // and clearly distinct from aging's charred-bourbon wood.
+            : // Warm raw-oak staves — uncharred bourbon wood. Reads as
+              // "raw / under construction" via paleness + a softer
+              // grain than the deep charred-bourbon palette of an
+              // aging barrel, but still unmistakably a wooden cask.
+              "linear-gradient(90deg," +
+                "rgba(0,0,0,.5) 0%, rgba(0,0,0,.10) 14%," +
+                "rgba(255,200,130,.12) 42%, rgba(255,210,140,.16) 50%," +
+                "rgba(255,200,130,.12) 58%," +
+                "rgba(0,0,0,.10) 86%, rgba(0,0,0,.5) 100%)," +
               "repeating-linear-gradient(90deg," +
-              "#3a3d42 0px, #3a3d42 14px," +
-              "#25272a 14px, #25272a 16px," +
-              "#4a4e54 16px, #4a4e54 30px," +
-              "#2e3034 30px, #2e3034 32px)," +
-              "linear-gradient(180deg, #444851 0%, #1d1f22 100%)",
+                "rgba(0,0,0,.30) 0px, rgba(0,0,0,.30) 1px," +
+                "transparent 1px, transparent 17px)," +
+              "repeating-linear-gradient(86deg," +
+                "rgba(0,0,0,.05) 0px, rgba(0,0,0,.05) 2px," +
+                "rgba(255,200,130,.06) 2px, rgba(255,200,130,.06) 5px)," +
+              "linear-gradient(180deg," +
+                "#3e2a16 0%, #7a5028 14%, #9a6a38 50%, " +
+                "#7a5028 86%, #3e2a16 100%)",
           boxShadow: isAging
             ? // Heavier inset shadows on the edges + bottom so the
               //    curvature of the belly reads strongly.
@@ -1236,14 +1279,15 @@ function Barrel({
               "inset 0 4px 8px rgba(255,255,255,.05), inset 0 -10px 22px rgba(0,0,0,.65), inset 10px 0 14px rgba(0,0,0,.55), inset -10px 0 14px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.55)",
         }}
       >
-        {/* Four riveted hoops — thicker outer bands at the chime ends,
-            thinner inner bands at the quarter points. Brass on aging,
-            iron-grey on non-aging. Dropped the old mid `top="50%"`
-            hoop — reads cleaner with the new sheen stripe below. */}
-        <Hoop top={8} thick={9} dim={!isAging} />
-        <Hoop top={26} thick={6} dim={!isAging} />
-        <Hoop bottom={26} thick={6} dim={!isAging} />
-        <Hoop bottom={8} thick={9} dim={!isAging} />
+        {/* Four riveted brass hoops — thicker outer bands at the chime
+            ends, thinner inner bands at the quarter points. Brass on
+            both phases now: the user asked for "more barrel-colored"
+            barrels, and full brass + warm raw-oak staves sells the
+            cask look even on construction-state barrels. */}
+        <Hoop top={8} thick={9} />
+        <Hoop top={26} thick={6} />
+        <Hoop bottom={26} thick={6} />
+        <Hoop bottom={8} thick={9} />
 
         {/* Charred chime rims (top + bottom burnt-oak caps) + a soft
             vertical sheen down the belly. Aging-only — the grey
@@ -1317,55 +1361,10 @@ function Barrel({
           />
         )}
 
-        {/* Top rim brand stamp — tier label + bill name burned onto
-            the chime cap, no plate backdrop. Real cooper-stamped
-            casks carry the brand on the head/rim, so this reads more
-            authentically than the old inset plate did. Heavy text-
-            shadow sells the "burned into wood" look; the text z-
-            indexes over the chime + first hoop band by virtue of
-            source order so it stays legible over the chrome. Aging
-            barrels carry the stamp; non-aging barrels skip it so
-            BarrelNeedsPlate stays the visual focal point.
-            Positioned at top:5 — sits across the chime cap (h-4)
-            and the first hoop band so the brand "wraps" the rim. */}
-        {isAging ? (
-          <span
-            className="pointer-events-none absolute left-1/2 z-[2] flex -translate-x-1/2 flex-col items-center justify-center leading-none"
-            style={{
-              top: 5,
-              width: "86%",
-            }}
-          >
-            <span
-              className="font-mono font-bold uppercase"
-              style={{
-                fontSize: 8,
-                letterSpacing: ".24em",
-                color: band.ink,
-                textShadow: `0 1px 0 rgba(0,0,0,.95), 0 0 4px rgba(0,0,0,.85), 0 0 8px ${band.glow}`,
-              }}
-            >
-              {band.label}
-            </span>
-            <span
-              className="mt-[3px] font-display font-bold leading-none"
-              style={{
-                fontSize: 13,
-                color: selected ? "var(--gold)" : "#f5e6c8",
-                maxWidth: "100%",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                // Burned-in oak look — dark drop + warm halo so the
-                // brand reads as scorched wood under firelight.
-                textShadow:
-                  "0 1px 0 rgba(0,0,0,.95), 0 2px 4px rgba(0,0,0,.85), 0 0 6px rgba(255,180,90,.45)",
-              }}
-            >
-              {bill?.name ?? "in progress"}
-            </span>
-          </span>
-        ) : null}
+        {/* Top rim brand stamp retired — the bill name now sits in a
+            header above the barrel (BarrelCell), legible regardless
+            of phase. Burning the same name onto the rim AND showing
+            it above doubled the chrome for no extra information. */}
 
         {/* Bottom burned-in plate — rep range + mash pips. Aging only
             (pip progress on non-aging is already conveyed by the
