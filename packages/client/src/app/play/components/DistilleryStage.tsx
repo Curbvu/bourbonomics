@@ -26,11 +26,21 @@
  */
 
 import { useState, useMemo, type ReactNode } from "react";
-import type { Barrel, GameState, MashBill, RickhouseSlot } from "@bourbonomics/engine";
-import { computeRecipeFloors, validateAction } from "@bourbonomics/engine";
+import type {
+  Barrel,
+  GameState,
+  MashBill,
+  PlayerState,
+  RickhouseSlot,
+} from "@bourbonomics/engine";
+import {
+  computeRecipeFloors,
+  computeReward,
+  getPortfolio,
+  validateAction,
+} from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 import BuyOverlay from "./BuyOverlay";
-import LineStrip from "./LineStrip";
 import { TIER_INK, tierOrCommon, type TierChrome } from "./tierStyles";
 import { dragCarriesMakeCard, readMakeDragPayload } from "./dragMake";
 import { RESOURCE_GLYPH } from "./handCardStyles";
@@ -127,16 +137,23 @@ export default function DistilleryStage() {
           </span>
         </div>
 
-        {/* 2. Identity plate */}
+        {/* 2. Identity plate — capital + rep on the left, distillery
+             name + flavor + ability in the middle, the compact Brand
+             Portfolio chip + sold/prestige/warehouse readouts on the
+             right. The old bottom-of-stage roomy LineStrip got rolled
+             into the chip; players click the chip to open the
+             BrandPortfolioDrawer for the full board. */}
         <IdentityPlate
           name={distillery.name}
           flavor={distillery.flavorText ?? ""}
           ability={distillery.cardText ?? ""}
-          rep={player.capital}
+          capital={player.capital}
+          reputation={player.reputation}
           sold={player.barrelsSold}
           prestige={player.prestige}
           warehouseUnlocked={player.warehouseUnlocked}
           warehouseFilled={player.warehouseSlot != null}
+          player={player}
         />
 
         {/* 3. Rickhouse stage */}
@@ -148,11 +165,6 @@ export default function DistilleryStage() {
           canDraftBill={canDraftBill}
           onDraftBill={startDraftingLoopMode}
         />
-
-        {/* 4. v3.0 Line system — roomy strip for the human's own
-             brand portfolio. Renders nothing until there's something
-             to show (board bound, bottles placed, cards in hand). */}
-        <LineStrip player={player} state={state} density="roomy" />
       </div>
 
       {/* Buy-purchase panel — sibling of the dim-wrapper so its
@@ -171,29 +183,38 @@ function IdentityPlate({
   name,
   flavor,
   ability,
-  rep,
+  capital,
+  reputation,
   sold,
   prestige,
   warehouseUnlocked,
   warehouseFilled,
+  player,
 }: {
   name: string;
   flavor: string;
   ability: string;
-  rep: number;
+  /** Mid-game spendable + 1:1 final-score number. The big gold readout. */
+  capital: number;
+  /** End-game accumulator — Brand Portfolio events fire here. Smaller
+   *  readout next to capital so the player can track both scoreboards. */
+  reputation: number;
   sold: number;
   prestige: number;
   /** v3.5 — true once the player buys the Warehouse investment. */
   warehouseUnlocked: boolean;
   /** v3.5 — true when something is currently stored in the warehouse. */
   warehouseFilled: boolean;
+  /** Threaded down for the PortfolioChip — needs flagship state +
+   *  inventory count to render the diminished summary. */
+  player: PlayerState;
 }) {
   return (
     <div
-      className="relative grid items-center gap-[22px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[8px]"
+      className="relative grid items-center gap-[18px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[8px]"
       style={{
-        // crest · BIG REP · name+ability · sold
-        gridTemplateColumns: "auto auto 1fr auto",
+        // crest · Capital+Rep · name+ability · sold/prestige/warehouse · portfolio chip
+        gridTemplateColumns: "auto auto 1fr auto auto",
         background:
           "linear-gradient(180deg, rgba(58,40,24,.75) 0%, rgba(34,23,16,.85) 65%, rgba(20,14,8,.85) 100%)",
         boxShadow:
@@ -243,38 +264,61 @@ function IdentityPlate({
         />
       </div>
 
-      {/* BIG Reputation — between the crest and the title. Reads as
-          the scoreboard for the whole match. Dashed right rule
-          mirrors the divider before the Sold column on the far side.
-          `data-bb-zone="reputation"` anchors the tutorial spotlight
-          here (it used to live on the player-handle strip in
-          HandTray before rep moved up). */}
+      {/* Capital + Rep — side-by-side scoreboard between the crest
+          and the title. Capital is the spendable wallet + 1:1 final
+          score (the big gold number); Reputation is the end-game-only
+          accumulator that fires from Brand Portfolio events (smaller,
+          brass-tinted). Dashed right rule mirrors the divider before
+          the Sold column. `data-bb-zone="reputation"` anchors the
+          tutorial spotlight here. */}
       <div
         data-bb-zone="reputation"
-        className="flex flex-col items-center justify-center leading-none"
+        className="flex items-end gap-[14px] leading-none"
         style={{
-          paddingRight: 22,
+          paddingRight: 18,
           borderRight: "1px dashed rgba(110,80,50,.45)",
         }}
       >
-        <span
-          className="font-display font-bold tracking-[.01em]"
-          style={{
-            fontSize: 64,
-            lineHeight: 0.9,
-            color: "var(--gold)",
-            textShadow:
-              "0 1px 0 rgba(0,0,0,.5), 0 0 22px rgba(240,201,112,.35)",
-          }}
-        >
-          {rep}
-        </span>
-        <span
-          className="label-sm mt-1.5"
-          style={{ color: "var(--brass)" }}
-        >
-          Capital
-        </span>
+        <div className="flex flex-col items-center justify-center leading-none">
+          <span
+            className="font-display font-bold tracking-[.01em]"
+            style={{
+              fontSize: 56,
+              lineHeight: 0.9,
+              color: "var(--gold)",
+              textShadow:
+                "0 1px 0 rgba(0,0,0,.5), 0 0 22px rgba(240,201,112,.35)",
+            }}
+          >
+            {capital}
+          </span>
+          <span
+            className="label-sm mt-1.5"
+            style={{ color: "var(--brass)" }}
+          >
+            Capital
+          </span>
+        </div>
+        <div className="flex flex-col items-center justify-center leading-none">
+          <span
+            className="font-display font-bold tracking-[.01em]"
+            style={{
+              fontSize: 36,
+              lineHeight: 0.9,
+              color: "var(--ink)",
+              textShadow: "0 1px 0 rgba(0,0,0,.5)",
+            }}
+            title="End-game reputation — Brand Portfolio scoring fires here"
+          >
+            {reputation}
+          </span>
+          <span
+            className="label-sm mt-1.5"
+            style={{ color: "var(--mute)" }}
+          >
+            Rep
+          </span>
+        </div>
       </div>
 
       {/* Name + flavor + ability */}
@@ -320,7 +364,106 @@ function IdentityPlate({
         {prestige > 0 ? <PrestigeBadge value={prestige} /> : null}
         {warehouseUnlocked ? <WarehouseBadge filled={warehouseFilled} /> : null}
       </div>
+
+      {/* Diminished Brand Portfolio chip — replaces the old roomy
+          LineStrip at the bottom of the stage. Click opens the
+          BrandPortfolioDrawer for the full tier board + slot picker.
+          Stamps `data-bb-zone="prestige"`-adjacent — the chip itself
+          is a single click target, no inner tooltips to fight. */}
+      <PortfolioChip player={player} />
     </div>
+  );
+}
+
+/**
+ * Compact one-click Brand Portfolio entry chip — lives in the top-right
+ * of the IdentityPlate. Surfaces the bare essentials (flagship name,
+ * filled/total slots, projected portfolio rep, inventory count) and
+ * defers the full board to the drawer.
+ *
+ * When the player has a `pendingBottlePlacement`, the chip pulses gold
+ * + swaps its CTA to "Place →" so the player can't miss that the sale
+ * is mid-resolution and a placement choice is owed.
+ */
+function PortfolioChip({ player }: { player: PlayerState }) {
+  const { setPortfolioDrawerOpen } = useGameStore();
+  const flagshipId = player.flagshipPortfolio.portfolioId;
+  const flagship = flagshipId ? getPortfolio(flagshipId) : null;
+  if (!flagship) return null;
+  const slots = player.flagshipPortfolio.slots;
+  const filled = slots.filter((s) => s.filled).length;
+  const total = slots.length;
+  const inventory = player.inventory.length;
+  const pending = player.pendingBottlePlacement != null;
+  return (
+    <button
+      type="button"
+      onClick={() => setPortfolioDrawerOpen(true)}
+      title={
+        pending
+          ? "Place your sold bottle — click to open the portfolio board"
+          : `Open your Brand Portfolio · ${filled}/${total} filled · ${inventory} in inventory`
+      }
+      className={`group flex items-center gap-2 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[.14em] transition-colors hover:brightness-110 ${
+        pending ? "bb-onclock-pulse" : ""
+      }`}
+      style={{
+        borderColor: pending ? "var(--gold)" : "rgba(198,157,82,.55)",
+        background:
+          "linear-gradient(180deg, rgba(240,201,112,.14), rgba(34,23,16,.85))",
+        color: "var(--gold)",
+        boxShadow: pending
+          ? "0 0 0 1px rgba(240,201,112,.45), 0 4px 16px rgba(240,201,112,.25)"
+          : "inset 0 1px 0 rgba(240,201,112,.18)",
+      }}
+    >
+      <span>Portfolio</span>
+      <span
+        aria-hidden
+        className="h-3 w-px"
+        style={{ background: "rgba(198,157,82,.4)" }}
+      />
+      <span
+        className="font-mono text-[10px] tabular-nums"
+        style={{ color: "var(--brass)" }}
+      >
+        {filled}/{total}
+      </span>
+      <span className="flex gap-[3px]">
+        {slots.map((s, i) => (
+          <span
+            key={i}
+            aria-hidden
+            className="inline-block h-[6px] w-[6px] rounded-full"
+            style={{
+              background: s.filled ? "var(--gold)" : "transparent",
+              border: s.filled ? "0" : "1px solid rgba(198,157,82,.55)",
+            }}
+          />
+        ))}
+      </span>
+      <span
+        aria-hidden
+        className="h-3 w-px"
+        style={{ background: "rgba(198,157,82,.4)" }}
+      />
+      <span
+        className="font-mono text-[10px] tabular-nums"
+        style={{ color: "var(--ink-muted)" }}
+        title={`${inventory} bottle${inventory === 1 ? "" : "s"} in inventory`}
+      >
+        <span aria-hidden style={{ color: "var(--brass)" }}>
+          ▥
+        </span>{" "}
+        {inventory}
+      </span>
+      <span
+        className="ml-1 font-mono text-[10px]"
+        style={{ color: pending ? "var(--gold)" : "var(--brass)" }}
+      >
+        {pending ? "Place →" : "Open ↗"}
+      </span>
+    </button>
   );
 }
 
@@ -893,12 +1036,18 @@ function BarrelCell({
     >
       <Barrel barrel={barrel} band={band} selected={selected} />
 
-      {/* On-barrel one-click Sell button — now the cell's last child so
-          it reads as the barrel's plinth. Only renders on the human's
-          saleable barrels (`age >= 2`, aging, not sale-locked this
-          round). `stopPropagation` prevents the cell's own onClick
-          (which engages age mode or opens inspect) from also firing. */}
-      {isHumanRow && interaction.saleable ? (
+      {/* On-barrel one-click Sell button — the cell's last child so it
+          reads as the barrel's plinth. Renders only when saleable
+          (`age >= 2`, aging, not sale-locked this round) AND a bill is
+          attached (the engine can't pay without a recipe). Label spells
+          out the *projected* capital payout via `computeReward` so the
+          player can compare barrels at a glance — engine recomputes
+          on apply with tier-floor + bonuses, so this is a baseline
+          (actual ≥ shown).
+
+          `stopPropagation` keeps the cell's own onClick (which engages
+          age mode or opens inspect) from firing alongside. */}
+      {isHumanRow && interaction.saleable && bill ? (
         <button
           type="button"
           data-bb-action="sell-barrel"
@@ -906,6 +1055,7 @@ function BarrelCell({
             e.stopPropagation();
             sellBarrelNow(barrel.id);
           }}
+          title={`Sell this barrel — projected ${computeReward(bill, barrel.age, state.demand, { demandBandOffset: barrel.demandBandOffset, gridRepOffset: barrel.gridRepOffset })} capital. Pick inventory or a portfolio slot on the popup that follows.`}
           className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono font-bold uppercase tracking-[.16em] transition-colors"
           style={{
             fontSize: 13,
@@ -930,7 +1080,12 @@ function BarrelCell({
               "inset 0 1px 0 rgba(255,255,255,.10)";
           }}
         >
-          Sell Bottle →
+          Sell for{" "}
+          {computeReward(bill, barrel.age, state.demand, {
+            demandBandOffset: barrel.demandBandOffset,
+            gridRepOffset: barrel.gridRepOffset,
+          })}{" "}
+          capital
         </button>
       ) : null}
     </div>
