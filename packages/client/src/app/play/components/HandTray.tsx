@@ -124,21 +124,16 @@ export default function HandTray() {
         <MakeOverlay />
       </div>
 
-      {/* Status strip — context-aware italic sentence tied to the
-          active picker mode. Pulled from the new HandStripStatus
-          component below to keep the JSX tidy. */}
-      <HandStripStatus />
-
-      {/* Identity strip — compact player handle (swatch + name +
-          distillery + hand count) on the left, turn controls on the
-          right. The dedicated action-bar row was retired: ActionBar
-          self-gates on the action phase and the cluster only paints
-          on the human's turn, so the identity line is the natural
-          host for those controls. Reputation used to live here too
-          and carried `data-bb-zone="reputation"`; rep now sits as a
-          64px gold numeral on the IdentityPlate next to the crest,
-          so the spotlight anchor moved up there. Portfolio entry
-          point lives on the clickable LineStrip above the hand. */}
+      {/* Combined identity + controls + status row — one strip carries
+          the player handle, the turn controls, and the picker-mode
+          guidance line so we reclaim ~28px of vertical chrome. Old
+          layout had the status as its own row above; the buttons
+          floated on the far right with `ml-auto`. Per the user's
+          tightening pass: identity stays leftmost, buttons sit
+          immediately to its right (no gulf of empty space), the
+          context-aware status text fills the remainder and truncates
+          on overflow. Reputation moved up to the IdentityPlate's big
+          gold readout long ago, so this row carries no scoreboard. */}
       <div className="flex items-center gap-3 border-b border-[#3b2818] px-[18px] py-1">
         <div className="flex items-center gap-2">
           <PlayerSwatch
@@ -162,9 +157,8 @@ export default function HandTray() {
             </span>
           </div>
         </div>
-        <div className="ml-auto">
-          <ActionBar />
-        </div>
+        <ActionBar />
+        <HandStripStatus inline />
       </div>
 
       {/* Main row: DeckPile (left) | hand cards (center) | DiscardPile +
@@ -231,7 +225,7 @@ export default function HandTray() {
 // v3 status strip — context-aware italic line keyed off the active mode
 // ─────────────────────────────────────────────────────────────────────
 
-function HandStripStatus() {
+function HandStripStatus({ inline = false }: { inline?: boolean } = {}) {
   const { buyMode, ageMode, sellMode, draftingLoopMode, makeMode } = useGameStore();
   let activeKey: string | null = null;
   // Idle copy now spells out the implicit affordances on the screen
@@ -265,6 +259,31 @@ function HandStripStatus() {
     msg = "Spend a card to seed the draft pile (initiate the Drafting Loop).";
   }
   const active = activeKey != null;
+  if (inline) {
+    // Inline variant — drops the standalone row chrome (background +
+    // border + padding) so the status text can sit on the identity
+    // row next to the action buttons. `min-w-0 flex-1` lets the row
+    // claim the leftover width and truncate gracefully when the
+    // context-aware message gets long.
+    return (
+      <span
+        className="flex min-w-0 flex-1 items-baseline gap-2 font-display italic"
+        style={{
+          fontSize: 14,
+          letterSpacing: ".01em",
+          color: active ? "var(--gold)" : "var(--ink-muted)",
+        }}
+      >
+        <span
+          className="label-sm flex-shrink-0"
+          style={{ color: active ? "var(--gold)" : "var(--mute)" }}
+        >
+          {label}
+        </span>
+        <span className="truncate">{msg}</span>
+      </span>
+    );
+  }
   return (
     <div
       className="border-b border-[#3b2818] px-[18px] py-[5px] font-display italic"

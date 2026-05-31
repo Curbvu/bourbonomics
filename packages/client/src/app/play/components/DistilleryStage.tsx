@@ -86,8 +86,6 @@ export default function DistilleryStage() {
   if (!player) return null;
 
   const myBarrels = state.allBarrels.filter((b) => b.ownerId === player.id);
-  const slotsTotal = player.rickhouseSlots.length;
-  const filled = myBarrels.length;
   const distillery = player.distillery;
   const focusClass = useZoneFocusClass("rickhouse-self");
   const focusStyle = useZoneFocusStyle("rickhouse-self");
@@ -121,23 +119,12 @@ export default function DistilleryStage() {
         className={`flex min-h-0 flex-1 flex-col gap-2 px-[22px] py-2 ${focusClass}`}
         style={focusStyle}
       >
-        {/* 1. Stage tag strip */}
-        <div className="flex items-baseline gap-3">
-          <span className="stage-tag">Your Distillery</span>
-          <span
-            aria-hidden
-            className="h-px flex-1"
-            style={{
-              background: "linear-gradient(90deg, var(--rule), transparent)",
-            }}
-          />
-          <span className="label-sm">
-            <span style={{ color: "var(--gold)" }}>{filled}</span>
-            <span style={{ color: "var(--mute)" }}>/{slotsTotal} slots</span>
-          </span>
-        </div>
+        {/* Stage tag strip ("Your Distillery" + filled/total slots)
+             retired — the distillery name renders directly on the
+             IdentityPlate below, and the slot occupancy is implicit
+             from the rickhouse rendering. */}
 
-        {/* 2. Identity plate — capital + rep on the left, distillery
+        {/* 1. Identity plate — capital + rep on the left, distillery
              name + flavor + ability in the middle, the compact Brand
              Portfolio chip + sold/prestige/warehouse readouts on the
              right. The old bottom-of-stage roomy LineStrip got rolled
@@ -377,13 +364,15 @@ function IdentityPlate({
 
 /**
  * Compact one-click Brand Portfolio entry chip — lives in the top-right
- * of the IdentityPlate. Surfaces the bare essentials (flagship name,
- * filled/total slots, projected portfolio rep, inventory count) and
- * defers the full board to the drawer.
+ * of the IdentityPlate. Two-row layout: top reads as a riveted brass
+ * placard with the brand mark + flagship name + CTA, bottom is a
+ * data row carrying slot dots + filled count + a labeled inventory
+ * readout. The full board (tier groups, slot details, second
+ * portfolio) lives in the drawer the chip opens.
  *
- * When the player has a `pendingBottlePlacement`, the chip pulses gold
- * + swaps its CTA to "Place →" so the player can't miss that the sale
- * is mid-resolution and a placement choice is owed.
+ * When the player has a `pendingBottlePlacement`, the chip pulses
+ * gold + swaps its CTA to "Place →" so the player can't miss that
+ * the sale is mid-resolution and a placement choice is owed.
  */
 function PortfolioChip({ player }: { player: PlayerState }) {
   const { setPortfolioDrawerOpen } = useGameStore();
@@ -395,6 +384,12 @@ function PortfolioChip({ player }: { player: PlayerState }) {
   const total = slots.length;
   const inventory = player.inventory.length;
   const pending = player.pendingBottlePlacement != null;
+  // Short version of the flagship name — keeps the chip from blowing
+  // out the IdentityPlate's right column when the name is long. Picks
+  // off the redundant "Reserve"/"Collection"/"Lineup" suffix.
+  const shortName = flagship.name
+    .replace(/\s+(Reserve|Collection|Lineup|Selection|Vault)$/, "")
+    .slice(0, 22);
   return (
     <button
       type="button"
@@ -402,67 +397,158 @@ function PortfolioChip({ player }: { player: PlayerState }) {
       title={
         pending
           ? "Place your sold bottle — click to open the portfolio board"
-          : `Open your Brand Portfolio · ${filled}/${total} filled · ${inventory} in inventory`
+          : `Open your Brand Portfolio · ${flagship.name} · ${filled}/${total} slots filled · ${inventory} bottle${inventory === 1 ? "" : "s"} in inventory`
       }
-      className={`group flex items-center gap-2 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[.14em] transition-colors hover:brightness-110 ${
+      className={`group relative flex flex-col items-stretch gap-[3px] rounded-[8px] border px-3 py-1.5 text-left transition-all hover:-translate-y-[1px] hover:brightness-[1.08] ${
         pending ? "bb-onclock-pulse" : ""
       }`}
       style={{
+        minWidth: 220,
         borderColor: pending ? "var(--gold)" : "rgba(198,157,82,.55)",
         background:
-          "linear-gradient(180deg, rgba(240,201,112,.14), rgba(34,23,16,.85))",
-        color: "var(--gold)",
+          "radial-gradient(140% 120% at 0% 0%, rgba(240,201,112,.16), transparent 60%), linear-gradient(180deg, rgba(58,40,24,.92), rgba(20,14,8,.95))",
         boxShadow: pending
-          ? "0 0 0 1px rgba(240,201,112,.45), 0 4px 16px rgba(240,201,112,.25)"
-          : "inset 0 1px 0 rgba(240,201,112,.18)",
+          ? "0 0 0 1px rgba(240,201,112,.55), 0 6px 18px rgba(240,201,112,.28), inset 0 1px 0 rgba(240,201,112,.25)"
+          : "inset 0 1px 0 rgba(240,201,112,.22), inset 0 -1px 0 rgba(0,0,0,.45), 0 4px 14px rgba(0,0,0,.4)",
       }}
     >
-      <span>Portfolio</span>
+      {/* Brass corner ornament — mirrors the IdentityPlate's own
+          corner detail so the chip reads as a sibling of the plate
+          rather than a foreign tile. */}
       <span
         aria-hidden
-        className="h-3 w-px"
-        style={{ background: "rgba(198,157,82,.4)" }}
+        className="pointer-events-none absolute left-0 top-0 h-5 w-5"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(240,201,112,.45), transparent 65%)",
+          borderTopLeftRadius: 8,
+        }}
       />
-      <span
-        className="font-mono text-[10px] tabular-nums"
-        style={{ color: "var(--brass)" }}
-      >
-        {filled}/{total}
-      </span>
-      <span className="flex gap-[3px]">
-        {slots.map((s, i) => (
+
+      {/* Row 1 — brand mark + label + flagship name + CTA */}
+      <div className="flex items-center gap-2 leading-none">
+        <span
+          aria-hidden
+          className="font-display"
+          style={{
+            fontSize: 13,
+            color: "var(--gold)",
+            textShadow: "0 0 8px rgba(240,201,112,.55)",
+          }}
+        >
+          ⌬
+        </span>
+        <span
+          className="font-mono font-bold uppercase"
+          style={{
+            fontSize: 9,
+            letterSpacing: ".22em",
+            color: "var(--brass)",
+          }}
+        >
+          Brand Portfolio
+        </span>
+        <span
+          aria-hidden
+          className="h-2.5 w-px self-center"
+          style={{ background: "rgba(198,157,82,.4)" }}
+        />
+        <span
+          className="truncate font-display"
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--ink)",
+            maxWidth: 110,
+            textShadow: "0 0 6px rgba(240,201,112,.25)",
+          }}
+        >
+          {shortName}
+        </span>
+        <span
+          className="ml-auto rounded border px-1.5 py-[2px] font-mono font-bold uppercase"
+          style={{
+            fontSize: 9,
+            letterSpacing: ".14em",
+            borderColor: pending ? "var(--gold)" : "rgba(198,157,82,.55)",
+            background: pending
+              ? "linear-gradient(180deg, rgba(240,201,112,.35), rgba(176,106,56,.18))"
+              : "linear-gradient(180deg, rgba(240,201,112,.16), rgba(34,23,16,.65))",
+            color: "var(--gold)",
+          }}
+        >
+          {pending ? "Place →" : "Open ↗"}
+        </span>
+      </div>
+
+      {/* Row 2 — slot dots + filled/total · inventory readout */}
+      <div className="flex items-center gap-2.5 leading-none">
+        <span className="flex items-center gap-[4px]">
+          {slots.map((s, i) => (
+            <span
+              key={i}
+              aria-hidden
+              className="inline-block h-[7px] w-[7px] rounded-full"
+              style={{
+                background: s.filled
+                  ? "radial-gradient(circle at 35% 30%, #f0c970, #6b3d1d 90%)"
+                  : "transparent",
+                border: s.filled ? "0" : "1px solid rgba(198,157,82,.55)",
+                boxShadow: s.filled
+                  ? "0 0 6px rgba(240,201,112,.55)"
+                  : "none",
+              }}
+            />
+          ))}
+        </span>
+        <span
+          className="font-mono font-bold tabular-nums"
+          style={{
+            fontSize: 11,
+            color: "var(--gold)",
+          }}
+        >
+          {filled}/{total}
+        </span>
+        <span
+          aria-hidden
+          className="h-2.5 w-px"
+          style={{ background: "rgba(198,157,82,.4)" }}
+        />
+        {/* Inventory readout — promoted from "▥ 0" to a labeled,
+            two-element pair so the count reads as inventory at a
+            glance. Number gets a tabular gold treatment, label sits
+            beside it in mono uppercase. */}
+        <span
+          className="flex items-baseline gap-1"
+          title={`${inventory} bottle${inventory === 1 ? "" : "s"} in inventory`}
+        >
+          <span aria-hidden style={{ color: "var(--brass)", fontSize: 11 }}>
+            ▥
+          </span>
           <span
-            key={i}
-            aria-hidden
-            className="inline-block h-[6px] w-[6px] rounded-full"
+            className="font-display font-bold tabular-nums"
             style={{
-              background: s.filled ? "var(--gold)" : "transparent",
-              border: s.filled ? "0" : "1px solid rgba(198,157,82,.55)",
+              fontSize: 13,
+              color: inventory > 0 ? "var(--gold)" : "var(--ink-muted)",
+              textShadow:
+                inventory > 0 ? "0 0 6px rgba(240,201,112,.4)" : "none",
             }}
-          />
-        ))}
-      </span>
-      <span
-        aria-hidden
-        className="h-3 w-px"
-        style={{ background: "rgba(198,157,82,.4)" }}
-      />
-      <span
-        className="font-mono text-[10px] tabular-nums"
-        style={{ color: "var(--ink-muted)" }}
-        title={`${inventory} bottle${inventory === 1 ? "" : "s"} in inventory`}
-      >
-        <span aria-hidden style={{ color: "var(--brass)" }}>
-          ▥
-        </span>{" "}
-        {inventory}
-      </span>
-      <span
-        className="ml-1 font-mono text-[10px]"
-        style={{ color: pending ? "var(--gold)" : "var(--brass)" }}
-      >
-        {pending ? "Place →" : "Open ↗"}
-      </span>
+          >
+            {inventory}
+          </span>
+          <span
+            className="font-mono font-bold uppercase"
+            style={{
+              fontSize: 8.5,
+              letterSpacing: ".18em",
+              color: "var(--brass)",
+            }}
+          >
+            Inventory
+          </span>
+        </span>
+      </div>
     </button>
   );
 }
