@@ -234,8 +234,13 @@ export default function HandTray() {
 function HandStripStatus() {
   const { buyMode, ageMode, sellMode, draftingLoopMode, makeMode } = useGameStore();
   let activeKey: string | null = null;
-  let label = "Idle";
-  let msg = "Choose an action to continue your turn.";
+  // Idle copy now spells out the implicit affordances on the screen
+  // (the dedicated Make / Sell / Buy buttons were retired in favor of
+  // direct on-board actions): drop hand cards on a barrel, click the
+  // market to buy, hit the on-barrel Sell Bottle button.
+  let label = "Your move";
+  let msg =
+    "Select hand cards, then a barrel to make or age · click the market to buy · sell from any barrel.";
   if (makeMode) {
     activeKey = "make";
     label = "Make";
