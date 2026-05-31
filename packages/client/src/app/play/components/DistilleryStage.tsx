@@ -891,10 +891,10 @@ function BarrelCell({
         transform: selected ? "translateY(-6px)" : "translateY(0)",
       }}
     >
-      <BarrelTopCaption barrel={barrel} band={band} selected={selected} />
       <Barrel barrel={barrel} band={band} selected={selected} />
 
-      {/* On-barrel one-click Sell button. Only renders on the human's
+      {/* On-barrel one-click Sell button — now the cell's last child so
+          it reads as the barrel's plinth. Only renders on the human's
           saleable barrels (`age >= 2`, aging, not sale-locked this
           round). `stopPropagation` prevents the cell's own onClick
           (which engages age mode or opens inspect) from also firing. */}
@@ -933,126 +933,6 @@ function BarrelCell({
           Sell Bottle →
         </button>
       ) : null}
-
-      <BarrelBottomCaption barrel={barrel} band={band} selected={selected} />
-    </div>
-  );
-}
-
-/**
- * Above-the-barrel caption — bill name (tier-tinted) on the left, phase
- * chip on the right. Replaces the top half of the old CaptionCard.
- *
- * Why a top caption: the user can scan a row of barrels and read
- * "what am I making?" in a single eyeline, without their eye drifting
- * down past the wood to the old footer panel. The phase chip lives
- * up here too because phase ("Building" vs "Aging") is the single
- * most-actionable piece of info per barrel.
- */
-function BarrelTopCaption({
-  barrel,
-  band,
-  selected,
-}: {
-  barrel: Barrel;
-  band: { ink: string; glow: string; label: string };
-  selected: boolean;
-}) {
-  const bill = barrel.attachedMashBill;
-  return (
-    <div
-      className="mb-2 flex items-center justify-between gap-2 leading-tight"
-      style={{
-        // Thin tier-colored hairline under the name so the "title row"
-        // reads as its own visual band even without a heavy panel.
-        borderBottom: `1px solid ${selected ? "rgba(240,201,112,.55)" : `${band.ink}55`}`,
-        paddingBottom: 4,
-      }}
-    >
-      <span
-        className="font-display font-semibold tracking-[.01em]"
-        style={{
-          color: selected ? "var(--gold)" : "var(--ink)",
-          fontSize: 18,
-          textShadow: `0 1px 8px ${band.glow}`,
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {bill?.name ?? "in progress"}
-      </span>
-      <PhaseStamp phase={barrel.phase} age={barrel.age} />
-    </div>
-  );
-}
-
-/**
- * Below-the-barrel caption — slogan (italic, dimmer) + REP range +
- * mash pips on a single compact row. Replaces the bottom half of the
- * old CaptionCard. No heavy panel chrome — the slogan reads as a
- * tasting note under the barrel, the REP/pip pair reads as the
- * "current pour" gauge. Tier label is gone: the band of color on the
- * top-caption hairline + the barrel's own halo carry the tier.
- */
-function BarrelBottomCaption({
-  barrel,
-  band,
-  selected,
-}: {
-  barrel: Barrel;
-  band: { ink: string; glow: string; label: string };
-  selected: boolean;
-}) {
-  const bill = barrel.attachedMashBill;
-  const cells: number[] = [];
-  if (bill) {
-    for (const row of bill.rewardGrid) {
-      for (const c of row) if (c !== null) cells.push(c);
-    }
-  }
-  const peak = cells.length ? Math.max(...cells) : 0;
-  const floor = cells.length ? Math.min(...cells) : 0;
-  return (
-    <div
-      className="mt-2 flex flex-col gap-1.5 leading-tight"
-      style={{
-        opacity: selected ? 1 : 0.95,
-      }}
-    >
-      {bill?.slogan ? (
-        <div
-          className="font-display italic"
-          style={{
-            color: "var(--ink-muted)",
-            fontSize: 14,
-            lineHeight: 1.35,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-            wordBreak: "break-word",
-          }}
-        >
-          {bill.slogan}
-        </div>
-      ) : null}
-      <div className="flex items-center justify-between gap-2">
-        <span
-          className="font-display font-bold tracking-[.01em]"
-          style={{ color: band.ink, fontSize: 18 }}
-        >
-          {bill ? `${floor}–${peak}` : "—"}{" "}
-          <span
-            className="label-sm"
-            style={{ color: band.ink, opacity: 0.75 }}
-          >
-            rep
-          </span>
-        </span>
-        <MashPips barrel={barrel} />
-      </div>
     </div>
   );
 }
@@ -1077,8 +957,29 @@ function Barrel({
   // halo, no glowing medallion. Instead the body carries an "open"
   // staves treatment so the eye reads it as "raw, waiting on cards."
   const needs = isAging ? [] : computeBarrelNeeds(barrel);
+  const bill = barrel.attachedMashBill;
+  // Rep range — min/max of the bill's reward grid, used on the bottom
+  // burned-in plate. Cheap inline scan (rewardGrid is small) so the
+  // plate doesn't need a separate caption component.
+  let floor = 0;
+  let peak = 0;
+  if (bill) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const row of bill.rewardGrid) {
+      for (const c of row) {
+        if (c == null) continue;
+        if (c < lo) lo = c;
+        if (c > hi) hi = c;
+      }
+    }
+    if (lo !== Infinity) {
+      floor = lo;
+      peak = hi;
+    }
+  }
   return (
-    <div className="relative grid h-[156px] w-full place-items-center">
+    <div className="relative grid h-[208px] w-full place-items-center">
       {/* Ground shadow */}
       <span
         aria-hidden
@@ -1122,7 +1023,7 @@ function Barrel({
         className="relative"
         style={{
           width: 122,
-          height: 148,
+          height: 200,
           borderRadius: "44% / 16%",
           // `overflow: hidden` clips the charred chime rims (added
           // below) to the ellipse so the burnt ends don't square off
@@ -1252,15 +1153,92 @@ function Barrel({
           />
         )}
 
+        {/* Top burned-in plate — tier label + bill name, branded onto
+            the barrel face. Aging barrels carry the full plate; non-
+            aging barrels skip it so the BarrelNeedsPlate (which
+            already takes the center stage) reads as the single focal
+            point and the bill name surfaces via hover/inspect. */}
+        {isAging ? (
+          <span
+            className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center justify-center gap-[2px]"
+            style={{
+              top: 24,
+              width: "80%",
+              padding: "4px 6px",
+              borderRadius: 4,
+              background:
+                "linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(20,8,4,.78) 100%)",
+              boxShadow: `inset 0 1px 2px rgba(0,0,0,.85), inset 0 -1px 0 rgba(255,220,170,.10), 0 0 0 1px ${band.ink}55, 0 1px 0 rgba(255,236,200,.12)`,
+            }}
+          >
+            <span
+              className="font-mono font-bold uppercase leading-none"
+              style={{
+                fontSize: 8.5,
+                letterSpacing: ".22em",
+                color: band.ink,
+                textShadow: `0 0 6px ${band.glow}`,
+              }}
+            >
+              {band.label}
+            </span>
+            <span
+              className="font-display font-semibold leading-tight"
+              style={{
+                fontSize: 12,
+                color: selected ? "var(--gold)" : "var(--ink)",
+                maxWidth: "100%",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                textShadow: "0 1px 0 rgba(0,0,0,.7), 0 0 4px rgba(0,0,0,.55)",
+              }}
+            >
+              {bill?.name ?? "in progress"}
+            </span>
+          </span>
+        ) : null}
+
+        {/* Bottom burned-in plate — rep range + mash pips. Aging only
+            (pip progress on non-aging is already conveyed by the
+            BarrelNeedsPlate). */}
+        {isAging ? (
+          <span
+            className="absolute left-1/2 flex -translate-x-1/2 items-center justify-between"
+            style={{
+              bottom: 24,
+              width: "82%",
+              padding: "4px 8px",
+              borderRadius: 4,
+              gap: 6,
+              background:
+                "linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(20,8,4,.78) 100%)",
+              boxShadow: `inset 0 1px 2px rgba(0,0,0,.85), inset 0 -1px 0 rgba(255,220,170,.10), 0 0 0 1px ${band.ink}55, 0 1px 0 rgba(255,236,200,.12)`,
+            }}
+          >
+            <span
+              className="font-display font-bold leading-none"
+              style={{
+                fontSize: 13,
+                color: band.ink,
+                textShadow: `0 0 6px ${band.glow}`,
+              }}
+            >
+              {bill ? `${floor}–${peak}` : "—"}
+            </span>
+            <MashPips barrel={barrel} />
+          </span>
+        ) : null}
+
         {/* Center plate — year medallion on aging barrels, needed-
             resources stack on barrels waiting for cards.
             Positioned via `inset:0 + margin:auto` so the medallion
-            sits dead-center of the 122×148 barrel body without
-            fighting the ember-needs keyframe's own transform
-            (translate-based centering was being eaten by the
-            animation and rendering the medallion offset to the
-            top). Sized at ~59% of the barrel width so it reads as
-            a stamp on the front face, not an orb. */}
+            sits dead-center of the barrel body without fighting the
+            ember-needs keyframe's own transform (translate-based
+            centering was being eaten by the animation and rendering
+            the medallion offset to the top). Sized at ~59% of the
+            barrel width so it reads as a stamp on the front face,
+            not an orb. */}
         {isAging ? (
           <span
             aria-hidden
@@ -1548,54 +1526,12 @@ function BarrelNeedsPlate({ needs }: { needs: BarrelNeed[] }) {
   );
 }
 
-// `CaptionCard` removed in this revision — replaced by BarrelTopCaption
-// + BarrelBottomCaption on either side of the barrel. The old footer
-// panel doubled the chrome and pushed the name + REP gauge down past
-// the eye-line; splitting it lets the bill name read first, on top
-// of its barrel, with slogan + REP below.
-
-function PhaseStamp({ phase, age }: { phase: Barrel["phase"]; age: number }) {
-  const map: Record<
-    Barrel["phase"],
-    { label: string; ink: string; bg: string; border: string }
-  > = {
-    aging: {
-      label: `Aging · ${age}y`,
-      ink: "var(--gold)",
-      bg: "rgba(240,201,112,.18)",
-      border: "rgba(240,201,112,.45)",
-    },
-    construction: {
-      label: "Building",
-      ink: "var(--sky)",
-      bg: "rgba(125,166,223,.18)",
-      border: "rgba(125,166,223,.45)",
-    },
-    ready: {
-      label: "Staged",
-      ink: "var(--ink-muted)",
-      bg: "rgba(110,80,50,.18)",
-      border: "rgba(110,80,50,.45)",
-    },
-  };
-  const s = map[phase];
-  return (
-    <span
-      className="font-mono font-bold uppercase"
-      style={{
-        fontSize: 16,
-        letterSpacing: ".14em",
-        padding: "2px 8px",
-        borderRadius: 5,
-        border: `1px solid ${s.border}`,
-        background: s.bg,
-        color: s.ink,
-      }}
-    >
-      {s.label}
-    </span>
-  );
-}
+// CaptionCard / BarrelTopCaption / BarrelBottomCaption / PhaseStamp all
+// retired — the bill name + tier label and the rep range + mash pips
+// now sit on burned-in plates inside the barrel body itself (see the
+// Barrel component above). The phase chip was dropped: the barrel's
+// own silhouette (charred-oak vs. cold-grey staves, medallion vs.
+// needs plate) already says "Aging" vs. "Building" louder than a chip.
 
 /** Pip row from the barrel's production cards + recipe minimums. */
 function MashPips({ barrel }: { barrel: Barrel }) {
@@ -1770,7 +1706,7 @@ function EmptySlot({
         title="Draft a new mash bill into this barrel"
         className="group relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform hover:-translate-y-[3px]"
       >
-        <div className="relative grid h-[156px] w-full place-items-center">
+        <div className="relative grid h-[208px] w-full place-items-center">
           {/* Emerald halo so the call-to-action reads at a glance. */}
           <span
             aria-hidden
@@ -1783,7 +1719,7 @@ function EmptySlot({
             }}
           />
           <div
-            className="relative grid h-[148px] w-[122px] place-items-center"
+            className="relative grid h-[200px] w-[122px] place-items-center"
             style={{
               borderRadius: "44% / 16%",
               border: "2px solid rgba(52,211,153,.75)",
@@ -1858,9 +1794,9 @@ function EmptySlot({
         transform: selected ? "translateY(-3px)" : "translateY(0)",
       }}
     >
-      <div className="relative grid h-[156px] w-full place-items-center">
+      <div className="relative grid h-[208px] w-full place-items-center">
         <div
-          className="shelf-breathe relative grid h-[148px] w-[122px] place-items-center"
+          className="shelf-breathe relative grid h-[200px] w-[122px] place-items-center"
           style={{
             borderRadius: "44% / 16%",
             border: "1.5px dashed rgba(198,157,82,.35)",

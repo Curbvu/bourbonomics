@@ -106,160 +106,100 @@ export default function ActionBar() {
   // here in a follow-on phase.
 
   return (
-    <div data-bb-zone="action-bar" className="border-t border-slate-800 bg-slate-950/95 px-[18px] py-1.5">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-500">
-          {isHumanTurn ? "Your turn" : "Waiting…"}
-        </span>
-        <span className="mx-1 h-[20px] w-px bg-slate-800" aria-hidden />
-
-        <PickerButton
-          label="Make"
-          inMode={inMakeMode}
-          enabled={!disabledByTurn && makeEntry.canMake && tutorialAllows("make")}
-          tooltip={
-            disabledByTurn
-              ? "Wait for your turn"
-              : inMakeMode
-                ? "Cancel the in-progress production"
-                : !tutorialAllows("make")
-                  ? "Follow the highlighted step first"
-                  : makeEntry.reason ??
-                    "Pick a mash bill, then tag the cards to commit."
-          }
-          onStart={startMakeMode}
-          onCancel={cancelMakeMode}
-          cancelLabel="Cancel make"
-          dataAction="make"
-        />
-        <PickerButton
-          label="Sell"
-          inMode={inSellMode}
-          enabled={!disabledByTurn && sellEntry.canSell && tutorialAllows("sell")}
-          tooltip={
-            disabledByTurn
-              ? "Wait for your turn"
-              : inSellMode
-                ? "Cancel the in-progress sale"
-                : !tutorialAllows("sell")
-                  ? "Follow the highlighted step first"
-                  : sellEntry.reason ??
-                    "Pick a sellable barrel in your Rickhouse — the sale resolves instantly."
-          }
-          onStart={startSellMode}
-          onCancel={cancelSellMode}
-          cancelLabel="Cancel sell"
-          dataAction="sell"
-        />
-        <BuyButton
-          inBuyMode={inBuyMode}
-          enabled={!disabledByTurn && buyEntry.canBuy && tutorialAllows("buy")}
-          tooltip={
-            disabledByTurn
-              ? "Wait for your turn"
-              : inBuyMode
-                ? "Cancel the in-progress purchase"
-                : !tutorialAllows("buy")
-                  ? "Follow the highlighted step first"
-                  : buyEntry.reason ?? "Pick a market card. Pay with Capital, Labor, or a mix."
-          }
-          onStart={startBuyMode}
-          onCancel={cancelBuyMode}
-        />
-        <SmartButton
-          label="Trade"
-          action={trade}
-          state={state}
-          dispatch={dispatch}
-          disabledByTurn={disabledByTurn}
-          tutorialBlocked={!tutorialAllows("trade")}
-          tooltipIdle="Swap your cheapest card with the first available partner's."
-        />
-        {/* v3.2: Draw Line Cards button retired; Draft Second
-            Portfolio is offered inside the Brand Portfolio drawer. */}
-
-        <span className="flex-1" />
-
-        <PortfolioButton />
-
-        <SmartButton
-          label="End turn ↵"
-          action={pass}
-          state={state}
-          dispatch={(a) => {
-            // Capture the human's current hand BEFORE dispatching so
-            // EndTurnFlight can fly each card to the discard pile while
-            // the engine clears the hand state synchronously.
-            triggerEndTurnDiscardAnimation(human.hand.slice(), human.id);
-            dispatch(a);
-          }}
-          disabledByTurn={disabledByTurn}
-          tutorialBlocked={!tutorialAllows("pass")}
-          tooltipIdle="End your turn for the round. Cards in hand are held for cleanup."
-          primary
-          dataAction="pass"
-        />
-      </div>
-    </div>
-  );
-}
-
-/**
- * v3.2 — Brand Portfolio entry-point chip on the action bar. Shows
- * the human's flagship tier + filled-required-slot progress and opens
- * the BrandPortfolioDrawer when clicked. Gold-on-amber chrome
- * distinguishes it from the green Action Phase buttons — the drawer
- * is *not* an action (no engine dispatch), just a view-and-place
- * surface.
- */
-function PortfolioButton() {
-  const { state, humanSeatPlayerId, setPortfolioDrawerOpen } = useGameStore();
-  const player = humanSeatPlayerId
-    ? state?.players.find((p) => p.id === humanSeatPlayerId)
-    : null;
-  if (!player || !player.flagshipPortfolio.portfolioId) return null;
-  const reqSlots = player.flagshipPortfolio.slots.filter((s, i) => {
-    // Cheap proxy: the flagship's slot defs come from the catalog,
-    // but the strip cares about required-slot progress. We need the
-    // PortfolioState alone — every flagship in v3.2 ships with required
-    // slots tagged via the catalog. For the chip's progress dots we
-    // approximate by counting filled vs total here; the drawer surfaces
-    // the precise required vs optional breakdown.
-    return i >= 0;
-  });
-  const filled = reqSlots.filter((s) => s.filled).length;
-  const total = reqSlots.length;
-  return (
-    <button
-      type="button"
-      onClick={() => setPortfolioDrawerOpen(true)}
-      title="Open your Brand Portfolio (Esc to close)"
-      className="group flex items-center gap-2 rounded-md border px-2.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.14em] transition-colors hover:brightness-110"
-      style={{
-        borderColor: "rgba(198,157,82,.55)",
-        background: "linear-gradient(180deg, rgba(240,201,112,.14), rgba(34,23,16,.85))",
-        color: "var(--gold)",
-      }}
+    <div
+      data-bb-zone="action-bar"
+      className="flex flex-wrap items-center gap-1.5"
     >
-      <span>Portfolio</span>
-      <span aria-hidden className="h-3.5 w-px" style={{ background: "rgba(198,157,82,.4)" }} />
-      <span className="font-mono text-[10px] tabular-nums" style={{ color: "var(--brass)" }}>
-        {filled}/{total}
+      <span className="font-mono text-[12px] uppercase tracking-[.18em] text-slate-500">
+        {isHumanTurn ? "Your turn" : "Waiting…"}
       </span>
-      <span className="flex gap-0.5">
-        {Array.from({ length: total }).map((_, i) => (
-          <span
-            key={i}
-            aria-hidden
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{
-              background: i < filled ? "var(--gold)" : "transparent",
-              border: i < filled ? "0" : "1px solid rgba(198,157,82,.5)",
-            }}
-          />
-        ))}
-      </span>
-    </button>
+      <span className="mx-1 h-[20px] w-px bg-slate-800" aria-hidden />
+
+      <PickerButton
+        label="Make"
+        inMode={inMakeMode}
+        enabled={!disabledByTurn && makeEntry.canMake && tutorialAllows("make")}
+        tooltip={
+          disabledByTurn
+            ? "Wait for your turn"
+            : inMakeMode
+              ? "Cancel the in-progress production"
+              : !tutorialAllows("make")
+                ? "Follow the highlighted step first"
+                : makeEntry.reason ??
+                  "Pick a mash bill, then tag the cards to commit."
+        }
+        onStart={startMakeMode}
+        onCancel={cancelMakeMode}
+        cancelLabel="Cancel make"
+        dataAction="make"
+      />
+      <PickerButton
+        label="Sell"
+        inMode={inSellMode}
+        enabled={!disabledByTurn && sellEntry.canSell && tutorialAllows("sell")}
+        tooltip={
+          disabledByTurn
+            ? "Wait for your turn"
+            : inSellMode
+              ? "Cancel the in-progress sale"
+              : !tutorialAllows("sell")
+                ? "Follow the highlighted step first"
+                : sellEntry.reason ??
+                  "Pick a sellable barrel in your Rickhouse — the sale resolves instantly."
+        }
+        onStart={startSellMode}
+        onCancel={cancelSellMode}
+        cancelLabel="Cancel sell"
+        dataAction="sell"
+      />
+      <BuyButton
+        inBuyMode={inBuyMode}
+        enabled={!disabledByTurn && buyEntry.canBuy && tutorialAllows("buy")}
+        tooltip={
+          disabledByTurn
+            ? "Wait for your turn"
+            : inBuyMode
+              ? "Cancel the in-progress purchase"
+              : !tutorialAllows("buy")
+                ? "Follow the highlighted step first"
+                : buyEntry.reason ?? "Pick a market card. Pay with Capital, Labor, or a mix."
+        }
+        onStart={startBuyMode}
+        onCancel={cancelBuyMode}
+      />
+      <SmartButton
+        label="Trade"
+        action={trade}
+        state={state}
+        dispatch={dispatch}
+        disabledByTurn={disabledByTurn}
+        tutorialBlocked={!tutorialAllows("trade")}
+        tooltipIdle="Swap your cheapest card with the first available partner's."
+      />
+      {/* v3.2: Draw Line Cards button retired; Draft Second
+          Portfolio is offered inside the Brand Portfolio drawer.
+          Portfolio entry-point chip retired — the LineStrip above
+          the hand is fully clickable and opens the same drawer. */}
+
+      <SmartButton
+        label="End turn ↵"
+        action={pass}
+        state={state}
+        dispatch={(a) => {
+          // Capture the human's current hand BEFORE dispatching so
+          // EndTurnFlight can fly each card to the discard pile while
+          // the engine clears the hand state synchronously.
+          triggerEndTurnDiscardAnimation(human.hand.slice(), human.id);
+          dispatch(a);
+        }}
+        disabledByTurn={disabledByTurn}
+        tutorialBlocked={!tutorialAllows("pass")}
+        tooltipIdle="End your turn for the round. Cards in hand are held for cleanup."
+        primary
+        dataAction="pass"
+      />
+    </div>
   );
 }
 

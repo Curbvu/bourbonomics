@@ -6,8 +6,9 @@
  * Replaces the per-opponent panel that lived in RickhouseRow. Each
  * opponent gets a tight summary card: seat-color avatar + name +
  * distillery handle in seat ink + large rep number + mini rickhouse
- * (slot cells tinted by their bill's tier) + counter row
- * (hand · deck · disc · sold).
+ * (slot cells tinted by their bill's tier). Hand / deck / disc / sold
+ * counts live on the tile-level `title` tooltip so the rail can keep
+ * the column tight.
  *
  * Filters players to non-human seats — the human's rickhouse renders
  * front-and-center in `DistilleryStage`.
@@ -97,6 +98,12 @@ function OpponentCard({
     <div
       data-bb-zone="opponent-rickhouse"
       data-opponent-tile={player.id}
+      // Pile/hand counts live on the tile-level tooltip instead of a
+      // visible counter row — the row was eating ~26px of column height
+      // for read-only chrome. Inner elements with their own `title`
+      // (slot cells, prestige badge) keep their tooltips because the
+      // browser uses the deepest matching `title` on hover.
+      title={`${player.name} · ✋ ${player.hand.length} hand · ▤ ${player.deck.length} deck · ↻ ${player.discard.length} disc · 🛢 ${player.barrelsSold} sold`}
       className={[
         "flex flex-col gap-2 rounded-[9px] border bg-[linear-gradient(180deg,rgba(34,23,16,.65),rgba(20,14,8,.65))] p-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-colors",
         // v3.8: gold halo breathes while this player is on the clock,
@@ -200,13 +207,9 @@ function OpponentCard({
           density keeps the row under ~28px. */}
       <LineStrip player={player} state={state} density="compact" />
 
-      {/* Counters: hand · deck · disc · sold */}
-      <div className="flex justify-between" style={{ color: "var(--mute)" }}>
-        <Counter glyph="✋" label="hand" v={player.hand.length} />
-        <Counter glyph="▤" label="deck" v={player.deck.length} />
-        <Counter glyph="↻" label="disc" v={player.discard.length} />
-        <Counter glyph="🛢" label="sold" v={player.barrelsSold} />
-      </div>
+      {/* Counter row (hand · deck · disc · sold) retired — values surface
+          via the tile-level `title` tooltip. Saves ~26px of read-only
+          chrome per opponent and gives the rail more breathing room. */}
 
       {/* "On the clock" pill */}
       {isOnClock ? (
@@ -234,33 +237,3 @@ function OpponentCard({
   );
 }
 
-function Counter({
-  glyph,
-  label,
-  v,
-}: {
-  glyph: string;
-  label: string;
-  v: number;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-[2px]">
-      <span
-        className="font-mono text-[13px] font-semibold leading-none"
-        style={{ color: "var(--ink-muted)" }}
-      >
-        <span
-          className="mr-1 text-[10.5px]"
-          style={{ color: "var(--brass)" }}
-          aria-hidden
-        >
-          {glyph}
-        </span>
-        {v}
-      </span>
-      <span className="label-sm" style={{ fontSize: 16 }}>
-        {label}
-      </span>
-    </div>
-  );
-}

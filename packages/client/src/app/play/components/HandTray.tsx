@@ -124,23 +124,21 @@ export default function HandTray() {
         <MakeOverlay />
       </div>
 
-      {/* Action bar slot — fixed 34px. ActionBar self-gates on the
-          action phase; outside it the slot stays empty but pinned at
-          the same height so the layout doesn't jump. */}
-      <div className="h-[34px] overflow-hidden">
-        <ActionBar />
-      </div>
-
       {/* Status strip — context-aware italic sentence tied to the
           active picker mode. Pulled from the new HandStripStatus
           component below to keep the JSX tidy. */}
       <HandStripStatus />
 
       {/* Identity strip — compact player handle (swatch + name +
-          distillery + hand count). Reputation used to live here too
+          distillery + hand count) on the left, turn controls on the
+          right. The dedicated action-bar row was retired: ActionBar
+          self-gates on the action phase and the cluster only paints
+          on the human's turn, so the identity line is the natural
+          host for those controls. Reputation used to live here too
           and carried `data-bb-zone="reputation"`; rep now sits as a
           64px gold numeral on the IdentityPlate next to the crest,
-          so the spotlight anchor moved up there. */}
+          so the spotlight anchor moved up there. Portfolio entry
+          point lives on the clickable LineStrip above the hand. */}
       <div className="flex items-center gap-3 border-b border-[#3b2818] px-[18px] py-1">
         <div className="flex items-center gap-2">
           <PlayerSwatch
@@ -163,6 +161,9 @@ export default function HandTray() {
               {focused.hand.length}/{focused.handSize}
             </span>
           </div>
+        </div>
+        <div className="ml-auto">
+          <ActionBar />
         </div>
       </div>
 
@@ -340,9 +341,13 @@ function DramaticPile({
           }}
         />
       ))}
-      {/* Top face */}
+      {/* Top face — single big tabular count. The "Deck"/"Discard" label
+          and the "cards" suffix used to flank it; both are now carried
+          by the wrapper's `title` tooltip so the card face reads as
+          the count itself. Pile identity stays legible via tone
+          (amber vs rose) + column position. */}
       <div
-        className="absolute flex flex-col items-center justify-between rounded-md"
+        className="absolute flex flex-col items-center justify-center rounded-md"
         style={{
           bottom: 8,
           left: 6,
@@ -356,26 +361,14 @@ function DramaticPile({
         }}
       >
         <span
-          className="label-sm"
-          style={{ color: palette.ink, fontSize: 16 }}
-        >
-          {label}
-        </span>
-        <span
-          className="font-display font-bold leading-none"
+          className="font-display font-bold leading-none tabular-nums"
           style={{
-            fontSize: 38,
+            fontSize: 44,
             color: palette.ink,
             textShadow: `0 0 12px ${palette.glow}`,
           }}
         >
           {count}
-        </span>
-        <span
-          className="label-sm"
-          style={{ fontSize: 16, color: "var(--mute)" }}
-        >
-          cards
         </span>
       </div>
     </div>
