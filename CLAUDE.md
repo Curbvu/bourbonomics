@@ -4,7 +4,7 @@
 
 ### 1. The game canvas is a fixed 16:9 aspect ratio.
 
-The game area is a **fixed 1680 × 945 design canvas** (16:9), handled by `ScalingHost`. Every UI decision — text sizes, padding, hit targets, animation timing, layout — gets designed at that resolution. `ScalingHost` does one job: scales the canvas uniformly to fit the viewport. Excess space on the dominant axis is letterbox (top + bottom) or pillarbox (left + right) and shows the page background. **No reflow, no aspect-driven layout, no "looks fine at one size but breaks at another."**
+The game area is a **fixed 1920 × 1080 design canvas** (16:9), handled by `ScalingHost`. Every UI decision — text sizes, padding, hit targets, animation timing, layout — gets designed at that resolution. `ScalingHost` does one job: scales the canvas uniformly to fit the viewport. Excess space on the dominant axis is letterbox (top + bottom) or pillarbox (left + right) and shows the page background. **No reflow, no aspect-driven layout, no "looks fine at one size but breaks at another."**
 
 Why it's non-negotiable:
 - **Performance** stays predictable — the canvas paints at a known size.
@@ -12,14 +12,14 @@ Why it's non-negotiable:
 - **Edit consistency** — when we tighten the rickhouse, restyle the hand strip, or move a chip, we're always editing the same canvas. There is no "but on this viewport…"
 
 Consequences for editing:
-- Design at **1680 × 945**. If your panel doesn't fit at that resolution, the panel is the bug — not the canvas.
+- Design at **1920 × 1080**. If your panel doesn't fit at that resolution, the panel is the bug — not the canvas.
 - Never reach for media queries to make the game canvas "respond." The canvas does not respond to viewport size; it scales.
 - `GameTopBar` lives **outside** `ScalingHost` and is the one piece of chrome that spans the full viewport. Everything else (`GameBoard`, all in-game modals/overlays/flights that anchor inside the canvas) lives inside.
 - If you ever change the design dimensions or the aspect ratio, change them in `ScalingHost.tsx` **and this file** in the same commit.
 
 ### 2. Everything fits on one screen. No scrollbars in gameplay.
 
-The whole game must fit inside the 1680 × 945 canvas. The play screen, every modal, every overlay — **no vertical or horizontal scrollbars** anywhere a player interacts with the game.
+The whole game must fit inside the 1920 × 1080 canvas. The play screen, every modal, every overlay — **no vertical or horizontal scrollbars** anywhere a player interacts with the game.
 
 If a panel or modal grows past the available height, the answer is **never** to scroll it. Instead:
 

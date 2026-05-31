@@ -2,7 +2,7 @@
 
 /**
  * ScalingHost — wraps the game shell in a **fixed-aspect** design canvas
- * (1680 × 945, 16:9) and applies a CSS transform-scale so the canvas
+ * (1920 × 1080, 16:9) and applies a CSS transform-scale so the canvas
  * always fits the viewport. Excess viewport space is letterboxed /
  * pillarboxed and shows the page background (the warm bourbon radial
  * on `play/page.tsx`'s outer `<main>`).
@@ -11,7 +11,7 @@
  * rectangle. Text size, padding, hit targets, animation timing all
  * stay constant in design space; the only thing that changes across
  * monitors is the uniform scale factor. Any editor working on the
- * game UI MUST design against 1680 × 945; content that doesn't fit
+ * game UI MUST design against 1920 × 1080; content that doesn't fit
  * is a layout bug, not a viewport bug.
  *
  * Why this matters:
@@ -32,7 +32,7 @@
  *   horizontally + vertically. The excess on the dominant axis is
  *   the letterbox / pillarbox.
  * - Inner div carries `overflow: hidden` so misbehaving content can
- *   never push the canvas past 1680 × 945.
+ *   never push the canvas past 1920 × 1080.
  *
  * `data-bb-scale-canvas` is the legibility-rule anchor in
  * globals.css — the play-screen font-size floor applies only to
@@ -42,10 +42,10 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-/** Fixed design canvas — 16:9 at 1680 wide. Don't change without
+/** Fixed design canvas — 16:9 at 1920 wide. Don't change without
  *  changing CLAUDE.md §1 first. */
-const DESIGN_W = 1680;
-const DESIGN_H = 945;
+const DESIGN_W = 1920;
+const DESIGN_H = 1080;
 
 export default function ScalingHost({ children }: { children: ReactNode }) {
   const [scale, setScale] = useState<number>(1);
@@ -95,7 +95,7 @@ export default function ScalingHost({ children }: { children: ReactNode }) {
     >
       {/* Sleeve sized to the scaled visual rectangle so flexbox centers
           the painted canvas on both axes. Without this, the unscaled
-          layout box (1680 × 945) would pin against one edge on
+          layout box (1920 × 1080) would pin against one edge on
           smaller viewports. */}
       <div
         style={{
@@ -110,7 +110,7 @@ export default function ScalingHost({ children }: { children: ReactNode }) {
             width: DESIGN_W,
             height: DESIGN_H,
             // `overflow: hidden` enforces the fixed-aspect contract.
-            // Anything that wants to overflow the 945-tall canvas is a
+            // Anything that wants to overflow the 1080-tall canvas is a
             // layout bug — fix the panel, don't relax the canvas.
             overflow: "hidden",
             transform: `scale(${scale})`,
