@@ -531,7 +531,11 @@ function SlotCard({
 
 // ─────────────────────────────────────────────────────────────────────
 // DraftPoolPanel — when no second portfolio is drafted, show the
-// face-up pool and the Draft button (gated on labor + final round).
+// face-up pool and a TWO-STEP draft flow: first click selects (no
+// dispatch), second click on the same card (or pressing the
+// confirm CTA) commits via DRAFT_SECOND_PORTFOLIO. Drafting the
+// second portfolio is permanent + irreversible, so the extra tap
+// is a safety rail against fat-fingers.
 // ─────────────────────────────────────────────────────────────────────
 
 function DraftPoolPanel({
@@ -547,6 +551,41 @@ function DraftPoolPanel({
   finalRound: boolean;
   onDraft: (portfolioId: string) => void;
 }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Clear the staged selection if the pool changes underneath (e.g.
+  // some other player drafts and the row reshuffles) so a stale id
+  // can't fire the wrong portfolio on the next click.
+  useEffect(() => {
+    if (selectedId && !draftPool.includes(selectedId)) {
+      setSelectedId(null);
+    }
+  }, [draftPool, selectedId]);
+  // Esc clears the staged selection without committing.
+  useEffect(() => {
+    if (!selectedId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedId]);
+  const onCardClick = (id: string) => {
+    if (!canDraft) return;
+    // Tap-tap: second tap on the SAME selected card commits.
+    if (selectedId === id) {
+      onDraft(id);
+      setSelectedId(null);
+      return;
+    }
+    // Tap on a different card just switches the selection.
+    setSelectedId(id);
+  };
+  const onConfirm = () => {
+    if (!selectedId || !canDraft) return;
+    onDraft(selectedId);
+    setSelectedId(null);
+  };
+  const selectedPortfolio = selectedId ? getPortfolio(selectedId) : null;
   return (
     <section className="flex flex-col gap-2 rounded-lg border border-slate-700/60 bg-slate-950/55 px-3 py-2">
       <header className="flex items-baseline gap-3">
@@ -576,7 +615,8 @@ function DraftPoolPanel({
               key={id}
               portfolio={p}
               eligible={canDraft}
-              onClick={() => onDraft(id)}
+              selected={selectedId === id}
+              onClick={() => onCardClick(id)}
             />
           );
         })}
@@ -586,6 +626,51 @@ function DraftPoolPanel({
           </div>
         ) : null}
       </div>
+      {/* Confirm strip — only paints when a portfolio is staged. The
+          stripe gives the player a second-click target that's bigger
+          and more discoverable than the tap-the-same-card path, and
+          spells out which board the click will commit to. */}
+      {selectedPortfolio && canDraft ? (
+        <div
+          className="mt-1 flex items-center justify-between gap-3 rounded-md border border-amber-500/60 px-3 py-1.5"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(240,201,112,.12), rgba(34,23,16,.55))",
+          }}
+        >
+          <span className="flex flex-col gap-0.5 leading-tight">
+            <span className="font-mono text-[9px] font-bold uppercase tracking-[.18em] text-amber-300">
+              Selected
+            </span>
+            <span className="font-display text-[13px] font-semibold text-amber-100">
+              {selectedPortfolio.name}
+            </span>
+          </span>
+          <span className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              className="rounded border border-slate-600 bg-slate-800/60 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[.12em] text-slate-300 hover:bg-slate-700/60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="rounded border px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[.14em]"
+              style={{
+                borderColor: "var(--gold)",
+                background: "linear-gradient(180deg, #f0c970, #c69d52)",
+                color: "#1a120b",
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,.4), 0 4px 12px rgba(240,201,112,.35)",
+              }}
+            >
+              Confirm draft ↵
+            </button>
+          </span>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -593,10 +678,12 @@ function DraftPoolPanel({
 function DraftCard({
   portfolio,
   eligible,
+  selected,
   onClick,
 }: {
   portfolio: Portfolio;
   eligible: boolean;
+  selected: boolean;
   onClick: () => void;
 }) {
   // Compute a quick "ceiling" estimate: sum of slot values + bonuses.
@@ -608,11 +695,14 @@ function DraftCard({
       type="button"
       onClick={eligible ? onClick : undefined}
       disabled={!eligible}
+      aria-pressed={selected}
       className={[
         "flex w-[178px] flex-col gap-1 rounded-lg border px-2.5 py-2 text-left transition-all",
-        eligible
-          ? "border-amber-700/55 bg-slate-950/70 hover:-translate-y-[1px] hover:border-amber-400 hover:bg-amber-950/30"
-          : "border-slate-700/50 bg-slate-950/60 opacity-75",
+        !eligible
+          ? "border-slate-700/50 bg-slate-950/60 opacity-75"
+          : selected
+            ? "-translate-y-[2px] border-amber-300 bg-amber-950/40 shadow-[0_0_0_2px_rgba(240,201,112,.55),0_10px_24px_rgba(240,201,112,.25)]"
+            : "border-amber-700/55 bg-slate-950/70 hover:-translate-y-[1px] hover:border-amber-400 hover:bg-amber-950/30",
       ].join(" ")}
     >
       <div className="flex items-baseline justify-between gap-1">
@@ -620,11 +710,24 @@ function DraftCard({
           {portfolio.slots.length} slots
         </span>
         {eligible ? (
-          <span className="rounded-full px-1.5 py-px font-mono text-[8.5px] font-bold uppercase tracking-[.1em]" style={{
-            background: "linear-gradient(180deg, #f0c970, #c69d52)",
-            color: "#1a120b",
-          }}>
-            Draft ↵
+          <span
+            className="rounded-full px-1.5 py-px font-mono text-[8.5px] font-bold uppercase tracking-[.1em]"
+            style={
+              selected
+                ? {
+                    background:
+                      "linear-gradient(180deg, #f0c970, #c69d52)",
+                    color: "#1a120b",
+                    boxShadow: "0 0 8px rgba(240,201,112,.5)",
+                  }
+                : {
+                    background:
+                      "linear-gradient(180deg, rgba(240,201,112,.22), rgba(176,106,56,.12))",
+                    color: "var(--gold)",
+                  }
+            }
+          >
+            {selected ? "Confirm ↵" : "Select"}
           </span>
         ) : null}
       </div>

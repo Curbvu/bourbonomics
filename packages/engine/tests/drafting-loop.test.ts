@@ -445,6 +445,57 @@ describe("DRAFT_PASS and loop close", () => {
     });
     expect(state.draftingLoop!.pickOrder).toEqual(["p3", "p4", "p1", "p2"]);
   });
+
+  // Regression — UI report: in the Drafting Loop modal the human was
+  // shown the "Pass →" button as enabled but clicking it appeared to
+  // do nothing on certain hand sizes (the modal's HandFan was
+  // overflowing into the footer and the button was getting eaten by
+  // the fan's invisible bounding box). The engine side of the
+  // contract must stay rock-solid: any human with a non-empty hand
+  // and a non-empty draft pile can DRAFT_PASS on their turn, and the
+  // pass must advance the picker even when the pile carries the
+  // initiator's seed card. This pins the engine half so a future
+  // regression surfaces in tests, not just in the UI.
+  it("accepts DRAFT_PASS from the human with a full hand and a non-empty pile", () => {
+    // Build the exact state from the user's screenshot: human holds
+    // 8 cards, pile carries the seed, 3 bills revealed, p1 is on the
+    // clock.
+    let state = makeTestGame({ bourbonDeck: makeBourbonDeck(5) });
+    state = advanceToActionPhase(state);
+    state = giveHand(state, "p1", [makeResourceCard("corn", "p1", 0)]);
+    const seedId = state.players.find((p) => p.id === "p1")!.hand[0]!.id;
+    state = applyAction(state, {
+      type: "INITIATE_DRAFTING_LOOP",
+      playerId: "p1",
+      cardId: seedId,
+    });
+    // Refill p1's hand to 8 cards (simulating the post-initiate state
+    // the UI shows after drawing).
+    state = giveHand(
+      state,
+      "p1",
+      Array.from({ length: 8 }, (_, i) =>
+        i % 2 === 0
+          ? makeResourceCard("corn", "p1", 100 + i)
+          : makeLaborCard({ subtype: "generic", ownerLabel: "p1", index: 200 + i }),
+      ),
+    );
+
+    // Sanity: human is on the clock, pile has the seed, hand has 8.
+    expect(state.draftingLoop!.pickOrder[state.draftingLoop!.pickerIndex]).toBe("p1");
+    expect(state.draftingLoop!.draftPile).toHaveLength(1);
+    expect(state.players.find((p) => p.id === "p1")!.hand).toHaveLength(8);
+
+    // The act under test: DRAFT_PASS must succeed and rotate the
+    // picker to p2 — not throw, not silently drop, not get gated by
+    // the hand size.
+    const after = applyAction(state, { type: "DRAFT_PASS", playerId: "p1" });
+    expect(after.draftingLoop).not.toBeNull();
+    expect(after.draftingLoop!.pickerIndex).toBe(1);
+    expect(after.draftingLoop!.pickOrder[after.draftingLoop!.pickerIndex]).toBe("p2");
+    // Hand is unchanged by a pass.
+    expect(after.players.find((p) => p.id === "p1")!.hand).toHaveLength(8);
+  });
 });
 
 // ---------- Modal sub-phase ----------

@@ -44,6 +44,7 @@ import {
   stepOrchestrator,
   type Barrel,
   type Card,
+  type Distillery,
   type GameAction,
   type GameState,
   type InvestmentCard,
@@ -306,7 +307,8 @@ export type InspectPayload =
   | { kind: "mashbill"; bill: MashBill; ownerName?: string }
   | { kind: "operations"; card: OperationsCard; ownerName?: string }
   | { kind: "investment"; card: InvestmentCard }
-  | { kind: "barrel"; barrel: Barrel; ownerName?: string };
+  | { kind: "barrel"; barrel: Barrel; ownerName?: string }
+  | { kind: "distillery"; distillery: Distillery; ownerName?: string };
 
 /**
  * Interactive market-buy mode. While this is non-null the human is in
@@ -1579,17 +1581,30 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     if (me.needsDemandRoll) return; // demand modal still owns the screen
     // false→true transition: capture ageable-barrel count for the banner.
+    const eligibleCount = s.allBarrels.filter(
+      (b) =>
+        b.ownerId === seatId &&
+        b.phase === "aging" &&
+        !(b.completedInRound != null && s.round <= b.completedInRound) &&
+        !b.inspectedThisRound &&
+        (!b.agedThisRound || b.extraAgesAvailable > 0),
+    ).length;
     if (!prevNeedsAgeRef.current) {
       prevNeedsAgeRef.current = true;
-      const total = s.allBarrels.filter(
-        (b) =>
-          b.ownerId === seatId &&
-          b.phase === "aging" &&
-          !(b.completedInRound != null && s.round <= b.completedInRound) &&
-          !b.inspectedThisRound &&
-          (!b.agedThisRound || b.extraAgesAvailable > 0),
-      ).length;
-      setAgeTotalThisPhase(total);
+      setAgeTotalThisPhase(eligibleCount);
+    }
+    // Regression guard — when the engine has `needsAgeBarrels` armed
+    // but ZERO eligible barrels (every aging barrel is inspected,
+    // already-aged-this-round, or just-completed), auto-engaging
+    // ageMode traps the player behind the AgeOverlay banner with no
+    // valid AGE_BOURBON target. The engine already allows PASS_TURN
+    // out of the gate (engine.ts allow-list), so we just need to NOT
+    // open the overlay and let the action bar's End turn surface
+    // normally. Cancel any stale ageMode so a previously-open banner
+    // doesn't linger.
+    if (eligibleCount === 0) {
+      if (ageMode) setAgeMode(null);
+      return;
     }
     if (ageMode) return;
     setAgeMode({ pickedBarrelId: null, pickedCardId: null });
@@ -2559,18 +2574,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * For actions that move cards into a player's hand (DRAW_HAND, and
- * the implicit reshuffle on a DRAW_HAND), compute the delta so the
- * EventLog can render WHAT was drawn — by id stable across renders.
- * Returns undefined when the action is not a draw-style action so the
- * field can be omitted from the LogEntry entirely.
+ * For actions that move cards into a player's hand, compute the
+ * delta so the EventLog can render WHAT was drawn — by id stable
+ * across renders. Returns undefined when the action doesn't deliver
+ * cards or when the delta is empty.
+ *
+ * v3.10: DRAW_HAND is a pure phase-marker — the canonical hand
+ * refresh fires on PASS_TURN. Watch that instead.
  */
 function captureDrawn(
   prev: GameState,
   next: GameState,
   action: GameAction,
 ): Card[] | undefined {
-  if (action.type !== "DRAW_HAND") return undefined;
+  if (action.type !== "PASS_TURN") return undefined;
   const before = prev.players.find((p) => p.id === action.playerId);
   const after = next.players.find((p) => p.id === action.playerId);
   if (!before || !after) return undefined;
@@ -2719,31 +2736,26 @@ function captureAge(
 }
 
 /**
- * Snapshot DRAW_HAND landings so HandFan can re-key its slots and
- * replay the `deal-in` keyframe. Returns null for non-DRAW_HAND
- * actions so the caller can preserve the previous snapshot when no
- * deal happened — the round's deal-in animation should still be
- * available to replay on a re-render.
+ * Snapshot hand-refresh landings so HandFan can re-key its slots and
+ * replay the `deal-in` keyframe. Returns null for non-refresh actions
+ * so the caller can preserve the previous snapshot when no deal
+ * happened — the round's deal-in animation should still be available
+ * to replay on a re-render.
+ *
+ * v3.10: PASS_TURN is the sole hand-refresh action. DRAW_HAND no
+ * longer touches cards (it's a pure phase-marker), so re-keying off
+ * of it would replay the deal-in animation against a hand that
+ * didn't change. The round-1 initial deal is fired by the engine's
+ * setup path; it never lands as a DRAW_HAND, so there's nothing to
+ * animate here for that case either.
  */
 function captureDrawHand(
   prev: AtomicStore,
   action: GameAction,
   seq: number,
 ): LastDrawHand | null {
-  // v3.9: both DRAW_HAND (round-start) and PASS_TURN (end-of-turn
-  // redraw) can repopulate the player's hand and should re-key the
-  // fan. Only fire for the local human — bot draws would otherwise
-  // restart the deal-in keyframe mid-play.
-  if (action.type !== "DRAW_HAND" && action.type !== "PASS_TURN") return null;
+  if (action.type !== "PASS_TURN") return null;
   const player = prev.state?.players.find((p) => p.id === action.playerId);
   if (!player || player.isBot) return null;
-  // After v3.9, the round-2-onwards DRAW_HAND is a no-op because
-  // PASS_TURN already topped the hand back up at end-of-turn. Skip
-  // the bump in that case so the fan doesn't re-trigger the deal-in
-  // animation for the same hand the user already saw fan in on
-  // their last End-Turn.
-  if (action.type === "DRAW_HAND" && player.hand.length >= player.handSize) {
-    return null;
-  }
   return { ownerId: action.playerId, count: player.hand.length, seq };
 }

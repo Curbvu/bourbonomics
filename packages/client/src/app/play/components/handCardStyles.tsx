@@ -14,7 +14,11 @@ import { BarleyIcon, CornIcon, RyeIcon, WheatIcon } from "./GrainIcon";
  * market, mash-bill row, and draw-pile tiles all use this so every
  * card on screen reads as the same physical object.
  */
-export const CARD_SIZE_CLASS = "h-[140px] w-[100px]";
+// Hand cards: bumped from 100 × 140 to 130 × 180 (~30% bigger on each
+// axis) so labels like "Common Cask" / "Common Corn" stop truncating
+// to "Cor" / "Cas" inside the fan. Text sizes inside the card are
+// unchanged — the box just has more horizontal room to render.
+export const CARD_SIZE_CLASS = "h-[180px] w-[130px]";
 
 /**
  * Per-card horizontal offset between siblings inside a hand row.

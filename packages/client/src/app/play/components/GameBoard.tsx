@@ -115,49 +115,59 @@ export default function GameBoard() {
   const marketOpen = buyMode != null && buyMode.pickedTarget == null;
 
   return (
-    <div className="flex flex-1 flex-col" style={{ minHeight: 0 }}>
+    // `h-full` (not `flex-1`) so the chain from ScalingHost's fixed
+    // 1080-tall canvas down to <main> actually inherits height — the
+    // canvas is a block element, so `flex-1` here would fall back to
+    // content-sizing and the main grid would grow past 1080, clipping
+    // the hand at the bottom under the canvas's `overflow: hidden`.
+    <div className="flex h-full flex-col" style={{ minHeight: 0 }}>
       {/* GameOverPanel mounts at the page root (play/page.tsx) so its
           fullscreen modal backdrop covers the entire viewport rather
           than being scoped to the scaled design canvas. */}
 
-      {/* Three-area grid: rivals | stage+hand | log. Each region wears
-          a .bb-panel class for the floating-card chrome; the 12px gap
-          + padding on this main grid separates them visually. */}
+      {/* Horizontal demand bar — full-width row above the play grid.
+          Replaces the vertical 96px thermometer column. `flex-shrink:0`
+          on the bar (set in the component) keeps it from collapsing
+          when the stage stretches; the dropped column hands its 96px +
+          gap back to the stage. */}
+      <DemandThermometer rolled={state.demand} target={12} />
+
+      {/* Two-area grid: left rail (rivals + tasting notes) · stage+hand.
+          Each region wears a .bb-panel class for the floating-card
+          chrome; the 12px gap + padding on this main grid separates
+          them visually. */}
       <main
         className="grid min-h-0 flex-1"
         style={{
-          // Rivals 280px (was 230) so opponent cards' name + handle +
-          // mini-rickhouse range strips don't crowd. Demand thermometer
-          // column (96px) sits between the left column and the Stage,
-          // spanning the full main-area height so the liquid level
-          // reads alongside both the rickhouse and the hand.
+          // Rivals 280px so opponent cards' name + handle + mini-
+          // rickhouse range strips don't crowd. The right log column
+          // already folded into the left rail; the demand thermometer
+          // moved out of the grid into the horizontal bar above, so
+          // the play grid is now down to two columns.
+          //
           // `minmax(0, 1fr)` instead of `1fr` so the stage column can
           // SHRINK to its share of the remaining width. Plain `1fr` is
           // `minmax(auto, 1fr)`, which lets the column grow to fit its
           // content's intrinsic min-width and would push the whole
-          // board past the 1680px design canvas (BuyOverlay / MakeOverlay
-          // panels then escape the centered sleeve).
-          //
-          // The Tasting Notes log used to sit in a dedicated 290px
-          // right column. It moved into the left column under Rivals
-          // so the stage/hand can claim the freed ~300px of width —
-          // RightRail still owns its own scrolling event list; the
-          // wrapper just stacks Rivals (top) + RightRail (fills the
-          // remainder) inside the single 280px left column.
-          gridTemplateColumns: "280px 96px minmax(0, 1fr)",
+          // board past the 1680px design canvas (BuyOverlay /
+          // MakeOverlay panels then escape the centered sleeve).
+          gridTemplateColumns: "280px minmax(0, 1fr)",
           gridTemplateRows: "1fr auto",
-          gridTemplateAreas: '"left demand stage" "left demand hand"',
+          gridTemplateAreas: '"left stage" "left hand"',
           gap: 12,
           padding: 12,
           background:
             "radial-gradient(120% 70% at 50% 0%, rgba(176,106,56,.05), transparent 50%)",
         }}
       >
-        {/* Left column — Rivals on top, Tasting Notes filling the rest.
-            Both child panels keep their own `gridArea` style attrs,
-            but those become no-ops inside this flex wrapper (which is
-            the actual grid item) and the components stay reusable
-            elsewhere (tutorial routes, etc.). */}
+        {/* Left column — Rivals takes its natural content height
+            first; Tasting Notes claims the rest. OpponentRail
+            renders as a content-sized flex child (no flex-grow); the
+            updated RightRail carries `flex-1 min-h-0` so it absorbs
+            whatever vertical space is left. Both child panels keep
+            their `gridArea` style attrs (no-ops inside this flex
+            wrapper) so the components stay reusable elsewhere
+            (tutorial routes, etc.). */}
         <div
           className="flex min-h-0 flex-col gap-3"
           style={{ gridArea: "left" }}
@@ -165,8 +175,6 @@ export default function GameBoard() {
           <OpponentRail />
           <RightRail />
         </div>
-
-        <DemandThermometer rolled={state.demand} target={12} />
 
         {/* Stage area — flex column with MarketRow above DistilleryStage.
             Each child is its own floating panel; the wrapper just stacks

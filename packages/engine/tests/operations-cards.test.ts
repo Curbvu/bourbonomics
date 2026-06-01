@@ -146,6 +146,66 @@ describe("PLAY_OPERATIONS_CARD — Regulatory Inspection", () => {
       }),
     ).toThrow(/regulatory inspection/);
   });
+
+  // Regression — UI report: player had a single aging barrel hit by
+  // Regulatory Inspection, `needsAgeBarrels` stayed armed on their
+  // seat, and the client opened AgeOverlay with no legal target —
+  // the player was stuck on the "aging phase" UI with no way out.
+  // The engine contract: PASS_TURN is in the narrow allow-list while
+  // `needsAgeBarrels` is true (see engine.ts), so the player can
+  // always end their turn out of a regulatory hold. The client's
+  // fix in store/game.tsx skips auto-engaging ageMode when there are
+  // zero eligible barrels; this test pins the engine half so a
+  // future change to the allow-list can't quietly break the escape
+  // hatch.
+  it("PASS_TURN is legal while needsAgeBarrels is armed and every aging barrel is inspected", () => {
+    let state = makeTestGame();
+    state = advanceToActionPhase(state, [1, 1]);
+    state = placeBarrel(state, "p1", bill(), 1);
+    // Drop the inspection on p1's only aging barrel.
+    const { state: s, cardId } = giveOpsCard(state, "p1", "regulatory_inspection");
+    state = applyAction(s, {
+      type: "PLAY_OPERATIONS_CARD",
+      playerId: "p1",
+      cardId,
+      defId: "regulatory_inspection",
+      targetBarrelId: state.allBarrels.find((b) => b.phase === "aging")!.id,
+    });
+    state = giveHand(state, "p1", [makeResourceCard("corn", "p1", 0)]);
+    // Arm the per-turn aging gate manually — `placeBarrel` installs a
+    // barrel directly into state and bypasses the engine's natural
+    // arming via ROLL_DEMAND. The user's actual mid-round state had
+    // `needsAgeBarrels=true` (rolled after their barrel existed); we
+    // mirror that here without re-walking phase transitions.
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1" ? { ...p, needsAgeBarrels: true } : p,
+      ),
+    };
+    expect(state.players.find((p) => p.id === "p1")!.needsAgeBarrels).toBe(true);
+
+    // Every aging barrel is inspected → no AGE_BOURBON is legal.
+    const inspected = state.allBarrels.find((b) => b.phase === "aging")!;
+    expect(() =>
+      applyAction(state, {
+        type: "AGE_BOURBON",
+        playerId: "p1",
+        barrelId: inspected.id,
+        cardId: "card_p1_corn_0",
+      }),
+    ).toThrow(/regulatory inspection/);
+
+    // The escape hatch: PASS_TURN must be legal even with the gate
+    // armed. End the turn, the cursor advances away from p1 — that's
+    // the contract the client relies on. The seat's per-turn flags
+    // get re-armed at the start of their NEXT turn via ROLL_DEMAND,
+    // so we don't assert on `needsAgeBarrels` clearance here; the
+    // legality of PASS_TURN is the whole regression check.
+    const startingCursor = state.currentPlayerIndex;
+    state = applyAction(state, { type: "PASS_TURN", playerId: "p1" });
+    expect(state.currentPlayerIndex).not.toBe(startingCursor);
+  });
 });
 
 describe("PLAY_OPERATIONS_CARD — Rushed Shipment", () => {

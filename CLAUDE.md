@@ -2,9 +2,24 @@
 
 ## Hard requirements (non-negotiable)
 
-### 1. Everything fits on one screen. No scrollbars in gameplay.
+### 1. The game canvas is a fixed 16:9 aspect ratio.
 
-The whole game must fit inside the viewport at the design scale handled by `ScalingHost`. The play screen, every modal, every overlay — **no vertical or horizontal scrollbars** anywhere a player interacts with the game.
+The game area is a **fixed 1920 × 1080 design canvas** (16:9), handled by `ScalingHost`. Every UI decision — text sizes, padding, hit targets, animation timing, layout — gets designed at that resolution. `ScalingHost` does one job: scales the canvas uniformly to fit the viewport. Excess space on the dominant axis is letterbox (top + bottom) or pillarbox (left + right) and shows the page background. **No reflow, no aspect-driven layout, no "looks fine at one size but breaks at another."**
+
+Why it's non-negotiable:
+- **Performance** stays predictable — the canvas paints at a known size.
+- **Text and spacing stay consistent** across every monitor — 12pt copy reads as 12pt at every viewport.
+- **Edit consistency** — when we tighten the rickhouse, restyle the hand strip, or move a chip, we're always editing the same canvas. There is no "but on this viewport…"
+
+Consequences for editing:
+- Design at **1920 × 1080**. If your panel doesn't fit at that resolution, the panel is the bug — not the canvas.
+- Never reach for media queries to make the game canvas "respond." The canvas does not respond to viewport size; it scales.
+- `GameTopBar` lives **outside** `ScalingHost` and is the one piece of chrome that spans the full viewport. Everything else (`GameBoard`, all in-game modals/overlays/flights that anchor inside the canvas) lives inside.
+- If you ever change the design dimensions or the aspect ratio, change them in `ScalingHost.tsx` **and this file** in the same commit.
+
+### 2. Everything fits on one screen. No scrollbars in gameplay.
+
+The whole game must fit inside the 1920 × 1080 canvas. The play screen, every modal, every overlay — **no vertical or horizontal scrollbars** anywhere a player interacts with the game.
 
 If a panel or modal grows past the available height, the answer is **never** to scroll it. Instead:
 
@@ -16,7 +31,7 @@ The single allowed exception is **`/rules`** — the in-app rulebook is a long-f
 
 Before considering a UI change "done", you must visually confirm in the preview (`preview_screenshot` / `preview_eval` against `document.body.scrollHeight` vs viewport height) that no scrollbars are introduced.
 
-### 2. All resource cards share one visual style.
+### 3. All resource cards share one visual style.
 
 Anywhere a card from a player's hand or the market is shown — the hand tray, the drafting modal, the buy modal, the inspect modal, flights, etc. — the **same card visual treatment** applies: same gradient, same glyph, same name typography, same flavor line, same badges. `HandCardTile` is the canonical implementation; if a surface needs to render a card and it doesn't reach for `HandCardTile` (or a documented variant), that's a bug.
 

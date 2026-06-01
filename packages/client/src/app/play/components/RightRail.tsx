@@ -21,7 +21,11 @@ export default function RightRail() {
   return (
     <aside
       data-bb-zone="right-rail"
-      className={`bb-panel bb-panel--log flex min-h-0 flex-col gap-2 overflow-hidden px-3 py-3 ${focusClass}`}
+      // `flex-1 min-h-0` so the panel claims the remaining height of
+      // its flex-column parent (the left-rail wrapper in GameBoard)
+      // after Rivals has taken its natural content. Inner EventLog
+      // handles its own scroll within these bounds.
+      className={`bb-panel bb-panel--log flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-3 py-3 ${focusClass}`}
       style={{ gridArea: "log", ...focusStyle }}
     >
       <header className="flex items-center justify-between">

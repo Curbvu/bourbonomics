@@ -48,10 +48,13 @@ export default function OpponentRail() {
   return (
     <aside
       data-rickhouse-row="true"
-      // No scroll per CLAUDE.md. Up to 3 opponents share this column at
-      // the design scale — they fit. If a future 4+ player layout
-      // needs more, the tiles need to be tightened, not scrolled.
-      className={`bb-panel bb-panel--rivals flex min-h-0 flex-col gap-[10px] overflow-hidden px-[12px] py-3 ${focusClass}`}
+      // `shrink-0` so Rivals always shows its full content height —
+      // user-stated rule: Rivals always fills first, Tasting Notes
+      // (the RightRail sibling) takes whatever remains. No scroll
+      // per CLAUDE.md. Up to 3 opponents share this column at the
+      // design scale — they fit. If a future 4+ player layout needs
+      // more, the tiles need to be tightened, not scrolled.
+      className={`bb-panel bb-panel--rivals flex shrink-0 flex-col gap-[10px] overflow-hidden px-[12px] py-3 ${focusClass}`}
       style={{ gridArea: "rivals", ...focusStyle }}
     >
       <header className="flex items-baseline justify-between">
@@ -86,6 +89,7 @@ function OpponentCard({
   seatIndex: number;
   state: GameState;
 }) {
+  const { setInspect } = useGameStore();
   const ink = PLAYER_HEX[paletteIndex(seatIndex)]!;
   const myBarrels = state.allBarrels.filter((b) => b.ownerId === player.id);
   const slotsTotal = player.rickhouseSlots.length;
@@ -93,6 +97,20 @@ function OpponentCard({
   const isOnClock =
     state.phase === "action" &&
     state.players[state.currentPlayerIndex]?.id === player.id;
+  // Inspect this rival's distillery — opens the shared CardInspectModal
+  // with the full ability + flavor + strategy note. Only the name/handle
+  // area carries the click; the rest of the tile (mini-rickhouse,
+  // counters, LineStrip) keeps its existing hover tooltips so the
+  // click target stays specific.
+  const inspectDistillery = () => {
+    if (!player.distillery) return;
+    setInspect({
+      kind: "distillery",
+      distillery: player.distillery,
+      ownerName: player.name,
+    });
+  };
+  const canInspect = player.distillery != null;
 
   return (
     <div
@@ -124,20 +142,56 @@ function OpponentCard({
             boxShadow: `0 0 0 1.5px ${ink}88, inset 0 1px 0 rgba(255,255,255,.18)`,
           }}
         />
-        <div className="min-w-0 flex-1">
+        {/* Identity column — clickable to inspect this rival's
+            distillery. The whole name/handle block is the click
+            target (more forgiving than a small button); the rest of
+            the tile keeps its existing tooltips intact. */}
+        <button
+          type="button"
+          onClick={inspectDistillery}
+          disabled={!canInspect}
+          title={
+            canInspect
+              ? `Inspect ${player.distillery!.name} — ${player.name}'s distillery`
+              : "No distillery yet"
+          }
+          className="group/inspect min-w-0 flex-1 cursor-pointer rounded-[6px] border border-transparent bg-transparent p-0 px-1 py-0.5 text-left transition-colors hover:border-amber-700/50 hover:bg-amber-950/15 disabled:cursor-default disabled:hover:border-transparent disabled:hover:bg-transparent"
+        >
+          {/* Wrap rather than ellipsis-truncate — at 280px column width
+              "VANILLA DIS…" / "CONNOISSEU…" were clipping mid-word.
+              Wrapping to two lines is fine; the tile already pads
+              vertically, and rare long names that need two lines beat
+              opaque clipping. */}
           <div
-            className="truncate font-display text-[17px] font-semibold leading-tight"
-            style={{ color: "var(--ink)" }}
+            className="font-display text-[17px] font-semibold leading-tight"
+            style={{
+              color: "var(--ink)",
+              wordBreak: "break-word",
+            }}
           >
             {player.name}
           </div>
           <div
-            className="label-sm mt-[3px] truncate"
-            style={{ color: ink, fontSize: 16 }}
+            className="label-sm mt-[3px] flex items-baseline gap-1.5"
+            style={{
+              color: ink,
+              fontSize: 16,
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+            }}
           >
-            {player.distillery?.name ?? "no distillery"}
+            <span>{player.distillery?.name ?? "no distillery"}</span>
+            {canInspect ? (
+              <span
+                aria-hidden
+                className="font-mono text-[11px] opacity-0 transition-opacity group-hover/inspect:opacity-90"
+                style={{ color: "var(--brass)" }}
+              >
+                ⓘ
+              </span>
+            ) : null}
           </div>
-        </div>
+        </button>
         <div className="flex items-center gap-2 text-right leading-tight">
           {player.prestige > 0 ? (
             <span

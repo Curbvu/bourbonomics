@@ -40,6 +40,7 @@ import {
   RESOURCE_GLYPH,
 } from "./handCardStyles";
 import { TIER_CHROME, tierOrCommon, type TierChrome } from "./tierStyles";
+import { PLAYER_HEX, paletteIndex } from "./playerColors";
 import RecipePips from "./RecipePips";
 import HandCardTile from "./HandCardTile";
 import HandFan from "./HandFan";
@@ -345,6 +346,20 @@ function DraftingLoopModal({
               {status.subtitle}
             </div>
           </div>
+          {/* Turn-order strip — one chip per player in pickOrder.
+              Pickers who've already gone read as muted ✓, the current
+              picker pulses gold, and pickers still ahead sit dim with
+              a hollow dot. Anchored top-right of the header so the
+              "who's next" read is glanceable while the player is
+              deciding to scavenge or pass. */}
+          {loop && state ? (
+            <TurnOrderStrip
+              pickOrder={loop.pickOrder}
+              pickerIndex={loop.pickerIndex}
+              players={state.players}
+              humanId={humanId}
+            />
+          ) : null}
           {seedMode ? (
             <button
               type="button"
@@ -459,13 +474,18 @@ function DraftingLoopModal({
                 : "Your hand"
           }
           hint={`${hand.length} card${hand.length === 1 ? "" : "s"}`}
-          height={loop ? 180 : 200}
+          // Bumped from 180 to 170 to match the new HandFan `sm`
+          // geometry (150px container + a little gutter). At the old
+          // 180 with the new in-game md geometry (200) the fan
+          // bottom-overflowed into the action footer and the Pass
+          // button became un-clickable in some viewports.
+          height={loop ? 170 : 190}
           allowOverflow
         >
           {hand.length === 0 ? (
             <EmptyRow message="Your hand is empty." />
           ) : (
-            <HandFan>
+            <HandFan size="sm">
               {hand.map((card) => (
                 <HandCardTile
                   key={card.id}
@@ -532,6 +552,88 @@ function DraftingLoopModal({
 }
 
 type HandMode = "seed" | "pay" | "view";
+
+// ─────────────────────────────────────────────────────────────────────
+// Turn-order strip — shows pickOrder w/ done / current / waiting marks
+// ─────────────────────────────────────────────────────────────────────
+
+function TurnOrderStrip({
+  pickOrder,
+  pickerIndex,
+  players,
+  humanId,
+}: {
+  pickOrder: readonly string[];
+  pickerIndex: number;
+  players: readonly import("@bourbonomics/engine").PlayerState[];
+  humanId: string | null;
+}) {
+  return (
+    <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
+      <div className="font-mono text-[10px] uppercase tracking-[.18em] text-slate-500">
+        Pick order
+      </div>
+      <div className="flex items-center gap-1.5">
+        {pickOrder.map((pid, i) => {
+          const player = players.find((p) => p.id === pid);
+          const name = player?.name ?? pid;
+          const seatIdx = players.findIndex((p) => p.id === pid);
+          const ink = PLAYER_HEX[paletteIndex(seatIdx)] ?? "#9ca3af";
+          const isCurrent = i === pickerIndex;
+          const isDone = i < pickerIndex;
+          const isHuman = pid === humanId;
+          // Visual state:
+          //   done    → muted ✓ on a low-contrast pill
+          //   current → seat-color pill, gold ring + pulse
+          //   waiting → outlined hollow pill, dim seat-color border
+          const baseClass =
+            "flex items-center gap-1 rounded-full border px-2 py-[3px] font-mono text-[10px] font-bold uppercase tracking-[.10em] transition-all";
+          const stateClass = isCurrent
+            ? "bb-onclock-pulse"
+            : isDone
+              ? "opacity-55"
+              : "opacity-75";
+          return (
+            <span
+              key={pid}
+              title={`${name}${isHuman ? " (you)" : ""}${
+                isCurrent
+                  ? " — on the clock"
+                  : isDone
+                    ? " — done"
+                    : " — waiting"
+              }`}
+              className={`${baseClass} ${stateClass}`}
+              style={{
+                borderColor: isCurrent ? "var(--gold)" : `${ink}88`,
+                background: isCurrent
+                  ? `linear-gradient(180deg, ${ink}55, rgba(20,14,8,.85))`
+                  : isDone
+                    ? "rgba(20,14,8,.6)"
+                    : "transparent",
+                color: isCurrent ? "var(--ink)" : ink,
+                boxShadow: isCurrent
+                  ? `0 0 0 1px var(--gold), 0 0 12px rgba(240,201,112,.35)`
+                  : "none",
+              }}
+            >
+              {/* state mark + number + name */}
+              <span aria-hidden style={{ fontSize: 10 }}>
+                {isDone ? "✓" : isCurrent ? "●" : "○"}
+              </span>
+              <span className="tabular-nums" style={{ opacity: 0.65 }}>
+                {i + 1}
+              </span>
+              <span className="truncate" style={{ maxWidth: 80 }}>
+                {isHuman ? "You" : name}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // Status line builder

@@ -1,92 +1,79 @@
 "use client";
 
 /**
- * ScalingHost — wraps the game shell in a design canvas and applies a
- * CSS transform-scale so the canvas always fits the viewport without
- * clipping the HandTray.
+ * ScalingHost — wraps the game shell in a **fixed-aspect** design canvas
+ * (1920 × 1080, 16:9) and applies a CSS transform-scale so the canvas
+ * always fits the viewport. Excess viewport space is letterboxed /
+ * pillarboxed and shows the page background (the warm bourbon radial
+ * on `play/page.tsx`'s outer `<main>`).
  *
- * Width is now *adaptive*. The design canvas has a minimum width
- * (1680px) but grows to match the viewport's aspect ratio when the
- * viewport is wider than 1680×{contentH}. The GameBoard grid uses
- * `minmax(0, 1fr)` on its stage column, so the extra width is absorbed
- * by the distillery stage / market row while the fixed side rails
- * (Rivals, Demand, Log) stay at their designed widths. Net effect:
- * ultrawide / 16:10 / 16:9 monitors fill edge-to-edge instead of
- * showing dead gutter on either side of a 1680px canvas. Narrower
- * viewports keep the 1680 minimum and get top/bottom padding instead.
+ * Hard rule (see CLAUDE.md §1): the game canvas is a fixed 16:9
+ * rectangle. Text size, padding, hit targets, animation timing all
+ * stay constant in design space; the only thing that changes across
+ * monitors is the uniform scale factor. Any editor working on the
+ * game UI MUST design against 1920 × 1080; content that doesn't fit
+ * is a layout bug, not a viewport bug.
  *
- * Height is *measured* from the actual content via ResizeObserver —
- * the play board is dense and routinely exceeds 900px once Rickhouse +
- * Market + Mash Bills + Action Bar + HandTray are all mounted, so a
- * fixed 900px design height would clip the hand tray on common 1080p
- * laptops. Measuring the inner div lets us shrink the canvas
- * proportionally when the content runs taller than the viewport.
+ * Why this matters:
+ * - **Performance**: the canvas paints at a known size, so frame
+ *   budgets are predictable.
+ * - **Text consistency**: 12pt copy reads as 12pt at every size; no
+ *   surprises from aspect-driven reflow.
+ * - **Edit consistency**: when we tighten the rickhouse or restyle
+ *   the hand strip, we're always editing the same canvas. No "this
+ *   looked fine at 1440 but breaks at 1920."
  *
- * Centering: `transform: scale` doesn't affect layout box size, so
- * flexbox would center the *unscaled* rectangle and leave the visual
- * content off-center on wide monitors. We wrap the scaled inner in a
- * sized sleeve (`paintedW × paintedH`) so the flex parent centers the
- * actual painted area both horizontally and vertically.
+ * Implementation:
+ * - Measure the OUTER wrapper (the slot between GameTopBar and the
+ *   bottom of the viewport).
+ * - Scale = min(availW / DESIGN_W, availH / DESIGN_H).
+ * - Sleeve is sized to the painted rectangle (`DESIGN_W * scale ×
+ *   DESIGN_H * scale`) so the flex parent centers the painted area
+ *   horizontally + vertically. The excess on the dominant axis is
+ *   the letterbox / pillarbox.
+ * - Inner div carries `overflow: hidden` so misbehaving content can
+ *   never push the canvas past 1920 × 1080.
+ *
+ * `data-bb-scale-canvas` is the legibility-rule anchor in
+ * globals.css — the play-screen font-size floor applies only to
+ * children of this scaled canvas so the GameTopBar (which sits
+ * outside ScalingHost) keeps its native sizing.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-/**
- * Floor for the adaptive design width. The board's hand-tuned layout
- * (mash bill cards, hand fan, action bar) was designed at 1680px; we
- * never go below this — narrower viewports scale the 1680 canvas down
- * and get top/bottom buffer.
- */
-const DESIGN_WIDTH_MIN = 1680;
-/**
- * Used only as the initial guess + a floor for the height-aware scale
- * computation; the measured content height takes over once the inner
- * div mounts.
- */
-const DESIGN_HEIGHT_FALLBACK = 900;
+/** Fixed design canvas — 16:9 at 1920 wide. Don't change without
+ *  changing CLAUDE.md §1 first. */
+const DESIGN_W = 1920;
+const DESIGN_H = 1080;
 
 export default function ScalingHost({ children }: { children: ReactNode }) {
   const [scale, setScale] = useState<number>(1);
-  const [contentH, setContentH] = useState<number>(DESIGN_HEIGHT_FALLBACK);
-  const [designW, setDesignW] = useState<number>(DESIGN_WIDTH_MIN);
-  const innerRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const update = () => {
-      const inner = innerRef.current;
       const outer = outerRef.current;
-      const contentHeight = inner ? inner.scrollHeight : DESIGN_HEIGHT_FALLBACK;
-      const effectiveHeight = Math.max(contentHeight, DESIGN_HEIGHT_FALLBACK);
-      // Measure the OUTER wrapper rather than the full viewport: the
-      // GameTopBar now lives outside ScalingHost, so the remaining
-      // height the scaled canvas can use is < viewport.
-      const availableWidth = outer?.clientWidth ?? window.innerWidth;
-      const availableHeight = outer?.clientHeight ?? window.innerHeight;
-      // Adaptive design width: when the viewport is wider than the
-      // 1680×{contentH} canvas (i.e. height is the limiting axis), grow
-      // the design width to match the viewport aspect ratio. With this
-      // designWidth the height-fit scale paints exactly the viewport
-      // width — no gutter. When the viewport is narrower than that
-      // ratio, fall back to 1680 and let the width-fit scale win;
-      // any leftover height becomes top/bottom buffer.
-      const aspectFitWidth =
-        (availableWidth * effectiveHeight) / Math.max(1, availableHeight);
-      const designWidth = Math.max(DESIGN_WIDTH_MIN, aspectFitWidth);
-      const sx = availableWidth / designWidth;
-      const sy = availableHeight / effectiveHeight;
+      const availW = outer?.clientWidth ?? window.innerWidth;
+      const availH = outer?.clientHeight ?? window.innerHeight;
+      // Fit the fixed-aspect canvas into the available area. min()
+      // guarantees the canvas never overflows either axis; the
+      // dominant axis gets centered with letterbox / pillarbox bars
+      // showing the parent's background.
+      const sx = availW / DESIGN_W;
+      const sy = availH / DESIGN_H;
       const nextScale = Math.min(sx, sy);
-      setScale(nextScale);
-      setContentH(effectiveHeight);
-      setDesignW(designWidth);
+      // Floor at a tiny positive value — a zero scale collapses the
+      // sleeve and triggers ResizeObserver loops on initial paint.
+      setScale(Number.isFinite(nextScale) && nextScale > 0 ? nextScale : 1);
     };
     update();
     window.addEventListener("resize", update);
     let observer: ResizeObserver | null = null;
-    if (innerRef.current && "ResizeObserver" in window) {
+    if (outerRef.current && "ResizeObserver" in window) {
       observer = new ResizeObserver(update);
-      observer.observe(innerRef.current);
+      observer.observe(outerRef.current);
     }
     return () => {
       window.removeEventListener("resize", update);
@@ -107,25 +94,25 @@ export default function ScalingHost({ children }: { children: ReactNode }) {
       }}
     >
       {/* Sleeve sized to the scaled visual rectangle so flexbox centers
-          the painted canvas — without this, the unscaled layout box
-          would pin against one edge on wider viewports. */}
+          the painted canvas on both axes. Without this, the unscaled
+          layout box (1920 × 1080) would pin against one edge on
+          smaller viewports. */}
       <div
         style={{
-          width: designW * scale,
-          height: contentH * scale,
+          width: DESIGN_W * scale,
+          height: DESIGN_H * scale,
           flexShrink: 0,
         }}
       >
         <div
-          ref={innerRef}
-          // `data-bb-scale-canvas` is the legibility-rule anchor in
-          // globals.css — the play-screen font-size floor applies only
-          // to children of this scaled canvas so the GameTopBar
-          // (which sits outside ScalingHost) keeps its native sizing.
           data-bb-scale-canvas
           style={{
-            width: `${designW}px`,
-            minHeight: `${DESIGN_HEIGHT_FALLBACK}px`,
+            width: DESIGN_W,
+            height: DESIGN_H,
+            // `overflow: hidden` enforces the fixed-aspect contract.
+            // Anything that wants to overflow the 1080-tall canvas is a
+            // layout bug — fix the panel, don't relax the canvas.
+            overflow: "hidden",
             transform: `scale(${scale})`,
             transformOrigin: "top left",
           }}

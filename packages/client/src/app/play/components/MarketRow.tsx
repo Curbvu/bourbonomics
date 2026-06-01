@@ -29,6 +29,7 @@
  * the tutorial spotlight and the existing drop-target CSS rules.
  */
 
+import { useEffect, useRef, useState } from "react";
 import type {
   Card,
   ResourceSubtype,
@@ -107,6 +108,30 @@ export default function MarketRow() {
   // market is always fully visible — drag the ScrollEdge buttons or use
   // the track scroller to see anything past the right edge.
   const market = state.market;
+  // Split out investment cards into a dedicated pool tile — investments
+  // are structural / persistent purchases (Bottling Plant, Sales Office,
+  // Rickhouse Expansion, etc.) and deserve their own browse surface so
+  // the inline shelf stays focused on round-by-round resources + ops.
+  // Each card's original slot index is preserved so onCardBuy still
+  // dispatches against the engine's actual market[slot] target.
+  const investmentEntries = market
+    .map((card, slotIndex) => ({ card, slotIndex }))
+    .filter((e) => e.card.type === "investment");
+  const inlineEntries = market
+    .map((card, slotIndex) => ({ card, slotIndex }))
+    .filter((e) => e.card.type !== "investment");
+  // Pool open/close state — toggled by the InvestmentPool tile's
+  // "Open" / "Close" button. Esc closes it; clicking outside the
+  // popover anchor also closes it (handled via the backdrop layer).
+  const [investmentsOpen, setInvestmentsOpen] = useState(false);
+  useEffect(() => {
+    if (!investmentsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setInvestmentsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [investmentsOpen]);
 
   // Inline buy: same path as the drawer's onCardClick. BuyOverlay then
   // drives the payment selection — the row click only fixes the target.
@@ -217,31 +242,298 @@ export default function MarketRow() {
             card in. */}
         <div
           data-market-conveyor
-          className="flex"
+          className="relative flex"
           style={{
             gap: 8,
             padding: "10px 4px 12px 4px",
-            overflow: "hidden",
+            overflow: "visible",
             minWidth: 0,
           }}
         >
-          {market.map((card, i) => (
+          {/* Investments pool tile — always on the left of the shelf
+              so the persistent-structure purchases (Bottling Plant,
+              Sales Office, Rickhouse Expansion, …) have a dedicated
+              browse surface separate from the inline resource +
+              operations cards. */}
+          <InvestmentPool
+            count={investmentEntries.length}
+            open={investmentsOpen}
+            onToggle={() => setInvestmentsOpen((o) => !o)}
+          />
+          {/* Subtle divider between the pool tile and the inline shelf
+              so the eye reads two regions: pooled (investments) and
+              loose (everything else). */}
+          {inlineEntries.length > 0 ? (
+            <span
+              aria-hidden
+              className="self-stretch"
+              style={{
+                width: 1,
+                margin: "4px 2px",
+                background:
+                  "linear-gradient(180deg, transparent, rgba(198,157,82,.3), transparent)",
+              }}
+            />
+          ) : null}
+          {inlineEntries.map(({ card, slotIndex }) => (
             <MarketRowCard
               key={card.id}
               card={card}
-              slotIndex={i}
+              slotIndex={slotIndex}
               affordable={reputation >= (card.cost ?? 1)}
-              picked={buyMode?.pickedTarget?.slotIndex === i}
+              picked={buyMode?.pickedTarget?.slotIndex === slotIndex}
               tutorialBlocked={
-                tutorialPinnedSlot != null && i !== tutorialPinnedSlot
+                tutorialPinnedSlot != null && slotIndex !== tutorialPinnedSlot
               }
-              onBuy={() => onCardBuy(i, reputation >= (card.cost ?? 1))}
+              onBuy={() =>
+                onCardBuy(slotIndex, reputation >= (card.cost ?? 1))
+              }
               onInspect={() => onCardInspect(card)}
+            />
+          ))}
+          {/* Pool popover — anchored just below the InvestmentPool
+              tile when open. Floats over the floor plank so the rest
+              of the shelf stays visible underneath. */}
+          {investmentsOpen ? (
+            <InvestmentPoolPopover
+              entries={investmentEntries}
+              wallet={reputation}
+              tutorialPinnedSlot={tutorialPinnedSlot}
+              pickedSlotIndex={buyMode?.pickedTarget?.slotIndex ?? null}
+              onBuy={(slotIndex, affordable) => {
+                onCardBuy(slotIndex, affordable);
+                setInvestmentsOpen(false);
+              }}
+              onInspect={(card) => onCardInspect(card)}
+              onClose={() => setInvestmentsOpen(false)}
+            />
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// InvestmentPool — pool tile that lives on the left edge of the
+// market row. Reads as "6 ventures · Open" when there are 6
+// investments on offer this round; click toggles the popover that
+// shows the actual cards. Designed to occupy roughly one MarketRowCard
+// slot so the shelf doesn't bloat horizontally.
+// ─────────────────────────────────────────────────────────────────────
+
+function InvestmentPool({
+  count,
+  open,
+  onToggle,
+}: {
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const disabled = count === 0;
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onToggle}
+      disabled={disabled}
+      aria-expanded={open}
+      title={
+        disabled
+          ? "No investments on offer this round."
+          : `${count} investment${count === 1 ? "" : "s"} on offer — click to ${open ? "close" : "open"}`
+      }
+      className="group relative flex flex-shrink-0 cursor-pointer flex-col rounded-[8px] border px-2.5 py-2 text-left transition-all disabled:cursor-default"
+      style={{
+        width: 130,
+        borderColor: open
+          ? "var(--gold)"
+          : disabled
+            ? "rgba(110,80,50,.4)"
+            : "rgba(125,166,223,.55)",
+        background: open
+          ? "radial-gradient(120% 80% at 0% 0%, rgba(125,166,223,.20), transparent 60%), linear-gradient(180deg, rgba(34,23,16,.96), rgba(14,10,6,.98))"
+          : "radial-gradient(120% 80% at 0% 0%, rgba(125,166,223,.12), transparent 60%), linear-gradient(180deg, rgba(34,23,16,.92), rgba(14,10,6,.95))",
+        boxShadow: open
+          ? "0 0 0 1px var(--gold), 0 8px 22px rgba(240,201,112,.25), inset 0 1px 0 rgba(240,201,112,.18)"
+          : disabled
+            ? "inset 0 1px 0 rgba(255,255,255,.03)"
+            : "inset 0 1px 0 rgba(255,255,255,.05), 0 4px 14px rgba(125,166,223,.18)",
+        opacity: disabled ? 0.55 : 1,
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden
+          className="grid h-[22px] w-[22px] place-items-center rounded-[5px] border"
+          style={{
+            borderColor: "rgba(125,166,223,.55)",
+            background: "rgba(125,166,223,.14)",
+            color: "#7da6df",
+            fontSize: 14,
+            lineHeight: 1,
+          }}
+        >
+          ↗
+        </span>
+        <span
+          className="font-mono font-bold uppercase"
+          style={{
+            fontSize: 11,
+            letterSpacing: ".14em",
+            color: "#7da6df",
+          }}
+        >
+          Invest
+        </span>
+      </div>
+      <div className="mt-1.5 flex items-baseline gap-1.5">
+        <span
+          className="font-display font-bold tabular-nums leading-none"
+          style={{
+            fontSize: 30,
+            color: disabled ? "var(--mute)" : "#7da6df",
+            textShadow: disabled
+              ? "none"
+              : "0 0 14px rgba(125,166,223,.4)",
+          }}
+        >
+          {count}
+        </span>
+        <span
+          className="font-display italic"
+          style={{ fontSize: 12, color: "var(--mute)" }}
+        >
+          {count === 1 ? "venture" : "ventures"}
+        </span>
+      </div>
+      <div
+        className="mt-1.5 flex items-center justify-between gap-1 border-t pt-1.5 font-mono uppercase"
+        style={{
+          borderColor: "rgba(110,80,50,.35)",
+          fontSize: 9.5,
+          letterSpacing: ".14em",
+          color: disabled
+            ? "var(--mute)"
+            : open
+              ? "var(--gold)"
+              : "var(--brass)",
+        }}
+      >
+        <span>{disabled ? "Empty" : open ? "Close" : "Open"}</span>
+        <span aria-hidden style={{ fontSize: 11 }}>
+          {open ? "▴" : "▾"}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// InvestmentPoolPopover — floating panel that drops below the pool
+// tile and renders each investment in the pool as a MarketRowCard.
+// Click outside (the backdrop) or Esc closes; the wiring lives in
+// MarketRow's component state.
+// ─────────────────────────────────────────────────────────────────────
+
+function InvestmentPoolPopover({
+  entries,
+  wallet,
+  tutorialPinnedSlot,
+  pickedSlotIndex,
+  onBuy,
+  onInspect,
+  onClose,
+}: {
+  entries: { card: Card; slotIndex: number }[];
+  wallet: number;
+  tutorialPinnedSlot: number | null;
+  pickedSlotIndex: number | null;
+  onBuy: (slotIndex: number, affordable: boolean) => void;
+  onInspect: (card: Card) => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      {/* Transparent click-catcher so a click outside the panel closes
+          it. Sits above the rest of the page (z-40) but below the
+          panel itself (z-50). */}
+      <div
+        aria-hidden
+        onClick={onClose}
+        className="fixed inset-0 z-40"
+        style={{ background: "transparent" }}
+      />
+      <div
+        role="dialog"
+        aria-label="Available investments"
+        onClick={(e) => e.stopPropagation()}
+        className="absolute z-50 flex flex-col gap-2 rounded-[10px] border px-3 py-2"
+        style={{
+          top: "100%",
+          left: 0,
+          marginTop: 8,
+          minWidth: 380,
+          maxWidth: "min(960px, 92vw)",
+          borderColor: "rgba(125,166,223,.55)",
+          background:
+            "radial-gradient(120% 60% at 0% 0%, rgba(125,166,223,.10), transparent 55%), linear-gradient(180deg, rgba(24,16,10,.99), rgba(13,9,5,.99))",
+          boxShadow:
+            "0 16px 40px rgba(0,0,0,.65), inset 0 1px 0 rgba(125,166,223,.18)",
+          animation: "log-in 180ms ease-out",
+        }}
+      >
+        <header className="flex items-baseline gap-3">
+          <span
+            className="font-mono font-bold uppercase"
+            style={{
+              fontSize: 11,
+              letterSpacing: ".22em",
+              color: "#7da6df",
+            }}
+          >
+            Investments
+          </span>
+          <span
+            className="font-display italic"
+            style={{ color: "var(--brass)", fontSize: 13 }}
+          >
+            {entries.length} on the shelf
+          </span>
+          <span
+            aria-hidden
+            className="h-px flex-1"
+            style={{
+              background:
+                "linear-gradient(90deg, rgba(198,157,82,.4), transparent)",
+            }}
+          />
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded border border-slate-700 bg-slate-900/60 px-2 py-[2px] font-mono text-[10px] font-bold uppercase tracking-[.14em] text-slate-300 hover:bg-slate-800/70"
+          >
+            Close ✕
+          </button>
+        </header>
+        <div className="flex flex-wrap gap-2">
+          {entries.map(({ card, slotIndex }) => (
+            <MarketRowCard
+              key={card.id}
+              card={card}
+              slotIndex={slotIndex}
+              affordable={wallet >= (card.cost ?? 1)}
+              picked={pickedSlotIndex === slotIndex}
+              tutorialBlocked={
+                tutorialPinnedSlot != null && slotIndex !== tutorialPinnedSlot
+              }
+              onBuy={() => onBuy(slotIndex, wallet >= (card.cost ?? 1))}
+              onInspect={() => onInspect(card)}
             />
           ))}
         </div>
       </div>
-    </section>
+    </>
   );
 }
 

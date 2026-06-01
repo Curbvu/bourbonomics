@@ -142,7 +142,10 @@ export default function DistilleryStage() {
           player={player}
         />
 
-        {/* 3. Rickhouse stage */}
+        {/* 3. Rickhouse stage — barrels packed on the left; the
+             InvestmentRack on the right surfaces purchased Investment
+             cards in the same panel so the player can see what they
+             own at a glance. */}
         <Rickhouse
           slots={player.rickhouseSlots}
           barrels={myBarrels}
@@ -150,6 +153,8 @@ export default function DistilleryStage() {
           isHumanRow={true}
           canDraftBill={canDraftBill}
           onDraftBill={startDraftingLoopMode}
+          investments={player.investments}
+          ownerName={player.name}
         />
       </div>
 
@@ -195,7 +200,7 @@ function IdentityPlate({
 }) {
   return (
     <div
-      className="relative grid items-center gap-[18px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[8px]"
+      className="relative grid shrink-0 items-center gap-[18px] overflow-hidden rounded-[12px] border border-[#3b2818] px-[22px] py-[8px]"
       style={{
         // crest · Capital+Rep · name+ability · (prestige/warehouse badges + portfolio chip)
         gridTemplateColumns: "auto auto 1fr auto",
@@ -566,6 +571,8 @@ function Rickhouse({
   isHumanRow,
   canDraftBill = false,
   onDraftBill,
+  investments,
+  ownerName,
 }: {
   slots: RickhouseSlot[];
   barrels: Barrel[];
@@ -577,6 +584,11 @@ function Rickhouse({
   /** Click handler for the "+ Draft Mash Bill" launcher rendered on
    *  the first empty slot. */
   onDraftBill?: () => void;
+  /** Investment cards the player has bought — displayed in the
+   *  InvestmentRack on the right side of the rickhouse panel. */
+  investments?: readonly import("@bourbonomics/engine").InvestmentCard[];
+  /** Player name — used in the inspect tooltip for each investment. */
+  ownerName?: string;
 }) {
   // Find the slot id of the first (leftmost) empty slot, so EmptySlot
   // can decide whether to render the green draft-launcher chrome or
@@ -615,46 +627,84 @@ function Rickhouse({
             "inset 0 1px 0 rgba(255,255,255,.35), 0 3px 6px rgba(0,0,0,.45)",
         }}
       >
-        Rickhouse №1
+        Rickhouse
       </div>
 
-      {/* Slot grid */}
+      {/* Body — two-column flex row: tightly-packed slot grid on
+          the left, investments rack on the right. The barrels used
+          to spread across the full panel width via
+          `repeat(slotsTotal, 1fr)`, which left huge gaps when the
+          player only owned 3-4 slots. Now each slot is a fixed
+          150px column, packed left; the freed-up right side hosts
+          the new InvestmentRack so the player can see their owned
+          investments inline with the rickhouse rather than digging
+          through a separate panel. */}
       <div
-        className="relative mt-1.5 grid items-stretch gap-[22px]"
-        style={{
-          gridTemplateColumns: `repeat(${slots.length}, minmax(0, 1fr))`,
-          minHeight: 220,
-        }}
+        className="relative mt-1.5 flex min-h-0 items-stretch gap-[22px]"
+        style={{ minHeight: 220 }}
       >
-        {slots.map((slot) => {
-          const barrel = barrels.find((b) => b.slotId === slot.id);
-          if (barrel) {
+        {/* Slot grid — always reserves at least 5 columns so the next
+            expansion slot reads as an inviting placeholder ("buy
+            Rickhouse Expansion Permit") rather than the panel
+            silently re-flowing the moment a new slot unlocks. If
+            the player already owns >5 slots (e.g. via the
+            investment), we widen the grid to fit. */}
+        <div
+          className="grid flex-shrink-0 items-stretch gap-[18px]"
+          style={{
+            gridTemplateColumns: `repeat(${Math.max(slots.length + 1, 5)}, 150px)`,
+          }}
+        >
+          {slots.map((slot) => {
+            const barrel = barrels.find((b) => b.slotId === slot.id);
+            if (barrel) {
+              return (
+                <BarrelCell
+                  key={barrel.id}
+                  slot={slot}
+                  barrel={barrel}
+                  state={state}
+                  isHumanRow={isHumanRow}
+                />
+              );
+            }
+            const isDraftLauncher =
+              isHumanRow &&
+              canDraftBill &&
+              slot.id === firstEmptySlotId &&
+              onDraftBill != null;
             return (
-              <BarrelCell
-                key={barrel.id}
+              <EmptySlot
+                key={slot.id}
                 slot={slot}
-                barrel={barrel}
                 state={state}
                 isHumanRow={isHumanRow}
+                isDraftLauncher={isDraftLauncher}
+                onDraftBill={onDraftBill}
               />
             );
-          }
-          const isDraftLauncher =
-            isHumanRow &&
-            canDraftBill &&
-            slot.id === firstEmptySlotId &&
-            onDraftBill != null;
-          return (
-            <EmptySlot
-              key={slot.id}
-              slot={slot}
-              state={state}
-              isHumanRow={isHumanRow}
-              isDraftLauncher={isDraftLauncher}
-              onDraftBill={onDraftBill}
-            />
-          );
-        })}
+          })}
+          {/* Locked expansion placeholder — pads up to 5 columns
+              minimum (or +1 past current count so the next-unlock
+              slot is always visible) so the player can see where
+              the Rickhouse Expansion Permit investment lands. */}
+          {(() => {
+            const minSlots = Math.max(slots.length + 1, 5);
+            const padCount = Math.max(0, minSlots - slots.length);
+            return Array.from({ length: padCount }).map((_, i) => (
+              <LockedExpansionSlot key={`locked-${i}`} index={slots.length + i} />
+            ));
+          })()}
+        </div>
+
+        {/* Investments rack — fills the rest of the row when the
+            player has investments to show. Empty rack still paints
+            a faint placeholder so the structure of the panel reads
+            consistently round-to-round. */}
+        <InvestmentRack
+          investments={investments ?? []}
+          ownerName={ownerName}
+        />
       </div>
 
       {/* Floor plank */}
@@ -668,6 +718,225 @@ function Rickhouse({
         }}
       />
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// LockedExpansionSlot — non-interactive placeholder column that sits
+// after the player's real slots so the next "Rickhouse Expansion"
+// unlock has a visible home. Communicates the upgrade path inline
+// instead of hiding it behind the market UI.
+// ─────────────────────────────────────────────────────────────────────
+
+function LockedExpansionSlot({ index }: { index: number }) {
+  return (
+    <div
+      className="relative flex h-full min-h-0 cursor-default flex-col items-stretch justify-end opacity-70"
+      title="Locked — buy the Rickhouse Expansion Permit investment to unlock this slot."
+    >
+      <div className="relative grid h-full max-h-[276px] min-h-[166px] w-full flex-1 place-items-center">
+        <div
+          className="relative grid h-full max-h-[268px] min-h-[158px] w-[122px] place-items-center"
+          style={{
+            borderRadius: "44% / 16%",
+            border: "1.5px dashed rgba(110,80,50,.45)",
+            background:
+              "radial-gradient(60% 60% at 50% 50%, rgba(110,80,50,.06), transparent 70%)",
+          }}
+          aria-label={`Locked rickhouse slot ${index + 1}`}
+        >
+          <div className="flex flex-col items-center gap-1.5">
+            <span
+              className="grid h-[22px] w-[22px] place-items-center rounded-full text-[12px]"
+              style={{
+                border: "1px solid rgba(110,80,50,.55)",
+                color: "var(--mute)",
+              }}
+              aria-hidden
+            >
+              🔒
+            </span>
+            <span
+              className="text-center font-mono font-bold uppercase"
+              style={{
+                color: "var(--mute)",
+                fontSize: 9.5,
+                letterSpacing: ".22em",
+                lineHeight: 1.2,
+                maxWidth: 110,
+              }}
+            >
+              Rickhouse
+              <br />
+              Expansion
+            </span>
+          </div>
+        </div>
+      </div>
+      <div
+        className="mt-3 flex w-full flex-1 items-center justify-center rounded-[9px] border text-center font-mono uppercase"
+        style={{
+          padding: "12px",
+          fontSize: 12,
+          letterSpacing: ".18em",
+          borderColor: "rgba(110,80,50,.35)",
+          borderStyle: "dashed",
+          background: "rgba(20,14,8,.4)",
+          color: "var(--mute)",
+        }}
+      >
+        Buy permit
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// InvestmentRack — sibling of the slot grid inside Rickhouse. Renders
+// each owned Investment card as a compact tile (kind label + name +
+// short text). Empty state paints a dashed placeholder so the player
+// reads the panel as "investments live here once you buy any" rather
+// than a layout bug. Each tile is a click target that opens
+// CardInspectModal scoped to that card.
+// ─────────────────────────────────────────────────────────────────────
+
+function InvestmentRack({
+  investments,
+  ownerName,
+}: {
+  investments: readonly import("@bourbonomics/engine").InvestmentCard[];
+  ownerName?: string;
+}) {
+  const { setInspect } = useGameStore();
+  return (
+    <aside
+      className="flex min-w-0 flex-1 flex-col gap-2 rounded-[10px] border border-[#3b2818] px-3 py-2"
+      style={{
+        background:
+          "linear-gradient(180deg, rgba(34,23,16,.55), rgba(20,14,8,.65))",
+        boxShadow:
+          "inset 0 1px 0 rgba(240,201,112,.10), inset 0 -1px 0 rgba(0,0,0,.4)",
+      }}
+      aria-label="Investment cards"
+    >
+      <header className="flex items-baseline justify-between gap-2">
+        {/* "Distillery" framing: the rickhouse holds the barrels, the
+            distillery is where the structural investments live (the
+            tools, contracts, buildings the player has acquired). */}
+        <span
+          className="font-mono text-[10px] font-bold uppercase tracking-[.22em]"
+          style={{ color: "var(--brass)" }}
+        >
+          Distillery
+        </span>
+        <span
+          className="font-mono text-[10px] tabular-nums"
+          style={{ color: "var(--mute)" }}
+        >
+          {investments.length}
+        </span>
+      </header>
+      {investments.length === 0 ? (
+        <div
+          className="flex flex-1 items-center justify-center rounded-md border border-dashed text-center font-display italic"
+          style={{
+            borderColor: "rgba(110,80,50,.35)",
+            color: "var(--mute)",
+            fontSize: 13,
+            lineHeight: 1.3,
+            padding: "12px 10px",
+          }}
+        >
+          Buy investments from the market — they live here.
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-wrap content-start gap-1.5">
+          {investments.map((inv) => (
+            <InvestmentTile
+              key={inv.id}
+              card={inv}
+              onClick={() =>
+                setInspect({ kind: "investment", card: inv })
+              }
+              title={`${inv.name}${ownerName ? ` — owned by ${ownerName}` : ""}. Click to inspect.`}
+            />
+          ))}
+        </div>
+      )}
+    </aside>
+  );
+}
+
+function InvestmentTile({
+  card,
+  onClick,
+  title,
+}: {
+  card: import("@bourbonomics/engine").InvestmentCard;
+  onClick: () => void;
+  title: string;
+}) {
+  // Cost-tier accent. InvestmentTier is the price band (small / medium
+  // / large), not a rarity scale — sage → gold → copper reads as the
+  // progressive cost the player paid, which matches how Investments
+  // are organized in the market shelf.
+  const tier = card.tier;
+  const tierInk =
+    tier === "large"
+      ? "#f0b070"
+      : tier === "medium"
+        ? "#f0c970"
+        : "#82c9a3";
+  const tierLabel = tier === "large" ? "Large" : tier === "medium" ? "Medium" : "Small";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="group flex w-[130px] flex-col items-stretch overflow-hidden rounded-[6px] border bg-gradient-to-b from-slate-900/85 to-slate-950 text-left transition-all hover:-translate-y-[1px] hover:border-amber-400 hover:bg-amber-950/30"
+      style={{ borderColor: `${tierInk}66` }}
+    >
+      <div
+        className="flex items-baseline justify-between gap-1 border-b px-1.5 py-[3px] font-mono text-[8.5px] font-bold uppercase tracking-[.16em]"
+        style={{
+          borderColor: `${tierInk}55`,
+          background: `linear-gradient(180deg, ${tierInk}22, transparent)`,
+          color: tierInk,
+        }}
+      >
+        <span>Invest</span>
+        <span style={{ opacity: 0.75 }}>{tierLabel}</span>
+      </div>
+      <div className="flex flex-1 flex-col gap-1 px-1.5 py-1.5">
+        <span
+          className="font-display text-[12px] font-semibold leading-tight"
+          style={{
+            color: "var(--ink)",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {card.name}
+        </span>
+        {card.short ? (
+          <span
+            className="font-display italic leading-snug"
+            style={{
+              color: "var(--mute)",
+              fontSize: 10.5,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {card.short}
+          </span>
+        ) : null}
+      </div>
+    </button>
   );
 }
 
@@ -1021,11 +1290,44 @@ function BarrelCell({
       onDragLeave={interaction.onDragLeave}
       onDrop={interaction.onDrop}
       title={titleText}
-      className="group relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
+      className="group relative flex h-full min-h-0 cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
       style={{
         transform: selected ? "translateY(-6px)" : "translateY(0)",
       }}
     >
+      {/* Bourbon name header — sits above each barrel so the bill is
+          legible regardless of phase. Previously the name was burned
+          onto the chime rim of aging barrels only; non-aging barrels
+          had no visible name at all. The header is `flex-shrink: 0`
+          so it never gets squeezed when the rickhouse tightens. */}
+      <div
+        className="mb-1 flex flex-col items-center leading-none"
+        style={{ flexShrink: 0 }}
+      >
+        <span
+          className="font-mono font-bold uppercase"
+          style={{
+            fontSize: 9,
+            letterSpacing: ".22em",
+            color: band.ink,
+            textShadow: `0 0 8px ${band.glow}`,
+          }}
+        >
+          {band.label}
+        </span>
+        <span
+          className="mt-[3px] truncate font-display font-semibold"
+          style={{
+            fontSize: 14,
+            color: selected ? "var(--gold)" : "var(--ink)",
+            maxWidth: "100%",
+            textShadow: "0 1px 0 rgba(0,0,0,.6), 0 0 6px rgba(0,0,0,.5)",
+          }}
+        >
+          {bill?.name ?? "Awaiting bill"}
+        </span>
+      </div>
+
       <Barrel barrel={barrel} band={band} selected={selected} />
 
       {/* On-barrel one-click Sell button — the cell's last child so it
@@ -1126,7 +1428,13 @@ function Barrel({
     }
   }
   return (
-    <div className="relative grid h-[208px] w-full place-items-center">
+    // Fluid wrapper — fills whatever vertical space the rickhouse grid
+    // hands the cell. min-h is the floor at tight viewports; max-h
+    // caps growth on tall ones so the barrel doesn't outrun its
+    // proportions. The Barrel body inside reads `height: 100%` against
+    // this wrapper, so plate + medallion + hoop math scales smoothly
+    // between the two bounds.
+    <div className="relative grid h-full max-h-[276px] min-h-[166px] w-full flex-1 place-items-center">
       {/* Ground shadow */}
       <span
         aria-hidden
@@ -1170,7 +1478,14 @@ function Barrel({
         className="relative"
         style={{
           width: 122,
-          height: 200,
+          // Fluid height between 158px (legible floor) and 268px (cap
+          // before the staves stretch ugly). The 100% reads against
+          // the wrapper above, which itself is bounded by the cell —
+          // so the barrel breathes with the rickhouse height without
+          // ever overflowing into the hand strip.
+          height: "100%",
+          minHeight: 158,
+          maxHeight: 268,
           borderRadius: "44% / 16%",
           // `overflow: hidden` clips the charred chime rims (added
           // below) to the ellipse so the burnt ends don't square off
@@ -1202,14 +1517,24 @@ function Barrel({
               //    the belly. Bumped saturation + warmth over the
               //    previous muddier #4a341f mid-body.
               "linear-gradient(180deg,#2a1606 0%,#5a3318 14%,#7a4823 50%,#5a3318 86%,#2a1606 100%)"
-            : // Neutral grey staves — reads as "raw / under construction"
-              // and clearly distinct from aging's charred-bourbon wood.
+            : // Warm raw-oak staves — uncharred bourbon wood. Reads as
+              // "raw / under construction" via paleness + a softer
+              // grain than the deep charred-bourbon palette of an
+              // aging barrel, but still unmistakably a wooden cask.
+              "linear-gradient(90deg," +
+                "rgba(0,0,0,.5) 0%, rgba(0,0,0,.10) 14%," +
+                "rgba(255,200,130,.12) 42%, rgba(255,210,140,.16) 50%," +
+                "rgba(255,200,130,.12) 58%," +
+                "rgba(0,0,0,.10) 86%, rgba(0,0,0,.5) 100%)," +
               "repeating-linear-gradient(90deg," +
-              "#3a3d42 0px, #3a3d42 14px," +
-              "#25272a 14px, #25272a 16px," +
-              "#4a4e54 16px, #4a4e54 30px," +
-              "#2e3034 30px, #2e3034 32px)," +
-              "linear-gradient(180deg, #444851 0%, #1d1f22 100%)",
+                "rgba(0,0,0,.30) 0px, rgba(0,0,0,.30) 1px," +
+                "transparent 1px, transparent 17px)," +
+              "repeating-linear-gradient(86deg," +
+                "rgba(0,0,0,.05) 0px, rgba(0,0,0,.05) 2px," +
+                "rgba(255,200,130,.06) 2px, rgba(255,200,130,.06) 5px)," +
+              "linear-gradient(180deg," +
+                "#3e2a16 0%, #7a5028 14%, #9a6a38 50%, " +
+                "#7a5028 86%, #3e2a16 100%)",
           boxShadow: isAging
             ? // Heavier inset shadows on the edges + bottom so the
               //    curvature of the belly reads strongly.
@@ -1223,14 +1548,15 @@ function Barrel({
               "inset 0 4px 8px rgba(255,255,255,.05), inset 0 -10px 22px rgba(0,0,0,.65), inset 10px 0 14px rgba(0,0,0,.55), inset -10px 0 14px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.55)",
         }}
       >
-        {/* Four riveted hoops — thicker outer bands at the chime ends,
-            thinner inner bands at the quarter points. Brass on aging,
-            iron-grey on non-aging. Dropped the old mid `top="50%"`
-            hoop — reads cleaner with the new sheen stripe below. */}
-        <Hoop top={8} thick={9} dim={!isAging} />
-        <Hoop top={26} thick={6} dim={!isAging} />
-        <Hoop bottom={26} thick={6} dim={!isAging} />
-        <Hoop bottom={8} thick={9} dim={!isAging} />
+        {/* Four riveted brass hoops — thicker outer bands at the chime
+            ends, thinner inner bands at the quarter points. Brass on
+            both phases now: the user asked for "more barrel-colored"
+            barrels, and full brass + warm raw-oak staves sells the
+            cask look even on construction-state barrels. */}
+        <Hoop top={8} thick={9} />
+        <Hoop top={26} thick={6} />
+        <Hoop bottom={26} thick={6} />
+        <Hoop bottom={8} thick={9} />
 
         {/* Charred chime rims (top + bottom burnt-oak caps) + a soft
             vertical sheen down the belly. Aging-only — the grey
@@ -1304,55 +1630,10 @@ function Barrel({
           />
         )}
 
-        {/* Top rim brand stamp — tier label + bill name burned onto
-            the chime cap, no plate backdrop. Real cooper-stamped
-            casks carry the brand on the head/rim, so this reads more
-            authentically than the old inset plate did. Heavy text-
-            shadow sells the "burned into wood" look; the text z-
-            indexes over the chime + first hoop band by virtue of
-            source order so it stays legible over the chrome. Aging
-            barrels carry the stamp; non-aging barrels skip it so
-            BarrelNeedsPlate stays the visual focal point.
-            Positioned at top:5 — sits across the chime cap (h-4)
-            and the first hoop band so the brand "wraps" the rim. */}
-        {isAging ? (
-          <span
-            className="pointer-events-none absolute left-1/2 z-[2] flex -translate-x-1/2 flex-col items-center justify-center leading-none"
-            style={{
-              top: 5,
-              width: "86%",
-            }}
-          >
-            <span
-              className="font-mono font-bold uppercase"
-              style={{
-                fontSize: 8,
-                letterSpacing: ".24em",
-                color: band.ink,
-                textShadow: `0 1px 0 rgba(0,0,0,.95), 0 0 4px rgba(0,0,0,.85), 0 0 8px ${band.glow}`,
-              }}
-            >
-              {band.label}
-            </span>
-            <span
-              className="mt-[3px] font-display font-bold leading-none"
-              style={{
-                fontSize: 13,
-                color: selected ? "var(--gold)" : "#f5e6c8",
-                maxWidth: "100%",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                // Burned-in oak look — dark drop + warm halo so the
-                // brand reads as scorched wood under firelight.
-                textShadow:
-                  "0 1px 0 rgba(0,0,0,.95), 0 2px 4px rgba(0,0,0,.85), 0 0 6px rgba(255,180,90,.45)",
-              }}
-            >
-              {bill?.name ?? "in progress"}
-            </span>
-          </span>
-        ) : null}
+        {/* Top rim brand stamp retired — the bill name now sits in a
+            header above the barrel (BarrelCell), legible regardless
+            of phase. Burning the same name onto the rim AND showing
+            it above doubled the chrome for no extra information. */}
 
         {/* Bottom burned-in plate — rep range + mash pips. Aging only
             (pip progress on non-aging is already conveyed by the
@@ -1859,9 +2140,9 @@ function EmptySlot({
         data-bb-action="draw-bill"
         onClick={onDraftBill}
         title="Draft a new mash bill into this barrel"
-        className="group relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform hover:-translate-y-[3px]"
+        className="group relative flex h-full min-h-0 cursor-pointer flex-col items-stretch justify-end border-0 bg-transparent p-0 text-left transition-transform hover:-translate-y-[3px]"
       >
-        <div className="relative grid h-[208px] w-full place-items-center">
+        <div className="relative grid h-full max-h-[276px] min-h-[166px] w-full flex-1 place-items-center">
           {/* Emerald halo so the call-to-action reads at a glance. */}
           <span
             aria-hidden
@@ -1874,7 +2155,7 @@ function EmptySlot({
             }}
           />
           <div
-            className="relative grid h-[200px] w-[122px] place-items-center"
+            className="relative grid h-full max-h-[268px] min-h-[158px] w-[122px] place-items-center"
             style={{
               borderRadius: "44% / 16%",
               border: "2px solid rgba(52,211,153,.75)",
@@ -1944,14 +2225,14 @@ function EmptySlot({
       onDragLeave={interaction.onDragLeave}
       onDrop={interaction.onDrop}
       title="Awaiting mash bill"
-      className="relative flex cursor-pointer flex-col items-stretch border-0 bg-transparent p-0 text-left transition-transform"
+      className="relative flex h-full min-h-0 cursor-pointer flex-col items-stretch justify-end border-0 bg-transparent p-0 text-left transition-transform"
       style={{
         transform: selected ? "translateY(-3px)" : "translateY(0)",
       }}
     >
-      <div className="relative grid h-[208px] w-full place-items-center">
+      <div className="relative grid h-full max-h-[276px] min-h-[166px] w-full flex-1 place-items-center">
         <div
-          className="shelf-breathe relative grid h-[200px] w-[122px] place-items-center"
+          className="shelf-breathe relative grid h-full max-h-[268px] min-h-[158px] w-[122px] place-items-center"
           style={{
             borderRadius: "44% / 16%",
             border: "1.5px dashed rgba(198,157,82,.35)",
