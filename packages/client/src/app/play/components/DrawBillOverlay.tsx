@@ -459,13 +459,18 @@ function DraftingLoopModal({
                 : "Your hand"
           }
           hint={`${hand.length} card${hand.length === 1 ? "" : "s"}`}
-          height={loop ? 180 : 200}
+          // Bumped from 180 to 170 to match the new HandFan `sm`
+          // geometry (150px container + a little gutter). At the old
+          // 180 with the new in-game md geometry (200) the fan
+          // bottom-overflowed into the action footer and the Pass
+          // button became un-clickable in some viewports.
+          height={loop ? 170 : 190}
           allowOverflow
         >
           {hand.length === 0 ? (
             <EmptyRow message="Your hand is empty." />
           ) : (
-            <HandFan>
+            <HandFan size="sm">
               {hand.map((card) => (
                 <HandCardTile
                   key={card.id}
