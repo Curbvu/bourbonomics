@@ -8,10 +8,10 @@
  * the hover override (`translateY(-22px) scale(1.04) rotate(0)`) to
  * pull the focused card upright at z-index 40.
  *
- * Card width assumes 100px (matches `CARD_SIZE_CLASS` / `HandCardTile`
+ * Card width assumes 130px (matches `CARD_SIZE_CLASS` / `HandCardTile`
  * size="md"); the slot "stride" (visible width per card after overlap)
- * is 70px, giving a 30px overlap so an 8-card hand fits comfortably
- * under 800px.
+ * is 100px, giving a 30px overlap so an 8-card hand spreads across
+ * ~830px — wider than the old 590px so labels read in full.
  *
  * When `dealKey` is supplied and changes (the in-game hand passes
  * `lastDrawHand.seq` here), the inner wrapper remounts so every slot
@@ -29,8 +29,8 @@ export default function HandFan({
 }) {
   const slots = React.Children.toArray(children);
   const n = slots.length;
-  const cardW = 100;
-  const stride = 70;
+  const cardW = 130;
+  const stride = 100;
   const totalW = n > 0 ? (n - 1) * stride + cardW : 0;
   const mid = (n - 1) / 2;
   return (
@@ -47,7 +47,9 @@ export default function HandFan({
         style={{
           position: "relative",
           width: totalW,
-          height: 156,
+          // Bumped from 156 to 200 to fit the taller (180px) cards
+          // plus the lift offset at the fan's outer edges.
+          height: 200,
         }}
       >
         {slots.map((child, i) => {
