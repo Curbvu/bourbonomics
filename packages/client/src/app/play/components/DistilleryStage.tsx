@@ -627,7 +627,7 @@ function Rickhouse({
             "inset 0 1px 0 rgba(255,255,255,.35), 0 3px 6px rgba(0,0,0,.45)",
         }}
       >
-        Rickhouse №1
+        Rickhouse
       </div>
 
       {/* Body — two-column flex row: tightly-packed slot grid on
@@ -643,10 +643,16 @@ function Rickhouse({
         className="relative mt-1.5 flex min-h-0 items-stretch gap-[22px]"
         style={{ minHeight: 220 }}
       >
+        {/* Slot grid — always reserves at least 5 columns so the next
+            expansion slot reads as an inviting placeholder ("buy
+            Rickhouse Expansion Permit") rather than the panel
+            silently re-flowing the moment a new slot unlocks. If
+            the player already owns >5 slots (e.g. via the
+            investment), we widen the grid to fit. */}
         <div
           className="grid flex-shrink-0 items-stretch gap-[18px]"
           style={{
-            gridTemplateColumns: `repeat(${slots.length}, 150px)`,
+            gridTemplateColumns: `repeat(${Math.max(slots.length + 1, 5)}, 150px)`,
           }}
         >
           {slots.map((slot) => {
@@ -678,6 +684,17 @@ function Rickhouse({
               />
             );
           })}
+          {/* Locked expansion placeholder — pads up to 5 columns
+              minimum (or +1 past current count so the next-unlock
+              slot is always visible) so the player can see where
+              the Rickhouse Expansion Permit investment lands. */}
+          {(() => {
+            const minSlots = Math.max(slots.length + 1, 5);
+            const padCount = Math.max(0, minSlots - slots.length);
+            return Array.from({ length: padCount }).map((_, i) => (
+              <LockedExpansionSlot key={`locked-${i}`} index={slots.length + i} />
+            ));
+          })()}
         </div>
 
         {/* Investments rack — fills the rest of the row when the
@@ -700,6 +717,76 @@ function Rickhouse({
             "inset 0 1px 0 rgba(240,201,112,.15), 0 4px 10px rgba(0,0,0,.6)",
         }}
       />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// LockedExpansionSlot — non-interactive placeholder column that sits
+// after the player's real slots so the next "Rickhouse Expansion"
+// unlock has a visible home. Communicates the upgrade path inline
+// instead of hiding it behind the market UI.
+// ─────────────────────────────────────────────────────────────────────
+
+function LockedExpansionSlot({ index }: { index: number }) {
+  return (
+    <div
+      className="relative flex h-full min-h-0 cursor-default flex-col items-stretch justify-end opacity-70"
+      title="Locked — buy the Rickhouse Expansion Permit investment to unlock this slot."
+    >
+      <div className="relative grid h-full max-h-[276px] min-h-[166px] w-full flex-1 place-items-center">
+        <div
+          className="relative grid h-full max-h-[268px] min-h-[158px] w-[122px] place-items-center"
+          style={{
+            borderRadius: "44% / 16%",
+            border: "1.5px dashed rgba(110,80,50,.45)",
+            background:
+              "radial-gradient(60% 60% at 50% 50%, rgba(110,80,50,.06), transparent 70%)",
+          }}
+          aria-label={`Locked rickhouse slot ${index + 1}`}
+        >
+          <div className="flex flex-col items-center gap-1.5">
+            <span
+              className="grid h-[22px] w-[22px] place-items-center rounded-full text-[12px]"
+              style={{
+                border: "1px solid rgba(110,80,50,.55)",
+                color: "var(--mute)",
+              }}
+              aria-hidden
+            >
+              🔒
+            </span>
+            <span
+              className="text-center font-mono font-bold uppercase"
+              style={{
+                color: "var(--mute)",
+                fontSize: 9.5,
+                letterSpacing: ".22em",
+                lineHeight: 1.2,
+                maxWidth: 110,
+              }}
+            >
+              Rickhouse
+              <br />
+              Expansion
+            </span>
+          </div>
+        </div>
+      </div>
+      <div
+        className="mt-3 flex w-full flex-1 items-center justify-center rounded-[9px] border text-center font-mono uppercase"
+        style={{
+          padding: "12px",
+          fontSize: 12,
+          letterSpacing: ".18em",
+          borderColor: "rgba(110,80,50,.35)",
+          borderStyle: "dashed",
+          background: "rgba(20,14,8,.4)",
+          color: "var(--mute)",
+        }}
+      >
+        Buy permit
+      </div>
     </div>
   );
 }
@@ -733,11 +820,14 @@ function InvestmentRack({
       aria-label="Investment cards"
     >
       <header className="flex items-baseline justify-between gap-2">
+        {/* "Distillery" framing: the rickhouse holds the barrels, the
+            distillery is where the structural investments live (the
+            tools, contracts, buildings the player has acquired). */}
         <span
           className="font-mono text-[10px] font-bold uppercase tracking-[.22em]"
           style={{ color: "var(--brass)" }}
         >
-          Investments
+          Distillery
         </span>
         <span
           className="font-mono text-[10px] tabular-nums"
