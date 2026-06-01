@@ -142,7 +142,10 @@ export default function DistilleryStage() {
           player={player}
         />
 
-        {/* 3. Rickhouse stage */}
+        {/* 3. Rickhouse stage — barrels packed on the left; the
+             InvestmentRack on the right surfaces purchased Investment
+             cards in the same panel so the player can see what they
+             own at a glance. */}
         <Rickhouse
           slots={player.rickhouseSlots}
           barrels={myBarrels}
@@ -150,6 +153,8 @@ export default function DistilleryStage() {
           isHumanRow={true}
           canDraftBill={canDraftBill}
           onDraftBill={startDraftingLoopMode}
+          investments={player.investments}
+          ownerName={player.name}
         />
       </div>
 
@@ -566,6 +571,8 @@ function Rickhouse({
   isHumanRow,
   canDraftBill = false,
   onDraftBill,
+  investments,
+  ownerName,
 }: {
   slots: RickhouseSlot[];
   barrels: Barrel[];
@@ -577,6 +584,11 @@ function Rickhouse({
   /** Click handler for the "+ Draft Mash Bill" launcher rendered on
    *  the first empty slot. */
   onDraftBill?: () => void;
+  /** Investment cards the player has bought — displayed in the
+   *  InvestmentRack on the right side of the rickhouse panel. */
+  investments?: readonly import("@bourbonomics/engine").InvestmentCard[];
+  /** Player name — used in the inspect tooltip for each investment. */
+  ownerName?: string;
 }) {
   // Find the slot id of the first (leftmost) empty slot, so EmptySlot
   // can decide whether to render the green draft-launcher chrome or
@@ -618,43 +630,64 @@ function Rickhouse({
         Rickhouse №1
       </div>
 
-      {/* Slot grid */}
+      {/* Body — two-column flex row: tightly-packed slot grid on
+          the left, investments rack on the right. The barrels used
+          to spread across the full panel width via
+          `repeat(slotsTotal, 1fr)`, which left huge gaps when the
+          player only owned 3-4 slots. Now each slot is a fixed
+          150px column, packed left; the freed-up right side hosts
+          the new InvestmentRack so the player can see their owned
+          investments inline with the rickhouse rather than digging
+          through a separate panel. */}
       <div
-        className="relative mt-1.5 grid items-stretch gap-[22px]"
-        style={{
-          gridTemplateColumns: `repeat(${slots.length}, minmax(0, 1fr))`,
-          minHeight: 220,
-        }}
+        className="relative mt-1.5 flex min-h-0 items-stretch gap-[22px]"
+        style={{ minHeight: 220 }}
       >
-        {slots.map((slot) => {
-          const barrel = barrels.find((b) => b.slotId === slot.id);
-          if (barrel) {
+        <div
+          className="grid flex-shrink-0 items-stretch gap-[18px]"
+          style={{
+            gridTemplateColumns: `repeat(${slots.length}, 150px)`,
+          }}
+        >
+          {slots.map((slot) => {
+            const barrel = barrels.find((b) => b.slotId === slot.id);
+            if (barrel) {
+              return (
+                <BarrelCell
+                  key={barrel.id}
+                  slot={slot}
+                  barrel={barrel}
+                  state={state}
+                  isHumanRow={isHumanRow}
+                />
+              );
+            }
+            const isDraftLauncher =
+              isHumanRow &&
+              canDraftBill &&
+              slot.id === firstEmptySlotId &&
+              onDraftBill != null;
             return (
-              <BarrelCell
-                key={barrel.id}
+              <EmptySlot
+                key={slot.id}
                 slot={slot}
-                barrel={barrel}
                 state={state}
                 isHumanRow={isHumanRow}
+                isDraftLauncher={isDraftLauncher}
+                onDraftBill={onDraftBill}
               />
             );
-          }
-          const isDraftLauncher =
-            isHumanRow &&
-            canDraftBill &&
-            slot.id === firstEmptySlotId &&
-            onDraftBill != null;
-          return (
-            <EmptySlot
-              key={slot.id}
-              slot={slot}
-              state={state}
-              isHumanRow={isHumanRow}
-              isDraftLauncher={isDraftLauncher}
-              onDraftBill={onDraftBill}
-            />
-          );
-        })}
+          })}
+        </div>
+
+        {/* Investments rack — fills the rest of the row when the
+            player has investments to show. Empty rack still paints
+            a faint placeholder so the structure of the panel reads
+            consistently round-to-round. */}
+        <InvestmentRack
+          investments={investments ?? []}
+          ownerName={ownerName}
+        />
       </div>
 
       {/* Floor plank */}
@@ -668,6 +701,154 @@ function Rickhouse({
         }}
       />
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// InvestmentRack — sibling of the slot grid inside Rickhouse. Renders
+// each owned Investment card as a compact tile (kind label + name +
+// short text). Empty state paints a dashed placeholder so the player
+// reads the panel as "investments live here once you buy any" rather
+// than a layout bug. Each tile is a click target that opens
+// CardInspectModal scoped to that card.
+// ─────────────────────────────────────────────────────────────────────
+
+function InvestmentRack({
+  investments,
+  ownerName,
+}: {
+  investments: readonly import("@bourbonomics/engine").InvestmentCard[];
+  ownerName?: string;
+}) {
+  const { setInspect } = useGameStore();
+  return (
+    <aside
+      className="flex min-w-0 flex-1 flex-col gap-2 rounded-[10px] border border-[#3b2818] px-3 py-2"
+      style={{
+        background:
+          "linear-gradient(180deg, rgba(34,23,16,.55), rgba(20,14,8,.65))",
+        boxShadow:
+          "inset 0 1px 0 rgba(240,201,112,.10), inset 0 -1px 0 rgba(0,0,0,.4)",
+      }}
+      aria-label="Investment cards"
+    >
+      <header className="flex items-baseline justify-between gap-2">
+        <span
+          className="font-mono text-[10px] font-bold uppercase tracking-[.22em]"
+          style={{ color: "var(--brass)" }}
+        >
+          Investments
+        </span>
+        <span
+          className="font-mono text-[10px] tabular-nums"
+          style={{ color: "var(--mute)" }}
+        >
+          {investments.length}
+        </span>
+      </header>
+      {investments.length === 0 ? (
+        <div
+          className="flex flex-1 items-center justify-center rounded-md border border-dashed text-center font-display italic"
+          style={{
+            borderColor: "rgba(110,80,50,.35)",
+            color: "var(--mute)",
+            fontSize: 13,
+            lineHeight: 1.3,
+            padding: "12px 10px",
+          }}
+        >
+          Buy investments from the market — they live here.
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-wrap content-start gap-1.5">
+          {investments.map((inv) => (
+            <InvestmentTile
+              key={inv.id}
+              card={inv}
+              onClick={() =>
+                setInspect({ kind: "investment", card: inv })
+              }
+              title={`${inv.name}${ownerName ? ` — owned by ${ownerName}` : ""}. Click to inspect.`}
+            />
+          ))}
+        </div>
+      )}
+    </aside>
+  );
+}
+
+function InvestmentTile({
+  card,
+  onClick,
+  title,
+}: {
+  card: import("@bourbonomics/engine").InvestmentCard;
+  onClick: () => void;
+  title: string;
+}) {
+  // Tier-tinted spine on the left so a glance reads the rarity at the
+  // same time as the name. Mirrors the band color the IdentityPlate
+  // uses on rep + scoreboards.
+  const tier = card.tier ?? "common";
+  const tierInk =
+    tier === "legendary"
+      ? "#f0b070"
+      : tier === "epic"
+        ? "#c69df0"
+        : tier === "rare"
+          ? "#7da6df"
+          : tier === "uncommon"
+            ? "#82c9a3"
+            : "#b9a684";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="group flex w-[130px] flex-col items-stretch overflow-hidden rounded-[6px] border bg-gradient-to-b from-slate-900/85 to-slate-950 text-left transition-all hover:-translate-y-[1px] hover:border-amber-400 hover:bg-amber-950/30"
+      style={{ borderColor: `${tierInk}66` }}
+    >
+      <div
+        className="flex items-baseline justify-between gap-1 border-b px-1.5 py-[3px] font-mono text-[8.5px] font-bold uppercase tracking-[.16em]"
+        style={{
+          borderColor: `${tierInk}55`,
+          background: `linear-gradient(180deg, ${tierInk}22, transparent)`,
+          color: tierInk,
+        }}
+      >
+        <span>Invest</span>
+        <span style={{ opacity: 0.75 }}>{tier.charAt(0).toUpperCase() + tier.slice(1)}</span>
+      </div>
+      <div className="flex flex-1 flex-col gap-1 px-1.5 py-1.5">
+        <span
+          className="font-display text-[12px] font-semibold leading-tight"
+          style={{
+            color: "var(--ink)",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {card.name}
+        </span>
+        {card.short ? (
+          <span
+            className="font-display italic leading-snug"
+            style={{
+              color: "var(--mute)",
+              fontSize: 10.5,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {card.short}
+          </span>
+        ) : null}
+      </div>
+    </button>
   );
 }
 
