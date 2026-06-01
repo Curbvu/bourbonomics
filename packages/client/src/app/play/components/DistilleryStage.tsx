@@ -25,7 +25,7 @@
  * empty-slot cell for MakeFlight / SaleFlight / AgeFlight landings.
  */
 
-import { useState, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type {
   Barrel,
   GameState,
@@ -162,7 +162,132 @@ export default function DistilleryStage() {
           `absolute inset-0` covers the section without inheriting
           the picker-focus opacity. */}
       <BuyOverlay />
+
+      {/* Rival-distillery overlay — opens when the player clicks a
+          rival in OpponentRail. Renders a read-only version of the
+          rival's stage (identity plate, rickhouse with their
+          barrels, investment rack) on top of the human's own. */}
+      <RivalDistilleryOverlay />
     </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// RivalDistilleryOverlay — read-only mirror of DistilleryStage's
+// inner stack (IdentityPlate + Rickhouse + InvestmentRack) for any
+// player the user clicked in OpponentRail. Anchored absolutely
+// inside the human's `bb-panel--stage` section so it visually
+// "takes over" the same panel the player normally uses for their
+// own distillery. Esc / Close / clicking outside the inner card
+// dismiss the overlay.
+// ─────────────────────────────────────────────────────────────────────
+
+function RivalDistilleryOverlay() {
+  const { state, viewingRivalId, setViewingRivalId } = useGameStore();
+  useEffect(() => {
+    if (!viewingRivalId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setViewingRivalId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [viewingRivalId, setViewingRivalId]);
+  if (!state || !viewingRivalId) return null;
+  const rival = state.players.find((p) => p.id === viewingRivalId);
+  if (!rival) return null;
+  const distillery = rival.distillery;
+  if (!distillery) return null;
+  const rivalBarrels = state.allBarrels.filter(
+    (b) => b.ownerId === rival.id,
+  );
+  return (
+    <div
+      onClick={() => setViewingRivalId(null)}
+      className="absolute inset-0 z-30 flex flex-col"
+      style={{
+        background:
+          "radial-gradient(120% 80% at 50% 0%, rgba(213,150,80,.06), transparent 55%), rgba(8,5,3,.86)",
+        backdropFilter: "blur(6px)",
+        animation: "log-in 200ms ease-out",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative flex flex-1 flex-col gap-2 overflow-hidden border-2 border-amber-500/55 px-[22px] py-2"
+        style={{
+          // Same warm bourbon backing as DistilleryStage so the
+          // overlay reads as "the same panel, different occupant"
+          // rather than a foreign sleeve.
+          background:
+            "radial-gradient(120% 80% at 50% 0%, rgba(213,150,80,.08), transparent 60%), linear-gradient(180deg, rgba(28,18,11,.98), rgba(14,10,6,.99))",
+          boxShadow:
+            "0 12px 32px rgba(0,0,0,.55), inset 0 1px 0 rgba(240,201,112,.22)",
+        }}
+      >
+        {/* Header strip — labels the overlay as a rival view, with a
+            Close button on the right. */}
+        <header className="flex flex-shrink-0 items-baseline justify-between gap-3 pb-1">
+          <div className="flex items-baseline gap-3">
+            <span
+              className="font-mono text-[10.5px] font-bold uppercase tracking-[.22em]"
+              style={{ color: "var(--brass)" }}
+            >
+              Viewing rival
+            </span>
+            <span
+              className="font-display text-[15px] font-semibold"
+              style={{ color: "var(--gold)" }}
+            >
+              {rival.name}'s distillery
+            </span>
+            <span
+              className="font-display italic"
+              style={{ color: "var(--ink-muted)", fontSize: 13 }}
+            >
+              read-only — your own stage waits underneath
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setViewingRivalId(null)}
+            className="rounded-md border border-rose-700/60 bg-rose-900/30 px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[.08em] text-rose-100 transition-colors hover:border-rose-400 hover:bg-rose-800/40"
+            aria-label="Close rival distillery view"
+          >
+            Close ✕
+          </button>
+        </header>
+
+        {/* IdentityPlate — same component the human uses, with the
+            rival's values. Read-only; the PortfolioChip click goes
+            to the rival's portfolio drawer state which is no-op for
+            the local seat. */}
+        <IdentityPlate
+          name={distillery.name}
+          flavor={distillery.flavorText ?? ""}
+          ability={distillery.cardText ?? ""}
+          capital={rival.capital}
+          reputation={rival.reputation}
+          prestige={rival.prestige}
+          warehouseUnlocked={rival.warehouseUnlocked}
+          warehouseFilled={rival.warehouseSlot != null}
+          player={rival}
+        />
+
+        {/* Rickhouse — `isHumanRow={false}` keeps all click / drag
+            handlers in the slot-interaction hook gated to the human's
+            own slots, so dragging hand cards onto a rival's barrel
+            does nothing. Same goes for the on-barrel Sell button —
+            it only renders for `isHumanRow`. */}
+        <Rickhouse
+          slots={rival.rickhouseSlots}
+          barrels={rivalBarrels}
+          state={state}
+          isHumanRow={false}
+          investments={rival.investments}
+          ownerName={rival.name}
+        />
+      </div>
+    </div>
   );
 }
 

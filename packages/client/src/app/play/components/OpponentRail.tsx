@@ -89,7 +89,7 @@ function OpponentCard({
   seatIndex: number;
   state: GameState;
 }) {
-  const { setInspect } = useGameStore();
+  const { setViewingRivalId, viewingRivalId } = useGameStore();
   const ink = PLAYER_HEX[paletteIndex(seatIndex)]!;
   const myBarrels = state.allBarrels.filter((b) => b.ownerId === player.id);
   const slotsTotal = player.rickhouseSlots.length;
@@ -97,18 +97,17 @@ function OpponentCard({
   const isOnClock =
     state.phase === "action" &&
     state.players[state.currentPlayerIndex]?.id === player.id;
-  // Inspect this rival's distillery — opens the shared CardInspectModal
-  // with the full ability + flavor + strategy note. Only the name/handle
-  // area carries the click; the rest of the tile (mini-rickhouse,
-  // counters, LineStrip) keeps its existing hover tooltips so the
-  // click target stays specific.
-  const inspectDistillery = () => {
+  // Open the rival-distillery overlay on the player's stage panel,
+  // showing the full rickhouse + investments layout for this rival.
+  // Toggle: clicking the same rival again closes; clicking a different
+  // rival switches the target. Only the name/handle area carries the
+  // click; the rest of the tile (mini-rickhouse, counters, LineStrip)
+  // keeps its existing hover tooltips so the click target stays
+  // specific.
+  const isViewing = viewingRivalId === player.id;
+  const openRival = () => {
     if (!player.distillery) return;
-    setInspect({
-      kind: "distillery",
-      distillery: player.distillery,
-      ownerName: player.name,
-    });
+    setViewingRivalId(isViewing ? null : player.id);
   };
   const canInspect = player.distillery != null;
 
@@ -148,14 +147,21 @@ function OpponentCard({
             the tile keeps its existing tooltips intact. */}
         <button
           type="button"
-          onClick={inspectDistillery}
+          onClick={openRival}
           disabled={!canInspect}
+          aria-pressed={isViewing}
           title={
             canInspect
-              ? `Inspect ${player.distillery!.name} — ${player.name}'s distillery`
+              ? isViewing
+                ? `Close ${player.name}'s distillery view`
+                : `View ${player.distillery!.name} — ${player.name}'s distillery laid out on your stage`
               : "No distillery yet"
           }
-          className="group/inspect min-w-0 flex-1 cursor-pointer rounded-[6px] border border-transparent bg-transparent p-0 px-1 py-0.5 text-left transition-colors hover:border-amber-700/50 hover:bg-amber-950/15 disabled:cursor-default disabled:hover:border-transparent disabled:hover:bg-transparent"
+          className={`group/inspect min-w-0 flex-1 cursor-pointer rounded-[6px] border bg-transparent p-0 px-1 py-0.5 text-left transition-colors disabled:cursor-default disabled:hover:border-transparent disabled:hover:bg-transparent ${
+            isViewing
+              ? "border-amber-500/70 bg-amber-950/30"
+              : "border-transparent hover:border-amber-700/50 hover:bg-amber-950/15"
+          }`}
         >
           {/* Wrap rather than ellipsis-truncate — at 280px column width
               "VANILLA DIS…" / "CONNOISSEU…" were clipping mid-word.
@@ -184,10 +190,14 @@ function OpponentCard({
             {canInspect ? (
               <span
                 aria-hidden
-                className="font-mono text-[11px] opacity-0 transition-opacity group-hover/inspect:opacity-90"
-                style={{ color: "var(--brass)" }}
+                className={`font-mono text-[11px] transition-opacity ${
+                  isViewing
+                    ? "opacity-100"
+                    : "opacity-0 group-hover/inspect:opacity-90"
+                }`}
+                style={{ color: isViewing ? "var(--gold)" : "var(--brass)" }}
               >
-                ⓘ
+                {isViewing ? "◉" : "⇆"}
               </span>
             ) : null}
           </div>

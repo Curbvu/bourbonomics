@@ -545,6 +545,13 @@ export interface GameStore {
    *  (auto) when a sale leaves a pending placement. */
   portfolioDrawerOpen: boolean;
   setPortfolioDrawerOpen: (open: boolean) => void;
+  /** Rival-distillery overlay — when set, DistilleryStage paints
+   *  a read-only overlay on top of its own panel showing the named
+   *  rival's identity plate + rickhouse + investments. Click in
+   *  OpponentRail sets this; Esc / Close / clicking on another
+   *  rival switches it; clicking outside clears it. */
+  viewingRivalId: string | null;
+  setViewingRivalId: (id: string | null) => void;
   /** v3.6 — Operations-card play modal. Holds the in-flight ops card
    *  id while the player is picking targets. PlayOpsModal self-gates
    *  on this; HandTray's OpsCard click sets it; the modal clears it
@@ -763,6 +770,8 @@ const Ctx = createContext<GameStore>({
   setInspect: noop,
   portfolioDrawerOpen: false,
   setPortfolioDrawerOpen: noop,
+  viewingRivalId: null,
+  setViewingRivalId: noop,
   playOpsCardId: null,
   setPlayOpsCardId: noop,
   toasts: [],
@@ -871,6 +880,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // resolves with a pending placement (the BottlePlacementModal handles
   // that case independently, so this flag stays orthogonal).
   const [portfolioDrawerOpen, setPortfolioDrawerOpen] = useState(false);
+  // Rival-distillery overlay target. When non-null, DistilleryStage
+  // paints a read-only overlay of the named rival's stage on top
+  // of the human's own.
+  const [viewingRivalId, setViewingRivalId] = useState<string | null>(null);
   // v3.6 — Operations-card play modal target. While set, PlayOpsModal
   // is open and the human is picking targets for the named ops card.
   const [playOpsCardId, setPlayOpsCardId] = useState<string | null>(null);
@@ -2410,6 +2423,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setInspect,
       portfolioDrawerOpen,
       setPortfolioDrawerOpen,
+      viewingRivalId,
+      setViewingRivalId,
       playOpsCardId,
       setPlayOpsCardId,
       toasts,
@@ -2498,6 +2513,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       humanSeatPlayerId,
       inspect,
       portfolioDrawerOpen,
+      viewingRivalId,
       playOpsCardId,
       toasts,
       pushToast,
