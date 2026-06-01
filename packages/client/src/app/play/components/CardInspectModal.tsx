@@ -17,6 +17,7 @@ import type {
   Barrel,
   Card,
   CardEffect,
+  Distillery,
   InvestmentCard,
   MashBill,
   OperationsCard,
@@ -50,9 +51,14 @@ export default function CardInspectModal() {
   if (!inspect) return null;
 
   // Mash bill + barrel inspects carry a reward matrix (up to 3×3+ cells);
-  // give them more horizontal room so the grid breathes. Resource / labor /
-  // ops / investment stay tighter — those are mostly prose + a single hero.
-  const wide = inspect.kind === "mashbill" || inspect.kind === "barrel";
+  // give them more horizontal room so the grid breathes. Distillery
+  // inspects carry the rule text + flavor + strategy note, which read
+  // best in a wider sleeve too. Resource / labor / ops / investment
+  // stay tighter — those are mostly prose + a single hero.
+  const wide =
+    inspect.kind === "mashbill" ||
+    inspect.kind === "barrel" ||
+    inspect.kind === "distillery";
   const widthClass = wide ? "max-w-2xl" : "max-w-lg";
 
   return (
@@ -96,7 +102,159 @@ function Body({ inspect }: { inspect: InspectPayload }) {
       return <InvestmentDetail card={inspect.card} />;
     case "barrel":
       return <BarrelDetail barrel={inspect.barrel} ownerName={inspect.ownerName} />;
+    case "distillery":
+      return (
+        <DistilleryDetail
+          distillery={inspect.distillery}
+          ownerName={inspect.ownerName}
+        />
+      );
   }
+}
+
+/**
+ * Distillery detail sheet — surfaces everything you'd want to know about
+ * an opponent's setup-time pick: name + flavor, the rule text on the
+ * card face, the design-doc strategy note, plus the meta numbers
+ * (starting capital, slot count, difficulty tier). The owner's name
+ * sits in the header so the reader can tell "this is Clyde's distillery"
+ * apart from "this is my own".
+ */
+function DistilleryDetail({
+  distillery: d,
+  ownerName,
+}: {
+  distillery: Distillery;
+  ownerName?: string;
+}) {
+  return (
+    <article
+      className="relative flex flex-col gap-4 rounded-xl border-2 border-amber-700/55 bg-gradient-to-b from-[#3a2818]/95 via-[#221710]/95 to-[#100b07]/98 p-5 shadow-[0_12px_32px_rgba(0,0,0,.55)]"
+    >
+      <header className="flex flex-col gap-1 pr-12">
+        <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.18em] text-amber-300">
+          Distillery{ownerName ? ` · ${ownerName}` : ""}
+        </span>
+        <div className="flex items-center gap-3">
+          {/* Crest — same brass disc treatment as the IdentityPlate so
+              the inspect modal reads as "the same distillery, bigger". */}
+          <div
+            className="relative grid h-14 w-14 flex-shrink-0 place-items-center rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle at 30% 25%, #f0c970 0%, #c69d52 35%, #6b3d1d 80%, #2a1a10 100%)",
+              boxShadow:
+                "inset 0 2px 4px rgba(255,255,255,.25), inset 0 -3px 6px rgba(0,0,0,.55), 0 4px 16px rgba(176,106,56,.45)",
+            }}
+            aria-hidden
+          >
+            <span
+              className="font-display text-[28px] font-bold italic leading-none"
+              style={{
+                color: "#3a1f10",
+                textShadow: "0 1px 0 rgba(255,255,255,.18)",
+              }}
+            >
+              {d.name.charAt(0)}
+            </span>
+          </div>
+          <div className="flex min-w-0 flex-col">
+            <h3 className="font-display text-2xl font-bold leading-tight text-amber-100">
+              {d.name}
+            </h3>
+            {d.flavorText ? (
+              <span className="font-display text-[14px] italic text-amber-300/85">
+                {d.flavorText}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </header>
+
+      {/* Meta strip — startingCapital, slots, difficulty. Compact
+          three-up so the player can size up the opponent's economy
+          at a glance. */}
+      <div className="grid grid-cols-3 gap-2 rounded-lg border border-amber-900/40 bg-black/30 px-3 py-2">
+        <DistilleryMeta
+          label="Capital"
+          value={String(d.startingCapital ?? 5)}
+          hint="starting"
+        />
+        <DistilleryMeta
+          label="Slots"
+          value={`${d.slots}/${d.maxSlots ?? 6}`}
+          hint="rickhouse"
+        />
+        <DistilleryMeta
+          label="Difficulty"
+          value={d.difficulty.replace(/-/g, " ")}
+          hint="picker tier"
+        />
+      </div>
+
+      {/* Rule text on the card face — the canonical "what does this
+          distillery do" answer. */}
+      {d.cardText ? (
+        <section className="flex flex-col gap-1">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-300/75">
+            Ability
+          </span>
+          <p className="font-sans text-[14px] leading-relaxed text-amber-50/95">
+            {d.cardText}
+          </p>
+        </section>
+      ) : null}
+
+      {/* Long-form description (flavor paragraph). */}
+      {d.description ? (
+        <section className="flex flex-col gap-1">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-300/75">
+            Profile
+          </span>
+          <p className="font-display text-[14px] italic leading-snug text-amber-200/80">
+            {d.description}
+          </p>
+        </section>
+      ) : null}
+
+      {/* Designer-facing strategy note — when present, gives the
+          reader the "how do you actually play this?" thumbnail. */}
+      {d.strategyNote ? (
+        <section className="flex flex-col gap-1 border-t border-amber-900/40 pt-3">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-300/85">
+            Strategy
+          </span>
+          <p className="font-sans text-[13px] leading-relaxed text-emerald-100/85">
+            {d.strategyNote}
+          </p>
+        </section>
+      ) : null}
+    </article>
+  );
+}
+
+function DistilleryMeta({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-0.5 leading-tight">
+      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300/70">
+        {label}
+      </span>
+      <span className="font-display text-lg font-bold capitalize text-amber-100">
+        {value}
+      </span>
+      <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-amber-300/55">
+        {hint}
+      </span>
+    </div>
+  );
 }
 
 function ResourceDetail({ card }: { card: Card }) {

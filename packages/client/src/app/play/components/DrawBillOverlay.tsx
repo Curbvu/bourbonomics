@@ -352,7 +352,7 @@ function DraftingLoopModal({
               a hollow dot. Anchored top-right of the header so the
               "who's next" read is glanceable while the player is
               deciding to scavenge or pass. */}
-          {loop ? (
+          {loop && state ? (
             <TurnOrderStrip
               pickOrder={loop.pickOrder}
               pickerIndex={loop.pickerIndex}
