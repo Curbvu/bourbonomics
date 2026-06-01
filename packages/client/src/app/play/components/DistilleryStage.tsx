@@ -786,20 +786,18 @@ function InvestmentTile({
   onClick: () => void;
   title: string;
 }) {
-  // Tier-tinted spine on the left so a glance reads the rarity at the
-  // same time as the name. Mirrors the band color the IdentityPlate
-  // uses on rep + scoreboards.
-  const tier = card.tier ?? "common";
+  // Cost-tier accent. InvestmentTier is the price band (small / medium
+  // / large), not a rarity scale — sage → gold → copper reads as the
+  // progressive cost the player paid, which matches how Investments
+  // are organized in the market shelf.
+  const tier = card.tier;
   const tierInk =
-    tier === "legendary"
+    tier === "large"
       ? "#f0b070"
-      : tier === "epic"
-        ? "#c69df0"
-        : tier === "rare"
-          ? "#7da6df"
-          : tier === "uncommon"
-            ? "#82c9a3"
-            : "#b9a684";
+      : tier === "medium"
+        ? "#f0c970"
+        : "#82c9a3";
+  const tierLabel = tier === "large" ? "Large" : tier === "medium" ? "Medium" : "Small";
   return (
     <button
       type="button"
@@ -817,7 +815,7 @@ function InvestmentTile({
         }}
       >
         <span>Invest</span>
-        <span style={{ opacity: 0.75 }}>{tier.charAt(0).toUpperCase() + tier.slice(1)}</span>
+        <span style={{ opacity: 0.75 }}>{tierLabel}</span>
       </div>
       <div className="flex flex-1 flex-col gap-1 px-1.5 py-1.5">
         <span
