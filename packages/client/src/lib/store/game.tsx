@@ -1581,17 +1581,30 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     if (me.needsDemandRoll) return; // demand modal still owns the screen
     // false→true transition: capture ageable-barrel count for the banner.
+    const eligibleCount = s.allBarrels.filter(
+      (b) =>
+        b.ownerId === seatId &&
+        b.phase === "aging" &&
+        !(b.completedInRound != null && s.round <= b.completedInRound) &&
+        !b.inspectedThisRound &&
+        (!b.agedThisRound || b.extraAgesAvailable > 0),
+    ).length;
     if (!prevNeedsAgeRef.current) {
       prevNeedsAgeRef.current = true;
-      const total = s.allBarrels.filter(
-        (b) =>
-          b.ownerId === seatId &&
-          b.phase === "aging" &&
-          !(b.completedInRound != null && s.round <= b.completedInRound) &&
-          !b.inspectedThisRound &&
-          (!b.agedThisRound || b.extraAgesAvailable > 0),
-      ).length;
-      setAgeTotalThisPhase(total);
+      setAgeTotalThisPhase(eligibleCount);
+    }
+    // Regression guard — when the engine has `needsAgeBarrels` armed
+    // but ZERO eligible barrels (every aging barrel is inspected,
+    // already-aged-this-round, or just-completed), auto-engaging
+    // ageMode traps the player behind the AgeOverlay banner with no
+    // valid AGE_BOURBON target. The engine already allows PASS_TURN
+    // out of the gate (engine.ts allow-list), so we just need to NOT
+    // open the overlay and let the action bar's End turn surface
+    // normally. Cancel any stale ageMode so a previously-open banner
+    // doesn't linger.
+    if (eligibleCount === 0) {
+      if (ageMode) setAgeMode(null);
+      return;
     }
     if (ageMode) return;
     setAgeMode({ pickedBarrelId: null, pickedCardId: null });
