@@ -48,10 +48,13 @@ export default function OpponentRail() {
   return (
     <aside
       data-rickhouse-row="true"
-      // No scroll per CLAUDE.md. Up to 3 opponents share this column at
-      // the design scale — they fit. If a future 4+ player layout
-      // needs more, the tiles need to be tightened, not scrolled.
-      className={`bb-panel bb-panel--rivals flex min-h-0 flex-col gap-[10px] overflow-hidden px-[12px] py-3 ${focusClass}`}
+      // `shrink-0` so Rivals always shows its full content height —
+      // user-stated rule: Rivals always fills first, Tasting Notes
+      // (the RightRail sibling) takes whatever remains. No scroll
+      // per CLAUDE.md. Up to 3 opponents share this column at the
+      // design scale — they fit. If a future 4+ player layout needs
+      // more, the tiles need to be tightened, not scrolled.
+      className={`bb-panel bb-panel--rivals flex shrink-0 flex-col gap-[10px] overflow-hidden px-[12px] py-3 ${focusClass}`}
       style={{ gridArea: "rivals", ...focusStyle }}
     >
       <header className="flex items-baseline justify-between">

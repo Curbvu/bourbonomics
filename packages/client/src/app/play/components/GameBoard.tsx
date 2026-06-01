@@ -160,11 +160,14 @@ export default function GameBoard() {
             "radial-gradient(120% 70% at 50% 0%, rgba(176,106,56,.05), transparent 50%)",
         }}
       >
-        {/* Left column — Rivals on top, Tasting Notes filling the rest.
-            Both child panels keep their own `gridArea` style attrs,
-            but those become no-ops inside this flex wrapper (which is
-            the actual grid item) and the components stay reusable
-            elsewhere (tutorial routes, etc.). */}
+        {/* Left column — Rivals takes its natural content height
+            first; Tasting Notes claims the rest. OpponentRail
+            renders as a content-sized flex child (no flex-grow); the
+            updated RightRail carries `flex-1 min-h-0` so it absorbs
+            whatever vertical space is left. Both child panels keep
+            their `gridArea` style attrs (no-ops inside this flex
+            wrapper) so the components stay reusable elsewhere
+            (tutorial routes, etc.). */}
         <div
           className="flex min-h-0 flex-col gap-3"
           style={{ gridArea: "left" }}
