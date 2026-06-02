@@ -93,7 +93,7 @@ export default function MainMenu() {
         />
       ) : null}
 
-      {hydrated && tutorialDone ? (
+      {hydrated ? (
         <MenuTile
           href="/tutorial/advanced"
           eyebrow={

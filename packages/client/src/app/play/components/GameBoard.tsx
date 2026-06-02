@@ -139,19 +139,20 @@ export default function GameBoard() {
       <main
         className="grid min-h-0 flex-1"
         style={{
-          // Rivals 280px so opponent cards' name + handle + mini-
-          // rickhouse range strips don't crowd. The right log column
-          // already folded into the left rail; the demand thermometer
-          // moved out of the grid into the horizontal bar above, so
-          // the play grid is now down to two columns.
+          // Left rail bumped from 280 to 320 — user wanted the rivals
+          // panel and Tasting Notes to read with more breathing room
+          // on the 1920-wide canvas. The right log column already
+          // folded into the left rail; the demand thermometer moved
+          // out of the grid into the horizontal bar above, so the
+          // play grid is two columns.
           //
           // `minmax(0, 1fr)` instead of `1fr` so the stage column can
           // SHRINK to its share of the remaining width. Plain `1fr` is
           // `minmax(auto, 1fr)`, which lets the column grow to fit its
           // content's intrinsic min-width and would push the whole
-          // board past the 1680px design canvas (BuyOverlay /
+          // board past the 1920px design canvas (BuyOverlay /
           // MakeOverlay panels then escape the centered sleeve).
-          gridTemplateColumns: "280px minmax(0, 1fr)",
+          gridTemplateColumns: "320px minmax(0, 1fr)",
           gridTemplateRows: "1fr auto",
           gridTemplateAreas: '"left stage" "left hand"',
           gap: 12,
