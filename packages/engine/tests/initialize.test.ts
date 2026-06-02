@@ -15,12 +15,14 @@ describe("initializeGame", () => {
     expect(state.finalRoundTriggered).toBe(false);
   });
 
-  it("gives each player a 16-card starter deck and Vanilla startingCapital", () => {
+  it("gives each player a 16-card starter pool with the round-1 hand dealt at setup, and Vanilla startingCapital", () => {
     const state = makeTestGame();
     for (const p of state.players) {
-      expect(p.deck).toHaveLength(16);
-      expect(p.hand).toHaveLength(0);
+      // v3.10: the round-1 hand is dealt at setup, not via DRAW_HAND.
+      // Total starter cards (16) split across hand + deck + discard.
+      expect(p.hand).toHaveLength(p.handSize);
       expect(p.discard).toHaveLength(0);
+      expect(p.hand.length + p.deck.length + p.discard.length).toBe(16);
       // v3.3: Capital is the in-game spendable currency. Reputation
       // starts at 0 and only accrues at end-game from portfolios.
       expect(p.capital).toBe(5);

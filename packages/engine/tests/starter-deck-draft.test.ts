@@ -249,14 +249,19 @@ describe("STARTER_PASS", () => {
     expect(next.phase).toBe("starter_deck_draft"); // p2 hasn't passed yet
   });
 
-  it("finalizes when every drafter has passed: shuffles starter hands into decks and transitions to draw", () => {
+  it("finalizes when every drafter has passed: shuffles starter hands into decks, deals the round-1 hand, and transitions to draw", () => {
     let state = makeDraftGame();
     state = applyAction(state, { type: "STARTER_PASS", playerId: "p1" });
     state = applyAction(state, { type: "STARTER_PASS", playerId: "p2" });
     expect(state.phase).toBe("draw");
     for (const p of state.players) {
       expect(p.starterHand).toHaveLength(0);
-      expect(p.deck.length).toBeGreaterThanOrEqual(STARTER_HAND_SIZE);
+      // v3.10: the round-1 hand is dealt at setup (inside
+      // STARTER_PASS's completion path), not via DRAW_HAND. Total
+      // starter-pool cards distribute across hand + deck + discard.
+      expect(p.hand).toHaveLength(p.handSize);
+      const total = p.hand.length + p.deck.length + p.discard.length;
+      expect(total).toBeGreaterThanOrEqual(STARTER_HAND_SIZE);
     }
     expect(state.starterUndealtPool).toHaveLength(0);
   });

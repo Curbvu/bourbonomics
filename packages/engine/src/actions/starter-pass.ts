@@ -1,6 +1,7 @@
 import type { Draft } from "immer";
 import type { GameAction, GameState, ValidationResult } from "../types";
 import { shuffleCards } from "../deck";
+import { dealInitialHands } from "../state";
 
 type StarterPassAction = Extract<GameAction, { type: "STARTER_PASS" }>;
 
@@ -50,4 +51,8 @@ export function applyStarterPass(
   // v2.9: starter draft → draw directly. Demand is rolled per-player
   // at the top of each action turn.
   draft.phase = "draw";
+  // v3.10 — initial deal happens once, at setup. DRAW_HAND is now
+  // pure orchestration; the end-of-turn redraw (PASS_TURN) is the
+  // single source of hand refresh.
+  dealInitialHands(draft);
 }

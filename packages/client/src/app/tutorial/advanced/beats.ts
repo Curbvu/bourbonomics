@@ -176,6 +176,24 @@ export const TUTORIAL_ADVANCED_BEATS: Beat[] = [
       if (next.phase === "starter_deck_draft") {
         next.phase = "draw";
         next.starterDeckDraftOrder = [];
+        // v3.10: hands are dealt at setup — dispatch the same final
+        // step STARTER_PASS would have run (shuffle starterHand into
+        // deck, then draw handSize into hand). Without this the new
+        // single-refresh model leaves the player empty-handed
+        // through Chapter 3+ (DRAW_HAND no longer touches cards).
+        for (const p of next.players) {
+          if (p.starterHand.length > 0) {
+            p.deck = [...p.starterHand, ...p.deck];
+            p.starterHand = [];
+          }
+          const needed = Math.max(0, p.handSize - p.hand.length);
+          const take = Math.min(needed, p.deck.length);
+          if (take > 0) {
+            p.hand.push(...p.deck.slice(-take));
+            p.deck = p.deck.slice(0, p.deck.length - take);
+          }
+        }
+        next.starterUndealtPool = [];
       }
       return next;
     },

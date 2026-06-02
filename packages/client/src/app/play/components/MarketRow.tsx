@@ -29,7 +29,6 @@
  * the tutorial spotlight and the existing drop-target CSS rules.
  */
 
-import { useEffect, useRef, useState } from "react";
 import type {
   Card,
   ResourceSubtype,
@@ -108,30 +107,6 @@ export default function MarketRow() {
   // market is always fully visible — drag the ScrollEdge buttons or use
   // the track scroller to see anything past the right edge.
   const market = state.market;
-  // Split out investment cards into a dedicated pool tile — investments
-  // are structural / persistent purchases (Bottling Plant, Sales Office,
-  // Rickhouse Expansion, etc.) and deserve their own browse surface so
-  // the inline shelf stays focused on round-by-round resources + ops.
-  // Each card's original slot index is preserved so onCardBuy still
-  // dispatches against the engine's actual market[slot] target.
-  const investmentEntries = market
-    .map((card, slotIndex) => ({ card, slotIndex }))
-    .filter((e) => e.card.type === "investment");
-  const inlineEntries = market
-    .map((card, slotIndex) => ({ card, slotIndex }))
-    .filter((e) => e.card.type !== "investment");
-  // Pool open/close state — toggled by the InvestmentPool tile's
-  // "Open" / "Close" button. Esc closes it; clicking outside the
-  // popover anchor also closes it (handled via the backdrop layer).
-  const [investmentsOpen, setInvestmentsOpen] = useState(false);
-  useEffect(() => {
-    if (!investmentsOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setInvestmentsOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [investmentsOpen]);
 
   // Inline buy: same path as the drawer's onCardClick. BuyOverlay then
   // drives the payment selection — the row click only fixes the target.
@@ -246,36 +221,15 @@ export default function MarketRow() {
           style={{
             gap: 8,
             padding: "10px 4px 12px 4px",
-            overflow: "visible",
+            overflow: "hidden",
             minWidth: 0,
           }}
         >
-          {/* Investments pool tile — always on the left of the shelf
-              so the persistent-structure purchases (Bottling Plant,
-              Sales Office, Rickhouse Expansion, …) have a dedicated
-              browse surface separate from the inline resource +
-              operations cards. */}
-          <InvestmentPool
-            count={investmentEntries.length}
-            open={investmentsOpen}
-            onToggle={() => setInvestmentsOpen((o) => !o)}
-          />
-          {/* Subtle divider between the pool tile and the inline shelf
-              so the eye reads two regions: pooled (investments) and
-              loose (everything else). */}
-          {inlineEntries.length > 0 ? (
-            <span
-              aria-hidden
-              className="self-stretch"
-              style={{
-                width: 1,
-                margin: "4px 2px",
-                background:
-                  "linear-gradient(180deg, transparent, rgba(198,157,82,.3), transparent)",
-              }}
-            />
-          ) : null}
-          {inlineEntries.map(({ card, slotIndex }) => (
+          {/* All market cards render inline — the InvestmentPool tile
+              and popover were pooling investments behind a click,
+              hiding 2 of the 10 cards. Per user's ask: every market
+              card should be visible at a glance, no extra clicks. */}
+          {market.map((card, slotIndex) => (
             <MarketRowCard
               key={card.id}
               card={card}
@@ -291,23 +245,6 @@ export default function MarketRow() {
               onInspect={() => onCardInspect(card)}
             />
           ))}
-          {/* Pool popover — anchored just below the InvestmentPool
-              tile when open. Floats over the floor plank so the rest
-              of the shelf stays visible underneath. */}
-          {investmentsOpen ? (
-            <InvestmentPoolPopover
-              entries={investmentEntries}
-              wallet={reputation}
-              tutorialPinnedSlot={tutorialPinnedSlot}
-              pickedSlotIndex={buyMode?.pickedTarget?.slotIndex ?? null}
-              onBuy={(slotIndex, affordable) => {
-                onCardBuy(slotIndex, affordable);
-                setInvestmentsOpen(false);
-              }}
-              onInspect={(card) => onCardInspect(card)}
-              onClose={() => setInvestmentsOpen(false)}
-            />
-          ) : null}
         </div>
       </div>
     </section>
@@ -320,6 +257,11 @@ export default function MarketRow() {
 // investments on offer this round; click toggles the popover that
 // shows the actual cards. Designed to occupy roughly one MarketRowCard
 // slot so the shelf doesn't bloat horizontally.
+//
+// NOTE: kept around (currently unused) — user asked to preserve it
+// for the next iteration. The current shelf renders every market
+// card inline so all 10 read at a glance; a follow-up may bring the
+// pool back behind a layout toggle.
 // ─────────────────────────────────────────────────────────────────────
 
 function InvestmentPool({

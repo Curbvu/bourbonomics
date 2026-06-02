@@ -118,8 +118,9 @@ function autoResolveLinePending(
  * Land a fresh game in the action phase ready for tests to dispatch.
  *
  * v2.9: demand is rolled per-player at the top of each action turn, so
- * the helper draws for everyone, fires the start player's first ROLL_
- * DEMAND, and then clears `needsDemandRoll` on every other seat too —
+ * the helper fires DRAW_HAND for every seat (the phase-marker that
+ * advances draw → action under v3.10), kicks the start player's first
+ * ROLL_DEMAND, and clears `needsDemandRoll` on every other seat too —
  * tests that don't care about demand can PASS_TURN around the table
  * without having to roll for every player. Tests that DO care about
  * the per-turn roll mechanic should re-arm the flag explicitly.
@@ -151,8 +152,11 @@ export function advanceToActionPhase(
  * first age in round N+1.
  *
  * Pass `seedDecks` to seed each player's deck with a few cards before
- * the round flip so the next round's DRAW_HAND doesn't auto-skip when
- * every deck is empty (which happens often in handcrafted unit tests).
+ * the round flip so PASS_TURN's end-of-turn redraw (v3.9) has cards to
+ * pull from. Under v3.10 the round-start DRAW_HAND is a pure phase-
+ * marker; only PASS_TURN moves cards into hand, so a barren deck +
+ * discard at end-of-turn would leave the player short going into the
+ * next round.
  */
 export function advanceToNextRound(
   state: GameState,
