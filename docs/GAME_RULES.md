@@ -16,9 +16,9 @@ A deckbuilding strategy game about building a bourbon empire — one barrel at a
 
 You run a bourbon distillery. You have a **rickhouse** (4 barrel slots), a **deck** (16 starter cards), and **mash bills** (recipes) that live directly on your slots. Each round:
 
-1. **Draw 8** cards.
-2. **Take your turn** — Roll demand → Age every aging barrel → Take actions.
-3. **Cleanup.** Discards reset, the start player rotates, next round.
+1. **Take your turn** — Roll demand → Age every aging barrel → Take actions. Your hand was already refilled to 8 at the end of your previous turn (or at setup, for round 1).
+2. **End Turn** discards anything still in hand and redraws 8 — the single hand refresh of the game.
+3. **Cleanup.** Round-level flags reset, market cycles, the start player rotates, next round.
 
 Your turn opens with your own demand roll and one aging card committed to **every** of your aging barrels — that's the holding cost for keeping inventory. *Then* the rest of your turn opens up.
 
@@ -95,9 +95,9 @@ When every player passes, shuffle your final cards into your starter deck. Premi
 
 Three phases per round:
 
-1. **Draw** — each player draws 8 cards. v3.5: the free Save Slot has been removed — the **Warehouse** investment card is now the only way to persist a single card between rounds, and any card stashed there joins next round's hand on the Draw phase.
+1. **Draw** — pure orchestration. v3.10: hands are **not** redealt here. The canonical hand refresh is end-of-turn (see §Hand and Deck) — by the time a new round opens, every player already holds 8 cards from the redraw their previous turn fired. The Draw phase exists only so the between-rounds recap (Year Pass) can land cleanly before play resumes. The initial round-1 deal happens once, at setup.
 2. **Action** — players take full turns in rotated order. Each turn runs as **Roll demand → Age every aging barrel → Take actions**.
-3. **Cleanup** — unused resource and Labor cards go to discard; per-round flags reset; **the 10 market cards cycle out to the market discard and 10 fresh cards are dealt from the supply**; start player rotates one seat counter-clockwise.
+3. **Cleanup** — per-round flags reset; **the 10 market cards cycle out to the market discard and 10 fresh cards are dealt from the supply**; start player rotates one seat counter-clockwise. v3.10: hands are left alone — the end-of-turn redraw already set up every player's next-round hand.
 
 **Operations cards persist** across rounds in your operations hand.
 
@@ -574,11 +574,11 @@ A Rabbit Hole expansion, for example, might ship Rabbit Hole Core (diversity por
 
 # 🃏 Hand and Deck
 
-Each player draws **8 cards** at the start of round 1 (9 if they saved a card). No max hand size during a turn.
+Each player is dealt **8 cards** once, during setup. From that point on the hand refreshes at exactly one moment per turn — see below. No max hand size during a turn.
 
-**End Turn = discard + redraw (v3.9).** When a player ends their turn, every resource and Labor card still in hand is sent to discard and the player immediately redraws back up to **8 cards**. The redraw is the last thing that happens on their turn before the cursor passes to the next seat. Operations cards in hand persist across turns and rounds — they are never discarded by End Turn.
+**End Turn is the only hand refresh (v3.10).** When a player ends their turn, every resource and Labor card still in hand is sent to discard and the player immediately redraws back up to **8 cards**. The redraw is the last thing that happens on their turn before the cursor passes to the next seat. By the time the next round opens, every player already holds 8 cards from that redraw — there is no separate top-up at round start. Operations cards in hand persist across turns and rounds — they are never discarded by End Turn.
 
-There is no second discard at round end. Cleanup runs round-level resets (aging flags, drafting-loop allowance, market refresh, start-player rotation) but leaves each player's hand alone — the v3.9 End-Turn redraw is the source of truth for the next round's starting hand. The round's draw phase still fires for orchestration, but it's a top-up: zero cards drawn when the hand is already at handSize.
+The round's `Draw` phase still ticks for orchestration (it exists so the Year Pass recap can land between rounds), but the `DRAW_HAND` action is a pure phase-marker — it never moves a card. Cleanup likewise leaves each player's hand alone — it handles round-level resets only (aging flags, drafting-loop allowance, market refresh, start-player rotation).
 
 The deck contains **resource cards** (cask, corn, grain — premiums come from the market) and **Labor cards** (sweat equity that supplements rep on purchases).
 

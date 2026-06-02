@@ -122,11 +122,14 @@ describe("ROLL_DEMAND (per-player, top of action turn)", () => {
   });
 });
 
-describe("DRAW_HAND", () => {
-  it("draws handSize cards into the player's hand", () => {
-    let state = makeTestGame();
-    state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
+describe("DRAW_HAND (v3.10 — pure phase-marker)", () => {
+  it("deals handSize cards at setup, NOT via DRAW_HAND", () => {
+    // v3.10: initial deal happens in setup before the draw phase
+    // even opens. A freshly-initialized game lands in `draw` with
+    // every player already holding handSize cards.
+    const state = makeTestGame();
     const p1 = state.players.find((p) => p.id === "p1")!;
+    expect(state.phase).toBe("draw");
     expect(p1.hand).toHaveLength(8);
     expect(p1.deck).toHaveLength(16 - 8);
     expect(p1.discard).toHaveLength(0);
@@ -134,6 +137,17 @@ describe("DRAW_HAND", () => {
     // persistent-card-storage option (locked until purchased).
     expect(p1.warehouseSlot).toBeNull();
     expect(p1.warehouseUnlocked).toBe(false);
+  });
+
+  it("DRAW_HAND never moves a card — hand is unchanged through the phase-marker", () => {
+    let state = makeTestGame();
+    const handBefore = state.players[0]!.hand.map((c) => c.id);
+    const deckBefore = state.players[0]!.deck.map((c) => c.id);
+    state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    expect(p1.hand.map((c) => c.id)).toEqual(handBefore);
+    expect(p1.deck.map((c) => c.id)).toEqual(deckBefore);
+    expect(p1.discard).toHaveLength(0);
   });
 
   it("does NOT auto-deal an operations card on draw — ops are bought from market", () => {
@@ -171,34 +185,5 @@ describe("DRAW_HAND", () => {
     // other action; subsequent seats are armed as the cursor reaches them.
     expect(state.players[0]?.needsDemandRoll).toBe(true);
     expect(state.players[1]?.needsDemandRoll).toBe(false);
-  });
-
-  it("reshuffles discard into deck mid-draw if deck is short", () => {
-    let state = makeTestGame();
-    const p1Index = 0;
-    state = {
-      ...state,
-      players: state.players.map((p, i) =>
-        i === p1Index ? { ...p, discard: p.deck.slice(), deck: [] } : p,
-      ),
-    };
-    state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
-    const p1 = state.players.find((p) => p.id === "p1")!;
-    expect(p1.hand).toHaveLength(8);
-    expect(p1.discard).toHaveLength(0);
-    expect(p1.deck.length + p1.hand.length).toBe(16);
-  });
-
-  it("draws fewer than handSize when deck + discard run out", () => {
-    let state = makeTestGame();
-    const p1Index = 0;
-    state = {
-      ...state,
-      players: state.players.map((p, i) =>
-        i === p1Index ? { ...p, deck: p.deck.slice(0, 3), discard: [] } : p,
-      ),
-    };
-    state = applyAction(state, { type: "DRAW_HAND", playerId: "p1" });
-    expect(state.players.find((p) => p.id === "p1")!.hand).toHaveLength(3);
   });
 });

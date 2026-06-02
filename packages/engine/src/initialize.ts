@@ -24,6 +24,7 @@ import {
   buildInitialFlagshipPortfolio,
 } from "./lines/placement";
 import { secondaryPoolIds } from "./lines/boards";
+import { dealInitialHands } from "./state";
 
 const DEFAULT_HAND_SIZE = 8;
 const DEFAULT_DEMAND = 0;
@@ -311,6 +312,14 @@ export function initializeGame(config: GameConfig): GameState {
       }
       if (phase === "starter_deck_draft") {
         enterStarterDeckDraftPhase(draft);
+      }
+      // v3.10 — initial deal happens at setup, not via DRAW_HAND.
+      // The draw phase is pure orchestration; end-of-turn redraw is
+      // the canonical hand refresh. Only fill hands when round 1
+      // opens directly in `draw` (skipped if we still owe a
+      // distillery pick or a starter trade).
+      if (draft.phase === "draw") {
+        dealInitialHands(draft);
       }
     });
   }

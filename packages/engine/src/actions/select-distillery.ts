@@ -2,7 +2,7 @@ import type { Draft } from "immer";
 import type { Distillery, GameAction, GameState, ValidationResult } from "../types";
 import { buildRickhouseSlots } from "../distilleries";
 import { shuffleCards } from "../deck";
-import { maybeTriggerFinalRound } from "../state";
+import { dealInitialHands, maybeTriggerFinalRound } from "../state";
 import {
   applyDistilleryStarterModifications,
   enterStarterDeckDraftPhase,
@@ -88,6 +88,10 @@ export function applySelectDistillery(
       // v2.9: skip demand phase entirely. Round 1 opens in draw —
       // demand is rolled per-player at the top of each action turn.
       draft.phase = "draw";
+      // v3.10 — the initial deal happens once, at setup, instead of
+      // via DRAW_HAND. DRAW_HAND is now pure orchestration; the
+      // end-of-turn redraw is the single source of hand refresh.
+      dealInitialHands(draft);
     }
   }
 }

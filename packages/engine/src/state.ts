@@ -140,6 +140,31 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
 }
 
 /**
+ * v3.10 — Setup-time initial deal. Round 1 hands are filled here
+ * (instead of via DRAW_HAND) so the draw phase is purely
+ * orchestration. Called whenever the engine first transitions into
+ * the `draw` phase from setup. Idempotent: a player already at
+ * handSize draws zero. Operations / starter / save-slot state is
+ * untouched.
+ */
+export function dealInitialHands(draft: Draft<GameState>): void {
+  for (const p of draft.players) {
+    const needed = Math.max(0, p.handSize - p.hand.length);
+    if (needed === 0) continue;
+    const result = drawWithReshuffle(
+      p.deck.slice(),
+      p.discard.slice(),
+      needed,
+      draft.rngState,
+    );
+    p.hand.push(...result.drawn);
+    p.deck = result.deck;
+    p.discard = result.discard;
+    draft.rngState = result.rngState;
+  }
+}
+
+/**
  * Cleanup: reset per-round flags, rotate the start player one seat
  * counter-clockwise, and advance to the next round (or end the game
  * if the final round was triggered).
