@@ -77,9 +77,9 @@ export interface Card {
   opSpec?: OperationsCard;
   /**
    * Set when `type === "investment"` for a market card. Carries the
-   * full InvestmentCard spec inline. On-buy effects don't fire yet
-   * (the catalog is `implemented: false` across the board); the spec
-   * is preserved so a future wave can switch to resolving effects.
+   * full InvestmentCard spec inline so the buy flow can fire on-purchase
+   * effects and per-trigger hooks can read ownership. v3.6 resolves 30
+   * of 33 cards; the three `implemented: false` entries are display-only.
    */
   investmentSpec?: InvestmentCard;
   /** Optional: subtypes this card may stand in for (e.g. "any grain" specialty). */
@@ -402,9 +402,10 @@ export function mashBillBuildCost(bill: MashBill): number {
 // -----------------------------
 // Investment Cards
 // -----------------------------
-// Wired up as a display-only catalog. Cards are minted into the market
-// and rendered in the Investments row, but the engine does not resolve
-// any of their effects yet — `implemented: false` on every entry.
+// Cards are minted into the market and rendered in the Investments row.
+// v3.6 resolves effects for 30 of the 33 cards (on purchase and via
+// per-trigger hooks); the three `implemented: false` entries are
+// display-only stubs (field_office, sales_office, column_still).
 // Source of truth lives at `packages/engine/content/investments.yaml`;
 // keep this catalog in sync by hand until a build script lands.
 
@@ -764,6 +765,14 @@ export interface Barrel {
    * Stacks additively with sale-card `grid_demand_band_offset` signals.
    */
   demandBandOffset: number;
+  /**
+   * v3.6 Cooperage — count of cask cards that were physically returned
+   * to the owner's hand at commit time (instead of being locked with
+   * the barrel) but still count toward the universal "exactly 1 cask
+   * source" rule. Seeded into the cask tally in both validation and the
+   * completion check so a refunded cask doesn't strand the recipe.
+   */
+  refundedCaskCount: number;
 }
 
 // -----------------------------
@@ -1115,9 +1124,8 @@ export interface PlayerState {
   /**
    * v3.5 — True once the player has purchased the Warehouse
    * investment. Drives both the Warehouse slot's activation AND the
-   * client UI's visibility. Effects are `implemented: false` in the
-   * v3.5 catalog, so this flag is dormant until the v3.6 wave wires
-   * effect resolution.
+   * client UI's visibility. v3.6 resolves the store/retrieve flow
+   * (WAREHOUSE_STORE / WAREHOUSE_RETRIEVE).
    */
   warehouseUnlocked: boolean;
   /**
@@ -1125,9 +1133,8 @@ export interface PlayerState {
    * investments transfer directly here at BUY_FROM_MARKET apply
    * (they never sit in `hand`); their on-purchase effects fire
    * immediately and any passive_permanent triggers stay registered
-   * for the rest of the game. Engine resolution is deferred — every
-   * v3.5 catalog entry is `implemented: false`; this field is the
-   * storage shape the v3.6 wave reads against.
+   * for the rest of the game. v3.6 reads ownership against this list
+   * to resolve per-trigger effects.
    */
   investments: InvestmentCard[];
 

@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { chooseAction, playFullBotGame } from "../src/index.js";
 import { computeFinalScores, isGameOver } from "../src/engine.js";
-import { defaultMashBillCatalog } from "../src/defaults.js";
+import {
+  defaultInvestmentCatalog,
+  defaultMashBillCatalog,
+} from "../src/defaults.js";
 import { initializeGame } from "../src/initialize.js";
 import { makeLaborCard, makeResourceCard } from "../src/cards.js";
 import {
@@ -234,4 +237,68 @@ describe("chooseBuy difficulty heuristics", () => {
     }
   });
 
+});
+
+describe("chooseBuy — investments (v3.6)", () => {
+  /** Build a market-shaped investment card from the catalog by defId. */
+  function investmentCard(defId: string) {
+    const spec = defaultInvestmentCatalog().find((c) => c.defId === defId)!;
+    return {
+      id: `card_test_inv_${defId}`,
+      cardDefId: spec.defId,
+      type: "investment" as const,
+      cost: spec.cost,
+      displayName: spec.name,
+      investmentSpec: { ...spec, id: `card_test_inv_${defId}` },
+    };
+  }
+
+  function lonePurchaseGame(marketHead: unknown) {
+    let state = makeTestGame({
+      seed: 23,
+      players: [
+        { id: "p1", name: "Alice", isBot: true, difficulty: "normal" },
+        { id: "p2", name: "Bob", isBot: true },
+      ],
+      startingMashBills: [[], []], // no in-flight bills
+    });
+    state = advanceToActionPhase(state);
+    state = giveRep(state, "p1", 12);
+    // A non-committable spendable card so the action loop reaches chooseBuy.
+    state = giveHand(state, "p1", [
+      makeLaborCard({ subtype: "marketing", ownerLabel: "p1", index: 0 }),
+    ]);
+    const market = [marketHead] as ReturnType<typeof makeResourceCard>[];
+    while (market.length < 10) {
+      market.push(makeResourceCard("corn", "test", market.length));
+    }
+    return {
+      ...state,
+      market,
+      players: state.players.map((p) =>
+        p.id === "p1" ? { ...p, draftingLoopUsedThisRound: true } : p,
+      ),
+    };
+  }
+
+  it("buys a usable, affordable investment (Aging Warehouse)", () => {
+    const state = lonePurchaseGame(investmentCard("aging_warehouse"));
+    const action = chooseAction(state, "p1");
+    expect(action.type).toBe("BUY_FROM_MARKET");
+    if (action.type === "BUY_FROM_MARKET") {
+      expect(action.marketSlotIndex).toBe(0);
+    }
+  });
+
+  it("refuses an investment whose benefit it can never trigger (Trade Lobby)", () => {
+    const state = lonePurchaseGame(investmentCard("trade_lobby"));
+    const action = chooseAction(state, "p1");
+    expect(action.type).not.toBe("BUY_FROM_MARKET");
+  });
+
+  it("refuses Brand Ambassador with no owned barrel to target", () => {
+    const state = lonePurchaseGame(investmentCard("brand_ambassador"));
+    const action = chooseAction(state, "p1");
+    expect(action.type).not.toBe("BUY_FROM_MARKET");
+  });
 });

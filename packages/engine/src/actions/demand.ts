@@ -2,8 +2,9 @@ import type { Draft } from "immer";
 import type { GameAction, GameState, PlayerState, ValidationResult } from "../types";
 import { isCurrentPlayer } from "../state";
 import { hasUnAgedEligibleBarrel } from "./age-bourbon";
-import { hasInvestment } from "../investments";
+import { claimRoundUse, hasInvestment } from "../investments";
 import { drawWithReshuffle } from "../deck";
+import { rollDie } from "../rng";
 
 type RollDemandAction = Extract<GameAction, { type: "ROLL_DEMAND" }>;
 
@@ -43,18 +44,42 @@ export function applyRollDemand(
   draft: Draft<GameState>,
   action: RollDemandAction,
 ): void {
-  const [a, b] = action.roll;
-  const sum = a + b;
+  const player = draft.players.find((p) => p.id === action.playerId)!;
+  let [a, b] = action.roll;
+  let sum = a + b;
+
+  // v3.6 Marketing Department — when the player's opening roll fails to
+  // raise demand, the owner rerolls one die once per round to try for a
+  // rise. Deterministic auto-policy: reroll the lower die (the one most
+  // likely to improve). No separate player action — the reroll is
+  // resolved inline so bots and humans both benefit automatically.
+  if (
+    sum <= draft.demand &&
+    hasInvestment(player, "marketing_department") &&
+    claimRoundUse(player, "marketing_department")
+  ) {
+    if (a <= b) {
+      const [na, next] = rollDie(draft.rngState, 6);
+      draft.rngState = next;
+      a = na;
+    } else {
+      const [nb, next] = rollDie(draft.rngState, 6);
+      draft.rngState = next;
+      b = nb;
+    }
+    sum = a + b;
+  }
+
+  const roll: [number, number] = [a, b];
   const result: "rise" | "hold" = sum > draft.demand ? "rise" : "hold";
 
   if (result === "rise" && draft.demand < DEMAND_MAX) {
     draft.demand += 1;
   }
 
-  draft.demandRolls.push({ round: draft.round, roll: action.roll, result });
+  draft.demandRolls.push({ round: draft.round, roll, result });
   // Clear the roll-required flag so the player can take real actions.
   // Phase stays at "action" — demand no longer owns its own phase.
-  const player = draft.players.find((p) => p.id === action.playerId)!;
   player.needsDemandRoll = false;
 
   // v3.6 turn-start investment draws — fire after the demand roll

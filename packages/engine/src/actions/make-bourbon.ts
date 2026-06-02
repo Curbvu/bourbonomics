@@ -537,6 +537,9 @@ export function validateMakeBourbon(
   }
   const totals = emptyTotals();
   for (const card of existingBarrel.productionCards) tallyCard(totals, card);
+  // v3.6 Cooperage — a cask refunded earlier this round is no longer in
+  // the production pile but still counts toward the cask source.
+  totals.caskSources += existingBarrel.refundedCaskCount;
   const banRye = player.distillery?.bonus === "wheated_baron";
   for (const id of action.cardIds) {
     const card = cardById.get(id);
@@ -733,9 +736,33 @@ export function applyMakeBourbon(
     drawIntoHandMake(draft, player, 1);
   }
 
+  // v3.6 Cooperage — the first cask card committed each round is
+  // returned to the owner's hand instead of being locked with the
+  // barrel. The barrel remembers the refund via `refundedCaskCount` so
+  // the completion check below still counts the cask source. Only a
+  // real cask card (resource that supplies cask) qualifies — paper
+  // contracts like Cooper's Contract are not "cask cards".
+  if (hasInvestment(player, "cooperage")) {
+    const refundIdx = barrel.productionCards.findIndex(
+      (c) =>
+        newCardIds.has(c.id) &&
+        c.type === "resource" &&
+        suppliesResource(c, "cask"),
+    );
+    if (refundIdx !== -1 && claimRoundUse(player, "cooperage")) {
+      const refunded = barrel.productionCards[refundIdx]!;
+      barrel.productionCards.splice(refundIdx, 1);
+      barrel.productionCardDefIds.splice(refundIdx, 1);
+      player.hand.push(refunded);
+      barrel.refundedCaskCount += 1;
+    }
+  }
+
   // Completion check.
   const totals = emptyTotals();
   for (const card of barrel.productionCards) tallyCard(totals, card);
+  // v3.6 Cooperage — refunded casks left the pile but still count.
+  totals.caskSources += barrel.refundedCaskCount;
   // Re-apply the Wild Mash swap into the completion-check totals so
   // the role attribution matches the validator. The swap card lives
   // in the production pile under its original subtype; here we peel

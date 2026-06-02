@@ -111,8 +111,8 @@ export function endPlayerTurn(draft: Draft<GameState>, playerId: string): void {
   // cards. Operations cards live in `operationsHand` and aren't
   // touched. v3.5: the free Save Slot is gone — the Warehouse
   // investment card carries one card across this boundary instead
-  // (and effects are `implemented: false`, so even the Warehouse
-  // path doesn't fire here yet; see v3.6 wave).
+  // (the stored card lives in `warehouseSlot`, not `hand`, so it
+  // survives this discard).
   if (player.hand.length > 0) {
     player.discard.push(...player.hand);
     player.hand = [];
