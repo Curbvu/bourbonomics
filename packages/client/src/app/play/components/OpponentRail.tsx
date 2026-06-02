@@ -115,20 +115,49 @@ function OpponentCard({
     <div
       data-bb-zone="opponent-rickhouse"
       data-opponent-tile={player.id}
-      // Pile/hand counts live on the tile-level tooltip instead of a
-      // visible counter row — the row was eating ~26px of column height
-      // for read-only chrome. Inner elements with their own `title`
-      // (slot cells, prestige badge) keep their tooltips because the
-      // browser uses the deepest matching `title` on hover.
-      title={`${player.name} · ✋ ${player.hand.length} hand · ▤ ${player.deck.length} deck · ↻ ${player.discard.length} disc · 🛢 ${player.barrelsSold} sold`}
+      // Whole tile is the click target — clicking anywhere on a
+      // rival's card opens / toggles the rival-distillery overlay.
+      // Inner elements with their own `title` (slot cells, prestige
+      // badge) keep their tooltips because the browser uses the
+      // deepest matching `title` on hover. Keyboard support via Enter
+      // / Space mirrors the implicit button affordance.
+      role={canInspect ? "button" : undefined}
+      tabIndex={canInspect ? 0 : undefined}
+      aria-pressed={canInspect ? isViewing : undefined}
+      onClick={canInspect ? openRival : undefined}
+      onKeyDown={
+        canInspect
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openRival();
+              }
+            }
+          : undefined
+      }
+      title={
+        canInspect
+          ? isViewing
+            ? `Close ${player.name}'s distillery view (Esc)`
+            : `View ${player.distillery!.name} — click to swap stage view`
+          : `${player.name} · ✋ ${player.hand.length} hand · ▤ ${player.deck.length} deck · ↻ ${player.discard.length} disc · 🛢 ${player.barrelsSold} sold`
+      }
       className={[
-        "flex flex-col gap-2 rounded-[9px] border bg-[linear-gradient(180deg,rgba(34,23,16,.65),rgba(20,14,8,.65))] p-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-colors",
+        "group/inspect flex flex-col gap-2 rounded-[9px] border bg-[linear-gradient(180deg,rgba(34,23,16,.65),rgba(20,14,8,.65))] p-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400",
+        canInspect ? "cursor-pointer hover:bg-amber-950/25" : "",
         // v3.8: gold halo breathes while this player is on the clock,
         // so the human's eye snaps to whoever's currently acting.
         isOnClock ? "bb-onclock-pulse" : "",
       ].join(" ")}
       style={{
-        borderColor: isOnClock ? "rgba(240,201,112,.55)" : "var(--rule)",
+        borderColor: isViewing
+          ? "rgba(240,201,112,.7)"
+          : isOnClock
+            ? "rgba(240,201,112,.55)"
+            : "var(--rule)",
+        boxShadow: isViewing
+          ? "inset 0 1px 0 rgba(255,255,255,.04), 0 0 0 1px rgba(240,201,112,.5), 0 8px 22px rgba(240,201,112,.18)"
+          : undefined,
       }}
     >
       {/* Identity row */}
@@ -141,28 +170,9 @@ function OpponentCard({
             boxShadow: `0 0 0 1.5px ${ink}88, inset 0 1px 0 rgba(255,255,255,.18)`,
           }}
         />
-        {/* Identity column — clickable to inspect this rival's
-            distillery. The whole name/handle block is the click
-            target (more forgiving than a small button); the rest of
-            the tile keeps its existing tooltips intact. */}
-        <button
-          type="button"
-          onClick={openRival}
-          disabled={!canInspect}
-          aria-pressed={isViewing}
-          title={
-            canInspect
-              ? isViewing
-                ? `Close ${player.name}'s distillery view`
-                : `View ${player.distillery!.name} — ${player.name}'s distillery laid out on your stage`
-              : "No distillery yet"
-          }
-          className={`group/inspect min-w-0 flex-1 cursor-pointer rounded-[6px] border bg-transparent p-0 px-1 py-0.5 text-left transition-colors disabled:cursor-default disabled:hover:border-transparent disabled:hover:bg-transparent ${
-            isViewing
-              ? "border-amber-500/70 bg-amber-950/30"
-              : "border-transparent hover:border-amber-700/50 hover:bg-amber-950/15"
-          }`}
-        >
+        {/* Identity column — no longer a separate button; the whole
+            tile carries the click. */}
+        <div className="min-w-0 flex-1">
           {/* Wrap rather than ellipsis-truncate — at 280px column width
               "VANILLA DIS…" / "CONNOISSEU…" were clipping mid-word.
               Wrapping to two lines is fine; the tile already pads
@@ -201,7 +211,7 @@ function OpponentCard({
               </span>
             ) : null}
           </div>
-        </button>
+        </div>
         <div className="flex items-center gap-2 text-right leading-tight">
           {player.prestige > 0 ? (
             <span
