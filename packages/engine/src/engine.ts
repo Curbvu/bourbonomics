@@ -43,6 +43,19 @@ import {
   applyRaidDefenseDeclare,
   validateRaidDefenseDeclare,
 } from "./actions/raid-defense-declare";
+import {
+  applyWarehouseStore,
+  validateWarehouseStore,
+} from "./actions/warehouse-store";
+import {
+  applyWarehouseRetrieve,
+  validateWarehouseRetrieve,
+} from "./actions/warehouse-retrieve";
+import { applyShiftDemand, validateShiftDemand } from "./actions/shift-demand";
+import {
+  applyResolveInvestmentChoice,
+  validateResolveInvestmentChoice,
+} from "./actions/resolve-investment-choice";
 import { scoreEndGameLines } from "./lines/scoring";
 
 export class IllegalActionError extends Error {
@@ -86,6 +99,18 @@ export function validateAction(state: GameState, action: GameAction): Validation
         return {
           legal: false,
           reason: `${current.id} must place the sold bottle before taking other actions`,
+        };
+      }
+    }
+    // v3.6 — a pending investment choice (Brand Ambassador barrel,
+    // Master Distiller tag, Climate-Controlled / Bonded Warehouse slot)
+    // gates the active player to RESOLVE_INVESTMENT_CHOICE, mirroring
+    // the bottle-placement gate above.
+    if (current && current.pendingInvestmentChoice) {
+      if (action.type !== "RESOLVE_INVESTMENT_CHOICE") {
+        return {
+          legal: false,
+          reason: `${current.id} must resolve a pending investment choice before taking other actions`,
         };
       }
     }
@@ -171,6 +196,14 @@ export function validateAction(state: GameState, action: GameAction): Validation
       return validateDraftSecondPortfolio(state, action);
     case "RAID_DEFENSE_DECLARE":
       return validateRaidDefenseDeclare(state, action);
+    case "WAREHOUSE_STORE":
+      return validateWarehouseStore(state, action);
+    case "WAREHOUSE_RETRIEVE":
+      return validateWarehouseRetrieve(state, action);
+    case "SHIFT_DEMAND":
+      return validateShiftDemand(state, action);
+    case "RESOLVE_INVESTMENT_CHOICE":
+      return validateResolveInvestmentChoice(state, action);
     default:
       return { legal: false, reason: `unhandled action type: ${(action as { type: string }).type}` };
   }
@@ -261,6 +294,18 @@ function dispatch(draft: Draft<GameState>, action: GameAction): void {
       return;
     case "RAID_DEFENSE_DECLARE":
       applyRaidDefenseDeclare(draft, action);
+      return;
+    case "WAREHOUSE_STORE":
+      applyWarehouseStore(draft, action);
+      return;
+    case "WAREHOUSE_RETRIEVE":
+      applyWarehouseRetrieve(draft, action);
+      return;
+    case "SHIFT_DEMAND":
+      applyShiftDemand(draft, action);
+      return;
+    case "RESOLVE_INVESTMENT_CHOICE":
+      applyResolveInvestmentChoice(draft, action);
       return;
     default:
       throw new IllegalActionError(`unhandled action type: ${(action as { type: string }).type}`, action);

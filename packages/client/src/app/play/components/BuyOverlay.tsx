@@ -156,6 +156,7 @@ export default function BuyOverlay() {
           surface as a visual clip during dev (drives a tightening
           pass) rather than a silent UX violation in prod. */}
       <div
+        data-buy-overlay
         className="relative flex w-full flex-col gap-4 overflow-hidden rounded-xl border-[3px] border-amber-300 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 p-5"
         style={{
           boxShadow:

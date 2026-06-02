@@ -174,16 +174,20 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "lesson-2-intro",
     kind: "prompt",
     title: "Buy a resource",
-    body: "The market has **Specialty Wheat** today — a premium grain that counts toward any 'specialty wheat' recipe gate. You'll always need fresh resources to keep making bourbon.",
+    body: "The market has **Superior Wheat** today — a premium *specialty* wheat that counts toward any 'specialty wheat' recipe gate. You'll always need fresh resources to keep making bourbon.",
     spotlight: { kind: "none" },
     chapter: { number: 2, label: "Buy" },
   },
   {
     id: "beat-buy-wheat",
     kind: "await-action",
-    title: "Buy Specialty Wheat",
-    body: "Click **Specialty Wheat**, then tag any **Labor card** (🔨) from your hand to pay the $2 cost.",
+    title: "Buy Superior Wheat",
+    body: "Click **Superior Wheat**, then tag **both Labor cards** (🔨) from your hand to cover the $2 cost and Confirm Purchase.",
     spotlight: { kind: "market-slot", slotIndex: 0 },
+    // Once the purchase panel opens, move the halo onto it — otherwise
+    // the ring stays stuck on the conveyor tile now hidden behind the
+    // modal, and the screen the player actually acts on goes un-lit.
+    postEngageSpotlight: { kind: "buy-overlay" },
     tapHint: { selector: "[data-market-slot-index='0']" },
     // Narrow the hand to Labor cards so a stray click on a resource
     // can't tag it as payment (engine would reject the eventual
@@ -201,7 +205,7 @@ export const TUTORIAL_BEATS: Beat[] = [
     id: "beat-buy-aftermath",
     kind: "prompt",
     title: "Wheat in your hand",
-    body: "Specialty Wheat is in your hand — ready to use this turn. (Unused cards in hand get discarded at End Turn — if you want to carry a single card across rounds, the **Warehouse** investment card in the market gives you a private 1-card slot that persists.)",
+    body: "Superior Wheat is in your hand — ready to use this turn. (Unused cards in hand get discarded at End Turn — if you want to carry a single card across rounds, the **Warehouse** investment card in the market gives you a private 1-card slot that persists.)",
     spotlight: { kind: "none" },
   },
 

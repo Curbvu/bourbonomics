@@ -13,6 +13,8 @@ import { getPortfolio } from "../lines/boards";
 import {
   canPlaceInPortfolioSlot,
 } from "../lines/placement";
+import { hasInvestment } from "../investments";
+import { drawWithReshuffle } from "../deck";
 
 type PlaceBottleAction = Extract<GameAction, { type: "PLACE_BOTTLE" }>;
 
@@ -155,6 +157,22 @@ export function applyPlaceBottle(
   const player = draft.players.find((p) => p.id === action.playerId)!;
   const pending = player.pendingBottlePlacement!;
   const bottle = pending.bottle as Bottle;
+
+  // v3.6 Tasting Notes — reward portfolio placement over stashing in
+  // inventory: draw 2 on a flagship/second placement, 1 on inventory.
+  if (hasInvestment(player, "tasting_notes")) {
+    const n = action.destination.kind === "inventory" ? 1 : 2;
+    const r = drawWithReshuffle(
+      player.deck.slice(),
+      player.discard.slice(),
+      n,
+      draft.rngState,
+    );
+    player.hand.push(...r.drawn);
+    player.deck = r.deck;
+    player.discard = r.discard;
+    draft.rngState = r.rngState;
+  }
 
   switch (action.destination.kind) {
     case "inventory":

@@ -18,6 +18,15 @@ import {
   createBottleFromSale,
   mintBottleId,
 } from "../lines/placement";
+import {
+  claimRoundUse,
+  effectiveSaleDemand,
+  hasInvestment,
+} from "../investments";
+
+const isHeritageCard = (c: Card): boolean => c.cardDefId.startsWith("heritage_");
+const isCaskCard = (c: Card): boolean => c.subtype === "cask";
+const isSpecialtyOrHeritage = (c: Card): boolean => c.specialty === true;
 
 type SellBourbonAction = Extract<GameAction, { type: "SELL_BOURBON" }>;
 
@@ -112,12 +121,24 @@ export function applySellBourbon(
   // still applies, so the sale always clears its baseline. Award
   // checks (Gold / Silver) read the *unmodified* demand to keep the
   // counterfeit purely an *economic* penalty, not a prestige one.
-  const gridDemand = Math.max(0, draft.demand - player.nextSaleDemandPenalty);
+  // v3.6 Distillery Tour Program — the owner reads demand as ≥4 for
+  // their own grid lookups (applied on top of the Counterfeit penalty).
+  const gridDemand = effectiveSaleDemand(
+    player,
+    Math.max(0, draft.demand - player.nextSaleDemandPenalty),
+  );
   // Collect themed-card sale signals BEFORE any mutation so the
   // computed reward + bonus rep + return-to-hand list match what
   // validation accepted.
   const signals = collectSaleSignals(barrel, { demand: gridDemand });
-  const reward = computeSaleGridReward(attached, barrel, gridDemand, signals);
+  const rawReward = computeSaleGridReward(attached, barrel, gridDemand, signals);
+  // v3.6 Vintage Reserve — barrels aged 7+ triple their grid value
+  // BEFORE the tier-floor clamp (high-grid bills benefit; low-grid
+  // still floor).
+  const reward =
+    hasInvestment(player, "vintage_reserve") && barrel.age >= 7
+      ? rawReward * 3
+      : rawReward;
 
   // single-step sale. Sum everything that adds
   // rep at sale — grid reward, themed-card per-card bonuses, Rating
@@ -155,6 +176,51 @@ export function applySellBourbon(
   // v3.3 — Sale credits Capital (the in-game spendable currency).
   // Banked Capital still counts 1:1 toward final score at game end.
   player.capital += total;
+
+  // ── v3.6 on-sell investment Capital adders ──────────────────────
+  // These pay flat Capital on top of the grid total (never below the
+  // tier floor — they're additive). Read the *shared* demand track
+  // for Hedge Fund (not the personal grid-floored value).
+  let investmentCapital = 0;
+  if (hasInvestment(player, "tasting_room") && barrel.age >= 5) {
+    investmentCapital += 1;
+  }
+  if (hasInvestment(player, "visitor_center")) {
+    const awardEligible =
+      attached.tags.includes("gold-eligible") ||
+      attached.tags.includes("silver-eligible");
+    investmentCapital += awardEligible ? 2 : 1;
+  }
+  let hedgeFundSkipsDrop = false;
+  if (hasInvestment(player, "hedge_fund") && draft.demand >= 8) {
+    investmentCapital += 3;
+    hedgeFundSkipsDrop = true;
+  }
+  if (hasInvestment(player, "bottling_plant")) {
+    investmentCapital += 1;
+  }
+  if (
+    hasInvestment(player, "premium_label") &&
+    [...barrel.productionCards, ...barrel.agingCards].filter(
+      isSpecialtyOrHeritage,
+    ).length >= 2
+  ) {
+    investmentCapital += 3;
+  }
+  player.capital += investmentCapital;
+  // Bottling Plant also draws 1 on every sale (no round cap).
+  if (hasInvestment(player, "bottling_plant")) {
+    const r = drawWithReshuffle(
+      player.deck.slice(),
+      player.discard.slice(),
+      1,
+      draft.rngState,
+    );
+    player.hand.push(...r.drawn);
+    player.deck = r.deck;
+    player.discard = r.discard;
+    draft.rngState = r.rngState;
+  }
   // Consume the boost — one-shot per sale.
   if (ratingBoost > 0) player.pendingRatingBoost = 0;
   // v3.6 — Counterfeit Bottles penalty clears after a single sale,
@@ -195,8 +261,27 @@ export function applySellBourbon(
   // the player's `opsDiscard` so they don't pollute the resource
   // deck; everything else hits the regular discard pile.
   const allBarrelCards: Card[] = [...barrel.productionCards, ...barrel.agingCards];
+  // ── v3.6 investment-driven card returns ─────────────────────────
+  // Build the set of card ids that bounce back to hand on this sale,
+  // unioning the themed-card signals with the investment returns:
+  //   - Heritage Cooperage: all Heritage cards (if ≥1 was used).
+  //   - Bottling Line: the barrel's cask card(s), first sale each round.
+  //   - Bonded Warehouse: all aging cards from a designated bonded slot.
+  const returnIds = new Set<string>(signals.returnsToHand);
+  if (hasInvestment(player, "heritage_cooperage")) {
+    for (const c of allBarrelCards.filter(isHeritageCard)) returnIds.add(c.id);
+  }
+  if (hasInvestment(player, "bottling_line")) {
+    const caskCards = allBarrelCards.filter(isCaskCard);
+    if (caskCards.length > 0 && claimRoundUse(player, "bottling_line")) {
+      for (const c of caskCards) returnIds.add(c.id);
+    }
+  }
+  if (player.bondedSlotIds.includes(barrel.slotId)) {
+    for (const c of barrel.agingCards) returnIds.add(c.id);
+  }
   for (const c of allBarrelCards) {
-    if (signals.returnsToHand.has(c.id)) {
+    if (returnIds.has(c.id)) {
       player.hand.push(c);
       continue;
     }
@@ -238,6 +323,11 @@ export function applySellBourbon(
   }
 
   player.barrelsSold += 1;
+  // v3.6 Bourbon Hall of Fame — track distinct bills sold for the
+  // end-game Reputation award (read at scoring, capped there).
+  if (!player.soldBillDefIds.includes(attached.defId)) {
+    player.soldBillDefIds.push(attached.defId);
+  }
 
   // Demand drops by 1 unless Demand Surge absorbs it or a sale-
   // effect (Heirloom Wheat's `skip_demand_drop`) cancels the drop.
@@ -245,6 +335,8 @@ export function applySellBourbon(
     player.demandSurgeActive = false;
   } else if (signals.skipDemandDrop) {
     // No-op — drop cancelled.
+  } else if (hedgeFundSkipsDrop) {
+    // v3.6 Hedge Fund — hot-market sales don't tank demand.
   } else if (draft.demand > 0) {
     draft.demand -= 1;
   }

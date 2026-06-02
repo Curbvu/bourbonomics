@@ -4,11 +4,10 @@ import type {
   PortfolioState,
 } from "../types";
 import { getPortfolio } from "./boards";
-
-// v3.2 — inventory scores zero per the spec. The +1/bottle baseline
-// from v3.1 is removed.
-const SECOND_PORTFOLIO_FAILURE_PER_SLOT = -2;
-const SECOND_PORTFOLIO_FAILURE_CAP = -10;
+import {
+  bourbonHallOfFameBonus,
+  secondPortfolioPenalty,
+} from "../investments";
 
 /**
  * v3.2 — end-game score for one Brand Portfolio.
@@ -113,6 +112,10 @@ export function scorePortfolio(
  * required slot, capped at −10. Only applies if the player drafted
  * a second portfolio AND did not reach Completion on it. Flagship
  * has no failure penalty.
+ *
+ * v3.6 Estate Bottling halves the bite: −1 per unfilled slot, cap −5.
+ * The `secondPortfolioPenalty` helper returns a positive magnitude
+ * (Estate-aware); we negate it here.
  */
 function secondPortfolioFailurePenalty(
   player: PlayerState,
@@ -128,8 +131,7 @@ function secondPortfolioFailurePenalty(
   const unfilledRequired = portfolio.slots
     .filter((s) => s.required)
     .filter((s) => !player.secondPortfolio!.slots[s.index]!.filled).length;
-  const raw = unfilledRequired * SECOND_PORTFOLIO_FAILURE_PER_SLOT;
-  return Math.max(raw, SECOND_PORTFOLIO_FAILURE_CAP);
+  return -secondPortfolioPenalty(player, unfilledRequired);
 }
 
 /**
@@ -170,10 +172,14 @@ export function scoreEndGameLines(player: PlayerState): {
   }
 
   const inventoryScore = scoreInventory(player);
+  // v3.6 Bourbon Hall of Fame — +1 Reputation per distinct bill sold,
+  // cap +6. Folded into the player's portfolio total.
+  const hallOfFameBonus = bourbonHallOfFameBonus(player);
   const total =
     flagshipScore +
     secondaryScores.reduce((a, b) => a + b, 0) +
-    inventoryScore;
+    inventoryScore +
+    hallOfFameBonus;
   return { flagshipScore, secondaryScores, inventoryScore, total };
 }
 

@@ -8,6 +8,7 @@ export * from "./operations";
 export * from "./rewards";
 export * from "./drafting";
 export * from "./state";
+export * from "./investments";
 export * from "./card-effects";
 export * from "./starter-pool";
 export * from "./initialize";

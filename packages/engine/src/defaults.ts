@@ -74,12 +74,12 @@ export function buildStarterMashBill(key: StarterBillKey, instance: number): Mas
 // fermenters, warehouses, cooperages, climate control, bottling
 // lines, visitor centers, sales offices, marketing departments.
 //
-// All entries are `implemented: false` for v3.5. They appear in the
-// market and the Card Inspect modal but the engine does not yet
-// resolve their effects — the v3.6 wave wires effect resolution
-// per category (on_sell bonuses, on_make refunds, on_buy_market
-// discounts, passive_permanent flags, …). The ONLY on-buy effect
-// that fires today is the Warehouse unlock (see buy-from-market.ts).
+// v3.6 wires effect resolution per category (on_sell bonuses, on_make
+// refunds, on_buy_market discounts, passive_permanent flags, on-purchase
+// choices). 28 of the 33 cards are now `implemented: true`. Five remain
+// `implemented: false` pending follow-up design — field_office,
+// marketing_department, sales_office, cooperage, column_still — and
+// appear in the market / Card Inspect modal as dormant placeholders.
 //
 // Source of truth: `packages/engine/content/investments.yaml`. Keep
 // the YAML and this catalog in sync by hand until a build script lands.
@@ -101,7 +101,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       text: "When you sell a barrel aged 5 or older, gain +1 Capital.",
       description:
         "Reliable small bonus for patient cellar play. Pairs with Vintage Reserve and Tasting Notes. Repriced from the v3.4 catalog (3→4) and per-sale value (2→1).",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "grain_contract",
@@ -117,7 +117,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       text: "The first time each round you commit any grain card to a barrel, draw 1 card.",
       description:
         "Deck-cycling engine for production-heavy players. Once per round, your first grain commitment pays you back a card — slightly offsetting the holding cost of running multiple barrels in parallel.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "tasting_notes",
@@ -132,7 +132,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       text: "When you sell a barrel AND place the resulting bottle on a portfolio slot, draw 2 cards. If the bottle goes to inventory instead, draw 1 card.",
       description:
         "Pushes against the 'stash everything in inventory' pattern. Direct portfolio interaction — the only Small-tier card that touches the v3.2 portfolio system.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "field_office",
@@ -163,7 +163,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "On purchase, gain a private Warehouse slot. At any time during your turn, you may set aside one card from your hand into your Warehouse. The Warehouse holds at most one card. The stored card persists across rounds and is not discarded at End Turn. On any future turn, you may move the Warehouse card back into your hand as a free action.",
       description:
         "The only persistent-card-storage option in v3.5 — the free Save Slot is gone. Every player will want one. The Warehouse unlock fires immediately on buy (see PlayerState.warehouseUnlocked); the in/out flow lands with the v3.6 effect wave.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "visitor_center",
@@ -179,7 +179,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "When you sell a barrel, gain +1 Capital. If the barrel's source bill carries the `gold-eligible` or `silver-eligible` tag, gain +2 Capital instead.",
       description:
         "Tag-aware (v3.4). Bourbon tourism is real revenue. Pays on every sale regardless of age; bigger payoff on award-eligible bills.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "rail_spur",
@@ -195,7 +195,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       text: "The first market purchase you make each round costs 1 less Capital (floor 1).",
       description:
         "Persistent buy discount. Works on any market card.",
-      implemented: false,
+      implemented: true,
     },
     {
       // v3.6 — first investment with a live effect. Adds +1 per copy
@@ -231,7 +231,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       text: "At the start of your turn, after rolling demand but before paying aging costs, draw 1 card. Once per round.",
       description:
         "Repurposed in v3.5 from a broken 'skip aging' design. Aging cards ARE age (v3.5 invariant), so no card can advance age without committing one. Cellar Foreman now pays a small draw instead — helps cover aging commits.",
-      implemented: false,
+      implemented: true,
     },
 
     // ─────────────── Medium (cost 5–8) ───────────────
@@ -265,7 +265,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       text: "At the start of your turn, after rolling demand, you may shift demand by ±1 (your choice). Once per round.",
       description:
         "Direct demand control. Asymmetric — only the owner gets the nudge.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "distillery_tour_program",
@@ -281,7 +281,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "For all of your own bourbon sales and grid lookups, treat current demand as 4 if it would otherwise be lower. Other players' sales and demand interactions are unaffected.",
       description:
         "Asymmetric, single-player benefit. Doesn't modify the shared demand track. Repurposed in v3.5 from a clunkier draft.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "hedge_fund",
@@ -296,7 +296,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       text: "When you sell at demand 8 or higher, gain +3 Capital. Demand does not drop from your sale.",
       description:
         "A boom-time amplifier. Sells into hot markets are already the best sales — Hedge Fund makes them dramatically better, and prevents the usual 'selling tanks demand' feedback loop. Useless if you sell into low markets.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "rd_department",
@@ -312,7 +312,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "When you buy a Specialty or Heritage card from the market, that card costs 1 less Capital (floor 1).",
       description:
         "v3.5 simplification — the old 'plus to hand' clause is redundant now that all market purchases route to hand by default. Only the Capital discount remains.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "master_blender",
@@ -328,7 +328,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "When you complete a recipe with committed corn count ≤ 2 or ≥ 5, gain +2 Capital and +1 Reputation. The +1 Reputation banks immediately and is not subject to portfolio scoring.",
       description:
         "One of two cards in the catalog that pays Reputation directly (the other is the endgame trio). Plays into the corn-extreme tags (`corn-light` / `corn-heavy`).",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "estate_bottling",
@@ -344,7 +344,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "On purchase: the next time you take the Draft Second Portfolio action, it costs 0 Generic Labor instead of 1. For the rest of the game, your second portfolio's failure penalty is reduced to 1 Reputation per unfilled required slot (cap −5 instead of −10).",
       description:
         "Dedicated second-portfolio enabler. Mandatory for Vanilla's flagship Mastery, which requires a second portfolio. The free draft is a one-shot; the reduced penalty is permanent.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "heritage_cooperage",
@@ -360,7 +360,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "When you sell a barrel whose completed recipe used at least one Heritage card, return all Heritage cards from that barrel to your hand instead of to discard.",
       description:
         "Heritage recycling. Renamed from 'Heritage Cellars' in v3.5 for thematic accuracy — a cooperage builds casks, which is where the Heritage component lives.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "bottling_line",
@@ -377,7 +377,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "The first time each round you sell a barrel, return the cask card from that barrel to your hand instead of your discard.",
       description:
         "Cask-recycling engine. Pairs with Cooperage (which refunds the first cask commit each round) for tight cask economy.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "yeast_lab",
@@ -394,7 +394,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "The first time each round you complete a recipe (the barrel transitions from Building to Aging), draw 2 cards.",
       description:
         "Pays the completion moment, not the commit moment — rewards finishing recipes rather than starting them.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "bottling_plant",
@@ -409,7 +409,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       text: "When you sell a barrel, draw 1 card and gain +1 Capital. No round limit.",
       description:
         "Steady sales engine — pays per barrel, every barrel, no gates. The volume-archetype workhorse at this price point.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "sales_office",
@@ -442,7 +442,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       text: "At the start of your turn, after rolling demand but before paying aging costs, draw 2 cards. Once per round.",
       description:
         "Repurposed in v3.5 from a broken 'skip aging' design — under the v3.5 invariant, aging cards ARE age. Rickhouse Office now buys you the cards to pay the cost, two at a time. Steeper price than Cellar Foreman; doubled draw.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "cooperage",
@@ -475,7 +475,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "On purchase, designate one of your slots as 'climate-controlled.' Barrels in this slot are immune to ops cards that target aging negatively (Regulatory Inspection, Forced Cure, others). Other players cannot interfere with this slot's aging.",
       description:
         "Real-world AC warehouses are a controversial industry move — they produce more consistent but arguably less complex bourbon. In game terms: defensive immunity.",
-      implemented: false,
+      implemented: true,
     },
 
     // ─────────────── Large (cost 9–15) ───────────────
@@ -493,7 +493,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "On purchase, choose one of your aging barrels. For the rest of the game, that specific barrel reads its grid as if demand were +2 when sold.",
       description:
         "Strong pick for patient players who plan to age a single high-value barrel for many rounds.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "premium_label",
@@ -509,7 +509,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "When you sell a barrel containing 2 or more Specialty or Heritage cards, gain +3 Capital.",
       description:
         "Rewards specialty-heavy production lines. Stacks per sale.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "aging_warehouse",
@@ -525,7 +525,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "Permanently +1 rickhouse slot (max 6, stacks with Rickhouse Expansion Permit and similar effects).",
       description:
         "Renamed from 'Land Acquisition' in v3.5 for thematic accuracy — actual physical warehouses, not real estate plays.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "bonded_warehouse",
@@ -541,7 +541,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "On purchase, designate one of your slots as 'bonded.' When a barrel in the bonded slot sells, all aging cards committed to it return to your hand instead of going to discard.",
       description:
         "Repurposed in v3.5 from a broken 'auto-age' draft. Now an aging-card recycler — every long-hold barrel in the bonded slot pays back its aging cost on sale.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "vintage_reserve",
@@ -557,7 +557,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "When you sell a barrel age 7 or older, triple the grid value of that sale (applied before tier-floor clamping).",
       description:
         "Late-game patience payoff. The grid value gets tripled BEFORE the tier floor clamps, so high-grid bills benefit; low-grid bills still floor.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "bourbon_hall_of_fame",
@@ -573,7 +573,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "At the end of the game, gain +1 Reputation per distinct mash bill name you sold during the game (cap +6 Reputation).",
       description:
         "End-game scoring card. Rewards diversification across distinct bills rather than repetition of one bill.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "master_distiller",
@@ -589,7 +589,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "On purchase, choose any one tag from: `wheated`, `rye-heavy`, `single-grain`, `triple-grain`. For the rest of the game, every barrel you complete is treated as if its source bill carried that tag for slot eligibility, Brand Restriction, and Mastery Condition purposes.",
       description:
         "Tag-expansion engine (v3.4). Lets a high-rye player pretend to be wheated for slot purposes, etc. The chosen tag is locked at purchase.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "column_still",
@@ -621,7 +621,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "All of your rickhouse slots are treated as climate-controlled — barrels in any of your slots are immune to ops cards that target aging negatively (Regulatory Inspection, Forced Cure, others).",
       description:
         "All-slots scaled version of Climate-Controlled Warehouse. Defensive blockbuster.",
-      implemented: false,
+      implemented: true,
     },
   ];
   return specs.map((s, i) => ({ ...s, id: `inv_${s.defId}_${i}` }));

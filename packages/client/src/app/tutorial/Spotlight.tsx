@@ -66,6 +66,12 @@ export function findSpotlightElement(target: SpotlightTarget): Element | null {
         document.querySelector('[data-bb-action="buy"]')
       );
     }
+    case "buy-overlay":
+      // The purchase panel that overlays the distillery stage once a
+      // market card is picked. Anchored so the tutorial halo follows
+      // the player into the modal instead of leaving the ring stuck on
+      // the (now-covered) conveyor tile behind it.
+      return document.querySelector("[data-buy-overlay]");
     case "market-row":
       // v3 layout: anchor to the conveyor inside the drawer when open,
       // otherwise to the BUY MARKET button (telling the player "tap

@@ -63,6 +63,11 @@ export function validateDraftSecondPortfolio(
       reason: `portfolio ${action.portfolioId} is not in the catalog`,
     };
   }
+  // v3.6 Estate Bottling — a queued free draft waives the 1 Generic
+  // Labor cost for this one draft.
+  if (player.estateBottlingFreeDraftPending) {
+    return { legal: true };
+  }
   // Must have a free Generic Labor in hand.
   const labor = findGenericLabor(player.hand, action.laborCardId);
   if (!labor) {
@@ -80,11 +85,17 @@ export function applyDraftSecondPortfolio(
 ): void {
   const player = draft.players.find((p) => p.id === action.playerId)!;
 
-  // Spend the worker.
-  const laborIdx = player.hand.findIndex((c) => c.id === action.laborCardId);
-  if (laborIdx < 0) return;
-  const [labor] = player.hand.splice(laborIdx, 1);
-  if (labor) player.discard.push(labor);
+  // v3.6 Estate Bottling — consume the free-draft token instead of a
+  // Generic Labor card.
+  if (player.estateBottlingFreeDraftPending) {
+    player.estateBottlingFreeDraftPending = false;
+  } else {
+    // Spend the worker.
+    const laborIdx = player.hand.findIndex((c) => c.id === action.laborCardId);
+    if (laborIdx < 0) return;
+    const [labor] = player.hand.splice(laborIdx, 1);
+    if (labor) player.discard.push(labor);
+  }
 
   // Take the portfolio out of the face-up pool.
   const poolIdx = draft.secondPortfolioDraftPool.indexOf(action.portfolioId);

@@ -195,8 +195,10 @@ export function runCleanupPhase(draft: Draft<GameState>): void {
       p.firstSaleOfRoundPending = true;
     }
     // v3.5: warehouseSlot intentionally NOT cleared — the
-    // Warehouse investment carries one card across rounds. Effects
-    // are `implemented: false` in v3.5 so this is dormant storage.
+    // Warehouse investment carries one card across rounds.
+    // v3.6: reset once-per-round investment effect uses (Grain
+    // Contract, Cooperage, Bottling Line, Yeast Lab, Rail Spur).
+    p.investmentRoundUses = [];
   }
 
   for (const b of draft.allBarrels) {

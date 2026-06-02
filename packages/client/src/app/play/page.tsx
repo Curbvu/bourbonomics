@@ -18,6 +18,7 @@ import GameErrorBoundary from "./components/ErrorBoundary";
 import GameTopBar from "./components/GameTopBar";
 import GameSetupMenu from "./components/GameSetupMenu";
 import BottlePlacementModal from "./components/BottlePlacementModal";
+import InvestmentChoiceModal from "./components/InvestmentChoiceModal";
 import ScalingHost from "./components/ScalingHost";
 import StarterDeckDraftModal from "./components/StarterDeckDraftModal";
 import YearPassModal from "./components/YearPassModal";
@@ -89,6 +90,12 @@ export default function PlayPage() {
       {/* v3.2 — BottlePlacementModal self-gates on the local human's
           pendingBottlePlacement. The Line Card subsystem is removed. */}
       <BottlePlacementModal />
+      {/* v3.6 — on-purchase investment choice picker. Self-gates on the
+          local human's pendingInvestmentChoice (Brand Ambassador /
+          Master Distiller / Climate-Controlled / Bonded Warehouse). The
+          engine gates the turn to RESOLVE_INVESTMENT_CHOICE until it
+          clears, so the human must not be left without a picker. */}
+      <InvestmentChoiceModal />
       {/* v3.2 Brand Portfolio drawer — self-gates on portfolioDrawerOpen.
           Page-root mount so its full-viewport backdrop covers the
           entire screen. */}

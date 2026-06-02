@@ -1,13 +1,52 @@
+import type { Card, GameAction, GameState, PlayerState, ValidationResult } from "../types";
 import type { Draft } from "immer";
-import type { Card, GameAction, GameState, ValidationResult } from "../types";
 import { laborContribution } from "../types";
 import { applySpendEffect } from "../card-effects";
 import { drawWithReshuffle } from "../deck";
 import { isCurrentPlayer } from "../state";
+import {
+  claimRoundUse,
+  hasInvestment,
+  investmentUsedThisRound,
+} from "../investments";
 
 type BuyFromMarketAction = Extract<GameAction, { type: "BUY_FROM_MARKET" }>;
 
 const MARKET_SIZE = 10;
+
+/**
+ * v3.6 — total investment discount on a market purchase. Rail Spur
+ * shaves 1 off the first market buy each round (any card); R&D
+ * Department shaves 1 off Specialty / Heritage resource cards. Both
+ * stack, then the caller floors the final cost at 1.
+ */
+function investmentDiscount(
+  player: Pick<PlayerState, "investments" | "investmentRoundUses">,
+  purchased: Card,
+): number {
+  let d = 0;
+  if (
+    hasInvestment(player, "rail_spur") &&
+    !investmentUsedThisRound(player, "rail_spur")
+  ) {
+    d += 1;
+  }
+  if (hasInvestment(player, "rd_department") && purchased.specialty === true) {
+    d += 1;
+  }
+  return d;
+}
+
+function effectiveCost(
+  player: Pick<PlayerState, "investments" | "investmentRoundUses" | "pendingHalfCostMarketBuy">,
+  purchased: Card,
+): number {
+  const printedCost = purchased.cost ?? 1;
+  const base = player.pendingHalfCostMarketBuy
+    ? Math.max(1, Math.ceil(printedCost / 2))
+    : printedCost;
+  return Math.max(1, base - investmentDiscount(player, purchased));
+}
 
 /**
  * BUY_FROM_MARKET handles resource, Labor, and investment cards out of
@@ -57,10 +96,7 @@ export function validateBuyFromMarket(
     };
   }
 
-  const printedCost = purchased.cost ?? 1;
-  const cost = player.pendingHalfCostMarketBuy
-    ? Math.max(1, Math.ceil(printedCost / 2))
-    : printedCost;
+  const cost = effectiveCost(player, purchased);
 
   // Validate rep portion.
   if (!Number.isInteger(action.rep) || action.rep < 0) {
@@ -116,6 +152,16 @@ export function applyBuyFromMarket(
   const player = draft.players.find((p) => p.id === action.playerId)!;
   const purchased = draft.market[action.marketSlotIndex]!;
 
+  // v3.6 Rail Spur — consume the first-market-buy-of-round discount.
+  // The first purchase consumes it whether or not the player needed
+  // the cut (matches "the first market purchase you make each round").
+  if (
+    hasInvestment(player, "rail_spur") &&
+    !investmentUsedThisRound(player, "rail_spur")
+  ) {
+    claimRoundUse(player, "rail_spur");
+  }
+
   // Remove the purchased card from the market.
   draft.market.splice(action.marketSlotIndex, 1);
 
@@ -152,16 +198,12 @@ export function applyBuyFromMarket(
   //     "in hand" (and could be saved to Warehouse, traded, etc.),
   //     none of which makes sense for an investment.
   if (purchased.type === "investment" && purchased.investmentSpec) {
+    const ownedId = `inv_owned_${purchased.investmentSpec.defId}_${draft.idCounter++}`;
     player.investments.push({
       ...purchased.investmentSpec,
-      id: `inv_owned_${purchased.investmentSpec.defId}_${draft.idCounter++}`,
+      id: ownedId,
     });
-    // Side-effect: if this investment is the Warehouse, engage the
-    // player's warehouse slot. Effects are `implemented: false` in
-    // v3.5, so this flag is the *only* on-buy side effect today.
-    if (purchased.investmentSpec.defId === "warehouse") {
-      player.warehouseUnlocked = true;
-    }
+    applyOnPurchaseEffect(draft, player, purchased.investmentSpec.defId, ownedId);
   } else {
     player.hand.push(purchased);
   }
@@ -188,4 +230,54 @@ export function applyBuyFromMarket(
     draft.rngState = result.rngState;
   }
   // Buying does NOT end the player's turn.
+}
+
+const MAX_RICKHOUSE_SLOTS = 6;
+
+/**
+ * v3.6 — resolve an investment's on-purchase effect the moment it
+ * lands in `player.investments`. Immediate-effect cards apply here;
+ * choice cards stash a `pendingInvestmentChoice` that gates the player
+ * to RESOLVE_INVESTMENT_CHOICE before any further action.
+ */
+function applyOnPurchaseEffect(
+  draft: Draft<GameState>,
+  player: Draft<PlayerState>,
+  defId: string,
+  ownedId: string,
+): void {
+  switch (defId) {
+    case "warehouse":
+      // Engage the private Warehouse slot (the in/out flow is the
+      // WAREHOUSE_STORE / WAREHOUSE_RETRIEVE actions).
+      player.warehouseUnlocked = true;
+      return;
+    case "aging_warehouse":
+      // Permanent +1 rickhouse slot, capped at 6 total.
+      if (player.rickhouseSlots.length < MAX_RICKHOUSE_SLOTS) {
+        player.rickhouseSlots.push({
+          id: `slot_${player.id}_inv_${draft.idCounter++}`,
+          ownerId: player.id,
+        });
+      }
+      return;
+    case "estate_bottling":
+      // One-shot free second-portfolio draft; the permanent reduced
+      // penalty is derived from ownership at scoring time.
+      player.estateBottlingFreeDraftPending = true;
+      return;
+    case "brand_ambassador":
+    case "master_distiller":
+    case "climate_controlled_warehouse":
+    case "bonded_warehouse":
+      // Require a follow-up player choice (barrel / tag / slot). Gate
+      // the player to RESOLVE_INVESTMENT_CHOICE.
+      player.pendingInvestmentChoice = { defId, investmentId: ownedId };
+      return;
+    default:
+      // distillery_tour_program, climate_controlled_rickhouse,
+      // watchman, and all on_sell / on_make / turn_start / final_scoring
+      // cards have no on-purchase side effect.
+      return;
+  }
 }

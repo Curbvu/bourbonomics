@@ -1,7 +1,9 @@
 import type { Draft } from "immer";
-import type { GameAction, GameState, ValidationResult } from "../types";
+import type { GameAction, GameState, PlayerState, ValidationResult } from "../types";
 import { isCurrentPlayer } from "../state";
 import { hasUnAgedEligibleBarrel } from "./age-bourbon";
+import { hasInvestment } from "../investments";
+import { drawWithReshuffle } from "../deck";
 
 type RollDemandAction = Extract<GameAction, { type: "ROLL_DEMAND" }>;
 
@@ -54,6 +56,17 @@ export function applyRollDemand(
   // Phase stays at "action" — demand no longer owns its own phase.
   const player = draft.players.find((p) => p.id === action.playerId)!;
   player.needsDemandRoll = false;
+
+  // v3.6 turn-start investment draws — fire after the demand roll
+  // clears, before the aging gate arms (matches the card text "after
+  // rolling demand but before paying aging costs"). Each player takes
+  // exactly one action turn per round, so firing here is naturally
+  // once-per-round without a separate flag.
+  let drawn = 0;
+  if (hasInvestment(player, "cellar_foreman")) drawn += 1;
+  if (hasInvestment(player, "rickhouse_office")) drawn += 2;
+  if (drawn > 0) drawIntoHand(draft, player, drawn);
+
   // v2.9 / v3: arm the per-turn aging requirement. The player must
   // commit one card to *every* eligible aging barrel before the rest
   // of the turn opens up — that's the cost of holding inventory while
@@ -64,4 +77,22 @@ export function applyRollDemand(
     draft.round,
     action.playerId,
   );
+}
+
+function drawIntoHand(
+  draft: Draft<GameState>,
+  player: Draft<PlayerState>,
+  n: number,
+): void {
+  if (n <= 0) return;
+  const result = drawWithReshuffle(
+    player.deck.slice(),
+    player.discard.slice(),
+    n,
+    draft.rngState,
+  );
+  player.hand.push(...result.drawn);
+  player.deck = result.deck;
+  player.discard = result.discard;
+  draft.rngState = result.rngState;
 }

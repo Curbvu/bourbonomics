@@ -32,7 +32,7 @@ import type {
   GameState,
   PlayerState,
 } from "@bourbonomics/engine";
-import { validateAction } from "@bourbonomics/engine";
+import { hasInvestment, validateAction } from "@bourbonomics/engine";
 import { useGameStore } from "@/lib/store/game";
 
 export default function ActionBar() {
@@ -68,6 +68,14 @@ export default function ActionBar() {
   const trade = bestTrade(state, human);
   const pass: GameAction = { type: "PASS_TURN", playerId: human.id };
 
+  // v3.6 — investment-gated bar verbs. Only mount when the human owns
+  // the backing investment, so the bar stays clean for everyone else.
+  const ownsTradeLobby = hasInvestment(human, "trade_lobby");
+  const ownsWarehouse = human.warehouseSlot != null;
+  const shiftUp: GameAction = { type: "SHIFT_DEMAND", playerId: human.id, delta: 1 };
+  const shiftDown: GameAction = { type: "SHIFT_DEMAND", playerId: human.id, delta: -1 };
+  const retrieve: GameAction = { type: "WAREHOUSE_RETRIEVE", playerId: human.id };
+
   return (
     <div
       data-bb-zone="action-bar"
@@ -82,6 +90,36 @@ export default function ActionBar() {
         tutorialBlocked={!tutorialAllows("trade")}
         tooltipIdle="Swap your cheapest card with the first available partner's."
       />
+      {ownsTradeLobby ? (
+        <>
+          <SmartButton
+            label="Demand +1"
+            action={shiftUp}
+            state={state}
+            dispatch={dispatch}
+            disabledByTurn={disabledByTurn}
+            tooltipIdle="Trade Lobby — nudge the shared demand track up by one (once per round)."
+          />
+          <SmartButton
+            label="Demand −1"
+            action={shiftDown}
+            state={state}
+            dispatch={dispatch}
+            disabledByTurn={disabledByTurn}
+            tooltipIdle="Trade Lobby — nudge the shared demand track down by one (once per round)."
+          />
+        </>
+      ) : null}
+      {ownsWarehouse ? (
+        <SmartButton
+          label="Unstow"
+          action={retrieve}
+          state={state}
+          dispatch={dispatch}
+          disabledByTurn={disabledByTurn}
+          tooltipIdle="Warehouse — pull your stored card back into hand."
+        />
+      ) : null}
       <SmartButton
         label="End turn ↵"
         action={pass}
