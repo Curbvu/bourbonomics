@@ -18,12 +18,18 @@ import type {
   Card,
   CardEffect,
   Distillery,
+  GameAction,
   InvestmentCard,
   MashBill,
   OperationsCard,
   ResourceSubtype,
 } from "@bourbonomics/engine";
-import { bandIndex, computeRecipeFloors, mashBillBuildCost } from "@bourbonomics/engine";
+import {
+  bandIndex,
+  computeRecipeFloors,
+  mashBillBuildCost,
+  validateAction,
+} from "@bourbonomics/engine";
 import { useGameStore, type InspectPayload } from "@/lib/store/game";
 import {
   LABOR_CHROME,
@@ -299,7 +305,45 @@ function ResourceDetail({ card }: { card: Card }) {
       <UseBox>
         Spend as part of a mash to make a barrel, or pay it as {formatMoney(1)} toward any market purchase.
       </UseBox>
+      <WarehouseStowAction cardId={card.id} />
     </article>
+  );
+}
+
+/**
+ * v3.6 Warehouse — inline "Stow" affordance on the inspect sheet for a
+ * hand card. Self-gates: renders nothing unless the local human owns
+ * the Warehouse investment, the slot is empty, this card is in their
+ * hand, and the store is in a state where WAREHOUSE_STORE is legal
+ * (i.e. it's their action turn). One click stows the card and closes
+ * the inspect modal.
+ */
+function WarehouseStowAction({ cardId }: { cardId: string }) {
+  const { state, humanSeatPlayerId, dispatch, setInspect } = useGameStore();
+  if (!state) return null;
+  const human = humanSeatPlayerId
+    ? state.players.find((p) => p.id === humanSeatPlayerId)
+    : state.players.find((p) => !p.isBot);
+  if (!human) return null;
+  if (!human.warehouseUnlocked || human.warehouseSlot) return null;
+  if (!human.hand.some((c) => c.id === cardId)) return null;
+  const action: GameAction = {
+    type: "WAREHOUSE_STORE",
+    playerId: human.id,
+    cardId,
+  };
+  if (!validateAction(state, action).legal) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        dispatch(action);
+        setInspect(null);
+      }}
+      className="mt-1 self-start rounded-md border border-amber-500/70 bg-amber-900/30 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[.1em] text-amber-100 transition-colors hover:border-amber-400 hover:bg-amber-800/40"
+    >
+      📦 Stow in Warehouse →
+    </button>
   );
 }
 
@@ -367,6 +411,7 @@ function LaborDetail({ card }: { card: Card }) {
           ? `Tag in any purchase to discount the Capital cost by ${contribution}. Generic Labor can also age a barrel — commit it to an aging slot in place of a resource. You only get 3 to start, and the central pile is gone, so spend them carefully.`
           : `Tag in a matching ${domainText.replace(" purchases", "")} purchase to discount the Capital cost by ${contribution}. Contributes 0 on other purchase types. Specialty Labor only enters your deck via the market — guard it.`}
       </UseBox>
+      <WarehouseStowAction cardId={card.id} />
     </article>
   );
 }
@@ -1223,9 +1268,15 @@ function InvestmentDetail({ card }: { card: InvestmentCard }) {
           {card.description}
         </p>
       </div>
-      <p className="font-mono text-[12px] uppercase tracking-[.12em] text-amber-300/80">
-        Preview · investment effects are not yet resolved by the engine.
-      </p>
+      {card.implemented ? (
+        <p className="font-mono text-[12px] uppercase tracking-[.12em] text-emerald-300/90">
+          Live · this investment&apos;s effects resolve in the engine.
+        </p>
+      ) : (
+        <p className="font-mono text-[12px] uppercase tracking-[.12em] text-amber-300/80">
+          Preview · this investment&apos;s effects are not yet resolved by the engine.
+        </p>
+      )}
     </article>
   );
 }

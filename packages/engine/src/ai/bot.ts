@@ -12,6 +12,7 @@ import type {
 import { resourceUnits, suppliesResource } from "../cards";
 import { computeReward } from "../rewards";
 import { emptySlotsFor, getPlayerBarrels, slottedBillCount } from "../state";
+import { MASTER_DISTILLER_TAGS } from "../investments";
 
 // ---------------------------------------------------------------
 // Heuristic bot.
@@ -1869,5 +1870,50 @@ function resolvePendingLineChoice(
       destination: { kind: "inventory" },
     };
   }
+  if (player.pendingInvestmentChoice) {
+    return resolvePendingInvestmentChoice(state, player);
+  }
   return null;
+}
+
+/**
+ * v3.6 — pick a sensible default for an on-purchase investment choice so
+ * a bot never deadlocks on `pendingInvestmentChoice` (the engine gates
+ * the active player to RESOLVE_INVESTMENT_CHOICE until it clears). The
+ * heuristics are deliberately simple; bots rarely buy these cards, so
+ * this is mostly a safety net.
+ */
+function resolvePendingInvestmentChoice(
+  state: GameState,
+  player: PlayerState,
+): GameAction {
+  const playerId = player.id;
+  const pending = player.pendingInvestmentChoice!;
+  switch (pending.defId) {
+    case "brand_ambassador": {
+      // Boost the oldest owned barrel (closest to a profitable sale).
+      const barrels = state.allBarrels
+        .filter((b) => b.ownerId === playerId)
+        .sort((a, b) => b.age - a.age);
+      return {
+        type: "RESOLVE_INVESTMENT_CHOICE",
+        playerId,
+        barrelId: barrels[0]?.id,
+      };
+    }
+    case "master_distiller":
+      return {
+        type: "RESOLVE_INVESTMENT_CHOICE",
+        playerId,
+        tag: MASTER_DISTILLER_TAGS[0],
+      };
+    case "climate_controlled_warehouse":
+    case "bonded_warehouse":
+    default:
+      return {
+        type: "RESOLVE_INVESTMENT_CHOICE",
+        playerId,
+        slotId: player.rickhouseSlots[0]?.id,
+      };
+  }
 }

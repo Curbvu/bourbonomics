@@ -24,13 +24,14 @@
 #   implemented     — true | false. False = wired up but engine does
 #                     not resolve the effect yet.
 #
-# v3.5 catalog: 32 cards · 8 small · 13 medium · 11 large.
+# v3.6 catalog: 33 cards · 9 small · 13 medium · 11 large.
 # Grounded in real-world distillery capital expenditures (stills,
 # mash tuns, warehouses, cooperages, climate control, bottling
 # lines, visitor centers, sales offices, marketing departments).
-# Every entry ships `implemented: false`; the v3.6 wave wires
-# effect resolution. The ONLY on-buy side effect that fires today
-# is the Warehouse unlock (see PlayerState.warehouseUnlocked).
+# v3.6 wires effect resolution: 28 cards are now `implemented: true`.
+# Five remain `implemented: false` pending follow-up design:
+# field_office, marketing_department, sales_office, cooperage,
+# column_still.
 
 cards:
   # ─── Small (cost 3–4) ─────────────────────────────────────────
@@ -48,7 +49,7 @@ cards:
       Reliable small bonus for patient cellar play. Pairs with
       Vintage Reserve and Tasting Notes. Repriced from the v3.4
       catalog (3→4) and per-sale value (2→1).
-    implemented: false
+    implemented: true
 
   - defId: grain_contract
     name: Grain Contract
@@ -66,7 +67,7 @@ cards:
       round, your first grain commitment pays you back a card —
       slightly offsetting the holding cost of running multiple
       barrels in parallel.
-    implemented: false
+    implemented: true
 
   - defId: tasting_notes
     name: Tasting Notes
@@ -85,7 +86,7 @@ cards:
       Pushes against the 'stash everything in inventory' pattern.
       Direct portfolio interaction — the only Small-tier card that
       touches the v3.2 portfolio system.
-    implemented: false
+    implemented: true
 
   - defId: field_office
     name: Field Office
@@ -127,7 +128,7 @@ cards:
       unlock fires immediately on buy (see
       PlayerState.warehouseUnlocked); the in/out flow lands with
       the v3.6 effect wave.
-    implemented: false
+    implemented: true
 
   - defId: visitor_center
     name: Visitor Center
@@ -146,7 +147,7 @@ cards:
       Tag-aware (v3.4). Bourbon tourism is real revenue. Pays on
       every sale regardless of age; bigger payoff on
       award-eligible bills.
-    implemented: false
+    implemented: true
 
   - defId: rail_spur
     name: Rail Spur
@@ -161,7 +162,26 @@ cards:
     text: The first market purchase you make each round costs 1 less Capital (floor 1).
     description: >
       Persistent buy discount. Works on any market card.
-    implemented: false
+    implemented: true
+
+  - defId: watchman
+    name: Watchman
+    tier: small
+    cost: 3
+    category: defense
+    triggers: [passive_permanent]
+    archetype: flex
+    rate_limited: false
+    short: Sleeps in the warehouse
+    text: >
+      Whenever an opponent targets one of your barrels with a Whiskey
+      Raid (or future attack), add +1 to your defense roll. Multiple
+      Watchmen stack.
+    description: >
+      The first defensive investment. Pays off cumulatively across the
+      game — every raid attempt against you reads its bonus. Two
+      Watchmen take the attacker's odds at X=0 from ~42% to ~28%.
+    implemented: true
 
   - defId: cellar_foreman
     name: Cellar Foreman
@@ -181,7 +201,7 @@ cards:
       cards ARE age (v3.5 invariant), so no card can advance age
       without committing one. Cellar Foreman now pays a small draw
       instead — helps cover aging commits.
-    implemented: false
+    implemented: true
 
   # ─── Medium (cost 5–8) ────────────────────────────────────────
   - defId: marketing_department
@@ -219,7 +239,7 @@ cards:
     description: >
       Direct demand control. Asymmetric — only the owner gets the
       nudge.
-    implemented: false
+    implemented: true
 
   - defId: distillery_tour_program
     name: Distillery Tour Program
@@ -237,7 +257,7 @@ cards:
     description: >
       Asymmetric, single-player benefit. Doesn't modify the shared
       demand track. Repurposed in v3.5 from a clunkier draft.
-    implemented: false
+    implemented: true
 
   - defId: hedge_fund
     name: Hedge Fund
@@ -256,7 +276,7 @@ cards:
       the best sales — Hedge Fund makes them dramatically better,
       and prevents the usual 'selling tanks demand' feedback loop.
       Useless if you sell into low markets.
-    implemented: false
+    implemented: true
 
   - defId: rd_department
     name: R&D Department
@@ -274,7 +294,7 @@ cards:
       v3.5 simplification — the old 'plus to hand' clause is
       redundant now that all market purchases route to hand by
       default. Only the Capital discount remains.
-    implemented: false
+    implemented: true
 
   - defId: master_blender
     name: Master Blender
@@ -293,7 +313,7 @@ cards:
       One of two cards in the catalog that pays Reputation
       directly (the other is the endgame trio). Plays into the
       corn-extreme tags (corn-light / corn-heavy).
-    implemented: false
+    implemented: true
 
   - defId: estate_bottling
     name: Estate Bottling
@@ -314,7 +334,7 @@ cards:
       Dedicated second-portfolio enabler. Mandatory for Vanilla's
       flagship Mastery, which requires a second portfolio. The
       free draft is a one-shot; the reduced penalty is permanent.
-    implemented: false
+    implemented: true
 
   - defId: heritage_cooperage
     name: Heritage Cooperage
@@ -333,7 +353,7 @@ cards:
       Heritage recycling. Renamed from 'Heritage Cellars' in v3.5
       for thematic accuracy — a cooperage builds casks, which is
       where the Heritage component lives.
-    implemented: false
+    implemented: true
 
   - defId: bottling_line
     name: Bottling Line
@@ -351,7 +371,7 @@ cards:
     description: >
       Cask-recycling engine. Pairs with Cooperage (which refunds
       the first cask commit each round) for tight cask economy.
-    implemented: false
+    implemented: true
 
   - defId: yeast_lab
     name: Yeast Lab
@@ -369,7 +389,7 @@ cards:
     description: >
       Pays the completion moment, not the commit moment — rewards
       finishing recipes rather than starting them.
-    implemented: false
+    implemented: true
 
   - defId: bottling_plant
     name: Bottling Plant
@@ -384,7 +404,7 @@ cards:
     description: >
       Steady sales engine — pays per barrel, every barrel, no
       gates. The volume-archetype workhorse at this price point.
-    implemented: false
+    implemented: true
 
   - defId: sales_office
     name: Sales Office
@@ -423,7 +443,7 @@ cards:
       the v3.5 invariant, aging cards ARE age. Rickhouse Office
       now buys you the cards to pay the cost, two at a time.
       Steeper price than Cellar Foreman; doubled draw.
-    implemented: false
+    implemented: true
 
   - defId: cooperage
     name: Cooperage
@@ -464,7 +484,7 @@ cards:
       Real-world AC warehouses are a controversial industry move —
       they produce more consistent but arguably less complex
       bourbon. In game terms: defensive immunity.
-    implemented: false
+    implemented: true
 
   # ─── Large (cost 9–15) ────────────────────────────────────────
   - defId: brand_ambassador
@@ -483,7 +503,7 @@ cards:
     description: >
       Strong pick for patient players who plan to age a single
       high-value barrel for many rounds.
-    implemented: false
+    implemented: true
 
   - defId: premium_label
     name: Premium Label
@@ -499,7 +519,7 @@ cards:
       Heritage cards, gain +3 Capital.
     description: >
       Rewards specialty-heavy production lines. Stacks per sale.
-    implemented: false
+    implemented: true
 
   - defId: aging_warehouse
     name: Aging Warehouse
@@ -516,7 +536,7 @@ cards:
     description: >
       Renamed from 'Land Acquisition' in v3.5 for thematic
       accuracy — actual physical warehouses, not real estate plays.
-    implemented: false
+    implemented: true
 
   - defId: bonded_warehouse
     name: Bonded Warehouse
@@ -535,7 +555,7 @@ cards:
       Repurposed in v3.5 from a broken 'auto-age' draft. Now an
       aging-card recycler — every long-hold barrel in the bonded
       slot pays back its aging cost on sale.
-    implemented: false
+    implemented: true
 
   - defId: vintage_reserve
     name: Vintage Reserve
@@ -553,7 +573,7 @@ cards:
       Late-game patience payoff. The grid value gets tripled
       BEFORE the tier floor clamps, so high-grid bills benefit;
       low-grid bills still floor.
-    implemented: false
+    implemented: true
 
   - defId: bourbon_hall_of_fame
     name: Bourbon Hall of Fame
@@ -570,7 +590,7 @@ cards:
     description: >
       End-game scoring card. Rewards diversification across
       distinct bills rather than repetition of one bill.
-    implemented: false
+    implemented: true
 
   - defId: master_distiller
     name: Master Distiller
@@ -591,7 +611,7 @@ cards:
       Tag-expansion engine (v3.4). Lets a high-rye player pretend
       to be wheated for slot purposes, etc. The chosen tag is
       locked at purchase.
-    implemented: false
+    implemented: true
 
   - defId: column_still
     name: Column Still
@@ -630,4 +650,4 @@ cards:
     description: >
       All-slots scaled version of Climate-Controlled Warehouse.
       Defensive blockbuster.
-    implemented: false
+    implemented: true

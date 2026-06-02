@@ -364,6 +364,12 @@ export default function TutorialController({
             : actionButtonAction === "draw-bill"
               ? draftingLoopMode != null
               : false;
+  // Market-slot beats engage when the player picks a card and the buy
+  // modal opens with a target — at that point the halo should follow
+  // them onto the purchase panel (postEngageSpotlight), since the
+  // conveyor tile it started on is now hidden behind the modal.
+  const isMarketSlot = beat?.spotlight?.kind === "market-slot";
+  const buyModalOpen = buyMode?.pickedTarget != null;
   const liveSpotlight = useMemo<SpotlightTarget | undefined>(() => {
     if (!beat || !beat.spotlight) return undefined;
     if (
@@ -373,11 +379,16 @@ export default function TutorialController({
     ) {
       return beat.postEngageSpotlight;
     }
+    if (isMarketSlot && buyModalOpen && beat.postEngageSpotlight) {
+      return beat.postEngageSpotlight;
+    }
     return beat.spotlight;
   }, [
     beat,
     isActionButton,
     actionButtonModeActive,
+    isMarketSlot,
+    buyModalOpen,
   ]);
 
   // Mirror the active spotlight into the store so non-tutorial board
@@ -613,9 +624,8 @@ function ChapterProgress({
 
 /**
  * Hook: track the live bounding box of the beat's spotlight target.
- * Returns `null` for beats whose spotlight is "none" / "action-button"
- * (those positions are handled separately) so the caller can fall
- * through to the static positioning.
+ * Returns `null` for beats whose spotlight is "none" so the caller can
+ * fall through to the static positioning.
  *
  * Polled 4× per second to mirror SpotlightLayer — layout shifts from
  * mode toggles, drawer opens, hand reshuffles keep both the ring and
@@ -624,7 +634,7 @@ function ChapterProgress({
 function useSpotlightBox(target: SpotlightTarget | undefined): DOMRect | null {
   const [box, setBox] = useState<DOMRect | null>(null);
   useEffect(() => {
-    if (!target || target.kind === "none" || target.kind === "action-button") {
+    if (!target || target.kind === "none") {
       setBox(null);
       return;
     }
@@ -660,6 +670,9 @@ function useSpotlightBox(target: SpotlightTarget | undefined): DOMRect | null {
 
 const COACH_MARK_WIDTH = 320;
 const COACH_MARK_GAP = 16;
+// Rough card height (title + 2-line body + optional Back link). Used to
+// stack the card above a target without overlapping it.
+const COACH_MARK_EST_HEIGHT = 200;
 
 /**
  * Convert a spotlight bounding box into absolute top/left for the
@@ -755,15 +768,38 @@ function CoachMark({
   // beat change.
   const positioned = box && viewport.w > 0 ? pinCoachMarkToBox(box, viewport) : null;
 
+  // Action-bar buttons (End Turn, …) sit at the TOP edge of the hand
+  // strip, not the bottom of the viewport — a fixed `bottom-52` card
+  // dropped right on top of them. Once we know the button's box, stack
+  // the card ABOVE it (centered on the button, clamped to the viewport)
+  // so the spotlight ring stays uncovered. Falls back to the old
+  // bottom-anchored position until the box is measured.
+  const actionBarPos =
+    nearActionBar && box && viewport.w > 0
+      ? {
+          top: Math.max(72, box.top - COACH_MARK_EST_HEIGHT - COACH_MARK_GAP),
+          left: Math.max(
+            COACH_MARK_GAP,
+            Math.min(
+              viewport.w - COACH_MARK_WIDTH - COACH_MARK_GAP,
+              box.left + box.width / 2 - COACH_MARK_WIDTH / 2,
+            ),
+          ),
+        }
+      : null;
+
   const baseClass =
     "animate-bb-tour-pop pointer-events-auto fixed z-50 w-[320px] rounded-xl border-2 border-amber-400/80 bg-slate-900 p-4 shadow-[0_8px_30px_rgba(0,0,0,.7),0_0_28px_rgba(251,191,36,.16),inset_0_1px_0_rgba(251,191,36,.10)] transition-[top,left] duration-200 ease-out";
   const wrapperClass = nearActionBar
-    ? `${baseClass} inset-x-0 bottom-52 mx-auto`
+    ? actionBarPos
+      ? baseClass
+      : `${baseClass} inset-x-0 bottom-52 mx-auto`
     : positioned
       ? baseClass
       : `${baseClass} right-6 top-20`;
-  const wrapperStyle =
-    !nearActionBar && positioned
+  const wrapperStyle = actionBarPos
+    ? { top: actionBarPos.top, left: actionBarPos.left }
+    : !nearActionBar && positioned
       ? { top: positioned.top, left: positioned.left }
       : undefined;
   return (

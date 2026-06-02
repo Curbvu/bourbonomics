@@ -10,6 +10,28 @@ import type {
 import { resourceUnits, suppliesResource } from "../cards";
 import { applyProductionCommitEffect } from "../card-effects";
 import { isCurrentPlayer } from "../state";
+import { claimRoundUse, hasInvestment } from "../investments";
+import { drawWithReshuffle } from "../deck";
+
+const GRAIN_SUBTYPES = new Set(["corn", "rye", "barley", "wheat"]);
+
+function drawIntoHandMake(
+  draft: Draft<GameState>,
+  player: Draft<PlayerState>,
+  n: number,
+): void {
+  if (n <= 0) return;
+  const r = drawWithReshuffle(
+    player.deck.slice(),
+    player.discard.slice(),
+    n,
+    draft.rngState,
+  );
+  player.hand.push(...r.drawn);
+  player.deck = r.deck;
+  player.discard = r.discard;
+  draft.rngState = r.rngState;
+}
 
 // ============================================================
 // MAKE_BOURBON — slot-bound bills.
@@ -702,6 +724,15 @@ export function applyMakeBourbon(
     applyProductionCommitEffect(draft, player, barrel, card);
   }
 
+  // v3.6 Grain Contract — the first grain commit each round draws 1.
+  if (
+    hasInvestment(player, "grain_contract") &&
+    newCards.some((c) => c.type === "resource" && GRAIN_SUBTYPES.has(c.subtype ?? "")) &&
+    claimRoundUse(player, "grain_contract")
+  ) {
+    drawIntoHandMake(draft, player, 1);
+  }
+
   // Completion check.
   const totals = emptyTotals();
   for (const card of barrel.productionCards) tallyCard(totals, card);
@@ -726,14 +757,43 @@ export function applyMakeBourbon(
       }
     }
   }
+  const wasAging = barrel.phase === "aging";
   const result = recipeSatisfied(player, barrel.attachedMashBill, totals);
-  if (result.ok) {
+  if (result.ok && !wasAging) {
     barrel.phase = "aging";
     barrel.completedInRound = draft.round;
     // Pre-played production discount is consumed at the moment of
     // completion — not at every individual commit. If the barrel
     // never completes, the discount stays armed for a future build.
     player.pendingMakeDiscount = null;
+
+    // ── v3.6 on-completion investment effects ──────────────────────
+    // Yeast Lab — first recipe completion each round draws 2.
+    if (
+      hasInvestment(player, "yeast_lab") &&
+      claimRoundUse(player, "yeast_lab")
+    ) {
+      drawIntoHandMake(draft, player, 2);
+    }
+    // Master Blender — corn-extreme recipes (≤2 or ≥5 committed corn
+    // units) bank +2 Capital and +1 Reputation immediately.
+    if (hasInvestment(player, "master_blender")) {
+      const cornUnits = barrel.productionCards
+        .filter((c) => c.type === "resource" && c.subtype === "corn")
+        .reduce((sum, c) => sum + (c.resourceCount ?? 1), 0);
+      if (cornUnits <= 2 || cornUnits >= 5) {
+        player.capital += 2;
+        player.reputation += 1;
+      }
+    }
+    // Master Distiller — every completed barrel inherits the chosen
+    // tag on its source bill (and thus the minted Bottle).
+    if (
+      player.masterDistillerTag &&
+      !barrel.attachedMashBill.tags.includes(player.masterDistillerTag)
+    ) {
+      barrel.attachedMashBill.tags.push(player.masterDistillerTag);
+    }
   }
   // Wild Mash token: one MAKE_BOURBON consumes it whether or not the
   // player invoked the swap. No carry-over.

@@ -1131,6 +1131,58 @@ export interface PlayerState {
    */
   investments: InvestmentCard[];
 
+  // ─── v3.6 Investment effect state ───────────────────────────
+  /**
+   * defIds whose once-per-round investment effect has already fired
+   * this round (Grain Contract, Cooperage, Bottling Line, Yeast Lab,
+   * Rail Spur). Reset to [] at cleanup. See `investments.ts`.
+   */
+  investmentRoundUses: string[];
+  /**
+   * Slot ids individually designated climate-controlled (immune to
+   * negative aging ops) by Climate-Controlled Warehouse purchases.
+   * Climate-Controlled Rickhouse makes ALL slots immune and does not
+   * write here (it's read as a blanket flag).
+   */
+  climateControlledSlotIds: string[];
+  /**
+   * Slot ids designated "bonded" by Bonded Warehouse — barrels sold
+   * from these slots return their aging cards to hand instead of
+   * discard.
+   */
+  bondedSlotIds: string[];
+  /**
+   * Master Distiller chosen tag. Locked at purchase. Every barrel the
+   * player completes from then on has this tag added to its source
+   * bill (and thus the minted Bottle) for slot eligibility / Brand
+   * Restriction / Mastery purposes. Null until Master Distiller is
+   * bought and resolved.
+   */
+  masterDistillerTag: BillTag | null;
+  /**
+   * Estate Bottling one-shot — the next DRAFT_SECOND_PORTFOLIO costs 0
+   * Generic Labor instead of 1. Set at purchase, cleared when consumed.
+   * The permanent penalty reduction is derived from ownership, not
+   * this flag.
+   */
+  estateBottlingFreeDraftPending: boolean;
+  /**
+   * Set at investment-purchase time for cards that require a follow-up
+   * player choice (Brand Ambassador → pick a barrel, Master Distiller
+   * → pick a tag, Climate-Controlled Warehouse / Bonded Warehouse →
+   * designate a slot). Gates the active player to RESOLVE_INVESTMENT_
+   * CHOICE until cleared, mirroring `pendingBottlePlacement`. Null when
+   * no choice is owed.
+   */
+  pendingInvestmentChoice: { defId: string; investmentId: string } | null;
+  /**
+   * Distinct source-bill defIds this player has ever sold. Appended at
+   * SELL_BOURBON (deduped). Read at end-game by Bourbon Hall of Fame
+   * (+1 Reputation per distinct bill sold, cap +6). Empty for players
+   * who never sell.
+   */
+  soldBillDefIds: string[];
+
   outForRound: boolean;                     // hand exhausted in current action phase
 
   // Per-round flags driven by ops cards / distillery bonuses.
@@ -1828,6 +1880,41 @@ export type GameAction =
       /** Card instance ids from the defender's hand to discard. May
        *  be empty (X = 0 — defender takes naked roll). */
       discardCardIds: string[];
+    }
+  | {
+      // v3.6 Warehouse investment — set one card from hand aside into
+      // the player's private Warehouse slot (holds at most one card;
+      // persists across End Turn and round cleanup). Free action.
+      type: "WAREHOUSE_STORE";
+      playerId: string;
+      cardId: string;
+    }
+  | {
+      // v3.6 Warehouse investment — pull the stored Warehouse card back
+      // into hand. Free action; legal only when a card is stored.
+      type: "WAREHOUSE_RETRIEVE";
+      playerId: string;
+    }
+  | {
+      // v3.6 Trade Lobby investment — once per round, after rolling
+      // demand, shift the shared demand track by ±1. Optional.
+      type: "SHIFT_DEMAND";
+      playerId: string;
+      delta: 1 | -1;
+    }
+  | {
+      // v3.6 — resolve a pending on-purchase investment choice
+      // (Brand Ambassador barrel pick, Master Distiller tag pick,
+      // Climate-Controlled Warehouse / Bonded Warehouse slot pick).
+      // The relevant field is required for the pending defId.
+      type: "RESOLVE_INVESTMENT_CHOICE";
+      playerId: string;
+      /** Brand Ambassador — barrel to grant the permanent +2 demand read. */
+      barrelId?: string;
+      /** Master Distiller — chosen tag. */
+      tag?: BillTag;
+      /** Climate-Controlled / Bonded Warehouse — slot to designate. */
+      slotId?: string;
     };
 
 // -----------------------------

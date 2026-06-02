@@ -127,6 +127,14 @@ export function initializeGame(config: GameConfig): GameState {
       // cards transfer directly here at BUY_FROM_MARKET (never
       // touching `hand`). Empty at init.
       investments: [],
+      // ── v3.6 investment effect state ──
+      investmentRoundUses: [],
+      climateControlledSlotIds: [],
+      bondedSlotIds: [],
+      masterDistillerTag: null,
+      estateBottlingFreeDraftPending: false,
+      pendingInvestmentChoice: null,
+      soldBillDefIds: [],
       outForRound: false,
       demandSurgeActive: false,
       pendingHalfCostMarketBuy: false,

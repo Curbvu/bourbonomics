@@ -16,6 +16,7 @@ export type SpotlightTarget =
   | { kind: "hand-cards"; cardIds: string[] }
   | { kind: "market-slot"; slotIndex: number }
   | { kind: "market-row" }
+  | { kind: "buy-overlay" }
   | { kind: "demand" }
   | { kind: "reputation" }
   | { kind: "supply" }
@@ -53,11 +54,14 @@ export interface BeatBase {
   /** Optional element to highlight while this beat is active. */
   spotlight?: SpotlightTarget;
   /**
-   * Optional secondary spotlight that takes effect once the picker
-   * mode corresponding to `spotlight.action` engages (e.g. once the
-   * player clicks the spotlit Sell button, the spotlight shifts to
-   * the rickhouse slot they're meant to pick next). Only consulted
-   * when `spotlight.kind === "action-button"`.
+   * Optional secondary spotlight that takes effect once the player has
+   * "engaged" the primary target:
+   *   - `action-button` spotlight → fires when the matching picker mode
+   *     opens (e.g. clicking Sell shifts the spotlight to the rickhouse
+   *     slot they pick next).
+   *   - `market-slot` spotlight → fires when the buy modal opens with a
+   *     picked target (e.g. clicking the market card shifts the
+   *     spotlight onto the purchase panel itself).
    */
   postEngageSpotlight?: SpotlightTarget;
 }

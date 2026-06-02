@@ -13,6 +13,7 @@ import {
   maybeTriggerFinalRound,
 } from "../state";
 import { placeBillInSlot } from "../starter-pool";
+import { findOwner, slotIsAgingImmune } from "../investments";
 
 type PlayOperationsCardAction = Extract<GameAction, { type: "PLAY_OPERATIONS_CARD" }>;
 
@@ -266,6 +267,11 @@ export function applyPlayOperationsCard(
 
     case "regulatory_inspection": {
       const target = draft.allBarrels.find((b) => b.id === action.targetBarrelId)!;
+      // v3.6 Climate-Controlled Warehouse / Rickhouse — a barrel in a
+      // climate-controlled slot shrugs off aging-negative ops. The card
+      // is still consumed; the immunity silently absorbs the effect.
+      const owner = findOwner(draft, target.ownerId);
+      if (owner && slotIsAgingImmune(owner, target.slotId)) break;
       target.inspectedThisRound = true;
       break;
     }
@@ -353,6 +359,9 @@ export function applyPlayOperationsCard(
       const target = draft.allBarrels.find(
         (b) => b.id === action.targetBarrelId,
       )!;
+      // v3.6 Climate-Controlled immunity — see regulatory_inspection.
+      const owner = findOwner(draft, target.ownerId);
+      if (owner && slotIsAgingImmune(owner, target.slotId)) break;
       target.skipNextRoundAging = true;
       break;
     }
