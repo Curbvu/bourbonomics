@@ -22,6 +22,11 @@
  *   stg  → stg.apex             (stg.DOMAIN)
  *   *    → dev.apex             (dev.DOMAIN)
  *
+ * Prototype stages are fully isolated and deploy ONLY the prototype
+ * Next.js site (no game server / DynamoDB / live site):
+ *   proto-prod → prototype.apex       (prototype.DOMAIN)
+ *   proto-dev  → dev-prototype.apex   (dev-prototype.DOMAIN)
+ *
  * Domain wiring is opt-in. If `HOSTED_ZONE_ID`, `CERTIFICATE_ARN`, and
  * `DOMAIN` are not all set, SST deploys to its auto-generated CloudFront
  * URL instead. The certificate must live in `us-east-1` (CloudFront
@@ -50,6 +55,50 @@ export default $config({
     const apexDomain = process.env.DOMAIN?.replace(/\.$/, "");
     const hostedZoneId = process.env.HOSTED_ZONE_ID;
     const certificateArn = process.env.CERTIFICATE_ARN;
+
+    // ---------------------------------------------------------------
+    // Prototype stages are FULLY ISOLATED. Any stage whose name starts
+    // with `proto-` deploys ONLY the prototype Next.js site — no live
+    // game site, no game server, no DynamoDB tables. Conversely, the
+    // live stages (prod/stg/dev/etc.) never create the prototype site.
+    // This guarantees that pushing a prototype branch can never
+    // redeploy or otherwise disturb the live game, and vice versa.
+    //
+    //   proto-prod → prototype.<apex>
+    //   proto-dev  → dev-prototype.<apex>
+    //
+    // The existing wildcard CERTIFICATE_ARN (`*.<apex>`) covers both
+    // single-level subdomains; other prototype stages fall back to the
+    // auto-generated CloudFront URL.
+    // ---------------------------------------------------------------
+    const isPrototypeStage = stage.startsWith("proto-");
+
+    if (isPrototypeStage) {
+      const prototypeDomain =
+        apexDomain && hostedZoneId && certificateArn
+          ? stage === "proto-prod"
+            ? `prototype.${apexDomain}`
+            : stage === "proto-dev"
+              ? `dev-prototype.${apexDomain}`
+              : undefined
+          : undefined;
+
+      const prototype = new sst.aws.Nextjs("BourbonomicsPrototype", {
+        domain: prototypeDomain
+          ? {
+              name: prototypeDomain,
+              dns: sst.aws.dns({ zone: hostedZoneId! }),
+              cert: certificateArn!,
+            }
+          : undefined,
+        path: "apps/prototype",
+      });
+
+      return {
+        prototypeUrl: prototype.url,
+        prototypeDomain: prototypeDomain ?? null,
+      };
+    }
 
     const siteDomain =
       apexDomain && hostedZoneId && certificateArn
