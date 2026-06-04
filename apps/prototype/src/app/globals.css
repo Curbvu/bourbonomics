@@ -1,20 +1,288 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------
+ * Bourbon-cellar palette + design system.
+ *
+ * Ported visually from the live game's `packages/client` look & feel
+ * to keep the prototype isolated (no cross-imports) while sharing the
+ * same warm rickhouse aesthetic. If a token drifts here it does NOT
+ * affect the live game and vice versa.
+ * ------------------------------------------------------------------ */
+
 :root {
   --bg: #0c0805;
   --panel: #1a120b;
   --panel-2: #221710;
+  --panel-3: #2e1f15;
   --rule: #3b2818;
   --ink: #f0e3c8;
   --ink-muted: #b9a684;
+  --mute: #7c6a51;
+  --whisper: #4d4031;
   --amber: #d59650;
+  --amber-2: #e9b46e;
   --gold: #f0c970;
+  --brass: #c69d52;
+  --copper: #b06a38;
+  --rose: #d96b54;
+  --emerald: #6db28c;
+  --indigo: #7d8fd4;
+  --sky: #6fa4d6;
+  --violet: #b08fd8;
+
+  /* tier inks */
+  --t-common: #b9a684;
+  --t-specialty: #6fa4d6;
+  --t-heritage: #f0c970;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jb), ui-monospace, "SF Mono", monospace;
+  --font-display: var(--font-cormorant), Georgia, "Times New Roman", serif;
 }
 
 html,
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Paper-grain noise overlay on the play page background. */
+body[data-page="play"] {
+  background:
+    radial-gradient(1200px 800px at 70% -10%, rgba(176, 106, 56, 0.08), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(109, 178, 140, 0.05), transparent 55%),
+    var(--bg);
+}
+
+body[data-page="play"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ------------------------------------------------------------------
+ * Floating panel chrome
+ * ------------------------------------------------------------------ */
+
+.bb-panel {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--rule);
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  box-shadow:
+    inset 0 1px 0 rgba(240, 201, 112, 0.08),
+    0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.bb-panel--market {
+  border-color: rgba(176, 106, 56, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(176, 106, 56, 0.18),
+    0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.bb-panel--stage {
+  border-color: rgba(240, 201, 112, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(240, 201, 112, 0.22),
+    0 8px 22px rgba(0, 0, 0, 0.5);
+}
+.bb-panel--hand {
+  border-color: rgba(240, 201, 112, 0.35);
+}
+.bb-panel--rivals {
+  border-color: rgba(217, 107, 84, 0.4);
+}
+.bb-panel--log {
+  border-color: rgba(109, 178, 140, 0.35);
+}
+
+/* ------------------------------------------------------------------
+ * Mono labels
+ * ------------------------------------------------------------------ */
+
+.label-sm,
+.stage-tag {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--brass);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------
+ * Legibility floor inside the scaled canvas. The board paints at
+ * 1920x1080 and ScalingHost shrinks it; bump the base so small copy
+ * never falls below readable on smaller viewports.
+ * ------------------------------------------------------------------ */
+
+[data-bb-scale-canvas] {
+  font-size: 18px;
+  line-height: 1.4;
+}
+[data-bb-scale-canvas] .label-sm,
+[data-bb-scale-canvas] .stage-tag {
+  font-size: 16px;
+}
+
+/* ------------------------------------------------------------------
+ * Utilities
+ * ------------------------------------------------------------------ */
+
+.wood {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.12) 0px,
+      rgba(0, 0, 0, 0.12) 1px,
+      transparent 1px,
+      transparent 5px
+    ),
+    linear-gradient(180deg, #2a1c12, #1a110a);
+}
+
+.brass-edge {
+  box-shadow:
+    inset 0 0 0 1px rgba(198, 157, 82, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 3px;
+}
+
+/* ------------------------------------------------------------------
+ * Animations (subset)
+ * ------------------------------------------------------------------ */
+
+@keyframes pip-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(240, 201, 112, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(240, 201, 112, 0);
+  }
+}
+.pip-active {
+  animation: pip-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes log-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.log-line {
+  animation: log-in 0.25s ease-out;
+}
+
+@keyframes hand-deal-in {
+  0% {
+    opacity: 0;
+    transform: translateY(60px) rotate(-8deg) scale(0.85);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+.hand-deal-in {
+  animation: hand-deal-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Sellable-barrel ember pulse (age >= MIN_SELL_AGE). */
+@keyframes ember-needs {
+  0%,
+  100% {
+    box-shadow:
+      0 0 8px rgba(245, 158, 11, 0.6),
+      0 0 16px rgba(245, 158, 11, 0.35),
+      0 0 0 0 rgba(245, 158, 11, 0.6);
+    filter: brightness(1.08) saturate(1.12);
+  }
+  50% {
+    box-shadow:
+      0 0 12px rgba(252, 211, 77, 0.85),
+      0 0 20px rgba(245, 158, 11, 0.5),
+      0 0 0 5px rgba(245, 158, 11, 0);
+    filter: brightness(1.18) saturate(1.28);
+  }
+}
+.ember-needs {
+  animation: ember-needs 1.5s ease-in-out infinite;
+  will-change: box-shadow, filter;
+}
+.ember-aged {
+  filter: brightness(0.78) saturate(0.6);
+  box-shadow: 0 0 4px rgba(240, 201, 112, 0.18);
+}
+
+/* Oak-stave barrel body. */
+.barrel-wood {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.1) 14%,
+      rgba(255, 180, 90, 0.12) 42%,
+      rgba(255, 200, 120, 0.18) 50%,
+      rgba(255, 180, 90, 0.12) 58%,
+      rgba(0, 0, 0, 0.1) 86%,
+      rgba(0, 0, 0, 0.55) 100%
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.4) 0px,
+      rgba(0, 0, 0, 0.4) 1px,
+      transparent 1px,
+      transparent 14px
+    ),
+    linear-gradient(180deg, #2a1606 0%, #5a3318 14%, #7a4823 50%, #5a3318 86%, #2a1606 100%);
+}
+
+/* Brass age medallion. */
+.brass-medallion {
+  background: radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.4),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes pour-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.pour-in {
+  animation: pour-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
