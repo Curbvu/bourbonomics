@@ -201,7 +201,7 @@ body[data-page="play"]::before {
 @keyframes hand-deal-in {
   0% {
     opacity: 0;
-    transform: translateY(60px) rotate(-8deg) scale(0.85);
+    transform: translateY(120px) rotate(-12deg) scale(0.85);
   }
   60% {
     opacity: 1;
@@ -213,6 +213,28 @@ body[data-page="play"]::before {
 }
 .hand-deal-in {
   animation: hand-deal-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ------------------------------------------------------------------
+ * HandFan arc — ported from the live game. Each `.hand-fan-card` slot
+ * is absolutely positioned; JS sets an inline `transform: translateY(
+ * lift) rotate(rot)` per index to splay the cards on a shallow arc.
+ * The hover override pulls the focused card upright at z-40. The
+ * deal-in keyframe MUST NOT use a fill-mode so the slot snaps back to
+ * its inline arc transform the instant the animation ends.
+ * ------------------------------------------------------------------ */
+.hand-fan-card {
+  position: absolute;
+  bottom: 0;
+  transform-origin: bottom center;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hand-fan-card:hover {
+  transform: translateY(-22px) scale(1.04) rotate(0deg) !important;
+  z-index: 40 !important;
+}
+.hand-fan-dealt > .hand-fan-card {
+  animation: hand-deal-in 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Sellable-barrel ember pulse (age >= MIN_SELL_AGE). */

@@ -19,6 +19,8 @@ import type {
 
 import ScalingHost from "./components/ScalingHost";
 import CardTile from "./components/CardTile";
+import HandFan from "./components/HandFan";
+import MarketShelf from "./components/MarketShelf";
 import DemandTrack from "./components/DemandTrack";
 import Barrel from "./components/Barrel";
 import MiniCard from "./components/MiniCard";
@@ -123,6 +125,9 @@ export default function GameClient() {
   const [selBill, setSelBill] = useState<string | null>(null);
   const [selResources, setSelResources] = useState<Set<string>>(new Set());
   const [selLine, setSelLine] = useState<string | null>(null);
+  // Bumped on each successful resource draw so the hand fan replays its
+  // deal-in keyframe (mirrors the live game's lastDrawHand.seq).
+  const [dealSeq, setDealSeq] = useState(1);
 
   const player = state.players[state.currentPlayerIndex]!;
   const ended = state.phase === "ended";
@@ -147,6 +152,7 @@ export default function GameClient() {
     setMessage(null);
     setSelResources(new Set());
     if (action.type === "MAKE_BOURBON") setSelBill(null);
+    if (action.type === "DRAW_RESOURCES") setDealSeq((n) => n + 1);
   }
 
   function toggleResource(id: string) {
@@ -186,7 +192,7 @@ export default function GameClient() {
           ) : null}
 
           {/* ── Market strip ───────────────────────────────────── */}
-          <div className="grid h-[164px] shrink-0 grid-cols-[300px_1fr_1fr] gap-4">
+          <div className="grid h-[176px] shrink-0 grid-cols-[260px_1.4fr_1fr_1fr] gap-4">
             <Panel title="Demand market" accent="market">
               <div className="flex h-full flex-col justify-between">
                 <DemandTrack demand={state.demand} />
@@ -207,6 +213,13 @@ export default function GameClient() {
                 </div>
               </div>
             </Panel>
+
+            <MarketShelf
+              deckCount={state.resourceDeck.length}
+              drawCount={CONFIG.RESOURCE_DRAW_COUNT}
+              disabled={ended}
+              onDraw={() => dispatch({ type: "DRAW_RESOURCES" })}
+            />
 
             <Panel
               title="Mash bill tray"
@@ -279,7 +292,28 @@ export default function GameClient() {
                   ))}
                 </div>
               </Panel>
-              <Panel title="Ledger" accent="log">
+              <Panel
+                title="Tasting notes"
+                accent="log"
+                right={
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{
+                        background: "var(--emerald)",
+                        boxShadow: "0 0 6px var(--emerald)",
+                      }}
+                    />
+                    <span
+                      className="font-mono text-[10px] font-semibold uppercase tracking-[.16em]"
+                      style={{ color: "var(--emerald)" }}
+                    >
+                      Live
+                    </span>
+                  </span>
+                }
+              >
                 <div className="flex h-full flex-col-reverse gap-1 overflow-hidden text-[12px] text-[var(--ink-muted)]">
                   {[...state.log]
                     .slice(-12)
@@ -457,7 +491,7 @@ export default function GameClient() {
           </div>
 
           {/* ── Hand strip ───────────────────────────────────── */}
-          <div className="grid h-[210px] shrink-0 grid-cols-[1fr_420px] gap-4">
+          <div className="grid h-[262px] shrink-0 grid-cols-[1fr_420px] gap-4">
             <Panel
               title={`Hand — ${player.name}`}
               accent="hand"
@@ -466,47 +500,37 @@ export default function GameClient() {
                   click to commit for brewing
                 </span>
               }
+              bodyClassName="!p-0"
             >
               {player.hand.length === 0 ? (
-                <Empty>No resources. Draw some.</Empty>
-              ) : (
-                <div className="flex h-full flex-wrap content-start gap-2 overflow-hidden">
-                  {player.hand.map((c, i) => (
-                    <div
-                      key={c.id}
-                      className="hand-deal-in"
-                      style={{ animationDelay: `${i * 45}ms` }}
-                    >
-                      <CardTile
-                        kind={c.kind}
-                        quality={c.quality}
-                        name={c.name}
-                        size="sm"
-                        selected={selResources.has(c.id)}
-                        onClick={() => toggleResource(c.id)}
-                      />
-                    </div>
-                  ))}
+                <div className="flex h-full items-center justify-center">
+                  <Empty>No resources. Draw some from the market.</Empty>
                 </div>
+              ) : (
+                <HandFan dealKey={dealSeq} size="md">
+                  {player.hand.map((c) => (
+                    <CardTile
+                      key={c.id}
+                      kind={c.kind}
+                      quality={c.quality}
+                      name={c.name}
+                      size="lg"
+                      selected={selResources.has(c.id)}
+                      onClick={() => toggleResource(c.id)}
+                    />
+                  ))}
+                </HandFan>
               )}
             </Panel>
 
             <Panel title="Workbench" accent="hand">
               <div className="flex h-full flex-col justify-between gap-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <ActionBtn
-                    onClick={() => dispatch({ type: "DRAW_RESOURCES" })}
-                    disabled={ended}
-                  >
-                    Draw +{CONFIG.RESOURCE_DRAW_COUNT}
-                  </ActionBtn>
-                  <ActionBtn
-                    onClick={() => dispatch({ type: "DRAW_SLOT_CARD" })}
-                    disabled={ended}
-                  >
-                    Draw slot
-                  </ActionBtn>
-                </div>
+                <ActionBtn
+                  onClick={() => dispatch({ type: "DRAW_SLOT_CARD" })}
+                  disabled={ended}
+                >
+                  Draw slot
+                </ActionBtn>
 
                 <div className="rounded-md border border-[var(--rule)] bg-[var(--panel)] px-3 py-2 text-[12px] text-[var(--ink-muted)]">
                   {selBill ? (
@@ -519,7 +543,7 @@ export default function GameClient() {
                       {selResources.size === 1 ? "" : "s"} committed
                     </>
                   ) : (
-                    "Pick a mash bill from your cellar, commit hand cards, then brew."
+                    "Draw resources from the market, pick a mash bill, commit hand cards, then brew."
                   )}
                 </div>
 

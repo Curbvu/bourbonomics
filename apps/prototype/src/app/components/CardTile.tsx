@@ -4,9 +4,15 @@ import type { ResourceKind, Quality } from "@bourbonomics/prototype-engine";
 
 /**
  * Canonical resource-card tile for the prototype, recreated in the
- * live game's card visual language (gradient body, top label, display
- * name, flavor line, circular glyph badge, tier ring). Kept here in
- * apps/prototype so the prototype stays isolated from packages/client.
+ * live game's HandCardTile visual language: a portrait card with a
+ * small uppercase category label up top, a brand-y display name in the
+ * middle, an italic flavor line, and a circular glyph badge anchored to
+ * the bottom edge. Cost goes top-left, quality ★ top-right, count chip
+ * bottom-right. Kept here in apps/prototype so the prototype stays
+ * isolated from packages/client.
+ *
+ * Canonical in-hand size is `lg` (130×180) — the exact fan-card size so
+ * a player can't tell a tray-rendered card from one in their hand.
  */
 
 type Tone = {
@@ -41,52 +47,59 @@ const KIND_LABEL: Record<ResourceKind, string> = {
 
 const QUALITY_META: Record<
   Quality,
-  { stars: number; ring: string; flavor: string; ink: string }
+  { stars: number; flavor: string; label: string }
 > = {
-  common: {
-    stars: 0,
-    ring: "",
-    flavor: "Workaday stock.",
-    ink: "text-[var(--t-common)]",
-  },
+  common: { stars: 0, flavor: "Workaday stock.", label: "text-white/65" },
   specialty: {
     stars: 1,
-    ring: "ring-1 ring-[var(--t-specialty)]/60",
     flavor: "A cut above the rack.",
-    ink: "text-[var(--t-specialty)]",
+    label: "text-[var(--t-specialty)]",
   },
   heritage: {
     stars: 2,
-    ring: "ring-1 ring-[var(--t-heritage)]/70",
     flavor: "Old-world pedigree.",
-    ink: "text-[var(--t-heritage)]",
+    label: "text-[var(--t-heritage)]",
   },
 };
 
 const SIZE: Record<
   "sm" | "md" | "lg",
-  { box: string; name: string; label: string; glyph: string; flavor: string }
+  {
+    box: string;
+    label: string;
+    name: string;
+    flavor: string;
+    glyph: string;
+    glyphCircle: string;
+    badge: string;
+  }
 > = {
   sm: {
-    box: "h-[120px] w-[86px]",
-    name: "text-[13px]",
-    label: "text-[8px]",
-    glyph: "h-7 w-7 text-[14px]",
-    flavor: "text-[8px]",
+    box: "h-[120px] w-[86px] p-1",
+    label: "text-[11px] tracking-[.14em]",
+    name: "text-[12px]",
+    flavor: "text-[10px]",
+    glyph: "text-[18px]",
+    glyphCircle: "h-7 w-7",
+    badge: "text-[10px] px-1 py-[1px]",
   },
   md: {
-    box: "h-[140px] w-[100px]",
-    name: "text-[15px]",
-    label: "text-[9px]",
-    glyph: "h-8 w-8 text-[16px]",
-    flavor: "text-[9px]",
+    box: "h-[140px] w-[100px] p-1.5",
+    label: "text-[12px] tracking-[.16em]",
+    name: "text-[14px]",
+    flavor: "text-[10px]",
+    glyph: "text-[20px]",
+    glyphCircle: "h-9 w-9",
+    badge: "text-[11px] px-1 py-[1px]",
   },
   lg: {
-    box: "h-[170px] w-[122px]",
-    name: "text-[17px]",
-    label: "text-[10px]",
-    glyph: "h-9 w-9 text-[18px]",
-    flavor: "text-[10px]",
+    box: "h-[180px] w-[130px] p-2",
+    label: "text-[13px] tracking-[.18em]",
+    name: "text-[16px]",
+    flavor: "text-[12px]",
+    glyph: "text-[24px]",
+    glyphCircle: "h-11 w-11",
+    badge: "text-[12px] px-1.5 py-[1px]",
   },
 };
 
@@ -96,6 +109,7 @@ export default function CardTile({
   name,
   flavor,
   count,
+  cost,
   size = "md",
   selected = false,
   interactive = true,
@@ -107,6 +121,7 @@ export default function CardTile({
   name: string;
   flavor?: string;
   count?: number;
+  cost?: number;
   size?: "sm" | "md" | "lg";
   selected?: boolean;
   interactive?: boolean;
@@ -116,64 +131,87 @@ export default function CardTile({
   const chrome = KIND_CHROME[kind];
   const q = QUALITY_META[quality];
   const s = SIZE[size];
+  const showCount = count != null && count > 1;
 
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={interactive ? onClick : undefined}
       disabled={!interactive}
+      title={name}
+      style={dim ? { opacity: 0.35, filter: "saturate(0.5)" } : undefined}
       className={[
-        "relative shrink-0 overflow-hidden rounded-md border-2 bg-gradient-to-b p-1.5 text-left transition",
+        "relative flex flex-shrink-0 flex-col overflow-hidden rounded-md border-2 bg-gradient-to-b text-left shadow-[0_4px_12px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200",
         s.box,
         chrome.gradient,
         chrome.border,
         selected
-          ? "ring-2 ring-[var(--gold)] ring-offset-1 ring-offset-[var(--bg)]"
-          : q.ring,
-        interactive ? "cursor-pointer hover:-translate-y-0.5 hover:brightness-110" : "cursor-default",
-        dim ? "opacity-45" : "",
+          ? "ring-2 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_18px_rgba(251,191,36,.45)]"
+          : interactive
+            ? "cursor-pointer hover:ring-2 hover:ring-amber-300 hover:scale-[1.04]"
+            : "cursor-default opacity-90",
       ].join(" ")}
     >
       {/* top hairline highlight */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/25"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
       />
 
-      {/* quality stars (top-right) */}
+      {cost != null ? (
+        <span
+          className={`absolute left-1 top-1 z-10 rounded border border-amber-300/70 bg-slate-950/70 font-mono font-bold text-amber-200 shadow-[0_1px_3px_rgba(0,0,0,.5)] ${s.badge}`}
+        >
+          ฿{cost}
+        </span>
+      ) : null}
+
       {q.stars > 0 ? (
-        <span className="absolute right-1 top-1 text-[10px] leading-none text-[var(--gold)]">
+        <span
+          className={`absolute right-1 top-1 z-10 rounded border border-amber-300/80 bg-amber-700/55 font-mono font-bold leading-none text-amber-100 shadow-[0_1px_3px_rgba(0,0,0,.55)] ${s.badge}`}
+          title={quality}
+        >
           {"★".repeat(q.stars)}
         </span>
       ) : null}
 
-      {/* count (bottom-right) */}
-      {count && count > 1 ? (
-        <span className="absolute bottom-1 right-1.5 font-mono text-[10px] font-bold text-white/80">
+      {showCount ? (
+        <span
+          className={`absolute bottom-1 right-1 z-10 rounded border border-white/15 bg-slate-950/70 font-mono font-bold text-slate-100 ${s.badge}`}
+        >
           ×{count}
         </span>
       ) : null}
 
-      <div
-        className={`label-sm ${s.label}`}
-        style={{ color: "rgba(255,255,255,.65)" }}
-      >
-        {KIND_LABEL[kind]}
-      </div>
-      <div
-        className={`mt-0.5 line-clamp-2 font-display font-bold leading-tight text-[var(--ink)] ${s.name}`}
-      >
-        {name}
-      </div>
-      <div className={`mt-0.5 italic leading-tight text-white/55 ${s.flavor}`}>
-        {flavor ?? q.flavor}
+      {/* top: small uppercase category label */}
+      <div className="flex items-baseline justify-center px-6">
+        <span className={`font-semibold uppercase ${s.label} ${q.label}`}>
+          {KIND_LABEL[kind]}
+        </span>
       </div>
 
-      {/* circular glyph badge */}
-      <div
-        className={`absolute bottom-1.5 left-1.5 grid place-items-center rounded-full border-2 border-white/25 bg-white/10 leading-none backdrop-blur ${s.glyph}`}
+      {/* middle: brand display name + flavor */}
+      <h4
+        className={`mt-1 line-clamp-2 px-1 text-center font-display font-bold leading-tight text-[var(--ink)] drop-shadow-[0_1px_4px_rgba(0,0,0,.35)] ${s.name}`}
       >
-        <span aria-hidden>{chrome.glyph}</span>
+        {name}
+      </h4>
+      <p
+        className={`mt-0.5 line-clamp-2 px-1 text-center font-display italic leading-snug text-white/60 ${s.flavor}`}
+      >
+        {flavor ?? q.flavor}
+      </p>
+
+      {/* bottom: circular glyph badge */}
+      <div
+        className={`mt-auto grid place-items-center self-center rounded-full border-2 bg-white/10 shadow-[inset_0_1px_4px_rgba(255,255,255,.15)] backdrop-blur-sm ${s.glyphCircle} ${chrome.border}`}
+      >
+        <span
+          aria-hidden
+          className={`leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,.45)] ${s.glyph}`}
+        >
+          {chrome.glyph}
+        </span>
       </div>
     </button>
   );
