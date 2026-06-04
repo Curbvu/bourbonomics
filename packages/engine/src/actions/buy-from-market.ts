@@ -189,8 +189,8 @@ export function applyBuyFromMarket(
   //   - investments → straight to `player.investments` (never
   //     touches `hand`). On-purchase effects fire immediately and
   //     passive_permanent triggers stay registered for the rest of
-  //     the game. The v3.5 catalog is `implemented: false` end to
-  //     end, so the storage is dormant until the v3.6 effect wave.
+  //     the game (v3.6 resolves them; the three display-only stubs
+  //     resolve to nothing).
   //
   //     We picked Option (a) from the brief — direct placement,
   //     never hand — because the round-trip through hand would

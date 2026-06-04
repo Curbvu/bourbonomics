@@ -268,10 +268,11 @@ export function wrapOperationsForMarket(
 }
 
 /**
- * Wrap an InvestmentCard spec as a unified-market Card entry. Effects
- * don't fire yet (the catalog ships `implemented: false` across the
- * board); the spec is preserved inline so a future wave can switch to
- * resolving effects without changing the buy flow.
+ * Wrap an InvestmentCard spec as a unified-market Card entry. The spec
+ * is preserved inline (`investmentSpec`) so the buy flow can fire the
+ * card's on-purchase effect and the per-trigger hooks can read
+ * ownership. The three `implemented: false` entries are display-only;
+ * buying one charges its cost but resolves no effect.
  */
 export function wrapInvestmentForMarket(
   spec: InvestmentCard,

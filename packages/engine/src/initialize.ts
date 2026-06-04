@@ -119,8 +119,7 @@ export function initializeGame(config: GameConfig): GameState {
       prestige: 0,
       // v3.5 — Warehouse slot starts empty and locked. Only
       // engages once the player buys the Warehouse investment card
-      // (effects are `implemented: false` in v3.5, so the unlock
-      // path is wired for v3.6 — this field is the storage shape).
+      // (v3.6 resolves the store/retrieve flow).
       warehouseSlot: null,
       warehouseUnlocked: false,
       // v3.5 — Investments owned by the player. Bought investment

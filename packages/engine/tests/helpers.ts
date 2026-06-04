@@ -296,6 +296,7 @@ export function placeBarrel(
         extraAgesAvailable: 0,
         gridRepOffset: 0,
         demandBandOffset: 0,
+        refundedCaskCount: 0,
       },
     ],
   };

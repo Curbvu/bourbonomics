@@ -250,6 +250,7 @@ export const TUTORIAL_ADVANCED_BEATS: Beat[] = [
           skipNextRoundAging: false,
           gridRepOffset: 0,
           demandBandOffset: 0,
+          refundedCaskCount: 0,
         };
         next.allBarrels.push(barrel);
       }

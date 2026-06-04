@@ -24,14 +24,18 @@
 #   implemented     — true | false. False = wired up but engine does
 #                     not resolve the effect yet.
 #
-# v3.6 catalog: 33 cards · 9 small · 13 medium · 11 large.
+# v3.6 catalog: 33 cards · 9 small · 15 medium · 9 large.
 # Grounded in real-world distillery capital expenditures (stills,
 # mash tuns, warehouses, cooperages, climate control, bottling
 # lines, visitor centers, sales offices, marketing departments).
-# v3.6 wires effect resolution: 28 cards are now `implemented: true`.
-# Five remain `implemented: false` pending follow-up design:
-# field_office, marketing_department, sales_office, cooperage,
-# column_still.
+# v3.6 wires effect resolution: 30 cards are now `implemented: true`.
+# Three remain `implemented: false` and are intentionally display-only:
+#   - field_office, sales_office — pure information cards (peek at
+#     hidden state, optionally reveal/rearrange). Need a client reveal
+#     UI with no engine mutation to model; stubbed until that lands.
+#   - column_still — "commit to two slots in one action" is redundant
+#     under the v2.7 no-per-slot-cap rule (a player already makes any
+#     number of separate Make Bourbon commits per turn). Left dormant.
 
 cards:
   # ─── Small (cost 3–4) ─────────────────────────────────────────
@@ -221,7 +225,7 @@ cards:
       Smooths variance on the demand check that opens your turn.
       Useful for hot-market specialists who need a specific demand
       to fire their on-sell bonuses.
-    implemented: false
+    implemented: true
 
   - defId: trade_lobby
     name: Trade Lobby
@@ -463,7 +467,7 @@ cards:
       Cask-side engine — the cask is literally not spent on the
       first commit. Pairs with Bottling Line for double cask
       recycling.
-    implemented: false
+    implemented: true
 
   - defId: climate_controlled_warehouse
     name: Climate-Controlled Warehouse

@@ -228,6 +228,7 @@ export function placeBillInSlot(
     extraAgesAvailable: 0,
     gridRepOffset: 0,
     demandBandOffset: 0,
+    refundedCaskCount: 0,
   };
   draft.allBarrels.push(barrel);
   return barrelId;
@@ -320,6 +321,7 @@ export function placeStartingBarrel(
     extraAgesAvailable: 0,
     gridRepOffset: 0,
     demandBandOffset: 0,
+    refundedCaskCount: 0,
   };
   draft.allBarrels.push(barrel);
 }

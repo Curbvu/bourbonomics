@@ -69,17 +69,28 @@ export function buildStarterMashBill(key: StarterBillKey, instance: number): Mas
 // ============================================================
 // Investment catalog — v3.5 "Investment Rebuild."
 //
-// 32 cards distributed 8 small / 13 medium / 11 large, grounded in
+// 33 cards distributed 9 small / 15 medium / 9 large, grounded in
 // real-world distillery capital expenditures: stills, mash tuns,
 // fermenters, warehouses, cooperages, climate control, bottling
 // lines, visitor centers, sales offices, marketing departments.
 //
 // v3.6 wires effect resolution per category (on_sell bonuses, on_make
 // refunds, on_buy_market discounts, passive_permanent flags, on-purchase
-// choices). 28 of the 33 cards are now `implemented: true`. Five remain
-// `implemented: false` pending follow-up design — field_office,
-// marketing_department, sales_office, cooperage, column_still — and
-// appear in the market / Card Inspect modal as dormant placeholders.
+// choices). 30 of the 33 cards are now `implemented: true`. The
+// remaining three are intentionally display-only and appear in the
+// market / Card Inspect modal as dormant placeholders:
+//   - field_office / sales_office — pure information cards. Their value
+//     is peeking at hidden state (secondary portfolios, the supply
+//     deck) and optionally revealing/rearranging it. That requires a
+//     client-side reveal UI with no engine-state mutation to model, so
+//     they stay stubs until that UI lands. Bots cannot use them.
+//   - column_still — "commit to two slots in one Make Bourbon action."
+//     Mechanically redundant under the v2.7 no-per-slot-cap rule: a
+//     player already makes as many separate MAKE_BOURBON commits per
+//     turn as they like, so the only thing this collapses is clicks.
+//     Left dormant rather than adding a parallel multi-slot commit path.
+// The bot EV scorer treats every `implemented: false` card (and the
+// action-gated ones it can't operate) as negative so it never buys them.
 //
 // Source of truth: `packages/engine/content/investments.yaml`. Keep
 // the YAML and this catalog in sync by hand until a build script lands.
@@ -249,7 +260,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
       text: "At the start of your turn, after rolling your 2d6 demand roll, you may reroll one of the two dice. Once per round.",
       description:
         "Smooths variance on the demand check that opens your turn. Useful for hot-market specialists who need a specific demand to fire their on-sell bonuses.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "trade_lobby",
@@ -459,7 +470,7 @@ export function defaultInvestmentCatalog(): InvestmentCard[] {
         "The first time each round you commit any cask card (Common, Specialty, or Heritage) to a barrel, return that cask to your hand instead of locking it with the barrel.",
       description:
         "Cask-side engine — the cask is literally not spent on the first commit. Pairs with Bottling Line for double cask recycling.",
-      implemented: false,
+      implemented: true,
     },
     {
       defId: "climate_controlled_warehouse",
@@ -1306,10 +1317,10 @@ export function defaultMarketSupply(): Card[] {
   }
 
   // ── Investments ───────────────────────────────────────────────
-  // The 8-card investment catalog ships as effect-pending stubs
-  // (every card has `implemented: false`). Cards enter the unified
-  // market and are buyable — the purchase removes the card and
-  // charges the cost, but no effect fires yet.
+  // The 33-card investment catalog enters the unified market and is
+  // buyable. v3.6 resolves effects for 30 of them on purchase / via
+  // per-trigger hooks; the three display-only stubs charge their cost
+  // but resolve no effect.
   for (const inv of defaultInvestmentCatalog()) {
     cards.push(wrapInvestmentForMarket(inv, idx++));
   }

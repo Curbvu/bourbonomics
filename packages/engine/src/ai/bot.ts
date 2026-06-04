@@ -12,7 +12,7 @@ import type {
 import { resourceUnits, suppliesResource } from "../cards";
 import { computeReward } from "../rewards";
 import { emptySlotsFor, getPlayerBarrels, slottedBillCount } from "../state";
-import { MASTER_DISTILLER_TAGS } from "../investments";
+import { MASTER_DISTILLER_TAGS, hasInvestment } from "../investments";
 
 // ---------------------------------------------------------------
 // Heuristic bot.
@@ -1221,6 +1221,53 @@ function neededUnits(bill: MashBill, pile: Card[]) {
 }
 
 /**
+ * v3.6 — investments a bot owns but can never actively operate, because
+ * the benefit is gated behind an action the bot's planner never issues:
+ *   - warehouse        → WAREHOUSE_STORE / WAREHOUSE_RETRIEVE
+ *   - estate_bottling  → DRAFT_SECOND_PORTFOLIO (bots don't draft a 2nd)
+ *   - trade_lobby      → SHIFT_DEMAND
+ * Buying these is pure wasted rep for a bot, so they score negative.
+ * Cards whose effects fire automatically (turn-start draws, on-make /
+ * on-sell hooks, passive discounts, demand floors) need no such guard.
+ */
+const BOT_UNUSABLE_INVESTMENTS = new Set([
+  "warehouse",
+  "estate_bottling",
+  "trade_lobby",
+]);
+
+/**
+ * v3.6 — EV of buying an investment, on the same rep axis as the rest of
+ * `evForCard`. Investments are permanent engines, so a usable one is
+ * treated as roughly worth its price plus a small premium (net positive
+ * → the bot buys it when it can afford it). Cheaper engines carry a
+ * larger premium; expensive ones need more board presence to pay off.
+ * Guards keep the bot out of trouble: display-only stubs and
+ * action-gated cards score negative, duplicates are wasted rep, and
+ * Brand Ambassador is skipped without an owned barrel to target (its
+ * pending choice would otherwise deadlock the bot).
+ */
+function investmentEv(
+  state: GameState,
+  player: PlayerState,
+  card: Card,
+): number {
+  const spec = card.investmentSpec;
+  if (!spec || !spec.implemented) return -5;
+  if (BOT_UNUSABLE_INVESTMENTS.has(spec.defId)) return -5;
+  if (hasInvestment(player, spec.defId)) return -3;
+  if (
+    spec.defId === "brand_ambassador" &&
+    !state.allBarrels.some((b) => b.ownerId === player.id)
+  ) {
+    return -5;
+  }
+  const cost = card.cost ?? spec.cost;
+  const premium = cost >= 10 ? 0.5 : cost >= 7 ? 1 : 1.5;
+  return cost + premium;
+}
+
+/**
  * How much this market card is worth to `player` *right now*, independent
  * of its price. Higher = more useful. Negative = actively bad.
  *   - Resource (relevant subtype, needed by an in-flight bill): +1/+2 per
@@ -1228,7 +1275,8 @@ function neededUnits(bill: MashBill, pile: Card[]) {
  *   - Resource that no current bill needs: 0.25–1 (deck filler).
  *   - Generic Labor: +2 (flexible: aging fuel or buy supplement).
  *   - Specialty Labor (cooper/architect/marketing): +1.5 (situational).
- *   - Investment: -2 (on-buy effects not implemented yet — see bot.ts:75).
+ *   - Investment: per `investmentEv` — usable engines score ~cost + a
+ *     small premium; stubs / duplicates / unusable cards score negative.
  *   - Operations: 0 (bought via the separate chooser; skipped here).
  *
  * The caller computes `net = ev - card.cost` and compares to a
@@ -1237,7 +1285,7 @@ function neededUnits(bill: MashBill, pile: Card[]) {
  */
 function evForCard(state: GameState, player: PlayerState, card: Card): number {
   if (card.type === "operations") return 0;
-  if (card.type === "investment") return -2;
+  if (card.type === "investment") return investmentEv(state, player, card);
 
   if (card.type === "resource") {
     const sub = card.subtype;

@@ -11,6 +11,7 @@ import {
   makeTestGame,
   giveHand,
   placeBarrel,
+  slotForBill,
 } from "./helpers.js";
 
 /**
@@ -328,6 +329,113 @@ describe("v3.6 — RESOLVE_INVESTMENT_CHOICE", () => {
         barrelId: p2Barrel.id,
       }).legal,
     ).toBe(false);
+  });
+});
+
+describe("v3.6 — Cooperage", () => {
+  it("returns the first committed cask to hand but still completes the recipe", () => {
+    let state = makeTestGame();
+    const mbId = state.allBarrels.find(
+      (b) => b.ownerId === "p1" && b.phase === "ready",
+    )!.attachedMashBill.id;
+    state = advanceToActionPhase(state);
+    state = grantInvestment(state, "p1", "cooperage");
+    state = giveHand(state, "p1", [
+      makeResourceCard("cask", "p1", 0),
+      makeResourceCard("corn", "p1", 1),
+      makeResourceCard("rye", "p1", 2),
+    ]);
+    const slotId = slotForBill(state, "p1", mbId);
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      cardIds: ["card_p1_cask_0", "card_p1_corn_1", "card_p1_rye_2"],
+      slotId,
+    });
+
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    const barrel = state.allBarrels.find((b) => b.slotId === slotId)!;
+    // The barrel completes even though the cask was handed back.
+    expect(barrel.phase).toBe("aging");
+    expect(barrel.refundedCaskCount).toBe(1);
+    // The cask returned to hand; the grain/corn stayed locked.
+    expect(p1.hand.map((c) => c.id)).toContain("card_p1_cask_0");
+    expect(barrel.productionCards.map((c) => c.id).sort()).toEqual(
+      ["card_p1_corn_1", "card_p1_rye_2"].sort(),
+    );
+    // Round use is consumed so a second cask this round is not refunded.
+    expect(p1.investmentRoundUses).toContain("cooperage");
+  });
+
+  it("does not refund a grain-only commit (no cask in the pile)", () => {
+    let state = makeTestGame();
+    const mbId = state.allBarrels.find(
+      (b) => b.ownerId === "p1" && b.phase === "ready",
+    )!.attachedMashBill.id;
+    state = advanceToActionPhase(state);
+    state = grantInvestment(state, "p1", "cooperage");
+    state = giveHand(state, "p1", [
+      makeResourceCard("corn", "p1", 1),
+      makeResourceCard("rye", "p1", 2),
+    ]);
+    const slotId = slotForBill(state, "p1", mbId);
+    state = applyAction(state, {
+      type: "MAKE_BOURBON",
+      playerId: "p1",
+      cardIds: ["card_p1_corn_1", "card_p1_rye_2"],
+      slotId,
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    const barrel = state.allBarrels.find((b) => b.slotId === slotId)!;
+    // No cask was committed, so the once-per-round use is preserved.
+    expect(barrel.refundedCaskCount).toBe(0);
+    expect(p1.investmentRoundUses).not.toContain("cooperage");
+  });
+});
+
+describe("v3.6 — Marketing Department", () => {
+  it("rerolls a die once per round when the opening roll fails to raise demand", () => {
+    let state = makeTestGame({ startingDemand: 6 });
+    state = advanceToActionPhase(state, [3, 3]); // holds at 6
+    state = grantInvestment(state, "p1", "marketing_department");
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1"
+          ? { ...p, needsDemandRoll: true, investmentRoundUses: [] }
+          : p,
+      ),
+    };
+    state = applyAction(state, {
+      type: "ROLL_DEMAND",
+      playerId: "p1",
+      roll: [1, 1],
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    // The reroll branch fired and consumed the once-per-round use.
+    expect(p1.investmentRoundUses).toContain("marketing_department");
+  });
+
+  it("does not reroll without the investment", () => {
+    let state = makeTestGame({ startingDemand: 6 });
+    state = advanceToActionPhase(state, [3, 3]);
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "p1"
+          ? { ...p, needsDemandRoll: true, investmentRoundUses: [] }
+          : p,
+      ),
+    };
+    state = applyAction(state, {
+      type: "ROLL_DEMAND",
+      playerId: "p1",
+      roll: [1, 1],
+    });
+    const p1 = state.players.find((p) => p.id === "p1")!;
+    expect(p1.investmentRoundUses).not.toContain("marketing_department");
+    const last = state.demandRolls[state.demandRolls.length - 1]!;
+    expect(last.roll).toEqual([1, 1]);
   });
 });
 
