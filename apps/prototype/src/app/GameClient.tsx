@@ -327,7 +327,8 @@ export default function GameClient() {
               </Panel>
             </div>
 
-            {/* col 2: brand lines */}
+            {/* col 2: brand lines (top) + rickhouse (below) */}
+            <div className="grid min-h-0 grid-rows-[1fr_auto] gap-4">
             <Panel
               title="Brand lines"
               accent="stage"
@@ -403,8 +404,6 @@ export default function GameClient() {
               )}
             </Panel>
 
-            {/* col 3: rickhouse + cellar */}
-            <div className="grid min-h-0 grid-rows-[auto_1fr] gap-4">
               <Panel
                 title={`Rickhouse ${player.rickhouse.length}/${CONFIG.RICKHOUSE_CAPACITY}`}
                 accent="stage"
@@ -432,8 +431,10 @@ export default function GameClient() {
                   </div>
                 )}
               </Panel>
+            </div>
 
-              <Panel title="Your cellar" right={
+            {/* col 3: cellar */}
+            <Panel title="Your cellar" right={
                 <span className="label-sm" style={{ color: "var(--mute)" }}>
                   recipes · slot cards
                 </span>
@@ -487,7 +488,6 @@ export default function GameClient() {
                   </div>
                 </div>
               </Panel>
-            </div>
           </div>
 
           {/* ── Hand strip ───────────────────────────────────── */}
