@@ -124,6 +124,7 @@ export default function GameClient() {
 
   const [selBill, setSelBill] = useState<string | null>(null);
   const [selResources, setSelResources] = useState<Set<string>>(new Set());
+  const [selMarket, setSelMarket] = useState<Set<string>>(new Set());
   const [selLine, setSelLine] = useState<string | null>(null);
   // Bumped on each successful resource draw so the hand fan replays its
   // deal-in keyframe (mirrors the live game's lastDrawHand.seq).
@@ -138,6 +139,7 @@ export default function GameClient() {
     setMessage(null);
     setSelBill(null);
     setSelResources(new Set());
+    setSelMarket(new Set());
     setSelLine(null);
   }
 
@@ -152,7 +154,10 @@ export default function GameClient() {
     setMessage(null);
     setSelResources(new Set());
     if (action.type === "MAKE_BOURBON") setSelBill(null);
-    if (action.type === "DRAW_RESOURCES") setDealSeq((n) => n + 1);
+    if (action.type === "TAKE_MARKET_RESOURCES") {
+      setSelMarket(new Set());
+      setDealSeq((n) => n + 1);
+    }
   }
 
   function toggleResource(id: string) {
@@ -160,6 +165,16 @@ export default function GameClient() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleMarket(id: string) {
+    const need = Math.min(CONFIG.RESOURCE_DRAW_COUNT, stateRef.current.resourceMarket.length);
+    setSelMarket((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else if (next.size < need) next.add(id);
       return next;
     });
   }
@@ -192,7 +207,7 @@ export default function GameClient() {
           ) : null}
 
           {/* ── Market strip ───────────────────────────────────── */}
-          <div className="grid h-[176px] shrink-0 grid-cols-[260px_1.4fr_1fr_1fr] gap-4">
+          <div className="grid h-[176px] shrink-0 grid-cols-[230px_788px_1fr_1fr] gap-4">
             <Panel title="Demand market" accent="market">
               <div className="flex h-full flex-col justify-between">
                 <DemandTrack demand={state.demand} />
@@ -215,10 +230,18 @@ export default function GameClient() {
             </Panel>
 
             <MarketShelf
+              market={state.resourceMarket}
+              selected={selMarket}
+              takeCount={CONFIG.RESOURCE_DRAW_COUNT}
               deckCount={state.resourceDeck.length}
-              drawCount={CONFIG.RESOURCE_DRAW_COUNT}
               disabled={ended}
-              onDraw={() => dispatch({ type: "DRAW_RESOURCES" })}
+              onToggle={toggleMarket}
+              onTake={() =>
+                dispatch({
+                  type: "TAKE_MARKET_RESOURCES",
+                  cardIds: [...selMarket],
+                })
+              }
             />
 
             <Panel

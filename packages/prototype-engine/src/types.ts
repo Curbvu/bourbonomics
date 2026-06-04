@@ -167,6 +167,8 @@ export interface GameState {
   // Communal resource pool (shared by ALL players).
   resourceDeck: ResourceCard[];
   resourceDiscard: ResourceCard[];
+  /** Face-up resource market (take-and-refill): players pick from these. */
+  resourceMarket: ResourceCard[];
 
   // Mash bills: face-up tray (take-and-refill) + face-down supply (end clock).
   mashBillTray: MashBill[];
@@ -204,6 +206,7 @@ export interface GameState {
 
 export type Action =
   | { type: "DRAW_RESOURCES" }
+  | { type: "TAKE_MARKET_RESOURCES"; cardIds: string[] }
   | { type: "DRAW_MASH_BILLS"; keepIndex: number }
   | { type: "DRAW_SLOT_CARD"; slotDefId?: string }
   | { type: "MAKE_BOURBON"; mashBillId: string; resourceCardIds: string[] }

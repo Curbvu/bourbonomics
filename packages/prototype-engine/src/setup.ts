@@ -45,8 +45,11 @@ export function createGame(options: NewGameOptions = {}): GameState {
 
   let s = seed | 0;
 
-  const [resourceDeck, s1] = shuffle(buildResourceDeck(), s);
+  const [shuffledResources, s1] = shuffle(buildResourceDeck(), s);
   s = s1;
+  // Deal the face-up resource market off the top of the shuffled deck.
+  const resourceMarket = shuffledResources.slice(0, CONFIG.RESOURCE_MARKET_SIZE);
+  const resourceDeck = shuffledResources.slice(CONFIG.RESOURCE_MARKET_SIZE);
   const [allBills, s2] = shuffle(buildMashBillSupply(), s);
   s = s2;
   const [marketingDeck, s3] = shuffle(buildMarketingDeck(), s);
@@ -81,6 +84,7 @@ export function createGame(options: NewGameOptions = {}): GameState {
     forecastDeck: forecastDeckRest,
     resourceDeck,
     resourceDiscard: [],
+    resourceMarket,
     mashBillTray,
     mashBillSupply,
     slotCardSupply,

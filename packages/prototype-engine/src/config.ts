@@ -22,8 +22,10 @@ export const CONFIG = {
   MAX_BRAND_LINES: 4,
   /** A barrel must reach this age before it may be sold. */
   MIN_SELL_AGE: 2,
-  /** Cards drawn / kept per draft action. */
+  /** Cards taken into hand per market visit. */
   RESOURCE_DRAW_COUNT: 3,
+  /** Face-up resource market size — the player picks RESOURCE_DRAW_COUNT of these. */
+  RESOURCE_MARKET_SIZE: 8,
   MASH_BILL_OFFER: 3,
   MARKETING_OFFER: 3,
   /** Tray sizes (face-up, take-and-refill). */

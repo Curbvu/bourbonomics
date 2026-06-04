@@ -141,6 +141,54 @@ describe("communal resource pool", () => {
 });
 
 // ------------------------------------------------------------------
+// face-up resource market (pick 3 of 8)
+// ------------------------------------------------------------------
+
+describe("resource market", () => {
+  it("deals a full face-up market at setup", () => {
+    const s = createGame({ seed: 7 });
+    expect(s.resourceMarket.length).toBe(CONFIG.RESOURCE_MARKET_SIZE);
+  });
+
+  it("takes the chosen cards into hand and refills from the deck", () => {
+    let s = createGame({ seed: 7 });
+    const picks = s.resourceMarket.slice(0, CONFIG.RESOURCE_DRAW_COUNT);
+    const pickIds = picks.map((c) => c.id);
+    s = ok(s, { type: "TAKE_MARKET_RESOURCES", cardIds: pickIds });
+
+    // Picked cards are now in hand.
+    expect(s.players[0]!.hand.map((c) => c.id)).toEqual(
+      expect.arrayContaining(pickIds),
+    );
+    expect(s.players[0]!.hand.length).toBe(CONFIG.RESOURCE_DRAW_COUNT);
+    // Market refilled back to full, and no longer holds the taken cards.
+    expect(s.resourceMarket.length).toBe(CONFIG.RESOURCE_MARKET_SIZE);
+    for (const id of pickIds) {
+      expect(s.resourceMarket.some((c) => c.id === id)).toBe(false);
+    }
+  });
+
+  it("refuses the wrong number of picks", () => {
+    const s = createGame({ seed: 7 });
+    const tooFew = s.resourceMarket.slice(0, 2).map((c) => c.id);
+    expect(expectRefusal(s, { type: "TAKE_MARKET_RESOURCES", cardIds: tooFew })).toMatch(
+      /select exactly/,
+    );
+  });
+
+  it("refuses ids that are not in the market", () => {
+    const s = createGame({ seed: 7 });
+    const ids = s.resourceMarket.slice(0, 2).map((c) => c.id);
+    expect(
+      expectRefusal(s, {
+        type: "TAKE_MARKET_RESOURCES",
+        cardIds: [...ids, "not_a_real_card"],
+      }),
+    ).toMatch(/not in the market/);
+  });
+});
+
+// ------------------------------------------------------------------
 // make bourbon / rickhouse cap
 // ------------------------------------------------------------------
 

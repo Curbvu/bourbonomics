@@ -58,6 +58,13 @@ function drawResources(draft: GameState, n: number): ResourceCard[] {
   return drawn;
 }
 
+/** Top up the face-up resource market from the communal deck. */
+function refillResourceMarket(draft: GameState): void {
+  const need = CONFIG.RESOURCE_MARKET_SIZE - draft.resourceMarket.length;
+  if (need <= 0) return;
+  draft.resourceMarket.push(...drawResources(draft, need));
+}
+
 // ---------------------------------------------------------------------
 // Quality / recipe helpers
 // ---------------------------------------------------------------------
@@ -332,6 +339,36 @@ function handleDrawResources(draft: GameState, player: Player): string | null {
   return null;
 }
 
+function handleTakeMarketResources(
+  draft: GameState,
+  player: Player,
+  cardIds: string[],
+): string | null {
+  const ids = new Set(cardIds);
+  if (ids.size !== cardIds.length) return "duplicate resource card ids";
+  if (draft.resourceMarket.length === 0) return "the market is empty";
+
+  // Must take exactly RESOURCE_DRAW_COUNT, unless the market is running low.
+  const want = Math.min(CONFIG.RESOURCE_DRAW_COUNT, draft.resourceMarket.length);
+  if (cardIds.length !== want) {
+    return `select exactly ${want} resource card(s) from the market`;
+  }
+
+  const picked: ResourceCard[] = [];
+  for (const id of cardIds) {
+    const card = draft.resourceMarket.find((c) => c.id === id);
+    if (!card) return `resource ${id} is not in the market`;
+    picked.push(card);
+  }
+
+  // Remove from market, hand to the player, then refill from the deck.
+  draft.resourceMarket = draft.resourceMarket.filter((c) => !ids.has(c.id));
+  player.hand.push(...picked);
+  refillResourceMarket(draft);
+  draft.log.push(`${player.name} took ${picked.length} resource(s) from the market.`);
+  return null;
+}
+
 function handleDrawMashBills(
   draft: GameState,
   player: Player,
@@ -540,6 +577,9 @@ export function applyAction(state: GameState, action: Action): ActionResult {
   switch (action.type) {
     case "DRAW_RESOURCES":
       error = handleDrawResources(draft, player);
+      break;
+    case "TAKE_MARKET_RESOURCES":
+      error = handleTakeMarketResources(draft, player, action.cardIds);
       break;
     case "DRAW_MASH_BILLS":
       error = handleDrawMashBills(draft, player, action.keepIndex);
