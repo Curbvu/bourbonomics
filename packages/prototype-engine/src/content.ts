@@ -159,7 +159,7 @@ const SLOT_CARD_DEFS: SlotCardDef[] = [
   },
   // 4. Workhorse — 6 slots, all required, FLAT (volume line).
   //    Rules carve-out: the deliberate exception to "rewards scale with
-  //    position" (see GAME_RULES_V2.md). Breadth, not efficiency.
+  //    position" (see GAME_RULES_P2.md). Breadth, not efficiency.
   {
     defId: "slot_workhorse",
     name: "Workhorse Line",

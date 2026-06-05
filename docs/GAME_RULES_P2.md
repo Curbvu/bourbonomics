@@ -1,10 +1,12 @@
-# 🥃 Bourbonomics v2
+# 🥃 Bourbonomics P2
 
 A cozy engine-building game about building a bourbon distillery — one barrel at a time. You collect resources, build bourbons, age them quietly in the rickhouse, and sell them into a shared market at the right moment. The bourbons you sell become bottles in your **brand lines** — and your brand lines are the engine. Build the best portfolio of bourbon when the supply runs dry and you win.
 
 **Players:** 1–4 · **Length:** ~45–60 min · **Complexity:** Medium-light
 
-> **A note on this redesign.** Bourbonomics v2 is a ground-up reconception, not an iteration on the v3.x line. It keeps the theme (mash bills, aging, demand, selling) and the age × demand payoff matrix, and discards almost everything else. There is no dual rickhouse-and-portfolio rep economy, no doomsday-clock-as-only-spine, no aging-as-card-tax, no per-slot recipe gating. Instead the game is built around two decisions repeated all game: **when to sell a bourbon**, and **where to place it in a brand line**. Everything else serves those two. The design lane is deliberately cozy — production-focused, gentle competition, no direct player attacks — aimed at the bourbon-enthusiast and gift market. This document is the canonical rules for v2 and is authoritative over any prototype code.
+> **A note on this redesign.** Bourbonomics **P2** is a ground-up reconception, not an iteration on the **P1** line (the original live game, whose rules live in [`GAME_RULES.md`](GAME_RULES.md)). It keeps the theme (mash bills, aging, demand, selling) and the age × demand payoff matrix, and discards almost everything else. There is no dual rickhouse-and-portfolio rep economy, no doomsday-clock-as-only-spine, no aging-as-card-tax, no per-slot recipe gating. Instead the game is built around two decisions repeated all game: **when to sell a bourbon**, and **where to place it in a brand line**. Everything else serves those two. The design lane is deliberately cozy — production-focused, gentle competition, no direct player attacks — aimed at the bourbon-enthusiast and gift market. This document is the canonical rules for P2 and is authoritative over any prototype code.
+>
+> **Doc vs. prototype.** This rulebook describes the intended whole. The prototype implements it in batches, so a few sections below describe mechanics that are **designed but not yet built** — each is tagged **`🔮 PLANNED`**. Everything untagged matches the current prototype.
 
 ---
 
@@ -32,11 +34,11 @@ The game ends when the **mash bill supply runs out**. Each player's final score 
 # 🎬 Setup
 
 1. **Shared demand market.** Place the demand marker at **0** on the 0–12 track. Reveal **2 forecast cards** face-up beside it.
-2. **Resource pool.** Shuffle the **communal resource deck** (casks, corn, grain — in Common / Specialty / Heritage qualities). It is shared by all players; there are no personal decks. Place a discard space beside it.
-3. **Mash bill supply.** Shuffle the mash bills face-down. Deal **3 face-up** as the mash bill tray. The remaining face-down supply is the **doomsday clock** — when it empties, the game ends.
-4. **Slot card supply.** Sort the slot cards by design (3–6 designs, multiple copies each) where every player can reach them. They are abundant.
-5. **Marketing tray.** Shuffle the marketing cards; reveal a face-up tray.
-6. **Players.** Each player takes a player board (rickhouse + brand-line area), starts with **0 Capital** and **0 prestige**, and draws an opening hand of resource cards from the communal deck.
+2. **Resource pool.** Shuffle the **communal resource deck** (casks, corn, grain — in Common / Specialty / Heritage qualities). It is shared by all players; there are no personal decks. Deal **8 face-up** as the **resource market** (take-and-refill), and place a discard space beside the deck.
+3. **Mash bill supply.** Shuffle the mash bills face-down. Deal **3 face-up** as the mash bill tray (take-and-refill). The remaining face-down supply is the **doomsday clock** — when it empties, the game ends.
+4. **Slot card supply.** Lay out the slot cards by design (**5 frozen designs**, 12 copies each) where every player can reach them. They are abundant and drawn freely.
+5. **Marketing tray.** Shuffle the marketing cards; reveal a face-up tray of **4**.
+6. **Players.** Each player takes a player board (rickhouse + brand-line area) and starts with **5 Capital**, **0 prestige**, and an **empty hand** (you gather your first resources on your turn).
 7. Pick a start player.
 
 ---
@@ -64,25 +66,31 @@ Each turn you spend your 6 actions, one at a time, choosing freely from:
 
 | Action | Cost | Effect |
 |---|:-:|---|
-| **Draw Resources** | 1 action | Draw 3 resource cards from the communal deck to your hand. |
-| **Draw Mash Bills** | 1 action | Reveal 3 from the mash bill tray; keep 1, the rest are discarded. Drains the bill supply (the clock). |
-| **Make Bourbon** | 1 action | Commit resource cards from your hand to a mash bill's recipe; spent cards go to the communal discard. The new bourbon enters your rickhouse at age 0. |
-| **Sell Bourbon** | 1 action | Sell an eligible aging bourbon. Bank Capital, place the bottle. See [§Selling](#-selling). |
-| **Open Brand Line** | 1 action + Capital | Pay **+1 Capital** (escalating per additional line) and place a slot card as a new brand line. |
-| **Draft Marketing** | 1 action + Capital | Pay **+1 Capital** (the first marketing card of the game is free), draw 3 marketing cards, keep 1, and **attach it immediately** to a brand line. No marketing inventory. |
-| **Activate Forecast** | free, once/round | Activate a visible forecast card. See [§The Demand Forecast](#-the-demand-forecast). Does not cost an action. |
+| **Draw Resources** | 1 action | Draw **3** resource cards blind off the communal deck into your hand. |
+| **Take Market Resources** | 1 action | Take **3** of the **8** face-up cards from the resource market; the market refills from the deck. Lets you pick quality on purpose. |
+| **Draw Mash Bills** | 1 action | Keep **1** of the 3-card mash bill tray; it lays down as an **unbuilt barrel** resting in your rickhouse (it shows the recipe it needs and does **not** age yet). Take-and-refill; drains the bill supply (the clock). |
+| **Make Bourbon** | 1 action | Commit the **exact recipe** of resource cards from your hand into one of your **resting unbuilt barrels**. It builds, sets its quality from the best card committed, and begins aging at **age 0**. Spent cards go to the communal discard. |
+| **Draw Slot Card** | 1 action | Take one of the five slot-card designs into your hand of slot cards (to spend later on Open Brand Line). No Capital cost. |
+| **Open Brand Line** | 1 action + Capital | Spend a slot card you hold and pay **+1 Capital** (escalating per additional line) to open it as a new brand line. |
+| **Draft Marketing** | 1 action + Capital | Pay **+1 Capital** (the first marketing card of the game is free), keep **1** from the face-up marketing tray, and **attach it immediately** to a brand line. No marketing inventory. |
+| **Sell Bourbon** | 1 action | Sell an eligible **built**, aged bourbon. Bank Capital, place the bottle. See [§Selling](#-selling). |
 
-The **rickhouse holds at most 4 barrels** (hard cap). You cannot build a bourbon if your rickhouse is full — sell or you're stuck. Future investments may expand it.
+The **rickhouse holds at most 4 barrels** (hard cap), counting both resting unbuilt barrels and aging built ones. When it is full you **cannot lay down a new barrel** (Draw Mash Bills is blocked) — build and sell to make room. Future investments may expand it.
+
+> **Two-step production.** Making a bourbon takes **two actions across the game**: first **Draw Mash Bills** lays the recipe down as a resting barrel; later **Make Bourbon** commits the resources to build it. The gap is deliberate — you can reserve a recipe early and gather the right resources before committing.
 
 ---
 
 # 🛢️ Building and Aging Bourbon
 
-### Make Bourbon
+### Lay down, then build
 
-Each mash bill is a recipe — a set of resource requirements (cask + corn + grain, with quality minimums on premium bills). To **make** a bourbon, commit matching resource cards from your hand. The **quality** of the resources you commit — Common, Specialty, or Heritage — sets the bourbon's quality tier, which gates the premium end of the payoff matrix and demand.
+Each mash bill is a recipe — a set of resource requirements (some mix of cask + corn + grain). Production is a **two-step** sequence:
 
-Spent resource cards go to the **communal discard** (they are consumed — one-shot — not returned to your hand; there are no personal decks). The new bourbon enters your rickhouse at **age 0**.
+1. **Draw Mash Bills** keeps a recipe and lays it down as an **unbuilt barrel** resting in your rickhouse. It displays the recipe it needs, takes up a rickhouse slot, and does **not** age while unbuilt.
+2. **Make Bourbon** commits the **exact recipe** of resource cards from your hand into that resting barrel (no missing cards, no extras). The barrel builds, begins aging at **age 0**, and its **quality** — Common, Specialty, or Heritage — is set by the **best** card you committed. Quality gates the premium end of the payoff matrix.
+
+Spent resource cards go to the **communal discard** (they are consumed — one-shot — not returned to your hand; there are no personal decks).
 
 ### Aging is set-and-forget
 
@@ -109,18 +117,21 @@ The payoff matrix on each mash bill is keyed on **(age × demand)** — higher d
 
 # 🔮 The Demand Forecast
 
-Two forecast cards are visible at all times. Each is a **boost** to demand — forecasts only ever raise demand, never crash it — and many carry a simple condition.
+Two forecast cards are visible at all times. They schedule how demand will move at the next Year Pass, so the whole table can plan around them. Most are upward, but the deck also holds flat and small downward swings.
 
-- **Example forecast cards:** `+1`, `+2`, `+1 if demand < 6`, `+2 if demand < 4`.
-- Conditional forecasts only fire when their threshold is met, so a cold market is easy to boost and a hot market resists further heating. This self-limits how high the table can push demand.
+- **Forecast cards in the prototype:** `+1`, `+2`, `+1 if demand < 6`, `-1`, and `no change`.
+- A conditional forecast (e.g. `+1 if demand < 6`) only fires when its threshold is met, so a cold market is easy to lift and a hot one resists further heating. This self-limits how high demand climbs.
+- At the **Year Pass**, the front forecast card resolves automatically (applying its move if its condition holds), then the next card is revealed — so you can always see the next two moves coming.
 
-### Activating a forecast (the coordination puzzle)
+### 🔮 PLANNED — Activating a forecast (the coordination puzzle)
+
+> *Not yet in the prototype. Today demand advances automatically at the Year Pass (above); players cannot trigger forecasts. The mechanic below is the design target for a later batch, and assumes a boost-only forecast deck.*
 
 Once per round, during your turn, for **free** (no action cost), a player may **activate** one of the visible forecast cards. This resolves the forecast's demand move **immediately** — but the activating player **does not get to act on the new demand themselves on that activation.** The benefit lands for whoever comes next.
 
 This creates a gentle table-wide **coordination puzzle**. Demand is 4; if every player activates a boost before anyone sells, the table can lift demand to 7 or 8 and *everyone* sells into a rich market. But the moment a player **sells** (defects), they take the high window for themselves and cool the market for everyone after. Building demand is a shared good; cashing it in is a private one. Reading how much the players after you will consume before demand loops back to you — and deciding whether to keep boosting or sell now — is the puzzle.
 
-Because forecasts are boost-only, activating one can never *hurt* another player; it can only help, and the only question is whom it helps most. The rotating start player equalizes seat-order advantage over a game.
+With a boost-only forecast deck, activating one can never *hurt* another player; it can only help, and the only question is whom it helps most. The rotating start player equalizes seat-order advantage over a game.
 
 ---
 
@@ -128,9 +139,9 @@ Because forecasts are boost-only, activating one can never *hurt* another player
 
 A small intermediate area where bourbons age before they're sold and placed.
 
-- **Capacity:** 4 barrels (hard cap). Expandable later via investments.
-- Bourbons enter at age 0, age +1 per round, and leave when sold.
-- A full rickhouse blocks Make Bourbon — manage your space by selling.
+- **Capacity:** 4 barrels (hard cap), counting both resting unbuilt barrels and aging built ones. Expandable later via investments.
+- A resting barrel takes a slot but does not age; a built bourbon ages +1 per round and leaves when sold.
+- A full rickhouse blocks **laying down a new barrel** (Draw Mash Bills) — build and sell to make room.
 
 The rickhouse is the production throttle. The volume player needs to keep it cycling (sell often to make room); the premium player keeps a few barrels aging long. Space is the squeeze.
 
@@ -196,7 +207,7 @@ This single decision supports three viable strategies, each throttled differentl
 
 Marketing cards layer a **brand identity** onto a line and are the source of **prestige**.
 
-- **Acquire** via the Draft Marketing action: 1 action + 1 Capital (first card of the game free), draw 3, keep 1, **attach immediately** to a brand line. No inventory — you commit on draft.
+- **Acquire** via the Draft Marketing action: 1 action + 1 Capital (first card of the game free), keep 1 from the face-up marketing tray, and **attach immediately** to a brand line. No inventory — you commit on draft.
 - **Mutually exclusive** where they conflict: a *rye-only* card and a *wheated-only* card cannot share a line. Attaching one forecloses incompatible identities for that line.
 - **Trait-gated:** a placed bottle fires only the marketing cards whose traits it matches. An off-identity bottle simply doesn't fire the card — no penalty, no retroactive breakage.
 - **Stackable** up to **3** per line. Stacking *narrows* the bourbons that qualify while *raising* the payoff — a tall stack pays out fully only for a bourbon that hits every trait, which is rare and expensive to produce. The stack self-throttles: rich payoffs demand coherent, specific production.
@@ -205,13 +216,15 @@ Marketing rewards **prestige**, which converts to Capital at the end of the game
 
 ### Example marketing card — "Premium Rye"
 
-> *Rye-only line. When you place a rye bourbon here, gain prestige scaling with its age. Non-rye bottles score nothing from this card.*
+> *Rye-only line. Each time you place a rye bourbon here, gain a fixed amount of prestige. Non-rye bottles score nothing from this card.*
 
-Rewards exactly what the name promises — aged rye — and gently disincentivizes diluting the line, without ever blocking a placement.
+Rewards exactly what the name promises — and gently disincentivizes diluting the line, without ever blocking a placement. (Each marketing card pays a flat prestige amount per trait-matched placement; tuning these payoffs is pre-playtest.)
 
 ---
 
-# ↔️ Cascades
+# ↔️ Cascades · 🔮 PLANNED
+
+> *Not yet in the prototype. Bottles currently fire their slot reward and any trait-matched marketing on placement, but carry no cascade. The mechanic below is the design target for a later batch.*
 
 Every bourbon carries a small **on-placement cascade** effect — a minor utility like *draw 1 resource* or *gain 1 prestige*, printed on the bourbon.
 
@@ -232,11 +245,11 @@ Choosing a direction gives you agency and rewards building a consistent progress
 - Slot rewards that print Capital.
 
 ### Spending Capital
-- **Premium resources / better cards** from the market (the primary sink — basic resources come free from Draw Resources; Capital buys up in quality).
-- **Investments** — permanent engine upgrades (a later addition; the catalog finally gets a currency to be bought with).
-- **Opening brand lines** — +1 Capital, escalating.
-- **Drafting marketing** — +1 Capital per draft (first free).
-- **Extra actions** (optional, braked) — a flexibility valve with escalating cost / a hard per-round cap, since Capital→actions→more-Capital is the one runaway risk.
+- **Opening brand lines** — +1 Capital, escalating per additional line.
+- **Drafting marketing** — +1 Capital per draft (first of the game free).
+- **🔮 PLANNED — Premium resources / better cards.** Today both Draw Resources and Take Market Resources are free (you pay only an action; the market just lets you pick quality on purpose). A paid market that makes Capital "buy up in quality" is a design target for later.
+- **🔮 PLANNED — Investments** — permanent engine upgrades (the catalog finally gets a currency to be bought with).
+- **🔮 PLANNED — Extra actions** (optional, braked) — a flexibility valve with escalating cost / a hard per-round cap, since Capital→actions→more-Capital is the one runaway risk.
 
 Unspent Capital banks toward your final score, creating the reinvest-vs-bank tension.
 
@@ -283,4 +296,8 @@ It's about **patience** — knowing what to age, when the world is ready to pay,
 
 # 📜 Versioning
 
-This document is **v2** — the canonical rules for the redesigned cozy engine-builder. It is authoritative over any prototype implementation. The prototype lives isolated at `prototype.bourbonomics.com` and is built in discrete batches; this rulebook describes the intended whole, while the prototype implements it incrementally (Batch 1: core single-player loop; later batches add the demand-coordination activation, cascades, marketing depth, investments, bots, and multiplayer).
+This document is the canonical rules for **Bourbonomics P2** — the redesigned cozy engine-builder — and is distinct from **P1**, the original live game (rules in [`GAME_RULES.md`](GAME_RULES.md)). It is authoritative over any prototype implementation. The prototype lives isolated at `prototype.bourbonomics.com` (workspaces `apps/prototype` + `packages/prototype-engine`) and is built in discrete batches; this rulebook describes the intended whole, while the prototype implements it incrementally.
+
+**Currently in the prototype:** the full single-player loop — the eight actions (Draw Resources, Take Market Resources, Draw Mash Bills, Make Bourbon, Draw Slot Card, Open Brand Line, Draft Marketing, Sell Bourbon), the two-step rest→build production, the age × demand selling matrix, the five frozen slot cards with their reward specs and the Expressions house-style bonus, trait-gated stackable marketing, the automatic Year-Pass demand forecast, and Capital + prestige scoring with the bills-run-out clock.
+
+**Tagged `🔮 PLANNED` above (not yet built):** player-activated demand forecasts (the coordination puzzle) and on-placement cascades. Also deferred to later batches: investments, extra-action buying, bot/AI heuristics, and multiplayer/networking. All content and balance values are **placeholder, pre-playtest**.

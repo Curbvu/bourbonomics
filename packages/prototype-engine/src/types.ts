@@ -187,7 +187,7 @@ export interface Bourbon {
 export interface BrandLine {
   id: string;
   slotCard: SlotCard;
-  /** Filled left→right. null = empty slot. Length === slotCard.slotRewards.length. */
+  /** Filled left→right. null = empty slot. Length === slotCard.slots.length. */
   slots: (Bourbon | null)[];
   /** Highest anchored age = the line's effective ceiling. null when empty. */
   ageCeiling: number | null;
@@ -202,8 +202,6 @@ export interface Player {
   /** Converts to capital at game end via prestigeToCapital(). */
   prestige: number;
   hand: ResourceCard[];
-  /** Mash bills kept via DRAW_MASH_BILLS — reusable recipes for MAKE_BOURBON. */
-  mashBills: MashBill[];
   /** Slot cards drawn via DRAW_SLOT_CARD, spent by OPEN_BRAND_LINE. */
   slotCards: SlotCard[];
   /** HARD CAP RICKHOUSE_CAPACITY. */
