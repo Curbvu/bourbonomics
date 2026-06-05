@@ -13,6 +13,7 @@ import type {
   ResourceCard,
   ResourceKind,
   SlotCard,
+  SlotSpec,
 } from "./types";
 
 /** Highest age row we materialize in every payoff matrix. */
@@ -49,21 +50,23 @@ interface MashBillDef {
   defId: string;
   name: string;
   traits: string[];
+  /** Single canonical house-style tag (read by the Expressions slot card). */
+  expression: string;
   recipe: Partial<Record<ResourceKind, number>>;
   peak: number;
 }
 
 const MASH_BILL_DEFS: MashBillDef[] = [
-  { defId: "mb_high_corn", name: "Sweet Corn Mash", traits: ["high-corn"], recipe: { corn: 2, cask: 1 }, peak: 8 },
-  { defId: "mb_classic", name: "Classic Bourbon", traits: ["balanced"], recipe: { corn: 1, grain: 1, cask: 1 }, peak: 10 },
-  { defId: "mb_rye_heavy", name: "High Rye", traits: ["rye-heavy", "spiced"], recipe: { grain: 2, cask: 1 }, peak: 12 },
-  { defId: "mb_wheated", name: "Wheated", traits: ["wheated", "smooth"], recipe: { grain: 1, corn: 1, cask: 1 }, peak: 12 },
-  { defId: "mb_four_grain", name: "Four Grain", traits: ["balanced", "complex"], recipe: { corn: 1, grain: 2, cask: 1 }, peak: 14 },
-  { defId: "mb_bottled_in_bond", name: "Bottled-in-Bond", traits: ["balanced", "bonded"], recipe: { corn: 2, grain: 1, cask: 1 }, peak: 16 },
-  { defId: "mb_single_barrel", name: "Single Barrel", traits: ["complex"], recipe: { corn: 1, grain: 1, cask: 2 }, peak: 18 },
-  { defId: "mb_rye_double", name: "Double Rye", traits: ["rye-heavy", "spiced", "complex"], recipe: { grain: 3 }, peak: 20 },
-  { defId: "mb_heritage_wheat", name: "Heirloom Wheat", traits: ["wheated", "heritage-grain"], recipe: { grain: 2, cask: 1 }, peak: 22 },
-  { defId: "mb_small_batch", name: "Small Batch Reserve", traits: ["balanced", "smooth", "complex"], recipe: { corn: 1, grain: 1, cask: 2 }, peak: 24 },
+  { defId: "mb_high_corn", name: "Sweet Corn Mash", traits: ["high-corn"], expression: "high-corn", recipe: { corn: 2, cask: 1 }, peak: 8 },
+  { defId: "mb_classic", name: "Classic Bourbon", traits: ["balanced"], expression: "bourbon", recipe: { corn: 1, grain: 1, cask: 1 }, peak: 10 },
+  { defId: "mb_rye_heavy", name: "High Rye", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { grain: 2, cask: 1 }, peak: 12 },
+  { defId: "mb_wheated", name: "Wheated", traits: ["wheated", "smooth"], expression: "wheated", recipe: { grain: 1, corn: 1, cask: 1 }, peak: 12 },
+  { defId: "mb_four_grain", name: "Four Grain", traits: ["balanced", "complex"], expression: "four-grain", recipe: { corn: 1, grain: 2, cask: 1 }, peak: 14 },
+  { defId: "mb_bottled_in_bond", name: "Bottled-in-Bond", traits: ["balanced", "bonded"], expression: "bourbon", recipe: { corn: 2, grain: 1, cask: 1 }, peak: 16 },
+  { defId: "mb_single_barrel", name: "Single Barrel", traits: ["complex"], expression: "bourbon", recipe: { corn: 1, grain: 1, cask: 2 }, peak: 18 },
+  { defId: "mb_rye_double", name: "Double Rye", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { grain: 3 }, peak: 20 },
+  { defId: "mb_heritage_wheat", name: "Heirloom Wheat", traits: ["wheated", "heritage-grain"], expression: "wheated", recipe: { grain: 2, cask: 1 }, peak: 22 },
+  { defId: "mb_small_batch", name: "Small Batch Reserve", traits: ["balanced", "smooth", "complex"], expression: "four-grain", recipe: { corn: 1, grain: 1, cask: 2 }, peak: 24 },
 ];
 
 export function buildMashBillSupply(): MashBill[] {
@@ -77,6 +80,7 @@ export function buildMashBillSupply(): MashBill[] {
         defId: def.defId,
         name: def.name,
         traits: [...def.traits],
+        expression: def.expression,
         recipe: { ...def.recipe },
         matrix: buildMatrix(def.peak),
         placeholder: true,
@@ -93,41 +97,93 @@ export function buildMashBillSupply(): MashBill[] {
 interface SlotCardDef {
   defId: string;
   name: string;
-  slotRewards: { capital?: number; prestige?: number }[];
+  slots: SlotSpec[];
   ageCeilings: number[];
+  houseStyleBonus?: number;
 }
 
+// The five frozen v2 brand-line designs. See the design brief for the
+// authoritative tables; this data mirrors them slot-for-slot.
+//   Notation: slots run left→right, young→old (staircase: non-decreasing
+//   age, ties allowed). Capital = currency+score; prestige = score only;
+//   resources = cards drawn to hand. prestigeFromAge = prestige equal to
+//   the placed bottle's age.
 const SLOT_CARD_DEFS: SlotCardDef[] = [
+  // 1. Standard — 5 slots, all required (beginner / fuel line).
+  //    Slot 5 is the bait-with-teeth anchor: the +5-resource branch scores
+  //    less than +2 Capital, and anchoring a young bottle here caps the line.
   {
-    defId: "slot_starter_line",
-    name: "Starter Line",
-    slotRewards: [{ capital: 1 }, { capital: 2 }, { capital: 3 }],
-    ageCeilings: [3, 5, MAX_MATRIX_AGE],
+    defId: "slot_standard",
+    name: "Standard Line",
+    slots: [
+      { reward: { kind: "flat", reward: { resources: 1 } } },
+      { reward: { kind: "flat", reward: { capital: 1 } } },
+      { reward: { kind: "choice", options: [{ capital: 1 }, { resources: 2 }] } },
+      { reward: { kind: "flat", reward: { capital: 1, resources: 1 } } },
+      { reward: { kind: "choice", options: [{ capital: 2 }, { resources: 5 }] } },
+    ],
+    ageCeilings: [2, 3, 4, 6, MAX_MATRIX_AGE],
   },
+  // 2. Flagship — flagship + 2 required (inert) + 2 optional (prestige).
+  //    Slot 1's age=prestige is intentionally UNcapped; the staircase caps
+  //    it via opportunity cost (a high floor forces older bottles above).
   {
     defId: "slot_flagship",
-    name: "Flagship Portfolio",
-    slotRewards: [{ capital: 1 }, { capital: 2, prestige: 1 }, { capital: 3 }, { capital: 4, prestige: 1 }],
-    ageCeilings: [2, 4, 6, MAX_MATRIX_AGE],
-  },
-  {
-    defId: "slot_prestige_line",
-    name: "Prestige Collection",
-    slotRewards: [{ prestige: 1 }, { prestige: 2 }, { prestige: 3 }],
-    ageCeilings: [3, 6, MAX_MATRIX_AGE],
-  },
-  {
-    defId: "slot_grand_reserve",
-    name: "Grand Reserve",
-    slotRewards: [
-      { capital: 1 },
-      { capital: 2 },
-      { capital: 3, prestige: 1 },
-      { capital: 4, prestige: 1 },
-      { capital: 5, prestige: 2 },
-      { capital: 6, prestige: 3 },
+    name: "Flagship Line",
+    slots: [
+      { reward: { kind: "flat", reward: { prestigeFromAge: true } } },
+      { reward: { kind: "flat", reward: {} } },
+      { reward: { kind: "flat", reward: {} } },
+      { reward: { kind: "flat", reward: { prestige: 3 } }, optional: true },
+      { reward: { kind: "flat", reward: { prestige: 5 } }, optional: true },
     ],
-    ageCeilings: [2, 3, 4, 6, 8, MAX_MATRIX_AGE],
+    ageCeilings: [2, 4, 6, 8, MAX_MATRIX_AGE],
+  },
+  // 3. Expressions — 6 slots, alternating required/optional (coherence line).
+  //    Each optional must match its paired required's age. House-style bonus
+  //    at scoring: all 3 optionals filled, all one expression, each differing
+  //    from its paired required's expression → +5 prestige.
+  {
+    defId: "slot_expressions",
+    name: "Expressions Line",
+    slots: [
+      { reward: { kind: "flat", reward: { resources: 1 } } },
+      { reward: { kind: "flat", reward: { prestige: 1 } }, optional: true, matchAgeOfSlot: 0 },
+      { reward: { kind: "flat", reward: { capital: 1 } } },
+      { reward: { kind: "choice", options: [{ capital: 1 }, { resources: 3 }] }, optional: true, matchAgeOfSlot: 2 },
+      { reward: { kind: "flat", reward: { capital: 2 } } },
+      { reward: { kind: "choice", options: [{ resources: 5 }, { capital: 2 }] }, optional: true, matchAgeOfSlot: 4 },
+    ],
+    ageCeilings: [2, 2, 4, 4, 6, MAX_MATRIX_AGE],
+    houseStyleBonus: 5,
+  },
+  // 4. Workhorse — 6 slots, all required, FLAT (volume line).
+  //    Rules carve-out: the deliberate exception to "rewards scale with
+  //    position" (see GAME_RULES_V2.md). Breadth, not efficiency.
+  {
+    defId: "slot_workhorse",
+    name: "Workhorse Line",
+    slots: [
+      { reward: { kind: "flat", reward: { resources: 1 } } },
+      { reward: { kind: "flat", reward: { capital: 1 } } },
+      { reward: { kind: "flat", reward: { resources: 1 } } },
+      { reward: { kind: "flat", reward: { capital: 1 } } },
+      { reward: { kind: "flat", reward: { resources: 1 } } },
+      { reward: { kind: "flat", reward: { capital: 2 } } },
+    ],
+    ageCeilings: [2, 3, 4, 5, 6, MAX_MATRIX_AGE],
+  },
+  // 5. Single Barrel — 3 slots, gated with cozy fallbacks (premium line).
+  //    A gate miss pays the fallback and never blocks placement.
+  {
+    defId: "slot_single_barrel",
+    name: "Single Barrel Line",
+    slots: [
+      { reward: { kind: "gated", gate: { minAge: 4 }, hit: { capital: 2 }, miss: { capital: 1 } } },
+      { reward: { kind: "gated", gate: { minQuality: "specialty", minAge: 4 }, hit: { capital: 3 }, miss: { capital: 1 } } },
+      { reward: { kind: "gated", gate: { minQuality: "heritage", minAge: 6 }, hit: { capital: 5 }, miss: { capital: 2 } } },
+    ],
+    ageCeilings: [4, 5, MAX_MATRIX_AGE],
   },
 ];
 
@@ -140,8 +196,11 @@ export function buildSlotCardSupply(): SlotCard[] {
         id: `${def.defId}#${copy}`,
         defId: def.defId,
         name: def.name,
-        slotRewards: def.slotRewards.map((r) => ({ ...r })),
+        slots: def.slots.map((s) => structuredClone(s)),
         ageCeilings: [...def.ageCeilings],
+        ...(def.houseStyleBonus !== undefined
+          ? { houseStyleBonus: def.houseStyleBonus }
+          : {}),
         placeholder: true,
       });
     }

@@ -23,6 +23,8 @@ import type {
   Quality,
   ResourceCard,
   ResourceKind,
+  RewardLeaf,
+  SlotRewardSpec,
 } from "./types";
 
 let idCounter = 0;
@@ -58,6 +60,13 @@ function drawResources(draft: GameState, n: number): ResourceCard[] {
   return drawn;
 }
 
+/** Top up the face-up resource market from the communal deck. */
+function refillResourceMarket(draft: GameState): void {
+  const need = CONFIG.RESOURCE_MARKET_SIZE - draft.resourceMarket.length;
+  if (need <= 0) return;
+  draft.resourceMarket.push(...drawResources(draft, need));
+}
+
 // ---------------------------------------------------------------------
 // Quality / recipe helpers
 // ---------------------------------------------------------------------
@@ -77,6 +86,16 @@ function deriveQuality(cards: ResourceCard[]): Quality {
   return best;
 }
 
+/** Human-readable recipe summary, e.g. "1 cask + 2 corn". */
+function recipeText(recipe: Partial<Record<ResourceKind, number>>): string {
+  const parts: string[] = [];
+  for (const k of ["cask", "corn", "grain"] as ResourceKind[]) {
+    const n = recipe[k] ?? 0;
+    if (n > 0) parts.push(`${n} ${k}`);
+  }
+  return parts.length ? parts.join(" + ") : "nothing";
+}
+
 /** Count committed cards by kind. */
 function countByKind(cards: ResourceCard[]): Record<ResourceKind, number> {
   const counts: Record<ResourceKind, number> = { cask: 0, corn: 0, grain: 0 };
@@ -86,17 +105,18 @@ function countByKind(cards: ResourceCard[]): Record<ResourceKind, number> {
 
 /** The committed cards must satisfy the recipe exactly (no missing, no extras). */
 function recipeSatisfied(
-  bill: MashBill,
+  recipe: Partial<Record<ResourceKind, number>>,
+  name: string,
   cards: ResourceCard[],
 ): { ok: true } | { ok: false; reason: string } {
   const have = countByKind(cards);
   const kinds: ResourceKind[] = ["cask", "corn", "grain"];
   for (const k of kinds) {
-    const need = bill.recipe[k] ?? 0;
+    const need = recipe[k] ?? 0;
     if (have[k] !== need) {
       return {
         ok: false,
-        reason: `recipe for ${bill.name} needs ${need} ${k} (got ${have[k]})`,
+        reason: `recipe for ${name} needs ${need} ${k} (got ${have[k]})`,
       };
     }
   }
@@ -129,33 +149,65 @@ function highestAge(line: BrandLine): number | null {
 }
 
 /**
- * First empty slot index where placing a bourbon of `age` keeps the line's
- * ages non-decreasing left→right (ties allowed). null if none fits.
+ * Whether placing a bottle of `age` into empty slot `i` keeps the line's ages
+ * non-decreasing left→right (ties allowed). Empty slots between are skipped —
+ * only the nearest FILLED neighbors constrain the placement.
  */
-function eligibleSlotIndex(line: BrandLine, age: number): number | null {
-  for (let i = 0; i < line.slots.length; i++) {
-    if (line.slots[i] !== null) continue;
-    // Nearest filled neighbor to the left must be <= age.
-    let leftOk = true;
-    for (let l = i - 1; l >= 0; l--) {
-      const s = line.slots[l];
-      if (s) {
-        leftOk = s.age <= age;
-        break;
-      }
+function slotAgeEligible(line: BrandLine, i: number, age: number): boolean {
+  if (i < 0 || i >= line.slots.length) return false;
+  if (line.slots[i] !== null) return false;
+  for (let l = i - 1; l >= 0; l--) {
+    const s = line.slots[l];
+    if (s) {
+      if (s.age > age) return false;
+      break;
     }
-    // Nearest filled neighbor to the right must be >= age.
-    let rightOk = true;
-    for (let r = i + 1; r < line.slots.length; r++) {
-      const s = line.slots[r];
-      if (s) {
-        rightOk = s.age >= age;
-        break;
-      }
-    }
-    if (leftOk && rightOk) return i;
   }
-  return null;
+  for (let r = i + 1; r < line.slots.length; r++) {
+    const s = line.slots[r];
+    if (s) {
+      if (s.age < age) return false;
+      break;
+    }
+  }
+  return true;
+}
+
+/** Resolve a slot's reward spec into a concrete leaf, honoring a player choice. */
+function resolveReward(
+  spec: SlotRewardSpec,
+  bourbon: Bourbon,
+  rewardChoice: number | undefined,
+): RewardLeaf {
+  switch (spec.kind) {
+    case "flat":
+      return spec.reward;
+    case "choice":
+      return spec.options[rewardChoice ?? 0] ?? spec.options[0]!;
+    case "gated": {
+      const ageOk =
+        spec.gate.minAge === undefined || bourbon.age >= spec.gate.minAge;
+      const qualityOk =
+        spec.gate.minQuality === undefined ||
+        QUALITY_RANK[bourbon.quality] >= QUALITY_RANK[spec.gate.minQuality];
+      return ageOk && qualityOk ? spec.hit : spec.miss;
+    }
+  }
+}
+
+/** Pay out a concrete reward leaf (capital / prestige / age-prestige / resources). */
+function payReward(
+  draft: GameState,
+  player: Player,
+  leaf: RewardLeaf,
+  bourbon: Bourbon,
+): void {
+  player.capital += leaf.capital ?? 0;
+  player.prestige += leaf.prestige ?? 0;
+  if (leaf.prestigeFromAge) player.prestige += bourbon.age;
+  if (leaf.resources && leaf.resources > 0) {
+    player.hand.push(...drawResources(draft, leaf.resources));
+  }
 }
 
 interface Placement {
@@ -163,32 +215,25 @@ interface Placement {
   slotIndex: number;
 }
 
-/** Find a brand line + slot for a bourbon; honor an explicit line if given. */
-function findPlacement(
+/**
+ * Place a bottle into a chosen slot, fire its (possibly chosen/gated) reward
+ * and any trait-matched marketing. Mutates player/draft. Assumes the slot has
+ * already been validated as eligible by the caller.
+ */
+function placeBourbon(
+  draft: GameState,
   player: Player,
+  placement: Placement,
   bourbon: Bourbon,
-  brandLineId?: string,
-): Placement | null {
-  const lines = brandLineId
-    ? player.brandLines.filter((l) => l.id === brandLineId)
-    : player.brandLines;
-  for (const line of lines) {
-    const idx = eligibleSlotIndex(line, bourbon.age);
-    if (idx !== null) return { line, slotIndex: idx };
-  }
-  return null;
-}
-
-/** Place a bottle, fire the slot reward + trait-matched marketing. Mutates player. */
-function placeBourbon(player: Player, placement: Placement, bourbon: Bourbon): void {
+  rewardChoice: number | undefined,
+): void {
   const { line, slotIndex } = placement;
   line.slots[slotIndex] = bourbon;
   line.ageCeiling = highestAge(line);
 
-  const reward = line.slotCard.slotRewards[slotIndex];
-  if (reward) {
-    player.capital += reward.capital ?? 0;
-    player.prestige += reward.prestige ?? 0;
+  const spec = line.slotCard.slots[slotIndex];
+  if (spec) {
+    payReward(draft, player, resolveReward(spec.reward, bourbon, rewardChoice), bourbon);
   }
 
   for (const mkt of line.marketingCards) {
@@ -241,9 +286,9 @@ function drawForecast(draft: GameState): ForecastCard | undefined {
 
 /** End-of-round: age, move demand, refill, rotate, maybe end the game. */
 function endRound(draft: GameState): void {
-  // 1. Age every barrel.
+  // 1. Age every BUILT barrel. Unbuilt barrels (recipe placeholders) don't age.
   for (const p of draft.players) {
-    for (const b of p.rickhouse) b.age += 1;
+    for (const b of p.rickhouse) if (b.built) b.age += 1;
   }
 
   // 2. Advance demand by the front forecast card, then refill the forecast.
@@ -332,6 +377,36 @@ function handleDrawResources(draft: GameState, player: Player): string | null {
   return null;
 }
 
+function handleTakeMarketResources(
+  draft: GameState,
+  player: Player,
+  cardIds: string[],
+): string | null {
+  const ids = new Set(cardIds);
+  if (ids.size !== cardIds.length) return "duplicate resource card ids";
+  if (draft.resourceMarket.length === 0) return "the market is empty";
+
+  // Must take exactly RESOURCE_DRAW_COUNT, unless the market is running low.
+  const want = Math.min(CONFIG.RESOURCE_DRAW_COUNT, draft.resourceMarket.length);
+  if (cardIds.length !== want) {
+    return `select exactly ${want} resource card(s) from the market`;
+  }
+
+  const picked: ResourceCard[] = [];
+  for (const id of cardIds) {
+    const card = draft.resourceMarket.find((c) => c.id === id);
+    if (!card) return `resource ${id} is not in the market`;
+    picked.push(card);
+  }
+
+  // Remove from market, hand to the player, then refill from the deck.
+  draft.resourceMarket = draft.resourceMarket.filter((c) => !ids.has(c.id));
+  player.hand.push(...picked);
+  refillResourceMarket(draft);
+  draft.log.push(`${player.name} took ${picked.length} resource(s) from the market.`);
+  return null;
+}
+
 function handleDrawMashBills(
   draft: GameState,
   player: Player,
@@ -341,12 +416,32 @@ function handleDrawMashBills(
   if (keepIndex < 0 || keepIndex >= draft.mashBillTray.length) {
     return `keepIndex ${keepIndex} out of range`;
   }
+  if (player.rickhouse.length >= CONFIG.RICKHOUSE_CAPACITY) {
+    return `rickhouse is full (cap ${CONFIG.RICKHOUSE_CAPACITY})`;
+  }
   const [kept] = draft.mashBillTray.splice(keepIndex, 1);
-  player.mashBills.push(kept!);
+  // Keeping a mash bill lays down an UNBUILT barrel: it shows the recipe it
+  // needs and does NOT age until MAKE_BOURBON commits the resources.
+  const barrel: Bourbon = {
+    id: nextId("bourbon"),
+    mashBillId: kept!.id,
+    name: kept!.name,
+    traits: [...kept!.traits],
+    expression: kept!.expression,
+    recipe: { ...kept!.recipe },
+    built: false,
+    age: 0,
+    quality: "common",
+    matrix: kept!.matrix,
+    createdRound: draft.roundNumber,
+  };
+  player.rickhouse.push(barrel);
   // Take-and-refill: pull one replacement from the face-down supply.
   refillMashBillTray(draft);
   maybeTriggerFinalRound(draft);
-  draft.log.push(`${player.name} kept mash bill "${kept!.name}".`);
+  draft.log.push(
+    `${player.name} laid down "${kept!.name}" to rest — needs ${recipeText(kept!.recipe)} (rickhouse ${player.rickhouse.length}/${CONFIG.RICKHOUSE_CAPACITY}).`,
+  );
   return null;
 }
 
@@ -370,14 +465,13 @@ function handleDrawSlotCard(
 function handleMakeBourbon(
   draft: GameState,
   player: Player,
-  mashBillId: string,
+  barrelId: string,
   resourceCardIds: string[],
 ): string | null {
-  if (player.rickhouse.length >= CONFIG.RICKHOUSE_CAPACITY) {
-    return `rickhouse is full (cap ${CONFIG.RICKHOUSE_CAPACITY})`;
-  }
-  const bill = player.mashBills.find((b) => b.id === mashBillId);
-  if (!bill) return "you do not hold that mash bill";
+  // Target an UNBUILT barrel already resting in the rickhouse.
+  const barrel = player.rickhouse.find((b) => b.id === barrelId);
+  if (!barrel) return "barrel not found in your rickhouse";
+  if (barrel.built) return "that barrel is already built and aging";
 
   const uniqueIds = new Set(resourceCardIds);
   if (uniqueIds.size !== resourceCardIds.length) {
@@ -390,26 +484,20 @@ function handleMakeBourbon(
     cards.push(card);
   }
 
-  const check = recipeSatisfied(bill, cards);
+  const check = recipeSatisfied(barrel.recipe, barrel.name, cards);
   if (!check.ok) return check.reason;
 
-  // Commit: remove from hand, push to COMMUNAL discard.
+  // Commit all required cards in one action: remove from hand → COMMUNAL
+  // discard, build the barrel, and start it aging. Quality = best committed.
   player.hand = player.hand.filter((c) => !uniqueIds.has(c.id));
   draft.resourceDiscard.push(...cards);
 
-  const bourbon: Bourbon = {
-    id: nextId("bourbon"),
-    mashBillId: bill.id,
-    name: bill.name,
-    traits: [...bill.traits],
-    age: 0,
-    quality: deriveQuality(cards),
-    matrix: bill.matrix,
-    createdRound: draft.roundNumber,
-  };
-  player.rickhouse.push(bourbon);
+  barrel.built = true;
+  barrel.age = 0;
+  barrel.quality = deriveQuality(cards);
+  barrel.createdRound = draft.roundNumber;
   draft.log.push(
-    `${player.name} made a ${bourbon.quality} "${bourbon.name}" (rickhouse ${player.rickhouse.length}/${CONFIG.RICKHOUSE_CAPACITY}).`,
+    `${player.name} built a ${barrel.quality} "${barrel.name}" — now aging.`,
   );
   return null;
 }
@@ -475,7 +563,7 @@ function handleOpenBrandLine(
   const line: BrandLine = {
     id: nextId("line"),
     slotCard: slotCard!,
-    slots: slotCard!.slotRewards.map(() => null),
+    slots: slotCard!.slots.map(() => null),
     ageCeiling: null,
     marketingCards: [],
   };
@@ -490,22 +578,45 @@ function handleSellBourbon(
   draft: GameState,
   player: Player,
   bourbonId: string,
-  brandLineId?: string,
+  brandLineId: string,
+  slotIndex: number,
+  rewardChoice: number | undefined,
 ): string | null {
   const idx = player.rickhouse.findIndex((b) => b.id === bourbonId);
   if (idx < 0) return "bourbon not found in your rickhouse";
   const bourbon = player.rickhouse[idx]!;
 
+  if (!bourbon.built) return "barrel is not built yet — make bourbon first";
   if (bourbon.age < CONFIG.MIN_SELL_AGE) {
     return `bourbon must be aged at least ${CONFIG.MIN_SELL_AGE} (age ${bourbon.age})`;
   }
 
-  // Must be placeable — Batch 1 sells into a brand-line slot.
-  const placement = findPlacement(player, bourbon, brandLineId);
-  if (!placement) {
-    return brandLineId
-      ? "no eligible slot in the chosen brand line (age order)"
-      : "no eligible brand-line slot — open a line first";
+  const line = player.brandLines.find((l) => l.id === brandLineId);
+  if (!line) return "target brand line not found — open a line first";
+
+  // The player chooses the target slot; validate it.
+  if (slotIndex < 0 || slotIndex >= line.slots.length) {
+    return `slot ${slotIndex} is out of range`;
+  }
+  if (line.slots[slotIndex] !== null) return "that slot is already filled";
+  if (!slotAgeEligible(line, slotIndex, bourbon.age)) {
+    return "that slot would break the line's age order (staircase)";
+  }
+
+  const spec = line.slotCard.slots[slotIndex]!;
+  // Expressions: an optional slot must match its paired required's age.
+  if (spec.matchAgeOfSlot !== undefined) {
+    const paired = line.slots[spec.matchAgeOfSlot];
+    if (!paired) return "the paired slot must be filled first";
+    if (paired.age !== bourbon.age) {
+      return `this slot must match the paired bottle's age (${paired.age})`;
+    }
+  }
+  // Validate an explicit choice index against the option count.
+  if (spec.reward.kind === "choice" && rewardChoice !== undefined) {
+    if (rewardChoice < 0 || rewardChoice >= spec.reward.options.length) {
+      return `reward choice ${rewardChoice} is out of range`;
+    }
   }
 
   // Bank capital from the age×demand matrix, then drop demand.
@@ -516,10 +627,10 @@ function handleSellBourbon(
 
   // Remove from rickhouse and place the bottle (fires slot + marketing rewards).
   player.rickhouse.splice(idx, 1);
-  placeBourbon(player, placement, bourbon);
+  placeBourbon(draft, player, { line, slotIndex }, bourbon, rewardChoice);
 
   draft.log.push(
-    `${player.name} sold "${bourbon.name}" (age ${bourbon.age}) for ${value} capital; demand ${draft.demand}.`,
+    `${player.name} sold "${bourbon.name}" (age ${bourbon.age}) for ${value} capital into "${line.slotCard.name}" slot ${slotIndex + 1}; demand ${draft.demand}.`,
   );
   return null;
 }
@@ -541,6 +652,9 @@ export function applyAction(state: GameState, action: Action): ActionResult {
     case "DRAW_RESOURCES":
       error = handleDrawResources(draft, player);
       break;
+    case "TAKE_MARKET_RESOURCES":
+      error = handleTakeMarketResources(draft, player, action.cardIds);
+      break;
     case "DRAW_MASH_BILLS":
       error = handleDrawMashBills(draft, player, action.keepIndex);
       break;
@@ -548,7 +662,7 @@ export function applyAction(state: GameState, action: Action): ActionResult {
       error = handleDrawSlotCard(draft, player, action.slotDefId);
       break;
     case "MAKE_BOURBON":
-      error = handleMakeBourbon(draft, player, action.mashBillId, action.resourceCardIds);
+      error = handleMakeBourbon(draft, player, action.barrelId, action.resourceCardIds);
       break;
     case "DRAW_MARKETING":
       error = handleDrawMarketing(draft, player, action.keepIndex, action.brandLineId);
@@ -557,7 +671,14 @@ export function applyAction(state: GameState, action: Action): ActionResult {
       error = handleOpenBrandLine(draft, player, action.slotCardId);
       break;
     case "SELL_BOURBON":
-      error = handleSellBourbon(draft, player, action.bourbonId, action.brandLineId);
+      error = handleSellBourbon(
+        draft,
+        player,
+        action.bourbonId,
+        action.brandLineId,
+        action.slotIndex,
+        action.rewardChoice,
+      );
       break;
     default: {
       const _exhaustive: never = action;
