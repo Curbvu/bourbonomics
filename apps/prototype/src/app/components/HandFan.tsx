@@ -58,12 +58,17 @@ export default function HandFan({
           const rot = off * geom.rot;
           const lift = Math.abs(off) * geom.lift;
           const x = i * geom.stride;
+          // Lift the whole slot for selected cards so the raised card clears
+          // its neighbors instead of being clipped behind the next slot.
+          const isSelected =
+            React.isValidElement(child) &&
+            (child.props as { selected?: boolean }).selected === true;
           return (
             <div
               key={
                 React.isValidElement(child) && child.key != null ? child.key : i
               }
-              className="hand-fan-card"
+              className={`hand-fan-card${isSelected ? " hand-fan-card--selected" : ""}`}
               style={{
                 left: x,
                 width: geom.cardW,

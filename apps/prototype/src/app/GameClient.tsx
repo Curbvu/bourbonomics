@@ -12,9 +12,13 @@ import {
 import type {
   Action,
   Bourbon,
+  BrandLine,
   GameState,
   Player,
   ResourceCard,
+  ResourceKind,
+  RewardLeaf,
+  SlotSpec,
 } from "@bourbonomics/prototype-engine";
 
 import ScalingHost from "./components/ScalingHost";
@@ -110,6 +114,115 @@ function recipeLabel(recipe: Record<string, number | undefined>): string {
   );
 }
 
+const QUALITY_RANK: Record<string, number> = { common: 0, specialty: 1, heritage: 2 };
+
+function kindCounts(cards: ResourceCard[]): Record<ResourceKind, number> {
+  const c: Record<ResourceKind, number> = { cask: 0, corn: 0, grain: 0 };
+  for (const card of cards) c[card.kind] += 1;
+  return c;
+}
+
+/** Whether the chosen cards satisfy a recipe exactly (no missing, no extras). */
+function selectionSatisfies(
+  recipe: Partial<Record<ResourceKind, number>>,
+  cards: ResourceCard[],
+): boolean {
+  const have = kindCounts(cards);
+  for (const k of ["cask", "corn", "grain"] as ResourceKind[]) {
+    if ((recipe[k] ?? 0) !== have[k]) return false;
+  }
+  return true;
+}
+
+/**
+ * Mirror of the engine's placement rules so the UI can disable slots a sale
+ * would be refused for: empty slot, staircase (non-decreasing by nearest
+ * filled neighbors), and the Expressions paired-age match.
+ */
+function slotEligible(line: BrandLine, i: number, bourbon: Bourbon): boolean {
+  if (line.slots[i]) return false;
+  const age = bourbon.age;
+  for (let l = i - 1; l >= 0; l--) {
+    const s = line.slots[l];
+    if (s) {
+      if (s.age > age) return false;
+      break;
+    }
+  }
+  for (let r = i + 1; r < line.slots.length; r++) {
+    const s = line.slots[r];
+    if (s) {
+      if (s.age < age) return false;
+      break;
+    }
+  }
+  const spec = line.slotCard.slots[i];
+  if (spec?.matchAgeOfSlot !== undefined) {
+    const paired = line.slots[spec.matchAgeOfSlot];
+    if (!paired || paired.age !== age) return false;
+  }
+  return true;
+}
+
+/** Distinct icon pills for a single reward leaf (capital / prestige / resources). */
+function RewardBits({
+  leaf,
+  age,
+  className = "",
+}: {
+  leaf: RewardLeaf;
+  age?: number;
+  className?: string;
+}) {
+  const bits: { key: string; color: string; text: string }[] = [];
+  if (leaf.capital) bits.push({ key: "c", color: "var(--gold)", text: `+${leaf.capital}฿` });
+  if (leaf.prestige) bits.push({ key: "p", color: "#c4a7e7", text: `+${leaf.prestige}★` });
+  if (leaf.prestigeFromAge)
+    bits.push({ key: "pa", color: "#c4a7e7", text: age !== undefined ? `+${age}★` : "+age★" });
+  if (leaf.resources) bits.push({ key: "r", color: "var(--emerald)", text: `+${leaf.resources}⊞` });
+  if (bits.length === 0) bits.push({ key: "n", color: "var(--mute)", text: "—" });
+  return (
+    <span className={`flex flex-wrap items-center gap-1 ${className}`}>
+      {bits.map((b) => (
+        <span
+          key={b.key}
+          className="font-mono text-[10px] font-bold leading-none"
+          style={{ color: b.color }}
+        >
+          {b.text}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Reward summary for a slot spec — both branches for a choice; gate for gated. */
+function SlotReward({ spec, age }: { spec: SlotSpec; age?: number }) {
+  const r = spec.reward;
+  if (r.kind === "flat") return <RewardBits leaf={r.reward} age={age} />;
+  if (r.kind === "choice") {
+    return (
+      <span className="flex items-center gap-1">
+        <RewardBits leaf={r.options[0]!} age={age} />
+        <span className="text-[9px] text-[var(--mute)]">/</span>
+        <RewardBits leaf={r.options[1] ?? r.options[0]!} age={age} />
+      </span>
+    );
+  }
+  // gated: show hit reward + the gate condition.
+  const gate: string[] = [];
+  if (r.gate.minAge !== undefined) gate.push(`age≥${r.gate.minAge}`);
+  if (r.gate.minQuality !== undefined) gate.push(r.gate.minQuality);
+  return (
+    <span className="flex items-center gap-1">
+      <RewardBits leaf={r.hit} age={age} />
+      <span className="text-[9px] text-[var(--mute)]">if {gate.join(" ")}</span>
+      <span className="text-[9px] text-[var(--mute)]">· else</span>
+      <RewardBits leaf={r.miss} age={age} />
+    </span>
+  );
+}
+
 // ── main component ────────────────────────────────────────────────────
 
 export default function GameClient() {
@@ -122,42 +235,46 @@ export default function GameClient() {
   stateRef.current = state;
   const [message, setMessage] = useState<string | null>(null);
 
-  const [selBill, setSelBill] = useState<string | null>(null);
   const [selResources, setSelResources] = useState<Set<string>>(new Set());
   const [selMarket, setSelMarket] = useState<Set<string>>(new Set());
   const [selLine, setSelLine] = useState<string | null>(null);
+  // Placement modal: the built barrel being sold + the line to place it into.
+  const [sellBarrel, setSellBarrel] = useState<Bourbon | null>(null);
+  const [sellLineId, setSellLineId] = useState<string | null>(null);
   // Bumped on each successful resource draw so the hand fan replays its
   // deal-in keyframe (mirrors the live game's lastDrawHand.seq).
   const [dealSeq, setDealSeq] = useState(1);
 
   const player = state.players[state.currentPlayerIndex]!;
   const ended = state.phase === "ended";
+  const rickhouseFull = player.rickhouse.length >= CONFIG.RICKHOUSE_CAPACITY;
 
   function newGame() {
     const names = Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`);
     setState(createGame({ seed, playerNames: names }));
     setMessage(null);
-    setSelBill(null);
     setSelResources(new Set());
     setSelMarket(new Set());
     setSelLine(null);
+    setSellBarrel(null);
+    setSellLineId(null);
   }
 
-  function dispatch(action: Action) {
+  function dispatch(action: Action): boolean {
     const res = applyAction(stateRef.current, action);
     if (!res.ok) {
       setMessage(res.reason);
-      return;
+      return false;
     }
     stateRef.current = res.state;
     setState(res.state);
     setMessage(null);
     setSelResources(new Set());
-    if (action.type === "MAKE_BOURBON") setSelBill(null);
     if (action.type === "TAKE_MARKET_RESOURCES") {
       setSelMarket(new Set());
       setDealSeq((n) => n + 1);
     }
+    return true;
   }
 
   function toggleResource(id: string) {
@@ -181,6 +298,26 @@ export default function GameClient() {
 
   const ranked = useMemo(() => (ended ? rankPlayers(state) : []), [ended, state]);
   const targetLine = selLine ?? player.brandLines[0]?.id ?? null;
+
+  // Cards currently selected in hand → used to build an unbuilt barrel.
+  const selectedHandCards = player.hand.filter((c) => selResources.has(c.id));
+
+  function openSell(barrel: Bourbon) {
+    setSellBarrel(barrel);
+    setSellLineId(targetLine ?? player.brandLines[0]?.id ?? null);
+  }
+
+  function confirmSell(lineId: string, slotIndex: number, rewardChoice?: number) {
+    if (!sellBarrel) return;
+    const okDone = dispatch({
+      type: "SELL_BOURBON",
+      bourbonId: sellBarrel.id,
+      brandLineId: lineId,
+      slotIndex,
+      ...(rewardChoice !== undefined ? { rewardChoice } : {}),
+    });
+    if (okDone) setSellBarrel(null);
+  }
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-[var(--bg)]">
@@ -249,7 +386,7 @@ export default function GameClient() {
               accent="market"
               right={
                 <span className="label-sm" style={{ color: "var(--mute)" }}>
-                  keep 1 · drains the clock
+                  keep 1 → rests a barrel
                 </span>
               }
             >
@@ -258,7 +395,7 @@ export default function GameClient() {
                   <MiniCard
                     key={b.id}
                     tone="mashbill"
-                    disabled={ended}
+                    disabled={ended || rickhouseFull}
                     onClick={() => dispatch({ type: "DRAW_MASH_BILLS", keepIndex: i })}
                     title={b.name}
                     sub={recipeLabel(b.recipe)}
@@ -402,6 +539,7 @@ export default function GameClient() {
                               <SlotCell
                                 key={i}
                                 slot={slot}
+                                spec={line.slotCard.slots[i]!}
                                 index={i}
                                 isCeiling={i === ceilingIdx}
                               />
@@ -433,7 +571,7 @@ export default function GameClient() {
                 className="max-h-[300px]"
               >
                 {player.rickhouse.length === 0 ? (
-                  <Empty>No barrels resting. Make a bourbon.</Empty>
+                  <Empty>No barrels resting. Keep a mash bill to rest one.</Empty>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {player.rickhouse.map((b) => (
@@ -441,12 +579,18 @@ export default function GameClient() {
                         key={b.id}
                         bourbon={b}
                         demand={state.demand}
-                        canSell={!ended && b.age >= CONFIG.MIN_SELL_AGE}
-                        onSell={() =>
+                        canSell={!ended && b.built && b.age >= CONFIG.MIN_SELL_AGE && player.brandLines.length > 0}
+                        canBuild={
+                          !ended &&
+                          !b.built &&
+                          selectionSatisfies(b.recipe, selectedHandCards)
+                        }
+                        onSell={() => openSell(b)}
+                        onBuild={() =>
                           dispatch({
-                            type: "SELL_BOURBON",
-                            bourbonId: b.id,
-                            ...(targetLine ? { brandLineId: targetLine } : {}),
+                            type: "MAKE_BOURBON",
+                            barrelId: b.id,
+                            resourceCardIds: [...selResources],
                           })
                         }
                       />
@@ -459,32 +603,10 @@ export default function GameClient() {
             {/* col 3: cellar */}
             <Panel title="Your cellar" right={
                 <span className="label-sm" style={{ color: "var(--mute)" }}>
-                  recipes · slot cards
+                  slot cards
                 </span>
               }>
                 <div className="flex h-full flex-col gap-3">
-                  <div>
-                    <div className="label-sm mb-1.5" style={{ color: "var(--mute)" }}>
-                      Mash bills (pick to brew)
-                    </div>
-                    {player.mashBills.length === 0 ? (
-                      <Empty>Keep one from the tray.</Empty>
-                    ) : (
-                      <div className="grid grid-cols-3 gap-2">
-                        {player.mashBills.map((b) => (
-                          <MiniCard
-                            key={b.id}
-                            tone="mashbill"
-                            title={b.name}
-                            sub={recipeLabel(b.recipe)}
-                            tags={b.traits}
-                            selected={selBill === b.id}
-                            onClick={() => setSelBill(b.id)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
                   <div>
                     <div className="label-sm mb-1.5" style={{ color: "var(--mute)" }}>
                       Slot cards (open a line)
@@ -502,7 +624,7 @@ export default function GameClient() {
                               dispatch({ type: "OPEN_BRAND_LINE", slotCardId: c.id })
                             }
                             title={c.name}
-                            sub={`${c.slotRewards.length} slots`}
+                            sub={`${c.slots.length} slots`}
                             cost={`${openLineCost(player.brandLines.length)}฿`}
                           />
                         ))}
@@ -520,7 +642,7 @@ export default function GameClient() {
               accent="hand"
               right={
                 <span className="label-sm" style={{ color: "var(--mute)" }}>
-                  click to commit for brewing
+                  resources on hand
                 </span>
               }
               bodyClassName="!p-0"
@@ -539,6 +661,7 @@ export default function GameClient() {
                       name={c.name}
                       size="lg"
                       selected={selResources.has(c.id)}
+                      dim={selResources.size > 0 && !selResources.has(c.id)}
                       onClick={() => toggleResource(c.id)}
                     />
                   ))}
@@ -556,37 +679,28 @@ export default function GameClient() {
                 </ActionBtn>
 
                 <div className="rounded-md border border-[var(--rule)] bg-[var(--panel)] px-3 py-2 text-[12px] text-[var(--ink-muted)]">
-                  {selBill ? (
-                    <>
-                      Brewing with{" "}
-                      <span className="font-semibold text-[var(--gold)]">
-                        {player.mashBills.find((b) => b.id === selBill)?.name}
-                      </span>{" "}
-                      · {selResources.size} resource
-                      {selResources.size === 1 ? "" : "s"} committed
-                    </>
-                  ) : (
-                    "Draw resources from the market, pick a mash bill, commit hand cards, then brew."
-                  )}
+                  Keep a mash bill to rest a barrel
+                  {rickhouseFull ? " — rickhouse is full." : "."} Select the
+                  recipe resources in hand, then <b>Build</b> the barrel to start
+                  aging. Open a brand line, then sell aged barrels into a chosen
+                  slot.
                 </div>
-
-                <ActionBtn
-                  tone="gold"
-                  onClick={() =>
-                    selBill &&
-                    dispatch({
-                      type: "MAKE_BOURBON",
-                      mashBillId: selBill,
-                      resourceCardIds: [...selResources],
-                    })
-                  }
-                  disabled={ended || !selBill || selResources.size === 0}
-                >
-                  ⚗ Make bourbon
-                </ActionBtn>
               </div>
             </Panel>
           </div>
+
+          {/* ── Sell placement overlay ──────────────────────── */}
+          {sellBarrel && !ended ? (
+            <SellModal
+              barrel={sellBarrel}
+              lines={player.brandLines}
+              lineId={sellLineId}
+              demand={state.demand}
+              onLine={setSellLineId}
+              onConfirm={confirmSell}
+              onCancel={() => setSellBarrel(null)}
+            />
+          ) : null}
 
           {/* ── Final standings overlay ─────────────────────── */}
           {ended ? (
@@ -836,10 +950,12 @@ function BillsChip({ remaining, final }: { remaining: number; final: boolean }) 
 
 function SlotCell({
   slot,
+  spec,
   index,
   isCeiling,
 }: {
   slot: Bourbon | null;
+  spec: SlotSpec;
   index: number;
   isCeiling: boolean;
 }) {
@@ -876,15 +992,157 @@ function SlotCell({
               {slot.name}
             </span>
           </div>
-          <span className="font-mono text-[10px] text-[var(--brass)]">
-            age {slot.age}
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[10px] text-[var(--brass)]">age {slot.age}</span>
+            <SlotReward spec={spec} age={slot.age} />
+          </div>
         </>
       ) : (
-        <span className="m-auto font-mono text-[10px] text-[var(--whisper)]">
-          slot {index + 1}
-        </span>
+        <>
+          <span className="font-mono text-[10px] text-[var(--whisper)]">
+            slot {index + 1}
+            {spec.optional ? " · opt" : ""}
+          </span>
+          <SlotReward spec={spec} />
+        </>
       )}
+    </div>
+  );
+}
+
+// ── Sell placement modal ─────────────────────────────────────────────
+
+function SellModal({
+  barrel,
+  lines,
+  lineId,
+  demand,
+  onLine,
+  onConfirm,
+  onCancel,
+}: {
+  barrel: Bourbon;
+  lines: BrandLine[];
+  lineId: string | null;
+  demand: number;
+  onLine: (id: string) => void;
+  onConfirm: (lineId: string, slotIndex: number, rewardChoice?: number) => void;
+  onCancel: () => void;
+}) {
+  const line = lines.find((l) => l.id === lineId) ?? lines[0];
+  const value = matrixValue(barrel.matrix, barrel.age, demand);
+
+  return (
+    <div className="absolute inset-0 z-30 grid place-items-center bg-[#0c0805]/80 backdrop-blur-sm">
+      <div className="bb-panel bb-panel--stage w-[920px] p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-[22px] font-bold text-[var(--gold)]">
+            Place {barrel.name}
+          </h2>
+          <span className="font-mono text-[12px] text-[var(--ink-muted)]">
+            age {barrel.age} · {barrel.quality} · sells for{" "}
+            <span className="font-bold text-[var(--gold)]">{value}฿</span>
+          </span>
+        </div>
+
+        {/* line tabs (only when more than one) */}
+        {lines.length > 1 ? (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {lines.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => onLine(l.id)}
+                className={[
+                  "rounded-md border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[.1em] transition",
+                  l.id === line?.id
+                    ? "border-[var(--gold)] bg-[var(--panel-2)] text-[var(--gold)]"
+                    : "border-[var(--rule)] bg-[var(--panel)] text-[var(--ink-muted)] hover:border-[var(--amber)]",
+                ].join(" ")}
+              >
+                {l.slotCard.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {!line ? (
+          <p className="text-[13px] italic text-[var(--mute)]">
+            Open a brand line first.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {line.slots.map((slot, i) => {
+              const spec = line.slotCard.slots[i]!;
+              const eligible = !slot && slotEligible(line, i, barrel);
+              const filled = !!slot;
+              const isChoice = spec.reward.kind === "choice";
+              return (
+                <div
+                  key={i}
+                  className="flex w-[130px] flex-col gap-1 rounded-md border p-2"
+                  style={{
+                    borderColor: filled
+                      ? "rgba(198,157,82,.5)"
+                      : eligible
+                        ? "var(--gold)"
+                        : "rgba(198,157,82,.2)",
+                    background: eligible
+                      ? "linear-gradient(180deg, rgba(58,40,24,.7), rgba(26,18,11,.9))"
+                      : "linear-gradient(180deg, rgba(20,13,8,.7), rgba(14,9,6,.9))",
+                    opacity: filled || !eligible ? 0.55 : 1,
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] uppercase tracking-[.08em] text-[var(--whisper)]">
+                      slot {i + 1}
+                      {spec.optional ? " · opt" : ""}
+                    </span>
+                  </div>
+
+                  {filled ? (
+                    <span className="font-mono text-[10px] text-[var(--mute)]">
+                      filled · age {slot!.age}
+                    </span>
+                  ) : isChoice && eligible ? (
+                    <div className="flex flex-col gap-1">
+                      {spec.reward.kind === "choice"
+                        ? spec.reward.options.map((opt, j) => (
+                            <button
+                              key={j}
+                              type="button"
+                              onClick={() => onConfirm(line.id, i, j)}
+                              className="flex items-center justify-center gap-1 rounded border border-[var(--rule)] bg-[var(--panel)] py-1 transition hover:border-[var(--gold)]"
+                            >
+                              <RewardBits leaf={opt} age={barrel.age} />
+                            </button>
+                          ))
+                        : null}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!eligible}
+                      onClick={() => onConfirm(line.id, i)}
+                      className="flex items-center justify-center rounded border border-[var(--rule)] bg-[var(--panel)] py-1.5 transition enabled:hover:border-[var(--gold)] disabled:cursor-not-allowed"
+                    >
+                      <SlotReward spec={spec} age={barrel.age} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mt-5 rounded-md border border-[var(--rule)] bg-[var(--panel)] px-4 py-2 font-mono text-[12px] uppercase tracking-[.12em] text-[var(--ink-muted)] hover:border-[var(--amber)] hover:text-[var(--ink)]"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

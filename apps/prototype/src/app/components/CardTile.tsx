@@ -139,14 +139,18 @@ export default function CardTile({
       onClick={interactive ? onClick : undefined}
       disabled={!interactive}
       title={name}
-      style={dim ? { opacity: 0.35, filter: "saturate(0.5)" } : undefined}
+      style={
+        dim
+          ? { opacity: 0.4, filter: "brightness(0.5) saturate(0.55)" }
+          : undefined
+      }
       className={[
         "relative flex flex-shrink-0 flex-col overflow-hidden rounded-md border-2 bg-gradient-to-b text-left shadow-[0_4px_12px_rgba(0,0,0,.4)] ring-1 ring-white/10 transition-all duration-200",
         s.box,
         chrome.gradient,
         chrome.border,
         selected
-          ? "ring-2 ring-amber-300 ring-offset-1 ring-offset-slate-950 shadow-[0_0_18px_rgba(251,191,36,.45)]"
+          ? "z-20 -translate-y-1.5 scale-[1.05] brightness-110 saturate-150 ring-2 ring-amber-300 ring-offset-2 ring-offset-slate-950 shadow-[0_10px_26px_rgba(251,191,36,.6)]"
           : interactive
             ? "cursor-pointer hover:ring-2 hover:ring-amber-300 hover:scale-[1.04]"
             : "cursor-default opacity-90",

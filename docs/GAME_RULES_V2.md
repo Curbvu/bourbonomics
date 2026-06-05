@@ -171,6 +171,8 @@ The one hard placement rule: a brand line's bottles must read in **non-decreasin
 
 Each slot prints its own reward, fired the moment a bottle fills it — small utilities like **+1 Capital**, **+1 resource card**, **+1 prestige**, draw a card. Rewards typically scale with position: premium right-hand slots pay more. The slot rewards are the cozy floor — every placement is worth *something*, even with no marketing attached.
 
+> **Carve-out — the Workhorse Line.** The Workhorse Line is the deliberate exception to "rewards scale with position." It prints **six flat, position-independent slots** (every slot pays the same modest reward, left to right) and no end-game house-style bonus. It rewards **breadth and volume rather than efficiency or aging discipline**: there is no incentive to anchor high or to sequence quality, so the line cashes equally on a wall of cheap young bourbons. It is the home of the Volume / mid strategy — fill it fast, fill it wide, and ignore the staircase tension that drives the other cards.
+
 ---
 
 # 🎚️ Placement (the central decision)

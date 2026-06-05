@@ -45,6 +45,13 @@ export interface MashBill {
   defId: string;
   name: string;
   traits: Trait[];
+  /**
+   * House-style / grain identity (e.g. "wheated", "high-rye", "four-grain").
+   * A single canonical tag — distinct from `traits`, which is a free-form
+   * flavor list. Carried onto the finished Bourbon as `expression` so slot
+   * cards (the Expressions line) can read a clean house-style value.
+   */
+  expression: string;
   /** Required resource kinds → counts. Quality of committed cards sets tier. */
   recipe: Partial<Record<ResourceKind, number>>;
   /** matrix[age][demand] → capital. Clamped at the edges on lookup. */
@@ -52,24 +59,68 @@ export interface MashBill {
   placeholder: true;
 }
 
-/** A printed reward fired when a bourbon is placed into a specific slot. */
-export interface SlotReward {
+/**
+ * A concrete payout with no branching — the leaf of a slot reward.
+ * `prestigeFromAge` is a computed payout: grant prestige equal to the
+ * placed bottle's age (Flagship slot 1, intentionally uncapped).
+ */
+export interface RewardLeaf {
   capital?: number;
   prestige?: number;
+  /** Draw this many resource cards into hand. */
+  resources?: number;
+  /** Computed: prestige = the placed bottle's age. */
+  prestigeFromAge?: boolean;
+}
+
+/** Gate for a fallback reward (Single Barrel): a miss pays the fallback. */
+export interface SlotGate {
+  /** Placed bottle's age must be ≥ this. */
+  minAge?: number;
+  /** Placed bottle's quality must be ≥ this tier (common<specialty<heritage). */
+  minQuality?: Quality;
+}
+
+/**
+ * The reward a slot pays when a bottle is placed there.
+ *  - flat:   a single payout.
+ *  - choice: the player picks one of `options` at placement.
+ *  - gated:  `hit` if the gate passes, otherwise `miss` (never blocks placement).
+ */
+export type SlotRewardSpec =
+  | { kind: "flat"; reward: RewardLeaf }
+  | { kind: "choice"; options: RewardLeaf[] }
+  | { kind: "gated"; gate: SlotGate; hit: RewardLeaf; miss: RewardLeaf };
+
+/** One slot's full specification. */
+export interface SlotSpec {
+  reward: SlotRewardSpec;
+  /** Optional slots may be left empty with no penalty (Flagship, Expressions). */
+  optional?: boolean;
+  /**
+   * Expressions: a placed bottle's age must EQUAL the bottle already in this
+   * slot index (its "paired required"). Undefined = no pairing constraint.
+   */
+  matchAgeOfSlot?: number;
 }
 
 export interface SlotCard {
   id: string;
   defId: string;
   name: string;
-  /** One reward per slot, indexed left→right (young→premium). */
-  slotRewards: SlotReward[];
+  /** One spec per slot, indexed left→right (young→premium). */
+  slots: SlotSpec[];
   /**
    * Non-decreasing age ceiling per slot, left→right — the "staircase".
-   * A bourbon placed in slot i should be <= ageCeilings[i]; informational
-   * for Batch 1 (placement enforces the L→R order rule, not the ceiling).
+   * Informational: placement enforces the age-order rule, not the ceiling.
    */
   ageCeilings: number[];
+  /**
+   * Expressions house-style end bonus (prestige), checked once at scoring:
+   * all optional slots filled, all sharing one expression, each differing
+   * from its paired required's expression. Undefined = no bonus.
+   */
+  houseStyleBonus?: number;
   placeholder: true;
 }
 
@@ -111,7 +162,20 @@ export interface Bourbon {
   mashBillId: string;
   name: string;
   traits: Trait[];
-  /** Years rested. Starts 0, +1 per round while in the rickhouse. */
+  /** House-style tag inherited from the mash bill (read by the Expressions line). */
+  expression: string;
+  /**
+   * The recipe this barrel needs to be built — shown as requirements while
+   * unbuilt. Copied from the mash bill when the barrel is laid down.
+   */
+  recipe: Partial<Record<ResourceKind, number>>;
+  /**
+   * False = an unbuilt barrel resting in the rickhouse (displays its recipe,
+   * does NOT age, cannot be sold). Set true by MAKE_BOURBON once the required
+   * resources are committed; only then does it begin aging.
+   */
+  built: boolean;
+  /** Years rested. Starts 0, +1 per round while BUILT and in the rickhouse. */
   age: number;
   quality: Quality;
   /** Inherited from the mash bill at make time. matrix[age][demand]. */
@@ -209,10 +273,19 @@ export type Action =
   | { type: "TAKE_MARKET_RESOURCES"; cardIds: string[] }
   | { type: "DRAW_MASH_BILLS"; keepIndex: number }
   | { type: "DRAW_SLOT_CARD"; slotDefId?: string }
-  | { type: "MAKE_BOURBON"; mashBillId: string; resourceCardIds: string[] }
+  | { type: "MAKE_BOURBON"; barrelId: string; resourceCardIds: string[] }
   | { type: "DRAW_MARKETING"; keepIndex: number; brandLineId: string }
   | { type: "OPEN_BRAND_LINE"; slotCardId: string }
-  | { type: "SELL_BOURBON"; bourbonId: string; brandLineId?: string };
+  | {
+      type: "SELL_BOURBON";
+      bourbonId: string;
+      /** Brand line to place the bottle into (required — selling mints a bottle). */
+      brandLineId: string;
+      /** Target slot index the player chooses (must honor the staircase). */
+      slotIndex: number;
+      /** For a choice-node slot: which option index the player takes. */
+      rewardChoice?: number;
+    };
 
 export type ActionType = Action["type"];
 

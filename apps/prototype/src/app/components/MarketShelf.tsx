@@ -99,8 +99,9 @@ export default function MarketShelf({
           ) : (
             market.map((c) => {
               const isSel = selected.has(c.id);
-              // Once `need` are picked, dim the rest so the choice reads clearly.
-              const dimUnpicked = !isSel && selected.size >= need;
+              // As soon as anything is picked, darken the rest so the
+              // selection reads clearly against the unchosen cards.
+              const dimUnpicked = !isSel && selected.size > 0;
               return (
                 <CardTile
                   key={c.id}

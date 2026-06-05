@@ -1,7 +1,7 @@
 "use client";
 
 import { matrixValue, CONFIG } from "@bourbonomics/prototype-engine";
-import type { Bourbon } from "@bourbonomics/prototype-engine";
+import type { Bourbon, ResourceKind } from "@bourbonomics/prototype-engine";
 
 const TIER_INK: Record<string, string> = {
   common: "var(--t-common)",
@@ -9,26 +9,79 @@ const TIER_INK: Record<string, string> = {
   heritage: "var(--t-heritage)",
 };
 
+/** Recipe → ["1 cask", "2 corn"] chips. */
+function recipeChips(recipe: Partial<Record<ResourceKind, number>>): string[] {
+  const out: string[] = [];
+  for (const k of ["cask", "corn", "grain"] as ResourceKind[]) {
+    const n = recipe[k] ?? 0;
+    if (n > 0) out.push(`${n} ${k}`);
+  }
+  return out;
+}
+
 /**
- * A single aging barrel in the rickhouse. Oak-stave body + brass age
- * medallion; the medallion embers when the bourbon is sellable
- * (age >= MIN_SELL_AGE) and dims while it's still too young. Shows the
- * live sale preview at the current demand so the player can time the
- * market.
+ * A single barrel in the rickhouse, in one of two states:
+ *  - UNBUILT: a resting recipe placeholder. Shows the resources it needs and
+ *    a Build button (commit the selected hand resources). Does not age.
+ *  - BUILT: an aging barrel. Oak-stave body + brass age medallion that embers
+ *    when sellable; shows the live sale preview at the current demand.
  */
 export default function Barrel({
   bourbon,
   demand,
   canSell,
+  canBuild,
   onSell,
+  onBuild,
 }: {
   bourbon: Bourbon;
   demand: number;
   canSell: boolean;
+  canBuild: boolean;
   onSell: () => void;
+  onBuild: () => void;
 }) {
-  const preview = matrixValue(bourbon.matrix, bourbon.age, demand);
   const ink = TIER_INK[bourbon.quality];
+
+  // ── Unbuilt barrel: recipe placeholder ──────────────────────────────
+  if (!bourbon.built) {
+    return (
+      <div className="pour-in flex w-[132px] flex-col gap-1.5">
+        <div className="brass-edge relative grid h-[78px] place-items-center overflow-hidden rounded-[10px] border border-dashed border-[var(--brass)] bg-[linear-gradient(180deg,rgba(40,28,16,.7),rgba(20,13,8,.9))]">
+          <span className="font-display text-[26px] leading-none text-[var(--brass)]" aria-hidden>
+            🛠
+          </span>
+          <span className="absolute bottom-1 font-mono text-[9px] uppercase tracking-[.1em] text-[var(--whisper)]">
+            unbuilt
+          </span>
+        </div>
+        <div className="line-clamp-1 text-[12px] font-semibold leading-tight text-[var(--ink-muted)]">
+          {bourbon.name}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {recipeChips(bourbon.recipe).map((c) => (
+            <span
+              key={c}
+              className="rounded bg-black/30 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[.04em] text-[var(--amber-2)]"
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={onBuild}
+          disabled={!canBuild}
+          className="w-full rounded border border-[var(--rule)] bg-[var(--panel)] px-1 py-1 font-mono text-[10px] uppercase tracking-[.08em] text-[var(--ink-muted)] transition enabled:hover:border-[var(--gold)] enabled:hover:text-[var(--gold)] disabled:opacity-40"
+        >
+          Build
+        </button>
+      </div>
+    );
+  }
+
+  // ── Built barrel: aging + sale preview ──────────────────────────────
+  const preview = matrixValue(bourbon.matrix, bourbon.age, demand);
   const ready = bourbon.age >= CONFIG.MIN_SELL_AGE;
 
   return (
@@ -75,7 +128,11 @@ export default function Barrel({
         disabled={!canSell}
         className="w-full rounded border border-[var(--rule)] bg-[var(--panel)] px-1 py-1 font-mono text-[10px] uppercase tracking-[.08em] text-[var(--ink-muted)] transition hover:border-[var(--amber)] hover:text-[var(--gold)] disabled:opacity-40"
       >
-        {canSell ? "Sell →" : `aging ${bourbon.age}/${CONFIG.MIN_SELL_AGE}`}
+        {canSell
+          ? "Sell →"
+          : ready
+            ? "needs a line"
+            : `aging ${bourbon.age}/${CONFIG.MIN_SELL_AGE}`}
       </button>
     </div>
   );
