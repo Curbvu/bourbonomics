@@ -28,7 +28,6 @@ function makePlayer(id: string, name: string, startingCapital: number): Player {
     capital: startingCapital,
     prestige: 0,
     hand: [],
-    mashBills: [],
     slotCards: [],
     rickhouse: [],
     brandLines: [],
