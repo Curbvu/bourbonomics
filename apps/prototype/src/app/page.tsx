@@ -2,17 +2,14 @@ import MainMenu from "./components/MainMenu";
 
 export default function Home() {
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-3xl px-6 py-16">
         <header className="mb-12 text-center">
-          <h1 className="font-display text-5xl font-bold tracking-tight text-[var(--gold)] drop-shadow-[0_2px_8px_rgba(0,0,0,.55)]">
+          <h1 className="font-display text-5xl font-bold tracking-tight text-amber-400 drop-shadow-[0_2px_8px_rgba(0,0,0,.55)]">
             Bourbonomics
           </h1>
-          <p className="mt-3 text-lg text-[var(--ink-muted)]">
-            A cozy engine-builder of barrels, brand lines, and patient demand.
-          </p>
-          <p className="mt-1 font-mono text-[12px] uppercase tracking-[.18em] text-[var(--mute)]">
-            P2 · prototype · placeholder content
+          <p className="mt-3 text-lg text-slate-300">
+            A solo board game of bourbon barons, barrels, and brinkmanship.
           </p>
         </header>
 
