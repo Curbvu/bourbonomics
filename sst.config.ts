@@ -93,11 +93,12 @@ export default $config({
         domain: prototypeDomain
           ? {
               name: prototypeDomain,
-              // Root only: send `www.<apex>` → `<apex>` via a CloudFront 301.
-              // The wildcard CERTIFICATE_ARN already covers `www`.
-              ...(stage === "proto-prod" && apexDomain
-                ? { redirects: [`www.${apexDomain}`] }
-                : {}),
+              // NOTE: no `www.<apex>` → root redirect here. SST auto-names the
+              // redirect CloudFront Function after the component
+              // ("BourbonomicsPrototypeCdnRedirect…"), which overflows the
+              // 64-char CloudFront Function name limit. Re-add `www` via a
+              // separately-named mechanism (shorter component or a Route 53
+              // / S3 redirect) as a follow-up.
               dns: sst.aws.dns({ zone: hostedZoneId! }),
               cert: certificateArn!,
             }
