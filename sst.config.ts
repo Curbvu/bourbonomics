@@ -18,14 +18,15 @@
  *      stays authoritative.
  *
  * Stage mapping (matches `.github/workflows/ci.yml`):
- *   prod → apex                 (DOMAIN)
+ *   prod → legacy.apex          (legacy.DOMAIN — the P1 live game, retired to legacy.)
  *   stg  → stg.apex             (stg.DOMAIN)
- *   *    → dev.apex             (dev.DOMAIN)
+ *   *    → dev-legacy.apex      (dev-legacy.DOMAIN)
  *
- * Prototype stages are fully isolated and deploy ONLY the prototype
- * Next.js site (no game server / DynamoDB / live site):
- *   proto-prod → prototype.apex       (prototype.DOMAIN)
- *   proto-dev  → dev-prototype.apex   (dev-prototype.DOMAIN)
+ * Prototype (P2) stages are fully isolated and deploy ONLY the prototype
+ * Next.js site (no game server / DynamoDB / live site). P2 is now the
+ * primary product and owns the apex root + dev.apex:
+ *   proto-prod → apex                 (DOMAIN — the P2 root site)
+ *   proto-dev  → dev.apex             (dev.DOMAIN)
  *
  * Domain wiring is opt-in. If `HOSTED_ZONE_ID`, `CERTIFICATE_ARN`, and
  * `DOMAIN` are not all set, SST deploys to its auto-generated CloudFront
@@ -39,11 +40,15 @@ export default $config({
   app(input) {
     return {
       name: "bourbonomics",
-      // Keep prod resources around if the stack is ever removed; teardown
-      // dev/stg cleanly so we don't accumulate orphaned CloudFront dists,
-      // Lambdas, and DynamoDB tables.
-      removal: input?.stage === "prod" ? "retain" : "remove",
-      protect: input?.stage === "prod",
+      // Keep the two production stacks around if ever removed: `prod` (the
+      // P1 live game, now at legacy.) and `proto-prod` (the P2 root site).
+      // Teardown dev/stg cleanly so we don't accumulate orphaned CloudFront
+      // dists, Lambdas, and DynamoDB tables.
+      removal:
+        input?.stage === "prod" || input?.stage === "proto-prod"
+          ? "retain"
+          : "remove",
+      protect: input?.stage === "prod" || input?.stage === "proto-prod",
       home: "aws",
       providers: {
         aws: { region: "us-east-1" },
@@ -64,12 +69,13 @@ export default $config({
     // This guarantees that pushing a prototype branch can never
     // redeploy or otherwise disturb the live game, and vice versa.
     //
-    //   proto-prod → prototype.<apex>
-    //   proto-dev  → dev-prototype.<apex>
+    // P2 is now the primary product and owns the apex root:
+    //   proto-prod → <apex>          (root)
+    //   proto-dev  → dev.<apex>
     //
-    // The existing wildcard CERTIFICATE_ARN (`*.<apex>`) covers both
-    // single-level subdomains; other prototype stages fall back to the
-    // auto-generated CloudFront URL.
+    // The wildcard CERTIFICATE_ARN (`*.<apex>`) covers `dev.<apex>`, and
+    // a bare `<apex>` SAN (or the apex on the same cert) covers the root;
+    // other prototype stages fall back to the auto-generated CloudFront URL.
     // ---------------------------------------------------------------
     const isPrototypeStage = stage.startsWith("proto-");
 
@@ -77,9 +83,9 @@ export default $config({
       const prototypeDomain =
         apexDomain && hostedZoneId && certificateArn
           ? stage === "proto-prod"
-            ? `prototype.${apexDomain}`
+            ? apexDomain
             : stage === "proto-dev"
-              ? `dev-prototype.${apexDomain}`
+              ? `dev.${apexDomain}`
               : undefined
           : undefined;
 
@@ -87,6 +93,11 @@ export default $config({
         domain: prototypeDomain
           ? {
               name: prototypeDomain,
+              // Root only: send `www.<apex>` → `<apex>` via a CloudFront 301.
+              // The wildcard CERTIFICATE_ARN already covers `www`.
+              ...(stage === "proto-prod" && apexDomain
+                ? { redirects: [`www.${apexDomain}`] }
+                : {}),
               dns: sst.aws.dns({ zone: hostedZoneId! }),
               cert: certificateArn!,
             }
@@ -100,25 +111,23 @@ export default $config({
       };
     }
 
+    // The P1 live game is retired to `legacy.<apex>` (prod) and
+    // `dev-legacy.<apex>` (dev/other); P2 owns the apex root + dev.apex.
     const siteDomain =
       apexDomain && hostedZoneId && certificateArn
         ? stage === "prod"
-          ? apexDomain
+          ? `legacy.${apexDomain}`
           : stage === "stg"
             ? `stg.${apexDomain}`
-            : `dev.${apexDomain}`
+            : `dev-legacy.${apexDomain}`
         : undefined;
 
     const domain = siteDomain
       ? {
           name: siteDomain,
-          // Prod only: send `www.<apex>` → `<apex>` via a CloudFront 301.
-          // The existing CERTIFICATE_ARN is a wildcard that already
-          // covers `www`, so we only need to declare the redirect. dev
-          // and stg deploy to bare subdomains (no www variant exists).
-          ...(stage === "prod" && apexDomain
-            ? { redirects: [`www.${apexDomain}`] }
-            : {}),
+          // The live game deploys to bare subdomains (legacy./dev-legacy./
+          // stg.); the `www.<apex>` → root redirect now lives on the P2
+          // root site (proto-prod) above.
           dns: sst.aws.dns({ zone: hostedZoneId! }),
           cert: certificateArn!,
         }

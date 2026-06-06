@@ -8,6 +8,33 @@ All content and balance values are **placeholder, pre-playtest**.
 
 ---
 
+## Promote P2 to the apex root (domain remap)
+
+P2 is now the **primary product** and serves the apex root. The P1 live game is
+retired to a `legacy.` subdomain. Branch → stage → domain mapping (in
+`sst.config.ts` + `.github/workflows/ci.yml`):
+
+| Game | Branch / stage | Old domain | New domain |
+|---|---|---|---|
+| **P2** prod | `prototype-main` / `proto-prod` | `prototype.playbourbonomics.com` | **`playbourbonomics.com`** (root) |
+| **P2** dev | `prototype-dev` / `proto-dev` | `dev-prototype.playbourbonomics.com` | **`dev.playbourbonomics.com`** |
+| **P1** prod | `main` / `prod` | `playbourbonomics.com` | **`legacy.playbourbonomics.com`** |
+| **P1** dev | `dev` / `dev` | `dev.playbourbonomics.com` | **`dev-legacy.playbourbonomics.com`** |
+
+The `www.` → root 301 redirect moves onto `proto-prod`, and `proto-prod` joins
+`prod` as a `retain` + `protect` stage. The prototype/live isolation invariant
+is unchanged — only the domain each stage claims has moved. Deploys are ordered
+live-first (release the apex) then prototype (claim it).
+
+## UI — drag resources into the rickhouse barrel
+
+Players can now **drag** resource cards from the hand onto an unbuilt rickhouse
+barrel to build it (mirrors the P1 live game's drag-to-make), alongside the
+existing click-to-select + **Build** button. A private drag MIME
+(`dragMake.ts`) carries the card ids; a multi-selected drag carries the whole
+selection, otherwise the single card. The barrel lights up gold ("drop to
+build") while a card hovers.
+
 ## UI — resource-selection contrast
 
 Stronger selected/unselected contrast wherever resource cards are picked (hand fan and
@@ -86,8 +113,10 @@ resource market.
 age × demand matrix selling, brand-line age-ceiling staircase with
 floor/ceiling placement, trait-gated stackable marketing, Capital + prestige
 scoring, bills-run-out end. Isolated under `packages/prototype-engine` +
-`apps/prototype`, deployed to `prototype.bourbonomics.com`. Live (P1) game
-unaffected.
+`apps/prototype`, deployed (at the time of this batch) to
+`prototype.playbourbonomics.com`. Live (P1) game unaffected. *(P2 has since
+been promoted to the apex root — see the "Promote P2 to the apex root" entry
+at the top.)*
 
 > Out of scope for the skeleton batch: bots/AI, multiplayer/networking,
 > investments, cascades, demand-coordination activation, and marketing-stacking
