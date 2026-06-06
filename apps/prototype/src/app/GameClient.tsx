@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   applyAction,
   createGame,
@@ -783,8 +784,8 @@ function TopBar({
         boxShadow: "0 1px 0 rgba(240,201,112,.10) inset, 0 4px 14px rgba(0,0,0,.5)",
       }}
     >
-      {/* brand block */}
-      <div className="flex items-center gap-3">
+      {/* brand block — links back to the menu */}
+      <Link href="/" className="flex items-center gap-3" title="Back to menu">
         <div
           aria-hidden
           className="grid h-[38px] w-[38px] place-items-center rounded-md font-display font-bold leading-none"
@@ -807,10 +808,10 @@ function TopBar({
             Bourbonomics
           </span>
           <span className="label-sm" style={{ color: "var(--brass)", fontSize: 9.5 }}>
-            Prototype · Round {state.roundNumber}
+            ← Menu · Round {state.roundNumber}
           </span>
         </div>
-      </div>
+      </Link>
 
       {/* center: stat chips */}
       <div className="flex min-w-0 items-center justify-center gap-2">

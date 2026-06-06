@@ -8,6 +8,24 @@ All content and balance values are **placeholder, pre-playtest**.
 
 ---
 
+## Landing menu + routes (game moves to `/play`)
+
+The apex root now opens a **landing menu** instead of dropping straight into the
+game. Three destinations, P2-native:
+
+- **`/`** — `MainMenu` tile stack (Play / Wiki / Rules) on the cellar palette.
+- **`/play`** — the game (`GameClient`); its top-bar brand links back to `/`.
+- **`/rules`** — the canonical `GAME_RULES_P2.md`, rendered with a sticky
+  heading TOC (`react-markdown` + `remark-gfm`). The one allowed scrolling
+  surface per CLAUDE.md rule 2.
+- **`/wiki`** — a read-only catalog (Mash Bills / Slot Cards / Marketing)
+  derived from the engine's `build*` supplies, so it never drifts from what
+  ships.
+
+Added `react-markdown` + `remark-gfm` to `apps/prototype`. All routes
+static-prerender. The prototype/live isolation invariant is intact — no P1
+cross-imports; the wiki/rules content is P2's own.
+
 ## Promote P2 to the apex root (domain remap)
 
 P2 is now the **primary product** and serves the apex root. The P1 live game is
