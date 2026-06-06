@@ -21,10 +21,13 @@ retired to a `legacy.` subdomain. Branch → stage → domain mapping (in
 | **P1** prod | `main` / `prod` | `playbourbonomics.com` | **`legacy.playbourbonomics.com`** |
 | **P1** dev | `dev` / `dev` | `dev.playbourbonomics.com` | **`dev-legacy.playbourbonomics.com`** |
 
-The `www.` → root 301 redirect moves onto `proto-prod`, and `proto-prod` joins
-`prod` as a `retain` + `protect` stage. The prototype/live isolation invariant
-is unchanged — only the domain each stage claims has moved. Deploys are ordered
-live-first (release the apex) then prototype (claim it).
+`proto-prod` joins `prod` as a `retain` + `protect` stage. (A `www.` → root
+301 is deferred: SST auto-names the redirect CloudFront Function after the
+`BourbonomicsPrototype` component, which overflows CloudFront's 64-char
+function-name limit — to re-add, use a shorter component name or a Route 53 /
+S3 redirect.) The prototype/live isolation invariant is unchanged — only the
+domain each stage claims has moved. Deploys are ordered live-first (release the
+apex) then prototype (claim it).
 
 ## UI — drag resources into the rickhouse barrel
 
