@@ -317,3 +317,12 @@ body[data-page="play"]::before {
 .pour-in {
   animation: pour-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* Unbuilt barrel lit up while a resource card is dragged over it. */
+.barrel-droppable {
+  border-style: solid;
+  background: linear-gradient(180deg, rgba(80, 56, 28, 0.85), rgba(44, 30, 16, 0.95)) !important;
+  box-shadow:
+    0 0 0 1px rgba(240, 201, 112, 0.6),
+    0 0 18px rgba(240, 201, 112, 0.45);
+}

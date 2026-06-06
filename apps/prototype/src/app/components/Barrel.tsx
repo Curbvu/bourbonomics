@@ -1,7 +1,11 @@
 "use client";
 
+import { useState } from "react";
+
 import { matrixValue, CONFIG } from "@bourbonomics/prototype-engine";
 import type { Bourbon, ResourceKind } from "@bourbonomics/prototype-engine";
+
+import { dragCarriesMakeCard, readMakeDragPayload } from "./dragMake";
 
 const TIER_INK: Record<string, string> = {
   common: "var(--t-common)",
@@ -37,22 +41,50 @@ export default function Barrel({
   bourbon: Bourbon;
   demand: number;
   canSell: boolean;
+  /** Whether the current hand selection exactly satisfies this recipe. */
   canBuild: boolean;
   onSell: () => void;
-  onBuild: () => void;
+  /**
+   * Commit resources into this barrel. Called with no args by the Build
+   * button (uses the hand selection) or with explicit card ids when cards
+   * are dropped onto the barrel.
+   */
+  onBuild: (cardIds?: string[]) => void;
 }) {
   const ink = TIER_INK[bourbon.quality];
+  const [dragOver, setDragOver] = useState(false);
 
-  // ── Unbuilt barrel: recipe placeholder ──────────────────────────────
+  // ── Unbuilt barrel: recipe placeholder + resource drop zone ─────────
   if (!bourbon.built) {
     return (
       <div className="pour-in flex w-[132px] flex-col gap-1.5">
-        <div className="brass-edge relative grid h-[78px] place-items-center overflow-hidden rounded-[10px] border border-dashed border-[var(--brass)] bg-[linear-gradient(180deg,rgba(40,28,16,.7),rgba(20,13,8,.9))]">
+        <div
+          onDragOver={(e) => {
+            if (!dragCarriesMakeCard(e)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            if (!dragOver) setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            setDragOver(false);
+            const ids = readMakeDragPayload(e);
+            if (ids.length === 0) return;
+            e.preventDefault();
+            onBuild(ids);
+          }}
+          className={[
+            "brass-edge relative grid h-[78px] place-items-center overflow-hidden rounded-[10px] border border-dashed bg-[linear-gradient(180deg,rgba(40,28,16,.7),rgba(20,13,8,.9))] transition",
+            dragOver
+              ? "barrel-droppable border-[var(--gold)]"
+              : "border-[var(--brass)]",
+          ].join(" ")}
+        >
           <span className="font-display text-[26px] leading-none text-[var(--brass)]" aria-hidden>
             🛠
           </span>
           <span className="absolute bottom-1 font-mono text-[9px] uppercase tracking-[.1em] text-[var(--whisper)]">
-            unbuilt
+            {dragOver ? "drop to build" : "unbuilt"}
           </span>
         </div>
         <div className="line-clamp-1 text-[12px] font-semibold leading-tight text-[var(--ink-muted)]">
@@ -70,7 +102,7 @@ export default function Barrel({
         </div>
         <button
           type="button"
-          onClick={onBuild}
+          onClick={() => onBuild()}
           disabled={!canBuild}
           className="w-full rounded border border-[var(--rule)] bg-[var(--panel)] px-1 py-1 font-mono text-[10px] uppercase tracking-[.08em] text-[var(--ink-muted)] transition enabled:hover:border-[var(--gold)] enabled:hover:text-[var(--gold)] disabled:opacity-40"
         >

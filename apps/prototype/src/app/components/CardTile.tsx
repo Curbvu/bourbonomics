@@ -1,5 +1,7 @@
 "use client";
 
+import type React from "react";
+
 import type { ResourceKind, Quality } from "@bourbonomics/prototype-engine";
 
 /**
@@ -115,6 +117,9 @@ export default function CardTile({
   interactive = true,
   dim = false,
   onClick,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
 }: {
   kind: ResourceKind;
   quality: Quality;
@@ -127,6 +132,9 @@ export default function CardTile({
   interactive?: boolean;
   dim?: boolean;
   onClick?: () => void;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
 }) {
   const chrome = KIND_CHROME[kind];
   const q = QUALITY_META[quality];
@@ -138,6 +146,9 @@ export default function CardTile({
       type="button"
       onClick={interactive ? onClick : undefined}
       disabled={!interactive}
+      draggable={draggable}
+      onDragStart={draggable ? onDragStart : undefined}
+      onDragEnd={draggable ? onDragEnd : undefined}
       title={name}
       style={
         dim

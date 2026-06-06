@@ -23,6 +23,7 @@ import type {
 
 import ScalingHost from "./components/ScalingHost";
 import CardTile from "./components/CardTile";
+import { setMakeDragPayload } from "./components/dragMake";
 import HandFan from "./components/HandFan";
 import MarketShelf from "./components/MarketShelf";
 import DemandTrack from "./components/DemandTrack";
@@ -586,11 +587,11 @@ export default function GameClient() {
                           selectionSatisfies(b.recipe, selectedHandCards)
                         }
                         onSell={() => openSell(b)}
-                        onBuild={() =>
+                        onBuild={(cardIds) =>
                           dispatch({
                             type: "MAKE_BOURBON",
                             barrelId: b.id,
-                            resourceCardIds: [...selResources],
+                            resourceCardIds: cardIds ?? [...selResources],
                           })
                         }
                       />
@@ -663,6 +664,16 @@ export default function GameClient() {
                       selected={selResources.has(c.id)}
                       dim={selResources.size > 0 && !selResources.has(c.id)}
                       onClick={() => toggleResource(c.id)}
+                      draggable={!ended}
+                      onDragStart={(e) => {
+                        // Drag the whole selection if this card is part of it,
+                        // otherwise drag just this card.
+                        const ids =
+                          selResources.has(c.id) && selResources.size > 0
+                            ? [...selResources]
+                            : [c.id];
+                        setMakeDragPayload(e, ids);
+                      }}
                     />
                   ))}
                 </HandFan>
