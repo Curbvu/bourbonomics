@@ -8,6 +8,14 @@ All content and balance values are **placeholder, pre-playtest**.
 
 ---
 
+## Workbench — pick which slot card to draw
+
+"Draw slot" now opens a **picker** showing every available slot-card design
+in the supply (deduped, with copies-left, slot/reward previews, and the
+house-style bonus) instead of silently taking the first card. Selecting a
+design draws it via `DRAW_SLOT_CARD { slotDefId }` (already supported by the
+engine). The button disables when the supply is empty.
+
 ## Landing menu + routes (game moves to `/play`)
 
 The apex root now opens a **landing menu** instead of dropping straight into the

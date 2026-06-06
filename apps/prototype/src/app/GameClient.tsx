@@ -19,6 +19,7 @@ import type {
   ResourceCard,
   ResourceKind,
   RewardLeaf,
+  SlotCard,
   SlotSpec,
 } from "@bourbonomics/prototype-engine";
 
@@ -243,6 +244,8 @@ export default function GameClient() {
   // Placement modal: the built barrel being sold + the line to place it into.
   const [sellBarrel, setSellBarrel] = useState<Bourbon | null>(null);
   const [sellLineId, setSellLineId] = useState<string | null>(null);
+  // Slot-card draw picker: pick any available design from the supply.
+  const [drawingSlot, setDrawingSlot] = useState(false);
   // Bumped on each successful resource draw so the hand fan replays its
   // deal-in keyframe (mirrors the live game's lastDrawHand.seq).
   const [dealSeq, setDealSeq] = useState(1);
@@ -260,6 +263,7 @@ export default function GameClient() {
     setSelLine(null);
     setSellBarrel(null);
     setSellLineId(null);
+    setDrawingSlot(false);
   }
 
   function dispatch(action: Action): boolean {
@@ -684,8 +688,8 @@ export default function GameClient() {
             <Panel title="Workbench" accent="hand">
               <div className="flex h-full flex-col justify-between gap-3">
                 <ActionBtn
-                  onClick={() => dispatch({ type: "DRAW_SLOT_CARD" })}
-                  disabled={ended}
+                  onClick={() => setDrawingSlot(true)}
+                  disabled={ended || state.slotCardSupply.length === 0}
                 >
                   Draw slot
                 </ActionBtn>
@@ -711,6 +715,19 @@ export default function GameClient() {
               onLine={setSellLineId}
               onConfirm={confirmSell}
               onCancel={() => setSellBarrel(null)}
+            />
+          ) : null}
+
+          {/* ── Slot-card draw picker ────────────────────────── */}
+          {drawingSlot && !ended ? (
+            <SlotDrawModal
+              supply={state.slotCardSupply}
+              onPick={(slotDefId) => {
+                if (dispatch({ type: "DRAW_SLOT_CARD", slotDefId })) {
+                  setDrawingSlot(false);
+                }
+              }}
+              onCancel={() => setDrawingSlot(false)}
             />
           ) : null}
 
@@ -1144,6 +1161,107 @@ function SellModal({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mt-5 rounded-md border border-[var(--rule)] bg-[var(--panel)] px-4 py-2 font-mono text-[12px] uppercase tracking-[.12em] text-[var(--ink-muted)] hover:border-[var(--amber)] hover:text-[var(--ink)]"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Slot-card draw picker ─────────────────────────────────────────────
+
+/**
+ * Pick any available slot-card design from the supply. Shows every distinct
+ * design still in `slotCardSupply` (deduped, with copies-left), each with a
+ * compact preview of its slots and rewards. Selecting one draws that design
+ * into the player's cellar via DRAW_SLOT_CARD { slotDefId }.
+ */
+function SlotDrawModal({
+  supply,
+  onPick,
+  onCancel,
+}: {
+  supply: SlotCard[];
+  onPick: (defId: string) => void;
+  onCancel: () => void;
+}) {
+  // Dedupe designs by defId (first occurrence wins), counting copies left.
+  const designs: { card: SlotCard; count: number }[] = [];
+  const seen = new Map<string, number>();
+  for (const c of supply) {
+    const at = seen.get(c.defId);
+    if (at === undefined) {
+      seen.set(c.defId, designs.length);
+      designs.push({ card: c, count: 1 });
+    } else {
+      designs[at]!.count += 1;
+    }
+  }
+
+  return (
+    <div className="absolute inset-0 z-30 grid place-items-center bg-[#0c0805]/80 backdrop-blur-sm">
+      <div className="bb-panel bb-panel--stage w-[960px] p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-[22px] font-bold text-[var(--gold)]">
+            Draw a slot card
+          </h2>
+          <span className="font-mono text-[12px] text-[var(--ink-muted)]">
+            pick any available design
+          </span>
+        </div>
+
+        {designs.length === 0 ? (
+          <p className="text-[13px] italic text-[var(--mute)]">
+            The slot-card supply is empty.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {designs.map(({ card, count }) => (
+              <button
+                key={card.defId}
+                type="button"
+                onClick={() => onPick(card.defId)}
+                className="rounded-lg border border-[var(--rule)] bg-[var(--panel)] p-3 text-left transition hover:border-[var(--gold)]"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-display text-[16px] font-semibold text-[var(--ink)]">
+                    {card.name}
+                  </span>
+                  <span className="font-mono text-[10px] text-[var(--mute)]">
+                    {card.slots.length} slots
+                    {card.houseStyleBonus !== undefined
+                      ? ` · house-style +${card.houseStyleBonus}★`
+                      : ""}{" "}
+                    · {count} left
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {card.slots.map((s, i) => (
+                    <div
+                      key={i}
+                      className="flex min-w-[96px] flex-col gap-1 rounded-md border border-[var(--rule)] bg-[var(--panel-2)] px-2 py-1.5"
+                    >
+                      <span className="font-mono text-[10px] text-[var(--whisper)]">
+                        slot {i + 1}
+                        {s.optional ? " · opt" : ""}
+                        {s.matchAgeOfSlot !== undefined
+                          ? ` · =s${s.matchAgeOfSlot + 1}`
+                          : ""}
+                      </span>
+                      <SlotReward spec={s} />
+                    </div>
+                  ))}
+                </div>
+              </button>
+            ))}
           </div>
         )}
 
