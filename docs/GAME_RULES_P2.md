@@ -296,7 +296,7 @@ It's about **patience** — knowing what to age, when the world is ready to pay,
 
 # 📜 Versioning
 
-This document is the canonical rules for **Bourbonomics P2** — the redesigned cozy engine-builder — and is distinct from **P1**, the original live game (rules in [`GAME_RULES.md`](GAME_RULES.md)). It is authoritative over any prototype implementation. The prototype lives isolated at `prototype.bourbonomics.com` (workspaces `apps/prototype` + `packages/prototype-engine`) and is built in discrete batches; this rulebook describes the intended whole, while the prototype implements it incrementally.
+This document is the canonical rules for **Bourbonomics P2** — the redesigned cozy engine-builder — and is distinct from **P1**, the original live game (rules in [`GAME_RULES.md`](GAME_RULES.md)). It is authoritative over any prototype implementation. P2 is now the primary product and serves the apex root at `playbourbonomics.com` (workspaces `apps/prototype` + `packages/prototype-engine`); the P1 live game has been retired to `legacy.playbourbonomics.com`. P2 is built in discrete batches; this rulebook describes the intended whole, while the prototype implements it incrementally.
 
 **Currently in the prototype:** the full single-player loop — the eight actions (Draw Resources, Take Market Resources, Draw Mash Bills, Make Bourbon, Draw Slot Card, Open Brand Line, Draft Marketing, Sell Bourbon), the two-step rest→build production, the age × demand selling matrix, the five frozen slot cards with their reward specs and the Expressions house-style bonus, trait-gated stackable marketing, the automatic Year-Pass demand forecast, and Capital + prestige scoring with the bills-run-out clock.
 
