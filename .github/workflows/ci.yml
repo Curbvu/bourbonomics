@@ -151,9 +151,9 @@ jobs:
       - name: Invalidate CloudFront cache
         run: |
           case "${{ env.STAGE }}" in
-            prod) SITE_DOMAIN="$DOMAIN" ;;
+            prod) SITE_DOMAIN="legacy.$DOMAIN" ;;
             stg)  SITE_DOMAIN="stg.$DOMAIN" ;;
-            *)    SITE_DOMAIN="dev.$DOMAIN" ;;
+            *)    SITE_DOMAIN="dev-legacy.$DOMAIN" ;;
           esac
           if [ -z "$DOMAIN" ]; then
             echo "DOMAIN secret empty, skipping invalidation"

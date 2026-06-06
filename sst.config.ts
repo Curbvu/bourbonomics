@@ -51,25 +51,24 @@ export default $config({
     const hostedZoneId = process.env.HOSTED_ZONE_ID;
     const certificateArn = process.env.CERTIFICATE_ARN;
 
+    // The P1 live game is retired to a `legacy.` subdomain: `legacy.<apex>`
+    // (prod) and `dev-legacy.<apex>` (dev/other). The apex root + dev.apex
+    // are served by the P2 prototype (proto-prod / proto-dev) — see the
+    // prototype branches' sst.config.ts.
     const siteDomain =
       apexDomain && hostedZoneId && certificateArn
         ? stage === "prod"
-          ? apexDomain
+          ? `legacy.${apexDomain}`
           : stage === "stg"
             ? `stg.${apexDomain}`
-            : `dev.${apexDomain}`
+            : `dev-legacy.${apexDomain}`
         : undefined;
 
     const domain = siteDomain
       ? {
           name: siteDomain,
-          // Prod only: send `www.<apex>` → `<apex>` via a CloudFront 301.
-          // The existing CERTIFICATE_ARN is a wildcard that already
-          // covers `www`, so we only need to declare the redirect. dev
-          // and stg deploy to bare subdomains (no www variant exists).
-          ...(stage === "prod" && apexDomain
-            ? { redirects: [`www.${apexDomain}`] }
-            : {}),
+          // The live game deploys to bare subdomains (legacy./dev-legacy./
+          // stg.); the `www.<apex>` → root 301 now lives on the P2 root site.
           dns: sst.aws.dns({ zone: hostedZoneId! }),
           cert: certificateArn!,
         }
