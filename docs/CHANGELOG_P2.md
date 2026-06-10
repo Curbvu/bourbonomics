@@ -2,7 +2,7 @@
 
 Scoped to the **P2 prototype** (`apps/prototype` + `packages/prototype-engine`). The
 **P1** live game (`packages/{engine,client,server}`) is untouched; the prototype stays
-fully isolated and imports no P1 code. Canonical rules: [`GAME_RULES_P2.md`](GAME_RULES_P2.md).
+fully isolated and imports no P1 code. Canonical rules: [`GAME_RULES.md`](GAME_RULES.md).
 
 All content and balance values are **placeholder, pre-playtest**.
 
@@ -23,7 +23,7 @@ game. Three destinations, P2-native:
 
 - **`/`** — `MainMenu` tile stack (Play / Wiki / Rules) on the cellar palette.
 - **`/play`** — the game (`GameClient`); its top-bar brand links back to `/`.
-- **`/rules`** — the canonical `GAME_RULES_P2.md`, rendered with a sticky
+- **`/rules`** — the canonical `GAME_RULES.md`, rendered with a sticky
   heading TOC (`react-markdown` + `remark-gfm`). The one allowed scrolling
   surface per CLAUDE.md rule 2.
 - **`/wiki`** — a read-only catalog (Mash Bills / Slot Cards / Marketing)
@@ -81,7 +81,7 @@ flow that feeds them. Twelve copies of each card ship via
 `slot_standard`, `slot_flagship`, `slot_expressions`, `slot_workhorse`,
 `slot_single_barrel`).
 
-See [`GAME_RULES_P2.md`](GAME_RULES_P2.md) for canonical behavior, including the
+See [`GAME_RULES.md`](GAME_RULES.md) for canonical behavior, including the
 **Workhorse carve-out** (six flat, position-independent slots — the deliberate
 exception to "rewards scale with position").
 

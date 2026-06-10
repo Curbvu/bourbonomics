@@ -7,14 +7,14 @@ export const dynamic = "force-static";
 
 export const metadata = {
   title: "Bourbonomics — Rules",
-  description: "The canonical P2 rulebook.",
+  description: "The canonical rulebook.",
 };
 
 export default function RulesPage() {
-  // Read the canonical P2 rulebook from disk at build time. `process.cwd()`
+  // Read the canonical rulebook from disk at build time. `process.cwd()`
   // during `next build` / `next dev` is the prototype app workspace, so two
   // levels up lands on the repo root.
-  const docPath = path.resolve(process.cwd(), "../../docs/GAME_RULES_P2.md");
+  const docPath = path.resolve(process.cwd(), "../../docs/GAME_RULES.md");
   const markdown = fs.readFileSync(docPath, "utf8");
   return <RulesViewer markdown={markdown} />;
 }

@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Long-form rulebook reader for the P2 prototype — the single allowed
- * scrolling surface (see CLAUDE.md rule 2). Renders GAME_RULES_P2.md with
- * a sticky heading TOC. Ported from the live game's RulesViewer and
- * re-themed onto the P2 cellar palette; isolated, no cross-imports.
+ * Long-form rulebook reader — the single allowed scrolling surface (see
+ * CLAUDE.md rule 2). Renders the canonical GAME_RULES.md with a sticky
+ * heading TOC. Ported from the live game's RulesViewer and re-themed onto
+ * the cellar palette; isolated, no cross-imports.
  */
 
 import Link from "next/link";

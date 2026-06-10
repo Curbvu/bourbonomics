@@ -39,6 +39,20 @@ export const CONFIG = {
   PRESTIGE_TO_CAPITAL_RATE: 1,
 } as const;
 
+/**
+ * P3 feature flags. All default OFF until the base loop is tuned — flip one on
+ * only when its batch lands. Kept separate from CONFIG (tuning numbers) so the
+ * "is this mechanic live?" switches read at a glance.
+ *   - angelsShare:        a batch held past maturity loses 1 salesRemaining.
+ *   - doubleLoopSnake:    double-loop snake turn order (vs. single-pass round-robin).
+ *   - marketingExtraCard: Draft Marketing may draw one extra demand card for the round.
+ */
+export const FLAGS = {
+  angelsShare: false,
+  doubleLoopSnake: false,
+  marketingExtraCard: false,
+} as const;
+
 /** Escalating cost to open the Nth brand line (existingCount lines already open). */
 export function openLineCost(existingCount: number): number {
   return CONFIG.OPEN_LINE_BASE_COST + existingCount;
