@@ -9,6 +9,7 @@ import {
   rankPlayers,
   CONFIG,
   openLineCost,
+  DISTILLERY_ROSTER,
 } from "@bourbonomics/prototype-engine";
 import type {
   Action,
@@ -233,6 +234,7 @@ function SlotReward({ spec, age }: { spec: SlotSpec; age?: number }) {
 export default function GameClient() {
   const [seed, setSeed] = useState(1);
   const [numPlayers, setNumPlayers] = useState(1);
+  const [distilleryId, setDistilleryId] = useState(DISTILLERY_ROSTER[0]!.id);
   const [state, setState] = useState<GameState>(() =>
     createGame({ seed: 1, playerNames: ["Player 1"] }),
   );
@@ -262,7 +264,7 @@ export default function GameClient() {
 
   function newGame() {
     const names = Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`);
-    setState(createGame({ seed, playerNames: names }));
+    setState(createGame({ seed, playerNames: names, distilleryIds: [distilleryId] }));
     setMessage(null);
     setSelResources(new Set());
     setSelMarket(new Set());
@@ -346,8 +348,10 @@ export default function GameClient() {
         ended={ended}
         seed={seed}
         numPlayers={numPlayers}
+        distilleryId={distilleryId}
         onSeed={setSeed}
         onNumPlayers={(n) => setNumPlayers(Math.max(1, Math.min(4, n)))}
+        onDistillery={setDistilleryId}
         onNewGame={newGame}
       />
 
@@ -486,6 +490,7 @@ export default function GameClient() {
               >
                 <DistilleryPanel
                   stations={player.distillery.stations}
+                  signature={player.distillery.signatureBlurb}
                   capital={player.capital}
                   disabled={ended}
                   onBuild={(stationId) => dispatch({ type: "BUILD_UPGRADE", stationId })}
@@ -820,8 +825,10 @@ function TopBar({
   ended,
   seed,
   numPlayers,
+  distilleryId,
   onSeed,
   onNumPlayers,
+  onDistillery,
   onNewGame,
 }: {
   state: GameState;
@@ -829,8 +836,10 @@ function TopBar({
   ended: boolean;
   seed: number;
   numPlayers: number;
+  distilleryId: string;
   onSeed: (n: number) => void;
   onNumPlayers: (n: number) => void;
+  onDistillery: (id: string) => void;
   onNewGame: () => void;
 }) {
   return (
@@ -914,6 +923,24 @@ function TopBar({
             onChange={(e) => onNumPlayers(Number(e.target.value))}
             className="w-12 rounded border border-[var(--rule)] bg-[var(--panel-2)] px-2 py-1 text-[12px] text-[var(--ink)]"
           />
+          <label
+            className="label-sm"
+            style={{ color: "var(--mute)", fontSize: 9.5 }}
+          >
+            distillery
+          </label>
+          <select
+            value={distilleryId}
+            onChange={(e) => onDistillery(e.target.value)}
+            title="Your distillery (applies on New game)"
+            className="rounded border border-[var(--rule)] bg-[var(--panel-2)] px-2 py-1 text-[12px] text-[var(--ink)]"
+          >
+            {DISTILLERY_ROSTER.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             onClick={onNewGame}
@@ -1090,17 +1117,25 @@ function SlotCell({
  */
 function DistilleryPanel({
   stations,
+  signature,
   capital,
   disabled,
   onBuild,
 }: {
   stations: Station[];
+  signature: string;
   capital: number;
   disabled: boolean;
   onBuild: (stationId: StationId) => void;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
+      <div className="rounded border border-[var(--rule)] bg-[var(--panel-2)] px-2 py-1">
+        <span className="font-mono text-[9px] uppercase tracking-[.1em] text-[var(--gold)]">
+          signature ·{" "}
+        </span>
+        <span className="text-[11px] text-[var(--ink-muted)]">{signature}</span>
+      </div>
       {stations.map((st) => {
         const maxed = st.builtTier >= st.maxTier;
         const cost = st.costs[st.builtTier + 1] ?? 0;

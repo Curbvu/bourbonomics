@@ -43,6 +43,28 @@ function rickhouseCapacity(player: Player): number {
   return stationLevel(player, "rickhouse");
 }
 
+/** Apply the distillery's signature ability for one extraction (sale). */
+function applySignature(player: Player, bourbon: Bourbon, isFinal: boolean): void {
+  switch (player.distillery.signature) {
+    case "volumeBonus":
+      // Throughput: every sale pays a little extra.
+      player.capital += CONFIG.VOLUME_BONUS;
+      break;
+    case "ryeBonus":
+      // Specialist: rye batches sell at a premium.
+      if (bourbon.recipeTags.includes("rye")) player.capital += CONFIG.RYE_BONUS;
+      break;
+    case "agedPrestige":
+      // Patience: completing a well-aged batch earns prestige.
+      if (isFinal && bourbon.age >= CONFIG.AGED_PRESTIGE_MIN_AGE) {
+        player.prestige += CONFIG.AGED_PRESTIGE;
+      }
+      break;
+    case "none":
+      break;
+  }
+}
+
 let idCounter = 0;
 /** Monotonic id helper for runtime entities (bourbons, lines). */
 function nextId(prefix: string): string {
@@ -740,6 +762,7 @@ function handleExtract(
   player.capital += value;
   bourbon.salesRemaining -= 1;
   player.bourbonsSold += 1;
+  applySignature(player, bourbon, isFinal);
 
   if (!isFinal) {
     // Intermediate: banks Capital and floods the market, but mints no bottle —

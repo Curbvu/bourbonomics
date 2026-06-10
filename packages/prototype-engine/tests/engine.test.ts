@@ -760,6 +760,69 @@ describe("distillery stations", () => {
 });
 
 // ------------------------------------------------------------------
+// asymmetric distilleries (B5: cost profiles + signature abilities)
+// ------------------------------------------------------------------
+
+describe("asymmetric distilleries", () => {
+  it("assigns the chosen distillery per player", () => {
+    const s = createGame({
+      seed: 1,
+      playerNames: ["A", "B"],
+      distilleryIds: ["ryerevival", "ironhill"],
+    });
+    expect(s.players[0]!.distillery.distilleryId).toBe("ryerevival");
+    expect(s.players[1]!.distillery.distilleryId).toBe("ironhill");
+  });
+
+  it("distilleries carry asymmetric cost profiles", () => {
+    const rhCost = (id: string) =>
+      createGame({ seed: 1, distilleryIds: [id] })
+        .players[0]!.distillery.stations.find((st) => st.id === "rickhouse")!.costs[1]!;
+    // Old Oak (patience tilt) has a cheaper rickhouse than Ironhill (volume tilt).
+    expect(rhCost("oldoak")).toBeLessThan(rhCost("ironhill"));
+  });
+
+  it("volumeBonus pays +Capital on every sale", () => {
+    let s = createGame({ seed: 5, distilleryIds: ["ironhill"] });
+    openMarket(s);
+    s.players[0]!.capital = 0;
+    s.players[0]!.brandLines = [makeLine(2)];
+    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, batchQty: 2, matrix: [[0]] })];
+    s = ok(s, { type: "EXTRACT", bourbonId: "x" }); // intermediate sale
+    expect(s.players[0]!.capital).toBe(CONFIG.VOLUME_BONUS); // matrix 0 + volume bonus
+  });
+
+  it("ryeBonus pays only on rye batches", () => {
+    function sell(tags: ("rye" | "wheat")[]): number {
+      let s = createGame({ seed: 5, distilleryIds: ["ryerevival"] });
+      openMarket(s);
+      s.players[0]!.capital = 0;
+      s.players[0]!.brandLines = [makeLine(2)];
+      s.players[0]!.rickhouse = [
+        makeBourbon({ id: "x", age: 3, batchQty: 2, recipeTags: tags, matrix: [[0]] }),
+      ];
+      return ok(s, { type: "EXTRACT", bourbonId: "x" }).players[0]!.capital;
+    }
+    expect(sell(["rye"])).toBe(CONFIG.RYE_BONUS);
+    expect(sell(["wheat"])).toBe(0);
+  });
+
+  it("agedPrestige pays prestige completing a well-aged batch", () => {
+    function finalSell(age: number): number {
+      let s = createGame({ seed: 5, distilleryIds: ["oldoak"] });
+      openMarket(s);
+      s.players[0]!.prestige = 0;
+      s.players[0]!.brandLines = [makeLine(2)];
+      s.players[0]!.rickhouse = [makeBourbon({ id: "x", age, batchQty: 1, matrix: [[0]] })];
+      return ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 })
+        .players[0]!.prestige;
+    }
+    expect(finalSell(CONFIG.AGED_PRESTIGE_MIN_AGE)).toBe(CONFIG.AGED_PRESTIGE);
+    expect(finalSell(3)).toBe(0); // too young for the signature
+  });
+});
+
+// ------------------------------------------------------------------
 // brand-line placement order (forgiving, non-decreasing L→R)
 // ------------------------------------------------------------------
 

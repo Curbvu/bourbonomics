@@ -274,10 +274,23 @@ export interface Station {
   levels: number[];
 }
 
+/**
+ * A distillery's signature ability — its asymmetric edge, applied at sale time.
+ *   - none          → no signature (the balanced beginner distillery).
+ *   - volumeBonus   → +Capital on EVERY sale (throughput tilt).
+ *   - ryeBonus      → +Capital on each sale of a rye-tagged batch (tag tilt).
+ *   - agedPrestige  → +prestige completing a well-aged batch (patience tilt).
+ */
+export type AbilityId = "none" | "volumeBonus" | "ryeBonus" | "agedPrestige";
+
 /** A player's distillery — the engine board carrying the upgrade stations. */
 export interface DistilleryBoard {
   distilleryId: string;
   name: string;
+  /** The distillery's signature ability (its asymmetric edge). */
+  signature: AbilityId;
+  /** One-line description of the signature, for the UI. */
+  signatureBlurb: string;
   stations: Station[];
 }
 

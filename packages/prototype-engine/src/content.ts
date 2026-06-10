@@ -6,6 +6,7 @@
 
 import { CONFIG } from "./config";
 import type {
+  AbilityId,
   DemandCard,
   DistilleryBoard,
   MarketingCard,
@@ -15,6 +16,7 @@ import type {
   ResourceKind,
   SlotCard,
   SlotSpec,
+  StationId,
   Tag,
 } from "./types";
 
@@ -341,43 +343,114 @@ const DEMAND_CARD_DEFS: DemandCardDef[] = [
 ];
 
 // ---------------------------------------------------------------------
-// Distillery board (P3): the default shared station menu. Every player
-// starts with a clone of this board; asymmetric distilleries (different
-// cost profiles + signature abilities) arrive in a later batch. All `[PH]`.
+// Distillery boards (P3): a shared station MENU (same stations + effect
+// levels for everyone) but ASYMMETRIC per distillery — each has its own
+// per-station cost profile (which builds are cheap) and a signature ability
+// (its sale-time edge). A new distillery is just a new entry here — no rules
+// change. All values `[PH]`.
 // ---------------------------------------------------------------------
-export function buildDistilleryBoard(): DistilleryBoard {
-  return {
-    distilleryId: "standard",
+
+/** The shared station menu: name + effect levels are identical for everyone. */
+const STATION_TEMPLATE: Record<
+  StationId,
+  { name: string; blurb: string; maxTier: number; costs: number[]; levels: number[] }
+> = {
+  rickhouse: {
+    name: "Rickhouse",
+    blurb: "Total barrel capacity (resting + aging).",
+    maxTier: 2,
+    costs: [0, 4, 6],
+    levels: [3, 5, 7],
+  },
+  tastingRoom: {
+    name: "Tasting Room",
+    blurb: "Prestige per completed batch.",
+    maxTier: 2,
+    costs: [0, 2, 3],
+    levels: [0, 1, 2],
+  },
+  bottling: {
+    name: "Bottling Line",
+    blurb: "Bonus Capital per completed batch.",
+    maxTier: 2,
+    costs: [0, 2, 4],
+    levels: [0, 1, 2],
+  },
+};
+
+interface DistilleryDef {
+  id: string;
+  name: string;
+  signature: AbilityId;
+  signatureBlurb: string;
+  /** Per-station cost overrides — the asymmetry. Omitted stations use the menu default. */
+  costs: Partial<Record<StationId, number[]>>;
+}
+
+const DISTILLERY_DEFS: DistilleryDef[] = [
+  {
+    id: "standard",
     name: "Standard Distillery",
-    stations: [
-      {
-        id: "rickhouse",
-        name: "Rickhouse",
-        blurb: "Total barrel capacity (resting + aging).",
+    signature: "none",
+    signatureBlurb: "No signature — a balanced, beginner-friendly start.",
+    costs: {},
+  },
+  {
+    id: "oldoak",
+    name: "Old Oak Rickhouse",
+    signature: "agedPrestige",
+    signatureBlurb: "+1 prestige when you complete a batch aged 5+.",
+    // Patience tilt: cheap rickhouse (go tall), pricier bottling.
+    costs: { rickhouse: [0, 3, 4], bottling: [0, 3, 5] },
+  },
+  {
+    id: "ironhill",
+    name: "Ironhill Volume",
+    signature: "volumeBonus",
+    signatureBlurb: "+1 Capital on every sale.",
+    // Throughput tilt: cheap bottling (sell wide), pricier rickhouse.
+    costs: { bottling: [0, 1, 3], rickhouse: [0, 5, 7] },
+  },
+  {
+    id: "ryerevival",
+    name: "Rye Revival Co.",
+    signature: "ryeBonus",
+    signatureBlurb: "+2 Capital on each sale of a rye batch.",
+    // Specialist tilt: cheap tasting room (lean on prestige + rye sales).
+    costs: { tastingRoom: [0, 1, 2] },
+  },
+];
+
+/** Lightweight roster for the new-game picker (no station data). */
+export const DISTILLERY_ROSTER = DISTILLERY_DEFS.map((d) => ({
+  id: d.id,
+  name: d.name,
+  signature: d.signature,
+  signatureBlurb: d.signatureBlurb,
+}));
+
+const STATION_ORDER: StationId[] = ["rickhouse", "tastingRoom", "bottling"];
+
+/** Build a fresh distillery board for the given id (defaults to "standard"). */
+export function buildDistilleryBoard(distilleryId = "standard"): DistilleryBoard {
+  const def = DISTILLERY_DEFS.find((d) => d.id === distilleryId) ?? DISTILLERY_DEFS[0]!;
+  return {
+    distilleryId: def.id,
+    name: def.name,
+    signature: def.signature,
+    signatureBlurb: def.signatureBlurb,
+    stations: STATION_ORDER.map((id) => {
+      const t = STATION_TEMPLATE[id];
+      return {
+        id,
+        name: t.name,
+        blurb: t.blurb,
         builtTier: 0,
-        maxTier: 2,
-        costs: [0, 4, 6],
-        levels: [3, 5, 7],
-      },
-      {
-        id: "tastingRoom",
-        name: "Tasting Room",
-        blurb: "Prestige per completed batch.",
-        builtTier: 0,
-        maxTier: 2,
-        costs: [0, 2, 3],
-        levels: [0, 1, 2],
-      },
-      {
-        id: "bottling",
-        name: "Bottling Line",
-        blurb: "Bonus Capital per completed batch.",
-        builtTier: 0,
-        maxTier: 2,
-        costs: [0, 2, 4],
-        levels: [0, 1, 2],
-      },
-    ],
+        maxTier: t.maxTier,
+        costs: [...(def.costs[id] ?? t.costs)],
+        levels: [...t.levels],
+      };
+    }),
   };
 }
 

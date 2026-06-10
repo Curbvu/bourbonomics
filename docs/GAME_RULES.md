@@ -40,7 +40,7 @@ The game ends when the **mash bill supply runs out**. Each player's final score 
 3. **Mash bill supply.** Shuffle the mash bills face-down. Deal **3 face-up** as the mash bill tray (take-and-refill). The remaining face-down supply is the **doomsday clock** — when it empties, the game ends.
 4. **Slot card supply.** Lay out the slot cards by design (**5 frozen designs**, 12 copies each) where every player can reach them. They are abundant and drawn freely.
 5. **Marketing tray.** Shuffle the marketing cards; reveal a face-up tray of **4**.
-6. **Players.** Each player takes a player board (rickhouse + brand-line area) and starts with **5 Capital**, **0 prestige**, and an **empty hand** (you gather your first resources on your turn).
+6. **Players.** Each player **picks a distillery** (its board carries the upgrade stations + a signature ability — see [§The Distillery](#-the-distillery)) and starts with **5 Capital**, **0 prestige**, and an **empty hand** (you gather your first resources on your turn).
 7. Pick a start player.
 
 ---
@@ -158,7 +158,16 @@ The current menu (`[PH]`, grows in later batches):
 
 Each station leans toward a different strategy (capacity to go wide/tall, tasting for prestige, bottling for throughput), so build paths don't calcify.
 
-> **🔮 PLANNED.** Asymmetric distilleries (a different cost profile + a signature ability each) and more stations (mill, fermenter, still, lab) arrive next batch — at which point your distillery becomes a real strategic identity, not just a symmetric upgrade tree.
+**Asymmetric distilleries.** At setup each player picks a **distillery**. The station menu is the same for everyone, but the *prices aren't*: each distillery has its own **cost profile** (which builds are cheap — its tilt) plus a **signature ability** (its sale-time edge). The current roster (`[PH]`):
+
+- **Standard Distillery** — balanced, no signature (beginner pick).
+- **Old Oak Rickhouse** — cheap rickhouse (go tall); signature: **+1 prestige** completing a batch aged 5+.
+- **Ironhill Volume** — cheap bottling (sell wide); signature: **+1 Capital on every sale**.
+- **Rye Revival Co.** — cheap tasting room; signature: **+2 Capital** on each sale of a **rye** batch.
+
+A new distillery is just a new board entry — no rules change.
+
+> **🔮 PLANNED.** More stations (mill, fermenter, still, lab) and their heavier effects (production parallelism, still tilt, action-unlocks) arrive in later batches.
 
 ---
 
@@ -317,6 +326,6 @@ It's about **patience** — knowing what to age, when the world is ready to pay,
 
 This document is the canonical ruleset for **Bourbonomics** — the cozy engine-builder, P2 core with **P3** changes layering in by batch (see the 🚧 P3 banner at the top) — and is distinct from **P1**, the original live game (rules archived in [`GAME_RULES_P1.md`](GAME_RULES_P1.md)). It is authoritative over any implementation. The game is the single mainline product at the apex root `playbourbonomics.com` (workspaces `apps/prototype` + `packages/prototype-engine`). It is built in discrete batches; this rulebook describes the intended whole, while the prototype implements it incrementally.
 
-**Currently in the prototype:** the full single-player loop — the action menu (Draw Resources, Take Market Resources, Draw Mash Bills, Make Bourbon, Draw Slot Card, Open Brand Line, Draft Marketing, **Build Upgrade**, Extract), the two-step rest→build production, **multi-sale batches** with the flat completion bonus (P3 B1/B7), the age × demand selling matrix, the **demand flood engine** — per-player demand cards, blue/red lines, the continuous cliff, tag-gated eligibility, and the global rising trend (P3 B2/B3) — the **distillery station board** (rickhouse capacity replacing the hard cap, tasting room, bottling line; P3 B4 + symmetric B5), the five frozen slot cards with their reward specs and the Expressions house-style bonus, trait-gated stackable marketing, and Capital + prestige scoring with the bills-run-out clock.
+**Currently in the prototype:** the full single-player loop — the action menu (Draw Resources, Take Market Resources, Draw Mash Bills, Make Bourbon, Draw Slot Card, Open Brand Line, Draft Marketing, **Build Upgrade**, Extract), the two-step rest→build production, **multi-sale batches** with the flat completion bonus (P3 B1/B7), the age × demand selling matrix, the **demand flood engine** — per-player demand cards, blue/red lines, the continuous cliff, tag-gated eligibility, and the global rising trend (P3 B2/B3) — the **distillery-as-engine** board (rickhouse capacity replacing the hard cap, tasting room, bottling line; **asymmetric distilleries** with per-station cost profiles + signature abilities; P3 B4 + B5), the five frozen slot cards with their reward specs and the Expressions house-style bonus, trait-gated stackable marketing, and Capital + prestige scoring with the bills-run-out clock.
 
-**Tagged `🔮 PLANNED` / not yet built:** **asymmetric distilleries** (cost profiles + signature abilities) and more stations (mill, fermenter, still, lab); the snake turn order; on-placement cascades; and the flagged extensions (angel's share, marketing extra-card, lab peek). Also deferred: extra-action buying, bot/AI heuristics, and multiplayer/networking. All content and balance values are **placeholder, pre-playtest**.
+**Tagged `🔮 PLANNED` / not yet built:** more distillery stations (mill, fermenter, still, lab) and their heavier effects; the snake turn order; on-placement cascades; and the flagged extensions (angel's share, marketing extra-card, lab peek). Also deferred: extra-action buying, bot/AI heuristics, and multiplayer/networking. All content and balance values are **placeholder, pre-playtest**.

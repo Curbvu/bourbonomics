@@ -12,6 +12,7 @@ import {
   buildMashBillSupply,
   buildResourceDeck,
   buildSlotCardSupply,
+  DISTILLERY_ROSTER,
 } from "./content";
 import { shuffle } from "./rng";
 import type { GameState, Player } from "./types";
@@ -20,9 +21,21 @@ export interface NewGameOptions {
   seed?: number;
   playerNames?: string[];
   startingCapital?: number;
+  /** Distillery id per player (by index). Falls back to a rotating default. */
+  distilleryIds?: string[];
 }
 
-function makePlayer(id: string, name: string, startingCapital: number): Player {
+/** Resolve player i's distillery: explicit choice, else rotate the roster. */
+function resolveDistillery(ids: string[] | undefined, i: number): string {
+  return ids?.[i] ?? DISTILLERY_ROSTER[i % DISTILLERY_ROSTER.length]!.id;
+}
+
+function makePlayer(
+  id: string,
+  name: string,
+  startingCapital: number,
+  distilleryId: string,
+): Player {
   return {
     id,
     name,
@@ -32,7 +45,7 @@ function makePlayer(id: string, name: string, startingCapital: number): Player {
     slotCards: [],
     rickhouse: [],
     brandLines: [],
-    distillery: buildDistilleryBoard(),
+    distillery: buildDistilleryBoard(distilleryId),
     actionsRemaining: CONFIG.ACTIONS_PER_ROUND,
     usedFreeMarketing: false,
     bourbonsSold: 0,
@@ -77,7 +90,12 @@ export function createGame(options: NewGameOptions = {}): GameState {
   const redLine = demandCards.reduce((sum, c) => sum + c.redCapacity, 0);
 
   const players = names.map((name, i) =>
-    makePlayer(`p${i + 1}`, name, startingCapital),
+    makePlayer(
+      `p${i + 1}`,
+      name,
+      startingCapital,
+      resolveDistillery(options.distilleryIds, i),
+    ),
   );
 
   return {

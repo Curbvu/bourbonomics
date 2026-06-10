@@ -34,6 +34,11 @@ export const CONFIG = {
    * sales at once must not earn more bonus. `[PH]` — pre-playtest.
    */
   COMPLETION_BONUS: 1,
+  /** Signature-ability magnitudes (asymmetric distilleries). All `[PH]`. */
+  VOLUME_BONUS: 1,
+  RYE_BONUS: 2,
+  AGED_PRESTIGE_MIN_AGE: 5,
+  AGED_PRESTIGE: 1,
   /** Cards taken into hand per market visit. */
   RESOURCE_DRAW_COUNT: 3,
   /** Face-up resource market size — the player picks RESOURCE_DRAW_COUNT of these. */
