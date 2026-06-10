@@ -1318,6 +1318,83 @@ describe("opening brand lines", () => {
 });
 
 // ------------------------------------------------------------------
+// full loop integration: lay → make → age → upgrade → open → extract → place
+// ------------------------------------------------------------------
+
+describe("full loop integration", () => {
+  /** Advance by playing DRAW_RESOURCES until the round number reaches target. */
+  function advanceToRound(s: GameState, target: number): GameState {
+    let guard = 0;
+    while (s.phase === "playing" && s.roundNumber < target && guard < 300) {
+      guard++;
+      const res = applyAction(s, { type: "DRAW_RESOURCES" });
+      if (!res.ok) break;
+      s = res.state;
+    }
+    return s;
+  }
+
+  it("a built batch ages, upgrades, then extracts through the whole chain", () => {
+    let s = createGame({ seed: 7 });
+    const p = () => s.players[0]!;
+
+    // A resting barrel needing 1 cask + 1 corn, batchQty 2, flat matrix (5).
+    p().capital = 20;
+    p().hand = [
+      { id: "c1", defId: "res_cask", kind: "cask", quality: "heritage", name: "cask", placeholder: true },
+      { id: "k1", defId: "res_corn", kind: "corn", quality: "common", name: "corn", placeholder: true },
+    ];
+    p().rickhouse = [
+      makeBourbon({
+        id: "b",
+        built: false,
+        age: 0,
+        recipe: { cask: 1, corn: 1 },
+        batchQty: 2,
+        recipeTags: ["classic"],
+        matrix: [[5]],
+      }),
+    ];
+
+    // MAKE → builds, quality from the best committed card (heritage cask).
+    s = ok(s, { type: "MAKE_BOURBON", barrelId: "b", resourceCardIds: ["c1", "k1"] });
+    expect(p().rickhouse[0]!.built).toBe(true);
+    expect(p().rickhouse[0]!.quality).toBe("heritage");
+    expect(p().rickhouse[0]!.age).toBe(0);
+
+    // AGE → two Year Passes bring it to the minimum sell age.
+    s = advanceToRound(s, 3);
+    expect(p().rickhouse[0]!.age).toBeGreaterThanOrEqual(CONFIG.MIN_SELL_AGE);
+
+    // UPGRADE the bottling line (+1 to the completion bonus).
+    p().capital = 20;
+    s = ok(s, { type: "BUILD_UPGRADE", stationId: "bottling" });
+    const bottling = p().distillery.stations.find((st) => st.id === "bottling")!;
+    expect(bottling.builtTier).toBe(1);
+
+    // OPEN a brand line to sell into.
+    p().slotCards = [buildSlotCardSupply().find((c) => c.defId === "slot_workhorse")!];
+    p().capital = 20;
+    s = ok(s, { type: "OPEN_BRAND_LINE", slotCardId: p().slotCards[0]!.id });
+    const lineId = p().brandLines[0]!.id;
+
+    // EXTRACT the batch — flood-free so we can read exact payouts.
+    openMarket(s);
+    p().capital = 0;
+    // 1st (intermediate): banks 5, stays resting, no bottle.
+    s = ok(s, { type: "EXTRACT", bourbonId: "b" });
+    expect(p().rickhouse.length).toBe(1);
+    expect(p().rickhouse[0]!.salesRemaining).toBe(1);
+    // 2nd (final): banks 5 + completion bonus (base 1 + bottling 1), frees + places.
+    s = ok(s, { type: "EXTRACT", bourbonId: "b", brandLineId: lineId, slotIndex: 0 });
+    expect(p().rickhouse.length).toBe(0);
+    expect(p().brandLines[0]!.slots[0]!.id).toBe("b");
+    expect(p().bourbonsSold).toBe(2);
+    expect(p().capital).toBe(5 + 5 + (CONFIG.COMPLETION_BONUS + 1));
+  });
+});
+
+// ------------------------------------------------------------------
 // end condition + scoring
 // ------------------------------------------------------------------
 
