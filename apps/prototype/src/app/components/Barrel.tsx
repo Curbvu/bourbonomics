@@ -115,6 +115,15 @@ export default function Barrel({
   // ── Built barrel: aging + sale preview ──────────────────────────────
   const preview = matrixValue(bourbon.matrix, bourbon.age, demand);
   const ready = bourbon.age >= CONFIG.MIN_SELL_AGE;
+  // A batch yields batchQty sales; the last one ("final") mints the bottle.
+  const isFinalSale = bourbon.salesRemaining <= 1;
+  const sellLabel = !ready
+    ? `aging ${bourbon.age}/${CONFIG.MIN_SELL_AGE}`
+    : !canSell
+      ? "needs a line"
+      : isFinalSale
+        ? "Sell & place →"
+        : "Extract →";
 
   return (
     <div className="pour-in flex w-[132px] flex-col gap-1.5">
@@ -151,8 +160,16 @@ export default function Barrel({
       >
         {bourbon.name}
       </div>
-      <div className="font-mono text-[10px] text-[var(--mute)]">
-        ~{preview}฿ now
+      <div className="flex items-center justify-between font-mono text-[10px] text-[var(--mute)]">
+        <span>~{preview}฿ now</span>
+        {bourbon.batchQty > 1 ? (
+          <span
+            className="text-[var(--amber-2)]"
+            title={`${bourbon.salesRemaining} of ${bourbon.batchQty} sales left`}
+          >
+            🛢 {bourbon.salesRemaining}/{bourbon.batchQty}
+          </span>
+        ) : null}
       </div>
       <button
         type="button"
@@ -160,11 +177,7 @@ export default function Barrel({
         disabled={!canSell}
         className="w-full rounded border border-[var(--rule)] bg-[var(--panel)] px-1 py-1 font-mono text-[10px] uppercase tracking-[.08em] text-[var(--ink-muted)] transition hover:border-[var(--amber)] hover:text-[var(--gold)] disabled:opacity-40"
       >
-        {canSell
-          ? "Sell →"
-          : ready
-            ? "needs a line"
-            : `aging ${bourbon.age}/${CONFIG.MIN_SELL_AGE}`}
+        {sellLabel}
       </button>
     </div>
   );

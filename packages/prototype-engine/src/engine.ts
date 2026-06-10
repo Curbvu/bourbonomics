@@ -8,7 +8,7 @@
 // Action shape in later batches.
 
 import { CONFIG, openLineCost } from "./config";
-import { buildForecastDeck } from "./content";
+import { buildForecastDeck, expressionToTags } from "./content";
 import { rankPlayers } from "./scoring";
 import { shuffle } from "./rng";
 import type {
@@ -428,10 +428,13 @@ function handleDrawMashBills(
     name: kept!.name,
     traits: [...kept!.traits],
     expression: kept!.expression,
+    recipeTags: expressionToTags(kept!.expression),
     recipe: { ...kept!.recipe },
     built: false,
     age: 0,
     quality: "common",
+    batchQty: kept!.batchQty,
+    salesRemaining: kept!.batchQty,
     matrix: kept!.matrix,
     createdRound: draft.roundNumber,
   };
@@ -574,12 +577,20 @@ function handleOpenBrandLine(
   return null;
 }
 
-function handleSellBourbon(
+/**
+ * Extract one sale from a built, aged batch. Every extraction banks the
+ * age×demand matrix value. An INTERMEDIATE extraction (salesRemaining > 1)
+ * stops there: no demand cool, no placement, the batch stays in the rickhouse.
+ * The FINAL extraction (salesRemaining → 0) additionally cools demand, pays
+ * the flat completion bonus, frees the rickhouse slot, and mints + places the
+ * bottle into a brand line (the placement/staircase rules are unchanged).
+ */
+function handleExtract(
   draft: GameState,
   player: Player,
   bourbonId: string,
-  brandLineId: string,
-  slotIndex: number,
+  brandLineId: string | undefined,
+  slotIndex: number | undefined,
   rewardChoice: number | undefined,
 ): string | null {
   const idx = player.rickhouse.findIndex((b) => b.id === bourbonId);
@@ -590,47 +601,67 @@ function handleSellBourbon(
   if (bourbon.age < CONFIG.MIN_SELL_AGE) {
     return `bourbon must be aged at least ${CONFIG.MIN_SELL_AGE} (age ${bourbon.age})`;
   }
+  if (bourbon.salesRemaining <= 0) return "this batch is already fully sold";
 
-  const line = player.brandLines.find((l) => l.id === brandLineId);
-  if (!line) return "target brand line not found — open a line first";
+  const isFinal = bourbon.salesRemaining === 1;
 
-  // The player chooses the target slot; validate it.
-  if (slotIndex < 0 || slotIndex >= line.slots.length) {
-    return `slot ${slotIndex} is out of range`;
-  }
-  if (line.slots[slotIndex] !== null) return "that slot is already filled";
-  if (!slotAgeEligible(line, slotIndex, bourbon.age)) {
-    return "that slot would break the line's age order (staircase)";
-  }
-
-  const spec = line.slotCard.slots[slotIndex]!;
-  // Expressions: an optional slot must match its paired required's age.
-  if (spec.matchAgeOfSlot !== undefined) {
-    const paired = line.slots[spec.matchAgeOfSlot];
-    if (!paired) return "the paired slot must be filled first";
-    if (paired.age !== bourbon.age) {
-      return `this slot must match the paired bottle's age (${paired.age})`;
+  // The final sale mints a bottle, so it needs a valid placement. Validate it
+  // up-front (before any mutation) so a refusal leaves the batch untouched.
+  let placement: Placement | null = null;
+  if (isFinal) {
+    if (brandLineId === undefined || slotIndex === undefined) {
+      return "the final sale of a batch must be placed into a brand line";
     }
-  }
-  // Validate an explicit choice index against the option count.
-  if (spec.reward.kind === "choice" && rewardChoice !== undefined) {
-    if (rewardChoice < 0 || rewardChoice >= spec.reward.options.length) {
-      return `reward choice ${rewardChoice} is out of range`;
+    const line = player.brandLines.find((l) => l.id === brandLineId);
+    if (!line) return "target brand line not found — open a line first";
+    if (slotIndex < 0 || slotIndex >= line.slots.length) {
+      return `slot ${slotIndex} is out of range`;
     }
+    if (line.slots[slotIndex] !== null) return "that slot is already filled";
+    if (!slotAgeEligible(line, slotIndex, bourbon.age)) {
+      return "that slot would break the line's age order (staircase)";
+    }
+    const spec = line.slotCard.slots[slotIndex]!;
+    // Expressions: an optional slot must match its paired required's age.
+    if (spec.matchAgeOfSlot !== undefined) {
+      const paired = line.slots[spec.matchAgeOfSlot];
+      if (!paired) return "the paired slot must be filled first";
+      if (paired.age !== bourbon.age) {
+        return `this slot must match the paired bottle's age (${paired.age})`;
+      }
+    }
+    // Validate an explicit choice index against the option count.
+    if (spec.reward.kind === "choice" && rewardChoice !== undefined) {
+      if (rewardChoice < 0 || rewardChoice >= spec.reward.options.length) {
+        return `reward choice ${rewardChoice} is out of range`;
+      }
+    }
+    placement = { line, slotIndex };
   }
 
-  // Bank capital from the age×demand matrix, then drop demand.
+  // Every extraction banks the age×demand matrix value.
   const value = matrixValue(bourbon.matrix, bourbon.age, draft.demand);
   player.capital += value;
-  draft.demand = Math.max(CONFIG.DEMAND_FLOOR, draft.demand - 1);
+  bourbon.salesRemaining -= 1;
   player.bourbonsSold += 1;
 
-  // Remove from rickhouse and place the bottle (fires slot + marketing rewards).
+  if (!isFinal) {
+    // Intermediate: no demand cool, no placement — the batch stays put.
+    draft.log.push(
+      `${player.name} extracted a sale of "${bourbon.name}" (age ${bourbon.age}) for ${value} capital — ${bourbon.salesRemaining}/${bourbon.batchQty} left; demand ${draft.demand}.`,
+    );
+    return null;
+  }
+
+  // Final sale: cool demand, pay the completion bonus, free the rickhouse slot,
+  // and mint + place the bottle (fires slot + marketing rewards).
+  draft.demand = Math.max(CONFIG.DEMAND_FLOOR, draft.demand - 1);
+  player.capital += CONFIG.COMPLETION_BONUS;
   player.rickhouse.splice(idx, 1);
-  placeBourbon(draft, player, { line, slotIndex }, bourbon, rewardChoice);
+  placeBourbon(draft, player, placement!, bourbon, rewardChoice);
 
   draft.log.push(
-    `${player.name} sold "${bourbon.name}" (age ${bourbon.age}) for ${value} capital into "${line.slotCard.name}" slot ${slotIndex + 1}; demand ${draft.demand}.`,
+    `${player.name} sold out "${bourbon.name}" (age ${bourbon.age}) — final sale ${value} +${CONFIG.COMPLETION_BONUS} bonus into "${placement!.line.slotCard.name}" slot ${placement!.slotIndex + 1}; demand ${draft.demand}.`,
   );
   return null;
 }
@@ -670,8 +701,8 @@ export function applyAction(state: GameState, action: Action): ActionResult {
     case "OPEN_BRAND_LINE":
       error = handleOpenBrandLine(draft, player, action.slotCardId);
       break;
-    case "SELL_BOURBON":
-      error = handleSellBourbon(
+    case "EXTRACT":
+      error = handleExtract(
         draft,
         player,
         action.bourbonId,

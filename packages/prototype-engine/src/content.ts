@@ -14,7 +14,25 @@ import type {
   ResourceKind,
   SlotCard,
   SlotSpec,
+  Tag,
 } from "./types";
+
+/**
+ * Map a mash bill's canonical `expression` to its house-style tag(s). Drives
+ * a batch's `recipeTags` (set when the barrel is laid down). Unknown
+ * expressions fall back to "classic" so every batch always carries a tag.
+ */
+const EXPRESSION_TAGS: Record<string, Tag> = {
+  wheated: "wheat",
+  "high-rye": "rye",
+  "high-corn": "highCorn",
+  "four-grain": "fourGrain",
+  bourbon: "classic",
+};
+
+export function expressionToTags(expression: string): Tag[] {
+  return [EXPRESSION_TAGS[expression] ?? "classic"];
+}
 
 /** Highest age row we materialize in every payoff matrix. */
 export const MAX_MATRIX_AGE = 10;
@@ -53,20 +71,22 @@ interface MashBillDef {
   /** Single canonical house-style tag (read by the Expressions slot card). */
   expression: string;
   recipe: Partial<Record<ResourceKind, number>>;
+  /** Sales the batch yields. Mostly 2–3; premium/single-barrel bills = 1. `[PH]`. */
+  batchQty: number;
   peak: number;
 }
 
 const MASH_BILL_DEFS: MashBillDef[] = [
-  { defId: "mb_high_corn", name: "Sweet Corn Mash", traits: ["high-corn"], expression: "high-corn", recipe: { corn: 2, cask: 1 }, peak: 8 },
-  { defId: "mb_classic", name: "Classic Bourbon", traits: ["balanced"], expression: "bourbon", recipe: { corn: 1, grain: 1, cask: 1 }, peak: 10 },
-  { defId: "mb_rye_heavy", name: "High Rye", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { grain: 2, cask: 1 }, peak: 12 },
-  { defId: "mb_wheated", name: "Wheated", traits: ["wheated", "smooth"], expression: "wheated", recipe: { grain: 1, corn: 1, cask: 1 }, peak: 12 },
-  { defId: "mb_four_grain", name: "Four Grain", traits: ["balanced", "complex"], expression: "four-grain", recipe: { corn: 1, grain: 2, cask: 1 }, peak: 14 },
-  { defId: "mb_bottled_in_bond", name: "Bottled-in-Bond", traits: ["balanced", "bonded"], expression: "bourbon", recipe: { corn: 2, grain: 1, cask: 1 }, peak: 16 },
-  { defId: "mb_single_barrel", name: "Single Barrel", traits: ["complex"], expression: "bourbon", recipe: { corn: 1, grain: 1, cask: 2 }, peak: 18 },
-  { defId: "mb_rye_double", name: "Double Rye", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { grain: 3 }, peak: 20 },
-  { defId: "mb_heritage_wheat", name: "Heirloom Wheat", traits: ["wheated", "heritage-grain"], expression: "wheated", recipe: { grain: 2, cask: 1 }, peak: 22 },
-  { defId: "mb_small_batch", name: "Small Batch Reserve", traits: ["balanced", "smooth", "complex"], expression: "four-grain", recipe: { corn: 1, grain: 1, cask: 2 }, peak: 24 },
+  { defId: "mb_high_corn", name: "Sweet Corn Mash", traits: ["high-corn"], expression: "high-corn", recipe: { corn: 2, cask: 1 }, batchQty: 3, peak: 8 },
+  { defId: "mb_classic", name: "Classic Bourbon", traits: ["balanced"], expression: "bourbon", recipe: { corn: 1, grain: 1, cask: 1 }, batchQty: 3, peak: 10 },
+  { defId: "mb_rye_heavy", name: "High Rye", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { grain: 2, cask: 1 }, batchQty: 2, peak: 12 },
+  { defId: "mb_wheated", name: "Wheated", traits: ["wheated", "smooth"], expression: "wheated", recipe: { grain: 1, corn: 1, cask: 1 }, batchQty: 2, peak: 12 },
+  { defId: "mb_four_grain", name: "Four Grain", traits: ["balanced", "complex"], expression: "four-grain", recipe: { corn: 1, grain: 2, cask: 1 }, batchQty: 2, peak: 14 },
+  { defId: "mb_bottled_in_bond", name: "Bottled-in-Bond", traits: ["balanced", "bonded"], expression: "bourbon", recipe: { corn: 2, grain: 1, cask: 1 }, batchQty: 2, peak: 16 },
+  { defId: "mb_single_barrel", name: "Single Barrel", traits: ["complex"], expression: "bourbon", recipe: { corn: 1, grain: 1, cask: 2 }, batchQty: 1, peak: 18 },
+  { defId: "mb_rye_double", name: "Double Rye", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { grain: 3 }, batchQty: 2, peak: 20 },
+  { defId: "mb_heritage_wheat", name: "Heirloom Wheat", traits: ["wheated", "heritage-grain"], expression: "wheated", recipe: { grain: 2, cask: 1 }, batchQty: 1, peak: 22 },
+  { defId: "mb_small_batch", name: "Small Batch Reserve", traits: ["balanced", "smooth", "complex"], expression: "four-grain", recipe: { corn: 1, grain: 1, cask: 2 }, batchQty: 2, peak: 24 },
 ];
 
 export function buildMashBillSupply(): MashBill[] {
@@ -82,6 +102,7 @@ export function buildMashBillSupply(): MashBill[] {
         traits: [...def.traits],
         expression: def.expression,
         recipe: { ...def.recipe },
+        batchQty: def.batchQty,
         matrix: buildMatrix(def.peak),
         placeholder: true,
       });

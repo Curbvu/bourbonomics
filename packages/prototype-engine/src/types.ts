@@ -21,6 +21,15 @@ export type ResourceKind = "cask" | "corn" | "grain";
  */
 export type Trait = string;
 
+/**
+ * Canonical house-style tag, derived from a mash bill's `expression`
+ * (see `expressionToTags` in content.ts). In P3 a tag gates which demand
+ * slots a batch may be sold into. Tag *gating* arrives with the new demand
+ * engine in a later batch; for now the tag is recorded on every batch but
+ * not yet enforced. A batch carries one or more of these.
+ */
+export type Tag = "wheat" | "rye" | "highCorn" | "fourGrain" | "classic";
+
 // ---------------------------------------------------------------------
 // Cards & content
 // ---------------------------------------------------------------------
@@ -54,6 +63,11 @@ export interface MashBill {
   expression: string;
   /** Required resource kinds → counts. Quality of committed cards sets tier. */
   recipe: Partial<Record<ResourceKind, number>>;
+  /**
+   * How many sales (extractions) a batch built from this bill yields. Mostly
+   * 2–3; a few premium/single-barrel bills yield 1. `[PH]` — pre-playtest.
+   */
+  batchQty: number;
   /** matrix[age][demand] → capital. Clamped at the edges on lookup. */
   matrix: number[][];
   placeholder: true;
@@ -157,6 +171,13 @@ export interface ForecastCard {
 // Runtime entities
 // ---------------------------------------------------------------------
 
+/**
+ * A bourbon is a **batch**: a single built barrel that yields `batchQty`
+ * separate sales (extractions) over its life. Each extraction reads the
+ * age × demand matrix and banks Capital; only the **final** extraction
+ * (`salesRemaining` → 0) cools demand, pays the completion bonus, frees its
+ * rickhouse slot, and mints the bottle that gets placed in a brand line.
+ */
 export interface Bourbon {
   id: string;
   mashBillId: string;
@@ -164,6 +185,8 @@ export interface Bourbon {
   traits: Trait[];
   /** House-style tag inherited from the mash bill (read by the Expressions line). */
   expression: string;
+  /** Canonical tags derived from `expression`; gate demand-slot eligibility (P3). */
+  recipeTags: Tag[];
   /**
    * The recipe this barrel needs to be built — shown as requirements while
    * unbuilt. Copied from the mash bill when the barrel is laid down.
@@ -178,6 +201,13 @@ export interface Bourbon {
   /** Years rested. Starts 0, +1 per round while BUILT and in the rickhouse. */
   age: number;
   quality: Quality;
+  /** Total sales this batch yields over its life. Copied from the mash bill. */
+  batchQty: number;
+  /**
+   * Sales left before the batch is spent. Starts at `batchQty`; each EXTRACT
+   * decrements it. Reaching 0 is the "final sale" (cool + bonus + place + free).
+   */
+  salesRemaining: number;
   /** Inherited from the mash bill at make time. matrix[age][demand]. */
   matrix: number[][];
   /** Round index when the bourbon was created (for the "aged ≥1 round" gate). */
@@ -275,12 +305,16 @@ export type Action =
   | { type: "DRAW_MARKETING"; keepIndex: number; brandLineId: string }
   | { type: "OPEN_BRAND_LINE"; slotCardId: string }
   | {
-      type: "SELL_BOURBON";
+      type: "EXTRACT";
       bourbonId: string;
-      /** Brand line to place the bottle into (required — selling mints a bottle). */
-      brandLineId: string;
-      /** Target slot index the player chooses (must honor the staircase). */
-      slotIndex: number;
+      /**
+       * Brand line to place the bottle into. Required ONLY on the **final**
+       * extraction (salesRemaining → 0), which mints the bottle; ignored on
+       * intermediate extractions (those just bank Capital, no placement).
+       */
+      brandLineId?: string;
+      /** Target slot index (final extraction only; must honor the staircase). */
+      slotIndex?: number;
       /** For a choice-node slot: which option index the player takes. */
       rewardChoice?: number;
     };

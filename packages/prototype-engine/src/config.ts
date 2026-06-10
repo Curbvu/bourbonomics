@@ -22,6 +22,12 @@ export const CONFIG = {
   MAX_BRAND_LINES: 4,
   /** A barrel must reach this age before it may be sold. */
   MIN_SELL_AGE: 2,
+  /**
+   * Flat Capital paid on the FINAL extraction of a batch (the completion
+   * bonus). Attached to the final-sale event, NOT per unit — bunching all
+   * sales at once must not earn more bonus. `[PH]` — pre-playtest.
+   */
+  COMPLETION_BONUS: 1,
   /** Cards taken into hand per market visit. */
   RESOURCE_DRAW_COUNT: 3,
   /** Face-up resource market size — the player picks RESOURCE_DRAW_COUNT of these. */

@@ -309,6 +309,13 @@ export default function GameClient() {
   const selectedHandCards = player.hand.filter((c) => selResources.has(c.id));
 
   function openSell(barrel: Bourbon) {
+    // A batch yields multiple sales. Intermediate extractions just bank
+    // Capital — no placement — so fire them directly. Only the FINAL sale
+    // (one left) mints a bottle and opens the placement modal.
+    if (barrel.salesRemaining > 1) {
+      dispatch({ type: "EXTRACT", bourbonId: barrel.id });
+      return;
+    }
     setSellBarrel(barrel);
     setSellLineId(targetLine ?? player.brandLines[0]?.id ?? null);
   }
@@ -316,7 +323,7 @@ export default function GameClient() {
   function confirmSell(lineId: string, slotIndex: number, rewardChoice?: number) {
     if (!sellBarrel) return;
     const okDone = dispatch({
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: sellBarrel.id,
       brandLineId: lineId,
       slotIndex,
@@ -585,7 +592,15 @@ export default function GameClient() {
                         key={b.id}
                         bourbon={b}
                         demand={state.demand}
-                        canSell={!ended && b.built && b.age >= CONFIG.MIN_SELL_AGE && player.brandLines.length > 0}
+                        canSell={
+                          !ended &&
+                          b.built &&
+                          b.age >= CONFIG.MIN_SELL_AGE &&
+                          b.salesRemaining > 0 &&
+                          // Intermediate extraction needs no line; only the
+                          // final sale (one left) requires somewhere to place.
+                          (b.salesRemaining > 1 || player.brandLines.length > 0)
+                        }
                         canBuild={
                           !ended &&
                           !b.built &&

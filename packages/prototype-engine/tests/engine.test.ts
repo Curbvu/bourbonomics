@@ -41,10 +41,15 @@ function makeBourbon(over: Partial<Bourbon> = {}): Bourbon {
     name: over.name ?? "Test Bourbon",
     traits: over.traits ?? [],
     expression: over.expression ?? "bourbon",
+    recipeTags: over.recipeTags ?? [],
     recipe: over.recipe ?? {},
     built: over.built ?? true,
     age: over.age ?? 3,
     quality: over.quality ?? "common",
+    // Default to a single-sale batch so existing single-sale tests are
+    // unchanged; setting batchQty alone also seeds salesRemaining.
+    batchQty: over.batchQty ?? 1,
+    salesRemaining: over.salesRemaining ?? over.batchQty ?? 1,
     matrix: over.matrix ?? [[0]],
     createdRound: over.createdRound ?? 0,
     ...over,
@@ -322,7 +327,7 @@ describe("selling", () => {
   it("refuses barrels under the minimum sell age", () => {
     const s = sellScenario(1, 4, [[0]]);
     const reason = expectRefusal(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "sellme",
       brandLineId: "line1",
       slotIndex: 0,
@@ -334,7 +339,7 @@ describe("selling", () => {
     const s = sellScenario(3, 4, [[0]]);
     s.players[0]!.rickhouse[0]!.built = false;
     const reason = expectRefusal(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "sellme",
       brandLineId: "line1",
       slotIndex: 0,
@@ -352,13 +357,13 @@ describe("selling", () => {
     const s = sellScenario(3, 4, matrix);
     const capBefore = s.players[0]!.capital;
     const out = ok(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "sellme",
       brandLineId: "line1",
       slotIndex: 0,
     });
     const p = out.players[0]!;
-    expect(p.capital).toBe(capBefore + 7);
+    expect(p.capital).toBe(capBefore + 7 + CONFIG.COMPLETION_BONUS);
     expect(out.demand).toBe(3); // dropped by 1
     expect(p.rickhouse.length).toBe(0);
     expect(p.brandLines[0]!.slots[0]!.id).toBe("sellme");
@@ -370,7 +375,7 @@ describe("selling", () => {
     s.demand = 4;
     s.players[0]!.rickhouse = [makeBourbon({ id: "sellme", age: 3 })];
     const reason = expectRefusal(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "sellme",
       brandLineId: "nope",
       slotIndex: 0,
@@ -381,7 +386,7 @@ describe("selling", () => {
   it("refuses a slot index that is out of range", () => {
     const s = sellScenario(3, 4, [[0]]);
     const reason = expectRefusal(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "sellme",
       brandLineId: "line1",
       slotIndex: 9,
@@ -393,12 +398,101 @@ describe("selling", () => {
     const s = sellScenario(3, 4, [[0]]);
     s.players[0]!.brandLines[0]!.slots[0] = makeBourbon({ id: "occupant", age: 3 });
     const reason = expectRefusal(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "sellme",
       brandLineId: "line1",
       slotIndex: 0,
     });
     expect(reason).toContain("already filled");
+  });
+});
+
+// ------------------------------------------------------------------
+// batch extraction (multi-sale): B1 + B7
+// ------------------------------------------------------------------
+
+describe("batch extraction (multi-sale)", () => {
+  // A built, sellable batch with a flat matrix (every cell = 5) so each
+  // extraction banks exactly 5 regardless of age/demand clamping.
+  function batchScenario(batchQty: number): GameState {
+    const s = createGame({ seed: 5 });
+    s.demand = 4;
+    s.players[0]!.capital = 0;
+    s.players[0]!.brandLines = [makeLine(3)];
+    s.players[0]!.rickhouse = [
+      makeBourbon({ id: "batch", age: 3, batchQty, matrix: [[5]] }),
+    ];
+    return s;
+  }
+
+  it("intermediate extractions bank capital but don't cool demand or place a bottle", () => {
+    let s = batchScenario(3);
+    s = ok(s, { type: "EXTRACT", bourbonId: "batch" }); // 3 → 2
+    let p = s.players[0]!;
+    expect(p.capital).toBe(5);
+    expect(s.demand).toBe(4); // NOT cooled
+    expect(p.rickhouse.length).toBe(1); // still resting
+    expect(p.rickhouse[0]!.salesRemaining).toBe(2);
+    expect(p.brandLines[0]!.slots.every((x) => x === null)).toBe(true); // no bottle
+
+    s = ok(s, { type: "EXTRACT", bourbonId: "batch" }); // 2 → 1, still intermediate
+    p = s.players[0]!;
+    expect(p.capital).toBe(10);
+    expect(s.demand).toBe(4);
+    expect(p.rickhouse[0]!.salesRemaining).toBe(1);
+  });
+
+  it("the final extraction cools demand, pays the flat completion bonus, frees capacity, and places the bottle", () => {
+    let s = batchScenario(2);
+    s = ok(s, { type: "EXTRACT", bourbonId: "batch" }); // intermediate
+    s = ok(s, {
+      type: "EXTRACT",
+      bourbonId: "batch",
+      brandLineId: "line1",
+      slotIndex: 0,
+    }); // final
+    const p = s.players[0]!;
+    expect(p.capital).toBe(5 + 5 + CONFIG.COMPLETION_BONUS); // 2 sales + flat bonus
+    expect(s.demand).toBe(3); // cooled exactly once, on the final sale
+    expect(p.rickhouse.length).toBe(0); // slot freed
+    expect(p.brandLines[0]!.slots[0]!.id).toBe("batch"); // bottle placed
+    expect(p.bourbonsSold).toBe(2); // every extraction counts as a sale
+  });
+
+  it("dumping a whole batch at once earns the bonus only once (not per unit)", () => {
+    // Sell all of a batchQty-3 batch in one round: 3×5 matrix + ONE bonus.
+    let s = batchScenario(3);
+    s = ok(s, { type: "EXTRACT", bourbonId: "batch" });
+    s = ok(s, { type: "EXTRACT", bourbonId: "batch" });
+    s = ok(s, { type: "EXTRACT", bourbonId: "batch", brandLineId: "line1", slotIndex: 0 });
+    expect(s.players[0]!.capital).toBe(15 + CONFIG.COMPLETION_BONUS);
+  });
+
+  it("refuses a final extraction with no placement target", () => {
+    let s = batchScenario(2);
+    s = ok(s, { type: "EXTRACT", bourbonId: "batch" }); // down to salesRemaining 1
+    const reason = expectRefusal(s, { type: "EXTRACT", bourbonId: "batch" });
+    expect(reason).toContain("must be placed");
+  });
+
+  it("a single-sale batch (batchQty 1) sells and places in one extraction", () => {
+    let s = batchScenario(1);
+    s = ok(s, { type: "EXTRACT", bourbonId: "batch", brandLineId: "line1", slotIndex: 0 });
+    const p = s.players[0]!;
+    expect(p.capital).toBe(5 + CONFIG.COMPLETION_BONUS);
+    expect(s.demand).toBe(3);
+    expect(p.rickhouse.length).toBe(0);
+    expect(p.brandLines[0]!.slots[0]!.id).toBe("batch");
+  });
+
+  it("a batch laid down from a mash bill carries its batchQty + derived tags", () => {
+    let s = createGame({ seed: 3 });
+    s.players[0]!.rickhouse = [];
+    s = ok(s, { type: "DRAW_MASH_BILLS", keepIndex: 0 });
+    const b = s.players[0]!.rickhouse[0]!;
+    expect(b.batchQty).toBeGreaterThanOrEqual(1);
+    expect(b.salesRemaining).toBe(b.batchQty);
+    expect(b.recipeTags.length).toBeGreaterThan(0);
   });
 });
 
@@ -416,8 +510,8 @@ describe("brand-line placement", () => {
       makeBourbon({ id: "young", age: 2, matrix: [[0]] }),
     ];
     // Young into slot 0; older into slot 1 to its right — non-decreasing.
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "young", brandLineId: "line1", slotIndex: 0 });
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "old", brandLineId: "line1", slotIndex: 1 });
+    s = ok(s, { type: "EXTRACT", bourbonId: "young", brandLineId: "line1", slotIndex: 0 });
+    s = ok(s, { type: "EXTRACT", bourbonId: "old", brandLineId: "line1", slotIndex: 1 });
     const slots = s.players[0]!.brandLines[0]!.slots;
     const ages = slots.map((b) => (b ? b.age : null));
     const filled = ages.filter((a): a is number => a !== null);
@@ -436,9 +530,9 @@ describe("brand-line placement", () => {
     ];
     // Old anchored at slot 0 leaves no non-decreasing home for the younger
     // bottle to its right.
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "old", brandLineId: "line1", slotIndex: 0 });
+    s = ok(s, { type: "EXTRACT", bourbonId: "old", brandLineId: "line1", slotIndex: 0 });
     const reason = expectRefusal(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "young",
       brandLineId: "line1",
       slotIndex: 1,
@@ -454,7 +548,7 @@ describe("brand-line placement", () => {
       makeBourbon({ id: "premium-young", age: 2, quality: "heritage", matrix: [[0]] }),
     ];
     s = ok(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "premium-young",
       brandLineId: "line1",
       slotIndex: 0,
@@ -480,13 +574,13 @@ describe("slot and marketing rewards", () => {
     s.players[0]!.capital = 0;
     s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, matrix: [[0]] })];
     const out = ok(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "x",
       brandLineId: "line1",
       slotIndex: 0,
     });
     const p = out.players[0]!;
-    expect(p.capital).toBe(5); // matrix 0 + slot capital 5
+    expect(p.capital).toBe(5 + CONFIG.COMPLETION_BONUS); // matrix 0 + slot 5 + final-sale bonus
     expect(p.prestige).toBe(2);
   });
 
@@ -511,14 +605,14 @@ describe("slot and marketing rewards", () => {
       makeBourbon({ id: "off", age: 3, traits: ["wheated"], matrix: [[0]] }),
     ];
     let out = ok(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "match",
       brandLineId: "line1",
       slotIndex: 0,
     });
     expect(out.players[0]!.prestige).toBe(3);
     out = ok(out, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "off",
       brandLineId: "line1",
       slotIndex: 1,
@@ -542,24 +636,24 @@ describe("Standard Line", () => {
 
     // Branch 0 → +2 capital.
     const cap = ok(base, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "x",
       brandLineId: "line1",
       slotIndex: 4,
       rewardChoice: 0,
     });
-    expect(cap.players[0]!.capital).toBe(2);
+    expect(cap.players[0]!.capital).toBe(2 + CONFIG.COMPLETION_BONUS);
     expect(cap.players[0]!.hand.length).toBe(0);
 
     // Branch 1 → +5 resources to hand.
     const res = ok(base, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "x",
       brandLineId: "line1",
       slotIndex: 4,
       rewardChoice: 1,
     });
-    expect(res.players[0]!.capital).toBe(0);
+    expect(res.players[0]!.capital).toBe(0 + CONFIG.COMPLETION_BONUS);
     expect(res.players[0]!.hand.length).toBe(5);
   });
 
@@ -572,9 +666,9 @@ describe("Standard Line", () => {
       makeBourbon({ id: "old", age: 6, matrix: [[0]] }),
     ];
     // Anchoring a young bottle in the final slot blocks older bottles to its left.
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "young", brandLineId: "line1", slotIndex: 4 });
+    s = ok(s, { type: "EXTRACT", bourbonId: "young", brandLineId: "line1", slotIndex: 4 });
     const reason = expectRefusal(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "old",
       brandLineId: "line1",
       slotIndex: 0,
@@ -588,7 +682,7 @@ describe("Standard Line", () => {
     s.players[0]!.brandLines = [lineFromDef("slot_standard")];
     s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 6, matrix: [[0]] })];
     const reason = expectRefusal(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "x",
       brandLineId: "line1",
       slotIndex: 4,
@@ -605,7 +699,7 @@ describe("Flagship Line", () => {
     s.players[0]!.brandLines = [lineFromDef("slot_flagship")];
     s.players[0]!.prestige = 0;
     s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 9, matrix: [[0]] })];
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
+    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
     expect(s.players[0]!.prestige).toBe(9);
   });
 
@@ -616,7 +710,7 @@ describe("Flagship Line", () => {
     s.players[0]!.prestige = 0;
     s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 8, matrix: [[0]] })];
     // Slot index 4 is optional, prestige 5 — reachable with the others empty.
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "x", brandLineId: "line1", slotIndex: 4 });
+    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 4 });
     expect(s.players[0]!.prestige).toBe(5);
   });
 });
@@ -628,7 +722,7 @@ describe("Expressions Line", () => {
     s.players[0]!.brandLines = [lineFromDef("slot_expressions")];
     s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, matrix: [[0]] })];
     const reason = expectRefusal(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "x",
       brandLineId: "line1",
       slotIndex: 1, // optional, paired to empty slot 0
@@ -644,9 +738,9 @@ describe("Expressions Line", () => {
       makeBourbon({ id: "req", age: 2, matrix: [[0]] }),
       makeBourbon({ id: "opt", age: 4, matrix: [[0]] }),
     ];
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "req", brandLineId: "line1", slotIndex: 0 });
+    s = ok(s, { type: "EXTRACT", bourbonId: "req", brandLineId: "line1", slotIndex: 0 });
     const reason = expectRefusal(s, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "opt",
       brandLineId: "line1",
       slotIndex: 1,
@@ -663,8 +757,8 @@ describe("Expressions Line", () => {
       makeBourbon({ id: "req", age: 3, matrix: [[0]] }),
       makeBourbon({ id: "opt", age: 3, matrix: [[0]] }),
     ];
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "req", brandLineId: "line1", slotIndex: 0 });
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "opt", brandLineId: "line1", slotIndex: 1 });
+    s = ok(s, { type: "EXTRACT", bourbonId: "req", brandLineId: "line1", slotIndex: 0 });
+    s = ok(s, { type: "EXTRACT", bourbonId: "opt", brandLineId: "line1", slotIndex: 1 });
     expect(s.players[0]!.prestige).toBe(1); // slot 1 pays prestige 1
   });
 
@@ -749,9 +843,9 @@ describe("Workhorse Line", () => {
       makeBourbon({ id: "a", age: 2, matrix: [[0]] }),
       makeBourbon({ id: "b", age: 3, matrix: [[0]] }),
     ];
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "a", brandLineId: "line1", slotIndex: 0 }); // resources:1
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "b", brandLineId: "line1", slotIndex: 1 }); // capital:1
-    expect(s.players[0]!.capital).toBe(1);
+    s = ok(s, { type: "EXTRACT", bourbonId: "a", brandLineId: "line1", slotIndex: 0 }); // resources:1
+    s = ok(s, { type: "EXTRACT", bourbonId: "b", brandLineId: "line1", slotIndex: 1 }); // capital:1
+    expect(s.players[0]!.capital).toBe(1 + 2 * CONFIG.COMPLETION_BONUS); // slot capital + two final-sale bonuses
     expect(s.players[0]!.hand.length).toBe(1);
   });
 });
@@ -763,8 +857,8 @@ describe("Single Barrel Line", () => {
     s.players[0]!.capital = 0;
     s.players[0]!.brandLines = [lineFromDef("slot_single_barrel")];
     s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 5, quality: "common", matrix: [[0]] })];
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
-    expect(s.players[0]!.capital).toBe(2); // minAge 4 met → hit
+    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
+    expect(s.players[0]!.capital).toBe(2 + CONFIG.COMPLETION_BONUS); // minAge 4 met → hit
   });
 
   it("pays the fallback (miss) when the gate fails, never blocking the sale", () => {
@@ -774,8 +868,8 @@ describe("Single Barrel Line", () => {
     s.players[0]!.brandLines = [lineFromDef("slot_single_barrel")];
     // age 3 fails the minAge-4 gate but clears MIN_SELL_AGE, so it still sells.
     s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, quality: "common", matrix: [[0]] })];
-    s = ok(s, { type: "SELL_BOURBON", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
-    expect(s.players[0]!.capital).toBe(1); // gate miss → fallback 1
+    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
+    expect(s.players[0]!.capital).toBe(1 + CONFIG.COMPLETION_BONUS); // gate miss → fallback 1
   });
 
   it("the premium slot rewards a heritage bottle and falls back otherwise", () => {
@@ -787,12 +881,12 @@ describe("Single Barrel Line", () => {
       makeBourbon({ id: "h", age: 6, quality: "heritage", matrix: [[0]] }),
     ];
     const hit = ok(heritage, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "h",
       brandLineId: "line1",
       slotIndex: 2,
     });
-    expect(hit.players[0]!.capital).toBe(5);
+    expect(hit.players[0]!.capital).toBe(5 + CONFIG.COMPLETION_BONUS);
 
     const common = createGame({ seed: 7 });
     common.demand = 0;
@@ -802,12 +896,12 @@ describe("Single Barrel Line", () => {
       makeBourbon({ id: "c", age: 6, quality: "common", matrix: [[0]] }),
     ];
     const miss = ok(common, {
-      type: "SELL_BOURBON",
+      type: "EXTRACT",
       bourbonId: "c",
       brandLineId: "line1",
       slotIndex: 2,
     });
-    expect(miss.players[0]!.capital).toBe(2);
+    expect(miss.players[0]!.capital).toBe(2 + CONFIG.COMPLETION_BONUS);
   });
 });
 
