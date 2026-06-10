@@ -75,7 +75,7 @@ Each turn you spend your 6 actions, one at a time, choosing freely from:
 | **Draw Slot Card** | 1 action | Take one of the five slot-card designs into your hand of slot cards (to spend later on Open Brand Line). No Capital cost. |
 | **Open Brand Line** | 1 action + Capital | Spend a slot card you hold and pay **+1 Capital** (escalating per additional line) to open it as a new brand line. |
 | **Draft Marketing** | 1 action + Capital | Pay **+1 Capital** (the first marketing card of the game is free), keep **1** from the face-up marketing tray, and **attach it immediately** to a brand line. No marketing inventory. |
-| **Sell Bourbon** | 1 action | Sell an eligible **built**, aged bourbon. Bank Capital, place the bottle. See [§Selling](#-selling). |
+| **Extract (Sell)** | 1 action | Extract one sale from an eligible **built**, aged batch (age ≥ 2). Bank age × demand Capital; a batch yields several sales (its `batchQty`). The **final** sale also cools demand, pays the completion bonus, frees the rickhouse slot, and places the bottle. See [§Selling](#-selling). |
 
 The **rickhouse holds at most 4 barrels** (hard cap), counting both resting unbuilt barrels and aging built ones. When it is full you **cannot lay down a new barrel** (Draw Mash Bills is blocked) — build and sell to make room. Future investments may expand it.
 
@@ -142,24 +142,28 @@ With a boost-only forecast deck, activating one can never *hurt* another player;
 A small intermediate area where bourbons age before they're sold and placed.
 
 - **Capacity:** 4 barrels (hard cap), counting both resting unbuilt barrels and aging built ones. Expandable later via investments.
-- A resting barrel takes a slot but does not age; a built bourbon ages +1 per round and leaves when sold.
+- A resting barrel takes a slot but does not age; a built batch ages +1 per round and leaves only when its **last** sale is extracted (intermediate sales keep it resting).
 - A full rickhouse blocks **laying down a new barrel** (Draw Mash Bills) — build and sell to make room.
 
 The rickhouse is the production throttle. The volume player needs to keep it cycling (sell often to make room); the premium player keeps a few barrels aging long. Space is the squeeze.
 
 ---
 
-# 💰 Selling
+# 💰 Selling (Extraction)
 
-Sell any eligible aging bourbon — **age ≥ 2**, aged at least one full round — for 1 action.
+A bourbon is a **batch**: a built barrel yields a fixed number of sales over its life — its **`batchQty`** (mostly 2–3; a few premium/single-barrel bills yield 1). Each sale is an **extraction**: for 1 action you **Extract** one sale from an eligible aging batch — **age ≥ 2**, aged at least one full round, with sales remaining.
 
-### Sale resolution
+### Extraction resolution
 
-1. **Read the matrix.** Look up the bourbon's `(age, demand)` cell on its mash bill's payoff grid.
-2. **Apply engine modifiers.** Add the destination slot's base reward and any trait-matched marketing bonuses on the brand line it's placed into (see Placement).
-3. **Bank Capital** equal to the total.
-4. **Demand drops 1** (floor 0).
-5. **Place the bottle.** The sold bourbon becomes a **bottle** and must be placed into one of your brand lines (or it cannot be sold). See [§Placement](#-placement).
+1. **Read the matrix.** Look up the batch's `(age, demand)` cell on its mash bill's payoff grid and **bank that Capital** — every extraction pays.
+2. **Decrement.** The batch's remaining sales drop by 1.
+
+Then it depends on whether this was the **final** sale:
+
+- **Intermediate extraction** (sales still remain): that's all. **Demand does not cool**, no bottle is placed, and the batch stays in the rickhouse — free to keep aging and be extracted again in a later (perhaps richer, perhaps cooler) demand window.
+- **Final extraction** (the last sale): additionally **demand drops 1** (floor 0), you collect a flat **completion bonus** (`[PH]`), the batch **frees its rickhouse slot**, and it mints a **bottle** that you must **place** into one of your brand lines — firing the slot reward and any trait-matched marketing (see [§Placement](#-placement)). The final sale needs a legal placement, so you can't sell out a batch with nowhere to put the bottle.
+
+The completion bonus is attached to the *final-sale event* — flat, not per unit — so dumping a whole batch at once never earns more bonus than staggering it. The real choice is **hedge** (spread extractions across demand windows) vs. **ride** (hold for a higher age band and the completion bonus), balanced against the rickhouse slot the batch keeps occupying until it's spent.
 
 The matrix is the heart of the timing decision: older bourbon and higher demand both pay more, and premium-quality bourbons reach matrix cells that common ones cannot.
 
