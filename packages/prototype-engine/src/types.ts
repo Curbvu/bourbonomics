@@ -244,6 +244,43 @@ export interface BrandLine {
   marketingCards: MarketingCard[];
 }
 
+// ---------------------------------------------------------------------
+// Distillery board (P3 engine): per-player upgrade stations
+// ---------------------------------------------------------------------
+
+/** The buildable stations on a distillery board (the shared upgrade menu). */
+export type StationId = "rickhouse" | "tastingRoom" | "bottling";
+
+/**
+ * One station on a player's distillery board. Stations start at `builtTier` 0
+ * (the base) and are upgraded one tier at a time by paying Capital — the
+ * "remove a cover" build, permanent and upkeep-free. `costs[t]` is the Capital
+ * to reach tier t (costs[0] is unused); `levels[t]` is the effect magnitude at
+ * tier t:
+ *   - rickhouse   → total barrel capacity (replaces the old hard cap of 4).
+ *   - tastingRoom → prestige paid per completed batch (its final sale).
+ *   - bottling    → Capital added to the completion bonus per batch.
+ */
+export interface Station {
+  id: StationId;
+  name: string;
+  /** One-line description of what the station does. */
+  blurb: string;
+  builtTier: number;
+  maxTier: number;
+  /** costs[t] = Capital to upgrade from tier t-1 to t (costs[0] = 0). */
+  costs: number[];
+  /** levels[t] = the station's effect magnitude at tier t. */
+  levels: number[];
+}
+
+/** A player's distillery — the engine board carrying the upgrade stations. */
+export interface DistilleryBoard {
+  distilleryId: string;
+  name: string;
+  stations: Station[];
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -254,9 +291,11 @@ export interface Player {
   hand: ResourceCard[];
   /** Slot cards drawn via DRAW_SLOT_CARD, spent by OPEN_BRAND_LINE. */
   slotCards: SlotCard[];
-  /** HARD CAP RICKHOUSE_CAPACITY. */
+  /** Resting + aging barrels. Capacity = the rickhouse station's current tier. */
   rickhouse: Bourbon[];
   brandLines: BrandLine[];
+  /** Per-player engine board: the upgrade stations (rickhouse, tasting, …). */
+  distillery: DistilleryBoard;
   /** Actions left in the current round (round-robin, one per pass). */
   actionsRemaining: number;
   /** Set true once the first (free) marketing draw is used. */
@@ -333,6 +372,7 @@ export type Action =
   | { type: "MAKE_BOURBON"; barrelId: string; resourceCardIds: string[] }
   | { type: "DRAW_MARKETING"; keepIndex: number; brandLineId: string }
   | { type: "OPEN_BRAND_LINE"; slotCardId: string }
+  | { type: "BUILD_UPGRADE"; stationId: StationId }
   | {
       type: "EXTRACT";
       bourbonId: string;

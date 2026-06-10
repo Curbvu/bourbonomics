@@ -75,9 +75,10 @@ Each turn you spend your 6 actions, one at a time, choosing freely from:
 | **Draw Slot Card** | 1 action | Take one of the five slot-card designs into your hand of slot cards (to spend later on Open Brand Line). No Capital cost. |
 | **Open Brand Line** | 1 action + Capital | Spend a slot card you hold and pay **+1 Capital** (escalating per additional line) to open it as a new brand line. |
 | **Draft Marketing** | 1 action + Capital | Pay **+1 Capital** (the first marketing card of the game is free), keep **1** from the face-up marketing tray, and **attach it immediately** to a brand line. No marketing inventory. |
+| **Build Upgrade** | 1 action + Capital | Upgrade a **distillery station** one tier: pay its next-tier cost and advance it (rickhouse capacity, tasting room, bottling line). Permanent, no upkeep. See [§The Distillery](#-the-distillery). |
 | **Extract (Sell)** | 1 action | Extract one sale from an eligible **built**, aged batch (age ≥ 2). Bank age × demand Capital; a batch yields several sales (its `batchQty`). The **final** sale also cools demand, pays the completion bonus, frees the rickhouse slot, and places the bottle. See [§Selling](#-selling). |
 
-The **rickhouse holds at most 4 barrels** (hard cap), counting both resting unbuilt barrels and aging built ones. When it is full you **cannot lay down a new barrel** (Draw Mash Bills is blocked) — build and sell to make room. Future investments may expand it.
+The rickhouse capacity is set by your **rickhouse station** (a distillery upgrade — see [§The Distillery](#-the-distillery)), counting both resting unbuilt barrels and aging built ones. It starts small and you **build it up** to expand. When it is full you **cannot lay down a new barrel** (Draw Mash Bills is blocked) — build and sell to make room, or upgrade the rickhouse.
 
 > **Two-step production.** Making a bourbon takes **two actions across the game**: first **Draw Mash Bills** lays the recipe down as a resting barrel; later **Make Bourbon** commits the resources to build it. The gap is deliberate — you can reserve a recipe early and gather the right resources before committing.
 
@@ -137,11 +138,27 @@ Reading the market — the rising level, which tags are hot, and how close the t
 
 A small intermediate area where bourbons age before they're sold and placed.
 
-- **Capacity:** 4 barrels (hard cap), counting both resting unbuilt barrels and aging built ones. Expandable later via investments.
+- **Capacity:** set by your **rickhouse station** (a distillery upgrade), counting both resting unbuilt barrels and aging built ones — starts small, build it up to expand. No fixed cap.
 - A resting barrel takes a slot but does not age; a built batch ages +1 per round and leaves only when its **last** sale is extracted (intermediate sales keep it resting).
 - A full rickhouse blocks **laying down a new barrel** (Draw Mash Bills) — build and sell to make room.
 
 The rickhouse is the production throttle. The volume player needs to keep it cycling (sell often to make room); the premium player keeps a few barrels aging long. Space is the squeeze.
+
+---
+
+# 🏭 The Distillery
+
+Each player runs a **distillery board** — a small engine of upgrade **stations** built up over the game. Stations are **permanent** and have **no upkeep**: building one pays Capital to "remove its cover" and reveal the active station; tiered stations stack covers you peel off one at a time. Build with the **Build Upgrade** action (1 action + Capital): pay the chosen station's next-tier cost and advance it.
+
+The current menu (`[PH]`, grows in later batches):
+
+- **Rickhouse** — your **barrel capacity** (resting + aging). This *is* the rickhouse cap; upgrade to hold more inventory aging at once.
+- **Tasting Room** — passive: **prestige per completed batch** (on its final sale).
+- **Bottling Line** — **bonus Capital** added to every batch's completion bonus.
+
+Each station leans toward a different strategy (capacity to go wide/tall, tasting for prestige, bottling for throughput), so build paths don't calcify.
+
+> **🔮 PLANNED.** Asymmetric distilleries (a different cost profile + a signature ability each) and more stations (mill, fermenter, still, lab) arrive next batch — at which point your distillery becomes a real strategic identity, not just a symmetric upgrade tree.
 
 ---
 
@@ -300,6 +317,6 @@ It's about **patience** — knowing what to age, when the world is ready to pay,
 
 This document is the canonical ruleset for **Bourbonomics** — the cozy engine-builder, P2 core with **P3** changes layering in by batch (see the 🚧 P3 banner at the top) — and is distinct from **P1**, the original live game (rules archived in [`GAME_RULES_P1.md`](GAME_RULES_P1.md)). It is authoritative over any implementation. The game is the single mainline product at the apex root `playbourbonomics.com` (workspaces `apps/prototype` + `packages/prototype-engine`). It is built in discrete batches; this rulebook describes the intended whole, while the prototype implements it incrementally.
 
-**Currently in the prototype:** the full single-player loop — the action menu (Draw Resources, Take Market Resources, Draw Mash Bills, Make Bourbon, Draw Slot Card, Open Brand Line, Draft Marketing, Extract), the two-step rest→build production, **multi-sale batches** with the flat completion bonus (P3 B1/B7), the age × demand selling matrix, the **demand flood engine** — per-player demand cards, blue/red lines, the continuous cliff, tag-gated eligibility, and the global rising trend (P3 B2/B3) — the five frozen slot cards with their reward specs and the Expressions house-style bonus, trait-gated stackable marketing, and Capital + prestige scoring with the bills-run-out clock.
+**Currently in the prototype:** the full single-player loop — the action menu (Draw Resources, Take Market Resources, Draw Mash Bills, Make Bourbon, Draw Slot Card, Open Brand Line, Draft Marketing, **Build Upgrade**, Extract), the two-step rest→build production, **multi-sale batches** with the flat completion bonus (P3 B1/B7), the age × demand selling matrix, the **demand flood engine** — per-player demand cards, blue/red lines, the continuous cliff, tag-gated eligibility, and the global rising trend (P3 B2/B3) — the **distillery station board** (rickhouse capacity replacing the hard cap, tasting room, bottling line; P3 B4 + symmetric B5), the five frozen slot cards with their reward specs and the Expressions house-style bonus, trait-gated stackable marketing, and Capital + prestige scoring with the bills-run-out clock.
 
-**Tagged `🔮 PLANNED` / not yet built:** on-placement cascades; the P3 distillery-as-engine board and the snake turn order (next batches); and the flagged extensions (angel's share, marketing extra-card, lab peek). Also deferred: extra-action buying, bot/AI heuristics, and multiplayer/networking. All content and balance values are **placeholder, pre-playtest**.
+**Tagged `🔮 PLANNED` / not yet built:** **asymmetric distilleries** (cost profiles + signature abilities) and more stations (mill, fermenter, still, lab); the snake turn order; on-placement cascades; and the flagged extensions (angel's share, marketing extra-card, lab peek). Also deferred: extra-action buying, bot/AI heuristics, and multiplayer/networking. All content and balance values are **placeholder, pre-playtest**.

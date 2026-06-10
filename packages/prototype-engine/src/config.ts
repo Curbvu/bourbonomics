@@ -7,8 +7,6 @@
 export const CONFIG = {
   /** Actions each player spends per round (round-robin, one per pass). */
   ACTIONS_PER_ROUND: 6,
-  /** Hard cap on barrels resting in a player's rickhouse at once. */
-  RICKHOUSE_CAPACITY: 4,
   /** Shared demand LEVEL ceiling / floor (the matrix demand axis). */
   DEMAND_CAP: 12,
   DEMAND_FLOOR: 0,

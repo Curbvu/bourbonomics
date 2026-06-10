@@ -7,6 +7,7 @@
 import { CONFIG } from "./config";
 import {
   buildDemandDeck,
+  buildDistilleryBoard,
   buildMarketingDeck,
   buildMashBillSupply,
   buildResourceDeck,
@@ -31,6 +32,7 @@ function makePlayer(id: string, name: string, startingCapital: number): Player {
     slotCards: [],
     rickhouse: [],
     brandLines: [],
+    distillery: buildDistilleryBoard(),
     actionsRemaining: CONFIG.ACTIONS_PER_ROUND,
     usedFreeMarketing: false,
     bourbonsSold: 0,

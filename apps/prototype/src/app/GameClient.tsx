@@ -21,6 +21,8 @@ import type {
   RewardLeaf,
   SlotCard,
   SlotSpec,
+  Station,
+  StationId,
 } from "@bourbonomics/prototype-engine";
 
 import ScalingHost from "./components/ScalingHost";
@@ -252,7 +254,11 @@ export default function GameClient() {
 
   const player = state.players[state.currentPlayerIndex]!;
   const ended = state.phase === "ended";
-  const rickhouseFull = player.rickhouse.length >= CONFIG.RICKHOUSE_CAPACITY;
+  const rickhouseStation = player.distillery.stations.find((s) => s.id === "rickhouse");
+  const rickhouseCap = rickhouseStation
+    ? rickhouseStation.levels[rickhouseStation.builtTier]!
+    : 0;
+  const rickhouseFull = player.rickhouse.length >= rickhouseCap;
 
   function newGame() {
     const names = Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`);
@@ -456,9 +462,9 @@ export default function GameClient() {
 
           {/* ── Main area ─────────────────────────────────────── */}
           <div className="grid min-h-0 flex-1 grid-cols-[360px_860px_1fr] gap-4">
-            {/* col 1: rivals + log */}
-            <div className="grid min-h-0 grid-rows-[auto_1fr] gap-4">
-              <Panel title="Distillers" accent="rivals" className="max-h-[280px]">
+            {/* col 1: rivals + distillery + log */}
+            <div className="grid min-h-0 grid-rows-[auto_auto_1fr] gap-4">
+              <Panel title="Distillers" accent="rivals" className="max-h-[150px]">
                 <div className="flex flex-col gap-2">
                   {state.players.map((p, i) => (
                     <PlayerRow
@@ -468,6 +474,22 @@ export default function GameClient() {
                     />
                   ))}
                 </div>
+              </Panel>
+              <Panel
+                title={player.distillery.name}
+                accent="rivals"
+                right={
+                  <span className="label-sm" style={{ color: "var(--mute)" }}>
+                    upgrades
+                  </span>
+                }
+              >
+                <DistilleryPanel
+                  stations={player.distillery.stations}
+                  capital={player.capital}
+                  disabled={ended}
+                  onBuild={(stationId) => dispatch({ type: "BUILD_UPGRADE", stationId })}
+                />
               </Panel>
               <Panel
                 title="Tasting notes"
@@ -583,7 +605,7 @@ export default function GameClient() {
             </Panel>
 
               <Panel
-                title={`Rickhouse ${player.rickhouse.length}/${CONFIG.RICKHOUSE_CAPACITY}`}
+                title={`Rickhouse ${player.rickhouse.length}/${rickhouseCap}`}
                 accent="stage"
                 className="max-h-[300px]"
               >
@@ -1059,6 +1081,69 @@ function SlotCell({
 }
 
 // ── Sell placement modal ─────────────────────────────────────────────
+
+/**
+ * The player's distillery board: each upgrade station as a row with tier pips,
+ * its current effect, and a build button (cost on the cover). Building advances
+ * the tier — the rickhouse station is the rickhouse capacity, replacing the old
+ * hard cap of 4.
+ */
+function DistilleryPanel({
+  stations,
+  capital,
+  disabled,
+  onBuild,
+}: {
+  stations: Station[];
+  capital: number;
+  disabled: boolean;
+  onBuild: (stationId: StationId) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {stations.map((st) => {
+        const maxed = st.builtTier >= st.maxTier;
+        const cost = st.costs[st.builtTier + 1] ?? 0;
+        const affordable = !maxed && capital >= cost;
+        return (
+          <div
+            key={st.id}
+            className="flex items-center justify-between gap-2 rounded border border-[var(--rule)] bg-[var(--panel)] px-2 py-1.5"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[12px] font-semibold text-[var(--ink)]">{st.name}</span>
+                <span className="flex gap-0.5">
+                  {Array.from({ length: st.maxTier }, (_, t) => (
+                    <span
+                      key={t}
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{
+                        background: t < st.builtTier ? "var(--gold)" : "var(--whisper)",
+                        boxShadow: t < st.builtTier ? "0 0 4px var(--gold)" : "none",
+                      }}
+                    />
+                  ))}
+                </span>
+              </div>
+              <div className="truncate font-mono text-[9px] text-[var(--mute)]">
+                {st.blurb} · now {st.levels[st.builtTier]}
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={disabled || maxed || !affordable}
+              onClick={() => onBuild(st.id)}
+              className="shrink-0 rounded border border-[var(--rule)] bg-[var(--panel-2)] px-2 py-1 font-mono text-[10px] uppercase tracking-[.06em] text-[var(--ink-muted)] transition enabled:hover:border-[var(--gold)] enabled:hover:text-[var(--gold)] disabled:opacity-40"
+            >
+              {maxed ? "max" : `▲ ${cost}฿`}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * Live flood meter: cubes sold this round vs the round's blue/red lines. The

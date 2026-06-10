@@ -305,9 +305,9 @@ describe("make bourbon", () => {
 
   it("DRAW_MASH_BILLS refuses to lay a barrel when the rickhouse is full", () => {
     const s = createGame({ seed: 3 });
-    s.players[0]!.rickhouse = Array.from({ length: CONFIG.RICKHOUSE_CAPACITY }, () =>
-      makeBourbon(),
-    );
+    // Capacity now comes from the rickhouse station's current tier.
+    const cap = s.players[0]!.distillery.stations.find((st) => st.id === "rickhouse")!.levels[0]!;
+    s.players[0]!.rickhouse = Array.from({ length: cap }, () => makeBourbon());
     const reason = expectRefusal(s, { type: "DRAW_MASH_BILLS", keepIndex: 0 });
     expect(reason).toContain("full");
   });
@@ -680,6 +680,82 @@ describe("demand flood engine", () => {
     ];
     s = ok(s, { type: "EXTRACT", bourbonId: "w", brandLineId: "line1", slotIndex: 0 });
     expect(s.players[0]!.brandLines[0]!.slots[0]!.id).toBe("w");
+  });
+});
+
+// ------------------------------------------------------------------
+// distillery stations (B4 + B5: rickhouse capacity, tasting, bottling)
+// ------------------------------------------------------------------
+
+describe("distillery stations", () => {
+  function station(s: GameState, id: string) {
+    return s.players[0]!.distillery.stations.find((st) => st.id === id)!;
+  }
+
+  it("BUILD_UPGRADE pays Capital and advances the station tier", () => {
+    let s = createGame({ seed: 1 });
+    s.players[0]!.capital = 10;
+    const before = station(s, "rickhouse").builtTier;
+    const cost = station(s, "rickhouse").costs[before + 1]!;
+    s = ok(s, { type: "BUILD_UPGRADE", stationId: "rickhouse" });
+    expect(station(s, "rickhouse").builtTier).toBe(before + 1);
+    expect(s.players[0]!.capital).toBe(10 - cost);
+  });
+
+  it("refuses an upgrade the player can't afford", () => {
+    const s = createGame({ seed: 1 });
+    s.players[0]!.capital = 0;
+    const reason = expectRefusal(s, { type: "BUILD_UPGRADE", stationId: "rickhouse" });
+    expect(reason).toContain("costs");
+  });
+
+  it("refuses upgrading a fully-built station", () => {
+    let s = createGame({ seed: 1 });
+    s.players[0]!.capital = 100;
+    const max = station(s, "tastingRoom").maxTier;
+    while (station(s, "tastingRoom").builtTier < max) {
+      s = ok(s, { type: "BUILD_UPGRADE", stationId: "tastingRoom" });
+    }
+    const reason = expectRefusal(s, { type: "BUILD_UPGRADE", stationId: "tastingRoom" });
+    expect(reason).toContain("fully upgraded");
+  });
+
+  it("upgrading the rickhouse raises the barrel capacity", () => {
+    let s = createGame({ seed: 3 });
+    s.players[0]!.capital = 100;
+    const base = station(s, "rickhouse").levels[0]!;
+    s.players[0]!.rickhouse = Array.from({ length: base }, () => makeBourbon());
+    // Full at the base tier → the draw is refused.
+    expect(expectRefusal(s, { type: "DRAW_MASH_BILLS", keepIndex: 0 })).toContain("full");
+    // Upgrade once → capacity grows, so the draw now succeeds.
+    s = ok(s, { type: "BUILD_UPGRADE", stationId: "rickhouse" });
+    s = ok(s, { type: "DRAW_MASH_BILLS", keepIndex: 0 });
+    expect(s.players[0]!.rickhouse.length).toBe(base + 1);
+  });
+
+  it("the tasting room pays prestige on the final sale", () => {
+    let s = createGame({ seed: 5 });
+    openMarket(s);
+    s.players[0]!.capital = 100;
+    s = ok(s, { type: "BUILD_UPGRADE", stationId: "tastingRoom" }); // tier 1 → +1 prestige
+    s.players[0]!.prestige = 0;
+    s.players[0]!.brandLines = [makeLine(2)];
+    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, batchQty: 1, matrix: [[0]] })];
+    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
+    expect(s.players[0]!.prestige).toBe(1);
+  });
+
+  it("the bottling line raises the completion bonus", () => {
+    let s = createGame({ seed: 5 });
+    openMarket(s);
+    s.players[0]!.capital = 100;
+    s = ok(s, { type: "BUILD_UPGRADE", stationId: "bottling" }); // tier 1 → +1 bonus
+    const bonus = CONFIG.COMPLETION_BONUS + station(s, "bottling").levels[1]!;
+    s.players[0]!.capital = 0;
+    s.players[0]!.brandLines = [makeLine(2)];
+    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, batchQty: 1, matrix: [[0]] })];
+    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
+    expect(s.players[0]!.capital).toBe(bonus); // matrix 0 + completion bonus
   });
 });
 

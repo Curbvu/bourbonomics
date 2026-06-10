@@ -7,6 +7,7 @@
 import { CONFIG } from "./config";
 import type {
   DemandCard,
+  DistilleryBoard,
   MarketingCard,
   MashBill,
   Quality,
@@ -338,6 +339,47 @@ const DEMAND_CARD_DEFS: DemandCardDef[] = [
   { defId: "dm_classic", label: "Classic Demand", tag: "classic", slots: ["classic", "classic"], blueCapacity: 2, redCapacity: 3, count: 4 },
   { defId: "dm_broad", label: "Broad Demand", tag: "classic", slots: ["open", "open", "open"], blueCapacity: 3, redCapacity: 4, count: 4 },
 ];
+
+// ---------------------------------------------------------------------
+// Distillery board (P3): the default shared station menu. Every player
+// starts with a clone of this board; asymmetric distilleries (different
+// cost profiles + signature abilities) arrive in a later batch. All `[PH]`.
+// ---------------------------------------------------------------------
+export function buildDistilleryBoard(): DistilleryBoard {
+  return {
+    distilleryId: "standard",
+    name: "Standard Distillery",
+    stations: [
+      {
+        id: "rickhouse",
+        name: "Rickhouse",
+        blurb: "Total barrel capacity (resting + aging).",
+        builtTier: 0,
+        maxTier: 2,
+        costs: [0, 4, 6],
+        levels: [3, 5, 7],
+      },
+      {
+        id: "tastingRoom",
+        name: "Tasting Room",
+        blurb: "Prestige per completed batch.",
+        builtTier: 0,
+        maxTier: 2,
+        costs: [0, 2, 3],
+        levels: [0, 1, 2],
+      },
+      {
+        id: "bottling",
+        name: "Bottling Line",
+        blurb: "Bonus Capital per completed batch.",
+        builtTier: 0,
+        maxTier: 2,
+        costs: [0, 2, 4],
+        levels: [0, 1, 2],
+      },
+    ],
+  };
+}
 
 export function buildDemandDeck(): DemandCard[] {
   const cards: DemandCard[] = [];

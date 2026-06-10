@@ -24,8 +24,24 @@ import type {
   ResourceKind,
   RewardLeaf,
   SlotRewardSpec,
+  StationId,
   Tag,
 } from "./types";
+
+// ---------------------------------------------------------------------
+// Distillery stations
+// ---------------------------------------------------------------------
+
+/** Current effect magnitude of a player's station at its built tier (0 if absent). */
+function stationLevel(player: Player, id: StationId): number {
+  const st = player.distillery.stations.find((s) => s.id === id);
+  return st ? st.levels[st.builtTier]! : 0;
+}
+
+/** Total barrel capacity = the rickhouse station's current level. */
+function rickhouseCapacity(player: Player): number {
+  return stationLevel(player, "rickhouse");
+}
 
 let idCounter = 0;
 /** Monotonic id helper for runtime entities (bourbons, lines). */
@@ -480,8 +496,9 @@ function handleDrawMashBills(
   if (keepIndex < 0 || keepIndex >= draft.mashBillTray.length) {
     return `keepIndex ${keepIndex} out of range`;
   }
-  if (player.rickhouse.length >= CONFIG.RICKHOUSE_CAPACITY) {
-    return `rickhouse is full (cap ${CONFIG.RICKHOUSE_CAPACITY})`;
+  const cap = rickhouseCapacity(player);
+  if (player.rickhouse.length >= cap) {
+    return `rickhouse is full (cap ${cap}) — upgrade the rickhouse to expand`;
   }
   const [kept] = draft.mashBillTray.splice(keepIndex, 1);
   // Keeping a mash bill lays down an UNBUILT barrel: it shows the recipe it
@@ -507,7 +524,7 @@ function handleDrawMashBills(
   refillMashBillTray(draft);
   maybeTriggerFinalRound(draft);
   draft.log.push(
-    `${player.name} laid down "${kept!.name}" to rest — needs ${recipeText(kept!.recipe)} (rickhouse ${player.rickhouse.length}/${CONFIG.RICKHOUSE_CAPACITY}).`,
+    `${player.name} laid down "${kept!.name}" to rest — needs ${recipeText(kept!.recipe)} (rickhouse ${player.rickhouse.length}/${cap}).`,
   );
   return null;
 }
@@ -733,15 +750,41 @@ function handleExtract(
     return null;
   }
 
-  // Final sale: pay the flat completion bonus, free the rickhouse slot, and
-  // mint + place the bottle (fires slot + marketing rewards). All demand
-  // cooling runs through the flood meter above — there is no extra flat cut.
-  player.capital += CONFIG.COMPLETION_BONUS;
+  // Final sale: pay the completion bonus (flat base + the bottling station),
+  // tick the tasting-room prestige, free the rickhouse slot, and mint + place
+  // the bottle. All demand cooling runs through the flood meter above.
+  const completionBonus = CONFIG.COMPLETION_BONUS + stationLevel(player, "bottling");
+  player.capital += completionBonus;
+  player.prestige += stationLevel(player, "tastingRoom");
   player.rickhouse.splice(idx, 1);
   placeBourbon(draft, player, placement!, bourbon, rewardChoice);
 
   draft.log.push(
-    `${player.name} sold out "${bourbon.name}" (age ${bourbon.age}) — final sale ${value} +${CONFIG.COMPLETION_BONUS} bonus into "${placement!.line.slotCard.name}" slot ${placement!.slotIndex + 1}; flood ${draft.cubesPlaced}/${draft.redLine}, demand ${draft.demand}.`,
+    `${player.name} sold out "${bourbon.name}" (age ${bourbon.age}) — final sale ${value} +${completionBonus} bonus into "${placement!.line.slotCard.name}" slot ${placement!.slotIndex + 1}; flood ${draft.cubesPlaced}/${draft.redLine}, demand ${draft.demand}.`,
+  );
+  return null;
+}
+
+function handleBuildUpgrade(
+  draft: GameState,
+  player: Player,
+  stationId: StationId,
+): string | null {
+  const station = player.distillery.stations.find((s) => s.id === stationId);
+  if (!station) return `unknown station "${stationId}"`;
+  if (station.builtTier >= station.maxTier) {
+    return `${station.name} is already fully upgraded`;
+  }
+  const next = station.builtTier + 1;
+  const cost = station.costs[next] ?? 0;
+  if (player.capital < cost) {
+    return `upgrading ${station.name} costs ${cost} capital (have ${player.capital})`;
+  }
+  // Pay Capital and remove the cover — permanent, no upkeep.
+  player.capital -= cost;
+  station.builtTier = next;
+  draft.log.push(
+    `${player.name} upgraded ${station.name} to tier ${next} for ${cost} capital (effect now ${station.levels[next]}).`,
   );
   return null;
 }
@@ -780,6 +823,9 @@ export function applyAction(state: GameState, action: Action): ActionResult {
       break;
     case "OPEN_BRAND_LINE":
       error = handleOpenBrandLine(draft, player, action.slotCardId);
+      break;
+    case "BUILD_UPGRADE":
+      error = handleBuildUpgrade(draft, player, action.stationId);
       break;
     case "EXTRACT":
       error = handleExtract(
