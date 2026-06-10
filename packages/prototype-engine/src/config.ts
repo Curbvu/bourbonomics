@@ -9,9 +9,17 @@ export const CONFIG = {
   ACTIONS_PER_ROUND: 6,
   /** Hard cap on barrels resting in a player's rickhouse at once. */
   RICKHOUSE_CAPACITY: 4,
-  /** Shared demand track ceiling / floor. */
+  /** Shared demand LEVEL ceiling / floor (the matrix demand axis). */
   DEMAND_CAP: 12,
   DEMAND_FLOOR: 0,
+  /** Demand level at game start. `[PH]`. */
+  DEMAND_START: 2,
+  /**
+   * Global rising trend: the demand level drifts +1 every this-many rounds at
+   * the Year Pass (on top of the flood band). Patient play is rewarded; the
+   * early game is naturally quiet. `[PH]`.
+   */
+  DEMAND_RISE_EVERY: 2,
   /** Max marketing cards attachable to a single brand line. */
   MARKETING_STACK_CAP: 3,
   /** Capital cost to draw marketing (the very first draw of the game is free). */
@@ -37,8 +45,6 @@ export const CONFIG = {
   /** Tray sizes (face-up, take-and-refill). */
   MASH_BILL_TRAY_SIZE: 3,
   MARKETING_TRAY_SIZE: 4,
-  /** Visible demand forecast cards. */
-  FORECAST_VISIBLE: 2,
   /** Slots a brand line may hold at most (slot cards define their own count <= this). */
   MAX_SLOTS_PER_LINE: 6,
   /** Prestige → capital conversion rate applied at game end. */

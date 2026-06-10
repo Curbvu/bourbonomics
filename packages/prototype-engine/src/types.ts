@@ -156,14 +156,34 @@ export interface MarketingCard {
   placeholder: true;
 }
 
-/** Demand forecast card: a per-round delta, optionally conditional. */
-export interface ForecastCard {
+/**
+ * One tag-typed sale slot on a demand card. Slots express which styles the
+ * round demands: a batch can sell only if some drawn card carries a slot its
+ * tags satisfy (an exact-tag slot, or an "open" slot on the broad card). This
+ * gates *eligibility* — the flood math itself stays aggregate (one blue line /
+ * red line for the round). Slots are not individually consumed in this batch.
+ */
+export interface DemandSlot {
+  /** Which batch tags may sell here. "open" accepts any tag (the broad card). */
+  tagRestriction: Tag | "open";
+}
+
+/**
+ * A demand card. `playerCount` are drawn each round. Their tag slots are the
+ * round's sale destinations (tag-gated); their blue/red capacities sum into
+ * the round's aggregate flood thresholds (blueLine / redLine).
+ */
+export interface DemandCard {
   id: string;
   defId: string;
   label: string;
-  delta: number;
-  /** If set, the delta only applies while demand < this value. */
-  onlyIfDemandBelow?: number;
+  /** Primary tag focus (display + deck calibration). */
+  tag: Tag;
+  slots: DemandSlot[];
+  /** Contributes to the round's BLUE line (the underserved threshold). */
+  blueCapacity: number;
+  /** Contributes to the round's RED line (the flood cliff). */
+  redCapacity: number;
   placeholder: true;
 }
 
@@ -251,10 +271,19 @@ export interface GameState {
   phase: GamePhase;
   players: Player[];
 
-  // Shared demand market.
+  // Shared demand market (P3 flood engine). `demand` is the single rising
+  // LEVEL (the matrix demand axis). Each round draws `playerCount` demand
+  // cards whose tag slots are the sale destinations and whose capacities sum
+  // into the flood thresholds; `cubesPlaced` is the live flood meter.
   demand: number;
-  demandForecast: ForecastCard[];
-  forecastDeck: ForecastCard[];
+  demandCards: DemandCard[];
+  demandDeck: DemandCard[];
+  /** Sales into the market this round (the flood meter). Resets each round. */
+  cubesPlaced: number;
+  /** Σ blueCapacity of the drawn cards — below this, demand is underserved. */
+  blueLine: number;
+  /** Σ redCapacity of the drawn cards — at/above this, the cliff fires. */
+  redLine: number;
 
   // Communal resource pool (shared by ALL players).
   resourceDeck: ResourceCard[];

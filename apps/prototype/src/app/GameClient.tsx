@@ -361,20 +361,24 @@ export default function GameClient() {
             <Panel title="Demand market" accent="market">
               <div className="flex h-full flex-col justify-between">
                 <DemandTrack demand={state.demand} />
-                <div className="flex gap-2">
-                  {state.demandForecast.map((f, i) => (
-                    <div
-                      key={f.id}
-                      className="flex flex-1 flex-col items-center justify-center rounded border border-[var(--rule)] bg-[var(--panel)] px-1 py-1 text-center"
-                    >
-                      <div className="label-sm" style={{ color: "var(--mute)" }}>
-                        {i === 0 ? "Next" : `+${i}`}
-                      </div>
-                      <div className="mt-0.5 text-[12px] font-semibold text-[var(--amber-2)]">
-                        {f.label}
-                      </div>
-                    </div>
-                  ))}
+                <FloodMeter
+                  cubes={state.cubesPlaced}
+                  blue={state.blueLine}
+                  red={state.redLine}
+                />
+                <div className="flex flex-wrap gap-1">
+                  {state.demandCards.map((c) => {
+                    const broad = c.slots.some((sl) => sl.tagRestriction === "open");
+                    return (
+                      <span
+                        key={c.id}
+                        className="rounded border border-[var(--rule)] bg-[var(--panel)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[.06em] text-[var(--amber-2)]"
+                        title={`${c.label} — blue ${c.blueCapacity} / red ${c.redCapacity}`}
+                      >
+                        {broad ? "any" : c.tag}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             </Panel>
@@ -1055,6 +1059,44 @@ function SlotCell({
 }
 
 // ── Sell placement modal ─────────────────────────────────────────────
+
+/**
+ * Live flood meter: cubes sold this round vs the round's blue/red lines. The
+ * fill runs toward the red line (the cliff); the green tick marks the blue
+ * line (below it demand is underserved and rises next round). Color tracks the
+ * band so the brewing flood reads at a glance.
+ */
+function FloodMeter({ cubes, blue, red }: { cubes: number; blue: number; red: number }) {
+  const pct = red > 0 ? Math.min(1, cubes / red) : 0;
+  const bluePct = red > 0 ? Math.min(1, blue / red) : 0;
+  const band = cubes >= red ? "cliff" : cubes >= blue ? "flooding" : "healthy";
+  const color =
+    band === "cliff" ? "var(--rose)" : band === "flooding" ? "var(--gold)" : "var(--emerald)";
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <span className="label-sm" style={{ color: "var(--mute)" }}>
+          Market flood
+        </span>
+        <span className="font-mono text-[10px]" style={{ color }}>
+          {cubes}/{red}
+          {band === "cliff" ? " · CLIFF" : band === "flooding" ? " · flooding" : ""}
+        </span>
+      </div>
+      <div className="relative h-2 w-full overflow-hidden rounded-full border border-[var(--rule)] bg-[#160d06]">
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${pct * 100}%`, background: color, transition: "width 300ms ease" }}
+        />
+        <span
+          className="absolute top-0 h-full w-px bg-[var(--emerald)]"
+          style={{ left: `${bluePct * 100}%` }}
+          title={`blue line ${blue}`}
+        />
+      </div>
+    </div>
+  );
+}
 
 function SellModal({
   barrel,

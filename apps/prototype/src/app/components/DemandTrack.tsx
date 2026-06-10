@@ -3,9 +3,10 @@
 import { CONFIG } from "@bourbonomics/prototype-engine";
 
 /**
- * Horizontal demand track (0–DEMAND_CAP). Demand is the spine of v2:
- * older bourbon + higher demand pay more, and selling cools the market
- * by 1. Borrows the live game's warm fill + tick + appetite-label look.
+ * Horizontal demand LEVEL track (0–DEMAND_CAP) — the matrix demand axis.
+ * Older bourbon + higher level pay more. The level rises on a global trend
+ * and is cooled by market flooding (see the flood meter). Borrows the live
+ * game's warm fill + tick + appetite-label look.
  */
 
 function appetite(demand: number): { label: string; color: string } {

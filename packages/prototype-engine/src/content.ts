@@ -6,7 +6,7 @@
 
 import { CONFIG } from "./config";
 import type {
-  ForecastCard,
+  DemandCard,
   MarketingCard,
   MashBill,
   Quality,
@@ -310,37 +310,47 @@ export function buildResourceDeck(): ResourceCard[] {
 }
 
 // ---------------------------------------------------------------------
-// Forecast deck (simple per-round demand moves)
+// Demand deck (P3 flood engine): tag-focused cards with sale slots + the
+// blue/red capacities that sum into the round's flood thresholds.
 // ---------------------------------------------------------------------
 
-interface ForecastDef {
+interface DemandCardDef {
   defId: string;
   label: string;
-  delta: number;
-  onlyIfDemandBelow?: number;
+  tag: Tag;
+  /** Tag restriction per sale slot ("open" accepts any tag). */
+  slots: (Tag | "open")[];
+  blueCapacity: number;
+  redCapacity: number;
   count: number;
 }
 
-const FORECAST_DEFS: ForecastDef[] = [
-  { defId: "fc_up1", label: "+1 demand", delta: 1, count: 8 },
-  { defId: "fc_up2", label: "+2 demand", delta: 2, count: 4 },
-  { defId: "fc_up1_low", label: "+1 if demand < 6", delta: 1, onlyIfDemandBelow: 6, count: 4 },
-  { defId: "fc_down1", label: "-1 demand", delta: -1, count: 4 },
-  { defId: "fc_flat", label: "no change", delta: 0, count: 4 },
+// One focused card per tag (pure on-tag slots — that style only) plus a
+// "broad" all-open card that accepts any tag. Capacities (blue / red) sum
+// across the `playerCount` drawn cards into the round's flood thresholds. A
+// batch sells only if its tag is demanded this round (a matching focused card
+// or the broad card is on the table). All values `[PH]`.
+const DEMAND_CARD_DEFS: DemandCardDef[] = [
+  { defId: "dm_wheat", label: "Wheated Demand", tag: "wheat", slots: ["wheat", "wheat"], blueCapacity: 2, redCapacity: 3, count: 4 },
+  { defId: "dm_rye", label: "Rye Demand", tag: "rye", slots: ["rye", "rye"], blueCapacity: 2, redCapacity: 3, count: 4 },
+  { defId: "dm_highcorn", label: "High-Corn Demand", tag: "highCorn", slots: ["highCorn", "highCorn"], blueCapacity: 2, redCapacity: 3, count: 4 },
+  { defId: "dm_fourgrain", label: "Four-Grain Demand", tag: "fourGrain", slots: ["fourGrain", "fourGrain"], blueCapacity: 2, redCapacity: 3, count: 4 },
+  { defId: "dm_classic", label: "Classic Demand", tag: "classic", slots: ["classic", "classic"], blueCapacity: 2, redCapacity: 3, count: 4 },
+  { defId: "dm_broad", label: "Broad Demand", tag: "classic", slots: ["open", "open", "open"], blueCapacity: 3, redCapacity: 4, count: 4 },
 ];
 
-export function buildForecastDeck(): ForecastCard[] {
-  const cards: ForecastCard[] = [];
-  for (const def of FORECAST_DEFS) {
+export function buildDemandDeck(): DemandCard[] {
+  const cards: DemandCard[] = [];
+  for (const def of DEMAND_CARD_DEFS) {
     for (let i = 0; i < def.count; i++) {
       cards.push({
         id: `${def.defId}#${i}`,
         defId: def.defId,
         label: def.label,
-        delta: def.delta,
-        ...(def.onlyIfDemandBelow !== undefined
-          ? { onlyIfDemandBelow: def.onlyIfDemandBelow }
-          : {}),
+        tag: def.tag,
+        slots: def.slots.map((t) => ({ tagRestriction: t })),
+        blueCapacity: def.blueCapacity,
+        redCapacity: def.redCapacity,
         placeholder: true,
       });
     }

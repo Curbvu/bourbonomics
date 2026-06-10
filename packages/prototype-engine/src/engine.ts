@@ -8,7 +8,7 @@
 // Action shape in later batches.
 
 import { CONFIG, openLineCost } from "./config";
-import { buildForecastDeck, expressionToTags } from "./content";
+import { buildDemandDeck, expressionToTags } from "./content";
 import { rankPlayers } from "./scoring";
 import { shuffle } from "./rng";
 import type {
@@ -16,15 +16,15 @@ import type {
   ActionResult,
   Bourbon,
   BrandLine,
-  ForecastCard,
+  DemandCard,
   GameState,
-  MashBill,
   Player,
   Quality,
   ResourceCard,
   ResourceKind,
   RewardLeaf,
   SlotRewardSpec,
+  Tag,
 } from "./types";
 
 let idCounter = 0;
@@ -275,13 +275,88 @@ function maybeTriggerFinalRound(draft: GameState): void {
   }
 }
 
-function drawForecast(draft: GameState): ForecastCard | undefined {
-  if (draft.forecastDeck.length === 0) {
-    const [fresh, seed] = shuffle(buildForecastDeck(), draft.rngSeed);
-    draft.forecastDeck = fresh;
-    draft.rngSeed = seed;
+/** Clamp a demand level into [floor, cap]. */
+function clampDemand(v: number): number {
+  return Math.max(CONFIG.DEMAND_FLOOR, Math.min(CONFIG.DEMAND_CAP, v));
+}
+
+/** Draw n demand cards, rebuilding + reshuffling a fresh deck when it empties. */
+function drawDemandCards(draft: GameState, n: number): DemandCard[] {
+  const out: DemandCard[] = [];
+  for (let i = 0; i < n; i++) {
+    if (draft.demandDeck.length === 0) {
+      const [fresh, seed] = shuffle(buildDemandDeck(), draft.rngSeed);
+      draft.demandDeck = fresh;
+      draft.rngSeed = seed;
+    }
+    const card = draft.demandDeck.shift();
+    if (card) out.push(card);
   }
-  return draft.forecastDeck.shift();
+  return out;
+}
+
+/** Deal a fresh demand row (one card per player) and recompute the flood lines. */
+function dealDemandRow(draft: GameState): void {
+  draft.demandCards = drawDemandCards(draft, draft.players.length);
+  draft.blueLine = draft.demandCards.reduce((sum, c) => sum + c.blueCapacity, 0);
+  draft.redLine = draft.demandCards.reduce((sum, c) => sum + c.redCapacity, 0);
+}
+
+/**
+ * Resolve the round's flood band into next round's deferred demand move. The
+ * heavy-flood IMMEDIATE drop already fired live during the round (the cliff in
+ * handleExtract); this applies only the deferred part:
+ *   underserved (cubes < blue)     → +1
+ *   moderate    (blue ≤ cubes < red)→ −1
+ *   heavy       (cubes ≥ red)       → −1 (extended pain; immediate already hit)
+ */
+function resolveDemandBand(draft: GameState): void {
+  let delta: number;
+  let band: string;
+  if (draft.cubesPlaced < draft.blueLine) {
+    delta = 1;
+    band = "underserved";
+  } else if (draft.cubesPlaced < draft.redLine) {
+    delta = -1;
+    band = "moderate flood";
+  } else {
+    delta = -1;
+    band = "heavy flood (extended)";
+  }
+  draft.demand = clampDemand(draft.demand + delta);
+  draft.log.push(
+    `Demand ${band}: ${draft.cubesPlaced} sold vs blue ${draft.blueLine}/red ${draft.redLine} → demand ${draft.demand}.`,
+  );
+}
+
+/** Global rising trend: +1 every DEMAND_RISE_EVERY rounds at the Year Pass. */
+function applyGlobalRise(draft: GameState): void {
+  if (draft.roundNumber % CONFIG.DEMAND_RISE_EVERY !== 0) return;
+  const before = draft.demand;
+  draft.demand = clampDemand(draft.demand + 1);
+  if (draft.demand !== before) {
+    draft.log.push(`The market drifts up (rising trend) → demand ${draft.demand}.`);
+  }
+}
+
+/**
+ * Whether a batch with these tags can sell into the market this round: some
+ * drawn card must demand its style — an exact-tag slot, or an "open" slot on
+ * the broad card. A tagless batch (no recipeTags) is universally eligible.
+ * Non-consuming: eligibility is a per-round signal, not a limited resource.
+ */
+function canSellTags(state: GameState, tags: Tag[]): boolean {
+  if (tags.length === 0) return true;
+  return state.demandCards.some((card) =>
+    card.slots.some(
+      (slot) => slot.tagRestriction === "open" || tags.includes(slot.tagRestriction),
+    ),
+  );
+}
+
+/** UI/bot helper: can a batch with these tags sell into the market right now? */
+export function hasEligibleDemandSlot(state: GameState, tags: Tag[]): boolean {
+  return canSellTags(state, tags);
 }
 
 /** End-of-round: age, move demand, refill, rotate, maybe end the game. */
@@ -291,24 +366,13 @@ function endRound(draft: GameState): void {
     for (const b of p.rickhouse) if (b.built) b.age += 1;
   }
 
-  // 2. Advance demand by the front forecast card, then refill the forecast.
-  const card = draft.demandForecast.shift();
-  if (card) {
-    const applies =
-      card.onlyIfDemandBelow === undefined || draft.demand < card.onlyIfDemandBelow;
-    if (applies) {
-      draft.demand = Math.max(
-        CONFIG.DEMAND_FLOOR,
-        Math.min(CONFIG.DEMAND_CAP, draft.demand + card.delta),
-      );
-    }
-    draft.log.push(`Demand forecast "${card.label}" → demand ${draft.demand}.`);
-  }
-  while (draft.demandForecast.length < CONFIG.FORECAST_VISIBLE) {
-    const next = drawForecast(draft);
-    if (!next) break;
-    draft.demandForecast.push(next);
-  }
+  // 2. Resolve the round's flood band + apply the global rising trend, then
+  //    clear the flood meter and deal a fresh demand row for next round. (Any
+  //    heavy-flood IMMEDIATE drop already fired live during the round.)
+  resolveDemandBand(draft);
+  applyGlobalRise(draft);
+  draft.cubesPlaced = 0;
+  dealDemandRow(draft);
 
   // 3. Refill trays (the mash bill refill drains the end clock).
   refillMashBillTray(draft);
@@ -603,6 +667,12 @@ function handleExtract(
   }
   if (bourbon.salesRemaining <= 0) return "this batch is already fully sold";
 
+  // Tag gate: a batch can sell only if its style is demanded this round (a
+  // matching focused card or the broad card is on the table). No demand → hold.
+  if (!canSellTags(draft, bourbon.recipeTags)) {
+    return "no demand for this batch's style this round";
+  }
+
   const isFinal = bourbon.salesRemaining === 1;
 
   // The final sale mints a bottle, so it needs a valid placement. Validate it
@@ -639,29 +709,39 @@ function handleExtract(
     placement = { line, slotIndex };
   }
 
-  // Every extraction banks the age×demand matrix value.
+  // Place the sale-cube and re-check the flood cliff IMMEDIATELY: if this cube
+  // reaches the red line, the demand level drops now — so this very sale (and
+  // any later one this round) cashes at the reduced level. Completed sales are
+  // never clawed back.
+  draft.cubesPlaced += 1;
+  if (draft.cubesPlaced === draft.redLine) {
+    draft.demand = clampDemand(draft.demand - 1);
+  }
+
+  // Bank the age×demand matrix value at the current (possibly just-cut) level.
   const value = matrixValue(bourbon.matrix, bourbon.age, draft.demand);
   player.capital += value;
   bourbon.salesRemaining -= 1;
   player.bourbonsSold += 1;
 
   if (!isFinal) {
-    // Intermediate: no demand cool, no placement — the batch stays put.
+    // Intermediate: banks Capital and floods the market, but mints no bottle —
+    // the batch stays in the rickhouse to keep aging.
     draft.log.push(
-      `${player.name} extracted a sale of "${bourbon.name}" (age ${bourbon.age}) for ${value} capital — ${bourbon.salesRemaining}/${bourbon.batchQty} left; demand ${draft.demand}.`,
+      `${player.name} extracted a sale of "${bourbon.name}" (age ${bourbon.age}) for ${value} — ${bourbon.salesRemaining}/${bourbon.batchQty} left; flood ${draft.cubesPlaced}/${draft.redLine}, demand ${draft.demand}.`,
     );
     return null;
   }
 
-  // Final sale: cool demand, pay the completion bonus, free the rickhouse slot,
-  // and mint + place the bottle (fires slot + marketing rewards).
-  draft.demand = Math.max(CONFIG.DEMAND_FLOOR, draft.demand - 1);
+  // Final sale: pay the flat completion bonus, free the rickhouse slot, and
+  // mint + place the bottle (fires slot + marketing rewards). All demand
+  // cooling runs through the flood meter above — there is no extra flat cut.
   player.capital += CONFIG.COMPLETION_BONUS;
   player.rickhouse.splice(idx, 1);
   placeBourbon(draft, player, placement!, bourbon, rewardChoice);
 
   draft.log.push(
-    `${player.name} sold out "${bourbon.name}" (age ${bourbon.age}) — final sale ${value} +${CONFIG.COMPLETION_BONUS} bonus into "${placement!.line.slotCard.name}" slot ${placement!.slotIndex + 1}; demand ${draft.demand}.`,
+    `${player.name} sold out "${bourbon.name}" (age ${bourbon.age}) — final sale ${value} +${CONFIG.COMPLETION_BONUS} bonus into "${placement!.line.slotCard.name}" slot ${placement!.slotIndex + 1}; flood ${draft.cubesPlaced}/${draft.redLine}, demand ${draft.demand}.`,
   );
   return null;
 }

@@ -6,7 +6,7 @@
 
 import { CONFIG } from "./config";
 import {
-  buildForecastDeck,
+  buildDemandDeck,
   buildMarketingDeck,
   buildMashBillSupply,
   buildResourceDeck,
@@ -53,7 +53,7 @@ export function createGame(options: NewGameOptions = {}): GameState {
   s = s2;
   const [marketingDeck, s3] = shuffle(buildMarketingDeck(), s);
   s = s3;
-  const [forecastDeck, s4] = shuffle(buildForecastDeck(), s);
+  const [demandDeck, s4] = shuffle(buildDemandDeck(), s);
   s = s4;
 
   // Slot supply is abundant and undifferentiated; no need to shuffle.
@@ -67,9 +67,12 @@ export function createGame(options: NewGameOptions = {}): GameState {
   const marketingTray = marketingDeck.slice(0, CONFIG.MARKETING_TRAY_SIZE);
   const marketingDeckRest = marketingDeck.slice(CONFIG.MARKETING_TRAY_SIZE);
 
-  // Reveal the visible demand forecast.
-  const demandForecast = forecastDeck.slice(0, CONFIG.FORECAST_VISIBLE);
-  const forecastDeckRest = forecastDeck.slice(CONFIG.FORECAST_VISIBLE);
+  // Draw this round's demand cards (one per player) and sum the flood lines.
+  const playerCount = names.length;
+  const demandCards = demandDeck.slice(0, playerCount);
+  const demandDeckRest = demandDeck.slice(playerCount);
+  const blueLine = demandCards.reduce((sum, c) => sum + c.blueCapacity, 0);
+  const redLine = demandCards.reduce((sum, c) => sum + c.redCapacity, 0);
 
   const players = names.map((name, i) =>
     makePlayer(`p${i + 1}`, name, startingCapital),
@@ -78,9 +81,12 @@ export function createGame(options: NewGameOptions = {}): GameState {
   return {
     phase: "playing",
     players,
-    demand: 0,
-    demandForecast,
-    forecastDeck: forecastDeckRest,
+    demand: CONFIG.DEMAND_START,
+    demandCards,
+    demandDeck: demandDeckRest,
+    cubesPlaced: 0,
+    blueLine,
+    redLine,
     resourceDeck,
     resourceDiscard: [],
     resourceMarket,

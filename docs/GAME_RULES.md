@@ -35,7 +35,7 @@ The game ends when the **mash bill supply runs out**. Each player's final score 
 
 # 🎬 Setup
 
-1. **Shared demand market.** Place the demand marker at **0** on the 0–12 track. Reveal **2 forecast cards** face-up beside it.
+1. **Shared demand market.** Set the demand **level** at **2** (`[PH]`) on the 0–12 track. Deal **one demand card per player** face-up beside it and total their **blue / red lines**; the flood meter starts at **0**.
 2. **Resource pool.** Shuffle the **communal resource deck** (casks, corn, grain — in Common / Specialty / Heritage qualities). It is shared by all players; there are no personal decks. Deal **8 face-up** as the **resource market** (take-and-refill), and place a discard space beside the deck.
 3. **Mash bill supply.** Shuffle the mash bills face-down. Deal **3 face-up** as the mash bill tray (take-and-refill). The remaining face-down supply is the **doomsday clock** — when it empties, the game ends.
 4. **Slot card supply.** Lay out the slot cards by design (**5 frozen designs**, 12 copies each) where every player can reach them. They are abundant and drawn freely.
@@ -54,11 +54,11 @@ Taking one action at a time (rather than a full 6-action turn before passing) ke
 **End of round (the Year Pass).** Once every player has spent their 6 actions:
 
 1. **Age.** Every bourbon in every rickhouse ages **+1**.
-2. **Demand moves.** Advance the demand forecast — resolve the next scheduled forecast move and reveal the next forecast card.
+2. **Resolve the flood.** Apply this round's flood band to the demand level (underserved → +1, moderate/heavy flood → −1; the heavy-flood *immediate* drop already happened live), then apply the **global rising trend**. Clear the flood meter and **deal a fresh demand row** (one card per player), recomputing the blue / red lines.
 3. **Refill.** Top up the mash bill tray, resource market, and marketing tray.
 4. **Rotate.** The start player passes one seat; a new round begins.
 
-Time advances **once per round**, at the Year Pass — never mid-round. Within a round, every player acts in the same market and the same demand level, which is what makes the shared demand forecast something everyone can plan around.
+Time advances **once per round**, at the Year Pass — never mid-round. Within a round, every player acts against the same demand level and the same demand cards, which is what makes the flood something everyone can read and plan around.
 
 ---
 
@@ -106,34 +106,30 @@ A premium (Specialty / Heritage) cask costs more Capital to acquire and is consu
 
 ---
 
-# 📊 The Demand Market
+# 📊 The Demand Market (the flood engine)
 
-Demand is a single shared track, **0–12**, starting at 0. Every player sells against the same demand.
+Demand has two layers: a single shared **level** and a per-round **flood**.
 
-- **Selling drops demand by 1** (floor 0). Flooding the market cools it.
-- **Demand moves each round** at the Year Pass, per the forecast.
+**The level** is a shared track, **0–12** — the demand axis of every mash bill's `(age × demand)` payoff matrix. Higher level + older bourbon pay more. The level **rises on a global trend** over the game (`[PH]`: +1 every couple of rounds), so patient play is rewarded and the early game is naturally quiet. The flood is the *local* volatility around that rising trend.
 
-The payoff matrix on each mash bill is keyed on **(age × demand)** — higher demand and older bourbon pay more. Reading the market and timing your sale into a favorable window is the central tactical skill.
+**The flood** is how selling cools the market. Each round, **one demand card per player** is dealt face-up. Each card carries:
 
----
+- **tag slots** — the styles the round demands (a *focused* card wants one tag; the *broad* card accepts any), and
+- **blue / red capacities** that sum across the dealt cards into the round's **blue line** and **red line**.
 
-# 🔮 The Demand Forecast
+Every sale drops a **cube** into the round's flood meter. Resolution is **continuous** and **legible**:
 
-Two forecast cards are visible at all times. They schedule how demand will move at the next Year Pass, so the whole table can plan around them. Most are upward, but the deck also holds flat and small downward swings.
+- **Below the blue line** (underserved) → the level **rises +1 next round**.
+- **Blue ≤ cubes < red** (moderate flood) → the level **drops 1 next round** (deferred pain).
+- **Cubes reach the red line** (the **cliff**) → the level **drops 1 immediately** — that very sale and every later one this round cash at the reduced level — **and** drops 1 more next round (extended pain).
 
-- **Forecast cards in the prototype:** `+1`, `+2`, `+1 if demand < 6`, `-1`, and `no change`.
-- A conditional forecast (e.g. `+1 if demand < 6`) only fires when its threshold is met, so a cold market is easy to lift and a hot one resists further heating. This self-limits how high demand climbs.
-- At the **Year Pass**, the front forecast card resolves automatically (applying its move if its condition holds), then the next card is revealed — so you can always see the next two moves coming.
+A completed sale is never clawed back: cubes already cashed keep their value. Because the meter resolves live, you can **see the flood coming** and decide whether to sell into it or hold. Dumping a whole batch at once piles cubes fast and can tip the cliff onto your own final sales — which, together with the flat (non-bunching) completion bonus, is why staggering extractions across rounds is usually the safer play.
 
-### 🔮 PLANNED — Activating a forecast (the coordination puzzle)
+**Tag targeting.** A batch can sell only if its style is demanded this round — a matching focused card, or the broad card, is on the table. If your tag isn't wanted, you **hold** (or sell a different style). The flood math itself stays **aggregate** — one blue line, one red line, one cube count — tags only gate *who may sell*, never split the flood per-tag.
 
-> *Not yet in the prototype. Today demand advances automatically at the Year Pass (above); players cannot trigger forecasts. The mechanic below is the design target for a later batch, and assumes a boost-only forecast deck.*
+> **Self-scaling.** Demand cards dealt = player count, so market capacity scales with the table and the flood math holds at the same relative density at 2, 3, or 4 players.
 
-Once per round, during your turn, for **free** (no action cost), a player may **activate** one of the visible forecast cards. This resolves the forecast's demand move **immediately** — but the activating player **does not get to act on the new demand themselves on that activation.** The benefit lands for whoever comes next.
-
-This creates a gentle table-wide **coordination puzzle**. Demand is 4; if every player activates a boost before anyone sells, the table can lift demand to 7 or 8 and *everyone* sells into a rich market. But the moment a player **sells** (defects), they take the high window for themselves and cool the market for everyone after. Building demand is a shared good; cashing it in is a private one. Reading how much the players after you will consume before demand loops back to you — and deciding whether to keep boosting or sell now — is the puzzle.
-
-With a boost-only forecast deck, activating one can never *hurt* another player; it can only help, and the only question is whom it helps most. The rotating start player equalizes seat-order advantage over a game.
+Reading the market — the rising level, which tags are hot, and how close the table is to the cliff — and timing your extractions is the central tactical skill.
 
 ---
 
@@ -288,7 +284,7 @@ There are **no direct attacks** at any player count — competition is entirely 
 
 # 🔁 The Core Loop
 
-Collect resources → build a bourbon (quality set by what you commit) → let it age in the rickhouse → read the demand forecast and **sell at the right time** → **place the bottle** low (preserve) or high (anchor) in a brand line → fire slot rewards, cascades, and trait-matched marketing → bank Capital, build prestige → spend Capital on better resources, more lines, marketing, and investments → repeat until the bills run dry → score Capital + Reputation.
+Collect resources → build a bourbon (quality set by what you commit) → let it age in the rickhouse → read the demand market (level, hot tags, the brewing flood) and **extract sales at the right time** → on the final sale **place the bottle** low (preserve) or high (anchor) in a brand line → fire slot rewards, cascades, and trait-matched marketing → bank Capital, build prestige → spend Capital on better resources, more lines, marketing, and investments → repeat until the bills run dry → score Capital + Reputation.
 
 ---
 
@@ -304,6 +300,6 @@ It's about **patience** — knowing what to age, when the world is ready to pay,
 
 This document is the canonical ruleset for **Bourbonomics** — the cozy engine-builder, P2 core with **P3** changes layering in by batch (see the 🚧 P3 banner at the top) — and is distinct from **P1**, the original live game (rules archived in [`GAME_RULES_P1.md`](GAME_RULES_P1.md)). It is authoritative over any implementation. The game is the single mainline product at the apex root `playbourbonomics.com` (workspaces `apps/prototype` + `packages/prototype-engine`). It is built in discrete batches; this rulebook describes the intended whole, while the prototype implements it incrementally.
 
-**Currently in the prototype:** the full single-player loop — the eight actions (Draw Resources, Take Market Resources, Draw Mash Bills, Make Bourbon, Draw Slot Card, Open Brand Line, Draft Marketing, Sell Bourbon), the two-step rest→build production, the age × demand selling matrix, the five frozen slot cards with their reward specs and the Expressions house-style bonus, trait-gated stackable marketing, the automatic Year-Pass demand forecast, and Capital + prestige scoring with the bills-run-out clock.
+**Currently in the prototype:** the full single-player loop — the action menu (Draw Resources, Take Market Resources, Draw Mash Bills, Make Bourbon, Draw Slot Card, Open Brand Line, Draft Marketing, Extract), the two-step rest→build production, **multi-sale batches** with the flat completion bonus (P3 B1/B7), the age × demand selling matrix, the **demand flood engine** — per-player demand cards, blue/red lines, the continuous cliff, tag-gated eligibility, and the global rising trend (P3 B2/B3) — the five frozen slot cards with their reward specs and the Expressions house-style bonus, trait-gated stackable marketing, and Capital + prestige scoring with the bills-run-out clock.
 
-**Tagged `🔮 PLANNED` above (not yet built):** player-activated demand forecasts (the coordination puzzle) and on-placement cascades. Also deferred to later batches: investments, extra-action buying, bot/AI heuristics, and multiplayer/networking. All content and balance values are **placeholder, pre-playtest**.
+**Tagged `🔮 PLANNED` / not yet built:** on-placement cascades; the P3 distillery-as-engine board and the snake turn order (next batches); and the flagged extensions (angel's share, marketing extra-card, lab peek). Also deferred: extra-action buying, bot/AI heuristics, and multiplayer/networking. All content and balance values are **placeholder, pre-playtest**.
