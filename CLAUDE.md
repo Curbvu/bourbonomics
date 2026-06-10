@@ -46,6 +46,17 @@ If a surface "needs" a custom card look, push back — propose a `size` / `varia
 - PRs target `dev`, not `main`. `dev` is the integration branch; `main` lags and triggers prod deploy on push.
 - Prod ship = commit on dev → push dev → checkout main → `git merge --no-ff origin/dev` → push main.
 
+## Domains (stage → host)
+
+P2 (the prototype) is now the primary product at the apex root; the P1 live game is retired to `legacy.`. Branch → stage → host (wired in `sst.config.ts` + `.github/workflows/ci.yml`):
+
+- `prototype-main` → `proto-prod` → **playbourbonomics.com** (P2 root)
+- `prototype-dev` → `proto-dev` → **dev.playbourbonomics.com**
+- `main` → `prod` → **legacy.playbourbonomics.com** (P1 live game)
+- `dev` → `dev` → **dev-legacy.playbourbonomics.com**
+
+When swapping the apex between stages, deploy live-first (releases the apex) then prototype (claims it) — Route 53 can only alias the apex to one CloudFront distribution at a time.
+
 ## Stack notes
 
 - Monorepo, npm workspaces: `packages/{engine,client,server}`.

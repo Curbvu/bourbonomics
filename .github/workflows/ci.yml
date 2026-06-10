@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       stage:
-        description: "Optional SST stage override — prod, stg, or dev (leave blank to use branch mapping)"
+        description: "Optional SST stage override — prod, stg, dev, proto-prod, or proto-dev (leave blank to use branch mapping)"
         required: false
         default: ""
         type: string
@@ -55,6 +55,8 @@ jobs:
   # ----------------------------------------------------------------------
   # Stage resolver:
   #   main → prod, stg → stg, dev → dev, anything else → dev.
+  #   prototype-main → proto-prod, prototype-dev → proto-dev (fully
+  #   isolated prototype stack — see sst.config.ts).
   # workflow_dispatch input wins if set.
   # ----------------------------------------------------------------------
   stage:
@@ -72,13 +74,17 @@ jobs:
             STAGE="stg"
           elif [ "${{ github.ref }}" = "refs/heads/dev" ]; then
             STAGE="dev"
+          elif [ "${{ github.ref }}" = "refs/heads/prototype-main" ]; then
+            STAGE="proto-prod"
+          elif [ "${{ github.ref }}" = "refs/heads/prototype-dev" ]; then
+            STAGE="proto-dev"
           else
             STAGE="dev"
           fi
 
           if [ -n "${{ github.event.inputs.stage }}" ]; then
             case "${{ github.event.inputs.stage }}" in
-              prod|stg|dev)
+              prod|stg|dev|proto-prod|proto-dev)
                 STAGE="${{ github.event.inputs.stage }}"
                 ;;
               *)
@@ -90,7 +96,9 @@ jobs:
 
   # ----------------------------------------------------------------------
   # Deploy. Only runs on:
-  #   - push to main → prod, push to stg → stg, push to dev → dev, or
+  #   - push to main → prod, push to stg → stg, push to dev → dev,
+  #   - push to prototype-main → proto-prod, prototype-dev → proto-dev
+  #     (isolated prototype stack — never touches the live game), or
   #   - workflow_dispatch (operator-driven).
   # PRs and arbitrary feature branches do NOT auto-deploy — push to `dev`
   # to promote a change.
@@ -102,7 +110,9 @@ jobs:
       (github.event_name == 'push' && (
         github.ref == 'refs/heads/main' ||
         github.ref == 'refs/heads/stg'  ||
-        github.ref == 'refs/heads/dev'
+        github.ref == 'refs/heads/dev'  ||
+        github.ref == 'refs/heads/prototype-main' ||
+        github.ref == 'refs/heads/prototype-dev'
       ))
     runs-on: ubuntu-latest
     env:
@@ -151,9 +161,11 @@ jobs:
       - name: Invalidate CloudFront cache
         run: |
           case "${{ env.STAGE }}" in
-            prod) SITE_DOMAIN="legacy.$DOMAIN" ;;
-            stg)  SITE_DOMAIN="stg.$DOMAIN" ;;
-            *)    SITE_DOMAIN="dev-legacy.$DOMAIN" ;;
+            prod)       SITE_DOMAIN="legacy.$DOMAIN" ;;
+            stg)        SITE_DOMAIN="stg.$DOMAIN" ;;
+            proto-prod) SITE_DOMAIN="$DOMAIN" ;;
+            proto-dev)  SITE_DOMAIN="dev.$DOMAIN" ;;
+            *)          SITE_DOMAIN="dev-legacy.$DOMAIN" ;;
           esac
           if [ -z "$DOMAIN" ]; then
             echo "DOMAIN secret empty, skipping invalidation"
