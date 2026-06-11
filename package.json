@@ -7,12 +7,13 @@
     "node": ">=22 <25"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @bourbonomics/client",
-    "build": "npm run build -w @bourbonomics/client",
-    "preview": "npm run preview -w @bourbonomics/client",
+    "dev": "npm run dev -w @bourbonomics/prototype-app",
+    "build": "npm run build -w @bourbonomics/prototype-app",
+    "preview": "npm run start -w @bourbonomics/prototype-app",
     "test": "npm test --workspaces --if-present",
     "test:engine": "npm test -w @bourbonomics/engine",
     "typecheck": "npm run typecheck --workspaces --if-present",

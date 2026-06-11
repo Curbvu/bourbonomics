@@ -46,10 +46,22 @@ If a surface "needs" a custom card look, push back — propose a `size` / `varia
 - PRs target `dev`, not `main`. `dev` is the integration branch; `main` lags and triggers prod deploy on push.
 - Prod ship = commit on dev → push dev → checkout main → `git merge --no-ff origin/dev` → push main.
 
+## Domains (stage → host)
+
+The game (`apps/prototype`) is the single mainline product at the apex root. The former isolated prototype stages (`proto-*`) and the retired P1 live game have been consolidated away. Branch → stage → host (wired in `sst.config.ts` + `.github/workflows/ci.yml`):
+
+- `main` → `prod` → **playbourbonomics.com** (apex root)
+- `dev` → `dev` → **dev.playbourbonomics.com**
+- `stg` → `stg` → **stg.playbourbonomics.com**
+
+Route 53 can only alias the apex to one CloudFront distribution at a time. The one-time migration from the old `proto-prod`/legacy stacks onto this mapping is documented in `sst.config.ts` (release the apex from the old owner, then deploy `prod`). The old P1 live-game and `proto-dev` stacks are parked — no branch auto-deploys them.
+
 ## Stack notes
 
-- Monorepo, npm workspaces: `packages/{engine,client,server}`.
+- Monorepo, npm workspaces (`packages/*` + `apps/*`). The **active game** is two workspaces:
+  - `packages/prototype-engine` (`@bourbonomics/prototype-engine`) — the engine.
+  - `apps/prototype` (`@bourbonomics/prototype-app`) — the Next.js client. Root `npm run dev`/`build` target this app.
+- The older v1 live game (`packages/{engine,client,server}`) is **retained in-tree as a parts donor / reference** — not deployed. Mine it for prior art (distillery profiles, brand-line scoring, bot heuristics), don't extend it.
 - Engine is pure TS — no DOM, no fetch, no console. Every mutation goes through `applyAction(state, action)`.
-- Client is Next.js 16 (App Router), React 19, Tailwind v4.
-- Server is AWS Lambda + DynamoDB over WebSockets, deployed via SST (`sst.config.ts`).
-- Run `npm test` and `npm run typecheck` from the repo root.
+- Client is Next.js 16 (App Router), React 19, Tailwind v4. It runs the engine **locally in the browser** — no game server yet (multiplayer + the WebSocket Lambda return in a later batch).
+- Run `npm test` and `npm run typecheck` from the repo root (both span all workspaces).

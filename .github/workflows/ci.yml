@@ -54,7 +54,9 @@ jobs:
 
   # ----------------------------------------------------------------------
   # Stage resolver:
-  #   main → prod, stg → stg, dev → dev, anything else → dev.
+  #   main → prod (apex), stg → stg, dev → dev, anything else → dev.
+  # The former isolated prototype stages (proto-prod / proto-dev) and the P1
+  # live-game stages are retired — the game is now a single mainline.
   # workflow_dispatch input wins if set.
   # ----------------------------------------------------------------------
   stage:
@@ -90,7 +92,7 @@ jobs:
 
   # ----------------------------------------------------------------------
   # Deploy. Only runs on:
-  #   - push to main → prod, push to stg → stg, push to dev → dev, or
+  #   - push to main → prod (apex), push to stg → stg, push to dev → dev, or
   #   - workflow_dispatch (operator-driven).
   # PRs and arbitrary feature branches do NOT auto-deploy — push to `dev`
   # to promote a change.
@@ -151,10 +153,15 @@ jobs:
       - name: Invalidate CloudFront cache
         run: |
           case "${{ env.STAGE }}" in
-            prod) SITE_DOMAIN="legacy.$DOMAIN" ;;
+            prod) SITE_DOMAIN="$DOMAIN" ;;
             stg)  SITE_DOMAIN="stg.$DOMAIN" ;;
-            *)    SITE_DOMAIN="dev-legacy.$DOMAIN" ;;
+            dev)  SITE_DOMAIN="dev.$DOMAIN" ;;
+            *)    SITE_DOMAIN="" ;;
           esac
+          if [ -z "$SITE_DOMAIN" ]; then
+            echo "Stage '${{ env.STAGE }}' has no custom domain (auto CloudFront URL), skipping invalidation"
+            exit 0
+          fi
           if [ -z "$DOMAIN" ]; then
             echo "DOMAIN secret empty, skipping invalidation"
             exit 0
