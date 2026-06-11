@@ -12,8 +12,20 @@
 /** Quality tier of a resource / finished bourbon. Higher = scarcer & better. */
 export type Quality = "common" | "specialty" | "heritage";
 
-/** Kinds of resource cards drawn from the communal deck. */
-export type ResourceKind = "cask" | "corn" | "grain";
+/**
+ * The five resource piles. Grain splits into its three identities — rye /
+ * wheat / barley — because grain identity IS the style tag (demand cards,
+ * marketing, and signatures key off it). Each is its own face-down pile; you
+ * choose the pile (deterministic), quality is blind off the top.
+ */
+export type ResourceKind = "cask" | "corn" | "rye" | "wheat" | "barley";
+
+/**
+ * A resource pile a demand-card cost spike can tax. Same set as ResourceKind —
+ * the spike names a pile (default content spikes grains only). Aliased for
+ * intent at the call site.
+ */
+export type ResourceTag = ResourceKind;
 
 /**
  * Bourbon flavor traits, derived from a mash bill. Marketing cards gate on
@@ -184,7 +196,21 @@ export interface DemandCard {
   blueCapacity: number;
   /** Contributes to the round's RED line (the flood cliff). */
   redCapacity: number;
+  /**
+   * Optional cost spike(s): a flat, per-unit Capital surcharge taxing a hot
+   * pile at Collect this round (e.g. "+1 Capital per rye taken"). Flat and
+   * quality-neutral — a style tax that sits on top, paid at the pile, never
+   * repricing a committed barrel. Spikes on the same tag across the drawn row
+   * sum. Most cards carry none. `[PH]`.
+   */
+  costSpikes?: CostSpike[];
   placeholder: true;
+}
+
+/** A flat, per-unit Capital surcharge on one resource pile, printed on a demand card. */
+export interface CostSpike {
+  tag: ResourceTag;
+  amount: number;
 }
 
 // ---------------------------------------------------------------------
@@ -249,7 +275,7 @@ export interface BrandLine {
 // ---------------------------------------------------------------------
 
 /** The buildable stations on a distillery board (the shared upgrade menu). */
-export type StationId = "rickhouse" | "tastingRoom" | "bottling";
+export type StationId = "rickhouse" | "tastingRoom" | "bottling" | "supplyRoom";
 
 /**
  * One station on a player's distillery board. Stations start at `builtTier` 0
@@ -260,6 +286,7 @@ export type StationId = "rickhouse" | "tastingRoom" | "bottling";
  *   - rickhouse   → total barrel capacity (replaces the old hard cap of 4).
  *   - tastingRoom → prestige paid per completed batch (its final sale).
  *   - bottling    → Capital added to the completion bonus per batch.
+ *   - supplyRoom  → free draw budget of one Collect action (cards pulled free).
  */
 export interface Station {
   id: StationId;
@@ -313,6 +340,8 @@ export interface Player {
   actionsRemaining: number;
   /** Set true once the first (free) marketing draw is used. */
   usedFreeMarketing: boolean;
+  /** Paid overflow draws taken this round (drives escalation / per-round cap). Resets each round. */
+  overflowDrawsThisRound: number;
   /** Tiebreaker counter. */
   bourbonsSold: number;
 }
@@ -337,11 +366,12 @@ export interface GameState {
   /** Σ redCapacity of the drawn cards — at/above this, the cliff fires. */
   redLine: number;
 
-  // Communal resource pool (shared by ALL players).
-  resourceDeck: ResourceCard[];
-  resourceDiscard: ResourceCard[];
-  /** Face-up resource market (take-and-refill): players pick from these. */
-  resourceMarket: ResourceCard[];
+  // Five type-sorted resource piles (shared by ALL players). You choose the
+  // pile (assembly is deterministic); quality is drawn blind off the top.
+  // Consumed resources go to the matching per-type discard, reshuffled back
+  // into the pile when it empties (per-type, self-contained).
+  piles: Record<ResourceKind, ResourceCard[]>;
+  pileDiscards: Record<ResourceKind, ResourceCard[]>;
 
   // Mash bills: face-up tray (take-and-refill) + face-down supply (end clock).
   mashBillTray: MashBill[];
@@ -378,8 +408,16 @@ export interface GameState {
 // ---------------------------------------------------------------------
 
 export type Action =
-  | { type: "DRAW_RESOURCES" }
-  | { type: "TAKE_MARKET_RESOURCES"; cardIds: string[] }
+  | {
+      type: "COLLECT";
+      /**
+       * Cards to pull from each pile this action. The assembly decision —
+       * quality is drawn blind within each pile. Up to the Supply Room budget
+       * is free; the rest are paid overflow (+Capital each). Cost spikes on
+       * the round's demand row tax matching piles on top.
+       */
+      draws: Partial<Record<ResourceKind, number>>;
+    }
   | { type: "DRAW_MASH_BILLS"; keepIndex: number }
   | { type: "DRAW_SLOT_CARD"; slotDefId?: string }
   | { type: "MAKE_BOURBON"; barrelId: string; resourceCardIds: string[] }

@@ -34,7 +34,17 @@ const KIND_CHROME: Record<ResourceKind, Tone> = {
     border: "border-[#d6a94a]",
     glyph: "🌽",
   },
-  grain: {
+  rye: {
+    gradient: "from-[#6e3a1c]/95 via-[#43230f]/95 to-[#1a0d05]",
+    border: "border-[#c07a3c]",
+    glyph: "🌾",
+  },
+  wheat: {
+    gradient: "from-[#6f6320]/95 via-[#403a12]/95 to-[#191606]",
+    border: "border-[#ccb84e]",
+    glyph: "🌾",
+  },
+  barley: {
     gradient: "from-[#1e4a44]/95 via-[#123028]/95 to-[#06140f]",
     border: "border-[#4f9c87]",
     glyph: "🌾",
@@ -44,7 +54,9 @@ const KIND_CHROME: Record<ResourceKind, Tone> = {
 const KIND_LABEL: Record<ResourceKind, string> = {
   cask: "Cask",
   corn: "Corn",
-  grain: "Grain",
+  rye: "Rye",
+  wheat: "Wheat",
+  barley: "Barley",
 };
 
 const QUALITY_META: Record<

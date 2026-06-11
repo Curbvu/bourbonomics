@@ -7,6 +7,7 @@
 import { CONFIG } from "./config";
 import type {
   AbilityId,
+  CostSpike,
   DemandCard,
   DistilleryBoard,
   MarketingCard,
@@ -79,17 +80,21 @@ interface MashBillDef {
   peak: number;
 }
 
+// Bills carry the original game's identities and recipes, mapped onto the five
+// piles: each names its grains specifically (rye / wheat / barley) rather than a
+// lumped "grain". `expression` still drives the house-style tag; `traits` gate
+// marketing. The neutral "bourbon" bills use barley as their workhorse grain.
 const MASH_BILL_DEFS: MashBillDef[] = [
-  { defId: "mb_high_corn", name: "Sweet Corn Mash", traits: ["high-corn"], expression: "high-corn", recipe: { corn: 2, cask: 1 }, batchQty: 3, peak: 8 },
-  { defId: "mb_classic", name: "Classic Bourbon", traits: ["balanced"], expression: "bourbon", recipe: { corn: 1, grain: 1, cask: 1 }, batchQty: 3, peak: 10 },
-  { defId: "mb_rye_heavy", name: "High Rye", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { grain: 2, cask: 1 }, batchQty: 2, peak: 12 },
-  { defId: "mb_wheated", name: "Wheated", traits: ["wheated", "smooth"], expression: "wheated", recipe: { grain: 1, corn: 1, cask: 1 }, batchQty: 2, peak: 12 },
-  { defId: "mb_four_grain", name: "Four Grain", traits: ["balanced", "complex"], expression: "four-grain", recipe: { corn: 1, grain: 2, cask: 1 }, batchQty: 2, peak: 14 },
-  { defId: "mb_bottled_in_bond", name: "Bottled-in-Bond", traits: ["balanced", "bonded"], expression: "bourbon", recipe: { corn: 2, grain: 1, cask: 1 }, batchQty: 2, peak: 16 },
-  { defId: "mb_single_barrel", name: "Single Barrel", traits: ["complex"], expression: "bourbon", recipe: { corn: 1, grain: 1, cask: 2 }, batchQty: 1, peak: 18 },
-  { defId: "mb_rye_double", name: "Double Rye", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { grain: 3 }, batchQty: 2, peak: 20 },
-  { defId: "mb_heritage_wheat", name: "Heirloom Wheat", traits: ["wheated", "heritage-grain"], expression: "wheated", recipe: { grain: 2, cask: 1 }, batchQty: 1, peak: 22 },
-  { defId: "mb_small_batch", name: "Small Batch Reserve", traits: ["balanced", "smooth", "complex"], expression: "four-grain", recipe: { corn: 1, grain: 1, cask: 2 }, batchQty: 2, peak: 24 },
+  { defId: "mb_cornbread", name: "Cornbread Line", traits: ["high-corn"], expression: "high-corn", recipe: { corn: 2, cask: 1 }, batchQty: 3, peak: 8 },
+  { defId: "mb_classic", name: "Knob's End 90", traits: ["balanced"], expression: "bourbon", recipe: { corn: 1, barley: 1, cask: 1 }, batchQty: 3, peak: 10 },
+  { defId: "mb_stave_story", name: "Stave & Story", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { rye: 2, cask: 1 }, batchQty: 2, peak: 12 },
+  { defId: "mb_wheat_whisper", name: "Wheat Whisper", traits: ["wheated", "smooth"], expression: "wheated", recipe: { wheat: 1, corn: 1, cask: 1 }, batchQty: 2, peak: 12 },
+  { defId: "mb_coopers_quorum", name: "Cooper's Quorum", traits: ["balanced", "complex"], expression: "four-grain", recipe: { corn: 1, rye: 1, wheat: 1, cask: 1 }, batchQty: 2, peak: 14 },
+  { defId: "mb_bonded_bold", name: "Bonded & Bold", traits: ["balanced", "bonded"], expression: "bourbon", recipe: { corn: 2, barley: 1, cask: 1 }, batchQty: 2, peak: 16 },
+  { defId: "mb_single_barrel", name: "Single Barrel Select", traits: ["complex"], expression: "bourbon", recipe: { corn: 1, barley: 1, cask: 2 }, batchQty: 1, peak: 18 },
+  { defId: "mb_rye_ladder", name: "Rye Ladder 95", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { rye: 3 }, batchQty: 2, peak: 20 },
+  { defId: "mb_heritage_wheat", name: "Wheated Estate", traits: ["wheated", "heritage-grain"], expression: "wheated", recipe: { wheat: 2, cask: 1 }, batchQty: 1, peak: 22 },
+  { defId: "mb_small_batch", name: "Mash Bill No. 7", traits: ["balanced", "smooth", "complex"], expression: "four-grain", recipe: { corn: 1, barley: 1, cask: 2 }, batchQty: 2, peak: 24 },
 ];
 
 export function buildMashBillSupply(): MashBill[] {
@@ -274,37 +279,48 @@ export function buildMarketingDeck(): MarketingCard[] {
 }
 
 // ---------------------------------------------------------------------
-// Resource deck (communal): casks + corn + grain across qualities
+// Resource piles (five, face-down): cask / corn / rye / wheat / barley.
+// Each pile is its own stack seeded with the quality distribution — you
+// choose the pile, quality is drawn blind off the top.
 // ---------------------------------------------------------------------
 
-interface ResourceDef {
-  defId: string;
-  kind: ResourceKind;
-  quality: Quality;
-  name: string;
-  count: number;
+/** Per-kind display names by quality (the blind upside the pile hides). */
+const RESOURCE_NAMES: Record<ResourceKind, Record<Quality, string>> = {
+  cask: { common: "New-Char Cask", specialty: "Toasted Cask", heritage: "Heritage Cask" },
+  corn: { common: "Corn", specialty: "Estate Corn", heritage: "Heirloom Corn" },
+  rye: { common: "Rye", specialty: "Estate Rye", heritage: "Heirloom Rye" },
+  wheat: { common: "Wheat", specialty: "Estate Wheat", heritage: "Heirloom Wheat" },
+  barley: { common: "Barley", specialty: "Estate Barley", heritage: "Heirloom Barley" },
+};
+
+export const PILE_KINDS: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
+
+/**
+ * Split a pile's total into per-quality counts using PILE_QUALITY_SPLIT.
+ * Rounds Specialty/Heritage and gives the remainder to Common so the counts
+ * always sum back to `total`.
+ */
+function qualityCounts(total: number): Record<Quality, number> {
+  const split = CONFIG.PILE_QUALITY_SPLIT;
+  const specialty = Math.round(total * split.specialty);
+  const heritage = Math.round(total * split.heritage);
+  const common = total - specialty - heritage;
+  return { common, specialty, heritage };
 }
 
-const RESOURCE_DEFS: ResourceDef[] = [
-  { defId: "res_corn_common", kind: "corn", quality: "common", name: "Corn", count: 24 },
-  { defId: "res_grain_common", kind: "grain", quality: "common", name: "Grain", count: 24 },
-  { defId: "res_cask_common", kind: "cask", quality: "common", name: "New-Char Cask", count: 18 },
-  { defId: "res_cask_specialty", kind: "cask", quality: "specialty", name: "Toasted Cask", count: 10 },
-  { defId: "res_cask_heritage", kind: "cask", quality: "heritage", name: "Heritage Cask", count: 6 },
-  { defId: "res_grain_specialty", kind: "grain", quality: "specialty", name: "Estate Grain", count: 8 },
-  { defId: "res_grain_heritage", kind: "grain", quality: "heritage", name: "Heirloom Grain", count: 4 },
-];
-
-export function buildResourceDeck(): ResourceCard[] {
+/** Build one face-down, type-pure pile seeded with the quality distribution (unshuffled). */
+export function buildPile(kind: ResourceKind): ResourceCard[] {
+  const total = CONFIG.PILE_COUNTS[kind];
+  const counts = qualityCounts(total);
   const cards: ResourceCard[] = [];
-  for (const def of RESOURCE_DEFS) {
-    for (let i = 0; i < def.count; i++) {
+  for (const quality of ["common", "specialty", "heritage"] as Quality[]) {
+    for (let i = 0; i < counts[quality]; i++) {
       cards.push({
-        id: `${def.defId}#${i}`,
-        defId: def.defId,
-        kind: def.kind,
-        quality: def.quality,
-        name: def.name,
+        id: `res_${kind}_${quality}#${i}`,
+        defId: `res_${kind}_${quality}`,
+        kind,
+        quality,
+        name: RESOURCE_NAMES[kind][quality],
         placeholder: true,
       });
     }
@@ -325,6 +341,8 @@ interface DemandCardDef {
   slots: (Tag | "open")[];
   blueCapacity: number;
   redCapacity: number;
+  /** Optional cost spike(s) taxing a hot pile at Collect (default grains only). */
+  costSpikes?: CostSpike[];
   count: number;
 }
 
@@ -334,10 +352,10 @@ interface DemandCardDef {
 // batch sells only if its tag is demanded this round (a matching focused card
 // or the broad card is on the table). All values `[PH]`.
 const DEMAND_CARD_DEFS: DemandCardDef[] = [
-  { defId: "dm_wheat", label: "Wheated Demand", tag: "wheat", slots: ["wheat", "wheat"], blueCapacity: 2, redCapacity: 3, count: 4 },
-  { defId: "dm_rye", label: "Rye Demand", tag: "rye", slots: ["rye", "rye"], blueCapacity: 2, redCapacity: 3, count: 4 },
+  { defId: "dm_wheat", label: "Wheated Demand", tag: "wheat", slots: ["wheat", "wheat"], blueCapacity: 2, redCapacity: 3, costSpikes: [{ tag: "wheat", amount: 1 }], count: 4 },
+  { defId: "dm_rye", label: "Rye Demand", tag: "rye", slots: ["rye", "rye"], blueCapacity: 2, redCapacity: 3, costSpikes: [{ tag: "rye", amount: 1 }], count: 4 },
   { defId: "dm_highcorn", label: "High-Corn Demand", tag: "highCorn", slots: ["highCorn", "highCorn"], blueCapacity: 2, redCapacity: 3, count: 4 },
-  { defId: "dm_fourgrain", label: "Four-Grain Demand", tag: "fourGrain", slots: ["fourGrain", "fourGrain"], blueCapacity: 2, redCapacity: 3, count: 4 },
+  { defId: "dm_fourgrain", label: "Four-Grain Demand", tag: "fourGrain", slots: ["fourGrain", "fourGrain"], blueCapacity: 2, redCapacity: 3, costSpikes: [{ tag: "barley", amount: 1 }], count: 4 },
   { defId: "dm_classic", label: "Classic Demand", tag: "classic", slots: ["classic", "classic"], blueCapacity: 2, redCapacity: 3, count: 4 },
   { defId: "dm_broad", label: "Broad Demand", tag: "classic", slots: ["open", "open", "open"], blueCapacity: 3, redCapacity: 4, count: 4 },
 ];
@@ -375,6 +393,14 @@ const STATION_TEMPLATE: Record<
     maxTier: 2,
     costs: [0, 2, 4],
     levels: [0, 1, 2],
+  },
+  supplyRoom: {
+    name: "Supply Room",
+    blurb: "Free draw budget of one Collect action.",
+    maxTier: 2,
+    // Tier 1 (start) → 4 free draws, tier 2 → 6, tier 3 → 8. `[PH]`.
+    costs: [0, 3, 5],
+    levels: [4, 6, 8],
   },
 };
 
@@ -429,7 +455,7 @@ export const DISTILLERY_ROSTER = DISTILLERY_DEFS.map((d) => ({
   signatureBlurb: d.signatureBlurb,
 }));
 
-const STATION_ORDER: StationId[] = ["rickhouse", "tastingRoom", "bottling"];
+const STATION_ORDER: StationId[] = ["rickhouse", "supplyRoom", "tastingRoom", "bottling"];
 
 /** Build a fresh distillery board for the given id (defaults to "standard"). */
 export function buildDistilleryBoard(distilleryId = "standard"): DistilleryBoard {
@@ -466,6 +492,9 @@ export function buildDemandDeck(): DemandCard[] {
         slots: def.slots.map((t) => ({ tagRestriction: t })),
         blueCapacity: def.blueCapacity,
         redCapacity: def.redCapacity,
+        ...(def.costSpikes
+          ? { costSpikes: def.costSpikes.map((s): CostSpike => ({ ...s })) }
+          : {}),
         placeholder: true,
       });
     }

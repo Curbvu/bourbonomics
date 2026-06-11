@@ -8,6 +8,7 @@ import {
   matrixValue,
   rankPlayers,
   CONFIG,
+  FLAGS,
   openLineCost,
   DISTILLERY_ROSTER,
 } from "@bourbonomics/prototype-engine";
@@ -30,10 +31,31 @@ import ScalingHost from "./components/ScalingHost";
 import CardTile from "./components/CardTile";
 import { setMakeDragPayload } from "./components/dragMake";
 import HandFan from "./components/HandFan";
-import MarketShelf from "./components/MarketShelf";
 import DemandTrack from "./components/DemandTrack";
 import Barrel from "./components/Barrel";
 import MiniCard from "./components/MiniCard";
+
+// The five resource piles, in the engine's draw order. PILE_META drives the
+// pile overview + Collect modal chrome.
+const PILE_KINDS: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
+const PILE_META: Record<ResourceKind, { label: string; glyph: string; color: string }> = {
+  cask: { label: "Cask", glyph: "🛢", color: "#a07142" },
+  corn: { label: "Corn", glyph: "🌽", color: "#d6a94a" },
+  rye: { label: "Rye", glyph: "🌾", color: "#c07a3c" },
+  wheat: { label: "Wheat", glyph: "🌾", color: "#ccb84e" },
+  barley: { label: "Barley", glyph: "🌾", color: "#4f9c87" },
+};
+
+/** Summed cost-spike surcharge on a pile this round (spikes stack across the demand row). */
+function spikeFor(state: GameState, kind: ResourceKind): number {
+  let total = 0;
+  for (const card of state.demandCards) {
+    for (const spike of card.costSpikes ?? []) {
+      if (spike.tag === kind) total += spike.amount;
+    }
+  }
+  return total;
+}
 
 // ── small chrome helpers ─────────────────────────────────────────────
 
@@ -123,7 +145,7 @@ function recipeLabel(recipe: Record<string, number | undefined>): string {
 const QUALITY_RANK: Record<string, number> = { common: 0, specialty: 1, heritage: 2 };
 
 function kindCounts(cards: ResourceCard[]): Record<ResourceKind, number> {
-  const c: Record<ResourceKind, number> = { cask: 0, corn: 0, grain: 0 };
+  const c: Record<ResourceKind, number> = { cask: 0, corn: 0, rye: 0, wheat: 0, barley: 0 };
   for (const card of cards) c[card.kind] += 1;
   return c;
 }
@@ -134,7 +156,7 @@ function selectionSatisfies(
   cards: ResourceCard[],
 ): boolean {
   const have = kindCounts(cards);
-  for (const k of ["cask", "corn", "grain"] as ResourceKind[]) {
+  for (const k of PILE_KINDS) {
     if ((recipe[k] ?? 0) !== have[k]) return false;
   }
   return true;
@@ -243,13 +265,14 @@ export default function GameClient() {
   const [message, setMessage] = useState<string | null>(null);
 
   const [selResources, setSelResources] = useState<Set<string>>(new Set());
-  const [selMarket, setSelMarket] = useState<Set<string>>(new Set());
   const [selLine, setSelLine] = useState<string | null>(null);
   // Placement modal: the built barrel being sold + the line to place it into.
   const [sellBarrel, setSellBarrel] = useState<Bourbon | null>(null);
   const [sellLineId, setSellLineId] = useState<string | null>(null);
   // Slot-card draw picker: pick any available design from the supply.
   const [drawingSlot, setDrawingSlot] = useState(false);
+  // Collect modal: allocate draws across the five piles.
+  const [collecting, setCollecting] = useState(false);
   // Bumped on each successful resource draw so the hand fan replays its
   // deal-in keyframe (mirrors the live game's lastDrawHand.seq).
   const [dealSeq, setDealSeq] = useState(1);
@@ -261,17 +284,21 @@ export default function GameClient() {
     ? rickhouseStation.levels[rickhouseStation.builtTier]!
     : 0;
   const rickhouseFull = player.rickhouse.length >= rickhouseCap;
+  const supplyStation = player.distillery.stations.find((s) => s.id === "supplyRoom");
+  const collectBudget = supplyStation
+    ? supplyStation.levels[supplyStation.builtTier]!
+    : 0;
 
   function newGame() {
     const names = Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`);
     setState(createGame({ seed, playerNames: names, distilleryIds: [distilleryId] }));
     setMessage(null);
     setSelResources(new Set());
-    setSelMarket(new Set());
     setSelLine(null);
     setSellBarrel(null);
     setSellLineId(null);
     setDrawingSlot(false);
+    setCollecting(false);
   }
 
   function dispatch(action: Action): boolean {
@@ -284,8 +311,7 @@ export default function GameClient() {
     setState(res.state);
     setMessage(null);
     setSelResources(new Set());
-    if (action.type === "TAKE_MARKET_RESOURCES") {
-      setSelMarket(new Set());
+    if (action.type === "COLLECT") {
       setDealSeq((n) => n + 1);
     }
     return true;
@@ -296,16 +322,6 @@ export default function GameClient() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleMarket(id: string) {
-    const need = Math.min(CONFIG.RESOURCE_DRAW_COUNT, stateRef.current.resourceMarket.length);
-    setSelMarket((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else if (next.size < need) next.add(id);
       return next;
     });
   }
@@ -379,13 +395,29 @@ export default function GameClient() {
                 <div className="flex flex-wrap gap-1">
                   {state.demandCards.map((c) => {
                     const broad = c.slots.some((sl) => sl.tagRestriction === "open");
+                    const spikes = c.costSpikes ?? [];
+                    const spikeText = spikes
+                      .map((sp) => `+${sp.amount} ${sp.tag}`)
+                      .join(", ");
                     return (
                       <span
                         key={c.id}
-                        className="rounded border border-[var(--rule)] bg-[var(--panel)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[.06em] text-[var(--amber-2)]"
-                        title={`${c.label} — blue ${c.blueCapacity} / red ${c.redCapacity}`}
+                        className="flex items-center gap-1 rounded border border-[var(--rule)] bg-[var(--panel)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[.06em] text-[var(--amber-2)]"
+                        title={
+                          `${c.label} — blue ${c.blueCapacity} / red ${c.redCapacity}` +
+                          (spikeText ? ` · spike ${spikeText} Capital/draw` : "")
+                        }
                       >
                         {broad ? "any" : c.tag}
+                        {spikes.map((sp) => (
+                          <span
+                            key={sp.tag}
+                            className="rounded bg-[#3a1410] px-1 font-bold text-[var(--rose)]"
+                            title={`Cost spike: +${sp.amount} Capital per ${sp.tag} taken this round`}
+                          >
+                            ⚡{sp.tag[0]}+{sp.amount}
+                          </span>
+                        ))}
                       </span>
                     );
                   })}
@@ -393,20 +425,58 @@ export default function GameClient() {
               </div>
             </Panel>
 
-            <MarketShelf
-              market={state.resourceMarket}
-              selected={selMarket}
-              takeCount={CONFIG.RESOURCE_DRAW_COUNT}
-              deckCount={state.resourceDeck.length}
-              disabled={ended}
-              onToggle={toggleMarket}
-              onTake={() =>
-                dispatch({
-                  type: "TAKE_MARKET_RESOURCES",
-                  cardIds: [...selMarket],
-                })
+            <Panel
+              title="Resource piles"
+              accent="market"
+              right={
+                <span className="label-sm" style={{ color: "var(--mute)" }}>
+                  free draws: {collectBudget}
+                </span>
               }
-            />
+            >
+              <div className="flex h-full items-center justify-between gap-3">
+                <div className="flex flex-1 items-stretch justify-between gap-2">
+                  {PILE_KINDS.map((k) => {
+                    const meta = PILE_META[k];
+                    const spike = spikeFor(state, k);
+                    return (
+                      <div
+                        key={k}
+                        className="relative flex flex-1 flex-col items-center justify-center gap-1 rounded-md border border-[var(--rule)] bg-[var(--panel)] py-2"
+                        style={{ boxShadow: `inset 0 -2px 0 ${meta.color}55` }}
+                        title={`${meta.label} pile — ${state.piles[k].length} cards${spike ? `, cost spike +${spike}/draw this round` : ""}`}
+                      >
+                        {spike > 0 ? (
+                          <span className="absolute right-1 top-1 rounded bg-[#3a1410] px-1 font-mono text-[9px] font-bold text-[var(--rose)]">
+                            ⚡+{spike}
+                          </span>
+                        ) : null}
+                        <span className="text-[22px] leading-none" aria-hidden>
+                          {meta.glyph}
+                        </span>
+                        <span
+                          className="font-mono text-[10px] uppercase tracking-[.08em]"
+                          style={{ color: meta.color }}
+                        >
+                          {meta.label}
+                        </span>
+                        <span className="font-mono text-[11px] font-bold text-[var(--ink-muted)]">
+                          {state.piles[k].length}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  disabled={ended}
+                  onClick={() => setCollecting(true)}
+                  className="shrink-0 self-stretch rounded-md border border-[var(--gold)] bg-gradient-to-b from-[#f0c970] to-[#c69d52] px-4 font-mono text-[12px] font-bold uppercase tracking-[.14em] text-[#1a120b] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Collect →
+                </button>
+              </div>
+            </Panel>
 
             <Panel
               title="Mash bill tray"
@@ -701,7 +771,7 @@ export default function GameClient() {
             >
               {player.hand.length === 0 ? (
                 <div className="flex h-full items-center justify-center">
-                  <Empty>No resources. Draw some from the market.</Empty>
+                  <Empty>No resources. Collect some from the piles.</Empty>
                 </div>
               ) : (
                 <HandFan dealKey={dealSeq} size="md">
@@ -733,19 +803,24 @@ export default function GameClient() {
 
             <Panel title="Workbench" accent="hand">
               <div className="flex h-full flex-col justify-between gap-3">
-                <ActionBtn
-                  onClick={() => setDrawingSlot(true)}
-                  disabled={ended || state.slotCardSupply.length === 0}
-                >
-                  Draw slot
-                </ActionBtn>
+                <div className="grid grid-cols-2 gap-2">
+                  <ActionBtn onClick={() => setCollecting(true)} disabled={ended} tone="gold">
+                    Collect
+                  </ActionBtn>
+                  <ActionBtn
+                    onClick={() => setDrawingSlot(true)}
+                    disabled={ended || state.slotCardSupply.length === 0}
+                  >
+                    Draw slot
+                  </ActionBtn>
+                </div>
 
                 <div className="rounded-md border border-[var(--rule)] bg-[var(--panel)] px-3 py-2 text-[12px] text-[var(--ink-muted)]">
-                  Keep a mash bill to rest a barrel
-                  {rickhouseFull ? " — rickhouse is full." : "."} Select the
-                  recipe resources in hand, then <b>Build</b> the barrel to start
-                  aging. Open a brand line, then sell aged barrels into a chosen
-                  slot.
+                  <b>Collect</b> resources across the five piles (free up to your
+                  Supply Room budget, then paid overflow). Keep a mash bill to rest
+                  a barrel{rickhouseFull ? " — rickhouse is full" : ""}, select its
+                  recipe resources in hand, then <b>Build</b> to start aging. Open a
+                  brand line, then sell aged barrels into a chosen slot.
                 </div>
               </div>
             </Panel>
@@ -761,6 +836,20 @@ export default function GameClient() {
               onLine={setSellLineId}
               onConfirm={confirmSell}
               onCancel={() => setSellBarrel(null)}
+            />
+          ) : null}
+
+          {/* ── Collect modal ────────────────────────────────── */}
+          {collecting && !ended ? (
+            <CollectModal
+              state={state}
+              budget={collectBudget}
+              capital={player.capital}
+              overflowSoFar={player.overflowDrawsThisRound}
+              onConfirm={(draws) => {
+                if (dispatch({ type: "COLLECT", draws })) setCollecting(false);
+              }}
+              onCancel={() => setCollecting(false)}
             />
           ) : null}
 
@@ -1348,6 +1437,189 @@ function SellModal({
         >
           Cancel
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Collect modal ─────────────────────────────────────────────────────
+
+/**
+ * Allocate draws across the five piles. The first `budget` draws are free
+ * (Supply Room); the rest are paid overflow. Every spiked-pile card also pays
+ * the round's cost spike. The live readout mirrors the engine's charge order
+ * (piles in draw order) so the running cost — and "can I pay this?" — is exact.
+ */
+function CollectModal({
+  state,
+  budget,
+  capital,
+  overflowSoFar,
+  onConfirm,
+  onCancel,
+}: {
+  state: GameState;
+  budget: number;
+  capital: number;
+  overflowSoFar: number;
+  onConfirm: (draws: Partial<Record<ResourceKind, number>>) => void;
+  onCancel: () => void;
+}) {
+  const [counts, setCounts] = useState<Record<ResourceKind, number>>({
+    cask: 0,
+    corn: 0,
+    rye: 0,
+    wheat: 0,
+    barley: 0,
+  });
+
+  /** Simulate a Collect to total its cost, mirroring the engine's draw order. */
+  function costOf(alloc: Record<ResourceKind, number>) {
+    let drawn = 0;
+    let overflow = 0;
+    let overflowCost = 0;
+    let spike = 0;
+    for (const k of PILE_KINDS) {
+      for (let i = 0; i < alloc[k]; i++) {
+        if (drawn >= budget) {
+          overflowCost += FLAGS.overflowEscalating
+            ? CONFIG.OVERFLOW_COST * (overflowSoFar + overflow + 1)
+            : CONFIG.OVERFLOW_COST;
+          overflow += 1;
+        }
+        spike += spikeFor(state, k);
+        drawn += 1;
+      }
+    }
+    return { drawn, overflow, overflowCost, spike, total: overflowCost + spike };
+  }
+
+  const cur = costOf(counts);
+  const freeUsed = Math.min(cur.drawn, budget);
+  const cap = FLAGS.overflowPerRoundCap;
+
+  function canAdd(k: ResourceKind): boolean {
+    if (counts[k] >= state.piles[k].length) return false; // pile would empty
+    const next = { ...counts, [k]: counts[k] + 1 };
+    const nc = costOf(next);
+    if (nc.total > capital) return false; // can't pay
+    if (cap !== null && overflowSoFar + nc.overflow > cap) return false; // overflow capped
+    return true;
+  }
+
+  function step(k: ResourceKind, d: number) {
+    setCounts((prev) => {
+      const v = Math.max(0, prev[k] + d);
+      return { ...prev, [k]: v };
+    });
+  }
+
+  return (
+    <div className="absolute inset-0 z-30 grid place-items-center bg-[#0c0805]/80 backdrop-blur-sm">
+      <div className="bb-panel bb-panel--market w-[680px] p-5">
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="font-display text-[22px] font-bold text-[var(--gold)]">
+            Collect resources
+          </h2>
+          <span className="font-mono text-[12px] text-[var(--ink-muted)]">
+            Free draws:{" "}
+            <span className="font-bold text-[var(--gold)]">
+              {freeUsed} of {budget}
+            </span>{" "}
+            used
+          </span>
+        </div>
+        <p className="mb-3 text-[12px] italic text-[var(--mute)]">
+          Choose the pile (assembly); quality is drawn blind off the top. Free up to
+          your Supply Room budget, then +{CONFIG.OVERFLOW_COST}฿ per overflow draw.
+        </p>
+
+        <div className="flex flex-col gap-2">
+          {PILE_KINDS.map((k) => {
+            const meta = PILE_META[k];
+            const spike = spikeFor(state, k);
+            const remaining = state.piles[k].length;
+            return (
+              <div
+                key={k}
+                className="flex items-center gap-3 rounded-md border border-[var(--rule)] bg-[var(--panel)] px-3 py-2"
+              >
+                <span className="text-[20px] leading-none" aria-hidden>
+                  {meta.glyph}
+                </span>
+                <span
+                  className="w-16 font-mono text-[12px] uppercase tracking-[.08em]"
+                  style={{ color: meta.color }}
+                >
+                  {meta.label}
+                </span>
+                <span className="font-mono text-[10px] text-[var(--mute)]">
+                  {remaining} left
+                </span>
+                {spike > 0 ? (
+                  <span
+                    className="rounded bg-[#3a1410] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--rose)]"
+                    title={`Cost spike: +${spike} Capital per ${meta.label} drawn this round`}
+                  >
+                    ⚡ +{spike}฿/draw
+                  </span>
+                ) : null}
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => step(k, -1)}
+                    disabled={counts[k] <= 0}
+                    className="grid h-7 w-7 place-items-center rounded border border-[var(--rule)] bg-[var(--panel-2)] font-mono text-[14px] text-[var(--ink-muted)] transition enabled:hover:border-[var(--amber)] disabled:opacity-30"
+                  >
+                    −
+                  </button>
+                  <span className="w-6 text-center font-display text-[18px] font-bold text-[var(--ink)]">
+                    {counts[k]}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => step(k, 1)}
+                    disabled={!canAdd(k)}
+                    className="grid h-7 w-7 place-items-center rounded border border-[var(--rule)] bg-[var(--panel-2)] font-mono text-[14px] text-[var(--ink-muted)] transition enabled:hover:border-[var(--gold)] enabled:hover:text-[var(--gold)] disabled:opacity-30"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* live cost readout */}
+        <div className="mt-3 flex items-center justify-between rounded-md border border-[var(--rule)] bg-[var(--panel-2)] px-3 py-2 font-mono text-[12px]">
+          <span className="text-[var(--ink-muted)]">
+            {cur.drawn} draw{cur.drawn === 1 ? "" : "s"} · {freeUsed} free
+            {cur.overflow > 0 ? ` · ${cur.overflow} overflow (+${cur.overflowCost}฿)` : ""}
+            {cur.spike > 0 ? ` · spike +${cur.spike}฿` : ""}
+          </span>
+          <span className="text-[var(--ink)]">
+            cost <span className="font-bold text-[var(--gold)]">{cur.total}฿</span>
+            <span className="text-[var(--mute)]"> · {capital - cur.total}฿ left</span>
+          </span>
+        </div>
+
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md border border-[var(--rule)] bg-[var(--panel)] px-4 py-2 font-mono text-[12px] uppercase tracking-[.12em] text-[var(--ink-muted)] hover:border-[var(--amber)] hover:text-[var(--ink)]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={cur.drawn === 0 || cur.total > capital}
+            onClick={() => onConfirm(counts)}
+            className="rounded-md border border-[var(--gold)] bg-gradient-to-b from-[#f0c970] to-[#c69d52] px-5 py-2 font-mono text-[12px] font-bold uppercase tracking-[.14em] text-[#1a120b] transition hover:brightness-110 disabled:cursor-not-allowed disabled:border-[var(--rule)] disabled:from-[#4d4031] disabled:to-[#2a1f15] disabled:text-[var(--whisper)]"
+          >
+            Collect {cur.drawn > 0 ? `${cur.drawn} →` : "→"}
+          </button>
+        </div>
       </div>
     </div>
   );

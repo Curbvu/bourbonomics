@@ -1,8 +1,11 @@
 // Bourbonomics PROTOTYPE — central tuning module.
 //
 // Every tunable number in the prototype lives here so playtesting is a
-// one-file edit. Nothing in this module imports game logic; it is pure
-// data + the two scalar conversion functions used at scoring time.
+// one-file edit. Nothing in this module imports game logic (type-only
+// imports excepted); it is pure data + the two scalar conversion functions
+// used at scoring time.
+
+import type { Quality, ResourceKind } from "./types";
 
 export const CONFIG = {
   /** Actions each player spends per round (round-robin, one per pass). */
@@ -39,10 +42,33 @@ export const CONFIG = {
   RYE_BONUS: 2,
   AGED_PRESTIGE_MIN_AGE: 5,
   AGED_PRESTIGE: 1,
-  /** Cards taken into hand per market visit. */
-  RESOURCE_DRAW_COUNT: 3,
-  /** Face-up resource market size — the player picks RESOURCE_DRAW_COUNT of these. */
-  RESOURCE_MARKET_SIZE: 8,
+
+  // --- Collection: five type-sorted piles + Collect ------------------------
+  /**
+   * Starting card count per pile. Each pile is its own shuffled stack; quality
+   * is blind within it. Cask is used by most recipes so its pile runs deepest.
+   * `[PH]`.
+   */
+  PILE_COUNTS: { cask: 30, corn: 24, rye: 18, wheat: 18, barley: 18 } as Record<
+    ResourceKind,
+    number
+  >,
+  /**
+   * Quality distribution seeded into EVERY pile (blind upside variance). Must
+   * sum to 1; counts are rounded, remainder topped up with Common. `[PH]`.
+   */
+  PILE_QUALITY_SPLIT: { common: 0.6, specialty: 0.3, heritage: 0.1 } as Record<
+    Quality,
+    number
+  >,
+  /**
+   * When a pile empties, reshuffle its own discard back into it. Per-type so
+   * each pile stays self-contained. `[PH]`.
+   */
+  PILE_RESHUFFLE_ON_EMPTY: true,
+  /** Capital charged per paid OVERFLOW draw beyond the free Supply Room budget. `[PH]`. */
+  OVERFLOW_COST: 1,
+
   MASH_BILL_OFFER: 3,
   MARKETING_OFFER: 3,
   /** Tray sizes (face-up, take-and-refill). */
@@ -55,17 +81,18 @@ export const CONFIG = {
 } as const;
 
 /**
- * P3 feature flags. All default OFF until the base loop is tuned — flip one on
- * only when its batch lands. Kept separate from CONFIG (tuning numbers) so the
- * "is this mechanic live?" switches read at a glance.
- *   - angelsShare:        a batch held past maturity loses 1 salesRemaining.
- *   - doubleLoopSnake:    double-loop snake turn order (vs. single-pass round-robin).
- *   - marketingExtraCard: Draft Marketing may draw one extra demand card for the round.
+ * Collection brakes — both OFF by default; flat OVERFLOW_COST per draw is live.
+ * Behind config so the "fixed free pool + paid overflow" model can be tightened
+ * after playtest without touching the loop.
+ *   - overflowEscalating:  first overflow +1, second +2, third +3, … (mirrors
+ *                          the Open Brand Line escalation). When false, every
+ *                          overflow draw is the flat OVERFLOW_COST.
+ *   - overflowPerRoundCap: optional hard cap on bought (overflow) draws per
+ *                          round. null = no cap.
  */
 export const FLAGS = {
-  angelsShare: false,
-  doubleLoopSnake: false,
-  marketingExtraCard: false,
+  overflowEscalating: false,
+  overflowPerRoundCap: null as number | null,
 } as const;
 
 /** Escalating cost to open the Nth brand line (existingCount lines already open). */

@@ -7,10 +7,10 @@
 // state or a typed refusal. Bots and the network layer will drive this same
 // Action shape in later batches.
 
-import { CONFIG, openLineCost } from "./config";
+import { CONFIG, FLAGS, openLineCost } from "./config";
 import { buildDemandDeck, expressionToTags } from "./content";
 import { rankPlayers } from "./scoring";
-import { shuffle } from "./rng";
+import { rngRange, shuffle } from "./rng";
 import type {
   Action,
   ActionResult,
@@ -77,32 +77,48 @@ function refuse(reason: string): ActionResult {
 }
 
 // ---------------------------------------------------------------------
-// Communal resource pool
+// Resource piles (five, face-down; blind quality off the top)
 // ---------------------------------------------------------------------
 
-/** Draw up to n cards, reshuffling the communal discard when the deck empties. */
-function drawResources(draft: GameState, n: number): ResourceCard[] {
+const ALL_KINDS: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
+
+/**
+ * Draw one card blind off the top of a pile. When the pile empties, reshuffle
+ * its own per-type discard back in (config-gated). Returns null only if both
+ * the pile and its discard are empty.
+ */
+function drawFromPile(draft: GameState, kind: ResourceKind): ResourceCard | null {
+  if (draft.piles[kind].length === 0) {
+    if (!CONFIG.PILE_RESHUFFLE_ON_EMPTY || draft.pileDiscards[kind].length === 0) {
+      return null; // pile fully exhausted
+    }
+    const [reshuffled, seed] = shuffle(draft.pileDiscards[kind], draft.rngSeed);
+    draft.piles[kind] = reshuffled;
+    draft.pileDiscards[kind] = [];
+    draft.rngSeed = seed;
+    draft.log.push(`The ${kind} discard was reshuffled into its pile.`);
+  }
+  return draft.piles[kind].shift() ?? null;
+}
+
+/**
+ * Draw n resources blind across RANDOM piles — used by slot/marketing rewards
+ * (a "+N resources" payout), which grant cards without a pile choice. Free; no
+ * overflow or cost-spike charge applies to reward draws.
+ */
+function drawRandomResources(draft: GameState, n: number): ResourceCard[] {
   const drawn: ResourceCard[] = [];
   for (let i = 0; i < n; i++) {
-    if (draft.resourceDeck.length === 0) {
-      if (draft.resourceDiscard.length === 0) break; // pool fully exhausted
-      const [reshuffled, seed] = shuffle(draft.resourceDiscard, draft.rngSeed);
-      draft.resourceDeck = reshuffled;
-      draft.resourceDiscard = [];
-      draft.rngSeed = seed;
-      draft.log.push("Resource discard reshuffled into the deck.");
-    }
-    const card = draft.resourceDeck.shift();
+    const available = ALL_KINDS.filter(
+      (k) => draft.piles[k].length > 0 || draft.pileDiscards[k].length > 0,
+    );
+    if (available.length === 0) break; // every pile exhausted
+    const [pick, seed] = rngRange(draft.rngSeed, available.length);
+    draft.rngSeed = seed;
+    const card = drawFromPile(draft, available[pick]!);
     if (card) drawn.push(card);
   }
   return drawn;
-}
-
-/** Top up the face-up resource market from the communal deck. */
-function refillResourceMarket(draft: GameState): void {
-  const need = CONFIG.RESOURCE_MARKET_SIZE - draft.resourceMarket.length;
-  if (need <= 0) return;
-  draft.resourceMarket.push(...drawResources(draft, need));
 }
 
 // ---------------------------------------------------------------------
@@ -124,10 +140,10 @@ function deriveQuality(cards: ResourceCard[]): Quality {
   return best;
 }
 
-/** Human-readable recipe summary, e.g. "1 cask + 2 corn". */
+/** Human-readable recipe summary, e.g. "1 cask + 2 corn + 1 rye". */
 function recipeText(recipe: Partial<Record<ResourceKind, number>>): string {
   const parts: string[] = [];
-  for (const k of ["cask", "corn", "grain"] as ResourceKind[]) {
+  for (const k of ALL_KINDS) {
     const n = recipe[k] ?? 0;
     if (n > 0) parts.push(`${n} ${k}`);
   }
@@ -136,7 +152,13 @@ function recipeText(recipe: Partial<Record<ResourceKind, number>>): string {
 
 /** Count committed cards by kind. */
 function countByKind(cards: ResourceCard[]): Record<ResourceKind, number> {
-  const counts: Record<ResourceKind, number> = { cask: 0, corn: 0, grain: 0 };
+  const counts: Record<ResourceKind, number> = {
+    cask: 0,
+    corn: 0,
+    rye: 0,
+    wheat: 0,
+    barley: 0,
+  };
   for (const c of cards) counts[c.kind] += 1;
   return counts;
 }
@@ -148,8 +170,7 @@ function recipeSatisfied(
   cards: ResourceCard[],
 ): { ok: true } | { ok: false; reason: string } {
   const have = countByKind(cards);
-  const kinds: ResourceKind[] = ["cask", "corn", "grain"];
-  for (const k of kinds) {
+  for (const k of ALL_KINDS) {
     const need = recipe[k] ?? 0;
     if (have[k] !== need) {
       return {
@@ -244,7 +265,7 @@ function payReward(
   player.prestige += leaf.prestige ?? 0;
   if (leaf.prestigeFromAge) player.prestige += bourbon.age;
   if (leaf.resources && leaf.resources > 0) {
-    player.hand.push(...drawResources(draft, leaf.resources));
+    player.hand.push(...drawRandomResources(draft, leaf.resources));
   }
 }
 
@@ -427,7 +448,10 @@ function endRound(draft: GameState): void {
   draft.roundNumber += 1;
   draft.startPlayerIndex = (draft.startPlayerIndex + 1) % draft.players.length;
   draft.currentPlayerIndex = draft.startPlayerIndex;
-  for (const p of draft.players) p.actionsRemaining = CONFIG.ACTIONS_PER_ROUND;
+  for (const p of draft.players) {
+    p.actionsRemaining = CONFIG.ACTIONS_PER_ROUND;
+    p.overflowDrawsThisRound = 0;
+  }
   draft.actionsRemaining = CONFIG.ACTIONS_PER_ROUND;
   draft.log.push(`— Round ${draft.roundNumber} begins —`);
 }
@@ -471,41 +495,88 @@ function consumeActionAndAdvance(draft: GameState): void {
 // They mutate `draft` directly (the clone owned by applyAction).
 // ---------------------------------------------------------------------
 
-function handleDrawResources(draft: GameState, player: Player): string | null {
-  const drawn = drawResources(draft, CONFIG.RESOURCE_DRAW_COUNT);
-  if (drawn.length === 0) return "resource pool is empty";
-  player.hand.push(...drawn);
-  draft.log.push(`${player.name} drew ${drawn.length} resource(s).`);
-  return null;
+// ---------------------------------------------------------------------
+// Collect: free Supply Room budget + paid overflow + demand cost spikes
+// ---------------------------------------------------------------------
+
+/** The player's free draw budget = the Supply Room station's current level. */
+function supplyRoomBudget(player: Player): number {
+  return stationLevel(player, "supplyRoom");
 }
 
-function handleTakeMarketResources(
+/** Summed cost-spike surcharge on a pile this round (spikes stack across the demand row). */
+function spikeFor(state: GameState, kind: ResourceKind): number {
+  let total = 0;
+  for (const card of state.demandCards) {
+    for (const spike of card.costSpikes ?? []) {
+      if (spike.tag === kind) total += spike.amount;
+    }
+  }
+  return total;
+}
+
+/** Cost of the next OVERFLOW draw given how many overflow draws are already taken this round. */
+function overflowCost(overflowSoFar: number): number {
+  return FLAGS.overflowEscalating
+    ? CONFIG.OVERFLOW_COST * (overflowSoFar + 1)
+    : CONFIG.OVERFLOW_COST;
+}
+
+/**
+ * Collect: draw the requested cards across the five piles. The first
+ * `supplyRoomBudget` draws are free; the rest are paid overflow (flat
+ * OVERFLOW_COST each, or escalating behind config). Every drawn card of a
+ * spiked pile also pays the round's summed cost spike. All charged at the
+ * moment each card is drawn — a player who can't pay can't take that draw.
+ */
+function handleCollect(
   draft: GameState,
   player: Player,
-  cardIds: string[],
+  draws: Partial<Record<ResourceKind, number>>,
 ): string | null {
-  const ids = new Set(cardIds);
-  if (ids.size !== cardIds.length) return "duplicate resource card ids";
-  if (draft.resourceMarket.length === 0) return "the market is empty";
-
-  // Must take exactly RESOURCE_DRAW_COUNT, unless the market is running low.
-  const want = Math.min(CONFIG.RESOURCE_DRAW_COUNT, draft.resourceMarket.length);
-  if (cardIds.length !== want) {
-    return `select exactly ${want} resource card(s) from the market`;
+  let requested = 0;
+  for (const kind of ALL_KINDS) {
+    const n = draws[kind] ?? 0;
+    if (n < 0 || !Number.isInteger(n)) return `invalid draw count for ${kind}`;
+    requested += n;
   }
+  if (requested === 0) return "Collect at least one card";
 
+  const budget = supplyRoomBudget(player);
+  const cap = FLAGS.overflowPerRoundCap;
+
+  // Walk the requested draws pile by pile, charging as we go so a mid-Collect
+  // shortfall refuses cleanly (the draft is discarded on refusal by applyAction).
+  let drawnCount = 0;
   const picked: ResourceCard[] = [];
-  for (const id of cardIds) {
-    const card = draft.resourceMarket.find((c) => c.id === id);
-    if (!card) return `resource ${id} is not in the market`;
-    picked.push(card);
+  for (const kind of ALL_KINDS) {
+    const want = draws[kind] ?? 0;
+    for (let i = 0; i < want; i++) {
+      const isOverflow = drawnCount >= budget;
+      let cost = isOverflow ? overflowCost(player.overflowDrawsThisRound) : 0;
+      if (isOverflow && cap !== null && player.overflowDrawsThisRound >= cap) {
+        return `overflow capped at ${cap} bought draw(s) this round`;
+      }
+      cost += spikeFor(draft, kind);
+      if (player.capital < cost) {
+        return `not enough Capital for that ${kind} draw (need ${cost}, have ${player.capital})`;
+      }
+      const card = drawFromPile(draft, kind);
+      if (!card) return `the ${kind} pile is empty`;
+      player.capital -= cost;
+      if (isOverflow) player.overflowDrawsThisRound += 1;
+      picked.push(card);
+      drawnCount += 1;
+    }
   }
 
-  // Remove from market, hand to the player, then refill from the deck.
-  draft.resourceMarket = draft.resourceMarket.filter((c) => !ids.has(c.id));
   player.hand.push(...picked);
-  refillResourceMarket(draft);
-  draft.log.push(`${player.name} took ${picked.length} resource(s) from the market.`);
+  const free = Math.min(drawnCount, budget);
+  const overflow = drawnCount - free;
+  draft.log.push(
+    `${player.name} collected ${drawnCount} resource(s) (${free} free` +
+      `${overflow > 0 ? `, ${overflow} overflow` : ""}).`,
+  );
   return null;
 }
 
@@ -593,10 +664,10 @@ function handleMakeBourbon(
   const check = recipeSatisfied(barrel.recipe, barrel.name, cards);
   if (!check.ok) return check.reason;
 
-  // Commit all required cards in one action: remove from hand → COMMUNAL
-  // discard, build the barrel, and start it aging. Quality = best committed.
+  // Commit all required cards in one action: remove from hand → matching
+  // per-type discard, build the barrel, start it aging. Quality = best committed.
   player.hand = player.hand.filter((c) => !uniqueIds.has(c.id));
-  draft.resourceDiscard.push(...cards);
+  for (const c of cards) draft.pileDiscards[c.kind].push(c);
 
   barrel.built = true;
   barrel.age = 0;
@@ -826,11 +897,8 @@ export function applyAction(state: GameState, action: Action): ActionResult {
 
   let error: string | null;
   switch (action.type) {
-    case "DRAW_RESOURCES":
-      error = handleDrawResources(draft, player);
-      break;
-    case "TAKE_MARKET_RESOURCES":
-      error = handleTakeMarketResources(draft, player, action.cardIds);
+    case "COLLECT":
+      error = handleCollect(draft, player, action.draws);
       break;
     case "DRAW_MASH_BILLS":
       error = handleDrawMashBills(draft, player, action.keepIndex);

@@ -32,7 +32,7 @@ import type {
 
 // ── reward / recipe formatters ───────────────────────────────────────
 
-const KIND_ORDER: ResourceKind[] = ["cask", "corn", "grain"];
+const KIND_ORDER: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
 
 function recipeText(recipe: Partial<Record<ResourceKind, number>>): string {
   const parts = KIND_ORDER.filter((k) => (recipe[k] ?? 0) > 0).map(

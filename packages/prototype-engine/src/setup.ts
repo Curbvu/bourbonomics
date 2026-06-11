@@ -10,12 +10,13 @@ import {
   buildDistilleryBoard,
   buildMarketingDeck,
   buildMashBillSupply,
-  buildResourceDeck,
+  buildPile,
+  PILE_KINDS,
   buildSlotCardSupply,
   DISTILLERY_ROSTER,
 } from "./content";
 import { shuffle } from "./rng";
-import type { GameState, Player } from "./types";
+import type { GameState, Player, ResourceCard, ResourceKind } from "./types";
 
 export interface NewGameOptions {
   seed?: number;
@@ -48,6 +49,7 @@ function makePlayer(
     distillery: buildDistilleryBoard(distilleryId),
     actionsRemaining: CONFIG.ACTIONS_PER_ROUND,
     usedFreeMarketing: false,
+    overflowDrawsThisRound: 0,
     bourbonsSold: 0,
   };
 }
@@ -59,11 +61,15 @@ export function createGame(options: NewGameOptions = {}): GameState {
 
   let s = seed | 0;
 
-  const [shuffledResources, s1] = shuffle(buildResourceDeck(), s);
-  s = s1;
-  // Deal the face-up resource market off the top of the shuffled deck.
-  const resourceMarket = shuffledResources.slice(0, CONFIG.RESOURCE_MARKET_SIZE);
-  const resourceDeck = shuffledResources.slice(CONFIG.RESOURCE_MARKET_SIZE);
+  // Build the five face-down piles, each its own shuffled stack (blind quality).
+  const piles = {} as Record<ResourceKind, ResourceCard[]>;
+  const pileDiscards = {} as Record<ResourceKind, ResourceCard[]>;
+  for (const kind of PILE_KINDS) {
+    const [shuffled, sNext] = shuffle(buildPile(kind), s);
+    s = sNext;
+    piles[kind] = shuffled;
+    pileDiscards[kind] = [];
+  }
   const [allBills, s2] = shuffle(buildMashBillSupply(), s);
   s = s2;
   const [marketingDeck, s3] = shuffle(buildMarketingDeck(), s);
@@ -107,9 +113,8 @@ export function createGame(options: NewGameOptions = {}): GameState {
     cubesPlaced: 0,
     blueLine,
     redLine,
-    resourceDeck,
-    resourceDiscard: [],
-    resourceMarket,
+    piles,
+    pileDiscards,
     mashBillTray,
     mashBillSupply,
     slotCardSupply,

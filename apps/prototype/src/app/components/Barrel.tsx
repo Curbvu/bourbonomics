@@ -16,7 +16,7 @@ const TIER_INK: Record<string, string> = {
 /** Recipe → ["1 cask", "2 corn"] chips. */
 function recipeChips(recipe: Partial<Record<ResourceKind, number>>): string[] {
   const out: string[] = [];
-  for (const k of ["cask", "corn", "grain"] as ResourceKind[]) {
+  for (const k of ["cask", "corn", "rye", "wheat", "barley"] as ResourceKind[]) {
     const n = recipe[k] ?? 0;
     if (n > 0) out.push(`${n} ${k}`);
   }

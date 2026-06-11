@@ -15,6 +15,7 @@ import type {
   BrandLine,
   GameState,
   ResourceCard,
+  ResourceKind,
   SlotCard,
 } from "../src/types";
 
@@ -119,6 +120,25 @@ function resourceOf(state: GameState, kind: ResourceCard["kind"]): ResourceCard 
   return state.players[0]!.hand.find((c) => c.kind === kind);
 }
 
+/** Total cards waiting across every per-type discard. */
+function totalDiscard(s: GameState): number {
+  return (Object.keys(s.pileDiscards) as ResourceKind[]).reduce(
+    (sum, k) => sum + s.pileDiscards[k].length,
+    0,
+  );
+}
+
+/**
+ * Spend one action the cheap way: Collect a single card from a deep, unspiked
+ * pile (cask, falling back to corn). Always within the free Supply Room budget,
+ * so it never needs Capital. Used by tests that just need to burn an action /
+ * advance the round.
+ */
+function tick(s: GameState): GameState {
+  const kind: ResourceKind = s.piles.cask.length > 0 ? "cask" : "corn";
+  return ok(s, { type: "COLLECT", draws: { [kind]: 1 } });
+}
+
 // ------------------------------------------------------------------
 // setup
 // ------------------------------------------------------------------
@@ -151,7 +171,7 @@ describe("round-robin turn loop", () => {
     expect(s.roundNumber).toBe(1);
     for (let i = 0; i < CONFIG.ACTIONS_PER_ROUND; i++) {
       expect(s.players[0]!.actionsRemaining).toBe(CONFIG.ACTIONS_PER_ROUND - i);
-      s = ok(s, { type: "DRAW_RESOURCES" });
+      s = tick(s);
     }
     // After 6 actions in a solo game the round rolls over.
     expect(s.roundNumber).toBe(2);
@@ -161,9 +181,9 @@ describe("round-robin turn loop", () => {
   it("alternates players round-robin in a hot-seat game", () => {
     let s = createGame({ seed: 1, playerNames: ["A", "B"] });
     expect(s.currentPlayerIndex).toBe(0);
-    s = ok(s, { type: "DRAW_RESOURCES" });
+    s = tick(s);
     expect(s.currentPlayerIndex).toBe(1);
-    s = ok(s, { type: "DRAW_RESOURCES" });
+    s = tick(s);
     expect(s.currentPlayerIndex).toBe(0);
     expect(s.players[0]!.actionsRemaining).toBe(CONFIG.ACTIONS_PER_ROUND - 1);
   });
@@ -172,73 +192,149 @@ describe("round-robin turn loop", () => {
     let s = createGame({ seed: 1 });
     s.players[0]!.rickhouse = [makeBourbon({ age: 0 })];
     for (let i = 0; i < CONFIG.ACTIONS_PER_ROUND; i++) {
-      s = ok(s, { type: "DRAW_RESOURCES" });
+      s = tick(s);
     }
     expect(s.players[0]!.rickhouse[0]!.age).toBe(1);
   });
 });
 
 // ------------------------------------------------------------------
-// communal resource pool
+// five type-sorted piles
 // ------------------------------------------------------------------
 
-describe("communal resource pool", () => {
-  it("reshuffles the discard when the deck empties", () => {
+describe("resource piles", () => {
+  it("seeds five non-empty piles at setup with blind quality within each", () => {
+    const s = createGame({ seed: 7 });
+    const kinds: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
+    for (const k of kinds) {
+      expect(s.piles[k].length).toBe(CONFIG.PILE_COUNTS[k]);
+      expect(s.piles[k].every((c) => c.kind === k)).toBe(true);
+      // Every pile carries a quality spread (not all one tier).
+      expect(s.piles[k].some((c) => c.quality === "specialty")).toBe(true);
+    }
+  });
+
+  it("reshuffles a pile's own discard when it empties", () => {
     let s = createGame({ seed: 1 });
-    const sample = s.resourceDeck.slice(0, 5);
-    s.resourceDeck = sample.slice(0, 2);
-    s.resourceDiscard = sample.slice(2); // 3 cards waiting to be reshuffled
-    s = ok(s, { type: "DRAW_RESOURCES" }); // draws 3 → forces a reshuffle
-    expect(s.players[0]!.hand.length).toBe(3);
+    // Drain the rye pile down to one card, with three waiting in its discard.
+    const sample = s.piles.rye.slice(0, 4);
+    s.piles.rye = sample.slice(0, 1);
+    s.pileDiscards.rye = sample.slice(1); // 3 cards waiting
+    // Collect 2 rye → empties the pile mid-draw, forcing a reshuffle.
+    s.players[0]!.capital = 5; // cover the rye cost spike if the row carries one
+    s = ok(s, { type: "COLLECT", draws: { rye: 2 } });
+    expect(s.players[0]!.hand.filter((c) => c.kind === "rye").length).toBe(2);
     expect(s.log.some((l) => l.includes("reshuffled"))).toBe(true);
   });
 });
 
 // ------------------------------------------------------------------
-// face-up resource market (pick 3 of 8)
+// Collect (free budget + paid overflow + cost spikes)
 // ------------------------------------------------------------------
 
-describe("resource market", () => {
-  it("deals a full face-up market at setup", () => {
-    const s = createGame({ seed: 7 });
-    expect(s.resourceMarket.length).toBe(CONFIG.RESOURCE_MARKET_SIZE);
-  });
+describe("collect", () => {
+  /** Strip every cost spike off the round so a Collect is purely a budget test. */
+  function unspiked(s: GameState): void {
+    s.demandCards = s.demandCards.map((c) => ({ ...c, costSpikes: undefined }));
+  }
 
-  it("takes the chosen cards into hand and refills from the deck", () => {
+  it("draws the chosen mix across piles, free within the Supply Room budget", () => {
     let s = createGame({ seed: 7 });
-    const picks = s.resourceMarket.slice(0, CONFIG.RESOURCE_DRAW_COUNT);
-    const pickIds = picks.map((c) => c.id);
-    s = ok(s, { type: "TAKE_MARKET_RESOURCES", cardIds: pickIds });
-
-    // Picked cards are now in hand.
-    expect(s.players[0]!.hand.map((c) => c.id)).toEqual(
-      expect.arrayContaining(pickIds),
-    );
-    expect(s.players[0]!.hand.length).toBe(CONFIG.RESOURCE_DRAW_COUNT);
-    // Market refilled back to full, and no longer holds the taken cards.
-    expect(s.resourceMarket.length).toBe(CONFIG.RESOURCE_MARKET_SIZE);
-    for (const id of pickIds) {
-      expect(s.resourceMarket.some((c) => c.id === id)).toBe(false);
-    }
+    unspiked(s);
+    const capBefore = s.players[0]!.capital;
+    s = ok(s, { type: "COLLECT", draws: { cask: 2, corn: 1 } });
+    const hand = s.players[0]!.hand;
+    expect(hand.length).toBe(3);
+    expect(hand.filter((c) => c.kind === "cask").length).toBe(2);
+    expect(hand.filter((c) => c.kind === "corn").length).toBe(1);
+    expect(s.players[0]!.capital).toBe(capBefore); // 3 ≤ budget → free
   });
 
-  it("refuses the wrong number of picks", () => {
+  it("refuses an empty Collect", () => {
     const s = createGame({ seed: 7 });
-    const tooFew = s.resourceMarket.slice(0, 2).map((c) => c.id);
-    expect(expectRefusal(s, { type: "TAKE_MARKET_RESOURCES", cardIds: tooFew })).toMatch(
-      /select exactly/,
-    );
+    expect(expectRefusal(s, { type: "COLLECT", draws: {} })).toMatch(/at least one/);
   });
 
-  it("refuses ids that are not in the market", () => {
+  it("charges Capital for overflow draws beyond the free budget", () => {
+    let s = createGame({ seed: 7 });
+    unspiked(s);
+    const budget = s.players[0]!.distillery.stations.find((st) => st.id === "supplyRoom")!
+      .levels[0]!; // 4
+    s.players[0]!.capital = 10;
+    // budget + 2 → two overflow draws at OVERFLOW_COST each.
+    s = ok(s, { type: "COLLECT", draws: { cask: budget + 2 } });
+    expect(s.players[0]!.hand.length).toBe(budget + 2);
+    expect(s.players[0]!.capital).toBe(10 - 2 * CONFIG.OVERFLOW_COST);
+    expect(s.players[0]!.overflowDrawsThisRound).toBe(2);
+  });
+
+  it("refuses an overflow draw the player can't pay for", () => {
     const s = createGame({ seed: 7 });
-    const ids = s.resourceMarket.slice(0, 2).map((c) => c.id);
+    unspiked(s);
+    const budget = s.players[0]!.distillery.stations.find((st) => st.id === "supplyRoom")!
+      .levels[0]!;
+    s.players[0]!.capital = 0; // can't afford any overflow
     expect(
-      expectRefusal(s, {
-        type: "TAKE_MARKET_RESOURCES",
-        cardIds: [...ids, "not_a_real_card"],
-      }),
-    ).toMatch(/not in the market/);
+      expectRefusal(s, { type: "COLLECT", draws: { cask: budget + 1 } }),
+    ).toMatch(/not enough Capital/);
+  });
+
+  it("applies a demand cost spike per spiked-tag card, on free and overflow draws alike", () => {
+    let s = createGame({ seed: 7 });
+    // One demand card spiking rye +1, plus an open slot so anything can sell.
+    s.demandCards = [
+      {
+        id: "d",
+        defId: "dm_rye",
+        label: "Rye Demand",
+        tag: "rye",
+        slots: [{ tagRestriction: "open" }],
+        blueCapacity: 1,
+        redCapacity: 9,
+        costSpikes: [{ tag: "rye", amount: 1 }],
+        placeholder: true,
+      },
+    ];
+    s.players[0]!.capital = 10;
+    // 2 rye within the free budget still pay the spike (+1 each = 2 total).
+    s = ok(s, { type: "COLLECT", draws: { rye: 2 } });
+    expect(s.players[0]!.capital).toBe(10 - 2);
+  });
+
+  it("stacks spikes across the demand row and combines spike with overflow", () => {
+    let s = createGame({ seed: 7 });
+    s.demandCards = [
+      {
+        id: "d1",
+        defId: "dm_rye",
+        label: "Rye",
+        tag: "rye",
+        slots: [{ tagRestriction: "open" }],
+        blueCapacity: 1,
+        redCapacity: 9,
+        costSpikes: [{ tag: "rye", amount: 1 }],
+        placeholder: true,
+      },
+      {
+        id: "d2",
+        defId: "dm_rye2",
+        label: "Rye 2",
+        tag: "rye",
+        slots: [{ tagRestriction: "open" }],
+        blueCapacity: 1,
+        redCapacity: 9,
+        costSpikes: [{ tag: "rye", amount: 1 }],
+        placeholder: true,
+      },
+    ];
+    const budget = s.players[0]!.distillery.stations.find((st) => st.id === "supplyRoom")!
+      .levels[0]!;
+    s.players[0]!.capital = 50;
+    // Spike sums to +2/rye. Draw budget+1 rye: every card pays +2 spike, and
+    // the last is also an overflow draw (+OVERFLOW_COST).
+    s = ok(s, { type: "COLLECT", draws: { rye: budget + 1 } });
+    const expected = 50 - (budget + 1) * 2 - CONFIG.OVERFLOW_COST;
+    expect(s.players[0]!.capital).toBe(expected);
   });
 });
 
@@ -257,7 +353,7 @@ describe("make bourbon", () => {
       { id: "c1", defId: "res_cask", kind: "cask", quality: "specialty", name: "cask", placeholder: true },
       { id: "g1", defId: "res_corn", kind: "corn", quality: "common", name: "corn", placeholder: true },
     ];
-    const discardBefore = s.resourceDiscard.length;
+    const discardBefore = totalDiscard(s);
 
     s = ok(s, {
       type: "MAKE_BOURBON",
@@ -271,7 +367,10 @@ describe("make bourbon", () => {
     expect(b.built).toBe(true);
     expect(b.age).toBe(0); // aging starts now
     expect(p.hand.length).toBe(0);
-    expect(s.resourceDiscard.length).toBe(discardBefore + 2);
+    // Committed cards land in their matching per-type discards.
+    expect(totalDiscard(s)).toBe(discardBefore + 2);
+    expect(s.pileDiscards.cask.length).toBe(1);
+    expect(s.pileDiscards.corn.length).toBe(1);
     // Highest committed tier (specialty cask) sets quality.
     expect(b.quality).toBe("specialty");
   });
@@ -597,7 +696,7 @@ describe("demand flood engine", () => {
     s.blueLine = 3;
     s.redLine = 6;
     s.cubesPlaced = 0; // underserved
-    s = ok(s, { type: "DRAW_RESOURCES" }); // round 1 ends → Year Pass
+    s = tick(s); // round 1 ends → Year Pass
     expect(s.roundNumber).toBe(2);
     expect(s.demand).toBe(6); // +1; round 1 is odd, so no global rise
   });
@@ -610,7 +709,7 @@ describe("demand flood engine", () => {
     s.blueLine = 1;
     s.redLine = 6;
     s.cubesPlaced = 3; // moderate
-    s = ok(s, { type: "DRAW_RESOURCES" });
+    s = tick(s);
     expect(s.demand).toBe(4);
   });
 
@@ -623,7 +722,7 @@ describe("demand flood engine", () => {
     s.blueLine = 3;
     s.redLine = 6;
     s.cubesPlaced = 0; // underserved band +1
-    s = ok(s, { type: "DRAW_RESOURCES" });
+    s = tick(s);
     expect(s.demand).toBe(7); // band +1 plus global rise +1
   });
 
@@ -1322,12 +1421,12 @@ describe("opening brand lines", () => {
 // ------------------------------------------------------------------
 
 describe("full loop integration", () => {
-  /** Advance by playing DRAW_RESOURCES until the round number reaches target. */
+  /** Advance by spending cheap Collect actions until the round number reaches target. */
   function advanceToRound(s: GameState, target: number): GameState {
     let guard = 0;
     while (s.phase === "playing" && s.roundNumber < target && guard < 300) {
       guard++;
-      const res = applyAction(s, { type: "DRAW_RESOURCES" });
+      const res = applyAction(s, { type: "COLLECT", draws: { cask: 1 } });
       if (!res.ok) break;
       s = res.state;
     }
@@ -1412,7 +1511,7 @@ describe("end of game", () => {
         s = res.state;
       } else {
         s.players[s.currentPlayerIndex]!.rickhouse = [];
-        s = ok(s, { type: "DRAW_RESOURCES" });
+        s = tick(s);
       }
     }
     expect(s.phase).toBe("ended");
