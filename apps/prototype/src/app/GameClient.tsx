@@ -271,8 +271,6 @@ export default function GameClient() {
   const [sellLineId, setSellLineId] = useState<string | null>(null);
   // Slot-card draw picker: pick any available design from the supply.
   const [drawingSlot, setDrawingSlot] = useState(false);
-  // Collect modal: allocate draws across the five piles.
-  const [collecting, setCollecting] = useState(false);
   // Bumped on each successful resource draw so the hand fan replays its
   // deal-in keyframe (mirrors the live game's lastDrawHand.seq).
   const [dealSeq, setDealSeq] = useState(1);
@@ -298,7 +296,6 @@ export default function GameClient() {
     setSellBarrel(null);
     setSellLineId(null);
     setDrawingSlot(false);
-    setCollecting(false);
   }
 
   function dispatch(action: Action): boolean {
@@ -382,8 +379,8 @@ export default function GameClient() {
             </div>
           ) : null}
 
-          {/* ── Market strip ───────────────────────────────────── */}
-          <div className="grid h-[176px] shrink-0 grid-cols-[230px_788px_1fr_1fr] gap-4">
+          {/* ── Market row (what the world wants + what you can draft) ── */}
+          <div className="grid h-[176px] shrink-0 grid-cols-[300px_1fr_1fr] gap-4">
             <Panel title="Demand market" accent="market">
               <div className="flex h-full flex-col justify-between">
                 <DemandTrack demand={state.demand} />
@@ -422,59 +419,6 @@ export default function GameClient() {
                     );
                   })}
                 </div>
-              </div>
-            </Panel>
-
-            <Panel
-              title="Resource piles"
-              accent="market"
-              right={
-                <span className="label-sm" style={{ color: "var(--mute)" }}>
-                  free draws: {collectBudget}
-                </span>
-              }
-            >
-              <div className="flex h-full items-center justify-between gap-3">
-                <div className="flex flex-1 items-stretch justify-between gap-2">
-                  {PILE_KINDS.map((k) => {
-                    const meta = PILE_META[k];
-                    const spike = spikeFor(state, k);
-                    return (
-                      <div
-                        key={k}
-                        className="relative flex flex-1 flex-col items-center justify-center gap-1 rounded-md border border-[var(--rule)] bg-[var(--panel)] py-2"
-                        style={{ boxShadow: `inset 0 -2px 0 ${meta.color}55` }}
-                        title={`${meta.label} pile — ${state.piles[k].length} cards${spike ? `, cost spike +${spike}/draw this round` : ""}`}
-                      >
-                        {spike > 0 ? (
-                          <span className="absolute right-1 top-1 rounded bg-[#3a1410] px-1 font-mono text-[9px] font-bold text-[var(--rose)]">
-                            ⚡+{spike}
-                          </span>
-                        ) : null}
-                        <span className="text-[22px] leading-none" aria-hidden>
-                          {meta.glyph}
-                        </span>
-                        <span
-                          className="font-mono text-[10px] uppercase tracking-[.08em]"
-                          style={{ color: meta.color }}
-                        >
-                          {meta.label}
-                        </span>
-                        <span className="font-mono text-[11px] font-bold text-[var(--ink-muted)]">
-                          {state.piles[k].length}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <button
-                  type="button"
-                  disabled={ended}
-                  onClick={() => setCollecting(true)}
-                  className="shrink-0 self-stretch rounded-md border border-[var(--gold)] bg-gradient-to-b from-[#f0c970] to-[#c69d52] px-4 font-mono text-[12px] font-bold uppercase tracking-[.14em] text-[#1a120b] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Collect →
-                </button>
               </div>
             </Panel>
 
@@ -757,8 +701,17 @@ export default function GameClient() {
               </Panel>
           </div>
 
-          {/* ── Hand strip ───────────────────────────────────── */}
-          <div className="grid h-[262px] shrink-0 grid-cols-[1fr_420px] gap-4">
+          {/* ── Bench row (inputs → production): Collect · Hand · Make ── */}
+          <div className="grid h-[262px] shrink-0 grid-cols-[860px_minmax(0,1fr)_300px] gap-4">
+            <CollectBench
+              state={state}
+              budget={collectBudget}
+              capital={player.capital}
+              overflowSoFar={player.overflowDrawsThisRound}
+              disabled={ended}
+              onCollect={(draws) => dispatch({ type: "COLLECT", draws })}
+            />
+
             <Panel
               title={`Hand — ${player.name}`}
               accent="hand"
@@ -803,24 +756,18 @@ export default function GameClient() {
 
             <Panel title="Workbench" accent="hand">
               <div className="flex h-full flex-col justify-between gap-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <ActionBtn onClick={() => setCollecting(true)} disabled={ended} tone="gold">
-                    Collect
-                  </ActionBtn>
-                  <ActionBtn
-                    onClick={() => setDrawingSlot(true)}
-                    disabled={ended || state.slotCardSupply.length === 0}
-                  >
-                    Draw slot
-                  </ActionBtn>
-                </div>
+                <ActionBtn
+                  onClick={() => setDrawingSlot(true)}
+                  disabled={ended || state.slotCardSupply.length === 0}
+                >
+                  Draw slot card
+                </ActionBtn>
 
-                <div className="rounded-md border border-[var(--rule)] bg-[var(--panel)] px-3 py-2 text-[12px] text-[var(--ink-muted)]">
-                  <b>Collect</b> resources across the five piles (free up to your
-                  Supply Room budget, then paid overflow). Keep a mash bill to rest
-                  a barrel{rickhouseFull ? " — rickhouse is full" : ""}, select its
-                  recipe resources in hand, then <b>Build</b> to start aging. Open a
-                  brand line, then sell aged barrels into a chosen slot.
+                <div className="rounded-md border border-[var(--rule)] bg-[var(--panel)] px-3 py-2 text-[11px] leading-relaxed text-[var(--ink-muted)]">
+                  <b>1.</b> Collect resources from the bench. <b>2.</b> Keep a mash
+                  bill to rest a barrel{rickhouseFull ? " — rickhouse is full" : ""}.{" "}
+                  <b>3.</b> Select its recipe cards in hand and <b>Build</b> to start
+                  aging. <b>4.</b> Open a brand line, then sell aged barrels into a slot.
                 </div>
               </div>
             </Panel>
@@ -836,20 +783,6 @@ export default function GameClient() {
               onLine={setSellLineId}
               onConfirm={confirmSell}
               onCancel={() => setSellBarrel(null)}
-            />
-          ) : null}
-
-          {/* ── Collect modal ────────────────────────────────── */}
-          {collecting && !ended ? (
-            <CollectModal
-              state={state}
-              budget={collectBudget}
-              capital={player.capital}
-              overflowSoFar={player.overflowDrawsThisRound}
-              onConfirm={(draws) => {
-                if (dispatch({ type: "COLLECT", draws })) setCollecting(false);
-              }}
-              onCancel={() => setCollecting(false)}
             />
           ) : null}
 
@@ -1442,36 +1375,40 @@ function SellModal({
   );
 }
 
-// ── Collect modal ─────────────────────────────────────────────────────
+// ── Collection bench (inline) ─────────────────────────────────────────
+
+const ZERO_DRAWS: Record<ResourceKind, number> = {
+  cask: 0,
+  corn: 0,
+  rye: 0,
+  wheat: 0,
+  barley: 0,
+};
 
 /**
- * Allocate draws across the five piles. The first `budget` draws are free
- * (Supply Room); the rest are paid overflow. Every spiked-pile card also pays
- * the round's cost spike. The live readout mirrors the engine's charge order
- * (piles in draw order) so the running cost — and "can I pay this?" — is exact.
+ * The always-on collection bench: allocate draws across the five piles, see the
+ * Supply Room budget + live overflow/spike cost, and Collect inline (no modal).
+ * The first `budget` draws are free; the rest are paid overflow; every
+ * spiked-pile card also pays the round's cost spike. The readout mirrors the
+ * engine's charge order so the running cost — and "can I pay this?" — is exact.
  */
-function CollectModal({
+function CollectBench({
   state,
   budget,
   capital,
   overflowSoFar,
-  onConfirm,
-  onCancel,
+  disabled,
+  onCollect,
 }: {
   state: GameState;
   budget: number;
   capital: number;
   overflowSoFar: number;
-  onConfirm: (draws: Partial<Record<ResourceKind, number>>) => void;
-  onCancel: () => void;
+  disabled: boolean;
+  /** Dispatch the Collect; returns true on success so the bench can reset. */
+  onCollect: (draws: Partial<Record<ResourceKind, number>>) => boolean;
 }) {
-  const [counts, setCounts] = useState<Record<ResourceKind, number>>({
-    cask: 0,
-    corn: 0,
-    rye: 0,
-    wheat: 0,
-    barley: 0,
-  });
+  const [counts, setCounts] = useState<Record<ResourceKind, number>>({ ...ZERO_DRAWS });
 
   /** Simulate a Collect to total its cost, mirroring the engine's draw order. */
   function costOf(alloc: Record<ResourceKind, number>) {
@@ -1499,6 +1436,7 @@ function CollectModal({
   const cap = FLAGS.overflowPerRoundCap;
 
   function canAdd(k: ResourceKind): boolean {
+    if (disabled) return false;
     if (counts[k] >= state.piles[k].length) return false; // pile would empty
     const next = { ...counts, [k]: counts[k] + 1 };
     const nc = costOf(next);
@@ -1508,79 +1446,83 @@ function CollectModal({
   }
 
   function step(k: ResourceKind, d: number) {
-    setCounts((prev) => {
-      const v = Math.max(0, prev[k] + d);
-      return { ...prev, [k]: v };
-    });
+    setCounts((prev) => ({ ...prev, [k]: Math.max(0, prev[k] + d) }));
   }
 
-  return (
-    <div className="absolute inset-0 z-30 grid place-items-center bg-[#0c0805]/80 backdrop-blur-sm">
-      <div className="bb-panel bb-panel--market w-[680px] p-5">
-        <div className="mb-1 flex items-center justify-between">
-          <h2 className="font-display text-[22px] font-bold text-[var(--gold)]">
-            Collect resources
-          </h2>
-          <span className="font-mono text-[12px] text-[var(--ink-muted)]">
-            Free draws:{" "}
-            <span className="font-bold text-[var(--gold)]">
-              {freeUsed} of {budget}
-            </span>{" "}
-            used
-          </span>
-        </div>
-        <p className="mb-3 text-[12px] italic text-[var(--mute)]">
-          Choose the pile (assembly); quality is drawn blind off the top. Free up to
-          your Supply Room budget, then +{CONFIG.OVERFLOW_COST}฿ per overflow draw.
-        </p>
+  function collect() {
+    if (cur.drawn === 0 || cur.total > capital) return;
+    if (onCollect(counts)) setCounts({ ...ZERO_DRAWS });
+  }
 
-        <div className="flex flex-col gap-2">
+  const canCollect = !disabled && cur.drawn > 0 && cur.total <= capital;
+
+  return (
+    <Panel
+      title="Collect"
+      accent="market"
+      right={
+        <span className="label-sm" style={{ color: "var(--mute)" }}>
+          free draws {freeUsed}/{budget} · pile, blind quality
+        </span>
+      }
+    >
+      <div className="flex h-full flex-col gap-2">
+        <div className="grid flex-1 grid-cols-5 gap-2">
           {PILE_KINDS.map((k) => {
             const meta = PILE_META[k];
             const spike = spikeFor(state, k);
-            const remaining = state.piles[k].length;
+            const n = counts[k];
             return (
               <div
                 key={k}
-                className="flex items-center gap-3 rounded-md border border-[var(--rule)] bg-[var(--panel)] px-3 py-2"
+                className="flex flex-col items-center justify-between rounded-md border bg-[var(--panel)] px-1 py-1.5"
+                style={{
+                  borderColor: n > 0 ? "var(--gold)" : "var(--rule)",
+                  boxShadow: `inset 0 -2px 0 ${meta.color}55`,
+                }}
               >
-                <span className="text-[20px] leading-none" aria-hidden>
-                  {meta.glyph}
-                </span>
-                <span
-                  className="w-16 font-mono text-[12px] uppercase tracking-[.08em]"
-                  style={{ color: meta.color }}
-                >
-                  {meta.label}
-                </span>
-                <span className="font-mono text-[10px] text-[var(--mute)]">
-                  {remaining} left
-                </span>
-                {spike > 0 ? (
-                  <span
-                    className="rounded bg-[#3a1410] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--rose)]"
-                    title={`Cost spike: +${spike} Capital per ${meta.label} drawn this round`}
-                  >
-                    ⚡ +{spike}฿/draw
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="text-[20px] leading-none" aria-hidden>
+                    {meta.glyph}
                   </span>
-                ) : null}
-                <div className="ml-auto flex items-center gap-2">
+                  <span
+                    className="font-mono text-[10px] uppercase tracking-[.06em]"
+                    style={{ color: meta.color }}
+                  >
+                    {meta.label}
+                  </span>
+                  <span className="font-mono text-[9px] text-[var(--mute)]">
+                    {state.piles[k].length} left
+                  </span>
+                  {spike > 0 ? (
+                    <span
+                      className="rounded bg-[#3a1410] px-1 font-mono text-[9px] font-bold text-[var(--rose)]"
+                      title={`Cost spike: +${spike} Capital per ${meta.label} drawn this round`}
+                    >
+                      ⚡+{spike}฿
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => step(k, -1)}
-                    disabled={counts[k] <= 0}
-                    className="grid h-7 w-7 place-items-center rounded border border-[var(--rule)] bg-[var(--panel-2)] font-mono text-[14px] text-[var(--ink-muted)] transition enabled:hover:border-[var(--amber)] disabled:opacity-30"
+                    disabled={n <= 0}
+                    className="grid h-6 w-6 place-items-center rounded border border-[var(--rule)] bg-[var(--panel-2)] font-mono text-[13px] text-[var(--ink-muted)] transition enabled:hover:border-[var(--amber)] disabled:opacity-25"
                   >
                     −
                   </button>
-                  <span className="w-6 text-center font-display text-[18px] font-bold text-[var(--ink)]">
-                    {counts[k]}
+                  <span
+                    className="w-5 text-center font-display text-[16px] font-bold"
+                    style={{ color: n > 0 ? "var(--gold)" : "var(--whisper)" }}
+                  >
+                    {n}
                   </span>
                   <button
                     type="button"
                     onClick={() => step(k, 1)}
                     disabled={!canAdd(k)}
-                    className="grid h-7 w-7 place-items-center rounded border border-[var(--rule)] bg-[var(--panel-2)] font-mono text-[14px] text-[var(--ink-muted)] transition enabled:hover:border-[var(--gold)] enabled:hover:text-[var(--gold)] disabled:opacity-30"
+                    className="grid h-6 w-6 place-items-center rounded border border-[var(--rule)] bg-[var(--panel-2)] font-mono text-[13px] text-[var(--ink-muted)] transition enabled:hover:border-[var(--gold)] enabled:hover:text-[var(--gold)] disabled:opacity-25"
                   >
                     +
                   </button>
@@ -1590,38 +1532,36 @@ function CollectModal({
           })}
         </div>
 
-        {/* live cost readout */}
-        <div className="mt-3 flex items-center justify-between rounded-md border border-[var(--rule)] bg-[var(--panel-2)] px-3 py-2 font-mono text-[12px]">
-          <span className="text-[var(--ink-muted)]">
+        {/* live cost readout + actions */}
+        <div className="flex shrink-0 items-center justify-between gap-2 rounded-md border border-[var(--rule)] bg-[var(--panel-2)] px-2.5 py-1.5">
+          <span className="font-mono text-[11px] text-[var(--ink-muted)]">
             {cur.drawn} draw{cur.drawn === 1 ? "" : "s"} · {freeUsed} free
-            {cur.overflow > 0 ? ` · ${cur.overflow} overflow (+${cur.overflowCost}฿)` : ""}
-            {cur.spike > 0 ? ` · spike +${cur.spike}฿` : ""}
+            {cur.overflow > 0 ? ` · ${cur.overflow} overflow +${cur.overflowCost}฿` : ""}
+            {cur.spike > 0 ? ` · spike +${cur.spike}฿` : ""} ·{" "}
+            <span className="font-bold text-[var(--gold)]">{cur.total}฿</span>
+            <span className="text-[var(--mute)]"> ({capital - cur.total}฿ left)</span>
           </span>
-          <span className="text-[var(--ink)]">
-            cost <span className="font-bold text-[var(--gold)]">{cur.total}฿</span>
-            <span className="text-[var(--mute)]"> · {capital - cur.total}฿ left</span>
-          </span>
-        </div>
-
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md border border-[var(--rule)] bg-[var(--panel)] px-4 py-2 font-mono text-[12px] uppercase tracking-[.12em] text-[var(--ink-muted)] hover:border-[var(--amber)] hover:text-[var(--ink)]"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={cur.drawn === 0 || cur.total > capital}
-            onClick={() => onConfirm(counts)}
-            className="rounded-md border border-[var(--gold)] bg-gradient-to-b from-[#f0c970] to-[#c69d52] px-5 py-2 font-mono text-[12px] font-bold uppercase tracking-[.14em] text-[#1a120b] transition hover:brightness-110 disabled:cursor-not-allowed disabled:border-[var(--rule)] disabled:from-[#4d4031] disabled:to-[#2a1f15] disabled:text-[var(--whisper)]"
-          >
-            Collect {cur.drawn > 0 ? `${cur.drawn} →` : "→"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCounts({ ...ZERO_DRAWS })}
+              disabled={cur.drawn === 0}
+              className="rounded border border-[var(--rule)] bg-[var(--panel)] px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-[.08em] text-[var(--ink-muted)] transition enabled:hover:border-[var(--amber)] disabled:opacity-30"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={collect}
+              disabled={!canCollect}
+              className="rounded border border-[var(--gold)] bg-gradient-to-b from-[#f0c970] to-[#c69d52] px-4 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[.12em] text-[#1a120b] transition hover:brightness-110 disabled:cursor-not-allowed disabled:border-[var(--rule)] disabled:from-[#4d4031] disabled:to-[#2a1f15] disabled:text-[var(--whisper)]"
+            >
+              Collect {cur.drawn > 0 ? `${cur.drawn} →` : "→"}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }
 
