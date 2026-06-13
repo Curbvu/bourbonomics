@@ -124,6 +124,13 @@ export interface Bourbon {
   /** The recipe this barrel needs to be built — shown as requirements while unbuilt. */
   recipe: Partial<Record<ResourceKind, number>>;
   /**
+   * Resource cards STAGED onto this (unbuilt) barrel ahead of building. Staged
+   * cards have left the Warehouse (they free hold cap) and are locked to the
+   * barrel — they must be recipe-matched and cannot exceed the recipe's counts.
+   * MAKE_BOURBON builds from staged + any extra loose cards.
+   */
+  staged: ResourceCard[];
+  /**
    * False = an unbuilt barrel resting in the rickhouse (displays its recipe,
    * does NOT age, cannot be sold). Set true by MAKE_BOURBON once the required
    * resources are committed; only then does it begin aging.
@@ -164,9 +171,10 @@ export type DepartmentId =
   | "rickhouse"
   | "supply"
   | "warehouse"
-  | "distillingOffice"
-  | "tastingRoom"
-  | "marketing";
+  | "mashFloor"
+  | "marketing"
+  | "distribution"
+  | "countingHouse";
 
 /**
  * One department on a player's board. `level` starts at 0 (the base) and is
@@ -251,7 +259,9 @@ export interface CollectState {
   order: number[];
   /** Position into `order` — whose collect turn it is. */
   pos: number;
-  /** The active player's dice currently in play (inherited-kept + rolled). */
+  /** Dice inherited (passed) from the previous player at the start of this turn. */
+  inherited: Die[];
+  /** The active player's dice currently in play (inherited + rolled). */
   dice: Die[];
   /** Rerolls the active player has used this turn. */
   rerollsUsed: number;
@@ -340,6 +350,12 @@ export type Action =
       keepIndexes: number[];
     }
   | { type: "MAKE_BOURBON"; barrelId: string; resourceCardIds: string[] }
+  | {
+      type: "STAGE";
+      /** Resting barrel to stage onto, and one loose card to stage (recipe-matched). */
+      barrelId: string;
+      resourceCardId: string;
+    }
   | { type: "SELL"; bourbonId: string }
   | { type: "IMPROVE"; departmentId: DepartmentId }
   | { type: "END_TURN" };

@@ -211,40 +211,46 @@ const DEPARTMENT_TEMPLATE: Record<
   { name: string; blurb: string; maxLevel: number; values: number[] }
 > = {
   rickhouse: {
-    name: "Rickhouse",
+    name: "The Rickhouse",
     blurb: "Total barrel capacity (resting unbuilt + aging built).",
     maxLevel: 3,
-    values: [3, 5, 7, 9],
+    values: [3, 4, 5, 6], // base 3 → +1 → +1 → ult
   },
   supply: {
-    name: "Supply",
-    blurb: "Resource dice you roll/hold each Collect (a 2nd reroll once upgraded).",
+    name: "The Supply Room",
+    blurb: "Resource dice you roll into the draft each Collect.",
     maxLevel: 3,
-    values: [4, 5, 6, 7],
+    values: [5, 6, 7, 8], // +1 die per step
   },
   warehouse: {
-    name: "Warehouse",
+    name: "The Warehouse",
     blurb: "Resource cards you may hold.",
     maxLevel: 3,
-    values: [4, 6, 8, 10],
+    values: [5, 7, 9, 11], // +2 cap per step
   },
-  distillingOffice: {
-    name: "Distilling Office",
+  mashFloor: {
+    name: "The Mash Floor",
     blurb: "Mash bills you may draw (and select from) per Draw action.",
     maxLevel: 3,
-    values: [2, 3, 4, 5],
-  },
-  tastingRoom: {
-    name: "Tasting Room",
-    blurb: "Bonus Capital on every sale.",
-    maxLevel: 3,
-    values: [0, 1, 2, 3],
+    values: [3, 4, 5, 6],
   },
   marketing: {
-    name: "Marketing Department",
+    name: "Marketing Dept.",
     blurb: "Demand cards laid out each round (shape the market you read).",
     maxLevel: 3,
     values: [1, 2, 3, 4],
+  },
+  distribution: {
+    name: "The Loading Dock",
+    blurb: "Bonus Capital on every sale (applies in Play).",
+    maxLevel: 3,
+    values: [1, 2, 3, 4], // +1 per sale at base
+  },
+  countingHouse: {
+    name: "The Counting House",
+    blurb: "Capital efficiency — 🚧 TBD, prestige source undesigned.",
+    maxLevel: 3,
+    values: [0, 0, 0, 0], // PH — undesigned
   },
 };
 
@@ -252,9 +258,10 @@ const DEPARTMENT_ORDER: DepartmentId[] = [
   "rickhouse",
   "supply",
   "warehouse",
-  "distillingOffice",
-  "tastingRoom",
+  "mashFloor",
   "marketing",
+  "distribution",
+  "countingHouse",
 ];
 
 interface DistilleryDef {
@@ -282,8 +289,8 @@ const DISTILLERY_DEFS: DistilleryDef[] = [
     name: "Old Oak Rickhouse",
     signature: "agedPrestige",
     signatureBlurb: "+1 prestige when you complete a batch aged 5+.",
-    // Patience tilt: cheap Tasting Room (lean on richer, well-timed sales).
-    discounts: { tastingRoom: 1 },
+    // Patience tilt: cheap Loading Dock (lean on richer, well-timed sales).
+    discounts: { distribution: 1 },
     startLevels: {},
   },
   {
@@ -300,8 +307,8 @@ const DISTILLERY_DEFS: DistilleryDef[] = [
     name: "Rye Revival Co.",
     signature: "ryeBonus",
     signatureBlurb: "+2 Capital on each sale of a rye batch.",
-    // Specialist tilt: cheap Distilling Office (steer toward rye bills).
-    discounts: { distillingOffice: 1 },
+    // Specialist tilt: cheap Mash Floor (steer toward rye bills).
+    discounts: { mashFloor: 1 },
     startLevels: {},
   },
 ];

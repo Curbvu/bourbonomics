@@ -12,12 +12,13 @@ export const CONFIG = {
 
   // --- The linear improvement ramp -----------------------------------------
   /**
-   * Capital cost of a player's Nth department improvement (1-indexed): the
-   * ramp rises linearly. The Nth improvement (across any department) costs
-   * RAMP_BASE + (N-1) * RAMP_STEP. Per player, persists all game. `[PH]`.
+   * Capital cost of a player's next department improvement: a single shared,
+   * rising per-player price. With `improvementsMade` already done, the next
+   * costs RAMP_BASE + improvementsMade * RAMP_STEP — i.e. (improvementsMade+1)×2
+   * → 2, 4, 6, 8, … Per player, persists all game. `[PH]`.
    */
-  RAMP_BASE: 1,
-  RAMP_STEP: 1,
+  RAMP_BASE: 2,
+  RAMP_STEP: 2,
 
   // --- Demand (PLACEHOLDER) -------------------------------------------------
   /** Matrix demand axis bounds (the payoff grid's demand columns). */

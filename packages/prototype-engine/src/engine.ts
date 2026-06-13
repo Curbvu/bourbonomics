@@ -61,8 +61,8 @@ function deptValue(player: Player, id: DepartmentId): number {
 const rickhouseCapacity = (p: Player): number => deptValue(p, "rickhouse");
 const supplyCap = (p: Player): number => deptValue(p, "supply");
 const warehouseCap = (p: Player): number => deptValue(p, "warehouse");
-const officeDraw = (p: Player): number => deptValue(p, "distillingOffice");
-const tastingBonus = (p: Player): number => deptValue(p, "tastingRoom");
+const mashFloorDraw = (p: Player): number => deptValue(p, "mashFloor");
+const distributionBonus = (p: Player): number => deptValue(p, "distribution");
 const marketingCards = (p: Player): number => deptValue(p, "marketing");
 
 /** A Supply upgrade (level ≥ 1) grants a second reroll. */
@@ -236,6 +236,7 @@ function startCollectTurn(draft: GameState, inherited: Die[]): void {
   const player = draft.players[pIndex]!;
   draft.currentPlayerIndex = pIndex;
   const fresh = rollDice(draft, Math.max(0, supplyCap(player) - inherited.length));
+  c.inherited = inherited.map((d) => ({ ...d }));
   c.dice = [...inherited, ...fresh];
   c.rerollsUsed = 0;
   c.maxRerolls = rerollsFor(player);
@@ -248,7 +249,14 @@ function startCollectTurn(draft: GameState, inherited: Die[]): void {
 /** Enter the Collect Phase: compute the pass order and start the first turn. */
 function enterCollect(draft: GameState): void {
   draft.roundPhase = "collect";
-  draft.collect = { order: capitalOrder(draft), pos: 0, dice: [], rerollsUsed: 0, maxRerolls: 1 };
+  draft.collect = {
+    order: capitalOrder(draft),
+    pos: 0,
+    inherited: [],
+    dice: [],
+    rerollsUsed: 0,
+    maxRerolls: 1,
+  };
   startCollectTurn(draft, []);
 }
 
@@ -414,7 +422,7 @@ function handleDrawMashBills(
 ): string | null {
   if (player.drewMashBillsThisTurn) return "you have already drawn mash bills this turn";
 
-  const reveal = officeDraw(player);
+  const reveal = mashFloorDraw(player);
   const offer = draft.mashBillSupply.slice(0, Math.min(reveal, draft.mashBillSupply.length));
   if (offer.length === 0) return "the mash bill supply is empty";
 
@@ -443,6 +451,7 @@ function handleDrawMashBills(
       expression: bill.expression,
       recipeTags: expressionToTags(bill.expression),
       recipe: { ...bill.recipe },
+      staged: [],
       built: false,
       age: 0,
       quality: "common",
@@ -468,6 +477,42 @@ function handleDrawMashBills(
   return null;
 }
 
+/** Count how many of `kind` a barrel still needs after its already-staged cards. */
+function remainingNeed(barrel: Bourbon, kind: ResourceKind): number {
+  const need = barrel.recipe[kind] ?? 0;
+  const staged = barrel.staged.filter((c) => c.kind === kind).length;
+  return Math.max(0, need - staged);
+}
+
+/**
+ * Stage one recipe-matched loose card onto a resting barrel. The card leaves
+ * the Warehouse (frees hold cap) and locks to the barrel. It cannot exceed the
+ * recipe's count for that kind.
+ */
+function handleStage(
+  draft: GameState,
+  player: Player,
+  barrelId: string,
+  resourceCardId: string,
+): string | null {
+  const barrel = player.rickhouse.find((b) => b.id === barrelId);
+  if (!barrel) return "barrel not found in your rickhouse";
+  if (barrel.built) return "that barrel is already built";
+  const card = player.hand.find((c) => c.id === resourceCardId);
+  if (!card) return `resource ${resourceCardId} is not in hand`;
+  if (remainingNeed(barrel, card.kind) <= 0) {
+    return `"${barrel.name}" doesn't need any more ${card.kind}`;
+  }
+  player.hand = player.hand.filter((c) => c.id !== resourceCardId);
+  barrel.staged.push(card);
+  const total = barrel.staged.length;
+  const need = Object.values(barrel.recipe).reduce((s, n) => s + (n ?? 0), 0);
+  draft.log.push(
+    `${player.name} staged a ${card.kind} onto "${barrel.name}" (${total}/${need}) — Warehouse freed.`,
+  );
+  return null;
+}
+
 function handleMakeBourbon(
   draft: GameState,
   player: Player,
@@ -480,19 +525,22 @@ function handleMakeBourbon(
 
   const uniqueIds = new Set(resourceCardIds);
   if (uniqueIds.size !== resourceCardIds.length) return "duplicate resource card ids";
-  const cards: ResourceCard[] = [];
+  const loose: ResourceCard[] = [];
   for (const id of resourceCardIds) {
     const card = player.hand.find((c) => c.id === id);
     if (!card) return `resource ${id} is not in hand`;
-    cards.push(card);
+    loose.push(card);
   }
 
+  // Build from staged cards + the loose cards committed now.
+  const cards = [...barrel.staged, ...loose];
   const check = recipeSatisfied(barrel.recipe, barrel.name, cards);
   if (!check.ok) return check.reason;
 
   player.hand = player.hand.filter((c) => !uniqueIds.has(c.id));
   for (const c of cards) draft.pileDiscards[c.kind].push(c);
 
+  barrel.staged = [];
   barrel.built = true;
   barrel.age = 0;
   barrel.quality = deriveQuality(cards);
@@ -519,7 +567,7 @@ function handleSell(draft: GameState, player: Player, bourbonId: string): string
   if (bourbon.salesRemaining <= 0) return "this batch is already fully sold";
 
   const isFinal = bourbon.salesRemaining === 1;
-  const value = matrixValue(bourbon.matrix, bourbon.age, draft.demand) + tastingBonus(player);
+  const value = matrixValue(bourbon.matrix, bourbon.age, draft.demand) + distributionBonus(player);
   player.capital += value;
   bourbon.salesRemaining -= 1;
   player.bourbonsSold += 1;
@@ -597,6 +645,12 @@ export function applyAction(state: GameState, action: Action): ActionResult {
     case "MAKE_BOURBON": {
       if (draft.roundPhase !== "play") return refuse("not the Play Phase");
       const error = handleMakeBourbon(draft, player, action.barrelId, action.resourceCardIds);
+      return error ? refuse(error) : { ok: true, state: draft };
+    }
+
+    case "STAGE": {
+      if (draft.roundPhase !== "play") return refuse("not the Play Phase");
+      const error = handleStage(draft, player, action.barrelId, action.resourceCardId);
       return error ? refuse(error) : { ok: true, state: draft };
     }
 

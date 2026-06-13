@@ -50,6 +50,7 @@ function makeBourbon(over: Partial<Bourbon> = {}): Bourbon {
     expression: over.expression ?? "bourbon",
     recipeTags: over.recipeTags ?? [],
     recipe: over.recipe ?? {},
+    staged: over.staged ?? [],
     built: over.built ?? true,
     age: over.age ?? 3,
     quality: over.quality ?? "common",
@@ -235,7 +236,7 @@ describe("draw mash bills", () => {
   it("reveals Distilling-Office-many bills and keeps the chosen ones as resting barrels", () => {
     let s = createGame({ seed: 3 });
     s = intoPlay(s);
-    const office = dept(s.players[0]!, "distillingOffice").values[0]!;
+    const office = dept(s.players[0]!, "mashFloor").values[0]!;
     const supplyBefore = s.mashBillSupply.length;
     s = ok(s, { type: "DRAW_MASH_BILLS", keepIndexes: [0] });
     const p = s.players[0]!;
@@ -351,7 +352,7 @@ describe("sell", () => {
     expect(expectRefusal(s, { type: "SELL", bourbonId: "sellme" })).toContain("not built");
   });
 
-  it("banks the age×demand matrix value plus the Tasting Room bonus", () => {
+  it("banks the age×demand matrix value plus the Distribution bonus", () => {
     const matrix = [
       [0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0],
@@ -359,8 +360,8 @@ describe("sell", () => {
       [0, 0, 0, 0, 7], // age 3, demand 4 → 7
     ];
     let s = sellScenario({ matrix });
-    dept(s.players[0]!, "tastingRoom").level = 1; // +1 bonus
-    const bonus = dept(s.players[0]!, "tastingRoom").values[1]!;
+    dept(s.players[0]!, "distribution").level = 1;
+    const bonus = dept(s.players[0]!, "distribution").values[1]!;
     s = ok(s, { type: "SELL", bourbonId: "sellme" });
     const p = s.players[0]!;
     expect(p.capital).toBe(7 + bonus + CONFIG.COMPLETION_BONUS);
@@ -370,15 +371,58 @@ describe("sell", () => {
 
   it("a multi-sale batch keeps resting until the final sale frees the slot", () => {
     let s = sellScenario({ batchQty: 2, matrix: [[5]] });
+    // Distribution pays its base bonus on every sale.
+    const dist = dept(s.players[0]!, "distribution").values[0]!;
     s = ok(s, { type: "SELL", bourbonId: "sellme" }); // intermediate
     let p = s.players[0]!;
-    expect(p.capital).toBe(5);
+    expect(p.capital).toBe(5 + dist);
     expect(p.rickhouse.length).toBe(1);
     expect(p.rickhouse[0]!.salesRemaining).toBe(1);
     s = ok(s, { type: "SELL", bourbonId: "sellme" }); // final
     p = s.players[0]!;
-    expect(p.capital).toBe(10 + CONFIG.COMPLETION_BONUS);
+    expect(p.capital).toBe(10 + 2 * dist + CONFIG.COMPLETION_BONUS);
     expect(p.rickhouse.length).toBe(0);
+  });
+});
+
+// ------------------------------------------------------------------
+// Staging onto resting barrels
+// ------------------------------------------------------------------
+
+describe("staging", () => {
+  it("stages a recipe-matched card off the Warehouse and builds from it", () => {
+    let s = createGame({ seed: 3 });
+    s = intoPlay(s);
+    s.players[0]!.rickhouse = [
+      makeBourbon({ id: "barrel", built: false, age: 0, recipe: { cask: 1, corn: 1 } }),
+    ];
+    s.players[0]!.hand = [
+      { id: "c1", defId: "x", kind: "cask", quality: "specialty", name: "cask", placeholder: true },
+      { id: "g1", defId: "x", kind: "corn", quality: "common", name: "corn", placeholder: true },
+    ];
+    s = ok(s, { type: "STAGE", barrelId: "barrel", resourceCardId: "c1" });
+    expect(s.players[0]!.hand.length).toBe(1); // staged card left the hand
+    expect(s.players[0]!.rickhouse[0]!.staged.length).toBe(1);
+    // Build using the remaining loose card + the staged one.
+    s = ok(s, { type: "MAKE_BOURBON", barrelId: "barrel", resourceCardIds: ["g1"] });
+    const b = s.players[0]!.rickhouse[0]!;
+    expect(b.built).toBe(true);
+    expect(b.quality).toBe("specialty"); // best of staged + loose
+    expect(b.staged.length).toBe(0);
+  });
+
+  it("refuses staging a card the recipe doesn't need", () => {
+    let s = createGame({ seed: 3 });
+    s = intoPlay(s);
+    s.players[0]!.rickhouse = [
+      makeBourbon({ id: "barrel", built: false, recipe: { cask: 1 } }),
+    ];
+    s.players[0]!.hand = [
+      { id: "r1", defId: "x", kind: "rye", quality: "common", name: "rye", placeholder: true },
+    ];
+    expect(
+      expectRefusal(s, { type: "STAGE", barrelId: "barrel", resourceCardId: "r1" }),
+    ).toContain("doesn't need");
   });
 });
 
@@ -422,9 +466,9 @@ describe("improve distillery", () => {
     let s = createGame({ seed: 1 });
     s = intoPlay(s);
     s.players[0]!.capital = 1000;
-    const max = dept(s.players[0]!, "tastingRoom").maxLevel;
-    for (let i = 0; i < max; i++) s = ok(s, { type: "IMPROVE", departmentId: "tastingRoom" });
-    expect(expectRefusal(s, { type: "IMPROVE", departmentId: "tastingRoom" })).toContain(
+    const max = dept(s.players[0]!, "distribution").maxLevel;
+    for (let i = 0; i < max; i++) s = ok(s, { type: "IMPROVE", departmentId: "distribution" });
+    expect(expectRefusal(s, { type: "IMPROVE", departmentId: "distribution" })).toContain(
       "fully grown",
     );
   });
@@ -434,7 +478,7 @@ describe("improve distillery", () => {
     const discounted = improvementCost(0, 1);
     expect(discounted).toBeLessThan(base);
     const s = createGame({ seed: 1, distilleryIds: ["oldoak"] });
-    expect(dept(s.players[0]!, "tastingRoom").discount).toBe(1);
+    expect(dept(s.players[0]!, "distribution").discount).toBe(1);
   });
 });
 
@@ -443,6 +487,11 @@ describe("improve distillery", () => {
 // ------------------------------------------------------------------
 
 describe("asymmetric distilleries", () => {
+  // Every sale also banks the Distribution base bonus; isolate the signature.
+  const DIST = createGame({ seed: 1 }).players[0]!.distillery.departments.find(
+    (d) => d.id === "distribution",
+  )!.values[0]!;
+
   function sellWith(distilleryId: string, over: Partial<Bourbon>): Player {
     let s = createGame({ seed: 5, distilleryIds: [distilleryId] });
     s = intoPlay(s);
@@ -454,12 +503,14 @@ describe("asymmetric distilleries", () => {
   }
 
   it("volumeBonus pays +Capital on every sale", () => {
-    expect(sellWith("ironhill", { batchQty: 2 }).capital).toBe(CONFIG.VOLUME_BONUS);
+    expect(sellWith("ironhill", { batchQty: 2 }).capital).toBe(DIST + CONFIG.VOLUME_BONUS);
   });
 
   it("ryeBonus pays only on rye batches", () => {
-    expect(sellWith("ryerevival", { batchQty: 2, recipeTags: ["rye"] }).capital).toBe(CONFIG.RYE_BONUS);
-    expect(sellWith("ryerevival", { batchQty: 2, recipeTags: ["wheat"] }).capital).toBe(0);
+    expect(sellWith("ryerevival", { batchQty: 2, recipeTags: ["rye"] }).capital).toBe(
+      DIST + CONFIG.RYE_BONUS,
+    );
+    expect(sellWith("ryerevival", { batchQty: 2, recipeTags: ["wheat"] }).capital).toBe(DIST);
   });
 
   it("agedPrestige pays prestige completing a well-aged batch only", () => {
@@ -506,7 +557,7 @@ describe("clock and scoring", () => {
     s = intoPlay(s);
     // Leave exactly Distilling-Office-many bills, then KEEP them all so the
     // supply drains (rejected bills cycle back, so keeping nothing won't empty it).
-    const office = dept(s.players[0]!, "distillingOffice").values[0]!;
+    const office = dept(s.players[0]!, "mashFloor").values[0]!;
     s.mashBillSupply = s.mashBillSupply.slice(0, office);
     s = ok(s, {
       type: "DRAW_MASH_BILLS",
