@@ -18,6 +18,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+# Opt the bundled JS actions (e.g. aws-actions/configure-aws-credentials@v5,
+# which still ships a Node 20 runtime) onto Node 24 ahead of GitHub removing
+# Node 20 from the runners. Silences the deprecation warning and future-proofs.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   # ----------------------------------------------------------------------
   # CI: type-check, test, build. Acts as the gate for the deploy job.
