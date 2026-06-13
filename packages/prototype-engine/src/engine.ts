@@ -1,13 +1,17 @@
-// Bourbonomics PROTOTYPE — the reducer.
+// Bourbonomics — the reducer (ground-up revision).
 //
 // applyAction(state, action) is the engine's only mutation surface. It is
-// pure: it deep-clones the incoming state, applies the action to the clone
-// (the current player is always state.currentPlayerIndex), advances the
-// round-robin / round / end-of-game machinery, and returns either the new
-// state or a typed refusal. Bots and the network layer will drive this same
-// Action shape in later batches.
+// pure: it deep-clones the incoming state, applies the action to the clone,
+// advances the phase / round / end-of-game machinery, and returns either the
+// new state or a typed refusal.
+//
+// A round runs Demand → Collect → Play:
+//   • Demand : lay out the round's demand (auto on entry); BEGIN_COLLECT advances.
+//   • Collect: most-Capital-first dice draft (COLLECT_REROLL / COLLECT_CLAIM).
+//   • Play   : round-robin, unlimited actions (DRAW_MASH_BILLS / MAKE_BOURBON /
+//              SELL / IMPROVE / END_TURN). When all pass, age +1 and next round.
 
-import { CONFIG, FLAGS, openLineCost } from "./config";
+import { CONFIG, improvementCost } from "./config";
 import { buildDemandDeck, expressionToTags } from "./content";
 import { rankPlayers } from "./scoring";
 import { rngRange, shuffle } from "./rng";
@@ -15,58 +19,22 @@ import type {
   Action,
   ActionResult,
   Bourbon,
-  BrandLine,
   DemandCard,
+  Department,
+  DepartmentId,
+  Die,
+  DieFace,
   GameState,
   Player,
   Quality,
   ResourceCard,
   ResourceKind,
-  RewardLeaf,
-  SlotRewardSpec,
-  StationId,
-  Tag,
 } from "./types";
 
-// ---------------------------------------------------------------------
-// Distillery stations
-// ---------------------------------------------------------------------
-
-/** Current effect magnitude of a player's station at its built tier (0 if absent). */
-function stationLevel(player: Player, id: StationId): number {
-  const st = player.distillery.stations.find((s) => s.id === id);
-  return st ? st.levels[st.builtTier]! : 0;
-}
-
-/** Total barrel capacity = the rickhouse station's current level. */
-function rickhouseCapacity(player: Player): number {
-  return stationLevel(player, "rickhouse");
-}
-
-/** Apply the distillery's signature ability for one extraction (sale). */
-function applySignature(player: Player, bourbon: Bourbon, isFinal: boolean): void {
-  switch (player.distillery.signature) {
-    case "volumeBonus":
-      // Throughput: every sale pays a little extra.
-      player.capital += CONFIG.VOLUME_BONUS;
-      break;
-    case "ryeBonus":
-      // Specialist: rye batches sell at a premium.
-      if (bourbon.recipeTags.includes("rye")) player.capital += CONFIG.RYE_BONUS;
-      break;
-    case "agedPrestige":
-      // Patience: completing a well-aged batch earns prestige.
-      if (isFinal && bourbon.age >= CONFIG.AGED_PRESTIGE_MIN_AGE) {
-        player.prestige += CONFIG.AGED_PRESTIGE;
-      }
-      break;
-    case "none":
-      break;
-  }
-}
+const ALL_KINDS: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
+const DIE_FACES: DieFace[] = ["cask", "corn", "rye", "wheat", "barley", "anything"];
 
 let idCounter = 0;
-/** Monotonic id helper for runtime entities (bourbons, lines). */
 function nextId(prefix: string): string {
   idCounter += 1;
   return `${prefix}_${idCounter}`;
@@ -77,10 +45,51 @@ function refuse(reason: string): ActionResult {
 }
 
 // ---------------------------------------------------------------------
-// Resource piles (five, face-down; blind quality off the top)
+// Department helpers
 // ---------------------------------------------------------------------
 
-const ALL_KINDS: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
+function dept(player: Player, id: DepartmentId): Department | undefined {
+  return player.distillery.departments.find((d) => d.id === id);
+}
+
+/** Current effect magnitude of a department at its level (0 if absent). */
+function deptValue(player: Player, id: DepartmentId): number {
+  const d = dept(player, id);
+  return d ? d.values[d.level]! : 0;
+}
+
+const rickhouseCapacity = (p: Player): number => deptValue(p, "rickhouse");
+const supplyCap = (p: Player): number => deptValue(p, "supply");
+const warehouseCap = (p: Player): number => deptValue(p, "warehouse");
+const officeDraw = (p: Player): number => deptValue(p, "distillingOffice");
+const tastingBonus = (p: Player): number => deptValue(p, "tastingRoom");
+const marketingCards = (p: Player): number => deptValue(p, "marketing");
+
+/** A Supply upgrade (level ≥ 1) grants a second reroll. */
+const rerollsFor = (p: Player): number => (dept(p, "supply")!.level >= 1 ? 2 : 1);
+
+/** Apply the distillery's signature ability for one sale. */
+function applySignature(player: Player, bourbon: Bourbon, isFinal: boolean): void {
+  switch (player.distillery.signature) {
+    case "volumeBonus":
+      player.capital += CONFIG.VOLUME_BONUS;
+      break;
+    case "ryeBonus":
+      if (bourbon.recipeTags.includes("rye")) player.capital += CONFIG.RYE_BONUS;
+      break;
+    case "agedPrestige":
+      if (isFinal && bourbon.age >= CONFIG.AGED_PRESTIGE_MIN_AGE) {
+        player.prestige += CONFIG.AGED_PRESTIGE;
+      }
+      break;
+    case "none":
+      break;
+  }
+}
+
+// ---------------------------------------------------------------------
+// Resource piles (five, face-down; blind quality off the top)
+// ---------------------------------------------------------------------
 
 /**
  * Draw one card blind off the top of a pile. When the pile empties, reshuffle
@@ -90,7 +99,7 @@ const ALL_KINDS: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
 function drawFromPile(draft: GameState, kind: ResourceKind): ResourceCard | null {
   if (draft.piles[kind].length === 0) {
     if (!CONFIG.PILE_RESHUFFLE_ON_EMPTY || draft.pileDiscards[kind].length === 0) {
-      return null; // pile fully exhausted
+      return null;
     }
     const [reshuffled, seed] = shuffle(draft.pileDiscards[kind], draft.rngSeed);
     draft.piles[kind] = reshuffled;
@@ -101,46 +110,19 @@ function drawFromPile(draft: GameState, kind: ResourceKind): ResourceCard | null
   return draft.piles[kind].shift() ?? null;
 }
 
-/**
- * Draw n resources blind across RANDOM piles — used by slot/marketing rewards
- * (a "+N resources" payout), which grant cards without a pile choice. Free; no
- * overflow or cost-spike charge applies to reward draws.
- */
-function drawRandomResources(draft: GameState, n: number): ResourceCard[] {
-  const drawn: ResourceCard[] = [];
-  for (let i = 0; i < n; i++) {
-    const available = ALL_KINDS.filter(
-      (k) => draft.piles[k].length > 0 || draft.pileDiscards[k].length > 0,
-    );
-    if (available.length === 0) break; // every pile exhausted
-    const [pick, seed] = rngRange(draft.rngSeed, available.length);
-    draft.rngSeed = seed;
-    const card = drawFromPile(draft, available[pick]!);
-    if (card) drawn.push(card);
-  }
-  return drawn;
-}
-
 // ---------------------------------------------------------------------
 // Quality / recipe helpers
 // ---------------------------------------------------------------------
 
-const QUALITY_RANK: Record<Quality, number> = {
-  common: 0,
-  specialty: 1,
-  heritage: 2,
-};
+const QUALITY_RANK: Record<Quality, number> = { common: 0, specialty: 1, heritage: 2 };
 
 /** Highest tier among committed resources sets the bourbon's quality. */
 function deriveQuality(cards: ResourceCard[]): Quality {
   let best: Quality = "common";
-  for (const c of cards) {
-    if (QUALITY_RANK[c.quality] > QUALITY_RANK[best]) best = c.quality;
-  }
+  for (const c of cards) if (QUALITY_RANK[c.quality] > QUALITY_RANK[best]) best = c.quality;
   return best;
 }
 
-/** Human-readable recipe summary, e.g. "1 cask + 2 corn + 1 rye". */
 function recipeText(recipe: Partial<Record<ResourceKind, number>>): string {
   const parts: string[] = [];
   for (const k of ALL_KINDS) {
@@ -150,15 +132,8 @@ function recipeText(recipe: Partial<Record<ResourceKind, number>>): string {
   return parts.length ? parts.join(" + ") : "nothing";
 }
 
-/** Count committed cards by kind. */
 function countByKind(cards: ResourceCard[]): Record<ResourceKind, number> {
-  const counts: Record<ResourceKind, number> = {
-    cask: 0,
-    corn: 0,
-    rye: 0,
-    wheat: 0,
-    barley: 0,
-  };
+  const counts: Record<ResourceKind, number> = { cask: 0, corn: 0, rye: 0, wheat: 0, barley: 0 };
   for (const c of cards) counts[c.kind] += 1;
   return counts;
 }
@@ -173,18 +148,11 @@ function recipeSatisfied(
   for (const k of ALL_KINDS) {
     const need = recipe[k] ?? 0;
     if (have[k] !== need) {
-      return {
-        ok: false,
-        reason: `recipe for ${name} needs ${need} ${k} (got ${have[k]})`,
-      };
+      return { ok: false, reason: `recipe for ${name} needs ${need} ${k} (got ${have[k]})` };
     }
   }
   return { ok: true };
 }
-
-// ---------------------------------------------------------------------
-// Matrix lookup (clamped direct index)
-// ---------------------------------------------------------------------
 
 /** matrix[age][demand], clamped to the grid's bounds. */
 export function matrixValue(matrix: number[][], age: number, demand: number): number {
@@ -195,146 +163,9 @@ export function matrixValue(matrix: number[][], age: number, demand: number): nu
 }
 
 // ---------------------------------------------------------------------
-// Brand-line placement
+// Demand (PLACEHOLDER) — lay out the round's demand picture
 // ---------------------------------------------------------------------
 
-/** Highest filled age in a line, or null if empty. */
-function highestAge(line: BrandLine): number | null {
-  let max: number | null = null;
-  for (const slot of line.slots) {
-    if (slot && (max === null || slot.age > max)) max = slot.age;
-  }
-  return max;
-}
-
-/**
- * Whether placing a bottle of `age` into empty slot `i` keeps the line's ages
- * non-decreasing left→right (ties allowed). Empty slots between are skipped —
- * only the nearest FILLED neighbors constrain the placement.
- */
-function slotAgeEligible(line: BrandLine, i: number, age: number): boolean {
-  if (i < 0 || i >= line.slots.length) return false;
-  if (line.slots[i] !== null) return false;
-  for (let l = i - 1; l >= 0; l--) {
-    const s = line.slots[l];
-    if (s) {
-      if (s.age > age) return false;
-      break;
-    }
-  }
-  for (let r = i + 1; r < line.slots.length; r++) {
-    const s = line.slots[r];
-    if (s) {
-      if (s.age < age) return false;
-      break;
-    }
-  }
-  return true;
-}
-
-/** Resolve a slot's reward spec into a concrete leaf, honoring a player choice. */
-function resolveReward(
-  spec: SlotRewardSpec,
-  bourbon: Bourbon,
-  rewardChoice: number | undefined,
-): RewardLeaf {
-  switch (spec.kind) {
-    case "flat":
-      return spec.reward;
-    case "choice":
-      return spec.options[rewardChoice ?? 0] ?? spec.options[0]!;
-    case "gated": {
-      const ageOk =
-        spec.gate.minAge === undefined || bourbon.age >= spec.gate.minAge;
-      const qualityOk =
-        spec.gate.minQuality === undefined ||
-        QUALITY_RANK[bourbon.quality] >= QUALITY_RANK[spec.gate.minQuality];
-      return ageOk && qualityOk ? spec.hit : spec.miss;
-    }
-  }
-}
-
-/** Pay out a concrete reward leaf (capital / prestige / age-prestige / resources). */
-function payReward(
-  draft: GameState,
-  player: Player,
-  leaf: RewardLeaf,
-  bourbon: Bourbon,
-): void {
-  player.capital += leaf.capital ?? 0;
-  player.prestige += leaf.prestige ?? 0;
-  if (leaf.prestigeFromAge) player.prestige += bourbon.age;
-  if (leaf.resources && leaf.resources > 0) {
-    player.hand.push(...drawRandomResources(draft, leaf.resources));
-  }
-}
-
-interface Placement {
-  line: BrandLine;
-  slotIndex: number;
-}
-
-/**
- * Place a bottle into a chosen slot, fire its (possibly chosen/gated) reward
- * and any trait-matched marketing. Mutates player/draft. Assumes the slot has
- * already been validated as eligible by the caller.
- */
-function placeBourbon(
-  draft: GameState,
-  player: Player,
-  placement: Placement,
-  bourbon: Bourbon,
-  rewardChoice: number | undefined,
-): void {
-  const { line, slotIndex } = placement;
-  line.slots[slotIndex] = bourbon;
-  line.ageCeiling = highestAge(line);
-
-  const spec = line.slotCard.slots[slotIndex];
-  if (spec) {
-    payReward(draft, player, resolveReward(spec.reward, bourbon, rewardChoice), bourbon);
-  }
-
-  for (const mkt of line.marketingCards) {
-    const matches = mkt.requiredTraits.every((t) => bourbon.traits.includes(t));
-    if (matches) player.prestige += mkt.prestigeOnMatch;
-  }
-}
-
-// ---------------------------------------------------------------------
-// Trays / forecast / round machinery
-// ---------------------------------------------------------------------
-
-/** Top up the mash bill tray from the face-down supply (drains the end clock). */
-function refillMashBillTray(draft: GameState): void {
-  while (
-    draft.mashBillTray.length < CONFIG.MASH_BILL_TRAY_SIZE &&
-    draft.mashBillSupply.length > 0
-  ) {
-    draft.mashBillTray.push(draft.mashBillSupply.shift()!);
-  }
-}
-
-function refillMarketingTray(draft: GameState): void {
-  while (
-    draft.marketingTray.length < CONFIG.MARKETING_TRAY_SIZE &&
-    draft.marketingDeck.length > 0
-  ) {
-    draft.marketingTray.push(draft.marketingDeck.shift()!);
-  }
-}
-
-/** Once the bill supply empties, schedule one final equal-turn round. */
-function maybeTriggerFinalRound(draft: GameState): void {
-  if (draft.finalRound === null && draft.mashBillSupply.length === 0) {
-    draft.finalRound = draft.roundNumber + 1;
-    draft.log.push(
-      `Mash bill supply exhausted — final round will be round ${draft.finalRound}.`,
-    );
-  }
-}
-
-/** Clamp a demand level into [floor, cap]. */
 function clampDemand(v: number): number {
   return Math.max(CONFIG.DEMAND_FLOOR, Math.min(CONFIG.DEMAND_CAP, v));
 }
@@ -354,112 +185,100 @@ function drawDemandCards(draft: GameState, n: number): DemandCard[] {
   return out;
 }
 
-/** Deal a fresh demand row (one card per player) and recompute the flood lines. */
-function dealDemandRow(draft: GameState): void {
-  draft.demandCards = drawDemandCards(draft, draft.players.length);
-  draft.blueLine = draft.demandCards.reduce((sum, c) => sum + c.blueCapacity, 0);
-  draft.redLine = draft.demandCards.reduce((sum, c) => sum + c.redCapacity, 0);
-}
-
 /**
- * Resolve the round's flood band into next round's deferred demand move. The
- * heavy-flood IMMEDIATE drop already fired live during the round (the cliff in
- * handleExtract); this applies only the deferred part:
- *   underserved (cubes < blue)     → +1
- *   moderate    (blue ≤ cubes < red)→ −1
- *   heavy       (cubes ≥ red)       → −1 (extended pain; immediate already hit)
+ * Lay out the round's demand. Marketing shapes how many cards are laid down —
+ * with a shared market, the table's best marketer sets the count (`[PH]`). The
+ * round's matrix demand level is the highest level among the laid-out cards.
+ * Holds for the whole round (forecastable). 🚧 PLACEHOLDER demand content.
  */
-function resolveDemandBand(draft: GameState): void {
-  let delta: number;
-  let band: string;
-  if (draft.cubesPlaced < draft.blueLine) {
-    delta = 1;
-    band = "underserved";
-  } else if (draft.cubesPlaced < draft.redLine) {
-    delta = -1;
-    band = "moderate flood";
-  } else {
-    delta = -1;
-    band = "heavy flood (extended)";
-  }
-  draft.demand = clampDemand(draft.demand + delta);
+function layOutDemand(draft: GameState): void {
+  const count = Math.max(1, ...draft.players.map((p) => marketingCards(p)));
+  draft.demandCards = drawDemandCards(draft, count);
+  draft.demand = clampDemand(
+    draft.demandCards.reduce<number>((m, c) => Math.max(m, c.level), CONFIG.DEMAND_FALLBACK),
+  );
   draft.log.push(
-    `Demand ${band}: ${draft.cubesPlaced} sold vs blue ${draft.blueLine}/red ${draft.redLine} → demand ${draft.demand}.`,
+    `Demand laid out: ${draft.demandCards.map((c) => c.label).join(", ")} → demand level ${draft.demand}.`,
   );
 }
 
-/** Global rising trend: +1 every DEMAND_RISE_EVERY rounds at the Year Pass. */
-function applyGlobalRise(draft: GameState): void {
-  if (draft.roundNumber % CONFIG.DEMAND_RISE_EVERY !== 0) return;
-  const before = draft.demand;
-  draft.demand = clampDemand(draft.demand + 1);
-  if (draft.demand !== before) {
-    draft.log.push(`The market drifts up (rising trend) → demand ${draft.demand}.`);
-  }
+// ---------------------------------------------------------------------
+// Collect Phase — most-Capital-first dice draft
+// ---------------------------------------------------------------------
+
+function rollDie(draft: GameState): Die {
+  const [pick, seed] = rngRange(draft.rngSeed, DIE_FACES.length);
+  draft.rngSeed = seed;
+  return { id: nextId("die"), face: DIE_FACES[pick]! };
+}
+
+function rollDice(draft: GameState, n: number): Die[] {
+  const dice: Die[] = [];
+  for (let i = 0; i < n; i++) dice.push(rollDie(draft));
+  return dice;
+}
+
+/** Player order for the Collect pass: most Capital first, ties by seat index. */
+function capitalOrder(draft: GameState): number[] {
+  return draft.players
+    .map((_, i) => i)
+    .sort((a, b) => draft.players[b]!.capital - draft.players[a]!.capital || a - b);
 }
 
 /**
- * Whether a batch with these tags can sell into the market this round: some
- * drawn card must demand its style — an exact-tag slot, or an "open" slot on
- * the broad card. A tagless batch (no recipeTags) is universally eligible.
- * Non-consuming: eligibility is a per-round signal, not a limited resource.
+ * Begin a collect turn for the player at `collect.pos`, inheriting `inherited`
+ * leftover dice. Fresh dice are rolled to fill up to the player's Supply cap
+ * (inherited-kept + fresh ≤ cap). Sets the active player as current.
  */
-function canSellTags(state: GameState, tags: Tag[]): boolean {
-  if (tags.length === 0) return true;
-  return state.demandCards.some((card) =>
-    card.slots.some(
-      (slot) => slot.tagRestriction === "open" || tags.includes(slot.tagRestriction),
-    ),
+function startCollectTurn(draft: GameState, inherited: Die[]): void {
+  const c = draft.collect!;
+  const pIndex = c.order[c.pos]!;
+  const player = draft.players[pIndex]!;
+  draft.currentPlayerIndex = pIndex;
+  const fresh = rollDice(draft, Math.max(0, supplyCap(player) - inherited.length));
+  c.dice = [...inherited, ...fresh];
+  c.rerollsUsed = 0;
+  c.maxRerolls = rerollsFor(player);
+  draft.log.push(
+    `${player.name} collects — rolled ${c.dice.map((d) => d.face).join(", ")}` +
+      `${inherited.length ? ` (incl. ${inherited.length} inherited)` : ""}.`,
   );
 }
 
-/** UI/bot helper: can a batch with these tags sell into the market right now? */
-export function hasEligibleDemandSlot(state: GameState, tags: Tag[]): boolean {
-  return canSellTags(state, tags);
+/** Enter the Collect Phase: compute the pass order and start the first turn. */
+function enterCollect(draft: GameState): void {
+  draft.roundPhase = "collect";
+  draft.collect = { order: capitalOrder(draft), pos: 0, dice: [], rerollsUsed: 0, maxRerolls: 1 };
+  startCollectTurn(draft, []);
 }
 
-/** End-of-round: age, move demand, refill, rotate, maybe end the game. */
-function endRound(draft: GameState): void {
-  // 1. Age every BUILT barrel. Unbuilt barrels (recipe placeholders) don't age.
-  for (const p of draft.players) {
-    for (const b of p.rickhouse) if (b.built) b.age += 1;
-  }
+// ---------------------------------------------------------------------
+// Play Phase
+// ---------------------------------------------------------------------
 
-  // 2. Resolve the round's flood band + apply the global rising trend, then
-  //    clear the flood meter and deal a fresh demand row for next round. (Any
-  //    heavy-flood IMMEDIATE drop already fired live during the round.)
-  resolveDemandBand(draft);
-  applyGlobalRise(draft);
-  draft.cubesPlaced = 0;
-  dealDemandRow(draft);
-
-  // 3. Refill trays (the mash bill refill drains the end clock).
-  refillMashBillTray(draft);
-  refillMarketingTray(draft);
-  maybeTriggerFinalRound(draft);
-
-  // 4. End the game after the scheduled final round completes.
-  if (draft.finalRound !== null && draft.roundNumber >= draft.finalRound) {
-    endGame(draft);
-    return;
-  }
-
-  // 5. Start the next round: rotate start player, refresh actions.
-  draft.roundNumber += 1;
-  draft.startPlayerIndex = (draft.startPlayerIndex + 1) % draft.players.length;
+/** Enter the Play Phase: round-robin from the start player, reset per-turn flags. */
+function enterPlay(draft: GameState): void {
+  draft.roundPhase = "play";
+  draft.collect = null;
   draft.currentPlayerIndex = draft.startPlayerIndex;
   for (const p of draft.players) {
-    p.actionsRemaining = CONFIG.ACTIONS_PER_ROUND;
-    p.overflowDrawsThisRound = 0;
+    p.drewMashBillsThisTurn = false;
+    p.donePlayThisRound = false;
   }
-  draft.actionsRemaining = CONFIG.ACTIONS_PER_ROUND;
-  draft.log.push(`— Round ${draft.roundNumber} begins —`);
+  draft.log.push(`— Play Phase (round ${draft.roundNumber}) —`);
+}
+
+/** Once the bill supply empties, schedule one final equal-turn round. */
+function maybeTriggerFinalRound(draft: GameState): void {
+  if (draft.finalRound === null && draft.mashBillSupply.length === 0) {
+    draft.finalRound = draft.roundNumber + 1;
+    draft.log.push(`Mash bill supply exhausted — final round will be round ${draft.finalRound}.`);
+  }
 }
 
 function endGame(draft: GameState): void {
   draft.phase = "ended";
-  const ranked = rankPlayers(draft);
-  const winner = ranked[0];
+  const winner = rankPlayers(draft)[0];
   if (winner) {
     draft.log.push(
       `Game over. Winner: ${winner.name} with ${winner.total} ` +
@@ -468,174 +287,184 @@ function endGame(draft: GameState): void {
   }
 }
 
-/**
- * After a successful action, consume one of the current player's actions and
- * advance the round-robin: next player with actions remaining, or end the
- * round when everyone is spent.
- */
-function consumeActionAndAdvance(draft: GameState): void {
-  const current = draft.players[draft.currentPlayerIndex]!;
-  current.actionsRemaining -= 1;
+/** End the round: age every built barrel, then start the next round (or end). */
+function endRound(draft: GameState): void {
+  for (const p of draft.players) {
+    for (const b of p.rickhouse) if (b.built) b.age += 1;
+  }
+  draft.log.push(`Year passes — every aging barrel +1.`);
 
+  if (draft.finalRound !== null && draft.roundNumber >= draft.finalRound) {
+    endGame(draft);
+    return;
+  }
+
+  draft.roundNumber += 1;
+  draft.startPlayerIndex = (draft.startPlayerIndex + 1) % draft.players.length;
+  draft.log.push(`— Round ${draft.roundNumber} begins —`);
+
+  // Demand Phase of the new round: lay out demand, await BEGIN_COLLECT.
+  draft.roundPhase = "demand";
+  draft.currentPlayerIndex = draft.startPlayerIndex;
+  layOutDemand(draft);
+}
+
+/** Advance the Play round-robin to the next player who hasn't ended their turn. */
+function advancePlay(draft: GameState): void {
   const n = draft.players.length;
   for (let step = 1; step <= n; step++) {
     const idx = (draft.currentPlayerIndex + step) % n;
-    if (draft.players[idx]!.actionsRemaining > 0) {
+    if (!draft.players[idx]!.donePlayThisRound) {
       draft.currentPlayerIndex = idx;
-      draft.actionsRemaining = draft.players[idx]!.actionsRemaining;
+      draft.players[idx]!.drewMashBillsThisTurn = false;
       return;
     }
   }
-  // Nobody has actions left → the round is over.
+  // Everyone has ended their Play turn → close the round.
   endRound(draft);
 }
 
 // ---------------------------------------------------------------------
-// Action handlers — each returns null on success or a refusal reason string.
-// They mutate `draft` directly (the clone owned by applyAction).
+// Action handlers — return null on success or a refusal reason string.
 // ---------------------------------------------------------------------
 
-// ---------------------------------------------------------------------
-// Collect: free Supply Room budget + paid overflow + demand cost spikes
-// ---------------------------------------------------------------------
-
-/** The player's free draw budget = the Supply Room station's current level. */
-function supplyRoomBudget(player: Player): number {
-  return stationLevel(player, "supplyRoom");
-}
-
-/** Summed cost-spike surcharge on a pile this round (spikes stack across the demand row). */
-function spikeFor(state: GameState, kind: ResourceKind): number {
-  let total = 0;
-  for (const card of state.demandCards) {
-    for (const spike of card.costSpikes ?? []) {
-      if (spike.tag === kind) total += spike.amount;
-    }
+function handleCollectReroll(draft: GameState, diceIds: string[]): string | null {
+  const c = draft.collect!;
+  if (c.rerollsUsed >= c.maxRerolls) {
+    return `no rerolls left (used ${c.rerollsUsed}/${c.maxRerolls})`;
   }
-  return total;
+  if (diceIds.length === 0) return "choose at least one die to reroll";
+  const ids = new Set(diceIds);
+  if (ids.size !== diceIds.length) return "duplicate die ids";
+  for (const id of ids) {
+    if (!c.dice.some((d) => d.id === id)) return `die ${id} is not in play`;
+  }
+  c.dice = c.dice.map((d) => (ids.has(d.id) ? rollDie(draft) : d));
+  c.rerollsUsed += 1;
+  draft.log.push(
+    `${draft.players[draft.currentPlayerIndex]!.name} rerolled ${ids.size} die/dice ` +
+      `(${c.rerollsUsed}/${c.maxRerolls}) → ${c.dice.map((d) => d.face).join(", ")}.`,
+  );
+  return null;
 }
 
-/** Cost of the next OVERFLOW draw given how many overflow draws are already taken this round. */
-function overflowCost(overflowSoFar: number): number {
-  return FLAGS.overflowEscalating
-    ? CONFIG.OVERFLOW_COST * (overflowSoFar + 1)
-    : CONFIG.OVERFLOW_COST;
-}
-
-/**
- * Collect: draw the requested cards across the five piles. The first
- * `supplyRoomBudget` draws are free; the rest are paid overflow (flat
- * OVERFLOW_COST each, or escalating behind config). Every drawn card of a
- * spiked pile also pays the round's summed cost spike. All charged at the
- * moment each card is drawn — a player who can't pay can't take that draw.
- */
-function handleCollect(
+function handleCollectClaim(
   draft: GameState,
   player: Player,
-  draws: Partial<Record<ResourceKind, number>>,
+  claims: { dieId: string; pile?: ResourceKind }[],
 ): string | null {
-  let requested = 0;
-  for (const kind of ALL_KINDS) {
-    const n = draws[kind] ?? 0;
-    if (n < 0 || !Number.isInteger(n)) return `invalid draw count for ${kind}`;
-    requested += n;
-  }
-  if (requested === 0) return "Collect at least one card";
+  const c = draft.collect!;
+  const claimIds = new Set(claims.map((x) => x.dieId));
+  if (claimIds.size !== claims.length) return "duplicate claimed die ids";
 
-  const budget = supplyRoomBudget(player);
-  const cap = FLAGS.overflowPerRoundCap;
-
-  // Walk the requested draws pile by pile, charging as we go so a mid-Collect
-  // shortfall refuses cleanly (the draft is discarded on refusal by applyAction).
-  let drawnCount = 0;
-  const picked: ResourceCard[] = [];
-  for (const kind of ALL_KINDS) {
-    const want = draws[kind] ?? 0;
-    for (let i = 0; i < want; i++) {
-      const isOverflow = drawnCount >= budget;
-      let cost = isOverflow ? overflowCost(player.overflowDrawsThisRound) : 0;
-      if (isOverflow && cap !== null && player.overflowDrawsThisRound >= cap) {
-        return `overflow capped at ${cap} bought draw(s) this round`;
+  // Validate every claim before drawing anything.
+  const plan: { die: Die; pile: ResourceKind }[] = [];
+  for (const { dieId, pile } of claims) {
+    const die = c.dice.find((d) => d.id === dieId);
+    if (!die) return `die ${dieId} is not in play`;
+    let target: ResourceKind;
+    if (die.face === "anything") {
+      if (!pile || !ALL_KINDS.includes(pile)) {
+        return "an 'anything' die needs a pile to draw from";
       }
-      cost += spikeFor(draft, kind);
-      if (player.capital < cost) {
-        return `not enough Capital for that ${kind} draw (need ${cost}, have ${player.capital})`;
-      }
-      const card = drawFromPile(draft, kind);
-      if (!card) return `the ${kind} pile is empty`;
-      player.capital -= cost;
-      if (isOverflow) player.overflowDrawsThisRound += 1;
-      picked.push(card);
-      drawnCount += 1;
+      target = pile;
+    } else {
+      if (pile && pile !== die.face) return `that die is ${die.face}, not ${pile}`;
+      target = die.face;
     }
+    plan.push({ die, pile: target });
   }
 
-  player.hand.push(...picked);
-  const free = Math.min(drawnCount, budget);
-  const overflow = drawnCount - free;
+  // Warehouse cap: held cards + new claims must fit.
+  const cap = warehouseCap(player);
+  if (player.hand.length + plan.length > cap) {
+    return `Warehouse holds ${cap} — you have ${player.hand.length} and tried to claim ${plan.length}`;
+  }
+
+  // Draw blind for each claim (a mid-draw empty pile refuses cleanly).
+  const drawn: ResourceCard[] = [];
+  for (const { pile } of plan) {
+    const card = drawFromPile(draft, pile);
+    if (!card) return `the ${pile} pile is empty`;
+    drawn.push(card);
+  }
+  player.hand.push(...drawn);
+
+  // Leftover (unclaimed) dice pass to the next player as inheritance.
+  const leftovers = c.dice.filter((d) => !claimIds.has(d.id));
   draft.log.push(
-    `${player.name} collected ${drawnCount} resource(s) (${free} free` +
-      `${overflow > 0 ? `, ${overflow} overflow` : ""}).`,
+    `${player.name} claimed ${plan.length} resource(s)` +
+      `${leftovers.length ? `, passed ${leftovers.length} die/dice on` : ""}.`,
   );
+
+  // Advance the pass, or finish the Collect Phase.
+  c.pos += 1;
+  if (c.pos < c.order.length) {
+    startCollectTurn(draft, leftovers);
+  } else {
+    enterPlay(draft);
+  }
   return null;
 }
 
 function handleDrawMashBills(
   draft: GameState,
   player: Player,
-  keepIndex: number,
+  keepIndexes: number[],
 ): string | null {
-  if (draft.mashBillTray.length === 0) return "mash bill tray is empty";
-  if (keepIndex < 0 || keepIndex >= draft.mashBillTray.length) {
-    return `keepIndex ${keepIndex} out of range`;
+  if (player.drewMashBillsThisTurn) return "you have already drawn mash bills this turn";
+
+  const reveal = officeDraw(player);
+  const offer = draft.mashBillSupply.slice(0, Math.min(reveal, draft.mashBillSupply.length));
+  if (offer.length === 0) return "the mash bill supply is empty";
+
+  const keep = new Set(keepIndexes);
+  if (keep.size !== keepIndexes.length) return "duplicate keep indexes";
+  for (const i of keep) {
+    if (i < 0 || i >= offer.length) return `keep index ${i} is out of range (revealed ${offer.length})`;
   }
-  const cap = rickhouseCapacity(player);
-  if (player.rickhouse.length >= cap) {
-    return `rickhouse is full (cap ${cap}) — upgrade the rickhouse to expand`;
+
+  const room = rickhouseCapacity(player) - player.rickhouse.length;
+  if (keep.size > room) {
+    return `rickhouse has room for ${Math.max(0, room)} more barrel(s) — upgrade it to expand`;
   }
-  const [kept] = draft.mashBillTray.splice(keepIndex, 1);
-  // Keeping a mash bill lays down an UNBUILT barrel: it shows the recipe it
-  // needs and does NOT age until MAKE_BOURBON commits the resources.
-  const barrel: Bourbon = {
-    id: nextId("bourbon"),
-    mashBillId: kept!.id,
-    name: kept!.name,
-    traits: [...kept!.traits],
-    expression: kept!.expression,
-    recipeTags: expressionToTags(kept!.expression),
-    recipe: { ...kept!.recipe },
-    built: false,
-    age: 0,
-    quality: "common",
-    batchQty: kept!.batchQty,
-    salesRemaining: kept!.batchQty,
-    matrix: kept!.matrix,
-    createdRound: draft.roundNumber,
-  };
-  player.rickhouse.push(barrel);
-  // Take-and-refill: pull one replacement from the face-down supply.
-  refillMashBillTray(draft);
+
+  // Remove the whole offer from the supply; kept ones become resting barrels,
+  // the rest cycle back (shuffled in) so they aren't re-drawn identically.
+  draft.mashBillSupply = draft.mashBillSupply.slice(offer.length);
+  const rejected = offer.filter((_, i) => !keep.has(i));
+  for (const i of keep) {
+    const bill = offer[i]!;
+    player.rickhouse.push({
+      id: nextId("bourbon"),
+      mashBillId: bill.id,
+      name: bill.name,
+      traits: [...bill.traits],
+      expression: bill.expression,
+      recipeTags: expressionToTags(bill.expression),
+      recipe: { ...bill.recipe },
+      built: false,
+      age: 0,
+      quality: "common",
+      batchQty: bill.batchQty,
+      salesRemaining: bill.batchQty,
+      matrix: bill.matrix,
+      createdRound: draft.roundNumber,
+    });
+  }
+  if (rejected.length > 0) {
+    const [reshuffled, seed] = shuffle([...draft.mashBillSupply, ...rejected], draft.rngSeed);
+    draft.mashBillSupply = reshuffled;
+    draft.rngSeed = seed;
+  }
+
+  player.drewMashBillsThisTurn = true;
   maybeTriggerFinalRound(draft);
   draft.log.push(
-    `${player.name} laid down "${kept!.name}" to rest — needs ${recipeText(kept!.recipe)} (rickhouse ${player.rickhouse.length}/${cap}).`,
+    `${player.name} drew ${offer.length} bill(s), kept ${keep.size}` +
+      `${keep.size ? ` (${[...keep].map((i) => `"${offer[i]!.name}"`).join(", ")})` : ""} — ` +
+      `rickhouse ${player.rickhouse.length}/${rickhouseCapacity(player)}, ${draft.mashBillSupply.length} bills left.`,
   );
-  return null;
-}
-
-function handleDrawSlotCard(
-  draft: GameState,
-  player: Player,
-  slotDefId?: string,
-): string | null {
-  const idx = slotDefId
-    ? draft.slotCardSupply.findIndex((c) => c.defId === slotDefId)
-    : 0;
-  if (idx < 0 || draft.slotCardSupply.length === 0) {
-    return "no matching slot card available";
-  }
-  const [card] = draft.slotCardSupply.splice(idx, 1);
-  player.slotCards.push(card!);
-  draft.log.push(`${player.name} took slot card "${card!.name}".`);
   return null;
 }
 
@@ -645,15 +474,12 @@ function handleMakeBourbon(
   barrelId: string,
   resourceCardIds: string[],
 ): string | null {
-  // Target an UNBUILT barrel already resting in the rickhouse.
   const barrel = player.rickhouse.find((b) => b.id === barrelId);
   if (!barrel) return "barrel not found in your rickhouse";
   if (barrel.built) return "that barrel is already built and aging";
 
   const uniqueIds = new Set(resourceCardIds);
-  if (uniqueIds.size !== resourceCardIds.length) {
-    return "duplicate resource card ids";
-  }
+  if (uniqueIds.size !== resourceCardIds.length) return "duplicate resource card ids";
   const cards: ResourceCard[] = [];
   for (const id of resourceCardIds) {
     const card = player.hand.find((c) => c.id === id);
@@ -664,8 +490,6 @@ function handleMakeBourbon(
   const check = recipeSatisfied(barrel.recipe, barrel.name, cards);
   if (!check.ok) return check.reason;
 
-  // Commit all required cards in one action: remove from hand → matching
-  // per-type discard, build the barrel, start it aging. Quality = best committed.
   player.hand = player.hand.filter((c) => !uniqueIds.has(c.id));
   for (const c of cards) draft.pileDiscards[c.kind].push(c);
 
@@ -673,100 +497,17 @@ function handleMakeBourbon(
   barrel.age = 0;
   barrel.quality = deriveQuality(cards);
   barrel.createdRound = draft.roundNumber;
-  draft.log.push(
-    `${player.name} built a ${barrel.quality} "${barrel.name}" — now aging.`,
-  );
-  return null;
-}
-
-function handleDrawMarketing(
-  draft: GameState,
-  player: Player,
-  keepIndex: number,
-  brandLineId: string,
-): string | null {
-  if (draft.marketingTray.length === 0) return "marketing tray is empty";
-  if (keepIndex < 0 || keepIndex >= draft.marketingTray.length) {
-    return `keepIndex ${keepIndex} out of range`;
-  }
-  const line = player.brandLines.find((l) => l.id === brandLineId);
-  if (!line) return "target brand line not found";
-
-  const card = draft.marketingTray[keepIndex]!;
-
-  // Validate attachment BEFORE paying or mutating the tray.
-  if (line.marketingCards.length >= CONFIG.MARKETING_STACK_CAP) {
-    return `brand line already at marketing cap (${CONFIG.MARKETING_STACK_CAP})`;
-  }
-  if (line.marketingCards.some((m) => m.exclusiveGroup === card.exclusiveGroup)) {
-    return `a conflicting "${card.exclusiveGroup}" marketing card is already attached`;
-  }
-
-  const free = !player.usedFreeMarketing;
-  if (!free && player.capital < CONFIG.MARKETING_DRAW_COST) {
-    return `not enough capital (need ${CONFIG.MARKETING_DRAW_COST})`;
-  }
-
-  // Commit.
-  if (free) {
-    player.usedFreeMarketing = true;
-  } else {
-    player.capital -= CONFIG.MARKETING_DRAW_COST;
-  }
-  draft.marketingTray.splice(keepIndex, 1);
-  refillMarketingTray(draft);
-  line.marketingCards.push(card);
-  draft.log.push(
-    `${player.name} attached "${card.name}"${free ? " (free)" : ""} to a brand line.`,
-  );
-  return null;
-}
-
-function handleOpenBrandLine(
-  draft: GameState,
-  player: Player,
-  slotCardId: string,
-): string | null {
-  const cardIdx = player.slotCards.findIndex((c) => c.id === slotCardId);
-  if (cardIdx < 0) return "you do not hold that slot card";
-
-  const cost = openLineCost(player.brandLines.length);
-  if (player.capital < cost) {
-    return `opening a line costs ${cost} capital (have ${player.capital})`;
-  }
-  player.capital -= cost;
-
-  const [slotCard] = player.slotCards.splice(cardIdx, 1);
-  const line: BrandLine = {
-    id: nextId("line"),
-    slotCard: slotCard!,
-    slots: slotCard!.slots.map(() => null),
-    ageCeiling: null,
-    marketingCards: [],
-  };
-  player.brandLines.push(line);
-  draft.log.push(
-    `${player.name} opened brand line "${slotCard!.name}" for ${cost} capital.`,
-  );
+  draft.log.push(`${player.name} built a ${barrel.quality} "${barrel.name}" — now aging.`);
   return null;
 }
 
 /**
- * Extract one sale from a built, aged batch. Every extraction banks the
- * age×demand matrix value. An INTERMEDIATE extraction (salesRemaining > 1)
- * stops there: no demand cool, no placement, the batch stays in the rickhouse.
- * The FINAL extraction (salesRemaining → 0) additionally cools demand, pays
- * the flat completion bonus, frees the rickhouse slot, and mints + places the
- * bottle into a brand line (the placement/staircase rules are unchanged).
+ * Sell (Extract) one sale from a built, aged batch. Every sale banks the
+ * age × demand matrix value plus the Tasting Room bonus. The FINAL sale frees
+ * the rickhouse slot. 🚧 The completion bonus / collection enshrinement on the
+ * final sale is STUBBED (CONFIG.COMPLETION_BONUS held at 0).
  */
-function handleExtract(
-  draft: GameState,
-  player: Player,
-  bourbonId: string,
-  brandLineId: string | undefined,
-  slotIndex: number | undefined,
-  rewardChoice: number | undefined,
-): string | null {
+function handleSell(draft: GameState, player: Player, bourbonId: string): string | null {
   const idx = player.rickhouse.findIndex((b) => b.id === bourbonId);
   if (idx < 0) return "bourbon not found in your rickhouse";
   const bourbon = player.rickhouse[idx]!;
@@ -777,108 +518,42 @@ function handleExtract(
   }
   if (bourbon.salesRemaining <= 0) return "this batch is already fully sold";
 
-  // Tag gate: a batch can sell only if its style is demanded this round (a
-  // matching focused card or the broad card is on the table). No demand → hold.
-  if (!canSellTags(draft, bourbon.recipeTags)) {
-    return "no demand for this batch's style this round";
-  }
-
   const isFinal = bourbon.salesRemaining === 1;
-
-  // The final sale mints a bottle, so it needs a valid placement. Validate it
-  // up-front (before any mutation) so a refusal leaves the batch untouched.
-  let placement: Placement | null = null;
-  if (isFinal) {
-    if (brandLineId === undefined || slotIndex === undefined) {
-      return "the final sale of a batch must be placed into a brand line";
-    }
-    const line = player.brandLines.find((l) => l.id === brandLineId);
-    if (!line) return "target brand line not found — open a line first";
-    if (slotIndex < 0 || slotIndex >= line.slots.length) {
-      return `slot ${slotIndex} is out of range`;
-    }
-    if (line.slots[slotIndex] !== null) return "that slot is already filled";
-    if (!slotAgeEligible(line, slotIndex, bourbon.age)) {
-      return "that slot would break the line's age order (staircase)";
-    }
-    const spec = line.slotCard.slots[slotIndex]!;
-    // Expressions: an optional slot must match its paired required's age.
-    if (spec.matchAgeOfSlot !== undefined) {
-      const paired = line.slots[spec.matchAgeOfSlot];
-      if (!paired) return "the paired slot must be filled first";
-      if (paired.age !== bourbon.age) {
-        return `this slot must match the paired bottle's age (${paired.age})`;
-      }
-    }
-    // Validate an explicit choice index against the option count.
-    if (spec.reward.kind === "choice" && rewardChoice !== undefined) {
-      if (rewardChoice < 0 || rewardChoice >= spec.reward.options.length) {
-        return `reward choice ${rewardChoice} is out of range`;
-      }
-    }
-    placement = { line, slotIndex };
-  }
-
-  // Place the sale-cube and re-check the flood cliff IMMEDIATELY: if this cube
-  // reaches the red line, the demand level drops now — so this very sale (and
-  // any later one this round) cashes at the reduced level. Completed sales are
-  // never clawed back.
-  draft.cubesPlaced += 1;
-  if (draft.cubesPlaced === draft.redLine) {
-    draft.demand = clampDemand(draft.demand - 1);
-  }
-
-  // Bank the age×demand matrix value at the current (possibly just-cut) level.
-  const value = matrixValue(bourbon.matrix, bourbon.age, draft.demand);
+  const value = matrixValue(bourbon.matrix, bourbon.age, draft.demand) + tastingBonus(player);
   player.capital += value;
   bourbon.salesRemaining -= 1;
   player.bourbonsSold += 1;
   applySignature(player, bourbon, isFinal);
 
-  if (!isFinal) {
-    // Intermediate: banks Capital and floods the market, but mints no bottle —
-    // the batch stays in the rickhouse to keep aging.
+  if (isFinal) {
+    player.capital += CONFIG.COMPLETION_BONUS;
+    player.rickhouse.splice(idx, 1);
     draft.log.push(
-      `${player.name} extracted a sale of "${bourbon.name}" (age ${bourbon.age}) for ${value} — ${bourbon.salesRemaining}/${bourbon.batchQty} left; flood ${draft.cubesPlaced}/${draft.redLine}, demand ${draft.demand}.`,
+      `${player.name} sold out "${bourbon.name}" (age ${bourbon.age}) — final sale ${value}; rickhouse slot freed.`,
     );
-    return null;
+  } else {
+    draft.log.push(
+      `${player.name} sold "${bourbon.name}" (age ${bourbon.age}) for ${value} — ${bourbon.salesRemaining}/${bourbon.batchQty} left.`,
+    );
   }
-
-  // Final sale: pay the completion bonus (flat base + the bottling station),
-  // tick the tasting-room prestige, free the rickhouse slot, and mint + place
-  // the bottle. All demand cooling runs through the flood meter above.
-  const completionBonus = CONFIG.COMPLETION_BONUS + stationLevel(player, "bottling");
-  player.capital += completionBonus;
-  player.prestige += stationLevel(player, "tastingRoom");
-  player.rickhouse.splice(idx, 1);
-  placeBourbon(draft, player, placement!, bourbon, rewardChoice);
-
-  draft.log.push(
-    `${player.name} sold out "${bourbon.name}" (age ${bourbon.age}) — final sale ${value} +${completionBonus} bonus into "${placement!.line.slotCard.name}" slot ${placement!.slotIndex + 1}; flood ${draft.cubesPlaced}/${draft.redLine}, demand ${draft.demand}.`,
-  );
   return null;
 }
 
-function handleBuildUpgrade(
-  draft: GameState,
-  player: Player,
-  stationId: StationId,
-): string | null {
-  const station = player.distillery.stations.find((s) => s.id === stationId);
-  if (!station) return `unknown station "${stationId}"`;
-  if (station.builtTier >= station.maxTier) {
-    return `${station.name} is already fully upgraded`;
-  }
-  const next = station.builtTier + 1;
-  const cost = station.costs[next] ?? 0;
+function handleImprove(draft: GameState, player: Player, departmentId: DepartmentId): string | null {
+  const d = dept(player, departmentId);
+  if (!d) return `unknown department "${departmentId}"`;
+  if (d.level >= d.maxLevel) return `${d.name} is already fully grown`;
+
+  const cost = improvementCost(player.improvements, d.discount);
   if (player.capital < cost) {
-    return `upgrading ${station.name} costs ${cost} capital (have ${player.capital})`;
+    return `improving ${d.name} costs ${cost} capital (have ${player.capital})`;
   }
-  // Pay Capital and remove the cover — permanent, no upkeep.
   player.capital -= cost;
-  station.builtTier = next;
+  d.level += 1;
+  player.improvements += 1;
   draft.log.push(
-    `${player.name} upgraded ${station.name} to tier ${next} for ${cost} capital (effect now ${station.levels[next]}).`,
+    `${player.name} improved ${d.name} to level ${d.level} for ${cost} capital ` +
+      `(effect now ${d.values[d.level]}; next improvement costs ${improvementCost(player.improvements)}).`,
   );
   return null;
 }
@@ -893,49 +568,61 @@ export function applyAction(state: GameState, action: Action): ActionResult {
   const draft: GameState = structuredClone(state);
   const player = draft.players[draft.currentPlayerIndex];
   if (!player) return refuse("no current player");
-  if (player.actionsRemaining <= 0) return refuse("no actions remaining");
 
-  let error: string | null;
   switch (action.type) {
-    case "COLLECT":
-      error = handleCollect(draft, player, action.draws);
-      break;
-    case "DRAW_MASH_BILLS":
-      error = handleDrawMashBills(draft, player, action.keepIndex);
-      break;
-    case "DRAW_SLOT_CARD":
-      error = handleDrawSlotCard(draft, player, action.slotDefId);
-      break;
-    case "MAKE_BOURBON":
-      error = handleMakeBourbon(draft, player, action.barrelId, action.resourceCardIds);
-      break;
-    case "DRAW_MARKETING":
-      error = handleDrawMarketing(draft, player, action.keepIndex, action.brandLineId);
-      break;
-    case "OPEN_BRAND_LINE":
-      error = handleOpenBrandLine(draft, player, action.slotCardId);
-      break;
-    case "BUILD_UPGRADE":
-      error = handleBuildUpgrade(draft, player, action.stationId);
-      break;
-    case "EXTRACT":
-      error = handleExtract(
-        draft,
-        player,
-        action.bourbonId,
-        action.brandLineId,
-        action.slotIndex,
-        action.rewardChoice,
-      );
-      break;
+    case "BEGIN_COLLECT": {
+      if (draft.roundPhase !== "demand") return refuse("not the Demand Phase");
+      enterCollect(draft);
+      return { ok: true, state: draft };
+    }
+
+    case "COLLECT_REROLL": {
+      if (draft.roundPhase !== "collect") return refuse("not the Collect Phase");
+      const error = handleCollectReroll(draft, action.diceIds);
+      return error ? refuse(error) : { ok: true, state: draft };
+    }
+
+    case "COLLECT_CLAIM": {
+      if (draft.roundPhase !== "collect") return refuse("not the Collect Phase");
+      const error = handleCollectClaim(draft, player, action.claims);
+      return error ? refuse(error) : { ok: true, state: draft };
+    }
+
+    case "DRAW_MASH_BILLS": {
+      if (draft.roundPhase !== "play") return refuse("not the Play Phase");
+      const error = handleDrawMashBills(draft, player, action.keepIndexes);
+      return error ? refuse(error) : { ok: true, state: draft };
+    }
+
+    case "MAKE_BOURBON": {
+      if (draft.roundPhase !== "play") return refuse("not the Play Phase");
+      const error = handleMakeBourbon(draft, player, action.barrelId, action.resourceCardIds);
+      return error ? refuse(error) : { ok: true, state: draft };
+    }
+
+    case "SELL": {
+      if (draft.roundPhase !== "play") return refuse("not the Play Phase");
+      const error = handleSell(draft, player, action.bourbonId);
+      return error ? refuse(error) : { ok: true, state: draft };
+    }
+
+    case "IMPROVE": {
+      if (draft.roundPhase !== "play") return refuse("not the Play Phase");
+      const error = handleImprove(draft, player, action.departmentId);
+      return error ? refuse(error) : { ok: true, state: draft };
+    }
+
+    case "END_TURN": {
+      if (draft.roundPhase !== "play") return refuse("not the Play Phase");
+      player.donePlayThisRound = true;
+      draft.log.push(`${player.name} ends their turn.`);
+      advancePlay(draft);
+      return { ok: true, state: draft };
+    }
+
     default: {
       const _exhaustive: never = action;
       return refuse(`unknown action ${(_exhaustive as Action).type}`);
     }
   }
-
-  if (error) return refuse(error);
-
-  consumeActionAndAdvance(draft);
-  return { ok: true, state: draft };
 }

@@ -1,22 +1,21 @@
-// Bourbonomics PROTOTYPE — game setup.
+// Bourbonomics — game setup (ground-up revision).
 //
-// Builds a fresh GameState from a seed + player names. All shuffling
-// threads the seed so a given (seed, names) pair always produces the
-// same game.
+// Builds a fresh GameState from a seed + player names. All shuffling threads
+// the seed so a given (seed, names) pair always produces the same game. The
+// game opens in the Demand Phase of round 1 with the demand laid out, awaiting
+// BEGIN_COLLECT.
 
 import { CONFIG } from "./config";
 import {
   buildDemandDeck,
   buildDistilleryBoard,
-  buildMarketingDeck,
   buildMashBillSupply,
   buildPile,
-  PILE_KINDS,
-  buildSlotCardSupply,
   DISTILLERY_ROSTER,
+  PILE_KINDS,
 } from "./content";
 import { shuffle } from "./rng";
-import type { GameState, Player, ResourceCard, ResourceKind } from "./types";
+import type { DemandCard, GameState, Player, ResourceCard, ResourceKind } from "./types";
 
 export interface NewGameOptions {
   seed?: number;
@@ -26,7 +25,6 @@ export interface NewGameOptions {
   distilleryIds?: string[];
 }
 
-/** Resolve player i's distillery: explicit choice, else rotate the roster. */
 function resolveDistillery(ids: string[] | undefined, i: number): string {
   return ids?.[i] ?? DISTILLERY_ROSTER[i % DISTILLERY_ROSTER.length]!.id;
 }
@@ -43,13 +41,11 @@ function makePlayer(
     capital: startingCapital,
     prestige: 0,
     hand: [],
-    slotCards: [],
     rickhouse: [],
-    brandLines: [],
     distillery: buildDistilleryBoard(distilleryId),
-    actionsRemaining: CONFIG.ACTIONS_PER_ROUND,
-    usedFreeMarketing: false,
-    overflowDrawsThisRound: 0,
+    improvements: 0,
+    drewMashBillsThisTurn: false,
+    donePlayThisRound: false,
     bourbonsSold: 0,
   };
 }
@@ -70,62 +66,49 @@ export function createGame(options: NewGameOptions = {}): GameState {
     piles[kind] = shuffled;
     pileDiscards[kind] = [];
   }
-  const [allBills, s2] = shuffle(buildMashBillSupply(), s);
+
+  const [mashBillSupply, s2] = shuffle(buildMashBillSupply(), s);
   s = s2;
-  const [marketingDeck, s3] = shuffle(buildMarketingDeck(), s);
+  const [demandDeck, s3] = shuffle(buildDemandDeck(), s);
   s = s3;
-  const [demandDeck, s4] = shuffle(buildDemandDeck(), s);
-  s = s4;
-
-  // Slot supply is abundant and undifferentiated; no need to shuffle.
-  const slotCardSupply = buildSlotCardSupply();
-
-  // Deal the face-up mash bill tray off the top of the shuffled supply.
-  const mashBillTray = allBills.slice(0, CONFIG.MASH_BILL_TRAY_SIZE);
-  const mashBillSupply = allBills.slice(CONFIG.MASH_BILL_TRAY_SIZE);
-
-  // Deal the marketing tray.
-  const marketingTray = marketingDeck.slice(0, CONFIG.MARKETING_TRAY_SIZE);
-  const marketingDeckRest = marketingDeck.slice(CONFIG.MARKETING_TRAY_SIZE);
-
-  // Draw this round's demand cards (one per player) and sum the flood lines.
-  const playerCount = names.length;
-  const demandCards = demandDeck.slice(0, playerCount);
-  const demandDeckRest = demandDeck.slice(playerCount);
-  const blueLine = demandCards.reduce((sum, c) => sum + c.blueCapacity, 0);
-  const redLine = demandCards.reduce((sum, c) => sum + c.redCapacity, 0);
 
   const players = names.map((name, i) =>
-    makePlayer(
-      `p${i + 1}`,
-      name,
-      startingCapital,
-      resolveDistillery(options.distilleryIds, i),
-    ),
+    makePlayer(`p${i + 1}`, name, startingCapital, resolveDistillery(options.distilleryIds, i)),
+  );
+
+  // Demand Phase of round 1: lay out demand. Every player starts at Marketing
+  // level 0 (1 card), so one card is laid down; demand = its level.
+  const marketingCount = Math.max(
+    1,
+    ...players.map((p) => p.distillery.departments.find((d) => d.id === "marketing")!.values[0]!),
+  );
+  const demandCards: DemandCard[] = demandDeck.slice(0, marketingCount);
+  const demandDeckRest = demandDeck.slice(marketingCount);
+  const demand = Math.max(
+    CONFIG.DEMAND_FALLBACK,
+    ...demandCards.map((c) => c.level),
+    CONFIG.DEMAND_FLOOR,
   );
 
   return {
     phase: "playing",
+    roundPhase: "demand",
     players,
-    demand: CONFIG.DEMAND_START,
+    demand: Math.min(demand, CONFIG.DEMAND_CAP),
     demandCards,
     demandDeck: demandDeckRest,
-    cubesPlaced: 0,
-    blueLine,
-    redLine,
     piles,
     pileDiscards,
-    mashBillTray,
     mashBillSupply,
-    slotCardSupply,
-    marketingTray,
-    marketingDeck: marketingDeckRest,
+    collect: null,
     roundNumber: 1,
     startPlayerIndex: 0,
     currentPlayerIndex: 0,
-    actionsRemaining: CONFIG.ACTIONS_PER_ROUND,
     finalRound: null,
     rngSeed: s,
-    log: [`Game created (seed ${seed}, ${players.length} player(s)).`],
+    log: [
+      `Game created (seed ${seed}, ${players.length} player(s)).`,
+      `Demand laid out: ${demandCards.map((c) => c.label).join(", ")} → demand level ${Math.min(demand, CONFIG.DEMAND_CAP)}.`,
+    ],
   };
 }
