@@ -2,10 +2,10 @@
 
 /**
  * Bourbon Wiki — read-only browser of the catalogs the engine ships. Three
- * tabs: Mash Bills (recipes + payoff peak), Distilleries (departments +
- * signatures), and Demand (the round's market cards). Everything reads from
- * the engine builders so this view never drifts from what the game ships.
- * Pure reference material — no game state.
+ * tabs: Mash Bills (recipes + batch size), Distilleries (departments + offered
+ * ultimates), and Demand (the market cards — requirement, zone payouts, rep).
+ * Everything reads from the engine builders so this view never drifts from what
+ * the game ships. Pure reference material — no game state.
  */
 
 import Link from "next/link";
@@ -15,11 +15,10 @@ import {
   buildDemandDeck,
   buildDistilleryBoard,
   buildMashBillSupply,
-  CONFIG,
   DISTILLERY_ROSTER,
-  MAX_MATRIX_AGE,
+  ULTIMATE_MENU,
 } from "@bourbonomics/prototype-engine";
-import type { DemandCard, MashBill, ResourceKind } from "@bourbonomics/prototype-engine";
+import type { DemandCard, MashBill, ResourceKind, UltimateId } from "@bourbonomics/prototype-engine";
 
 const KIND_ORDER: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
 
@@ -28,9 +27,12 @@ function recipeText(recipe: Partial<Record<ResourceKind, number>>): string {
   return parts.join(" · ") || "—";
 }
 
-/** Top-right matrix cell = peak (full age × full demand). */
-function peakValue(matrix: number[][]): number {
-  return matrix[MAX_MATRIX_AGE]?.[CONFIG.DEMAND_CAP] ?? 0;
+function reqText(req: DemandCard["requirement"]): string {
+  const parts: string[] = [];
+  if (req.styleTag) parts.push(req.styleTag);
+  if (req.quality) parts.push(`${req.quality}+`);
+  if (req.minAge !== undefined) parts.push(`age ${req.minAge}+`);
+  return parts.join(" · ") || "any bourbon";
 }
 
 function dedupe<T extends { defId: string }>(cards: T[]): T[] {
@@ -124,10 +126,10 @@ function MashTab({ bills }: { bills: MashBill[] }) {
         <Card key={b.defId}>
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-display text-[18px] font-semibold text-[var(--ink)]">{b.name}</h3>
-            <span className="font-mono text-[11px] text-[var(--gold)]">~{peakValue(b.matrix)} peak</span>
+            <span className="font-mono text-[11px] text-[var(--gold)]">{b.batchQty} sales</span>
           </div>
           <div className="mt-1 font-mono text-[11px] uppercase tracking-[.1em] text-[var(--sky)]">
-            {b.expression} · {b.batchQty} sales
+            {b.expression} · {b.styleTag}
           </div>
           <div className="mt-2 text-[13px] text-[var(--ink-muted)]">
             <span className="text-[var(--mute)]">Recipe:</span> {recipeText(b.recipe)}
@@ -152,31 +154,41 @@ function DistilleriesTab() {
           <Card key={d.id}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h3 className="font-display text-[19px] font-semibold text-[var(--ink)]">{d.name}</h3>
-              <span className="font-mono text-[11px] text-[var(--gold)]">{d.signatureBlurb}</span>
+              <span className="font-mono text-[11px] text-[var(--gold)]">{d.blurb}</span>
             </div>
             <ol className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-              {board.departments.map((dep) => (
-                <li
-                  key={dep.id}
-                  className="flex items-start gap-3 rounded border border-[var(--rule)] bg-[var(--panel)] px-3 py-1.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="font-mono text-[12px] text-[var(--ink)]">
-                      {dep.name}
-                      {dep.discount > 0 && (
-                        <span className="ml-1 text-[var(--emerald)]">(−{dep.discount})</span>
-                      )}
+              {board.departments.map((dep) => {
+                const ults = dep.ultimateOptions.filter((u: UltimateId) => u !== "ph");
+                return (
+                  <li
+                    key={dep.id}
+                    className="flex items-start gap-3 rounded border border-[var(--rule)] bg-[var(--panel)] px-3 py-1.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-[12px] text-[var(--ink)]">
+                        {dep.name}
+                        {dep.discount > 0 && (
+                          <span className="ml-1 text-[var(--emerald)]">(−{dep.discount})</span>
+                        )}
+                      </div>
+                      <div className="font-mono text-[10px] text-[var(--mute)]">
+                        {dep.values.join(" → ")}
+                        {ults.length ? ` · ult: ${ults.join(", ")}` : " · ult TBD"}
+                      </div>
                     </div>
-                    <div className="font-mono text-[10px] text-[var(--mute)]">
-                      {dep.values.join(" → ")} · {dep.blurb}
-                    </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ol>
           </Card>
         );
       })}
+      <p className="font-mono text-[10px] italic text-[var(--mute)]">
+        Full ultimate menus per branch:{" "}
+        {(Object.keys(ULTIMATE_MENU) as (keyof typeof ULTIMATE_MENU)[])
+          .map((k) => `${k} (${ULTIMATE_MENU[k].filter((u) => u !== "ph").length})`)
+          .join(" · ")}
+      </p>
     </div>
   );
 }
@@ -188,15 +200,17 @@ function DemandTab({ cards }: { cards: DemandCard[] }) {
         <Card key={c.defId}>
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-display text-[17px] font-semibold text-[var(--ink)]">{c.label}</h3>
-            <span className="font-mono text-[12px] text-[var(--gold)]">demand {c.level}</span>
+            <span className="font-mono text-[12px] text-[var(--emerald)]">{c.reputation} rep</span>
+          </div>
+          <div className="mt-2 text-[13px] text-[var(--ink-muted)]">
+            <span className="text-[var(--mute)]">Requirement:</span> {reqText(c.requirement)}
+          </div>
+          <div className="mt-1 font-mono text-[11px] text-[var(--gold)]">
+            zone payout — low {c.zoneBonus.low} · mid {c.zoneBonus.mid} · high {c.zoneBonus.high}
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
-            <Chip>{c.tag}</Chip>
+            <Chip>up to {c.slotsMax} slots</Chip>
           </div>
-          <p className="mt-2 font-mono text-[10px] italic text-[var(--mute)]">
-            🚧 Placeholder. The Demand Phase lays out Marketing-many of these; the round&apos;s
-            matrix level is the highest among them.
-          </p>
         </Card>
       ))}
     </div>
