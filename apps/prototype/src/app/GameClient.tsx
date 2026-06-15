@@ -6,7 +6,7 @@
 // and seven-branch departments with per-distillery ultimates. Visual tokens &
 // layout inherit the hi-fi Collect design.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   applyAction,
   createGame,
@@ -145,6 +145,26 @@ const GLOBAL_CSS = `
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.86 0 0 0 0 0.78 0 0 0 0 0.62 0 0 0 0.10 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
   mix-blend-mode:overlay; opacity:.35; }
 ::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#3b2818;border-radius:4px;}
+/* Dice roll — fall from above, tumble, land, settle (ported from the original). */
+@keyframes bb-roll-drop {
+  0%   { transform: translateY(-200px) rotate(-320deg) scale(.78); opacity: 0; }
+  18%  { opacity: 1; }
+  60%  { transform: translateY(0) rotate(170deg) scale(1); }
+  74%  { transform: translateY(-18px) rotate(255deg) scale(1.06); }
+  88%  { transform: translateY(0) rotate(345deg) scale(.97); }
+  100% { transform: translateY(0) rotate(360deg) scale(1); }
+}
+.bb-roll-drop { animation: bb-roll-drop .82s cubic-bezier(.34,1.2,.64,1) both; will-change: transform, opacity; }
+@keyframes bb-roll-shadow {
+  0%,55% { opacity: 0; transform: scaleX(.4); }
+  72%    { opacity: .5; transform: scaleX(1.15); }
+  100%   { opacity: .3; transform: scaleX(1); }
+}
+.bb-roll-shadow { animation: bb-roll-shadow .82s cubic-bezier(.34,1.2,.64,1) both; }
+@keyframes bb-wild-shimmer { 0%,100%{ box-shadow:0 0 0 0 rgba(231,217,182,.0);} 50%{ box-shadow:0 0 14px 2px rgba(231,217,182,.45);} }
+@media (prefers-reduced-motion: reduce) {
+  .bb-roll-drop, .bb-roll-shadow { animation-duration: .001ms !important; }
+}
 `;
 
 // ── helpers ──────────────────────────────────────────────────────────
@@ -245,9 +265,8 @@ export default function GameClient() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialPool = useRef(1);
 
-  // Collect-phase local overlay (the engine commits at pass time).
-  const [collectSub, setCollectSub] = useState<"rolled" | "claim">("rolled");
-  const [kept, setKept] = useState<Set<string>>(new Set());
+  // Collect-phase local overlay (the engine commits at pass time). Click a die
+  // to draft it (optimistic claim); reroll the rest; pass leftovers on.
   const [claims, setClaims] = useState<Record<string, ResourceKind>>({});
   const [pendingWild, setPendingWild] = useState<string | null>(null);
   const [ttFace, setTtFace] = useState(false); // Triple Threat face chooser open
@@ -264,8 +283,6 @@ export default function GameClient() {
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   }
   function resetLocal() {
-    setCollectSub("rolled");
-    setKept(new Set());
     setClaims({});
     setPendingWild(null);
     setTtFace(false);
@@ -316,10 +333,6 @@ export default function GameClient() {
           flash={flash}
           onNew={() => setGame(null)}
           initialPool={initialPool.current}
-          collectSub={collectSub}
-          setCollectSub={setCollectSub}
-          kept={kept}
-          setKept={setKept}
           claims={claims}
           setClaims={setClaims}
           pendingWild={pendingWild}
@@ -350,10 +363,6 @@ interface BoardProps {
   flash: (m: string) => void;
   onNew: () => void;
   initialPool: number;
-  collectSub: "rolled" | "claim";
-  setCollectSub: (v: "rolled" | "claim") => void;
-  kept: Set<string>;
-  setKept: (v: Set<string>) => void;
   claims: Record<string, ResourceKind>;
   setClaims: (v: Record<string, ResourceKind>) => void;
   pendingWild: string | null;
@@ -381,44 +390,71 @@ function Board(p: BoardProps) {
   const rickCap = fnRick(me);
   const phaseStage = game.roundPhase; // demand | collect | play
 
-  const optimisticClaims =
-    phaseStage === "collect" && p.collectSub === "claim" ? Object.values(p.claims) : [];
+  const optimisticClaims = phaseStage === "collect" ? Object.values(p.claims) : [];
   const heldTotal = me.hand.length + optimisticClaims.length;
   const whFull = heldTotal >= warehouseCap;
 
   const zone = zoneForCardCount(game.demandCards.length);
 
+  // Canvas-space refs for the card-flight animation (die → Warehouse).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const warehouseRef = useRef<HTMLDivElement>(null);
+  const wildSrc = useRef<{ x0: number; y0: number } | null>(null);
+  const flightSeq = useRef(0);
+  const [flights, setFlights] = useState<Flight[]>([]);
+
+  /** Convert a screen rect's center to the 1920×1080 canvas coordinate space. */
+  const toCanvas = (rect: DOMRect): { x: number; y: number } | null => {
+    const root = rootRef.current;
+    if (!root) return null;
+    const r = root.getBoundingClientRect();
+    const scale = r.width / 1920 || 1;
+    return { x: (rect.left + rect.width / 2 - r.left) / scale, y: (rect.top + rect.height / 2 - r.top) / scale };
+  };
+  const flyToHand = (x0: number, y0: number, kind: ResourceKind) => {
+    const wh = warehouseRef.current;
+    const c = wh ? toCanvas(wh.getBoundingClientRect()) : null;
+    const id = ++flightSeq.current;
+    setFlights((f) => [...f, { id, x0, y0, x1: c?.x ?? x0, y1: c?.y ?? y0, kind }]);
+    window.setTimeout(() => setFlights((f) => f.filter((x) => x.id !== id)), 620);
+  };
+
   // ---- collect actions ----
   const collect = game.collect;
-  const toggleKeep = (id: string) => {
-    const n = new Set(p.kept);
-    n.has(id) ? n.delete(id) : n.add(id);
-    p.setKept(n);
-  };
   const onReroll = () => {
     if (!collect || collect.rerollsUsed >= collect.maxRerolls) return;
-    const nonKept = collect.dice.filter((d) => !p.kept.has(d.id)).map((d) => d.id);
-    if (nonKept.length === 0) {
-      flash("Keep fewer dice to reroll");
+    const rest = collect.dice.filter((d) => !(d.id in p.claims)).map((d) => d.id);
+    if (rest.length === 0) {
+      flash("Nothing left to reroll — every die is drafted");
       return;
     }
-    dispatch({ type: "COLLECT_REROLL", diceIds: nonKept });
+    dispatch({ type: "COLLECT_REROLL", diceIds: rest });
   };
-  const claimDie = (id: string, face: DieFace) => {
-    if (id in p.claims) return;
+  const claimDie = (id: string, face: DieFace, el: HTMLElement) => {
+    if (id in p.claims) {
+      const next = { ...p.claims };
+      delete next[id];
+      p.setClaims(next); // tap again to un-draft (before passing)
+      return;
+    }
     if (heldTotal >= warehouseCap) {
       flash("⚠ Warehouse full — raise the hold limit");
       return;
     }
+    const c = toCanvas(el.getBoundingClientRect());
     if (face === "anything") {
+      wildSrc.current = c ? { x0: c.x, y0: c.y } : null;
       p.setPendingWild(id);
       return;
     }
     p.setClaims({ ...p.claims, [id]: face as ResourceKind });
+    if (c) flyToHand(c.x, c.y, face as ResourceKind);
   };
   const choosePile = (kind: ResourceKind) => {
     if (!p.pendingWild) return;
     p.setClaims({ ...p.claims, [p.pendingWild]: kind });
+    if (wildSrc.current) flyToHand(wildSrc.current.x0, wildSrc.current.y0, kind);
+    wildSrc.current = null;
     p.setPendingWild(null);
   };
   const onPass = () => {
@@ -427,16 +463,16 @@ function Board(p: BoardProps) {
       return die.face === "anything" ? { dieId, pile } : { dieId };
     });
     const n = (collect?.dice.length ?? 0) - claimList.length;
-    if (dispatch({ type: "COLLECT_CLAIM", claims: claimList })) flash(`Claimed ${claimList.length} · passed ${n} dice on`);
+    if (dispatch({ type: "COLLECT_CLAIM", claims: claimList })) flash(`Drafted ${claimList.length} · passed ${n} dice on`);
   };
   const onTripleThreat = (face: DieFace) => {
     if (!collect) return;
-    const unkept = collect.dice.filter((d) => !p.kept.has(d.id)).map((d) => d.id);
-    if (unkept.length < 2) {
-      flash("Triple Threat needs 2 unkept dice");
+    const rest = collect.dice.filter((d) => !(d.id in p.claims)).map((d) => d.id);
+    if (rest.length < 2) {
+      flash("Triple Threat needs 2 undrafted dice");
       return;
     }
-    dispatch({ type: "TRIPLE_THREAT", discardDiceIds: [unkept[0]!, unkept[1]!], face });
+    dispatch({ type: "TRIPLE_THREAT", discardDiceIds: [rest[0]!, rest[1]!], face });
   };
 
   // ---- play: build / stage ----
@@ -507,6 +543,7 @@ function Board(p: BoardProps) {
 
   return (
     <div
+      ref={rootRef}
       className="bb-noise"
       style={{
         position: "relative",
@@ -571,9 +608,9 @@ function Board(p: BoardProps) {
           whFull={whFull}
           collect={collect}
           phaseStage={phaseStage}
-          toggleKeep={toggleKeep}
           onReroll={onReroll}
           claimDie={claimDie}
+          onTT={() => p.setTtFace(true)}
           onPass={onPass}
         />
 
@@ -764,7 +801,7 @@ function Board(p: BoardProps) {
                     <span style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>/{warehouseCap}</span>
                   </div>
                 }>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignContent: "center" }}>
+                <div ref={warehouseRef} style={{ display: "flex", gap: 6, flexWrap: "wrap", alignContent: "center" }}>
                   {[...me.hand.map((c) => c.kind), ...optimisticClaims].slice(0, warehouseCap).map((kind, i) => {
                     const m = SUB[kind];
                     return (
@@ -835,9 +872,12 @@ function Board(p: BoardProps) {
         </div>
       </div>
 
+      {/* card-flight layer (die → Warehouse), in canvas coordinate space */}
+      <FlightLayer flights={flights} />
+
       {/* wild pile chooser */}
       {p.pendingWild && (
-        <PileChooser title="✦ Wild — draw from which pile?" onPick={choosePile} onCancel={() => p.setPendingWild(null)} />
+        <PileChooser title="✦ Wild — draw from which pile?" onPick={choosePile} onCancel={() => { wildSrc.current = null; p.setPendingWild(null); }} />
       )}
       {/* Quality Sort pile chooser */}
       {p.qsOpen && (
@@ -849,7 +889,7 @@ function Board(p: BoardProps) {
       )}
       {/* Triple Threat face chooser */}
       {p.ttFace && (
-        <FaceChooser title="⚡ Triple Threat — discard 2 unkept dice, take which face?" onPick={onTripleThreat} onCancel={() => p.setTtFace(false)} />
+        <FaceChooser title="⚡ Triple Threat — discard 2 undrafted dice, take which face?" onPick={onTripleThreat} onCancel={() => p.setTtFace(false)} />
       )}
 
       {/* sell routing overlay */}
@@ -891,13 +931,12 @@ function ActionBand(props: {
   whFull: boolean;
   collect: GameState["collect"];
   phaseStage: GameState["roundPhase"];
-  toggleKeep: (id: string) => void;
   onReroll: () => void;
-  claimDie: (id: string, face: DieFace) => void;
+  claimDie: (id: string, face: DieFace, el: HTMLElement) => void;
+  onTT: () => void;
   onPass: () => void;
 }) {
   const { board, me, supplyCap, warehouseCap, heldTotal, whFull, collect, phaseStage } = props;
-  const sub = board.collectSub;
   const game = board.game;
 
   const hint =
@@ -905,11 +944,11 @@ function ActionBand(props: {
       ? "Demand is laid out — begin the dice draft."
       : phaseStage === "play"
         ? "Play phase — build, sell into demand, improve, then end your turn."
-        : sub === "rolled"
-          ? "Tap dice to KEEP, reroll the rest, then lock in."
-          : "Tap each die to claim it into the Warehouse.";
+        : "Tap the dice you want — each draws a card into your Warehouse. Reroll the rest, then pass.";
 
   const canTT = collect && hasUlt(me, "supply", "tripleThreat") && !collect.tripleThreatUsed;
+  const drafted = collect ? Object.keys(board.claims).length : 0;
+  const undrafted = collect ? collect.dice.length - drafted : 0;
 
   return (
     <section style={{ borderRadius: 14, background: "radial-gradient(120% 130% at 50% 0%, rgba(213,150,80,.08), transparent 55%), linear-gradient(180deg,#1c130c,#140d07)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 12px 34px rgba(0,0,0,.4)", padding: "11px 18px 13px", marginBottom: 13, flex: "0 0 auto" }}>
@@ -952,27 +991,13 @@ function ActionBand(props: {
           )}
           {phaseStage === "play" && <PlayTray board={board} me={me} />}
           {phaseStage === "collect" && collect && (
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-              {collect.dice.map((d) => {
-                const meta = FACE[d.face];
-                const kept = board.kept.has(d.id);
-                const claimed = d.id in board.claims;
-                const clickable = !claimed;
-                return (
-                  <button
-                    key={d.id}
-                    className={`bb-die${clickable ? " clk" : ""}`}
-                    onClick={() => (claimed ? undefined : sub === "rolled" ? props.toggleKeep(d.id) : props.claimDie(d.id, d.face))}
-                    style={{ position: "relative", width: 70, height: 70, borderRadius: 15, background: claimed ? "#120c07" : "linear-gradient(180deg,#2c1f13,#1a130b)", border: `2px solid ${kept ? C.brass : C.border}`, boxShadow: kept ? "inset 0 1px 0 rgba(240,201,112,.4), 0 0 0 3px rgba(198,157,82,.2), 0 10px 22px rgba(0,0,0,.5)" : "inset 0 1px 0 rgba(240,201,112,.12), 0 8px 18px rgba(0,0,0,.45)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: clickable ? "pointer" : "default", opacity: claimed ? 0.38 : 1, padding: 0 }}
-                  >
-                    {kept && !claimed && <span style={{ position: "absolute", top: -9, right: -7, fontFamily: MONO, fontSize: 7, letterSpacing: ".08em", color: "#2a1408", background: C.gold, padding: "2px 5px", borderRadius: 5 }}>KEPT</span>}
-                    <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: meta.wild ? 27 : 21, color: meta.color, lineHeight: 1 }}>{meta.mono}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted }}>{meta.label}</span>
-                    {claimed && <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 25, color: C.green }}>✓</span>}
-                  </button>
-                );
-              })}
-            </div>
+            <DiceTray
+              dice={collect.dice}
+              claims={board.claims}
+              rollId={`${collect.pos}-${collect.rerollsUsed}`}
+              full={whFull}
+              onClaim={props.claimDie}
+            />
           )}
         </div>
 
@@ -985,20 +1010,14 @@ function ActionBand(props: {
             </>
           )}
           {phaseStage === "play" && <PlayControls board={board} me={me} />}
-          {phaseStage === "collect" && sub === "rolled" && collect && (
+          {phaseStage === "collect" && collect && (
             <>
-              <button className="bb-btn bb-sec" onClick={props.onReroll} disabled={collect.rerollsUsed >= collect.maxRerolls} style={{ padding: "11px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", ...(collect.rerollsUsed < collect.maxRerolls ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710", cursor: "pointer" } : { border: `1px solid ${C.border2}`, color: C.faint, background: "#150e08", cursor: "default" }) }}>↻ Reroll unkept · {collect.maxRerolls - collect.rerollsUsed} left</button>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{drafted} drafted · {undrafted} left in the pool</div>
+              <button className="bb-btn bb-sec" onClick={props.onReroll} disabled={collect.rerollsUsed >= collect.maxRerolls} style={{ padding: "10px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", ...(collect.rerollsUsed < collect.maxRerolls ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710", cursor: "pointer" } : { border: `1px solid ${C.border2}`, color: C.faint, background: "#150e08", cursor: "default" }) }}>↻ Reroll the rest · {collect.maxRerolls - collect.rerollsUsed} left</button>
               {canTT && (
-                <button className="bb-btn bb-sec" onClick={() => board.setTtFace(true)} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.amber}`, color: C.amber, background: "#221710", cursor: "pointer" }}>⚡ Triple Threat</button>
+                <button className="bb-btn bb-sec" onClick={props.onTT} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.amber}`, color: C.amber, background: "#221710", cursor: "pointer" }}>⚡ Triple Threat</button>
               )}
-              <button className="bb-btn" onClick={() => board.setCollectSub("claim")} style={{ padding: "11px 18px", borderRadius: 10, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.35)" }}>Lock &amp; claim →</button>
-            </>
-          )}
-          {phaseStage === "collect" && sub === "claim" && collect && (
-            <>
-              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".06em", color: C.text2, lineHeight: 1.5 }}>Tap a die to draw its pile blind. Claims fill the Warehouse ↓</div>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{collect.dice.length - Object.keys(board.claims).length} unclaimed</div>
-              <button className="bb-btn bb-sec" onClick={props.onPass} style={{ padding: "11px 18px", borderRadius: 10, background: "#221710", color: C.ink, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: `1px solid ${C.brass}` }}>Claim &amp; pass on →</button>
+              <button className="bb-btn" onClick={props.onPass} style={{ padding: "11px 18px", borderRadius: 10, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.35)" }}>Draft &amp; pass on →</button>
             </>
           )}
         </div>
@@ -1254,6 +1273,146 @@ function Scrim({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(8,5,3,.82)", backdropFilter: "blur(4px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, zIndex: 60 }}>
       {children}
+    </div>
+  );
+}
+
+// ── Collect dice tray: roll-in animation + click-to-draft ─────────────
+const ROLL_MS = 820;
+const ALL_FACES: DieFace[] = ["cask", "corn", "rye", "wheat", "barley", "anything"];
+
+function DiceTray({ dice, claims, rollId, full, onClaim }: {
+  dice: { id: string; face: DieFace }[];
+  claims: Record<string, ResourceKind>;
+  rollId: string;
+  full: boolean;
+  onClaim: (id: string, face: DieFace, el: HTMLElement) => void;
+}) {
+  const [rolling, setRolling] = useState(true);
+  const [tick, setTick] = useState(0);
+  // Re-run the roll animation whenever a fresh roll happens (new turn / reroll).
+  useEffect(() => {
+    setRolling(true);
+    setTick(0);
+    const iv = window.setInterval(() => setTick((t) => t + 1), 75);
+    const to = window.setTimeout(() => setRolling(false), ROLL_MS);
+    return () => {
+      window.clearInterval(iv);
+      window.clearTimeout(to);
+    };
+  }, [rollId]);
+
+  return (
+    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+      {dice.map((d, i) => {
+        const face = rolling ? ALL_FACES[(tick + i * 2) % ALL_FACES.length]! : d.face;
+        const meta = FACE[face];
+        const claimed = !rolling && d.id in claims;
+        const clickable = !rolling && !claimed && !full;
+        const wild = meta.wild;
+        return (
+          <div key={d.id} style={{ position: "relative", width: 70, height: 84, display: "flex", justifyContent: "center" }}>
+            {/* landing shadow */}
+            {rolling && (
+              <span className="bb-roll-shadow" style={{ position: "absolute", bottom: 0, width: 60, height: 7, borderRadius: "50%", background: "rgba(0,0,0,.6)", filter: "blur(3px)", animationDelay: `${i * 55}ms` }} aria-hidden />
+            )}
+            <button
+              className={`${rolling ? "bb-roll-drop" : "bb-die"}${clickable ? " clk" : ""}`}
+              disabled={!clickable && !claimed}
+              onClick={(e) => (rolling ? undefined : onClaim(d.id, d.face, e.currentTarget))}
+              style={{
+                position: "absolute",
+                top: 0,
+                width: 70,
+                height: 70,
+                borderRadius: 15,
+                animationDelay: rolling ? `${i * 55}ms` : undefined,
+                background: claimed ? "#120c07" : "linear-gradient(180deg,#2c1f13,#1a130b)",
+                border: `2px solid ${claimed ? C.green : wild ? "#e7d9b6" : meta.color + "99"}`,
+                boxShadow: claimed
+                  ? "inset 0 0 0 1px rgba(109,178,140,.4)"
+                  : "inset 0 1px 0 rgba(240,201,112,.14), 0 8px 18px rgba(0,0,0,.45)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 3,
+                cursor: clickable ? "pointer" : claimed ? "pointer" : "default",
+                opacity: claimed ? 0.5 : 1,
+                padding: 0,
+                ...(wild && !claimed && !rolling ? { animation: "bb-wild-shimmer 2.4s ease-in-out infinite" } : {}),
+              }}
+              title={claimed ? "Tap to un-draft" : clickable ? `Draft ${meta.label}` : ""}
+            >
+              <span style={{ fontSize: wild ? 26 : 23, lineHeight: 1, color: meta.color, textShadow: `0 0 10px ${meta.color}55` }}>
+                {face === "anything" ? "✦" : SUB[face as ResourceKind].glyph}
+              </span>
+              <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: claimed ? C.green : C.muted }}>{meta.label}</span>
+              {claimed && <span style={{ position: "absolute", top: -8, right: -7, fontFamily: MONO, fontSize: 7, letterSpacing: ".06em", color: "#0c0805", background: C.green, padding: "2px 5px", borderRadius: 5 }}>DRAFTED</span>}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+interface Flight {
+  id: number;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  kind: ResourceKind;
+}
+
+/** Absolute overlay in canvas space; renders cards flying die → Warehouse. */
+function FlightLayer({ flights }: { flights: Flight[] }) {
+  return (
+    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 55, overflow: "visible" }}>
+      {flights.map((f) => (
+        <FlyCard key={f.id} flight={f} />
+      ))}
+    </div>
+  );
+}
+
+function FlyCard({ flight }: { flight: Flight }) {
+  const [go, setGo] = useState(false);
+  useEffect(() => {
+    const r = requestAnimationFrame(() => requestAnimationFrame(() => setGo(true)));
+    return () => cancelAnimationFrame(r);
+  }, []);
+  const m = SUB[flight.kind];
+  const dx = go ? flight.x1 - flight.x0 : 0;
+  const dy = go ? flight.y1 - flight.y0 : 0;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: flight.x0,
+        top: flight.y0,
+        width: 46,
+        height: 64,
+        marginLeft: -23,
+        marginTop: -32,
+        borderRadius: 8,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "6px 4px",
+        background: `linear-gradient(180deg,${m.ink}33 0%, rgba(20,14,8,.97) 70%)`,
+        border: `1px solid ${m.ink}aa`,
+        boxShadow: `0 10px 24px ${m.ink}55, inset 0 1px 0 rgba(255,255,255,.08)`,
+        transform: `translate(${dx}px, ${dy}px) scale(${go ? 0.55 : 1.04}) rotate(${go ? 12 : 0}deg)`,
+        opacity: go ? 0.15 : 1,
+        transition: "transform .56s cubic-bezier(.5,0,.35,1), opacity .56s ease-in",
+        willChange: "transform, opacity",
+      }}
+    >
+      <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: m.ink }}>{m.label}</span>
+      <span style={{ fontSize: 20, lineHeight: 1, color: m.ink, textShadow: `0 0 8px ${m.ink}66` }}>{m.glyph}</span>
     </div>
   );
 }
