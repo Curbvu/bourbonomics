@@ -41,6 +41,7 @@ import type {
   Zone,
 } from "@bourbonomics/prototype-engine";
 import ScalingHost from "./components/ScalingHost";
+import { TUT_BEATS, TutorialOverlay, tutorialGame } from "./tutorial";
 
 // ── tokens ───────────────────────────────────────────────────────────
 const MONO = "'JetBrains Mono', monospace";
@@ -209,7 +210,7 @@ function requirementText(req: DemandCard["requirement"]): string {
 }
 
 // ── setup ────────────────────────────────────────────────────────────
-function SetupScreen({ onStart }: { onStart: (names: string[]) => void }) {
+function SetupScreen({ onStart, onTutorial }: { onStart: (names: string[]) => void; onTutorial: () => void }) {
   const [count, setCount] = useState(3);
   return (
     <div style={{ display: "grid", placeItems: "center", height: "100%", fontFamily: "Inter, sans-serif" }}>
@@ -277,6 +278,25 @@ function SetupScreen({ onStart }: { onStart: (names: string[]) => void }) {
         >
           Start Game
         </button>
+        <button
+          onClick={onTutorial}
+          className="bb-btn bb-sec"
+          style={{
+            padding: "11px 24px",
+            borderRadius: 12,
+            cursor: "pointer",
+            fontFamily: MONO,
+            fontWeight: 700,
+            fontSize: 12,
+            letterSpacing: ".12em",
+            textTransform: "uppercase",
+            color: C.gold,
+            background: "#150e08",
+            border: `1px solid ${C.brass}`,
+          }}
+        >
+          ▶ How to play (tutorial)
+        </button>
       </div>
     </div>
   );
@@ -300,6 +320,7 @@ export default function GameClient() {
   const [sellId, setSellId] = useState<string | null>(null); // bourbon being routed
   const [ultDept, setUltDept] = useState<DepartmentId | null>(null); // ultimate chooser
   const [qsOpen, setQsOpen] = useState(false); // Quality Sort pile chooser
+  const [tut, setTut] = useState<number | null>(null); // active tutorial beat index, or null
 
   function flash(msg: string) {
     setToast(msg);
@@ -324,19 +345,65 @@ export default function GameClient() {
       botFlags: names.map((_, i) => i !== 0),
     });
     initialPool.current = g.demandDeck.length + g.demandDiscard.length + g.demandCards.length || 1;
+    setTut(null);
     setGame(g);
+    resetLocal();
+  }
+  // ── tutorial control ────────────────────────────────────────────────
+  function startTutorial() {
+    let g = tutorialGame();
+    const oe = TUT_BEATS[0]!.onEnter;
+    if (oe) g = oe(g);
+    initialPool.current = g.demandDeck.length + g.demandDiscard.length + g.demandCards.length || 1;
+    setGame(g);
+    setTut(0);
+    resetLocal();
+  }
+  function exitTutorial() {
+    setTut(null);
+    setGame(null);
+    resetLocal();
+  }
+  /** Advance a PROMPT beat (the Continue button); applies the next beat's rig. */
+  function tutContinue() {
+    if (tut === null || !game) return;
+    const ni = tut + 1;
+    if (ni >= TUT_BEATS.length) { exitTutorial(); return; }
+    const oe = TUT_BEATS[ni]!.onEnter;
+    setTut(ni);
+    setGame(oe ? oe(game) : game);
     resetLocal();
   }
   function dispatch(action: Action, silent = false): boolean {
     if (!game) return false;
     // Ignore human input while the AI is on the clock (its turn is auto-driven).
     if (isBotTurn(game)) return false;
+
+    // Tutorial gating: block actions that aren't part of the active step.
+    if (tut !== null) {
+      const beat = TUT_BEATS[tut]!;
+      if (beat.cta) { if (!silent) flash(`Press “${beat.cta}” to continue`); return false; }
+      if (beat.allow && !beat.allow(action, game)) { if (!silent) flash(beat.hint ?? "Follow the highlighted step"); return false; }
+    }
+
     const res = applyAction(game, action);
     if (!res.ok) {
       if (!silent) flash("⚠ " + res.reason);
       return false;
     }
-    setGame(res.state);
+
+    // Tutorial advance: did this action satisfy the step's goal?
+    let nextState = res.state;
+    if (tut !== null) {
+      const beat = TUT_BEATS[tut]!;
+      const done = (beat.goal && beat.goal(action, res.state)) || (beat.advanceWhen && beat.advanceWhen(res.state));
+      if (done) {
+        const ni = tut + 1;
+        if (ni >= TUT_BEATS.length) setTut(null);
+        else { setTut(ni); const oe = TUT_BEATS[ni]!.onEnter; if (oe) nextState = oe(res.state); }
+      }
+    }
+    setGame(nextState);
     resetLocal();
     return true;
   }
@@ -349,6 +416,7 @@ export default function GameClient() {
   // the dice-roll animation to play.
   useEffect(() => {
     if (!game || game.phase !== "playing") return;
+    if (tut !== null) return; // the tutorial drives the round by hand, no auto-advance
     let action: Action | null = null;
     let delay = 470;
     if (game.roundPhase === "demand") {
@@ -368,7 +436,7 @@ export default function GameClient() {
       }
     }, delay);
     return () => clearTimeout(t);
-  }, [game]);
+  }, [game, tut]);
 
   if (!game) {
     return (
@@ -376,7 +444,7 @@ export default function GameClient() {
         <style>{GLOBAL_CSS}</style>
         <ScalingHost>
           <div style={{ width: 1920, height: 1080 }}>
-            <SetupScreen onStart={start} />
+            <SetupScreen onStart={start} onTutorial={startTutorial} />
           </div>
         </ScalingHost>
       </div>
@@ -391,7 +459,7 @@ export default function GameClient() {
           game={game}
           dispatch={dispatch}
           flash={flash}
-          onNew={() => setGame(null)}
+          onNew={() => { setTut(null); setGame(null); }}
           initialPool={initialPool.current}
           claims={claims}
           setClaims={setClaims}
@@ -412,6 +480,9 @@ export default function GameClient() {
           toast={toast}
         />
       </ScalingHost>
+      {tut !== null && TUT_BEATS[tut] && sellId === null && pendingWild === null && ultDept === null && !qsOpen && !ttFace && (
+        <TutorialOverlay beat={TUT_BEATS[tut]!} onContinue={tutContinue} onExit={exitTutorial} />
+      )}
     </div>
   );
 }
@@ -779,7 +850,7 @@ function Board(p: BoardProps) {
                   const cap = CONFIG.QUALITY_CEILING[b.quality];
                   const atCeiling = base + b.age >= cap;
                   return (
-                    <div key={b.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div key={b.id} data-tut="aging" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <button
                         className="bb-btn"
                         onClick={() => (phaseStage === "play" && sellable && !botTurn ? p.setSellId(b.id) : botTurn ? undefined : flash(sellable ? "Sell in the Play phase" : `Ages until year ${CONFIG.MIN_SELL_AGE}`))}
@@ -844,7 +915,7 @@ function Board(p: BoardProps) {
                   const needKinds = PILE_ORDER.filter((k) => (b.recipe[k] ?? 0) - b.staged.filter((c) => c.kind === k).length > 0);
                   const stageable = needKinds.find((k) => me.hand.some((c) => c.kind === k));
                   return (
-                    <div key={b.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div key={b.id} data-tut="resting" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <div style={{ position: "relative", borderRadius: 12, padding: "11px 12px 12px", border: "1px solid #4a5a3a", background: "linear-gradient(180deg, rgba(50,60,40,.4) 0%, rgba(20,18,11,.96) 60%)", boxShadow: "inset 0 1px 0 rgba(180,210,150,.14), 0 10px 22px rgba(0,0,0,.5)", overflow: "hidden" }}>
                         <span style={{ position: "absolute", top: 9, right: 9, fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: "#2a1408", background: "linear-gradient(180deg,#9fc27a,#6d8f4f)", padding: "2px 6px", borderRadius: 4 }}>{STYLE_LABEL[b.styleTag]}</span>
                         <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: "#9fc27a" }}>Resting Bill</div>
@@ -1099,7 +1170,7 @@ function ActionBand(props: {
         <div style={{ position: "relative", borderRadius: 12, background: "radial-gradient(120% 100% at 50% 0%, rgba(213,150,80,.07), transparent 60%), #11100a", border: `1px solid ${C.border2}`, padding: 14, minHeight: 112, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {phaseStage === "demand" && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-              <button className="bb-btn" onClick={() => board.dispatch({ type: "BEGIN_COLLECT" })} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 30px", borderRadius: 12, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 14, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 10px 24px rgba(198,157,82,.3)" }}>🎲 Begin draft · roll {supplyCap}</button>
+              <button data-tut="begin" className="bb-btn" onClick={() => board.dispatch({ type: "BEGIN_COLLECT" })} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 30px", borderRadius: 12, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 14, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 10px 24px rgba(198,157,82,.3)" }}>🎲 Begin draft · roll {supplyCap}</button>
               <div style={{ fontSize: 12, color: C.muted }}>Most-Capital-first · you inherit leftovers, then roll</div>
             </div>
           )}
@@ -1211,7 +1282,7 @@ function PlayControls({ board, me }: { board: BoardProps; me: Player }) {
   return (
     <>
       {!board.drawingBills ? (
-        <button className="bb-btn" disabled={blocked} onClick={() => board.setDrawingBills(true)} style={{ padding: "11px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", border: 0, cursor: blocked ? "default" : "pointer", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)", opacity: blocked ? 0.5 : 1 }}>
+        <button data-tut="draw" className="bb-btn" disabled={blocked} onClick={() => board.setDrawingBills(true)} style={{ padding: "11px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", border: 0, cursor: blocked ? "default" : "pointer", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)", opacity: blocked ? 0.5 : 1 }}>
           Draw {office} Mash Bills
         </button>
       ) : (
@@ -1345,7 +1416,7 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
     rgba(217,107,84,.15) ${pct(midTop)}, rgba(217,107,84,.15) 100%)`;
 
   return (
-    <aside style={{ display: "flex", flexDirection: "column", gap: 9, borderRadius: 16, background: "linear-gradient(180deg,#1a120b,#130c06)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: 13, minHeight: 0, overflow: "hidden" }}>
+    <aside data-tut="market" style={{ display: "flex", flexDirection: "column", gap: 9, borderRadius: 16, background: "linear-gradient(180deg,#1a120b,#130c06)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: 13, minHeight: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, flex: "0 0 auto" }}>
         <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>The Market</span>
         <div style={{ flex: 1 }} />
@@ -1466,7 +1537,7 @@ function DiceTray({ dice, claims, rollId, full, locked, onClaim }: {
   }, [rollId]);
 
   return (
-    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+    <div data-tut="dice" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
       {dice.map((d, i) => {
         const face = rolling ? ALL_FACES[(tick + i * 2) % ALL_FACES.length]! : d.face;
         const meta = FACE[face];
