@@ -24,6 +24,14 @@ export const CONFIG = {
    * mash-bill supply is the clock (kept bills deplete it; demand reshuffles).
    */
   CLOCK_MODE: "demand_deck" as ClockMode,
+  /**
+   * Safety backstop: force the final round at this round number so the game
+   * always terminates, even if completions can't outpace the demand crashes
+   * (which can happen at higher player counts, where each card needs more
+   * fills). The demand-deck clock stays the primary, earlier terminator. Set
+   * null to disable. `[PH]` — a balance dial, not a fixed round count.
+   */
+  MAX_ROUNDS: 30 as number | null,
 
   // --- The linear improvement ramp -----------------------------------------
   /**
@@ -43,9 +51,6 @@ export const CONFIG = {
   /** Zone thresholds by total cards on the table: 1–(MID-1) Low, …–(HIGH-1) Mid, ≥HIGH High. */
   ZONE_MID_MIN: 5,
   ZONE_HIGH_MIN: 8,
-  /** Active slots per card by player count (capped per-card by slotsMax). `[PH]`. */
-  DEMAND_SLOTS_BY_PLAYER_COUNT: { 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3 } as Record<number, number>,
-  DEMAND_SLOTS_FALLBACK: 2,
 
   // --- Selling — the disaggregated payoff ----------------------------------
   /** Quality base value (part 1 of barrel value). `[PH]`. */
@@ -102,8 +107,11 @@ export function barrelValue(quality: Quality, age: number): number {
   return Math.min(raw, CONFIG.QUALITY_CEILING[quality]);
 }
 
-/** How many slots a card activates at a given player count. */
-export function activeSlotsForPlayerCount(playerCount: number, slotsMax: number): number {
-  const want = CONFIG.DEMAND_SLOTS_BY_PLAYER_COUNT[playerCount] ?? CONFIG.DEMAND_SLOTS_FALLBACK;
-  return Math.max(1, Math.min(slotsMax, want));
+/**
+ * How many slots a card activates at a given player count. A card's fill is the
+ * player count times its `slotMultiple` (1 = one fill per player; 2 = two, etc.),
+ * so a slot always belongs to exactly one player-share of demand.
+ */
+export function activeSlotsForPlayerCount(playerCount: number, slotMultiple: number): number {
+  return Math.max(1, slotMultiple) * Math.max(1, playerCount);
 }

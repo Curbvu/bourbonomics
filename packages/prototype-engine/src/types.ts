@@ -93,8 +93,8 @@ export interface DemandRequirement {
  *   - `zoneBonus`    : the On Fill / zone effect — extra Capital paid to a sale
  *                      routed here, read in the current demand zone.
  *   - `reputation`   : the On Completed reward — Reputation kept by the completer.
- *   - `slotsMax`     : printed maximum slots.
- *   - `slotsActive`  : how many are live this game (set by player count at lay-out).
+ *   - `slotMultiple` : fills per player (1 = player count slots; 2 = twice that…).
+ *   - `slotsActive`  : how many slots are live this game (= slotMultiple × players).
  *   - `filledBy`     : player id in each active slot, or null (length = slotsActive).
  */
 export interface DemandCard {
@@ -102,7 +102,8 @@ export interface DemandCard {
   defId: string;
   label: string;
   requirement: DemandRequirement;
-  slotsMax: number;
+  /** Slots = slotMultiple × player count (1 = one fill per player; some cards 2×). */
+  slotMultiple: number;
   slotsActive: number;
   filledBy: (string | null)[];
   zoneBonus: Record<Zone, number>;

@@ -135,21 +135,22 @@ interface DemandCardDef {
   defId: string;
   label: string;
   requirement: { styleTag?: StyleTag; minAge?: number; quality?: Quality };
-  slotsMax: number;
+  /** Fills per player (1 = player count slots; 2 = twice that). `[PH]`. */
+  slotMultiple: number;
   zoneBonus: { low: number; mid: number; high: number };
   reputation: number;
   count: number;
 }
 
 const DEMAND_CARD_DEFS: DemandCardDef[] = [
-  { defId: "dm_house", label: "House Pour", requirement: {}, slotsMax: 3, zoneBonus: { low: 1, mid: 2, high: 3 }, reputation: 2, count: 8 },
-  { defId: "dm_corn", label: "Sweet-Corn Craze", requirement: { styleTag: "highCorn" }, slotsMax: 3, zoneBonus: { low: 1, mid: 3, high: 4 }, reputation: 3, count: 4 },
-  { defId: "dm_rye", label: "Rye Revival", requirement: { styleTag: "rye" }, slotsMax: 3, zoneBonus: { low: 2, mid: 3, high: 5 }, reputation: 3, count: 5 },
-  { defId: "dm_wheat", label: "Wheated Wishlist", requirement: { styleTag: "wheat" }, slotsMax: 3, zoneBonus: { low: 2, mid: 3, high: 5 }, reputation: 3, count: 5 },
-  { defId: "dm_fourgrain", label: "Four-Grain Feature", requirement: { styleTag: "fourGrain" }, slotsMax: 2, zoneBonus: { low: 3, mid: 5, high: 7 }, reputation: 5, count: 3 },
-  { defId: "dm_aged", label: "Aged-Stock Order", requirement: { minAge: 4 }, slotsMax: 2, zoneBonus: { low: 2, mid: 4, high: 6 }, reputation: 4, count: 5 },
-  { defId: "dm_premium", label: "Connoisseur Order", requirement: { quality: "specialty" }, slotsMax: 2, zoneBonus: { low: 3, mid: 5, high: 8 }, reputation: 5, count: 4 },
-  { defId: "dm_collector", label: "Collector's Cellar", requirement: { quality: "heritage", minAge: 6 }, slotsMax: 2, zoneBonus: { low: 4, mid: 7, high: 11 }, reputation: 8, count: 3 },
+  { defId: "dm_house", label: "House Pour", requirement: {}, slotMultiple: 2, zoneBonus: { low: 1, mid: 2, high: 3 }, reputation: 2, count: 8 },
+  { defId: "dm_corn", label: "Sweet-Corn Craze", requirement: { styleTag: "highCorn" }, slotMultiple: 1, zoneBonus: { low: 1, mid: 3, high: 4 }, reputation: 3, count: 4 },
+  { defId: "dm_rye", label: "Rye Revival", requirement: { styleTag: "rye" }, slotMultiple: 1, zoneBonus: { low: 2, mid: 3, high: 5 }, reputation: 3, count: 5 },
+  { defId: "dm_wheat", label: "Wheated Wishlist", requirement: { styleTag: "wheat" }, slotMultiple: 1, zoneBonus: { low: 2, mid: 3, high: 5 }, reputation: 3, count: 5 },
+  { defId: "dm_fourgrain", label: "Four-Grain Feature", requirement: { styleTag: "fourGrain" }, slotMultiple: 1, zoneBonus: { low: 3, mid: 5, high: 7 }, reputation: 5, count: 3 },
+  { defId: "dm_aged", label: "Aged-Stock Order", requirement: { minAge: 4 }, slotMultiple: 1, zoneBonus: { low: 2, mid: 4, high: 6 }, reputation: 4, count: 5 },
+  { defId: "dm_premium", label: "Connoisseur Order", requirement: { quality: "specialty" }, slotMultiple: 1, zoneBonus: { low: 3, mid: 5, high: 8 }, reputation: 5, count: 4 },
+  { defId: "dm_collector", label: "Collector's Cellar", requirement: { quality: "heritage", minAge: 6 }, slotMultiple: 1, zoneBonus: { low: 4, mid: 7, high: 11 }, reputation: 8, count: 3 },
 ];
 
 export function buildDemandDeck(): DemandCard[] {
@@ -161,8 +162,8 @@ export function buildDemandDeck(): DemandCard[] {
         defId: def.defId,
         label: def.label,
         requirement: { ...def.requirement },
-        slotsMax: def.slotsMax,
-        slotsActive: def.slotsMax, // re-set to the player count at lay-out
+        slotMultiple: def.slotMultiple,
+        slotsActive: def.slotMultiple, // re-set to slotMultiple × players at lay-out
         filledBy: [],
         zoneBonus: { ...def.zoneBonus },
         reputation: def.reputation,

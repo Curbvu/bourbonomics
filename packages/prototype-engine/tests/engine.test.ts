@@ -79,7 +79,7 @@ function makeDemandCard(over: Partial<DemandCard> = {}): DemandCard {
     defId: over.defId ?? "dm_test",
     label: over.label ?? "Test Order",
     requirement: over.requirement ?? {},
-    slotsMax: over.slotsMax ?? slotsActive,
+    slotMultiple: over.slotMultiple ?? 1,
     slotsActive,
     filledBy: over.filledBy ?? Array.from({ length: slotsActive }, () => null),
     zoneBonus: over.zoneBonus ?? { low: 2, mid: 4, high: 6 },
@@ -122,13 +122,14 @@ describe("setup", () => {
     }
   });
 
-  it("activates demand slots to the player count", () => {
-    const solo = createGame({ seed: 1 });
-    expect(solo.demandCards[0]!.filledBy.length).toBe(1);
-    const six = createGame({ seed: 1, playerNames: ["a", "b", "c", "d", "e", "f"] });
-    expect(six.demandCards[0]!.filledBy.length).toBe(
-      CONFIG.DEMAND_SLOTS_BY_PLAYER_COUNT[6],
-    );
+  it("activates demand slots as a multiple of the player count", () => {
+    for (const n of [2, 4, 6]) {
+      const g = createGame({ seed: 1, playerNames: Array.from({ length: n }, (_, i) => `p${i}`) });
+      for (const c of g.demandCards) {
+        expect(c.filledBy.length).toBe(c.slotMultiple * n);
+        expect(c.filledBy.length % n).toBe(0); // always a whole player-share
+      }
+    }
   });
 });
 

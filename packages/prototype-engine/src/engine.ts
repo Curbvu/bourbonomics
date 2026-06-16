@@ -199,9 +199,9 @@ function drawDemandCards(draft: GameState, n: number): DemandCard[] {
   return out;
 }
 
-/** Activate a freshly-drawn card's slots for the current player count. */
+/** Activate a freshly-drawn card's slots: slotMultiple × player count. */
 function activateCard(card: DemandCard, playerCount: number): void {
-  card.slotsActive = activeSlotsForPlayerCount(playerCount, card.slotsMax);
+  card.slotsActive = activeSlotsForPlayerCount(playerCount, card.slotMultiple);
   card.filledBy = Array.from({ length: card.slotsActive }, () => null);
 }
 
@@ -701,6 +701,12 @@ function endRound(draft: GameState): void {
     p.qualitySortUsedThisRound = false;
   }
   draft.log.push(`Year passes — every aging barrel +1.`);
+
+  // Backstop so the game always terminates (demand-deck clock stays primary).
+  if (draft.finalRound === null && CONFIG.MAX_ROUNDS !== null && draft.roundNumber >= CONFIG.MAX_ROUNDS) {
+    draft.finalRound = draft.roundNumber;
+    draft.log.push(`Round limit (${CONFIG.MAX_ROUNDS}) reached — round ${draft.finalRound} is the final round.`);
+  }
 
   if (draft.finalRound !== null && draft.roundNumber >= draft.finalRound) {
     endGame(draft);

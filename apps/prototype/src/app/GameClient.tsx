@@ -1256,68 +1256,114 @@ function Room({ id, board, me, bg, headerRight, borderTop, children }: {
   );
 }
 
-// ── Market — the persistent demand pile (zones / crash / slots / kept) ──
+// ── Market — the persistent demand pile as a bottom-to-top DEMAND METER ──
+// Cards stack from the floor up; the higher the pile climbs the hotter the zone
+// (Low → Mid → High), and the 10th card crashes the market.
 function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Player }) {
   const count = game.demandCards.length;
   const toCrash = CONFIG.DEMAND_CRASH_AT - count;
   const zoneMeta = ZONE_META[zone];
+  // Zone band boundaries as a fraction of the meter height (out of the 9 cards
+  // before a crash): Low 1–4, Mid 5–7, High 8–9.
+  const lowTop = (CONFIG.ZONE_MID_MIN - 1) / (CONFIG.DEMAND_CRASH_AT - 1); // 4/9
+  const midTop = (CONFIG.ZONE_HIGH_MIN - 1) / (CONFIG.DEMAND_CRASH_AT - 1); // 7/9
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+  const meterBg = `linear-gradient(0deg,
+    rgba(109,178,140,.13) 0%, rgba(109,178,140,.13) ${pct(lowTop)},
+    rgba(213,150,80,.13) ${pct(lowTop)}, rgba(213,150,80,.13) ${pct(midTop)},
+    rgba(217,107,84,.15) ${pct(midTop)}, rgba(217,107,84,.15) 100%)`;
+
   return (
-    <aside style={{ display: "flex", flexDirection: "column", gap: 10, borderRadius: 16, background: "linear-gradient(180deg,#1a120b,#130c06)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: 13, minHeight: 0, overflow: "hidden" }}>
+    <aside style={{ display: "flex", flexDirection: "column", gap: 9, borderRadius: 16, background: "linear-gradient(180deg,#1a120b,#130c06)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: 13, minHeight: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, flex: "0 0 auto" }}>
         <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>The Market</span>
         <div style={{ flex: 1 }} />
-        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: "#0c0805", background: zoneMeta.color, padding: "3px 8px", borderRadius: 5 }}>{zoneMeta.label} zone</span>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
-        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.ink }}>{count}</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>cards on the table</span>
-        <div style={{ flex: 1 }} />
-        <span style={{ fontFamily: MONO, fontSize: 9, color: toCrash <= 2 ? C.red : C.muted }}>{toCrash <= 2 ? `⚠ crash in ${toCrash}` : `crash at ${CONFIG.DEMAND_CRASH_AT}`}</span>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18, color: C.ink }}>{count}</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: "#0c0805", background: zoneMeta.color, padding: "3px 8px", borderRadius: 5 }}>{zoneMeta.label}</span>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 6, overflow: "hidden" }}>
-        {game.demandCards.map((o) => {
-          const filled = o.filledBy.filter((f) => f !== null).length;
-          const complete = filled >= o.slotsActive;
+      {/* the meter */}
+      <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 12, border: `1px solid ${C.border}`, background: meterBg, overflow: "hidden" }}>
+        {/* crash ceiling */}
+        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderBottom: `1px dashed ${toCrash <= 2 ? C.red : "#4a3826"}` }}>
+          <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", color: toCrash <= 2 ? C.red : C.muted }}>▲ crash at {CONFIG.DEMAND_CRASH_AT}</span>
+          <div style={{ flex: 1 }} />
+          {toCrash <= 2 && <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", color: C.red }}>⚠ {toCrash} to crash</span>}
+        </div>
+
+        {/* zone band tick labels */}
+        {(["high", "mid", "low"] as Zone[]).map((z) => {
+          const bottom = z === "low" ? lowTop / 2 : z === "mid" ? (lowTop + midTop) / 2 : (midTop + 1) / 2;
           return (
-            <div key={o.id} style={{ borderRadius: 10, padding: "8px 10px", background: "linear-gradient(180deg, rgba(40,28,18,.55), rgba(20,14,8,.92))", border: `1px solid ${complete ? C.green : C.border}`, flex: "0 0 auto" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, lineHeight: 1 }}>{o.label}</span>
-                <div style={{ flex: 1 }} />
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.gold }}>+{o.zoneBonus[zone]}</span>
-                <span style={{ fontFamily: MONO, fontSize: 8, color: C.green }}>·{o.reputation}rep</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
-                <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted }}>Req</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber }}>{requirementText(o.requirement)}</span>
-                <div style={{ flex: 1 }} />
-                <div style={{ display: "flex", gap: 3 }}>
-                  {o.filledBy.map((f, i) => {
-                    const pi = f ? game.players.findIndex((pl) => pl.id === f) : -1;
-                    return (
-                      <span key={i} style={{ width: 16, height: 16, borderRadius: 4, ...(f ? { background: PLAYER_COLORS[pi % PLAYER_COLORS.length], boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }} />
-                    );
-                  })}
-                </div>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>{filled}/{o.slotsActive}</span>
-              </div>
-            </div>
+            <span key={z} style={{ position: "absolute", left: 6, bottom: `calc(${pct(bottom)} - 6px)`, fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: ZONE_META[z].color, opacity: 0.55, pointerEvents: "none" }}>{ZONE_META[z].label}</span>
           );
         })}
-        <div style={{ borderRadius: 10, border: "1.5px dashed #4a3826", background: "repeating-linear-gradient(45deg, rgba(40,28,18,.4) 0px, rgba(40,28,18,.4) 8px, rgba(20,14,8,.4) 8px, rgba(20,14,8,.4) 16px)", padding: "7px 10px", flex: "0 0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: C.text2 }}>The Glut</span>
-            <div style={{ flex: 1 }} />
-            <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>barrel value only</span>
-          </div>
-          <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4, marginTop: 3 }}>Any unmatched sale dumps here — no zone effect, no Reputation.</div>
+
+        {/* cards stack from the bottom up (column-reverse → first card on the floor) */}
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column-reverse", justifyContent: "flex-start", gap: 5, padding: "6px 7px 7px 7px", overflow: "hidden" }}>
+          {game.demandCards.length === 0 && (
+            <div style={{ textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.muted, paddingBottom: 6 }}>market reset — empty floor</div>
+          )}
+          {game.demandCards.map((o) => (
+            <DemandRow key={o.id} card={o} zone={zone} players={game.players} />
+          ))}
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 9, borderTop: `1px solid ${C.border2}`, flex: "0 0 auto" }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".06em", color: C.muted, lineHeight: 1.5 }}>Your kept orders: <b style={{ color: C.green }}>{me.keptCards.length}</b> · {reputationOf(me)} Rep. Empty cards stack → higher zone.</span>
+      {/* glut */}
+      <div style={{ flex: "0 0 auto", borderRadius: 10, border: "1.5px dashed #4a3826", background: "repeating-linear-gradient(45deg, rgba(40,28,18,.4) 0px, rgba(40,28,18,.4) 8px, rgba(20,14,8,.4) 8px, rgba(20,14,8,.4) 16px)", padding: "6px 10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: C.text2 }}>The Glut</span>
+          <div style={{ flex: 1 }} />
+          <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>barrel value only · no rep</span>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 8, borderTop: `1px solid ${C.border2}`, flex: "0 0 auto" }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".06em", color: C.muted, lineHeight: 1.5 }}>Your kept orders: <b style={{ color: C.green }}>{me.keptCards.length}</b> · {reputationOf(me)} Rep. Each order needs <b style={{ color: C.amber }}>{game.players.length}/player</b> fills.</span>
       </div>
     </aside>
+  );
+}
+
+/** One demand-card row in the meter — req, zone payout, a big Reputation badge, and slot fill. */
+function DemandRow({ card, zone, players }: { card: DemandCard; zone: Zone; players: Player[] }) {
+  const filled = card.filledBy.filter((f) => f !== null).length;
+  const complete = filled >= card.slotsActive;
+  const compact = card.slotsActive > 8; // many slots → progress bar instead of pips
+  return (
+    <div style={{ flex: "0 0 auto", borderRadius: 9, padding: "6px 9px", background: complete ? "linear-gradient(180deg, rgba(109,178,140,.18), rgba(20,14,8,.92))" : "linear-gradient(180deg, rgba(44,30,20,.7), rgba(20,14,8,.94))", border: `1px solid ${complete ? C.green : "#4a3320"}`, boxShadow: "0 4px 12px rgba(0,0,0,.35)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.label}</span>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold }} title="zone payout (Capital) per sale">+{card.zoneBonus[zone]}</span>
+        {/* big Reputation reward on completion */}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 999, background: "rgba(109,178,140,.16)", border: `1px solid ${C.green}66` }} title="Reputation kept by the player who completes this card">
+          <span style={{ fontSize: 11, color: C.green, lineHeight: 1 }}>★</span>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: C.green, lineHeight: 1 }}>{card.reputation}</span>
+        </span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
+        <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted }}>Req</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, whiteSpace: "nowrap" }}>{requirementText(card.requirement)}</span>
+        <div style={{ flex: 1 }} />
+        {compact ? (
+          <div style={{ width: 70, height: 9, borderRadius: 5, background: "rgba(20,14,8,.7)", border: "1px solid rgba(110,80,50,.5)", overflow: "hidden" }}>
+            <div style={{ width: `${Math.round((filled / card.slotsActive) * 100)}%`, height: "100%", background: complete ? C.green : "linear-gradient(90deg,#e9b46e,#c69d52)" }} />
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 3 }}>
+            {card.filledBy.map((f, i) => {
+              const pi = f ? players.findIndex((pl) => pl.id === f) : -1;
+              return (
+                <span key={i} style={{ width: 15, height: 15, borderRadius: 4, ...(f ? { background: PLAYER_COLORS[pi % PLAYER_COLORS.length], boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }} />
+              );
+            })}
+          </div>
+        )}
+        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: complete ? C.green : C.text2 }}>{filled}/{card.slotsActive}</span>
+      </div>
+    </div>
   );
 }
 

@@ -209,7 +209,7 @@ function DemandTab({ cards }: { cards: DemandCard[] }) {
             zone payout — low {c.zoneBonus.low} · mid {c.zoneBonus.mid} · high {c.zoneBonus.high}
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
-            <Chip>up to {c.slotsMax} slots</Chip>
+            <Chip>{c.slotMultiple}× players slots</Chip>
           </div>
         </Card>
       ))}
