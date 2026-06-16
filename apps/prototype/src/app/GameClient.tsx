@@ -781,9 +781,15 @@ function Board(p: BoardProps) {
                 })}
 
                 {restingBarrels.map((b) => {
-                  const slots = recipeKinds(b.recipe);
                   const ready = b.staged.length >= recipeSize(b.recipe);
                   const canBuild = phaseStage === "play" && !botTurn;
+                  // Build the slot row PER GRAIN so a filled pip reflects the kind
+                  // actually staged (not just a positional count).
+                  const slotList: { kind: ResourceKind; filled: boolean }[] = [];
+                  for (const k of PILE_ORDER) {
+                    const have = b.staged.filter((c) => c.kind === k).length;
+                    for (let i = 0; i < (b.recipe[k] ?? 0); i++) slotList.push({ kind: k, filled: i < have });
+                  }
                   // Which grains the recipe still needs, and whether the hand has one.
                   const needKinds = PILE_ORDER.filter((k) => (b.recipe[k] ?? 0) - b.staged.filter((c) => c.kind === k).length > 0);
                   const stageable = needKinds.find((k) => me.hand.some((c) => c.kind === k));
@@ -794,15 +800,12 @@ function Board(p: BoardProps) {
                         <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: "#9fc27a" }}>Resting Bill</div>
                         <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fbeccb", lineHeight: 1.05, marginTop: 1 }}>{b.name}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11, flexWrap: "wrap" }}>
-                          {slots.map((k, i) => {
-                            const filled = i < b.staged.length;
-                            return (
-                              <span key={i} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, width: 44, height: 46, borderRadius: 10, ...(filled ? { background: `linear-gradient(180deg,${FACE[k].color}26,#1a130b)`, border: `1.5px solid ${FACE[k].color}` } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }}>
-                                <span style={{ fontSize: 20, lineHeight: 1, color: filled ? FACE[k].color : C.faint, textShadow: filled ? `0 0 8px ${FACE[k].color}55` : undefined }}>{SUB[k].glyph}</span>
-                                <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 8, letterSpacing: ".04em", color: filled ? FACE[k].color : C.faint }}>{FACE[k].mono}</span>
-                              </span>
-                            );
-                          })}
+                          {slotList.map(({ kind: k, filled }, i) => (
+                            <span key={i} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, width: 44, height: 46, borderRadius: 10, ...(filled ? { background: `linear-gradient(180deg,${FACE[k].color}26,#1a130b)`, border: `1.5px solid ${FACE[k].color}` } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }}>
+                              <span style={{ fontSize: 20, lineHeight: 1, color: filled ? FACE[k].color : C.faint, textShadow: filled ? `0 0 8px ${FACE[k].color}55` : undefined }}>{SUB[k].glyph}</span>
+                              <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 8, letterSpacing: ".04em", color: filled ? FACE[k].color : C.faint }}>{FACE[k].mono}</span>
+                            </span>
+                          ))}
                           <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: "#9fc27a", marginLeft: 4 }}>{b.staged.length}/{recipeSize(b.recipe)}</span>
                         </div>
                         <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4, marginTop: 8 }}>Staged cards free Warehouse cap.{hasUlt(me, "warehouse", "longCellar") ? " (Long Cellar: swappable)" : " They lock here."}</div>
