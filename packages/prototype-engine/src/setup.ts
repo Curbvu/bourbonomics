@@ -24,16 +24,19 @@ export interface NewGameOptions {
   startingCapital?: number;
   /** Distillery id per player (by index). Falls back to a rotating default. */
   distilleryIds?: string[];
+  /** Which seats are AI-played (by index). Omitted = all human. */
+  botFlags?: boolean[];
 }
 
 function resolveDistillery(ids: string[] | undefined, i: number): string {
   return ids?.[i] ?? DISTILLERY_ROSTER[i % DISTILLERY_ROSTER.length]!.id;
 }
 
-function makePlayer(id: string, name: string, startingCapital: number, distilleryId: string): Player {
+function makePlayer(id: string, name: string, startingCapital: number, distilleryId: string, isBot: boolean): Player {
   return {
     id,
     name,
+    isBot,
     capital: startingCapital,
     hand: [],
     rickhouse: [],
@@ -70,7 +73,7 @@ export function createGame(options: NewGameOptions = {}): GameState {
   s = s3;
 
   const players = names.map((name, i) =>
-    makePlayer(`p${i + 1}`, name, startingCapital, resolveDistillery(options.distilleryIds, i)),
+    makePlayer(`p${i + 1}`, name, startingCapital, resolveDistillery(options.distilleryIds, i), options.botFlags?.[i] ?? false),
   );
 
   const state: GameState = {

@@ -241,6 +241,8 @@ export interface DistilleryBoard {
 export interface Player {
   id: string;
   name: string;
+  /** True = played automatically by the AI driver; false = a human seat. */
+  isBot: boolean;
   /** Spendable currency AND part of final score (banked from every sale). */
   capital: number;
   hand: ResourceCard[];

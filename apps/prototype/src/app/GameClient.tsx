@@ -9,6 +9,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
   applyAction,
+  botAction,
+  isBotTurn,
   createGame,
   improvementCost,
   barrelValue,
@@ -293,13 +295,20 @@ export default function GameClient() {
     setQsOpen(false);
   }
   function start(names: string[]) {
-    const g = createGame({ seed: (Math.floor(Date.now() / 1000) % 100000) + 1, playerNames: names });
+    // Seat 0 is the human ("You"); every other seat is AI-played.
+    const g = createGame({
+      seed: (Math.floor(Date.now() / 1000) % 100000) + 1,
+      playerNames: names,
+      botFlags: names.map((_, i) => i !== 0),
+    });
     initialPool.current = g.demandDeck.length + g.demandDiscard.length + g.demandCards.length || 1;
     setGame(g);
     resetLocal();
   }
   function dispatch(action: Action, silent = false): boolean {
     if (!game) return false;
+    // Ignore human input while the AI is on the clock (its turn is auto-driven).
+    if (isBotTurn(game)) return false;
     const res = applyAction(game, action);
     if (!res.ok) {
       if (!silent) flash("⚠ " + res.reason);
@@ -309,6 +318,35 @@ export default function GameClient() {
     resetLocal();
     return true;
   }
+
+  // ── AI driver ──────────────────────────────────────────────────────
+  // Auto-advances the game so the human only plays their own turns: the Demand
+  // phase rolls into the draft on its own (the market stays visible on the right
+  // rail), and every AI seat's collect/play turn is auto-dispatched one action
+  // at a time on a timer so the human can watch. Collect pauses long enough for
+  // the dice-roll animation to play.
+  useEffect(() => {
+    if (!game || game.phase !== "playing") return;
+    let action: Action | null = null;
+    let delay = 470;
+    if (game.roundPhase === "demand") {
+      action = { type: "BEGIN_COLLECT" };
+      delay = 950;
+    } else if (isBotTurn(game)) {
+      action = botAction(game);
+      delay = game.roundPhase === "collect" ? 1050 : 470;
+    }
+    if (!action) return;
+    const a = action;
+    const t = setTimeout(() => {
+      const res = applyAction(game, a);
+      if (res.ok) {
+        setGame(res.state);
+        resetLocal();
+      }
+    }, delay);
+    return () => clearTimeout(t);
+  }, [game]);
 
   if (!game) {
     return (
@@ -389,6 +427,7 @@ function Board(p: BoardProps) {
   const warehouseCap = fnWarehouse(me);
   const rickCap = fnRick(me);
   const phaseStage = game.roundPhase; // demand | collect | play
+  const botTurn = isBotTurn(game); // the AI is on the clock (collect/play)
 
   const optimisticClaims = phaseStage === "collect" ? Object.values(p.claims) : [];
   const heldTotal = me.hand.length + optimisticClaims.length;
@@ -568,7 +607,7 @@ function Board(p: BoardProps) {
             <div>
               <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 28, lineHeight: 1 }}>Bourbonomics</div>
               <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".22em", color: C.muted, marginTop: 3 }}>
-                ROUND {game.roundNumber}{game.finalRound ? " · FINAL" : ""} · {me.name}&apos;s turn
+                ROUND {game.roundNumber}{game.finalRound ? " · FINAL" : ""} · {me.name}&apos;s turn{me.isBot ? " · AI" : ""}
               </div>
             </div>
           </div>
@@ -608,6 +647,7 @@ function Board(p: BoardProps) {
           whFull={whFull}
           collect={collect}
           phaseStage={phaseStage}
+          botTurn={botTurn}
           onReroll={onReroll}
           claimDie={claimDie}
           onTT={() => p.setTtFace(true)}
@@ -712,7 +752,7 @@ function Board(p: BoardProps) {
                     <div key={b.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <button
                         className="bb-btn"
-                        onClick={() => (phaseStage === "play" && sellable ? p.setSellId(b.id) : flash(sellable ? "Sell in the Play phase" : `Ages until year ${CONFIG.MIN_SELL_AGE}`))}
+                        onClick={() => (phaseStage === "play" && sellable && !botTurn ? p.setSellId(b.id) : botTurn ? undefined : flash(sellable ? "Sell in the Play phase" : `Ages until year ${CONFIG.MIN_SELL_AGE}`))}
                         style={{ textAlign: "left", position: "relative", borderRadius: 12, padding: "11px 12px 12px", border: "1px solid rgba(240,201,112,.4)", background: "linear-gradient(180deg, rgba(74,52,31,.5) 0%, rgba(26,18,11,.96) 60%)", boxShadow: "inset 0 1px 0 rgba(240,201,112,.22), 0 10px 22px rgba(0,0,0,.5)", cursor: phaseStage === "play" && sellable ? "pointer" : "default", overflow: "hidden" }}
                       >
                         <span style={{ position: "absolute", top: 9, right: 9, fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)", padding: "2px 6px", borderRadius: 4 }}>{b.quality}</span>
@@ -931,16 +971,18 @@ function ActionBand(props: {
   whFull: boolean;
   collect: GameState["collect"];
   phaseStage: GameState["roundPhase"];
+  botTurn: boolean;
   onReroll: () => void;
   claimDie: (id: string, face: DieFace, el: HTMLElement) => void;
   onTT: () => void;
   onPass: () => void;
 }) {
-  const { board, me, supplyCap, warehouseCap, heldTotal, whFull, collect, phaseStage } = props;
+  const { board, me, supplyCap, warehouseCap, heldTotal, whFull, collect, phaseStage, botTurn } = props;
   const game = board.game;
 
-  const hint =
-    phaseStage === "demand"
+  const hint = botTurn
+    ? `${me.name} (AI) is playing…`
+    : phaseStage === "demand"
       ? "Demand is laid out — begin the dice draft."
       : phaseStage === "play"
         ? "Play phase — build, sell into demand, improve, then end your turn."
@@ -996,6 +1038,7 @@ function ActionBand(props: {
               claims={board.claims}
               rollId={`${collect.pos}-${collect.rerollsUsed}`}
               full={whFull}
+              locked={botTurn}
               onClaim={props.claimDie}
             />
           )}
@@ -1003,14 +1046,23 @@ function ActionBand(props: {
 
         {/* controls */}
         <div style={{ borderRadius: 11, background: "#150e08", border: `1px solid ${C.border2}`, padding: 12, display: "flex", flexDirection: "column", gap: 9, justifyContent: "center" }}>
-          {phaseStage === "demand" && (
+          {botTurn && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: C.gold, animation: "bb-pip 1.4s ease-in-out infinite" }} />
+                <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: C.gold }}>{me.name} (AI)</span>
+              </div>
+              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>The rival is taking its {phaseStage} turn. Sit back and watch.</div>
+            </div>
+          )}
+          {!botTurn && phaseStage === "demand" && (
             <>
               <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: C.brass }}>Demand Phase</div>
               <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>The market is on the right — read the zone, then begin the draft.</div>
             </>
           )}
-          {phaseStage === "play" && <PlayControls board={board} me={me} />}
-          {phaseStage === "collect" && collect && (
+          {!botTurn && phaseStage === "play" && <PlayControls board={board} me={me} />}
+          {!botTurn && phaseStage === "collect" && collect && (
             <>
               <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{drafted} drafted · {undrafted} left in the pool</div>
               <button className="bb-btn bb-sec" onClick={props.onReroll} disabled={collect.rerollsUsed >= collect.maxRerolls} style={{ padding: "10px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", ...(collect.rerollsUsed < collect.maxRerolls ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710", cursor: "pointer" } : { border: `1px solid ${C.border2}`, color: C.faint, background: "#150e08", cursor: "default" }) }}>↻ Reroll the rest · {collect.maxRerolls - collect.rerollsUsed} left</button>
@@ -1143,7 +1195,7 @@ function ImproveBtn({ id, board, me }: { id: DepartmentId; board: BoardProps; me
   const nextIsUlt = d.level + 1 === d.maxLevel;
   const realOptions = d.ultimateOptions.filter((o) => o !== "ph");
   const onClick = () => {
-    if (maxed) return;
+    if (maxed || isBotTurn(board.game)) return;
     if (board.game.roundPhase !== "play") {
       board.flash("Improve during the Play phase");
       return;
@@ -1281,11 +1333,12 @@ function Scrim({ children }: { children: React.ReactNode }) {
 const ROLL_MS = 820;
 const ALL_FACES: DieFace[] = ["cask", "corn", "rye", "wheat", "barley", "anything"];
 
-function DiceTray({ dice, claims, rollId, full, onClaim }: {
+function DiceTray({ dice, claims, rollId, full, locked, onClaim }: {
   dice: { id: string; face: DieFace }[];
   claims: Record<string, ResourceKind>;
   rollId: string;
   full: boolean;
+  locked?: boolean;
   onClaim: (id: string, face: DieFace, el: HTMLElement) => void;
 }) {
   const [rolling, setRolling] = useState(true);
@@ -1308,7 +1361,7 @@ function DiceTray({ dice, claims, rollId, full, onClaim }: {
         const face = rolling ? ALL_FACES[(tick + i * 2) % ALL_FACES.length]! : d.face;
         const meta = FACE[face];
         const claimed = !rolling && d.id in claims;
-        const clickable = !rolling && !claimed && !full;
+        const clickable = !rolling && !claimed && !full && !locked;
         const wild = meta.wild;
         return (
           <div key={d.id} style={{ position: "relative", width: 70, height: 84, display: "flex", justifyContent: "center" }}>

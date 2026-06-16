@@ -5,3 +5,4 @@ export * from "./content";
 export * from "./setup";
 export * from "./scoring";
 export * from "./engine";
+export * from "./bot";
