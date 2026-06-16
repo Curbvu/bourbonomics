@@ -39,7 +39,7 @@ Time advances once per round (aging at the end of Play). No fixed round count.
 
 Each demand card may carry any of: **On Start** (fires when laid out), **Requirement** (what a bourbon must be to fill a slot — style tag / age band / quality), **On Fill** (fires each time a slot is filled while incomplete), **On Completed** (fires when the final slot is filled — the completer's reward + any market consequence). Not all cards carry all four.
 
-- **Slots per card scale to player count** (deeper cards at larger tables), so the *number of cards* stays low and readable while capacity scales inside the cards. (Print max slots; a player-count marker shows how many are active.)
+- **Slots per card = player count** (× the card's slot multiple; most cards 1×, some 2×), so each order holds one fill per player and capacity scales with the table while the *number of cards* stays low and readable.
 - **Card effects read the current demand zone** (below) — a card does/pays differently in Low vs. Mid vs. High.
 
 ### Demand zones (by total cards on the table)
@@ -87,7 +87,7 @@ Round-robin. **No action economy** — take unlimited actions, gated only by res
 | **Draw Mash Bills** | Draw mash bills as resting unbuilt barrels. Count = **Distilling Office** (`[PH]` rename pending — see departments). **Once per turn.** |
 | **Stage** | Move a **recipe-matched** resource card from hand onto a resting barrel. Staged cards leave the hand (free Warehouse) but **lock to that barrel** *(a Warehouse ultimate unlocks them)*. |
 | **Make Bourbon** | When a resting barrel's recipe is fully met (staged and/or committed from hand), build it. **Quality = best card committed.** Begins aging at age 0 *(age 1 with the Char & Toast ultimate)*. |
-| **Sell (Extract)** | Extract one sale from a built, aged batch (age ≥ 2). Route to a matching **demand card slot** or to the **glut**. See §Selling. Banks Capital every time. |
+| **Sell (Extract)** | Extract one sale from a built, aged batch (age ≥ 2) into a matching **demand card slot** (no glut). See §Selling. Banks Capital every time. |
 | **Improve Distillery** | Advance one department one step. Cost rises on the per-player linear ramp (see §The Distillery). |
 
 ---
@@ -118,7 +118,7 @@ A barrel keeps physically aging past its ceiling, but its **value stops climbing
 
 2. **Demand zone effect** — the card's effect/payout as read in the current zone (Low/Mid/High).
 
-3. **Card alignment** — filling a matching demand-card slot fires its On Fill / On Completed; the **glut** (any unmatched/overflow sale) pays barrel value only.
+3. **Card alignment** — every sale fills a matching demand-card slot, firing its On Fill / On Completed. **There is no glut:** a barrel can only be sold into an order whose Requirement it meets and that has an open slot; with no eligible order it waits for one. A card's slots equal the **player count** (some cards a multiple of it), so each order holds one fill per player.
 
 **Multi-sale batches:** a built barrel yields several sales over its life (`batchQty`, mostly 2–3, some 4). **Every sale banks Capital** — intermediate or completing. A batch frees its rickhouse slot when its **last** sale is extracted.
 

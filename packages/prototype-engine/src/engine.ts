@@ -566,11 +566,11 @@ function handleMakeBourbon(
 }
 
 /**
- * Sell (Extract) one sale from a built, aged batch. Payoff = barrel value
- * (quality base + age, capped by quality ceiling) + the demand card's zone
- * effect (if routed to a matching open slot) + Distribution bonus. The glut
- * (no card) pays barrel value + Distribution only. Filling a card's FINAL slot
- * hands the card to the seller (Reputation). The final SALE frees the slot.
+ * Sell (Extract) one sale from a built, aged batch into a matching demand-card
+ * slot. Payoff = barrel value (quality base + age, capped by the quality
+ * ceiling) + the card's zone effect + Distribution bonus. (There is no glut —
+ * every sale fills an order.) Filling a card's FINAL slot hands the card to the
+ * seller (Reputation). The final SALE of a batch frees the rickhouse slot.
  */
 function handleSell(
   draft: GameState,
@@ -586,34 +586,28 @@ function handleSell(
   if (bourbon.age < CONFIG.MIN_SELL_AGE) return `bourbon must be aged at least ${CONFIG.MIN_SELL_AGE} (age ${bourbon.age})`;
   if (bourbon.salesRemaining <= 0) return "this batch is already fully sold";
 
+  // Every sale routes to a matching demand order (the glut is gone).
+  if (demandCardId === undefined) return "choose a demand order to sell into";
+  const card = draft.demandCards.find((c) => c.id === demandCardId);
+  if (!card) return "that demand card is not on the table";
+  if (!meetsRequirement(bourbon, card.requirement)) return `"${bourbon.name}" does not meet "${card.label}"`;
+  const slot = card.filledBy.indexOf(null);
+  if (slot < 0) return `"${card.label}" has no open slot`;
+
   const zone = zoneForCardCount(draft.demandCards.length);
-  let payoff = barrelValue(bourbon.quality, bourbon.age);
+  card.filledBy[slot] = player.id;
+  const payoff = barrelValue(bourbon.quality, bourbon.age) + card.zoneBonus[zone] + distributionBonus(player);
+  const completed = card.filledBy.every((f) => f !== null);
 
-  // Optional routing to a demand-card slot.
-  let card: DemandCard | undefined;
-  let completed = false;
-  if (demandCardId !== undefined) {
-    card = draft.demandCards.find((c) => c.id === demandCardId);
-    if (!card) return "that demand card is not on the table";
-    if (!meetsRequirement(bourbon, card.requirement)) return `"${bourbon.name}" does not meet "${card.label}"`;
-    const slot = card.filledBy.indexOf(null);
-    if (slot < 0) return `"${card.label}" has no open slot`;
-    card.filledBy[slot] = player.id;
-    payoff += card.zoneBonus[zone];
-    completed = card.filledBy.every((f) => f !== null);
-  }
-
-  payoff += distributionBonus(player);
   player.capital += payoff;
   bourbon.salesRemaining -= 1;
   player.bourbonsSold += 1;
   const isFinal = bourbon.salesRemaining === 0;
 
-  const route = card ? `→ "${card.label}" (${zone})` : "→ glut";
-  draft.log.push(`${player.name} sold "${bourbon.name}" (age ${bourbon.age}, ${bourbon.quality}) ${route} for ${payoff}.`);
+  draft.log.push(`${player.name} sold "${bourbon.name}" (age ${bourbon.age}, ${bourbon.quality}) → "${card.label}" (${zone}) for ${payoff}.`);
 
-  if (completed && card) {
-    draft.demandCards = draft.demandCards.filter((c) => c.id !== card!.id);
+  if (completed) {
+    draft.demandCards = draft.demandCards.filter((c) => c.id !== card.id);
     player.keptCards.push(card);
     player.cardsCompleted += 1;
     draft.log.push(`🏅 ${player.name} completed "${card.label}" — kept for ${card.reputation} Reputation.`);

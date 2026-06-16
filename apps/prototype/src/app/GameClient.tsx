@@ -562,7 +562,7 @@ function Board(p: BoardProps) {
     const pl = game.players[pi]!;
     let status: "done" | "now" | "next" = "next";
     if (collect) status = idx < collect.pos ? "done" : idx === collect.pos ? "now" : "next";
-    return { name: pl.name, cap: pl.capital, color: PLAYER_COLORS[pi % PLAYER_COLORS.length]!, status };
+    return { name: pl.name, cap: pl.capital, rep: reputationOf(pl), isBot: pl.isBot, color: PLAYER_COLORS[pi % PLAYER_COLORS.length]!, status };
   });
 
   const restingBarrels = me.rickhouse.filter((b) => !b.built);
@@ -658,15 +658,19 @@ function Board(p: BoardProps) {
         <div style={{ display: "grid", gridTemplateColumns: "270px 1fr 340px", gap: 14, alignItems: "stretch", flex: 1, minHeight: 0 }}>
           {/* LEFT RAIL */}
           <aside style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
-            <RailCard title="Collect Order" right="MOST CAPITAL FIRST">
+            <RailCard title="Standings" right="CAP · ★REP">
               <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                 {order.map((o, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: 9, ...(o.status === "now" ? { background: "linear-gradient(90deg,rgba(213,150,80,.16),transparent)", border: `1px solid ${C.brass}` } : { background: "#150e08", border: `1px solid ${C.border2}` }) }}>
-                    <span style={{ width: 9, height: 9, borderRadius: "50%", background: o.color, boxShadow: o.status === "now" ? "0 0 0 3px rgba(213,150,80,.2)" : undefined }} />
-                    <span style={{ flex: 1, fontWeight: 600, fontSize: 14, color: o.status === "now" ? C.ink : C.text2 }}>{o.name}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 13, color: C.gold }}>{o.cap}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", padding: "2px 6px", borderRadius: 4, ...(o.status === "now" ? { color: "#2a1408", background: C.gold } : o.status === "done" ? { color: C.green, background: "rgba(109,178,140,.14)" } : { color: C.muted, background: "#221710" }) }}>
-                      {o.status === "now" ? "NOW" : o.status}
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 9, ...(o.status === "now" ? { background: "linear-gradient(90deg,rgba(213,150,80,.16),transparent)", border: `1px solid ${C.brass}` } : { background: "#150e08", border: `1px solid ${C.border2}` }) }}>
+                    <span style={{ width: 9, height: 9, borderRadius: "50%", background: o.color, flex: "0 0 auto", boxShadow: o.status === "now" ? "0 0 0 3px rgba(213,150,80,.2)" : undefined }} />
+                    <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 13, color: o.status === "now" ? C.ink : C.text2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}{o.isBot ? "" : ""}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Capital">
+                      <span style={{ color: C.gold, fontWeight: 700 }}>{o.cap}</span>
+                      <span style={{ color: C.muted, fontSize: 9 }}>c</span>
+                    </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Reputation (prestige)">
+                      <span style={{ color: C.green, fontSize: 11 }}>★</span>
+                      <span style={{ color: C.green, fontWeight: 700 }}>{o.rep}</span>
                     </span>
                   </div>
                 ))}
@@ -747,7 +751,7 @@ function Board(p: BoardProps) {
               <div style={{ display: "grid", gridTemplateColumns: `repeat(${barrelSlots}, minmax(0,1fr))`, gap: 14, alignItems: "start" }}>
                 {agingBarrels.map((b) => {
                   const sellable = b.age >= CONFIG.MIN_SELL_AGE && b.salesRemaining > 0;
-                  const glut = barrelValue(b.quality, b.age) + fnDist(me);
+                  const floorValue = barrelValue(b.quality, b.age) + fnDist(me);
                   return (
                     <div key={b.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <button
@@ -764,7 +768,7 @@ function Board(p: BoardProps) {
                             <span style={{ position: "absolute", bottom: 5, fontFamily: MONO, fontSize: 8, fontWeight: 700, color: "#2a1a10", letterSpacing: ".16em" }}>YR</span>
                           </span>
                           <div>
-                            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, lineHeight: 1 }}>{sellable ? `sell ≥ ${glut}` : "aging in oak"}</div>
+                            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, lineHeight: 1 }}>{sellable ? `sell ≥ ${floorValue}` : "aging in oak"}</div>
                             <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: C.muted, marginTop: 3 }}>{b.salesRemaining}/{b.batchQty} sales left</div>
                           </div>
                         </div>
@@ -779,7 +783,10 @@ function Board(p: BoardProps) {
                 {restingBarrels.map((b) => {
                   const slots = recipeKinds(b.recipe);
                   const ready = b.staged.length >= recipeSize(b.recipe);
-                  const canBuild = phaseStage === "play";
+                  const canBuild = phaseStage === "play" && !botTurn;
+                  // Which grains the recipe still needs, and whether the hand has one.
+                  const needKinds = PILE_ORDER.filter((k) => (b.recipe[k] ?? 0) - b.staged.filter((c) => c.kind === k).length > 0);
+                  const stageable = needKinds.find((k) => me.hand.some((c) => c.kind === k));
                   return (
                     <div key={b.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <div style={{ position: "relative", borderRadius: 12, padding: "11px 12px 12px", border: "1px solid #4a5a3a", background: "linear-gradient(180deg, rgba(50,60,40,.4) 0%, rgba(20,18,11,.96) 60%)", boxShadow: "inset 0 1px 0 rgba(180,210,150,.14), 0 10px 22px rgba(0,0,0,.5)", overflow: "hidden" }}>
@@ -800,14 +807,25 @@ function Board(p: BoardProps) {
                         </div>
                         <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4, marginTop: 8 }}>Staged cards free Warehouse cap.{hasUlt(me, "warehouse", "longCellar") ? " (Long Cellar: swappable)" : " They lock here."}</div>
                       </div>
-                      <button
-                        className="bb-btn"
-                        disabled={!canBuild}
-                        onClick={() => (ready ? tryBuild(b) : autoStage(b))}
-                        style={{ padding: 7, borderRadius: 8, fontFamily: MONO, fontWeight: 600, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", cursor: canBuild ? "pointer" : "default", ...(ready ? { border: "1px solid #6d8f4f", color: "#9fc27a", background: "rgba(80,110,60,.16)" } : { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710" }), opacity: canBuild ? 1 : 0.6 }}
-                      >
-                        {ready ? "✓ Build now" : "+ Stage a card"}
-                      </button>
+                      {(() => {
+                        const enabled = canBuild && (ready || !!stageable);
+                        const label = ready ? "✓ Build now" : stageable ? `+ Stage ${FACE[stageable].label}` : `Needs ${needKinds.map((k) => FACE[k].mono).join(" ")}`;
+                        const tone = ready
+                          ? { border: "1px solid #6d8f4f", color: "#9fc27a", background: "rgba(80,110,60,.16)" }
+                          : stageable
+                            ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710" }
+                            : { border: `1px solid ${C.border2}`, color: C.muted, background: "#150e08" };
+                        return (
+                          <button
+                            className="bb-btn"
+                            disabled={!enabled}
+                            onClick={() => (ready ? tryBuild(b) : stageable ? autoStage(b) : flash(`"${b.name}" needs ${needKinds.map((k) => FACE[k].label).join(", ")} — collect more`))}
+                            style={{ padding: 7, borderRadius: 8, fontFamily: MONO, fontWeight: 600, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", cursor: enabled ? "pointer" : "default", ...tone, opacity: enabled ? 1 : 0.7 }}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -1310,17 +1328,8 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
         </div>
       </div>
 
-      {/* glut */}
-      <div style={{ flex: "0 0 auto", borderRadius: 10, border: "1.5px dashed #4a3826", background: "repeating-linear-gradient(45deg, rgba(40,28,18,.4) 0px, rgba(40,28,18,.4) 8px, rgba(20,14,8,.4) 8px, rgba(20,14,8,.4) 16px)", padding: "6px 10px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: C.text2 }}>The Glut</span>
-          <div style={{ flex: 1 }} />
-          <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>barrel value only · no rep</span>
-        </div>
-      </div>
-
       <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 8, borderTop: `1px solid ${C.border2}`, flex: "0 0 auto" }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".06em", color: C.muted, lineHeight: 1.5 }}>Your kept orders: <b style={{ color: C.green }}>{me.keptCards.length}</b> · {reputationOf(me)} Rep. Each order needs <b style={{ color: C.amber }}>{game.players.length}/player</b> fills.</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".06em", color: C.muted, lineHeight: 1.5 }}>Your kept orders: <b style={{ color: C.green }}>{me.keptCards.length}</b> · {reputationOf(me)} Rep. Every sale fills an order — each needs <b style={{ color: C.amber }}>{game.players.length}/player</b>.</span>
       </div>
     </aside>
   );
@@ -1337,10 +1346,11 @@ function DemandRow({ card, zone, players }: { card: DemandCard; zone: Zone; play
         <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.label}</span>
         <div style={{ flex: 1 }} />
         <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold }} title="zone payout (Capital) per sale">+{card.zoneBonus[zone]}</span>
-        {/* big Reputation reward on completion */}
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 999, background: "rgba(109,178,140,.16)", border: `1px solid ${C.green}66` }} title="Reputation kept by the player who completes this card">
-          <span style={{ fontSize: 11, color: C.green, lineHeight: 1 }}>★</span>
-          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: C.green, lineHeight: 1 }}>{card.reputation}</span>
+        {/* big Reputation reward on completion (the prestige) */}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 999, background: "rgba(109,178,140,.18)", border: `1px solid ${C.green}`, boxShadow: `0 0 10px ${C.green}33` }} title="Reputation kept by the player who completes this order">
+          <span style={{ fontSize: 15, color: C.green, lineHeight: 1 }}>★</span>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.green, lineHeight: 1 }}>{card.reputation}</span>
+          <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: ".1em", color: C.green, textTransform: "uppercase" }}>rep</span>
         </span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
@@ -1574,35 +1584,35 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
         <div>
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>Sell · {STYLE_LABEL[bourbon.styleTag]} · {bourbon.quality} · age {bourbon.age}</div>
           <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: C.ink }}>{bourbon.name}</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>Barrel value {base} · +{dist} Distribution · zone {ZONE_META[zone].label}. Route to a matching order, or the glut.</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>Barrel value {base} · +{dist} Distribution · zone {ZONE_META[zone].label}. Route to a matching order.</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto" }}>
-          {options.map(({ card, open, fits, completes, payoff }) => {
-            const enabled = open && fits;
-            return (
-              <button key={card.id} className="bb-btn" disabled={!enabled} onClick={() => onRoute(card.id)} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: enabled ? "pointer" : "default", border: `1px solid ${enabled ? C.brass : C.border2}`, background: enabled ? "#221710" : "#130d08", opacity: enabled ? 1 : 0.5 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink }}>{card.label}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.amber }}>{requirementText(card.requirement)} · {card.filledBy.filter((f) => f).length}/{card.slotsActive} slots</div>
-                </div>
-                {enabled ? (
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: C.gold }}>+{payoff}</div>
-                    {completes && <div style={{ fontFamily: MONO, fontSize: 9, color: C.green }}>completes · +{card.reputation} rep</div>}
-                  </div>
-                ) : (
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>{!fits ? "doesn't fit" : "no open slot"}</div>
-                )}
-              </button>
-            );
-          })}
-          <button className="bb-btn" onClick={() => onRoute(undefined)} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: "pointer", border: `1px dashed ${C.border}`, background: "#130d08" }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.text2 }}>The Glut</div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>barrel value only · no Reputation</div>
+          {options.filter((o) => o.fits).length === 0 && (
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.muted, padding: "14px 4px", textAlign: "center", lineHeight: 1.5 }}>
+              No order on the table accepts this bourbon yet.<br />Wait for a matching demand card.
             </div>
-            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: C.gold }}>+{base + dist}</div>
-          </button>
+          )}
+          {options.filter((o) => o.fits).map(({ card, open, completes, payoff }) => (
+            <button key={card.id} className="bb-btn" disabled={!open} onClick={() => onRoute(card.id)} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: open ? "pointer" : "default", border: `1px solid ${open ? C.brass : C.border2}`, background: open ? "#221710" : "#130d08", opacity: open ? 1 : 0.5 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink }}>{card.label}</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.amber }}>{requirementText(card.requirement)} · {card.filledBy.filter((f) => f).length}/{card.slotsActive} slots</div>
+              </div>
+              {open ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: C.gold }}>+{payoff}</div>
+                  {completes && (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 9px", borderRadius: 999, background: "rgba(109,178,140,.18)", border: `1px solid ${C.green}` }}>
+                      <span style={{ fontSize: 13, color: C.green }}>★</span>
+                      <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: C.green, lineHeight: 1 }}>{card.reputation}</span>
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>no open slot</div>
+              )}
+            </button>
+          ))}
         </div>
         <button onClick={onCancel} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".1em", color: C.muted, background: "none", border: 0, cursor: "pointer", textTransform: "uppercase", alignSelf: "center" }}>cancel</button>
       </div>

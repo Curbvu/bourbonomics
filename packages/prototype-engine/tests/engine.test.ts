@@ -445,14 +445,9 @@ describe("sell", () => {
     );
   });
 
-  it("a glut sale (no card) banks barrel value + Distribution and frees the slot", () => {
-    let s = base({ quality: "common", age: 3 }); // value 4
-    s.demandCards = []; // glut path, zone irrelevant
-    s = ok(s, { type: "SELL", bourbonId: "sellme" });
-    const p = s.players[0]!;
-    expect(p.capital).toBe(barrelValue("common", 3) + dept(p, "distribution").values[0]!);
-    expect(p.rickhouse.length).toBe(0);
-    expect(p.bourbonsSold).toBe(1);
+  it("refuses a sale with no demand order (the glut is gone)", () => {
+    const s = base({ quality: "common", age: 3 });
+    expect(expectRefusal(s, { type: "SELL", bourbonId: "sellme" })).toContain("choose a demand order");
   });
 
   it("routing to a matching card adds the zone effect and completion keeps the card", () => {
@@ -477,13 +472,14 @@ describe("sell", () => {
 
   it("a multi-sale batch banks Capital each sale; the final sale frees the slot", () => {
     let s = base({ batchQty: 2, quality: "common", age: 2 });
-    s.demandCards = [];
+    // One open order deep enough for both sales.
+    s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 3, zoneBonus: { low: 0, mid: 0, high: 0 }, reputation: 1 })];
     const dist = dept(s.players[0]!, "distribution").values[0]!;
     const v = barrelValue("common", 2);
-    s = ok(s, { type: "SELL", bourbonId: "sellme" }); // intermediate
+    s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }); // intermediate
     expect(s.players[0]!.capital).toBe(v + dist);
     expect(s.players[0]!.rickhouse.length).toBe(1);
-    s = ok(s, { type: "SELL", bourbonId: "sellme" }); // final
+    s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }); // final
     expect(s.players[0]!.capital).toBe(2 * (v + dist));
     expect(s.players[0]!.rickhouse.length).toBe(0);
   });
