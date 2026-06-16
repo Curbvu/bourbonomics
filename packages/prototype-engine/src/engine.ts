@@ -20,7 +20,7 @@ import {
   improvementCost,
   zoneForCardCount,
 } from "./config";
-import { buildDemandDeck } from "./content";
+import { buildDemandDeck, buildMashBillSupply, buildPile } from "./content";
 import { rankPlayers } from "./scoring";
 import { rngRange, shuffle } from "./rng";
 import type {
@@ -91,16 +91,26 @@ export const rerollsFor = (p: Player): number => (hasUlt(p, "supply", "secondRer
 // Resource piles (five, face-down; blind quality off the top)
 // ---------------------------------------------------------------------
 
-function drawFromPile(draft: GameState, kind: ResourceKind): ResourceCard | null {
+function drawFromPile(draft: GameState, kind: ResourceKind): ResourceCard {
   if (draft.piles[kind].length === 0) {
-    if (!CONFIG.PILE_RESHUFFLE_ON_EMPTY || draft.pileDiscards[kind].length === 0) return null;
-    const [reshuffled, seed] = shuffle(draft.pileDiscards[kind], draft.rngSeed);
-    draft.piles[kind] = reshuffled;
-    draft.pileDiscards[kind] = [];
-    draft.rngSeed = seed;
-    draft.log.push(`The ${kind} discard was reshuffled into its pile.`);
+    if (CONFIG.PILE_RESHUFFLE_ON_EMPTY && draft.pileDiscards[kind].length > 0) {
+      const [reshuffled, seed] = shuffle(draft.pileDiscards[kind], draft.rngSeed);
+      draft.piles[kind] = reshuffled;
+      draft.pileDiscards[kind] = [];
+      draft.rngSeed = seed;
+      draft.log.push(`The ${kind} discard was reshuffled into its pile.`);
+    } else {
+      // Resources are effectively infinite — mint a fresh shuffled stack so a
+      // claim never dead-ends on an empty pile (no empty-pile handling, per the
+      // rules). Quality odds are preserved by buildPile.
+      const [fresh, seed] = shuffle(buildPile(kind), draft.rngSeed);
+      for (const c of fresh) c.id = nextId(`res_${kind}`);
+      draft.piles[kind] = fresh;
+      draft.rngSeed = seed;
+      draft.log.push(`The ${kind} pile was replenished (resources are effectively infinite).`);
+    }
   }
-  return draft.piles[kind].shift() ?? null;
+  return draft.piles[kind].shift()!;
 }
 
 const QUALITY_RANK: Record<Quality, number> = { common: 0, specialty: 1, heritage: 2 };
@@ -109,14 +119,12 @@ const QUALITY_RANK: Record<Quality, number> = { common: 0, specialty: 1, heritag
  * Draw from a pile for a claim. The Prospector ultimate (on its chosen pile)
  * draws 2 and keeps the higher quality; the loser goes to that pile's discard.
  */
-function drawForClaim(draft: GameState, player: Player, kind: ResourceKind): ResourceCard | null {
+function drawForClaim(draft: GameState, player: Player, kind: ResourceKind): ResourceCard {
   const prospect =
     hasUlt(player, "supply", "prospector") && dept(player, "supply").ultimatePile === kind;
   if (!prospect) return drawFromPile(draft, kind);
   const a = drawFromPile(draft, kind);
   const b = drawFromPile(draft, kind);
-  if (!a) return b;
-  if (!b) return a;
   const better = QUALITY_RANK[a.quality] >= QUALITY_RANK[b.quality] ? a : b;
   const worse = better === a ? b : a;
   draft.pileDiscards[kind].push(worse);
@@ -358,12 +366,7 @@ function handleCollectClaim(
     return `Warehouse holds ${cap} — you have ${player.hand.length} and tried to claim ${plan.length}`;
   }
 
-  const drawn: ResourceCard[] = [];
-  for (const { pile } of plan) {
-    const card = drawForClaim(draft, player, pile);
-    if (!card) return `the ${pile} pile is empty`;
-    drawn.push(card);
-  }
+  const drawn: ResourceCard[] = plan.map(({ pile }) => drawForClaim(draft, player, pile));
   player.hand.push(...drawn);
 
   const leftovers = c.dice.filter((d) => !claimIds.has(d.id));
@@ -417,6 +420,17 @@ function handleDrawMashBills(draft: GameState, player: Player, keepIndexes: numb
   if (player.drewMashBillsThisTurn) return "you have already drawn mash bills this turn";
 
   const reveal = mashFloorDraw(player);
+  // The mash-bill supply reshuffles when drawn-from is exhausted (it is the
+  // CLOCK only in mash_bill_supply mode; in the default demand-deck mode it is
+  // effectively infinite, so production never deadlocks before the deck does).
+  if (CONFIG.CLOCK_MODE !== "mash_bill_supply" && draft.mashBillSupply.length < reveal) {
+    const [fresh, seed] = shuffle(buildMashBillSupply(), draft.rngSeed);
+    for (const b of fresh) b.id = nextId(`mb_${b.defId}`);
+    draft.mashBillSupply.push(...fresh);
+    draft.rngSeed = seed;
+    draft.log.push(`A fresh batch of mash bills was shuffled into the supply.`);
+  }
+
   const offer = draft.mashBillSupply.slice(0, Math.min(reveal, draft.mashBillSupply.length));
   if (offer.length === 0) return "the mash bill supply is empty";
 
@@ -510,7 +524,6 @@ function handleQualitySort(draft: GameState, player: Player, pile: ResourceKind)
   if (!ALL_KINDS.includes(pile)) return `invalid pile "${pile}"`;
   if (player.hand.length + 1 > warehouseCap(player)) return "Warehouse is full — Quality Sort respects the cap";
   const card = drawFromPile(draft, pile);
-  if (!card) return `the ${pile} pile is empty`;
   player.hand.push(card);
   player.qualitySortUsedThisRound = true;
   draft.log.push(`${player.name} used Quality Sort — a free ${card.quality} ${pile}.`);
