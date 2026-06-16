@@ -786,16 +786,17 @@ function Board(p: BoardProps) {
                         <span style={{ position: "absolute", top: 9, right: 9, fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: "#2a1408", background: "linear-gradient(180deg,#9fc27a,#6d8f4f)", padding: "2px 6px", borderRadius: 4 }}>{STYLE_LABEL[b.styleTag]}</span>
                         <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: "#9fc27a" }}>Resting Bill</div>
                         <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fbeccb", lineHeight: 1.05, marginTop: 1 }}>{b.name}</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11, flexWrap: "wrap" }}>
                           {slots.map((k, i) => {
                             const filled = i < b.staged.length;
                             return (
-                              <span key={i} style={{ fontFamily: MONO, fontWeight: 700, fontSize: 10, width: 26, height: 26, borderRadius: 7, display: "inline-flex", alignItems: "center", justifyContent: "center", ...(filled ? { color: FACE[k].color, background: "#1a130b", border: `1px solid ${FACE[k].color}88` } : { color: C.faint, background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.5)" }) }}>
-                                {FACE[k].mono}
+                              <span key={i} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, width: 44, height: 46, borderRadius: 10, ...(filled ? { background: `linear-gradient(180deg,${FACE[k].color}26,#1a130b)`, border: `1.5px solid ${FACE[k].color}` } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }}>
+                                <span style={{ fontSize: 20, lineHeight: 1, color: filled ? FACE[k].color : C.faint, textShadow: filled ? `0 0 8px ${FACE[k].color}55` : undefined }}>{SUB[k].glyph}</span>
+                                <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 8, letterSpacing: ".04em", color: filled ? FACE[k].color : C.faint }}>{FACE[k].mono}</span>
                               </span>
                             );
                           })}
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: "#9fc27a", marginLeft: 2 }}>{b.staged.length}/{recipeSize(b.recipe)}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: "#9fc27a", marginLeft: 4 }}>{b.staged.length}/{recipeSize(b.recipe)}</span>
                         </div>
                         <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4, marginTop: 8 }}>Staged cards free Warehouse cap.{hasUlt(me, "warehouse", "longCellar") ? " (Long Cellar: swappable)" : " They lock here."}</div>
                       </div>
