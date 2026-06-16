@@ -36,12 +36,22 @@ import type {
   DepartmentId,
   DieFace,
   GameState,
+  MashBill,
   Player,
+  Quality,
+  ResourceCard,
   ResourceKind,
   StyleTag,
   UltimateId,
   Zone,
 } from "@bourbonomics/prototype-engine";
+
+// What the inspect modal is showing (a held resource card, a yet-to-be-drawn
+// pending claim, or a mash bill).
+type Inspect =
+  | { kind: "resource"; card: ResourceCard }
+  | { kind: "pending"; k: ResourceKind }
+  | { kind: "bill"; bill: MashBill };
 import ScalingHost from "./components/ScalingHost";
 import { TUT_BEATS, TutorialOverlay, tutorialGame } from "./tutorial";
 
@@ -77,6 +87,16 @@ const SUB: Record<ResourceKind, { ink: string; glyph: string; label: string }> =
   rye: { ink: "#d96b54", glyph: "✦", label: "Rye" },
   wheat: { ink: "#e9b46e", glyph: "❉", label: "Wheat" },
   barley: { ink: "#6db28c", glyph: "❦", label: "Barley" },
+};
+
+// Per-resource card chrome (the original's complementary palette: oak / gold /
+// crimson / cyan / teal) — used by the stylized hand cards + inspect modal.
+const KIND_CHROME: Record<ResourceKind, { grad: string; border: string; ink: string }> = {
+  cask: { grad: "linear-gradient(180deg,#6b4423 0%,#3d2417 55%,#150c06 100%)", border: "#a07142", ink: "#f3dcb6" },
+  corn: { grad: "linear-gradient(180deg,#d8b13a 0%,#7a5a16 50%,#160f06 100%)", border: "#f0c970", ink: "#fff0c4" },
+  rye: { grad: "linear-gradient(180deg,#c0463c 0%,#5a1f1c 52%,#160a08 100%)", border: "#e08a78", ink: "#ffdcd2" },
+  wheat: { grad: "linear-gradient(180deg,#52a6bd 0%,#2a5566 52%,#0a1418 100%)", border: "#8fd0e2", ink: "#dff3f8" },
+  barley: { grad: "linear-gradient(180deg,#4ea27a 0%,#27543c 52%,#0a1610 100%)", border: "#7fd0a4", ink: "#d6f2e2" },
 };
 
 const STYLE_LABEL: Record<StyleTag, string> = {
@@ -351,6 +371,7 @@ export default function GameClient() {
   const [ultDept, setUltDept] = useState<DepartmentId | null>(null); // ultimate chooser
   const [qsOpen, setQsOpen] = useState(false); // Quality Sort pile chooser
   const [tut, setTut] = useState<number | null>(null); // active tutorial beat index, or null
+  const [inspect, setInspect] = useState<Inspect | null>(null); // card detail modal
 
   function flash(msg: string) {
     setToast(msg);
@@ -366,6 +387,7 @@ export default function GameClient() {
     setSellId(null);
     setUltDept(null);
     setQsOpen(false);
+    setInspect(null);
   }
   function start(names: string[]) {
     // Seat 0 is the human ("You"); every other seat is AI-played.
@@ -533,12 +555,14 @@ export default function GameClient() {
           setUltDept={setUltDept}
           qsOpen={qsOpen}
           setQsOpen={setQsOpen}
+          onInspect={setInspect}
           toast={toast}
         />
       </ScalingHost>
-      {tut !== null && TUT_BEATS[tut] && sellId === null && pendingWild === null && ultDept === null && !qsOpen && !ttFace && (
+      {tut !== null && TUT_BEATS[tut] && sellId === null && pendingWild === null && ultDept === null && !qsOpen && !ttFace && inspect === null && (
         <TutorialOverlay beat={TUT_BEATS[tut]!} draftedCount={Object.keys(claims).length} pickedCount={keepBills.size} onContinue={tutContinue} onExit={exitTutorial} />
       )}
+      {inspect && <InspectOverlay inspect={inspect} onClose={() => setInspect(null)} />}
     </div>
   );
 }
@@ -566,6 +590,7 @@ interface BoardProps {
   setUltDept: (v: DepartmentId | null) => void;
   qsOpen: boolean;
   setQsOpen: (v: boolean) => void;
+  onInspect: (i: Inspect) => void;
   toast: string | null;
 }
 
@@ -1043,17 +1068,14 @@ function Board(p: BoardProps) {
                   </div>
                 }>
                 <div ref={warehouseRef} style={{ display: "flex", gap: 6, flexWrap: "wrap", alignContent: "center" }}>
-                  {[...me.hand.map((c) => c.kind), ...optimisticClaims].slice(0, warehouseCap).map((kind, i) => {
-                    const m = SUB[kind];
-                    return (
-                      <div key={i} className="bb-card" style={{ position: "relative", width: 46, height: 64, borderRadius: 8, padding: "6px 4px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", background: `linear-gradient(180deg,${m.ink}26 0%, rgba(20,14,8,.96) 70%)`, border: `1px solid ${m.ink}66`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.06), 0 3px 9px ${m.ink}2e` }}>
-                        <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: m.ink }}>{m.label}</span>
-                        <span style={{ fontSize: 20, lineHeight: 1, color: m.ink, textShadow: `0 0 8px ${m.ink}55` }}>{m.glyph}</span>
-                      </div>
-                    );
-                  })}
+                  {me.hand.slice(0, warehouseCap).map((card) => (
+                    <ResMiniCard key={card.id} kind={card.kind} quality={card.quality} onClick={() => p.onInspect({ kind: "resource", card })} />
+                  ))}
+                  {optimisticClaims.slice(0, Math.max(0, warehouseCap - me.hand.length)).map((kind, i) => (
+                    <ResMiniCard key={`pend${i}`} kind={kind} pending onClick={() => p.onInspect({ kind: "pending", k: kind })} />
+                  ))}
                   {Array.from({ length: Math.max(0, warehouseCap - heldTotal) }).map((_, i) => (
-                    <div key={`g${i}`} style={{ width: 46, height: 64, borderRadius: 8, border: "1.5px dashed rgba(110,80,50,.4)", background: "rgba(20,14,8,.4)" }} />
+                    <div key={`g${i}`} style={{ width: 50, height: 70, borderRadius: 8, border: "1.5px dashed rgba(110,80,50,.4)", background: "rgba(20,14,8,.4)" }} />
                   ))}
                 </div>
                 {hasUlt(me, "warehouse", "qualitySort") && phaseStage === "play" && (
@@ -1310,8 +1332,15 @@ function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
         {offer.map((bill, i) => {
           const sel = board.keepBills.has(i);
           return (
-            <button key={bill.id} className="bb-btn" onClick={() => { const n = new Set(board.keepBills); n.has(i) ? n.delete(i) : n.add(i); board.setKeepBills(n); }} style={{ width: 150, textAlign: "left", display: "flex", flexDirection: "column", gap: 2, padding: 10, borderRadius: 10, cursor: "pointer", border: `2px solid ${sel ? C.brass : C.border}`, background: sel ? "#2a2014" : "linear-gradient(180deg,#1e140c,#150e08)" }}>
-              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink }}>{bill.name}</span>
+            <button key={bill.id} className="bb-btn" onClick={() => { const n = new Set(board.keepBills); n.has(i) ? n.delete(i) : n.add(i); board.setKeepBills(n); }} style={{ position: "relative", width: 150, textAlign: "left", display: "flex", flexDirection: "column", gap: 2, padding: 10, borderRadius: 10, cursor: "pointer", border: `2px solid ${sel ? C.brass : C.border}`, background: sel ? "#2a2014" : "linear-gradient(180deg,#1e140c,#150e08)" }}>
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); board.onInspect({ kind: "bill", bill }); }}
+                title="Inspect recipe"
+                style={{ position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: 999, display: "grid", placeItems: "center", fontFamily: SERIF, fontStyle: "italic", fontWeight: 700, fontSize: 12, color: C.brass, border: `1px solid ${C.border}`, background: "#11100a" }}
+              >i</span>
+              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, paddingRight: 18 }}>{bill.name}</span>
               <span style={{ fontFamily: MONO, fontSize: 9, color: C.brass }}>{STYLE_LABEL[bill.styleTag]} · {bill.batchQty} sales{bill.saleBonus > 0 ? ` · +${bill.saleBonus}/sale` : ""}</span>
               <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>{recipeKinds(bill.recipe).map((k) => FACE[k].mono).join(" ")}</span>
             </button>
@@ -1572,6 +1601,121 @@ function Scrim({ children }: { children: React.ReactNode }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(8,5,3,.82)", backdropFilter: "blur(4px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, zIndex: 60 }}>
       {children}
     </div>
+  );
+}
+
+// ── Stylized resource card (Warehouse) + click-to-inspect modal ───────
+function ResMiniCard({ kind, quality, pending, onClick }: { kind: ResourceKind; quality?: Quality; pending?: boolean; onClick: () => void }) {
+  const m = SUB[kind];
+  const kc = KIND_CHROME[kind];
+  const q = quality ? QUALITY_CHROME[quality] : null;
+  return (
+    <button
+      className="bb-card"
+      onClick={onClick}
+      title={`${quality ? quality + " " : pending ? "blind " : ""}${m.label} — click to inspect`}
+      style={{ position: "relative", width: 50, height: 70, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column", cursor: "pointer", padding: 0, background: kc.grad, border: `1px solid ${kc.border}`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14), 0 3px 9px rgba(0,0,0,.45)" }}
+    >
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: "4px 2px 0" }}>
+        <span style={{ fontFamily: MONO, fontSize: 6.5, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: kc.ink }}>{m.label}</span>
+        <span style={{ fontSize: 22, lineHeight: 1, color: kc.ink, textShadow: "0 1px 4px rgba(0,0,0,.5)" }}>{pending ? "?" : m.glyph}</span>
+      </div>
+      {/* rarity stripe along the foot (foil for known quality, hatched for blind) */}
+      <div style={{ height: 6, width: "100%", background: pending ? "repeating-linear-gradient(45deg,#3b2818 0,#3b2818 4px,#1a130b 4px,#1a130b 8px)" : q ? q.foil : "#5a5145" }} aria-hidden />
+    </button>
+  );
+}
+
+function InspectOverlay({ inspect, onClose }: { inspect: Inspect; onClose: () => void }) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [onClose]);
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(8,5,3,.85)", backdropFilter: "blur(5px)", display: "grid", placeItems: "center", padding: 24 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", width: 560, maxWidth: "92vw" }}>
+        <button onClick={onClose} aria-label="Close" style={{ position: "absolute", top: -12, right: -12, zIndex: 2, width: 32, height: 32, borderRadius: 999, border: `1px solid ${C.border}`, background: "#1a120b", color: C.muted, cursor: "pointer", fontFamily: MONO, fontSize: 13 }}>✕</button>
+        {inspect.kind === "bill" ? (
+          <BillDetail bill={inspect.bill} />
+        ) : (
+          <ResourceDetail
+            kind={inspect.kind === "resource" ? inspect.card.kind : inspect.k}
+            quality={inspect.kind === "resource" ? inspect.card.quality : undefined}
+            name={inspect.kind === "resource" ? inspect.card.name : undefined}
+            pending={inspect.kind === "pending"}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+const KIND_USE: Record<ResourceKind, string> = {
+  cask: "The charred-oak cask every bourbon needs — exactly one per mash bill.",
+  corn: "Corn is the bourbon backbone — every recipe needs at least one.",
+  rye: "A grain with the high-rye style tag that some demand orders ask for.",
+  wheat: "A grain with the wheated style tag that some demand orders ask for.",
+  barley: "A grain that rounds out four-grain and classic recipes.",
+};
+
+function ResourceDetail({ kind, quality, name, pending }: { kind: ResourceKind; quality?: Quality; name?: string; pending?: boolean }) {
+  const m = SUB[kind];
+  const kc = KIND_CHROME[kind];
+  const q = quality ? QUALITY_CHROME[quality] : null;
+  const heading = name ?? `${q ? q.label + " " : ""}${m.label}`;
+  return (
+    <article style={{ display: "flex", gap: 18, borderRadius: 16, border: `2px solid ${kc.border}`, background: kc.grad, padding: 22, boxShadow: "0 18px 50px rgba(0,0,0,.6)" }}>
+      <div style={{ position: "relative", width: 150, height: 200, flex: "0 0 auto", borderRadius: 12, border: `2px solid ${kc.border}`, background: "rgba(10,7,4,.4)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: kc.ink }}>{m.label}</span>
+        <span style={{ fontSize: 64, lineHeight: 1, color: kc.ink, textShadow: "0 2px 12px rgba(0,0,0,.5)" }}>{pending ? "?" : m.glyph}</span>
+        {q ? (
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#2a1408", background: q.foil, padding: "3px 10px", borderRadius: 5, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{q.label}</span>
+        ) : (
+          <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: kc.ink, opacity: 0.7 }}>blind quality</span>
+        )}
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, color: kc.ink }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: kc.ink, opacity: 0.75 }}>Resource</span>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 28, lineHeight: 1.05 }}>{heading}</span>
+        <div style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(10,7,4,.45)", padding: 12 }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".15em", textTransform: "uppercase", color: kc.ink, opacity: 0.7 }}>Use</span>
+          <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5, color: kc.ink }}>{KIND_USE[kind]}</p>
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.6, color: kc.ink, opacity: 0.92 }}>
+          {pending
+            ? "Drawn blind on DRAFT — you'll see its quality once it lands in your Warehouse."
+            : `Quality ${q?.label}. The best-quality card you commit sets the built barrel's tier — a higher tier rides a richer age-value track.`}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function BillDetail({ bill }: { bill: MashBill }) {
+  return (
+    <article style={{ display: "flex", flexDirection: "column", gap: 12, borderRadius: 16, border: `2px solid ${C.brass}`, background: "radial-gradient(120% 70% at 50% -10%, rgba(240,201,112,.14), transparent 60%), linear-gradient(180deg,#241710,#130c07)", padding: 22, boxShadow: "0 18px 50px rgba(0,0,0,.6)" }}>
+      <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>Mash Bill · {STYLE_LABEL[bill.styleTag]}</span>
+      <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 28, color: C.ink, lineHeight: 1.05 }}>{bill.name}</span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {recipeKinds(bill.recipe).map((k, i) => (
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, border: `1px solid ${FACE[k].color}88`, background: "rgba(10,7,4,.5)" }}>
+            <span style={{ fontSize: 18, color: FACE[k].color }}>{SUB[k].glyph}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".06em", color: C.ink }}>{SUB[k].label}</span>
+          </span>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 18, fontFamily: MONO, fontSize: 12, color: C.text2 }}>
+        <span><b style={{ color: C.gold }}>{bill.batchQty}</b> sales</span>
+        {bill.saleBonus > 0 && <span>premium <b style={{ color: C.gold }}>+{bill.saleBonus}</b>/sale</span>}
+      </div>
+      <div style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(10,7,4,.5)", padding: 12 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".15em", textTransform: "uppercase", color: C.muted }}>Use</span>
+        <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5, color: C.ink }}>
+          Draw it as a resting barrel, then stage its recipe (every bill needs 1 cask + 1 corn + a grain) and Make Bourbon. The batch yields {bill.batchQty} sales{bill.saleBonus > 0 ? `, each paying a +${bill.saleBonus} complexity premium` : ""}.
+        </p>
+      </div>
+    </article>
   );
 }
 
