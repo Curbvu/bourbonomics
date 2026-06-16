@@ -95,7 +95,7 @@ Round-robin. **No action economy** — take unlimited actions, gated only by res
 # 🛢️ Resources, Building, Aging
 
 - **Five types:** cask, corn, rye, wheat, barley. Grain identity (rye/wheat/barley) is the style tag used by demand requirements.
-- **Quality:** Common / Specialty / Heritage, blind in the piles. Quality sets a barrel's **base value** AND its **age-value ceiling** (below).
+- **Quality (five tiers):** **Common · Uncommon · Rare · Epic · Legendary**, blind in the piles (`[PH]` weights — Legendary very rare, Common abundant; the rare pull is the dopamine moment). Quality = best card committed sets a barrel's tier, which sets its **age-value track** (below). UI colors the familiar ladder grey/green/blue/purple/orange.
 - **The bourbon rule:** every mash bill requires **exactly 1 cask** and **at least 1 corn**, then optional extra grains.
 - **Complexity scaling (loose, config-driven):** a recipe's *complexity* = how many resources it needs (min 2 = 1 cask + 1 corn). The more complex the bourbon, the richer it is — every resource beyond the minimum grants **more `batchQty` and/or more Capital per sale** (a per-sale premium). Numbers are `[PH]`, derived from one rule, not hand-set per bill.
 - **Two-step production:** Draw Mash Bills lays a recipe as a resting (non-aging) barrel; Stage/Make Bourbon builds it.
@@ -104,23 +104,34 @@ Round-robin. **No action economy** — take unlimited actions, gated only by res
 
 ---
 
-# 💰 Selling (Extraction) — the disaggregated payoff
+# 💰 Selling (Extraction) — value off the track, demand as a multiplier
 
-There is **no payoff matrix.** A sale's Capital is the **sum of three readable parts**:
+There is **no payoff matrix** and **no formula** for age value. A sale's Capital is:
 
-1. **Barrel value** = quality base + age, **capped by the quality ceiling**:
+```
+sale_capital = (age_track_value × demand_zone_multiplier) + card_bonus + complexity_premium + distribution
+```
 
-| Quality | Base | Per-year aging | Ceiling (`[PH]`) |
-|---|---|---|---|
-| Common | 1 | +1 / year | caps at 4 |
-| Specialty | 2 | +1 / year | caps at 8 |
-| Heritage | 3 | +1 / year | caps at 12 |
+**1. Age-track value** — read off a printed 1-D table by **(tier, age)** (an editable lookup in config, not a formula). Each tier climbs to the year it caps, then holds (the barrel may keep aging with no further value). `[PH]`:
 
-A barrel keeps physically aging past its ceiling, but its **value stops climbing** there. This is the home of the old matrix's "low quality can't ride to high age" behavior — the ceiling lives on **quality**, not the rickhouse. A **recipe-complexity premium** (see §Resources — more complex bills pay more per sale) adds on top of barrel value.
+| Age | Common | Uncommon | Rare | Epic | Legendary |
+|----:|:------:|:--------:|:----:|:----:|:---------:|
+| 2 | 1 | 1 | 1 | 2 | 2 |
+| 4 | **2 (cap)** | 2 | 2 | 3 | 3 |
+| 6 | — | **3 (cap)** | 3 | 4 | 4 |
+| 8 | — | — | **4 (cap)** | 5 | 5 |
+| 12 | — | — | — | **7 (cap)** | 7 |
+| 18 | — | — | — | — | **11 (cap)** |
 
-2. **Demand zone effect** — the card's effect/payout as read in the current zone (Low/Mid/High).
+Caps: Common 4/2 · Uncommon 6/3 · Rare 8/4 · Epic 12/7 · Legendary 18/11. **No rickhouse aging ceiling** — barrels age past the cap, the *value* just stops climbing (the ceiling lives on **quality**).
 
-3. **Card alignment** — every sale fills a matching demand-card slot, firing its On Fill / On Completed. **There is no glut:** a barrel can only be sold into an order whose Requirement it meets and that has an open slot; with no eligible order it waits for one. A card's slots equal the **player count** (some cards a multiple of it), so each order holds one fill per player.
+**2. Demand zone MULTIPLIER** (the real timing swing) — by total cards on the table: **Low ×1 · Mid ×2 · High ×3**. Only the age value is multiplied.
+
+**3. Card bonus** — the matched order's per-zone effect, added **additively** (not multiplied), so card rewards stay clean. The **complexity premium** (richer bills, see §Resources) and **Distribution** bonus are likewise additive.
+
+**There is no glut:** every sale fills a matching open order slot; with no eligible order the barrel waits. A card's slots = the **player count** (some a multiple).
+
+*Worked: Common age 2 Low = 1×1 = **1** (floor). Common age 4 High = 2×3 = **6**. Legendary age 18 High + a 4-card = 11×3+4 = **37**. Design intent: dumping cheap young stock is fine (~1), but holding good bourbon for an aged High-demand window pays multiplicatively. Two knobs — the value table (magnitude) and the ×1/×2/×3 (timing).*
 
 **Multi-sale batches:** a built barrel yields several sales over its life (`batchQty`, mostly 2–3, some 4). **Every sale banks Capital** — intermediate or completing. A batch frees its rickhouse slot when its **last** sale is extracted.
 

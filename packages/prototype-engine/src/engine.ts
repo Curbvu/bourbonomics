@@ -19,6 +19,7 @@ import {
   barrelValue,
   improvementCost,
   zoneForCardCount,
+  zoneMultiplier,
 } from "./config";
 import { buildDemandDeck, buildMashBillSupply, buildPile } from "./content";
 import { rankPlayers } from "./scoring";
@@ -113,7 +114,7 @@ function drawFromPile(draft: GameState, kind: ResourceKind): ResourceCard {
   return draft.piles[kind].shift()!;
 }
 
-const QUALITY_RANK: Record<Quality, number> = { common: 0, specialty: 1, heritage: 2 };
+const QUALITY_RANK: Record<Quality, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
 
 /**
  * Draw from a pile for a claim. The Prospector ultimate (on its chosen pile)
@@ -597,9 +598,14 @@ function handleSell(
 
   const zone = zoneForCardCount(draft.demandCards.length);
   card.filledBy[slot] = player.id;
-  // Payoff = barrel value (quality+age, capped) + recipe-complexity premium +
-  // demand zone effect + Distribution bonus.
-  const payoff = barrelValue(bourbon.quality, bourbon.age) + bourbon.saleBonus + card.zoneBonus[zone] + distributionBonus(player);
+  // Payoff = (age-track value × demand-zone MULTIPLIER) + additive bonuses
+  // (card per-zone effect, recipe-complexity premium, Distribution). Only the
+  // age value is multiplied by timing — the additive bonuses stay flat.
+  const payoff =
+    barrelValue(bourbon.quality, bourbon.age) * zoneMultiplier(zone) +
+    card.zoneBonus[zone] +
+    bourbon.saleBonus +
+    distributionBonus(player);
   const completed = card.filledBy.every((f) => f !== null);
 
   player.capital += payoff;

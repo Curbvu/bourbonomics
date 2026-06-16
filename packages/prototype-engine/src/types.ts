@@ -16,8 +16,14 @@
 // Vocabulary
 // ---------------------------------------------------------------------
 
-/** Quality tier of a resource / finished bourbon. Higher = scarcer & better. */
-export type Quality = "common" | "specialty" | "heritage";
+/**
+ * Quality tier of a resource / finished bourbon — the WoW-style five-tier ladder
+ * (Common abundant → Legendary very rare). Higher = scarcer & better.
+ */
+export type Quality = "common" | "uncommon" | "rare" | "epic" | "legendary";
+
+/** The five quality tiers, low → high (handy for iteration). */
+export const QUALITIES: Quality[] = ["common", "uncommon", "rare", "epic", "legendary"];
 
 /** The five resource piles. A die face names the pile; quality is drawn blind. */
 export type ResourceKind = "cask" | "corn" | "rye" | "wheat" | "barley";

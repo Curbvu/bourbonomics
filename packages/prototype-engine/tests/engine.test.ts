@@ -12,6 +12,7 @@ import {
   saleBonusForRecipe,
   scorePlayer,
   zoneForCardCount,
+  zoneMultiplier,
   CONFIG,
 } from "../src/index";
 import type {
@@ -122,7 +123,8 @@ describe("setup", () => {
     for (const k of ["cask", "corn", "rye", "wheat", "barley"] as ResourceKind[]) {
       expect(s.piles[k].length).toBe(CONFIG.PILE_COUNTS[k]);
       expect(s.piles[k].every((c) => c.kind === k)).toBe(true);
-      expect(s.piles[k].some((c) => c.quality === "specialty")).toBe(true);
+      expect(s.piles[k].some((c) => c.quality === "uncommon")).toBe(true);
+      expect(s.piles[k].some((c) => c.quality !== "common")).toBe(true);
     }
   });
 
@@ -350,7 +352,7 @@ describe("make bourbon", () => {
       makeBourbon({ id: "barrel", built: false, age: 0, recipe: { cask: 1, corn: 1 } }),
     ];
     s.players[0]!.hand = [
-      { id: "c1", defId: "x", kind: "cask", quality: "specialty", name: "cask", placeholder: true },
+      { id: "c1", defId: "x", kind: "cask", quality: "rare", name: "cask", placeholder: true },
       { id: "g1", defId: "x", kind: "corn", quality: "common", name: "corn", placeholder: true },
     ];
     const before = totalDiscard(s);
@@ -358,7 +360,7 @@ describe("make bourbon", () => {
     const b = s.players[0]!.rickhouse[0]!;
     expect(b.built).toBe(true);
     expect(b.age).toBe(0);
-    expect(b.quality).toBe("specialty");
+    expect(b.quality).toBe("rare"); // best of {rare, common}
     expect(totalDiscard(s)).toBe(before + 2);
   });
 
@@ -383,7 +385,7 @@ describe("make bourbon", () => {
       makeBourbon({ id: "barrel", built: false, age: 0, recipe: { cask: 1, corn: 1 } }),
     ];
     s.players[0]!.hand = [
-      { id: "c1", defId: "x", kind: "cask", quality: "specialty", name: "cask", placeholder: true },
+      { id: "c1", defId: "x", kind: "cask", quality: "rare", name: "cask", placeholder: true },
       { id: "g1", defId: "x", kind: "corn", quality: "common", name: "corn", placeholder: true },
     ];
     s = ok(s, { type: "STAGE", barrelId: "barrel", resourceCardId: "c1" });
@@ -391,7 +393,7 @@ describe("make bourbon", () => {
     expect(s.players[0]!.rickhouse[0]!.staged.length).toBe(1);
     s = ok(s, { type: "MAKE_BOURBON", barrelId: "barrel", resourceCardIds: ["g1"] });
     expect(s.players[0]!.rickhouse[0]!.built).toBe(true);
-    expect(s.players[0]!.rickhouse[0]!.quality).toBe("specialty");
+    expect(s.players[0]!.rickhouse[0]!.quality).toBe("rare");
   });
 
   it("Long Cellar lets a staged card be pulled back; without it, staging is locked", () => {
@@ -415,15 +417,31 @@ describe("make bourbon", () => {
 });
 
 // ------------------------------------------------------------------
-// barrel value (disaggregated payoff, quality ceiling)
+// barrel value — printed age track per (tier, age), value caps by tier
 // ------------------------------------------------------------------
 
-describe("barrel value", () => {
-  it("is quality base + age, capped by the quality ceiling", () => {
-    expect(barrelValue("common", 2)).toBe(3); // 1 + 2
-    expect(barrelValue("common", 10)).toBe(CONFIG.QUALITY_CEILING.common); // capped
-    expect(barrelValue("heritage", 3)).toBe(6); // 3 + 3
-    expect(barrelValue("heritage", 50)).toBe(CONFIG.QUALITY_CEILING.heritage); // capped
+describe("barrel value (age track)", () => {
+  it("reads value off the per-(tier, age) table", () => {
+    expect(barrelValue("common", 2)).toBe(1);
+    expect(barrelValue("common", 4)).toBe(2); // cap value
+    expect(barrelValue("rare", 3)).toBe(2);
+    expect(barrelValue("legendary", 18)).toBe(11); // cap value
+  });
+  it("is 0 below the minimum sell age and holds the cap value past the cap age", () => {
+    expect(barrelValue("common", 1)).toBe(0); // below MIN_SELL_AGE
+    expect(barrelValue("common", 99)).toBe(2); // holds Common's cap value (2)
+    expect(barrelValue("legendary", 99)).toBe(11); // holds Legendary's cap value (11)
+  });
+  it("climbs to the cap year with no dead final step", () => {
+    expect(barrelValue("epic", 11)).toBeLessThan(barrelValue("epic", 12)); // 6 → 7
+  });
+});
+
+describe("demand zone multiplier", () => {
+  it("is ×1 / ×2 / ×3 for Low / Mid / High", () => {
+    expect(zoneMultiplier("low")).toBe(1);
+    expect(zoneMultiplier("mid")).toBe(2);
+    expect(zoneMultiplier("high")).toBe(3);
   });
 });
 
@@ -518,6 +536,19 @@ describe("sell", () => {
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }); // final
     expect(s.players[0]!.capital).toBe(2 * (v + dist));
     expect(s.players[0]!.rickhouse.length).toBe(0);
+  });
+
+  it("the demand zone MULTIPLIES the age value; card bonus stays additive", () => {
+    let s = base({ quality: "common", age: 2 }); // age value 1
+    // 5 cards on the table → Mid zone (×2). Target is first + 4 fillers.
+    const target = makeDemandCard({ id: "ord", slotsActive: 1, zoneBonus: { low: 1, mid: 4, high: 9 }, reputation: 1 });
+    const fillers = Array.from({ length: 4 }, (_, i) => makeDemandCard({ id: `f${i}`, slotsActive: 1 }));
+    s.demandCards = [target, ...fillers];
+    expect(zoneForCardCount(s.demandCards.length)).toBe("mid");
+    const dist = dept(s.players[0]!, "distribution").values[0]!;
+    s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
+    // (value 1 × mid ×2) + card mid bonus 4 + dist — the ×2 hits value only.
+    expect(s.players[0]!.capital).toBe(barrelValue("common", 2) * 2 + 4 + dist);
   });
 });
 
@@ -630,13 +661,14 @@ describe("scoring and the clock", () => {
 
 describe("requirement matching", () => {
   it("matches style tag, minimum age, and minimum quality (floors)", () => {
-    const b = makeBourbon({ styleTag: "rye", age: 5, quality: "specialty" });
+    const b = makeBourbon({ styleTag: "rye", age: 5, quality: "rare" });
     expect(meetsRequirement(b, {})).toBe(true);
     expect(meetsRequirement(b, { styleTag: "rye" })).toBe(true);
     expect(meetsRequirement(b, { styleTag: "wheat" })).toBe(false);
     expect(meetsRequirement(b, { minAge: 4 })).toBe(true);
     expect(meetsRequirement(b, { minAge: 6 })).toBe(false);
-    expect(meetsRequirement(b, { quality: "common" })).toBe(true); // specialty ≥ common
-    expect(meetsRequirement(b, { quality: "heritage" })).toBe(false);
+    expect(meetsRequirement(b, { quality: "common" })).toBe(true); // rare ≥ common
+    expect(meetsRequirement(b, { quality: "uncommon" })).toBe(true); // rare ≥ uncommon
+    expect(meetsRequirement(b, { quality: "legendary" })).toBe(false);
   });
 });

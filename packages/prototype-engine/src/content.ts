@@ -5,6 +5,7 @@
 // flag is stamped on every record. CARD CONTENT is placeholder; the STRUCTURE
 // (four-section demand cards, seven-branch departments + ultimates) is real.
 
+import { QUALITIES } from "./types";
 import type {
   DemandCard,
   Department,
@@ -96,22 +97,32 @@ export function buildMashBillSupply(): MashBill[] {
 // Resource piles (five, face-down): cask / corn / rye / wheat / barley.
 // ---------------------------------------------------------------------
 
-const RESOURCE_NAMES: Record<ResourceKind, Record<Quality, string>> = {
-  cask: { common: "New-Char Cask", specialty: "Toasted Cask", heritage: "Heritage Cask" },
-  corn: { common: "Corn", specialty: "Estate Corn", heritage: "Heirloom Corn" },
-  rye: { common: "Rye", specialty: "Estate Rye", heritage: "Heirloom Rye" },
-  wheat: { common: "Wheat", specialty: "Estate Wheat", heritage: "Heirloom Wheat" },
-  barley: { common: "Barley", specialty: "Estate Barley", heritage: "Heirloom Barley" },
+const KIND_LABEL: Record<ResourceKind, string> = {
+  cask: "Cask", corn: "Corn", rye: "Rye", wheat: "Wheat", barley: "Barley",
 };
+/** Tier prefix on a resource's display name (Common has none). */
+const QUALITY_PREFIX: Record<Quality, string> = {
+  common: "", uncommon: "Select", rare: "Estate", epic: "Reserve", legendary: "Heirloom",
+};
+function resourceName(kind: ResourceKind, quality: Quality): string {
+  const prefix = QUALITY_PREFIX[quality];
+  return prefix ? `${prefix} ${KIND_LABEL[kind]}` : KIND_LABEL[kind];
+}
 
 export const PILE_KINDS: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
 
+/** Split a pile's total into per-tier counts (remainder lands in Common). */
 function qualityCounts(total: number): Record<Quality, number> {
   const split = CONFIG.PILE_QUALITY_SPLIT;
-  const specialty = Math.round(total * split.specialty);
-  const heritage = Math.round(total * split.heritage);
-  const common = total - specialty - heritage;
-  return { common, specialty, heritage };
+  const counts = {} as Record<Quality, number>;
+  let assigned = 0;
+  for (const q of QUALITIES) {
+    if (q === "common") continue;
+    counts[q] = Math.round(total * split[q]);
+    assigned += counts[q];
+  }
+  counts.common = Math.max(0, total - assigned);
+  return counts;
 }
 
 /** Build one face-down, type-pure pile seeded with the quality distribution (unshuffled). */
@@ -119,14 +130,14 @@ export function buildPile(kind: ResourceKind): ResourceCard[] {
   const total = CONFIG.PILE_COUNTS[kind];
   const counts = qualityCounts(total);
   const cards: ResourceCard[] = [];
-  for (const quality of ["common", "specialty", "heritage"] as Quality[]) {
+  for (const quality of QUALITIES) {
     for (let i = 0; i < counts[quality]; i++) {
       cards.push({
         id: `res_${kind}_${quality}#${i}`,
         defId: `res_${kind}_${quality}`,
         kind,
         quality,
-        name: RESOURCE_NAMES[kind][quality],
+        name: resourceName(kind, quality),
         placeholder: true,
       });
     }
@@ -158,8 +169,8 @@ const DEMAND_CARD_DEFS: DemandCardDef[] = [
   { defId: "dm_wheat", label: "Wheated Wishlist", requirement: { styleTag: "wheat" }, slotMultiple: 1, zoneBonus: { low: 2, mid: 3, high: 5 }, reputation: 3, count: 5 },
   { defId: "dm_fourgrain", label: "Four-Grain Feature", requirement: { styleTag: "fourGrain" }, slotMultiple: 1, zoneBonus: { low: 3, mid: 5, high: 7 }, reputation: 5, count: 3 },
   { defId: "dm_aged", label: "Aged-Stock Order", requirement: { minAge: 4 }, slotMultiple: 1, zoneBonus: { low: 2, mid: 4, high: 6 }, reputation: 4, count: 5 },
-  { defId: "dm_premium", label: "Connoisseur Order", requirement: { quality: "specialty" }, slotMultiple: 1, zoneBonus: { low: 3, mid: 5, high: 8 }, reputation: 5, count: 4 },
-  { defId: "dm_collector", label: "Collector's Cellar", requirement: { quality: "heritage", minAge: 6 }, slotMultiple: 1, zoneBonus: { low: 4, mid: 7, high: 11 }, reputation: 8, count: 3 },
+  { defId: "dm_premium", label: "Connoisseur Order", requirement: { quality: "rare" }, slotMultiple: 1, zoneBonus: { low: 3, mid: 5, high: 8 }, reputation: 5, count: 4 },
+  { defId: "dm_collector", label: "Collector's Cellar", requirement: { quality: "epic", minAge: 6 }, slotMultiple: 1, zoneBonus: { low: 4, mid: 7, high: 11 }, reputation: 8, count: 3 },
 ];
 
 export function buildDemandDeck(): DemandCard[] {

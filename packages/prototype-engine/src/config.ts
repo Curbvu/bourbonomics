@@ -52,13 +52,26 @@ export const CONFIG = {
   ZONE_MID_MIN: 5,
   ZONE_HIGH_MIN: 8,
 
-  // --- Selling — the disaggregated payoff ----------------------------------
-  /** Quality base value (part 1 of barrel value). `[PH]`. */
-  QUALITY_BASE: { common: 1, specialty: 2, heritage: 3 } as Record<Quality, number>,
-  /** Quality age-value ceiling: barrel value stops climbing here (age is uncapped). `[PH]`. */
-  QUALITY_CEILING: { common: 4, specialty: 8, heritage: 12 } as Record<Quality, number>,
-  /** Capital added per year of age, before the quality ceiling. `[PH]`. */
-  AGE_VALUE_PER_YEAR: 1,
+  // --- Selling — age value off the track, demand zone as a multiplier ------
+  // Barrel value is READ OFF A PRINTED TRACK by (tier, age) — an explicit
+  // lookup, NOT a formula. Each tier climbs to the year it caps, then holds
+  // (the barrel may keep physically aging with no further value). Ages between
+  // listed entries hold the last value. `[PH]` — edit freely.
+  AGE_VALUE_TABLE: {
+    common: { 2: 1, 3: 1, 4: 2 },
+    uncommon: { 2: 1, 3: 1, 4: 2, 5: 2, 6: 3 },
+    rare: { 2: 1, 3: 2, 4: 2, 5: 3, 6: 3, 7: 4, 8: 4 },
+    epic: { 2: 2, 3: 2, 4: 3, 5: 3, 6: 4, 7: 4, 8: 5, 9: 5, 10: 6, 11: 6, 12: 7 },
+    legendary: { 2: 2, 3: 3, 4: 3, 5: 4, 6: 4, 7: 5, 8: 5, 9: 5, 10: 6, 11: 6, 12: 7, 13: 7, 14: 7, 15: 9, 16: 9, 17: 9, 18: 11 },
+  } as Record<Quality, Record<number, number>>,
+  /** The year each tier's value caps (value stops climbing; the barrel may age on). `[PH]`. */
+  QUALITY_CAP_AGE: { common: 4, uncommon: 6, rare: 8, epic: 12, legendary: 18 } as Record<Quality, number>,
+  /**
+   * Demand zone MULTIPLIER on the age value — the real timing swing.
+   * sale = (age value × zone mult) + additive card/premium/distribution bonuses.
+   * `[PH]` — to tune swinginess, flatten AGE_VALUE_TABLE, NOT these.
+   */
+  ZONE_MULTIPLIER: { low: 1, mid: 2, high: 3 } as Record<Zone, number>,
 
   // --- Mash-bill complexity scaling ----------------------------------------
   // A bill always needs exactly 1 cask + ≥1 corn (the "is it bourbon" rule).
@@ -75,8 +88,11 @@ export const CONFIG = {
   // --- Resource piles ------------------------------------------------------
   /** Starting card count per pile. Cask is used by most recipes so it runs deepest. `[PH]`. */
   PILE_COUNTS: { cask: 30, corn: 24, rye: 18, wheat: 18, barley: 18 } as Record<ResourceKind, number>,
-  /** Quality distribution seeded blind into EVERY pile. Must sum to ~1. `[PH]`. */
-  PILE_QUALITY_SPLIT: { common: 0.6, specialty: 0.3, heritage: 0.1 } as Record<Quality, number>,
+  /**
+   * Quality distribution seeded blind into EVERY pile — Legendary very rare,
+   * Common abundant (the rare-drop dopamine moment). Must sum to ~1. `[PH]`.
+   */
+  PILE_QUALITY_SPLIT: { common: 0.45, uncommon: 0.28, rare: 0.17, epic: 0.08, legendary: 0.02 } as Record<Quality, number>,
   /** When a pile empties, reshuffle its own discard back into it. `[PH]`. */
   PILE_RESHUFFLE_ON_EMPTY: true,
 
@@ -110,13 +126,30 @@ export function zoneForCardCount(count: number): Zone {
 }
 
 /**
- * Barrel value = quality base + age (per year), capped by the quality ceiling.
- * Physical age keeps climbing past the ceiling; the VALUE stops there. This is
- * the home of the old matrix's "low quality can't ride to high age" behavior.
+ * Barrel value read off the printed age track by (tier, age) — a 1-D lookup,
+ * NOT a formula. Below MIN_SELL_AGE it's 0; at/above the tier's cap it holds the
+ * cap value; ages between listed entries hold the last listed value.
  */
 export function barrelValue(quality: Quality, age: number): number {
-  const raw = CONFIG.QUALITY_BASE[quality] + Math.max(0, age) * CONFIG.AGE_VALUE_PER_YEAR;
-  return Math.min(raw, CONFIG.QUALITY_CEILING[quality]);
+  if (age < CONFIG.MIN_SELL_AGE) return 0;
+  const table = CONFIG.AGE_VALUE_TABLE[quality];
+  const lookAge = Math.min(age, CONFIG.QUALITY_CAP_AGE[quality]);
+  let val = 0;
+  for (let a = CONFIG.MIN_SELL_AGE; a <= lookAge; a++) {
+    const v = table[a];
+    if (v !== undefined) val = v; // hold-forward: keep the last listed value
+  }
+  return val;
+}
+
+/** The demand zone multiplier applied to age value at sale time. */
+export function zoneMultiplier(zone: Zone): number {
+  return CONFIG.ZONE_MULTIPLIER[zone];
+}
+
+/** The age at which a tier's track value caps (for UI / hints). */
+export function capAge(quality: Quality): number {
+  return CONFIG.QUALITY_CAP_AGE[quality];
 }
 
 /** Total resources a recipe requires (its complexity). */
