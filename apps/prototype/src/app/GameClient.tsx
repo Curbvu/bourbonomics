@@ -244,8 +244,8 @@ function SetupScreen({ onStart, onTutorial }: { onStart: (names: string[]) => vo
       >
         <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 40, color: C.gold }}>Bourbonomics</div>
         <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.5 }}>
-          A cozy distillery game — Demand, Collect, Play. Gather grain by dice draft, age bourbon in
-          your rickhouse, and sell into a shifting demand market. Complete orders for Reputation.
+          A cozy distillery game — Demand, Collect, Play. Gather resources by dice draft, age bourbon in
+          your rickhouse, and sell into a shifting demand market. Complete orders for prestige.
         </div>
         <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>
           Players
@@ -312,6 +312,21 @@ function SetupScreen({ onStart, onTutorial }: { onStart: (names: string[]) => vo
         >
           ▶ How to play (tutorial)
         </button>
+        <a
+          href="/"
+          style={{
+            textAlign: "center",
+            fontFamily: MONO,
+            fontSize: 11,
+            letterSpacing: ".12em",
+            textTransform: "uppercase",
+            color: C.muted,
+            textDecoration: "none",
+            marginTop: -6,
+          }}
+        >
+          ← Back to main menu
+        </a>
       </div>
     </div>
   );
@@ -453,6 +468,20 @@ export default function GameClient() {
     return () => clearTimeout(t);
   }, [game, tut]);
 
+  // Tutorial: some steps advance on a LOCAL action (opening the mash-bill
+  // picker) rather than a dispatched engine action. Watch for it here.
+  useEffect(() => {
+    if (tut === null || !game || !drawingBills) return;
+    const beat = TUT_BEATS[tut];
+    if (!beat?.advanceOnDrawOpen) return;
+    const ni = tut + 1;
+    if (ni >= TUT_BEATS.length) { setTut(null); return; }
+    setTut(ni);
+    const oe = TUT_BEATS[ni]!.onEnter;
+    if (oe) setGame(oe(game));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawingBills, tut]);
+
   // Deep-link: /play?tutorial=1 launches the guided tutorial straight from the
   // main menu (the original game put the tutorial on the home screen).
   const bootstrapped = useRef(false);
@@ -508,7 +537,7 @@ export default function GameClient() {
         />
       </ScalingHost>
       {tut !== null && TUT_BEATS[tut] && sellId === null && pendingWild === null && ultDept === null && !qsOpen && !ttFace && (
-        <TutorialOverlay beat={TUT_BEATS[tut]!} onContinue={tutContinue} onExit={exitTutorial} />
+        <TutorialOverlay beat={TUT_BEATS[tut]!} draftedCount={Object.keys(claims).length} onContinue={tutContinue} onExit={exitTutorial} />
       )}
     </div>
   );
@@ -775,7 +804,7 @@ function Board(p: BoardProps) {
         />
 
         {/* ===== BODY ===== */}
-        <div style={{ display: "grid", gridTemplateColumns: "270px 1fr 340px", gap: 14, alignItems: "stretch", flex: 1, minHeight: 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "264px 1fr 440px", gap: 14, alignItems: "stretch", flex: 1, minHeight: 0 }}>
           {/* LEFT RAIL */}
           <aside style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
             <RailCard title="Standings" right="CAP · ★REP">
@@ -1196,7 +1225,7 @@ function ActionBand(props: {
         </div>
 
         {/* dice tray */}
-        <div style={{ position: "relative", borderRadius: 12, background: "radial-gradient(120% 100% at 50% 0%, rgba(213,150,80,.07), transparent 60%), #11100a", border: `1px solid ${C.border2}`, padding: 14, minHeight: 112, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "relative", borderRadius: 12, background: "radial-gradient(120% 100% at 50% 0%, rgba(213,150,80,.07), transparent 60%), #11100a", border: `1px solid ${C.border2}`, padding: 14, minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {phaseStage === "demand" && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
               <button data-tut="begin" className="bb-btn" onClick={() => board.dispatch({ type: "BEGIN_COLLECT" })} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 30px", borderRadius: 12, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 14, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 10px 24px rgba(198,157,82,.3)" }}>🎲 Begin draft · roll {supplyCap}</button>
@@ -1241,7 +1270,7 @@ function ActionBand(props: {
               {canTT && (
                 <button className="bb-btn bb-sec" onClick={props.onTT} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.amber}`, color: C.amber, background: "#221710", cursor: "pointer" }}>⚡ Triple Threat</button>
               )}
-              <button className="bb-btn" onClick={props.onPass} style={{ padding: "11px 18px", borderRadius: 10, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.35)" }}>Draft &amp; pass on →</button>
+              <button data-tut="pass" className="bb-btn" onClick={props.onPass} style={{ padding: "11px 18px", borderRadius: 10, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.35)" }}>DRAFT →</button>
             </>
           )}
         </div>
@@ -1277,7 +1306,7 @@ function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
     const offer = game.mashBillSupply.slice(0, Math.min(office, game.mashBillSupply.length));
     const cap = fnRick(me) - me.rickhouse.length;
     return (
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+      <div data-tut="bills" style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
         {offer.map((bill, i) => {
           const sel = board.keepBills.has(i);
           return (
@@ -1447,11 +1476,11 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
   return (
     <aside data-tut="market" style={{ display: "flex", flexDirection: "column", gap: 9, borderRadius: 16, background: "linear-gradient(180deg,#1a120b,#130c06)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: 13, minHeight: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, flex: "0 0 auto" }}>
-        <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>The Market</span>
+        <span style={{ fontFamily: MONO, fontSize: 14, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>The Market</span>
         <div style={{ flex: 1 }} />
-        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18, color: C.ink }}>{count}</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: MONO, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: "#0c0805", background: zoneMeta.color, padding: "3px 8px", borderRadius: 5 }}>
-          {zoneMeta.label}<span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14 }}>×{zoneMultiplier(zone)}</span>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink }}>{count}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: "#0c0805", background: zoneMeta.color, padding: "4px 10px", borderRadius: 6 }}>
+          {zoneMeta.label}<span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18 }}>×{zoneMultiplier(zone)}</span>
         </span>
       </div>
 
@@ -1459,9 +1488,9 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
       <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 12, border: `1px solid ${C.border}`, background: meterBg, overflow: "hidden" }}>
         {/* crash ceiling */}
         <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderBottom: `1px dashed ${toCrash <= 2 ? C.red : "#4a3826"}` }}>
-          <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", color: toCrash <= 2 ? C.red : C.muted }}>▲ crash at {CONFIG.DEMAND_CRASH_AT}</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: toCrash <= 2 ? C.red : C.muted }}>▲ crash at {CONFIG.DEMAND_CRASH_AT}</span>
           <div style={{ flex: 1 }} />
-          {toCrash <= 2 && <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", color: C.red }}>⚠ {toCrash} to crash</span>}
+          {toCrash <= 2 && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".06em", color: C.red }}>⚠ {toCrash} to crash</span>}
         </div>
 
         {/* zone band rail: card-count range + ×multiplier, current zone lit */}
@@ -1470,10 +1499,10 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
           const range = z === "low" ? `1–${CONFIG.ZONE_MID_MIN - 1}` : z === "mid" ? `${CONFIG.ZONE_MID_MIN}–${CONFIG.ZONE_HIGH_MIN - 1}` : `${CONFIG.ZONE_HIGH_MIN}–${CONFIG.DEMAND_CRASH_AT - 1}`;
           const live = z === zone;
           return (
-            <div key={z} style={{ position: "absolute", left: 5, bottom: `calc(${pct(bottom)} - 9px)`, display: "flex", alignItems: "center", gap: 4, padding: "2px 6px", borderRadius: 6, pointerEvents: "none", background: live ? `${ZONE_META[z].color}26` : "transparent", border: `1px solid ${live ? ZONE_META[z].color : "transparent"}`, boxShadow: live ? `0 0 10px ${ZONE_META[z].color}55` : "none" }}>
-              <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: ZONE_META[z].color, opacity: live ? 1 : 0.6, fontWeight: live ? 700 : 400 }}>{ZONE_META[z].label}</span>
-              <span style={{ fontFamily: MONO, fontSize: 7, color: C.muted, opacity: live ? 1 : 0.5 }}>{range}</span>
-              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: live ? 15 : 12, color: ZONE_META[z].color, opacity: live ? 1 : 0.6, lineHeight: 1 }}>×{zoneMultiplier(z)}</span>
+            <div key={z} style={{ position: "absolute", left: 7, bottom: `calc(${pct(bottom)} - 11px)`, display: "flex", alignItems: "center", gap: 6, padding: "3px 9px", borderRadius: 7, pointerEvents: "none", background: live ? `${ZONE_META[z].color}26` : "transparent", border: `1px solid ${live ? ZONE_META[z].color : "transparent"}`, boxShadow: live ? `0 0 10px ${ZONE_META[z].color}55` : "none" }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: ZONE_META[z].color, opacity: live ? 1 : 0.65, fontWeight: live ? 700 : 400 }}>{ZONE_META[z].label}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.text2, opacity: live ? 1 : 0.55 }}>{range}</span>
+              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: live ? 22 : 16, color: ZONE_META[z].color, opacity: live ? 1 : 0.65, lineHeight: 1 }}>×{zoneMultiplier(z)}</span>
             </div>
           );
         })}
@@ -1502,37 +1531,36 @@ function DemandRow({ card, zone, players }: { card: DemandCard; zone: Zone; play
   const complete = filled >= card.slotsActive;
   const compact = card.slotsActive > 8; // many slots → progress bar instead of pips
   return (
-    <div style={{ flex: "0 0 auto", borderRadius: 9, padding: "6px 9px", background: complete ? "linear-gradient(180deg, rgba(109,178,140,.18), rgba(20,14,8,.92))" : "linear-gradient(180deg, rgba(44,30,20,.7), rgba(20,14,8,.94))", border: `1px solid ${complete ? C.green : "#4a3320"}`, boxShadow: "0 4px 12px rgba(0,0,0,.35)" }}>
+    <div style={{ flex: "0 0 auto", borderRadius: 10, padding: "9px 12px", background: complete ? "linear-gradient(180deg, rgba(109,178,140,.18), rgba(20,14,8,.92))" : "linear-gradient(180deg, rgba(44,30,20,.7), rgba(20,14,8,.94))", border: `1px solid ${complete ? C.green : "#4a3320"}`, boxShadow: "0 4px 12px rgba(0,0,0,.35)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.label}</span>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: C.ink, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.label}</span>
         <div style={{ flex: 1 }} />
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold }} title="zone payout (Capital) per sale">+{card.zoneBonus[zone]}</span>
-        {/* big Reputation reward on completion (the prestige) */}
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 999, background: "rgba(109,178,140,.18)", border: `1px solid ${C.green}`, boxShadow: `0 0 10px ${C.green}33` }} title="Reputation kept by the player who completes this order">
-          <span style={{ fontSize: 15, color: C.green, lineHeight: 1 }}>★</span>
-          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.green, lineHeight: 1 }}>{card.reputation}</span>
-          <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: ".1em", color: C.green, textTransform: "uppercase" }}>rep</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }} title="zone payout (Capital) per sale">+{card.zoneBonus[zone]}</span>
+        {/* big prestige reward on completion */}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 11px", borderRadius: 999, background: "rgba(109,178,140,.18)", border: `1px solid ${C.green}`, boxShadow: `0 0 10px ${C.green}33` }} title="prestige kept by the player who completes this order">
+          <span style={{ fontSize: 17, color: C.green, lineHeight: 1 }}>★</span>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: C.green, lineHeight: 1 }}>{card.reputation}</span>
         </span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
-        <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted }}>Req</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, whiteSpace: "nowrap" }}>{requirementText(card.requirement)}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 7 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted }}>Req</span>
+        <span style={{ fontFamily: MONO, fontSize: 13, color: C.amber, whiteSpace: "nowrap" }}>{requirementText(card.requirement)}</span>
         <div style={{ flex: 1 }} />
         {compact ? (
-          <div style={{ width: 70, height: 9, borderRadius: 5, background: "rgba(20,14,8,.7)", border: "1px solid rgba(110,80,50,.5)", overflow: "hidden" }}>
+          <div style={{ width: 96, height: 11, borderRadius: 6, background: "rgba(20,14,8,.7)", border: "1px solid rgba(110,80,50,.5)", overflow: "hidden" }}>
             <div style={{ width: `${Math.round((filled / card.slotsActive) * 100)}%`, height: "100%", background: complete ? C.green : "linear-gradient(90deg,#e9b46e,#c69d52)" }} />
           </div>
         ) : (
-          <div style={{ display: "flex", gap: 3 }}>
+          <div style={{ display: "flex", gap: 4 }}>
             {card.filledBy.map((f, i) => {
               const pi = f ? players.findIndex((pl) => pl.id === f) : -1;
               return (
-                <span key={i} style={{ width: 15, height: 15, borderRadius: 4, ...(f ? { background: PLAYER_COLORS[pi % PLAYER_COLORS.length], boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }} />
+                <span key={i} style={{ width: 18, height: 18, borderRadius: 5, ...(f ? { background: PLAYER_COLORS[pi % PLAYER_COLORS.length], boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }} />
               );
             })}
           </div>
         )}
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: complete ? C.green : C.text2 }}>{filled}/{card.slotsActive}</span>
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: complete ? C.green : C.text2 }}>{filled}/{card.slotsActive}</span>
       </div>
     </div>
   );
@@ -1582,10 +1610,10 @@ function DiceTray({ dice, claims, rollId, full, locked, onClaim }: {
         const clickable = !rolling && !claimed && !full && !locked;
         const wild = meta.wild;
         return (
-          <div key={d.id} style={{ position: "relative", width: 70, height: 84, display: "flex", justifyContent: "center" }}>
+          <div key={d.id} style={{ position: "relative", width: 104, height: 120, display: "flex", justifyContent: "center" }}>
             {/* landing shadow */}
             {rolling && (
-              <span className="bb-roll-shadow" style={{ position: "absolute", bottom: 0, width: 60, height: 7, borderRadius: "50%", background: "rgba(0,0,0,.6)", filter: "blur(3px)", animationDelay: `${i * 55}ms` }} aria-hidden />
+              <span className="bb-roll-shadow" style={{ position: "absolute", bottom: 0, width: 88, height: 9, borderRadius: "50%", background: "rgba(0,0,0,.6)", filter: "blur(3px)", animationDelay: `${i * 55}ms` }} aria-hidden />
             )}
             <button
               className={`${rolling ? "bb-roll-drop" : "bb-die"}${clickable ? " clk" : ""}`}
@@ -1594,9 +1622,9 @@ function DiceTray({ dice, claims, rollId, full, locked, onClaim }: {
               style={{
                 position: "absolute",
                 top: 0,
-                width: 70,
-                height: 70,
-                borderRadius: 15,
+                width: 104,
+                height: 104,
+                borderRadius: 20,
                 animationDelay: rolling ? `${i * 55}ms` : undefined,
                 background: claimed ? "#120c07" : "linear-gradient(180deg,#2c1f13,#1a130b)",
                 border: `2px solid ${claimed ? C.green : wild ? "#e7d9b6" : meta.color + "99"}`,
@@ -1607,7 +1635,7 @@ function DiceTray({ dice, claims, rollId, full, locked, onClaim }: {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 3,
+                gap: 6,
                 cursor: clickable ? "pointer" : claimed ? "pointer" : "default",
                 opacity: claimed ? 0.5 : 1,
                 padding: 0,
@@ -1615,11 +1643,11 @@ function DiceTray({ dice, claims, rollId, full, locked, onClaim }: {
               }}
               title={claimed ? "Tap to un-draft" : clickable ? `Draft ${meta.label}` : ""}
             >
-              <span style={{ fontSize: wild ? 26 : 23, lineHeight: 1, color: meta.color, textShadow: `0 0 10px ${meta.color}55` }}>
+              <span style={{ fontSize: wild ? 42 : 38, lineHeight: 1, color: meta.color, textShadow: `0 0 12px ${meta.color}66` }}>
                 {face === "anything" ? "✦" : SUB[face as ResourceKind].glyph}
               </span>
-              <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: claimed ? C.green : C.muted }}>{meta.label}</span>
-              {claimed && <span style={{ position: "absolute", top: -8, right: -7, fontFamily: MONO, fontSize: 7, letterSpacing: ".06em", color: "#0c0805", background: C.green, padding: "2px 5px", borderRadius: 5 }}>DRAFTED</span>}
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: claimed ? C.green : C.text2 }}>{meta.label}</span>
+              {claimed && <span style={{ position: "absolute", top: -9, right: -8, fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", color: "#0c0805", background: C.green, padding: "2px 6px", borderRadius: 5 }}>DRAFTED</span>}
             </button>
           </div>
         );

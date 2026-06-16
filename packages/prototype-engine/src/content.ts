@@ -56,18 +56,17 @@ interface MashBillDef {
 }
 
 const MASH_BILL_DEFS: MashBillDef[] = [
-  // complexity 2 — the simplest legal bourbon (1 cask + 1 corn)
-  { defId: "mb_single_barrel", name: "Single Barrel Select", traits: ["clean"], expression: "bourbon", recipe: { cask: 1, corn: 1 } },
-  // complexity 3
-  { defId: "mb_cornbread", name: "Cornbread Line", traits: ["high-corn", "sweet"], expression: "high-corn", recipe: { cask: 1, corn: 2 } },
+  // complexity 3 — the simplest legal bourbon: 1 cask + 1 corn + 1 grain
+  { defId: "mb_single_barrel", name: "Single Barrel Select", traits: ["clean"], expression: "bourbon", recipe: { cask: 1, corn: 1, rye: 1 } },
   { defId: "mb_classic", name: "Knob's End 90", traits: ["balanced"], expression: "bourbon", recipe: { cask: 1, corn: 1, barley: 1 } },
   { defId: "mb_wheat_whisper", name: "Wheat Whisper", traits: ["wheated", "smooth"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 1 } },
-  // complexity 4
+  // complexity 4 — extra grain or extra corn
+  { defId: "mb_cornbread", name: "Cornbread Line", traits: ["high-corn", "sweet"], expression: "high-corn", recipe: { cask: 1, corn: 2, barley: 1 } },
   { defId: "mb_stave_story", name: "Stave & Story", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 2 } },
-  { defId: "mb_bonded_bold", name: "Bonded & Bold", traits: ["bonded", "bold"], expression: "bourbon", recipe: { cask: 1, corn: 2, barley: 1 } },
-  { defId: "mb_coopers_quorum", name: "Cooper's Quorum", traits: ["complex"], expression: "four-grain", recipe: { cask: 1, corn: 1, rye: 1, wheat: 1 } },
   { defId: "mb_heritage_wheat", name: "Wheated Estate", traits: ["wheated", "heritage"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 2 } },
+  { defId: "mb_coopers_quorum", name: "Cooper's Quorum", traits: ["complex"], expression: "four-grain", recipe: { cask: 1, corn: 1, rye: 1, wheat: 1 } },
   // complexity 5 — the richest bourbons
+  { defId: "mb_bonded_bold", name: "Bonded & Bold", traits: ["bonded", "bold"], expression: "bourbon", recipe: { cask: 1, corn: 2, rye: 1, barley: 1 } },
   { defId: "mb_rye_ladder", name: "Rye Ladder 95", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 3 } },
   { defId: "mb_small_batch", name: "Mash Bill No. 7", traits: ["balanced", "complex"], expression: "four-grain", recipe: { cask: 1, corn: 1, rye: 1, wheat: 1, barley: 1 } },
 ];

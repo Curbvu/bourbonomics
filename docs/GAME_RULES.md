@@ -96,8 +96,8 @@ Round-robin. **No action economy** — take unlimited actions, gated only by res
 
 - **Five types:** cask, corn, rye, wheat, barley. Grain identity (rye/wheat/barley) is the style tag used by demand requirements.
 - **Quality (five tiers):** **Common · Uncommon · Rare · Epic · Legendary**, blind in the piles (`[PH]` weights — Legendary very rare, Common abundant; the rare pull is the dopamine moment). Quality = best card committed sets a barrel's tier, which sets its **age-value track** (below). UI colors the familiar ladder grey/green/blue/purple/orange.
-- **The bourbon rule:** every mash bill requires **exactly 1 cask** and **at least 1 corn**, then optional extra grains.
-- **Complexity scaling (loose, config-driven):** a recipe's *complexity* = how many resources it needs (min 2 = 1 cask + 1 corn). The more complex the bourbon, the richer it is — every resource beyond the minimum grants **more `batchQty` and/or more Capital per sale** (a per-sale premium). Numbers are `[PH]`, derived from one rule, not hand-set per bill.
+- **The bourbon rule:** every mash bill requires **exactly 1 cask**, **at least 1 corn**, and **at least 1 grain** (rye / wheat / barley) — no cask/corn-only recipes. More complex bills add more resources.
+- **Complexity scaling (loose, config-driven):** a recipe's *complexity* = how many resources it needs (min 3 = 1 cask + 1 corn + 1 grain). The more complex the bourbon, the richer it is — every resource beyond the minimum grants **more `batchQty` and/or more Capital per sale** (a per-sale premium). Numbers are `[PH]`, derived from one rule, not hand-set per bill.
 - **Two-step production:** Draw Mash Bills lays a recipe as a resting (non-aging) barrel; Stage/Make Bourbon builds it.
 - **Warehouse cap is a claim-time gate** — you can never *claim* past cap; there is no round-end discard. Loose (uncommitted) resource cards count against cap; staged/built cards do not. A lucky premium pull with no matching resting barrel sits loose and eats cap (the premium-hold tension).
 - **Aging is set-and-forget:** every built barrel ages **+1 at the end of Play**. **No aging ceiling — barrels age freely.** Sellable at **age ≥ 2**.

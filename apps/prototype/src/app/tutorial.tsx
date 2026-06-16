@@ -37,7 +37,8 @@ function res(kind: ResourceKind, i: number): ResourceCard {
 }
 
 function singleBarrelBill(i: number): MashBill {
-  const recipe: Partial<Record<ResourceKind, number>> = { cask: 1, corn: 1 };
+  // The bourbon rule: 1 cask + 1 corn + ≥1 grain.
+  const recipe: Partial<Record<ResourceKind, number>> = { cask: 1, corn: 1, barley: 1 };
   return {
     id: `tut_sb_${i}`, defId: "mb_single_barrel", name: "Single Barrel Select",
     traits: ["clean"], expression: "bourbon", styleTag: "classic",
@@ -68,6 +69,8 @@ export interface TutBeat {
   body: string;
   /** data-tut value of the element to spotlight (none = no spotlight). */
   spotlight?: string;
+  /** During the dice draft: once `count` dice are tapped, move the halo to `target`. */
+  spotlightAfterDraft?: { count: number; target: string };
   /** Prompt beats set a Continue label; await beats leave it undefined. */
   cta?: string;
   /** One-line "do this" nudge shown on await beats / when a blocked action is tried. */
@@ -80,26 +83,35 @@ export interface TutBeat {
   advanceWhen?: (g: GameState) => boolean;
   /** Rig the engine state when this beat becomes active. Must be pure. */
   onEnter?: (g: GameState) => GameState;
+  /** Advance as soon as the player OPENS the mash-bill picker (a local UI action). */
+  advanceOnDrawOpen?: boolean;
   /** Step counter shown on the card. */
   step?: number;
 }
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 export const TUT_BEATS: TutBeat[] = [
   {
     id: "welcome",
     title: "Welcome to Bourbonomics",
-    body: "You run a bourbon distillery. Every round you read **demand**, gather **grain**, age **bourbon**, and sell it into **orders**. Let's walk one round together.",
+    body: "You run a bourbon distillery. Every round you read **demand**, gather **resources**, age **bourbon**, and sell it into **orders**. Let's walk one round together.",
     cta: "Begin",
   },
   {
     id: "market",
     title: "The demand market",
-    body: "Orders stack here from the floor up — the higher the pile, the **hotter the zone** and the more each sale pays. Fill an order's slots to **complete** it and keep it as **Reputation**. We've lined up one simple order: a House Pour.",
+    body: "Orders stack here from the floor up — the higher the pile, the **hotter the zone** and the more each sale pays. Fill an order's slots to **complete** it and keep it as **prestige**. We've lined up one simple order: a House Pour.",
     spotlight: "market",
     cta: "Got it",
     onEnter: (g) => ({ ...structuredClone(g), demandCards: [houseOrder()] }),
+  },
+  {
+    id: "collect-intro",
+    title: "Collect Resources",
+    body: "Now you gather what you'll brew with. **Roll the dice to see which resources you can collect** — each die is a **cask**, a **grain** (corn / rye / wheat / barley), or a wild **✦** you can assign to any pile.",
+    spotlight: "begin",
+    cta: "Next",
   },
   {
     id: "begin",
@@ -113,46 +125,63 @@ export const TUT_BEATS: TutBeat[] = [
   },
   {
     id: "draft",
-    title: "Draft your grain",
-    body: "Each die is a resource — **cask, corn, rye, wheat, barley**, or a wild ✦. To brew you need a **cask and a corn**. Tap two dice, then press **Draft & pass on**.",
+    title: "Draft your resources",
+    body: "Each die is a resource — **cask, corn, rye, wheat, barley**. Tap **all five dice** to collect one of each (watch them fly to your Warehouse), then press **DRAFT** to bank them.",
     spotlight: "dice",
-    hint: "Tap at least two dice, then Draft & pass on.",
+    // once all five are tapped, move the halo to the DRAFT button.
+    spotlightAfterDraft: { count: 5, target: "pass" },
+    hint: "Tap all five dice, then press DRAFT.",
     step: 2,
-    // dice rolled on BEGIN_COLLECT — rig the faces so cask + corn are present
+    // dice rolled on BEGIN_COLLECT — rig the faces to exactly one of each resource.
     onEnter: (g) => {
       const d = structuredClone(g);
-      const faces: ResourceKind[] = ["cask", "corn", "corn", "rye", "wheat"];
+      const faces: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
       if (d.collect) d.collect.dice = d.collect.dice.map((die, i) => ({ ...die, face: faces[i] ?? "corn" }));
       return d;
     },
-    allow: (a) => (a.type === "COLLECT_CLAIM" ? a.claims.length >= 2 : a.type === "COLLECT_REROLL"),
+    allow: (a) => (a.type === "COLLECT_CLAIM" ? a.claims.length >= 5 : a.type === "COLLECT_REROLL"),
     goal: (a) => a.type === "COLLECT_CLAIM",
   },
   {
-    id: "draw",
-    title: "Draw a recipe",
-    body: "The **Play** phase is where you brew. **Draw Mash Bills** to get a recipe — we've stocked a simple one: **Single Barrel Select** (1 cask + 1 corn). Draw, keep it, and confirm.",
+    id: "draw-open",
+    title: "Draw mash bills",
+    body: "The **Play** phase is where you brew. Press **Draw Mash Bills** to reveal recipes — we've stocked a simple one for you.",
     spotlight: "draw",
-    hint: "Draw Mash Bills, then Keep the recipe.",
+    hint: "Press Draw Mash Bills.",
     step: 3,
-    // guarantee a buildable hand + a simple bill offer
+    advanceOnDrawOpen: true,
+    // guarantee a buildable hand (keep what they collected; ensure cask + corn)
+    // and a simple bill offer.
     onEnter: (g) => {
       const d = structuredClone(g);
-      d.players[0]!.hand = [res("cask", 1), res("corn", 1)];
+      const hand = d.players[0]!.hand;
+      // ensure the recipe's resources are on hand (cask + corn + barley)
+      for (const k of ["cask", "corn", "barley"] as ResourceKind[]) {
+        if (!hand.some((c) => c.kind === k)) hand.push(res(k, 1));
+      }
       d.mashBillSupply = [singleBarrelBill(0), singleBarrelBill(1), singleBarrelBill(2), ...d.mashBillSupply];
       d.players[0]!.drewMashBillsThisTurn = false;
       return d;
     },
+    allow: () => false, // only opening the picker (a local action) advances this step
+  },
+  {
+    id: "draw-keep",
+    title: "Keep the recipe",
+    body: "These are the mash bills you drew. Pick **Single Barrel Select** (1 cask + 1 corn), then press **Keep** to bring it into your rickhouse as a resting barrel.",
+    spotlight: "bills",
+    hint: "Tap a Single Barrel Select, then Keep.",
+    step: 4,
     allow: (a) => a.type === "DRAW_MASH_BILLS" && a.keepIndexes.length >= 1,
     goal: (a) => a.type === "DRAW_MASH_BILLS",
   },
   {
     id: "stage",
-    title: "Stage your grain",
-    body: "Move your **cask** and **corn** onto the recipe. Staged cards lock to the barrel and free Warehouse space. Use **Stage** until the recipe is full.",
+    title: "Stage your resources",
+    body: "Move your **cask**, **corn**, and **grain** onto the recipe. Staged cards lock to the barrel and free Warehouse space. Use **Stage** until the recipe is full.",
     spotlight: "resting",
-    hint: "Stage the cask, then the corn.",
-    step: 4,
+    hint: "Stage each resource the recipe needs.",
+    step: 5,
     allow: (a) => a.type === "STAGE",
     advanceWhen: (g) =>
       g.players[0]!.rickhouse.some((b) => !b.built && b.staged.length >= recipeSize(b.recipe)),
@@ -163,7 +192,7 @@ export const TUT_BEATS: TutBeat[] = [
     body: "The recipe's full — press **Build now** to barrel it. It begins **aging** at year 0.",
     spotlight: "resting",
     hint: "Press Build now.",
-    step: 5,
+    step: 6,
     allow: (a) => a.type === "MAKE_BOURBON",
     goal: (a) => a.type === "MAKE_BOURBON",
   },
@@ -182,17 +211,17 @@ export const TUT_BEATS: TutBeat[] = [
   {
     id: "sell",
     title: "Sell into demand",
-    body: "Your bourbon is ready. **Tap the barrel**, then route it to the **House Pour** order. Every sale banks **Capital** — and filling the order's last slot **completes** it for **Reputation**.",
+    body: "Your bourbon is ready. **Tap the barrel**, then route it to the **House Pour** order. Every sale banks **Capital** — and filling the order's last slot **completes** it for **prestige**.",
     spotlight: "aging",
     hint: "Tap the aged barrel, then pick the House Pour order.",
-    step: 6,
+    step: 7,
     allow: (a) => a.type === "SELL",
     goal: (a) => a.type === "SELL",
   },
   {
     id: "done",
     title: "That's the loop!",
-    body: "**Demand → Collect → Play → age → repeat** until the demand deck runs dry. You bank **Capital** from every sale and **Reputation** from finishing orders — most points wins. Grow your seven departments to draw harder, hold more, and sell richer. Now play a full game!",
+    body: "**Demand → Collect → Play → age → repeat** until the demand deck runs dry. You bank **Capital** from every sale and **prestige** from finishing orders — most points wins. Grow your seven departments to draw harder, hold more, and sell richer. Now play a full game!",
     cta: "Finish",
   },
 ];
@@ -236,12 +265,16 @@ function Rich({ children }: { children: string }) {
   );
 }
 
-export function TutorialOverlay({ beat, onContinue, onExit }: {
+export function TutorialOverlay({ beat, draftedCount = 0, onContinue, onExit }: {
   beat: TutBeat;
+  /** How many dice the player has tapped this collect turn (drives the post-collect halo). */
+  draftedCount?: number;
   onContinue: () => void;
   onExit: () => void;
 }) {
-  const box = useRect(beat.spotlight);
+  const ad = beat.spotlightAfterDraft;
+  const target = ad && draftedCount >= ad.count ? ad.target : beat.spotlight;
+  const box = useRect(target);
   const PAD = 10;
   const hole = box ? { top: box.top - PAD, left: box.left - PAD, width: box.width + PAD * 2, height: box.height + PAD * 2 } : null;
   const isPrompt = !!beat.cta;

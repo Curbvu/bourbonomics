@@ -450,10 +450,12 @@ describe("demand zone multiplier", () => {
 // ------------------------------------------------------------------
 
 describe("mash-bill complexity scaling", () => {
-  it("every shipped bill needs exactly 1 cask and at least 1 corn", () => {
+  it("every shipped bill follows the bourbon rule: 1 cask + ≥1 corn + ≥1 grain", () => {
     for (const bill of buildMashBillSupply()) {
       expect(bill.recipe.cask).toBe(1);
       expect(bill.recipe.corn ?? 0).toBeGreaterThanOrEqual(1);
+      const grain = (bill.recipe.rye ?? 0) + (bill.recipe.wheat ?? 0) + (bill.recipe.barley ?? 0);
+      expect(grain).toBeGreaterThanOrEqual(1); // no cask/corn-only recipes
     }
   });
 

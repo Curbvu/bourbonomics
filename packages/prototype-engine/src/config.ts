@@ -74,11 +74,12 @@ export const CONFIG = {
   ZONE_MULTIPLIER: { low: 1, mid: 2, high: 3 } as Record<Zone, number>,
 
   // --- Mash-bill complexity scaling ----------------------------------------
-  // A bill always needs exactly 1 cask + ≥1 corn (the "is it bourbon" rule).
-  // Beyond that minimum, every extra resource makes a richer bourbon: more
-  // batches AND/OR more Capital per sale. All `[PH]`.
-  /** Recipe size of the simplest legal bill (1 cask + 1 corn). */
-  COMPLEXITY_MIN: 2,
+  // A bill always needs exactly 1 cask + ≥1 corn + ≥1 grain (rye/wheat/barley)
+  // — the "is it bourbon" rule, no cask/corn-only recipes. Beyond that minimum,
+  // every extra resource makes a richer bourbon: more batches AND/OR more
+  // Capital per sale. All `[PH]`.
+  /** Recipe size of the simplest legal bill (1 cask + 1 corn + 1 grain). */
+  COMPLEXITY_MIN: 3,
   /** batchQty = BATCH_BASE + floor((complexity − MIN) × BATCH_PER). */
   COMPLEXITY_BATCH_BASE: 2,
   COMPLEXITY_BATCH_PER: 0.5,
