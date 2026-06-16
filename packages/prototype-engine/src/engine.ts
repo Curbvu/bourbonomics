@@ -412,7 +412,7 @@ function endGame(draft: GameState): void {
   if (winner) {
     draft.log.push(
       `Game over. Winner: ${winner.name} with ${winner.total} ` +
-        `(${winner.capital} capital + ${winner.reputation} reputation).`,
+        `(${winner.capital} capital + ${winner.reputation} prestige).`,
     );
   }
 }
@@ -619,7 +619,7 @@ function handleSell(
     draft.demandCards = draft.demandCards.filter((c) => c.id !== card.id);
     player.keptCards.push(card);
     player.cardsCompleted += 1;
-    draft.log.push(`🏅 ${player.name} completed "${card.label}" — kept for ${card.reputation} Reputation.`);
+    draft.log.push(`🏅 ${player.name} completed "${card.label}" — kept for ${card.reputation} Prestige.`);
   }
 
   if (isFinal) {

@@ -775,7 +775,7 @@ function Board(p: BoardProps) {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="bb-btn bb-sec" onClick={p.onNew} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted, background: "#150e08", border: `1px solid ${C.border}`, padding: "7px 12px", borderRadius: 10, cursor: "pointer" }}>New</button>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 13px", borderRadius: 10, background: "linear-gradient(180deg,#1a1308,#140e06)", border: `1px solid ${C.border}` }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", color: C.muted }}>REPUTATION</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", color: C.muted }}>PRESTIGE</span>
               <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.green }}>{reputationOf(me)}</span>
               <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>· {me.keptCards.length} cards</span>
             </div>
@@ -807,7 +807,7 @@ function Board(p: BoardProps) {
         <div style={{ display: "grid", gridTemplateColumns: "264px 1fr 440px", gap: 14, alignItems: "stretch", flex: 1, minHeight: 0 }}>
           {/* LEFT RAIL */}
           <aside style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
-            <RailCard title="Standings" right="CAP · ★REP">
+            <RailCard title="Standings" right="CAP · ★PRESTIGE">
               <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                 {order.map((o, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 9, ...(o.status === "now" ? { background: "linear-gradient(90deg,rgba(213,150,80,.16),transparent)", border: `1px solid ${C.brass}` } : { background: "#150e08", border: `1px solid ${C.border2}` }) }}>
@@ -817,7 +817,7 @@ function Board(p: BoardProps) {
                       <span style={{ color: C.gold, fontWeight: 700 }}>{o.cap}</span>
                       <span style={{ color: C.muted, fontSize: 9 }}>c</span>
                     </span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Reputation (prestige)">
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Prestige">
                       <span style={{ color: C.green, fontSize: 11 }}>★</span>
                       <span style={{ color: C.green, fontWeight: 700 }}>{o.rep}</span>
                     </span>
@@ -1519,7 +1519,7 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 8, borderTop: `1px solid ${C.border2}`, flex: "0 0 auto" }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".06em", color: C.muted, lineHeight: 1.5 }}>Your kept orders: <b style={{ color: C.green }}>{me.keptCards.length}</b> · {reputationOf(me)} Rep. Every sale fills an order — each needs <b style={{ color: C.amber }}>{game.players.length}/player</b>.</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".06em", color: C.muted, lineHeight: 1.5 }}>Your kept orders: <b style={{ color: C.green }}>{me.keptCards.length}</b> · {reputationOf(me)} Prestige. Every sale fills an order — each needs <b style={{ color: C.amber }}>{game.players.length}/player</b>.</span>
       </div>
     </aside>
   );
@@ -1851,14 +1851,14 @@ function EndScreen({ game, onNew }: { game: GameState; onNew: () => void }) {
     <div style={{ position: "relative", width: 1920, height: 1080, display: "grid", placeItems: "center", background: "radial-gradient(120% 90% at 50% 0%, rgba(213,150,80,.1), transparent 60%), #0c0805", color: C.ink }}>
       <div style={{ width: 640, display: "flex", flexDirection: "column", gap: 18, padding: 40, borderRadius: 18, border: `1px solid ${C.border}`, background: "linear-gradient(180deg,#1a120b,#130c06)", boxShadow: "0 18px 50px rgba(0,0,0,.5)" }}>
         <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 42, color: C.gold }}>Last Call</div>
-        <div style={{ fontSize: 14, color: C.text2 }}>The demand deck ran dry. Final standings — Capital + Reputation.</div>
+        <div style={{ fontSize: 14, color: C.text2 }}>The demand deck ran dry. Final standings — Capital + Prestige.</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {ranked.map((r, i) => (
             <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 11, border: `1px solid ${i === 0 ? C.brass : C.border2}`, background: i === 0 ? "linear-gradient(90deg,rgba(213,150,80,.18),transparent)" : "#150e08" }}>
               <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: i === 0 ? C.gold : C.muted, width: 28 }}>{i + 1}</span>
               <span style={{ flex: 1, fontFamily: SERIF, fontWeight: 700, fontSize: 20 }}>{r.name}{i === 0 ? " 🥃" : ""}</span>
               <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }}>{r.capital} cap</span>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>{r.reputation} rep</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>{r.reputation} prestige</span>
               <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink, width: 56, textAlign: "right" }}>{r.total}</span>
             </div>
           ))}
