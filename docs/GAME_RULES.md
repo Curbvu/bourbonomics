@@ -96,6 +96,8 @@ Round-robin. **No action economy** — take unlimited actions, gated only by res
 
 - **Five types:** cask, corn, rye, wheat, barley. Grain identity (rye/wheat/barley) is the style tag used by demand requirements.
 - **Quality:** Common / Specialty / Heritage, blind in the piles. Quality sets a barrel's **base value** AND its **age-value ceiling** (below).
+- **The bourbon rule:** every mash bill requires **exactly 1 cask** and **at least 1 corn**, then optional extra grains.
+- **Complexity scaling (loose, config-driven):** a recipe's *complexity* = how many resources it needs (min 2 = 1 cask + 1 corn). The more complex the bourbon, the richer it is — every resource beyond the minimum grants **more `batchQty` and/or more Capital per sale** (a per-sale premium). Numbers are `[PH]`, derived from one rule, not hand-set per bill.
 - **Two-step production:** Draw Mash Bills lays a recipe as a resting (non-aging) barrel; Stage/Make Bourbon builds it.
 - **Warehouse cap is a claim-time gate** — you can never *claim* past cap; there is no round-end discard. Loose (uncommitted) resource cards count against cap; staged/built cards do not. A lucky premium pull with no matching resting barrel sits loose and eats cap (the premium-hold tension).
 - **Aging is set-and-forget:** every built barrel ages **+1 at the end of Play**. **No aging ceiling — barrels age freely.** Sellable at **age ≥ 2**.
@@ -114,7 +116,7 @@ There is **no payoff matrix.** A sale's Capital is the **sum of three readable p
 | Specialty | 2 | +1 / year | caps at 8 |
 | Heritage | 3 | +1 / year | caps at 12 |
 
-A barrel keeps physically aging past its ceiling, but its **value stops climbing** there. This is the home of the old matrix's "low quality can't ride to high age" behavior — the ceiling lives on **quality**, not the rickhouse.
+A barrel keeps physically aging past its ceiling, but its **value stops climbing** there. This is the home of the old matrix's "low quality can't ride to high age" behavior — the ceiling lives on **quality**, not the rickhouse. A **recipe-complexity premium** (see §Resources — more complex bills pay more per sale) adds on top of barrel value.
 
 2. **Demand zone effect** — the card's effect/payout as read in the current zone (Low/Mid/High).
 

@@ -60,6 +60,18 @@ export const CONFIG = {
   /** Capital added per year of age, before the quality ceiling. `[PH]`. */
   AGE_VALUE_PER_YEAR: 1,
 
+  // --- Mash-bill complexity scaling ----------------------------------------
+  // A bill always needs exactly 1 cask + ≥1 corn (the "is it bourbon" rule).
+  // Beyond that minimum, every extra resource makes a richer bourbon: more
+  // batches AND/OR more Capital per sale. All `[PH]`.
+  /** Recipe size of the simplest legal bill (1 cask + 1 corn). */
+  COMPLEXITY_MIN: 2,
+  /** batchQty = BATCH_BASE + floor((complexity − MIN) × BATCH_PER). */
+  COMPLEXITY_BATCH_BASE: 2,
+  COMPLEXITY_BATCH_PER: 0.5,
+  /** Per-sale Capital premium = (complexity − MIN) × SALE_BONUS_PER. */
+  COMPLEXITY_SALE_BONUS_PER: 1,
+
   // --- Resource piles ------------------------------------------------------
   /** Starting card count per pile. Cask is used by most recipes so it runs deepest. `[PH]`. */
   PILE_COUNTS: { cask: 30, corn: 24, rye: 18, wheat: 18, barley: 18 } as Record<ResourceKind, number>,
@@ -105,6 +117,23 @@ export function zoneForCardCount(count: number): Zone {
 export function barrelValue(quality: Quality, age: number): number {
   const raw = CONFIG.QUALITY_BASE[quality] + Math.max(0, age) * CONFIG.AGE_VALUE_PER_YEAR;
   return Math.min(raw, CONFIG.QUALITY_CEILING[quality]);
+}
+
+/** Total resources a recipe requires (its complexity). */
+export function recipeComplexity(recipe: Partial<Record<ResourceKind, number>>): number {
+  return (Object.values(recipe) as (number | undefined)[]).reduce<number>((s, n) => s + (n ?? 0), 0);
+}
+
+/** Sales a batch yields, scaled up by recipe complexity. */
+export function batchQtyForRecipe(recipe: Partial<Record<ResourceKind, number>>): number {
+  const over = Math.max(0, recipeComplexity(recipe) - CONFIG.COMPLEXITY_MIN);
+  return CONFIG.COMPLEXITY_BATCH_BASE + Math.floor(over * CONFIG.COMPLEXITY_BATCH_PER);
+}
+
+/** Per-sale Capital premium a bill earns for being more complex than the minimum. */
+export function saleBonusForRecipe(recipe: Partial<Record<ResourceKind, number>>): number {
+  const over = Math.max(0, recipeComplexity(recipe) - CONFIG.COMPLEXITY_MIN);
+  return over * CONFIG.COMPLEXITY_SALE_BONUS_PER;
 }
 
 /**

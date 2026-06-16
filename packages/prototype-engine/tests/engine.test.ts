@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   applyAction,
   barrelValue,
+  batchQtyForRecipe,
+  buildMashBillSupply,
   createGame,
   improvementCost,
   meetsRequirement,
   rankPlayers,
   reputationOf,
+  saleBonusForRecipe,
   scorePlayer,
   zoneForCardCount,
   CONFIG,
@@ -65,6 +68,7 @@ function makeBourbon(over: Partial<Bourbon> = {}): Bourbon {
     age: over.age ?? 3,
     quality: over.quality ?? "common",
     batchQty: over.batchQty ?? 1,
+    saleBonus: over.saleBonus ?? 0,
     salesRemaining: over.salesRemaining ?? over.batchQty ?? 1,
     createdRound: over.createdRound ?? 0,
     maturationBoosted: over.maturationBoosted ?? false,
@@ -420,6 +424,38 @@ describe("barrel value", () => {
     expect(barrelValue("common", 10)).toBe(CONFIG.QUALITY_CEILING.common); // capped
     expect(barrelValue("heritage", 3)).toBe(6); // 3 + 3
     expect(barrelValue("heritage", 50)).toBe(CONFIG.QUALITY_CEILING.heritage); // capped
+  });
+});
+
+// ------------------------------------------------------------------
+// mash-bill complexity scaling
+// ------------------------------------------------------------------
+
+describe("mash-bill complexity scaling", () => {
+  it("every shipped bill needs exactly 1 cask and at least 1 corn", () => {
+    for (const bill of buildMashBillSupply()) {
+      expect(bill.recipe.cask).toBe(1);
+      expect(bill.recipe.corn ?? 0).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("more complex recipes yield ≥ batchQty and ≥ per-sale premium", () => {
+    const simple = { cask: 1, corn: 1 }; // complexity 2
+    const rich = { cask: 1, corn: 1, rye: 1, wheat: 1, barley: 1 }; // complexity 5
+    expect(saleBonusForRecipe(simple)).toBe(0);
+    expect(saleBonusForRecipe(rich)).toBeGreaterThan(saleBonusForRecipe(simple));
+    expect(batchQtyForRecipe(rich)).toBeGreaterThanOrEqual(batchQtyForRecipe(simple));
+  });
+
+  it("a sale adds the bourbon's complexity premium to the payoff", () => {
+    let s = createGame({ seed: 5 });
+    s = intoPlay(s);
+    s.players[0]!.capital = 0;
+    s.players[0]!.rickhouse = [makeBourbon({ id: "x", quality: "common", age: 3, saleBonus: 2 })];
+    s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 1, zoneBonus: { low: 0, mid: 0, high: 0 }, reputation: 1 })];
+    const dist = dept(s.players[0]!, "distribution").values[0]!;
+    s = ok(s, { type: "SELL", bourbonId: "x", demandCardId: "ord" });
+    expect(s.players[0]!.capital).toBe(barrelValue("common", 3) + 2 + dist); // +2 premium
   });
 });
 

@@ -17,7 +17,7 @@ import type {
   StyleTag,
   UltimateId,
 } from "./types";
-import { CONFIG } from "./config";
+import { CONFIG, batchQtyForRecipe, saleBonusForRecipe } from "./config";
 
 // ---------------------------------------------------------------------
 // Style tags — map a mash bill's `expression` to its canonical style tag.
@@ -45,22 +45,30 @@ interface MashBillDef {
   name: string;
   traits: string[];
   expression: string;
+  /**
+   * Every recipe follows the bourbon rule: exactly 1 cask + at least 1 corn,
+   * then optional extra grains for complexity. batchQty and the per-sale premium
+   * are DERIVED from the recipe's complexity (see config) — not set here — so
+   * "more resources ⇒ richer bourbon" stays one loose, tunable rule.
+   */
   recipe: Partial<Record<ResourceKind, number>>;
-  /** Sales the batch yields. Mostly 2–3; premium/single-barrel bills = 1. `[PH]`. */
-  batchQty: number;
 }
 
 const MASH_BILL_DEFS: MashBillDef[] = [
-  { defId: "mb_cornbread", name: "Cornbread Line", traits: ["high-corn"], expression: "high-corn", recipe: { corn: 2, cask: 1 }, batchQty: 3 },
-  { defId: "mb_classic", name: "Knob's End 90", traits: ["balanced"], expression: "bourbon", recipe: { corn: 1, barley: 1, cask: 1 }, batchQty: 3 },
-  { defId: "mb_stave_story", name: "Stave & Story", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { rye: 2, cask: 1 }, batchQty: 2 },
-  { defId: "mb_wheat_whisper", name: "Wheat Whisper", traits: ["wheated", "smooth"], expression: "wheated", recipe: { wheat: 1, corn: 1, cask: 1 }, batchQty: 2 },
-  { defId: "mb_coopers_quorum", name: "Cooper's Quorum", traits: ["balanced", "complex"], expression: "four-grain", recipe: { corn: 1, rye: 1, wheat: 1, cask: 1 }, batchQty: 2 },
-  { defId: "mb_bonded_bold", name: "Bonded & Bold", traits: ["balanced", "bonded"], expression: "bourbon", recipe: { corn: 2, barley: 1, cask: 1 }, batchQty: 2 },
-  { defId: "mb_single_barrel", name: "Single Barrel Select", traits: ["complex"], expression: "bourbon", recipe: { corn: 1, barley: 1, cask: 2 }, batchQty: 1 },
-  { defId: "mb_rye_ladder", name: "Rye Ladder 95", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { rye: 3 }, batchQty: 2 },
-  { defId: "mb_heritage_wheat", name: "Wheated Estate", traits: ["wheated", "heritage-grain"], expression: "wheated", recipe: { wheat: 2, cask: 1 }, batchQty: 1 },
-  { defId: "mb_small_batch", name: "Mash Bill No. 7", traits: ["balanced", "smooth", "complex"], expression: "four-grain", recipe: { corn: 1, barley: 1, cask: 2 }, batchQty: 4 },
+  // complexity 2 — the simplest legal bourbon (1 cask + 1 corn)
+  { defId: "mb_single_barrel", name: "Single Barrel Select", traits: ["clean"], expression: "bourbon", recipe: { cask: 1, corn: 1 } },
+  // complexity 3
+  { defId: "mb_cornbread", name: "Cornbread Line", traits: ["high-corn", "sweet"], expression: "high-corn", recipe: { cask: 1, corn: 2 } },
+  { defId: "mb_classic", name: "Knob's End 90", traits: ["balanced"], expression: "bourbon", recipe: { cask: 1, corn: 1, barley: 1 } },
+  { defId: "mb_wheat_whisper", name: "Wheat Whisper", traits: ["wheated", "smooth"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 1 } },
+  // complexity 4
+  { defId: "mb_stave_story", name: "Stave & Story", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 2 } },
+  { defId: "mb_bonded_bold", name: "Bonded & Bold", traits: ["bonded", "bold"], expression: "bourbon", recipe: { cask: 1, corn: 2, barley: 1 } },
+  { defId: "mb_coopers_quorum", name: "Cooper's Quorum", traits: ["complex"], expression: "four-grain", recipe: { cask: 1, corn: 1, rye: 1, wheat: 1 } },
+  { defId: "mb_heritage_wheat", name: "Wheated Estate", traits: ["wheated", "heritage"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 2 } },
+  // complexity 5 — the richest bourbons
+  { defId: "mb_rye_ladder", name: "Rye Ladder 95", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 3 } },
+  { defId: "mb_small_batch", name: "Mash Bill No. 7", traits: ["balanced", "complex"], expression: "four-grain", recipe: { cask: 1, corn: 1, rye: 1, wheat: 1, barley: 1 } },
 ];
 
 export function buildMashBillSupply(): MashBill[] {
@@ -75,7 +83,8 @@ export function buildMashBillSupply(): MashBill[] {
         expression: def.expression,
         styleTag: expressionToStyle(def.expression),
         recipe: { ...def.recipe },
-        batchQty: def.batchQty,
+        batchQty: batchQtyForRecipe(def.recipe),
+        saleBonus: saleBonusForRecipe(def.recipe),
         placeholder: true,
       });
     }

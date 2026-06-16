@@ -458,6 +458,7 @@ function handleDrawMashBills(draft: GameState, player: Player, keepIndexes: numb
       age: 0,
       quality: "common",
       batchQty: bill.batchQty,
+      saleBonus: bill.saleBonus,
       salesRemaining: bill.batchQty,
       createdRound: draft.roundNumber,
       maturationBoosted: false,
@@ -596,7 +597,9 @@ function handleSell(
 
   const zone = zoneForCardCount(draft.demandCards.length);
   card.filledBy[slot] = player.id;
-  const payoff = barrelValue(bourbon.quality, bourbon.age) + card.zoneBonus[zone] + distributionBonus(player);
+  // Payoff = barrel value (quality+age, capped) + recipe-complexity premium +
+  // demand zone effect + Distribution bonus.
+  const payoff = barrelValue(bourbon.quality, bourbon.age) + bourbon.saleBonus + card.zoneBonus[zone] + distributionBonus(player);
   const completed = card.filledBy.every((f) => f !== null);
 
   player.capital += payoff;

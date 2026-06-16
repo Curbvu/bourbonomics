@@ -66,10 +66,12 @@ export interface MashBill {
   expression: string;
   /** Canonical style tag derived from `expression` (demand requirements key off it). */
   styleTag: StyleTag;
-  /** Required resource kinds → counts. Quality of committed cards sets tier. */
+  /** Required resource kinds → counts. Always exactly 1 cask + ≥1 corn. */
   recipe: Partial<Record<ResourceKind, number>>;
-  /** How many sales (extractions) a batch built from this bill yields. `[PH]`. */
+  /** How many sales (extractions) a batch yields — scales with recipe complexity. */
   batchQty: number;
+  /** Per-sale Capital premium for a complex recipe (the "richer bourbon" bonus). */
+  saleBonus: number;
   placeholder: true;
 }
 
@@ -160,6 +162,8 @@ export interface Bourbon {
   quality: Quality;
   /** Total sales this batch yields over its life. Copied from the mash bill. */
   batchQty: number;
+  /** Per-sale Capital premium (recipe-complexity bonus). Copied from the mash bill. */
+  saleBonus: number;
   /** Sales left before the batch is spent. Starts at `batchQty`; each sale −1. */
   salesRemaining: number;
   /** Round index when the bourbon was built (for any aged-N-rounds gating). */

@@ -91,6 +91,28 @@ const ZONE_META: Record<Zone, { label: string; color: string }> = {
   high: { label: "High", color: C.red },
 };
 
+// Per-quality card chrome (richer the rarer it is — oak → amber → gold foil).
+const QUALITY_CHROME: Record<string, { ink: string; label: string; border: string; bg: string; glow: string; foil: string }> = {
+  common: {
+    ink: "#cbb78f", label: "Common", border: "rgba(185,166,132,.5)",
+    bg: "linear-gradient(180deg, rgba(120,96,60,.30) 0%, rgba(26,18,11,.97) 62%)",
+    glow: "inset 0 1px 0 rgba(240,201,112,.18), 0 10px 22px rgba(0,0,0,.5)",
+    foil: "linear-gradient(180deg,#cdbb95,#9c8a68)",
+  },
+  specialty: {
+    ink: "#e9b46e", label: "Specialty", border: "rgba(233,180,110,.7)",
+    bg: "radial-gradient(115% 70% at 50% -12%, rgba(233,180,110,.22), transparent 58%), linear-gradient(180deg, rgba(120,80,40,.34) 0%, rgba(26,18,11,.97) 64%)",
+    glow: "inset 0 1px 0 rgba(255,220,150,.28), 0 0 18px rgba(233,180,110,.3), 0 10px 22px rgba(0,0,0,.5)",
+    foil: "linear-gradient(180deg,#f0c970,#c69d52)",
+  },
+  heritage: {
+    ink: "#f7d98b", label: "Heritage", border: "rgba(240,201,112,.9)",
+    bg: "radial-gradient(125% 78% at 50% -12%, rgba(240,201,112,.32), transparent 58%), linear-gradient(180deg, rgba(150,100,40,.40) 0%, rgba(26,18,11,.97) 66%)",
+    glow: "inset 0 1px 0 rgba(255,231,168,.38), 0 0 30px rgba(240,201,112,.45), 0 10px 24px rgba(0,0,0,.55)",
+    foil: "linear-gradient(180deg,#ffe9a8,#d9a23c)",
+  },
+};
+
 const ULT_LABEL: Record<UltimateId, { name: string; blurb: string }> = {
   megaExpansion: { name: "Mega Expansion", blurb: "+2 barrel slots." },
   climateControlled: { name: "Climate Controlled", blurb: "Your oldest barrel ages +2/round." },
@@ -751,29 +773,57 @@ function Board(p: BoardProps) {
               <div style={{ display: "grid", gridTemplateColumns: `repeat(${barrelSlots}, minmax(0,1fr))`, gap: 14, alignItems: "start" }}>
                 {agingBarrels.map((b) => {
                   const sellable = b.age >= CONFIG.MIN_SELL_AGE && b.salesRemaining > 0;
-                  const floorValue = barrelValue(b.quality, b.age) + fnDist(me);
+                  const floorValue = barrelValue(b.quality, b.age) + b.saleBonus + fnDist(me);
+                  const qc = QUALITY_CHROME[b.quality] ?? QUALITY_CHROME.common!;
+                  const base = CONFIG.QUALITY_BASE[b.quality];
+                  const cap = CONFIG.QUALITY_CEILING[b.quality];
+                  const atCeiling = base + b.age >= cap;
                   return (
                     <div key={b.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <button
                         className="bb-btn"
                         onClick={() => (phaseStage === "play" && sellable && !botTurn ? p.setSellId(b.id) : botTurn ? undefined : flash(sellable ? "Sell in the Play phase" : `Ages until year ${CONFIG.MIN_SELL_AGE}`))}
-                        style={{ textAlign: "left", position: "relative", borderRadius: 12, padding: "11px 12px 12px", border: "1px solid rgba(240,201,112,.4)", background: "linear-gradient(180deg, rgba(74,52,31,.5) 0%, rgba(26,18,11,.96) 60%)", boxShadow: "inset 0 1px 0 rgba(240,201,112,.22), 0 10px 22px rgba(0,0,0,.5)", cursor: phaseStage === "play" && sellable ? "pointer" : "default", overflow: "hidden" }}
+                        style={{ textAlign: "left", position: "relative", borderRadius: 13, padding: "10px 12px 11px", border: `1px solid ${qc.border}`, background: qc.bg, boxShadow: qc.glow, cursor: phaseStage === "play" && sellable ? "pointer" : "default", overflow: "hidden" }}
                       >
-                        <span style={{ position: "absolute", top: 9, right: 9, fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)", padding: "2px 6px", borderRadius: 4 }}>{b.quality}</span>
-                        <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: C.text2 }}>{STYLE_LABEL[b.styleTag]}</div>
+                        {/* faint bottle-glass sheen */}
+                        <span style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,.05) 50%, transparent 60%)", pointerEvents: "none" }} />
+                        {/* TOP: sales-left bibs + quality foil */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+                          <div style={{ display: "flex", gap: 4, flex: 1, flexWrap: "wrap" }} title={`${b.salesRemaining} of ${b.batchQty} sales left`}>
+                            {Array.from({ length: b.batchQty }).map((_, i) => {
+                              const left = i < b.salesRemaining;
+                              return (
+                                <span key={i} style={{ width: 14, height: 14, borderRadius: 999, ...(left ? { background: qc.foil, boxShadow: `inset 0 1px 0 rgba(255,255,255,.5), 0 0 6px ${qc.ink}66`, border: `1px solid ${qc.ink}` } : { background: "rgba(20,14,8,.6)", border: "1px solid rgba(110,80,50,.5)" }) }} />
+                              );
+                            })}
+                          </div>
+                          <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#2a1408", background: qc.foil, padding: "3px 8px", borderRadius: 5, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{qc.label}</span>
+                        </div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: qc.ink }}>{STYLE_LABEL[b.styleTag]} Bourbon</div>
                         <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fbeccb", lineHeight: 1.05, marginTop: 1 }}>{b.name}</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 11, paddingTop: 10, borderTop: "1px dotted rgba(110,80,50,.4)" }}>
-                          <span style={{ position: "relative", width: 48, height: 48, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%)", display: "grid", placeItems: "center", animation: "bb-ember 3.2s ease-in-out infinite", flex: "0 0 auto" }}>
-                            <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 21, color: "#2a1a10", lineHeight: 1 }}>{b.age}</span>
-                            <span style={{ position: "absolute", bottom: 5, fontFamily: MONO, fontSize: 8, fontWeight: 700, color: "#2a1a10", letterSpacing: ".16em" }}>YR</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 9, paddingTop: 9, borderTop: `1px dotted ${qc.ink}55` }}>
+                          <span style={{ position: "relative", width: 46, height: 46, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%)", display: "grid", placeItems: "center", animation: "bb-ember 3.2s ease-in-out infinite", flex: "0 0 auto" }}>
+                            <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#2a1a10", lineHeight: 1 }}>{b.age}</span>
+                            <span style={{ position: "absolute", bottom: 5, fontFamily: MONO, fontSize: 7, fontWeight: 700, color: "#2a1a10", letterSpacing: ".16em" }}>YR</span>
                           </span>
-                          <div>
+                          <div style={{ minWidth: 0 }}>
                             <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, lineHeight: 1 }}>{sellable ? `sell ≥ ${floorValue}` : "aging in oak"}</div>
-                            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: C.muted, marginTop: 3 }}>{b.salesRemaining}/{b.batchQty} sales left</div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".06em", color: C.muted, marginTop: 3 }}>
+                              base {base} + {b.age}yr{b.saleBonus > 0 ? ` + ${b.saleBonus} premium` : ""}
+                            </div>
+                          </div>
+                        </div>
+                        {/* age/demand value rules */}
+                        <div style={{ marginTop: 8, padding: "5px 7px", borderRadius: 7, background: "rgba(12,8,5,.45)", border: `1px solid ${qc.ink}33` }}>
+                          <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".02em", color: C.text2, lineHeight: 1.5 }}>
+                            +1 value / year, {atCeiling ? <span style={{ color: qc.ink }}>at cap {cap}</span> : <>caps at <span style={{ color: qc.ink }}>{cap}</span></>}
+                          </div>
+                          <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".02em", color: C.muted, lineHeight: 1.5 }}>
+                            + demand zone bonus on sale →
                           </div>
                         </div>
                       </button>
-                      <div style={{ textAlign: "center", padding: 5, borderRadius: 7, border: "1px solid rgba(240,201,112,.25)", background: "rgba(240,201,112,.08)", fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: C.gold }}>
+                      <div style={{ textAlign: "center", padding: 5, borderRadius: 7, border: `1px solid ${qc.ink}40`, background: `${qc.ink}14`, fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: qc.ink }}>
                         {sellable ? (phaseStage === "play" ? "Tap to sell" : "Ready to sell") : `Aging · Year ${b.age}`}
                       </div>
                     </div>
@@ -1133,7 +1183,7 @@ function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
           return (
             <button key={bill.id} className="bb-btn" onClick={() => { const n = new Set(board.keepBills); n.has(i) ? n.delete(i) : n.add(i); board.setKeepBills(n); }} style={{ width: 150, textAlign: "left", display: "flex", flexDirection: "column", gap: 2, padding: 10, borderRadius: 10, cursor: "pointer", border: `2px solid ${sel ? C.brass : C.border}`, background: sel ? "#2a2014" : "linear-gradient(180deg,#1e140c,#150e08)" }}>
               <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink }}>{bill.name}</span>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.brass }}>{STYLE_LABEL[bill.styleTag]} · {bill.batchQty} sales</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.brass }}>{STYLE_LABEL[bill.styleTag]} · {bill.batchQty} sales{bill.saleBonus > 0 ? ` · +${bill.saleBonus}/sale` : ""}</span>
               <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>{recipeKinds(bill.recipe).map((k) => FACE[k].mono).join(" ")}</span>
             </button>
           );

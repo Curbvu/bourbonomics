@@ -126,7 +126,7 @@ function MashTab({ bills }: { bills: MashBill[] }) {
         <Card key={b.defId}>
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-display text-[18px] font-semibold text-[var(--ink)]">{b.name}</h3>
-            <span className="font-mono text-[11px] text-[var(--gold)]">{b.batchQty} sales</span>
+            <span className="font-mono text-[11px] text-[var(--gold)]">{b.batchQty} sales{b.saleBonus > 0 ? ` · +${b.saleBonus}/sale` : ""}</span>
           </div>
           <div className="mt-1 font-mono text-[11px] uppercase tracking-[.1em] text-[var(--sky)]">
             {b.expression} · {b.styleTag}
