@@ -9,7 +9,7 @@ export default function Home() {
             Bourbonomics
           </h1>
           <p className="mt-3 text-lg text-slate-300">
-            A solo board game of bourbon barons, barrels, and brinkmanship.
+            A cozy game of bourbon barons, barrels, and brinkmanship — for 2–6.
           </p>
         </header>
 

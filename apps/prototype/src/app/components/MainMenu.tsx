@@ -17,15 +17,23 @@ export default function MainMenu() {
         href="/play"
         eyebrow="New game"
         title="Start a fresh barrel"
-        subtitle="Pick your seed, draw resources, rest and age bourbon, then sell into your brand lines."
+        subtitle="2–6 players (AI fills the rivals). Draft grain, age bourbon, and sell into a shifting demand market."
         accent="amber"
+      />
+
+      <MenuTile
+        href="/play?tutorial=1"
+        eyebrow="Tutorial"
+        title="Learn to play"
+        subtitle="A guided, spotlighted walk through one full round — draft, build, age, and sell your first bourbon."
+        accent="emerald"
       />
 
       <MenuTile
         href="/wiki"
         eyebrow="Bourbon Wiki"
         title="Browse every catalog"
-        subtitle="Mash bills, brand-line slot cards, marketing — recipes, reward grids, traits."
+        subtitle="Mash bills, demand orders, and distilleries — recipes, payouts, ultimates."
         accent="sky"
       />
 
@@ -33,7 +41,7 @@ export default function MainMenu() {
         href="/rules"
         eyebrow="Rules"
         title="Read the rulebook"
-        subtitle="Round loop, make/age/sell pipeline, the staircase, scoring."
+        subtitle="The three-phase round, the dice draft, the demand meter, and scoring."
         accent="slate"
       />
     </nav>

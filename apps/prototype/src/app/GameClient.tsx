@@ -453,6 +453,18 @@ export default function GameClient() {
     return () => clearTimeout(t);
   }, [game, tut]);
 
+  // Deep-link: /play?tutorial=1 launches the guided tutorial straight from the
+  // main menu (the original game put the tutorial on the home screen).
+  const bootstrapped = useRef(false);
+  useEffect(() => {
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tutorial")) {
+      startTutorial();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!game) {
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#0c0805" }}>
