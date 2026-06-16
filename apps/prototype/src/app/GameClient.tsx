@@ -537,7 +537,7 @@ export default function GameClient() {
         />
       </ScalingHost>
       {tut !== null && TUT_BEATS[tut] && sellId === null && pendingWild === null && ultDept === null && !qsOpen && !ttFace && (
-        <TutorialOverlay beat={TUT_BEATS[tut]!} draftedCount={Object.keys(claims).length} onContinue={tutContinue} onExit={exitTutorial} />
+        <TutorialOverlay beat={TUT_BEATS[tut]!} draftedCount={Object.keys(claims).length} pickedCount={keepBills.size} onContinue={tutContinue} onExit={exitTutorial} />
       )}
     </div>
   );
@@ -1293,7 +1293,7 @@ function ActionBand(props: {
           ))}
         </div>
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, color: C.muted }}>Quality (Common / Specialty / Heritage) is drawn blind. Quality sets base value &amp; its age-value ceiling.</span>
+        <span style={{ fontSize: 10, color: C.muted }}>Quality (Common → Legendary) is drawn blind. Quality sets the barrel's age-value track.</span>
       </div>
     </section>
   );
@@ -1344,7 +1344,7 @@ function PlayControls({ board, me }: { board: BoardProps; me: Player }) {
           Draw {office} Mash Bills
         </button>
       ) : (
-        <button className="bb-btn" onClick={() => board.dispatch({ type: "DRAW_MASH_BILLS", keepIndexes: [...board.keepBills] })} style={{ padding: "11px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", border: 0, cursor: "pointer", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)" }}>
+        <button data-tut="keep" className="bb-btn" onClick={() => board.dispatch({ type: "DRAW_MASH_BILLS", keepIndexes: [...board.keepBills] })} style={{ padding: "11px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", border: 0, cursor: "pointer", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)" }}>
           Keep {board.keepBills.size} →
         </button>
       )}

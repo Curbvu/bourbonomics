@@ -71,6 +71,8 @@ export interface TutBeat {
   spotlight?: string;
   /** During the dice draft: once `count` dice are tapped, move the halo to `target`. */
   spotlightAfterDraft?: { count: number; target: string };
+  /** In the bill picker: once `count` bills are selected, move the halo to `target`. */
+  spotlightAfterPick?: { count: number; target: string };
   /** Prompt beats set a Continue label; await beats leave it undefined. */
   cta?: string;
   /** One-line "do this" nudge shown on await beats / when a blocked action is tried. */
@@ -168,8 +170,9 @@ export const TUT_BEATS: TutBeat[] = [
   {
     id: "draw-keep",
     title: "Keep the recipe",
-    body: "These are the mash bills you drew. Pick **Single Barrel Select** (1 cask + 1 corn), then press **Keep** to bring it into your rickhouse as a resting barrel.",
+    body: "These are the mash bills you drew. Pick a **Single Barrel Select**, then press **Keep** to bring it into your rickhouse as a resting barrel.",
     spotlight: "bills",
+    spotlightAfterPick: { count: 1, target: "keep" },
     hint: "Tap a Single Barrel Select, then Keep.",
     step: 4,
     allow: (a) => a.type === "DRAW_MASH_BILLS" && a.keepIndexes.length >= 1,
@@ -265,15 +268,21 @@ function Rich({ children }: { children: string }) {
   );
 }
 
-export function TutorialOverlay({ beat, draftedCount = 0, onContinue, onExit }: {
+export function TutorialOverlay({ beat, draftedCount = 0, pickedCount = 0, onContinue, onExit }: {
   beat: TutBeat;
   /** How many dice the player has tapped this collect turn (drives the post-collect halo). */
   draftedCount?: number;
+  /** How many mash bills the player has selected in the picker (drives the post-pick halo). */
+  pickedCount?: number;
   onContinue: () => void;
   onExit: () => void;
 }) {
   const ad = beat.spotlightAfterDraft;
-  const target = ad && draftedCount >= ad.count ? ad.target : beat.spotlight;
+  const ap = beat.spotlightAfterPick;
+  const target =
+    ad && draftedCount >= ad.count ? ad.target
+    : ap && pickedCount >= ap.count ? ap.target
+    : beat.spotlight;
   const box = useRect(target);
   const PAD = 10;
   const hole = box ? { top: box.top - PAD, left: box.left - PAD, width: box.width + PAD * 2, height: box.height + PAD * 2 } : null;
