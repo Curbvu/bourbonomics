@@ -67,6 +67,8 @@ export interface MashBill {
   id: string;
   defId: string;
   name: string;
+  /** Short marketing tagline shown on the wiki card (flavor, optional). */
+  slogan?: string;
   traits: Trait[];
   /** House-style / grain identity (e.g. "wheated", "high-rye", "four-grain"). */
   expression: string;

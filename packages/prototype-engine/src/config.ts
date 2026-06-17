@@ -52,11 +52,13 @@ export const CONFIG = {
   ZONE_MID_MIN: 5,
   ZONE_HIGH_MIN: 8,
 
-  // --- Selling — age value off the track, demand zone as a multiplier ------
+  // --- Selling — value off the track; demand only adds a bonus -------------
   // Barrel value is READ OFF A PRINTED TRACK by (tier, age) — an explicit
   // lookup, NOT a formula. Each tier climbs to the year it caps, then holds
   // (the barrel may keep physically aging with no further value). Ages between
-  // listed entries hold the last value. `[PH]` — edit freely.
+  // listed entries hold the last value. This age value IS the payout's base;
+  // demand never multiplies it — the matched order's per-zone bonus is added on
+  // top (see the demand cards' `zoneBonus`). `[PH]` — edit freely.
   AGE_VALUE_TABLE: {
     common: { 2: 1, 3: 1, 4: 2 },
     uncommon: { 2: 1, 3: 1, 4: 2, 5: 2, 6: 3 },
@@ -66,12 +68,10 @@ export const CONFIG = {
   } as Record<Quality, Record<number, number>>,
   /** The year each tier's value caps (value stops climbing; the barrel may age on). `[PH]`. */
   QUALITY_CAP_AGE: { common: 4, uncommon: 6, rare: 8, epic: 12, legendary: 18 } as Record<Quality, number>,
-  /**
-   * Demand zone MULTIPLIER on the age value — the real timing swing.
-   * sale = (age value × zone mult) + additive card/premium/distribution bonuses.
-   * `[PH]` — to tune swinginess, flatten AGE_VALUE_TABLE, NOT these.
-   */
-  ZONE_MULTIPLIER: { low: 1, mid: 2, high: 3 } as Record<Zone, number>,
+  // NOTE: demand is NOT a multiplier. A sale = age value + the matched order's
+  // per-zone `zoneBonus` (a flat bonus that's larger in a hotter zone) +
+  // complexity premium + Distribution — all additive. The per-card zone bonuses
+  // live in the demand-card content, not here.
 
   // --- Mash-bill complexity scaling ----------------------------------------
   // A bill always needs exactly 1 cask + ≥1 corn + ≥1 grain (rye/wheat/barley)
@@ -141,11 +141,6 @@ export function barrelValue(quality: Quality, age: number): number {
     if (v !== undefined) val = v; // hold-forward: keep the last listed value
   }
   return val;
-}
-
-/** The demand zone multiplier applied to age value at sale time. */
-export function zoneMultiplier(zone: Zone): number {
-  return CONFIG.ZONE_MULTIPLIER[zone];
 }
 
 /** The age at which a tier's track value caps (for UI / hints). */

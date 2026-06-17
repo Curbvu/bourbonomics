@@ -15,7 +15,6 @@ import {
   improvementCost,
   barrelValue,
   zoneForCardCount,
-  zoneMultiplier,
   capAge,
   meetsRequirement,
   reputationOf,
@@ -926,8 +925,8 @@ function Board(p: BoardProps) {
                 {agingBarrels.map((b) => {
                   const sellable = b.age >= CONFIG.MIN_SELL_AGE && b.salesRemaining > 0;
                   const trackVal = barrelValue(b.quality, b.age);
-                  const mult = zoneMultiplier(zone);
-                  const floorValue = trackVal * mult + b.saleBonus + fnDist(me);
+                  // The bourbon sets the base; a matched demand order adds a bonus on top.
+                  const baseValue = trackVal + b.saleBonus + fnDist(me);
                   const qc = QUALITY_CHROME[b.quality] ?? QUALITY_CHROME.common!;
                   const capYear = capAge(b.quality);
                   const capVal = barrelValue(b.quality, capYear);
@@ -961,19 +960,19 @@ function Board(p: BoardProps) {
                             <span style={{ position: "absolute", bottom: 5, fontFamily: MONO, fontSize: 7, fontWeight: 700, color: "#2a1a10", letterSpacing: ".16em" }}>YR</span>
                           </span>
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, lineHeight: 1 }}>{sellable ? `sell ≈ ${floorValue}` : "aging in oak"}</div>
+                            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, lineHeight: 1 }}>{sellable ? `sell ≈ ${baseValue}+` : "aging in oak"}</div>
                             <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".04em", color: C.muted, marginTop: 3 }}>
-                              {trackVal} <span style={{ color: ZONE_META[zone].color }}>× {mult} {ZONE_META[zone].label}</span>{b.saleBonus > 0 ? ` + ${b.saleBonus}` : ""}
+                              value {trackVal}{b.saleBonus > 0 ? ` + ${b.saleBonus} premium` : ""} <span style={{ color: ZONE_META[zone].color }}>+ demand bonus</span>
                             </div>
                           </div>
                         </div>
-                        {/* age-track + demand-multiplier rules */}
+                        {/* age-track value + demand-bonus note */}
                         <div style={{ marginTop: 8, padding: "5px 7px", borderRadius: 7, background: "rgba(12,8,5,.45)", border: `1px solid ${qc.ink}33` }}>
                           <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".02em", color: C.text2, lineHeight: 1.5 }}>
                             track value <span style={{ color: qc.ink }}>{trackVal}</span> · caps <span style={{ color: qc.ink }}>{capVal}</span> @ yr {capYear}{atCap ? " ✓" : ""}
                           </div>
                           <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".02em", color: C.muted, lineHeight: 1.5 }}>
-                            × demand zone ({ZONE_META.low.label} 1 · {ZONE_META.mid.label} 2 · {ZONE_META.high.label} 3)
+                            + the matched order's bonus (bigger in a hotter <span style={{ color: ZONE_META[zone].color }}>{ZONE_META[zone].label}</span> market)
                           </div>
                         </div>
                       </button>
@@ -1508,8 +1507,8 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
         <span style={{ fontFamily: MONO, fontSize: 14, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>The Market</span>
         <div style={{ flex: 1 }} />
         <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink }}>{count}</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: "#0c0805", background: zoneMeta.color, padding: "4px 10px", borderRadius: 6 }}>
-          {zoneMeta.label}<span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18 }}>×{zoneMultiplier(zone)}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: "#0c0805", background: zoneMeta.color, padding: "4px 10px", borderRadius: 6 }} title="Hotter market → bigger bonus added to each sale">
+          {zoneMeta.label}<span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14 }}>demand</span>
         </span>
       </div>
 
@@ -1522,16 +1521,18 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
           {toCrash <= 2 && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".06em", color: C.red }}>⚠ {toCrash} to crash</span>}
         </div>
 
-        {/* zone band rail: card-count range + ×multiplier, current zone lit */}
+        {/* zone band rail: card-count range + relative order bonus, current zone lit */}
         {(["high", "mid", "low"] as Zone[]).map((z) => {
           const bottom = z === "low" ? lowTop / 2 : z === "mid" ? (lowTop + midTop) / 2 : (midTop + 1) / 2;
           const range = z === "low" ? `1–${CONFIG.ZONE_MID_MIN - 1}` : z === "mid" ? `${CONFIG.ZONE_MID_MIN}–${CONFIG.ZONE_HIGH_MIN - 1}` : `${CONFIG.ZONE_HIGH_MIN}–${CONFIG.DEMAND_CRASH_AT - 1}`;
+          // Demand is a flat per-order bonus that grows with the zone (▲ = bigger bonus).
+          const bonusGlyph = z === "low" ? "▲" : z === "mid" ? "▲▲" : "▲▲▲";
           const live = z === zone;
           return (
-            <div key={z} style={{ position: "absolute", left: 7, bottom: `calc(${pct(bottom)} - 11px)`, display: "flex", alignItems: "center", gap: 6, padding: "3px 9px", borderRadius: 7, pointerEvents: "none", background: live ? `${ZONE_META[z].color}26` : "transparent", border: `1px solid ${live ? ZONE_META[z].color : "transparent"}`, boxShadow: live ? `0 0 10px ${ZONE_META[z].color}55` : "none" }}>
+            <div key={z} style={{ position: "absolute", left: 7, bottom: `calc(${pct(bottom)} - 11px)`, display: "flex", alignItems: "center", gap: 6, padding: "3px 9px", borderRadius: 7, pointerEvents: "none", background: live ? `${ZONE_META[z].color}26` : "transparent", border: `1px solid ${live ? ZONE_META[z].color : "transparent"}`, boxShadow: live ? `0 0 10px ${ZONE_META[z].color}55` : "none" }} title="Demand adds a flat bonus per sale — larger in a hotter zone">
               <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: ZONE_META[z].color, opacity: live ? 1 : 0.65, fontWeight: live ? 700 : 400 }}>{ZONE_META[z].label}</span>
               <span style={{ fontFamily: MONO, fontSize: 9, color: C.text2, opacity: live ? 1 : 0.55 }}>{range}</span>
-              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: live ? 22 : 16, color: ZONE_META[z].color, opacity: live ? 1 : 0.65, lineHeight: 1 }}>×{zoneMultiplier(z)}</span>
+              <span style={{ fontFamily: MONO, fontSize: live ? 11 : 9, letterSpacing: ".08em", color: ZONE_META[z].color, opacity: live ? 1 : 0.6, lineHeight: 1 }}>+bonus {bonusGlyph}</span>
             </div>
           );
         })}
@@ -1564,7 +1565,7 @@ function DemandRow({ card, zone, players }: { card: DemandCard; zone: Zone; play
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: C.ink, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.label}</span>
         <div style={{ flex: 1 }} />
-        <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }} title="zone payout (Capital) per sale">+{card.zoneBonus[zone]}</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }} title="bonus Capital this order adds to each sale (current zone)">+{card.zoneBonus[zone]}</span>
         {/* big prestige reward on completion */}
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 11px", borderRadius: 999, background: "rgba(109,178,140,.18)", border: `1px solid ${C.green}`, boxShadow: `0 0 10px ${C.green}33` }} title="prestige kept by the player who completes this order">
           <span style={{ fontSize: 17, color: C.green, lineHeight: 1 }}>★</span>
@@ -1903,15 +1904,15 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
   onCancel: () => void;
 }) {
   const trackVal = barrelValue(bourbon.quality, bourbon.age);
-  const mult = zoneMultiplier(zone);
   const dist = fnDist(me);
+  const base = trackVal + bourbon.saleBonus + dist; // the bourbon's own value
   const options = game.demandCards.map((c) => {
     const open = c.filledBy.indexOf(null) >= 0;
     const fits = meetsRequirement(bourbon, c.requirement);
     const filled = c.filledBy.filter((f) => f !== null).length;
     const completes = open && filled + 1 >= c.slotsActive;
-    // (age value × zone multiplier) + additive card bonus + premium + distribution
-    return { card: c, open, fits, completes, payoff: trackVal * mult + c.zoneBonus[zone] + bourbon.saleBonus + dist };
+    // bourbon value (age + premium + distribution) + this order's flat zone bonus
+    return { card: c, open, fits, completes, payoff: base + c.zoneBonus[zone] };
   });
   return (
     <Scrim>
@@ -1919,7 +1920,7 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
         <div>
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>Sell · {STYLE_LABEL[bourbon.styleTag]} · {bourbon.quality} · age {bourbon.age}</div>
           <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: C.ink }}>{bourbon.name}</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>Age value {trackVal} <span style={{ color: ZONE_META[zone].color }}>× {mult} ({ZONE_META[zone].label} zone)</span>{bourbon.saleBonus > 0 ? ` + ${bourbon.saleBonus} premium` : ""} + {dist} dist. Route to a matching order.</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>Bourbon value <b style={{ color: C.ink }}>{base}</b> (age {trackVal}{bourbon.saleBonus > 0 ? ` + ${bourbon.saleBonus} premium` : ""} + {dist} dist) <span style={{ color: ZONE_META[zone].color }}>+ each order's {ZONE_META[zone].label} bonus</span>. Route to a matching order.</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto" }}>
           {options.filter((o) => o.fits).length === 0 && (

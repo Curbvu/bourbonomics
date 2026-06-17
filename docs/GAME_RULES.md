@@ -104,13 +104,15 @@ Round-robin. **No action economy** — take unlimited actions, gated only by res
 
 ---
 
-# 💰 Selling (Extraction) — value off the track, demand as a multiplier
+# 💰 Selling (Extraction) — value off the track, demand adds a bonus
 
-There is **no payoff matrix** and **no formula** for age value. A sale's Capital is:
+There is **no payoff matrix** and **no formula** for age value. The payout is **entirely additive** — the bourbon sets the value, demand only adds a bonus on top:
 
 ```
-sale_capital = (age_track_value × demand_zone_multiplier) + card_bonus + complexity_premium + distribution
+sale_capital = age_track_value + demand_bonus + complexity_premium + distribution
 ```
+
+Nothing is multiplied — a hot market doesn't *scale* your bourbon, it *tips* on the sale.
 
 **1. Age-track value** — read off a printed 1-D table by **(tier, age)** (an editable lookup in config, not a formula). Each tier climbs to the year it caps, then holds (the barrel may keep aging with no further value). `[PH]`:
 
@@ -125,19 +127,19 @@ sale_capital = (age_track_value × demand_zone_multiplier) + card_bonus + comple
 
 Caps: Common 4/2 · Uncommon 6/3 · Rare 8/4 · Epic 12/7 · Legendary 18/11. **No rickhouse aging ceiling** — barrels age past the cap, the *value* just stops climbing (the ceiling lives on **quality**).
 
-**2. Demand zone MULTIPLIER** (the real timing swing) — by total cards on the table: **Low ×1 · Mid ×2 · High ×3**. Only the age value is multiplied.
+**2. Demand bonus** (the timing tip) — the matched order pays a **flat Capital bonus** read off its own `low / mid / high` track in the current demand zone. A hotter market (more cards on the table) means a bigger bonus, but it is **added**, never multiplied — so demand sweetens a sale without ever dwarfing the bourbon itself. Each order carries its own three numbers (see the Demand catalog).
 
-**3. Card bonus** — the matched order's per-zone effect, added **additively** (not multiplied), so card rewards stay clean. The **complexity premium** (richer bills, see §Resources) and **Distribution** bonus are likewise additive.
+**3. Complexity premium & distribution** — the per-sale premium for richer bills (see §Resources) and the **Distribution** department bonus are likewise flat additions.
 
 **There is no glut:** every sale fills a matching open order slot; with no eligible order the barrel waits. A card's slots = the **player count** (some a multiple).
 
-*Worked: Common age 2 Low = 1×1 = **1** (floor). Common age 4 High = 2×3 = **6**. Legendary age 18 High + a 4-card = 11×3+4 = **37**. Design intent: dumping cheap young stock is fine (~1), but holding good bourbon for an aged High-demand window pays multiplicatively. Two knobs — the value table (magnitude) and the ×1/×2/×3 (timing).*
+*Worked: Common age 2 on a Low order (+1) = 1 + 1 = **2**. Common age 4 (value 2) on a High order (+3) = 2 + 3 = **5**. Legendary age 18 (value 11) on a High premium order (+8) = 11 + 8 = **19**. Design intent: the bourbon is the prize — a premium, aged, well-aligned barrel is worth a lot on its own, and a hot market just adds a meaningful tip on top. Two knobs — the value table (the bourbon) and each order's bonus track (the demand tip).*
 
 **Multi-sale batches:** a built barrel yields several sales over its life (`batchQty`, mostly 2–3, some 4). **Every sale banks Capital** — intermediate or completing. A batch frees its rickhouse slot when its **last** sale is extracted.
 
 **Completing a demand card:** the player who fills a card's **final slot keeps the card** as Prestige. Earlier fillers already banked Capital from their sales; the completer additionally takes the card. (Capital for the work, Prestige for the finish.)
 
-**The magic thread:** a premium (high base + high ceiling), aged (rode the value up), well-timed (High zone), aligned (fills a matching premium order) sale is large because all parts align — the multiply emerges from the sum of aligned parts, no grid.
+**The magic thread:** a premium (high base + high ceiling), aged (rode the value up), well-timed (High-zone bonus), aligned (fills a matching premium order) sale is large because all the additive parts stack — the big number emerges from the sum of aligned parts, no grid and no multiplier.
 
 ---
 

@@ -12,7 +12,6 @@ import {
   saleBonusForRecipe,
   scorePlayer,
   zoneForCardCount,
-  zoneMultiplier,
   CONFIG,
 } from "../src/index";
 import type {
@@ -437,11 +436,11 @@ describe("barrel value (age track)", () => {
   });
 });
 
-describe("demand zone multiplier", () => {
-  it("is ×1 / ×2 / ×3 for Low / Mid / High", () => {
-    expect(zoneMultiplier("low")).toBe(1);
-    expect(zoneMultiplier("mid")).toBe(2);
-    expect(zoneMultiplier("high")).toBe(3);
+describe("demand zones", () => {
+  it("read Low / Mid / High from the card count, not a payout multiplier", () => {
+    expect(zoneForCardCount(1)).toBe("low");
+    expect(zoneForCardCount(CONFIG.ZONE_MID_MIN)).toBe("mid");
+    expect(zoneForCardCount(CONFIG.ZONE_HIGH_MIN)).toBe("high");
   });
 });
 
@@ -540,17 +539,17 @@ describe("sell", () => {
     expect(s.players[0]!.rickhouse.length).toBe(0);
   });
 
-  it("the demand zone MULTIPLIES the age value; card bonus stays additive", () => {
-    let s = base({ quality: "common", age: 2 }); // age value 1
-    // 5 cards on the table → Mid zone (×2). Target is first + 4 fillers.
+  it("payout is the bourbon's age value plus the order's zone bonus — nothing is multiplied", () => {
+    let s = base({ quality: "common", age: 2 }); // age value is the base, unscaled
+    // 5 cards on the table → Mid zone. Target is first + 4 fillers.
     const target = makeDemandCard({ id: "ord", slotsActive: 1, zoneBonus: { low: 1, mid: 4, high: 9 }, reputation: 1 });
     const fillers = Array.from({ length: 4 }, (_, i) => makeDemandCard({ id: `f${i}`, slotsActive: 1 }));
     s.demandCards = [target, ...fillers];
     expect(zoneForCardCount(s.demandCards.length)).toBe("mid");
     const dist = dept(s.players[0]!, "distribution").values[0]!;
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
-    // (value 1 × mid ×2) + card mid bonus 4 + dist — the ×2 hits value only.
-    expect(s.players[0]!.capital).toBe(barrelValue("common", 2) * 2 + 4 + dist);
+    // age value + card's MID bonus (4) + dist — the zone only picks the bonus.
+    expect(s.players[0]!.capital).toBe(barrelValue("common", 2) + 4 + dist);
   });
 });
 

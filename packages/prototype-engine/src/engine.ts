@@ -19,7 +19,6 @@ import {
   barrelValue,
   improvementCost,
   zoneForCardCount,
-  zoneMultiplier,
 } from "./config";
 import { buildDemandDeck, buildMashBillSupply, buildPile } from "./content";
 import { rankPlayers } from "./scoring";
@@ -598,11 +597,13 @@ function handleSell(
 
   const zone = zoneForCardCount(draft.demandCards.length);
   card.filledBy[slot] = player.id;
-  // Payoff = (age-track value × demand-zone MULTIPLIER) + additive bonuses
-  // (card per-zone effect, recipe-complexity premium, Distribution). Only the
-  // age value is multiplied by timing — the additive bonuses stay flat.
+  // Payoff is ENTIRELY ADDITIVE — the bourbon sets the base value, demand only
+  // adds a bonus. The age-track value (quality × age) is the core; the matched
+  // order's demand bonus (read in the current zone, so a hotter market pays a
+  // bigger bonus), the recipe-complexity premium, and Distribution all add on
+  // top. Nothing is multiplied.
   const payoff =
-    barrelValue(bourbon.quality, bourbon.age) * zoneMultiplier(zone) +
+    barrelValue(bourbon.quality, bourbon.age) +
     card.zoneBonus[zone] +
     bourbon.saleBonus +
     distributionBonus(player);

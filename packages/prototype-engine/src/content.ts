@@ -44,31 +44,45 @@ export function expressionToStyle(expression: string): StyleTag {
 interface MashBillDef {
   defId: string;
   name: string;
+  slogan?: string;
   traits: string[];
   expression: string;
   /**
-   * Every recipe follows the bourbon rule: exactly 1 cask + at least 1 corn,
-   * then optional extra grains for complexity. batchQty and the per-sale premium
-   * are DERIVED from the recipe's complexity (see config) — not set here — so
-   * "more resources ⇒ richer bourbon" stays one loose, tunable rule.
+   * Every recipe follows the bourbon rule: exactly 1 cask + at least 1 corn +
+   * at least 1 grain (rye/wheat/barley), then optional extra grains for
+   * complexity. batchQty and the per-sale premium are DERIVED from the recipe's
+   * complexity (see config) — not set here — so "more resources ⇒ richer
+   * bourbon" stays one loose, tunable rule.
    */
   recipe: Partial<Record<ResourceKind, number>>;
 }
 
 const MASH_BILL_DEFS: MashBillDef[] = [
-  // complexity 3 — the simplest legal bourbon: 1 cask + 1 corn + 1 grain
-  { defId: "mb_single_barrel", name: "Single Barrel Select", traits: ["clean"], expression: "bourbon", recipe: { cask: 1, corn: 1, rye: 1 } },
-  { defId: "mb_classic", name: "Knob's End 90", traits: ["balanced"], expression: "bourbon", recipe: { cask: 1, corn: 1, barley: 1 } },
-  { defId: "mb_wheat_whisper", name: "Wheat Whisper", traits: ["wheated", "smooth"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 1 } },
-  // complexity 4 — extra grain or extra corn
-  { defId: "mb_cornbread", name: "Cornbread Line", traits: ["high-corn", "sweet"], expression: "high-corn", recipe: { cask: 1, corn: 2, barley: 1 } },
-  { defId: "mb_stave_story", name: "Stave & Story", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 2 } },
-  { defId: "mb_heritage_wheat", name: "Wheated Estate", traits: ["wheated", "heritage"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 2 } },
-  { defId: "mb_coopers_quorum", name: "Cooper's Quorum", traits: ["complex"], expression: "four-grain", recipe: { cask: 1, corn: 1, rye: 1, wheat: 1 } },
-  // complexity 5 — the richest bourbons
-  { defId: "mb_bonded_bold", name: "Bonded & Bold", traits: ["bonded", "bold"], expression: "bourbon", recipe: { cask: 1, corn: 2, rye: 1, barley: 1 } },
-  { defId: "mb_rye_ladder", name: "Rye Ladder 95", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 3 } },
-  { defId: "mb_small_batch", name: "Mash Bill No. 7", traits: ["balanced", "complex"], expression: "four-grain", recipe: { cask: 1, corn: 1, rye: 1, wheat: 1, barley: 1 } },
+  // ── complexity 3 — the simplest legal bourbons (1 cask + 1 corn + 1 grain) ──
+  { defId: "mb_single_barrel", name: "Single Barrel Select", slogan: "One barrel. No apologies.", traits: ["clean"], expression: "bourbon", recipe: { cask: 1, corn: 1, rye: 1 } },
+  { defId: "mb_classic", name: "Knob's End 90", slogan: "The bottle on every back bar.", traits: ["balanced"], expression: "bourbon", recipe: { cask: 1, corn: 1, barley: 1 } },
+  { defId: "mb_wheat_whisper", name: "Wheat Whisper", slogan: "Soft-spoken, long-remembered.", traits: ["wheated", "smooth"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 1 } },
+  { defId: "mb_first_rick", name: "First Rick", slogan: "Where every distiller starts.", traits: ["clean", "young"], expression: "bourbon", recipe: { cask: 1, corn: 1, barley: 1 } },
+  { defId: "mb_little_rye", name: "Little Rye Riot", slogan: "A small spark of spice.", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 1 } },
+  // ── complexity 4 — an extra grain or extra corn (a richer pour) ──
+  { defId: "mb_cornbread", name: "Cornbread Line", slogan: "Straight off the griddle.", traits: ["high-corn", "sweet"], expression: "high-corn", recipe: { cask: 1, corn: 2, barley: 1 } },
+  { defId: "mb_stave_story", name: "Stave & Story", slogan: "Every char has a tale.", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 2 } },
+  { defId: "mb_heritage_wheat", name: "Wheated Estate", slogan: "An old name, gently aged.", traits: ["wheated", "heritage"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 2 } },
+  { defId: "mb_coopers_quorum", name: "Cooper's Quorum", slogan: "Four grains, one vote.", traits: ["complex"], expression: "four-grain", recipe: { cask: 1, corn: 1, rye: 1, wheat: 1 } },
+  { defId: "mb_amber_sunday", name: "Amber Sunday", slogan: "Worth waking up slow for.", traits: ["balanced", "smooth"], expression: "bourbon", recipe: { cask: 1, corn: 2, rye: 1 } },
+  { defId: "mb_high_meadow", name: "High Meadow Wheat", slogan: "Grassy, golden, unhurried.", traits: ["wheated", "smooth"], expression: "wheated", recipe: { cask: 1, corn: 2, wheat: 1 } },
+  { defId: "mb_barley_mow", name: "The Barley Mow", slogan: "A nutty, malt-forward classic.", traits: ["malty", "balanced"], expression: "bourbon", recipe: { cask: 1, corn: 1, barley: 2 } },
+  // ── complexity 5 — the rich, premium-paying bourbons ──
+  { defId: "mb_bonded_bold", name: "Bonded & Bold", slogan: "100 proof of intent.", traits: ["bonded", "bold"], expression: "bourbon", recipe: { cask: 1, corn: 2, rye: 1, barley: 1 } },
+  { defId: "mb_rye_ladder", name: "Rye Ladder 95", slogan: "Climb the spice, rung by rung.", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 3 } },
+  { defId: "mb_small_batch", name: "Mash Bill No. 7", slogan: "Seven for luck, four for grain.", traits: ["balanced", "complex"], expression: "four-grain", recipe: { cask: 1, corn: 1, rye: 1, wheat: 1, barley: 1 } },
+  { defId: "mb_winter_wheat", name: "Winter Wheat Reserve", slogan: "Laid down before the frost.", traits: ["wheated", "heritage", "complex"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 3 } },
+  { defId: "mb_county_fair", name: "County Fair Gold", slogan: "Blue-ribbon corn, every jar.", traits: ["high-corn", "sweet", "complex"], expression: "high-corn", recipe: { cask: 1, corn: 3, barley: 1 } },
+  { defId: "mb_foreman", name: "The Foreman's Cut", slogan: "Built by the floor crew.", traits: ["bold", "complex"], expression: "four-grain", recipe: { cask: 1, corn: 2, rye: 1, wheat: 1 } },
+  // ── complexity 6 — the showpieces (top batch size & premium) ──
+  { defId: "mb_governors", name: "Governor's Reserve", slogan: "Reserved for the occasion.", traits: ["bonded", "bold", "complex"], expression: "four-grain", recipe: { cask: 1, corn: 2, rye: 1, wheat: 1, barley: 1 } },
+  { defId: "mb_centennial", name: "Centennial Rye", slogan: "A hundred years of spice.", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 4 } },
+  { defId: "mb_masterpiece", name: "Master Distiller's Bill", slogan: "The whole grain library, in one glass.", traits: ["complex", "heritage", "bold"], expression: "four-grain", recipe: { cask: 1, corn: 2, rye: 2, wheat: 1 } },
 ];
 
 export function buildMashBillSupply(): MashBill[] {
@@ -79,6 +93,7 @@ export function buildMashBillSupply(): MashBill[] {
         id: `${def.defId}#${copy}`,
         defId: def.defId,
         name: def.name,
+        slogan: def.slogan,
         traits: [...def.traits],
         expression: def.expression,
         styleTag: expressionToStyle(def.expression),
