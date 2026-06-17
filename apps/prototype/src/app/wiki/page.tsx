@@ -96,7 +96,7 @@ export default function WikiPage() {
           </h1>
           <p className="mt-1 text-[var(--ink-muted)]">
             Every catalog the game ships — mash bills, departments, and the demand market.
-            A bourbon&apos;s value comes from its recipe and aging; demand only adds a bonus on top.
+            A sale = (the bourbon&apos;s aged value + the order&apos;s value) × the demand zone (×1/×2/×3).
           </p>
         </header>
 
@@ -320,8 +320,8 @@ function DemandTab({ cards }: { cards: DemandCard[] }) {
           <div className="mt-2 text-[13px] text-[var(--ink-muted)]">
             <span className="text-[var(--mute)]">Requirement:</span> {reqText(c.requirement)}
           </div>
-          <div className="mt-1 font-mono text-[11px] text-[var(--gold)]" title="Flat Capital bonus this order ADDS to a sale's value — bigger in a hotter market">
-            demand bonus — low +{c.zoneBonus.low} · mid +{c.zoneBonus.mid} · high +{c.zoneBonus.high}
+          <div className="mt-1 font-mono text-[11px] text-[var(--gold)]" title="Added to the bourbon's age value, then multiplied by the demand zone (×1 / ×2 / ×3)">
+            order value +{c.orderValue} · ×zone at sale (low ×1 · mid ×2 · high ×3)
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
             <Chip>{c.slotMultiple}× players slots</Chip>

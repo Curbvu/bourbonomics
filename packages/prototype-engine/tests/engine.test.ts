@@ -12,6 +12,7 @@ import {
   saleBonusForRecipe,
   scorePlayer,
   zoneForCardCount,
+  zoneMultiplier,
   CONFIG,
 } from "../src/index";
 import type {
@@ -86,7 +87,7 @@ function makeDemandCard(over: Partial<DemandCard> = {}): DemandCard {
     slotMultiple: over.slotMultiple ?? 1,
     slotsActive,
     filledBy: over.filledBy ?? Array.from({ length: slotsActive }, () => null),
-    zoneBonus: over.zoneBonus ?? { low: 2, mid: 4, high: 6 },
+    orderValue: over.orderValue ?? 0,
     reputation: over.reputation ?? 3,
     placeholder: true,
   };
@@ -436,11 +437,16 @@ describe("barrel value (age track)", () => {
   });
 });
 
-describe("demand zones", () => {
-  it("read Low / Mid / High from the card count, not a payout multiplier", () => {
+describe("demand zone multiplier", () => {
+  it("reads Low / Mid / High from the card count", () => {
     expect(zoneForCardCount(1)).toBe("low");
     expect(zoneForCardCount(CONFIG.ZONE_MID_MIN)).toBe("mid");
     expect(zoneForCardCount(CONFIG.ZONE_HIGH_MIN)).toBe("high");
+  });
+  it("is a simple ×1 / ×2 / ×3 for Low / Mid / High", () => {
+    expect(zoneMultiplier("low")).toBe(1);
+    expect(zoneMultiplier("mid")).toBe(2);
+    expect(zoneMultiplier("high")).toBe(3);
   });
 });
 
@@ -471,7 +477,7 @@ describe("mash-bill complexity scaling", () => {
     s = intoPlay(s);
     s.players[0]!.capital = 0;
     s.players[0]!.rickhouse = [makeBourbon({ id: "x", quality: "common", age: 3, saleBonus: 2 })];
-    s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 1, zoneBonus: { low: 0, mid: 0, high: 0 }, reputation: 1 })];
+    s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 1, orderValue: 0, reputation: 1 })];
     const dist = dept(s.players[0]!, "distribution").values[0]!;
     s = ok(s, { type: "SELL", bourbonId: "x", demandCardId: "ord" });
     expect(s.players[0]!.capital).toBe(barrelValue("common", 3) + 2 + dist); // +2 premium
@@ -505,13 +511,14 @@ describe("sell", () => {
     expect(expectRefusal(s, { type: "SELL", bourbonId: "sellme" })).toContain("choose a demand order");
   });
 
-  it("routing to a matching card adds the zone effect and completion keeps the card", () => {
+  it("routing to a matching card adds the order value and completion keeps the card", () => {
     let s = base({ quality: "common", age: 3 });
-    const card = makeDemandCard({ id: "ord", slotsActive: 1, zoneBonus: { low: 2, mid: 4, high: 6 }, reputation: 5 });
-    s.demandCards = [card]; // length 1 → low zone
+    const card = makeDemandCard({ id: "ord", slotsActive: 1, orderValue: 2, reputation: 5 });
+    s.demandCards = [card]; // length 1 → low zone (×1)
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
     const p = s.players[0]!;
-    expect(p.capital).toBe(barrelValue("common", 3) + 2 + dept(p, "distribution").values[0]!);
+    // (age value + order value 2) × low ×1 + premium 0 + dist
+    expect(p.capital).toBe((barrelValue("common", 3) + 2) * 1 + dept(p, "distribution").values[0]!);
     expect(p.cardsCompleted).toBe(1);
     expect(p.keptCards.map((c) => c.id)).toContain("ord");
     expect(s.demandCards.length).toBe(0); // completed card left the table
@@ -528,7 +535,7 @@ describe("sell", () => {
   it("a multi-sale batch banks Capital each sale; the final sale frees the slot", () => {
     let s = base({ batchQty: 2, quality: "common", age: 2 });
     // One open order deep enough for both sales.
-    s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 3, zoneBonus: { low: 0, mid: 0, high: 0 }, reputation: 1 })];
+    s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 3, orderValue: 0, reputation: 1 })];
     const dist = dept(s.players[0]!, "distribution").values[0]!;
     const v = barrelValue("common", 2);
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }); // intermediate
@@ -539,17 +546,17 @@ describe("sell", () => {
     expect(s.players[0]!.rickhouse.length).toBe(0);
   });
 
-  it("payout is the bourbon's age value plus the order's zone bonus — nothing is multiplied", () => {
-    let s = base({ quality: "common", age: 2 }); // age value is the base, unscaled
-    // 5 cards on the table → Mid zone. Target is first + 4 fillers.
-    const target = makeDemandCard({ id: "ord", slotsActive: 1, zoneBonus: { low: 1, mid: 4, high: 9 }, reputation: 1 });
+  it("the demand zone multiplies (age value + order value); premium & distribution stay flat", () => {
+    let s = base({ quality: "common", age: 2 }); // age value 1
+    // 5 cards on the table → Mid zone (×2). Target is first + 4 fillers.
+    const target = makeDemandCard({ id: "ord", slotsActive: 1, orderValue: 3, reputation: 1 });
     const fillers = Array.from({ length: 4 }, (_, i) => makeDemandCard({ id: `f${i}`, slotsActive: 1 }));
     s.demandCards = [target, ...fillers];
     expect(zoneForCardCount(s.demandCards.length)).toBe("mid");
     const dist = dept(s.players[0]!, "distribution").values[0]!;
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
-    // age value + card's MID bonus (4) + dist — the zone only picks the bonus.
-    expect(s.players[0]!.capital).toBe(barrelValue("common", 2) + 4 + dist);
+    // (age value 1 + order value 3) × mid ×2 + premium 0 + dist
+    expect(s.players[0]!.capital).toBe((barrelValue("common", 2) + 3) * 2 + dist);
   });
 });
 

@@ -100,8 +100,8 @@ export interface DemandRequirement {
  * STRUCTURE is real.
  *
  *   - `requirement`  : the Requirement section (what fills a slot).
- *   - `zoneBonus`    : the On Fill / zone effect — extra Capital paid to a sale
- *                      routed here, read in the current demand zone.
+ *   - `orderValue`   : the On Fill reward — Capital added to the bourbon's age
+ *                      value BEFORE the demand-zone multiplier (×1/×2/×3).
  *   - `reputation`   : the On Completed reward — Reputation kept by the completer.
  *   - `slotMultiple` : fills per player (1 = player count slots; 2 = twice that…).
  *   - `slotsActive`  : how many slots are live this game (= slotMultiple × players).
@@ -116,7 +116,8 @@ export interface DemandCard {
   slotMultiple: number;
   slotsActive: number;
   filledBy: (string | null)[];
-  zoneBonus: Record<Zone, number>;
+  /** Capital this order adds to the bourbon's value before the zone multiplier. */
+  orderValue: number;
   reputation: number;
   placeholder: true;
 }
