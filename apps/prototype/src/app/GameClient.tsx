@@ -114,6 +114,17 @@ const ZONE_META: Record<Zone, { label: string; color: string }> = {
   high: { label: "High", color: C.red },
 };
 
+// AI playback pace — a throttle so the human can watch rivals act. `mult`
+// scales the per-action delays in the AI driver; default Normal is already
+// unhurried so a turn reads clearly.
+type AiSpeed = "slow" | "normal" | "fast";
+const AI_SPEEDS: Record<AiSpeed, { label: string; mult: number }> = {
+  slow: { label: "Slow", mult: 1.9 },
+  normal: { label: "Normal", mult: 1 },
+  fast: { label: "Fast", mult: 0.4 },
+};
+const AI_SPEED_ORDER: AiSpeed[] = ["slow", "normal", "fast"];
+
 // Per-quality card chrome — the WoW-style five-tier ladder
 // (grey · green · blue · purple · orange), richer the rarer it is.
 const QUALITY_CHROME: Record<string, { ink: string; label: string; border: string; bg: string; glow: string; foil: string }> = {
@@ -372,6 +383,7 @@ export default function GameClient() {
   const [qsOpen, setQsOpen] = useState(false); // Quality Sort pile chooser
   const [tut, setTut] = useState<number | null>(null); // active tutorial beat index, or null
   const [inspect, setInspect] = useState<Inspect | null>(null); // card detail modal
+  const [aiSpeed, setAiSpeed] = useState<AiSpeed>("normal"); // how fast rival AI turns play out
 
   function flash(msg: string) {
     setToast(msg);
@@ -470,16 +482,17 @@ export default function GameClient() {
     if (!game || game.phase !== "playing") return;
     if (tut !== null) return; // the tutorial drives the round by hand, no auto-advance
     let action: Action | null = null;
-    let delay = 470;
+    let base = 850; // unhurried by default so the human can follow along
     if (game.roundPhase === "demand") {
       action = { type: "BEGIN_COLLECT" };
-      delay = 950;
+      base = 1100;
     } else if (isBotTurn(game)) {
       action = botAction(game);
-      delay = game.roundPhase === "collect" ? 1050 : 470;
+      base = game.roundPhase === "collect" ? 1500 : 850;
     }
     if (!action) return;
     const a = action;
+    const delay = Math.round(base * AI_SPEEDS[aiSpeed].mult);
     const t = setTimeout(() => {
       const res = applyAction(game, a);
       if (res.ok) {
@@ -488,7 +501,7 @@ export default function GameClient() {
       }
     }, delay);
     return () => clearTimeout(t);
-  }, [game, tut]);
+  }, [game, tut, aiSpeed]);
 
   // Tutorial: some steps advance on a LOCAL action (opening the mash-bill
   // picker) rather than a dispatched engine action. Watch for it here.
@@ -556,6 +569,8 @@ export default function GameClient() {
           qsOpen={qsOpen}
           setQsOpen={setQsOpen}
           onInspect={setInspect}
+          aiSpeed={aiSpeed}
+          setAiSpeed={setAiSpeed}
           toast={toast}
         />
       </ScalingHost>
@@ -591,6 +606,8 @@ interface BoardProps {
   qsOpen: boolean;
   setQsOpen: (v: boolean) => void;
   onInspect: (i: Inspect) => void;
+  aiSpeed: AiSpeed;
+  setAiSpeed: (v: AiSpeed) => void;
   toast: string | null;
 }
 
@@ -899,8 +916,14 @@ function Board(p: BoardProps) {
           {/* DISTILLERY */}
           <main style={{ position: "relative", borderRadius: 16, background: "linear-gradient(180deg,#1c130c 0%,#130c06 100%)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 18px 50px rgba(0,0,0,.45)", padding: 13, display: "flex", flexDirection: "column", gap: 11, minHeight: 0, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14, flex: "0 0 auto" }}>
-              <span style={{ fontFamily: MONO, fontSize: 13, letterSpacing: ".24em", textTransform: "uppercase", color: C.brass }}>Your Distillery</span>
+              <span style={{ fontFamily: MONO, fontSize: 13, letterSpacing: ".24em", textTransform: "uppercase", color: botTurn ? PLAYER_COLORS[game.currentPlayerIndex % PLAYER_COLORS.length] : C.brass }}>{botTurn ? `${me.name}'s Distillery` : "Your Distillery"}</span>
               <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 15, color: C.muted }}>{me.distillery.name}</span>
+              {botTurn && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 9px", borderRadius: 999, background: "rgba(240,201,112,.12)", border: `1px solid ${C.brass}` }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold, animation: "bb-pip 1.4s ease-in-out infinite" }} />
+                  <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.gold }}>AI · watching</span>
+                </span>
+              )}
               <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg,#3b2818,transparent)" }} />
               <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".1em" }}>
                 <span style={{ color: C.gold }}>{agingBarrels.length}</span>
@@ -1272,12 +1295,30 @@ function ActionBand(props: {
         {/* controls */}
         <div style={{ borderRadius: 11, background: "#150e08", border: `1px solid ${C.border2}`, padding: 12, display: "flex", flexDirection: "column", gap: 9, justifyContent: "center" }}>
           {botTurn && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9, alignItems: "stretch" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ width: 9, height: 9, borderRadius: "50%", background: C.gold, animation: "bb-pip 1.4s ease-in-out infinite" }} />
                 <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: C.gold }}>{me.name} (AI)</span>
               </div>
-              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>The rival is taking its {phaseStage} turn. Sit back and watch.</div>
+              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>Taking its {phaseStage} turn on its own distillery — watch below.</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted }}>Speed</span>
+                <div style={{ display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}` }}>
+                  {AI_SPEED_ORDER.map((s) => {
+                    const on = board.aiSpeed === s;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => board.setAiSpeed(s)}
+                        title={`Rival turns play at ${AI_SPEEDS[s].label} speed`}
+                        style={{ padding: "5px 11px", fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", cursor: "pointer", border: 0, color: on ? "#2a1408" : C.text2, background: on ? "linear-gradient(180deg,#e9b46e,#c69d52)" : "#150e08" }}
+                      >
+                        {AI_SPEEDS[s].label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
           {!botTurn && phaseStage === "demand" && (
