@@ -1,32 +1,31 @@
-// Bourbonomics PROTOTYPE — PLACEHOLDER content.
+// Bourbonomics — PLACEHOLDER content (ground-up rebuild).
 //
-// Everything here is provisional and exists only so a full solo game is
-// playable end to end. Numbers are illustrative, not balanced. The
-// `placeholder: true` flag is stamped on every record.
+// Everything here is provisional and exists only so a full game is playable
+// end to end. Numbers are illustrative, not balanced. The `placeholder: true`
+// flag is stamped on every record. CARD CONTENT is placeholder; the STRUCTURE
+// (four-section demand cards, seven-branch departments + ultimates) is real.
 
-import { CONFIG } from "./config";
+import { QUALITIES } from "./types";
 import type {
-  AbilityId,
-  CostSpike,
   DemandCard,
+  Department,
+  DepartmentId,
   DistilleryBoard,
-  MarketingCard,
   MashBill,
   Quality,
   ResourceCard,
   ResourceKind,
-  SlotCard,
-  SlotSpec,
-  StationId,
-  Tag,
+  StyleTag,
+  UltimateId,
 } from "./types";
+import { CONFIG, batchQtyForRecipe, saleBonusForRecipe } from "./config";
 
-/**
- * Map a mash bill's canonical `expression` to its house-style tag(s). Drives
- * a batch's `recipeTags` (set when the barrel is laid down). Unknown
- * expressions fall back to "classic" so every batch always carries a tag.
- */
-const EXPRESSION_TAGS: Record<string, Tag> = {
+// ---------------------------------------------------------------------
+// Style tags — map a mash bill's `expression` to its canonical style tag.
+// Demand-card requirements match against this.
+// ---------------------------------------------------------------------
+
+const EXPRESSION_STYLE: Record<string, StyleTag> = {
   wheated: "wheat",
   "high-rye": "rye",
   "high-corn": "highCorn",
@@ -34,72 +33,59 @@ const EXPRESSION_TAGS: Record<string, Tag> = {
   bourbon: "classic",
 };
 
-export function expressionToTags(expression: string): Tag[] {
-  return [EXPRESSION_TAGS[expression] ?? "classic"];
-}
-
-/** Highest age row we materialize in every payoff matrix. */
-export const MAX_MATRIX_AGE = 10;
-
-/**
- * Build a concrete age×demand payoff grid. Embodies the "magic thread":
- * a barrel sold young or into low demand pays almost nothing; the same
- * barrel aged into high demand multiplies. `peak` scales the top-right cell.
- */
-function buildMatrix(peak: number): number[][] {
-  const rows: number[][] = [];
-  for (let age = 0; age <= MAX_MATRIX_AGE; age++) {
-    const row: number[] = [];
-    // Age contributes nothing below the minimum sell age, then ramps.
-    const ageFactor =
-      age < CONFIG.MIN_SELL_AGE
-        ? 0
-        : Math.min(1, (age - CONFIG.MIN_SELL_AGE + 1) / 6);
-    for (let demand = 0; demand <= CONFIG.DEMAND_CAP; demand++) {
-      const demandFactor = demand / CONFIG.DEMAND_CAP;
-      row.push(Math.round(peak * ageFactor * demandFactor));
-    }
-    rows.push(row);
-  }
-  return rows;
+export function expressionToStyle(expression: string): StyleTag {
+  return EXPRESSION_STYLE[expression] ?? "classic";
 }
 
 // ---------------------------------------------------------------------
-// Mash bills (~10, varied traits / qualities / matrices)
+// Mash bills (~10, varied recipes / styles / batch sizes). No payoff matrix.
 // ---------------------------------------------------------------------
 
 interface MashBillDef {
   defId: string;
   name: string;
+  slogan?: string;
   traits: string[];
-  /** Single canonical house-style tag (read by the Expressions slot card). */
   expression: string;
+  /**
+   * Every recipe follows the bourbon rule: exactly 1 cask + at least 1 corn +
+   * at least 1 grain (rye/wheat/barley), then optional extra grains for
+   * complexity. batchQty and the per-sale premium are DERIVED from the recipe's
+   * complexity (see config) — not set here — so "more resources ⇒ richer
+   * bourbon" stays one loose, tunable rule.
+   */
   recipe: Partial<Record<ResourceKind, number>>;
-  /** Sales the batch yields. Mostly 2–3; premium/single-barrel bills = 1. `[PH]`. */
-  batchQty: number;
-  peak: number;
 }
 
-// Bills carry the original game's identities and recipes, mapped onto the five
-// piles: each names its grains specifically (rye / wheat / barley) rather than a
-// lumped "grain". `expression` still drives the house-style tag; `traits` gate
-// marketing. The neutral "bourbon" bills use barley as their workhorse grain.
 const MASH_BILL_DEFS: MashBillDef[] = [
-  { defId: "mb_cornbread", name: "Cornbread Line", traits: ["high-corn"], expression: "high-corn", recipe: { corn: 2, cask: 1 }, batchQty: 3, peak: 8 },
-  { defId: "mb_classic", name: "Knob's End 90", traits: ["balanced"], expression: "bourbon", recipe: { corn: 1, barley: 1, cask: 1 }, batchQty: 3, peak: 10 },
-  { defId: "mb_stave_story", name: "Stave & Story", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { rye: 2, cask: 1 }, batchQty: 2, peak: 12 },
-  { defId: "mb_wheat_whisper", name: "Wheat Whisper", traits: ["wheated", "smooth"], expression: "wheated", recipe: { wheat: 1, corn: 1, cask: 1 }, batchQty: 2, peak: 12 },
-  { defId: "mb_coopers_quorum", name: "Cooper's Quorum", traits: ["balanced", "complex"], expression: "four-grain", recipe: { corn: 1, rye: 1, wheat: 1, cask: 1 }, batchQty: 2, peak: 14 },
-  { defId: "mb_bonded_bold", name: "Bonded & Bold", traits: ["balanced", "bonded"], expression: "bourbon", recipe: { corn: 2, barley: 1, cask: 1 }, batchQty: 2, peak: 16 },
-  { defId: "mb_single_barrel", name: "Single Barrel Select", traits: ["complex"], expression: "bourbon", recipe: { corn: 1, barley: 1, cask: 2 }, batchQty: 1, peak: 18 },
-  { defId: "mb_rye_ladder", name: "Rye Ladder 95", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { rye: 3 }, batchQty: 2, peak: 20 },
-  { defId: "mb_heritage_wheat", name: "Wheated Estate", traits: ["wheated", "heritage-grain"], expression: "wheated", recipe: { wheat: 2, cask: 1 }, batchQty: 1, peak: 22 },
-  { defId: "mb_small_batch", name: "Mash Bill No. 7", traits: ["balanced", "smooth", "complex"], expression: "four-grain", recipe: { corn: 1, barley: 1, cask: 2 }, batchQty: 2, peak: 24 },
+  // ── complexity 3 — the simplest legal bourbons (1 cask + 1 corn + 1 grain) ──
+  { defId: "mb_single_barrel", name: "Single Barrel Select", slogan: "One barrel. No apologies.", traits: ["clean"], expression: "bourbon", recipe: { cask: 1, corn: 1, rye: 1 } },
+  { defId: "mb_classic", name: "Knob's End 90", slogan: "The bottle on every back bar.", traits: ["balanced"], expression: "bourbon", recipe: { cask: 1, corn: 1, barley: 1 } },
+  { defId: "mb_wheat_whisper", name: "Wheat Whisper", slogan: "Soft-spoken, long-remembered.", traits: ["wheated", "smooth"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 1 } },
+  { defId: "mb_first_rick", name: "First Rick", slogan: "Where every distiller starts.", traits: ["clean", "young"], expression: "bourbon", recipe: { cask: 1, corn: 1, barley: 1 } },
+  { defId: "mb_little_rye", name: "Little Rye Riot", slogan: "A small spark of spice.", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 1 } },
+  // ── complexity 4 — an extra grain or extra corn (a richer pour) ──
+  { defId: "mb_cornbread", name: "Cornbread Line", slogan: "Straight off the griddle.", traits: ["high-corn", "sweet"], expression: "high-corn", recipe: { cask: 1, corn: 2, barley: 1 } },
+  { defId: "mb_stave_story", name: "Stave & Story", slogan: "Every char has a tale.", traits: ["rye-heavy", "spiced"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 2 } },
+  { defId: "mb_heritage_wheat", name: "Wheated Estate", slogan: "An old name, gently aged.", traits: ["wheated", "heritage"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 2 } },
+  { defId: "mb_coopers_quorum", name: "Cooper's Quorum", slogan: "Four grains, one vote.", traits: ["complex"], expression: "four-grain", recipe: { cask: 1, corn: 1, rye: 1, wheat: 1 } },
+  { defId: "mb_amber_sunday", name: "Amber Sunday", slogan: "Worth waking up slow for.", traits: ["balanced", "smooth"], expression: "bourbon", recipe: { cask: 1, corn: 2, rye: 1 } },
+  { defId: "mb_high_meadow", name: "High Meadow Wheat", slogan: "Grassy, golden, unhurried.", traits: ["wheated", "smooth"], expression: "wheated", recipe: { cask: 1, corn: 2, wheat: 1 } },
+  { defId: "mb_barley_mow", name: "The Barley Mow", slogan: "A nutty, malt-forward classic.", traits: ["malty", "balanced"], expression: "bourbon", recipe: { cask: 1, corn: 1, barley: 2 } },
+  // ── complexity 5 — the rich, premium-paying bourbons ──
+  { defId: "mb_bonded_bold", name: "Bonded & Bold", slogan: "100 proof of intent.", traits: ["bonded", "bold"], expression: "bourbon", recipe: { cask: 1, corn: 2, rye: 1, barley: 1 } },
+  { defId: "mb_rye_ladder", name: "Rye Ladder 95", slogan: "Climb the spice, rung by rung.", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 3 } },
+  { defId: "mb_small_batch", name: "Mash Bill No. 7", slogan: "Seven for luck, four for grain.", traits: ["balanced", "complex"], expression: "four-grain", recipe: { cask: 1, corn: 1, rye: 1, wheat: 1, barley: 1 } },
+  { defId: "mb_winter_wheat", name: "Winter Wheat Reserve", slogan: "Laid down before the frost.", traits: ["wheated", "heritage", "complex"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 3 } },
+  { defId: "mb_county_fair", name: "County Fair Gold", slogan: "Blue-ribbon corn, every jar.", traits: ["high-corn", "sweet", "complex"], expression: "high-corn", recipe: { cask: 1, corn: 3, barley: 1 } },
+  { defId: "mb_foreman", name: "The Foreman's Cut", slogan: "Built by the floor crew.", traits: ["bold", "complex"], expression: "four-grain", recipe: { cask: 1, corn: 2, rye: 1, wheat: 1 } },
+  // ── complexity 6 — the showpieces (top batch size & premium) ──
+  { defId: "mb_governors", name: "Governor's Reserve", slogan: "Reserved for the occasion.", traits: ["bonded", "bold", "complex"], expression: "four-grain", recipe: { cask: 1, corn: 2, rye: 1, wheat: 1, barley: 1 } },
+  { defId: "mb_centennial", name: "Centennial Rye", slogan: "A hundred years of spice.", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 4 } },
+  { defId: "mb_masterpiece", name: "Master Distiller's Bill", slogan: "The whole grain library, in one glass.", traits: ["complex", "heritage", "bold"], expression: "four-grain", recipe: { cask: 1, corn: 2, rye: 2, wheat: 1 } },
 ];
 
 export function buildMashBillSupply(): MashBill[] {
-  // Two copies of each design keeps the supply (the end-game clock) sized
-  // for a meaningful solo game.
   const bills: MashBill[] = [];
   for (let copy = 0; copy < 2; copy++) {
     for (const def of MASH_BILL_DEFS) {
@@ -107,11 +93,13 @@ export function buildMashBillSupply(): MashBill[] {
         id: `${def.defId}#${copy}`,
         defId: def.defId,
         name: def.name,
+        slogan: def.slogan,
         traits: [...def.traits],
         expression: def.expression,
+        styleTag: expressionToStyle(def.expression),
         recipe: { ...def.recipe },
-        batchQty: def.batchQty,
-        matrix: buildMatrix(def.peak),
+        batchQty: batchQtyForRecipe(def.recipe),
+        saleBonus: saleBonusForRecipe(def.recipe),
         placeholder: true,
       });
     }
@@ -120,192 +108,35 @@ export function buildMashBillSupply(): MashBill[] {
 }
 
 // ---------------------------------------------------------------------
-// Slot cards (varied slot counts up to MAX_SLOTS_PER_LINE, varied rewards)
-// ---------------------------------------------------------------------
-
-interface SlotCardDef {
-  defId: string;
-  name: string;
-  slots: SlotSpec[];
-  ageCeilings: number[];
-  houseStyleBonus?: number;
-}
-
-// The five frozen v2 brand-line designs. See the design brief for the
-// authoritative tables; this data mirrors them slot-for-slot.
-//   Notation: slots run left→right, young→old (staircase: non-decreasing
-//   age, ties allowed). Capital = currency+score; prestige = score only;
-//   resources = cards drawn to hand. prestigeFromAge = prestige equal to
-//   the placed bottle's age.
-const SLOT_CARD_DEFS: SlotCardDef[] = [
-  // 1. Standard — 5 slots, all required (beginner / fuel line).
-  //    Slot 5 is the bait-with-teeth anchor: the +5-resource branch scores
-  //    less than +2 Capital, and anchoring a young bottle here caps the line.
-  {
-    defId: "slot_standard",
-    name: "Standard Line",
-    slots: [
-      { reward: { kind: "flat", reward: { resources: 1 } } },
-      { reward: { kind: "flat", reward: { capital: 1 } } },
-      { reward: { kind: "choice", options: [{ capital: 1 }, { resources: 2 }] } },
-      { reward: { kind: "flat", reward: { capital: 1, resources: 1 } } },
-      { reward: { kind: "choice", options: [{ capital: 2 }, { resources: 5 }] } },
-    ],
-    ageCeilings: [2, 3, 4, 6, MAX_MATRIX_AGE],
-  },
-  // 2. Flagship — flagship + 2 required (inert) + 2 optional (prestige).
-  //    Slot 1's age=prestige is intentionally UNcapped; the staircase caps
-  //    it via opportunity cost (a high floor forces older bottles above).
-  {
-    defId: "slot_flagship",
-    name: "Flagship Line",
-    slots: [
-      { reward: { kind: "flat", reward: { prestigeFromAge: true } } },
-      { reward: { kind: "flat", reward: {} } },
-      { reward: { kind: "flat", reward: {} } },
-      { reward: { kind: "flat", reward: { prestige: 3 } }, optional: true },
-      { reward: { kind: "flat", reward: { prestige: 5 } }, optional: true },
-    ],
-    ageCeilings: [2, 4, 6, 8, MAX_MATRIX_AGE],
-  },
-  // 3. Expressions — 6 slots, alternating required/optional (coherence line).
-  //    Each optional must match its paired required's age. House-style bonus
-  //    at scoring: all 3 optionals filled, all one expression, each differing
-  //    from its paired required's expression → +5 prestige.
-  {
-    defId: "slot_expressions",
-    name: "Expressions Line",
-    slots: [
-      { reward: { kind: "flat", reward: { resources: 1 } } },
-      { reward: { kind: "flat", reward: { prestige: 1 } }, optional: true, matchAgeOfSlot: 0 },
-      { reward: { kind: "flat", reward: { capital: 1 } } },
-      { reward: { kind: "choice", options: [{ capital: 1 }, { resources: 3 }] }, optional: true, matchAgeOfSlot: 2 },
-      { reward: { kind: "flat", reward: { capital: 2 } } },
-      { reward: { kind: "choice", options: [{ resources: 5 }, { capital: 2 }] }, optional: true, matchAgeOfSlot: 4 },
-    ],
-    ageCeilings: [2, 2, 4, 4, 6, MAX_MATRIX_AGE],
-    houseStyleBonus: 5,
-  },
-  // 4. Workhorse — 6 slots, all required, FLAT (volume line).
-  //    Rules carve-out: the deliberate exception to "rewards scale with
-  //    position" (see GAME_RULES.md). Breadth, not efficiency.
-  {
-    defId: "slot_workhorse",
-    name: "Workhorse Line",
-    slots: [
-      { reward: { kind: "flat", reward: { resources: 1 } } },
-      { reward: { kind: "flat", reward: { capital: 1 } } },
-      { reward: { kind: "flat", reward: { resources: 1 } } },
-      { reward: { kind: "flat", reward: { capital: 1 } } },
-      { reward: { kind: "flat", reward: { resources: 1 } } },
-      { reward: { kind: "flat", reward: { capital: 2 } } },
-    ],
-    ageCeilings: [2, 3, 4, 5, 6, MAX_MATRIX_AGE],
-  },
-  // 5. Single Barrel — 3 slots, gated with cozy fallbacks (premium line).
-  //    A gate miss pays the fallback and never blocks placement.
-  {
-    defId: "slot_single_barrel",
-    name: "Single Barrel Line",
-    slots: [
-      { reward: { kind: "gated", gate: { minAge: 4 }, hit: { capital: 2 }, miss: { capital: 1 } } },
-      { reward: { kind: "gated", gate: { minQuality: "specialty", minAge: 4 }, hit: { capital: 3 }, miss: { capital: 1 } } },
-      { reward: { kind: "gated", gate: { minQuality: "heritage", minAge: 6 }, hit: { capital: 5 }, miss: { capital: 2 } } },
-    ],
-    ageCeilings: [4, 5, MAX_MATRIX_AGE],
-  },
-];
-
-export function buildSlotCardSupply(): SlotCard[] {
-  // Abundant: many copies of each design so DRAW_SLOT_CARD never starves.
-  const cards: SlotCard[] = [];
-  for (let copy = 0; copy < 12; copy++) {
-    for (const def of SLOT_CARD_DEFS) {
-      cards.push({
-        id: `${def.defId}#${copy}`,
-        defId: def.defId,
-        name: def.name,
-        slots: def.slots.map((s) => structuredClone(s)),
-        ageCeilings: [...def.ageCeilings],
-        ...(def.houseStyleBonus !== undefined
-          ? { houseStyleBonus: def.houseStyleBonus }
-          : {}),
-        placeholder: true,
-      });
-    }
-  }
-  return cards;
-}
-
-// ---------------------------------------------------------------------
-// Marketing cards (~8, trait-gated, mutually-exclusive groups)
-// ---------------------------------------------------------------------
-
-interface MarketingDef {
-  defId: string;
-  name: string;
-  requiredTraits: string[];
-  exclusiveGroup: string;
-  prestigeOnMatch: number;
-}
-
-const MARKETING_DEFS: MarketingDef[] = [
-  { defId: "mkt_rye_campaign", name: "Rye Revival Campaign", requiredTraits: ["rye-heavy"], exclusiveGroup: "grain-identity", prestigeOnMatch: 2 },
-  { defId: "mkt_wheat_campaign", name: "Soft Wheat Story", requiredTraits: ["wheated"], exclusiveGroup: "grain-identity", prestigeOnMatch: 2 },
-  { defId: "mkt_corn_campaign", name: "Sweet Corn Heritage", requiredTraits: ["high-corn"], exclusiveGroup: "grain-identity", prestigeOnMatch: 2 },
-  { defId: "mkt_smooth", name: "Smooth Sipper Ads", requiredTraits: ["smooth"], exclusiveGroup: "palate", prestigeOnMatch: 1 },
-  { defId: "mkt_spiced", name: "Bold & Spiced Ads", requiredTraits: ["spiced"], exclusiveGroup: "palate", prestigeOnMatch: 1 },
-  { defId: "mkt_complex", name: "Connoisseur Series", requiredTraits: ["complex"], exclusiveGroup: "tier", prestigeOnMatch: 2 },
-  { defId: "mkt_balanced", name: "Everyday Classic", requiredTraits: ["balanced"], exclusiveGroup: "tier", prestigeOnMatch: 1 },
-  { defId: "mkt_heritage", name: "Heritage Grain Feature", requiredTraits: ["heritage-grain"], exclusiveGroup: "tier", prestigeOnMatch: 3 },
-];
-
-export function buildMarketingDeck(): MarketingCard[] {
-  const cards: MarketingCard[] = [];
-  for (let copy = 0; copy < 4; copy++) {
-    for (const def of MARKETING_DEFS) {
-      cards.push({
-        id: `${def.defId}#${copy}`,
-        defId: def.defId,
-        name: def.name,
-        requiredTraits: [...def.requiredTraits],
-        exclusiveGroup: def.exclusiveGroup,
-        prestigeOnMatch: def.prestigeOnMatch,
-        placeholder: true,
-      });
-    }
-  }
-  return cards;
-}
-
-// ---------------------------------------------------------------------
 // Resource piles (five, face-down): cask / corn / rye / wheat / barley.
-// Each pile is its own stack seeded with the quality distribution — you
-// choose the pile, quality is drawn blind off the top.
 // ---------------------------------------------------------------------
 
-/** Per-kind display names by quality (the blind upside the pile hides). */
-const RESOURCE_NAMES: Record<ResourceKind, Record<Quality, string>> = {
-  cask: { common: "New-Char Cask", specialty: "Toasted Cask", heritage: "Heritage Cask" },
-  corn: { common: "Corn", specialty: "Estate Corn", heritage: "Heirloom Corn" },
-  rye: { common: "Rye", specialty: "Estate Rye", heritage: "Heirloom Rye" },
-  wheat: { common: "Wheat", specialty: "Estate Wheat", heritage: "Heirloom Wheat" },
-  barley: { common: "Barley", specialty: "Estate Barley", heritage: "Heirloom Barley" },
+const KIND_LABEL: Record<ResourceKind, string> = {
+  cask: "Cask", corn: "Corn", rye: "Rye", wheat: "Wheat", barley: "Barley",
 };
+/** Tier prefix on a resource's display name (Common has none). */
+const QUALITY_PREFIX: Record<Quality, string> = {
+  common: "", uncommon: "Select", rare: "Estate", epic: "Reserve", legendary: "Heirloom",
+};
+function resourceName(kind: ResourceKind, quality: Quality): string {
+  const prefix = QUALITY_PREFIX[quality];
+  return prefix ? `${prefix} ${KIND_LABEL[kind]}` : KIND_LABEL[kind];
+}
 
 export const PILE_KINDS: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
 
-/**
- * Split a pile's total into per-quality counts using PILE_QUALITY_SPLIT.
- * Rounds Specialty/Heritage and gives the remainder to Common so the counts
- * always sum back to `total`.
- */
+/** Split a pile's total into per-tier counts (remainder lands in Common). */
 function qualityCounts(total: number): Record<Quality, number> {
   const split = CONFIG.PILE_QUALITY_SPLIT;
-  const specialty = Math.round(total * split.specialty);
-  const heritage = Math.round(total * split.heritage);
-  const common = total - specialty - heritage;
-  return { common, specialty, heritage };
+  const counts = {} as Record<Quality, number>;
+  let assigned = 0;
+  for (const q of QUALITIES) {
+    if (q === "common") continue;
+    counts[q] = Math.round(total * split[q]);
+    assigned += counts[q];
+  }
+  counts.common = Math.max(0, total - assigned);
+  return counts;
 }
 
 /** Build one face-down, type-pure pile seeded with the quality distribution (unshuffled). */
@@ -313,14 +144,14 @@ export function buildPile(kind: ResourceKind): ResourceCard[] {
   const total = CONFIG.PILE_COUNTS[kind];
   const counts = qualityCounts(total);
   const cards: ResourceCard[] = [];
-  for (const quality of ["common", "specialty", "heritage"] as Quality[]) {
+  for (const quality of QUALITIES) {
     for (let i = 0; i < counts[quality]; i++) {
       cards.push({
         id: `res_${kind}_${quality}#${i}`,
         defId: `res_${kind}_${quality}`,
         kind,
         quality,
-        name: RESOURCE_NAMES[kind][quality],
+        name: resourceName(kind, quality),
         placeholder: true,
       });
     }
@@ -329,156 +160,32 @@ export function buildPile(kind: ResourceKind): ResourceCard[] {
 }
 
 // ---------------------------------------------------------------------
-// Demand deck (P3 flood engine): tag-focused cards with sale slots + the
-// blue/red capacities that sum into the round's flood thresholds.
+// Demand deck — 🚧 PLACEHOLDER content, REAL four-section structure.
+// requirement = what fills a slot; zoneBonus = the On Fill / zone effect;
+// reputation = the On Completed reward kept by the completer.
 // ---------------------------------------------------------------------
 
 interface DemandCardDef {
   defId: string;
   label: string;
-  tag: Tag;
-  /** Tag restriction per sale slot ("open" accepts any tag). */
-  slots: (Tag | "open")[];
-  blueCapacity: number;
-  redCapacity: number;
-  /** Optional cost spike(s) taxing a hot pile at Collect (default grains only). */
-  costSpikes?: CostSpike[];
+  requirement: { styleTag?: StyleTag; minAge?: number; quality?: Quality };
+  /** Fills per player (1 = player count slots; 2 = twice that). `[PH]`. */
+  slotMultiple: number;
+  zoneBonus: { low: number; mid: number; high: number };
+  reputation: number;
   count: number;
 }
 
-// One focused card per tag (pure on-tag slots — that style only) plus a
-// "broad" all-open card that accepts any tag. Capacities (blue / red) sum
-// across the `playerCount` drawn cards into the round's flood thresholds. A
-// batch sells only if its tag is demanded this round (a matching focused card
-// or the broad card is on the table). All values `[PH]`.
 const DEMAND_CARD_DEFS: DemandCardDef[] = [
-  { defId: "dm_wheat", label: "Wheated Demand", tag: "wheat", slots: ["wheat", "wheat"], blueCapacity: 2, redCapacity: 3, costSpikes: [{ tag: "wheat", amount: 1 }], count: 4 },
-  { defId: "dm_rye", label: "Rye Demand", tag: "rye", slots: ["rye", "rye"], blueCapacity: 2, redCapacity: 3, costSpikes: [{ tag: "rye", amount: 1 }], count: 4 },
-  { defId: "dm_highcorn", label: "High-Corn Demand", tag: "highCorn", slots: ["highCorn", "highCorn"], blueCapacity: 2, redCapacity: 3, count: 4 },
-  { defId: "dm_fourgrain", label: "Four-Grain Demand", tag: "fourGrain", slots: ["fourGrain", "fourGrain"], blueCapacity: 2, redCapacity: 3, costSpikes: [{ tag: "barley", amount: 1 }], count: 4 },
-  { defId: "dm_classic", label: "Classic Demand", tag: "classic", slots: ["classic", "classic"], blueCapacity: 2, redCapacity: 3, count: 4 },
-  { defId: "dm_broad", label: "Broad Demand", tag: "classic", slots: ["open", "open", "open"], blueCapacity: 3, redCapacity: 4, count: 4 },
+  { defId: "dm_house", label: "House Pour", requirement: {}, slotMultiple: 2, zoneBonus: { low: 1, mid: 2, high: 3 }, reputation: 2, count: 8 },
+  { defId: "dm_corn", label: "Sweet-Corn Craze", requirement: { styleTag: "highCorn" }, slotMultiple: 1, zoneBonus: { low: 1, mid: 3, high: 4 }, reputation: 3, count: 4 },
+  { defId: "dm_rye", label: "Rye Revival", requirement: { styleTag: "rye" }, slotMultiple: 1, zoneBonus: { low: 2, mid: 3, high: 5 }, reputation: 3, count: 5 },
+  { defId: "dm_wheat", label: "Wheated Wishlist", requirement: { styleTag: "wheat" }, slotMultiple: 1, zoneBonus: { low: 2, mid: 3, high: 5 }, reputation: 3, count: 5 },
+  { defId: "dm_fourgrain", label: "Four-Grain Feature", requirement: { styleTag: "fourGrain" }, slotMultiple: 1, zoneBonus: { low: 3, mid: 5, high: 7 }, reputation: 5, count: 3 },
+  { defId: "dm_aged", label: "Aged-Stock Order", requirement: { minAge: 4 }, slotMultiple: 1, zoneBonus: { low: 2, mid: 4, high: 6 }, reputation: 4, count: 5 },
+  { defId: "dm_premium", label: "Connoisseur Order", requirement: { quality: "rare" }, slotMultiple: 1, zoneBonus: { low: 3, mid: 5, high: 8 }, reputation: 5, count: 4 },
+  { defId: "dm_collector", label: "Collector's Cellar", requirement: { quality: "epic", minAge: 6 }, slotMultiple: 1, zoneBonus: { low: 4, mid: 7, high: 11 }, reputation: 8, count: 3 },
 ];
-
-// ---------------------------------------------------------------------
-// Distillery boards (P3): a shared station MENU (same stations + effect
-// levels for everyone) but ASYMMETRIC per distillery — each has its own
-// per-station cost profile (which builds are cheap) and a signature ability
-// (its sale-time edge). A new distillery is just a new entry here — no rules
-// change. All values `[PH]`.
-// ---------------------------------------------------------------------
-
-/** The shared station menu: name + effect levels are identical for everyone. */
-const STATION_TEMPLATE: Record<
-  StationId,
-  { name: string; blurb: string; maxTier: number; costs: number[]; levels: number[] }
-> = {
-  rickhouse: {
-    name: "Rickhouse",
-    blurb: "Total barrel capacity (resting + aging).",
-    maxTier: 2,
-    costs: [0, 4, 6],
-    levels: [3, 5, 7],
-  },
-  tastingRoom: {
-    name: "Tasting Room",
-    blurb: "Prestige per completed batch.",
-    maxTier: 2,
-    costs: [0, 2, 3],
-    levels: [0, 1, 2],
-  },
-  bottling: {
-    name: "Bottling Line",
-    blurb: "Bonus Capital per completed batch.",
-    maxTier: 2,
-    costs: [0, 2, 4],
-    levels: [0, 1, 2],
-  },
-  supplyRoom: {
-    name: "Supply Room",
-    blurb: "Free draw budget of one Collect action.",
-    maxTier: 2,
-    // Tier 1 (start) → 4 free draws, tier 2 → 6, tier 3 → 8. `[PH]`.
-    costs: [0, 3, 5],
-    levels: [4, 6, 8],
-  },
-};
-
-interface DistilleryDef {
-  id: string;
-  name: string;
-  signature: AbilityId;
-  signatureBlurb: string;
-  /** Per-station cost overrides — the asymmetry. Omitted stations use the menu default. */
-  costs: Partial<Record<StationId, number[]>>;
-}
-
-const DISTILLERY_DEFS: DistilleryDef[] = [
-  {
-    id: "standard",
-    name: "Standard Distillery",
-    signature: "none",
-    signatureBlurb: "No signature — a balanced, beginner-friendly start.",
-    costs: {},
-  },
-  {
-    id: "oldoak",
-    name: "Old Oak Rickhouse",
-    signature: "agedPrestige",
-    signatureBlurb: "+1 prestige when you complete a batch aged 5+.",
-    // Patience tilt: cheap rickhouse (go tall), pricier bottling.
-    costs: { rickhouse: [0, 3, 4], bottling: [0, 3, 5] },
-  },
-  {
-    id: "ironhill",
-    name: "Ironhill Volume",
-    signature: "volumeBonus",
-    signatureBlurb: "+1 Capital on every sale.",
-    // Throughput tilt: cheap bottling (sell wide), pricier rickhouse.
-    costs: { bottling: [0, 1, 3], rickhouse: [0, 5, 7] },
-  },
-  {
-    id: "ryerevival",
-    name: "Rye Revival Co.",
-    signature: "ryeBonus",
-    signatureBlurb: "+2 Capital on each sale of a rye batch.",
-    // Specialist tilt: cheap tasting room (lean on prestige + rye sales).
-    costs: { tastingRoom: [0, 1, 2] },
-  },
-];
-
-/** Lightweight roster for the new-game picker (no station data). */
-export const DISTILLERY_ROSTER = DISTILLERY_DEFS.map((d) => ({
-  id: d.id,
-  name: d.name,
-  signature: d.signature,
-  signatureBlurb: d.signatureBlurb,
-}));
-
-const STATION_ORDER: StationId[] = ["rickhouse", "supplyRoom", "tastingRoom", "bottling"];
-
-/** Build a fresh distillery board for the given id (defaults to "standard"). */
-export function buildDistilleryBoard(distilleryId = "standard"): DistilleryBoard {
-  const def = DISTILLERY_DEFS.find((d) => d.id === distilleryId) ?? DISTILLERY_DEFS[0]!;
-  return {
-    distilleryId: def.id,
-    name: def.name,
-    signature: def.signature,
-    signatureBlurb: def.signatureBlurb,
-    stations: STATION_ORDER.map((id) => {
-      const t = STATION_TEMPLATE[id];
-      return {
-        id,
-        name: t.name,
-        blurb: t.blurb,
-        builtTier: 0,
-        maxTier: t.maxTier,
-        costs: [...(def.costs[id] ?? t.costs)],
-        levels: [...t.levels],
-      };
-    }),
-  };
-}
 
 export function buildDemandDeck(): DemandCard[] {
   const cards: DemandCard[] = [];
@@ -488,16 +195,143 @@ export function buildDemandDeck(): DemandCard[] {
         id: `${def.defId}#${i}`,
         defId: def.defId,
         label: def.label,
-        tag: def.tag,
-        slots: def.slots.map((t) => ({ tagRestriction: t })),
-        blueCapacity: def.blueCapacity,
-        redCapacity: def.redCapacity,
-        ...(def.costSpikes
-          ? { costSpikes: def.costSpikes.map((s): CostSpike => ({ ...s })) }
-          : {}),
+        requirement: { ...def.requirement },
+        slotMultiple: def.slotMultiple,
+        slotsActive: def.slotMultiple, // re-set to slotMultiple × players at lay-out
+        filledBy: [],
+        zoneBonus: { ...def.zoneBonus },
+        reputation: def.reputation,
         placeholder: true,
       });
     }
   }
   return cards;
+}
+
+// ---------------------------------------------------------------------
+// Distillery boards — the seven departments on a per-player linear ramp.
+// The department MENU (names, effect levels, full ultimate menu) is shared; a
+// distillery differs by per-department cost DISCOUNT (which branches are cheap),
+// optional starting levels, and which ultimates it OFFERS per branch. All `[PH]`.
+// ---------------------------------------------------------------------
+
+/** The full ultimate menu per branch. A distillery offers a subset. */
+export const ULTIMATE_MENU: Record<DepartmentId, UltimateId[]> = {
+  rickhouse: ["megaExpansion", "climateControlled", "charToast", "doubleMaturation", "warehouseTasting"],
+  supply: ["secondReroll", "overflowRoll", "prospector", "tripleThreat"],
+  warehouse: ["grandWarehouse", "qualitySort", "longCellar"],
+  // Unbuilt branches — ultimate menus are `[PH]` stubs.
+  mashFloor: ["ph"],
+  marketing: ["ph"],
+  distribution: ["ph"],
+  countingHouse: ["ph"],
+};
+
+const DEPARTMENT_TEMPLATE: Record<
+  DepartmentId,
+  { name: string; blurb: string; values: number[] }
+> = {
+  // Base → +1 → +1 → Ultimate (the ultimate step keeps the prior magnitude; the
+  // qualitative effect comes from chosenUltimate, applied in the engine).
+  rickhouse: { name: "The Rickhouse", blurb: "Total barrel capacity (resting + aging).", values: [3, 4, 5, 5] },
+  supply: { name: "The Supply Room", blurb: "Resource dice you roll into the draft each Collect.", values: [5, 6, 7, 7] },
+  warehouse: { name: "The Warehouse", blurb: "Loose resource cards you may hold.", values: [5, 6, 7, 7] },
+  mashFloor: { name: "The Mash Floor", blurb: "Mash bills you may draw per Draw action.", values: [3, 4, 5, 5] },
+  marketing: { name: "Marketing Dept.", blurb: "Demand cards drawn each Demand Phase (shapes the market).", values: [2, 3, 4, 4] },
+  distribution: { name: "The Loading Dock", blurb: "Bonus Capital on every sale (sell-side throughput).", values: [0, 1, 2, 3] },
+  countingHouse: { name: "The Counting House", blurb: "Capital efficiency — a discount on every improvement.", values: [0, 1, 2, 3] },
+};
+
+const DEPARTMENT_ORDER: DepartmentId[] = [
+  "rickhouse",
+  "supply",
+  "warehouse",
+  "mashFloor",
+  "marketing",
+  "distribution",
+  "countingHouse",
+];
+
+interface DistilleryDef {
+  id: string;
+  name: string;
+  blurb: string;
+  /** Per-department Capital discount off the ramp (the asymmetry). `[PH]`. */
+  discounts: Partial<Record<DepartmentId, number>>;
+  /** Per-department starting level overrides. Omitted = 0. `[PH]`. */
+  startLevels: Partial<Record<DepartmentId, number>>;
+  /**
+   * Ultimates offered per branch (the asymmetric differentiation). Omitted =
+   * the full menu for that branch. `[PH]` — for the skeleton most distilleries
+   * offer the full menu so every built ultimate is reachable.
+   */
+  ultimates?: Partial<Record<DepartmentId, UltimateId[]>>;
+}
+
+const DISTILLERY_DEFS: DistilleryDef[] = [
+  {
+    id: "standard",
+    name: "Standard Distillery",
+    blurb: "Balanced, beginner-friendly — full ultimate menus, no cost tilt.",
+    discounts: {},
+    startLevels: {},
+  },
+  {
+    id: "oldoak",
+    name: "Old Oak Rickhouse",
+    blurb: "Patience tilt — cheap Rickhouse; aging & maturation ultimates.",
+    discounts: { rickhouse: 1 },
+    startLevels: { rickhouse: 1 },
+    ultimates: { rickhouse: ["megaExpansion", "climateControlled", "charToast", "doubleMaturation"] },
+  },
+  {
+    id: "ironhill",
+    name: "Ironhill Volume",
+    blurb: "Throughput tilt — cheap Warehouse & a Supply head start.",
+    discounts: { warehouse: 1, supply: 1 },
+    startLevels: { supply: 1 },
+    ultimates: { supply: ["overflowRoll", "secondReroll", "tripleThreat"], warehouse: ["grandWarehouse", "qualitySort"] },
+  },
+  {
+    id: "ryerevival",
+    name: "Rye Revival Co.",
+    blurb: "Specialist tilt — cheap Mash Floor; Prospector & Long Cellar.",
+    discounts: { mashFloor: 1 },
+    startLevels: {},
+    ultimates: { supply: ["prospector", "secondReroll", "overflowRoll"], warehouse: ["longCellar", "grandWarehouse", "qualitySort"] },
+  },
+];
+
+/** Lightweight roster for the new-game picker (no department data). */
+export const DISTILLERY_ROSTER = DISTILLERY_DEFS.map((d) => ({
+  id: d.id,
+  name: d.name,
+  blurb: d.blurb,
+}));
+
+/** Build a fresh distillery board for the given id (defaults to "standard"). */
+export function buildDistilleryBoard(distilleryId = "standard"): DistilleryBoard {
+  const def = DISTILLERY_DEFS.find((d) => d.id === distilleryId) ?? DISTILLERY_DEFS[0]!;
+  return {
+    distilleryId: def.id,
+    name: def.name,
+    blurb: def.blurb,
+    departments: DEPARTMENT_ORDER.map((id): Department => {
+      const t = DEPARTMENT_TEMPLATE[id];
+      const start = def.startLevels[id] ?? 0;
+      const maxLevel = t.values.length - 1;
+      return {
+        id,
+        name: t.name,
+        blurb: t.blurb,
+        level: Math.min(start, maxLevel),
+        maxLevel,
+        values: [...t.values],
+        discount: def.discounts[id] ?? 0,
+        ultimateOptions: def.ultimates?.[id] ?? [...ULTIMATE_MENU[id]],
+        chosenUltimate: null,
+        ultimatePile: null,
+      };
+    }),
+  };
 }

@@ -1,1266 +1,1798 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import Link from "next/link";
+// Bourbonomics — game board. Wired to the rebuilt engine (new GAME_RULES.md):
+// a persistent demand market (zones / crash / per-card slots / kept cards), the
+// demand-deck clock, the disaggregated sell payoff (barrel value + zone + card),
+// and seven-branch departments with per-distillery ultimates. Visual tokens &
+// layout inherit the hi-fi Collect design.
+
+import { useEffect, useRef, useState } from "react";
 import {
   applyAction,
+  botAction,
+  isBotTurn,
   createGame,
-  matrixValue,
-  rankPlayers,
+  improvementCost,
+  barrelValue,
+  zoneForCardCount,
+  capAge,
+  meetsRequirement,
+  reputationOf,
+  rickhouseCapacity as fnRick,
+  supplyCap as fnSupply,
+  warehouseCap as fnWarehouse,
+  mashFloorDraw as fnMash,
+  distributionBonus as fnDist,
+  countingDiscount as fnCounting,
+  rerollsFor as fnRerolls,
+  hasUlt,
   CONFIG,
-  FLAGS,
-  openLineCost,
-  DISTILLERY_ROSTER,
 } from "@bourbonomics/prototype-engine";
 import type {
   Action,
   Bourbon,
-  BrandLine,
+  DemandCard,
+  DepartmentId,
+  DieFace,
   GameState,
+  MashBill,
   Player,
+  Quality,
   ResourceCard,
   ResourceKind,
-  RewardLeaf,
-  SlotCard,
-  SlotSpec,
-  Station,
-  StationId,
+  StyleTag,
+  UltimateId,
+  Zone,
 } from "@bourbonomics/prototype-engine";
 
+// What the inspect modal is showing (a held resource card, a yet-to-be-drawn
+// pending claim, or a mash bill).
+type Inspect =
+  | { kind: "resource"; card: ResourceCard }
+  | { kind: "pending"; k: ResourceKind }
+  | { kind: "bill"; bill: MashBill };
 import ScalingHost from "./components/ScalingHost";
-import CardTile from "./components/CardTile";
-import { setMakeDragPayload } from "./components/dragMake";
-import HandFan from "./components/HandFan";
-import DemandTrack from "./components/DemandTrack";
-import Barrel from "./components/Barrel";
-import MiniCard from "./components/MiniCard";
+import { TUT_BEATS, TutorialOverlay, tutorialGame } from "./tutorial";
 
-// The five resource piles, in the engine's draw order. PILE_META drives the
-// pile overview + Collect modal chrome.
-const PILE_KINDS: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
-const PILE_META: Record<ResourceKind, { label: string; glyph: string; color: string }> = {
-  cask: { label: "Cask", glyph: "🛢", color: "#a07142" },
-  corn: { label: "Corn", glyph: "🌽", color: "#d6a94a" },
-  rye: { label: "Rye", glyph: "🌾", color: "#c07a3c" },
-  wheat: { label: "Wheat", glyph: "🌾", color: "#ccb84e" },
-  barley: { label: "Barley", glyph: "🌾", color: "#4f9c87" },
+// ── tokens ───────────────────────────────────────────────────────────
+const MONO = "'JetBrains Mono', monospace";
+const SERIF = "'Cormorant Garamond', serif";
+const C = {
+  ink: "#f0e3c8",
+  text2: "#b9a684",
+  muted: "#7c6a51",
+  faint: "#4d4031",
+  gold: "#f0c970",
+  brass: "#c69d52",
+  border: "#3b2818",
+  border2: "#2e1f15",
+  green: "#6db28c",
+  red: "#d96b54",
+  amber: "#d59650",
 };
 
-/** Summed cost-spike surcharge on a pile this round (spikes stack across the demand row). */
-function spikeFor(state: GameState, kind: ResourceKind): number {
-  let total = 0;
-  for (const card of state.demandCards) {
-    for (const spike of card.costSpikes ?? []) {
-      if (spike.tag === kind) total += spike.amount;
-    }
-  }
-  return total;
-}
-
-// ── small chrome helpers ─────────────────────────────────────────────
-
-function Panel({
-  title,
-  accent = "",
-  right,
-  children,
-  className = "",
-  bodyClassName = "",
-}: {
-  title: string;
-  accent?: "market" | "stage" | "hand" | "rivals" | "log" | "";
-  right?: React.ReactNode;
-  children: React.ReactNode;
-  className?: string;
-  bodyClassName?: string;
-}) {
-  return (
-    <section
-      className={`bb-panel ${accent ? `bb-panel--${accent}` : ""} flex flex-col overflow-hidden ${className}`}
-    >
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--rule)] px-3 py-2">
-        <span className="label-sm" style={{ color: "var(--brass)" }}>
-          {title}
-        </span>
-        {right}
-      </header>
-      <div className={`min-h-0 flex-1 p-3 ${bodyClassName}`}>{children}</div>
-    </section>
-  );
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[13px] italic text-[var(--mute)]">{children}</p>
-  );
-}
-
-function ActionBtn({
-  children,
-  onClick,
-  disabled,
-  active,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  active?: boolean;
-  tone?: "neutral" | "gold";
-}) {
-  const gold = tone === "gold";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={[
-        "rounded-md border px-3 py-2 font-mono text-[12px] font-semibold uppercase tracking-[.12em] transition",
-        active || gold
-          ? "border-[var(--gold)] bg-gradient-to-b from-[#f0c970] to-[#c69d52] text-[#1a120b]"
-          : "border-[var(--rule)] bg-[var(--panel-2)] text-[var(--ink-muted)] hover:border-[var(--amber)] hover:text-[var(--ink)]",
-        "disabled:cursor-not-allowed disabled:opacity-35",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-}
-
-const qualityInk: Record<string, string> = {
-  common: "text-[var(--t-common)]",
-  specialty: "text-[var(--t-specialty)]",
-  heritage: "text-[var(--t-heritage)]",
+const FACE: Record<DieFace, { mono: string; label: string; color: string; wild?: boolean }> = {
+  cask: { mono: "CK", label: "Cask", color: "#cf9a5e" },
+  corn: { mono: "CN", label: "Corn", color: "#f0c970" },
+  rye: { mono: "RY", label: "Rye", color: "#d96b54" },
+  wheat: { mono: "WH", label: "Wheat", color: "#e9b46e" },
+  barley: { mono: "BA", label: "Barley", color: "#6db28c" },
+  anything: { mono: "✦", label: "Any", color: "#e7d9b6", wild: true },
+};
+const PILE_ORDER: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
+const SUB: Record<ResourceKind, { ink: string; glyph: string; label: string }> = {
+  cask: { ink: "#cf9a5e", glyph: "⌬", label: "Cask" },
+  corn: { ink: "#f0c970", glyph: "✺", label: "Corn" },
+  rye: { ink: "#d96b54", glyph: "✦", label: "Rye" },
+  wheat: { ink: "#e9b46e", glyph: "❉", label: "Wheat" },
+  barley: { ink: "#6db28c", glyph: "❦", label: "Barley" },
 };
 
-function recipeLabel(recipe: Record<string, number | undefined>): string {
+// Per-resource card chrome (the original's complementary palette: oak / gold /
+// crimson / cyan / teal) — used by the stylized hand cards + inspect modal.
+const KIND_CHROME: Record<ResourceKind, { grad: string; border: string; ink: string }> = {
+  cask: { grad: "linear-gradient(180deg,#6b4423 0%,#3d2417 55%,#150c06 100%)", border: "#a07142", ink: "#f3dcb6" },
+  corn: { grad: "linear-gradient(180deg,#d8b13a 0%,#7a5a16 50%,#160f06 100%)", border: "#f0c970", ink: "#fff0c4" },
+  rye: { grad: "linear-gradient(180deg,#c0463c 0%,#5a1f1c 52%,#160a08 100%)", border: "#e08a78", ink: "#ffdcd2" },
+  wheat: { grad: "linear-gradient(180deg,#52a6bd 0%,#2a5566 52%,#0a1418 100%)", border: "#8fd0e2", ink: "#dff3f8" },
+  barley: { grad: "linear-gradient(180deg,#4ea27a 0%,#27543c 52%,#0a1610 100%)", border: "#7fd0a4", ink: "#d6f2e2" },
+};
+
+const STYLE_LABEL: Record<StyleTag, string> = {
+  rye: "High-Rye",
+  wheat: "Wheated",
+  barley: "Barley",
+  highCorn: "High-Corn",
+  fourGrain: "Four-Grain",
+  classic: "Classic",
+};
+
+const ZONE_META: Record<Zone, { label: string; color: string }> = {
+  low: { label: "Low", color: C.green },
+  mid: { label: "Mid", color: C.amber },
+  high: { label: "High", color: C.red },
+};
+
+// Per-quality card chrome — the WoW-style five-tier ladder
+// (grey · green · blue · purple · orange), richer the rarer it is.
+const QUALITY_CHROME: Record<string, { ink: string; label: string; border: string; bg: string; glow: string; foil: string }> = {
+  common: {
+    ink: "#b9a684", label: "Common", border: "rgba(185,166,132,.5)",
+    bg: "linear-gradient(180deg, rgba(90,82,64,.30) 0%, rgba(26,18,11,.97) 62%)",
+    glow: "inset 0 1px 0 rgba(255,255,255,.08), 0 10px 22px rgba(0,0,0,.5)",
+    foil: "linear-gradient(180deg,#cdc3ad,#8f876b)",
+  },
+  uncommon: {
+    ink: "#7ad19a", label: "Uncommon", border: "rgba(122,209,154,.6)",
+    bg: "radial-gradient(115% 70% at 50% -12%, rgba(122,209,154,.16), transparent 58%), linear-gradient(180deg, rgba(40,80,55,.30) 0%, rgba(20,22,16,.97) 64%)",
+    glow: "inset 0 1px 0 rgba(180,240,200,.18), 0 0 16px rgba(122,209,154,.25), 0 10px 22px rgba(0,0,0,.5)",
+    foil: "linear-gradient(180deg,#9be3b4,#4f9e70)",
+  },
+  rare: {
+    ink: "#7da6df", label: "Rare", border: "rgba(125,166,223,.65)",
+    bg: "radial-gradient(115% 70% at 50% -12%, rgba(125,166,223,.18), transparent 58%), linear-gradient(180deg, rgba(40,55,90,.32) 0%, rgba(16,18,26,.97) 64%)",
+    glow: "inset 0 1px 0 rgba(190,215,255,.2), 0 0 18px rgba(125,166,223,.35), 0 10px 22px rgba(0,0,0,.5)",
+    foil: "linear-gradient(180deg,#a9c8f5,#5f86c9)",
+  },
+  epic: {
+    ink: "#c69df0", label: "Epic", border: "rgba(198,157,240,.7)",
+    bg: "radial-gradient(120% 74% at 50% -12%, rgba(198,157,240,.24), transparent 58%), linear-gradient(180deg, rgba(70,45,100,.34) 0%, rgba(22,16,26,.97) 64%)",
+    glow: "inset 0 1px 0 rgba(230,205,255,.26), 0 0 22px rgba(198,157,240,.42), 0 10px 22px rgba(0,0,0,.5)",
+    foil: "linear-gradient(180deg,#dcc0fa,#9d6fd0)",
+  },
+  legendary: {
+    ink: "#f0b070", label: "Legendary", border: "rgba(240,176,112,.9)",
+    bg: "radial-gradient(125% 78% at 50% -12%, rgba(240,176,112,.34), transparent 58%), linear-gradient(180deg, rgba(150,90,30,.42) 0%, rgba(26,18,11,.97) 66%)",
+    glow: "inset 0 1px 0 rgba(255,224,170,.4), 0 0 30px rgba(240,176,112,.55), 0 10px 24px rgba(0,0,0,.55)",
+    foil: "linear-gradient(180deg,#ffd9a0,#e08a2c)",
+  },
+};
+
+const ULT_LABEL: Record<UltimateId, { name: string; blurb: string }> = {
+  megaExpansion: { name: "Mega Expansion", blurb: "+2 barrel slots." },
+  climateControlled: { name: "Climate Controlled", blurb: "Your oldest barrel ages +2/round." },
+  charToast: { name: "Char & Toast", blurb: "Every barrel you build starts at age 1." },
+  doubleMaturation: { name: "Double Maturation", blurb: "A barrel reaching age 8 gains +1 batch." },
+  warehouseTasting: { name: "Warehouse Tasting", blurb: "With 3+ aging barrels, +1 Capital/round." },
+  secondReroll: { name: "Second Reroll", blurb: "Reroll a second time each Collect turn." },
+  overflowRoll: { name: "Overflow Roll", blurb: "+2 dice in Collect." },
+  prospector: { name: "Prospector", blurb: "Claims from a chosen pile draw 2, keep the better." },
+  tripleThreat: { name: "Triple Threat", blurb: "Once/turn, discard 2 dice → take 1 of any face." },
+  grandWarehouse: { name: "Grand Warehouse", blurb: "+3 hold cap." },
+  qualitySort: { name: "Quality Sort", blurb: "Once/round, a free blind draw from any pile." },
+  longCellar: { name: "Long Cellar", blurb: "Staged cards stay swappable (not locked)." },
+  ph: { name: "Ultimate (TBD)", blurb: "Ultimate menu for this branch is a placeholder." },
+};
+
+// Department UI metadata (engine ids → design room presentation).
+const DEPT_META: Record<DepartmentId, { color: string; tag: string }> = {
+  rickhouse: { color: "#cf9a5e", tag: "Aging" },
+  supply: { color: "#d59650", tag: "Supply" },
+  warehouse: { color: "#6db28c", tag: "Warehouse" },
+  mashFloor: { color: "#7d8fd4", tag: "Recipes" },
+  marketing: { color: "#b08fd8", tag: "Shape Demand" },
+  distribution: { color: "#5fa6c9", tag: "Distribution" },
+  countingHouse: { color: "#c9a24a", tag: "Capital" },
+};
+const ROSTER_ORDER: DepartmentId[] = [
+  "supply",
+  "warehouse",
+  "mashFloor",
+  "marketing",
+  "distribution",
+  "countingHouse",
+  "rickhouse",
+];
+
+const PLAYER_COLORS = ["#d59650", "#d96b54", "#6db28c", "#b08fd8", "#5fa6c9", "#e9b46e"];
+
+// ── global style (fonts, keyframes, hover, body texture) ─────────────
+const GLOBAL_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@keyframes bb-pip { 0%,100%{box-shadow:0 0 0 0 rgba(240,201,112,.55);} 50%{box-shadow:0 0 0 6px rgba(240,201,112,0);} }
+@keyframes bb-ember { 0%,100%{box-shadow:inset 0 2px 3px rgba(255,255,255,.35),0 0 10px rgba(185,166,132,.4);} 50%{box-shadow:inset 0 2px 3px rgba(255,255,255,.35),0 0 18px rgba(240,201,112,.6);} }
+@keyframes bb-shelf { 0%,100%{opacity:.5;} 50%{opacity:.82;} }
+@keyframes bb-rise { from{opacity:0;transform:translate(-50%,6px);} to{opacity:1;transform:translate(-50%,0);} }
+.bb-card { transition: transform .2s cubic-bezier(.22,1,.36,1), filter .18s ease; }
+.bb-card:hover { transform: translateY(-10px); filter: brightness(1.08); z-index:5; }
+.bb-die { transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.bb-die.clk:hover { transform: translateY(-4px); border-color:#c69d52 !important; }
+.bb-btn { transition: filter .15s ease, transform .15s ease, background .15s ease; }
+.bb-btn:not(:disabled):hover { filter: brightness(1.06); transform: translateY(-1px); }
+.bb-sec:not(:disabled):hover { background:#2e1f15 !important; }
+.bb-noise::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.86 0 0 0 0 0.78 0 0 0 0 0.62 0 0 0 0.10 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  mix-blend-mode:overlay; opacity:.35; }
+::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#3b2818;border-radius:4px;}
+/* Dice roll — fall from above, tumble, land, settle (ported from the original). */
+@keyframes bb-roll-drop {
+  0%   { transform: translateY(-200px) rotate(-320deg) scale(.78); opacity: 0; }
+  18%  { opacity: 1; }
+  60%  { transform: translateY(0) rotate(170deg) scale(1); }
+  74%  { transform: translateY(-18px) rotate(255deg) scale(1.06); }
+  88%  { transform: translateY(0) rotate(345deg) scale(.97); }
+  100% { transform: translateY(0) rotate(360deg) scale(1); }
+}
+.bb-roll-drop { animation: bb-roll-drop .82s cubic-bezier(.34,1.2,.64,1) both; will-change: transform, opacity; }
+@keyframes bb-roll-shadow {
+  0%,55% { opacity: 0; transform: scaleX(.4); }
+  72%    { opacity: .5; transform: scaleX(1.15); }
+  100%   { opacity: .3; transform: scaleX(1); }
+}
+.bb-roll-shadow { animation: bb-roll-shadow .82s cubic-bezier(.34,1.2,.64,1) both; }
+@keyframes bb-wild-shimmer { 0%,100%{ box-shadow:0 0 0 0 rgba(231,217,182,.0);} 50%{ box-shadow:0 0 14px 2px rgba(231,217,182,.45);} }
+@media (prefers-reduced-motion: reduce) {
+  .bb-roll-drop, .bb-roll-shadow { animation-duration: .001ms !important; }
+}
+`;
+
+// ── helpers ──────────────────────────────────────────────────────────
+function recipeKinds(recipe: Partial<Record<ResourceKind, number>>): ResourceKind[] {
+  const out: ResourceKind[] = [];
+  for (const k of PILE_ORDER) for (let i = 0; i < (recipe[k] ?? 0); i++) out.push(k);
+  return out;
+}
+function recipeSize(recipe: Partial<Record<ResourceKind, number>>): number {
+  return PILE_ORDER.reduce((s, k) => s + (recipe[k] ?? 0), 0);
+}
+function requirementText(req: DemandCard["requirement"]): string {
+  const parts: string[] = [];
+  if (req.styleTag) parts.push(STYLE_LABEL[req.styleTag]);
+  if (req.quality) parts.push(`${req.quality}+`);
+  if (req.minAge !== undefined) parts.push(`age ${req.minAge}+`);
+  return parts.length ? parts.join(" · ") : "Any bourbon";
+}
+
+// ── setup ────────────────────────────────────────────────────────────
+function SetupScreen({ onStart, onTutorial }: { onStart: (names: string[]) => void; onTutorial: () => void }) {
+  const [count, setCount] = useState(3);
   return (
-    Object.entries(recipe)
-      .filter(([, n]) => n)
-      .map(([k, n]) => `${n}${k[0]}`)
-      .join(" ") || "—"
-  );
-}
-
-const QUALITY_RANK: Record<string, number> = { common: 0, specialty: 1, heritage: 2 };
-
-function kindCounts(cards: ResourceCard[]): Record<ResourceKind, number> {
-  const c: Record<ResourceKind, number> = { cask: 0, corn: 0, rye: 0, wheat: 0, barley: 0 };
-  for (const card of cards) c[card.kind] += 1;
-  return c;
-}
-
-/** Whether the chosen cards satisfy a recipe exactly (no missing, no extras). */
-function selectionSatisfies(
-  recipe: Partial<Record<ResourceKind, number>>,
-  cards: ResourceCard[],
-): boolean {
-  const have = kindCounts(cards);
-  for (const k of PILE_KINDS) {
-    if ((recipe[k] ?? 0) !== have[k]) return false;
-  }
-  return true;
-}
-
-/**
- * Mirror of the engine's placement rules so the UI can disable slots a sale
- * would be refused for: empty slot, staircase (non-decreasing by nearest
- * filled neighbors), and the Expressions paired-age match.
- */
-function slotEligible(line: BrandLine, i: number, bourbon: Bourbon): boolean {
-  if (line.slots[i]) return false;
-  const age = bourbon.age;
-  for (let l = i - 1; l >= 0; l--) {
-    const s = line.slots[l];
-    if (s) {
-      if (s.age > age) return false;
-      break;
-    }
-  }
-  for (let r = i + 1; r < line.slots.length; r++) {
-    const s = line.slots[r];
-    if (s) {
-      if (s.age < age) return false;
-      break;
-    }
-  }
-  const spec = line.slotCard.slots[i];
-  if (spec?.matchAgeOfSlot !== undefined) {
-    const paired = line.slots[spec.matchAgeOfSlot];
-    if (!paired || paired.age !== age) return false;
-  }
-  return true;
-}
-
-/** Distinct icon pills for a single reward leaf (capital / prestige / resources). */
-function RewardBits({
-  leaf,
-  age,
-  className = "",
-}: {
-  leaf: RewardLeaf;
-  age?: number;
-  className?: string;
-}) {
-  const bits: { key: string; color: string; text: string }[] = [];
-  if (leaf.capital) bits.push({ key: "c", color: "var(--gold)", text: `+${leaf.capital}฿` });
-  if (leaf.prestige) bits.push({ key: "p", color: "#c4a7e7", text: `+${leaf.prestige}★` });
-  if (leaf.prestigeFromAge)
-    bits.push({ key: "pa", color: "#c4a7e7", text: age !== undefined ? `+${age}★` : "+age★" });
-  if (leaf.resources) bits.push({ key: "r", color: "var(--emerald)", text: `+${leaf.resources}⊞` });
-  if (bits.length === 0) bits.push({ key: "n", color: "var(--mute)", text: "—" });
-  return (
-    <span className={`flex flex-wrap items-center gap-1 ${className}`}>
-      {bits.map((b) => (
-        <span
-          key={b.key}
-          className="font-mono text-[10px] font-bold leading-none"
-          style={{ color: b.color }}
+    <div style={{ display: "grid", placeItems: "center", height: "100%", fontFamily: "Inter, sans-serif" }}>
+      <div
+        style={{
+          width: 540,
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
+          padding: 36,
+          borderRadius: 18,
+          border: `1px solid ${C.border}`,
+          background: "linear-gradient(180deg,#1a120b,#130c06)",
+          boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 18px 50px rgba(0,0,0,.45)",
+        }}
+      >
+        <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 40, color: C.gold }}>Bourbonomics</div>
+        <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.5 }}>
+          A cozy distillery game — Demand, Collect, Play. Gather resources by dice draft, age bourbon in
+          your rickhouse, and sell into a shifting demand market. Complete orders for prestige.
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>
+          Players
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {[2, 3, 4, 5, 6].map((n) => (
+            <button
+              key={n}
+              onClick={() => setCount(n)}
+              className="bb-btn"
+              style={{
+                width: 48,
+                height: 44,
+                borderRadius: 9,
+                fontFamily: MONO,
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: "pointer",
+                border: `1px solid ${count === n ? C.brass : C.border}`,
+                color: count === n ? "#2a1408" : C.ink,
+                background: count === n ? "linear-gradient(180deg,#e9b46e,#c69d52)" : "#150e08",
+              }}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => onStart(Array.from({ length: count }, (_, i) => (i === 0 ? "You" : `Rival ${i}`)))}
+          className="bb-btn"
+          style={{
+            padding: "14px 24px",
+            borderRadius: 12,
+            border: 0,
+            cursor: "pointer",
+            fontFamily: MONO,
+            fontWeight: 700,
+            fontSize: 14,
+            letterSpacing: ".12em",
+            textTransform: "uppercase",
+            color: "#2a1408",
+            background: "linear-gradient(180deg,#e9b46e,#c69d52)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)",
+          }}
         >
-          {b.text}
-        </span>
-      ))}
-    </span>
+          Start Game
+        </button>
+        <button
+          onClick={onTutorial}
+          className="bb-btn bb-sec"
+          style={{
+            padding: "11px 24px",
+            borderRadius: 12,
+            cursor: "pointer",
+            fontFamily: MONO,
+            fontWeight: 700,
+            fontSize: 12,
+            letterSpacing: ".12em",
+            textTransform: "uppercase",
+            color: C.gold,
+            background: "#150e08",
+            border: `1px solid ${C.brass}`,
+          }}
+        >
+          ▶ How to play (tutorial)
+        </button>
+        <a
+          href="/"
+          style={{
+            textAlign: "center",
+            fontFamily: MONO,
+            fontSize: 11,
+            letterSpacing: ".12em",
+            textTransform: "uppercase",
+            color: C.muted,
+            textDecoration: "none",
+            marginTop: -6,
+          }}
+        >
+          ← Back to main menu
+        </a>
+      </div>
+    </div>
   );
 }
 
-/** Reward summary for a slot spec — both branches for a choice; gate for gated. */
-function SlotReward({ spec, age }: { spec: SlotSpec; age?: number }) {
-  const r = spec.reward;
-  if (r.kind === "flat") return <RewardBits leaf={r.reward} age={age} />;
-  if (r.kind === "choice") {
-    return (
-      <span className="flex items-center gap-1">
-        <RewardBits leaf={r.options[0]!} age={age} />
-        <span className="text-[9px] text-[var(--mute)]">/</span>
-        <RewardBits leaf={r.options[1] ?? r.options[0]!} age={age} />
-      </span>
-    );
-  }
-  // gated: show hit reward + the gate condition.
-  const gate: string[] = [];
-  if (r.gate.minAge !== undefined) gate.push(`age≥${r.gate.minAge}`);
-  if (r.gate.minQuality !== undefined) gate.push(r.gate.minQuality);
-  return (
-    <span className="flex items-center gap-1">
-      <RewardBits leaf={r.hit} age={age} />
-      <span className="text-[9px] text-[var(--mute)]">if {gate.join(" ")}</span>
-      <span className="text-[9px] text-[var(--mute)]">· else</span>
-      <RewardBits leaf={r.miss} age={age} />
-    </span>
-  );
-}
-
-// ── main component ────────────────────────────────────────────────────
-
+// ─────────────────────────────────────────────────────────────────────
 export default function GameClient() {
-  const [seed, setSeed] = useState(1);
-  const [numPlayers, setNumPlayers] = useState(1);
-  const [distilleryId, setDistilleryId] = useState(DISTILLERY_ROSTER[0]!.id);
-  const [state, setState] = useState<GameState>(() =>
-    createGame({ seed: 1, playerNames: ["Player 1"] }),
-  );
-  const stateRef = useRef(state);
-  stateRef.current = state;
-  const [message, setMessage] = useState<string | null>(null);
+  const [game, setGame] = useState<GameState | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialPool = useRef(1);
 
-  const [selResources, setSelResources] = useState<Set<string>>(new Set());
-  const [selLine, setSelLine] = useState<string | null>(null);
-  // Placement modal: the built barrel being sold + the line to place it into.
-  const [sellBarrel, setSellBarrel] = useState<Bourbon | null>(null);
-  const [sellLineId, setSellLineId] = useState<string | null>(null);
-  // Slot-card draw picker: pick any available design from the supply.
-  const [drawingSlot, setDrawingSlot] = useState(false);
-  // Collect modal: allocate draws across the five piles.
-  const [collecting, setCollecting] = useState(false);
-  // Bumped on each successful resource draw so the hand fan replays its
-  // deal-in keyframe (mirrors the live game's lastDrawHand.seq).
-  const [dealSeq, setDealSeq] = useState(1);
+  // Collect-phase local overlay (the engine commits at pass time). Click a die
+  // to draft it (optimistic claim); reroll the rest; pass leftovers on.
+  const [claims, setClaims] = useState<Record<string, ResourceKind>>({});
+  const [pendingWild, setPendingWild] = useState<string | null>(null);
+  const [ttFace, setTtFace] = useState(false); // Triple Threat face chooser open
+  // Play-phase local UI.
+  const [drawingBills, setDrawingBills] = useState(false);
+  const [keepBills, setKeepBills] = useState<Set<number>>(new Set());
+  const [sellId, setSellId] = useState<string | null>(null); // bourbon being routed
+  const [ultDept, setUltDept] = useState<DepartmentId | null>(null); // ultimate chooser
+  const [qsOpen, setQsOpen] = useState(false); // Quality Sort pile chooser
+  const [tut, setTut] = useState<number | null>(null); // active tutorial beat index, or null
+  const [inspect, setInspect] = useState<Inspect | null>(null); // card detail modal
 
-  const player = state.players[state.currentPlayerIndex]!;
-  const ended = state.phase === "ended";
-  const rickhouseStation = player.distillery.stations.find((s) => s.id === "rickhouse");
-  const rickhouseCap = rickhouseStation
-    ? rickhouseStation.levels[rickhouseStation.builtTier]!
-    : 0;
-  const rickhouseFull = player.rickhouse.length >= rickhouseCap;
-  const supplyStation = player.distillery.stations.find((s) => s.id === "supplyRoom");
-  const collectBudget = supplyStation
-    ? supplyStation.levels[supplyStation.builtTier]!
-    : 0;
-
-  function newGame() {
-    const names = Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`);
-    setState(createGame({ seed, playerNames: names, distilleryIds: [distilleryId] }));
-    setMessage(null);
-    setSelResources(new Set());
-    setSelLine(null);
-    setSellBarrel(null);
-    setSellLineId(null);
-    setDrawingSlot(false);
-    setCollecting(false);
+  function flash(msg: string) {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2400);
   }
+  function resetLocal() {
+    setClaims({});
+    setPendingWild(null);
+    setTtFace(false);
+    setDrawingBills(false);
+    setKeepBills(new Set());
+    setSellId(null);
+    setUltDept(null);
+    setQsOpen(false);
+    setInspect(null);
+  }
+  function start(names: string[]) {
+    // Seat 0 is the human ("You"); every other seat is AI-played.
+    const g = createGame({
+      seed: (Math.floor(Date.now() / 1000) % 100000) + 1,
+      playerNames: names,
+      botFlags: names.map((_, i) => i !== 0),
+    });
+    initialPool.current = g.demandDeck.length + g.demandDiscard.length + g.demandCards.length || 1;
+    setTut(null);
+    setGame(g);
+    resetLocal();
+  }
+  // ── tutorial control ────────────────────────────────────────────────
+  function startTutorial() {
+    let g = tutorialGame();
+    const oe = TUT_BEATS[0]!.onEnter;
+    if (oe) g = oe(g);
+    initialPool.current = g.demandDeck.length + g.demandDiscard.length + g.demandCards.length || 1;
+    setGame(g);
+    setTut(0);
+    resetLocal();
+  }
+  function exitTutorial() {
+    setTut(null);
+    setGame(null);
+    resetLocal();
+  }
+  /** Advance a PROMPT beat (the Continue button); applies the next beat's rig. */
+  function tutContinue() {
+    if (tut === null || !game) return;
+    const ni = tut + 1;
+    if (ni >= TUT_BEATS.length) { exitTutorial(); return; }
+    const oe = TUT_BEATS[ni]!.onEnter;
+    setTut(ni);
+    setGame(oe ? oe(game) : game);
+    resetLocal();
+  }
+  function dispatch(action: Action, silent = false): boolean {
+    if (!game) return false;
+    // Ignore human input while the AI is on the clock (its turn is auto-driven).
+    if (isBotTurn(game)) return false;
 
-  function dispatch(action: Action): boolean {
-    const res = applyAction(stateRef.current, action);
+    // Tutorial gating: block actions that aren't part of the active step.
+    if (tut !== null) {
+      const beat = TUT_BEATS[tut]!;
+      if (beat.cta) { if (!silent) flash(`Press “${beat.cta}” to continue`); return false; }
+      if (beat.allow && !beat.allow(action, game)) { if (!silent) flash(beat.hint ?? "Follow the highlighted step"); return false; }
+    }
+
+    const res = applyAction(game, action);
     if (!res.ok) {
-      setMessage(res.reason);
+      if (!silent) flash("⚠ " + res.reason);
       return false;
     }
-    stateRef.current = res.state;
-    setState(res.state);
-    setMessage(null);
-    setSelResources(new Set());
-    if (action.type === "COLLECT") {
-      setDealSeq((n) => n + 1);
+
+    // Tutorial advance: did this action satisfy the step's goal?
+    let nextState = res.state;
+    if (tut !== null) {
+      const beat = TUT_BEATS[tut]!;
+      const done = (beat.goal && beat.goal(action, res.state)) || (beat.advanceWhen && beat.advanceWhen(res.state));
+      if (done) {
+        const ni = tut + 1;
+        if (ni >= TUT_BEATS.length) setTut(null);
+        else { setTut(ni); const oe = TUT_BEATS[ni]!.onEnter; if (oe) nextState = oe(res.state); }
+      }
     }
+    setGame(nextState);
+    resetLocal();
     return true;
   }
 
-  function toggleResource(id: string) {
-    setSelResources((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  // ── AI driver ──────────────────────────────────────────────────────
+  // Auto-advances the game so the human only plays their own turns: the Demand
+  // phase rolls into the draft on its own (the market stays visible on the right
+  // rail), and every AI seat's collect/play turn is auto-dispatched one action
+  // at a time on a timer so the human can watch. Collect pauses long enough for
+  // the dice-roll animation to play.
+  useEffect(() => {
+    if (!game || game.phase !== "playing") return;
+    if (tut !== null) return; // the tutorial drives the round by hand, no auto-advance
+    let action: Action | null = null;
+    let delay = 470;
+    if (game.roundPhase === "demand") {
+      action = { type: "BEGIN_COLLECT" };
+      delay = 950;
+    } else if (isBotTurn(game)) {
+      action = botAction(game);
+      delay = game.roundPhase === "collect" ? 1050 : 470;
+    }
+    if (!action) return;
+    const a = action;
+    const t = setTimeout(() => {
+      const res = applyAction(game, a);
+      if (res.ok) {
+        setGame(res.state);
+        resetLocal();
+      }
+    }, delay);
+    return () => clearTimeout(t);
+  }, [game, tut]);
+
+  // Tutorial: some steps advance on a LOCAL action (opening the mash-bill
+  // picker) rather than a dispatched engine action. Watch for it here.
+  useEffect(() => {
+    if (tut === null || !game || !drawingBills) return;
+    const beat = TUT_BEATS[tut];
+    if (!beat?.advanceOnDrawOpen) return;
+    const ni = tut + 1;
+    if (ni >= TUT_BEATS.length) { setTut(null); return; }
+    setTut(ni);
+    const oe = TUT_BEATS[ni]!.onEnter;
+    if (oe) setGame(oe(game));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawingBills, tut]);
+
+  // Deep-link: /play?tutorial=1 launches the guided tutorial straight from the
+  // main menu (the original game put the tutorial on the home screen).
+  const bootstrapped = useRef(false);
+  useEffect(() => {
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tutorial")) {
+      startTutorial();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!game) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#0c0805" }}>
+        <style>{GLOBAL_CSS}</style>
+        <ScalingHost>
+          <div style={{ width: 1920, height: 1080 }}>
+            <SetupScreen onStart={start} onTutorial={startTutorial} />
+          </div>
+        </ScalingHost>
+      </div>
+    );
   }
 
-  const ranked = useMemo(() => (ended ? rankPlayers(state) : []), [ended, state]);
-  const targetLine = selLine ?? player.brandLines[0]?.id ?? null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#0c0805" }}>
+      <style>{GLOBAL_CSS}</style>
+      <ScalingHost>
+        <Board
+          game={game}
+          dispatch={dispatch}
+          flash={flash}
+          onNew={() => { setTut(null); setGame(null); }}
+          initialPool={initialPool.current}
+          claims={claims}
+          setClaims={setClaims}
+          pendingWild={pendingWild}
+          setPendingWild={setPendingWild}
+          ttFace={ttFace}
+          setTtFace={setTtFace}
+          drawingBills={drawingBills}
+          setDrawingBills={setDrawingBills}
+          keepBills={keepBills}
+          setKeepBills={setKeepBills}
+          sellId={sellId}
+          setSellId={setSellId}
+          ultDept={ultDept}
+          setUltDept={setUltDept}
+          qsOpen={qsOpen}
+          setQsOpen={setQsOpen}
+          onInspect={setInspect}
+          toast={toast}
+        />
+      </ScalingHost>
+      {tut !== null && TUT_BEATS[tut] && sellId === null && pendingWild === null && ultDept === null && !qsOpen && !ttFace && inspect === null && (
+        <TutorialOverlay beat={TUT_BEATS[tut]!} draftedCount={Object.keys(claims).length} pickedCount={keepBills.size} onContinue={tutContinue} onExit={exitTutorial} />
+      )}
+      {inspect && <InspectOverlay inspect={inspect} onClose={() => setInspect(null)} />}
+    </div>
+  );
+}
 
-  // Cards currently selected in hand → used to build an unbuilt barrel.
-  const selectedHandCards = player.hand.filter((c) => selResources.has(c.id));
+// ─────────────────────────────────────────────────────────────────────
+interface BoardProps {
+  game: GameState;
+  dispatch: (a: Action, silent?: boolean) => boolean;
+  flash: (m: string) => void;
+  onNew: () => void;
+  initialPool: number;
+  claims: Record<string, ResourceKind>;
+  setClaims: (v: Record<string, ResourceKind>) => void;
+  pendingWild: string | null;
+  setPendingWild: (v: string | null) => void;
+  ttFace: boolean;
+  setTtFace: (v: boolean) => void;
+  drawingBills: boolean;
+  setDrawingBills: (v: boolean) => void;
+  keepBills: Set<number>;
+  setKeepBills: (v: Set<number>) => void;
+  sellId: string | null;
+  setSellId: (v: string | null) => void;
+  ultDept: DepartmentId | null;
+  setUltDept: (v: DepartmentId | null) => void;
+  qsOpen: boolean;
+  setQsOpen: (v: boolean) => void;
+  onInspect: (i: Inspect) => void;
+  toast: string | null;
+}
 
-  function openSell(barrel: Bourbon) {
-    // A batch yields multiple sales. Intermediate extractions just bank
-    // Capital — no placement — so fire them directly. Only the FINAL sale
-    // (one left) mints a bottle and opens the placement modal.
-    if (barrel.salesRemaining > 1) {
-      dispatch({ type: "EXTRACT", bourbonId: barrel.id });
+function Board(p: BoardProps) {
+  const { game, dispatch, flash } = p;
+  const me = game.players[game.currentPlayerIndex]!;
+  const supplyCap = fnSupply(me);
+  const warehouseCap = fnWarehouse(me);
+  const rickCap = fnRick(me);
+  const phaseStage = game.roundPhase; // demand | collect | play
+  const botTurn = isBotTurn(game); // the AI is on the clock (collect/play)
+
+  const optimisticClaims = phaseStage === "collect" ? Object.values(p.claims) : [];
+  const heldTotal = me.hand.length + optimisticClaims.length;
+  const whFull = heldTotal >= warehouseCap;
+
+  const zone = zoneForCardCount(game.demandCards.length);
+
+  // Canvas-space refs for the card-flight animation (die → Warehouse).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const warehouseRef = useRef<HTMLDivElement>(null);
+  const wildSrc = useRef<{ x0: number; y0: number } | null>(null);
+  const flightSeq = useRef(0);
+  const [flights, setFlights] = useState<Flight[]>([]);
+
+  /** Convert a screen rect's center to the 1920×1080 canvas coordinate space. */
+  const toCanvas = (rect: DOMRect): { x: number; y: number } | null => {
+    const root = rootRef.current;
+    if (!root) return null;
+    const r = root.getBoundingClientRect();
+    const scale = r.width / 1920 || 1;
+    return { x: (rect.left + rect.width / 2 - r.left) / scale, y: (rect.top + rect.height / 2 - r.top) / scale };
+  };
+  const flyToHand = (x0: number, y0: number, kind: ResourceKind) => {
+    const wh = warehouseRef.current;
+    const c = wh ? toCanvas(wh.getBoundingClientRect()) : null;
+    const id = ++flightSeq.current;
+    setFlights((f) => [...f, { id, x0, y0, x1: c?.x ?? x0, y1: c?.y ?? y0, kind }]);
+    window.setTimeout(() => setFlights((f) => f.filter((x) => x.id !== id)), 620);
+  };
+
+  // ---- collect actions ----
+  const collect = game.collect;
+  const onReroll = () => {
+    if (!collect || collect.rerollsUsed >= collect.maxRerolls) return;
+    const rest = collect.dice.filter((d) => !(d.id in p.claims)).map((d) => d.id);
+    if (rest.length === 0) {
+      flash("Nothing left to reroll — every die is drafted");
       return;
     }
-    setSellBarrel(barrel);
-    setSellLineId(targetLine ?? player.brandLines[0]?.id ?? null);
-  }
-
-  function confirmSell(lineId: string, slotIndex: number, rewardChoice?: number) {
-    if (!sellBarrel) return;
-    const okDone = dispatch({
-      type: "EXTRACT",
-      bourbonId: sellBarrel.id,
-      brandLineId: lineId,
-      slotIndex,
-      ...(rewardChoice !== undefined ? { rewardChoice } : {}),
+    dispatch({ type: "COLLECT_REROLL", diceIds: rest });
+  };
+  const claimDie = (id: string, face: DieFace, el: HTMLElement) => {
+    if (id in p.claims) {
+      const next = { ...p.claims };
+      delete next[id];
+      p.setClaims(next); // tap again to un-draft (before passing)
+      return;
+    }
+    if (heldTotal >= warehouseCap) {
+      flash("⚠ Warehouse full — raise the hold limit");
+      return;
+    }
+    const c = toCanvas(el.getBoundingClientRect());
+    if (face === "anything") {
+      wildSrc.current = c ? { x0: c.x, y0: c.y } : null;
+      p.setPendingWild(id);
+      return;
+    }
+    p.setClaims({ ...p.claims, [id]: face as ResourceKind });
+    if (c) flyToHand(c.x, c.y, face as ResourceKind);
+  };
+  const choosePile = (kind: ResourceKind) => {
+    if (!p.pendingWild) return;
+    p.setClaims({ ...p.claims, [p.pendingWild]: kind });
+    if (wildSrc.current) flyToHand(wildSrc.current.x0, wildSrc.current.y0, kind);
+    wildSrc.current = null;
+    p.setPendingWild(null);
+  };
+  const onPass = () => {
+    const claimList = Object.entries(p.claims).map(([dieId, pile]) => {
+      const die = collect!.dice.find((d) => d.id === dieId)!;
+      return die.face === "anything" ? { dieId, pile } : { dieId };
     });
-    if (okDone) setSellBarrel(null);
-  }
+    const n = (collect?.dice.length ?? 0) - claimList.length;
+    if (dispatch({ type: "COLLECT_CLAIM", claims: claimList })) flash(`Drafted ${claimList.length} · passed ${n} dice on`);
+  };
+  const onTripleThreat = (face: DieFace) => {
+    if (!collect) return;
+    const rest = collect.dice.filter((d) => !(d.id in p.claims)).map((d) => d.id);
+    if (rest.length < 2) {
+      flash("Triple Threat needs 2 undrafted dice");
+      return;
+    }
+    dispatch({ type: "TRIPLE_THREAT", discardDiceIds: [rest[0]!, rest[1]!], face });
+  };
 
-  return (
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-[var(--bg)]">
-      <TopBar
-        state={state}
-        player={player}
-        ended={ended}
-        seed={seed}
-        numPlayers={numPlayers}
-        distilleryId={distilleryId}
-        onSeed={setSeed}
-        onNumPlayers={(n) => setNumPlayers(Math.max(1, Math.min(4, n)))}
-        onDistillery={setDistilleryId}
-        onNewGame={newGame}
-      />
-
-      <ScalingHost>
-        <div className="relative flex h-full w-full flex-col gap-4 p-6">
-          {/* transient message toast */}
-          {message ? (
-            <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2">
-              <div className="rounded-md border border-[var(--rose)] bg-[#2a1410] px-4 py-2 text-[13px] text-[var(--rose)] shadow-lg">
-                {message}
-              </div>
-            </div>
-          ) : null}
-
-          {/* ── Market strip ───────────────────────────────────── */}
-          <div className="grid h-[176px] shrink-0 grid-cols-[230px_788px_1fr_1fr] gap-4">
-            <Panel title="Demand market" accent="market">
-              <div className="flex h-full flex-col justify-between">
-                <DemandTrack demand={state.demand} />
-                <FloodMeter
-                  cubes={state.cubesPlaced}
-                  blue={state.blueLine}
-                  red={state.redLine}
-                />
-                <div className="flex flex-wrap gap-1">
-                  {state.demandCards.map((c) => {
-                    const broad = c.slots.some((sl) => sl.tagRestriction === "open");
-                    const spikes = c.costSpikes ?? [];
-                    const spikeText = spikes
-                      .map((sp) => `+${sp.amount} ${sp.tag}`)
-                      .join(", ");
-                    return (
-                      <span
-                        key={c.id}
-                        className="flex items-center gap-1 rounded border border-[var(--rule)] bg-[var(--panel)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[.06em] text-[var(--amber-2)]"
-                        title={
-                          `${c.label} — blue ${c.blueCapacity} / red ${c.redCapacity}` +
-                          (spikeText ? ` · spike ${spikeText} Capital/draw` : "")
-                        }
-                      >
-                        {broad ? "any" : c.tag}
-                        {spikes.map((sp) => (
-                          <span
-                            key={sp.tag}
-                            className="rounded bg-[#3a1410] px-1 font-bold text-[var(--rose)]"
-                            title={`Cost spike: +${sp.amount} Capital per ${sp.tag} taken this round`}
-                          >
-                            ⚡{sp.tag[0]}+{sp.amount}
-                          </span>
-                        ))}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            </Panel>
-
-            <Panel
-              title="Resource piles"
-              accent="market"
-              right={
-                <span className="label-sm" style={{ color: "var(--mute)" }}>
-                  free draws: {collectBudget}
-                </span>
-              }
-            >
-              <div className="flex h-full items-center justify-between gap-3">
-                <div className="flex flex-1 items-stretch justify-between gap-2">
-                  {PILE_KINDS.map((k) => {
-                    const meta = PILE_META[k];
-                    const spike = spikeFor(state, k);
-                    return (
-                      <div
-                        key={k}
-                        className="relative flex flex-1 flex-col items-center justify-center gap-1 rounded-md border border-[var(--rule)] bg-[var(--panel)] py-2"
-                        style={{ boxShadow: `inset 0 -2px 0 ${meta.color}55` }}
-                        title={`${meta.label} pile — ${state.piles[k].length} cards${spike ? `, cost spike +${spike}/draw this round` : ""}`}
-                      >
-                        {spike > 0 ? (
-                          <span className="absolute right-1 top-1 rounded bg-[#3a1410] px-1 font-mono text-[9px] font-bold text-[var(--rose)]">
-                            ⚡+{spike}
-                          </span>
-                        ) : null}
-                        <span className="text-[22px] leading-none" aria-hidden>
-                          {meta.glyph}
-                        </span>
-                        <span
-                          className="font-mono text-[10px] uppercase tracking-[.08em]"
-                          style={{ color: meta.color }}
-                        >
-                          {meta.label}
-                        </span>
-                        <span className="font-mono text-[11px] font-bold text-[var(--ink-muted)]">
-                          {state.piles[k].length}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <button
-                  type="button"
-                  disabled={ended}
-                  onClick={() => setCollecting(true)}
-                  className="shrink-0 self-stretch rounded-md border border-[var(--gold)] bg-gradient-to-b from-[#f0c970] to-[#c69d52] px-4 font-mono text-[12px] font-bold uppercase tracking-[.14em] text-[#1a120b] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Collect →
-                </button>
-              </div>
-            </Panel>
-
-            <Panel
-              title="Mash bill tray"
-              accent="market"
-              right={
-                <span className="label-sm" style={{ color: "var(--mute)" }}>
-                  keep 1 → rests a barrel
-                </span>
-              }
-            >
-              <div className="flex h-full items-stretch gap-2">
-                {state.mashBillTray.map((b, i) => (
-                  <MiniCard
-                    key={b.id}
-                    tone="mashbill"
-                    disabled={ended || rickhouseFull}
-                    onClick={() => dispatch({ type: "DRAW_MASH_BILLS", keepIndex: i })}
-                    title={b.name}
-                    sub={recipeLabel(b.recipe)}
-                    tags={b.traits}
-                  />
-                ))}
-              </div>
-            </Panel>
-
-            <Panel
-              title="Marketing tray"
-              accent="market"
-              right={
-                <span className="label-sm" style={{ color: "var(--mute)" }}>
-                  attach to target line
-                </span>
-              }
-            >
-              <div className="flex h-full items-stretch gap-2">
-                {state.marketingTray.map((m, i) => (
-                  <MiniCard
-                    key={m.id}
-                    tone="marketing"
-                    disabled={ended || !targetLine}
-                    onClick={() =>
-                      targetLine &&
-                      dispatch({
-                        type: "DRAW_MARKETING",
-                        keepIndex: i,
-                        brandLineId: targetLine,
-                      })
-                    }
-                    title={m.name}
-                    sub={`+${m.prestigeOnMatch}★ · ${m.exclusiveGroup}`}
-                    tags={m.requiredTraits.length ? m.requiredTraits : ["any"]}
-                  />
-                ))}
-              </div>
-            </Panel>
-          </div>
-
-          {/* ── Main area ─────────────────────────────────────── */}
-          <div className="grid min-h-0 flex-1 grid-cols-[360px_860px_1fr] gap-4">
-            {/* col 1: rivals + distillery + log */}
-            <div className="grid min-h-0 grid-rows-[auto_auto_1fr] gap-4">
-              <Panel title="Distillers" accent="rivals" className="max-h-[150px]">
-                <div className="flex flex-col gap-2">
-                  {state.players.map((p, i) => (
-                    <PlayerRow
-                      key={p.id}
-                      player={p}
-                      active={!ended && i === state.currentPlayerIndex}
-                    />
-                  ))}
-                </div>
-              </Panel>
-              <Panel
-                title={player.distillery.name}
-                accent="rivals"
-                right={
-                  <span className="label-sm" style={{ color: "var(--mute)" }}>
-                    upgrades
-                  </span>
-                }
-              >
-                <DistilleryPanel
-                  stations={player.distillery.stations}
-                  signature={player.distillery.signatureBlurb}
-                  capital={player.capital}
-                  disabled={ended}
-                  onBuild={(stationId) => dispatch({ type: "BUILD_UPGRADE", stationId })}
-                />
-              </Panel>
-              <Panel
-                title="Tasting notes"
-                accent="log"
-                right={
-                  <span className="flex items-center gap-1.5">
-                    <span
-                      aria-hidden
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{
-                        background: "var(--emerald)",
-                        boxShadow: "0 0 6px var(--emerald)",
-                      }}
-                    />
-                    <span
-                      className="font-mono text-[10px] font-semibold uppercase tracking-[.16em]"
-                      style={{ color: "var(--emerald)" }}
-                    >
-                      Live
-                    </span>
-                  </span>
-                }
-              >
-                <div className="flex h-full flex-col-reverse gap-1 overflow-hidden text-[12px] text-[var(--ink-muted)]">
-                  {[...state.log]
-                    .slice(-12)
-                    .reverse()
-                    .map((l, i) => (
-                      <div key={i} className="log-line leading-snug">
-                        {l}
-                      </div>
-                    ))}
-                </div>
-              </Panel>
-            </div>
-
-            {/* col 2: brand lines (top) + rickhouse (below) */}
-            <div className="grid min-h-0 grid-rows-[1fr_auto] gap-4">
-            <Panel
-              title="Brand lines"
-              accent="stage"
-              right={
-                <span className="label-sm" style={{ color: "var(--mute)" }}>
-                  age staircase · low → high
-                </span>
-              }
-            >
-              {player.brandLines.length === 0 ? (
-                <Empty>Open a brand line from a slot card to sell into.</Empty>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {player.brandLines.map((line) => {
-                    const isTarget = targetLine === line.id;
-                    return (
-                      <button
-                        key={line.id}
-                        type="button"
-                        onClick={() => setSelLine(line.id)}
-                        className={[
-                          "rounded-lg border p-3 text-left transition",
-                          isTarget
-                            ? "border-[var(--gold)] bg-[var(--panel-2)]"
-                            : "border-[var(--rule)] bg-[var(--panel)] hover:border-[var(--amber)]",
-                        ].join(" ")}
-                      >
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="font-display text-[17px] font-semibold text-[var(--ink)]">
-                            {line.slotCard.name}
-                            {isTarget ? (
-                              <span className="ml-2 font-mono text-[10px] uppercase tracking-[.14em] text-[var(--gold)]">
-                                ● target
-                              </span>
-                            ) : null}
-                          </span>
-                          <span className="label-sm" style={{ color: "var(--mute)" }}>
-                            ceiling {line.ageCeiling ?? "—"}
-                          </span>
-                        </div>
-                        <div className="flex gap-2">
-                          {(() => {
-                            const ceilingIdx = line.slots.reduce(
-                              (last, s, i) => (s ? i : last),
-                              -1,
-                            );
-                            return line.slots.map((slot, i) => (
-                              <SlotCell
-                                key={i}
-                                slot={slot}
-                                spec={line.slotCard.slots[i]!}
-                                index={i}
-                                isCeiling={i === ceilingIdx}
-                              />
-                            ));
-                          })()}
-                        </div>
-                        {line.marketingCards.length > 0 ? (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {line.marketingCards.map((m) => (
-                              <span
-                                key={m.id}
-                                className="rounded border border-[var(--rule)] bg-[var(--panel-3)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[.08em] text-[var(--amber)]"
-                              >
-                                {m.name} +{m.prestigeOnMatch}★
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </Panel>
-
-              <Panel
-                title={`Rickhouse ${player.rickhouse.length}/${rickhouseCap}`}
-                accent="stage"
-                className="max-h-[300px]"
-              >
-                {player.rickhouse.length === 0 ? (
-                  <Empty>No barrels resting. Keep a mash bill to rest one.</Empty>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {player.rickhouse.map((b) => (
-                      <Barrel
-                        key={b.id}
-                        bourbon={b}
-                        demand={state.demand}
-                        canSell={
-                          !ended &&
-                          b.built &&
-                          b.age >= CONFIG.MIN_SELL_AGE &&
-                          b.salesRemaining > 0 &&
-                          // Intermediate extraction needs no line; only the
-                          // final sale (one left) requires somewhere to place.
-                          (b.salesRemaining > 1 || player.brandLines.length > 0)
-                        }
-                        canBuild={
-                          !ended &&
-                          !b.built &&
-                          selectionSatisfies(b.recipe, selectedHandCards)
-                        }
-                        onSell={() => openSell(b)}
-                        onBuild={(cardIds) =>
-                          dispatch({
-                            type: "MAKE_BOURBON",
-                            barrelId: b.id,
-                            resourceCardIds: cardIds ?? [...selResources],
-                          })
-                        }
-                      />
-                    ))}
-                  </div>
-                )}
-              </Panel>
-            </div>
-
-            {/* col 3: cellar */}
-            <Panel title="Your cellar" right={
-                <span className="label-sm" style={{ color: "var(--mute)" }}>
-                  slot cards
-                </span>
-              }>
-                <div className="flex h-full flex-col gap-3">
-                  <div>
-                    <div className="label-sm mb-1.5" style={{ color: "var(--mute)" }}>
-                      Slot cards (open a line)
-                    </div>
-                    {player.slotCards.length === 0 ? (
-                      <Empty>Draw a slot card.</Empty>
-                    ) : (
-                      <div className="grid grid-cols-3 gap-2">
-                        {player.slotCards.map((c) => (
-                          <MiniCard
-                            key={c.id}
-                            tone="slot"
-                            disabled={ended}
-                            onClick={() =>
-                              dispatch({ type: "OPEN_BRAND_LINE", slotCardId: c.id })
-                            }
-                            title={c.name}
-                            sub={`${c.slots.length} slots`}
-                            cost={`${openLineCost(player.brandLines.length)}฿`}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Panel>
-          </div>
-
-          {/* ── Hand strip ───────────────────────────────────── */}
-          <div className="grid h-[262px] shrink-0 grid-cols-[1fr_420px] gap-4">
-            <Panel
-              title={`Hand — ${player.name}`}
-              accent="hand"
-              right={
-                <span className="label-sm" style={{ color: "var(--mute)" }}>
-                  resources on hand
-                </span>
-              }
-              bodyClassName="!p-0"
-            >
-              {player.hand.length === 0 ? (
-                <div className="flex h-full items-center justify-center">
-                  <Empty>No resources. Collect some from the piles.</Empty>
-                </div>
-              ) : (
-                <HandFan dealKey={dealSeq} size="md">
-                  {player.hand.map((c) => (
-                    <CardTile
-                      key={c.id}
-                      kind={c.kind}
-                      quality={c.quality}
-                      name={c.name}
-                      size="lg"
-                      selected={selResources.has(c.id)}
-                      dim={selResources.size > 0 && !selResources.has(c.id)}
-                      onClick={() => toggleResource(c.id)}
-                      draggable={!ended}
-                      onDragStart={(e) => {
-                        // Drag the whole selection if this card is part of it,
-                        // otherwise drag just this card.
-                        const ids =
-                          selResources.has(c.id) && selResources.size > 0
-                            ? [...selResources]
-                            : [c.id];
-                        setMakeDragPayload(e, ids);
-                      }}
-                    />
-                  ))}
-                </HandFan>
-              )}
-            </Panel>
-
-            <Panel title="Workbench" accent="hand">
-              <div className="flex h-full flex-col justify-between gap-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <ActionBtn onClick={() => setCollecting(true)} disabled={ended} tone="gold">
-                    Collect
-                  </ActionBtn>
-                  <ActionBtn
-                    onClick={() => setDrawingSlot(true)}
-                    disabled={ended || state.slotCardSupply.length === 0}
-                  >
-                    Draw slot
-                  </ActionBtn>
-                </div>
-
-                <div className="rounded-md border border-[var(--rule)] bg-[var(--panel)] px-3 py-2 text-[12px] text-[var(--ink-muted)]">
-                  <b>Collect</b> resources across the five piles (free up to your
-                  Supply Room budget, then paid overflow). Keep a mash bill to rest
-                  a barrel{rickhouseFull ? " — rickhouse is full" : ""}, select its
-                  recipe resources in hand, then <b>Build</b> to start aging. Open a
-                  brand line, then sell aged barrels into a chosen slot.
-                </div>
-              </div>
-            </Panel>
-          </div>
-
-          {/* ── Sell placement overlay ──────────────────────── */}
-          {sellBarrel && !ended ? (
-            <SellModal
-              barrel={sellBarrel}
-              lines={player.brandLines}
-              lineId={sellLineId}
-              demand={state.demand}
-              onLine={setSellLineId}
-              onConfirm={confirmSell}
-              onCancel={() => setSellBarrel(null)}
-            />
-          ) : null}
-
-          {/* ── Collect modal ────────────────────────────────── */}
-          {collecting && !ended ? (
-            <CollectModal
-              state={state}
-              budget={collectBudget}
-              capital={player.capital}
-              overflowSoFar={player.overflowDrawsThisRound}
-              onConfirm={(draws) => {
-                if (dispatch({ type: "COLLECT", draws })) setCollecting(false);
-              }}
-              onCancel={() => setCollecting(false)}
-            />
-          ) : null}
-
-          {/* ── Slot-card draw picker ────────────────────────── */}
-          {drawingSlot && !ended ? (
-            <SlotDrawModal
-              supply={state.slotCardSupply}
-              onPick={(slotDefId) => {
-                if (dispatch({ type: "DRAW_SLOT_CARD", slotDefId })) {
-                  setDrawingSlot(false);
-                }
-              }}
-              onCancel={() => setDrawingSlot(false)}
-            />
-          ) : null}
-
-          {/* ── Final standings overlay ─────────────────────── */}
-          {ended ? (
-            <div className="absolute inset-0 z-30 grid place-items-center bg-[#0c0805]/80 backdrop-blur-sm">
-              <div className="bb-panel bb-panel--stage w-[560px] p-6">
-                <h2 className="font-display text-[28px] font-bold text-[var(--gold)]">
-                  Final standings
-                </h2>
-                <ol className="mt-4 space-y-2">
-                  {ranked.map((r, i) => (
-                    <li
-                      key={r.playerId}
-                      className="flex items-center justify-between rounded-md border border-[var(--rule)] bg-[var(--panel)] px-3 py-2"
-                    >
-                      <span className="font-display text-[18px] font-semibold text-[var(--ink)]">
-                        {i + 1}. {r.name}
-                      </span>
-                      <span className="text-[14px] text-[var(--ink-muted)]">
-                        <span className="font-bold text-[var(--gold)]">{r.total}</span>{" "}
-                        pts · {r.capital}฿ + {r.prestigeAsCapital} rep · {r.bourbonsSold}{" "}
-                        sold
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-                <button
-                  type="button"
-                  onClick={newGame}
-                  className="mt-5 w-full rounded-md border border-[var(--gold)] bg-gradient-to-b from-[#f0c970] to-[#c69d52] py-2.5 font-mono text-[13px] font-bold uppercase tracking-[.14em] text-[#1a120b]"
-                >
-                  New game
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </ScalingHost>
-    </div>
-  );
-}
-
-// ── Top bar (native, outside ScalingHost) ────────────────────────────
-
-function TopBar({
-  state,
-  player,
-  ended,
-  seed,
-  numPlayers,
-  distilleryId,
-  onSeed,
-  onNumPlayers,
-  onDistillery,
-  onNewGame,
-}: {
-  state: GameState;
-  player: Player;
-  ended: boolean;
-  seed: number;
-  numPlayers: number;
-  distilleryId: string;
-  onSeed: (n: number) => void;
-  onNumPlayers: (n: number) => void;
-  onDistillery: (id: string) => void;
-  onNewGame: () => void;
-}) {
-  return (
-    <header
-      className="relative z-10 grid shrink-0 items-center gap-3 overflow-hidden border-b border-[#3b2818] px-[14px] py-[10px]"
-      style={{
-        gridTemplateColumns: "auto 1fr auto",
-        background: "linear-gradient(180deg, #15100a 0%, #0c0805 100%)",
-        boxShadow: "0 1px 0 rgba(240,201,112,.10) inset, 0 4px 14px rgba(0,0,0,.5)",
-      }}
-    >
-      {/* brand block — links back to the menu */}
-      <Link href="/" className="flex items-center gap-3" title="Back to menu">
-        <div
-          aria-hidden
-          className="grid h-[38px] w-[38px] place-items-center rounded-md font-display font-bold leading-none"
-          style={{
-            fontSize: 22,
-            background:
-              "radial-gradient(circle at 35% 30%, #f0c970, #b06a38 70%, #2a1a10)",
-            color: "#1a120b",
-            boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,.25), 0 2px 6px rgba(0,0,0,.6)",
-          }}
-        >
-          B
-        </div>
-        <div className="flex flex-col leading-tight">
-          <span
-            className="font-display font-semibold tracking-[.01em] text-[#f0e3c8]"
-            style={{ fontSize: 22 }}
-          >
-            Bourbonomics
-          </span>
-          <span className="label-sm" style={{ color: "var(--brass)", fontSize: 9.5 }}>
-            ← Menu · Round {state.roundNumber}
-          </span>
-        </div>
-      </Link>
-
-      {/* center: stat chips */}
-      <div className="flex min-w-0 items-center justify-center gap-2">
-        <StatChip label="Turn" value={ended ? "—" : player.name} />
-        <DemandMeter demand={state.demand} />
-        <StatChip
-          label="Actions"
-          value={ended ? "—" : String(player.actionsRemaining)}
-        />
-      </div>
-
-      {/* right: clock + dev controls */}
-      <div className="flex items-center gap-2">
-        <BillsChip
-          remaining={state.mashBillSupply.length}
-          final={state.finalRound != null}
-        />
-        <div className="flex items-center gap-1.5">
-          <label
-            className="label-sm"
-            style={{ color: "var(--mute)", fontSize: 9.5 }}
-          >
-            seed
-          </label>
-          <input
-            type="number"
-            value={seed}
-            onChange={(e) => onSeed(Number(e.target.value))}
-            className="w-16 rounded border border-[var(--rule)] bg-[var(--panel-2)] px-2 py-1 text-[12px] text-[var(--ink)]"
-          />
-          <label
-            className="label-sm"
-            style={{ color: "var(--mute)", fontSize: 9.5 }}
-          >
-            players
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={4}
-            value={numPlayers}
-            onChange={(e) => onNumPlayers(Number(e.target.value))}
-            className="w-12 rounded border border-[var(--rule)] bg-[var(--panel-2)] px-2 py-1 text-[12px] text-[var(--ink)]"
-          />
-          <label
-            className="label-sm"
-            style={{ color: "var(--mute)", fontSize: 9.5 }}
-          >
-            distillery
-          </label>
-          <select
-            value={distilleryId}
-            onChange={(e) => onDistillery(e.target.value)}
-            title="Your distillery (applies on New game)"
-            className="rounded border border-[var(--rule)] bg-[var(--panel-2)] px-2 py-1 text-[12px] text-[var(--ink)]"
-          >
-            {DISTILLERY_ROSTER.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={onNewGame}
-            className="rounded-[7px] border border-[var(--gold)] bg-gradient-to-b from-[#f0c970] to-[#c69d52] px-3 py-1.5 font-mono font-semibold uppercase tracking-[.16em] text-[#1a120b]"
-            style={{ fontSize: 10.5 }}
-          >
-            New game
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function StatChip({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      className="flex items-center gap-2 rounded-md border border-[var(--rule)] px-3 py-1.5"
-      style={{
-        background: "linear-gradient(180deg, rgba(34,23,16,.9), rgba(22,15,10,.9))",
-      }}
-    >
-      <span className="label-sm" style={{ color: "var(--mute)", fontSize: 9.5 }}>
-        {label}
-      </span>
-      <span
-        className="font-display font-bold leading-none text-[var(--ink)]"
-        style={{ fontSize: 18 }}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function DemandMeter({ demand }: { demand: number }) {
-  const pct = Math.round((demand / CONFIG.DEMAND_CAP) * 100);
-  return (
-    <div
-      title={`Demand ${demand} / ${CONFIG.DEMAND_CAP}`}
-      data-bb-zone="demand"
-      className="flex items-center gap-2 rounded-md border border-[var(--copper)] px-3 py-1.5"
-      style={{
-        background: "linear-gradient(180deg, rgba(176,106,56,.16), rgba(120,40,32,.10))",
-      }}
-    >
-      <span className="label-sm" style={{ color: "var(--amber-2)", fontSize: 9.5 }}>
-        Demand
-      </span>
-      <div className="h-2 w-24 overflow-hidden rounded-full bg-[#1a0f06]">
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${pct}%`,
-            background: "linear-gradient(90deg, #b06a38, #f0c970)",
-          }}
-        />
-      </div>
-      <span
-        className="font-display font-bold leading-none text-[var(--gold)]"
-        style={{ fontSize: 18 }}
-      >
-        {demand}
-      </span>
-    </div>
-  );
-}
-
-function BillsChip({ remaining, final }: { remaining: number; final: boolean }) {
-  return (
-    <div
-      title="Mash bill supply remaining (the clock)"
-      className={[
-        "flex items-center gap-2 rounded-md border px-3 py-1.5",
-        final ? "border-[var(--gold)]" : "border-[var(--brass)]",
-      ].join(" ")}
-      style={{
-        background: "linear-gradient(180deg, rgba(240,201,112,.15), rgba(176,106,56,.08))",
-        boxShadow: "inset 0 1px 0 rgba(240,201,112,.35)",
-      }}
-    >
-      <span className="label-sm" style={{ color: "var(--gold)", fontSize: 9.5 }}>
-        Bills
-      </span>
-      <span
-        className="font-display font-bold leading-none text-[var(--gold)]"
-        style={{ fontSize: 22 }}
-      >
-        {remaining}
-      </span>
-      {final ? (
-        <span
-          className="rounded bg-amber-500 px-1 py-px font-mono font-bold uppercase tracking-[.10em] text-slate-950"
-          style={{ fontSize: 11 }}
-        >
-          final
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-// ── tiles ─────────────────────────────────────────────────────────────
-
-function SlotCell({
-  slot,
-  spec,
-  index,
-  isCeiling,
-}: {
-  slot: Bourbon | null;
-  spec: SlotSpec;
-  index: number;
-  isCeiling: boolean;
-}) {
-  return (
-    <div
-      className="flex h-[76px] w-[92px] flex-col justify-between rounded-md border p-1.5"
-      style={
-        slot
-          ? {
-              borderColor: isCeiling ? "var(--gold)" : "rgba(198,157,82,.6)",
-              background: "linear-gradient(180deg, rgba(58,40,24,.7), rgba(26,18,11,.9))",
-              boxShadow: isCeiling ? "0 0 0 1px rgba(240,201,112,.4)" : "none",
-            }
-          : {
-              borderColor: "rgba(198,157,82,.25)",
-              borderStyle: "dashed",
-              background: "linear-gradient(180deg, rgba(28,18,11,.7), rgba(16,11,7,.9))",
-            }
+  // ---- play: build / stage ----
+  const autoStage = (b: Bourbon) => {
+    for (const k of PILE_ORDER) {
+      const need = (b.recipe[k] ?? 0) - b.staged.filter((c) => c.kind === k).length;
+      if (need > 0) {
+        const card = me.hand.find((c) => c.kind === k);
+        if (card) {
+          dispatch({ type: "STAGE", barrelId: b.id, resourceCardId: card.id });
+          return;
+        }
       }
+    }
+    flash("⚠ No matching card in the Warehouse to stage");
+  };
+  const tryBuild = (b: Bourbon) => {
+    const picked: string[] = [];
+    const pool = [...me.hand];
+    for (const k of PILE_ORDER) {
+      let need = (b.recipe[k] ?? 0) - b.staged.filter((c) => c.kind === k).length;
+      while (need > 0) {
+        const idx = pool.findIndex((c) => c.kind === k);
+        if (idx < 0) {
+          flash("⚠ Missing resources to build — collect or stage more");
+          return;
+        }
+        picked.push(pool[idx]!.id);
+        pool.splice(idx, 1);
+        need--;
+      }
+    }
+    if (dispatch({ type: "MAKE_BOURBON", barrelId: b.id, resourceCardIds: picked })) flash(`Built ${b.name} — now aging`);
+  };
+
+  // ── view-model ──
+  const phaseDefs = [
+    { name: "Demand", done: phaseStage !== "demand", active: phaseStage === "demand" },
+    { name: "Collect", done: phaseStage === "play", active: phaseStage === "collect" },
+    { name: "Play", done: false, active: phaseStage === "play" },
+  ];
+
+  const order = (
+    collect
+      ? collect.order
+      : game.players.map((_, i) => i).sort((a, b) => game.players[b]!.capital - game.players[a]!.capital || a - b)
+  ).map((pi, idx) => {
+    const pl = game.players[pi]!;
+    let status: "done" | "now" | "next" = "next";
+    if (collect) status = idx < collect.pos ? "done" : idx === collect.pos ? "now" : "next";
+    return { name: pl.name, cap: pl.capital, rep: reputationOf(pl), isBot: pl.isBot, color: PLAYER_COLORS[pi % PLAYER_COLORS.length]!, status };
+  });
+
+  const restingBarrels = me.rickhouse.filter((b) => !b.built);
+  const agingBarrels = me.rickhouse.filter((b) => b.built);
+  const openCount = Math.max(0, rickCap - me.rickhouse.length);
+  const barrelSlots = rickCap;
+
+  const office = fnMash(me);
+  const billOffer = game.mashBillSupply.slice(0, Math.min(office, game.mashBillSupply.length));
+
+  const poolLeft = game.demandDeck.length + game.demandDiscard.length;
+
+  // sell routing target
+  const sellBourbon = p.sellId ? me.rickhouse.find((b) => b.id === p.sellId) ?? null : null;
+
+  if (game.phase === "ended") return <EndScreen game={game} onNew={p.onNew} />;
+
+  return (
+    <div
+      ref={rootRef}
+      className="bb-noise"
+      style={{
+        position: "relative",
+        width: 1920,
+        height: 1080,
+        padding: "18px 28px",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: "Inter, system-ui, sans-serif",
+        color: C.ink,
+        background:
+          "radial-gradient(140% 90% at 50% 110%, rgba(213,150,80,.08), transparent 60%), radial-gradient(80% 60% at 50% -10%, rgba(213,150,80,.04), transparent 50%), #0c0805",
+      }}
     >
-      {slot ? (
-        <>
-          <div className="flex items-start gap-1">
-            <span
-              className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
-              style={{
-                background: `var(--t-${slot.quality})`,
-                boxShadow: `0 0 5px var(--t-${slot.quality})`,
-              }}
-            />
-            <span
-              className={`line-clamp-2 text-[11px] font-semibold leading-tight ${qualityInk[slot.quality]}`}
-            >
-              {slot.name}
-            </span>
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        {/* ===== HEADER ===== */}
+        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "2px 2px 11px", flex: "0 0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 10, background: "linear-gradient(160deg,#e9b46e,#b06a38)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 6px 16px rgba(176,106,56,.4)" }}>
+              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: "#2a1408" }}>B</span>
+            </div>
+            <div>
+              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 28, lineHeight: 1 }}>Bourbonomics</div>
+              <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".22em", color: C.muted, marginTop: 3 }}>
+                ROUND {game.roundNumber}{game.finalRound ? " · FINAL" : ""} · {me.name}&apos;s turn{me.isBot ? " · AI" : ""}
+              </div>
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[10px] text-[var(--brass)]">age {slot.age}</span>
-            <SlotReward spec={spec} age={slot.age} />
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {phaseDefs.map((ph, i) => (
+              <div key={ph.name} style={{ display: "flex", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 16px", borderRadius: 10, ...(ph.active ? { background: "linear-gradient(180deg,#2e1f15,#1a120b)", border: `1px solid ${C.brass}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.2)", color: C.ink } : { background: "#150e08", border: `1px solid ${C.border2}`, color: ph.done ? C.text2 : C.muted }) }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: ph.active ? C.gold : ph.done ? C.green : C.faint, animation: ph.active ? "bb-pip 2.2s ease-in-out infinite" : undefined }} />
+                  <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase" }}>{ph.name}</span>
+                  {ph.done && <span style={{ fontFamily: MONO, fontSize: 11, color: C.green }}>✓</span>}
+                </div>
+                {i < 2 && <span style={{ width: 26, height: 1, background: C.border, margin: "0 2px" }} />}
+              </div>
+            ))}
           </div>
-        </>
-      ) : (
-        <>
-          <span className="font-mono text-[10px] text-[var(--whisper)]">
-            slot {index + 1}
-            {spec.optional ? " · opt" : ""}
-          </span>
-          <SlotReward spec={spec} />
-        </>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button className="bb-btn bb-sec" onClick={p.onNew} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted, background: "#150e08", border: `1px solid ${C.border}`, padding: "7px 12px", borderRadius: 10, cursor: "pointer" }}>New</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 13px", borderRadius: 10, background: "linear-gradient(180deg,#1a1308,#140e06)", border: `1px solid ${C.border}` }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", color: C.muted }}>PRESTIGE</span>
+              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.green }}>{reputationOf(me)}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>· {me.keptCards.length} cards</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 10, background: "linear-gradient(180deg,#221710,#1a120b)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.14)" }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".14em", color: C.muted }}>CAPITAL</span>
+              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.gold }}>{me.capital}</span>
+            </div>
+          </div>
+        </header>
+
+        {/* ===== ACTION BAND ===== */}
+        <ActionBand
+          board={p}
+          me={me}
+          supplyCap={supplyCap}
+          warehouseCap={warehouseCap}
+          heldTotal={heldTotal}
+          whFull={whFull}
+          collect={collect}
+          phaseStage={phaseStage}
+          botTurn={botTurn}
+          onReroll={onReroll}
+          claimDie={claimDie}
+          onTT={() => p.setTtFace(true)}
+          onPass={onPass}
+        />
+
+        {/* ===== BODY ===== */}
+        <div style={{ display: "grid", gridTemplateColumns: "264px 1fr 440px", gap: 14, alignItems: "stretch", flex: 1, minHeight: 0 }}>
+          {/* LEFT RAIL */}
+          <aside style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
+            <RailCard title="Standings" right="CAP · ★PRESTIGE">
+              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                {order.map((o, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 9, ...(o.status === "now" ? { background: "linear-gradient(90deg,rgba(213,150,80,.16),transparent)", border: `1px solid ${C.brass}` } : { background: "#150e08", border: `1px solid ${C.border2}` }) }}>
+                    <span style={{ width: 9, height: 9, borderRadius: "50%", background: o.color, flex: "0 0 auto", boxShadow: o.status === "now" ? "0 0 0 3px rgba(213,150,80,.2)" : undefined }} />
+                    <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 13, color: o.status === "now" ? C.ink : C.text2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}{o.isBot ? "" : ""}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Capital">
+                      <span style={{ color: C.gold, fontWeight: 700 }}>{o.cap}</span>
+                      <span style={{ color: C.muted, fontSize: 9 }}>c</span>
+                    </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Prestige">
+                      <span style={{ color: C.green, fontSize: 11 }}>★</span>
+                      <span style={{ color: C.green, fontWeight: 700 }}>{o.rep}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </RailCard>
+
+            <RailCard title="The Clock">
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 8 }}>
+                <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 30, color: C.ink }}>{poolLeft}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.muted }}>/ {p.initialPool} demand cards left</span>
+              </div>
+              <div style={{ height: 8, borderRadius: 5, background: "#2a1d12", overflow: "hidden", border: `1px solid ${C.border}` }}>
+                <div style={{ width: `${Math.round((poolLeft / p.initialPool) * 100)}%`, height: "100%", background: "linear-gradient(90deg,#6db28c,#b9a684)" }} />
+              </div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>Completed orders leave the deck. Game ends when it runs dry.</div>
+            </RailCard>
+
+            <RailCard title="Department Roster">
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {ROSTER_ORDER.map((id) => {
+                  const d = me.distillery.departments.find((x) => x.id === id)!;
+                  const color = DEPT_META[id].color;
+                  return (
+                    <div key={id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 3, background: color, flex: "0 0 auto" }} />
+                      <span style={{ flex: 1, fontSize: 12, color: C.text2 }}>{d.name}</span>
+                      {d.chosenUltimate && d.chosenUltimate !== "ph" && (
+                        <span style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".06em", textTransform: "uppercase", color: "#2a1408", background: color, padding: "1px 5px", borderRadius: 3 }}>ULT</span>
+                      )}
+                      <div style={{ display: "flex", gap: 2 }}>
+                        {Array.from({ length: d.maxLevel + 1 }).map((_, i) => (
+                          <span key={i} style={{ width: 9, height: 5, borderRadius: 2, background: i <= d.level ? color : C.border2 }} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </RailCard>
+
+            <section style={{ borderRadius: 14, background: "linear-gradient(180deg,#221710,#150e08)", border: `1px solid ${C.border}`, padding: 13, marginTop: "auto" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: C.brass }}>Next Improvement</span>
+                <div style={{ flex: 1 }} />
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.text2 }}>step {me.improvements + 1}</span>
+                <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.gold }}>{improvementCost(me.improvements, fnCounting(me))}</span>
+              </div>
+              <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, marginTop: 6 }}>One shared, rising price for every room. Each improvement raises the next.</div>
+            </section>
+          </aside>
+
+          {/* DISTILLERY */}
+          <main style={{ position: "relative", borderRadius: 16, background: "linear-gradient(180deg,#1c130c 0%,#130c06 100%)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 18px 50px rgba(0,0,0,.45)", padding: 13, display: "flex", flexDirection: "column", gap: 11, minHeight: 0, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flex: "0 0 auto" }}>
+              <span style={{ fontFamily: MONO, fontSize: 13, letterSpacing: ".24em", textTransform: "uppercase", color: C.brass }}>Your Distillery</span>
+              <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 15, color: C.muted }}>{me.distillery.name}</span>
+              <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg,#3b2818,transparent)" }} />
+              <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".1em" }}>
+                <span style={{ color: C.gold }}>{agingBarrels.length}</span>
+                <span style={{ color: C.muted }}>/{barrelSlots} barrels aging</span>
+              </span>
+            </div>
+
+            {/* RICKHOUSE ROOM */}
+            <div style={{ position: "relative", flex: 1.1, minHeight: 0, borderRadius: 13, padding: "13px 16px 14px", border: `1px solid ${C.border}`, background: "radial-gradient(120% 80% at 50% 0%, rgba(240,201,112,.1), transparent 55%), radial-gradient(80% 90% at 50% 120%, rgba(176,106,56,.12), transparent 65%), linear-gradient(180deg,#1e140c 0%,#150e08 100%)", boxShadow: "inset 0 1px 0 rgba(240,201,112,.12), inset 0 -1px 0 rgba(0,0,0,.55)", overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 11 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 12px", borderRadius: 7, background: "linear-gradient(180deg,#f0c970,#b06a38)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.35), 0 2px 5px rgba(0,0,0,.4)" }}>
+                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: "#2a1a10" }}>The Rickhouse</span>
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "#cf9a5e" }}>Aging</span>
+                <span style={{ fontSize: 12, color: C.muted }}>{rickCap} barrel slots · age freely · sell at {CONFIG.MIN_SELL_AGE}+</span>
+                <div style={{ flex: 1 }} />
+                <Pips dept="rickhouse" me={me} />
+                <ImproveBtn id="rickhouse" board={p} me={me} />
+              </div>
+              <div style={{ height: 9, borderRadius: 4, marginBottom: 13, background: "repeating-linear-gradient(90deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.1) 2px, rgba(0,0,0,.1) 3px), linear-gradient(180deg,#2a1a10,#1c120a)", boxShadow: "inset 0 1px 0 rgba(240,201,112,.45), inset 0 -1px 0 rgba(0,0,0,.6), 0 0 0 1px rgba(198,157,82,.35)" }} />
+
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(${barrelSlots}, minmax(0,1fr))`, gap: 14, alignItems: "start" }}>
+                {agingBarrels.map((b) => {
+                  const sellable = b.age >= CONFIG.MIN_SELL_AGE && b.salesRemaining > 0;
+                  const trackVal = barrelValue(b.quality, b.age);
+                  // The bourbon sets the base; a matched demand order adds a bonus on top.
+                  const baseValue = trackVal + b.saleBonus + fnDist(me);
+                  const qc = QUALITY_CHROME[b.quality] ?? QUALITY_CHROME.common!;
+                  const capYear = capAge(b.quality);
+                  const capVal = barrelValue(b.quality, capYear);
+                  const atCap = b.age >= capYear;
+                  return (
+                    <div key={b.id} data-tut="aging" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <button
+                        className="bb-btn"
+                        onClick={() => (phaseStage === "play" && sellable && !botTurn ? p.setSellId(b.id) : botTurn ? undefined : flash(sellable ? "Sell in the Play phase" : `Ages until year ${CONFIG.MIN_SELL_AGE}`))}
+                        style={{ textAlign: "left", position: "relative", borderRadius: 13, padding: "10px 12px 11px", border: `1px solid ${qc.border}`, background: qc.bg, boxShadow: qc.glow, cursor: phaseStage === "play" && sellable ? "pointer" : "default", overflow: "hidden" }}
+                      >
+                        {/* faint bottle-glass sheen */}
+                        <span style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,.05) 50%, transparent 60%)", pointerEvents: "none" }} />
+                        {/* TOP: sales-left bibs + quality foil */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+                          <div style={{ display: "flex", gap: 4, flex: 1, flexWrap: "wrap" }} title={`${b.salesRemaining} of ${b.batchQty} sales left`}>
+                            {Array.from({ length: b.batchQty }).map((_, i) => {
+                              const left = i < b.salesRemaining;
+                              return (
+                                <span key={i} style={{ width: 14, height: 14, borderRadius: 999, ...(left ? { background: qc.foil, boxShadow: `inset 0 1px 0 rgba(255,255,255,.5), 0 0 6px ${qc.ink}66`, border: `1px solid ${qc.ink}` } : { background: "rgba(20,14,8,.6)", border: "1px solid rgba(110,80,50,.5)" }) }} />
+                              );
+                            })}
+                          </div>
+                          <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#2a1408", background: qc.foil, padding: "3px 8px", borderRadius: 5, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{qc.label}</span>
+                        </div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: qc.ink }}>{STYLE_LABEL[b.styleTag]} Bourbon</div>
+                        <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fbeccb", lineHeight: 1.05, marginTop: 1 }}>{b.name}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 9, paddingTop: 9, borderTop: `1px dotted ${qc.ink}55` }}>
+                          <span style={{ position: "relative", width: 46, height: 46, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%)", display: "grid", placeItems: "center", animation: "bb-ember 3.2s ease-in-out infinite", flex: "0 0 auto" }}>
+                            <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#2a1a10", lineHeight: 1 }}>{b.age}</span>
+                            <span style={{ position: "absolute", bottom: 5, fontFamily: MONO, fontSize: 7, fontWeight: 700, color: "#2a1a10", letterSpacing: ".16em" }}>YR</span>
+                          </span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, lineHeight: 1 }}>{sellable ? `sell ≈ ${baseValue}+` : "aging in oak"}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".04em", color: C.muted, marginTop: 3 }}>
+                              value {trackVal}{b.saleBonus > 0 ? ` + ${b.saleBonus} premium` : ""} <span style={{ color: ZONE_META[zone].color }}>+ demand bonus</span>
+                            </div>
+                          </div>
+                        </div>
+                        {/* age-track value + demand-bonus note */}
+                        <div style={{ marginTop: 8, padding: "5px 7px", borderRadius: 7, background: "rgba(12,8,5,.45)", border: `1px solid ${qc.ink}33` }}>
+                          <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".02em", color: C.text2, lineHeight: 1.5 }}>
+                            track value <span style={{ color: qc.ink }}>{trackVal}</span> · caps <span style={{ color: qc.ink }}>{capVal}</span> @ yr {capYear}{atCap ? " ✓" : ""}
+                          </div>
+                          <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".02em", color: C.muted, lineHeight: 1.5 }}>
+                            + the matched order's bonus (bigger in a hotter <span style={{ color: ZONE_META[zone].color }}>{ZONE_META[zone].label}</span> market)
+                          </div>
+                        </div>
+                      </button>
+                      <div style={{ textAlign: "center", padding: 5, borderRadius: 7, border: `1px solid ${qc.ink}40`, background: `${qc.ink}14`, fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: qc.ink }}>
+                        {sellable ? (phaseStage === "play" ? "Tap to sell" : "Ready to sell") : `Aging · Year ${b.age}`}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {restingBarrels.map((b) => {
+                  const ready = b.staged.length >= recipeSize(b.recipe);
+                  const canBuild = phaseStage === "play" && !botTurn;
+                  // Build the slot row PER GRAIN so a filled pip reflects the kind
+                  // actually staged (not just a positional count).
+                  const slotList: { kind: ResourceKind; filled: boolean }[] = [];
+                  for (const k of PILE_ORDER) {
+                    const have = b.staged.filter((c) => c.kind === k).length;
+                    for (let i = 0; i < (b.recipe[k] ?? 0); i++) slotList.push({ kind: k, filled: i < have });
+                  }
+                  // Which grains the recipe still needs, and whether the hand has one.
+                  const needKinds = PILE_ORDER.filter((k) => (b.recipe[k] ?? 0) - b.staged.filter((c) => c.kind === k).length > 0);
+                  const stageable = needKinds.find((k) => me.hand.some((c) => c.kind === k));
+                  return (
+                    <div key={b.id} data-tut="resting" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ position: "relative", borderRadius: 12, padding: "11px 12px 12px", border: "1px solid #4a5a3a", background: "linear-gradient(180deg, rgba(50,60,40,.4) 0%, rgba(20,18,11,.96) 60%)", boxShadow: "inset 0 1px 0 rgba(180,210,150,.14), 0 10px 22px rgba(0,0,0,.5)", overflow: "hidden" }}>
+                        <span style={{ position: "absolute", top: 9, right: 9, fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: "#2a1408", background: "linear-gradient(180deg,#9fc27a,#6d8f4f)", padding: "2px 6px", borderRadius: 4 }}>{STYLE_LABEL[b.styleTag]}</span>
+                        <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: "#9fc27a" }}>Resting Bill</div>
+                        <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fbeccb", lineHeight: 1.05, marginTop: 1 }}>{b.name}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11, flexWrap: "wrap" }}>
+                          {slotList.map(({ kind: k, filled }, i) => (
+                            <span key={i} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, width: 44, height: 46, borderRadius: 10, ...(filled ? { background: `linear-gradient(180deg,${FACE[k].color}26,#1a130b)`, border: `1.5px solid ${FACE[k].color}` } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }}>
+                              <span style={{ fontSize: 20, lineHeight: 1, color: filled ? FACE[k].color : C.faint, textShadow: filled ? `0 0 8px ${FACE[k].color}55` : undefined }}>{SUB[k].glyph}</span>
+                              <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 8, letterSpacing: ".04em", color: filled ? FACE[k].color : C.faint }}>{FACE[k].mono}</span>
+                            </span>
+                          ))}
+                          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: "#9fc27a", marginLeft: 4 }}>{b.staged.length}/{recipeSize(b.recipe)}</span>
+                        </div>
+                        <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4, marginTop: 8 }}>Staged cards free Warehouse cap.{hasUlt(me, "warehouse", "longCellar") ? " (Long Cellar: swappable)" : " They lock here."}</div>
+                      </div>
+                      {(() => {
+                        const enabled = canBuild && (ready || !!stageable);
+                        const label = ready ? "✓ Build now" : stageable ? `+ Stage ${FACE[stageable].label}` : `Needs ${needKinds.map((k) => FACE[k].mono).join(" ")}`;
+                        const tone = ready
+                          ? { border: "1px solid #6d8f4f", color: "#9fc27a", background: "rgba(80,110,60,.16)" }
+                          : stageable
+                            ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710" }
+                            : { border: `1px solid ${C.border2}`, color: C.muted, background: "#150e08" };
+                        return (
+                          <button
+                            className="bb-btn"
+                            disabled={!enabled}
+                            onClick={() => (ready ? tryBuild(b) : stageable ? autoStage(b) : flash(`"${b.name}" needs ${needKinds.map((k) => FACE[k].label).join(", ")} — collect more`))}
+                            style={{ padding: 7, borderRadius: 8, fontFamily: MONO, fontWeight: 600, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", cursor: enabled ? "pointer" : "default", ...tone, opacity: enabled ? 1 : 0.7 }}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })()}
+                    </div>
+                  );
+                })}
+
+                {Array.from({ length: openCount }).map((_, i) => (
+                  <div key={`open${i}`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ position: "relative", minHeight: 150, borderRadius: 12, border: "1.5px dashed rgba(198,157,82,.35)", background: "radial-gradient(70% 60% at 50% 30%, rgba(240,201,112,.05), transparent 70%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 16, animation: "bb-shelf 3.6s ease-in-out infinite" }}>
+                      <span style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${C.faint}`, display: "grid", placeItems: "center", fontFamily: SERIF, fontSize: 18, color: C.muted }}>+</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "#6f5c45", textAlign: "center", lineHeight: 1.6 }}>Open<br />Barrel Slot</span>
+                    </div>
+                    <div style={{ textAlign: "center", padding: 5, borderRadius: 7, border: "1px dashed rgba(110,80,50,.45)", background: "rgba(20,14,8,.5)", fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted }}>Draw a mash bill</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* SIX-ROOM GRID */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gridTemplateRows: "1fr 1fr", gap: 11, flex: 1, minHeight: 0 }}>
+              <Room id="supply" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(213,150,80,.08), transparent 65%), linear-gradient(180deg,#1a120b,#130c06)">
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {Array.from({ length: supplyCap }).map((_, i) => (
+                    <span key={i} style={{ width: 24, height: 24, borderRadius: 6, background: "linear-gradient(180deg,#2c1f13,#1a130b)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.15)" }} />
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, color: C.text2, marginTop: 8 }}>Rolls <b style={{ color: C.gold }}>{supplyCap} dice</b> into the draft. {fnRerolls(me)} reroll{fnRerolls(me) > 1 ? "s" : ""}/turn.</div>
+              </Room>
+
+              <Room id="warehouse" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(109,178,140,.08), transparent 65%), linear-gradient(180deg,#131a13,#0f130c)"
+                headerRight={
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: "#11100a", border: `1px solid ${whFull ? C.red : C.border}` }}>
+                    <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: whFull ? C.red : C.green }}>{heldTotal}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>/{warehouseCap}</span>
+                  </div>
+                }>
+                <div ref={warehouseRef} style={{ display: "flex", gap: 6, flexWrap: "wrap", alignContent: "center" }}>
+                  {me.hand.slice(0, warehouseCap).map((card) => (
+                    <ResMiniCard key={card.id} kind={card.kind} quality={card.quality} onClick={() => p.onInspect({ kind: "resource", card })} />
+                  ))}
+                  {optimisticClaims.slice(0, Math.max(0, warehouseCap - me.hand.length)).map((kind, i) => (
+                    <ResMiniCard key={`pend${i}`} kind={kind} pending onClick={() => p.onInspect({ kind: "pending", k: kind })} />
+                  ))}
+                  {Array.from({ length: Math.max(0, warehouseCap - heldTotal) }).map((_, i) => (
+                    <div key={`g${i}`} style={{ width: 50, height: 70, borderRadius: 8, border: "1.5px dashed rgba(110,80,50,.4)", background: "rgba(20,14,8,.4)" }} />
+                  ))}
+                </div>
+                {hasUlt(me, "warehouse", "qualitySort") && phaseStage === "play" && (
+                  <button className="bb-btn" disabled={me.qualitySortUsedThisRound} onClick={() => p.setQsOpen(true)} style={{ marginTop: 8, padding: "5px 10px", borderRadius: 7, fontFamily: MONO, fontWeight: 600, fontSize: 9, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.green}`, background: "rgba(109,178,140,.14)", color: C.green, cursor: me.qualitySortUsedThisRound ? "default" : "pointer", opacity: me.qualitySortUsedThisRound ? 0.5 : 1 }}>
+                    ✦ Quality Sort {me.qualitySortUsedThisRound ? "· used" : "· free draw"}
+                  </button>
+                )}
+              </Room>
+
+              <Room id="mashFloor" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(125,143,212,.08), transparent 65%), linear-gradient(180deg,#14141f,#0e0d14)">
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ position: "relative", width: 56, height: 74, flex: "0 0 auto" }}>
+                    <span style={{ position: "absolute", inset: 0, borderRadius: 8, background: "linear-gradient(180deg,#2a2f44,#16161f)", border: "1px solid #3a3f55", transform: "rotate(-7deg)" }} />
+                    <span style={{ position: "absolute", inset: 0, borderRadius: 8, background: "linear-gradient(180deg,#2f3550,#1a1a24)", border: "1px solid #444a64", transform: "rotate(3deg)", display: "grid", placeItems: "center", fontFamily: MONO, fontSize: 9, letterSpacing: ".1em", color: "#9aa6d4" }}>BILLS</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.45 }}>Draws <b style={{ color: C.gold }}>{fnMash(me)} bills</b> each turn to choose a recipe.</div>
+                </div>
+              </Room>
+
+              <Room id="marketing" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(176,143,216,.1), transparent 65%), linear-gradient(180deg,#1a1220,#120c10)" borderTop="#2e2236">
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 9, background: "#160f15", border: "1px solid #3b2b46" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 13, color: "#b08fd8" }}>◄</span>
+                    <span style={{ flex: 1, textAlign: "center", fontFamily: MONO, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: C.text2 }}>shape the market</span>
+                    <span style={{ fontFamily: MONO, fontSize: 13, color: "#b08fd8" }}>►</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.4 }}>Draws <b style={{ color: C.gold }}>{me.distillery.departments.find((d) => d.id === "marketing")!.values[me.distillery.departments.find((d) => d.id === "marketing")!.level]} demand card{(me.distillery.departments.find((d) => d.id === "marketing")!.values[me.distillery.departments.find((d) => d.id === "marketing")!.level] ?? 0) > 1 ? "s" : ""}</b> each Demand Phase.</div>
+                </div>
+              </Room>
+
+              <Room id="distribution" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(95,166,201,.1), transparent 65%), linear-gradient(180deg,#101820,#0c1014)" borderTop="#233038">
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ display: "flex", gap: 4, flex: "0 0 auto" }}>
+                    {[28, 36, 24].map((h, i) => (
+                      <span key={i} style={{ width: 22, height: h, borderRadius: 3, background: "linear-gradient(180deg,#3a2a18,#241810)", border: "1px solid #4a3826", boxShadow: "inset 0 0 0 2px rgba(95,166,201,.18)", alignSelf: i ? "flex-end" : "auto" }} />
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.4 }}>Ships to market · <b style={{ color: C.gold }}>+{fnDist(me)} Capital on every sale</b></div>
+                </div>
+              </Room>
+
+              <Room id="countingHouse" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(201,162,74,.1), transparent 65%), linear-gradient(180deg,#1a160c,#120e07)">
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ display: "flex", flex: "0 0 auto" }}>
+                    {[0, 1, 2].map((i) => (
+                      <span key={i} style={{ width: 20, height: 20, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #f0c970, #b06a38)", boxShadow: "0 2px 5px rgba(0,0,0,.5)", marginLeft: i ? -8 : 0 }} />
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.4 }}>Capital efficiency · <b style={{ color: C.gold }}>−{fnCounting(me)} off every improvement</b></div>
+                </div>
+              </Room>
+            </div>
+          </main>
+
+          {/* MARKET — the persistent demand pile */}
+          <MarketAside game={game} zone={zone} me={me} />
+        </div>
+      </div>
+
+      {/* card-flight layer (die → Warehouse), in canvas coordinate space */}
+      <FlightLayer flights={flights} />
+
+      {/* wild pile chooser */}
+      {p.pendingWild && (
+        <PileChooser title="✦ Wild — draw from which pile?" onPick={choosePile} onCancel={() => { wildSrc.current = null; p.setPendingWild(null); }} />
+      )}
+      {/* Quality Sort pile chooser */}
+      {p.qsOpen && (
+        <PileChooser
+          title="✦ Quality Sort — free draw from which pile?"
+          onPick={(k) => dispatch({ type: "QUALITY_SORT", pile: k })}
+          onCancel={() => p.setQsOpen(false)}
+        />
+      )}
+      {/* Triple Threat face chooser */}
+      {p.ttFace && (
+        <FaceChooser title="⚡ Triple Threat — discard 2 undrafted dice, take which face?" onPick={onTripleThreat} onCancel={() => p.setTtFace(false)} />
+      )}
+
+      {/* sell routing overlay */}
+      {sellBourbon && (
+        <SellOverlay
+          game={game}
+          me={me}
+          bourbon={sellBourbon}
+          zone={zone}
+          onRoute={(demandCardId) => dispatch({ type: "SELL", bourbonId: sellBourbon.id, demandCardId })}
+          onCancel={() => p.setSellId(null)}
+        />
+      )}
+
+      {/* ultimate chooser overlay */}
+      {p.ultDept && (
+        <UltimateOverlay
+          dept={me.distillery.departments.find((d) => d.id === p.ultDept)!}
+          onChoose={(ultimateId, ultimatePile) => dispatch({ type: "IMPROVE", departmentId: p.ultDept!, ultimateId, ultimatePile })}
+          onCancel={() => p.setUltDept(null)}
+        />
+      )}
+
+      {/* toast */}
+      {p.toast && (
+        <div style={{ position: "fixed", left: "50%", bottom: 26, transform: "translateX(-50%)", zIndex: 70, padding: "12px 22px", borderRadius: 11, background: "linear-gradient(180deg,#2e1f15,#1a120b)", border: `1px solid ${C.brass}`, boxShadow: "0 14px 40px rgba(0,0,0,.6)", fontFamily: MONO, fontSize: 12, letterSpacing: ".04em", color: C.ink, animation: "bb-rise .24s ease-out" }}>{p.toast}</div>
       )}
     </div>
   );
 }
 
-// ── Sell placement modal ─────────────────────────────────────────────
-
-/**
- * The player's distillery board: each upgrade station as a row with tier pips,
- * its current effect, and a build button (cost on the cover). Building advances
- * the tier — the rickhouse station is the rickhouse capacity, replacing the old
- * hard cap of 4.
- */
-function DistilleryPanel({
-  stations,
-  signature,
-  capital,
-  disabled,
-  onBuild,
-}: {
-  stations: Station[];
-  signature: string;
-  capital: number;
-  disabled: boolean;
-  onBuild: (stationId: StationId) => void;
+// ── Action band (Demand begin / Collect dice draft / Play actions) ─────
+function ActionBand(props: {
+  board: BoardProps;
+  me: Player;
+  supplyCap: number;
+  warehouseCap: number;
+  heldTotal: number;
+  whFull: boolean;
+  collect: GameState["collect"];
+  phaseStage: GameState["roundPhase"];
+  botTurn: boolean;
+  onReroll: () => void;
+  claimDie: (id: string, face: DieFace, el: HTMLElement) => void;
+  onTT: () => void;
+  onPass: () => void;
 }) {
+  const { board, me, supplyCap, warehouseCap, heldTotal, whFull, collect, phaseStage, botTurn } = props;
+  const game = board.game;
+
+  const hint = botTurn
+    ? `${me.name} (AI) is playing…`
+    : phaseStage === "demand"
+      ? "Demand is laid out — begin the dice draft."
+      : phaseStage === "play"
+        ? "Play phase — build, sell into demand, improve, then end your turn."
+        : "Tap the dice you want — each draws a card into your Warehouse. Reroll the rest, then pass.";
+
+  const canTT = collect && hasUlt(me, "supply", "tripleThreat") && !collect.tripleThreatUsed;
+  const drafted = collect ? Object.keys(board.claims).length : 0;
+  const undrafted = collect ? collect.dice.length - drafted : 0;
+
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="rounded border border-[var(--rule)] bg-[var(--panel-2)] px-2 py-1">
-        <span className="font-mono text-[9px] uppercase tracking-[.1em] text-[var(--gold)]">
-          signature ·{" "}
-        </span>
-        <span className="text-[11px] text-[var(--ink-muted)]">{signature}</span>
+    <section style={{ borderRadius: 14, background: "radial-gradient(120% 130% at 50% 0%, rgba(213,150,80,.08), transparent 55%), linear-gradient(180deg,#1c130c,#140d07)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 12px 34px rgba(0,0,0,.4)", padding: "11px 18px 13px", marginBottom: 13, flex: "0 0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 11, gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: C.gold }}>
+            {phaseStage === "play" ? "Play Phase" : phaseStage === "demand" ? "Demand Phase" : "Collect Phase"}
+          </span>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20 }}>{phaseStage === "play" ? "Build · Sell · Improve" : phaseStage === "demand" ? "Read the Market" : "The Dice Draft"}</span>
+          <span style={{ fontSize: 12, color: C.text2 }}>{hint}</span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Readout label="SUPPLY" value={`${supplyCap} dice`} color={C.amber} />
+          <Readout label="WAREHOUSE" value={`${heldTotal}/${warehouseCap}`} color={whFull ? C.red : C.green} border={whFull ? C.red : C.border} />
+        </div>
       </div>
-      {stations.map((st) => {
-        const maxed = st.builtTier >= st.maxTier;
-        const cost = st.costs[st.builtTier + 1] ?? 0;
-        const affordable = !maxed && capital >= cost;
-        return (
-          <div
-            key={st.id}
-            className="flex items-center justify-between gap-2 rounded border border-[var(--rule)] bg-[var(--panel)] px-2 py-1.5"
-          >
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[12px] font-semibold text-[var(--ink)]">{st.name}</span>
-                <span className="flex gap-0.5">
-                  {Array.from({ length: st.maxTier }, (_, t) => (
-                    <span
-                      key={t}
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{
-                        background: t < st.builtTier ? "var(--gold)" : "var(--whisper)",
-                        boxShadow: t < st.builtTier ? "0 0 4px var(--gold)" : "none",
-                      }}
-                    />
-                  ))}
-                </span>
+
+      <div style={{ display: "grid", gridTemplateColumns: "168px 1fr 256px", gap: 16, alignItems: "stretch" }}>
+        {/* inherited */}
+        <div style={{ borderRadius: 11, background: "#150e08", border: `1px dashed ${C.border}`, padding: 12, display: "flex", flexDirection: "column", gap: 9 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, lineHeight: 1.5 }}>Inherited<br />dice →</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {(collect?.inherited ?? []).map((d) => (
+              <div key={d.id} style={{ width: 44, height: 44, borderRadius: 11, background: "linear-gradient(180deg,#2c1f13,#1a130b)", border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
+                <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 14, color: FACE[d.face].color }}>{FACE[d.face].mono}</span>
               </div>
-              <div className="truncate font-mono text-[9px] text-[var(--mute)]">
-                {st.blurb} · now {st.levels[st.builtTier]}
+            ))}
+            {(!collect || collect.inherited.length === 0) && <span style={{ fontSize: 11, color: C.faint, fontStyle: "italic" }}>— none —</span>}
+          </div>
+          <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4, marginTop: "auto" }}>Leftovers carry into your roll, up to your Supply cap.</div>
+        </div>
+
+        {/* dice tray */}
+        <div style={{ position: "relative", borderRadius: 12, background: "radial-gradient(120% 100% at 50% 0%, rgba(213,150,80,.07), transparent 60%), #11100a", border: `1px solid ${C.border2}`, padding: 14, minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {phaseStage === "demand" && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+              <button data-tut="begin" className="bb-btn" onClick={() => board.dispatch({ type: "BEGIN_COLLECT" })} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 30px", borderRadius: 12, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 14, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 10px 24px rgba(198,157,82,.3)" }}>🎲 Begin draft · roll {supplyCap}</button>
+              <div style={{ fontSize: 12, color: C.muted }}>Most-Capital-first · you inherit leftovers, then roll</div>
+            </div>
+          )}
+          {phaseStage === "play" && <PlayTray board={board} me={me} />}
+          {phaseStage === "collect" && collect && (
+            <DiceTray
+              dice={collect.dice}
+              claims={board.claims}
+              rollId={`${collect.pos}-${collect.rerollsUsed}`}
+              full={whFull}
+              locked={botTurn}
+              onClaim={props.claimDie}
+            />
+          )}
+        </div>
+
+        {/* controls */}
+        <div style={{ borderRadius: 11, background: "#150e08", border: `1px solid ${C.border2}`, padding: 12, display: "flex", flexDirection: "column", gap: 9, justifyContent: "center" }}>
+          {botTurn && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: C.gold, animation: "bb-pip 1.4s ease-in-out infinite" }} />
+                <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: C.gold }}>{me.name} (AI)</span>
+              </div>
+              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>The rival is taking its {phaseStage} turn. Sit back and watch.</div>
+            </div>
+          )}
+          {!botTurn && phaseStage === "demand" && (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: C.brass }}>Demand Phase</div>
+              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>The market is on the right — read the zone, then begin the draft.</div>
+            </>
+          )}
+          {!botTurn && phaseStage === "play" && <PlayControls board={board} me={me} />}
+          {!botTurn && phaseStage === "collect" && collect && (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{drafted} drafted · {undrafted} left in the pool</div>
+              <button className="bb-btn bb-sec" onClick={props.onReroll} disabled={collect.rerollsUsed >= collect.maxRerolls} style={{ padding: "10px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", ...(collect.rerollsUsed < collect.maxRerolls ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710", cursor: "pointer" } : { border: `1px solid ${C.border2}`, color: C.faint, background: "#150e08", cursor: "default" }) }}>↻ Reroll the rest · {collect.maxRerolls - collect.rerollsUsed} left</button>
+              {canTT && (
+                <button className="bb-btn bb-sec" onClick={props.onTT} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.amber}`, color: C.amber, background: "#221710", cursor: "pointer" }}>⚡ Triple Threat</button>
+              )}
+              <button data-tut="pass" className="bb-btn" onClick={props.onPass} style={{ padding: "11px 18px", borderRadius: 10, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.35)" }}>DRAFT →</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* piles strip */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 10, paddingTop: 9, borderTop: `1px solid ${C.border2}` }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.brass }}>Piles · draw blind</span>
+        <div style={{ display: "flex", gap: 18 }}>
+          {PILE_ORDER.map((k) => (
+            <div key={k} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: "#1a130b", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 13, color: FACE[k].color }}>{FACE[k].mono}</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.ink }}>{game.piles[k].length}</span>
+                <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", textTransform: "uppercase", color: C.muted }}>{FACE[k].label}</span>
               </div>
             </div>
+          ))}
+        </div>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 10, color: C.muted }}>Quality (Common → Legendary) is drawn blind. Quality sets the barrel's age-value track.</span>
+      </div>
+    </section>
+  );
+}
+
+function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
+  const game = board.game;
+  if (board.drawingBills) {
+    const office = fnMash(me);
+    const offer = game.mashBillSupply.slice(0, Math.min(office, game.mashBillSupply.length));
+    const cap = fnRick(me) - me.rickhouse.length;
+    return (
+      <div data-tut="bills" style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+        {offer.map((bill, i) => {
+          const sel = board.keepBills.has(i);
+          return (
+            <button key={bill.id} className="bb-btn" onClick={() => { const n = new Set(board.keepBills); n.has(i) ? n.delete(i) : n.add(i); board.setKeepBills(n); }} style={{ position: "relative", width: 150, textAlign: "left", display: "flex", flexDirection: "column", gap: 2, padding: 10, borderRadius: 10, cursor: "pointer", border: `2px solid ${sel ? C.brass : C.border}`, background: sel ? "#2a2014" : "linear-gradient(180deg,#1e140c,#150e08)" }}>
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); board.onInspect({ kind: "bill", bill }); }}
+                title="Inspect recipe"
+                style={{ position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: 999, display: "grid", placeItems: "center", fontFamily: SERIF, fontStyle: "italic", fontWeight: 700, fontSize: 12, color: C.brass, border: `1px solid ${C.border}`, background: "#11100a" }}
+              >i</span>
+              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, paddingRight: 18 }}>{bill.name}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.brass }}>{STYLE_LABEL[bill.styleTag]} · {bill.batchQty} sales{bill.saleBonus > 0 ? ` · +${bill.saleBonus}/sale` : ""}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>{recipeKinds(bill.recipe).map((k) => FACE[k].mono).join(" ")}</span>
+            </button>
+          );
+        })}
+        <div style={{ alignSelf: "center", fontFamily: MONO, fontSize: 10, color: C.muted, maxWidth: 90 }}>keep up to {Math.max(0, cap)} · rest cycle back</div>
+      </div>
+    );
+  }
+  const aging = me.rickhouse.filter((b) => b.built).length;
+  const resting = me.rickhouse.filter((b) => !b.built).length;
+  return (
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontFamily: SERIF, fontSize: 18, color: C.text2 }}>It&apos;s your turn — {me.name}</div>
+      <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 6 }}>{resting} resting · {aging} aging · {me.hand.length} cards held</div>
+      <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>Tap an aged barrel below to sell it into demand.</div>
+    </div>
+  );
+}
+
+function PlayControls({ board, me }: { board: BoardProps; me: Player }) {
+  const office = fnMash(me);
+  const noRoom = fnRick(me) - me.rickhouse.length <= 0;
+  const supplyEmpty = board.game.mashBillSupply.length === 0;
+  const blocked = me.drewMashBillsThisTurn || noRoom || supplyEmpty;
+  return (
+    <>
+      {!board.drawingBills ? (
+        <button data-tut="draw" className="bb-btn" disabled={blocked} onClick={() => board.setDrawingBills(true)} style={{ padding: "11px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", border: 0, cursor: blocked ? "default" : "pointer", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)", opacity: blocked ? 0.5 : 1 }}>
+          Draw {office} Mash Bills
+        </button>
+      ) : (
+        <button data-tut="keep" className="bb-btn" onClick={() => board.dispatch({ type: "DRAW_MASH_BILLS", keepIndexes: [...board.keepBills] })} style={{ padding: "11px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", border: 0, cursor: "pointer", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)" }}>
+          Keep {board.keepBills.size} →
+        </button>
+      )}
+      <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted, lineHeight: 1.4 }}>{me.drewMashBillsThisTurn ? "Bills drawn this turn." : noRoom ? "Rickhouse full — build or sell." : "Once per turn · undrawn cycle back."}</div>
+      <button className="bb-btn bb-sec" onClick={() => board.dispatch({ type: "END_TURN" })} style={{ padding: "11px 18px", borderRadius: 10, background: "#221710", color: C.ink, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: `1px solid ${C.brass}` }}>End Turn →</button>
+    </>
+  );
+}
+
+// ── small components ──────────────────────────────────────────────────
+function Readout({ label, value, color, border }: { label: string; value: string; color: string; border?: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 12px", borderRadius: 9, background: "#150e08", border: `1px solid ${border ?? C.border}` }}>
+      <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".1em", color: C.muted }}>{label}</span>
+      <span style={{ fontFamily: MONO, fontSize: 13, color }}>{value}</span>
+    </div>
+  );
+}
+
+function RailCard({ title, right, children }: { title: string; right?: string; children: React.ReactNode }) {
+  return (
+    <section style={{ borderRadius: 14, background: "linear-gradient(180deg,#1a120b,#150e08)", border: `1px solid ${C.border}`, padding: 13, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>{title}</span>
+        {right && <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".1em", color: C.muted }}>{right}</span>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Pips({ dept, me }: { dept: DepartmentId; me: Player }) {
+  const d = me.distillery.departments.find((x) => x.id === dept)!;
+  const color = DEPT_META[dept].color;
+  return (
+    <div style={{ display: "flex", gap: 3 }}>
+      {Array.from({ length: d.maxLevel + 1 }).map((_, i) => (
+        <span key={i} style={{ width: 11, height: 6, borderRadius: 2, background: i <= d.level ? color : C.border2 }} />
+      ))}
+    </div>
+  );
+}
+
+function ImproveBtn({ id, board, me }: { id: DepartmentId; board: BoardProps; me: Player }) {
+  const d = me.distillery.departments.find((x) => x.id === id)!;
+  const maxed = d.level >= d.maxLevel;
+  const cost = improvementCost(me.improvements, d.discount + fnCounting(me));
+  const can = !maxed && me.capital >= cost && board.game.roundPhase === "play";
+  const nextIsUlt = d.level + 1 === d.maxLevel;
+  const realOptions = d.ultimateOptions.filter((o) => o !== "ph");
+  const onClick = () => {
+    if (maxed || isBotTurn(board.game)) return;
+    if (board.game.roundPhase !== "play") {
+      board.flash("Improve during the Play phase");
+      return;
+    }
+    if (nextIsUlt && realOptions.length > 0) {
+      if (me.capital < cost) {
+        board.flash(`Costs ${cost} capital`);
+        return;
+      }
+      board.setUltDept(id);
+    } else {
+      board.dispatch({ type: "IMPROVE", departmentId: id });
+    }
+  };
+  return (
+    <button
+      className="bb-btn bb-sec"
+      disabled={maxed}
+      onClick={onClick}
+      title={nextIsUlt && realOptions.length ? "Choose an ultimate" : undefined}
+      style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", padding: "5px 10px", borderRadius: 7, whiteSpace: "nowrap", cursor: maxed ? "default" : "pointer", ...(maxed ? { border: `1px solid ${C.border2}`, color: C.faint, background: "#150e08" } : can ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710" } : { border: `1px solid ${C.border}`, color: C.muted, background: "#150e08" }) }}
+    >
+      {maxed ? "MAX" : nextIsUlt && realOptions.length ? `★ ${cost}` : `+ ${cost}`}
+    </button>
+  );
+}
+
+function Room({ id, board, me, bg, headerRight, borderTop, children }: {
+  id: DepartmentId;
+  board: BoardProps;
+  me: Player;
+  bg: string;
+  headerRight?: React.ReactNode;
+  borderTop?: string;
+  children: React.ReactNode;
+}) {
+  const d = me.distillery.departments.find((x) => x.id === id)!;
+  const meta = DEPT_META[id];
+  const maxed = d.level >= d.maxLevel;
+  const nextIsUlt = d.level + 1 === d.maxLevel;
+  const nextEffect = maxed ? "maxed" : nextIsUlt && d.ultimateOptions.some((o) => o !== "ph") ? "ultimate" : `${d.values[d.level + 1]}`;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", borderRadius: 12, border: `1px solid ${C.border}`, background: bg, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: "11px 13px", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, whiteSpace: "nowrap" }}>{d.name}</span>
+        <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: meta.color }}>{meta.tag}</span>
+        {d.chosenUltimate && d.chosenUltimate !== "ph" && <span style={{ fontFamily: MONO, fontSize: 8, color: "#2a1408", background: meta.color, padding: "1px 5px", borderRadius: 3 }}>{ULT_LABEL[d.chosenUltimate].name}</span>}
+        {headerRight && <><div style={{ flex: 1 }} />{headerRight}</>}
+      </div>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>{children}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 9, borderTop: `1px solid ${borderTop ?? C.border2}` }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>next {nextEffect}</span>
+        <div style={{ flex: 1, display: "flex", gap: 3, justifyContent: "flex-end" }}><Pips dept={id} me={me} /></div>
+        <ImproveBtn id={id} board={board} me={me} />
+      </div>
+    </div>
+  );
+}
+
+// ── Market — the persistent demand pile as a bottom-to-top DEMAND METER ──
+// Cards stack from the floor up; the higher the pile climbs the hotter the zone
+// (Low → Mid → High), and the 10th card crashes the market.
+function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Player }) {
+  const count = game.demandCards.length;
+  const toCrash = CONFIG.DEMAND_CRASH_AT - count;
+  const zoneMeta = ZONE_META[zone];
+  // Zone band boundaries as a fraction of the meter height (out of the 9 cards
+  // before a crash): Low 1–4, Mid 5–7, High 8–9.
+  const lowTop = (CONFIG.ZONE_MID_MIN - 1) / (CONFIG.DEMAND_CRASH_AT - 1); // 4/9
+  const midTop = (CONFIG.ZONE_HIGH_MIN - 1) / (CONFIG.DEMAND_CRASH_AT - 1); // 7/9
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+  const meterBg = `linear-gradient(0deg,
+    rgba(109,178,140,.13) 0%, rgba(109,178,140,.13) ${pct(lowTop)},
+    rgba(213,150,80,.13) ${pct(lowTop)}, rgba(213,150,80,.13) ${pct(midTop)},
+    rgba(217,107,84,.15) ${pct(midTop)}, rgba(217,107,84,.15) 100%)`;
+
+  return (
+    <aside data-tut="market" style={{ display: "flex", flexDirection: "column", gap: 9, borderRadius: 16, background: "linear-gradient(180deg,#1a120b,#130c06)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: 13, minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, flex: "0 0 auto" }}>
+        <span style={{ fontFamily: MONO, fontSize: 14, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>The Market</span>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink }}>{count}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: "#0c0805", background: zoneMeta.color, padding: "4px 10px", borderRadius: 6 }} title="Hotter market → bigger bonus added to each sale">
+          {zoneMeta.label}<span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14 }}>demand</span>
+        </span>
+      </div>
+
+      {/* the meter */}
+      <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 12, border: `1px solid ${C.border}`, background: meterBg, overflow: "hidden" }}>
+        {/* crash ceiling */}
+        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderBottom: `1px dashed ${toCrash <= 2 ? C.red : "#4a3826"}` }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: toCrash <= 2 ? C.red : C.muted }}>▲ crash at {CONFIG.DEMAND_CRASH_AT}</span>
+          <div style={{ flex: 1 }} />
+          {toCrash <= 2 && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".06em", color: C.red }}>⚠ {toCrash} to crash</span>}
+        </div>
+
+        {/* zone band rail: card-count range + relative order bonus, current zone lit */}
+        {(["high", "mid", "low"] as Zone[]).map((z) => {
+          const bottom = z === "low" ? lowTop / 2 : z === "mid" ? (lowTop + midTop) / 2 : (midTop + 1) / 2;
+          const range = z === "low" ? `1–${CONFIG.ZONE_MID_MIN - 1}` : z === "mid" ? `${CONFIG.ZONE_MID_MIN}–${CONFIG.ZONE_HIGH_MIN - 1}` : `${CONFIG.ZONE_HIGH_MIN}–${CONFIG.DEMAND_CRASH_AT - 1}`;
+          // Demand is a flat per-order bonus that grows with the zone (▲ = bigger bonus).
+          const bonusGlyph = z === "low" ? "▲" : z === "mid" ? "▲▲" : "▲▲▲";
+          const live = z === zone;
+          return (
+            <div key={z} style={{ position: "absolute", left: 7, bottom: `calc(${pct(bottom)} - 11px)`, display: "flex", alignItems: "center", gap: 6, padding: "3px 9px", borderRadius: 7, pointerEvents: "none", background: live ? `${ZONE_META[z].color}26` : "transparent", border: `1px solid ${live ? ZONE_META[z].color : "transparent"}`, boxShadow: live ? `0 0 10px ${ZONE_META[z].color}55` : "none" }} title="Demand adds a flat bonus per sale — larger in a hotter zone">
+              <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: ZONE_META[z].color, opacity: live ? 1 : 0.65, fontWeight: live ? 700 : 400 }}>{ZONE_META[z].label}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.text2, opacity: live ? 1 : 0.55 }}>{range}</span>
+              <span style={{ fontFamily: MONO, fontSize: live ? 11 : 9, letterSpacing: ".08em", color: ZONE_META[z].color, opacity: live ? 1 : 0.6, lineHeight: 1 }}>+bonus {bonusGlyph}</span>
+            </div>
+          );
+        })}
+
+        {/* cards stack from the bottom up (column-reverse → first card on the floor) */}
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column-reverse", justifyContent: "flex-start", gap: 5, padding: "6px 7px 7px 7px", overflow: "hidden" }}>
+          {game.demandCards.length === 0 && (
+            <div style={{ textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.muted, paddingBottom: 6 }}>market reset — empty floor</div>
+          )}
+          {game.demandCards.map((o) => (
+            <DemandRow key={o.id} card={o} zone={zone} players={game.players} />
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 8, borderTop: `1px solid ${C.border2}`, flex: "0 0 auto" }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".06em", color: C.muted, lineHeight: 1.5 }}>Your kept orders: <b style={{ color: C.green }}>{me.keptCards.length}</b> · {reputationOf(me)} Prestige. Every sale fills an order — each needs <b style={{ color: C.amber }}>{game.players.length}/player</b>.</span>
+      </div>
+    </aside>
+  );
+}
+
+/** One demand-card row in the meter — req, zone payout, a big Reputation badge, and slot fill. */
+function DemandRow({ card, zone, players }: { card: DemandCard; zone: Zone; players: Player[] }) {
+  const filled = card.filledBy.filter((f) => f !== null).length;
+  const complete = filled >= card.slotsActive;
+  const compact = card.slotsActive > 8; // many slots → progress bar instead of pips
+  return (
+    <div style={{ flex: "0 0 auto", borderRadius: 10, padding: "9px 12px", background: complete ? "linear-gradient(180deg, rgba(109,178,140,.18), rgba(20,14,8,.92))" : "linear-gradient(180deg, rgba(44,30,20,.7), rgba(20,14,8,.94))", border: `1px solid ${complete ? C.green : "#4a3320"}`, boxShadow: "0 4px 12px rgba(0,0,0,.35)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: C.ink, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.label}</span>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }} title="bonus Capital this order adds to each sale (current zone)">+{card.zoneBonus[zone]}</span>
+        {/* big prestige reward on completion */}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 11px", borderRadius: 999, background: "rgba(109,178,140,.18)", border: `1px solid ${C.green}`, boxShadow: `0 0 10px ${C.green}33` }} title="prestige kept by the player who completes this order">
+          <span style={{ fontSize: 17, color: C.green, lineHeight: 1 }}>★</span>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: C.green, lineHeight: 1 }}>{card.reputation}</span>
+        </span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 7 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted }}>Req</span>
+        <span style={{ fontFamily: MONO, fontSize: 13, color: C.amber, whiteSpace: "nowrap" }}>{requirementText(card.requirement)}</span>
+        <div style={{ flex: 1 }} />
+        {compact ? (
+          <div style={{ width: 96, height: 11, borderRadius: 6, background: "rgba(20,14,8,.7)", border: "1px solid rgba(110,80,50,.5)", overflow: "hidden" }}>
+            <div style={{ width: `${Math.round((filled / card.slotsActive) * 100)}%`, height: "100%", background: complete ? C.green : "linear-gradient(90deg,#e9b46e,#c69d52)" }} />
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 4 }}>
+            {card.filledBy.map((f, i) => {
+              const pi = f ? players.findIndex((pl) => pl.id === f) : -1;
+              return (
+                <span key={i} style={{ width: 18, height: 18, borderRadius: 5, ...(f ? { background: PLAYER_COLORS[pi % PLAYER_COLORS.length], boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }} />
+              );
+            })}
+          </div>
+        )}
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: complete ? C.green : C.text2 }}>{filled}/{card.slotsActive}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── overlays ──────────────────────────────────────────────────────────
+function Scrim({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(8,5,3,.82)", backdropFilter: "blur(4px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, zIndex: 60 }}>
+      {children}
+    </div>
+  );
+}
+
+// ── Stylized resource card (Warehouse) + click-to-inspect modal ───────
+function ResMiniCard({ kind, quality, pending, onClick }: { kind: ResourceKind; quality?: Quality; pending?: boolean; onClick: () => void }) {
+  const m = SUB[kind];
+  const kc = KIND_CHROME[kind];
+  const q = quality ? QUALITY_CHROME[quality] : null;
+  return (
+    <button
+      className="bb-card"
+      onClick={onClick}
+      title={`${quality ? quality + " " : pending ? "blind " : ""}${m.label} — click to inspect`}
+      style={{ position: "relative", width: 50, height: 70, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column", cursor: "pointer", padding: 0, background: kc.grad, border: `1px solid ${kc.border}`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14), 0 3px 9px rgba(0,0,0,.45)" }}
+    >
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: "4px 2px 0" }}>
+        <span style={{ fontFamily: MONO, fontSize: 6.5, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: kc.ink }}>{m.label}</span>
+        <span style={{ fontSize: 22, lineHeight: 1, color: kc.ink, textShadow: "0 1px 4px rgba(0,0,0,.5)" }}>{pending ? "?" : m.glyph}</span>
+      </div>
+      {/* rarity stripe along the foot (foil for known quality, hatched for blind) */}
+      <div style={{ height: 6, width: "100%", background: pending ? "repeating-linear-gradient(45deg,#3b2818 0,#3b2818 4px,#1a130b 4px,#1a130b 8px)" : q ? q.foil : "#5a5145" }} aria-hidden />
+    </button>
+  );
+}
+
+function InspectOverlay({ inspect, onClose }: { inspect: Inspect; onClose: () => void }) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [onClose]);
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(8,5,3,.85)", backdropFilter: "blur(5px)", display: "grid", placeItems: "center", padding: 24 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", width: 560, maxWidth: "92vw" }}>
+        <button onClick={onClose} aria-label="Close" style={{ position: "absolute", top: -12, right: -12, zIndex: 2, width: 32, height: 32, borderRadius: 999, border: `1px solid ${C.border}`, background: "#1a120b", color: C.muted, cursor: "pointer", fontFamily: MONO, fontSize: 13 }}>✕</button>
+        {inspect.kind === "bill" ? (
+          <BillDetail bill={inspect.bill} />
+        ) : (
+          <ResourceDetail
+            kind={inspect.kind === "resource" ? inspect.card.kind : inspect.k}
+            quality={inspect.kind === "resource" ? inspect.card.quality : undefined}
+            name={inspect.kind === "resource" ? inspect.card.name : undefined}
+            pending={inspect.kind === "pending"}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+const KIND_USE: Record<ResourceKind, string> = {
+  cask: "The charred-oak cask every bourbon needs — exactly one per mash bill.",
+  corn: "Corn is the bourbon backbone — every recipe needs at least one.",
+  rye: "A grain with the high-rye style tag that some demand orders ask for.",
+  wheat: "A grain with the wheated style tag that some demand orders ask for.",
+  barley: "A grain that rounds out four-grain and classic recipes.",
+};
+
+function ResourceDetail({ kind, quality, name, pending }: { kind: ResourceKind; quality?: Quality; name?: string; pending?: boolean }) {
+  const m = SUB[kind];
+  const kc = KIND_CHROME[kind];
+  const q = quality ? QUALITY_CHROME[quality] : null;
+  const heading = name ?? `${q ? q.label + " " : ""}${m.label}`;
+  return (
+    <article style={{ display: "flex", gap: 18, borderRadius: 16, border: `2px solid ${kc.border}`, background: kc.grad, padding: 22, boxShadow: "0 18px 50px rgba(0,0,0,.6)" }}>
+      <div style={{ position: "relative", width: 150, height: 200, flex: "0 0 auto", borderRadius: 12, border: `2px solid ${kc.border}`, background: "rgba(10,7,4,.4)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: kc.ink }}>{m.label}</span>
+        <span style={{ fontSize: 64, lineHeight: 1, color: kc.ink, textShadow: "0 2px 12px rgba(0,0,0,.5)" }}>{pending ? "?" : m.glyph}</span>
+        {q ? (
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#2a1408", background: q.foil, padding: "3px 10px", borderRadius: 5, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{q.label}</span>
+        ) : (
+          <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: kc.ink, opacity: 0.7 }}>blind quality</span>
+        )}
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, color: kc.ink }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: kc.ink, opacity: 0.75 }}>Resource</span>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 28, lineHeight: 1.05 }}>{heading}</span>
+        <div style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(10,7,4,.45)", padding: 12 }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".15em", textTransform: "uppercase", color: kc.ink, opacity: 0.7 }}>Use</span>
+          <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5, color: kc.ink }}>{KIND_USE[kind]}</p>
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.6, color: kc.ink, opacity: 0.92 }}>
+          {pending
+            ? "Drawn blind on DRAFT — you'll see its quality once it lands in your Warehouse."
+            : `Quality ${q?.label}. The best-quality card you commit sets the built barrel's tier — a higher tier rides a richer age-value track.`}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function BillDetail({ bill }: { bill: MashBill }) {
+  return (
+    <article style={{ display: "flex", flexDirection: "column", gap: 12, borderRadius: 16, border: `2px solid ${C.brass}`, background: "radial-gradient(120% 70% at 50% -10%, rgba(240,201,112,.14), transparent 60%), linear-gradient(180deg,#241710,#130c07)", padding: 22, boxShadow: "0 18px 50px rgba(0,0,0,.6)" }}>
+      <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>Mash Bill · {STYLE_LABEL[bill.styleTag]}</span>
+      <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 28, color: C.ink, lineHeight: 1.05 }}>{bill.name}</span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {recipeKinds(bill.recipe).map((k, i) => (
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, border: `1px solid ${FACE[k].color}88`, background: "rgba(10,7,4,.5)" }}>
+            <span style={{ fontSize: 18, color: FACE[k].color }}>{SUB[k].glyph}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".06em", color: C.ink }}>{SUB[k].label}</span>
+          </span>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 18, fontFamily: MONO, fontSize: 12, color: C.text2 }}>
+        <span><b style={{ color: C.gold }}>{bill.batchQty}</b> sales</span>
+        {bill.saleBonus > 0 && <span>premium <b style={{ color: C.gold }}>+{bill.saleBonus}</b>/sale</span>}
+      </div>
+      <div style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(10,7,4,.5)", padding: 12 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".15em", textTransform: "uppercase", color: C.muted }}>Use</span>
+        <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5, color: C.ink }}>
+          Draw it as a resting barrel, then stage its recipe (every bill needs 1 cask + 1 corn + a grain) and Make Bourbon. The batch yields {bill.batchQty} sales{bill.saleBonus > 0 ? `, each paying a +${bill.saleBonus} complexity premium` : ""}.
+        </p>
+      </div>
+    </article>
+  );
+}
+
+// ── Collect dice tray: roll-in animation + click-to-draft ─────────────
+const ROLL_MS = 820;
+const ALL_FACES: DieFace[] = ["cask", "corn", "rye", "wheat", "barley", "anything"];
+
+function DiceTray({ dice, claims, rollId, full, locked, onClaim }: {
+  dice: { id: string; face: DieFace }[];
+  claims: Record<string, ResourceKind>;
+  rollId: string;
+  full: boolean;
+  locked?: boolean;
+  onClaim: (id: string, face: DieFace, el: HTMLElement) => void;
+}) {
+  const [rolling, setRolling] = useState(true);
+  const [tick, setTick] = useState(0);
+  // Re-run the roll animation whenever a fresh roll happens (new turn / reroll).
+  useEffect(() => {
+    setRolling(true);
+    setTick(0);
+    const iv = window.setInterval(() => setTick((t) => t + 1), 75);
+    const to = window.setTimeout(() => setRolling(false), ROLL_MS);
+    return () => {
+      window.clearInterval(iv);
+      window.clearTimeout(to);
+    };
+  }, [rollId]);
+
+  return (
+    <div data-tut="dice" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+      {dice.map((d, i) => {
+        const face = rolling ? ALL_FACES[(tick + i * 2) % ALL_FACES.length]! : d.face;
+        const meta = FACE[face];
+        const claimed = !rolling && d.id in claims;
+        const clickable = !rolling && !claimed && !full && !locked;
+        const wild = meta.wild;
+        return (
+          <div key={d.id} style={{ position: "relative", width: 104, height: 120, display: "flex", justifyContent: "center" }}>
+            {/* landing shadow */}
+            {rolling && (
+              <span className="bb-roll-shadow" style={{ position: "absolute", bottom: 0, width: 88, height: 9, borderRadius: "50%", background: "rgba(0,0,0,.6)", filter: "blur(3px)", animationDelay: `${i * 55}ms` }} aria-hidden />
+            )}
             <button
-              type="button"
-              disabled={disabled || maxed || !affordable}
-              onClick={() => onBuild(st.id)}
-              className="shrink-0 rounded border border-[var(--rule)] bg-[var(--panel-2)] px-2 py-1 font-mono text-[10px] uppercase tracking-[.06em] text-[var(--ink-muted)] transition enabled:hover:border-[var(--gold)] enabled:hover:text-[var(--gold)] disabled:opacity-40"
+              className={`${rolling ? "bb-roll-drop" : "bb-die"}${clickable ? " clk" : ""}`}
+              disabled={!clickable && !claimed}
+              onClick={(e) => (rolling ? undefined : onClaim(d.id, d.face, e.currentTarget))}
+              style={{
+                position: "absolute",
+                top: 0,
+                width: 104,
+                height: 104,
+                borderRadius: 20,
+                animationDelay: rolling ? `${i * 55}ms` : undefined,
+                background: claimed ? "#120c07" : "linear-gradient(180deg,#2c1f13,#1a130b)",
+                border: `2px solid ${claimed ? C.green : wild ? "#e7d9b6" : meta.color + "99"}`,
+                boxShadow: claimed
+                  ? "inset 0 0 0 1px rgba(109,178,140,.4)"
+                  : "inset 0 1px 0 rgba(240,201,112,.14), 0 8px 18px rgba(0,0,0,.45)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                cursor: clickable ? "pointer" : claimed ? "pointer" : "default",
+                opacity: claimed ? 0.5 : 1,
+                padding: 0,
+                ...(wild && !claimed && !rolling ? { animation: "bb-wild-shimmer 2.4s ease-in-out infinite" } : {}),
+              }}
+              title={claimed ? "Tap to un-draft" : clickable ? `Draft ${meta.label}` : ""}
             >
-              {maxed ? "max" : `▲ ${cost}฿`}
+              <span style={{ fontSize: wild ? 42 : 38, lineHeight: 1, color: meta.color, textShadow: `0 0 12px ${meta.color}66` }}>
+                {face === "anything" ? "✦" : SUB[face as ResourceKind].glyph}
+              </span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: claimed ? C.green : C.text2 }}>{meta.label}</span>
+              {claimed && <span style={{ position: "absolute", top: -9, right: -8, fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", color: "#0c0805", background: C.green, padding: "2px 6px", borderRadius: 5 }}>DRAFTED</span>}
             </button>
           </div>
         );
@@ -1269,486 +1801,214 @@ function DistilleryPanel({
   );
 }
 
-/**
- * Live flood meter: cubes sold this round vs the round's blue/red lines. The
- * fill runs toward the red line (the cliff); the green tick marks the blue
- * line (below it demand is underserved and rises next round). Color tracks the
- * band so the brewing flood reads at a glance.
- */
-function FloodMeter({ cubes, blue, red }: { cubes: number; blue: number; red: number }) {
-  const pct = red > 0 ? Math.min(1, cubes / red) : 0;
-  const bluePct = red > 0 ? Math.min(1, blue / red) : 0;
-  const band = cubes >= red ? "cliff" : cubes >= blue ? "flooding" : "healthy";
-  const color =
-    band === "cliff" ? "var(--rose)" : band === "flooding" ? "var(--gold)" : "var(--emerald)";
+interface Flight {
+  id: number;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  kind: ResourceKind;
+}
+
+/** Absolute overlay in canvas space; renders cards flying die → Warehouse. */
+function FlightLayer({ flights }: { flights: Flight[] }) {
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between">
-        <span className="label-sm" style={{ color: "var(--mute)" }}>
-          Market flood
-        </span>
-        <span className="font-mono text-[10px]" style={{ color }}>
-          {cubes}/{red}
-          {band === "cliff" ? " · CLIFF" : band === "flooding" ? " · flooding" : ""}
-        </span>
-      </div>
-      <div className="relative h-2 w-full overflow-hidden rounded-full border border-[var(--rule)] bg-[#160d06]">
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${pct * 100}%`, background: color, transition: "width 300ms ease" }}
-        />
-        <span
-          className="absolute top-0 h-full w-px bg-[var(--emerald)]"
-          style={{ left: `${bluePct * 100}%` }}
-          title={`blue line ${blue}`}
-        />
-      </div>
+    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 55, overflow: "visible" }}>
+      {flights.map((f) => (
+        <FlyCard key={f.id} flight={f} />
+      ))}
     </div>
   );
 }
 
-function SellModal({
-  barrel,
-  lines,
-  lineId,
-  demand,
-  onLine,
-  onConfirm,
-  onCancel,
-}: {
-  barrel: Bourbon;
-  lines: BrandLine[];
-  lineId: string | null;
-  demand: number;
-  onLine: (id: string) => void;
-  onConfirm: (lineId: string, slotIndex: number, rewardChoice?: number) => void;
-  onCancel: () => void;
-}) {
-  const line = lines.find((l) => l.id === lineId) ?? lines[0];
-  const value = matrixValue(barrel.matrix, barrel.age, demand);
-
-  return (
-    <div className="absolute inset-0 z-30 grid place-items-center bg-[#0c0805]/80 backdrop-blur-sm">
-      <div className="bb-panel bb-panel--stage w-[920px] p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-[22px] font-bold text-[var(--gold)]">
-            Place {barrel.name}
-          </h2>
-          <span className="font-mono text-[12px] text-[var(--ink-muted)]">
-            age {barrel.age} · {barrel.quality} · sells for{" "}
-            <span className="font-bold text-[var(--gold)]">{value}฿</span>
-          </span>
-        </div>
-
-        {/* line tabs (only when more than one) */}
-        {lines.length > 1 ? (
-          <div className="mb-3 flex flex-wrap gap-2">
-            {lines.map((l) => (
-              <button
-                key={l.id}
-                type="button"
-                onClick={() => onLine(l.id)}
-                className={[
-                  "rounded-md border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[.1em] transition",
-                  l.id === line?.id
-                    ? "border-[var(--gold)] bg-[var(--panel-2)] text-[var(--gold)]"
-                    : "border-[var(--rule)] bg-[var(--panel)] text-[var(--ink-muted)] hover:border-[var(--amber)]",
-                ].join(" ")}
-              >
-                {l.slotCard.name}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        {!line ? (
-          <p className="text-[13px] italic text-[var(--mute)]">
-            Open a brand line first.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {line.slots.map((slot, i) => {
-              const spec = line.slotCard.slots[i]!;
-              const eligible = !slot && slotEligible(line, i, barrel);
-              const filled = !!slot;
-              const isChoice = spec.reward.kind === "choice";
-              return (
-                <div
-                  key={i}
-                  className="flex w-[130px] flex-col gap-1 rounded-md border p-2"
-                  style={{
-                    borderColor: filled
-                      ? "rgba(198,157,82,.5)"
-                      : eligible
-                        ? "var(--gold)"
-                        : "rgba(198,157,82,.2)",
-                    background: eligible
-                      ? "linear-gradient(180deg, rgba(58,40,24,.7), rgba(26,18,11,.9))"
-                      : "linear-gradient(180deg, rgba(20,13,8,.7), rgba(14,9,6,.9))",
-                    opacity: filled || !eligible ? 0.55 : 1,
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] uppercase tracking-[.08em] text-[var(--whisper)]">
-                      slot {i + 1}
-                      {spec.optional ? " · opt" : ""}
-                    </span>
-                  </div>
-
-                  {filled ? (
-                    <span className="font-mono text-[10px] text-[var(--mute)]">
-                      filled · age {slot!.age}
-                    </span>
-                  ) : isChoice && eligible ? (
-                    <div className="flex flex-col gap-1">
-                      {spec.reward.kind === "choice"
-                        ? spec.reward.options.map((opt, j) => (
-                            <button
-                              key={j}
-                              type="button"
-                              onClick={() => onConfirm(line.id, i, j)}
-                              className="flex items-center justify-center gap-1 rounded border border-[var(--rule)] bg-[var(--panel)] py-1 transition hover:border-[var(--gold)]"
-                            >
-                              <RewardBits leaf={opt} age={barrel.age} />
-                            </button>
-                          ))
-                        : null}
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={!eligible}
-                      onClick={() => onConfirm(line.id, i)}
-                      className="flex items-center justify-center rounded border border-[var(--rule)] bg-[var(--panel)] py-1.5 transition enabled:hover:border-[var(--gold)] disabled:cursor-not-allowed"
-                    >
-                      <SlotReward spec={spec} age={barrel.age} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={onCancel}
-          className="mt-5 rounded-md border border-[var(--rule)] bg-[var(--panel)] px-4 py-2 font-mono text-[12px] uppercase tracking-[.12em] text-[var(--ink-muted)] hover:border-[var(--amber)] hover:text-[var(--ink)]"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Collect modal ─────────────────────────────────────────────────────
-
-/**
- * Allocate draws across the five piles. The first `budget` draws are free
- * (Supply Room); the rest are paid overflow. Every spiked-pile card also pays
- * the round's cost spike. The live readout mirrors the engine's charge order
- * (piles in draw order) so the running cost — and "can I pay this?" — is exact.
- */
-function CollectModal({
-  state,
-  budget,
-  capital,
-  overflowSoFar,
-  onConfirm,
-  onCancel,
-}: {
-  state: GameState;
-  budget: number;
-  capital: number;
-  overflowSoFar: number;
-  onConfirm: (draws: Partial<Record<ResourceKind, number>>) => void;
-  onCancel: () => void;
-}) {
-  const [counts, setCounts] = useState<Record<ResourceKind, number>>({
-    cask: 0,
-    corn: 0,
-    rye: 0,
-    wheat: 0,
-    barley: 0,
-  });
-
-  /** Simulate a Collect to total its cost, mirroring the engine's draw order. */
-  function costOf(alloc: Record<ResourceKind, number>) {
-    let drawn = 0;
-    let overflow = 0;
-    let overflowCost = 0;
-    let spike = 0;
-    for (const k of PILE_KINDS) {
-      for (let i = 0; i < alloc[k]; i++) {
-        if (drawn >= budget) {
-          overflowCost += FLAGS.overflowEscalating
-            ? CONFIG.OVERFLOW_COST * (overflowSoFar + overflow + 1)
-            : CONFIG.OVERFLOW_COST;
-          overflow += 1;
-        }
-        spike += spikeFor(state, k);
-        drawn += 1;
-      }
-    }
-    return { drawn, overflow, overflowCost, spike, total: overflowCost + spike };
-  }
-
-  const cur = costOf(counts);
-  const freeUsed = Math.min(cur.drawn, budget);
-  const cap = FLAGS.overflowPerRoundCap;
-
-  function canAdd(k: ResourceKind): boolean {
-    if (counts[k] >= state.piles[k].length) return false; // pile would empty
-    const next = { ...counts, [k]: counts[k] + 1 };
-    const nc = costOf(next);
-    if (nc.total > capital) return false; // can't pay
-    if (cap !== null && overflowSoFar + nc.overflow > cap) return false; // overflow capped
-    return true;
-  }
-
-  function step(k: ResourceKind, d: number) {
-    setCounts((prev) => {
-      const v = Math.max(0, prev[k] + d);
-      return { ...prev, [k]: v };
-    });
-  }
-
-  return (
-    <div className="absolute inset-0 z-30 grid place-items-center bg-[#0c0805]/80 backdrop-blur-sm">
-      <div className="bb-panel bb-panel--market w-[680px] p-5">
-        <div className="mb-1 flex items-center justify-between">
-          <h2 className="font-display text-[22px] font-bold text-[var(--gold)]">
-            Collect resources
-          </h2>
-          <span className="font-mono text-[12px] text-[var(--ink-muted)]">
-            Free draws:{" "}
-            <span className="font-bold text-[var(--gold)]">
-              {freeUsed} of {budget}
-            </span>{" "}
-            used
-          </span>
-        </div>
-        <p className="mb-3 text-[12px] italic text-[var(--mute)]">
-          Choose the pile (assembly); quality is drawn blind off the top. Free up to
-          your Supply Room budget, then +{CONFIG.OVERFLOW_COST}฿ per overflow draw.
-        </p>
-
-        <div className="flex flex-col gap-2">
-          {PILE_KINDS.map((k) => {
-            const meta = PILE_META[k];
-            const spike = spikeFor(state, k);
-            const remaining = state.piles[k].length;
-            return (
-              <div
-                key={k}
-                className="flex items-center gap-3 rounded-md border border-[var(--rule)] bg-[var(--panel)] px-3 py-2"
-              >
-                <span className="text-[20px] leading-none" aria-hidden>
-                  {meta.glyph}
-                </span>
-                <span
-                  className="w-16 font-mono text-[12px] uppercase tracking-[.08em]"
-                  style={{ color: meta.color }}
-                >
-                  {meta.label}
-                </span>
-                <span className="font-mono text-[10px] text-[var(--mute)]">
-                  {remaining} left
-                </span>
-                {spike > 0 ? (
-                  <span
-                    className="rounded bg-[#3a1410] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--rose)]"
-                    title={`Cost spike: +${spike} Capital per ${meta.label} drawn this round`}
-                  >
-                    ⚡ +{spike}฿/draw
-                  </span>
-                ) : null}
-                <div className="ml-auto flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => step(k, -1)}
-                    disabled={counts[k] <= 0}
-                    className="grid h-7 w-7 place-items-center rounded border border-[var(--rule)] bg-[var(--panel-2)] font-mono text-[14px] text-[var(--ink-muted)] transition enabled:hover:border-[var(--amber)] disabled:opacity-30"
-                  >
-                    −
-                  </button>
-                  <span className="w-6 text-center font-display text-[18px] font-bold text-[var(--ink)]">
-                    {counts[k]}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => step(k, 1)}
-                    disabled={!canAdd(k)}
-                    className="grid h-7 w-7 place-items-center rounded border border-[var(--rule)] bg-[var(--panel-2)] font-mono text-[14px] text-[var(--ink-muted)] transition enabled:hover:border-[var(--gold)] enabled:hover:text-[var(--gold)] disabled:opacity-30"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* live cost readout */}
-        <div className="mt-3 flex items-center justify-between rounded-md border border-[var(--rule)] bg-[var(--panel-2)] px-3 py-2 font-mono text-[12px]">
-          <span className="text-[var(--ink-muted)]">
-            {cur.drawn} draw{cur.drawn === 1 ? "" : "s"} · {freeUsed} free
-            {cur.overflow > 0 ? ` · ${cur.overflow} overflow (+${cur.overflowCost}฿)` : ""}
-            {cur.spike > 0 ? ` · spike +${cur.spike}฿` : ""}
-          </span>
-          <span className="text-[var(--ink)]">
-            cost <span className="font-bold text-[var(--gold)]">{cur.total}฿</span>
-            <span className="text-[var(--mute)]"> · {capital - cur.total}฿ left</span>
-          </span>
-        </div>
-
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md border border-[var(--rule)] bg-[var(--panel)] px-4 py-2 font-mono text-[12px] uppercase tracking-[.12em] text-[var(--ink-muted)] hover:border-[var(--amber)] hover:text-[var(--ink)]"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={cur.drawn === 0 || cur.total > capital}
-            onClick={() => onConfirm(counts)}
-            className="rounded-md border border-[var(--gold)] bg-gradient-to-b from-[#f0c970] to-[#c69d52] px-5 py-2 font-mono text-[12px] font-bold uppercase tracking-[.14em] text-[#1a120b] transition hover:brightness-110 disabled:cursor-not-allowed disabled:border-[var(--rule)] disabled:from-[#4d4031] disabled:to-[#2a1f15] disabled:text-[var(--whisper)]"
-          >
-            Collect {cur.drawn > 0 ? `${cur.drawn} →` : "→"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Slot-card draw picker ─────────────────────────────────────────────
-
-/**
- * Pick any available slot-card design from the supply. Shows every distinct
- * design still in `slotCardSupply` (deduped, with copies-left), each with a
- * compact preview of its slots and rewards. Selecting one draws that design
- * into the player's cellar via DRAW_SLOT_CARD { slotDefId }.
- */
-function SlotDrawModal({
-  supply,
-  onPick,
-  onCancel,
-}: {
-  supply: SlotCard[];
-  onPick: (defId: string) => void;
-  onCancel: () => void;
-}) {
-  // Dedupe designs by defId (first occurrence wins), counting copies left.
-  const designs: { card: SlotCard; count: number }[] = [];
-  const seen = new Map<string, number>();
-  for (const c of supply) {
-    const at = seen.get(c.defId);
-    if (at === undefined) {
-      seen.set(c.defId, designs.length);
-      designs.push({ card: c, count: 1 });
-    } else {
-      designs[at]!.count += 1;
-    }
-  }
-
-  return (
-    <div className="absolute inset-0 z-30 grid place-items-center bg-[#0c0805]/80 backdrop-blur-sm">
-      <div className="bb-panel bb-panel--stage w-[960px] p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-[22px] font-bold text-[var(--gold)]">
-            Draw a slot card
-          </h2>
-          <span className="font-mono text-[12px] text-[var(--ink-muted)]">
-            pick any available design
-          </span>
-        </div>
-
-        {designs.length === 0 ? (
-          <p className="text-[13px] italic text-[var(--mute)]">
-            The slot-card supply is empty.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {designs.map(({ card, count }) => (
-              <button
-                key={card.defId}
-                type="button"
-                onClick={() => onPick(card.defId)}
-                className="rounded-lg border border-[var(--rule)] bg-[var(--panel)] p-3 text-left transition hover:border-[var(--gold)]"
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="font-display text-[16px] font-semibold text-[var(--ink)]">
-                    {card.name}
-                  </span>
-                  <span className="font-mono text-[10px] text-[var(--mute)]">
-                    {card.slots.length} slots
-                    {card.houseStyleBonus !== undefined
-                      ? ` · house-style +${card.houseStyleBonus}★`
-                      : ""}{" "}
-                    · {count} left
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {card.slots.map((s, i) => (
-                    <div
-                      key={i}
-                      className="flex min-w-[96px] flex-col gap-1 rounded-md border border-[var(--rule)] bg-[var(--panel-2)] px-2 py-1.5"
-                    >
-                      <span className="font-mono text-[10px] text-[var(--whisper)]">
-                        slot {i + 1}
-                        {s.optional ? " · opt" : ""}
-                        {s.matchAgeOfSlot !== undefined
-                          ? ` · =s${s.matchAgeOfSlot + 1}`
-                          : ""}
-                      </span>
-                      <SlotReward spec={s} />
-                    </div>
-                  ))}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={onCancel}
-          className="mt-5 rounded-md border border-[var(--rule)] bg-[var(--panel)] px-4 py-2 font-mono text-[12px] uppercase tracking-[.12em] text-[var(--ink-muted)] hover:border-[var(--amber)] hover:text-[var(--ink)]"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function PlayerRow({ player, active }: { player: Player; active: boolean }) {
+function FlyCard({ flight }: { flight: Flight }) {
+  const [go, setGo] = useState(false);
+  useEffect(() => {
+    const r = requestAnimationFrame(() => requestAnimationFrame(() => setGo(true)));
+    return () => cancelAnimationFrame(r);
+  }, []);
+  const m = SUB[flight.kind];
+  const dx = go ? flight.x1 - flight.x0 : 0;
+  const dy = go ? flight.y1 - flight.y0 : 0;
   return (
     <div
-      className={[
-        "rounded-md border px-3 py-2",
-        active
-          ? "border-[var(--gold)] bg-[var(--panel-2)]"
-          : "border-[var(--rule)] bg-[var(--panel)]",
-      ].join(" ")}
+      style={{
+        position: "absolute",
+        left: flight.x0,
+        top: flight.y0,
+        width: 46,
+        height: 64,
+        marginLeft: -23,
+        marginTop: -32,
+        borderRadius: 8,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "6px 4px",
+        background: `linear-gradient(180deg,${m.ink}33 0%, rgba(20,14,8,.97) 70%)`,
+        border: `1px solid ${m.ink}aa`,
+        boxShadow: `0 10px 24px ${m.ink}55, inset 0 1px 0 rgba(255,255,255,.08)`,
+        transform: `translate(${dx}px, ${dy}px) scale(${go ? 0.55 : 1.04}) rotate(${go ? 12 : 0}deg)`,
+        opacity: go ? 0.15 : 1,
+        transition: "transform .56s cubic-bezier(.5,0,.35,1), opacity .56s ease-in",
+        willChange: "transform, opacity",
+      }}
     >
-      <div className="flex items-center justify-between">
-        <span className="text-[14px] font-semibold text-[var(--ink)]">
-          {player.name}
-        </span>
-        {active ? (
-          <span className="font-mono text-[10px] uppercase tracking-[.14em] text-[var(--gold)]">
-            active
-          </span>
-        ) : null}
+      <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: m.ink }}>{m.label}</span>
+      <span style={{ fontSize: 20, lineHeight: 1, color: m.ink, textShadow: `0 0 8px ${m.ink}66` }}>{m.glyph}</span>
+    </div>
+  );
+}
+
+function PileChooser({ title, onPick, onCancel }: { title: string; onPick: (k: ResourceKind) => void; onCancel: () => void }) {
+  return (
+    <Scrim>
+      <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 600, color: C.ink }}>{title}</div>
+      <div style={{ display: "flex", gap: 10 }}>
+        {PILE_ORDER.map((k) => (
+          <button key={k} className="bb-btn" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: "linear-gradient(180deg,#2c1f13,#1a130b)", border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
+            <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 18, color: FACE[k].color }}>{FACE[k].mono}</span>
+            <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted }}>{FACE[k].label}</span>
+          </button>
+        ))}
       </div>
-      <div className="mt-0.5 font-mono text-[11px] text-[var(--mute)]">
-        {player.capital}฿ · {player.prestige}★ · {player.rickhouse.length} resting ·{" "}
-        {player.brandLines.length} lines · {player.bourbonsSold} sold
+      <button onClick={onCancel} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".1em", color: C.muted, background: "none", border: 0, cursor: "pointer", textTransform: "uppercase" }}>cancel</button>
+    </Scrim>
+  );
+}
+
+function FaceChooser({ title, onPick, onCancel }: { title: string; onPick: (f: DieFace) => void; onCancel: () => void }) {
+  return (
+    <Scrim>
+      <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 600, color: C.ink }}>{title}</div>
+      <div style={{ display: "flex", gap: 10 }}>
+        {(["cask", "corn", "rye", "wheat", "barley", "anything"] as DieFace[]).map((k) => (
+          <button key={k} className="bb-btn" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: "linear-gradient(180deg,#2c1f13,#1a130b)", border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
+            <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 18, color: FACE[k].color }}>{FACE[k].mono}</span>
+            <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted }}>{FACE[k].label}</span>
+          </button>
+        ))}
+      </div>
+      <button onClick={onCancel} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".1em", color: C.muted, background: "none", border: 0, cursor: "pointer", textTransform: "uppercase" }}>cancel</button>
+    </Scrim>
+  );
+}
+
+function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
+  game: GameState;
+  me: Player;
+  bourbon: Bourbon;
+  zone: Zone;
+  onRoute: (demandCardId?: string) => void;
+  onCancel: () => void;
+}) {
+  const trackVal = barrelValue(bourbon.quality, bourbon.age);
+  const dist = fnDist(me);
+  const base = trackVal + bourbon.saleBonus + dist; // the bourbon's own value
+  const options = game.demandCards.map((c) => {
+    const open = c.filledBy.indexOf(null) >= 0;
+    const fits = meetsRequirement(bourbon, c.requirement);
+    const filled = c.filledBy.filter((f) => f !== null).length;
+    const completes = open && filled + 1 >= c.slotsActive;
+    // bourbon value (age + premium + distribution) + this order's flat zone bonus
+    return { card: c, open, fits, completes, payoff: base + c.zoneBonus[zone] };
+  });
+  return (
+    <Scrim>
+      <div style={{ width: 560, maxWidth: "90vw", display: "flex", flexDirection: "column", gap: 14, padding: 28, borderRadius: 16, border: `1px solid ${C.border}`, background: "linear-gradient(180deg,#1a120b,#130c06)", boxShadow: "0 18px 50px rgba(0,0,0,.55)" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>Sell · {STYLE_LABEL[bourbon.styleTag]} · {bourbon.quality} · age {bourbon.age}</div>
+          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: C.ink }}>{bourbon.name}</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>Bourbon value <b style={{ color: C.ink }}>{base}</b> (age {trackVal}{bourbon.saleBonus > 0 ? ` + ${bourbon.saleBonus} premium` : ""} + {dist} dist) <span style={{ color: ZONE_META[zone].color }}>+ each order's {ZONE_META[zone].label} bonus</span>. Route to a matching order.</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto" }}>
+          {options.filter((o) => o.fits).length === 0 && (
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.muted, padding: "14px 4px", textAlign: "center", lineHeight: 1.5 }}>
+              No order on the table accepts this bourbon yet.<br />Wait for a matching demand card.
+            </div>
+          )}
+          {options.filter((o) => o.fits).map(({ card, open, completes, payoff }) => (
+            <button key={card.id} className="bb-btn" disabled={!open} onClick={() => onRoute(card.id)} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: open ? "pointer" : "default", border: `1px solid ${open ? C.brass : C.border2}`, background: open ? "#221710" : "#130d08", opacity: open ? 1 : 0.5 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink }}>{card.label}</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.amber }}>{requirementText(card.requirement)} · {card.filledBy.filter((f) => f).length}/{card.slotsActive} slots</div>
+              </div>
+              {open ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: C.gold }}>+{payoff}</div>
+                  {completes && (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 9px", borderRadius: 999, background: "rgba(109,178,140,.18)", border: `1px solid ${C.green}` }}>
+                      <span style={{ fontSize: 13, color: C.green }}>★</span>
+                      <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: C.green, lineHeight: 1 }}>{card.reputation}</span>
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>no open slot</div>
+              )}
+            </button>
+          ))}
+        </div>
+        <button onClick={onCancel} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".1em", color: C.muted, background: "none", border: 0, cursor: "pointer", textTransform: "uppercase", alignSelf: "center" }}>cancel</button>
+      </div>
+    </Scrim>
+  );
+}
+
+function UltimateOverlay({ dept, onChoose, onCancel }: {
+  dept: Player["distillery"]["departments"][number];
+  onChoose: (ult: UltimateId, pile?: ResourceKind) => void;
+  onCancel: () => void;
+}) {
+  const [pendingProspect, setPendingProspect] = useState(false);
+  const options = dept.ultimateOptions.filter((o) => o !== "ph");
+  if (pendingProspect) {
+    return <PileChooser title="Prospector — commit to which pile?" onPick={(k) => onChoose("prospector", k)} onCancel={() => setPendingProspect(false)} />;
+  }
+  return (
+    <Scrim>
+      <div style={{ width: 520, maxWidth: "90vw", display: "flex", flexDirection: "column", gap: 14, padding: 28, borderRadius: 16, border: `1px solid ${C.border}`, background: "linear-gradient(180deg,#1a120b,#130c06)", boxShadow: "0 18px 50px rgba(0,0,0,.55)" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>{dept.name} · Ultimate</div>
+          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink }}>Choose your ultimate</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>Permanent. This is the top of the branch.</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {options.map((u) => (
+            <button key={u} className="bb-btn" onClick={() => (u === "prospector" ? setPendingProspect(true) : onChoose(u))} style={{ textAlign: "left", padding: "11px 14px", borderRadius: 10, cursor: "pointer", border: `1px solid ${C.brass}`, background: "#221710" }}>
+              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: C.gold }}>{ULT_LABEL[u].name}</div>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.text2, marginTop: 2 }}>{ULT_LABEL[u].blurb}</div>
+            </button>
+          ))}
+        </div>
+        <button onClick={onCancel} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".1em", color: C.muted, background: "none", border: 0, cursor: "pointer", textTransform: "uppercase", alignSelf: "center" }}>cancel</button>
+      </div>
+    </Scrim>
+  );
+}
+
+function EndScreen({ game, onNew }: { game: GameState; onNew: () => void }) {
+  const ranked = [...game.players]
+    .map((p) => ({ name: p.name, capital: p.capital, reputation: reputationOf(p), total: p.capital + reputationOf(p), cards: p.keptCards.length }))
+    .sort((a, b) => b.total - a.total);
+  return (
+    <div style={{ position: "relative", width: 1920, height: 1080, display: "grid", placeItems: "center", background: "radial-gradient(120% 90% at 50% 0%, rgba(213,150,80,.1), transparent 60%), #0c0805", color: C.ink }}>
+      <div style={{ width: 640, display: "flex", flexDirection: "column", gap: 18, padding: 40, borderRadius: 18, border: `1px solid ${C.border}`, background: "linear-gradient(180deg,#1a120b,#130c06)", boxShadow: "0 18px 50px rgba(0,0,0,.5)" }}>
+        <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 42, color: C.gold }}>Last Call</div>
+        <div style={{ fontSize: 14, color: C.text2 }}>The demand deck ran dry. Final standings — Capital + Prestige.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {ranked.map((r, i) => (
+            <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 11, border: `1px solid ${i === 0 ? C.brass : C.border2}`, background: i === 0 ? "linear-gradient(90deg,rgba(213,150,80,.18),transparent)" : "#150e08" }}>
+              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: i === 0 ? C.gold : C.muted, width: 28 }}>{i + 1}</span>
+              <span style={{ flex: 1, fontFamily: SERIF, fontWeight: 700, fontSize: 20 }}>{r.name}{i === 0 ? " 🥃" : ""}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }}>{r.capital} cap</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>{r.reputation} prestige</span>
+              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink, width: 56, textAlign: "right" }}>{r.total}</span>
+            </div>
+          ))}
+        </div>
+        <button onClick={onNew} className="bb-btn" style={{ padding: "14px 24px", borderRadius: 12, border: 0, cursor: "pointer", fontFamily: MONO, fontWeight: 700, fontSize: 14, letterSpacing: ".12em", textTransform: "uppercase", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)" }}>New Game</button>
       </div>
     </div>
   );

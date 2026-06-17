@@ -73,7 +73,13 @@ export default $config({
       domain: siteDomain
         ? {
             name: siteDomain,
-            dns: sst.aws.dns({ zone: hostedZoneId! }),
+            // `override: true` makes the A/AAAA records UPSERT instead of
+            // CREATE, so a deploy reclaims records orphaned by a prior
+            // dev/stg stack (lost SST state) instead of failing with
+            // "record set already exists". Scoped to non-prod: the apex
+            // (prod) keeps the deliberate, manual one-at-a-time aliasing
+            // documented above — we never auto-clobber the production root.
+            dns: sst.aws.dns({ zone: hostedZoneId!, override: stage !== "prod" }),
             cert: certificateArn!,
           }
         : undefined,

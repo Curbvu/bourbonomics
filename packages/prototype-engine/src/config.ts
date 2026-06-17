@@ -1,106 +1,175 @@
-// Bourbonomics PROTOTYPE — central tuning module.
+// Bourbonomics — central tuning module (ground-up rebuild).
 //
-// Every tunable number in the prototype lives here so playtesting is a
-// one-file edit. Nothing in this module imports game logic (type-only
-// imports excepted); it is pure data + the two scalar conversion functions
-// used at scoring time.
+// Every tunable number lives here so playtesting is a one-file edit. Nothing in
+// this module imports game logic (type-only imports excepted). All numbers are
+// PLACEHOLDER, pre-playtest. The CLOCK is a config flag (see CLOCK_MODE).
 
-import type { Quality, ResourceKind } from "./types";
+import type { Quality, ResourceKind, Zone } from "./types";
+
+/** Which resource the game's end-clock runs on. */
+export type ClockMode = "demand_deck" | "mash_bill_supply";
 
 export const CONFIG = {
-  /** Actions each player spends per round (round-robin, one per pass). */
-  ACTIONS_PER_ROUND: 6,
-  /** Shared demand LEVEL ceiling / floor (the matrix demand axis). */
-  DEMAND_CAP: 12,
-  DEMAND_FLOOR: 0,
-  /** Demand level at game start. `[PH]`. */
-  DEMAND_START: 2,
-  /**
-   * Global rising trend: the demand level drifts +1 every this-many rounds at
-   * the Year Pass (on top of the flood band). Patient play is rewarded; the
-   * early game is naturally quiet. `[PH]`.
-   */
-  DEMAND_RISE_EVERY: 2,
-  /** Max marketing cards attachable to a single brand line. */
-  MARKETING_STACK_CAP: 3,
-  /** Capital cost to draw marketing (the very first draw of the game is free). */
-  MARKETING_DRAW_COST: 1,
-  /** Base capital cost to open a brand line; escalates per existing line. */
-  OPEN_LINE_BASE_COST: 1,
-  /** Soft ceiling on brand lines per player (not hard-enforced; informational). */
-  MAX_BRAND_LINES: 4,
-  /** A barrel must reach this age before it may be sold. */
+  /** Starting Capital per player. */
+  STARTING_CAPITAL: 5,
+
+  /** A barrel must reach this age before it may be sold. No aging ceiling exists. */
   MIN_SELL_AGE: 2,
-  /**
-   * Flat Capital paid on the FINAL extraction of a batch (the completion
-   * bonus). Attached to the final-sale event, NOT per unit — bunching all
-   * sales at once must not earn more bonus. `[PH]` — pre-playtest.
-   */
-  COMPLETION_BONUS: 1,
-  /** Signature-ability magnitudes (asymmetric distilleries). All `[PH]`. */
-  VOLUME_BONUS: 1,
-  RYE_BONUS: 2,
-  AGED_PRESTIGE_MIN_AGE: 5,
-  AGED_PRESTIGE: 1,
 
-  // --- Collection: five type-sorted piles + Collect ------------------------
+  // --- The clock -----------------------------------------------------------
   /**
-   * Starting card count per pile. Each pile is its own shuffled stack; quality
-   * is blind within it. Cask is used by most recipes so its pile runs deepest.
-   * `[PH]`.
+   * `demand_deck` (default): completed-and-kept cards permanently deplete the
+   * demand deck; crashed/cleared cards reshuffle; the game ends when the deck
+   * (and its discard) can no longer be drawn from. `mash_bill_supply`: the
+   * mash-bill supply is the clock (kept bills deplete it; demand reshuffles).
    */
-  PILE_COUNTS: { cask: 30, corn: 24, rye: 18, wheat: 18, barley: 18 } as Record<
-    ResourceKind,
-    number
-  >,
+  CLOCK_MODE: "demand_deck" as ClockMode,
   /**
-   * Quality distribution seeded into EVERY pile (blind upside variance). Must
-   * sum to 1; counts are rounded, remainder topped up with Common. `[PH]`.
+   * Safety backstop: force the final round at this round number so the game
+   * always terminates, even if completions can't outpace the demand crashes
+   * (which can happen at higher player counts, where each card needs more
+   * fills). The demand-deck clock stays the primary, earlier terminator. Set
+   * null to disable. `[PH]` — a balance dial, not a fixed round count.
    */
-  PILE_QUALITY_SPLIT: { common: 0.6, specialty: 0.3, heritage: 0.1 } as Record<
-    Quality,
-    number
-  >,
+  MAX_ROUNDS: 30 as number | null,
+
+  // --- The linear improvement ramp -----------------------------------------
   /**
-   * When a pile empties, reshuffle its own discard back into it. Per-type so
-   * each pile stays self-contained. `[PH]`.
+   * Capital cost of a player's Nth improvement (across any department): a single
+   * shared, rising per-player price. With `improvementsMade` already done, the
+   * next costs RAMP_BASE + improvementsMade * RAMP_STEP → 1, 2, 3, 4, … Per
+   * player, persists all game. `[PH]`.
    */
+  RAMP_BASE: 1,
+  RAMP_STEP: 1,
+
+  // --- Demand market -------------------------------------------------------
+  /** Cards drawn each Demand Phase (the spine). Marketing can raise it. `[PH]`. */
+  DEMAND_DRAW_PER_ROUND: 2,
+  /** The table reaching this count triggers a crash (checked at the draw). */
+  DEMAND_CRASH_AT: 10,
+  /** Zone thresholds by total cards on the table: 1–(MID-1) Low, …–(HIGH-1) Mid, ≥HIGH High. */
+  ZONE_MID_MIN: 5,
+  ZONE_HIGH_MIN: 8,
+
+  // --- Selling — value off the track; demand only adds a bonus -------------
+  // Barrel value is READ OFF A PRINTED TRACK by (tier, age) — an explicit
+  // lookup, NOT a formula. Each tier climbs to the year it caps, then holds
+  // (the barrel may keep physically aging with no further value). Ages between
+  // listed entries hold the last value. This age value IS the payout's base;
+  // demand never multiplies it — the matched order's per-zone bonus is added on
+  // top (see the demand cards' `zoneBonus`). `[PH]` — edit freely.
+  AGE_VALUE_TABLE: {
+    common: { 2: 1, 3: 1, 4: 2 },
+    uncommon: { 2: 1, 3: 1, 4: 2, 5: 2, 6: 3 },
+    rare: { 2: 1, 3: 2, 4: 2, 5: 3, 6: 3, 7: 4, 8: 4 },
+    epic: { 2: 2, 3: 2, 4: 3, 5: 3, 6: 4, 7: 4, 8: 5, 9: 5, 10: 6, 11: 6, 12: 7 },
+    legendary: { 2: 2, 3: 3, 4: 3, 5: 4, 6: 4, 7: 5, 8: 5, 9: 5, 10: 6, 11: 6, 12: 7, 13: 7, 14: 7, 15: 9, 16: 9, 17: 9, 18: 11 },
+  } as Record<Quality, Record<number, number>>,
+  /** The year each tier's value caps (value stops climbing; the barrel may age on). `[PH]`. */
+  QUALITY_CAP_AGE: { common: 4, uncommon: 6, rare: 8, epic: 12, legendary: 18 } as Record<Quality, number>,
+  // NOTE: demand is NOT a multiplier. A sale = age value + the matched order's
+  // per-zone `zoneBonus` (a flat bonus that's larger in a hotter zone) +
+  // complexity premium + Distribution — all additive. The per-card zone bonuses
+  // live in the demand-card content, not here.
+
+  // --- Mash-bill complexity scaling ----------------------------------------
+  // A bill always needs exactly 1 cask + ≥1 corn + ≥1 grain (rye/wheat/barley)
+  // — the "is it bourbon" rule, no cask/corn-only recipes. Beyond that minimum,
+  // every extra resource makes a richer bourbon: more batches AND/OR more
+  // Capital per sale. All `[PH]`.
+  /** Recipe size of the simplest legal bill (1 cask + 1 corn + 1 grain). */
+  COMPLEXITY_MIN: 3,
+  /** batchQty = BATCH_BASE + floor((complexity − MIN) × BATCH_PER). */
+  COMPLEXITY_BATCH_BASE: 2,
+  COMPLEXITY_BATCH_PER: 0.5,
+  /** Per-sale Capital premium = (complexity − MIN) × SALE_BONUS_PER. */
+  COMPLEXITY_SALE_BONUS_PER: 1,
+
+  // --- Resource piles ------------------------------------------------------
+  /** Starting card count per pile. Cask is used by most recipes so it runs deepest. `[PH]`. */
+  PILE_COUNTS: { cask: 30, corn: 24, rye: 18, wheat: 18, barley: 18 } as Record<ResourceKind, number>,
+  /**
+   * Quality distribution seeded blind into EVERY pile — Legendary very rare,
+   * Common abundant (the rare-drop dopamine moment). Must sum to ~1. `[PH]`.
+   */
+  PILE_QUALITY_SPLIT: { common: 0.45, uncommon: 0.28, rare: 0.17, epic: 0.08, legendary: 0.02 } as Record<Quality, number>,
+  /** When a pile empties, reshuffle its own discard back into it. `[PH]`. */
   PILE_RESHUFFLE_ON_EMPTY: true,
-  /** Capital charged per paid OVERFLOW draw beyond the free Supply Room budget. `[PH]`. */
-  OVERFLOW_COST: 1,
 
-  MASH_BILL_OFFER: 3,
-  MARKETING_OFFER: 3,
-  /** Tray sizes (face-up, take-and-refill). */
-  MASH_BILL_TRAY_SIZE: 3,
-  MARKETING_TRAY_SIZE: 4,
-  /** Slots a brand line may hold at most (slot cards define their own count <= this). */
-  MAX_SLOTS_PER_LINE: 6,
-  /** Prestige → capital conversion rate applied at game end. */
-  PRESTIGE_TO_CAPITAL_RATE: 1,
+  // --- Ultimate magnitudes (built branches; the rest are "ph" stubs) --------
+  ULT_MEGA_EXPANSION: 2, // Rickhouse: +2 capacity
+  ULT_CLIMATE_EXTRA_AGE: 1, // Rickhouse: designated barrel ages +1 extra (→ +2/round)
+  ULT_CHAR_TOAST_START_AGE: 1, // Rickhouse: barrels start at age 1
+  ULT_DOUBLE_MATURATION_AGE: 8, // Rickhouse: at this age, +1 batchQty (once)
+  ULT_DOUBLE_MATURATION_BONUS: 1,
+  ULT_WAREHOUSE_TASTING_MIN: 3, // Rickhouse: with ≥3 aging barrels, +Capital/round
+  ULT_WAREHOUSE_TASTING_CAPITAL: 1,
+  ULT_OVERFLOW_ROLL: 2, // Supply: +2 dice
+  ULT_GRAND_WAREHOUSE: 3, // Warehouse: +3 hold cap
 } as const;
 
 /**
- * Collection brakes — both OFF by default; flat OVERFLOW_COST per draw is live.
- * Behind config so the "fixed free pool + paid overflow" model can be tightened
- * after playtest without touching the loop.
- *   - overflowEscalating:  first overflow +1, second +2, third +3, … (mirrors
- *                          the Open Brand Line escalation). When false, every
- *                          overflow draw is the flat OVERFLOW_COST.
- *   - overflowPerRoundCap: optional hard cap on bought (overflow) draws per
- *                          round. null = no cap.
+ * Capital cost of a player's next improvement, given how many they have already
+ * made and a discount (per-department + Counting House). The ramp is the global
+ * brake; the discount is the per-distillery asymmetry. Never below 0.
  */
-export const FLAGS = {
-  overflowEscalating: false,
-  overflowPerRoundCap: null as number | null,
-} as const;
-
-/** Escalating cost to open the Nth brand line (existingCount lines already open). */
-export function openLineCost(existingCount: number): number {
-  return CONFIG.OPEN_LINE_BASE_COST + existingCount;
+export function improvementCost(improvementsMade: number, discount = 0): number {
+  const ramp = CONFIG.RAMP_BASE + improvementsMade * CONFIG.RAMP_STEP;
+  return Math.max(0, ramp - discount);
 }
 
-/** Convert end-game prestige into capital. Single function so it is trivial to retune. */
-export function prestigeToCapital(prestige: number): number {
-  return prestige * CONFIG.PRESTIGE_TO_CAPITAL_RATE;
+/** The demand zone read from the number of cards currently on the table. */
+export function zoneForCardCount(count: number): Zone {
+  if (count >= CONFIG.ZONE_HIGH_MIN) return "high";
+  if (count >= CONFIG.ZONE_MID_MIN) return "mid";
+  return "low";
+}
+
+/**
+ * Barrel value read off the printed age track by (tier, age) — a 1-D lookup,
+ * NOT a formula. Below MIN_SELL_AGE it's 0; at/above the tier's cap it holds the
+ * cap value; ages between listed entries hold the last listed value.
+ */
+export function barrelValue(quality: Quality, age: number): number {
+  if (age < CONFIG.MIN_SELL_AGE) return 0;
+  const table = CONFIG.AGE_VALUE_TABLE[quality];
+  const lookAge = Math.min(age, CONFIG.QUALITY_CAP_AGE[quality]);
+  let val = 0;
+  for (let a = CONFIG.MIN_SELL_AGE; a <= lookAge; a++) {
+    const v = table[a];
+    if (v !== undefined) val = v; // hold-forward: keep the last listed value
+  }
+  return val;
+}
+
+/** The age at which a tier's track value caps (for UI / hints). */
+export function capAge(quality: Quality): number {
+  return CONFIG.QUALITY_CAP_AGE[quality];
+}
+
+/** Total resources a recipe requires (its complexity). */
+export function recipeComplexity(recipe: Partial<Record<ResourceKind, number>>): number {
+  return (Object.values(recipe) as (number | undefined)[]).reduce<number>((s, n) => s + (n ?? 0), 0);
+}
+
+/** Sales a batch yields, scaled up by recipe complexity. */
+export function batchQtyForRecipe(recipe: Partial<Record<ResourceKind, number>>): number {
+  const over = Math.max(0, recipeComplexity(recipe) - CONFIG.COMPLEXITY_MIN);
+  return CONFIG.COMPLEXITY_BATCH_BASE + Math.floor(over * CONFIG.COMPLEXITY_BATCH_PER);
+}
+
+/** Per-sale Capital premium a bill earns for being more complex than the minimum. */
+export function saleBonusForRecipe(recipe: Partial<Record<ResourceKind, number>>): number {
+  const over = Math.max(0, recipeComplexity(recipe) - CONFIG.COMPLEXITY_MIN);
+  return over * CONFIG.COMPLEXITY_SALE_BONUS_PER;
+}
+
+/**
+ * How many slots a card activates at a given player count. A card's fill is the
+ * player count times its `slotMultiple` (1 = one fill per player; 2 = two, etc.),
+ * so a slot always belongs to exactly one player-share of demand.
+ */
+export function activeSlotsForPlayerCount(playerCount: number, slotMultiple: number): number {
+  return Math.max(1, slotMultiple) * Math.max(1, playerCount);
 }

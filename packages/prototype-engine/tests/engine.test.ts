@@ -1,48 +1,27 @@
 import { describe, expect, it } from "vitest";
 import {
   applyAction,
+  barrelValue,
+  batchQtyForRecipe,
+  buildMashBillSupply,
   createGame,
-  matrixValue,
+  improvementCost,
+  meetsRequirement,
   rankPlayers,
+  reputationOf,
+  saleBonusForRecipe,
   scorePlayer,
-  houseStyleBonus,
-  buildSlotCardSupply,
+  zoneForCardCount,
   CONFIG,
 } from "../src/index";
 import type {
   Action,
   Bourbon,
-  BrandLine,
+  DemandCard,
   GameState,
-  ResourceCard,
+  Player,
   ResourceKind,
-  SlotCard,
 } from "../src/types";
-
-/**
- * Replace the demand row with a single all-open card whose red line is huge,
- * so the flood cliff never fires and any tag can always sell. Used by tests
- * that exercise placement / rewards rather than the flood engine itself.
- */
-function openMarket(s: GameState, slots = 12): void {
-  s.demandCards = [
-    {
-      id: "dm_test",
-      defId: "dm_test",
-      label: "Open Market",
-      tag: "classic",
-      slots: Array.from({ length: slots }, () => ({
-        tagRestriction: "open" as const,
-      })),
-      blueCapacity: 0,
-      redCapacity: 9999,
-      placeholder: true,
-    },
-  ];
-  s.blueLine = 0;
-  s.redLine = 9999;
-  s.cubesPlaced = 0;
-}
 
 // ------------------------------------------------------------------
 // helpers
@@ -60,6 +39,21 @@ function expectRefusal(state: GameState, action: Action): string {
   return res.ok ? "" : res.reason;
 }
 
+/** Advance Demand → Collect → Play, claiming nothing through the collect pass. */
+function intoPlay(s: GameState): GameState {
+  s = ok(s, { type: "BEGIN_COLLECT" });
+  for (let i = 0; i < s.players.length + 1; i++) {
+    if (s.roundPhase !== "collect") break;
+    s = ok(s, { type: "COLLECT_CLAIM", claims: [] });
+  }
+  expect(s.roundPhase).toBe("play");
+  return s;
+}
+
+function dept(p: Player, id: string) {
+  return p.distillery.departments.find((d) => d.id === id)!;
+}
+
 function makeBourbon(over: Partial<Bourbon> = {}): Bourbon {
   return {
     id: over.id ?? `b_${Math.random().toString(36).slice(2)}`,
@@ -67,60 +61,37 @@ function makeBourbon(over: Partial<Bourbon> = {}): Bourbon {
     name: over.name ?? "Test Bourbon",
     traits: over.traits ?? [],
     expression: over.expression ?? "bourbon",
-    recipeTags: over.recipeTags ?? [],
+    styleTag: over.styleTag ?? "classic",
     recipe: over.recipe ?? {},
+    staged: over.staged ?? [],
     built: over.built ?? true,
     age: over.age ?? 3,
     quality: over.quality ?? "common",
-    // Default to a single-sale batch so existing single-sale tests are
-    // unchanged; setting batchQty alone also seeds salesRemaining.
     batchQty: over.batchQty ?? 1,
+    saleBonus: over.saleBonus ?? 0,
     salesRemaining: over.salesRemaining ?? over.batchQty ?? 1,
-    matrix: over.matrix ?? [[0]],
     createdRound: over.createdRound ?? 0,
+    maturationBoosted: over.maturationBoosted ?? false,
     ...over,
   };
 }
 
-/** A test brand line of `slotCount` empty flat-reward slots. */
-function makeLine(slotCount: number, over: Partial<BrandLine> = {}): BrandLine {
-  const slotCard: SlotCard = {
-    id: "sc",
-    defId: "sc",
-    name: "Test Line",
-    slots: Array.from({ length: slotCount }, () => ({
-      reward: { kind: "flat" as const, reward: {} },
-    })),
-    ageCeilings: Array.from({ length: slotCount }, () => 99),
+function makeDemandCard(over: Partial<DemandCard> = {}): DemandCard {
+  const slotsActive = over.slotsActive ?? 1;
+  return {
+    id: over.id ?? "dm_test",
+    defId: over.defId ?? "dm_test",
+    label: over.label ?? "Test Order",
+    requirement: over.requirement ?? {},
+    slotMultiple: over.slotMultiple ?? 1,
+    slotsActive,
+    filledBy: over.filledBy ?? Array.from({ length: slotsActive }, () => null),
+    zoneBonus: over.zoneBonus ?? { low: 2, mid: 4, high: 6 },
+    reputation: over.reputation ?? 3,
     placeholder: true,
   };
-  return {
-    id: over.id ?? "line1",
-    slotCard,
-    slots: Array.from({ length: slotCount }, () => null),
-    ageCeiling: null,
-    marketingCards: [],
-    ...over,
-  };
 }
 
-/** A real brand line built from one of the five frozen v2 slot-card designs. */
-function lineFromDef(defId: string, id = "line1"): BrandLine {
-  const card = buildSlotCardSupply().find((c) => c.defId === defId)!;
-  return {
-    id,
-    slotCard: card,
-    slots: card.slots.map(() => null),
-    ageCeiling: null,
-    marketingCards: [],
-  };
-}
-
-function resourceOf(state: GameState, kind: ResourceCard["kind"]): ResourceCard | undefined {
-  return state.players[0]!.hand.find((c) => c.kind === kind);
-}
-
-/** Total cards waiting across every per-type discard. */
 function totalDiscard(s: GameState): number {
   return (Object.keys(s.pileDiscards) as ResourceKind[]).reduce(
     (sum, k) => sum + s.pileDiscards[k].length,
@@ -128,1409 +99,577 @@ function totalDiscard(s: GameState): number {
   );
 }
 
-/**
- * Spend one action the cheap way: Collect a single card from a deep, unspiked
- * pile (cask, falling back to corn). Always within the free Supply Room budget,
- * so it never needs Capital. Used by tests that just need to burn an action /
- * advance the round.
- */
-function tick(s: GameState): GameState {
-  const kind: ResourceKind = s.piles.cask.length > 0 ? "cask" : "corn";
-  return ok(s, { type: "COLLECT", draws: { [kind]: 1 } });
-}
-
 // ------------------------------------------------------------------
 // setup
 // ------------------------------------------------------------------
 
 describe("setup", () => {
-  it("creates a deterministic, playable initial state", () => {
+  it("creates a deterministic game in the Demand Phase with the market laid out", () => {
     const a = createGame({ seed: 42 });
     const b = createGame({ seed: 42 });
-    expect(a).toEqual(b); // same seed → identical game
+    expect(a).toEqual(b);
 
     expect(a.phase).toBe("playing");
-    expect(a.players).toHaveLength(1);
-    expect(a.demand).toBe(CONFIG.DEMAND_START);
-    expect(a.mashBillTray.length).toBe(CONFIG.MASH_BILL_TRAY_SIZE);
-    // Solo: one demand card drawn, with positive flood lines.
-    expect(a.demandCards.length).toBe(1);
-    expect(a.redLine).toBeGreaterThan(a.blueLine);
-    expect(a.cubesPlaced).toBe(0);
-    expect(a.players[0]!.actionsRemaining).toBe(CONFIG.ACTIONS_PER_ROUND);
-  });
-});
-
-// ------------------------------------------------------------------
-// turn loop / round advance
-// ------------------------------------------------------------------
-
-describe("round-robin turn loop", () => {
-  it("consumes one action per pass and advances the round when spent", () => {
-    let s = createGame({ seed: 1 });
-    expect(s.roundNumber).toBe(1);
-    for (let i = 0; i < CONFIG.ACTIONS_PER_ROUND; i++) {
-      expect(s.players[0]!.actionsRemaining).toBe(CONFIG.ACTIONS_PER_ROUND - i);
-      s = tick(s);
-    }
-    // After 6 actions in a solo game the round rolls over.
-    expect(s.roundNumber).toBe(2);
-    expect(s.players[0]!.actionsRemaining).toBe(CONFIG.ACTIONS_PER_ROUND);
+    expect(a.roundPhase).toBe("demand");
+    expect(a.demandCards.length).toBe(CONFIG.DEMAND_DRAW_PER_ROUND);
+    expect(a.collect).toBeNull();
+    expect(a.mashBillSupply.length).toBeGreaterThan(0);
+    expect(a.players[0]!.capital).toBe(CONFIG.STARTING_CAPITAL);
   });
 
-  it("alternates players round-robin in a hot-seat game", () => {
-    let s = createGame({ seed: 1, playerNames: ["A", "B"] });
-    expect(s.currentPlayerIndex).toBe(0);
-    s = tick(s);
-    expect(s.currentPlayerIndex).toBe(1);
-    s = tick(s);
-    expect(s.currentPlayerIndex).toBe(0);
-    expect(s.players[0]!.actionsRemaining).toBe(CONFIG.ACTIONS_PER_ROUND - 1);
-  });
-
-  it("ages every barrel by one at end of round", () => {
-    let s = createGame({ seed: 1 });
-    s.players[0]!.rickhouse = [makeBourbon({ age: 0 })];
-    for (let i = 0; i < CONFIG.ACTIONS_PER_ROUND; i++) {
-      s = tick(s);
-    }
-    expect(s.players[0]!.rickhouse[0]!.age).toBe(1);
-  });
-});
-
-// ------------------------------------------------------------------
-// five type-sorted piles
-// ------------------------------------------------------------------
-
-describe("resource piles", () => {
-  it("seeds five non-empty piles at setup with blind quality within each", () => {
+  it("seeds five non-empty piles with blind quality within each", () => {
     const s = createGame({ seed: 7 });
-    const kinds: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
-    for (const k of kinds) {
+    for (const k of ["cask", "corn", "rye", "wheat", "barley"] as ResourceKind[]) {
       expect(s.piles[k].length).toBe(CONFIG.PILE_COUNTS[k]);
       expect(s.piles[k].every((c) => c.kind === k)).toBe(true);
-      // Every pile carries a quality spread (not all one tier).
-      expect(s.piles[k].some((c) => c.quality === "specialty")).toBe(true);
+      expect(s.piles[k].some((c) => c.quality === "uncommon")).toBe(true);
+      expect(s.piles[k].some((c) => c.quality !== "common")).toBe(true);
     }
   });
 
-  it("reshuffles a pile's own discard when it empties", () => {
+  it("activates demand slots as a multiple of the player count", () => {
+    for (const n of [2, 4, 6]) {
+      const g = createGame({ seed: 1, playerNames: Array.from({ length: n }, (_, i) => `p${i}`) });
+      for (const c of g.demandCards) {
+        expect(c.filledBy.length).toBe(c.slotMultiple * n);
+        expect(c.filledBy.length % n).toBe(0); // always a whole player-share
+      }
+    }
+  });
+});
+
+// ------------------------------------------------------------------
+// phase machine
+// ------------------------------------------------------------------
+
+describe("phase machine", () => {
+  it("BEGIN_COLLECT moves Demand → Collect and rolls the first player's dice", () => {
     let s = createGame({ seed: 1 });
-    // Drain the rye pile down to one card, with three waiting in its discard.
-    const sample = s.piles.rye.slice(0, 4);
-    s.piles.rye = sample.slice(0, 1);
-    s.pileDiscards.rye = sample.slice(1); // 3 cards waiting
-    // Collect 2 rye → empties the pile mid-draw, forcing a reshuffle.
-    s.players[0]!.capital = 5; // cover the rye cost spike if the row carries one
-    s = ok(s, { type: "COLLECT", draws: { rye: 2 } });
-    expect(s.players[0]!.hand.filter((c) => c.kind === "rye").length).toBe(2);
-    expect(s.log.some((l) => l.includes("reshuffled"))).toBe(true);
+    s = ok(s, { type: "BEGIN_COLLECT" });
+    expect(s.roundPhase).toBe("collect");
+    expect(s.collect!.dice.length).toBe(dept(s.players[0]!, "supply").values[0]);
+  });
+
+  it("refuses play actions during the Demand Phase", () => {
+    const s = createGame({ seed: 1 });
+    expect(expectRefusal(s, { type: "DRAW_MASH_BILLS", keepIndexes: [] })).toMatch(/Play Phase/);
+  });
+
+  it("a claim-nothing pass through Collect lands in the Play Phase", () => {
+    let s = createGame({ seed: 1, playerNames: ["A", "B", "C"] });
+    s = intoPlay(s);
+    expect(s.roundPhase).toBe("play");
+    expect(s.currentPlayerIndex).toBe(s.startPlayerIndex);
+  });
+
+  it("END_TURN by every player ends the round, ages barrels, and re-lays demand", () => {
+    let s = createGame({ seed: 1, playerNames: ["A", "B"] });
+    s = intoPlay(s);
+    s.players[0]!.rickhouse = [makeBourbon({ age: 2 })];
+    s.players[1]!.rickhouse = [makeBourbon({ age: 0, built: false })];
+    s = ok(s, { type: "END_TURN" });
+    expect(s.roundPhase).toBe("play"); // still B's turn
+    s = ok(s, { type: "END_TURN" });
+    expect(s.roundNumber).toBe(2);
+    expect(s.roundPhase).toBe("demand");
+    expect(s.players[0]!.rickhouse[0]!.age).toBe(3); // built barrel aged +1
+    expect(s.players[1]!.rickhouse[0]!.age).toBe(0); // unbuilt held at 0
   });
 });
 
 // ------------------------------------------------------------------
-// Collect (free budget + paid overflow + cost spikes)
+// demand market — zones & crash
 // ------------------------------------------------------------------
 
-describe("collect", () => {
-  /** Strip every cost spike off the round so a Collect is purely a budget test. */
-  function unspiked(s: GameState): void {
-    s.demandCards = s.demandCards.map((c) => ({ ...c, costSpikes: undefined }));
-  }
+describe("demand market", () => {
+  it("computes zones by the number of cards on the table", () => {
+    expect(zoneForCardCount(1)).toBe("low");
+    expect(zoneForCardCount(4)).toBe("low");
+    expect(zoneForCardCount(5)).toBe("mid");
+    expect(zoneForCardCount(7)).toBe("mid");
+    expect(zoneForCardCount(8)).toBe("high");
+    expect(zoneForCardCount(9)).toBe("high");
+  });
 
-  it("draws the chosen mix across piles, free within the Supply Room budget", () => {
-    let s = createGame({ seed: 7 });
-    unspiked(s);
-    const capBefore = s.players[0]!.capital;
-    s = ok(s, { type: "COLLECT", draws: { cask: 2, corn: 1 } });
+  it("crashes at the 10th card: a draw that would reach 10 wipes the table", () => {
+    let s = createGame({ seed: 4 });
+    // Stuff the table to 8; drawing 2 next round would reach 10 → crash.
+    s.demandCards = Array.from({ length: 8 }, (_, i) => makeDemandCard({ id: `c${i}` }));
+    s = intoPlay(s);
+    s = ok(s, { type: "END_TURN" }); // round ends → next Demand Phase draws 2
+    expect(s.demandCards.length).toBe(CONFIG.DEMAND_DRAW_PER_ROUND); // reset market
+    expect(zoneForCardCount(s.demandCards.length)).toBe("low");
+    expect(s.log.some((l) => l.includes("MARKET CRASH"))).toBe(true);
+  });
+
+  it("partially-filled cards persist on the table and still count", () => {
+    let s = createGame({ seed: 4, playerNames: ["A", "B"] });
+    const card = makeDemandCard({ id: "persist", slotsActive: 2 });
+    card.filledBy[0] = "p1"; // one slot filled, not complete
+    s.demandCards = [card];
+    s = intoPlay(s);
+    s = ok(s, { type: "END_TURN" });
+    s = ok(s, { type: "END_TURN" });
+    expect(s.demandCards.some((c) => c.id === "persist")).toBe(true);
+  });
+});
+
+// ------------------------------------------------------------------
+// Collect Phase — dice draft
+// ------------------------------------------------------------------
+
+describe("collect dice draft", () => {
+  it("claims a typed die and an 'anything' die (pile-chosen), respecting Warehouse cap", () => {
+    let s = createGame({ seed: 3 });
+    s = ok(s, { type: "BEGIN_COLLECT" });
+    s.collect!.dice[0]!.face = "rye";
+    s.collect!.dice[1]!.face = "anything";
+    s = ok(s, {
+      type: "COLLECT_CLAIM",
+      claims: [{ dieId: s.collect!.dice[0]!.id }, { dieId: s.collect!.dice[1]!.id, pile: "wheat" }],
+    });
     const hand = s.players[0]!.hand;
-    expect(hand.length).toBe(3);
-    expect(hand.filter((c) => c.kind === "cask").length).toBe(2);
-    expect(hand.filter((c) => c.kind === "corn").length).toBe(1);
-    expect(s.players[0]!.capital).toBe(capBefore); // 3 ≤ budget → free
+    expect(hand.length).toBe(2);
+    expect(hand.filter((c) => c.kind === "rye").length).toBe(1);
+    expect(hand.filter((c) => c.kind === "wheat").length).toBe(1);
+    expect(s.roundPhase).toBe("play");
   });
 
-  it("refuses an empty Collect", () => {
-    const s = createGame({ seed: 7 });
-    expect(expectRefusal(s, { type: "COLLECT", draws: {} })).toMatch(/at least one/);
-  });
-
-  it("charges Capital for overflow draws beyond the free budget", () => {
-    let s = createGame({ seed: 7 });
-    unspiked(s);
-    const budget = s.players[0]!.distillery.stations.find((st) => st.id === "supplyRoom")!
-      .levels[0]!; // 4
-    s.players[0]!.capital = 10;
-    // budget + 2 → two overflow draws at OVERFLOW_COST each.
-    s = ok(s, { type: "COLLECT", draws: { cask: budget + 2 } });
-    expect(s.players[0]!.hand.length).toBe(budget + 2);
-    expect(s.players[0]!.capital).toBe(10 - 2 * CONFIG.OVERFLOW_COST);
-    expect(s.players[0]!.overflowDrawsThisRound).toBe(2);
-  });
-
-  it("refuses an overflow draw the player can't pay for", () => {
-    const s = createGame({ seed: 7 });
-    unspiked(s);
-    const budget = s.players[0]!.distillery.stations.find((st) => st.id === "supplyRoom")!
-      .levels[0]!;
-    s.players[0]!.capital = 0; // can't afford any overflow
+  it("refuses claiming beyond the Warehouse cap", () => {
+    let s = createGame({ seed: 3 });
+    s = ok(s, { type: "BEGIN_COLLECT" });
+    const cap = dept(s.players[0]!, "warehouse").values[0]!;
+    s.players[0]!.hand = Array.from({ length: cap }, (_, i) => ({
+      id: `h${i}`,
+      defId: "x",
+      kind: "cask" as const,
+      quality: "common" as const,
+      name: "x",
+      placeholder: true as const,
+    }));
+    s.collect!.dice[0]!.face = "cask";
     expect(
-      expectRefusal(s, { type: "COLLECT", draws: { cask: budget + 1 } }),
-    ).toMatch(/not enough Capital/);
+      expectRefusal(s, { type: "COLLECT_CLAIM", claims: [{ dieId: s.collect!.dice[0]!.id }] }),
+    ).toMatch(/Warehouse holds/);
   });
 
-  it("applies a demand cost spike per spiked-tag card, on free and overflow draws alike", () => {
-    let s = createGame({ seed: 7 });
-    // One demand card spiking rye +1, plus an open slot so anything can sell.
-    s.demandCards = [
-      {
-        id: "d",
-        defId: "dm_rye",
-        label: "Rye Demand",
-        tag: "rye",
-        slots: [{ tagRestriction: "open" }],
-        blueCapacity: 1,
-        redCapacity: 9,
-        costSpikes: [{ tag: "rye", amount: 1 }],
-        placeholder: true,
-      },
-    ];
-    s.players[0]!.capital = 10;
-    // 2 rye within the free budget still pay the spike (+1 each = 2 total).
-    s = ok(s, { type: "COLLECT", draws: { rye: 2 } });
-    expect(s.players[0]!.capital).toBe(10 - 2);
+  it("refuses an 'anything' die claimed without a pile", () => {
+    let s = createGame({ seed: 3 });
+    s = ok(s, { type: "BEGIN_COLLECT" });
+    s.collect!.dice[0]!.face = "anything";
+    expect(
+      expectRefusal(s, { type: "COLLECT_CLAIM", claims: [{ dieId: s.collect!.dice[0]!.id }] }),
+    ).toMatch(/needs a pile/);
   });
 
-  it("stacks spikes across the demand row and combines spike with overflow", () => {
-    let s = createGame({ seed: 7 });
-    s.demandCards = [
-      {
-        id: "d1",
-        defId: "dm_rye",
-        label: "Rye",
-        tag: "rye",
-        slots: [{ tagRestriction: "open" }],
-        blueCapacity: 1,
-        redCapacity: 9,
-        costSpikes: [{ tag: "rye", amount: 1 }],
-        placeholder: true,
-      },
-      {
-        id: "d2",
-        defId: "dm_rye2",
-        label: "Rye 2",
-        tag: "rye",
-        slots: [{ tagRestriction: "open" }],
-        blueCapacity: 1,
-        redCapacity: 9,
-        costSpikes: [{ tag: "rye", amount: 1 }],
-        placeholder: true,
-      },
-    ];
-    const budget = s.players[0]!.distillery.stations.find((st) => st.id === "supplyRoom")!
-      .levels[0]!;
-    s.players[0]!.capital = 50;
-    // Spike sums to +2/rye. Draw budget+1 rye: every card pays +2 spike, and
-    // the last is also an overflow draw (+OVERFLOW_COST).
-    s = ok(s, { type: "COLLECT", draws: { rye: budget + 1 } });
-    const expected = 50 - (budget + 1) * 2 - CONFIG.OVERFLOW_COST;
-    expect(s.players[0]!.capital).toBe(expected);
+  it("rerolls once, and refuses a second reroll without the Second Reroll ultimate", () => {
+    let s = createGame({ seed: 5 });
+    s = ok(s, { type: "BEGIN_COLLECT" });
+    expect(s.collect!.maxRerolls).toBe(1);
+    const id = s.collect!.dice[0]!.id;
+    s = ok(s, { type: "COLLECT_REROLL", diceIds: [id] });
+    expect(expectRefusal(s, { type: "COLLECT_REROLL", diceIds: [id] })).toMatch(/no rerolls left/);
+  });
+
+  it("the Second Reroll ultimate grants a second reroll", () => {
+    let s = createGame({ seed: 5 });
+    const sup = dept(s.players[0]!, "supply");
+    sup.level = sup.maxLevel;
+    sup.chosenUltimate = "secondReroll";
+    s = ok(s, { type: "BEGIN_COLLECT" });
+    expect(s.collect!.maxRerolls).toBe(2);
+  });
+
+  it("most-Capital-first sets the collect pass order", () => {
+    let s = createGame({ seed: 5, playerNames: ["A", "B"] });
+    s.players[0]!.capital = 1;
+    s.players[1]!.capital = 9;
+    s = ok(s, { type: "BEGIN_COLLECT" });
+    expect(s.collect!.order[0]).toBe(1);
+    expect(s.currentPlayerIndex).toBe(1);
+  });
+
+  it("Triple Threat discards 2 and takes a die of the chosen face", () => {
+    let s = createGame({ seed: 5 });
+    const sup = dept(s.players[0]!, "supply");
+    sup.level = sup.maxLevel;
+    sup.chosenUltimate = "tripleThreat";
+    s = ok(s, { type: "BEGIN_COLLECT" });
+    const [d0, d1] = [s.collect!.dice[0]!, s.collect!.dice[1]!];
+    const before = s.collect!.dice.length;
+    s = ok(s, { type: "TRIPLE_THREAT", discardDiceIds: [d0.id, d1.id], face: "cask" });
+    expect(s.collect!.dice.length).toBe(before - 1);
+    expect(s.collect!.dice.some((d) => d.face === "cask")).toBe(true);
+    expect(expectRefusal(s, { type: "TRIPLE_THREAT", discardDiceIds: [], face: "rye" })).toMatch(
+      /already used/,
+    );
   });
 });
 
 // ------------------------------------------------------------------
-// make bourbon / rickhouse cap
+// Draw Mash Bills
+// ------------------------------------------------------------------
+
+describe("draw mash bills", () => {
+  it("reveals Mash-Floor-many bills and keeps the chosen ones as resting barrels", () => {
+    let s = createGame({ seed: 3 });
+    s = intoPlay(s);
+    const supplyBefore = s.mashBillSupply.length;
+    s = ok(s, { type: "DRAW_MASH_BILLS", keepIndexes: [0] });
+    const p = s.players[0]!;
+    expect(p.rickhouse.length).toBe(1);
+    expect(p.rickhouse[0]!.built).toBe(false);
+    expect(p.rickhouse[0]!.age).toBe(0);
+    expect(s.mashBillSupply.length).toBe(supplyBefore - 1);
+  });
+
+  it("is once per turn", () => {
+    let s = createGame({ seed: 3 });
+    s = intoPlay(s);
+    s = ok(s, { type: "DRAW_MASH_BILLS", keepIndexes: [] });
+    expect(expectRefusal(s, { type: "DRAW_MASH_BILLS", keepIndexes: [] })).toMatch(/already drawn/);
+  });
+
+  it("refuses keeping more bills than the rickhouse can hold", () => {
+    let s = createGame({ seed: 3 });
+    s = intoPlay(s);
+    const cap = dept(s.players[0]!, "rickhouse").values[0]!;
+    s.players[0]!.rickhouse = Array.from({ length: cap }, () => makeBourbon());
+    expect(expectRefusal(s, { type: "DRAW_MASH_BILLS", keepIndexes: [0] })).toMatch(/room for/);
+  });
+});
+
+// ------------------------------------------------------------------
+// Make Bourbon + staging
 // ------------------------------------------------------------------
 
 describe("make bourbon", () => {
-  it("commits matching resources to the communal discard and builds the resting barrel", () => {
+  it("commits the recipe, builds the barrel, and sets quality from the best card", () => {
     let s = createGame({ seed: 3 });
-    // An UNBUILT barrel rests in the rickhouse showing the recipe it needs.
+    s = intoPlay(s);
     s.players[0]!.rickhouse = [
       makeBourbon({ id: "barrel", built: false, age: 0, recipe: { cask: 1, corn: 1 } }),
     ];
     s.players[0]!.hand = [
-      { id: "c1", defId: "res_cask", kind: "cask", quality: "specialty", name: "cask", placeholder: true },
-      { id: "g1", defId: "res_corn", kind: "corn", quality: "common", name: "corn", placeholder: true },
+      { id: "c1", defId: "x", kind: "cask", quality: "rare", name: "cask", placeholder: true },
+      { id: "g1", defId: "x", kind: "corn", quality: "common", name: "corn", placeholder: true },
     ];
-    const discardBefore = totalDiscard(s);
-
-    s = ok(s, {
-      type: "MAKE_BOURBON",
-      barrelId: "barrel",
-      resourceCardIds: ["c1", "g1"],
-    });
-
-    const p = s.players[0]!;
-    expect(p.rickhouse.length).toBe(1);
-    const b = p.rickhouse[0]!;
+    const before = totalDiscard(s);
+    s = ok(s, { type: "MAKE_BOURBON", barrelId: "barrel", resourceCardIds: ["c1", "g1"] });
+    const b = s.players[0]!.rickhouse[0]!;
     expect(b.built).toBe(true);
-    expect(b.age).toBe(0); // aging starts now
-    expect(p.hand.length).toBe(0);
-    // Committed cards land in their matching per-type discards.
-    expect(totalDiscard(s)).toBe(discardBefore + 2);
-    expect(s.pileDiscards.cask.length).toBe(1);
-    expect(s.pileDiscards.corn.length).toBe(1);
-    // Highest committed tier (specialty cask) sets quality.
-    expect(b.quality).toBe("specialty");
+    expect(b.age).toBe(0);
+    expect(b.quality).toBe("rare"); // best of {rare, common}
+    expect(totalDiscard(s)).toBe(before + 2);
   });
 
-  it("refuses building when the committed resources don't satisfy the recipe", () => {
-    const s = createGame({ seed: 3 });
+  it("Char & Toast builds barrels starting at age 1", () => {
+    let s = createGame({ seed: 3 });
+    s = intoPlay(s);
+    const rh = dept(s.players[0]!, "rickhouse");
+    rh.level = rh.maxLevel;
+    rh.chosenUltimate = "charToast";
+    s.players[0]!.rickhouse = [makeBourbon({ id: "b", built: false, recipe: { cask: 1 } })];
+    s.players[0]!.hand = [
+      { id: "c1", defId: "x", kind: "cask", quality: "common", name: "cask", placeholder: true },
+    ];
+    s = ok(s, { type: "MAKE_BOURBON", barrelId: "b", resourceCardIds: ["c1"] });
+    expect(s.players[0]!.rickhouse[0]!.age).toBe(CONFIG.ULT_CHAR_TOAST_START_AGE);
+  });
+
+  it("stages a recipe-matched card off the Warehouse and builds from it", () => {
+    let s = createGame({ seed: 3 });
+    s = intoPlay(s);
     s.players[0]!.rickhouse = [
-      makeBourbon({ id: "barrel", built: false, age: 0, recipe: { cask: 2 } }),
+      makeBourbon({ id: "barrel", built: false, age: 0, recipe: { cask: 1, corn: 1 } }),
     ];
     s.players[0]!.hand = [
-      { id: "c1", defId: "res_cask", kind: "cask", quality: "common", name: "cask", placeholder: true },
+      { id: "c1", defId: "x", kind: "cask", quality: "rare", name: "cask", placeholder: true },
+      { id: "g1", defId: "x", kind: "corn", quality: "common", name: "corn", placeholder: true },
     ];
-    const reason = expectRefusal(s, {
-      type: "MAKE_BOURBON",
-      barrelId: "barrel",
-      resourceCardIds: ["c1"],
-    });
-    expect(reason).toContain("needs 2 cask");
-  });
-
-  it("refuses building a barrel that is already built", () => {
-    const s = createGame({ seed: 3 });
-    s.players[0]!.rickhouse = [makeBourbon({ id: "barrel", built: true, recipe: {} })];
-    const reason = expectRefusal(s, {
-      type: "MAKE_BOURBON",
-      barrelId: "barrel",
-      resourceCardIds: [],
-    });
-    expect(reason).toContain("already built");
-  });
-
-  it("DRAW_MASH_BILLS refuses to lay a barrel when the rickhouse is full", () => {
-    const s = createGame({ seed: 3 });
-    // Capacity now comes from the rickhouse station's current tier.
-    const cap = s.players[0]!.distillery.stations.find((st) => st.id === "rickhouse")!.levels[0]!;
-    s.players[0]!.rickhouse = Array.from({ length: cap }, () => makeBourbon());
-    const reason = expectRefusal(s, { type: "DRAW_MASH_BILLS", keepIndex: 0 });
-    expect(reason).toContain("full");
-  });
-
-  it("DRAW_MASH_BILLS lays an unbuilt barrel that does not age", () => {
-    let s = createGame({ seed: 3 });
-    s.players[0]!.rickhouse = [];
-    s = ok(s, { type: "DRAW_MASH_BILLS", keepIndex: 0 });
-    const b = s.players[0]!.rickhouse[0]!;
-    expect(b.built).toBe(false);
-    expect(b.age).toBe(0);
-    expect(Object.keys(b.recipe).length).toBeGreaterThan(0); // shows requirements
-  });
-});
-
-// ------------------------------------------------------------------
-// matrix lookup
-// ------------------------------------------------------------------
-
-describe("matrix lookup", () => {
-  it("clamps out-of-range age/demand to the grid edges", () => {
-    const m = [
-      [0, 1, 2],
-      [3, 4, 5],
-    ];
-    expect(matrixValue(m, 1, 2)).toBe(5);
-    expect(matrixValue(m, 99, 99)).toBe(5); // clamp high
-    expect(matrixValue(m, -5, -5)).toBe(0); // clamp low
-  });
-});
-
-// ------------------------------------------------------------------
-// selling
-// ------------------------------------------------------------------
-
-describe("selling", () => {
-  function sellScenario(age: number, demand: number, matrix: number[][]) {
-    const s = createGame({ seed: 5 });
-    s.demand = demand;
-    openMarket(s); // flood-free: isolate placement/reward behavior from the cliff
-    s.players[0]!.brandLines = [makeLine(3)];
-    s.players[0]!.rickhouse = [makeBourbon({ id: "sellme", age, matrix })];
-    return s;
-  }
-
-  it("refuses barrels under the minimum sell age", () => {
-    const s = sellScenario(1, 4, [[0]]);
-    const reason = expectRefusal(s, {
-      type: "EXTRACT",
-      bourbonId: "sellme",
-      brandLineId: "line1",
-      slotIndex: 0,
-    });
-    expect(reason).toContain("aged at least");
-  });
-
-  it("refuses selling a barrel that is not built yet", () => {
-    const s = sellScenario(3, 4, [[0]]);
-    s.players[0]!.rickhouse[0]!.built = false;
-    const reason = expectRefusal(s, {
-      type: "EXTRACT",
-      bourbonId: "sellme",
-      brandLineId: "line1",
-      slotIndex: 0,
-    });
-    expect(reason).toContain("not built");
-  });
-
-  it("banks the age×demand matrix value and places the bottle (no flat cool)", () => {
-    const matrix = [
-      [0, 0, 0, 0, 0], // age 0
-      [0, 0, 0, 0, 0], // age 1
-      [0, 0, 0, 0, 0], // age 2
-      [0, 0, 0, 0, 7], // age 3, demand 4 → 7
-    ];
-    const s = sellScenario(3, 4, matrix);
-    const capBefore = s.players[0]!.capital;
-    const out = ok(s, {
-      type: "EXTRACT",
-      bourbonId: "sellme",
-      brandLineId: "line1",
-      slotIndex: 0,
-    });
-    const p = out.players[0]!;
-    expect(p.capital).toBe(capBefore + 7 + CONFIG.COMPLETION_BONUS);
-    // One sale far below the (open-market) red line → no cliff, demand holds.
-    expect(out.demand).toBe(4);
-    expect(out.cubesPlaced).toBe(1);
-    expect(p.rickhouse.length).toBe(0);
-    expect(p.brandLines[0]!.slots[0]!.id).toBe("sellme");
-    expect(p.bourbonsSold).toBe(1);
-  });
-
-  it("requires an eligible brand line before a sale can place", () => {
-    const s = createGame({ seed: 5 });
-    s.demand = 4;
-    s.players[0]!.rickhouse = [makeBourbon({ id: "sellme", age: 3 })];
-    const reason = expectRefusal(s, {
-      type: "EXTRACT",
-      bourbonId: "sellme",
-      brandLineId: "nope",
-      slotIndex: 0,
-    });
-    expect(reason).toContain("open a line");
-  });
-
-  it("refuses a slot index that is out of range", () => {
-    const s = sellScenario(3, 4, [[0]]);
-    const reason = expectRefusal(s, {
-      type: "EXTRACT",
-      bourbonId: "sellme",
-      brandLineId: "line1",
-      slotIndex: 9,
-    });
-    expect(reason).toContain("out of range");
-  });
-
-  it("refuses placing into an already-filled slot", () => {
-    const s = sellScenario(3, 4, [[0]]);
-    s.players[0]!.brandLines[0]!.slots[0] = makeBourbon({ id: "occupant", age: 3 });
-    const reason = expectRefusal(s, {
-      type: "EXTRACT",
-      bourbonId: "sellme",
-      brandLineId: "line1",
-      slotIndex: 0,
-    });
-    expect(reason).toContain("already filled");
-  });
-});
-
-// ------------------------------------------------------------------
-// batch extraction (multi-sale): B1 + B7
-// ------------------------------------------------------------------
-
-describe("batch extraction (multi-sale)", () => {
-  // A built, sellable batch with a flat matrix (every cell = 5) so each
-  // extraction banks exactly 5 regardless of age/demand clamping.
-  function batchScenario(batchQty: number): GameState {
-    const s = createGame({ seed: 5 });
-    s.demand = 4;
-    openMarket(s); // flood-free: isolate the multi-sale loop from the cliff
-    s.players[0]!.capital = 0;
-    s.players[0]!.brandLines = [makeLine(3)];
-    s.players[0]!.rickhouse = [
-      makeBourbon({ id: "batch", age: 3, batchQty, matrix: [[5]] }),
-    ];
-    return s;
-  }
-
-  it("intermediate extractions bank capital but don't cool demand or place a bottle", () => {
-    let s = batchScenario(3);
-    s = ok(s, { type: "EXTRACT", bourbonId: "batch" }); // 3 → 2
-    let p = s.players[0]!;
-    expect(p.capital).toBe(5);
-    expect(s.demand).toBe(4); // NOT cooled
-    expect(p.rickhouse.length).toBe(1); // still resting
-    expect(p.rickhouse[0]!.salesRemaining).toBe(2);
-    expect(p.brandLines[0]!.slots.every((x) => x === null)).toBe(true); // no bottle
-
-    s = ok(s, { type: "EXTRACT", bourbonId: "batch" }); // 2 → 1, still intermediate
-    p = s.players[0]!;
-    expect(p.capital).toBe(10);
-    expect(s.demand).toBe(4);
-    expect(p.rickhouse[0]!.salesRemaining).toBe(1);
-  });
-
-  it("the final extraction pays the flat completion bonus, frees capacity, and places the bottle", () => {
-    let s = batchScenario(2);
-    s = ok(s, { type: "EXTRACT", bourbonId: "batch" }); // intermediate
-    s = ok(s, {
-      type: "EXTRACT",
-      bourbonId: "batch",
-      brandLineId: "line1",
-      slotIndex: 0,
-    }); // final
-    const p = s.players[0]!;
-    expect(p.capital).toBe(5 + 5 + CONFIG.COMPLETION_BONUS); // 2 sales + flat bonus
-    // Demand cooling is the flood meter's job; below the red line it holds.
-    expect(s.demand).toBe(4);
-    expect(s.cubesPlaced).toBe(2); // both sales flooded the market
-    expect(p.rickhouse.length).toBe(0); // slot freed
-    expect(p.brandLines[0]!.slots[0]!.id).toBe("batch"); // bottle placed
-    expect(p.bourbonsSold).toBe(2); // every extraction counts as a sale
-  });
-
-  it("dumping a whole batch at once earns the bonus only once (not per unit)", () => {
-    // Sell all of a batchQty-3 batch in one round: 3×5 matrix + ONE bonus.
-    let s = batchScenario(3);
-    s = ok(s, { type: "EXTRACT", bourbonId: "batch" });
-    s = ok(s, { type: "EXTRACT", bourbonId: "batch" });
-    s = ok(s, { type: "EXTRACT", bourbonId: "batch", brandLineId: "line1", slotIndex: 0 });
-    expect(s.players[0]!.capital).toBe(15 + CONFIG.COMPLETION_BONUS);
-  });
-
-  it("refuses a final extraction with no placement target", () => {
-    let s = batchScenario(2);
-    s = ok(s, { type: "EXTRACT", bourbonId: "batch" }); // down to salesRemaining 1
-    const reason = expectRefusal(s, { type: "EXTRACT", bourbonId: "batch" });
-    expect(reason).toContain("must be placed");
-  });
-
-  it("a single-sale batch (batchQty 1) sells and places in one extraction", () => {
-    let s = batchScenario(1);
-    s = ok(s, { type: "EXTRACT", bourbonId: "batch", brandLineId: "line1", slotIndex: 0 });
-    const p = s.players[0]!;
-    expect(p.capital).toBe(5 + CONFIG.COMPLETION_BONUS);
-    expect(s.demand).toBe(4); // single sale, open market → no cliff
-    expect(p.rickhouse.length).toBe(0);
-    expect(p.brandLines[0]!.slots[0]!.id).toBe("batch");
-  });
-
-  it("a batch laid down from a mash bill carries its batchQty + derived tags", () => {
-    let s = createGame({ seed: 3 });
-    s.players[0]!.rickhouse = [];
-    s = ok(s, { type: "DRAW_MASH_BILLS", keepIndex: 0 });
-    const b = s.players[0]!.rickhouse[0]!;
-    expect(b.batchQty).toBeGreaterThanOrEqual(1);
-    expect(b.salesRemaining).toBe(b.batchQty);
-    expect(b.recipeTags.length).toBeGreaterThan(0);
-  });
-});
-
-// ------------------------------------------------------------------
-// demand flood engine (B2 + B3)
-// ------------------------------------------------------------------
-
-describe("demand flood engine", () => {
-  /** A single broad (all-open) demand card with explicit flood lines. */
-  function broadCard(blue: number, red: number) {
-    return {
-      id: "dm_x",
-      defId: "dm_broad",
-      label: "Broad",
-      tag: "classic" as const,
-      slots: Array.from({ length: 6 }, () => ({ tagRestriction: "open" as const })),
-      blueCapacity: blue,
-      redCapacity: red,
-      placeholder: true as const,
-    };
-  }
-
-  it("the cube reaching the red line drops demand immediately, and cashes at the reduced level", () => {
-    const s = createGame({ seed: 5 });
-    s.demand = 5;
-    s.demandCards = [broadCard(1, 2)]; // red line 2 → the 2nd cube tips the cliff
-    s.blueLine = 1;
-    s.redLine = 2;
-    s.cubesPlaced = 0;
-    s.players[0]!.capital = 0;
-    // age-3 row reads value == demand, so we can watch the cut land.
-    const matrix = Array.from({ length: 5 }, () => [0, 0, 0, 0, 0, 0, 0]);
-    matrix[3] = [0, 1, 2, 3, 4, 5, 6];
-    s.players[0]!.brandLines = [makeLine(3)];
-    s.players[0]!.rickhouse = [makeBourbon({ id: "batch", age: 3, batchQty: 3, matrix })];
-
-    // 1st cube < red → no cliff; banks at level 5.
-    let out = ok(s, { type: "EXTRACT", bourbonId: "batch" });
-    expect(out.demand).toBe(5);
-    expect(out.players[0]!.capital).toBe(5);
-    // 2nd cube === red → cliff fires BEFORE banking → level 4, banks 4.
-    out = ok(out, { type: "EXTRACT", bourbonId: "batch" });
-    expect(out.demand).toBe(4);
-    expect(out.players[0]!.capital).toBe(5 + 4);
-    expect(out.cubesPlaced).toBe(2);
-  });
-
-  it("dumping a whole batch in one round trips the cliff", () => {
-    const s = createGame({ seed: 5 });
-    s.demand = 6;
-    s.demandCards = [broadCard(1, 3)]; // red 3 → the 3rd (final) cube tips it
-    s.blueLine = 1;
-    s.redLine = 3;
-    s.cubesPlaced = 0;
-    s.players[0]!.brandLines = [makeLine(3)];
-    s.players[0]!.rickhouse = [makeBourbon({ id: "batch", age: 3, batchQty: 3, matrix: [[5]] })];
-    let out = ok(s, { type: "EXTRACT", bourbonId: "batch" });
-    out = ok(out, { type: "EXTRACT", bourbonId: "batch" });
-    out = ok(out, { type: "EXTRACT", bourbonId: "batch", brandLineId: "line1", slotIndex: 0 });
-    expect(out.demand).toBe(5); // dropped once at the cliff
-  });
-
-  it("Year Pass: underserved demand (cubes < blue) rises +1", () => {
-    let s = createGame({ seed: 1 });
-    s.demand = 5;
-    s.players[0]!.actionsRemaining = 1; // end the round in one action
-    s.actionsRemaining = 1;
-    s.blueLine = 3;
-    s.redLine = 6;
-    s.cubesPlaced = 0; // underserved
-    s = tick(s); // round 1 ends → Year Pass
-    expect(s.roundNumber).toBe(2);
-    expect(s.demand).toBe(6); // +1; round 1 is odd, so no global rise
-  });
-
-  it("Year Pass: a moderate flood (blue ≤ cubes < red) drops demand 1", () => {
-    let s = createGame({ seed: 1 });
-    s.demand = 5;
-    s.players[0]!.actionsRemaining = 1;
-    s.actionsRemaining = 1;
-    s.blueLine = 1;
-    s.redLine = 6;
-    s.cubesPlaced = 3; // moderate
-    s = tick(s);
-    expect(s.demand).toBe(4);
-  });
-
-  it("the global rising trend adds +1 on top of the band every DEMAND_RISE_EVERY rounds", () => {
-    let s = createGame({ seed: 1 });
-    s.roundNumber = 2; // even round → global rise fires at its Year Pass
-    s.demand = 5;
-    s.players[0]!.actionsRemaining = 1;
-    s.actionsRemaining = 1;
-    s.blueLine = 3;
-    s.redLine = 6;
-    s.cubesPlaced = 0; // underserved band +1
-    s = tick(s);
-    expect(s.demand).toBe(7); // band +1 plus global rise +1
-  });
-
-  it("refuses a sale when the batch's style isn't demanded this round", () => {
-    const s = createGame({ seed: 1 });
-    s.demandCards = [
-      {
-        id: "d",
-        defId: "dm_rye",
-        label: "Rye",
-        tag: "rye",
-        slots: [{ tagRestriction: "rye" }, { tagRestriction: "rye" }],
-        blueCapacity: 2,
-        redCapacity: 3,
-        placeholder: true,
-      },
-    ];
-    s.blueLine = 2;
-    s.redLine = 3;
-    s.cubesPlaced = 0;
-    s.players[0]!.brandLines = [makeLine(2)];
-    s.players[0]!.rickhouse = [
-      makeBourbon({ id: "w", age: 3, recipeTags: ["wheat"], matrix: [[5]] }),
-    ];
-    const reason = expectRefusal(s, {
-      type: "EXTRACT",
-      bourbonId: "w",
-      brandLineId: "line1",
-      slotIndex: 0,
-    });
-    expect(reason).toContain("no demand");
-  });
-
-  it("allows the sale when a matching focused card is on the table", () => {
-    let s = createGame({ seed: 1 });
-    s.demandCards = [
-      {
-        id: "d",
-        defId: "dm_wheat",
-        label: "Wheat",
-        tag: "wheat",
-        slots: [{ tagRestriction: "wheat" }, { tagRestriction: "wheat" }],
-        blueCapacity: 2,
-        redCapacity: 3,
-        placeholder: true,
-      },
-    ];
-    s.blueLine = 2;
-    s.redLine = 3;
-    s.cubesPlaced = 0;
-    s.players[0]!.brandLines = [makeLine(2)];
-    s.players[0]!.rickhouse = [
-      makeBourbon({ id: "w", age: 3, recipeTags: ["wheat"], matrix: [[5]] }),
-    ];
-    s = ok(s, { type: "EXTRACT", bourbonId: "w", brandLineId: "line1", slotIndex: 0 });
-    expect(s.players[0]!.brandLines[0]!.slots[0]!.id).toBe("w");
-  });
-});
-
-// ------------------------------------------------------------------
-// distillery stations (B4 + B5: rickhouse capacity, tasting, bottling)
-// ------------------------------------------------------------------
-
-describe("distillery stations", () => {
-  function station(s: GameState, id: string) {
-    return s.players[0]!.distillery.stations.find((st) => st.id === id)!;
-  }
-
-  it("BUILD_UPGRADE pays Capital and advances the station tier", () => {
-    let s = createGame({ seed: 1 });
-    s.players[0]!.capital = 10;
-    const before = station(s, "rickhouse").builtTier;
-    const cost = station(s, "rickhouse").costs[before + 1]!;
-    s = ok(s, { type: "BUILD_UPGRADE", stationId: "rickhouse" });
-    expect(station(s, "rickhouse").builtTier).toBe(before + 1);
-    expect(s.players[0]!.capital).toBe(10 - cost);
-  });
-
-  it("refuses an upgrade the player can't afford", () => {
-    const s = createGame({ seed: 1 });
-    s.players[0]!.capital = 0;
-    const reason = expectRefusal(s, { type: "BUILD_UPGRADE", stationId: "rickhouse" });
-    expect(reason).toContain("costs");
-  });
-
-  it("refuses upgrading a fully-built station", () => {
-    let s = createGame({ seed: 1 });
-    s.players[0]!.capital = 100;
-    const max = station(s, "tastingRoom").maxTier;
-    while (station(s, "tastingRoom").builtTier < max) {
-      s = ok(s, { type: "BUILD_UPGRADE", stationId: "tastingRoom" });
-    }
-    const reason = expectRefusal(s, { type: "BUILD_UPGRADE", stationId: "tastingRoom" });
-    expect(reason).toContain("fully upgraded");
-  });
-
-  it("upgrading the rickhouse raises the barrel capacity", () => {
-    let s = createGame({ seed: 3 });
-    s.players[0]!.capital = 100;
-    const base = station(s, "rickhouse").levels[0]!;
-    s.players[0]!.rickhouse = Array.from({ length: base }, () => makeBourbon());
-    // Full at the base tier → the draw is refused.
-    expect(expectRefusal(s, { type: "DRAW_MASH_BILLS", keepIndex: 0 })).toContain("full");
-    // Upgrade once → capacity grows, so the draw now succeeds.
-    s = ok(s, { type: "BUILD_UPGRADE", stationId: "rickhouse" });
-    s = ok(s, { type: "DRAW_MASH_BILLS", keepIndex: 0 });
-    expect(s.players[0]!.rickhouse.length).toBe(base + 1);
-  });
-
-  it("the tasting room pays prestige on the final sale", () => {
-    let s = createGame({ seed: 5 });
-    openMarket(s);
-    s.players[0]!.capital = 100;
-    s = ok(s, { type: "BUILD_UPGRADE", stationId: "tastingRoom" }); // tier 1 → +1 prestige
-    s.players[0]!.prestige = 0;
-    s.players[0]!.brandLines = [makeLine(2)];
-    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, batchQty: 1, matrix: [[0]] })];
-    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
-    expect(s.players[0]!.prestige).toBe(1);
-  });
-
-  it("the bottling line raises the completion bonus", () => {
-    let s = createGame({ seed: 5 });
-    openMarket(s);
-    s.players[0]!.capital = 100;
-    s = ok(s, { type: "BUILD_UPGRADE", stationId: "bottling" }); // tier 1 → +1 bonus
-    const bonus = CONFIG.COMPLETION_BONUS + station(s, "bottling").levels[1]!;
-    s.players[0]!.capital = 0;
-    s.players[0]!.brandLines = [makeLine(2)];
-    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, batchQty: 1, matrix: [[0]] })];
-    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
-    expect(s.players[0]!.capital).toBe(bonus); // matrix 0 + completion bonus
-  });
-});
-
-// ------------------------------------------------------------------
-// asymmetric distilleries (B5: cost profiles + signature abilities)
-// ------------------------------------------------------------------
-
-describe("asymmetric distilleries", () => {
-  it("assigns the chosen distillery per player", () => {
-    const s = createGame({
-      seed: 1,
-      playerNames: ["A", "B"],
-      distilleryIds: ["ryerevival", "ironhill"],
-    });
-    expect(s.players[0]!.distillery.distilleryId).toBe("ryerevival");
-    expect(s.players[1]!.distillery.distilleryId).toBe("ironhill");
-  });
-
-  it("distilleries carry asymmetric cost profiles", () => {
-    const rhCost = (id: string) =>
-      createGame({ seed: 1, distilleryIds: [id] })
-        .players[0]!.distillery.stations.find((st) => st.id === "rickhouse")!.costs[1]!;
-    // Old Oak (patience tilt) has a cheaper rickhouse than Ironhill (volume tilt).
-    expect(rhCost("oldoak")).toBeLessThan(rhCost("ironhill"));
-  });
-
-  it("volumeBonus pays +Capital on every sale", () => {
-    let s = createGame({ seed: 5, distilleryIds: ["ironhill"] });
-    openMarket(s);
-    s.players[0]!.capital = 0;
-    s.players[0]!.brandLines = [makeLine(2)];
-    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, batchQty: 2, matrix: [[0]] })];
-    s = ok(s, { type: "EXTRACT", bourbonId: "x" }); // intermediate sale
-    expect(s.players[0]!.capital).toBe(CONFIG.VOLUME_BONUS); // matrix 0 + volume bonus
-  });
-
-  it("ryeBonus pays only on rye batches", () => {
-    function sell(tags: ("rye" | "wheat")[]): number {
-      let s = createGame({ seed: 5, distilleryIds: ["ryerevival"] });
-      openMarket(s);
-      s.players[0]!.capital = 0;
-      s.players[0]!.brandLines = [makeLine(2)];
-      s.players[0]!.rickhouse = [
-        makeBourbon({ id: "x", age: 3, batchQty: 2, recipeTags: tags, matrix: [[0]] }),
-      ];
-      return ok(s, { type: "EXTRACT", bourbonId: "x" }).players[0]!.capital;
-    }
-    expect(sell(["rye"])).toBe(CONFIG.RYE_BONUS);
-    expect(sell(["wheat"])).toBe(0);
-  });
-
-  it("agedPrestige pays prestige completing a well-aged batch", () => {
-    function finalSell(age: number): number {
-      let s = createGame({ seed: 5, distilleryIds: ["oldoak"] });
-      openMarket(s);
-      s.players[0]!.prestige = 0;
-      s.players[0]!.brandLines = [makeLine(2)];
-      s.players[0]!.rickhouse = [makeBourbon({ id: "x", age, batchQty: 1, matrix: [[0]] })];
-      return ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 })
-        .players[0]!.prestige;
-    }
-    expect(finalSell(CONFIG.AGED_PRESTIGE_MIN_AGE)).toBe(CONFIG.AGED_PRESTIGE);
-    expect(finalSell(3)).toBe(0); // too young for the signature
-  });
-});
-
-// ------------------------------------------------------------------
-// brand-line placement order (forgiving, non-decreasing L→R)
-// ------------------------------------------------------------------
-
-describe("brand-line placement", () => {
-  it("keeps ages non-decreasing left→right and sets the ceiling to the max", () => {
-    let s = createGame({ seed: 7 });
-    s.demand = 6;
-    s.players[0]!.brandLines = [makeLine(3)];
-    s.players[0]!.rickhouse = [
-      makeBourbon({ id: "old", age: 6, matrix: [[0]] }),
-      makeBourbon({ id: "young", age: 2, matrix: [[0]] }),
-    ];
-    // Young into slot 0; older into slot 1 to its right — non-decreasing.
-    s = ok(s, { type: "EXTRACT", bourbonId: "young", brandLineId: "line1", slotIndex: 0 });
-    s = ok(s, { type: "EXTRACT", bourbonId: "old", brandLineId: "line1", slotIndex: 1 });
-    const slots = s.players[0]!.brandLines[0]!.slots;
-    const ages = slots.map((b) => (b ? b.age : null));
-    const filled = ages.filter((a): a is number => a !== null);
-    const sorted = [...filled].sort((x, y) => x - y);
-    expect(filled).toEqual(sorted); // non-decreasing
-    expect(s.players[0]!.brandLines[0]!.ageCeiling).toBe(6);
-  });
-
-  it("refuses a placement that would violate L→R order (the staircase)", () => {
-    let s = createGame({ seed: 7 });
-    s.demand = 6;
-    s.players[0]!.brandLines = [makeLine(3)];
-    s.players[0]!.rickhouse = [
-      makeBourbon({ id: "old", age: 6, matrix: [[0]] }),
-      makeBourbon({ id: "young", age: 2, matrix: [[0]] }),
-    ];
-    // Old anchored at slot 0 leaves no non-decreasing home for the younger
-    // bottle to its right.
-    s = ok(s, { type: "EXTRACT", bourbonId: "old", brandLineId: "line1", slotIndex: 0 });
-    const reason = expectRefusal(s, {
-      type: "EXTRACT",
-      bourbonId: "young",
-      brandLineId: "line1",
-      slotIndex: 1,
-    });
-    expect(reason).toContain("staircase");
-  });
-
-  it("does not block 'bad' placements — a high-quality young bourbon still places", () => {
-    let s = createGame({ seed: 7 });
-    s.demand = 6;
-    s.players[0]!.brandLines = [makeLine(3)];
-    s.players[0]!.rickhouse = [
-      makeBourbon({ id: "premium-young", age: 2, quality: "heritage", matrix: [[0]] }),
-    ];
-    s = ok(s, {
-      type: "EXTRACT",
-      bourbonId: "premium-young",
-      brandLineId: "line1",
-      slotIndex: 0,
-    });
-    expect(s.players[0]!.brandLines[0]!.slots[0]!.id).toBe("premium-young");
-  });
-});
-
-// ------------------------------------------------------------------
-// slot + marketing rewards
-// ------------------------------------------------------------------
-
-describe("slot and marketing rewards", () => {
-  it("fires the printed slot reward on placement", () => {
-    const s = createGame({ seed: 9 });
-    s.demand = 5;
-    const line = makeLine(2);
-    line.slotCard.slots = [
-      { reward: { kind: "flat", reward: { capital: 5, prestige: 2 } } },
-      { reward: { kind: "flat", reward: {} } },
-    ];
-    s.players[0]!.brandLines = [line];
-    s.players[0]!.capital = 0;
-    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, matrix: [[0]] })];
-    const out = ok(s, {
-      type: "EXTRACT",
-      bourbonId: "x",
-      brandLineId: "line1",
-      slotIndex: 0,
-    });
-    const p = out.players[0]!;
-    expect(p.capital).toBe(5 + CONFIG.COMPLETION_BONUS); // matrix 0 + slot 5 + final-sale bonus
-    expect(p.prestige).toBe(2);
-  });
-
-  it("fires trait-matched marketing and ignores off-trait bourbons", () => {
-    const s = createGame({ seed: 9 });
-    s.demand = 5;
-    const line = makeLine(2);
-    line.marketingCards = [
-      {
-        id: "m1",
-        defId: "m1",
-        name: "Rye Ads",
-        requiredTraits: ["rye-heavy"],
-        exclusiveGroup: "grain",
-        prestigeOnMatch: 3,
-        placeholder: true,
-      },
-    ];
-    s.players[0]!.brandLines = [line];
-    s.players[0]!.rickhouse = [
-      makeBourbon({ id: "match", age: 3, traits: ["rye-heavy"], matrix: [[0]] }),
-      makeBourbon({ id: "off", age: 3, traits: ["wheated"], matrix: [[0]] }),
-    ];
-    let out = ok(s, {
-      type: "EXTRACT",
-      bourbonId: "match",
-      brandLineId: "line1",
-      slotIndex: 0,
-    });
-    expect(out.players[0]!.prestige).toBe(3);
-    out = ok(out, {
-      type: "EXTRACT",
-      bourbonId: "off",
-      brandLineId: "line1",
-      slotIndex: 1,
-    });
-    expect(out.players[0]!.prestige).toBe(3); // unchanged — off-trait fires nothing
-  });
-});
-
-// ------------------------------------------------------------------
-// the five frozen v2 slot-card designs
-// ------------------------------------------------------------------
-
-describe("Standard Line", () => {
-  it("slot-5 choice pays the chosen branch (capital vs resources)", () => {
-    const base = createGame({ seed: 7 });
-    base.demand = 0;
-    base.players[0]!.brandLines = [lineFromDef("slot_standard")];
-    base.players[0]!.capital = 0;
-    base.players[0]!.hand = [];
-    base.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 6, matrix: [[0]] })];
-
-    // Branch 0 → +2 capital.
-    const cap = ok(base, {
-      type: "EXTRACT",
-      bourbonId: "x",
-      brandLineId: "line1",
-      slotIndex: 4,
-      rewardChoice: 0,
-    });
-    expect(cap.players[0]!.capital).toBe(2 + CONFIG.COMPLETION_BONUS);
-    expect(cap.players[0]!.hand.length).toBe(0);
-
-    // Branch 1 → +5 resources to hand.
-    const res = ok(base, {
-      type: "EXTRACT",
-      bourbonId: "x",
-      brandLineId: "line1",
-      slotIndex: 4,
-      rewardChoice: 1,
-    });
-    expect(res.players[0]!.capital).toBe(0 + CONFIG.COMPLETION_BONUS);
-    expect(res.players[0]!.hand.length).toBe(5);
-  });
-
-  it("the slot-5 anchor caps the line via the staircase", () => {
-    let s = createGame({ seed: 7 });
-    s.demand = 0;
-    s.players[0]!.brandLines = [lineFromDef("slot_standard")];
-    s.players[0]!.rickhouse = [
-      makeBourbon({ id: "young", age: 2, matrix: [[0]] }),
-      makeBourbon({ id: "old", age: 6, matrix: [[0]] }),
-    ];
-    // Anchoring a young bottle in the final slot blocks older bottles to its left.
-    s = ok(s, { type: "EXTRACT", bourbonId: "young", brandLineId: "line1", slotIndex: 4 });
-    const reason = expectRefusal(s, {
-      type: "EXTRACT",
-      bourbonId: "old",
-      brandLineId: "line1",
-      slotIndex: 0,
-    });
-    expect(reason).toContain("staircase");
-  });
-
-  it("refuses a reward choice index out of range", () => {
-    const s = createGame({ seed: 7 });
-    s.demand = 0;
-    s.players[0]!.brandLines = [lineFromDef("slot_standard")];
-    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 6, matrix: [[0]] })];
-    const reason = expectRefusal(s, {
-      type: "EXTRACT",
-      bourbonId: "x",
-      brandLineId: "line1",
-      slotIndex: 4,
-      rewardChoice: 9,
-    });
-    expect(reason).toContain("reward choice");
-  });
-});
-
-describe("Flagship Line", () => {
-  it("slot 1 pays prestige equal to the bottle's age (uncapped)", () => {
-    let s = createGame({ seed: 7 });
-    s.demand = 0;
-    s.players[0]!.brandLines = [lineFromDef("slot_flagship")];
-    s.players[0]!.prestige = 0;
-    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 9, matrix: [[0]] })];
-    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
-    expect(s.players[0]!.prestige).toBe(9);
-  });
-
-  it("optional prestige slots can be filled directly and pay their flat prestige", () => {
-    let s = createGame({ seed: 7 });
-    s.demand = 0;
-    s.players[0]!.brandLines = [lineFromDef("slot_flagship")];
-    s.players[0]!.prestige = 0;
-    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 8, matrix: [[0]] })];
-    // Slot index 4 is optional, prestige 5 — reachable with the others empty.
-    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 4 });
-    expect(s.players[0]!.prestige).toBe(5);
-  });
-});
-
-describe("Expressions Line", () => {
-  it("an optional slot refuses until its paired required is filled", () => {
-    const s = createGame({ seed: 7 });
-    s.demand = 0;
-    s.players[0]!.brandLines = [lineFromDef("slot_expressions")];
-    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, matrix: [[0]] })];
-    const reason = expectRefusal(s, {
-      type: "EXTRACT",
-      bourbonId: "x",
-      brandLineId: "line1",
-      slotIndex: 1, // optional, paired to empty slot 0
-    });
-    expect(reason).toContain("paired");
-  });
-
-  it("an optional slot refuses an age that doesn't match the paired required", () => {
-    let s = createGame({ seed: 7 });
-    s.demand = 0;
-    s.players[0]!.brandLines = [lineFromDef("slot_expressions")];
-    s.players[0]!.rickhouse = [
-      makeBourbon({ id: "req", age: 2, matrix: [[0]] }),
-      makeBourbon({ id: "opt", age: 4, matrix: [[0]] }),
-    ];
-    s = ok(s, { type: "EXTRACT", bourbonId: "req", brandLineId: "line1", slotIndex: 0 });
-    const reason = expectRefusal(s, {
-      type: "EXTRACT",
-      bourbonId: "opt",
-      brandLineId: "line1",
-      slotIndex: 1,
-    });
-    expect(reason).toContain("match the paired");
-  });
-
-  it("an optional slot accepts a bottle matching the paired required's age", () => {
-    let s = createGame({ seed: 7 });
-    s.demand = 0;
-    s.players[0]!.brandLines = [lineFromDef("slot_expressions")];
-    s.players[0]!.prestige = 0;
-    s.players[0]!.rickhouse = [
-      makeBourbon({ id: "req", age: 3, matrix: [[0]] }),
-      makeBourbon({ id: "opt", age: 3, matrix: [[0]] }),
-    ];
-    s = ok(s, { type: "EXTRACT", bourbonId: "req", brandLineId: "line1", slotIndex: 0 });
-    s = ok(s, { type: "EXTRACT", bourbonId: "opt", brandLineId: "line1", slotIndex: 1 });
-    expect(s.players[0]!.prestige).toBe(1); // slot 1 pays prestige 1
-  });
-
-  it("pays the +5 house-style bonus when all optionals share one differing expression", () => {
-    const line = lineFromDef("slot_expressions");
-    line.slots = [
-      makeBourbon({ age: 2, expression: "bourbon" }),
-      makeBourbon({ age: 2, expression: "rye" }),
-      makeBourbon({ age: 4, expression: "bourbon" }),
-      makeBourbon({ age: 4, expression: "rye" }),
-      makeBourbon({ age: 6, expression: "bourbon" }),
-      makeBourbon({ age: 6, expression: "rye" }),
-    ];
-    expect(houseStyleBonus(line)).toBe(5);
-  });
-
-  it("denies the house-style bonus when an optional matches its paired required", () => {
-    const line = lineFromDef("slot_expressions");
-    line.slots = [
-      makeBourbon({ age: 2, expression: "rye" }),
-      makeBourbon({ age: 2, expression: "rye" }), // matches paired → fail
-      makeBourbon({ age: 4, expression: "bourbon" }),
-      makeBourbon({ age: 4, expression: "rye" }),
-      makeBourbon({ age: 6, expression: "bourbon" }),
-      makeBourbon({ age: 6, expression: "rye" }),
-    ];
-    expect(houseStyleBonus(line)).toBe(0);
-  });
-
-  it("denies the house-style bonus when the optionals aren't all one expression", () => {
-    const line = lineFromDef("slot_expressions");
-    line.slots = [
-      makeBourbon({ age: 2, expression: "bourbon" }),
-      makeBourbon({ age: 2, expression: "rye" }),
-      makeBourbon({ age: 4, expression: "bourbon" }),
-      makeBourbon({ age: 4, expression: "wheated" }), // different from the others
-      makeBourbon({ age: 6, expression: "bourbon" }),
-      makeBourbon({ age: 6, expression: "rye" }),
-    ];
-    expect(houseStyleBonus(line)).toBe(0);
-  });
-
-  it("denies the house-style bonus when an optional slot is empty", () => {
-    const line = lineFromDef("slot_expressions");
-    line.slots = [
-      makeBourbon({ age: 2, expression: "bourbon" }),
-      null,
-      makeBourbon({ age: 4, expression: "bourbon" }),
-      makeBourbon({ age: 4, expression: "rye" }),
-      makeBourbon({ age: 6, expression: "bourbon" }),
-      makeBourbon({ age: 6, expression: "rye" }),
-    ];
-    expect(houseStyleBonus(line)).toBe(0);
-  });
-
-  it("scorePlayer folds the house-style bonus into prestige", () => {
-    const s = createGame({ seed: 1 });
-    const line = lineFromDef("slot_expressions");
-    line.slots = [
-      makeBourbon({ age: 2, expression: "bourbon" }),
-      makeBourbon({ age: 2, expression: "rye" }),
-      makeBourbon({ age: 4, expression: "bourbon" }),
-      makeBourbon({ age: 4, expression: "rye" }),
-      makeBourbon({ age: 6, expression: "bourbon" }),
-      makeBourbon({ age: 6, expression: "rye" }),
-    ];
-    s.players[0]!.brandLines = [line];
-    s.players[0]!.prestige = 1;
-    const score = scorePlayer(s.players[0]!);
-    expect(score.prestige).toBe(1 + 5);
-  });
-});
-
-describe("Workhorse Line", () => {
-  it("pays flat rewards regardless of slot position", () => {
-    let s = createGame({ seed: 7 });
-    s.demand = 0;
-    s.players[0]!.capital = 0;
-    s.players[0]!.hand = [];
-    s.players[0]!.brandLines = [lineFromDef("slot_workhorse")];
-    s.players[0]!.rickhouse = [
-      makeBourbon({ id: "a", age: 2, matrix: [[0]] }),
-      makeBourbon({ id: "b", age: 3, matrix: [[0]] }),
-    ];
-    s = ok(s, { type: "EXTRACT", bourbonId: "a", brandLineId: "line1", slotIndex: 0 }); // resources:1
-    s = ok(s, { type: "EXTRACT", bourbonId: "b", brandLineId: "line1", slotIndex: 1 }); // capital:1
-    expect(s.players[0]!.capital).toBe(1 + 2 * CONFIG.COMPLETION_BONUS); // slot capital + two final-sale bonuses
+    s = ok(s, { type: "STAGE", barrelId: "barrel", resourceCardId: "c1" });
     expect(s.players[0]!.hand.length).toBe(1);
-  });
-});
-
-describe("Single Barrel Line", () => {
-  it("pays the hit reward when the gate passes", () => {
-    let s = createGame({ seed: 7 });
-    s.demand = 0;
-    s.players[0]!.capital = 0;
-    s.players[0]!.brandLines = [lineFromDef("slot_single_barrel")];
-    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 5, quality: "common", matrix: [[0]] })];
-    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
-    expect(s.players[0]!.capital).toBe(2 + CONFIG.COMPLETION_BONUS); // minAge 4 met → hit
+    expect(s.players[0]!.rickhouse[0]!.staged.length).toBe(1);
+    s = ok(s, { type: "MAKE_BOURBON", barrelId: "barrel", resourceCardIds: ["g1"] });
+    expect(s.players[0]!.rickhouse[0]!.built).toBe(true);
+    expect(s.players[0]!.rickhouse[0]!.quality).toBe("rare");
   });
 
-  it("pays the fallback (miss) when the gate fails, never blocking the sale", () => {
-    let s = createGame({ seed: 7 });
-    s.demand = 0;
-    s.players[0]!.capital = 0;
-    s.players[0]!.brandLines = [lineFromDef("slot_single_barrel")];
-    // age 3 fails the minAge-4 gate but clears MIN_SELL_AGE, so it still sells.
-    s.players[0]!.rickhouse = [makeBourbon({ id: "x", age: 3, quality: "common", matrix: [[0]] })];
-    s = ok(s, { type: "EXTRACT", bourbonId: "x", brandLineId: "line1", slotIndex: 0 });
-    expect(s.players[0]!.capital).toBe(1 + CONFIG.COMPLETION_BONUS); // gate miss → fallback 1
-  });
-
-  it("the premium slot rewards a heritage bottle and falls back otherwise", () => {
-    const heritage = createGame({ seed: 7 });
-    heritage.demand = 0;
-    heritage.players[0]!.capital = 0;
-    heritage.players[0]!.brandLines = [lineFromDef("slot_single_barrel")];
-    heritage.players[0]!.rickhouse = [
-      makeBourbon({ id: "h", age: 6, quality: "heritage", matrix: [[0]] }),
+  it("Long Cellar lets a staged card be pulled back; without it, staging is locked", () => {
+    let s = createGame({ seed: 3 });
+    s = intoPlay(s);
+    s.players[0]!.rickhouse = [makeBourbon({ id: "barrel", built: false, recipe: { cask: 1 } })];
+    s.players[0]!.hand = [
+      { id: "c1", defId: "x", kind: "cask", quality: "common", name: "cask", placeholder: true },
     ];
-    const hit = ok(heritage, {
-      type: "EXTRACT",
-      bourbonId: "h",
-      brandLineId: "line1",
-      slotIndex: 2,
-    });
-    expect(hit.players[0]!.capital).toBe(5 + CONFIG.COMPLETION_BONUS);
-
-    const common = createGame({ seed: 7 });
-    common.demand = 0;
-    common.players[0]!.capital = 0;
-    common.players[0]!.brandLines = [lineFromDef("slot_single_barrel")];
-    common.players[0]!.rickhouse = [
-      makeBourbon({ id: "c", age: 6, quality: "common", matrix: [[0]] }),
-    ];
-    const miss = ok(common, {
-      type: "EXTRACT",
-      bourbonId: "c",
-      brandLineId: "line1",
-      slotIndex: 2,
-    });
-    expect(miss.players[0]!.capital).toBe(2 + CONFIG.COMPLETION_BONUS);
-  });
-});
-
-// ------------------------------------------------------------------
-// marketing draw rules
-// ------------------------------------------------------------------
-
-describe("marketing draw", () => {
-  function withLine(seed: number): GameState {
-    const s = createGame({ seed });
-    s.players[0]!.brandLines = [makeLine(2)];
-    return s;
-  }
-
-  it("first marketing draw is free, subsequent draws cost capital", () => {
-    let s = withLine(11);
-    s.players[0]!.capital = 1;
-    s = ok(s, { type: "DRAW_MARKETING", keepIndex: 0, brandLineId: "line1" });
-    expect(s.players[0]!.usedFreeMarketing).toBe(true);
-    expect(s.players[0]!.capital).toBe(1); // free
-    // Second attach (different exclusive group needed) costs capital.
-    // Find a tray card whose group differs from the attached one.
-    const attachedGroup = s.players[0]!.brandLines[0]!.marketingCards[0]!.exclusiveGroup;
-    const idx = s.marketingTray.findIndex((c) => c.exclusiveGroup !== attachedGroup);
-    expect(idx).toBeGreaterThanOrEqual(0);
-    s = ok(s, { type: "DRAW_MARKETING", keepIndex: idx, brandLineId: "line1" });
-    expect(s.players[0]!.capital).toBe(0); // paid 1
-  });
-
-  it("enforces mutual exclusivity within a line", () => {
-    let s = withLine(12);
-    s.players[0]!.capital = 10;
-    const first = s.marketingTray[0]!;
-    s = ok(s, { type: "DRAW_MARKETING", keepIndex: 0, brandLineId: "line1" });
-    const conflictIdx = s.marketingTray.findIndex(
-      (c) => c.exclusiveGroup === first.exclusiveGroup,
+    s = ok(s, { type: "STAGE", barrelId: "barrel", resourceCardId: "c1" });
+    expect(expectRefusal(s, { type: "UNSTAGE", barrelId: "barrel", resourceCardId: "c1" })).toMatch(
+      /locked/,
     );
-    if (conflictIdx >= 0) {
-      const reason = expectRefusal(s, {
-        type: "DRAW_MARKETING",
-        keepIndex: conflictIdx,
-        brandLineId: "line1",
-      });
-      expect(reason).toContain("conflicting");
-    }
-  });
-
-  it("enforces the marketing stack cap", () => {
-    const s = withLine(13);
-    const line = s.players[0]!.brandLines[0]!;
-    line.marketingCards = Array.from({ length: CONFIG.MARKETING_STACK_CAP }, (_, i) => ({
-      id: `cap${i}`,
-      defId: `cap${i}`,
-      name: "x",
-      requiredTraits: [],
-      exclusiveGroup: `g${i}`,
-      prestigeOnMatch: 1,
-      placeholder: true,
-    }));
-    s.players[0]!.capital = 10;
-    const reason = expectRefusal(s, {
-      type: "DRAW_MARKETING",
-      keepIndex: 0,
-      brandLineId: "line1",
-    });
-    expect(reason).toContain("cap");
+    const wh = dept(s.players[0]!, "warehouse");
+    wh.level = wh.maxLevel;
+    wh.chosenUltimate = "longCellar";
+    s = ok(s, { type: "UNSTAGE", barrelId: "barrel", resourceCardId: "c1" });
+    expect(s.players[0]!.hand.length).toBe(1);
+    expect(s.players[0]!.rickhouse[0]!.staged.length).toBe(0);
   });
 });
 
 // ------------------------------------------------------------------
-// opening lines (escalating cost)
+// barrel value — printed age track per (tier, age), value caps by tier
 // ------------------------------------------------------------------
 
-describe("opening brand lines", () => {
-  it("charges an escalating capital cost per additional line", () => {
-    let s = createGame({ seed: 15 });
-    s.players[0]!.capital = 10;
-    s = ok(s, { type: "DRAW_SLOT_CARD" });
-    s = ok(s, { type: "DRAW_SLOT_CARD" });
-    const slot1 = s.players[0]!.slotCards[0]!.id;
-    const capStart = s.players[0]!.capital;
-    s = ok(s, { type: "OPEN_BRAND_LINE", slotCardId: slot1 });
-    expect(s.players[0]!.capital).toBe(capStart - 1); // first line: base 1
-    const slot2 = s.players[0]!.slotCards[0]!.id;
-    s = ok(s, { type: "OPEN_BRAND_LINE", slotCardId: slot2 });
-    expect(s.players[0]!.capital).toBe(capStart - 1 - 2); // second line: 2
+describe("barrel value (age track)", () => {
+  it("reads value off the per-(tier, age) table", () => {
+    expect(barrelValue("common", 2)).toBe(1);
+    expect(barrelValue("common", 4)).toBe(2); // cap value
+    expect(barrelValue("rare", 3)).toBe(2);
+    expect(barrelValue("legendary", 18)).toBe(11); // cap value
+  });
+  it("is 0 below the minimum sell age and holds the cap value past the cap age", () => {
+    expect(barrelValue("common", 1)).toBe(0); // below MIN_SELL_AGE
+    expect(barrelValue("common", 99)).toBe(2); // holds Common's cap value (2)
+    expect(barrelValue("legendary", 99)).toBe(11); // holds Legendary's cap value (11)
+  });
+  it("climbs to the cap year with no dead final step", () => {
+    expect(barrelValue("epic", 11)).toBeLessThan(barrelValue("epic", 12)); // 6 → 7
+  });
+});
+
+describe("demand zones", () => {
+  it("read Low / Mid / High from the card count, not a payout multiplier", () => {
+    expect(zoneForCardCount(1)).toBe("low");
+    expect(zoneForCardCount(CONFIG.ZONE_MID_MIN)).toBe("mid");
+    expect(zoneForCardCount(CONFIG.ZONE_HIGH_MIN)).toBe("high");
   });
 });
 
 // ------------------------------------------------------------------
-// full loop integration: lay → make → age → upgrade → open → extract → place
+// mash-bill complexity scaling
 // ------------------------------------------------------------------
 
-describe("full loop integration", () => {
-  /** Advance by spending cheap Collect actions until the round number reaches target. */
-  function advanceToRound(s: GameState, target: number): GameState {
-    let guard = 0;
-    while (s.phase === "playing" && s.roundNumber < target && guard < 300) {
-      guard++;
-      const res = applyAction(s, { type: "COLLECT", draws: { cask: 1 } });
-      if (!res.ok) break;
-      s = res.state;
+describe("mash-bill complexity scaling", () => {
+  it("every shipped bill follows the bourbon rule: 1 cask + ≥1 corn + ≥1 grain", () => {
+    for (const bill of buildMashBillSupply()) {
+      expect(bill.recipe.cask).toBe(1);
+      expect(bill.recipe.corn ?? 0).toBeGreaterThanOrEqual(1);
+      const grain = (bill.recipe.rye ?? 0) + (bill.recipe.wheat ?? 0) + (bill.recipe.barley ?? 0);
+      expect(grain).toBeGreaterThanOrEqual(1); // no cask/corn-only recipes
     }
+  });
+
+  it("more complex recipes yield ≥ batchQty and ≥ per-sale premium", () => {
+    const simple = { cask: 1, corn: 1 }; // complexity 2
+    const rich = { cask: 1, corn: 1, rye: 1, wheat: 1, barley: 1 }; // complexity 5
+    expect(saleBonusForRecipe(simple)).toBe(0);
+    expect(saleBonusForRecipe(rich)).toBeGreaterThan(saleBonusForRecipe(simple));
+    expect(batchQtyForRecipe(rich)).toBeGreaterThanOrEqual(batchQtyForRecipe(simple));
+  });
+
+  it("a sale adds the bourbon's complexity premium to the payoff", () => {
+    let s = createGame({ seed: 5 });
+    s = intoPlay(s);
+    s.players[0]!.capital = 0;
+    s.players[0]!.rickhouse = [makeBourbon({ id: "x", quality: "common", age: 3, saleBonus: 2 })];
+    s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 1, zoneBonus: { low: 0, mid: 0, high: 0 }, reputation: 1 })];
+    const dist = dept(s.players[0]!, "distribution").values[0]!;
+    s = ok(s, { type: "SELL", bourbonId: "x", demandCardId: "ord" });
+    expect(s.players[0]!.capital).toBe(barrelValue("common", 3) + 2 + dist); // +2 premium
+  });
+});
+
+// ------------------------------------------------------------------
+// Sell (Extract) — glut, card routing, completion
+// ------------------------------------------------------------------
+
+describe("sell", () => {
+  function base(over: Partial<Bourbon> = {}): GameState {
+    let s = createGame({ seed: 5 });
+    s = intoPlay(s);
+    s.players[0]!.capital = 0;
+    s.players[0]!.rickhouse = [makeBourbon({ id: "sellme", age: 3, ...over })];
     return s;
   }
 
-  it("a built batch ages, upgrades, then extracts through the whole chain", () => {
-    let s = createGame({ seed: 7 });
-    const p = () => s.players[0]!;
+  it("refuses barrels under the minimum sell age and unbuilt barrels", () => {
+    expect(expectRefusal(base({ age: 1 }), { type: "SELL", bourbonId: "sellme" })).toContain(
+      "aged at least",
+    );
+    expect(expectRefusal(base({ built: false }), { type: "SELL", bourbonId: "sellme" })).toContain(
+      "not built",
+    );
+  });
 
-    // A resting barrel needing 1 cask + 1 corn, batchQty 2, flat matrix (5).
-    p().capital = 20;
-    p().hand = [
-      { id: "c1", defId: "res_cask", kind: "cask", quality: "heritage", name: "cask", placeholder: true },
-      { id: "k1", defId: "res_corn", kind: "corn", quality: "common", name: "corn", placeholder: true },
-    ];
-    p().rickhouse = [
-      makeBourbon({
-        id: "b",
-        built: false,
-        age: 0,
-        recipe: { cask: 1, corn: 1 },
-        batchQty: 2,
-        recipeTags: ["classic"],
-        matrix: [[5]],
-      }),
-    ];
+  it("refuses a sale with no demand order (the glut is gone)", () => {
+    const s = base({ quality: "common", age: 3 });
+    expect(expectRefusal(s, { type: "SELL", bourbonId: "sellme" })).toContain("choose a demand order");
+  });
 
-    // MAKE → builds, quality from the best committed card (heritage cask).
-    s = ok(s, { type: "MAKE_BOURBON", barrelId: "b", resourceCardIds: ["c1", "k1"] });
-    expect(p().rickhouse[0]!.built).toBe(true);
-    expect(p().rickhouse[0]!.quality).toBe("heritage");
-    expect(p().rickhouse[0]!.age).toBe(0);
+  it("routing to a matching card adds the zone effect and completion keeps the card", () => {
+    let s = base({ quality: "common", age: 3 });
+    const card = makeDemandCard({ id: "ord", slotsActive: 1, zoneBonus: { low: 2, mid: 4, high: 6 }, reputation: 5 });
+    s.demandCards = [card]; // length 1 → low zone
+    s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
+    const p = s.players[0]!;
+    expect(p.capital).toBe(barrelValue("common", 3) + 2 + dept(p, "distribution").values[0]!);
+    expect(p.cardsCompleted).toBe(1);
+    expect(p.keptCards.map((c) => c.id)).toContain("ord");
+    expect(s.demandCards.length).toBe(0); // completed card left the table
+  });
 
-    // AGE → two Year Passes bring it to the minimum sell age.
-    s = advanceToRound(s, 3);
-    expect(p().rickhouse[0]!.age).toBeGreaterThanOrEqual(CONFIG.MIN_SELL_AGE);
+  it("refuses routing to a card whose requirement isn't met", () => {
+    let s = base({ styleTag: "classic", age: 3 });
+    s.demandCards = [makeDemandCard({ id: "ord", requirement: { styleTag: "rye" } })];
+    expect(
+      expectRefusal(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }),
+    ).toContain("does not meet");
+  });
 
-    // UPGRADE the bottling line (+1 to the completion bonus).
-    p().capital = 20;
-    s = ok(s, { type: "BUILD_UPGRADE", stationId: "bottling" });
-    const bottling = p().distillery.stations.find((st) => st.id === "bottling")!;
-    expect(bottling.builtTier).toBe(1);
+  it("a multi-sale batch banks Capital each sale; the final sale frees the slot", () => {
+    let s = base({ batchQty: 2, quality: "common", age: 2 });
+    // One open order deep enough for both sales.
+    s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 3, zoneBonus: { low: 0, mid: 0, high: 0 }, reputation: 1 })];
+    const dist = dept(s.players[0]!, "distribution").values[0]!;
+    const v = barrelValue("common", 2);
+    s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }); // intermediate
+    expect(s.players[0]!.capital).toBe(v + dist);
+    expect(s.players[0]!.rickhouse.length).toBe(1);
+    s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }); // final
+    expect(s.players[0]!.capital).toBe(2 * (v + dist));
+    expect(s.players[0]!.rickhouse.length).toBe(0);
+  });
 
-    // OPEN a brand line to sell into.
-    p().slotCards = [buildSlotCardSupply().find((c) => c.defId === "slot_workhorse")!];
-    p().capital = 20;
-    s = ok(s, { type: "OPEN_BRAND_LINE", slotCardId: p().slotCards[0]!.id });
-    const lineId = p().brandLines[0]!.id;
-
-    // EXTRACT the batch — flood-free so we can read exact payouts.
-    openMarket(s);
-    p().capital = 0;
-    // 1st (intermediate): banks 5, stays resting, no bottle.
-    s = ok(s, { type: "EXTRACT", bourbonId: "b" });
-    expect(p().rickhouse.length).toBe(1);
-    expect(p().rickhouse[0]!.salesRemaining).toBe(1);
-    // 2nd (final): banks 5 + completion bonus (base 1 + bottling 1), frees + places.
-    s = ok(s, { type: "EXTRACT", bourbonId: "b", brandLineId: lineId, slotIndex: 0 });
-    expect(p().rickhouse.length).toBe(0);
-    expect(p().brandLines[0]!.slots[0]!.id).toBe("b");
-    expect(p().bourbonsSold).toBe(2);
-    expect(p().capital).toBe(5 + 5 + (CONFIG.COMPLETION_BONUS + 1));
+  it("payout is the bourbon's age value plus the order's zone bonus — nothing is multiplied", () => {
+    let s = base({ quality: "common", age: 2 }); // age value is the base, unscaled
+    // 5 cards on the table → Mid zone. Target is first + 4 fillers.
+    const target = makeDemandCard({ id: "ord", slotsActive: 1, zoneBonus: { low: 1, mid: 4, high: 9 }, reputation: 1 });
+    const fillers = Array.from({ length: 4 }, (_, i) => makeDemandCard({ id: `f${i}`, slotsActive: 1 }));
+    s.demandCards = [target, ...fillers];
+    expect(zoneForCardCount(s.demandCards.length)).toBe("mid");
+    const dist = dept(s.players[0]!, "distribution").values[0]!;
+    s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
+    // age value + card's MID bonus (4) + dist — the zone only picks the bonus.
+    expect(s.players[0]!.capital).toBe(barrelValue("common", 2) + 4 + dist);
   });
 });
 
 // ------------------------------------------------------------------
-// end condition + scoring
+// Improve Distillery — ramp, discounts, ultimate selection
 // ------------------------------------------------------------------
 
-describe("end of game", () => {
-  it("a full solo game runs to completion when bills run out", () => {
-    let s = createGame({ seed: 21 });
-    let guard = 0;
-    while (s.phase === "playing" && guard < 1000) {
-      guard++;
-      // Prefer draining the bill supply; keeping a bill rests a barrel, so
-      // clear the rickhouse when it fills (and fall back to resources if the
-      // keep is otherwise refused, e.g. an empty tray).
-      const res = applyAction(s, { type: "DRAW_MASH_BILLS", keepIndex: 0 });
-      if (res.ok) {
-        s = res.state;
-      } else {
-        s.players[s.currentPlayerIndex]!.rickhouse = [];
-        s = tick(s);
-      }
-    }
-    expect(s.phase).toBe("ended");
+describe("improve distillery", () => {
+  it("charges the linear ramp and advances the department level", () => {
+    let s = createGame({ seed: 1 });
+    s = intoPlay(s);
+    s.players[0]!.capital = 10;
+    s = ok(s, { type: "IMPROVE", departmentId: "warehouse" });
+    expect(dept(s.players[0]!, "warehouse").level).toBe(1);
+    expect(s.players[0]!.capital).toBe(10 - improvementCost(0));
+    expect(s.players[0]!.improvements).toBe(1);
+  });
+
+  it("each improvement costs more than the last", () => {
+    let s = createGame({ seed: 1 });
+    s = intoPlay(s);
+    s.players[0]!.capital = 100;
+    let c = s.players[0]!.capital;
+    s = ok(s, { type: "IMPROVE", departmentId: "warehouse" });
+    const spent1 = c - s.players[0]!.capital;
+    c = s.players[0]!.capital;
+    s = ok(s, { type: "IMPROVE", departmentId: "supply" });
+    const spent2 = c - s.players[0]!.capital;
+    expect(spent2).toBeGreaterThan(spent1);
+  });
+
+  it("requires choosing an offered ultimate at the top of a branch", () => {
+    let s = createGame({ seed: 1 });
+    s = intoPlay(s);
+    s.players[0]!.capital = 1000;
+    s = ok(s, { type: "IMPROVE", departmentId: "warehouse" }); // → 1
+    s = ok(s, { type: "IMPROVE", departmentId: "warehouse" }); // → 2
+    expect(expectRefusal(s, { type: "IMPROVE", departmentId: "warehouse" })).toMatch(
+      /choose an ultimate/,
+    );
+    s = ok(s, { type: "IMPROVE", departmentId: "warehouse", ultimateId: "grandWarehouse" });
+    const wh = dept(s.players[0]!, "warehouse");
+    expect(wh.level).toBe(wh.maxLevel);
+    expect(wh.chosenUltimate).toBe("grandWarehouse");
+  });
+
+  it("refuses improving a fully-grown department", () => {
+    let s = createGame({ seed: 1 });
+    s = intoPlay(s);
+    s.players[0]!.capital = 1000;
+    const max = dept(s.players[0]!, "distribution").maxLevel;
+    for (let i = 0; i < max; i++) s = ok(s, { type: "IMPROVE", departmentId: "distribution" });
+    expect(expectRefusal(s, { type: "IMPROVE", departmentId: "distribution" })).toContain(
+      "fully grown",
+    );
+  });
+
+  it("the Counting House discounts later improvements", () => {
+    let s = createGame({ seed: 1 });
+    s = intoPlay(s);
+    s.players[0]!.capital = 1000;
+    s = ok(s, { type: "IMPROVE", departmentId: "countingHouse" }); // level 1 → discount 1
+    const made = s.players[0]!.improvements;
+    let c = s.players[0]!.capital;
+    s = ok(s, { type: "IMPROVE", departmentId: "supply" });
+    const spent = c - s.players[0]!.capital;
+    expect(spent).toBe(improvementCost(made, 1));
+  });
+});
+
+// ------------------------------------------------------------------
+// scoring + the clock
+// ------------------------------------------------------------------
+
+describe("scoring and the clock", () => {
+  it("score = Capital + Reputation (kept cards)", () => {
+    const s = createGame({ seed: 1 });
+    s.players[0]!.capital = 12;
+    s.players[0]!.keptCards = [makeDemandCard({ reputation: 3 }), makeDemandCard({ reputation: 5 })];
+    expect(reputationOf(s.players[0]!)).toBe(8);
+    expect(scorePlayer(s.players[0]!).total).toBe(20);
+  });
+
+  it("ranks players high→low, tiebreak by cards completed", () => {
+    const s = createGame({ seed: 1, playerNames: ["A", "B"] });
+    s.players[0]!.capital = 5;
+    s.players[1]!.capital = 5;
+    s.players[1]!.cardsCompleted = 2;
+    expect(rankPlayers(s)[0]!.name).toBe("B");
+  });
+
+  it("ends the game when the demand deck is exhausted", () => {
+    let s = createGame({ seed: 2 });
+    s = intoPlay(s);
+    // Drain the demand pool so the next Demand Phase can't draw.
+    s.demandDeck = [];
+    s.demandDiscard = [];
+    s = ok(s, { type: "END_TURN" }); // round ends → next Demand Phase → schedules final round
     expect(s.finalRound).not.toBeNull();
+    s = intoPlay(s);
+    s = ok(s, { type: "END_TURN" }); // final round completes
+    expect(s.phase).toBe("ended");
     expect(s.log.some((l) => l.includes("Game over"))).toBe(true);
   });
+});
 
-  it("scores capital + converted prestige, tiebreaks on bourbons sold", () => {
-    const s = createGame({ seed: 1, playerNames: ["A", "B"] });
-    s.players[0]!.capital = 10;
-    s.players[0]!.prestige = 0;
-    s.players[0]!.bourbonsSold = 1;
-    s.players[1]!.capital = 8;
-    s.players[1]!.prestige = 2; // 8 + 2 = 10, tie on total
-    s.players[1]!.bourbonsSold = 5;
-    const ranked = rankPlayers(s);
-    expect(ranked[0]!.total).toBe(10);
-    expect(ranked[1]!.total).toBe(10);
-    // Tie broken by bourbons sold → B first.
-    expect(ranked[0]!.name).toBe("B");
+// ------------------------------------------------------------------
+// requirement matching
+// ------------------------------------------------------------------
+
+describe("requirement matching", () => {
+  it("matches style tag, minimum age, and minimum quality (floors)", () => {
+    const b = makeBourbon({ styleTag: "rye", age: 5, quality: "rare" });
+    expect(meetsRequirement(b, {})).toBe(true);
+    expect(meetsRequirement(b, { styleTag: "rye" })).toBe(true);
+    expect(meetsRequirement(b, { styleTag: "wheat" })).toBe(false);
+    expect(meetsRequirement(b, { minAge: 4 })).toBe(true);
+    expect(meetsRequirement(b, { minAge: 6 })).toBe(false);
+    expect(meetsRequirement(b, { quality: "common" })).toBe(true); // rare ≥ common
+    expect(meetsRequirement(b, { quality: "uncommon" })).toBe(true); // rare ≥ uncommon
+    expect(meetsRequirement(b, { quality: "legendary" })).toBe(false);
   });
 });
