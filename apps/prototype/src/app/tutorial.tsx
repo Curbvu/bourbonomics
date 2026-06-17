@@ -50,7 +50,7 @@ function houseOrder(): DemandCard {
   return {
     id: "tut_order", defId: "dm_house", label: "House Pour", requirement: {},
     slotMultiple: 1, slotsActive: 1, filledBy: [null],
-    zoneBonus: { low: 2, mid: 3, high: 4 }, reputation: 3, placeholder: true,
+    orderValue: 2, reputation: 3, placeholder: true,
   };
 }
 
