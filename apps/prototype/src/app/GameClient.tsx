@@ -76,7 +76,8 @@ const FACE: Record<DieFace, { mono: string; label: string; color: string; wild?:
   cask: { mono: "CK", label: "Cask", color: "#cf9a5e" },
   corn: { mono: "CN", label: "Corn", color: "#f0c970" },
   rye: { mono: "RY", label: "Rye", color: "#d96b54" },
-  wheat: { mono: "WH", label: "Wheat", color: "#e9b46e" },
+  // Wheat is cyan (matching its card chrome) so it doesn't read as gold-corn.
+  wheat: { mono: "WH", label: "Wheat", color: "#7ec8dd" },
   barley: { mono: "BA", label: "Barley", color: "#6db28c" },
   anything: { mono: "✦", label: "Any", color: "#e7d9b6", wild: true },
 };
@@ -84,8 +85,9 @@ const PILE_ORDER: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
 const SUB: Record<ResourceKind, { ink: string; glyph: string; label: string }> = {
   cask: { ink: "#cf9a5e", glyph: "⌬", label: "Cask" },
   corn: { ink: "#f0c970", glyph: "✺", label: "Corn" },
-  rye: { ink: "#d96b54", glyph: "✦", label: "Rye" },
-  wheat: { ink: "#e9b46e", glyph: "❉", label: "Wheat" },
+  // Rye uses a heavy 8-point star so it never collides with the wild ✦ glyph.
+  rye: { ink: "#d96b54", glyph: "✸", label: "Rye" },
+  wheat: { ink: "#8fd0e2", glyph: "❉", label: "Wheat" },
   barley: { ink: "#6db28c", glyph: "❦", label: "Barley" },
 };
 
