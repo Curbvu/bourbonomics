@@ -108,6 +108,17 @@ const STYLE_LABEL: Record<StyleTag, string> = {
   classic: "Classic",
 };
 
+// Per-style card chrome (oak/amber/crimson/cyan/violet/teal) — the flashy
+// gradient + border + glow used by the mash-bill draw cards (matches the wiki).
+const STYLE_CHROME: Record<StyleTag, { border: string; grad: string; selGrad: string; ink: string; glow: string }> = {
+  classic: { border: "#c69d52", grad: "linear-gradient(180deg,rgba(198,157,82,.20),#15100a 80%)", selGrad: "linear-gradient(180deg,rgba(198,157,82,.42),#1c1409 85%)", ink: "#f3dcb6", glow: "0 0 26px rgba(198,157,82,.30)" },
+  highCorn: { border: "#f0c970", grad: "linear-gradient(180deg,rgba(240,201,112,.20),#15100a 80%)", selGrad: "linear-gradient(180deg,rgba(240,201,112,.42),#1c1409 85%)", ink: "#fff0c4", glow: "0 0 26px rgba(240,201,112,.30)" },
+  rye: { border: "#e08a78", grad: "linear-gradient(180deg,rgba(217,107,84,.22),#160c08 80%)", selGrad: "linear-gradient(180deg,rgba(217,107,84,.46),#1e0e09 85%)", ink: "#ffdcd2", glow: "0 0 26px rgba(217,107,84,.30)" },
+  wheat: { border: "#8fd0e2", grad: "linear-gradient(180deg,rgba(82,166,189,.20),#0a1418 80%)", selGrad: "linear-gradient(180deg,rgba(82,166,189,.44),#0c1c22 85%)", ink: "#dff3f8", glow: "0 0 26px rgba(143,208,226,.28)" },
+  fourGrain: { border: "#c79df0", grad: "linear-gradient(180deg,rgba(157,111,208,.22),#0e0a14 80%)", selGrad: "linear-gradient(180deg,rgba(157,111,208,.46),#140d1e 85%)", ink: "#ecdcfa", glow: "0 0 26px rgba(199,157,240,.30)" },
+  barley: { border: "#7fd0a4", grad: "linear-gradient(180deg,rgba(78,162,122,.20),#0a1610 80%)", selGrad: "linear-gradient(180deg,rgba(78,162,122,.44),#0c1e14 85%)", ink: "#d6f2e2", glow: "0 0 26px rgba(127,208,164,.28)" },
+};
+
 const ZONE_META: Record<Zone, { label: string; color: string }> = {
   low: { label: "Low", color: C.green },
   mid: { label: "Mid", color: C.amber },
@@ -373,6 +384,7 @@ export default function GameClient() {
   // Collect-phase local overlay (the engine commits at pass time). Click a die
   // to draft it (optimistic claim); reroll the rest; pass leftovers on.
   const [claims, setClaims] = useState<Record<string, ResourceKind>>({});
+  const [keepDice, setKeepDice] = useState<Set<string>>(new Set()); // pre-roll: inherited dice to keep
   const [pendingWild, setPendingWild] = useState<string | null>(null);
   const [ttFace, setTtFace] = useState(false); // Triple Threat face chooser open
   // Play-phase local UI.
@@ -392,6 +404,7 @@ export default function GameClient() {
   }
   function resetLocal() {
     setClaims({});
+    setKeepDice(new Set());
     setPendingWild(null);
     setTtFace(false);
     setDrawingBills(false);
@@ -554,6 +567,8 @@ export default function GameClient() {
           initialPool={initialPool.current}
           claims={claims}
           setClaims={setClaims}
+          keepDice={keepDice}
+          setKeepDice={setKeepDice}
           pendingWild={pendingWild}
           setPendingWild={setPendingWild}
           ttFace={ttFace}
@@ -591,6 +606,8 @@ interface BoardProps {
   initialPool: number;
   claims: Record<string, ResourceKind>;
   setClaims: (v: Record<string, ResourceKind>) => void;
+  keepDice: Set<string>;
+  setKeepDice: (v: Set<string>) => void;
   pendingWild: string | null;
   setPendingWild: (v: string | null) => void;
   ttFace: boolean;
@@ -613,14 +630,22 @@ interface BoardProps {
 
 function Board(p: BoardProps) {
   const { game, dispatch, flash } = p;
-  const me = game.players[game.currentPlayerIndex]!;
+  // Which player's board we're DISPLAYING. Defaults to the active player; the
+  // human can click a standings row to peek at a rival's board (read-only).
+  const [viewIdx, setViewIdx] = useState<number | null>(null);
+  // Snap back to the active player whenever the turn / phase changes.
+  useEffect(() => { setViewIdx(null); }, [game.currentPlayerIndex, game.roundPhase]);
+  const shownIdx = viewIdx ?? game.currentPlayerIndex;
+  const me = game.players[shownIdx]!;
+  const spectating = viewIdx !== null && viewIdx !== game.currentPlayerIndex; // peeking at a non-active player
   const supplyCap = fnSupply(me);
   const warehouseCap = fnWarehouse(me);
   const rickCap = fnRick(me);
   const phaseStage = game.roundPhase; // demand | collect | play
   const botTurn = isBotTurn(game); // the AI is on the clock (collect/play)
+  const locked = botTurn || spectating; // board is read-only (not the human's live turn)
 
-  const optimisticClaims = phaseStage === "collect" ? Object.values(p.claims) : [];
+  const optimisticClaims = phaseStage === "collect" && !spectating ? Object.values(p.claims) : [];
   const heldTotal = me.hand.length + optimisticClaims.length;
   const whFull = heldTotal >= warehouseCap;
 
@@ -651,14 +676,30 @@ function Board(p: BoardProps) {
 
   // ---- collect actions ----
   const collect = game.collect;
+  // Pre-roll: toggle which inherited die to keep before rolling.
+  const toggleKeep = (id: string) => {
+    const next = new Set(p.keepDice);
+    next.has(id) ? next.delete(id) : next.add(id);
+    p.setKeepDice(next);
+  };
+  // Pre-roll: keep the chosen inherited dice, roll the rest (fills to Supply cap).
+  const onRoll = () => {
+    if (!collect || collect.rolled) return;
+    if (p.keepDice.size > supplyCap) {
+      flash(`Keep at most ${supplyCap} dice`);
+      return;
+    }
+    dispatch({ type: "COLLECT_ROLL", keepDiceIds: [...p.keepDice] });
+  };
+  // Post-roll reroll (Second Reroll ultimate): keep what you've drafted, reroll the rest.
   const onReroll = () => {
-    if (!collect || collect.rerollsUsed >= collect.maxRerolls) return;
-    const rest = collect.dice.filter((d) => !(d.id in p.claims)).map((d) => d.id);
-    if (rest.length === 0) {
+    if (!collect || !collect.rolled || collect.rerollsUsed >= collect.maxRerolls) return;
+    const keep = Object.keys(p.claims);
+    if (keep.length === collect.dice.length) {
       flash("Nothing left to reroll — every die is drafted");
       return;
     }
-    dispatch({ type: "COLLECT_REROLL", diceIds: rest });
+    dispatch({ type: "COLLECT_ROLL", keepDiceIds: keep });
   };
   const claimDie = (id: string, face: DieFace, el: HTMLElement) => {
     if (id in p.claims) {
@@ -753,7 +794,7 @@ function Board(p: BoardProps) {
     const pl = game.players[pi]!;
     let status: "done" | "now" | "next" = "next";
     if (collect) status = idx < collect.pos ? "done" : idx === collect.pos ? "now" : "next";
-    return { name: pl.name, cap: pl.capital, rep: reputationOf(pl), isBot: pl.isBot, color: PLAYER_COLORS[pi % PLAYER_COLORS.length]!, status };
+    return { pi, name: pl.name, cap: pl.capital, rep: reputationOf(pl), isBot: pl.isBot, color: PLAYER_COLORS[pi % PLAYER_COLORS.length]!, status };
   });
 
   const restingBarrels = me.rickhouse.filter((b) => !b.built);
@@ -828,6 +869,9 @@ function Board(p: BoardProps) {
           </div>
         </header>
 
+        {/* ===== MAIN ROW: work area (action band + rail + distillery) | full-height market ===== */}
+        <div style={{ display: "flex", gap: 14, flex: 1, minHeight: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, minHeight: 0 }}>
         {/* ===== ACTION BAND ===== */}
         <ActionBand
           board={p}
@@ -839,32 +883,45 @@ function Board(p: BoardProps) {
           collect={collect}
           phaseStage={phaseStage}
           botTurn={botTurn}
+          spectating={spectating}
+          onExitView={() => setViewIdx(null)}
           onReroll={onReroll}
+          onRoll={onRoll}
+          toggleKeep={toggleKeep}
           claimDie={claimDie}
           onTT={() => p.setTtFace(true)}
           onPass={onPass}
         />
 
-        {/* ===== BODY ===== */}
-        <div style={{ display: "grid", gridTemplateColumns: "264px 1fr 440px", gap: 14, alignItems: "stretch", flex: 1, minHeight: 0 }}>
+        {/* ===== BODY (left rail + distillery) ===== */}
+        <div style={{ display: "grid", gridTemplateColumns: "264px 1fr", gap: 14, alignItems: "stretch", flex: 1, minHeight: 0 }}>
           {/* LEFT RAIL */}
           <aside style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
-            <RailCard title="Standings" right="CAP · ★PRESTIGE">
+            <RailCard title="Standings" right="TAP TO VIEW">
               <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                {order.map((o, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 9, ...(o.status === "now" ? { background: "linear-gradient(90deg,rgba(213,150,80,.16),transparent)", border: `1px solid ${C.brass}` } : { background: "#150e08", border: `1px solid ${C.border2}` }) }}>
-                    <span style={{ width: 9, height: 9, borderRadius: "50%", background: o.color, flex: "0 0 auto", boxShadow: o.status === "now" ? "0 0 0 3px rgba(213,150,80,.2)" : undefined }} />
-                    <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 13, color: o.status === "now" ? C.ink : C.text2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}{o.isBot ? "" : ""}</span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Capital">
-                      <span style={{ color: C.gold, fontWeight: 700 }}>{o.cap}</span>
-                      <span style={{ color: C.muted, fontSize: 9 }}>c</span>
-                    </span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Prestige">
-                      <span style={{ color: C.green, fontSize: 11 }}>★</span>
-                      <span style={{ color: C.green, fontWeight: 700 }}>{o.rep}</span>
-                    </span>
-                  </div>
-                ))}
+                {order.map((o, i) => {
+                  const viewed = o.pi === shownIdx;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setViewIdx(o.pi === game.currentPlayerIndex ? null : o.pi)}
+                      title={`View ${o.name}'s distillery`}
+                      style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 9, cursor: "pointer", ...(viewed ? { background: "linear-gradient(90deg,rgba(213,150,80,.2),transparent)", border: `1px solid ${o.color}` } : o.status === "now" ? { background: "linear-gradient(90deg,rgba(213,150,80,.1),transparent)", border: `1px solid ${C.border}` } : { background: "#150e08", border: `1px solid ${C.border2}` }) }}
+                    >
+                      <span style={{ width: 9, height: 9, borderRadius: "50%", background: o.color, flex: "0 0 auto", boxShadow: viewed ? `0 0 0 3px ${o.color}33` : undefined }} />
+                      <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 13, color: viewed || o.status === "now" ? C.ink : C.text2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}{o.status === "now" ? " ·" : ""}</span>
+                      {o.status === "now" && <span style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".1em", textTransform: "uppercase", color: C.brass }}>turn</span>}
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Capital">
+                        <span style={{ color: C.gold, fontWeight: 700 }}>{o.cap}</span>
+                        <span style={{ color: C.muted, fontSize: 9 }}>c</span>
+                      </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Prestige">
+                        <span style={{ color: C.green, fontSize: 11 }}>★</span>
+                        <span style={{ color: C.green, fontWeight: 700 }}>{o.rep}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </RailCard>
 
@@ -916,14 +973,19 @@ function Board(p: BoardProps) {
           {/* DISTILLERY */}
           <main style={{ position: "relative", borderRadius: 16, background: "linear-gradient(180deg,#1c130c 0%,#130c06 100%)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 18px 50px rgba(0,0,0,.45)", padding: 13, display: "flex", flexDirection: "column", gap: 11, minHeight: 0, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14, flex: "0 0 auto" }}>
-              <span style={{ fontFamily: MONO, fontSize: 13, letterSpacing: ".24em", textTransform: "uppercase", color: botTurn ? PLAYER_COLORS[game.currentPlayerIndex % PLAYER_COLORS.length] : C.brass }}>{botTurn ? `${me.name}'s Distillery` : "Your Distillery"}</span>
+              <span style={{ fontFamily: MONO, fontSize: 13, letterSpacing: ".24em", textTransform: "uppercase", color: shownIdx !== game.currentPlayerIndex || botTurn ? PLAYER_COLORS[shownIdx % PLAYER_COLORS.length] : C.brass }}>{shownIdx === game.currentPlayerIndex && !botTurn ? "Your Distillery" : `${me.name}'s Distillery`}</span>
               <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 15, color: C.muted }}>{me.distillery.name}</span>
-              {botTurn && (
+              {spectating ? (
+                <button onClick={() => setViewIdx(null)} title="Return to the active board" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 11px", borderRadius: 999, background: `${PLAYER_COLORS[shownIdx % PLAYER_COLORS.length]}22`, border: `1px solid ${PLAYER_COLORS[shownIdx % PLAYER_COLORS.length]}`, cursor: "pointer", color: C.ink }}>
+                  <span style={{ fontSize: 11 }}>👁</span>
+                  <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase" }}>Viewing · back ✕</span>
+                </button>
+              ) : botTurn ? (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 9px", borderRadius: 999, background: "rgba(240,201,112,.12)", border: `1px solid ${C.brass}` }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold, animation: "bb-pip 1.4s ease-in-out infinite" }} />
                   <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.gold }}>AI · watching</span>
                 </span>
-              )}
+              ) : null}
               <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg,#3b2818,transparent)" }} />
               <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".1em" }}>
                 <span style={{ color: C.gold }}>{agingBarrels.length}</span>
@@ -961,7 +1023,7 @@ function Board(p: BoardProps) {
                     <div key={b.id} data-tut="aging" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <button
                         className="bb-btn"
-                        onClick={() => (phaseStage === "play" && sellable && !botTurn ? p.setSellId(b.id) : botTurn ? undefined : flash(sellable ? "Sell in the Play phase" : `Ages until year ${CONFIG.MIN_SELL_AGE}`))}
+                        onClick={() => (phaseStage === "play" && sellable && !locked ? p.setSellId(b.id) : locked ? undefined : flash(sellable ? "Sell in the Play phase" : `Ages until year ${CONFIG.MIN_SELL_AGE}`))}
                         style={{ textAlign: "left", position: "relative", borderRadius: 13, padding: "10px 12px 11px", border: `1px solid ${qc.border}`, background: qc.bg, boxShadow: qc.glow, cursor: phaseStage === "play" && sellable ? "pointer" : "default", overflow: "hidden" }}
                       >
                         {/* faint bottle-glass sheen */}
@@ -1011,7 +1073,7 @@ function Board(p: BoardProps) {
 
                 {restingBarrels.map((b) => {
                   const ready = b.staged.length >= recipeSize(b.recipe);
-                  const canBuild = phaseStage === "play" && !botTurn;
+                  const canBuild = phaseStage === "play" && !locked;
                   // Build the slot row PER GRAIN so a filled pip reflects the kind
                   // actually staged (not just a positional count).
                   const slotList: { kind: ResourceKind; filled: boolean }[] = [];
@@ -1103,7 +1165,7 @@ function Board(p: BoardProps) {
                     <div key={`g${i}`} style={{ width: 50, height: 70, borderRadius: 8, border: "1.5px dashed rgba(110,80,50,.4)", background: "rgba(20,14,8,.4)" }} />
                   ))}
                 </div>
-                {hasUlt(me, "warehouse", "qualitySort") && phaseStage === "play" && (
+                {hasUlt(me, "warehouse", "qualitySort") && phaseStage === "play" && !locked && (
                   <button className="bb-btn" disabled={me.qualitySortUsedThisRound} onClick={() => p.setQsOpen(true)} style={{ marginTop: 8, padding: "5px 10px", borderRadius: 7, fontFamily: MONO, fontWeight: 600, fontSize: 9, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.green}`, background: "rgba(109,178,140,.14)", color: C.green, cursor: me.qualitySortUsedThisRound ? "default" : "pointer", opacity: me.qualitySortUsedThisRound ? 0.5 : 1 }}>
                     ✦ Quality Sort {me.qualitySortUsedThisRound ? "· used" : "· free draw"}
                   </button>
@@ -1154,8 +1216,10 @@ function Board(p: BoardProps) {
               </Room>
             </div>
           </main>
+            </div>
+          </div>
 
-          {/* MARKET — the persistent demand pile */}
+          {/* MARKET — full-height right column so every demand card fits */}
           <MarketAside game={game} zone={zone} me={me} />
         </div>
       </div>
@@ -1220,13 +1284,34 @@ function ActionBand(props: {
   collect: GameState["collect"];
   phaseStage: GameState["roundPhase"];
   botTurn: boolean;
+  spectating: boolean;
+  onExitView: () => void;
   onReroll: () => void;
+  onRoll: () => void;
+  toggleKeep: (id: string) => void;
   claimDie: (id: string, face: DieFace, el: HTMLElement) => void;
   onTT: () => void;
   onPass: () => void;
 }) {
-  const { board, me, supplyCap, warehouseCap, heldTotal, whFull, collect, phaseStage, botTurn } = props;
+  const { board, me, supplyCap, warehouseCap, heldTotal, whFull, collect, phaseStage, botTurn, spectating } = props;
   const game = board.game;
+
+  // Spectating a rival's board: the draft/play controls belong to the active
+  // turn, so replace the whole band with a read-only peek banner.
+  if (spectating) {
+    return (
+      <section style={{ borderRadius: 14, background: "radial-gradient(120% 130% at 50% 0%, rgba(213,150,80,.08), transparent 55%), linear-gradient(180deg,#1c130c,#140d07)", border: `1px solid ${PLAYER_COLORS[game.players.indexOf(me) % PLAYER_COLORS.length]}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 12px 34px rgba(0,0,0,.4)", padding: "14px 18px", marginBottom: 13, flex: "0 0 auto", display: "flex", alignItems: "center", gap: 16 }}>
+        <span style={{ fontSize: 22 }}>👁</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: C.ink }}>Viewing {me.name}&apos;s distillery</span>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: C.muted }}>Read-only — <b style={{ color: C.gold }}>{me.capital}c</b> · <span style={{ color: C.green }}>★{reputationOf(me)}</span> · {me.rickhouse.length} barrels. Their board stays put; your turn is waiting.</span>
+        </div>
+        <div style={{ flex: 1 }} />
+        <button onClick={props.onExitView} className="bb-btn" style={{ padding: "10px 18px", borderRadius: 10, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0 }}>← Back to the table</button>
+      </section>
+    );
+  }
+  const preRoll = !!collect && !collect.rolled; // inherited dice awaiting keep-then-roll
 
   const hint = botTurn
     ? `${me.name} (AI) is playing…`
@@ -1234,11 +1319,14 @@ function ActionBand(props: {
       ? "Demand is laid out — begin the dice draft."
       : phaseStage === "play"
         ? "Play phase — build, sell into demand, improve, then end your turn."
-        : "Tap the dice you want — each draws a card into your Warehouse. Reroll the rest, then pass.";
+        : preRoll
+          ? "You inherited dice — tap the ones to KEEP, then roll the rest."
+          : "Tap the dice you want — each draws a card into your Warehouse, then draft.";
 
-  const canTT = collect && hasUlt(me, "supply", "tripleThreat") && !collect.tripleThreatUsed;
+  const canTT = collect && collect.rolled && hasUlt(me, "supply", "tripleThreat") && !collect.tripleThreatUsed;
   const drafted = collect ? Object.keys(board.claims).length : 0;
   const undrafted = collect ? collect.dice.length - drafted : 0;
+  const canReroll = !!collect && collect.rolled && collect.maxRerolls > 0;
 
   return (
     <section style={{ borderRadius: 14, background: "radial-gradient(120% 130% at 50% 0%, rgba(213,150,80,.08), transparent 55%), linear-gradient(180deg,#1c130c,#140d07)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 12px 34px rgba(0,0,0,.4)", padding: "11px 18px 13px", marginBottom: 13, flex: "0 0 auto" }}>
@@ -1257,18 +1345,24 @@ function ActionBand(props: {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "168px 1fr 256px", gap: 16, alignItems: "stretch" }}>
-        {/* inherited */}
-        <div style={{ borderRadius: 11, background: "#150e08", border: `1px dashed ${C.border}`, padding: 12, display: "flex", flexDirection: "column", gap: 9 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, lineHeight: 1.5 }}>Inherited<br />dice →</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {(collect?.inherited ?? []).map((d) => (
-              <div key={d.id} style={{ width: 44, height: 44, borderRadius: 11, background: "linear-gradient(180deg,#2c1f13,#1a130b)", border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
-                <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 14, color: FACE[d.face].color }}>{FACE[d.face].mono}</span>
-              </div>
-            ))}
-            {(!collect || collect.inherited.length === 0) && <span style={{ fontSize: 11, color: C.faint, fontStyle: "italic" }}>— none —</span>}
-          </div>
-          <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4, marginTop: "auto" }}>Leftovers carry into your roll, up to your Supply cap.</div>
+        {/* turn guide (inherited dice now live on the table) */}
+        <div style={{ borderRadius: 11, background: "#150e08", border: `1px dashed ${C.border}`, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, lineHeight: 1.5 }}>The Draft</div>
+          {phaseStage === "collect" && collect ? (
+            preRoll ? (
+              <>
+                <div style={{ fontFamily: SERIF, fontSize: 15, color: C.gold, lineHeight: 1.2 }}>{collect.inherited.length} inherited die/dice on the table</div>
+                <div style={{ fontSize: 10.5, color: C.muted, lineHeight: 1.5 }}>They count toward your {supplyCap}-die cap. Tap the ones to <b style={{ color: "#f0c970" }}>keep</b>, then <b style={{ color: C.gold }}>roll</b> the rest.</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontFamily: SERIF, fontSize: 15, color: C.ink, lineHeight: 1.2 }}>Draft into your Warehouse</div>
+                <div style={{ fontSize: 10.5, color: C.muted, lineHeight: 1.5 }}>Tap dice to draft them; whatever you don&apos;t draft passes to the next player.</div>
+              </>
+            )
+          ) : (
+            <div style={{ fontSize: 10.5, color: C.muted, lineHeight: 1.5, marginTop: "auto" }}>Inherit leftovers, keep what you like, roll the rest — then draft into your Warehouse.</div>
+          )}
         </div>
 
         {/* dice tray */}
@@ -1283,11 +1377,13 @@ function ActionBand(props: {
           {phaseStage === "collect" && collect && (
             <DiceTray
               dice={collect.dice}
-              claims={board.claims}
-              rollId={`${collect.pos}-${collect.rerollsUsed}`}
+              rollId={`${collect.pos}-${collect.rolled}-${collect.rerollsUsed}`}
+              animate={collect.rolled}
+              mode={preRoll ? "keep" : "claim"}
+              selectedIds={preRoll ? board.keepDice : new Set(Object.keys(board.claims))}
               full={whFull}
               locked={botTurn}
-              onClaim={props.claimDie}
+              onDie={preRoll ? (id) => props.toggleKeep(id) : props.claimDie}
             />
           )}
         </div>
@@ -1328,10 +1424,19 @@ function ActionBand(props: {
             </>
           )}
           {!botTurn && phaseStage === "play" && <PlayControls board={board} me={me} />}
-          {!botTurn && phaseStage === "collect" && collect && (
+          {!botTurn && phaseStage === "collect" && collect && preRoll && (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{board.keepDice.size} kept · rolling {Math.max(0, supplyCap - board.keepDice.size)} fresh</div>
+              <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>Keep the inherited dice you like, then roll to fill up to your Supply cap.</div>
+              <button data-tut="pass" className="bb-btn" onClick={props.onRoll} style={{ padding: "13px 18px", borderRadius: 10, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 10px 24px rgba(198,157,82,.3)" }}>🎲 Roll</button>
+            </>
+          )}
+          {!botTurn && phaseStage === "collect" && collect && !preRoll && (
             <>
               <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{drafted} drafted · {undrafted} left in the pool</div>
-              <button className="bb-btn bb-sec" onClick={props.onReroll} disabled={collect.rerollsUsed >= collect.maxRerolls} style={{ padding: "10px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", ...(collect.rerollsUsed < collect.maxRerolls ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710", cursor: "pointer" } : { border: `1px solid ${C.border2}`, color: C.faint, background: "#150e08", cursor: "default" }) }}>↻ Reroll the rest · {collect.maxRerolls - collect.rerollsUsed} left</button>
+              {canReroll && (
+                <button className="bb-btn bb-sec" onClick={props.onReroll} disabled={collect.rerollsUsed >= collect.maxRerolls} style={{ padding: "10px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", ...(collect.rerollsUsed < collect.maxRerolls ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710", cursor: "pointer" } : { border: `1px solid ${C.border2}`, color: C.faint, background: "#150e08", cursor: "default" }) }}>↻ Reroll undrafted · {collect.maxRerolls - collect.rerollsUsed} left</button>
+              )}
               {canTT && (
                 <button className="bb-btn bb-sec" onClick={props.onTT} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.amber}`, color: C.amber, background: "#221710", cursor: "pointer" }}>⚡ Triple Threat</button>
               )}
@@ -1371,25 +1476,61 @@ function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
     const offer = game.mashBillSupply.slice(0, Math.min(office, game.mashBillSupply.length));
     const cap = fnRick(me) - me.rickhouse.length;
     return (
-      <div data-tut="bills" style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+      <div data-tut="bills" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", alignItems: "stretch" }}>
         {offer.map((bill, i) => {
           const sel = board.keepBills.has(i);
+          const sc = STYLE_CHROME[bill.styleTag];
           return (
-            <button key={bill.id} className="bb-btn" onClick={() => { const n = new Set(board.keepBills); n.has(i) ? n.delete(i) : n.add(i); board.setKeepBills(n); }} style={{ position: "relative", width: 150, textAlign: "left", display: "flex", flexDirection: "column", gap: 2, padding: 10, borderRadius: 10, cursor: "pointer", border: `2px solid ${sel ? C.brass : C.border}`, background: sel ? "#2a2014" : "linear-gradient(180deg,#1e140c,#150e08)" }}>
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={(e) => { e.stopPropagation(); board.onInspect({ kind: "bill", bill }); }}
-                title="Inspect recipe"
-                style={{ position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: 999, display: "grid", placeItems: "center", fontFamily: SERIF, fontStyle: "italic", fontWeight: 700, fontSize: 12, color: C.brass, border: `1px solid ${C.border}`, background: "#11100a" }}
-              >i</span>
-              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, paddingRight: 18 }}>{bill.name}</span>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.brass }}>{STYLE_LABEL[bill.styleTag]} · {bill.batchQty} sales{bill.saleBonus > 0 ? ` · +${bill.saleBonus}/sale` : ""}</span>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>{recipeKinds(bill.recipe).map((k) => FACE[k].mono).join(" ")}</span>
+            <button
+              key={bill.id}
+              className="bb-card"
+              onClick={() => { const n = new Set(board.keepBills); n.has(i) ? n.delete(i) : n.add(i); board.setKeepBills(n); }}
+              style={{ position: "relative", width: 210, textAlign: "left", display: "flex", flexDirection: "column", gap: 7, padding: "13px 14px 12px", borderRadius: 14, cursor: "pointer", overflow: "hidden", border: `2px solid ${sc.border}`, background: sel ? sc.selGrad : sc.grad, boxShadow: sel ? `inset 0 1px 0 rgba(255,255,255,.18), ${sc.glow}` : "inset 0 1px 0 rgba(255,255,255,.1), 0 6px 16px rgba(0,0,0,.4)" }}
+            >
+              {/* glass sheen */}
+              <span style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 42%, rgba(255,255,255,.06) 50%, transparent 58%)", pointerEvents: "none" }} />
+              {/* top row: style pill + inspect / kept */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#1a1209", background: sc.border, padding: "2px 8px", borderRadius: 999 }}>{STYLE_LABEL[bill.styleTag]}</span>
+                <div style={{ flex: 1 }} />
+                {sel ? (
+                  <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: C.green }}>✓ kept</span>
+                ) : (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); board.onInspect({ kind: "bill", bill }); }}
+                    title="Inspect recipe"
+                    style={{ width: 19, height: 19, borderRadius: 999, display: "grid", placeItems: "center", fontFamily: SERIF, fontStyle: "italic", fontWeight: 700, fontSize: 12, color: sc.ink, border: `1px solid ${sc.border}88`, background: "rgba(10,7,4,.5)" }}
+                  >i</span>
+                )}
+              </div>
+              {/* name + slogan */}
+              <div>
+                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, lineHeight: 1.05, color: sc.ink }}>{bill.name}</div>
+                {bill.slogan && <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 11, lineHeight: 1.25, color: C.muted, marginTop: 2 }}>{bill.slogan}</div>}
+              </div>
+              {/* recipe chips */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {PILE_ORDER.filter((k) => (bill.recipe[k] ?? 0) > 0).map((k) => (
+                  <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 7px", borderRadius: 7, border: `1px solid ${SUB[k].ink}55`, background: "rgba(10,7,4,.42)" }}>
+                    <span style={{ fontSize: 13, lineHeight: 1, color: SUB[k].ink }}>{SUB[k].glyph}</span>
+                    <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 13, color: sc.ink, lineHeight: 1 }}>{bill.recipe[k]}</span>
+                  </span>
+                ))}
+              </div>
+              {/* footer: batch + premium */}
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: "auto", paddingTop: 8, borderTop: `1px dotted ${sc.border}44` }}>
+                <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.gold, lineHeight: 1 }}>{bill.batchQty}</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: C.muted }}>sales</span>
+                {bill.saleBonus > 0 && (
+                  <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#1a1209", background: C.gold, padding: "2px 7px", borderRadius: 5 }}>+{bill.saleBonus}/sale</span>
+                )}
+              </div>
             </button>
           );
         })}
-        <div style={{ alignSelf: "center", fontFamily: MONO, fontSize: 10, color: C.muted, maxWidth: 90 }}>keep up to {Math.max(0, cap)} · rest cycle back</div>
+        <div style={{ alignSelf: "center", fontFamily: MONO, fontSize: 10, color: C.muted, maxWidth: 92, lineHeight: 1.5 }}>keep up to {Math.max(0, cap)} · rest cycle back</div>
       </div>
     );
   }
@@ -1464,11 +1605,14 @@ function ImproveBtn({ id, board, me }: { id: DepartmentId; board: BoardProps; me
   const d = me.distillery.departments.find((x) => x.id === id)!;
   const maxed = d.level >= d.maxLevel;
   const cost = improvementCost(me.improvements, d.discount + fnCounting(me));
-  const can = !maxed && me.capital >= cost && board.game.roundPhase === "play";
+  // Only the active human player can actually improve — disable when viewing a
+  // rival's board (spectating) or watching a bot.
+  const isActor = me.id === board.game.players[board.game.currentPlayerIndex]?.id && !isBotTurn(board.game);
+  const can = isActor && !maxed && me.capital >= cost && board.game.roundPhase === "play";
   const nextIsUlt = d.level + 1 === d.maxLevel;
   const realOptions = d.ultimateOptions.filter((o) => o !== "ph");
   const onClick = () => {
-    if (maxed || isBotTurn(board.game)) return;
+    if (maxed || !isActor) return;
     if (board.game.roundPhase !== "play") {
       board.flash("Improve during the Play phase");
       return;
@@ -1546,14 +1690,34 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
     rgba(217,107,84,.15) ${pct(midTop)}, rgba(217,107,84,.15) 100%)`;
 
   return (
-    <aside data-tut="market" style={{ display: "flex", flexDirection: "column", gap: 9, borderRadius: 16, background: "linear-gradient(180deg,#1a120b,#130c06)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: 13, minHeight: 0, overflow: "hidden" }}>
+    <aside data-tut="market" style={{ width: 440, flex: "0 0 auto", display: "flex", flexDirection: "column", gap: 9, borderRadius: 16, background: "linear-gradient(180deg,#1a120b,#130c06)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: 13, minHeight: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, flex: "0 0 auto" }}>
         <span style={{ fontFamily: MONO, fontSize: 14, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>The Market</span>
         <div style={{ flex: 1 }} />
-        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink }}>{count}</span>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink }} title="orders on the table">{count}</span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: "#0c0805", background: zoneMeta.color, padding: "4px 10px", borderRadius: 6 }} title="Demand zone multiplies (bourbon value + order value) at sale">
           {zoneMeta.label}<span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18 }}>×{zoneMultiplier(zone)}</span>
         </span>
+      </div>
+
+      {/* tidy top strip: your kept-orders tally + the zone legend (moved up from the foot) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: "0 0 auto", paddingBottom: 8, borderBottom: `1px solid ${C.border2}` }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: MONO, fontSize: 10, letterSpacing: ".06em", color: C.muted }} title={`You keep an order by filling its last slot. Each order needs ${game.players.length} fills per player.`}>
+          KEPT <b style={{ color: C.ink, fontSize: 12 }}>{me.keptCards.length}</b>
+          <span style={{ color: C.green }}>★{reputationOf(me)}</span>
+        </span>
+        <div style={{ flex: 1 }} />
+        {(["low", "mid", "high"] as Zone[]).map((z) => {
+          const range = z === "low" ? `1–${CONFIG.ZONE_MID_MIN - 1}` : z === "mid" ? `${CONFIG.ZONE_MID_MIN}–${CONFIG.ZONE_HIGH_MIN - 1}` : `${CONFIG.ZONE_HIGH_MIN}+`;
+          const live = z === zone;
+          return (
+            <span key={z} title={`${ZONE_META[z].label} zone (${range} orders): sale ×${zoneMultiplier(z)}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: live ? `${ZONE_META[z].color}22` : "transparent", border: `1px solid ${live ? ZONE_META[z].color : "transparent"}` }}>
+              <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: ZONE_META[z].color, opacity: live ? 1 : 0.6, fontWeight: live ? 700 : 400 }}>{ZONE_META[z].label}</span>
+              <span style={{ fontFamily: MONO, fontSize: 8.5, color: C.text2, opacity: live ? 0.9 : 0.45 }}>{range}</span>
+              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: live ? 14 : 11, color: ZONE_META[z].color, opacity: live ? 1 : 0.6, lineHeight: 1 }}>×{zoneMultiplier(z)}</span>
+            </span>
+          );
+        })}
       </div>
 
       {/* the meter */}
@@ -1565,20 +1729,6 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
           {toCrash <= 2 && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".06em", color: C.red }}>⚠ {toCrash} to crash</span>}
         </div>
 
-        {/* zone band rail: card-count range + ×multiplier, current zone lit */}
-        {(["high", "mid", "low"] as Zone[]).map((z) => {
-          const bottom = z === "low" ? lowTop / 2 : z === "mid" ? (lowTop + midTop) / 2 : (midTop + 1) / 2;
-          const range = z === "low" ? `1–${CONFIG.ZONE_MID_MIN - 1}` : z === "mid" ? `${CONFIG.ZONE_MID_MIN}–${CONFIG.ZONE_HIGH_MIN - 1}` : `${CONFIG.ZONE_HIGH_MIN}–${CONFIG.DEMAND_CRASH_AT - 1}`;
-          const live = z === zone;
-          return (
-            <div key={z} style={{ position: "absolute", left: 7, bottom: `calc(${pct(bottom)} - 11px)`, display: "flex", alignItems: "center", gap: 6, padding: "3px 9px", borderRadius: 7, pointerEvents: "none", background: live ? `${ZONE_META[z].color}26` : "transparent", border: `1px solid ${live ? ZONE_META[z].color : "transparent"}`, boxShadow: live ? `0 0 10px ${ZONE_META[z].color}55` : "none" }} title="Demand zone multiplies (bourbon value + order value) at sale">
-              <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: ZONE_META[z].color, opacity: live ? 1 : 0.65, fontWeight: live ? 700 : 400 }}>{ZONE_META[z].label}</span>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.text2, opacity: live ? 1 : 0.55 }}>{range}</span>
-              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: live ? 22 : 16, color: ZONE_META[z].color, opacity: live ? 1 : 0.65, lineHeight: 1 }}>×{zoneMultiplier(z)}</span>
-            </div>
-          );
-        })}
-
         {/* cards stack from the bottom up (column-reverse → first card on the floor) */}
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column-reverse", justifyContent: "flex-start", gap: 5, padding: "6px 7px 7px 7px", overflow: "hidden" }}>
           {game.demandCards.length === 0 && (
@@ -1588,10 +1738,6 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
             <DemandRow key={o.id} card={o} zone={zone} players={game.players} />
           ))}
         </div>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 8, borderTop: `1px solid ${C.border2}`, flex: "0 0 auto" }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".06em", color: C.muted, lineHeight: 1.5 }}>Your kept orders: <b style={{ color: C.green }}>{me.keptCards.length}</b> · {reputationOf(me)} Prestige. Every sale fills an order — each needs <b style={{ color: C.amber }}>{game.players.length}/player</b>.</span>
       </div>
     </aside>
   );
@@ -1766,18 +1912,22 @@ function BillDetail({ bill }: { bill: MashBill }) {
 const ROLL_MS = 820;
 const ALL_FACES: DieFace[] = ["cask", "corn", "rye", "wheat", "barley", "anything"];
 
-function DiceTray({ dice, claims, rollId, full, locked, onClaim }: {
+function DiceTray({ dice, rollId, animate, mode, selectedIds, full, locked, onDie }: {
   dice: { id: string; face: DieFace }[];
-  claims: Record<string, ResourceKind>;
   rollId: string;
+  animate: boolean;
+  mode: "keep" | "claim";
+  selectedIds: Set<string>;
   full: boolean;
   locked?: boolean;
-  onClaim: (id: string, face: DieFace, el: HTMLElement) => void;
+  onDie: (id: string, face: DieFace, el: HTMLElement) => void;
 }) {
-  const [rolling, setRolling] = useState(true);
+  const [rolling, setRolling] = useState(animate);
   const [tick, setTick] = useState(0);
-  // Re-run the roll animation whenever a fresh roll happens (new turn / reroll).
+  // Re-run the roll animation whenever a fresh roll lands (only in claim mode —
+  // pre-roll inherited dice sit still while you pick keepers).
   useEffect(() => {
+    if (!animate) { setRolling(false); return; }
     setRolling(true);
     setTick(0);
     const iv = window.setInterval(() => setTick((t) => t + 1), 75);
@@ -1786,16 +1936,20 @@ function DiceTray({ dice, claims, rollId, full, locked, onClaim }: {
       window.clearInterval(iv);
       window.clearTimeout(to);
     };
-  }, [rollId]);
+  }, [rollId, animate]);
 
+  const keepMode = mode === "keep";
   return (
     <div data-tut="dice" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
       {dice.map((d, i) => {
         const face = rolling ? ALL_FACES[(tick + i * 2) % ALL_FACES.length]! : d.face;
         const meta = FACE[face];
-        const claimed = !rolling && d.id in claims;
-        const clickable = !rolling && !claimed && !full && !locked;
+        const selected = !rolling && selectedIds.has(d.id);
+        const claimed = !keepMode && selected; // claim-mode selection = drafted
+        const kept = keepMode && selected;
+        const clickable = !rolling && !locked && (keepMode || claimed || !full);
         const wild = meta.wild;
+        const ring = claimed ? C.green : kept ? "#f0c970" : "rgba(0,0,0,.32)";
         return (
           <div key={d.id} style={{ position: "relative", width: 104, height: 120, display: "flex", justifyContent: "center" }}>
             {/* landing shadow */}
@@ -1804,8 +1958,8 @@ function DiceTray({ dice, claims, rollId, full, locked, onClaim }: {
             )}
             <button
               className={`${rolling ? "bb-roll-drop" : "bb-die"}${clickable ? " clk" : ""}`}
-              disabled={!clickable && !claimed}
-              onClick={(e) => (rolling ? undefined : onClaim(d.id, d.face, e.currentTarget))}
+              disabled={!clickable}
+              onClick={(e) => (rolling ? undefined : onDie(d.id, d.face, e.currentTarget))}
               style={{
                 position: "absolute",
                 top: 0,
@@ -1813,28 +1967,37 @@ function DiceTray({ dice, claims, rollId, full, locked, onClaim }: {
                 height: 104,
                 borderRadius: 20,
                 animationDelay: rolling ? `${i * 55}ms` : undefined,
-                background: claimed ? "#120c07" : "linear-gradient(180deg,#2c1f13,#1a130b)",
-                border: `2px solid ${claimed ? C.green : wild ? "#e7d9b6" : meta.color + "99"}`,
-                boxShadow: claimed
-                  ? "inset 0 0 0 1px rgba(109,178,140,.4)"
-                  : "inset 0 1px 0 rgba(240,201,112,.14), 0 8px 18px rgba(0,0,0,.45)",
+                // Inverted coloring: the whole die face IS the resource colour,
+                // with a dark glyph — each resource reads at a glance.
+                background: claimed ? "#120c07" : `linear-gradient(180deg, rgba(255,255,255,.28), rgba(0,0,0,.16) 70%), ${meta.color}`,
+                border: `2px solid ${ring}`,
+                boxShadow: kept
+                  ? `0 0 18px ${meta.color}, inset 0 1px 0 rgba(255,255,255,.45)`
+                  : claimed
+                    ? "inset 0 0 0 1px rgba(109,178,140,.4)"
+                    : "inset 0 1px 0 rgba(255,255,255,.3), 0 8px 18px rgba(0,0,0,.5)",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 6,
-                cursor: clickable ? "pointer" : claimed ? "pointer" : "default",
-                opacity: claimed ? 0.5 : 1,
+                gap: 5,
+                cursor: clickable ? "pointer" : "default",
+                opacity: claimed ? 0.5 : keepMode && !kept ? 0.82 : 1,
                 padding: 0,
                 ...(wild && !claimed && !rolling ? { animation: "bb-wild-shimmer 2.4s ease-in-out infinite" } : {}),
               }}
-              title={claimed ? "Tap to un-draft" : clickable ? `Draft ${meta.label}` : ""}
+              title={
+                keepMode
+                  ? kept ? "Kept — tap to release" : `Tap to keep this ${meta.label}`
+                  : claimed ? "Tap to un-draft" : clickable ? `Draft ${meta.label}` : ""
+              }
             >
-              <span style={{ fontSize: wild ? 42 : 38, lineHeight: 1, color: meta.color, textShadow: `0 0 12px ${meta.color}66` }}>
+              <span style={{ fontSize: wild ? 42 : 38, lineHeight: 1, color: claimed ? C.green : "#1a1206", textShadow: claimed ? `0 0 12px ${C.green}66` : "0 1px 1px rgba(255,255,255,.3)" }}>
                 {face === "anything" ? "✦" : SUB[face as ResourceKind].glyph}
               </span>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: claimed ? C.green : C.text2 }}>{meta.label}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: claimed ? C.green : "rgba(22,13,5,.82)" }}>{meta.label}</span>
               {claimed && <span style={{ position: "absolute", top: -9, right: -8, fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", color: "#0c0805", background: C.green, padding: "2px 6px", borderRadius: 5 }}>DRAFTED</span>}
+              {kept && <span style={{ position: "absolute", top: -9, right: -8, fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", color: "#2a1408", background: "#f0c970", padding: "2px 6px", borderRadius: 5 }}>KEEP</span>}
             </button>
           </div>
         );

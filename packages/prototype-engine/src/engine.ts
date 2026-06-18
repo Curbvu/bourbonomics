@@ -86,7 +86,9 @@ export const mashFloorDraw = (p: Player): number => deptValue(p, "mashFloor");
 export const marketingDraw = (p: Player): number => deptValue(p, "marketing");
 export const distributionBonus = (p: Player): number => deptValue(p, "distribution");
 export const countingDiscount = (p: Player): number => deptValue(p, "countingHouse");
-export const rerollsFor = (p: Player): number => (hasUlt(p, "supply", "secondReroll") ? 2 : 1);
+// Base level gets NO extra reroll after the first (free) roll; the Second
+// Reroll ultimate grants one.
+export const rerollsFor = (p: Player): number => (hasUlt(p, "supply", "secondReroll") ? 1 : 0);
 
 // ---------------------------------------------------------------------
 // Resource piles (five, face-down; blind quality off the top)
@@ -275,16 +277,23 @@ function startCollectTurn(draft: GameState, inherited: Die[]): void {
   const pIndex = c.order[c.pos]!;
   const player = draft.players[pIndex]!;
   draft.currentPlayerIndex = pIndex;
-  const fresh = rollDice(draft, Math.max(0, supplyCap(player) - inherited.length));
   c.inherited = inherited.map((d) => ({ ...d }));
-  c.dice = [...inherited, ...fresh];
+  c.dice = inherited.map((d) => ({ ...d })); // inherited dice go straight onto the table
   c.rerollsUsed = 0;
   c.maxRerolls = rerollsFor(player);
   c.tripleThreatUsed = false;
-  draft.log.push(
-    `${player.name} collects — ${c.dice.map((d) => d.face).join(", ")}` +
-      `${inherited.length ? ` (incl. ${inherited.length} inherited)` : ""}.`,
-  );
+  if (inherited.length === 0) {
+    // Nothing to keep — roll a full fresh set right away (first player / no leftovers).
+    c.dice = rollDice(draft, supplyCap(player));
+    c.rolled = true;
+    draft.log.push(`${player.name} collects — rolled ${c.dice.map((d) => d.face).join(", ")}.`);
+  } else {
+    // Inherited dice await the player's keep-then-roll choice.
+    c.rolled = false;
+    draft.log.push(
+      `${player.name} inherits ${inherited.length} die/dice (${inherited.map((d) => d.face).join(", ")}) — keep what you want, then roll.`,
+    );
+  }
 }
 
 function enterCollect(draft: GameState): void {
@@ -294,24 +303,39 @@ function enterCollect(draft: GameState): void {
     pos: 0,
     inherited: [],
     dice: [],
+    rolled: false,
     rerollsUsed: 0,
-    maxRerolls: 1,
+    maxRerolls: 0,
     tripleThreatUsed: false,
   };
   startCollectTurn(draft, []);
 }
 
-function handleCollectReroll(draft: GameState, diceIds: string[]): string | null {
+function handleCollectRoll(draft: GameState, keepDiceIds: string[]): string | null {
   const c = draft.collect!;
+  const player = draft.players[draft.currentPlayerIndex]!;
+  const keep = new Set(keepDiceIds);
+  if (keep.size !== keepDiceIds.length) return "duplicate die ids";
+  for (const id of keep) if (!c.dice.some((d) => d.id === id)) return `die ${id} is not in play`;
+  const cap = supplyCap(player);
+  const kept = c.dice.filter((d) => keep.has(d.id));
+
+  if (!c.rolled) {
+    // First (free) roll of the turn: keep chosen dice, fill the rest up to the cap.
+    if (kept.length > cap) return `you may keep at most ${cap} dice`;
+    c.dice = [...kept.map((d) => ({ ...d })), ...rollDice(draft, Math.max(0, cap - kept.length))];
+    c.rolled = true;
+    draft.log.push(`${player.name} rolls — ${c.dice.map((d) => d.face).join(", ")}.`);
+    return null;
+  }
+
+  // A reroll after the first roll — costs a reroll allowance.
   if (c.rerollsUsed >= c.maxRerolls) return `no rerolls left (used ${c.rerollsUsed}/${c.maxRerolls})`;
-  if (diceIds.length === 0) return "choose at least one die to reroll";
-  const ids = new Set(diceIds);
-  if (ids.size !== diceIds.length) return "duplicate die ids";
-  for (const id of ids) if (!c.dice.some((d) => d.id === id)) return `die ${id} is not in play`;
-  c.dice = c.dice.map((d) => (ids.has(d.id) ? rollDie(draft) : d));
+  if (kept.length === c.dice.length) return "choose at least one die to reroll";
+  c.dice = [...kept.map((d) => ({ ...d })), ...rollDice(draft, c.dice.length - kept.length)];
   c.rerollsUsed += 1;
   draft.log.push(
-    `${draft.players[draft.currentPlayerIndex]!.name} rerolled ${ids.size} ` +
+    `${player.name} rerolled ${c.dice.length - kept.length} ` +
       `(${c.rerollsUsed}/${c.maxRerolls}) → ${c.dice.map((d) => d.face).join(", ")}.`,
   );
   return null;
@@ -344,6 +368,7 @@ function handleCollectClaim(
   claims: { dieId: string; pile?: ResourceKind }[],
 ): string | null {
   const c = draft.collect!;
+  if (!c.rolled) return "roll your dice before drafting";
   const claimIds = new Set(claims.map((x) => x.dieId));
   if (claimIds.size !== claims.length) return "duplicate claimed die ids";
 
@@ -760,9 +785,9 @@ export function applyAction(state: GameState, action: Action): ActionResult {
       enterCollect(draft);
       return { ok: true, state: draft };
     }
-    case "COLLECT_REROLL": {
+    case "COLLECT_ROLL": {
       if (draft.roundPhase !== "collect") return refuse("not the Collect Phase");
-      const error = handleCollectReroll(draft, action.diceIds);
+      const error = handleCollectRoll(draft, action.keepDiceIds);
       return error ? refuse(error) : { ok: true, state: draft };
     }
     case "TRIPLE_THREAT": {

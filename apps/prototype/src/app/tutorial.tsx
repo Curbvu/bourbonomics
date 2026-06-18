@@ -141,7 +141,7 @@ export const TUT_BEATS: TutBeat[] = [
       if (d.collect) d.collect.dice = d.collect.dice.map((die, i) => ({ ...die, face: faces[i] ?? "corn" }));
       return d;
     },
-    allow: (a) => (a.type === "COLLECT_CLAIM" ? a.claims.length >= 5 : a.type === "COLLECT_REROLL"),
+    allow: (a) => (a.type === "COLLECT_CLAIM" ? a.claims.length >= 5 : a.type === "COLLECT_ROLL"),
     goal: (a) => a.type === "COLLECT_CLAIM",
   },
   {

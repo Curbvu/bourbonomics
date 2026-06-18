@@ -40,12 +40,13 @@ function expectRefusal(state: GameState, action: Action): string {
   return res.ok ? "" : res.reason;
 }
 
-/** Advance Demand → Collect → Play, claiming nothing through the collect pass. */
+/** Advance Demand → Collect → Play, rolling (keeping nothing) then claiming nothing. */
 function intoPlay(s: GameState): GameState {
   s = ok(s, { type: "BEGIN_COLLECT" });
-  for (let i = 0; i < s.players.length + 1; i++) {
+  for (let i = 0; i < (s.players.length + 1) * 2; i++) {
     if (s.roundPhase !== "collect") break;
-    s = ok(s, { type: "COLLECT_CLAIM", claims: [] });
+    if (!s.collect!.rolled) s = ok(s, { type: "COLLECT_ROLL", keepDiceIds: [] });
+    else s = ok(s, { type: "COLLECT_CLAIM", claims: [] });
   }
   expect(s.roundPhase).toBe("play");
   return s;
@@ -263,22 +264,43 @@ describe("collect dice draft", () => {
     ).toMatch(/needs a pile/);
   });
 
-  it("rerolls once, and refuses a second reroll without the Second Reroll ultimate", () => {
+  it("the first player auto-rolls, and base level gets no reroll afterward", () => {
     let s = createGame({ seed: 5 });
     s = ok(s, { type: "BEGIN_COLLECT" });
-    expect(s.collect!.maxRerolls).toBe(1);
-    const id = s.collect!.dice[0]!.id;
-    s = ok(s, { type: "COLLECT_REROLL", diceIds: [id] });
-    expect(expectRefusal(s, { type: "COLLECT_REROLL", diceIds: [id] })).toMatch(/no rerolls left/);
+    expect(s.collect!.rolled).toBe(true);
+    expect(s.collect!.maxRerolls).toBe(0);
+    const keep = s.collect!.dice.slice(1).map((d) => d.id); // keep all but one → reroll one
+    expect(expectRefusal(s, { type: "COLLECT_ROLL", keepDiceIds: keep })).toMatch(/no rerolls left/);
   });
 
-  it("the Second Reroll ultimate grants a second reroll", () => {
+  it("the Second Reroll ultimate grants exactly one reroll", () => {
     let s = createGame({ seed: 5 });
     const sup = dept(s.players[0]!, "supply");
     sup.level = sup.maxLevel;
     sup.chosenUltimate = "secondReroll";
     s = ok(s, { type: "BEGIN_COLLECT" });
-    expect(s.collect!.maxRerolls).toBe(2);
+    expect(s.collect!.maxRerolls).toBe(1);
+    const keep = s.collect!.dice.slice(1).map((d) => d.id);
+    s = ok(s, { type: "COLLECT_ROLL", keepDiceIds: keep });
+    expect(s.collect!.rerollsUsed).toBe(1);
+    const keep2 = s.collect!.dice.slice(1).map((d) => d.id);
+    expect(expectRefusal(s, { type: "COLLECT_ROLL", keepDiceIds: keep2 })).toMatch(/no rerolls left/);
+  });
+
+  it("a player who inherits dice keeps-then-rolls before drafting", () => {
+    let s = createGame({ seed: 5, playerNames: ["A", "B"] });
+    s = ok(s, { type: "BEGIN_COLLECT" }); // A auto-rolls
+    s = ok(s, { type: "COLLECT_CLAIM", claims: [] }); // A passes everything to B
+    expect(s.collect!.rolled).toBe(false);
+    expect(s.collect!.inherited.length).toBeGreaterThan(0);
+    const firstId = s.collect!.dice[0]!.id;
+    expect(
+      expectRefusal(s, { type: "COLLECT_CLAIM", claims: [{ dieId: firstId }] }),
+    ).toMatch(/roll your dice/);
+    s = ok(s, { type: "COLLECT_ROLL", keepDiceIds: [firstId] }); // keep one inherited, roll the rest
+    expect(s.collect!.rolled).toBe(true);
+    expect(s.collect!.dice.length).toBe(dept(s.players[s.currentPlayerIndex]!, "supply").values[0]);
+    expect(s.collect!.dice[0]!.id).toBe(firstId); // kept die preserved
   });
 
   it("most-Capital-first sets the collect pass order", () => {
