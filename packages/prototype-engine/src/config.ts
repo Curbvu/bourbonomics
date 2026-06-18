@@ -45,12 +45,16 @@ export const CONFIG = {
 
   // --- Demand market -------------------------------------------------------
   /** Cards drawn each Demand Phase (the spine). Marketing can raise it. `[PH]`. */
-  DEMAND_DRAW_PER_ROUND: 2,
-  /** The table reaching this count triggers a crash (checked at the draw). */
-  DEMAND_CRASH_AT: 10,
-  /** Zone thresholds by total cards on the table: 1–(MID-1) Low, …–(HIGH-1) Mid, ≥HIGH High. */
-  ZONE_MID_MIN: 5,
-  ZONE_HIGH_MIN: 8,
+  DEMAND_DRAW_PER_ROUND: 1,
+  /** Cards on the table at game start (and after a Hot reset) — gentle, all open. `[PH]`. */
+  DEMAND_START_CARDS: 2,
+  /** Fillable slots per demand card = this × player count (uniform, deep cards). `[PH]`. */
+  DEMAND_SLOTS_PER_PLAYER: 2,
+  /** The table reaching this count triggers a (passive overflow) crash, checked at the draw. */
+  DEMAND_CRASH_AT: 7,
+  /** Zone thresholds by total cards on the table: 1–(MID-1) Low, …–(HIGH-1) Mid, ≥HIGH Hot. */
+  ZONE_MID_MIN: 4,
+  ZONE_HIGH_MIN: 6,
 
   // --- Selling — value off the track, demand zone as a multiplier ----------
   // Barrel value is READ OFF A PRINTED TRACK by (tier, age) — an explicit
@@ -59,12 +63,14 @@ export const CONFIG = {
   // listed entries hold the last value. A sale = (age value + the matched
   // order's value) × the demand-zone MULTIPLIER, plus the complexity premium
   // and Distribution. `[PH]` — edit freely.
+  // The locked quality ladder (only the breakpoints where value climbs are
+  // listed; ages in between hold the last value via barrelValue's hold-forward).
   AGE_VALUE_TABLE: {
     common: { 2: 1, 3: 1, 4: 2 },
     uncommon: { 2: 1, 3: 1, 4: 2, 5: 2, 6: 3 },
     rare: { 2: 1, 3: 2, 4: 2, 5: 3, 6: 3, 7: 4, 8: 4 },
-    epic: { 2: 2, 3: 2, 4: 3, 5: 3, 6: 4, 7: 4, 8: 5, 9: 5, 10: 6, 11: 6, 12: 7 },
-    legendary: { 2: 2, 3: 3, 4: 3, 5: 4, 6: 4, 7: 5, 8: 5, 9: 5, 10: 6, 11: 6, 12: 7, 13: 7, 14: 7, 15: 9, 16: 9, 17: 9, 18: 11 },
+    epic: { 2: 2, 3: 2, 4: 3, 5: 3, 6: 4, 7: 4, 8: 5, 10: 6, 12: 7 },
+    legendary: { 2: 2, 3: 3, 4: 3, 5: 4, 6: 4, 7: 5, 8: 5, 10: 6, 12: 7, 15: 9, 18: 11 },
   } as Record<Quality, Record<number, number>>,
   /** The year each tier's value caps (value stops climbing; the barrel may age on). `[PH]`. */
   QUALITY_CAP_AGE: { common: 4, uncommon: 6, rare: 8, epic: 12, legendary: 18 } as Record<Quality, number>,
