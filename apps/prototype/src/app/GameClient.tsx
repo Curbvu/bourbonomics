@@ -1089,18 +1089,30 @@ function Board(p: BoardProps) {
                             </div>
                           </div>
                         </div>
-                        {/* age-track value + demand-multiplier rules */}
-                        <div style={{ marginTop: 8, padding: "5px 7px", borderRadius: 7, background: "rgba(12,8,5,.45)", border: `1px solid ${qc.ink}33` }}>
-                          <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".02em", color: C.text2, lineHeight: 1.6, display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 1 }} title="Age → Capital value for this bourbon's quality (holds at the last value)">
-                            <span style={{ color: C.muted, marginRight: 4 }}>track</span>
-                            {trackSteps.map((s, i) => (
-                              <span key={s.age} style={{ color: i === activeStep ? qc.ink : C.text2, fontWeight: i === activeStep ? 700 : 400 }}>
-                                {i > 0 ? <span style={{ color: C.faint }}> · </span> : null}{s.age}→{s.value}{i === trackSteps.length - 1 ? "+" : ""}
-                              </span>
-                            ))}
+                        {/* VALUE TRACK — the quality's age→value ladder; rungs fill as it ages, current highlighted */}
+                        <div style={{ marginTop: 8, padding: "6px 7px 7px", borderRadius: 7, background: "rgba(12,8,5,.5)", border: `1px solid ${qc.ink}33` }}>
+                          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 5 }}>
+                            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: qc.ink }}>Value by Age</span>
+                            <span style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".04em", color: C.muted }}>caps {trackSteps[trackSteps.length - 1]?.value} @ yr {capYear}</span>
                           </div>
-                          <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".02em", color: C.muted, lineHeight: 1.5 }}>
-                            (value + order) × demand zone ({ZONE_META.low.label} 1 · {ZONE_META.mid.label} 2 · {ZONE_META.high.label} 3)
+                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "stretch", gap: 3 }} title="Capital value off the printed track by age (holds the last value after the cap)">
+                            {trackSteps.map((s, i) => {
+                              const active = i === activeStep;
+                              const reached = i <= activeStep;
+                              return (
+                                <span
+                                  key={s.age}
+                                  title={`Age ${s.age}${i === trackSteps.length - 1 ? "+" : `–${(trackSteps[i + 1]?.age ?? s.age + 1) - 1}`} → ${s.value}`}
+                                  style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 24, padding: "3px 4px", borderRadius: 6, lineHeight: 1, ...(active ? { background: qc.foil, color: "#2a1408", border: `1px solid ${qc.ink}`, boxShadow: `0 0 8px ${qc.ink}77` } : reached ? { background: `${qc.ink}24`, color: qc.ink, border: `1px solid ${qc.ink}55` } : { background: "transparent", color: C.faint, border: `1px solid ${C.border2}` }) }}
+                                >
+                                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14 }}>{s.value}</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".02em", marginTop: 1, opacity: 0.85 }}>yr{s.age}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".02em", color: C.muted, lineHeight: 1.5, marginTop: 5 }}>
+                            sale = (value + order) × zone ({ZONE_META.low.label} 1 · {ZONE_META.mid.label} 2 · {ZONE_META.high.label} 3)
                           </div>
                         </div>
                       </button>

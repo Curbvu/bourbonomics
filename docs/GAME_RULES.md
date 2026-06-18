@@ -134,10 +134,15 @@ The bourbon's aged value and the matched order's value are summed, then scaled b
 | Age | Common | Uncommon | Rare | Epic | Legendary |
 |----:|:------:|:--------:|:----:|:----:|:---------:|
 | 2 | 1 | 1 | 1 | 2 | 2 |
+| 3 | 1 | 1 | 2 | 2 | 3 |
 | 4 | **2 (cap)** | 2 | 2 | 3 | 3 |
+| 5 | — | 2 | 3 | 3 | 4 |
 | 6 | — | **3 (cap)** | 3 | 4 | 4 |
+| 7 | — | — | 4 | 4 | 5 |
 | 8 | — | — | **4 (cap)** | 5 | 5 |
+| 10 | — | — | — | 6 | 6 |
 | 12 | — | — | — | **7 (cap)** | 7 |
+| 15 | — | — | — | — | 9 |
 | 18 | — | — | — | — | **11 (cap)** |
 
 Caps: Common 4/2 · Uncommon 6/3 · Rare 8/4 · Epic 12/7 · Legendary 18/11. **No rickhouse aging ceiling** — barrels age past the cap, the *value* just stops climbing (the ceiling lives on **quality**).
