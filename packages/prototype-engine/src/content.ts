@@ -256,7 +256,7 @@ const DEPARTMENT_TEMPLATE: Record<
   supply: { name: "The Supply Room", blurb: "Resource dice you roll into the draft each Collect.", values: [5, 6, 7, 7] },
   warehouse: { name: "The Warehouse", blurb: "Loose resource cards you may hold.", values: [5, 6, 7, 7] },
   mashFloor: { name: "The Mash Floor", blurb: "Mash bills you may draw per Draw action.", values: [3, 4, 5, 5] },
-  marketing: { name: "Marketing Dept.", blurb: "Demand cards drawn each Demand Phase (shapes the market).", values: [2, 3, 4, 4] },
+  marketing: { name: "Marketing Dept.", blurb: "Demand cards drawn each Demand Phase (shapes the market).", values: [1, 2, 3, 3] },
   distribution: { name: "The Loading Dock", blurb: "Bonus Capital on every sale (sell-side throughput).", values: [0, 1, 2, 3] },
   countingHouse: { name: "The Counting House", blurb: "Capital efficiency — a discount on every improvement.", values: [0, 1, 2, 3] },
 };

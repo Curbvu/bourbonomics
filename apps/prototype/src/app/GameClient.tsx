@@ -152,7 +152,7 @@ const STYLE_CHROME: Record<StyleTag, { border: string; grad: string; selGrad: st
 const ZONE_META: Record<Zone, { label: string; color: string }> = {
   low: { label: "Low", color: C.green },
   mid: { label: "Mid", color: C.amber },
-  high: { label: "High", color: C.red },
+  high: { label: "Hot", color: C.red },
 };
 
 // AI playback pace — a throttle so the human can watch rivals act. `mult`

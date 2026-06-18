@@ -204,10 +204,35 @@ function drawDemandCards(draft: GameState, n: number): DemandCard[] {
   return out;
 }
 
-/** Activate a freshly-drawn card's slots: slotMultiple × player count. */
+/** Activate a freshly-drawn card's slots: a uniform `DEMAND_SLOTS_PER_PLAYER × player count` (deep cards). */
 function activateCard(card: DemandCard, playerCount: number): void {
-  card.slotsActive = activeSlotsForPlayerCount(playerCount, card.slotMultiple);
+  card.slotsActive = activeSlotsForPlayerCount(playerCount, CONFIG.DEMAND_SLOTS_PER_PLAYER);
   card.filledBy = Array.from({ length: card.slotsActive }, () => null);
+}
+
+/** True for an "any bourbon" card (no tag/quality/age gate) — the open opener stock. */
+function isOpenCard(c: DemandCard): boolean {
+  return !(c.requirement.tags?.length) && c.requirement.quality === undefined && c.requirement.minAge === undefined;
+}
+
+/**
+ * Lay `n` OPEN ("any bourbon") cards onto the table — the gentle opener used at
+ * game start and after a Hot reset. Pulls open cards from the deck (then the
+ * discard), and tops up with any cards if the open stock is short.
+ */
+function layOpenOpeners(draft: GameState, n: number): void {
+  const picked: DemandCard[] = [];
+  const takeOpenFrom = (arr: DemandCard[]) => {
+    for (let i = 0; i < arr.length && picked.length < n; ) {
+      if (isOpenCard(arr[i]!)) picked.push(arr.splice(i, 1)[0]!);
+      else i++;
+    }
+  };
+  takeOpenFrom(draft.demandDeck);
+  if (picked.length < n) takeOpenFrom(draft.demandDiscard);
+  if (picked.length < n) picked.push(...drawDemandCards(draft, n - picked.length)); // fallback: any
+  for (const c of picked) activateCard(c, draft.players.length);
+  draft.demandCards.push(...picked);
 }
 
 /** How many cards the Demand Phase draws (the spine, raised by the best Marketing). */
@@ -661,6 +686,22 @@ function handleSell(
     player.rickhouse.splice(idx, 1);
     draft.log.push(`"${bourbon.name}" is sold out — rickhouse slot freed.`);
   }
+
+  // ⭐ HOT COMPLETION RESET — completing a card while the zone was Hot detonates
+  // the market. The completer already banked the ×3 sale and kept the card
+  // (above); now every OTHER card on the table is wiped (uncompleted orders &
+  // their Reputation forfeited — banked Capital from earlier sales is untouched)
+  // and the market resets to the gentle opener. First-to-cash-at-Hot wins.
+  if (completed && zone === "high") {
+    const wiped = draft.demandCards.length;
+    draft.demandDiscard.push(...draft.demandCards);
+    draft.demandCards = [];
+    layOpenOpeners(draft, CONFIG.DEMAND_START_CARDS);
+    draft.log.push(
+      `🔥 HOT RESET — ${player.name} cashed at Hot first; ${wiped} order(s) wiped, market reset to ${draft.demandCards.length}.`,
+    );
+    scheduleEndIfClockDone(draft);
+  }
   return null;
 }
 
@@ -777,9 +818,13 @@ function advancePlay(draft: GameState): void {
 // Public entry points
 // ---------------------------------------------------------------------
 
-/** Lay out the very first Demand Phase (called by setup on a fresh state). */
+/** Lay out the very first market: DEMAND_START_CARDS gentle "any bourbon" cards. */
 export function layoutInitialDemand(draft: GameState): void {
-  runDemandPhase(draft);
+  layOpenOpeners(draft, CONFIG.DEMAND_START_CARDS);
+  draft.log.push(
+    `Opening market: ${draft.demandCards.length} open order(s) on the table (${zoneForCardCount(draft.demandCards.length)} zone).`,
+  );
+  scheduleEndIfClockDone(draft);
 }
 
 export function applyAction(state: GameState, action: Action): ActionResult {

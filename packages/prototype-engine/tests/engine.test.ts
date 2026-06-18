@@ -115,7 +115,8 @@ describe("setup", () => {
 
     expect(a.phase).toBe("playing");
     expect(a.roundPhase).toBe("demand");
-    expect(a.demandCards.length).toBe(CONFIG.DEMAND_DRAW_PER_ROUND);
+    expect(a.demandCards.length).toBe(CONFIG.DEMAND_START_CARDS);
+    expect(a.demandCards.every((c) => !(c.requirement.tags?.length))).toBe(true); // opener is all "any bourbon"
     expect(a.collect).toBeNull();
     expect(a.mashBillSupply.length).toBeGreaterThan(0);
     expect(a.players[0]!.capital).toBe(CONFIG.STARTING_CAPITAL);
@@ -135,7 +136,7 @@ describe("setup", () => {
     for (const n of [2, 4, 6]) {
       const g = createGame({ seed: 1, playerNames: Array.from({ length: n }, (_, i) => `p${i}`) });
       for (const c of g.demandCards) {
-        expect(c.filledBy.length).toBe(c.slotMultiple * n);
+        expect(c.filledBy.length).toBe(CONFIG.DEMAND_SLOTS_PER_PLAYER * n);
         expect(c.filledBy.length % n).toBe(0); // always a whole player-share
       }
     }
@@ -186,22 +187,21 @@ describe("phase machine", () => {
 // ------------------------------------------------------------------
 
 describe("demand market", () => {
-  it("computes zones by the number of cards on the table", () => {
+  it("computes zones by the number of cards on the table (1-3 Low / 4-5 Mid / 6 Hot)", () => {
     expect(zoneForCardCount(1)).toBe("low");
-    expect(zoneForCardCount(4)).toBe("low");
+    expect(zoneForCardCount(3)).toBe("low");
+    expect(zoneForCardCount(4)).toBe("mid");
     expect(zoneForCardCount(5)).toBe("mid");
-    expect(zoneForCardCount(7)).toBe("mid");
-    expect(zoneForCardCount(8)).toBe("high");
-    expect(zoneForCardCount(9)).toBe("high");
+    expect(zoneForCardCount(6)).toBe("high");
   });
 
-  it("crashes at the 10th card: a draw that would reach 10 wipes the table", () => {
+  it("crashes at the 7th card: a draw that would reach 7 wipes the table", () => {
     let s = createGame({ seed: 4 });
-    // Stuff the table to 8; drawing 2 next round would reach 10 → crash.
-    s.demandCards = Array.from({ length: 8 }, (_, i) => makeDemandCard({ id: `c${i}` }));
+    // Stuff the table to 6; drawing 1 next round would reach 7 → crash.
+    s.demandCards = Array.from({ length: 6 }, (_, i) => makeDemandCard({ id: `c${i}` }));
     s = intoPlay(s);
-    s = ok(s, { type: "END_TURN" }); // round ends → next Demand Phase draws 2
-    expect(s.demandCards.length).toBe(CONFIG.DEMAND_DRAW_PER_ROUND); // reset market
+    s = ok(s, { type: "END_TURN" }); // round ends → next Demand Phase draws and crashes
+    expect(s.demandCards.length).toBe(CONFIG.DEMAND_DRAW_PER_ROUND); // reset market (the round's fresh draw)
     expect(zoneForCardCount(s.demandCards.length)).toBe("low");
     expect(s.log.some((l) => l.includes("MARKET CRASH"))).toBe(true);
   });
@@ -588,6 +588,37 @@ describe("sell", () => {
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
     // (age value 1 + order value 3) × mid ×2 + premium 0 + dist
     expect(s.players[0]!.capital).toBe((barrelValue("common", 2) + 3) * 2 + dist);
+  });
+
+  it("a Hot completion resolves at ×3, keeps the card, THEN resets the market to the opener", () => {
+    let s = base({ quality: "common", age: 4 }); // age value 2
+    // 6 cards on the table → Hot (×3). Target completes in one sale.
+    const target = makeDemandCard({ id: "ord", slotsActive: 1, orderValue: 1, reputation: 5 });
+    const fillers = Array.from({ length: 5 }, (_, i) => makeDemandCard({ id: `f${i}`, slotsActive: 1 }));
+    s.demandCards = [target, ...fillers];
+    expect(zoneForCardCount(s.demandCards.length)).toBe("high");
+    const dist = dept(s.players[0]!, "distribution").values[0]!;
+    s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
+    const p = s.players[0]!;
+    expect(p.capital).toBe((barrelValue("common", 4) + 1) * 3 + dist); // banked at ×3 first
+    expect(p.keptCards.map((c) => c.id)).toContain("ord"); // completer kept the card
+    expect(p.cardsCompleted).toBe(1);
+    // market detonated: fillers wiped, reset to the open opener
+    expect(s.demandCards.length).toBe(CONFIG.DEMAND_START_CARDS);
+    expect(s.demandCards.some((c) => c.id.startsWith("f"))).toBe(false);
+    expect(s.demandCards.every((c) => !(c.requirement.tags?.length))).toBe(true);
+    expect(s.log.some((l) => l.includes("HOT RESET"))).toBe(true);
+  });
+
+  it("a completion at Low/Mid does NOT reset the market", () => {
+    let s = base({ quality: "common", age: 4 });
+    const target = makeDemandCard({ id: "ord", slotsActive: 1, reputation: 3 });
+    const others = Array.from({ length: 3 }, (_, i) => makeDemandCard({ id: `o${i}`, slotsActive: 1 }));
+    s.demandCards = [target, ...others]; // 4 cards → Mid
+    expect(zoneForCardCount(s.demandCards.length)).toBe("mid");
+    s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
+    expect(s.demandCards.map((c) => c.id).sort()).toEqual(["o0", "o1", "o2"]); // only the completed card left
+    expect(s.log.some((l) => l.includes("HOT RESET"))).toBe(false);
   });
 });
 
