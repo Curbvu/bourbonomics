@@ -91,6 +91,23 @@ const SUB: Record<ResourceKind, { ink: string; glyph: string; label: string }> =
   barley: { ink: "#6db28c", glyph: "❦", label: "Barley" },
 };
 
+// Resource icon art (white silhouettes in /public) — rendered as TINTED MASKS so
+// each picks up the right per-surface colour. Cask has no icon: it keeps its glyph.
+const RESOURCE_ICON: Partial<Record<ResourceKind, string>> = {
+  corn: "/icons8-corn-90.png",
+  rye: "/icons8-rye-90.png",
+  wheat: "/icons8-flour-90.png",
+  barley: "/icons8-barley-90.png",
+};
+
+/** A resource's mark at `size` px tinted `color`: the icon mask where one exists, else the glyph. */
+function resMark(kind: ResourceKind, size: number, color: string): React.ReactNode {
+  const icon = RESOURCE_ICON[kind];
+  if (!icon) return <span style={{ fontSize: size, lineHeight: 1, color }}>{SUB[kind].glyph}</span>;
+  const mask = `url(${icon}) center / contain no-repeat`;
+  return <span aria-hidden style={{ display: "inline-block", width: size, height: size, background: color, WebkitMask: mask, mask }} />;
+}
+
 // Per-resource card chrome (the original's complementary palette: oak / gold /
 // crimson / cyan / teal) — used by the stylized hand cards + inspect modal.
 const KIND_CHROME: Record<ResourceKind, { grad: string; border: string; ink: string }> = {
@@ -1019,8 +1036,13 @@ function Board(p: BoardProps) {
                   const baseValue = trackVal * mult + b.saleBonus + fnDist(me);
                   const qc = QUALITY_CHROME[b.quality] ?? QUALITY_CHROME.common!;
                   const capYear = capAge(b.quality);
-                  const capVal = barrelValue(b.quality, capYear);
-                  const atCap = b.age >= capYear;
+                  // Age → value track for this quality: the ages where the printed value climbs.
+                  const trackSteps: { age: number; value: number }[] = [];
+                  for (let a = CONFIG.MIN_SELL_AGE, last = -1; a <= capYear; a++) {
+                    const v = barrelValue(b.quality, a);
+                    if (v !== last) { trackSteps.push({ age: a, value: v }); last = v; }
+                  }
+                  const activeStep = trackSteps.reduce((acc, s, i) => (b.age >= s.age ? i : acc), -1);
                   return (
                     <div key={b.id} data-tut="aging" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <button
@@ -1058,8 +1080,13 @@ function Board(p: BoardProps) {
                         </div>
                         {/* age-track value + demand-multiplier rules */}
                         <div style={{ marginTop: 8, padding: "5px 7px", borderRadius: 7, background: "rgba(12,8,5,.45)", border: `1px solid ${qc.ink}33` }}>
-                          <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".02em", color: C.text2, lineHeight: 1.5 }}>
-                            track value <span style={{ color: qc.ink }}>{trackVal}</span> · caps <span style={{ color: qc.ink }}>{capVal}</span> @ yr {capYear}{atCap ? " ✓" : ""}
+                          <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".02em", color: C.text2, lineHeight: 1.6, display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 1 }} title="Age → Capital value for this bourbon's quality (holds at the last value)">
+                            <span style={{ color: C.muted, marginRight: 4 }}>track</span>
+                            {trackSteps.map((s, i) => (
+                              <span key={s.age} style={{ color: i === activeStep ? qc.ink : C.text2, fontWeight: i === activeStep ? 700 : 400 }}>
+                                {i > 0 ? <span style={{ color: C.faint }}> · </span> : null}{s.age}→{s.value}{i === trackSteps.length - 1 ? "+" : ""}
+                              </span>
+                            ))}
                           </div>
                           <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".02em", color: C.muted, lineHeight: 1.5 }}>
                             (value + order) × demand zone ({ZONE_META.low.label} 1 · {ZONE_META.mid.label} 2 · {ZONE_META.high.label} 3)
@@ -1095,7 +1122,7 @@ function Board(p: BoardProps) {
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11, flexWrap: "wrap" }}>
                           {slotList.map(({ kind: k, filled }, i) => (
                             <span key={i} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, width: 44, height: 46, borderRadius: 10, ...(filled ? { background: `linear-gradient(180deg,${FACE[k].color}26,#1a130b)`, border: `1.5px solid ${FACE[k].color}` } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }}>
-                              <span style={{ fontSize: 20, lineHeight: 1, color: filled ? FACE[k].color : C.faint, textShadow: filled ? `0 0 8px ${FACE[k].color}55` : undefined }}>{SUB[k].glyph}</span>
+                              {resMark(k, 22, filled ? FACE[k].color : C.faint)}
                               <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 8, letterSpacing: ".04em", color: filled ? FACE[k].color : C.faint }}>{FACE[k].mono}</span>
                             </span>
                           ))}
@@ -1455,7 +1482,7 @@ function ActionBand(props: {
           {PILE_ORDER.map((k) => (
             <div key={k} style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <div style={{ width: 36, height: 36, borderRadius: 9, background: "#1a130b", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 13, color: FACE[k].color }}>{FACE[k].mono}</span>
+                {resMark(k, 22, FACE[k].color)}
               </div>
               <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.ink }}>{game.piles[k].length}</span>
@@ -1518,7 +1545,7 @@ function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                 {PILE_ORDER.filter((k) => (bill.recipe[k] ?? 0) > 0).map((k) => (
                   <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 7px", borderRadius: 7, border: `1px solid ${KIND_CHROME[k].border}`, background: KIND_CHROME[k].grad, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" }}>
-                    <span style={{ fontSize: 13, lineHeight: 1, color: KIND_CHROME[k].ink }}>{SUB[k].glyph}</span>
+                    {resMark(k, 15, KIND_CHROME[k].ink)}
                     <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 13, color: KIND_CHROME[k].ink, lineHeight: 1 }}>{bill.recipe[k]}</span>
                   </span>
                 ))}
@@ -1827,7 +1854,7 @@ function ResMiniCard({ kind, quality, pending, onClick }: { kind: ResourceKind; 
     >
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: "4px 2px 0" }}>
         <span style={{ fontFamily: MONO, fontSize: 6.5, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: kc.ink }}>{m.label}</span>
-        <span style={{ fontSize: 22, lineHeight: 1, color: kc.ink, textShadow: "0 1px 4px rgba(0,0,0,.5)" }}>{pending ? "?" : m.glyph}</span>
+        {pending ? <span style={{ fontSize: 22, lineHeight: 1, color: kc.ink }}>?</span> : resMark(kind, 24, kc.ink)}
       </div>
       {/* rarity stripe along the foot (foil for known quality, hatched for blind) */}
       <div style={{ height: 6, width: "100%", background: pending ? "repeating-linear-gradient(45deg,#3b2818 0,#3b2818 4px,#1a130b 4px,#1a130b 8px)" : q ? q.foil : "#5a5145" }} aria-hidden />
@@ -1877,7 +1904,7 @@ function ResourceDetail({ kind, quality, name, pending }: { kind: ResourceKind; 
     <article style={{ display: "flex", gap: 18, borderRadius: 16, border: `2px solid ${kc.border}`, background: kc.grad, padding: 22, boxShadow: "0 18px 50px rgba(0,0,0,.6)" }}>
       <div style={{ position: "relative", width: 150, height: 200, flex: "0 0 auto", borderRadius: 12, border: `2px solid ${kc.border}`, background: "rgba(10,7,4,.4)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" }}>
         <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: kc.ink }}>{m.label}</span>
-        <span style={{ fontSize: 64, lineHeight: 1, color: kc.ink, textShadow: "0 2px 12px rgba(0,0,0,.5)" }}>{pending ? "?" : m.glyph}</span>
+        {pending ? <span style={{ fontSize: 64, lineHeight: 1, color: kc.ink }}>?</span> : resMark(kind, 58, kc.ink)}
         {q ? (
           <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#2a1408", background: q.foil, padding: "3px 10px", borderRadius: 5, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{q.label}</span>
         ) : (
@@ -1909,7 +1936,7 @@ function BillDetail({ bill }: { bill: MashBill }) {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {recipeKinds(bill.recipe).map((k, i) => (
           <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, border: `1px solid ${KIND_CHROME[k].border}`, background: KIND_CHROME[k].grad, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" }}>
-            <span style={{ fontSize: 18, color: KIND_CHROME[k].ink }}>{SUB[k].glyph}</span>
+            {resMark(k, 18, KIND_CHROME[k].ink)}
             <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".06em", color: KIND_CHROME[k].ink }}>{SUB[k].label}</span>
           </span>
         ))}
@@ -2017,9 +2044,9 @@ function DiceTray({ dice, rollId, animate, mode, selectedIds, full, locked, onDi
                   : claimed ? "Tap to un-draft" : clickable ? `Draft ${meta.label}` : ""
               }
             >
-              <span style={{ fontSize: wild ? 42 : 38, lineHeight: 1, color: claimed ? C.green : "#1a1206", textShadow: claimed ? `0 0 12px ${C.green}66` : "0 1px 1px rgba(255,255,255,.3)" }}>
-                {face === "anything" ? "✦" : SUB[face as ResourceKind].glyph}
-              </span>
+              {face === "anything"
+                ? <span style={{ fontSize: 42, lineHeight: 1, color: claimed ? C.green : "#1a1206", textShadow: claimed ? `0 0 12px ${C.green}66` : "0 1px 1px rgba(255,255,255,.3)" }}>✦</span>
+                : resMark(face as ResourceKind, 40, claimed ? C.green : "#1a1206")}
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: claimed ? C.green : "rgba(22,13,5,.82)" }}>{meta.label}</span>
               {claimed && <span style={{ position: "absolute", top: -9, right: -8, fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", color: "#0c0805", background: C.green, padding: "2px 6px", borderRadius: 5 }}>DRAFTED</span>}
               {kept && <span style={{ position: "absolute", top: -9, right: -8, fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", color: "#2a1408", background: "#f0c970", padding: "2px 6px", borderRadius: 5 }}>KEEP</span>}
@@ -2086,7 +2113,7 @@ function FlyCard({ flight }: { flight: Flight }) {
       }}
     >
       <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: m.ink }}>{m.label}</span>
-      <span style={{ fontSize: 20, lineHeight: 1, color: m.ink, textShadow: `0 0 8px ${m.ink}66` }}>{m.glyph}</span>
+      {resMark(flight.kind, 22, m.ink)}
     </div>
   );
 }
@@ -2098,7 +2125,7 @@ function PileChooser({ title, onPick, onCancel }: { title: string; onPick: (k: R
       <div style={{ display: "flex", gap: 10 }}>
         {PILE_ORDER.map((k) => (
           <button key={k} className="bb-card" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: KIND_CHROME[k].grad, border: `1px solid ${KIND_CHROME[k].border}`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16), 0 6px 16px rgba(0,0,0,.45)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
-            <span style={{ fontSize: 24, lineHeight: 1, color: KIND_CHROME[k].ink, textShadow: "0 1px 4px rgba(0,0,0,.5)" }}>{SUB[k].glyph}</span>
+            {resMark(k, 28, KIND_CHROME[k].ink)}
             <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: KIND_CHROME[k].ink }}>{SUB[k].label}</span>
           </button>
         ))}
@@ -2118,10 +2145,9 @@ function FaceChooser({ title, onPick, onCancel }: { title: string; onPick: (f: D
           const grad = isWild ? "linear-gradient(180deg,#3a3320,#1a160b)" : KIND_CHROME[k as ResourceKind].grad;
           const border = isWild ? "#e7d9b6" : KIND_CHROME[k as ResourceKind].border;
           const ink = isWild ? "#e7d9b6" : KIND_CHROME[k as ResourceKind].ink;
-          const glyph = isWild ? "✦" : SUB[k as ResourceKind].glyph;
           return (
           <button key={k} className="bb-card" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: grad, border: `1px solid ${border}`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16), 0 6px 16px rgba(0,0,0,.45)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
-            <span style={{ fontSize: 24, lineHeight: 1, color: ink, textShadow: "0 1px 4px rgba(0,0,0,.5)" }}>{glyph}</span>
+            {isWild ? <span style={{ fontSize: 24, lineHeight: 1, color: ink, textShadow: "0 1px 4px rgba(0,0,0,.5)" }}>✦</span> : resMark(k as ResourceKind, 28, ink)}
             <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: ink }}>{FACE[k].label}</span>
           </button>
           );
