@@ -18,7 +18,7 @@ import type {
   StyleTag,
   UltimateId,
 } from "./types";
-import { CONFIG, batchQtyForRecipe, saleBonusForRecipe } from "./config";
+import { CONFIG, saleBonusForRecipe } from "./config";
 
 // ---------------------------------------------------------------------
 // Style tags — map a mash bill's `expression` to its canonical style tag.
@@ -49,17 +49,20 @@ interface MashBillDef {
   expression: string;
   /**
    * Every recipe follows the bourbon rule: exactly 1 cask + at least 1 corn +
-   * at least 1 grain (rye/wheat/barley), then optional extra grains for
-   * complexity. batchQty and the per-sale premium are DERIVED from the recipe's
-   * complexity (see config) — not set here — so "more resources ⇒ richer
-   * bourbon" stays one loose, tunable rule.
+   * at least 1 grain (rye/wheat/barley), then optional extra grains. The
+   * per-sale premium is DERIVED from complexity; batchQty is derived from the
+   * BUILT quality (see config), not the recipe.
    */
   recipe: Partial<Record<ResourceKind, number>>;
+  /** Matchable tags; defaults to [styleTag]. Override for multi-tag bourbons. `[PH]`. */
+  tags?: StyleTag[];
+  /** Off-curve batchQty adjustment vs. the quality baseline (variance). `[PH]`. */
+  batchQtyBias?: number;
 }
 
 const MASH_BILL_DEFS: MashBillDef[] = [
   // ── complexity 3 — the simplest legal bourbons (1 cask + 1 corn + 1 grain) ──
-  { defId: "mb_single_barrel", name: "Single Barrel Select", slogan: "One barrel. No apologies.", traits: ["clean"], expression: "bourbon", recipe: { cask: 1, corn: 1, rye: 1 } },
+  { defId: "mb_single_barrel", name: "Single Barrel Select", slogan: "One barrel. No apologies.", traits: ["clean"], expression: "bourbon", recipe: { cask: 1, corn: 1, rye: 1 }, batchQtyBias: 1 },
   { defId: "mb_classic", name: "Knob's End 90", slogan: "The bottle on every back bar.", traits: ["balanced"], expression: "bourbon", recipe: { cask: 1, corn: 1, barley: 1 } },
   { defId: "mb_wheat_whisper", name: "Wheat Whisper", slogan: "Soft-spoken, long-remembered.", traits: ["wheated", "smooth"], expression: "wheated", recipe: { cask: 1, corn: 1, wheat: 1 } },
   { defId: "mb_first_rick", name: "First Rick", slogan: "Where every distiller starts.", traits: ["clean", "young"], expression: "bourbon", recipe: { cask: 1, corn: 1, barley: 1 } },
@@ -82,7 +85,7 @@ const MASH_BILL_DEFS: MashBillDef[] = [
   // ── complexity 6 — the showpieces (top batch size & premium) ──
   { defId: "mb_governors", name: "Governor's Reserve", slogan: "Reserved for the occasion.", traits: ["bonded", "bold", "complex"], expression: "four-grain", recipe: { cask: 1, corn: 2, rye: 1, wheat: 1, barley: 1 } },
   { defId: "mb_centennial", name: "Centennial Rye", slogan: "A hundred years of spice.", traits: ["rye-heavy", "spiced", "complex"], expression: "high-rye", recipe: { cask: 1, corn: 1, rye: 4 } },
-  { defId: "mb_masterpiece", name: "Master Distiller's Bill", slogan: "The whole grain library, in one glass.", traits: ["complex", "heritage", "bold"], expression: "four-grain", recipe: { cask: 1, corn: 2, rye: 2, wheat: 1 } },
+  { defId: "mb_masterpiece", name: "Master Distiller's Bill", slogan: "The whole grain library, in one glass.", traits: ["complex", "heritage", "bold"], expression: "four-grain", recipe: { cask: 1, corn: 2, rye: 2, wheat: 1 }, batchQtyBias: 1 },
 ];
 
 export function buildMashBillSupply(): MashBill[] {
@@ -97,8 +100,9 @@ export function buildMashBillSupply(): MashBill[] {
         traits: [...def.traits],
         expression: def.expression,
         styleTag: expressionToStyle(def.expression),
+        tags: def.tags ?? [expressionToStyle(def.expression)],
         recipe: { ...def.recipe },
-        batchQty: batchQtyForRecipe(def.recipe),
+        batchQtyBias: def.batchQtyBias ?? 0,
         saleBonus: saleBonusForRecipe(def.recipe),
         placeholder: true,
       });
@@ -164,12 +168,21 @@ export function buildPile(kind: ResourceKind): ResourceCard[] {
 // requirement = what fills a slot; orderValue = the On Fill reward (added to
 // the bourbon's value before the zone ×1/×2/×3); reputation = the On Completed
 // reward kept by the completer.
+//
+// The deck is ~50% OPEN ("any bourbon") + ~50% GATED (tags / quality / age):
+//   • OPEN cards are the no-lockout floor — anyone can fill them, but they pay
+//     LOW (volume / Common outlet).
+//   • GATED cards are the competition layer — only the matching bourbon fills
+//     them, and they pay MEANINGFULLY MORE (premium outlet). The value gap is
+//     the whole point: if open paid as well, nobody would specialize. Premium
+//     cards also gate on harder production (quality+ / age+), so reward tracks
+//     total investment. All `[PH]`.
 // ---------------------------------------------------------------------
 
 interface DemandCardDef {
   defId: string;
   label: string;
-  requirement: { styleTag?: StyleTag; minAge?: number; quality?: Quality };
+  requirement: { tags?: StyleTag[]; minAge?: number; quality?: Quality };
   /** Fills per player (1 = player count slots; 2 = twice that). `[PH]`. */
   slotMultiple: number;
   /** Capital added to the bourbon's value before the demand-zone multiplier. `[PH]`. */
@@ -179,14 +192,18 @@ interface DemandCardDef {
 }
 
 const DEMAND_CARD_DEFS: DemandCardDef[] = [
-  { defId: "dm_house", label: "House Pour", requirement: {}, slotMultiple: 2, orderValue: 1, reputation: 2, count: 8 },
-  { defId: "dm_corn", label: "Sweet-Corn Craze", requirement: { styleTag: "highCorn" }, slotMultiple: 1, orderValue: 1, reputation: 3, count: 4 },
-  { defId: "dm_rye", label: "Rye Revival", requirement: { styleTag: "rye" }, slotMultiple: 1, orderValue: 2, reputation: 3, count: 5 },
-  { defId: "dm_wheat", label: "Wheated Wishlist", requirement: { styleTag: "wheat" }, slotMultiple: 1, orderValue: 2, reputation: 3, count: 5 },
-  { defId: "dm_fourgrain", label: "Four-Grain Feature", requirement: { styleTag: "fourGrain" }, slotMultiple: 1, orderValue: 3, reputation: 5, count: 3 },
-  { defId: "dm_aged", label: "Aged-Stock Order", requirement: { minAge: 4 }, slotMultiple: 1, orderValue: 2, reputation: 4, count: 5 },
-  { defId: "dm_premium", label: "Connoisseur Order", requirement: { quality: "rare" }, slotMultiple: 1, orderValue: 3, reputation: 5, count: 4 },
-  { defId: "dm_collector", label: "Collector's Cellar", requirement: { quality: "epic", minAge: 6 }, slotMultiple: 1, orderValue: 4, reputation: 8, count: 3 },
+  // ── OPEN floor (~50%) — any bourbon, low value, no lockout ──
+  { defId: "dm_house", label: "House Pour", requirement: {}, slotMultiple: 1, orderValue: 1, reputation: 1, count: 10 },
+  { defId: "dm_rail", label: "Bar Rail", requirement: {}, slotMultiple: 1, orderValue: 1, reputation: 2, count: 8 },
+  // ── GATED — tag competition layer (~higher value) ──
+  { defId: "dm_rye", label: "Rye Revival", requirement: { tags: ["rye"] }, slotMultiple: 1, orderValue: 3, reputation: 4, count: 3 },
+  { defId: "dm_wheat", label: "Wheated Wishlist", requirement: { tags: ["wheat"] }, slotMultiple: 1, orderValue: 3, reputation: 4, count: 3 },
+  { defId: "dm_corn", label: "Sweet-Corn Craze", requirement: { tags: ["highCorn"] }, slotMultiple: 1, orderValue: 3, reputation: 4, count: 2 },
+  { defId: "dm_fourgrain", label: "Four-Grain Feature", requirement: { tags: ["fourGrain"] }, slotMultiple: 1, orderValue: 4, reputation: 5, count: 2 },
+  // ── GATED — premium tier (harder production: quality+/age+), top value ──
+  { defId: "dm_aged", label: "Aged-Stock Order", requirement: { minAge: 4 }, slotMultiple: 1, orderValue: 4, reputation: 5, count: 3 },
+  { defId: "dm_premium", label: "Connoisseur Order", requirement: { quality: "rare" }, slotMultiple: 1, orderValue: 5, reputation: 6, count: 2 },
+  { defId: "dm_collector", label: "Collector's Cellar", requirement: { quality: "epic", minAge: 6 }, slotMultiple: 1, orderValue: 6, reputation: 9, count: 2 },
 ];
 
 export function buildDemandDeck(): DemandCard[] {
@@ -197,7 +214,7 @@ export function buildDemandDeck(): DemandCard[] {
         id: `${def.defId}#${i}`,
         defId: def.defId,
         label: def.label,
-        requirement: { ...def.requirement },
+        requirement: { ...def.requirement, ...(def.requirement.tags ? { tags: [...def.requirement.tags] } : {}) },
         slotMultiple: def.slotMultiple,
         slotsActive: def.slotMultiple, // re-set to slotMultiple × players at lay-out
         filledBy: [],

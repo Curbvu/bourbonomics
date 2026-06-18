@@ -74,10 +74,18 @@ export interface MashBill {
   expression: string;
   /** Canonical style tag derived from `expression` (demand requirements key off it). */
   styleTag: StyleTag;
-  /** Required resource kinds → counts. Always exactly 1 cask + ≥1 corn. */
+  /**
+   * Matchable tags this bourbon carries (the visual, color-coded matching axis).
+   * Seeded with the grain identities; a demand card's `tags` must all be present.
+   */
+  tags: StyleTag[];
+  /** Required resource kinds → counts. Always exactly 1 cask + ≥1 corn + ≥1 grain. */
   recipe: Partial<Record<ResourceKind, number>>;
-  /** How many sales (extractions) a batch yields — scales with recipe complexity. */
-  batchQty: number;
+  /**
+   * Off-curve adjustment to the quality-derived batchQty (variance). 0 = on the
+   * curve; the built barrel's batchQty = batchQtyForQuality(quality, bias).
+   */
+  batchQtyBias: number;
   /** Per-sale Capital premium for a complex recipe (the "richer bourbon" bonus). */
   saleBonus: number;
   placeholder: true;
@@ -89,7 +97,11 @@ export interface MashBill {
  * (a better/older bourbon also qualifies).
  */
 export interface DemandRequirement {
-  styleTag?: StyleTag;
+  /**
+   * Tags the bourbon must ALL carry to fill this order (the gating axis).
+   * Empty / omitted = "any bourbon" (the open, no-lockout floor).
+   */
+  tags?: StyleTag[];
   minAge?: number;
   quality?: Quality;
 }
@@ -151,6 +163,8 @@ export interface Bourbon {
   expression: string;
   /** Canonical style tag (demand requirements match against this). */
   styleTag: StyleTag;
+  /** Matchable tags inherited from the mash bill (the demand-matching axis). */
+  tags: StyleTag[];
   /** The recipe this barrel needs to be built — shown as requirements while unbuilt. */
   recipe: Partial<Record<ResourceKind, number>>;
   /**
@@ -169,8 +183,10 @@ export interface Bourbon {
   /** Years rested. Starts 0 (or 1 with Char & Toast), +1 per round while BUILT. */
   age: number;
   quality: Quality;
-  /** Total sales this batch yields over its life. Copied from the mash bill. */
+  /** Total sales this batch yields over its life — set from QUALITY at build time. */
   batchQty: number;
+  /** Off-curve batchQty adjustment inherited from the mash bill (applied at build). */
+  batchQtyBias: number;
   /** Per-sale Capital premium (recipe-complexity bonus). Copied from the mash bill. */
   saleBonus: number;
   /** Sales left before the batch is spent. Starts at `batchQty`; each sale −1. */

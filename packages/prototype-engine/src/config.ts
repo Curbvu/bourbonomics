@@ -76,16 +76,23 @@ export const CONFIG = {
    */
   ZONE_MULTIPLIER: { low: 1, mid: 2, high: 3 } as Record<Zone, number>,
 
+  // --- batchQty: number of sales a built barrel yields, by QUALITY tier -----
+  // A barrel's batchQty is set by its built QUALITY (Common one-and-done →
+  // Legendary up to 3), NOT by its recipe. This is the baseline curve; a mash
+  // bill may carry a per-card `batchQtyBias` (+/−) for off-curve variance (e.g.
+  // a Common bill that still yields 2). Data-driven, not a hard formula. `[PH]`.
+  BATCHQTY_BY_QUALITY: { common: 1, uncommon: 1, rare: 2, epic: 2, legendary: 3 } as Record<Quality, number>,
+  /** Hard clamp on batchQty after the quality baseline + per-bill bias. `[PH]`. */
+  BATCHQTY_MIN: 1,
+  BATCHQTY_MAX: 3,
+
   // --- Mash-bill complexity scaling ----------------------------------------
   // A bill always needs exactly 1 cask + ≥1 corn + ≥1 grain (rye/wheat/barley)
   // — the "is it bourbon" rule, no cask/corn-only recipes. Beyond that minimum,
-  // every extra resource makes a richer bourbon: more batches AND/OR more
-  // Capital per sale. All `[PH]`.
+  // every extra resource makes a richer bourbon worth a per-sale Capital
+  // premium (the reward for harder recipes / premium orders). All `[PH]`.
   /** Recipe size of the simplest legal bill (1 cask + 1 corn + 1 grain). */
   COMPLEXITY_MIN: 3,
-  /** batchQty = BATCH_BASE + floor((complexity − MIN) × BATCH_PER). */
-  COMPLEXITY_BATCH_BASE: 2,
-  COMPLEXITY_BATCH_PER: 0.5,
   /** Per-sale Capital premium = (complexity − MIN) × SALE_BONUS_PER. */
   COMPLEXITY_SALE_BONUS_PER: 1,
 
@@ -161,10 +168,14 @@ export function recipeComplexity(recipe: Partial<Record<ResourceKind, number>>):
   return (Object.values(recipe) as (number | undefined)[]).reduce<number>((s, n) => s + (n ?? 0), 0);
 }
 
-/** Sales a batch yields, scaled up by recipe complexity. */
-export function batchQtyForRecipe(recipe: Partial<Record<ResourceKind, number>>): number {
-  const over = Math.max(0, recipeComplexity(recipe) - CONFIG.COMPLEXITY_MIN);
-  return CONFIG.COMPLEXITY_BATCH_BASE + Math.floor(over * CONFIG.COMPLEXITY_BATCH_PER);
+/**
+ * Sales a built barrel yields, set by its QUALITY tier plus a per-bill bias for
+ * off-curve variance. Clamped to [BATCHQTY_MIN, BATCHQTY_MAX]. Common = 1
+ * (one-and-done); the top tiers reach 3.
+ */
+export function batchQtyForQuality(quality: Quality, bias = 0): number {
+  const base = CONFIG.BATCHQTY_BY_QUALITY[quality] + bias;
+  return Math.max(CONFIG.BATCHQTY_MIN, Math.min(CONFIG.BATCHQTY_MAX, base));
 }
 
 /** Per-sale Capital premium a bill earns for being more complex than the minimum. */

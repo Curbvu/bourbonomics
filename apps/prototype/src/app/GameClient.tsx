@@ -260,7 +260,7 @@ function recipeSize(recipe: Partial<Record<ResourceKind, number>>): number {
 }
 function requirementText(req: DemandCard["requirement"]): string {
   const parts: string[] = [];
-  if (req.styleTag) parts.push(STYLE_LABEL[req.styleTag]);
+  if (req.tags) for (const t of req.tags) parts.push(STYLE_LABEL[t]);
   if (req.quality) parts.push(`${req.quality}+`);
   if (req.minAge !== undefined) parts.push(`age ${req.minAge}+`);
   return parts.length ? parts.join(" · ") : "Any bourbon";
@@ -1489,10 +1489,8 @@ function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
             >
               {/* glass sheen */}
               <span style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 42%, rgba(255,255,255,.06) 50%, transparent 58%)", pointerEvents: "none" }} />
-              {/* top row: style pill + inspect / kept */}
+              {/* top row: inspect/kept (left) + TAGS (right, color-coded for demand matching) */}
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#1a1209", background: sc.border, padding: "2px 8px", borderRadius: 999 }}>{STYLE_LABEL[bill.styleTag]}</span>
-                <div style={{ flex: 1 }} />
                 {sel ? (
                   <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: C.green }}>✓ kept</span>
                 ) : (
@@ -1504,6 +1502,10 @@ function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
                     style={{ width: 19, height: 19, borderRadius: 999, display: "grid", placeItems: "center", fontFamily: SERIF, fontStyle: "italic", fontWeight: 700, fontSize: 12, color: sc.ink, border: `1px solid ${sc.border}88`, background: "rgba(10,7,4,.5)" }}
                   >i</span>
                 )}
+                <div style={{ flex: 1 }} />
+                {bill.tags.map((t) => (
+                  <span key={t} title={`Tag: ${STYLE_LABEL[t]} — fills ${STYLE_LABEL[t]} demand orders`} style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#1a1209", background: STYLE_CHROME[t].border, padding: "2px 8px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
+                ))}
               </div>
               {/* name + slogan */}
               <div>
@@ -1519,10 +1521,10 @@ function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
                   </span>
                 ))}
               </div>
-              {/* footer: batch + premium */}
-              <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: "auto", paddingTop: 8, borderTop: `1px dotted ${sc.border}44` }}>
-                <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.gold, lineHeight: 1 }}>{bill.batchQty}</span>
-                <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: C.muted }}>sales</span>
+              {/* footer: sales (by quality) + premium */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "auto", paddingTop: 8, borderTop: `1px dotted ${sc.border}44` }}>
+                <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.gold, lineHeight: 1 }} title="Sales scale with the built barrel's quality (Common 1 → Legendary 3)">{1 + bill.batchQtyBias}–{3}</span>
+                <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".06em", textTransform: "uppercase", color: C.muted }}>sales · by quality</span>
                 {bill.saleBonus > 0 && (
                   <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#1a1209", background: C.gold, padding: "2px 7px", borderRadius: 5 }}>+{bill.saleBonus}/sale</span>
                 )}
@@ -1748,11 +1750,23 @@ function DemandRow({ card, zone, players }: { card: DemandCard; zone: Zone; play
   const filled = card.filledBy.filter((f) => f !== null).length;
   const complete = filled >= card.slotsActive;
   const compact = card.slotsActive > 8; // many slots → progress bar instead of pips
+  // Gated orders carry the SAME colour tag(s) as the matching bourbon recipe,
+  // shown on the RIGHT so a player visually pattern-matches bourbon → order.
+  const reqTags = card.requirement.tags ?? [];
+  const accent = reqTags.length ? STYLE_CHROME[reqTags[0]!].border : null;
+  const otherReqs: string[] = [];
+  if (card.requirement.quality) otherReqs.push(`${card.requirement.quality}+`);
+  if (card.requirement.minAge !== undefined) otherReqs.push(`age ${card.requirement.minAge}+`);
+  const open = reqTags.length === 0 && otherReqs.length === 0;
   return (
-    <div style={{ flex: "0 0 auto", borderRadius: 10, padding: "9px 12px", background: complete ? "linear-gradient(180deg, rgba(109,178,140,.18), rgba(20,14,8,.92))" : "linear-gradient(180deg, rgba(44,30,20,.7), rgba(20,14,8,.94))", border: `1px solid ${complete ? C.green : "#4a3320"}`, boxShadow: "0 4px 12px rgba(0,0,0,.35)" }}>
+    <div style={{ flex: "0 0 auto", borderRadius: 10, padding: "9px 12px", background: complete ? "linear-gradient(180deg, rgba(109,178,140,.18), rgba(20,14,8,.92))" : "linear-gradient(180deg, rgba(44,30,20,.7), rgba(20,14,8,.94))", border: `1px solid ${complete ? C.green : accent ?? "#4a3320"}`, boxShadow: complete ? "0 4px 12px rgba(0,0,0,.35)" : accent ? `0 4px 12px rgba(0,0,0,.35), inset 3px 0 0 ${accent}` : "0 4px 12px rgba(0,0,0,.35)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: C.ink, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.label}</span>
         <div style={{ flex: 1 }} />
+        {/* required tag(s) — right side, color-coded to match the bourbon */}
+        {reqTags.map((t) => (
+          <span key={t} title={`Requires a ${STYLE_LABEL[t]} bourbon`} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "#1a1209", background: STYLE_CHROME[t].border, padding: "2px 8px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
+        ))}
         <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }} title={`order value — added to the bourbon's value before the ×${zoneMultiplier(zone)} ${ZONE_META[zone].label} multiplier`}>+{card.orderValue}</span>
         {/* big prestige reward on completion */}
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 11px", borderRadius: 999, background: "rgba(109,178,140,.18)", border: `1px solid ${C.green}`, boxShadow: `0 0 10px ${C.green}33` }} title="prestige kept by the player who completes this order">
@@ -1760,9 +1774,13 @@ function DemandRow({ card, zone, players }: { card: DemandCard; zone: Zone; play
           <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: C.green, lineHeight: 1 }}>{card.reputation}</span>
         </span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 7 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 7 }}>
         <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted }}>Req</span>
-        <span style={{ fontFamily: MONO, fontSize: 13, color: C.amber, whiteSpace: "nowrap" }}>{requirementText(card.requirement)}</span>
+        {otherReqs.map((r) => (
+          <span key={r} style={{ fontFamily: MONO, fontSize: 12, color: C.amber, whiteSpace: "nowrap" }}>{r}</span>
+        ))}
+        {open && <span style={{ fontFamily: MONO, fontSize: 12, color: C.green, whiteSpace: "nowrap" }}>any bourbon</span>}
+        {!open && reqTags.length > 0 && otherReqs.length === 0 && <span style={{ fontFamily: MONO, fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>matching tag →</span>}
         <div style={{ flex: 1 }} />
         {compact ? (
           <div style={{ width: 96, height: 11, borderRadius: 6, background: "rgba(20,14,8,.7)", border: "1px solid rgba(110,80,50,.5)", overflow: "hidden" }}>
@@ -1894,14 +1912,19 @@ function BillDetail({ bill }: { bill: MashBill }) {
           </span>
         ))}
       </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {bill.tags.map((t) => (
+          <span key={t} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#1a1209", background: STYLE_CHROME[t].border, padding: "3px 10px", borderRadius: 999 }} title={`Fills ${STYLE_LABEL[t]} demand orders`}>{STYLE_LABEL[t]}</span>
+        ))}
+      </div>
       <div style={{ display: "flex", gap: 18, fontFamily: MONO, fontSize: 12, color: C.text2 }}>
-        <span><b style={{ color: C.gold }}>{bill.batchQty}</b> sales</span>
+        <span><b style={{ color: C.gold }}>{1 + bill.batchQtyBias}–3</b> sales · by quality</span>
         {bill.saleBonus > 0 && <span>premium <b style={{ color: C.gold }}>+{bill.saleBonus}</b>/sale</span>}
       </div>
       <div style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(10,7,4,.5)", padding: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".15em", textTransform: "uppercase", color: C.muted }}>Use</span>
         <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5, color: C.ink }}>
-          Draw it as a resting barrel, then stage its recipe (every bill needs 1 cask + 1 corn + a grain) and Make Bourbon. The batch yields {bill.batchQty} sales{bill.saleBonus > 0 ? `, each paying a +${bill.saleBonus} complexity premium` : ""}.
+          Draw it as a resting barrel, then stage its recipe (every bill needs 1 cask + 1 corn + a grain) and Make Bourbon. Sales scale with the built barrel&apos;s quality — Common is one-and-done, top tiers yield up to 3{bill.saleBonus > 0 ? `, each paying a +${bill.saleBonus} complexity premium` : ""}.
         </p>
       </div>
     </article>

@@ -50,7 +50,7 @@ function recipeChips(recipe: Partial<Record<ResourceKind, number>>) {
 
 function reqText(req: DemandCard["requirement"]): string {
   const parts: string[] = [];
-  if (req.styleTag) parts.push(req.styleTag);
+  if (req.tags) for (const t of req.tags) parts.push(STYLE_CHROME[t].label);
   if (req.quality) parts.push(`${req.quality}+`);
   if (req.minAge !== undefined) parts.push(`age ${req.minAge}+`);
   return parts.join(" · ") || "any bourbon";
@@ -218,9 +218,9 @@ function BillCard({ bill }: { bill: MashBill }) {
         <span
           className="flex-shrink-0 rounded-md border px-2 py-1 text-center font-mono text-[10px] font-bold uppercase leading-tight tracking-[.08em]"
           style={{ borderColor: chrome.border, color: chrome.ink, background: "rgba(8,5,3,.5)" }}
-          title="Sales per built batch · per-sale complexity premium"
+          title="Sales scale with the built barrel's quality (Common 1 → Legendary 3) · per-sale complexity premium"
         >
-          {bill.batchQty} sales
+          {1 + bill.batchQtyBias}–3 sales
           {bill.saleBonus > 0 ? <><br />+{bill.saleBonus}/sale</> : null}
         </span>
       </header>

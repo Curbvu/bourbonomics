@@ -17,6 +17,7 @@ import {
   CONFIG,
   activeSlotsForPlayerCount,
   barrelValue,
+  batchQtyForQuality,
   improvementCost,
   zoneForCardCount,
   zoneMultiplier,
@@ -174,7 +175,8 @@ function remainingNeed(barrel: Bourbon, kind: ResourceKind): number {
 
 /** Does a built bourbon satisfy a demand card's Requirement section? */
 export function meetsRequirement(bourbon: Bourbon, req: DemandRequirement): boolean {
-  if (req.styleTag && bourbon.styleTag !== req.styleTag) return false;
+  // All required tags must be present on the bourbon (empty = "any bourbon").
+  if (req.tags && !req.tags.every((t) => bourbon.tags.includes(t))) return false;
   if (req.minAge !== undefined && bourbon.age < req.minAge) return false;
   if (req.quality && QUALITY_RANK[bourbon.quality] < QUALITY_RANK[req.quality]) return false;
   return true;
@@ -478,14 +480,18 @@ function handleDrawMashBills(draft: GameState, player: Player, keepIndexes: numb
       traits: [...bill.traits],
       expression: bill.expression,
       styleTag: bill.styleTag,
+      tags: [...bill.tags],
       recipe: { ...bill.recipe },
       staged: [],
       built: false,
       age: 0,
       quality: "common",
-      batchQty: bill.batchQty,
+      // batchQty is decided at BUILD from the rolled quality; until then it's a
+      // placeholder (the resting barrel can't sell).
+      batchQty: 0,
+      batchQtyBias: bill.batchQtyBias,
       saleBonus: bill.saleBonus,
-      salesRemaining: bill.batchQty,
+      salesRemaining: 0,
       createdRound: draft.roundNumber,
       maturationBoosted: false,
     });
@@ -587,8 +593,12 @@ function handleMakeBourbon(
   barrel.built = true;
   barrel.age = hasUlt(player, "rickhouse", "charToast") ? CONFIG.ULT_CHAR_TOAST_START_AGE : 0;
   barrel.quality = deriveQuality(cards);
+  // batchQty is set NOW from the built quality (Common one-and-done → up to 3),
+  // plus the bill's off-curve bias.
+  barrel.batchQty = batchQtyForQuality(barrel.quality, barrel.batchQtyBias);
+  barrel.salesRemaining = barrel.batchQty;
   barrel.createdRound = draft.roundNumber;
-  draft.log.push(`${player.name} built a ${barrel.quality} "${barrel.name}" (age ${barrel.age}) — now aging.`);
+  draft.log.push(`${player.name} built a ${barrel.quality} "${barrel.name}" (age ${barrel.age}, ${barrel.batchQty} sale${barrel.batchQty > 1 ? "s" : ""}) — now aging.`);
   return null;
 }
 

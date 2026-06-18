@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyAction,
   barrelValue,
-  batchQtyForRecipe,
+  batchQtyForQuality,
   buildMashBillSupply,
   createGame,
   improvementCost,
@@ -64,12 +64,14 @@ function makeBourbon(over: Partial<Bourbon> = {}): Bourbon {
     traits: over.traits ?? [],
     expression: over.expression ?? "bourbon",
     styleTag: over.styleTag ?? "classic",
+    tags: over.tags ?? (over.styleTag ? [over.styleTag] : ["classic"]),
     recipe: over.recipe ?? {},
     staged: over.staged ?? [],
     built: over.built ?? true,
     age: over.age ?? 3,
     quality: over.quality ?? "common",
     batchQty: over.batchQty ?? 1,
+    batchQtyBias: over.batchQtyBias ?? 0,
     saleBonus: over.saleBonus ?? 0,
     salesRemaining: over.salesRemaining ?? over.batchQty ?? 1,
     createdRound: over.createdRound ?? 0,
@@ -486,12 +488,19 @@ describe("mash-bill complexity scaling", () => {
     }
   });
 
-  it("more complex recipes yield ≥ batchQty and ≥ per-sale premium", () => {
+  it("more complex recipes earn a bigger per-sale premium", () => {
     const simple = { cask: 1, corn: 1 }; // complexity 2
     const rich = { cask: 1, corn: 1, rye: 1, wheat: 1, barley: 1 }; // complexity 5
     expect(saleBonusForRecipe(simple)).toBe(0);
     expect(saleBonusForRecipe(rich)).toBeGreaterThan(saleBonusForRecipe(simple));
-    expect(batchQtyForRecipe(rich)).toBeGreaterThanOrEqual(batchQtyForRecipe(simple));
+  });
+
+  it("batchQty scales with quality (Common one-and-done → Legendary 3), plus bias", () => {
+    expect(batchQtyForQuality("common")).toBe(1);
+    expect(batchQtyForQuality("legendary")).toBe(3);
+    expect(batchQtyForQuality("legendary")).toBeGreaterThan(batchQtyForQuality("common"));
+    expect(batchQtyForQuality("common", 1)).toBe(2); // off-curve variance via bias
+    expect(batchQtyForQuality("legendary", 5)).toBe(3); // clamped to the max
   });
 
   it("a sale adds the bourbon's complexity premium to the payoff", () => {
@@ -547,8 +556,8 @@ describe("sell", () => {
   });
 
   it("refuses routing to a card whose requirement isn't met", () => {
-    let s = base({ styleTag: "classic", age: 3 });
-    s.demandCards = [makeDemandCard({ id: "ord", requirement: { styleTag: "rye" } })];
+    let s = base({ styleTag: "classic", tags: ["classic"], age: 3 });
+    s.demandCards = [makeDemandCard({ id: "ord", requirement: { tags: ["rye"] } })];
     expect(
       expectRefusal(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }),
     ).toContain("does not meet");
@@ -690,11 +699,12 @@ describe("scoring and the clock", () => {
 // ------------------------------------------------------------------
 
 describe("requirement matching", () => {
-  it("matches style tag, minimum age, and minimum quality (floors)", () => {
-    const b = makeBourbon({ styleTag: "rye", age: 5, quality: "rare" });
-    expect(meetsRequirement(b, {})).toBe(true);
-    expect(meetsRequirement(b, { styleTag: "rye" })).toBe(true);
-    expect(meetsRequirement(b, { styleTag: "wheat" })).toBe(false);
+  it("matches required tags, minimum age, and minimum quality (floors)", () => {
+    const b = makeBourbon({ styleTag: "rye", tags: ["rye"], age: 5, quality: "rare" });
+    expect(meetsRequirement(b, {})).toBe(true); // open — any bourbon
+    expect(meetsRequirement(b, { tags: ["rye"] })).toBe(true);
+    expect(meetsRequirement(b, { tags: ["wheat"] })).toBe(false);
+    expect(meetsRequirement(b, { tags: ["rye", "wheat"] })).toBe(false); // needs ALL tags
     expect(meetsRequirement(b, { minAge: 4 })).toBe(true);
     expect(meetsRequirement(b, { minAge: 6 })).toBe(false);
     expect(meetsRequirement(b, { quality: "common" })).toBe(true); // rare ≥ common

@@ -69,7 +69,7 @@ function assertConsistent(state: GameState, players: string[]) {
     expect(p.capital).toBeGreaterThanOrEqual(0);
     expect(reputationOf(p)).toBe(p.keptCards.reduce((s, c) => s + c.reputation, 0));
     expect(p.cardsCompleted).toBe(p.keptCards.length);
-    for (const b of p.rickhouse) expect(b.salesRemaining).toBeGreaterThan(0); // no zero-sale ghost barrels
+    for (const b of p.rickhouse) if (b.built) expect(b.salesRemaining).toBeGreaterThan(0); // no zero-sale ghost barrels (resting barrels are 0 until built)
   }
   const ranked = rankPlayers(state);
   expect(ranked.length).toBe(players.length);
