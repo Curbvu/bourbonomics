@@ -1750,15 +1750,10 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
   const count = game.demandCards.length;
   const toCrash = CONFIG.DEMAND_CRASH_AT - count;
   const zoneMeta = ZONE_META[zone];
-  // Zone band boundaries as a fraction of the meter height (out of the 9 cards
-  // before a crash): Low 1–4, Mid 5–7, High 8–9.
-  const lowTop = (CONFIG.ZONE_MID_MIN - 1) / (CONFIG.DEMAND_CRASH_AT - 1); // 4/9
-  const midTop = (CONFIG.ZONE_HIGH_MIN - 1) / (CONFIG.DEMAND_CRASH_AT - 1); // 7/9
-  const pct = (v: number) => `${Math.round(v * 100)}%`;
-  const meterBg = `linear-gradient(0deg,
-    rgba(109,178,140,.13) 0%, rgba(109,178,140,.13) ${pct(lowTop)},
-    rgba(213,150,80,.13) ${pct(lowTop)}, rgba(213,150,80,.13) ${pct(midTop)},
-    rgba(217,107,84,.15) ${pct(midTop)}, rgba(217,107,84,.15) 100%)`;
+  // The meter is a fixed ladder of slots — the max cards that can sit on the
+  // table before the crash. Each slot belongs to a zone "tranche"; labeled
+  // dividers show how many cards it takes to reach Mid / Hot.
+  const maxSlots = CONFIG.DEMAND_CRASH_AT - 1; // 6
 
   return (
     <aside data-tut="market" style={{ width: 440, flex: "0 0 auto", display: "flex", flexDirection: "column", gap: 9, borderRadius: 16, background: "linear-gradient(180deg,#1a120b,#130c06)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: 13, minHeight: 0, overflow: "hidden" }}>
@@ -1791,23 +1786,47 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
         })}
       </div>
 
-      {/* the meter */}
-      <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 12, border: `1px solid ${C.border}`, background: meterBg, overflow: "hidden" }}>
+      {/* the meter — a fixed ladder of `maxSlots` tranche-banded slots, cards pile from the floor up */}
+      <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(12,8,5,.4)", overflow: "hidden" }}>
         {/* crash ceiling */}
-        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderBottom: `1px dashed ${toCrash <= 2 ? C.red : "#4a3826"}` }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: toCrash <= 2 ? C.red : C.muted }}>▲ crash at {CONFIG.DEMAND_CRASH_AT}</span>
+        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderBottom: `1px dashed ${toCrash <= 1 ? C.red : "#4a3826"}` }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: toCrash <= 1 ? C.red : C.muted }}>▲ crash at {CONFIG.DEMAND_CRASH_AT}</span>
           <div style={{ flex: 1 }} />
-          {toCrash <= 2 && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".06em", color: C.red }}>⚠ {toCrash} to crash</span>}
+          {toCrash <= 1 && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".06em", color: C.red }}>⚠ crash next draw</span>}
         </div>
 
-        {/* cards stack from the bottom up (column-reverse → first card on the floor) */}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column-reverse", justifyContent: "flex-start", gap: 5, padding: "6px 7px 7px 7px", overflow: "hidden" }}>
-          {game.demandCards.length === 0 && (
-            <div style={{ textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.muted, paddingBottom: 6 }}>market reset — empty floor</div>
-          )}
-          {game.demandCards.map((o) => (
-            <DemandRow key={o.id} card={o} zone={zone} players={game.players} />
-          ))}
+        {/* slot ladder (top = highest slot / Hot; cards fill from the bottom) */}
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 0, padding: "5px 7px 7px" }}>
+          {(() => {
+            const rows: React.ReactNode[] = [];
+            for (let p = maxSlots; p >= 1; p--) {
+              const z = zoneForCardCount(p);
+              const below = p > 1 ? zoneForCardCount(p - 1) : null;
+              const card = game.demandCards[p - 1];
+              const zc = ZONE_META[z].color;
+              const liveZone = z === zone;
+              rows.push(
+                <div key={`s${p}`} style={{ flex: 1, minHeight: 0, display: "flex", borderRadius: 9, padding: card ? 0 : 0, background: liveZone ? `${zc}1c` : `${zc}0e`, border: `1px ${card ? "solid" : "dashed"} ${card ? "#4a3320" : `${zc}33`}`, marginBottom: 4, overflow: "hidden" }}>
+                  {card ? (
+                    <DemandRow card={card} zone={zone} players={game.players} />
+                  ) : (
+                    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: `${zc}66` }}>empty</div>
+                  )}
+                </div>,
+              );
+              // Tranche divider below the lowest slot of an upper zone: shows the count to reach it.
+              if (below && below !== z) {
+                rows.push(
+                  <div key={`d${p}`} style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 7, padding: "1px 2px 5px" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: zc, opacity: liveZone ? 1 : 0.75 }}>{ZONE_META[z].label} ×{zoneMultiplier(z)}</span>
+                    <span style={{ flex: 1, height: 1, background: `${zc}${liveZone ? "99" : "44"}` }} />
+                    <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".04em", color: C.muted }}>{p}+ cards</span>
+                  </div>,
+                );
+              }
+            }
+            return rows;
+          })()}
         </div>
       </div>
     </aside>
@@ -1828,7 +1847,7 @@ function DemandRow({ card, zone, players }: { card: DemandCard; zone: Zone; play
   if (card.requirement.minAge !== undefined) otherReqs.push(`age ${card.requirement.minAge}+`);
   const open = reqTags.length === 0 && otherReqs.length === 0;
   return (
-    <div style={{ flex: "0 0 auto", borderRadius: 10, padding: "9px 12px", background: complete ? "linear-gradient(180deg, rgba(109,178,140,.18), rgba(20,14,8,.92))" : "linear-gradient(180deg, rgba(44,30,20,.7), rgba(20,14,8,.94))", border: `1px solid ${complete ? C.green : accent ?? "#4a3320"}`, boxShadow: complete ? "0 4px 12px rgba(0,0,0,.35)" : accent ? `0 4px 12px rgba(0,0,0,.35), inset 3px 0 0 ${accent}` : "0 4px 12px rgba(0,0,0,.35)" }}>
+    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6, borderRadius: 9, padding: "10px 13px", background: complete ? "linear-gradient(180deg, rgba(109,178,140,.2), rgba(20,14,8,.92))" : "linear-gradient(180deg, rgba(44,30,20,.62), rgba(20,14,8,.9))", borderLeft: accent ? `3px solid ${accent}` : complete ? `3px solid ${C.green}` : "3px solid transparent" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: C.ink, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.label}</span>
         <div style={{ flex: 1 }} />
