@@ -1512,12 +1512,12 @@ function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
                 <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, lineHeight: 1.05, color: sc.ink }}>{bill.name}</div>
                 {bill.slogan && <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 11, lineHeight: 1.25, color: C.muted, marginTop: 2 }}>{bill.slogan}</div>}
               </div>
-              {/* recipe chips */}
+              {/* recipe chips — filled with each resource's card colour */}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                 {PILE_ORDER.filter((k) => (bill.recipe[k] ?? 0) > 0).map((k) => (
-                  <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 7px", borderRadius: 7, border: `1px solid ${SUB[k].ink}55`, background: "rgba(10,7,4,.42)" }}>
-                    <span style={{ fontSize: 13, lineHeight: 1, color: SUB[k].ink }}>{SUB[k].glyph}</span>
-                    <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 13, color: sc.ink, lineHeight: 1 }}>{bill.recipe[k]}</span>
+                  <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 7px", borderRadius: 7, border: `1px solid ${KIND_CHROME[k].border}`, background: KIND_CHROME[k].grad, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" }}>
+                    <span style={{ fontSize: 13, lineHeight: 1, color: KIND_CHROME[k].ink }}>{SUB[k].glyph}</span>
+                    <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 13, color: KIND_CHROME[k].ink, lineHeight: 1 }}>{bill.recipe[k]}</span>
                   </span>
                 ))}
               </div>
@@ -1906,9 +1906,9 @@ function BillDetail({ bill }: { bill: MashBill }) {
       <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 28, color: C.ink, lineHeight: 1.05 }}>{bill.name}</span>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {recipeKinds(bill.recipe).map((k, i) => (
-          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, border: `1px solid ${FACE[k].color}88`, background: "rgba(10,7,4,.5)" }}>
-            <span style={{ fontSize: 18, color: FACE[k].color }}>{SUB[k].glyph}</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".06em", color: C.ink }}>{SUB[k].label}</span>
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, border: `1px solid ${KIND_CHROME[k].border}`, background: KIND_CHROME[k].grad, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" }}>
+            <span style={{ fontSize: 18, color: KIND_CHROME[k].ink }}>{SUB[k].glyph}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".06em", color: KIND_CHROME[k].ink }}>{SUB[k].label}</span>
           </span>
         ))}
       </div>
@@ -2095,9 +2095,9 @@ function PileChooser({ title, onPick, onCancel }: { title: string; onPick: (k: R
       <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 600, color: C.ink }}>{title}</div>
       <div style={{ display: "flex", gap: 10 }}>
         {PILE_ORDER.map((k) => (
-          <button key={k} className="bb-btn" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: "linear-gradient(180deg,#2c1f13,#1a130b)", border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
-            <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 18, color: FACE[k].color }}>{FACE[k].mono}</span>
-            <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted }}>{FACE[k].label}</span>
+          <button key={k} className="bb-card" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: KIND_CHROME[k].grad, border: `1px solid ${KIND_CHROME[k].border}`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16), 0 6px 16px rgba(0,0,0,.45)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
+            <span style={{ fontSize: 24, lineHeight: 1, color: KIND_CHROME[k].ink, textShadow: "0 1px 4px rgba(0,0,0,.5)" }}>{SUB[k].glyph}</span>
+            <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: KIND_CHROME[k].ink }}>{SUB[k].label}</span>
           </button>
         ))}
       </div>
@@ -2111,12 +2111,19 @@ function FaceChooser({ title, onPick, onCancel }: { title: string; onPick: (f: D
     <Scrim>
       <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 600, color: C.ink }}>{title}</div>
       <div style={{ display: "flex", gap: 10 }}>
-        {(["cask", "corn", "rye", "wheat", "barley", "anything"] as DieFace[]).map((k) => (
-          <button key={k} className="bb-btn" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: "linear-gradient(180deg,#2c1f13,#1a130b)", border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
-            <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 18, color: FACE[k].color }}>{FACE[k].mono}</span>
-            <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted }}>{FACE[k].label}</span>
+        {(["cask", "corn", "rye", "wheat", "barley", "anything"] as DieFace[]).map((k) => {
+          const isWild = k === "anything";
+          const grad = isWild ? "linear-gradient(180deg,#3a3320,#1a160b)" : KIND_CHROME[k as ResourceKind].grad;
+          const border = isWild ? "#e7d9b6" : KIND_CHROME[k as ResourceKind].border;
+          const ink = isWild ? "#e7d9b6" : KIND_CHROME[k as ResourceKind].ink;
+          const glyph = isWild ? "✦" : SUB[k as ResourceKind].glyph;
+          return (
+          <button key={k} className="bb-card" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: grad, border: `1px solid ${border}`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16), 0 6px 16px rgba(0,0,0,.45)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
+            <span style={{ fontSize: 24, lineHeight: 1, color: ink, textShadow: "0 1px 4px rgba(0,0,0,.5)" }}>{glyph}</span>
+            <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: ink }}>{FACE[k].label}</span>
           </button>
-        ))}
+          );
+        })}
       </div>
       <button onClick={onCancel} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".1em", color: C.muted, background: "none", border: 0, cursor: "pointer", textTransform: "uppercase" }}>cancel</button>
     </Scrim>
