@@ -74,10 +74,18 @@ export interface MashBill {
   expression: string;
   /** Canonical style tag derived from `expression` (demand requirements key off it). */
   styleTag: StyleTag;
-  /** Required resource kinds → counts. Always exactly 1 cask + ≥1 corn. */
+  /**
+   * Matchable tags this bourbon carries (the visual, color-coded matching axis).
+   * Seeded with the grain identities; a demand card's `tags` must all be present.
+   */
+  tags: StyleTag[];
+  /** Required resource kinds → counts. Always exactly 1 cask + ≥1 corn + ≥1 grain. */
   recipe: Partial<Record<ResourceKind, number>>;
-  /** How many sales (extractions) a batch yields — scales with recipe complexity. */
-  batchQty: number;
+  /**
+   * Off-curve adjustment to the quality-derived batchQty (variance). 0 = on the
+   * curve; the built barrel's batchQty = batchQtyForQuality(quality, bias).
+   */
+  batchQtyBias: number;
   /** Per-sale Capital premium for a complex recipe (the "richer bourbon" bonus). */
   saleBonus: number;
   placeholder: true;
@@ -89,7 +97,11 @@ export interface MashBill {
  * (a better/older bourbon also qualifies).
  */
 export interface DemandRequirement {
-  styleTag?: StyleTag;
+  /**
+   * Tags the bourbon must ALL carry to fill this order (the gating axis).
+   * Empty / omitted = "any bourbon" (the open, no-lockout floor).
+   */
+  tags?: StyleTag[];
   minAge?: number;
   quality?: Quality;
 }
@@ -151,6 +163,8 @@ export interface Bourbon {
   expression: string;
   /** Canonical style tag (demand requirements match against this). */
   styleTag: StyleTag;
+  /** Matchable tags inherited from the mash bill (the demand-matching axis). */
+  tags: StyleTag[];
   /** The recipe this barrel needs to be built — shown as requirements while unbuilt. */
   recipe: Partial<Record<ResourceKind, number>>;
   /**
@@ -169,8 +183,10 @@ export interface Bourbon {
   /** Years rested. Starts 0 (or 1 with Char & Toast), +1 per round while BUILT. */
   age: number;
   quality: Quality;
-  /** Total sales this batch yields over its life. Copied from the mash bill. */
+  /** Total sales this batch yields over its life — set from QUALITY at build time. */
   batchQty: number;
+  /** Off-curve batchQty adjustment inherited from the mash bill (applied at build). */
+  batchQtyBias: number;
   /** Per-sale Capital premium (recipe-complexity bonus). Copied from the mash bill. */
   saleBonus: number;
   /** Sales left before the batch is spent. Starts at `batchQty`; each sale −1. */
@@ -289,22 +305,27 @@ export type RoundPhase = "demand" | "collect" | "play";
 
 /**
  * Live state of the Collect Phase pass. Players act in most-Capital-first
- * order: each inherits the previous player's leftovers, rolls up to their
- * Supply cap, rerolls (once, twice with Second Reroll), claims dice into
- * resources up to their Warehouse cap, and passes leftovers on.
+ * order. A player INHERITS the previous player's leftover dice onto the table
+ * (those count against their Supply cap); they then choose which inherited dice
+ * to keep and ROLL the rest (filling up to the cap with fresh dice). Base level
+ * gets no extra reroll after that first roll; the Second Reroll ultimate grants
+ * one. Then they claim dice into resources (up to Warehouse cap) and pass the
+ * leftovers on. A player with no inherited dice auto-rolls a fresh set.
  */
 export interface CollectState {
   /** Player indices in most-Capital-first order (the pass order). */
   order: number[];
   /** Position into `order` — whose collect turn it is. */
   pos: number;
-  /** Dice inherited (passed) from the previous player at the start of this turn. */
+  /** Dice inherited (passed) from the previous player — already on the table this turn. */
   inherited: Die[];
-  /** The active player's dice currently in play (inherited + rolled). */
+  /** The active player's dice currently on the table (inherited + rolled). */
   dice: Die[];
-  /** Rerolls the active player has used this turn. */
+  /** False until the active player has taken their (free) first roll this turn. */
+  rolled: boolean;
+  /** Extra rerolls the active player has used after the first roll. */
   rerollsUsed: number;
-  /** Max rerolls the active player gets (1, or 2 with the Second Reroll ultimate). */
+  /** Extra rerolls allowed after the first roll (0 base, 1 with Second Reroll). */
   maxRerolls: number;
   /** Triple Threat ultimate: used its discard-2-take-1 this turn? */
   tripleThreatUsed: boolean;
@@ -364,9 +385,14 @@ export type Action =
   | { type: "BEGIN_COLLECT" }
   // --- Collect Phase ---
   | {
-      type: "COLLECT_REROLL";
-      /** Ids of the active player's dice to reroll (once, twice with Second Reroll). */
-      diceIds: string[];
+      type: "COLLECT_ROLL";
+      /**
+       * Ids of the dice the player KEEPS; every other die on the table is
+       * rerolled. The first roll of a turn also tops the table up to the Supply
+       * cap with fresh dice. After that first (free) roll, extra rolls require a
+       * reroll allowance (0 base, 1 with Second Reroll).
+       */
+      keepDiceIds: string[];
     }
   | {
       type: "COLLECT_CLAIM";

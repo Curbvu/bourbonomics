@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyAction,
   barrelValue,
-  batchQtyForRecipe,
+  batchQtyForQuality,
   buildMashBillSupply,
   createGame,
   improvementCost,
@@ -40,12 +40,13 @@ function expectRefusal(state: GameState, action: Action): string {
   return res.ok ? "" : res.reason;
 }
 
-/** Advance Demand → Collect → Play, claiming nothing through the collect pass. */
+/** Advance Demand → Collect → Play, rolling (keeping nothing) then claiming nothing. */
 function intoPlay(s: GameState): GameState {
   s = ok(s, { type: "BEGIN_COLLECT" });
-  for (let i = 0; i < s.players.length + 1; i++) {
+  for (let i = 0; i < (s.players.length + 1) * 2; i++) {
     if (s.roundPhase !== "collect") break;
-    s = ok(s, { type: "COLLECT_CLAIM", claims: [] });
+    if (!s.collect!.rolled) s = ok(s, { type: "COLLECT_ROLL", keepDiceIds: [] });
+    else s = ok(s, { type: "COLLECT_CLAIM", claims: [] });
   }
   expect(s.roundPhase).toBe("play");
   return s;
@@ -63,12 +64,14 @@ function makeBourbon(over: Partial<Bourbon> = {}): Bourbon {
     traits: over.traits ?? [],
     expression: over.expression ?? "bourbon",
     styleTag: over.styleTag ?? "classic",
+    tags: over.tags ?? (over.styleTag ? [over.styleTag] : ["classic"]),
     recipe: over.recipe ?? {},
     staged: over.staged ?? [],
     built: over.built ?? true,
     age: over.age ?? 3,
     quality: over.quality ?? "common",
     batchQty: over.batchQty ?? 1,
+    batchQtyBias: over.batchQtyBias ?? 0,
     saleBonus: over.saleBonus ?? 0,
     salesRemaining: over.salesRemaining ?? over.batchQty ?? 1,
     createdRound: over.createdRound ?? 0,
@@ -263,22 +266,43 @@ describe("collect dice draft", () => {
     ).toMatch(/needs a pile/);
   });
 
-  it("rerolls once, and refuses a second reroll without the Second Reroll ultimate", () => {
+  it("the first player auto-rolls, and base level gets no reroll afterward", () => {
     let s = createGame({ seed: 5 });
     s = ok(s, { type: "BEGIN_COLLECT" });
-    expect(s.collect!.maxRerolls).toBe(1);
-    const id = s.collect!.dice[0]!.id;
-    s = ok(s, { type: "COLLECT_REROLL", diceIds: [id] });
-    expect(expectRefusal(s, { type: "COLLECT_REROLL", diceIds: [id] })).toMatch(/no rerolls left/);
+    expect(s.collect!.rolled).toBe(true);
+    expect(s.collect!.maxRerolls).toBe(0);
+    const keep = s.collect!.dice.slice(1).map((d) => d.id); // keep all but one → reroll one
+    expect(expectRefusal(s, { type: "COLLECT_ROLL", keepDiceIds: keep })).toMatch(/no rerolls left/);
   });
 
-  it("the Second Reroll ultimate grants a second reroll", () => {
+  it("the Second Reroll ultimate grants exactly one reroll", () => {
     let s = createGame({ seed: 5 });
     const sup = dept(s.players[0]!, "supply");
     sup.level = sup.maxLevel;
     sup.chosenUltimate = "secondReroll";
     s = ok(s, { type: "BEGIN_COLLECT" });
-    expect(s.collect!.maxRerolls).toBe(2);
+    expect(s.collect!.maxRerolls).toBe(1);
+    const keep = s.collect!.dice.slice(1).map((d) => d.id);
+    s = ok(s, { type: "COLLECT_ROLL", keepDiceIds: keep });
+    expect(s.collect!.rerollsUsed).toBe(1);
+    const keep2 = s.collect!.dice.slice(1).map((d) => d.id);
+    expect(expectRefusal(s, { type: "COLLECT_ROLL", keepDiceIds: keep2 })).toMatch(/no rerolls left/);
+  });
+
+  it("a player who inherits dice keeps-then-rolls before drafting", () => {
+    let s = createGame({ seed: 5, playerNames: ["A", "B"] });
+    s = ok(s, { type: "BEGIN_COLLECT" }); // A auto-rolls
+    s = ok(s, { type: "COLLECT_CLAIM", claims: [] }); // A passes everything to B
+    expect(s.collect!.rolled).toBe(false);
+    expect(s.collect!.inherited.length).toBeGreaterThan(0);
+    const firstId = s.collect!.dice[0]!.id;
+    expect(
+      expectRefusal(s, { type: "COLLECT_CLAIM", claims: [{ dieId: firstId }] }),
+    ).toMatch(/roll your dice/);
+    s = ok(s, { type: "COLLECT_ROLL", keepDiceIds: [firstId] }); // keep one inherited, roll the rest
+    expect(s.collect!.rolled).toBe(true);
+    expect(s.collect!.dice.length).toBe(dept(s.players[s.currentPlayerIndex]!, "supply").values[0]);
+    expect(s.collect!.dice[0]!.id).toBe(firstId); // kept die preserved
   });
 
   it("most-Capital-first sets the collect pass order", () => {
@@ -464,12 +488,19 @@ describe("mash-bill complexity scaling", () => {
     }
   });
 
-  it("more complex recipes yield ≥ batchQty and ≥ per-sale premium", () => {
+  it("more complex recipes earn a bigger per-sale premium", () => {
     const simple = { cask: 1, corn: 1 }; // complexity 2
     const rich = { cask: 1, corn: 1, rye: 1, wheat: 1, barley: 1 }; // complexity 5
     expect(saleBonusForRecipe(simple)).toBe(0);
     expect(saleBonusForRecipe(rich)).toBeGreaterThan(saleBonusForRecipe(simple));
-    expect(batchQtyForRecipe(rich)).toBeGreaterThanOrEqual(batchQtyForRecipe(simple));
+  });
+
+  it("batchQty scales with quality (Common one-and-done → Legendary 3), plus bias", () => {
+    expect(batchQtyForQuality("common")).toBe(1);
+    expect(batchQtyForQuality("legendary")).toBe(3);
+    expect(batchQtyForQuality("legendary")).toBeGreaterThan(batchQtyForQuality("common"));
+    expect(batchQtyForQuality("common", 1)).toBe(2); // off-curve variance via bias
+    expect(batchQtyForQuality("legendary", 5)).toBe(3); // clamped to the max
   });
 
   it("a sale adds the bourbon's complexity premium to the payoff", () => {
@@ -525,8 +556,8 @@ describe("sell", () => {
   });
 
   it("refuses routing to a card whose requirement isn't met", () => {
-    let s = base({ styleTag: "classic", age: 3 });
-    s.demandCards = [makeDemandCard({ id: "ord", requirement: { styleTag: "rye" } })];
+    let s = base({ styleTag: "classic", tags: ["classic"], age: 3 });
+    s.demandCards = [makeDemandCard({ id: "ord", requirement: { tags: ["rye"] } })];
     expect(
       expectRefusal(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }),
     ).toContain("does not meet");
@@ -668,11 +699,12 @@ describe("scoring and the clock", () => {
 // ------------------------------------------------------------------
 
 describe("requirement matching", () => {
-  it("matches style tag, minimum age, and minimum quality (floors)", () => {
-    const b = makeBourbon({ styleTag: "rye", age: 5, quality: "rare" });
-    expect(meetsRequirement(b, {})).toBe(true);
-    expect(meetsRequirement(b, { styleTag: "rye" })).toBe(true);
-    expect(meetsRequirement(b, { styleTag: "wheat" })).toBe(false);
+  it("matches required tags, minimum age, and minimum quality (floors)", () => {
+    const b = makeBourbon({ styleTag: "rye", tags: ["rye"], age: 5, quality: "rare" });
+    expect(meetsRequirement(b, {})).toBe(true); // open — any bourbon
+    expect(meetsRequirement(b, { tags: ["rye"] })).toBe(true);
+    expect(meetsRequirement(b, { tags: ["wheat"] })).toBe(false);
+    expect(meetsRequirement(b, { tags: ["rye", "wheat"] })).toBe(false); // needs ALL tags
     expect(meetsRequirement(b, { minAge: 4 })).toBe(true);
     expect(meetsRequirement(b, { minAge: 6 })).toBe(false);
     expect(meetsRequirement(b, { quality: "common" })).toBe(true); // rare ≥ common

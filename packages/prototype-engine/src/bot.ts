@@ -9,7 +9,7 @@
 // COMPLETE a matching demand card), grow capacity, then end the turn.
 
 import { CONFIG, improvementCost } from "./config";
-import { mashFloorDraw, meetsRequirement, rickhouseCapacity, warehouseCap } from "./engine";
+import { mashFloorDraw, meetsRequirement, rickhouseCapacity, supplyCap, warehouseCap } from "./engine";
 import type { Action, Bourbon, DepartmentId, GameState, ResourceKind } from "./types";
 
 const ALL_KINDS: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
@@ -47,7 +47,7 @@ export function isBotTurn(state: GameState): boolean {
 export function botAction(state: GameState): Action {
   const me = state.players[state.currentPlayerIndex]!;
 
-  // ---- Collect: draft toward needs, pass the rest (one COLLECT_CLAIM) ----
+  // ---- Collect: keep-then-roll, then draft toward needs, pass the rest ----
   if (state.roundPhase === "collect") {
     const c = state.collect!;
     const room = Math.max(0, warehouseCap(me) - me.hand.length);
@@ -55,6 +55,21 @@ export function botAction(state: GameState): Action {
     const want = [...needs, "cask", "corn", "cask", "barley", "rye", "wheat"] as ResourceKind[];
     const score = (face: string) =>
       face === "anything" ? 2 : needs.includes(face as ResourceKind) ? 3 : want.includes(face as ResourceKind) ? 1 : 0;
+    // First roll of the turn (only pending when dice were inherited): keep the
+    // best dice already on the table — but never more than the Supply cap — and
+    // roll the rest. A free reroll (Second Reroll ultimate) rerolls any junk.
+    if (!c.rolled) {
+      const keepDiceIds = [...c.dice]
+        .sort((a, b) => score(b.face) - score(a.face))
+        .filter((d) => score(d.face) > 0)
+        .slice(0, supplyCap(me))
+        .map((d) => d.id);
+      return { type: "COLLECT_ROLL", keepDiceIds };
+    }
+    if (c.rerollsUsed < c.maxRerolls && c.dice.some((d) => score(d.face) === 0)) {
+      const keepDiceIds = c.dice.filter((d) => score(d.face) > 0).map((d) => d.id);
+      return { type: "COLLECT_ROLL", keepDiceIds };
+    }
     const claims: { dieId: string; pile?: ResourceKind }[] = [];
     for (const die of [...c.dice].sort((a, b) => score(b.face) - score(a.face))) {
       if (claims.length >= room) break;
