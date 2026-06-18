@@ -48,10 +48,21 @@ import type {
 
 // What the inspect modal is showing (a held resource card, a yet-to-be-drawn
 // pending claim, or a mash bill).
+// The fields the bill-inspect modal reads — satisfied by both a MashBill and a
+// built/resting Bourbon, so either can be inspected.
+type BillLike = {
+  name: string;
+  styleTag: StyleTag;
+  tags: StyleTag[];
+  recipe: Partial<Record<ResourceKind, number>>;
+  saleBonus: number;
+  batchQtyBias: number;
+  slogan?: string;
+};
 type Inspect =
   | { kind: "resource"; card: ResourceCard }
   | { kind: "pending"; k: ResourceKind }
-  | { kind: "bill"; bill: MashBill };
+  | { kind: "bill"; bill: BillLike };
 import ScalingHost from "./components/ScalingHost";
 import { TUT_BEATS, TutorialOverlay, tutorialGame } from "./tutorial";
 
@@ -1113,20 +1124,35 @@ function Board(p: BoardProps) {
                   // Which grains the recipe still needs, and whether the hand has one.
                   const needKinds = PILE_ORDER.filter((k) => (b.recipe[k] ?? 0) - b.staged.filter((c) => c.kind === k).length > 0);
                   const stageable = needKinds.find((k) => me.hand.some((c) => c.kind === k));
+                  const sc = STYLE_CHROME[b.styleTag];
                   return (
                     <div key={b.id} data-tut="resting" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ position: "relative", borderRadius: 12, padding: "11px 12px 12px", border: "1px solid #4a5a3a", background: "linear-gradient(180deg, rgba(50,60,40,.4) 0%, rgba(20,18,11,.96) 60%)", boxShadow: "inset 0 1px 0 rgba(180,210,150,.14), 0 10px 22px rgba(0,0,0,.5)", overflow: "hidden" }}>
-                        <span style={{ position: "absolute", top: 9, right: 9, fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: "#2a1408", background: "linear-gradient(180deg,#9fc27a,#6d8f4f)", padding: "2px 6px", borderRadius: 4 }}>{STYLE_LABEL[b.styleTag]}</span>
-                        <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: "#9fc27a" }}>Resting Bill</div>
-                        <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fbeccb", lineHeight: 1.05, marginTop: 1 }}>{b.name}</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11, flexWrap: "wrap" }}>
+                      <div onContextMenu={(e) => { e.preventDefault(); p.onInspect({ kind: "bill", bill: b }); }} title="Right-click (or ⓘ) to inspect this bill" style={{ position: "relative", borderRadius: 12, padding: "11px 12px 12px", border: `1px solid ${sc.border}`, background: sc.grad, boxShadow: `inset 0 1px 0 rgba(255,255,255,.12), ${sc.glow}`, overflow: "hidden" }}>
+                        <span style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 42%, rgba(255,255,255,.05) 50%, transparent 58%)", pointerEvents: "none" }} />
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: sc.border }}>Resting Bill</span>
+                          <div style={{ flex: 1 }} />
+                          {b.tags.map((t) => (
+                            <span key={t} style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#1a1209", background: STYLE_CHROME[t].border, padding: "2px 7px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
+                          ))}
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => { e.stopPropagation(); p.onInspect({ kind: "bill", bill: b }); }}
+                            title="Inspect this bill"
+                            style={{ width: 18, height: 18, borderRadius: 999, display: "grid", placeItems: "center", fontFamily: SERIF, fontStyle: "italic", fontWeight: 700, fontSize: 11, color: sc.ink, border: `1px solid ${sc.border}88`, background: "rgba(10,7,4,.5)", cursor: "pointer" }}
+                          >i</span>
+                        </div>
+                        <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: sc.ink, lineHeight: 1.05, marginTop: 2 }}>{b.name}</div>
+                        {b.traits.length > 0 && <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 11, lineHeight: 1.25, color: C.muted, marginTop: 1 }}>{b.traits.join(" · ")}</div>}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                           {slotList.map(({ kind: k, filled }, i) => (
                             <span key={i} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, width: 44, height: 46, borderRadius: 10, ...(filled ? { background: `linear-gradient(180deg,${FACE[k].color}26,#1a130b)`, border: `1.5px solid ${FACE[k].color}` } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }}>
                               {resMark(k, 22, filled ? FACE[k].color : C.faint)}
                               <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 8, letterSpacing: ".04em", color: filled ? FACE[k].color : C.faint }}>{FACE[k].mono}</span>
                             </span>
                           ))}
-                          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: "#9fc27a", marginLeft: 4 }}>{b.staged.length}/{recipeSize(b.recipe)}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: sc.ink, marginLeft: 4 }}>{b.staged.length}/{recipeSize(b.recipe)}</span>
                         </div>
                         <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4, marginTop: 8 }}>Staged cards free Warehouse cap.{hasUlt(me, "warehouse", "longCellar") ? " (Long Cellar: swappable)" : " They lock here."}</div>
                       </div>
@@ -1514,6 +1540,8 @@ function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
               key={bill.id}
               className="bb-card"
               onClick={() => { const n = new Set(board.keepBills); n.has(i) ? n.delete(i) : n.add(i); board.setKeepBills(n); }}
+              onContextMenu={(e) => { e.preventDefault(); board.onInspect({ kind: "bill", bill }); }}
+              title="Click to keep · right-click (or ⓘ) to inspect"
               style={{ position: "relative", width: 210, textAlign: "left", display: "flex", flexDirection: "column", gap: 7, padding: "13px 14px 12px", borderRadius: 14, cursor: "pointer", overflow: "hidden", border: `2px solid ${sc.border}`, background: sel ? sc.selGrad : sc.grad, boxShadow: sel ? `inset 0 1px 0 rgba(255,255,255,.18), ${sc.glow}` : "inset 0 1px 0 rgba(255,255,255,.1), 0 6px 16px rgba(0,0,0,.4)" }}
             >
               {/* glass sheen */}
@@ -1928,7 +1956,7 @@ function ResourceDetail({ kind, quality, name, pending }: { kind: ResourceKind; 
   );
 }
 
-function BillDetail({ bill }: { bill: MashBill }) {
+function BillDetail({ bill }: { bill: BillLike }) {
   return (
     <article style={{ display: "flex", flexDirection: "column", gap: 12, borderRadius: 16, border: `2px solid ${C.brass}`, background: "radial-gradient(120% 70% at 50% -10%, rgba(240,201,112,.14), transparent 60%), linear-gradient(180deg,#241710,#130c07)", padding: 22, boxShadow: "0 18px 50px rgba(0,0,0,.6)" }}>
       <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>Mash Bill · {STYLE_LABEL[bill.styleTag]}</span>
