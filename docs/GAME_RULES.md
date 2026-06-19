@@ -192,8 +192,8 @@ Every department is a branch: **Base → +1 → +1 → Ultimate.** The two mid-s
 
 | Department | Function | Starter (`[PH]`) |
 |---|---|---|
-| **Supply** | Dice rolled in Collect | 5 dice |
-| **Warehouse** | Loose resource cards held | 5 cards |
+| **Supply** | Dice rolled in Collect | 4 dice |
+| **Warehouse** | Loose resource cards held | 4 cards |
 | **Mash Floor** | Mash bills drawn per Draw Mash Bills | 3 |
 | **Marketing Department** | Demand cards drawn per Demand Phase | 1 (`[PH]`) |
 | **Distribution** | Sell-side: sell throughput + market-outcome shaping (self-directed only) | `[PH]` |
@@ -209,13 +209,13 @@ Every department is a branch: **Base → +1 → +1 → Ultimate.** The two mid-s
 - **Double Maturation** — a barrel reaching age 8+ gains +1 batchQty.
 - **Warehouse Tasting** — while you have 3+ barrels aging, gain +1 Capital/round.
 
-**Supply** — base 5 → 6 → 7 → ultimate:
+**Supply** — base 4 → 5 → 6 → ultimate:
 - **Second Reroll** — grants **one** reroll after your roll (the base level gets none).
 - **Overflow Roll** — +2 dice.
 - **Prospector** — pick one pile; claims from it draw 2, keep the better.
 - **Triple Threat** — once per Collect turn, discard 2 unwanted dice → take 1 die of any face.
 
-**Warehouse** — base 5 → 6 → 7 → ultimate:
+**Warehouse** — base 4 → 5 → 6 → ultimate:
 - **Grand Warehouse** — +3 cap.
 - **Quality Sort** — once per round, 1 free blind draw from any pile (respects cap).
 - **Long Cellar** — staged cards stay swappable (not locked to the barrel).
