@@ -978,26 +978,20 @@ function Board(p: BoardProps) {
                       {d.chosenUltimate && d.chosenUltimate !== "ph" && (
                         <span style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".06em", textTransform: "uppercase", color: "#2a1408", background: color, padding: "1px 5px", borderRadius: 3 }}>ULT</span>
                       )}
-                      <div style={{ display: "flex", gap: 2 }}>
-                        {Array.from({ length: d.maxLevel + 1 }).map((_, i) => (
-                          <span key={i} style={{ width: 9, height: 5, borderRadius: 2, background: i <= d.level ? color : C.border2 }} />
-                        ))}
+                      <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+                        {Array.from({ length: d.maxLevel + 1 }).map((_, i) => {
+                          const owned = i <= d.level;
+                          if (i === d.maxLevel) {
+                            return <span key={i} title="Ultimate" style={{ width: 7, height: 7, marginLeft: 2, transform: "rotate(45deg)", borderRadius: 1, background: owned ? "linear-gradient(135deg,#f7dd9a,#c69d52)" : "transparent", border: `1px solid ${owned ? "#f0c970" : C.brass}`, boxShadow: owned ? "0 0 5px rgba(240,201,112,.8)" : undefined }} />;
+                          }
+                          return <span key={i} style={{ width: 9, height: 5, borderRadius: 2, background: owned ? color : C.border2 }} />;
+                        })}
                       </div>
                     </div>
                   );
                 })}
               </div>
             </RailCard>
-
-            <section style={{ borderRadius: 14, background: "linear-gradient(180deg,#221710,#150e08)", border: `1px solid ${C.border}`, padding: 13, marginTop: "auto" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: C.brass }}>Next Improvement</span>
-                <div style={{ flex: 1 }} />
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.text2 }}>step {me.improvements + 1}</span>
-                <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.gold }}>{improvementCost(me.improvements, fnCounting(me))}</span>
-              </div>
-              <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, marginTop: 6 }}>One shared, rising price for every room. Each improvement raises the next.</div>
-            </section>
           </aside>
 
           {/* DISTILLERY */}
@@ -1075,8 +1069,12 @@ function Board(p: BoardProps) {
                           </div>
                           <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#2a1408", background: qc.foil, padding: "3px 8px", borderRadius: 5, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{qc.label}</span>
                         </div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: qc.ink }}>{STYLE_LABEL[b.styleTag]} Bourbon</div>
-                        <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fbeccb", lineHeight: 1.05, marginTop: 1 }}>{b.name}</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 1 }}>
+                          {b.tags.map((t) => (
+                            <span key={t} title={`Fills ${STYLE_LABEL[t]} demand orders`} style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#1a1209", background: STYLE_CHROME[t].border, padding: "2px 7px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
+                          ))}
+                        </div>
+                        <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fbeccb", lineHeight: 1.05, marginTop: 3 }}>{b.name}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 9, paddingTop: 9, borderTop: `1px dotted ${qc.ink}55` }}>
                           <span style={{ position: "relative", width: 46, height: 46, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%)", display: "grid", placeItems: "center", animation: "bb-ember 3.2s ease-in-out infinite", flex: "0 0 auto" }}>
                             <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#2a1a10", lineHeight: 1 }}>{b.age}</span>
@@ -1084,18 +1082,11 @@ function Board(p: BoardProps) {
                           </span>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, lineHeight: 1 }}>{sellable ? `sell ≈ ${baseValue}+` : "aging in oak"}</div>
-                            <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".04em", color: C.muted, marginTop: 3 }}>
-                              ({trackVal} <span style={{ color: ZONE_META[zone].color }}>+ order</span>) × {mult} {ZONE_META[zone].label}{b.saleBonus > 0 ? ` + ${b.saleBonus}` : ""}
-                            </div>
                           </div>
                         </div>
-                        {/* VALUE TRACK — the quality's age→value ladder; rungs fill as it ages, current highlighted */}
-                        <div style={{ marginTop: 8, padding: "6px 7px 7px", borderRadius: 7, background: "rgba(12,8,5,.5)", border: `1px solid ${qc.ink}33` }}>
-                          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 5 }}>
-                            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: qc.ink }}>Value by Age</span>
-                            <span style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".04em", color: C.muted }}>caps {trackSteps[trackSteps.length - 1]?.value} @ yr {capYear}</span>
-                          </div>
-                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "stretch", gap: 3 }} title="Capital value off the printed track by age (holds the last value after the cap)">
+                        {/* VALUE BY AGE — the quality's age→value ladder; rungs fill as it ages, current highlighted */}
+                        <div style={{ marginTop: 8, padding: "8px", borderRadius: 8, background: "rgba(12,8,5,.5)", border: `1px solid ${qc.ink}33` }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "stretch", gap: 4 }} title="Capital value by age for this quality (holds after the cap)">
                             {trackSteps.map((s, i) => {
                               const active = i === activeStep;
                               const reached = i <= activeStep;
@@ -1103,16 +1094,13 @@ function Board(p: BoardProps) {
                                 <span
                                   key={s.age}
                                   title={`Age ${s.age}${i === trackSteps.length - 1 ? "+" : `–${(trackSteps[i + 1]?.age ?? s.age + 1) - 1}`} → ${s.value}`}
-                                  style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 24, padding: "3px 4px", borderRadius: 6, lineHeight: 1, ...(active ? { background: qc.foil, color: "#2a1408", border: `1px solid ${qc.ink}`, boxShadow: `0 0 8px ${qc.ink}77` } : reached ? { background: `${qc.ink}24`, color: qc.ink, border: `1px solid ${qc.ink}55` } : { background: "transparent", color: C.faint, border: `1px solid ${C.border2}` }) }}
+                                  style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 36, padding: "6px 8px", borderRadius: 8, lineHeight: 1, ...(active ? { background: qc.foil, color: "#2a1408", border: `1px solid ${qc.ink}`, boxShadow: `0 0 10px ${qc.ink}88` } : reached ? { background: `${qc.ink}24`, color: qc.ink, border: `1px solid ${qc.ink}55` } : { background: "transparent", color: C.faint, border: `1px solid ${C.border2}` }) }}
                                 >
-                                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14 }}>{s.value}</span>
-                                  <span style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".02em", marginTop: 1, opacity: 0.85 }}>yr{s.age}</span>
+                                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22 }}>{s.value}</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".02em", marginTop: 2, opacity: 0.85 }}>yr{s.age}</span>
                                 </span>
                               );
                             })}
-                          </div>
-                          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".02em", color: C.muted, lineHeight: 1.5, marginTop: 5 }}>
-                            sale = (value + order) × zone ({ZONE_META.low.label} 1 · {ZONE_META.mid.label} 2 · {ZONE_META.high.label} 3)
                           </div>
                         </div>
                       </button>
@@ -1136,7 +1124,8 @@ function Board(p: BoardProps) {
                   // Which grains the recipe still needs, and whether the hand has one.
                   const needKinds = PILE_ORDER.filter((k) => (b.recipe[k] ?? 0) - b.staged.filter((c) => c.kind === k).length > 0);
                   const stageable = needKinds.find((k) => me.hand.some((c) => c.kind === k));
-                  const sc = STYLE_CHROME[b.styleTag];
+                  // Resting bill — quality decided at build, so a neutral chrome; the style shows as tags.
+                  const sc = { border: "rgba(170,150,112,.55)", grad: "linear-gradient(180deg, rgba(64,56,42,.34), #15100a 80%)", selGrad: "linear-gradient(180deg, rgba(104,90,64,.52), #1d1509 85%)", ink: "#d4c6a2", glow: "0 0 20px rgba(170,150,112,.22)" };
                   return (
                     <div key={b.id} data-tut="resting" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <div onContextMenu={(e) => { e.preventDefault(); p.onInspect({ kind: "bill", bill: b }); }} title="Right-click (or ⓘ) to inspect this bill" style={{ position: "relative", borderRadius: 12, padding: "11px 12px 12px", border: `1px solid ${sc.border}`, background: sc.grad, boxShadow: `inset 0 1px 0 rgba(255,255,255,.12), ${sc.glow}`, overflow: "hidden" }}>
@@ -1411,27 +1400,23 @@ function ActionBand(props: {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "168px 1fr 256px", gap: 16, alignItems: "stretch" }}>
-        {/* turn guide (inherited dice now live on the table) */}
-        <div style={{ borderRadius: 11, background: "#150e08", border: `1px dashed ${C.border}`, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, lineHeight: 1.5 }}>The Draft</div>
-          {phaseStage === "collect" && collect ? (
-            preRoll ? (
-              <>
-                <div style={{ fontFamily: SERIF, fontSize: 15, color: C.gold, lineHeight: 1.2 }}>{collect.inherited.length} inherited die/dice on the table</div>
-                <div style={{ fontSize: 10.5, color: C.muted, lineHeight: 1.5 }}>They count toward your {supplyCap}-die cap. Tap the ones to <b style={{ color: "#f0c970" }}>keep</b>, then <b style={{ color: C.gold }}>roll</b> the rest.</div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontFamily: SERIF, fontSize: 15, color: C.ink, lineHeight: 1.2 }}>Draft into your Warehouse</div>
-                <div style={{ fontSize: 10.5, color: C.muted, lineHeight: 1.5 }}>Tap dice to draft them; whatever you don&apos;t draft passes to the next player.</div>
-              </>
-            )
-          ) : (
-            <div style={{ fontSize: 10.5, color: C.muted, lineHeight: 1.5, marginTop: "auto" }}>Inherit leftovers, keep what you like, roll the rest — then draft into your Warehouse.</div>
-          )}
-        </div>
+      {/* piles strip — at the TOP of the draft */}
+      <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 11, paddingBottom: 9, borderBottom: `1px solid ${C.border2}` }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.brass }}>Piles · draw blind</span>
+        {PILE_ORDER.map((k) => (
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: "#1a130b", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {resMark(k, 20, FACE[k].color)}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.ink }}>{game.piles[k].length}</span>
+              <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", textTransform: "uppercase", color: C.muted }}>{FACE[k].label}</span>
+            </div>
+          </div>
+        ))}
+      </div>
 
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 256px", gap: 16, alignItems: "stretch" }}>
         {/* dice tray */}
         <div style={{ position: "relative", borderRadius: 12, background: "radial-gradient(120% 100% at 50% 0%, rgba(213,150,80,.07), transparent 60%), #11100a", border: `1px solid ${C.border2}`, padding: 14, minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {phaseStage === "demand" && (
@@ -1513,25 +1498,6 @@ function ActionBand(props: {
         </div>
       </div>
 
-      {/* piles strip */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 10, paddingTop: 9, borderTop: `1px solid ${C.border2}` }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.brass }}>Piles · draw blind</span>
-        <div style={{ display: "flex", gap: 18 }}>
-          {PILE_ORDER.map((k) => (
-            <div key={k} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: "#1a130b", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {resMark(k, 22, FACE[k].color)}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: C.ink }}>{game.piles[k].length}</span>
-                <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", textTransform: "uppercase", color: C.muted }}>{FACE[k].label}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, color: C.muted }}>Quality (Common → Legendary) is drawn blind. Quality sets the barrel's age-value track.</span>
-      </div>
     </section>
   );
 }
@@ -1546,7 +1512,8 @@ function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
       <div data-tut="bills" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", alignItems: "stretch" }}>
         {offer.map((bill, i) => {
           const sel = board.keepBills.has(i);
-          const sc = STYLE_CHROME[bill.styleTag];
+          // Unbuilt bill — quality is drawn blind, so a neutral chrome; the style shows as tags.
+          const sc = { border: "rgba(170,150,112,.55)", grad: "linear-gradient(180deg, rgba(64,56,42,.34), #15100a 80%)", selGrad: "linear-gradient(180deg, rgba(104,90,64,.52), #1d1509 85%)", ink: "#d4c6a2", glow: "0 0 20px rgba(170,150,112,.22)" };
           return (
             <button
               key={bill.id}
@@ -1664,10 +1631,21 @@ function Pips({ dept, me }: { dept: DepartmentId; me: Player }) {
   const d = me.distillery.departments.find((x) => x.id === dept)!;
   const color = DEPT_META[dept].color;
   return (
-    <div style={{ display: "flex", gap: 3 }}>
-      {Array.from({ length: d.maxLevel + 1 }).map((_, i) => (
-        <span key={i} style={{ width: 11, height: 6, borderRadius: 2, background: i <= d.level ? color : C.border2 }} />
-      ))}
+    <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+      {Array.from({ length: d.maxLevel + 1 }).map((_, i) => {
+        const owned = i <= d.level;
+        // The last step is the ULTIMATE — a special gold diamond, not a plain pip.
+        if (i === d.maxLevel) {
+          return (
+            <span
+              key={i}
+              title="Ultimate"
+              style={{ width: 9, height: 9, marginLeft: 3, transform: "rotate(45deg)", borderRadius: 2, background: owned ? "linear-gradient(135deg,#f7dd9a,#c69d52)" : "transparent", border: `1px solid ${owned ? "#f0c970" : C.brass}`, boxShadow: owned ? "0 0 7px rgba(240,201,112,.8)" : `inset 0 0 0 1px ${C.brass}33` }}
+            />
+          );
+        }
+        return <span key={i} style={{ width: 11, height: 6, borderRadius: 2, background: owned ? color : C.border2 }} />;
+      })}
     </div>
   );
 }
@@ -1764,26 +1742,6 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: "#0c0805", background: zoneMeta.color, padding: "4px 10px", borderRadius: 6 }} title="Demand zone multiplies (bourbon value + order value) at sale">
           {zoneMeta.label}<span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18 }}>×{zoneMultiplier(zone)}</span>
         </span>
-      </div>
-
-      {/* tidy top strip: your kept-orders tally + the zone legend (moved up from the foot) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: "0 0 auto", paddingBottom: 8, borderBottom: `1px solid ${C.border2}` }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: MONO, fontSize: 10, letterSpacing: ".06em", color: C.muted }} title={`You keep an order by filling its last slot. Each order needs ${game.players.length} fills per player.`}>
-          KEPT <b style={{ color: C.ink, fontSize: 12 }}>{me.keptCards.length}</b>
-          <span style={{ color: C.green }}>★{reputationOf(me)}</span>
-        </span>
-        <div style={{ flex: 1 }} />
-        {(["low", "mid", "high"] as Zone[]).map((z) => {
-          const range = z === "low" ? `1–${CONFIG.ZONE_MID_MIN - 1}` : z === "mid" ? `${CONFIG.ZONE_MID_MIN}–${CONFIG.ZONE_HIGH_MIN - 1}` : `${CONFIG.ZONE_HIGH_MIN}+`;
-          const live = z === zone;
-          return (
-            <span key={z} title={`${ZONE_META[z].label} zone (${range} orders): sale ×${zoneMultiplier(z)}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: live ? `${ZONE_META[z].color}22` : "transparent", border: `1px solid ${live ? ZONE_META[z].color : "transparent"}` }}>
-              <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: ZONE_META[z].color, opacity: live ? 1 : 0.6, fontWeight: live ? 700 : 400 }}>{ZONE_META[z].label}</span>
-              <span style={{ fontFamily: MONO, fontSize: 8.5, color: C.text2, opacity: live ? 0.9 : 0.45 }}>{range}</span>
-              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: live ? 14 : 11, color: ZONE_META[z].color, opacity: live ? 1 : 0.6, lineHeight: 1 }}>×{zoneMultiplier(z)}</span>
-            </span>
-          );
-        })}
       </div>
 
       {/* the meter — a fixed ladder of `maxSlots` tranche-banded slots, cards pile from the floor up */}

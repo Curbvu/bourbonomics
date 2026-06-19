@@ -253,8 +253,8 @@ const DEPARTMENT_TEMPLATE: Record<
   // Base → +1 → +1 → Ultimate (the ultimate step keeps the prior magnitude; the
   // qualitative effect comes from chosenUltimate, applied in the engine).
   rickhouse: { name: "The Rickhouse", blurb: "Total barrel capacity (resting + aging).", values: [3, 4, 5, 5] },
-  supply: { name: "The Supply Room", blurb: "Resource dice you roll into the draft each Collect.", values: [5, 6, 7, 7] },
-  warehouse: { name: "The Warehouse", blurb: "Loose resource cards you may hold.", values: [5, 6, 7, 7] },
+  supply: { name: "The Supply Room", blurb: "Resource dice you roll into the draft each Collect.", values: [4, 5, 6, 6] },
+  warehouse: { name: "The Warehouse", blurb: "Loose resource cards you may hold.", values: [4, 5, 6, 6] },
   mashFloor: { name: "The Mash Floor", blurb: "Mash bills you may draw per Draw action.", values: [3, 4, 5, 5] },
   marketing: { name: "Marketing Dept.", blurb: "Demand cards drawn each Demand Phase (shapes the market).", values: [1, 2, 3, 3] },
   distribution: { name: "The Loading Dock", blurb: "Bonus Capital on every sale (sell-side throughput).", values: [0, 1, 2, 3] },
