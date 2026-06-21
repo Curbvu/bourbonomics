@@ -128,20 +128,20 @@ export const TUT_BEATS: TutBeat[] = [
   {
     id: "draft",
     title: "Draft your resources",
-    body: "Each die is a resource — **cask, corn, rye, wheat, barley**. Tap **all five dice** to collect one of each (watch them fly to your Warehouse), then press **DRAFT** to bank them.",
+    body: "Each die is a resource — **cask, corn, rye, barley**. Tap **all four dice** to collect one of each (watch them fly to your Warehouse), then press **DRAFT** to bank them.",
     spotlight: "dice",
-    // once all five are tapped, move the halo to the DRAFT button.
-    spotlightAfterDraft: { count: 5, target: "pass" },
-    hint: "Tap all five dice, then press DRAFT.",
+    // once all four are tapped, move the halo to the DRAFT button.
+    spotlightAfterDraft: { count: 4, target: "pass" },
+    hint: "Tap all four dice, then press DRAFT.",
     step: 2,
     // dice rolled on BEGIN_COLLECT — rig the faces to exactly one of each resource.
     onEnter: (g) => {
       const d = structuredClone(g);
-      const faces: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
+      const faces: ResourceKind[] = ["cask", "corn", "rye", "barley"];
       if (d.collect) d.collect.dice = d.collect.dice.map((die, i) => ({ ...die, face: faces[i] ?? "corn" }));
       return d;
     },
-    allow: (a) => (a.type === "COLLECT_CLAIM" ? a.claims.length >= 5 : a.type === "COLLECT_ROLL"),
+    allow: (a) => (a.type === "COLLECT_CLAIM" ? a.claims.length >= 4 : a.type === "COLLECT_ROLL"),
     goal: (a) => a.type === "COLLECT_CLAIM",
   },
   {
