@@ -1,10 +1,11 @@
 "use client";
 
-// Bourbonomics — game board. Wired to the rebuilt engine (new GAME_RULES.md):
-// a persistent demand market (zones / crash / per-card slots / kept cards), the
-// demand-deck clock, the disaggregated sell payoff (barrel value + zone + card),
-// and seven-branch departments with per-distillery ultimates. Visual tokens &
-// layout inherit the hi-fi Collect design.
+// Bourbonomics — "Spotlight" board. A 3-zone layout (At the Table · Center Stage
+// · The Market) over a full-width Table Log. The CENTER STAGE is the only thing
+// that morphs per phase; the rails stay quiet and persistent. The headline is the
+// turn-clarity system: a live player ticker, a spectator narration stage on rival
+// turns (no more silent lock), and a shared Table Log. Warm parchment palette.
+// Wired to the engine (applyAction / botAction / isBotTurn / game.log).
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -36,7 +37,6 @@ import type {
   DepartmentId,
   DieFace,
   GameState,
-  MashBill,
   Player,
   Quality,
   ResourceCard,
@@ -46,8 +46,6 @@ import type {
   Zone,
 } from "@bourbonomics/prototype-engine";
 
-// What the inspect modal is showing (a held resource card, a yet-to-be-drawn
-// pending claim, or a mash bill).
 // The fields the bill-inspect modal reads — satisfied by both a MashBill and a
 // built/resting Bourbon, so either can be inspected.
 type BillLike = {
@@ -66,44 +64,62 @@ type Inspect =
 import ScalingHost from "./components/ScalingHost";
 import { TUT_BEATS, TutorialOverlay, tutorialGame } from "./tutorial";
 
-// ── tokens ───────────────────────────────────────────────────────────
+// ── tokens (warm parchment "tasting-room daylight") ──────────────────
 const MONO = "'JetBrains Mono', monospace";
 const SERIF = "'Cormorant Garamond', serif";
 const C = {
-  ink: "#f0e3c8",
-  text2: "#b9a684",
-  muted: "#7c6a51",
-  faint: "#4d4031",
-  gold: "#f0c970",
-  brass: "#c69d52",
-  border: "#3b2818",
-  border2: "#2e1f15",
-  green: "#6db28c",
-  red: "#d96b54",
-  amber: "#d59650",
+  // ink ladder (dark → ghost) over the light board
+  ink: "#2a1a0e",
+  text2: "#6f5c45",
+  muted: "#9a8568",
+  faint: "#bcae90",
+  // accents
+  gold: "#b07d28", // brass — Capital
+  brass: "#a06f22",
+  copper: "#b5793a",
+  prestige: "#8a5fb0",
+  green: "#3e7d59", // emerald — done / positive
+  red: "#c0492c", // hot / crash
+  amber: "#cf8a33",
+  // structure
+  border: "#d9c8a8",
+  border2: "#e0d2b5",
+  hairline: "#ece2cf",
 };
+
+// Surfaces + the §4 depth recipe (light panels, soft warm shadows).
+const SURFACE = {
+  panel: "linear-gradient(180deg,#fffdf8,#f6eedd)",
+  rail: "#fbf7ee",
+  inset: "#f3ebdb",
+  insetGrad: "linear-gradient(180deg,#f5eede,#ece2cf)",
+};
+const PANEL_SHADOW = "inset 0 1px 0 rgba(255,255,255,.7), 0 10px 26px rgba(120,90,50,.10)";
+const CARD_SHADOW = "inset 0 1px 0 rgba(255,255,255,.6), 0 6px 16px rgba(120,90,50,.10)";
+// Primary CTA — amber.
+const PRIMARY = "linear-gradient(180deg,#cf8a33,#a3531f)";
+const PRIMARY_INK = "#fff7ea";
+const PRIMARY_SHADOW = "inset 0 1px 0 rgba(255,255,255,.35), 0 8px 20px rgba(163,83,31,.28)";
 
 const FACE: Record<DieFace, { mono: string; label: string; color: string; wild?: boolean }> = {
   cask: { mono: "CK", label: "Cask", color: "#cf9a5e" },
-  corn: { mono: "CN", label: "Corn", color: "#f0c970" },
+  corn: { mono: "CN", label: "Corn", color: "#e0a82f" },
   rye: { mono: "RY", label: "Rye", color: "#d96b54" },
-  // Wheat is cyan (matching its card chrome) so it doesn't read as gold-corn.
-  wheat: { mono: "WH", label: "Wheat", color: "#7ec8dd" },
-  barley: { mono: "BA", label: "Barley", color: "#6db28c" },
-  anything: { mono: "✦", label: "Any", color: "#e7d9b6", wild: true },
+  // Wheat stays cyan (matching its card chrome) so it doesn't read as gold-corn.
+  wheat: { mono: "WH", label: "Wheat", color: "#5ab6cf" },
+  barley: { mono: "BA", label: "Barley", color: "#56a87c" },
+  anything: { mono: "✦", label: "Any", color: "#caa86a", wild: true },
 };
 const PILE_ORDER: ResourceKind[] = ["cask", "corn", "rye", "wheat", "barley"];
 const SUB: Record<ResourceKind, { ink: string; glyph: string; label: string }> = {
-  cask: { ink: "#cf9a5e", glyph: "⌬", label: "Cask" },
-  corn: { ink: "#f0c970", glyph: "✺", label: "Corn" },
-  // Rye uses a heavy 8-point star so it never collides with the wild ✦ glyph.
-  rye: { ink: "#d96b54", glyph: "✸", label: "Rye" },
-  wheat: { ink: "#8fd0e2", glyph: "❉", label: "Wheat" },
-  barley: { ink: "#6db28c", glyph: "❦", label: "Barley" },
+  cask: { ink: "#8a5a25", glyph: "⌬", label: "Cask" },
+  corn: { ink: "#8a6212", glyph: "✺", label: "Corn" },
+  rye: { ink: "#9a3c1d", glyph: "✸", label: "Rye" },
+  wheat: { ink: "#2c6c80", glyph: "❉", label: "Wheat" },
+  barley: { ink: "#2c5d40", glyph: "❦", label: "Barley" },
 };
 
-// Resource icon art (white silhouettes in /public) — rendered as TINTED MASKS so
-// each picks up the right per-surface colour. Cask has no icon: it keeps its glyph.
+// Resource icon art (white silhouettes in /public) — rendered as TINTED MASKS.
 const RESOURCE_ICON: Partial<Record<ResourceKind, string>> = {
   corn: "/icons8-corn-90.png",
   rye: "/icons8-rye-90.png",
@@ -119,14 +135,13 @@ function resMark(kind: ResourceKind, size: number, color: string): React.ReactNo
   return <span aria-hidden style={{ display: "inline-block", width: size, height: size, background: color, WebkitMask: mask, mask }} />;
 }
 
-// Per-resource card chrome (the original's complementary palette: oak / gold /
-// crimson / cyan / teal) — used by the stylized hand cards + inspect modal.
+// Per-resource card chrome — light tinted tiles with a colored ink (legible on parchment).
 const KIND_CHROME: Record<ResourceKind, { grad: string; border: string; ink: string }> = {
-  cask: { grad: "linear-gradient(180deg,#6b4423 0%,#3d2417 55%,#150c06 100%)", border: "#a07142", ink: "#f3dcb6" },
-  corn: { grad: "linear-gradient(180deg,#d8b13a 0%,#7a5a16 50%,#160f06 100%)", border: "#f0c970", ink: "#fff0c4" },
-  rye: { grad: "linear-gradient(180deg,#c0463c 0%,#5a1f1c 52%,#160a08 100%)", border: "#e08a78", ink: "#ffdcd2" },
-  wheat: { grad: "linear-gradient(180deg,#52a6bd 0%,#2a5566 52%,#0a1418 100%)", border: "#8fd0e2", ink: "#dff3f8" },
-  barley: { grad: "linear-gradient(180deg,#4ea27a 0%,#27543c 52%,#0a1610 100%)", border: "#7fd0a4", ink: "#d6f2e2" },
+  cask: { grad: "linear-gradient(180deg,#f3e6d3,#fffdf8)", border: "#b5793a", ink: "#7a4d1e" },
+  corn: { grad: "linear-gradient(180deg,#f8edcb,#fffdf8)", border: "#c8922f", ink: "#8a6212" },
+  rye: { grad: "linear-gradient(180deg,#f4dccf,#fffdf8)", border: "#b04e2a", ink: "#8a3a1c" },
+  wheat: { grad: "linear-gradient(180deg,#dceef3,#fffdf8)", border: "#5ab6cf", ink: "#2c6678" },
+  barley: { grad: "linear-gradient(180deg,#dcefe2,#fffdf8)", border: "#3e7d59", ink: "#2c5d40" },
 };
 
 const STYLE_LABEL: Record<StyleTag, string> = {
@@ -138,15 +153,14 @@ const STYLE_LABEL: Record<StyleTag, string> = {
   classic: "Classic",
 };
 
-// Per-style card chrome (oak/amber/crimson/cyan/violet/teal) — the flashy
-// gradient + border + glow used by the mash-bill draw cards (matches the wiki).
-const STYLE_CHROME: Record<StyleTag, { border: string; grad: string; selGrad: string; ink: string; glow: string }> = {
-  classic: { border: "#c69d52", grad: "linear-gradient(180deg,rgba(198,157,82,.20),#15100a 80%)", selGrad: "linear-gradient(180deg,rgba(198,157,82,.42),#1c1409 85%)", ink: "#f3dcb6", glow: "0 0 26px rgba(198,157,82,.30)" },
-  highCorn: { border: "#f0c970", grad: "linear-gradient(180deg,rgba(240,201,112,.20),#15100a 80%)", selGrad: "linear-gradient(180deg,rgba(240,201,112,.42),#1c1409 85%)", ink: "#fff0c4", glow: "0 0 26px rgba(240,201,112,.30)" },
-  rye: { border: "#e08a78", grad: "linear-gradient(180deg,rgba(217,107,84,.22),#160c08 80%)", selGrad: "linear-gradient(180deg,rgba(217,107,84,.46),#1e0e09 85%)", ink: "#ffdcd2", glow: "0 0 26px rgba(217,107,84,.30)" },
-  wheat: { border: "#8fd0e2", grad: "linear-gradient(180deg,rgba(82,166,189,.20),#0a1418 80%)", selGrad: "linear-gradient(180deg,rgba(82,166,189,.44),#0c1c22 85%)", ink: "#dff3f8", glow: "0 0 26px rgba(143,208,226,.28)" },
-  fourGrain: { border: "#c79df0", grad: "linear-gradient(180deg,rgba(157,111,208,.22),#0e0a14 80%)", selGrad: "linear-gradient(180deg,rgba(157,111,208,.46),#140d1e 85%)", ink: "#ecdcfa", glow: "0 0 26px rgba(199,157,240,.30)" },
-  barley: { border: "#7fd0a4", grad: "linear-gradient(180deg,rgba(78,162,122,.20),#0a1610 80%)", selGrad: "linear-gradient(180deg,rgba(78,162,122,.44),#0c1e14 85%)", ink: "#d6f2e2", glow: "0 0 26px rgba(127,208,164,.28)" },
+// Per-style tag chrome — `border` is the pill fill (dark ink on the saturated pill).
+const STYLE_CHROME: Record<StyleTag, { border: string; ink: string }> = {
+  classic: { border: "#4a7fb0", ink: "#0e1a24" },
+  highCorn: { border: "#a8862c", ink: "#1c1606" },
+  rye: { border: "#b04e2a", ink: "#1e0c06" },
+  wheat: { border: "#4a93a8", ink: "#08181c" },
+  fourGrain: { border: "#8a5fb0", ink: "#160c20" },
+  barley: { border: "#3e7d59", ink: "#0a1610" },
 };
 
 const ZONE_META: Record<Zone, { label: string; color: string }> = {
@@ -155,49 +169,46 @@ const ZONE_META: Record<Zone, { label: string; color: string }> = {
   high: { label: "Hot", color: C.red },
 };
 
-// AI playback pace — a throttle so the human can watch rivals act. `mult`
-// scales the per-action delays in the AI driver; default Normal is already
-// unhurried so a turn reads clearly.
+// Rival playback pace — "Rival pace" tweak (maps to the AI driver delay).
 type AiSpeed = "slow" | "normal" | "fast";
 const AI_SPEEDS: Record<AiSpeed, { label: string; mult: number }> = {
-  slow: { label: "Slow", mult: 1.9 },
-  normal: { label: "Normal", mult: 1 },
-  fast: { label: "Fast", mult: 0.4 },
+  fast: { label: "Brisk", mult: 0.4 },
+  normal: { label: "Relaxed", mult: 1 },
+  slow: { label: "Cinematic", mult: 1.9 },
 };
-const AI_SPEED_ORDER: AiSpeed[] = ["slow", "normal", "fast"];
+const AI_SPEED_ORDER: AiSpeed[] = ["fast", "normal", "slow"];
 
-// Per-quality card chrome — the WoW-style five-tier ladder
-// (grey · green · blue · purple · orange), richer the rarer it is.
+// Per-quality chrome — the WoW-style five-tier ladder (grey→orange), light cards.
 const QUALITY_CHROME: Record<string, { ink: string; label: string; border: string; bg: string; glow: string; foil: string }> = {
   common: {
-    ink: "#b9a684", label: "Common", border: "rgba(185,166,132,.5)",
-    bg: "linear-gradient(180deg, rgba(90,82,64,.30) 0%, rgba(26,18,11,.97) 62%)",
-    glow: "inset 0 1px 0 rgba(255,255,255,.08), 0 10px 22px rgba(0,0,0,.5)",
-    foil: "linear-gradient(180deg,#cdc3ad,#8f876b)",
+    ink: "#7c6f52", label: "Common", border: "rgba(154,138,108,.6)",
+    bg: "linear-gradient(180deg,#fffdf8,#f0e7d4)",
+    glow: CARD_SHADOW,
+    foil: "linear-gradient(180deg,#cdc3ad,#9a8a6c)",
   },
   uncommon: {
-    ink: "#7ad19a", label: "Uncommon", border: "rgba(122,209,154,.6)",
-    bg: "radial-gradient(115% 70% at 50% -12%, rgba(122,209,154,.16), transparent 58%), linear-gradient(180deg, rgba(40,80,55,.30) 0%, rgba(20,22,16,.97) 64%)",
-    glow: "inset 0 1px 0 rgba(180,240,200,.18), 0 0 16px rgba(122,209,154,.25), 0 10px 22px rgba(0,0,0,.5)",
-    foil: "linear-gradient(180deg,#9be3b4,#4f9e70)",
+    ink: "#3e7d59", label: "Uncommon", border: "rgba(79,138,94,.65)",
+    bg: "radial-gradient(115% 70% at 50% -12%, rgba(79,138,94,.18), transparent 60%), linear-gradient(180deg,#fbfdf9,#edf4ea)",
+    glow: "inset 0 1px 0 rgba(255,255,255,.6), 0 0 14px rgba(79,138,94,.18), 0 6px 16px rgba(120,90,50,.10)",
+    foil: "linear-gradient(180deg,#7bbf93,#4f8a5e)",
   },
   rare: {
-    ink: "#7da6df", label: "Rare", border: "rgba(125,166,223,.65)",
-    bg: "radial-gradient(115% 70% at 50% -12%, rgba(125,166,223,.18), transparent 58%), linear-gradient(180deg, rgba(40,55,90,.32) 0%, rgba(16,18,26,.97) 64%)",
-    glow: "inset 0 1px 0 rgba(190,215,255,.2), 0 0 18px rgba(125,166,223,.35), 0 10px 22px rgba(0,0,0,.5)",
-    foil: "linear-gradient(180deg,#a9c8f5,#5f86c9)",
+    ink: "#4a7fb0", label: "Rare", border: "rgba(74,127,176,.7)",
+    bg: "radial-gradient(115% 70% at 50% -12%, rgba(74,127,176,.18), transparent 60%), linear-gradient(180deg,#fafcff,#e9f0f7)",
+    glow: "inset 0 1px 0 rgba(255,255,255,.6), 0 0 16px rgba(74,127,176,.22), 0 6px 16px rgba(120,90,50,.10)",
+    foil: "linear-gradient(180deg,#9bc1ea,#4a7fb0)",
   },
   epic: {
-    ink: "#c69df0", label: "Epic", border: "rgba(198,157,240,.7)",
-    bg: "radial-gradient(120% 74% at 50% -12%, rgba(198,157,240,.24), transparent 58%), linear-gradient(180deg, rgba(70,45,100,.34) 0%, rgba(22,16,26,.97) 64%)",
-    glow: "inset 0 1px 0 rgba(230,205,255,.26), 0 0 22px rgba(198,157,240,.42), 0 10px 22px rgba(0,0,0,.5)",
-    foil: "linear-gradient(180deg,#dcc0fa,#9d6fd0)",
+    ink: "#8a5fb0", label: "Epic", border: "rgba(138,95,176,.72)",
+    bg: "radial-gradient(120% 74% at 50% -12%, rgba(138,95,176,.2), transparent 60%), linear-gradient(180deg,#fdfbff,#efe8f6)",
+    glow: "inset 0 1px 0 rgba(255,255,255,.6), 0 0 18px rgba(138,95,176,.26), 0 6px 16px rgba(120,90,50,.10)",
+    foil: "linear-gradient(180deg,#c3a0e6,#8a5fb0)",
   },
   legendary: {
-    ink: "#f0b070", label: "Legendary", border: "rgba(240,176,112,.9)",
-    bg: "radial-gradient(125% 78% at 50% -12%, rgba(240,176,112,.34), transparent 58%), linear-gradient(180deg, rgba(150,90,30,.42) 0%, rgba(26,18,11,.97) 66%)",
-    glow: "inset 0 1px 0 rgba(255,224,170,.4), 0 0 30px rgba(240,176,112,.55), 0 10px 24px rgba(0,0,0,.55)",
-    foil: "linear-gradient(180deg,#ffd9a0,#e08a2c)",
+    ink: "#b9701f", label: "Legendary", border: "rgba(196,122,44,.85)",
+    bg: "radial-gradient(125% 78% at 50% -12%, rgba(196,122,44,.26), transparent 62%), linear-gradient(180deg,#fffdf6,#f6e9cf)",
+    glow: "inset 0 1px 0 rgba(255,255,255,.65), 0 0 22px rgba(196,122,44,.34), 0 6px 18px rgba(120,90,50,.12)",
+    foil: "linear-gradient(180deg,#e7ab53,#c47a2c)",
   },
 };
 
@@ -218,46 +229,38 @@ const ULT_LABEL: Record<UltimateId, { name: string; blurb: string }> = {
 };
 
 // Department UI metadata (engine ids → design room presentation).
-const DEPT_META: Record<DepartmentId, { color: string; tag: string }> = {
-  rickhouse: { color: "#cf9a5e", tag: "Aging" },
-  supply: { color: "#d59650", tag: "Supply" },
-  warehouse: { color: "#6db28c", tag: "Warehouse" },
-  mashFloor: { color: "#7d8fd4", tag: "Recipes" },
-  marketing: { color: "#b08fd8", tag: "Shape Demand" },
-  distribution: { color: "#5fa6c9", tag: "Distribution" },
-  countingHouse: { color: "#c9a24a", tag: "Capital" },
+const DEPT_META: Record<DepartmentId, { color: string; tag: string; name: string }> = {
+  rickhouse: { color: "#b5793a", tag: "Aging", name: "The Rickhouse" },
+  supply: { color: "#c4772a", tag: "Supply", name: "Supply Room" },
+  warehouse: { color: "#3e7d59", tag: "Warehouse", name: "The Warehouse" },
+  mashFloor: { color: "#7d8fd4", tag: "Recipes", name: "Mash Floor" },
+  marketing: { color: "#b08fd8", tag: "Shape Demand", name: "Marketing Dept." },
+  distribution: { color: "#5fa6c9", tag: "Distribution", name: "Loading Dock" },
+  countingHouse: { color: "#c9a24a", tag: "Capital", name: "Counting House" },
 };
-const ROSTER_ORDER: DepartmentId[] = [
-  "supply",
-  "warehouse",
-  "mashFloor",
-  "marketing",
-  "distribution",
-  "countingHouse",
-  "rickhouse",
-];
+// Iconned department cards on the Play floor (Rickhouse + Warehouse get their own rooms).
+const FLOOR_DEPTS: DepartmentId[] = ["supply", "mashFloor", "marketing", "distribution", "countingHouse"];
 
-const PLAYER_COLORS = ["#d59650", "#d96b54", "#6db28c", "#b08fd8", "#5fa6c9", "#e9b46e"];
+const PLAYER_COLORS = ["#c4772a", "#c0492c", "#3e7d59", "#8a5fb0", "#5fa6c9", "#b07d28"];
 
 // ── global style (fonts, keyframes, hover, body texture) ─────────────
 const GLOBAL_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-@keyframes bb-pip { 0%,100%{box-shadow:0 0 0 0 rgba(240,201,112,.55);} 50%{box-shadow:0 0 0 6px rgba(240,201,112,0);} }
-@keyframes bb-ember { 0%,100%{box-shadow:inset 0 2px 3px rgba(255,255,255,.35),0 0 10px rgba(185,166,132,.4);} 50%{box-shadow:inset 0 2px 3px rgba(255,255,255,.35),0 0 18px rgba(240,201,112,.6);} }
-@keyframes bb-shelf { 0%,100%{opacity:.5;} 50%{opacity:.82;} }
-@keyframes bb-rise { from{opacity:0;transform:translate(-50%,6px);} to{opacity:1;transform:translate(-50%,0);} }
+@keyframes bb-pip { 0%,100%{box-shadow:0 0 0 0 rgba(176,125,40,.5);} 50%{box-shadow:0 0 0 6px rgba(176,125,40,0);} }
+@keyframes bb-ember { 0%,100%{box-shadow:inset 0 2px 3px rgba(255,255,255,.5),0 0 10px rgba(207,138,51,.4);} 50%{box-shadow:inset 0 2px 3px rgba(255,255,255,.5),0 0 18px rgba(207,138,51,.7);} }
+@keyframes bb-shelf { 0%,100%{opacity:.5;} 50%{opacity:.85;} }
+@keyframes bb-rise { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
 .bb-card { transition: transform .2s cubic-bezier(.22,1,.36,1), filter .18s ease; }
-.bb-card:hover { transform: translateY(-10px); filter: brightness(1.08); z-index:5; }
+.bb-card:hover { transform: translateY(-6px); filter: brightness(1.04); z-index:5; }
 .bb-die { transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
-.bb-die.clk:hover { transform: translateY(-4px); border-color:#c69d52 !important; }
+.bb-die.clk:hover { transform: translateY(-4px); border-color:#a3531f !important; }
 .bb-btn { transition: filter .15s ease, transform .15s ease, background .15s ease; }
-.bb-btn:not(:disabled):hover { filter: brightness(1.06); transform: translateY(-1px); }
-.bb-sec:not(:disabled):hover { background:#2e1f15 !important; }
+.bb-btn:not(:disabled):hover { filter: brightness(1.04); transform: translateY(-1px); }
+.bb-sec:not(:disabled):hover { background:#ece2cf !important; }
 .bb-noise::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.86 0 0 0 0 0.78 0 0 0 0 0.62 0 0 0 0.10 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  mix-blend-mode:overlay; opacity:.35; }
-::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#3b2818;border-radius:4px;}
-/* Dice roll — fall from above, tumble, land, settle (ported from the original). */
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.42 0 0 0 0 0.24 0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  mix-blend-mode:multiply; opacity:.5; }
+::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#d9c8a8;border-radius:4px;}
 @keyframes bb-roll-drop {
   0%   { transform: translateY(-200px) rotate(-320deg) scale(.78); opacity: 0; }
   18%  { opacity: 1; }
@@ -269,11 +272,11 @@ const GLOBAL_CSS = `
 .bb-roll-drop { animation: bb-roll-drop .82s cubic-bezier(.34,1.2,.64,1) both; will-change: transform, opacity; }
 @keyframes bb-roll-shadow {
   0%,55% { opacity: 0; transform: scaleX(.4); }
-  72%    { opacity: .5; transform: scaleX(1.15); }
-  100%   { opacity: .3; transform: scaleX(1); }
+  72%    { opacity: .4; transform: scaleX(1.15); }
+  100%   { opacity: .25; transform: scaleX(1); }
 }
 .bb-roll-shadow { animation: bb-roll-shadow .82s cubic-bezier(.34,1.2,.64,1) both; }
-@keyframes bb-wild-shimmer { 0%,100%{ box-shadow:0 0 0 0 rgba(231,217,182,.0);} 50%{ box-shadow:0 0 14px 2px rgba(231,217,182,.45);} }
+@keyframes bb-wild-shimmer { 0%,100%{ box-shadow:0 0 0 0 rgba(180,121,58,.0);} 50%{ box-shadow:0 0 14px 2px rgba(180,121,58,.4);} }
 @media (prefers-reduced-motion: reduce) {
   .bb-roll-drop, .bb-roll-shadow { animation-duration: .001ms !important; }
 }
@@ -295,6 +298,27 @@ function requirementText(req: DemandCard["requirement"]): string {
   if (req.minAge !== undefined) parts.push(`age ${req.minAge}+`);
   return parts.length ? parts.join(" · ") : "Any bourbon";
 }
+function playerColor(i: number): string {
+  return PLAYER_COLORS[i % PLAYER_COLORS.length]!;
+}
+type OrderRow = { pi: number; name: string; cap: number; rep: number; barrels: number; isBot: boolean; color: string; status: "done" | "now" | "next"; statusText: string };
+/** Match a log line to the player whose name it leads with (for color-coding). */
+function lineColor(line: string, players: Player[]): string | null {
+  for (let i = 0; i < players.length; i++) {
+    const n = players[i]!.name;
+    if (line.startsWith(n + " ") || line.startsWith(n + "'")) return playerColor(i);
+  }
+  return null;
+}
+/** One-line live status for a player in the left ticker. */
+function statusFor(p: Player, idx: number, game: GameState): string {
+  if (game.phase === "ended") return "Done";
+  const active = idx === game.currentPlayerIndex;
+  if (game.roundPhase === "demand") return active ? "Reading the market…" : "Waiting…";
+  if (game.roundPhase === "collect") return active ? "Drafting dice…" : "Waiting…";
+  if (game.roundPhase === "play") return active ? "Working the distillery…" : p.donePlayThisRound ? "Turn complete" : "Waiting…";
+  return "Waiting…";
+}
 
 // ── setup ────────────────────────────────────────────────────────────
 function SetupScreen({ onStart, onTutorial }: { onStart: (names: string[]) => void; onTutorial: () => void }) {
@@ -310,8 +334,8 @@ function SetupScreen({ onStart, onTutorial }: { onStart: (names: string[]) => vo
           padding: 36,
           borderRadius: 18,
           border: `1px solid ${C.border}`,
-          background: "linear-gradient(180deg,#1a120b,#130c06)",
-          boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 18px 50px rgba(0,0,0,.45)",
+          background: SURFACE.panel,
+          boxShadow: PANEL_SHADOW,
         }}
       >
         <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 40, color: C.gold }}>Bourbonomics</div>
@@ -337,8 +361,8 @@ function SetupScreen({ onStart, onTutorial }: { onStart: (names: string[]) => vo
                 fontSize: 14,
                 cursor: "pointer",
                 border: `1px solid ${count === n ? C.brass : C.border}`,
-                color: count === n ? "#2a1408" : C.ink,
-                background: count === n ? "linear-gradient(180deg,#e9b46e,#c69d52)" : "#150e08",
+                color: count === n ? PRIMARY_INK : C.ink,
+                background: count === n ? PRIMARY : SURFACE.inset,
               }}
             >
               {n}
@@ -358,9 +382,9 @@ function SetupScreen({ onStart, onTutorial }: { onStart: (names: string[]) => vo
             fontSize: 14,
             letterSpacing: ".12em",
             textTransform: "uppercase",
-            color: "#2a1408",
-            background: "linear-gradient(180deg,#e9b46e,#c69d52)",
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)",
+            color: PRIMARY_INK,
+            background: PRIMARY,
+            boxShadow: PRIMARY_SHADOW,
           }}
         >
           Start Game
@@ -378,7 +402,7 @@ function SetupScreen({ onStart, onTutorial }: { onStart: (names: string[]) => vo
             letterSpacing: ".12em",
             textTransform: "uppercase",
             color: C.gold,
-            background: "#150e08",
+            background: SURFACE.inset,
             border: `1px solid ${C.brass}`,
           }}
         >
@@ -411,21 +435,20 @@ export default function GameClient() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialPool = useRef(1);
 
-  // Collect-phase local overlay (the engine commits at pass time). Click a die
-  // to draft it (optimistic claim); reroll the rest; pass leftovers on.
+  // Collect-phase local overlay (the engine commits at pass time).
   const [claims, setClaims] = useState<Record<string, ResourceKind>>({});
-  const [keepDice, setKeepDice] = useState<Set<string>>(new Set()); // pre-roll: inherited dice to keep
+  const [keepDice, setKeepDice] = useState<Set<string>>(new Set());
   const [pendingWild, setPendingWild] = useState<string | null>(null);
-  const [ttFace, setTtFace] = useState(false); // Triple Threat face chooser open
+  const [ttFace, setTtFace] = useState(false);
   // Play-phase local UI.
   const [drawingBills, setDrawingBills] = useState(false);
   const [keepBills, setKeepBills] = useState<Set<number>>(new Set());
-  const [sellId, setSellId] = useState<string | null>(null); // bourbon being routed
-  const [ultDept, setUltDept] = useState<DepartmentId | null>(null); // ultimate chooser
-  const [qsOpen, setQsOpen] = useState(false); // Quality Sort pile chooser
-  const [tut, setTut] = useState<number | null>(null); // active tutorial beat index, or null
-  const [inspect, setInspect] = useState<Inspect | null>(null); // card detail modal
-  const [aiSpeed, setAiSpeed] = useState<AiSpeed>("normal"); // how fast rival AI turns play out
+  const [sellId, setSellId] = useState<string | null>(null);
+  const [ultDept, setUltDept] = useState<DepartmentId | null>(null);
+  const [qsOpen, setQsOpen] = useState(false);
+  const [tut, setTut] = useState<number | null>(null);
+  const [inspect, setInspect] = useState<Inspect | null>(null);
+  const [aiSpeed, setAiSpeed] = useState<AiSpeed>("normal");
 
   function flash(msg: string) {
     setToast(msg);
@@ -445,7 +468,6 @@ export default function GameClient() {
     setInspect(null);
   }
   function start(names: string[]) {
-    // Seat 0 is the human ("You"); every other seat is AI-played.
     const g = createGame({
       seed: (Math.floor(Date.now() / 1000) % 100000) + 1,
       playerNames: names,
@@ -471,7 +493,6 @@ export default function GameClient() {
     setGame(null);
     resetLocal();
   }
-  /** Advance a PROMPT beat (the Continue button); applies the next beat's rig. */
   function tutContinue() {
     if (tut === null || !game) return;
     const ni = tut + 1;
@@ -499,7 +520,6 @@ export default function GameClient() {
       return false;
     }
 
-    // Tutorial advance: did this action satisfy the step's goal?
     let nextState = res.state;
     if (tut !== null) {
       const beat = TUT_BEATS[tut]!;
@@ -515,26 +535,34 @@ export default function GameClient() {
     return true;
   }
 
+  /** Fast-forward through every queued AI turn until it's the human's turn. */
+  function skipAhead() {
+    if (!game || tut !== null) return;
+    let s = game;
+    let guard = 0;
+    while (guard++ < 400 && s.phase === "playing" && isBotTurn(s)) {
+      const a = botAction(s);
+      if (!a) break;
+      const r = applyAction(s, a);
+      if (!r.ok) break;
+      s = r.state;
+    }
+    setGame(s);
+    resetLocal();
+  }
+
   // ── AI driver ──────────────────────────────────────────────────────
-  // Auto-advances the game so the human only plays their own turns: the Demand
-  // phase rolls into the draft on its own (the market stays visible on the right
-  // rail), and every AI seat's collect/play turn is auto-dispatched one action
-  // at a time on a timer so the human can watch. Collect pauses long enough for
-  // the dice-roll animation to play.
+  // Auto-advances only BOT collect/play turns (one action at a time, paced by
+  // aiSpeed). The Demand phase is now human-gated — the human clicks "Begin the
+  // Collect draft" in the DemandStage, so the driver does NOT auto-advance it.
   useEffect(() => {
     if (!game || game.phase !== "playing") return;
-    if (tut !== null) return; // the tutorial drives the round by hand, no auto-advance
-    let action: Action | null = null;
-    let base = 850; // unhurried by default so the human can follow along
-    if (game.roundPhase === "demand") {
-      action = { type: "BEGIN_COLLECT" };
-      base = 1100;
-    } else if (isBotTurn(game)) {
-      action = botAction(game);
-      base = game.roundPhase === "collect" ? 1500 : 850;
-    }
-    if (!action) return;
-    const a = action;
+    if (tut !== null) return;
+    if (game.roundPhase === "demand") return;
+    if (!isBotTurn(game)) return;
+    const a = botAction(game);
+    if (!a) return;
+    const base = game.roundPhase === "collect" ? 1500 : 850;
     const delay = Math.round(base * AI_SPEEDS[aiSpeed].mult);
     const t = setTimeout(() => {
       const res = applyAction(game, a);
@@ -546,8 +574,7 @@ export default function GameClient() {
     return () => clearTimeout(t);
   }, [game, tut, aiSpeed]);
 
-  // Tutorial: some steps advance on a LOCAL action (opening the mash-bill
-  // picker) rather than a dispatched engine action. Watch for it here.
+  // Tutorial: some steps advance on a LOCAL action (opening the mash-bill picker).
   useEffect(() => {
     if (tut === null || !game || !drawingBills) return;
     const beat = TUT_BEATS[tut];
@@ -560,8 +587,7 @@ export default function GameClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawingBills, tut]);
 
-  // Deep-link: /play?tutorial=1 launches the guided tutorial straight from the
-  // main menu (the original game put the tutorial on the home screen).
+  // Deep-link: /play?tutorial=1 launches the guided tutorial.
   const bootstrapped = useRef(false);
   useEffect(() => {
     if (bootstrapped.current) return;
@@ -574,10 +600,10 @@ export default function GameClient() {
 
   if (!game) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#0c0805" }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#161009" }}>
         <style>{GLOBAL_CSS}</style>
         <ScalingHost>
-          <div style={{ width: 1920, height: 1080 }}>
+          <div style={{ width: 1920, height: 1080, background: "linear-gradient(160deg,#f6efe1,#ece2cf 55%,#e4d8c0)" }}>
             <SetupScreen onStart={start} onTutorial={startTutorial} />
           </div>
         </ScalingHost>
@@ -586,7 +612,7 @@ export default function GameClient() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#0c0805" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#161009" }}>
       <style>{GLOBAL_CSS}</style>
       <ScalingHost>
         <Board
@@ -594,6 +620,7 @@ export default function GameClient() {
           dispatch={dispatch}
           flash={flash}
           onNew={() => { setTut(null); setGame(null); }}
+          onSkip={skipAhead}
           initialPool={initialPool.current}
           claims={claims}
           setClaims={setClaims}
@@ -633,6 +660,7 @@ interface BoardProps {
   dispatch: (a: Action, silent?: boolean) => boolean;
   flash: (m: string) => void;
   onNew: () => void;
+  onSkip: () => void;
   initialPool: number;
   claims: Record<string, ResourceKind>;
   setClaims: (v: Record<string, ResourceKind>) => void;
@@ -661,19 +689,20 @@ interface BoardProps {
 function Board(p: BoardProps) {
   const { game, dispatch, flash } = p;
   // Which player's board we're DISPLAYING. Defaults to the active player; the
-  // human can click a standings row to peek at a rival's board (read-only).
+  // human can click a ticker row to peek at a rival's board (read-only).
   const [viewIdx, setViewIdx] = useState<number | null>(null);
-  // Snap back to the active player whenever the turn / phase changes.
   useEffect(() => { setViewIdx(null); }, [game.currentPlayerIndex, game.roundPhase]);
   const shownIdx = viewIdx ?? game.currentPlayerIndex;
   const me = game.players[shownIdx]!;
-  const spectating = viewIdx !== null && viewIdx !== game.currentPlayerIndex; // peeking at a non-active player
+  const spectating = viewIdx !== null && viewIdx !== game.currentPlayerIndex;
   const supplyCap = fnSupply(me);
   const warehouseCap = fnWarehouse(me);
   const rickCap = fnRick(me);
-  const phaseStage = game.roundPhase; // demand | collect | play
-  const botTurn = isBotTurn(game); // the AI is on the clock (collect/play)
-  const locked = botTurn || spectating; // board is read-only (not the human's live turn)
+  const phaseStage = game.roundPhase;
+  const botTurn = isBotTurn(game);
+  const locked = botTurn || spectating;
+  const humanIdx = game.players.findIndex((pl) => !pl.isBot);
+  const isMyTurn = !botTurn && !spectating && phaseStage !== "demand" && game.currentPlayerIndex === shownIdx;
 
   const optimisticClaims = phaseStage === "collect" && !spectating ? Object.values(p.claims) : [];
   const heldTotal = me.hand.length + optimisticClaims.length;
@@ -688,7 +717,6 @@ function Board(p: BoardProps) {
   const flightSeq = useRef(0);
   const [flights, setFlights] = useState<Flight[]>([]);
 
-  /** Convert a screen rect's center to the 1920×1080 canvas coordinate space. */
   const toCanvas = (rect: DOMRect): { x: number; y: number } | null => {
     const root = rootRef.current;
     if (!root) return null;
@@ -706,13 +734,11 @@ function Board(p: BoardProps) {
 
   // ---- collect actions ----
   const collect = game.collect;
-  // Pre-roll: toggle which inherited die to keep before rolling.
   const toggleKeep = (id: string) => {
     const next = new Set(p.keepDice);
     next.has(id) ? next.delete(id) : next.add(id);
     p.setKeepDice(next);
   };
-  // Pre-roll: keep the chosen inherited dice, roll the rest (fills to Supply cap).
   const onRoll = () => {
     if (!collect || collect.rolled) return;
     if (p.keepDice.size > supplyCap) {
@@ -721,7 +747,6 @@ function Board(p: BoardProps) {
     }
     dispatch({ type: "COLLECT_ROLL", keepDiceIds: [...p.keepDice] });
   };
-  // Post-roll reroll (Second Reroll ultimate): keep what you've drafted, reroll the rest.
   const onReroll = () => {
     if (!collect || !collect.rolled || collect.rerollsUsed >= collect.maxRerolls) return;
     const keep = Object.keys(p.claims);
@@ -735,7 +760,7 @@ function Board(p: BoardProps) {
     if (id in p.claims) {
       const next = { ...p.claims };
       delete next[id];
-      p.setClaims(next); // tap again to un-draft (before passing)
+      p.setClaims(next);
       return;
     }
     if (heldTotal >= warehouseCap) {
@@ -816,6 +841,7 @@ function Board(p: BoardProps) {
     { name: "Play", done: false, active: phaseStage === "play" },
   ];
 
+  // Player ticker order: collect uses the live pass order; otherwise most-Capital-first.
   const order = (
     collect
       ? collect.order
@@ -824,20 +850,10 @@ function Board(p: BoardProps) {
     const pl = game.players[pi]!;
     let status: "done" | "now" | "next" = "next";
     if (collect) status = idx < collect.pos ? "done" : idx === collect.pos ? "now" : "next";
-    return { pi, name: pl.name, cap: pl.capital, rep: reputationOf(pl), isBot: pl.isBot, color: PLAYER_COLORS[pi % PLAYER_COLORS.length]!, status };
+    else if (pi === game.currentPlayerIndex) status = "now";
+    return { pi, name: pl.name, cap: pl.capital, rep: reputationOf(pl), barrels: pl.rickhouse.length, isBot: pl.isBot, color: playerColor(pi), status, statusText: statusFor(pl, pi, game) };
   });
 
-  const restingBarrels = me.rickhouse.filter((b) => !b.built);
-  const agingBarrels = me.rickhouse.filter((b) => b.built);
-  const openCount = Math.max(0, rickCap - me.rickhouse.length);
-  const barrelSlots = rickCap;
-
-  const office = fnMash(me);
-  const billOffer = game.mashBillSupply.slice(0, Math.min(office, game.mashBillSupply.length));
-
-  const poolLeft = game.demandDeck.length + game.demandDiscard.length;
-
-  // sell routing target
   const sellBourbon = p.sellId ? me.rickhouse.find((b) => b.id === p.sellId) ?? null : null;
 
   if (game.phase === "ended") return <EndScreen game={game} onNew={p.onNew} />;
@@ -850,444 +866,64 @@ function Board(p: BoardProps) {
         position: "relative",
         width: 1920,
         height: 1080,
-        padding: "18px 28px",
+        padding: "16px 20px 14px",
         display: "flex",
         flexDirection: "column",
+        gap: 12,
         fontFamily: "Inter, system-ui, sans-serif",
         color: C.ink,
-        background:
-          "radial-gradient(140% 90% at 50% 110%, rgba(213,150,80,.08), transparent 60%), radial-gradient(80% 60% at 50% -10%, rgba(213,150,80,.04), transparent 50%), #0c0805",
+        background: "radial-gradient(120% 80% at 50% -10%, rgba(207,138,51,.07), transparent 55%), linear-gradient(160deg,#f6efe1 0%,#ece2cf 55%,#e4d8c0 100%)",
       }}
     >
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-        {/* ===== HEADER ===== */}
-        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "2px 2px 11px", flex: "0 0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 42, height: 42, borderRadius: 10, background: "linear-gradient(160deg,#e9b46e,#b06a38)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 6px 16px rgba(176,106,56,.4)" }}>
-              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: "#2a1408" }}>B</span>
-            </div>
-            <div>
-              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 28, lineHeight: 1 }}>Bourbonomics</div>
-              <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".22em", color: C.muted, marginTop: 3 }}>
-                ROUND {game.roundNumber}{game.finalRound ? " · FINAL" : ""} · {me.name}&apos;s turn{me.isBot ? " · AI" : ""}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center" }}>
-            {phaseDefs.map((ph, i) => (
-              <div key={ph.name} style={{ display: "flex", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 16px", borderRadius: 10, ...(ph.active ? { background: "linear-gradient(180deg,#2e1f15,#1a120b)", border: `1px solid ${C.brass}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.2)", color: C.ink } : { background: "#150e08", border: `1px solid ${C.border2}`, color: ph.done ? C.text2 : C.muted }) }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: ph.active ? C.gold : ph.done ? C.green : C.faint, animation: ph.active ? "bb-pip 2.2s ease-in-out infinite" : undefined }} />
-                  <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase" }}>{ph.name}</span>
-                  {ph.done && <span style={{ fontFamily: MONO, fontSize: 11, color: C.green }}>✓</span>}
-                </div>
-                {i < 2 && <span style={{ width: 26, height: 1, background: C.border, margin: "0 2px" }} />}
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="bb-btn bb-sec" onClick={p.onNew} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted, background: "#150e08", border: `1px solid ${C.border}`, padding: "7px 12px", borderRadius: 10, cursor: "pointer" }}>New</button>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 13px", borderRadius: 10, background: "linear-gradient(180deg,#1a1308,#140e06)", border: `1px solid ${C.border}` }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", color: C.muted }}>PRESTIGE</span>
-              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.green }}>{reputationOf(me)}</span>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>· {me.keptCards.length} cards</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 10, background: "linear-gradient(180deg,#221710,#1a120b)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.14)" }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".14em", color: C.muted }}>CAPITAL</span>
-              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.gold }}>{me.capital}</span>
-            </div>
-          </div>
-        </header>
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+        <TopBar game={game} me={game.players[humanIdx] ?? me} phaseDefs={phaseDefs} board={p} />
 
-        {/* ===== MAIN ROW: work area (action band + rail + distillery) | full-height market ===== */}
-        <div style={{ display: "flex", gap: 14, flex: 1, minHeight: 0 }}>
-          <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, minHeight: 0 }}>
-        {/* ===== ACTION BAND ===== */}
-        <ActionBand
-          board={p}
-          me={me}
-          supplyCap={supplyCap}
-          warehouseCap={warehouseCap}
-          heldTotal={heldTotal}
-          whFull={whFull}
-          collect={collect}
-          phaseStage={phaseStage}
-          botTurn={botTurn}
-          spectating={spectating}
-          onExitView={() => setViewIdx(null)}
-          onReroll={onReroll}
-          onRoll={onRoll}
-          toggleKeep={toggleKeep}
-          claimDie={claimDie}
-          onTT={() => p.setTtFace(true)}
-          onPass={onPass}
-        />
+        {/* ===== 3-ZONE STAGE ===== */}
+        <div style={{ display: "grid", gridTemplateColumns: "312px 1fr 372px", gap: 16, flex: 1, minHeight: 0 }}>
+          <TableRail order={order} game={game} board={p} shownIdx={shownIdx} onView={(pi) => setViewIdx(pi === game.currentPlayerIndex ? null : pi)} />
 
-        {/* ===== BODY (left rail + distillery) ===== */}
-        <div style={{ display: "grid", gridTemplateColumns: "264px 1fr", gap: 14, alignItems: "stretch", flex: 1, minHeight: 0 }}>
-          {/* LEFT RAIL */}
-          <aside style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
-            <RailCard title="Standings" right="TAP TO VIEW">
-              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                {order.map((o, i) => {
-                  const viewed = o.pi === shownIdx;
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => setViewIdx(o.pi === game.currentPlayerIndex ? null : o.pi)}
-                      title={`View ${o.name}'s distillery`}
-                      style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 9, cursor: "pointer", ...(viewed ? { background: "linear-gradient(90deg,rgba(213,150,80,.2),transparent)", border: `1px solid ${o.color}` } : o.status === "now" ? { background: "linear-gradient(90deg,rgba(213,150,80,.1),transparent)", border: `1px solid ${C.border}` } : { background: "#150e08", border: `1px solid ${C.border2}` }) }}
-                    >
-                      <span style={{ width: 9, height: 9, borderRadius: "50%", background: o.color, flex: "0 0 auto", boxShadow: viewed ? `0 0 0 3px ${o.color}33` : undefined }} />
-                      <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 13, color: viewed || o.status === "now" ? C.ink : C.text2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}{o.status === "now" ? " ·" : ""}</span>
-                      {o.status === "now" && <span style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".1em", textTransform: "uppercase", color: C.brass }}>turn</span>}
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Capital">
-                        <span style={{ color: C.gold, fontWeight: 700 }}>{o.cap}</span>
-                        <span style={{ color: C.muted, fontSize: 9 }}>c</span>
-                      </span>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontFamily: MONO, fontSize: 12 }} title="Prestige">
-                        <span style={{ color: C.green, fontSize: 11 }}>★</span>
-                        <span style={{ color: C.green, fontWeight: 700 }}>{o.rep}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </RailCard>
+          <CenterStage
+            board={p}
+            me={me}
+            shownIdx={shownIdx}
+            spectating={spectating}
+            isMyTurn={isMyTurn}
+            botTurn={botTurn}
+            locked={locked}
+            phaseStage={phaseStage}
+            collect={collect}
+            zone={zone}
+            supplyCap={supplyCap}
+            warehouseCap={warehouseCap}
+            heldTotal={heldTotal}
+            whFull={whFull}
+            rickCap={rickCap}
+            humanIdx={humanIdx}
+            order={order}
+            optimisticClaims={optimisticClaims}
+            warehouseRef={warehouseRef}
+            onRoll={onRoll}
+            onReroll={onReroll}
+            toggleKeep={toggleKeep}
+            claimDie={claimDie}
+            onTT={() => p.setTtFace(true)}
+            onPass={onPass}
+            autoStage={autoStage}
+            tryBuild={tryBuild}
+            onExitView={() => setViewIdx(null)}
+          />
 
-            <RailCard title="The Clock">
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 8 }}>
-                <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 30, color: C.ink }}>{poolLeft}</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: C.muted }}>/ {p.initialPool} demand cards left</span>
-              </div>
-              <div style={{ height: 8, borderRadius: 5, background: "#2a1d12", overflow: "hidden", border: `1px solid ${C.border}` }}>
-                <div style={{ width: `${Math.round((poolLeft / p.initialPool) * 100)}%`, height: "100%", background: "linear-gradient(90deg,#6db28c,#b9a684)" }} />
-              </div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>Completed orders leave the deck. Game ends when it runs dry.</div>
-            </RailCard>
-
-            <RailCard title="Department Roster">
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {ROSTER_ORDER.map((id) => {
-                  const d = me.distillery.departments.find((x) => x.id === id)!;
-                  const color = DEPT_META[id].color;
-                  return (
-                    <div key={id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 3, background: color, flex: "0 0 auto" }} />
-                      <span style={{ flex: 1, fontSize: 12, color: C.text2 }}>{d.name}</span>
-                      {d.chosenUltimate && d.chosenUltimate !== "ph" && (
-                        <span style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".06em", textTransform: "uppercase", color: "#2a1408", background: color, padding: "1px 5px", borderRadius: 3 }}>ULT</span>
-                      )}
-                      <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-                        {Array.from({ length: d.maxLevel + 1 }).map((_, i) => {
-                          const owned = i <= d.level;
-                          if (i === d.maxLevel) {
-                            return <span key={i} title="Ultimate" style={{ width: 7, height: 7, marginLeft: 2, transform: "rotate(45deg)", borderRadius: 1, background: owned ? "linear-gradient(135deg,#f7dd9a,#c69d52)" : "transparent", border: `1px solid ${owned ? "#f0c970" : C.brass}`, boxShadow: owned ? "0 0 5px rgba(240,201,112,.8)" : undefined }} />;
-                          }
-                          return <span key={i} style={{ width: 9, height: 5, borderRadius: 2, background: owned ? color : C.border2 }} />;
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </RailCard>
-          </aside>
-
-          {/* DISTILLERY */}
-          <main style={{ position: "relative", borderRadius: 16, background: "linear-gradient(180deg,#1c130c 0%,#130c06 100%)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 18px 50px rgba(0,0,0,.45)", padding: 13, display: "flex", flexDirection: "column", gap: 11, minHeight: 0, overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, flex: "0 0 auto" }}>
-              <span style={{ fontFamily: MONO, fontSize: 13, letterSpacing: ".24em", textTransform: "uppercase", color: shownIdx !== game.currentPlayerIndex || botTurn ? PLAYER_COLORS[shownIdx % PLAYER_COLORS.length] : C.brass }}>{shownIdx === game.currentPlayerIndex && !botTurn ? "Your Distillery" : `${me.name}'s Distillery`}</span>
-              <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 15, color: C.muted }}>{me.distillery.name}</span>
-              {spectating ? (
-                <button onClick={() => setViewIdx(null)} title="Return to the active board" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 11px", borderRadius: 999, background: `${PLAYER_COLORS[shownIdx % PLAYER_COLORS.length]}22`, border: `1px solid ${PLAYER_COLORS[shownIdx % PLAYER_COLORS.length]}`, cursor: "pointer", color: C.ink }}>
-                  <span style={{ fontSize: 11 }}>👁</span>
-                  <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase" }}>Viewing · back ✕</span>
-                </button>
-              ) : botTurn ? (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 9px", borderRadius: 999, background: "rgba(240,201,112,.12)", border: `1px solid ${C.brass}` }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold, animation: "bb-pip 1.4s ease-in-out infinite" }} />
-                  <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.gold }}>AI · watching</span>
-                </span>
-              ) : null}
-              <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg,#3b2818,transparent)" }} />
-              <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".1em" }}>
-                <span style={{ color: C.gold }}>{agingBarrels.length}</span>
-                <span style={{ color: C.muted }}>/{barrelSlots} barrels aging</span>
-              </span>
-            </div>
-
-            {/* RICKHOUSE ROOM */}
-            <div style={{ position: "relative", flex: 1.1, minHeight: 0, borderRadius: 13, padding: "13px 16px 14px", border: `1px solid ${C.border}`, background: "radial-gradient(120% 80% at 50% 0%, rgba(240,201,112,.1), transparent 55%), radial-gradient(80% 90% at 50% 120%, rgba(176,106,56,.12), transparent 65%), linear-gradient(180deg,#1e140c 0%,#150e08 100%)", boxShadow: "inset 0 1px 0 rgba(240,201,112,.12), inset 0 -1px 0 rgba(0,0,0,.55)", overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 11 }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 12px", borderRadius: 7, background: "linear-gradient(180deg,#f0c970,#b06a38)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.35), 0 2px 5px rgba(0,0,0,.4)" }}>
-                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: "#2a1a10" }}>The Rickhouse</span>
-                </span>
-                <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "#cf9a5e" }}>Aging</span>
-                <span style={{ fontSize: 12, color: C.muted }}>{rickCap} barrel slots · age freely · sell at {CONFIG.MIN_SELL_AGE}+</span>
-                <div style={{ flex: 1 }} />
-                <Pips dept="rickhouse" me={me} />
-                <ImproveBtn id="rickhouse" board={p} me={me} />
-              </div>
-              <div style={{ height: 9, borderRadius: 4, marginBottom: 13, background: "repeating-linear-gradient(90deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.1) 2px, rgba(0,0,0,.1) 3px), linear-gradient(180deg,#2a1a10,#1c120a)", boxShadow: "inset 0 1px 0 rgba(240,201,112,.45), inset 0 -1px 0 rgba(0,0,0,.6), 0 0 0 1px rgba(198,157,82,.35)" }} />
-
-              <div style={{ display: "grid", gridTemplateColumns: `repeat(${barrelSlots}, minmax(0,1fr))`, gap: 14, alignItems: "start" }}>
-                {agingBarrels.map((b) => {
-                  const sellable = b.age >= CONFIG.MIN_SELL_AGE && b.salesRemaining > 0;
-                  const trackVal = barrelValue(b.quality, b.age);
-                  const mult = zoneMultiplier(zone);
-                  // Floor = (value + a 0-value order) × zone + premium + dist; a matched
-                  // order raises the value inside the multiply, so it's the minimum.
-                  const baseValue = trackVal * mult + b.saleBonus + fnDist(me);
-                  const qc = QUALITY_CHROME[b.quality] ?? QUALITY_CHROME.common!;
-                  const capYear = capAge(b.quality);
-                  // Age → value track for this quality: the ages where the printed value climbs.
-                  const trackSteps: { age: number; value: number }[] = [];
-                  for (let a = CONFIG.MIN_SELL_AGE, last = -1; a <= capYear; a++) {
-                    const v = barrelValue(b.quality, a);
-                    if (v !== last) { trackSteps.push({ age: a, value: v }); last = v; }
-                  }
-                  const activeStep = trackSteps.reduce((acc, s, i) => (b.age >= s.age ? i : acc), -1);
-                  return (
-                    <div key={b.id} data-tut="aging" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <button
-                        className="bb-btn"
-                        onClick={() => (phaseStage === "play" && sellable && !locked ? p.setSellId(b.id) : locked ? undefined : flash(sellable ? "Sell in the Play phase" : `Ages until year ${CONFIG.MIN_SELL_AGE}`))}
-                        style={{ textAlign: "left", position: "relative", borderRadius: 13, padding: "10px 12px 11px", border: `1px solid ${qc.border}`, background: qc.bg, boxShadow: qc.glow, cursor: phaseStage === "play" && sellable ? "pointer" : "default", overflow: "hidden" }}
-                      >
-                        {/* faint bottle-glass sheen */}
-                        <span style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,.05) 50%, transparent 60%)", pointerEvents: "none" }} />
-                        {/* TOP: sales-left bibs + quality foil */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
-                          <div style={{ display: "flex", gap: 4, flex: 1, flexWrap: "wrap" }} title={`${b.salesRemaining} of ${b.batchQty} sales left`}>
-                            {Array.from({ length: b.batchQty }).map((_, i) => {
-                              const left = i < b.salesRemaining;
-                              return (
-                                <span key={i} style={{ width: 14, height: 14, borderRadius: 999, ...(left ? { background: qc.foil, boxShadow: `inset 0 1px 0 rgba(255,255,255,.5), 0 0 6px ${qc.ink}66`, border: `1px solid ${qc.ink}` } : { background: "rgba(20,14,8,.6)", border: "1px solid rgba(110,80,50,.5)" }) }} />
-                              );
-                            })}
-                          </div>
-                          <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#2a1408", background: qc.foil, padding: "3px 8px", borderRadius: 5, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{qc.label}</span>
-                        </div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 1 }}>
-                          {b.tags.map((t) => (
-                            <span key={t} title={`Fills ${STYLE_LABEL[t]} demand orders`} style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#1a1209", background: STYLE_CHROME[t].border, padding: "2px 7px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
-                          ))}
-                        </div>
-                        <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fbeccb", lineHeight: 1.05, marginTop: 3 }}>{b.name}</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 9, paddingTop: 9, borderTop: `1px dotted ${qc.ink}55` }}>
-                          <span style={{ position: "relative", width: 46, height: 46, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #f0c970, #c69d52 60%, #6b3d1d 100%)", display: "grid", placeItems: "center", animation: "bb-ember 3.2s ease-in-out infinite", flex: "0 0 auto" }}>
-                            <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#2a1a10", lineHeight: 1 }}>{b.age}</span>
-                            <span style={{ position: "absolute", bottom: 5, fontFamily: MONO, fontSize: 7, fontWeight: 700, color: "#2a1a10", letterSpacing: ".16em" }}>YR</span>
-                          </span>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, lineHeight: 1 }}>{sellable ? `sell ≈ ${baseValue}+` : "aging in oak"}</div>
-                          </div>
-                        </div>
-                        {/* VALUE BY AGE — the quality's age→value ladder; rungs fill as it ages, current highlighted */}
-                        <div style={{ marginTop: 8, padding: "8px", borderRadius: 8, background: "rgba(12,8,5,.5)", border: `1px solid ${qc.ink}33` }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "stretch", gap: 4 }} title="Capital value by age for this quality (holds after the cap)">
-                            {trackSteps.map((s, i) => {
-                              const active = i === activeStep;
-                              const reached = i <= activeStep;
-                              return (
-                                <span
-                                  key={s.age}
-                                  title={`Age ${s.age}${i === trackSteps.length - 1 ? "+" : `–${(trackSteps[i + 1]?.age ?? s.age + 1) - 1}`} → ${s.value}`}
-                                  style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 36, padding: "6px 8px", borderRadius: 8, lineHeight: 1, ...(active ? { background: qc.foil, color: "#2a1408", border: `1px solid ${qc.ink}`, boxShadow: `0 0 10px ${qc.ink}88` } : reached ? { background: `${qc.ink}24`, color: qc.ink, border: `1px solid ${qc.ink}55` } : { background: "transparent", color: C.faint, border: `1px solid ${C.border2}` }) }}
-                                >
-                                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22 }}>{s.value}</span>
-                                  <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".02em", marginTop: 2, opacity: 0.85 }}>yr{s.age}</span>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </button>
-                      <div style={{ textAlign: "center", padding: 5, borderRadius: 7, border: `1px solid ${qc.ink}40`, background: `${qc.ink}14`, fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: qc.ink }}>
-                        {sellable ? (phaseStage === "play" ? "Tap to sell" : "Ready to sell") : `Aging · Year ${b.age}`}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {restingBarrels.map((b) => {
-                  const ready = b.staged.length >= recipeSize(b.recipe);
-                  const canBuild = phaseStage === "play" && !locked;
-                  // Build the slot row PER GRAIN so a filled pip reflects the kind
-                  // actually staged (not just a positional count).
-                  const slotList: { kind: ResourceKind; filled: boolean }[] = [];
-                  for (const k of PILE_ORDER) {
-                    const have = b.staged.filter((c) => c.kind === k).length;
-                    for (let i = 0; i < (b.recipe[k] ?? 0); i++) slotList.push({ kind: k, filled: i < have });
-                  }
-                  // Which grains the recipe still needs, and whether the hand has one.
-                  const needKinds = PILE_ORDER.filter((k) => (b.recipe[k] ?? 0) - b.staged.filter((c) => c.kind === k).length > 0);
-                  const stageable = needKinds.find((k) => me.hand.some((c) => c.kind === k));
-                  // Resting bill — quality decided at build, so a neutral chrome; the style shows as tags.
-                  const sc = { border: "rgba(170,150,112,.55)", grad: "linear-gradient(180deg, rgba(64,56,42,.34), #15100a 80%)", selGrad: "linear-gradient(180deg, rgba(104,90,64,.52), #1d1509 85%)", ink: "#d4c6a2", glow: "0 0 20px rgba(170,150,112,.22)" };
-                  return (
-                    <div key={b.id} data-tut="resting" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div onContextMenu={(e) => { e.preventDefault(); p.onInspect({ kind: "bill", bill: b }); }} title="Right-click (or ⓘ) to inspect this bill" style={{ position: "relative", borderRadius: 12, padding: "11px 12px 12px", border: `1px solid ${sc.border}`, background: sc.grad, boxShadow: `inset 0 1px 0 rgba(255,255,255,.12), ${sc.glow}`, overflow: "hidden" }}>
-                        <span style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 42%, rgba(255,255,255,.05) 50%, transparent 58%)", pointerEvents: "none" }} />
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".16em", textTransform: "uppercase", color: sc.border }}>Resting Bill</span>
-                          <div style={{ flex: 1 }} />
-                          {b.tags.map((t) => (
-                            <span key={t} style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#1a1209", background: STYLE_CHROME[t].border, padding: "2px 7px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
-                          ))}
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); p.onInspect({ kind: "bill", bill: b }); }}
-                            title="Inspect this bill"
-                            style={{ width: 18, height: 18, borderRadius: 999, display: "grid", placeItems: "center", fontFamily: SERIF, fontStyle: "italic", fontWeight: 700, fontSize: 11, color: sc.ink, border: `1px solid ${sc.border}88`, background: "rgba(10,7,4,.5)", cursor: "pointer" }}
-                          >i</span>
-                        </div>
-                        <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: sc.ink, lineHeight: 1.05, marginTop: 2 }}>{b.name}</div>
-                        {b.traits.length > 0 && <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 11, lineHeight: 1.25, color: C.muted, marginTop: 1 }}>{b.traits.join(" · ")}</div>}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                          {slotList.map(({ kind: k, filled }, i) => (
-                            <span key={i} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, width: 44, height: 46, borderRadius: 10, ...(filled ? { background: `linear-gradient(180deg,${FACE[k].color}26,#1a130b)`, border: `1.5px solid ${FACE[k].color}` } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }}>
-                              {resMark(k, 22, filled ? FACE[k].color : C.faint)}
-                              <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 8, letterSpacing: ".04em", color: filled ? FACE[k].color : C.faint }}>{FACE[k].mono}</span>
-                            </span>
-                          ))}
-                          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: sc.ink, marginLeft: 4 }}>{b.staged.length}/{recipeSize(b.recipe)}</span>
-                        </div>
-                        <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4, marginTop: 8 }}>Staged cards free Warehouse cap.{hasUlt(me, "warehouse", "longCellar") ? " (Long Cellar: swappable)" : " They lock here."}</div>
-                      </div>
-                      {(() => {
-                        const enabled = canBuild && (ready || !!stageable);
-                        const label = ready ? "✓ Build now" : stageable ? `+ Stage ${FACE[stageable].label}` : `Needs ${needKinds.map((k) => FACE[k].mono).join(" ")}`;
-                        const tone = ready
-                          ? { border: "1px solid #6d8f4f", color: "#9fc27a", background: "rgba(80,110,60,.16)" }
-                          : stageable
-                            ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710" }
-                            : { border: `1px solid ${C.border2}`, color: C.muted, background: "#150e08" };
-                        return (
-                          <button
-                            className="bb-btn"
-                            disabled={!enabled}
-                            onClick={() => (ready ? tryBuild(b) : stageable ? autoStage(b) : flash(`"${b.name}" needs ${needKinds.map((k) => FACE[k].label).join(", ")} — collect more`))}
-                            style={{ padding: 7, borderRadius: 8, fontFamily: MONO, fontWeight: 600, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", cursor: enabled ? "pointer" : "default", ...tone, opacity: enabled ? 1 : 0.7 }}
-                          >
-                            {label}
-                          </button>
-                        );
-                      })()}
-                    </div>
-                  );
-                })}
-
-                {Array.from({ length: openCount }).map((_, i) => (
-                  <div key={`open${i}`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ position: "relative", minHeight: 150, borderRadius: 12, border: "1.5px dashed rgba(198,157,82,.35)", background: "radial-gradient(70% 60% at 50% 30%, rgba(240,201,112,.05), transparent 70%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 16, animation: "bb-shelf 3.6s ease-in-out infinite" }}>
-                      <span style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${C.faint}`, display: "grid", placeItems: "center", fontFamily: SERIF, fontSize: 18, color: C.muted }}>+</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "#6f5c45", textAlign: "center", lineHeight: 1.6 }}>Open<br />Barrel Slot</span>
-                    </div>
-                    <div style={{ textAlign: "center", padding: 5, borderRadius: 7, border: "1px dashed rgba(110,80,50,.45)", background: "rgba(20,14,8,.5)", fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted }}>Draw a mash bill</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* SIX-ROOM GRID */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gridTemplateRows: "1fr 1fr", gap: 11, flex: 1, minHeight: 0 }}>
-              <Room id="supply" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(213,150,80,.08), transparent 65%), linear-gradient(180deg,#1a120b,#130c06)">
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {Array.from({ length: supplyCap }).map((_, i) => (
-                    <span key={i} style={{ width: 24, height: 24, borderRadius: 6, background: "linear-gradient(180deg,#2c1f13,#1a130b)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.15)" }} />
-                  ))}
-                </div>
-                <div style={{ fontSize: 12, color: C.text2, marginTop: 8 }}>Rolls <b style={{ color: C.gold }}>{supplyCap} dice</b> into the draft. {fnRerolls(me)} reroll{fnRerolls(me) > 1 ? "s" : ""}/turn.</div>
-              </Room>
-
-              <Room id="warehouse" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(109,178,140,.08), transparent 65%), linear-gradient(180deg,#131a13,#0f130c)"
-                headerRight={
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: "#11100a", border: `1px solid ${whFull ? C.red : C.border}` }}>
-                    <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: whFull ? C.red : C.green }}>{heldTotal}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>/{warehouseCap}</span>
-                  </div>
-                }>
-                <div ref={warehouseRef} style={{ display: "flex", gap: 6, flexWrap: "wrap", alignContent: "center" }}>
-                  {me.hand.slice(0, warehouseCap).map((card) => (
-                    <ResMiniCard key={card.id} kind={card.kind} quality={card.quality} onClick={() => p.onInspect({ kind: "resource", card })} />
-                  ))}
-                  {optimisticClaims.slice(0, Math.max(0, warehouseCap - me.hand.length)).map((kind, i) => (
-                    <ResMiniCard key={`pend${i}`} kind={kind} pending onClick={() => p.onInspect({ kind: "pending", k: kind })} />
-                  ))}
-                  {Array.from({ length: Math.max(0, warehouseCap - heldTotal) }).map((_, i) => (
-                    <div key={`g${i}`} style={{ width: 50, height: 70, borderRadius: 8, border: "1.5px dashed rgba(110,80,50,.4)", background: "rgba(20,14,8,.4)" }} />
-                  ))}
-                </div>
-                {hasUlt(me, "warehouse", "qualitySort") && phaseStage === "play" && !locked && (
-                  <button className="bb-btn" disabled={me.qualitySortUsedThisRound} onClick={() => p.setQsOpen(true)} style={{ marginTop: 8, padding: "5px 10px", borderRadius: 7, fontFamily: MONO, fontWeight: 600, fontSize: 9, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.green}`, background: "rgba(109,178,140,.14)", color: C.green, cursor: me.qualitySortUsedThisRound ? "default" : "pointer", opacity: me.qualitySortUsedThisRound ? 0.5 : 1 }}>
-                    ✦ Quality Sort {me.qualitySortUsedThisRound ? "· used" : "· free draw"}
-                  </button>
-                )}
-              </Room>
-
-              <Room id="mashFloor" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(125,143,212,.08), transparent 65%), linear-gradient(180deg,#14141f,#0e0d14)">
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ position: "relative", width: 56, height: 74, flex: "0 0 auto" }}>
-                    <span style={{ position: "absolute", inset: 0, borderRadius: 8, background: "linear-gradient(180deg,#2a2f44,#16161f)", border: "1px solid #3a3f55", transform: "rotate(-7deg)" }} />
-                    <span style={{ position: "absolute", inset: 0, borderRadius: 8, background: "linear-gradient(180deg,#2f3550,#1a1a24)", border: "1px solid #444a64", transform: "rotate(3deg)", display: "grid", placeItems: "center", fontFamily: MONO, fontSize: 9, letterSpacing: ".1em", color: "#9aa6d4" }}>BILLS</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.45 }}>Draws <b style={{ color: C.gold }}>{fnMash(me)} bills</b> each turn to choose a recipe.</div>
-                </div>
-              </Room>
-
-              <Room id="marketing" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(176,143,216,.1), transparent 65%), linear-gradient(180deg,#1a1220,#120c10)" borderTop="#2e2236">
-                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 9, background: "#160f15", border: "1px solid #3b2b46" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 13, color: "#b08fd8" }}>◄</span>
-                    <span style={{ flex: 1, textAlign: "center", fontFamily: MONO, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: C.text2 }}>shape the market</span>
-                    <span style={{ fontFamily: MONO, fontSize: 13, color: "#b08fd8" }}>►</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.4 }}>Draws <b style={{ color: C.gold }}>{me.distillery.departments.find((d) => d.id === "marketing")!.values[me.distillery.departments.find((d) => d.id === "marketing")!.level]} demand card{(me.distillery.departments.find((d) => d.id === "marketing")!.values[me.distillery.departments.find((d) => d.id === "marketing")!.level] ?? 0) > 1 ? "s" : ""}</b> each Demand Phase.</div>
-                </div>
-              </Room>
-
-              <Room id="distribution" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(95,166,201,.1), transparent 65%), linear-gradient(180deg,#101820,#0c1014)" borderTop="#233038">
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ display: "flex", gap: 4, flex: "0 0 auto" }}>
-                    {[28, 36, 24].map((h, i) => (
-                      <span key={i} style={{ width: 22, height: h, borderRadius: 3, background: "linear-gradient(180deg,#3a2a18,#241810)", border: "1px solid #4a3826", boxShadow: "inset 0 0 0 2px rgba(95,166,201,.18)", alignSelf: i ? "flex-end" : "auto" }} />
-                    ))}
-                  </div>
-                  <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.4 }}>Ships to market · <b style={{ color: C.gold }}>+{fnDist(me)} Capital on every sale</b></div>
-                </div>
-              </Room>
-
-              <Room id="countingHouse" board={p} me={me} bg="radial-gradient(80% 60% at 50% 0%, rgba(201,162,74,.1), transparent 65%), linear-gradient(180deg,#1a160c,#120e07)">
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ display: "flex", flex: "0 0 auto" }}>
-                    {[0, 1, 2].map((i) => (
-                      <span key={i} style={{ width: 20, height: 20, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #f0c970, #b06a38)", boxShadow: "0 2px 5px rgba(0,0,0,.5)", marginLeft: i ? -8 : 0 }} />
-                    ))}
-                  </div>
-                  <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.4 }}>Capital efficiency · <b style={{ color: C.gold }}>−{fnCounting(me)} off every improvement</b></div>
-                </div>
-              </Room>
-            </div>
-          </main>
-            </div>
-          </div>
-
-          {/* MARKET — full-height right column so every demand card fits */}
-          <MarketAside game={game} zone={zone} me={me} />
+          <MarketRail game={game} zone={zone} />
         </div>
+
+        <TableLog game={game} />
       </div>
 
-      {/* card-flight layer (die → Warehouse), in canvas coordinate space */}
       <FlightLayer flights={flights} />
 
-      {/* wild pile chooser */}
       {p.pendingWild && (
         <PileChooser title="✦ Wild — draw from which pile?" onPick={choosePile} onCancel={() => { wildSrc.current = null; p.setPendingWild(null); }} />
       )}
-      {/* Quality Sort pile chooser */}
       {p.qsOpen && (
         <PileChooser
           title="✦ Quality Sort — free draw from which pile?"
@@ -1295,12 +931,10 @@ function Board(p: BoardProps) {
           onCancel={() => p.setQsOpen(false)}
         />
       )}
-      {/* Triple Threat face chooser */}
       {p.ttFace && (
         <FaceChooser title="⚡ Triple Threat — discard 2 undrafted dice, take which face?" onPick={onTripleThreat} onCancel={() => p.setTtFace(false)} />
       )}
-
-      {/* sell routing overlay */}
+      {p.drawingBills && !botTurn && <BillPicker board={p} />}
       {sellBourbon && (
         <SellOverlay
           game={game}
@@ -1311,8 +945,6 @@ function Board(p: BoardProps) {
           onCancel={() => p.setSellId(null)}
         />
       )}
-
-      {/* ultimate chooser overlay */}
       {p.ultDept && (
         <UltimateOverlay
           dept={me.distillery.departments.find((d) => d.id === p.ultDept)!}
@@ -1320,313 +952,135 @@ function Board(p: BoardProps) {
           onCancel={() => p.setUltDept(null)}
         />
       )}
-
-      {/* toast */}
       {p.toast && (
-        <div style={{ position: "fixed", left: "50%", bottom: 26, transform: "translateX(-50%)", zIndex: 70, padding: "12px 22px", borderRadius: 11, background: "linear-gradient(180deg,#2e1f15,#1a120b)", border: `1px solid ${C.brass}`, boxShadow: "0 14px 40px rgba(0,0,0,.6)", fontFamily: MONO, fontSize: 12, letterSpacing: ".04em", color: C.ink, animation: "bb-rise .24s ease-out" }}>{p.toast}</div>
+        <div style={{ position: "fixed", left: "50%", bottom: 26, transform: "translateX(-50%)", zIndex: 70, padding: "12px 22px", borderRadius: 11, background: SURFACE.panel, border: `1px solid ${C.brass}`, boxShadow: PANEL_SHADOW, fontFamily: MONO, fontSize: 12, letterSpacing: ".04em", color: C.ink, animation: "bb-rise .24s ease-out" }}>{p.toast}</div>
       )}
     </div>
   );
 }
 
-// ── Action band (Demand begin / Collect dice draft / Play actions) ─────
-function ActionBand(props: {
-  board: BoardProps;
-  me: Player;
-  supplyCap: number;
-  warehouseCap: number;
-  heldTotal: number;
-  whFull: boolean;
-  collect: GameState["collect"];
-  phaseStage: GameState["roundPhase"];
-  botTurn: boolean;
-  spectating: boolean;
-  onExitView: () => void;
-  onReroll: () => void;
-  onRoll: () => void;
-  toggleKeep: (id: string) => void;
-  claimDie: (id: string, face: DieFace, el: HTMLElement) => void;
-  onTT: () => void;
-  onPass: () => void;
-}) {
-  const { board, me, supplyCap, warehouseCap, heldTotal, whFull, collect, phaseStage, botTurn, spectating } = props;
-  const game = board.game;
-
-  // Spectating a rival's board: the draft/play controls belong to the active
-  // turn, so replace the whole band with a read-only peek banner.
-  if (spectating) {
-    return (
-      <section style={{ borderRadius: 14, background: "radial-gradient(120% 130% at 50% 0%, rgba(213,150,80,.08), transparent 55%), linear-gradient(180deg,#1c130c,#140d07)", border: `1px solid ${PLAYER_COLORS[game.players.indexOf(me) % PLAYER_COLORS.length]}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 12px 34px rgba(0,0,0,.4)", padding: "14px 18px", marginBottom: 13, flex: "0 0 auto", display: "flex", alignItems: "center", gap: 16 }}>
-        <span style={{ fontSize: 22 }}>👁</span>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: C.ink }}>Viewing {me.name}&apos;s distillery</span>
-          <span style={{ fontFamily: MONO, fontSize: 11, color: C.muted }}>Read-only — <b style={{ color: C.gold }}>{me.capital}c</b> · <span style={{ color: C.green }}>★{reputationOf(me)}</span> · {me.rickhouse.length} barrels. Their board stays put; your turn is waiting.</span>
-        </div>
-        <div style={{ flex: 1 }} />
-        <button onClick={props.onExitView} className="bb-btn" style={{ padding: "10px 18px", borderRadius: 10, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0 }}>← Back to the table</button>
-      </section>
-    );
-  }
-  const preRoll = !!collect && !collect.rolled; // inherited dice awaiting keep-then-roll
-
-  const hint = botTurn
-    ? `${me.name} (AI) is playing…`
-    : phaseStage === "demand"
-      ? "Demand is laid out — begin the dice draft."
-      : phaseStage === "play"
-        ? "Play phase — build, sell into demand, improve, then end your turn."
-        : preRoll
-          ? "You inherited dice — tap the ones to KEEP, then roll the rest."
-          : "Tap the dice you want — each draws a card into your Warehouse, then draft.";
-
-  const canTT = collect && collect.rolled && hasUlt(me, "supply", "tripleThreat") && !collect.tripleThreatUsed;
-  const drafted = collect ? Object.keys(board.claims).length : 0;
-  const undrafted = collect ? collect.dice.length - drafted : 0;
-  const canReroll = !!collect && collect.rolled && collect.maxRerolls > 0;
-
+// ── Top bar (brand · phase stepper · rival pace · Prestige · Capital) ──
+function TopBar({ game, me, phaseDefs, board }: { game: GameState; me: Player; phaseDefs: { name: string; done: boolean; active: boolean }[]; board: BoardProps }) {
+  const active = game.players[game.currentPlayerIndex]!;
   return (
-    <section style={{ borderRadius: 14, background: "radial-gradient(120% 130% at 50% 0%, rgba(213,150,80,.08), transparent 55%), linear-gradient(180deg,#1c130c,#140d07)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.1), 0 12px 34px rgba(0,0,0,.4)", padding: "11px 18px 13px", marginBottom: 13, flex: "0 0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 11, gap: 16 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: C.gold }}>
-            {phaseStage === "play" ? "Play Phase" : phaseStage === "demand" ? "Demand Phase" : "Collect Phase"}
-          </span>
-          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20 }}>{phaseStage === "play" ? "Build · Sell · Improve" : phaseStage === "demand" ? "Read the Market" : "The Dice Draft"}</span>
-          <span style={{ fontSize: 12, color: C.text2 }}>{hint}</span>
+    <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "8px 14px", borderRadius: 14, background: SURFACE.panel, border: `1px solid ${C.border}`, boxShadow: PANEL_SHADOW, flex: "0 0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(160deg,#e0a44e,#a3531f)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,.45), 0 5px 14px rgba(163,83,31,.35)" }}>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 25, color: "#fff7ea" }}>B</span>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Readout label="SUPPLY" value={`${supplyCap} dice`} color={C.amber} />
-          <Readout label="WAREHOUSE" value={`${heldTotal}/${warehouseCap}`} color={whFull ? C.red : C.green} border={whFull ? C.red : C.border} />
+        <div>
+          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 25, lineHeight: 1, color: C.ink }}>Bourbonomics</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".2em", color: C.muted, marginTop: 3 }}>
+            ROUND {game.roundNumber}{game.finalRound ? " · FINAL" : ""} · {active.name}&apos;s turn{active.isBot ? " · AI" : ""}
+          </div>
         </div>
       </div>
 
-      {/* piles strip — at the TOP of the draft */}
-      <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 11, paddingBottom: 9, borderBottom: `1px solid ${C.border2}` }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.brass }}>Piles · draw blind</span>
-        {PILE_ORDER.map((k) => (
-          <div key={k} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: "#1a130b", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {resMark(k, 20, FACE[k].color)}
+      <div style={{ display: "flex", alignItems: "center" }}>
+        {phaseDefs.map((ph, i) => (
+          <div key={ph.name} style={{ display: "flex", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 14px", borderRadius: 10, ...(ph.active ? { background: "linear-gradient(180deg,#f7e9cc,#f0dcb0)", border: `1px solid ${C.brass}`, color: C.ink } : { background: SURFACE.inset, border: `1px solid ${C.hairline}`, color: ph.done ? C.text2 : C.muted }) }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: ph.active ? C.amber : ph.done ? C.green : C.faint, animation: ph.active ? "bb-pip 2.2s ease-in-out infinite" : undefined }} />
+              <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase" }}>{ph.name}</span>
+              {ph.done && <span style={{ fontFamily: MONO, fontSize: 10, color: C.green }}>✓</span>}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: C.ink }}>{game.piles[k].length}</span>
-              <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", textTransform: "uppercase", color: C.muted }}>{FACE[k].label}</span>
-            </div>
+            {i < 2 && <span style={{ width: 22, height: 1, background: C.border, margin: "0 2px" }} />}
           </div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 256px", gap: 16, alignItems: "stretch" }}>
-        {/* dice tray */}
-        <div style={{ position: "relative", borderRadius: 12, background: "radial-gradient(120% 100% at 50% 0%, rgba(213,150,80,.07), transparent 60%), #11100a", border: `1px solid ${C.border2}`, padding: 14, minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {phaseStage === "demand" && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-              <button data-tut="begin" className="bb-btn" onClick={() => board.dispatch({ type: "BEGIN_COLLECT" })} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 30px", borderRadius: 12, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 14, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 10px 24px rgba(198,157,82,.3)" }}>🎲 Begin draft · roll {supplyCap}</button>
-              <div style={{ fontSize: 12, color: C.muted }}>Most-Capital-first · you inherit leftovers, then roll</div>
-            </div>
-          )}
-          {phaseStage === "play" && <PlayTray board={board} me={me} />}
-          {phaseStage === "collect" && collect && (
-            <DiceTray
-              dice={collect.dice}
-              rollId={`${collect.pos}-${collect.rolled}-${collect.rerollsUsed}`}
-              animate={collect.rolled}
-              mode={preRoll ? "keep" : "claim"}
-              selectedIds={preRoll ? board.keepDice : new Set(Object.keys(board.claims))}
-              full={whFull}
-              locked={botTurn}
-              onDie={preRoll ? (id) => props.toggleKeep(id) : props.claimDie}
-            />
-          )}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }} title="How fast rival turns play out">
+          <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted }}>Pace</span>
+          <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}` }}>
+            {AI_SPEED_ORDER.map((s) => {
+              const on = board.aiSpeed === s;
+              return (
+                <button key={s} onClick={() => board.setAiSpeed(s)} style={{ padding: "5px 9px", fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", cursor: "pointer", border: 0, color: on ? PRIMARY_INK : C.text2, background: on ? PRIMARY : SURFACE.rail }}>{AI_SPEEDS[s].label}</button>
+              );
+            })}
+          </div>
         </div>
+        <button className="bb-btn bb-sec" onClick={board.onNew} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted, background: SURFACE.inset, border: `1px solid ${C.border}`, padding: "7px 12px", borderRadius: 10, cursor: "pointer" }}>New</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 13px", borderRadius: 10, background: SURFACE.inset, border: `1px solid ${C.border}` }}>
+          <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", color: C.muted }}>PRESTIGE</span>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.prestige }}>{reputationOf(me)}</span>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>· {me.keptCards.length}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 15px", borderRadius: 10, background: "linear-gradient(180deg,#fbf2db,#f3e6c4)", border: `1px solid ${C.brass}` }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", color: C.muted }}>CAPITAL</span>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.gold }}>{me.capital}</span>
+        </div>
+      </div>
+    </header>
+  );
+}
 
-        {/* controls */}
-        <div style={{ borderRadius: 11, background: "#150e08", border: `1px solid ${C.border2}`, padding: 12, display: "flex", flexDirection: "column", gap: 9, justifyContent: "center" }}>
-          {botTurn && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 9, alignItems: "stretch" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ width: 9, height: 9, borderRadius: "50%", background: C.gold, animation: "bb-pip 1.4s ease-in-out infinite" }} />
-                <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: C.gold }}>{me.name} (AI)</span>
-              </div>
-              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>Taking its {phaseStage} turn on its own distillery — watch below.</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted }}>Speed</span>
-                <div style={{ display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}` }}>
-                  {AI_SPEED_ORDER.map((s) => {
-                    const on = board.aiSpeed === s;
-                    return (
-                      <button
-                        key={s}
-                        onClick={() => board.setAiSpeed(s)}
-                        title={`Rival turns play at ${AI_SPEEDS[s].label} speed`}
-                        style={{ padding: "5px 11px", fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", cursor: "pointer", border: 0, color: on ? "#2a1408" : C.text2, background: on ? "linear-gradient(180deg,#e9b46e,#c69d52)" : "#150e08" }}
-                      >
-                        {AI_SPEEDS[s].label}
-                      </button>
-                    );
-                  })}
+// ── Left rail — "At the Table" player ticker + clock ──────────────────
+function TableRail({ order, game, board, shownIdx, onView }: { order: OrderRow[]; game: GameState; board: BoardProps; shownIdx: number; onView: (pi: number) => void }) {
+  return (
+    <aside style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
+      <section style={{ display: "flex", flexDirection: "column", gap: 8, borderRadius: 14, background: SURFACE.rail, border: `1px solid ${C.border}`, boxShadow: PANEL_SHADOW, padding: 12, flex: 1, minHeight: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: C.brass }}>At the Table</span>
+          <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", color: C.muted }}>TAP TO VIEW</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, minHeight: 0 }}>
+          {order.map((o) => {
+            const viewed = o.pi === shownIdx;
+            const now = o.status === "now";
+            return (
+              <button
+                key={o.pi}
+                onClick={() => onView(o.pi)}
+                title={`View ${o.name}'s distillery`}
+                style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: 11, cursor: "pointer", flex: 1, minHeight: 0, ...(now ? { background: `linear-gradient(90deg,${o.color}1f,transparent)`, border: `1.5px solid ${o.color}`, boxShadow: `0 0 0 3px ${o.color}1a` } : viewed ? { background: SURFACE.inset, border: `1px solid ${o.color}` } : { background: "#fffdf8", border: `1px solid ${C.hairline}` }) }}
+              >
+                <div style={{ position: "relative", width: 38, height: 38, flex: "0 0 auto", borderRadius: 999, background: `linear-gradient(160deg,${o.color},${o.color}bb)`, display: "grid", placeItems: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>
+                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: "#fff" }}>{o.name[0]}</span>
+                  {now && <span style={{ position: "absolute", inset: -3, borderRadius: 999, border: `2px solid ${o.color}`, animation: "bb-pip 1.6s ease-in-out infinite" }} />}
                 </div>
-              </div>
-            </div>
-          )}
-          {!botTurn && phaseStage === "demand" && (
-            <>
-              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: C.brass }}>Demand Phase</div>
-              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>The market is on the right — read the zone, then begin the draft.</div>
-            </>
-          )}
-          {!botTurn && phaseStage === "play" && <PlayControls board={board} me={me} />}
-          {!botTurn && phaseStage === "collect" && collect && preRoll && (
-            <>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{board.keepDice.size} kept · rolling {Math.max(0, supplyCap - board.keepDice.size)} fresh</div>
-              <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>Keep the inherited dice you like, then roll to fill up to your Supply cap.</div>
-              <button data-tut="pass" className="bb-btn" onClick={props.onRoll} style={{ padding: "13px 18px", borderRadius: 10, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 10px 24px rgba(198,157,82,.3)" }}>🎲 Roll</button>
-            </>
-          )}
-          {!botTurn && phaseStage === "collect" && collect && !preRoll && (
-            <>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{drafted} drafted · {undrafted} left in the pool</div>
-              {canReroll && (
-                <button className="bb-btn bb-sec" onClick={props.onReroll} disabled={collect.rerollsUsed >= collect.maxRerolls} style={{ padding: "10px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", ...(collect.rerollsUsed < collect.maxRerolls ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710", cursor: "pointer" } : { border: `1px solid ${C.border2}`, color: C.faint, background: "#150e08", cursor: "default" }) }}>↻ Reroll undrafted · {collect.maxRerolls - collect.rerollsUsed} left</button>
-              )}
-              {canTT && (
-                <button className="bb-btn bb-sec" onClick={props.onTT} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.amber}`, color: C.amber, background: "#221710", cursor: "pointer" }}>⚡ Triple Threat</button>
-              )}
-              <button data-tut="pass" className="bb-btn" onClick={props.onPass} style={{ padding: "11px 18px", borderRadius: 10, background: "linear-gradient(180deg,#e9b46e,#c69d52)", color: "#2a1408", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,.35)" }}>DRAFT →</button>
-            </>
-          )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}</span>
+                    {now && <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#fff", background: o.color, padding: "1px 5px", borderRadius: 4 }}>Now</span>}
+                    {o.isBot && !now && <span style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".08em", textTransform: "uppercase", color: C.muted }}>AI</span>}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9.5, color: now ? o.color : C.muted, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.statusText}</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flex: "0 0 auto" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12 }}><b style={{ color: C.gold }}>{o.cap}</b><span style={{ color: C.muted, fontSize: 9 }}>c</span></span>
+                  <span style={{ fontFamily: MONO, fontSize: 11 }}><span style={{ color: C.prestige }}>★</span><b style={{ color: C.prestige }}>{o.rep}</b> <span style={{ color: C.faint }}>·</span> <span style={{ color: C.copper }}>{o.barrels}🛢</span></span>
+                </div>
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </section>
+      <ClockCard game={game} initialPool={board.initialPool} />
+    </aside>
+  );
+}
 
+function ClockCard({ game, initialPool }: { game: GameState; initialPool: number }) {
+  const poolLeft = game.demandDeck.length + game.demandDiscard.length;
+  const pct = Math.round((poolLeft / initialPool) * 100);
+  return (
+    <section style={{ borderRadius: 14, background: SURFACE.rail, border: `1px solid ${C.border}`, boxShadow: PANEL_SHADOW, padding: 12, flex: "0 0 auto" }}>
+      <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: C.brass }}>The Clock</span>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6, margin: "6px 0 8px" }}>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 28, color: C.ink }}>{poolLeft}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: C.muted }}>/ {initialPool} demand cards left</span>
+      </div>
+      <div style={{ height: 8, borderRadius: 5, background: SURFACE.inset, overflow: "hidden", border: `1px solid ${C.border}` }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: "linear-gradient(90deg,#56a87c,#b07d28)" }} />
+      </div>
+      <div style={{ fontSize: 10.5, color: C.muted, marginTop: 7, lineHeight: 1.4 }}>Completed orders leave the deck. Game ends when it runs dry.</div>
     </section>
   );
 }
 
-function PlayTray({ board, me }: { board: BoardProps; me: Player }) {
-  const game = board.game;
-  if (board.drawingBills) {
-    const office = fnMash(me);
-    const offer = game.mashBillSupply.slice(0, Math.min(office, game.mashBillSupply.length));
-    const cap = fnRick(me) - me.rickhouse.length;
-    return (
-      <div data-tut="bills" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", alignItems: "stretch" }}>
-        {offer.map((bill, i) => {
-          const sel = board.keepBills.has(i);
-          // Unbuilt bill — quality is drawn blind, so a neutral chrome; the style shows as tags.
-          const sc = { border: "rgba(170,150,112,.55)", grad: "linear-gradient(180deg, rgba(64,56,42,.34), #15100a 80%)", selGrad: "linear-gradient(180deg, rgba(104,90,64,.52), #1d1509 85%)", ink: "#d4c6a2", glow: "0 0 20px rgba(170,150,112,.22)" };
-          return (
-            <button
-              key={bill.id}
-              className="bb-card"
-              onClick={() => { const n = new Set(board.keepBills); n.has(i) ? n.delete(i) : n.add(i); board.setKeepBills(n); }}
-              onContextMenu={(e) => { e.preventDefault(); board.onInspect({ kind: "bill", bill }); }}
-              title="Click to keep · right-click (or ⓘ) to inspect"
-              style={{ position: "relative", width: 210, textAlign: "left", display: "flex", flexDirection: "column", gap: 7, padding: "13px 14px 12px", borderRadius: 14, cursor: "pointer", overflow: "hidden", border: `2px solid ${sc.border}`, background: sel ? sc.selGrad : sc.grad, boxShadow: sel ? `inset 0 1px 0 rgba(255,255,255,.18), ${sc.glow}` : "inset 0 1px 0 rgba(255,255,255,.1), 0 6px 16px rgba(0,0,0,.4)" }}
-            >
-              {/* glass sheen */}
-              <span style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 42%, rgba(255,255,255,.06) 50%, transparent 58%)", pointerEvents: "none" }} />
-              {/* top row: inspect/kept (left) + TAGS (right, color-coded for demand matching) */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {sel ? (
-                  <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: C.green }}>✓ kept</span>
-                ) : (
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => { e.stopPropagation(); board.onInspect({ kind: "bill", bill }); }}
-                    title="Inspect recipe"
-                    style={{ width: 19, height: 19, borderRadius: 999, display: "grid", placeItems: "center", fontFamily: SERIF, fontStyle: "italic", fontWeight: 700, fontSize: 12, color: sc.ink, border: `1px solid ${sc.border}88`, background: "rgba(10,7,4,.5)" }}
-                  >i</span>
-                )}
-                <div style={{ flex: 1 }} />
-                {bill.tags.map((t) => (
-                  <span key={t} title={`Tag: ${STYLE_LABEL[t]} — fills ${STYLE_LABEL[t]} demand orders`} style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#1a1209", background: STYLE_CHROME[t].border, padding: "2px 8px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
-                ))}
-              </div>
-              {/* name + slogan */}
-              <div>
-                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, lineHeight: 1.05, color: sc.ink }}>{bill.name}</div>
-                {bill.slogan && <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 11, lineHeight: 1.25, color: C.muted, marginTop: 2 }}>{bill.slogan}</div>}
-              </div>
-              {/* recipe chips — filled with each resource's card colour */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                {PILE_ORDER.filter((k) => (bill.recipe[k] ?? 0) > 0).map((k) => (
-                  <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 7px", borderRadius: 7, border: `1px solid ${KIND_CHROME[k].border}`, background: KIND_CHROME[k].grad, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" }}>
-                    {resMark(k, 15, KIND_CHROME[k].ink)}
-                    <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 13, color: KIND_CHROME[k].ink, lineHeight: 1 }}>{bill.recipe[k]}</span>
-                  </span>
-                ))}
-              </div>
-              {/* footer: sales (by quality) + premium */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "auto", paddingTop: 8, borderTop: `1px dotted ${sc.border}44` }}>
-                <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.gold, lineHeight: 1 }} title="Sales scale with the built barrel's quality (Common 1 → Legendary 3)">{1 + bill.batchQtyBias}–{3}</span>
-                <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".06em", textTransform: "uppercase", color: C.muted }}>sales · by quality</span>
-                {bill.saleBonus > 0 && (
-                  <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#1a1209", background: C.gold, padding: "2px 7px", borderRadius: 5 }}>+{bill.saleBonus}/sale</span>
-                )}
-              </div>
-            </button>
-          );
-        })}
-        <div style={{ alignSelf: "center", fontFamily: MONO, fontSize: 10, color: C.muted, maxWidth: 92, lineHeight: 1.5 }}>keep up to {Math.max(0, cap)} · rest cycle back</div>
-      </div>
-    );
-  }
-  const aging = me.rickhouse.filter((b) => b.built).length;
-  const resting = me.rickhouse.filter((b) => !b.built).length;
-  return (
-    <div style={{ textAlign: "center" }}>
-      <div style={{ fontFamily: SERIF, fontSize: 18, color: C.text2 }}>It&apos;s your turn — {me.name}</div>
-      <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 6 }}>{resting} resting · {aging} aging · {me.hand.length} cards held</div>
-      <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>Tap an aged barrel below to sell it into demand.</div>
-    </div>
-  );
-}
-
-function PlayControls({ board, me }: { board: BoardProps; me: Player }) {
-  const office = fnMash(me);
-  const noRoom = fnRick(me) - me.rickhouse.length <= 0;
-  const supplyEmpty = board.game.mashBillSupply.length === 0;
-  const blocked = me.drewMashBillsThisTurn || noRoom || supplyEmpty;
-  return (
-    <>
-      {!board.drawingBills ? (
-        <button data-tut="draw" className="bb-btn" disabled={blocked} onClick={() => board.setDrawingBills(true)} style={{ padding: "11px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", border: 0, cursor: blocked ? "default" : "pointer", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)", opacity: blocked ? 0.5 : 1 }}>
-          Draw {office} Mash Bills
-        </button>
-      ) : (
-        <button data-tut="keep" className="bb-btn" onClick={() => board.dispatch({ type: "DRAW_MASH_BILLS", keepIndexes: [...board.keepBills] })} style={{ padding: "11px 16px", borderRadius: 10, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", border: 0, cursor: "pointer", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)" }}>
-          Keep {board.keepBills.size} →
-        </button>
-      )}
-      <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted, lineHeight: 1.4 }}>{me.drewMashBillsThisTurn ? "Bills drawn this turn." : noRoom ? "Rickhouse full — build or sell." : "Once per turn · undrawn cycle back."}</div>
-      <button className="bb-btn bb-sec" onClick={() => board.dispatch({ type: "END_TURN" })} style={{ padding: "11px 18px", borderRadius: 10, background: "#221710", color: C.ink, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: `1px solid ${C.brass}` }}>End Turn →</button>
-    </>
-  );
-}
-
-// ── small components ──────────────────────────────────────────────────
-function Readout({ label, value, color, border }: { label: string; value: string; color: string; border?: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 12px", borderRadius: 9, background: "#150e08", border: `1px solid ${border ?? C.border}` }}>
-      <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".1em", color: C.muted }}>{label}</span>
-      <span style={{ fontFamily: MONO, fontSize: 13, color }}>{value}</span>
-    </div>
-  );
-}
-
-function RailCard({ title, right, children }: { title: string; right?: string; children: React.ReactNode }) {
-  return (
-    <section style={{ borderRadius: 14, background: "linear-gradient(180deg,#1a120b,#150e08)", border: `1px solid ${C.border}`, padding: 13, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>{title}</span>
-        {right && <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".1em", color: C.muted }}>{right}</span>}
-      </div>
-      {children}
-    </section>
-  );
-}
-
+// ── small shared bits ────────────────────────────────────────────────
 function Pips({ dept, me }: { dept: DepartmentId; me: Player }) {
   const d = me.distillery.departments.find((x) => x.id === dept)!;
   const color = DEPT_META[dept].color;
@@ -1634,14 +1088,9 @@ function Pips({ dept, me }: { dept: DepartmentId; me: Player }) {
     <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
       {Array.from({ length: d.maxLevel + 1 }).map((_, i) => {
         const owned = i <= d.level;
-        // The last step is the ULTIMATE — a special gold diamond, not a plain pip.
         if (i === d.maxLevel) {
           return (
-            <span
-              key={i}
-              title="Ultimate"
-              style={{ width: 9, height: 9, marginLeft: 3, transform: "rotate(45deg)", borderRadius: 2, background: owned ? "linear-gradient(135deg,#f7dd9a,#c69d52)" : "transparent", border: `1px solid ${owned ? "#f0c970" : C.brass}`, boxShadow: owned ? "0 0 7px rgba(240,201,112,.8)" : `inset 0 0 0 1px ${C.brass}33` }}
-            />
+            <span key={i} title="Ultimate" style={{ width: 9, height: 9, marginLeft: 3, transform: "rotate(45deg)", borderRadius: 2, background: owned ? "linear-gradient(135deg,#f0c970,#b07d28)" : "transparent", border: `1px solid ${owned ? C.gold : C.brass}`, boxShadow: owned ? "0 0 6px rgba(176,125,40,.7)" : `inset 0 0 0 1px ${C.brass}44` }} />
           );
         }
         return <span key={i} style={{ width: 11, height: 6, borderRadius: 2, background: owned ? color : C.border2 }} />;
@@ -1650,27 +1099,19 @@ function Pips({ dept, me }: { dept: DepartmentId; me: Player }) {
   );
 }
 
-function ImproveBtn({ id, board, me }: { id: DepartmentId; board: BoardProps; me: Player }) {
+function ImproveBtn({ id, board, me, compact }: { id: DepartmentId; board: BoardProps; me: Player; compact?: boolean }) {
   const d = me.distillery.departments.find((x) => x.id === id)!;
   const maxed = d.level >= d.maxLevel;
   const cost = improvementCost(me.improvements, d.discount + fnCounting(me));
-  // Only the active human player can actually improve — disable when viewing a
-  // rival's board (spectating) or watching a bot.
   const isActor = me.id === board.game.players[board.game.currentPlayerIndex]?.id && !isBotTurn(board.game);
   const can = isActor && !maxed && me.capital >= cost && board.game.roundPhase === "play";
   const nextIsUlt = d.level + 1 === d.maxLevel;
   const realOptions = d.ultimateOptions.filter((o) => o !== "ph");
   const onClick = () => {
     if (maxed || !isActor) return;
-    if (board.game.roundPhase !== "play") {
-      board.flash("Improve during the Play phase");
-      return;
-    }
+    if (board.game.roundPhase !== "play") { board.flash("Improve during the Play phase"); return; }
     if (nextIsUlt && realOptions.length > 0) {
-      if (me.capital < cost) {
-        board.flash(`Costs ${cost} capital`);
-        return;
-      }
+      if (me.capital < cost) { board.flash(`Costs ${cost} capital`); return; }
       board.setUltDept(id);
     } else {
       board.dispatch({ type: "IMPROVE", departmentId: id });
@@ -1682,103 +1123,703 @@ function ImproveBtn({ id, board, me }: { id: DepartmentId; board: BoardProps; me
       disabled={maxed}
       onClick={onClick}
       title={nextIsUlt && realOptions.length ? "Choose an ultimate" : undefined}
-      style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", padding: "5px 10px", borderRadius: 7, whiteSpace: "nowrap", cursor: maxed ? "default" : "pointer", ...(maxed ? { border: `1px solid ${C.border2}`, color: C.faint, background: "#150e08" } : can ? { border: `1px solid ${C.brass}`, color: C.gold, background: "#221710" } : { border: `1px solid ${C.border}`, color: C.muted, background: "#150e08" }) }}
+      style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", padding: compact ? "4px 8px" : "5px 10px", borderRadius: 7, whiteSpace: "nowrap", cursor: maxed ? "default" : "pointer", ...(maxed ? { border: `1px solid ${C.border2}`, color: C.faint, background: SURFACE.inset } : can ? { border: 0, color: PRIMARY_INK, background: PRIMARY } : { border: `1px solid ${C.border}`, color: C.muted, background: SURFACE.inset }) }}
     >
       {maxed ? "MAX" : nextIsUlt && realOptions.length ? `★ ${cost}` : `+ ${cost}`}
     </button>
   );
 }
 
-function Room({ id, board, me, bg, headerRight, borderTop, children }: {
-  id: DepartmentId;
+// Simple CSS-shape department icons (no SVG art).
+function DeptIcon({ id, color }: { id: DepartmentId; color: string }) {
+  const box: React.CSSProperties = { width: 40, height: 40, borderRadius: 10, flex: "0 0 auto", display: "grid", placeItems: "center", background: `${color}1a`, border: `1px solid ${color}66` };
+  if (id === "supply") {
+    return <div style={box}><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, width: 18, height: 18 }}>{[0, 1, 2, 3].map((i) => <span key={i} style={{ width: 7, height: 7, borderRadius: 999, background: color }} />)}</div></div>;
+  }
+  if (id === "mashFloor") {
+    return <div style={box}><div style={{ display: "flex", flexDirection: "column", gap: 3, width: 18 }}>{[16, 18, 12].map((w, i) => <span key={i} style={{ width: w, height: 3, borderRadius: 2, background: color }} />)}</div></div>;
+  }
+  if (id === "marketing") {
+    return <div style={box}><div style={{ position: "relative", width: 20, height: 14 }}><span style={{ position: "absolute", top: 6, left: 0, width: 20, height: 2, borderRadius: 2, background: `${color}88` }} /><span style={{ position: "absolute", top: 1, left: 11, width: 8, height: 12, borderRadius: 3, background: color }} /></div></div>;
+  }
+  if (id === "distribution") {
+    return <div style={box}><div style={{ display: "flex", alignItems: "flex-end", gap: 3 }}>{[10, 14, 8].map((h, i) => <span key={i} style={{ width: 6, height: h, borderRadius: 1, background: color, border: `1px solid ${color}` }} />)}</div></div>;
+  }
+  // countingHouse — overlapping coins
+  return <div style={box}><div style={{ display: "flex" }}>{[0, 1, 2].map((i) => <span key={i} style={{ width: 13, height: 13, borderRadius: 999, background: `radial-gradient(circle at 35% 30%, #f0c970, ${color})`, marginLeft: i ? -5 : 0, boxShadow: "0 1px 2px rgba(0,0,0,.25)" }} />)}</div></div>;
+}
+
+// ── Center stage — the only zone that morphs per phase ────────────────
+interface StageProps {
   board: BoardProps;
   me: Player;
-  bg: string;
-  headerRight?: React.ReactNode;
-  borderTop?: string;
-  children: React.ReactNode;
-}) {
+  shownIdx: number;
+  spectating: boolean;
+  isMyTurn: boolean;
+  botTurn: boolean;
+  locked: boolean;
+  phaseStage: GameState["roundPhase"];
+  collect: GameState["collect"];
+  zone: Zone;
+  supplyCap: number;
+  warehouseCap: number;
+  heldTotal: number;
+  whFull: boolean;
+  rickCap: number;
+  humanIdx: number;
+  order: OrderRow[];
+  optimisticClaims: ResourceKind[];
+  warehouseRef: React.RefObject<HTMLDivElement | null>;
+  onRoll: () => void;
+  onReroll: () => void;
+  toggleKeep: (id: string) => void;
+  claimDie: (id: string, face: DieFace, el: HTMLElement) => void;
+  onTT: () => void;
+  onPass: () => void;
+  autoStage: (b: Bourbon) => void;
+  tryBuild: (b: Bourbon) => void;
+  onExitView: () => void;
+}
+
+const STAGE_PANEL: React.CSSProperties = {
+  position: "relative",
+  flex: 1,
+  minHeight: 0,
+  minWidth: 0,
+  borderRadius: 16,
+  background: SURFACE.panel,
+  border: `1px solid ${C.border}`,
+  boxShadow: PANEL_SHADOW,
+  overflow: "hidden",
+};
+
+function CenterStage(props: StageProps) {
+  const { phaseStage, botTurn, spectating, isMyTurn } = props;
+  let inner: React.ReactNode;
+  let showStrip = false;
+  if (spectating) {
+    inner = <DistilleryFloor {...props} />;
+  } else if (phaseStage === "demand") {
+    inner = <DemandStage {...props} />;
+    showStrip = true;
+  } else if (botTurn) {
+    inner = <SpectatorStage {...props} />;
+  } else if (phaseStage === "collect" && isMyTurn) {
+    inner = <DiceDraftStage {...props} />;
+    showStrip = true;
+  } else {
+    inner = <DistilleryFloor {...props} />;
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, minWidth: 0 }}>
+      {inner}
+      {showStrip && <DepartmentStrip board={props.board} me={props.me} />}
+    </div>
+  );
+}
+
+// Compact quick-improve strip (Demand / Collect only — Play has full dept cards).
+function DepartmentStrip({ board, me }: { board: BoardProps; me: Player }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 12, background: SURFACE.rail, border: `1px solid ${C.border}`, boxShadow: CARD_SHADOW, flex: "0 0 auto" }}>
+      <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, flex: "0 0 auto" }}>Departments</span>
+      <div style={{ display: "flex", gap: 6, flex: 1, minWidth: 0, overflow: "hidden" }}>
+        {(["rickhouse", "warehouse", ...FLOOR_DEPTS] as DepartmentId[]).map((id) => {
+          const d = me.distillery.departments.find((x) => x.id === id)!;
+          return (
+            <div key={id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderRadius: 8, background: "#fffdf8", border: `1px solid ${C.hairline}` }}>
+              <span style={{ width: 7, height: 7, borderRadius: 2, background: DEPT_META[id].color }} />
+              <span style={{ fontSize: 11, color: C.text2, whiteSpace: "nowrap" }}>{DEPT_META[id].name}</span>
+              <Pips dept={id} me={me} />
+            </div>
+          );
+        })}
+      </div>
+      <span style={{ fontFamily: MONO, fontSize: 9, color: C.faint, flex: "0 0 auto" }}>improve in Play</span>
+    </div>
+  );
+}
+
+// ── Demand stage — draw the round's order + market-heat meter ──────────
+function DemandStage({ board, zone }: StageProps) {
+  const game = board.game;
+  const [revealed, setRevealed] = useState(false);
+  const count = game.demandCards.length;
+  const featured = game.demandCards[count - 1];
+  const toCrash = CONFIG.DEMAND_CRASH_AT - count;
+  const maxSlots = CONFIG.DEMAND_CRASH_AT - 1;
+  return (
+    <section style={{ ...STAGE_PANEL, display: "flex", flexDirection: "column", padding: "16px 20px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: C.amber }}>Demand Phase</span>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.ink }}>Read the Market</span>
+        <span style={{ fontSize: 12, color: C.text2 }}>A new order joins the table. Read the heat, then open the draft.</span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, flex: 1, minHeight: 0, marginTop: 14, alignItems: "center" }}>
+        {/* draw + featured card */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
+          {!revealed || !featured ? (
+            <button className="bb-card" onClick={() => setRevealed(true)} style={{ width: 210, height: 280, borderRadius: 16, cursor: "pointer", border: `2px dashed ${C.brass}`, background: "repeating-linear-gradient(135deg,#f3e6c8 0 10px,#efe0bf 10px 20px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, color: C.brass }}>
+              <span style={{ fontSize: 40 }}>🂠</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.6 }}>Draw this<br />round&apos;s order</span>
+            </button>
+          ) : (
+            <div style={{ animation: "bb-rise .4s ease-out" }}><DemandCardFace card={featured} zone={zone} /></div>
+          )}
+          <button className="bb-btn" onClick={() => board.dispatch({ type: "BEGIN_COLLECT" })} style={{ padding: "13px 28px", borderRadius: 12, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW }} data-tut="begin">Begin the Collect draft →</button>
+        </div>
+
+        {/* market-heat meter */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16, borderRadius: 14, background: SURFACE.inset, border: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted }}>Market Heat</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: toCrash <= 1 ? C.red : C.text2 }}>{toCrash <= 0 ? "crashing" : `${toCrash} until crash`}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column-reverse", gap: 5 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, border: `1px dashed ${toCrash <= 1 ? C.red : C.border}`, background: toCrash <= 1 ? "rgba(192,73,44,.1)" : "transparent" }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: C.red }}>▲ Crash at {CONFIG.DEMAND_CRASH_AT}</span>
+            </div>
+            {Array.from({ length: maxSlots }).map((_, i) => {
+              const slot = i + 1;
+              const z = zoneForCardCount(slot);
+              const zc = ZONE_META[z].color;
+              const filled = slot <= count;
+              return (
+                <div key={slot} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, background: filled ? `${zc}22` : "#fffdf8", border: `1px solid ${filled ? zc : C.hairline}` }}>
+                  <span style={{ width: 18, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: filled ? zc : C.faint }}>{slot}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: filled ? zc : C.faint }}>{ZONE_META[z].label}</span>
+                  <span style={{ flex: 1 }} />
+                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: filled ? zc : C.faint }}>×{zoneMultiplier(z)}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 10.5, color: C.muted, lineHeight: 1.4 }}>The hotter the market, the bigger the multiplier on every sale — until a crash wipes the open orders.</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// A featured demand card face (the round's drawn order).
+function DemandCardFace({ card, zone }: { card: DemandCard; zone: Zone }) {
+  const reqTags = card.requirement.tags ?? [];
+  const filled = card.filledBy.filter((f) => f !== null).length;
+  const open = reqTags.length === 0 && card.requirement.quality === undefined && card.requirement.minAge === undefined;
+  return (
+    <article style={{ width: 210, borderRadius: 16, border: `1px solid ${C.border}`, background: SURFACE.panel, boxShadow: PANEL_SHADOW, padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        {open ? (
+          <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#0a1610", background: STYLE_CHROME.barley.border, padding: "2px 8px", borderRadius: 999 }}>Open · any</span>
+        ) : reqTags.map((t) => (
+          <span key={t} style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: STYLE_CHROME[t].ink, background: STYLE_CHROME[t].border, padding: "2px 8px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
+        ))}
+      </div>
+      <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink, lineHeight: 1.05 }}>{card.label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{requirementText(card.requirement)}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 10, borderTop: `1px solid ${C.hairline}` }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>order</span>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: C.gold }}>+{card.orderValue}</span>
+        <span style={{ flex: 1 }} />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 9px", borderRadius: 999, background: "rgba(138,95,176,.14)", border: `1px solid ${C.prestige}` }}>
+          <span style={{ fontSize: 13, color: C.prestige }}>★</span>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18, color: C.prestige }}>{card.reputation}</span>
+        </span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: C.muted }}>{filled}/{card.slotsActive} slots</span>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontFamily: MONO, fontSize: 9, color: ZONE_META[zone].color }}>{ZONE_META[zone].label} ×{zoneMultiplier(zone)}</span>
+      </div>
+    </article>
+  );
+}
+
+// ── Collect stage — the dice draft ────────────────────────────────────
+function DiceDraftStage(props: StageProps) {
+  const { board, me, collect, supplyCap, warehouseCap, heldTotal, whFull, optimisticClaims, warehouseRef } = props;
+  const game = board.game;
+  if (!collect) return <section style={STAGE_PANEL} />;
+  const preRoll = !collect.rolled;
+  const drafted = Object.keys(board.claims).length;
+  const undrafted = collect.dice.length - drafted;
+  const canReroll = collect.rolled && collect.maxRerolls > 0;
+  const canTT = collect.rolled && hasUlt(me, "supply", "tripleThreat") && !collect.tripleThreatUsed;
+
+  return (
+    <section style={{ ...STAGE_PANEL, display: "flex", flexDirection: "column", padding: "14px 18px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: C.amber }}>Collect Phase</span>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.ink }}>The Dice Draft</span>
+        <span style={{ fontSize: 12, color: C.text2 }}>{preRoll ? "Keep the inherited dice you like, then roll the rest." : "Tap a die to draw it into your Warehouse, then pass the leftovers on."}</span>
+        <div style={{ flex: 1 }} />
+        <Readout label="SUPPLY" value={`${supplyCap} dice`} color={C.amber} />
+        <Readout label="HOLD" value={`${heldTotal}/${warehouseCap}`} color={whFull ? C.red : C.green} border={whFull ? C.red : C.border} />
+      </div>
+
+      {/* piles strip */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, margin: "11px 0", paddingBottom: 9, borderBottom: `1px solid ${C.hairline}` }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.brass }}>Piles · draw blind</span>
+        {PILE_ORDER.map((k) => (
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: KIND_CHROME[k].grad, border: `1px solid ${KIND_CHROME[k].border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>{resMark(k, 18, KIND_CHROME[k].ink)}</div>
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.ink }}>{game.piles[k].length}</span>
+              <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", textTransform: "uppercase", color: C.muted }}>{FACE[k].label}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 250px", gap: 16, flex: 1, minHeight: 0 }}>
+        <div style={{ borderRadius: 12, background: SURFACE.inset, border: `1px solid ${C.border}`, padding: 14, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0 }}>
+          <DiceTray
+            dice={collect.dice}
+            rollId={`${collect.pos}-${collect.rolled}-${collect.rerollsUsed}`}
+            animate={collect.rolled}
+            mode={preRoll ? "keep" : "claim"}
+            selectedIds={preRoll ? board.keepDice : new Set(Object.keys(board.claims))}
+            full={whFull}
+            locked={false}
+            onDie={preRoll ? (id) => props.toggleKeep(id) : props.claimDie}
+          />
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
+          {/* warehouse strip */}
+          <div style={{ borderRadius: 11, background: "#fffdf8", border: `1px solid ${C.border}`, padding: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+              <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: C.green }}>Warehouse</span>
+              <div style={{ flex: 1 }} />
+              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: whFull ? C.red : C.green }}>{heldTotal}</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>/{warehouseCap}</span>
+            </div>
+            <div ref={warehouseRef} style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {me.hand.slice(0, warehouseCap).map((card) => (
+                <ResMiniCard key={card.id} kind={card.kind} quality={card.quality} onClick={() => board.onInspect({ kind: "resource", card })} />
+              ))}
+              {optimisticClaims.slice(0, Math.max(0, warehouseCap - me.hand.length)).map((kind, i) => (
+                <ResMiniCard key={`pend${i}`} kind={kind} pending onClick={() => board.onInspect({ kind: "pending", k: kind })} />
+              ))}
+              {Array.from({ length: Math.max(0, warehouseCap - heldTotal) }).map((_, i) => (
+                <div key={`g${i}`} style={{ width: 40, height: 56, borderRadius: 7, border: `1.5px dashed ${C.border2}`, background: SURFACE.inset }} />
+              ))}
+            </div>
+          </div>
+
+          {/* controls */}
+          <div style={{ borderRadius: 11, background: SURFACE.inset, border: `1px solid ${C.border}`, padding: 12, display: "flex", flexDirection: "column", gap: 9, justifyContent: "center", flex: 1 }}>
+            {preRoll ? (
+              <>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{board.keepDice.size} kept · rolling {Math.max(0, supplyCap - board.keepDice.size)} fresh</div>
+                <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>Keep the inherited dice you like, then roll to fill up to your Supply cap.</div>
+                <button data-tut="pass" className="bb-btn" onClick={props.onRoll} style={{ padding: "13px 18px", borderRadius: 10, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW }}>🎲 Roll</button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{drafted} drafted · {undrafted} left</div>
+                {canReroll && (
+                  <button className="bb-btn bb-sec" onClick={props.onReroll} disabled={collect.rerollsUsed >= collect.maxRerolls} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", ...(collect.rerollsUsed < collect.maxRerolls ? { border: `1px solid ${C.brass}`, color: C.gold, background: SURFACE.inset, cursor: "pointer" } : { border: `1px solid ${C.border2}`, color: C.faint, background: SURFACE.inset, cursor: "default" }) }}>↻ Reroll · {collect.maxRerolls - collect.rerollsUsed} left</button>
+                )}
+                {canTT && (
+                  <button className="bb-btn bb-sec" onClick={props.onTT} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.amber}`, color: C.amber, background: SURFACE.inset, cursor: "pointer" }}>⚡ Triple Threat</button>
+                )}
+                <button data-tut="pass" className="bb-btn" onClick={props.onPass} style={{ padding: "12px 18px", borderRadius: 10, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW }}>Claim &amp; pass →</button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Readout({ label, value, color, border }: { label: string; value: string; color: string; border?: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 11px", borderRadius: 9, background: SURFACE.inset, border: `1px solid ${border ?? C.border}` }}>
+      <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".1em", color: C.muted }}>{label}</span>
+      <span style={{ fontFamily: MONO, fontSize: 13, color }}>{value}</span>
+    </div>
+  );
+}
+
+// ── Spectator stage — live narration on a rival's turn (no silent lock) ─
+function SpectatorStage(props: StageProps) {
+  const { board, me, phaseStage, humanIdx, collect, spectating } = props;
+  const game = board.game;
+  const color = playerColor(game.currentPlayerIndex);
+  const doing = phaseStage === "collect" ? "drafting dice" : "working the distillery";
+
+  // How many turns until the human is up.
+  let upText = "your turn is coming up";
+  if (humanIdx >= 0) {
+    if (phaseStage === "collect" && collect) {
+      const myPos = collect.order.indexOf(humanIdx);
+      const away = myPos - collect.pos;
+      upText = away <= 0 ? "you've drafted — sit back" : away === 1 ? "you're up next" : `you're up in ${away} turns`;
+    } else {
+      const n = game.players.length;
+      let away = 0;
+      for (let step = 1; step <= n; step++) {
+        const idx = (game.currentPlayerIndex + step) % n;
+        if (idx === humanIdx) break;
+        if (!game.players[idx]!.donePlayThisRound) away++;
+      }
+      const human = game.players[humanIdx]!;
+      upText = human.donePlayThisRound ? "you're done this round" : away === 0 ? "you're up next" : `you're up in ${away} turns`;
+    }
+  }
+
+  // Narration beats — the recent shared-log tail, color-coded, streaming in.
+  const beats = game.log.slice(-7);
+
+  return (
+    <section style={{ ...STAGE_PANEL, display: "flex", flexDirection: "column", padding: "20px 24px", background: `radial-gradient(110% 70% at 50% -10%, ${color}14, transparent 55%), ${SURFACE.panel}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+        <div style={{ position: "relative", width: 84, height: 84, borderRadius: 999, flex: "0 0 auto", background: `linear-gradient(160deg,${color},${color}aa)`, display: "grid", placeItems: "center", boxShadow: `inset 0 1px 0 rgba(255,255,255,.4), 0 0 0 4px ${color}22` }}>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 42, color: "#fff" }}>{me.name[0]}</span>
+          <span style={{ position: "absolute", inset: -5, borderRadius: 999, border: `2px solid ${color}`, animation: "bb-pip 1.6s ease-in-out infinite" }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color }}>{me.isBot ? "AI · on the clock" : "On the clock"}</div>
+          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 30, color: C.ink, lineHeight: 1.05 }}>{me.name} is {doing}…</div>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.text2, marginTop: 4 }}>{spectating ? "Viewing the table" : upText} · <b style={{ color: C.gold }}>{me.capital}c</b> · <span style={{ color: C.prestige }}>★{reputationOf(me)}</span> · {me.rickhouse.length} barrels</div>
+        </div>
+        <button className="bb-btn" onClick={board.onSkip} style={{ padding: "11px 18px", borderRadius: 10, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW, flex: "0 0 auto" }}>Skip ahead →</button>
+      </div>
+
+      <div style={{ marginTop: 18, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: C.muted }}>Live beats</span>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 7, marginTop: 10 }}>
+          {beats.map((line, i) => {
+            const lc = lineColor(line, game.players);
+            const newest = i === beats.length - 1;
+            return (
+              <div key={`${game.log.length}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 13px", borderRadius: 10, background: newest ? "#fffdf8" : "transparent", border: `1px solid ${newest ? C.border : "transparent"}`, opacity: newest ? 1 : 0.55, animation: newest ? "bb-rise .35s ease-out" : undefined }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, flex: "0 0 auto", background: lc ?? C.faint }} />
+                <span style={{ fontSize: 13, color: newest ? C.ink : C.text2, lineHeight: 1.35 }}>{line}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Play stage — the distillery floor plan ────────────────────────────
+function DistilleryFloor(props: StageProps) {
+  const { board, me, shownIdx, spectating, locked, phaseStage, zone, rickCap, warehouseCap, heldTotal, whFull, optimisticClaims } = props;
+  const game = board.game;
+  const agingBarrels = me.rickhouse.filter((b) => b.built);
+  const restingBarrels = me.rickhouse.filter((b) => !b.built);
+  const openCount = Math.max(0, rickCap - me.rickhouse.length);
+  const office = fnMash(me);
+  const noRoom = openCount <= 0;
+  const supplyEmpty = game.mashBillSupply.length === 0;
+  const isActor = !locked && phaseStage === "play";
+  const accent = playerColor(shownIdx);
+
+  return (
+    <section style={{ ...STAGE_PANEL, display: "flex", flexDirection: "column", padding: 14, gap: 11 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: "0 0 auto" }}>
+        <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".22em", textTransform: "uppercase", color: isActor ? C.brass : accent }}>{isActor ? "Your Distillery" : `${me.name}'s Distillery`}</span>
+        <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 14, color: C.muted }}>{me.distillery.name}</span>
+        {spectating && (
+          <button onClick={props.onExitView} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 11px", borderRadius: 999, background: `${accent}1a`, border: `1px solid ${accent}`, cursor: "pointer", color: C.ink, fontFamily: MONO, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase" }}>👁 Viewing · back ✕</button>
+        )}
+        <span style={{ flex: 1, height: 1, background: `linear-gradient(90deg,${C.border},transparent)` }} />
+        <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".08em" }}><b style={{ color: C.copper }}>{agingBarrels.length}</b><span style={{ color: C.muted }}>/{rickCap} aging</span></span>
+      </div>
+
+      {/* top row: Rickhouse (wide) | Warehouse */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.62fr 1fr", gap: 11, flex: 1, minHeight: 0 }}>
+        <RickhouseRoom {...props} agingBarrels={agingBarrels} restingBarrels={restingBarrels} openCount={openCount} office={office} noRoom={noRoom} supplyEmpty={supplyEmpty} isActor={isActor} />
+        <WarehouseRoom board={board} me={me} warehouseCap={warehouseCap} heldTotal={heldTotal} whFull={whFull} optimisticClaims={optimisticClaims} phaseStage={phaseStage} locked={locked} />
+      </div>
+
+      {/* department row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 9, flex: "0 0 auto" }}>
+        {FLOOR_DEPTS.map((id) => <DepartmentCard key={id} id={id} board={board} me={me} />)}
+      </div>
+
+      {/* end-turn bar */}
+      <button
+        className="bb-btn"
+        disabled={!isActor}
+        onClick={() => board.dispatch({ type: "END_TURN" })}
+        style={{ flex: "0 0 auto", padding: "11px", borderRadius: 11, border: 0, cursor: isActor ? "pointer" : "default", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".12em", textTransform: "uppercase", color: isActor ? "#fff" : C.faint, background: isActor ? "linear-gradient(180deg,#56a87c,#2f6347)" : SURFACE.inset, boxShadow: isActor ? "inset 0 1px 0 rgba(255,255,255,.3)" : undefined }}
+      >
+        {isActor ? "End turn ✓" : spectating ? "Viewing — not your turn" : "Waiting…"}
+      </button>
+    </section>
+  );
+}
+
+function WarehouseRoom({ board, me, warehouseCap, heldTotal, whFull, optimisticClaims, phaseStage, locked }: { board: BoardProps; me: Player; warehouseCap: number; heldTotal: number; whFull: boolean; optimisticClaims: ResourceKind[]; phaseStage: GameState["roundPhase"]; locked: boolean }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", borderRadius: 13, border: `1px solid ${C.border}`, background: "radial-gradient(90% 60% at 50% 0%, rgba(62,125,89,.08), transparent 60%), linear-gradient(180deg,#fbfdf9,#f1f6ee)", boxShadow: CARD_SHADOW, padding: "11px 13px", minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: C.ink }}>The Warehouse</span>
+        <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: C.green }}>Hold</span>
+        <div style={{ flex: 1 }} />
+        <span style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 999, background: "#fffdf8", border: `1px solid ${whFull ? C.red : C.border}` }}>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: whFull ? C.red : C.green }}>{heldTotal}</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>/{warehouseCap}</span>
+        </span>
+        <Pips dept="warehouse" me={me} />
+        <ImproveBtn id="warehouse" board={board} me={me} compact />
+      </div>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 5, flexWrap: "wrap", alignContent: "flex-start", overflow: "hidden" }}>
+        {me.hand.slice(0, warehouseCap).map((card) => (
+          <ResMiniCard key={card.id} kind={card.kind} quality={card.quality} onClick={() => board.onInspect({ kind: "resource", card })} />
+        ))}
+        {optimisticClaims.slice(0, Math.max(0, warehouseCap - me.hand.length)).map((kind, i) => (
+          <ResMiniCard key={`pend${i}`} kind={kind} pending onClick={() => board.onInspect({ kind: "pending", k: kind })} />
+        ))}
+        {Array.from({ length: Math.max(0, warehouseCap - heldTotal) }).map((_, i) => (
+          <div key={`g${i}`} style={{ width: 44, height: 60, borderRadius: 7, border: `1.5px dashed ${C.border2}`, background: SURFACE.inset }} />
+        ))}
+      </div>
+      {hasUlt(me, "warehouse", "qualitySort") && phaseStage === "play" && !locked && (
+        <button className="bb-btn" disabled={me.qualitySortUsedThisRound} onClick={() => board.setQsOpen(true)} style={{ marginTop: 8, padding: "5px 10px", borderRadius: 7, fontFamily: MONO, fontWeight: 600, fontSize: 9, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.green}`, background: "rgba(62,125,89,.1)", color: C.green, cursor: me.qualitySortUsedThisRound ? "default" : "pointer", opacity: me.qualitySortUsedThisRound ? 0.5 : 1 }}>
+          ✦ Quality Sort {me.qualitySortUsedThisRound ? "· used" : "· free draw"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function DepartmentCard({ id, board, me }: { id: DepartmentId; board: BoardProps; me: Player }) {
   const d = me.distillery.departments.find((x) => x.id === id)!;
   const meta = DEPT_META[id];
-  const maxed = d.level >= d.maxLevel;
-  const nextIsUlt = d.level + 1 === d.maxLevel;
-  const nextEffect = maxed ? "maxed" : nextIsUlt && d.ultimateOptions.some((o) => o !== "ph") ? "ultimate" : `${d.values[d.level + 1]}`;
+  const effect =
+    id === "supply" ? `Rolls ${fnSupply(me)} dice · ${fnRerolls(me)} reroll${fnRerolls(me) > 1 ? "s" : ""}`
+    : id === "mashFloor" ? `Draws ${fnMash(me)} mash bills/turn`
+    : id === "marketing" ? `Shapes ${d.values[d.level]} demand card${(d.values[d.level] ?? 0) > 1 ? "s" : ""}`
+    : id === "distribution" ? `+${fnDist(me)} Capital on every sale`
+    : `−${fnCounting(me)} off every improvement`;
   return (
-    <div style={{ display: "flex", flexDirection: "column", borderRadius: 12, border: `1px solid ${C.border}`, background: bg, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: "11px 13px", overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
-        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, whiteSpace: "nowrap" }}>{d.name}</span>
-        <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: meta.color }}>{meta.tag}</span>
-        {d.chosenUltimate && d.chosenUltimate !== "ph" && <span style={{ fontFamily: MONO, fontSize: 8, color: "#2a1408", background: meta.color, padding: "1px 5px", borderRadius: 3 }}>{ULT_LABEL[d.chosenUltimate].name}</span>}
-        {headerRight && <><div style={{ flex: 1 }} />{headerRight}</>}
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, borderRadius: 12, border: `1px solid ${C.border}`, background: `radial-gradient(80% 60% at 50% 0%, ${meta.color}12, transparent 65%), ${SURFACE.panel}`, boxShadow: CARD_SHADOW, padding: "10px 11px", minHeight: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+        <DeptIcon id={id} color={meta.color} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta.name}</div>
+          <div style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".1em", textTransform: "uppercase", color: meta.color }}>{meta.tag}</div>
+        </div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>{children}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 9, borderTop: `1px solid ${borderTop ?? C.border2}` }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>next {nextEffect}</span>
-        <div style={{ flex: 1, display: "flex", gap: 3, justifyContent: "flex-end" }}><Pips dept={id} me={me} /></div>
-        <ImproveBtn id={id} board={board} me={me} />
+      <div style={{ fontSize: 11, color: C.text2, lineHeight: 1.35, flex: 1 }}>{effect}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <Pips dept={id} me={me} />
+        <div style={{ flex: 1 }} />
+        <ImproveBtn id={id} board={board} me={me} compact />
       </div>
     </div>
   );
 }
 
-// ── Market — the persistent demand pile as a bottom-to-top DEMAND METER ──
-// Cards stack from the floor up; the higher the pile climbs the hotter the zone
-// (Low → Mid → High), and the 10th card crashes the market.
-function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Player }) {
+type RickProps = StageProps & {
+  agingBarrels: Bourbon[];
+  restingBarrels: Bourbon[];
+  openCount: number;
+  office: number;
+  noRoom: boolean;
+  supplyEmpty: boolean;
+  isActor: boolean;
+};
+
+function RickhouseRoom(props: RickProps) {
+  const { board, me, zone, locked, phaseStage, rickCap, agingBarrels, restingBarrels, openCount, isActor, supplyEmpty } = props;
+  const canBuild = phaseStage === "play" && !locked;
+  const canDraw = isActor && !me.drewMashBillsThisTurn && !supplyEmpty && openCount > 0;
+
+  return (
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", borderRadius: 13, padding: "12px 14px", border: `1px solid ${C.copper}55`, background: "radial-gradient(120% 80% at 50% 0%, rgba(181,121,58,.1), transparent 55%), linear-gradient(180deg,#fdf6ea,#f6ead2)", boxShadow: CARD_SHADOW, minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 9, flex: "0 0 auto" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", padding: "4px 12px", borderRadius: 7, background: "linear-gradient(180deg,#e0a44e,#b06a38)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: "#fff7ea" }}>The Rickhouse</span>
+        </span>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: C.copper }}>Aging</span>
+        <span style={{ fontSize: 11, color: C.muted }}>sell at {CONFIG.MIN_SELL_AGE}+</span>
+        <div style={{ flex: 1 }} />
+        <Pips dept="rickhouse" me={me} />
+        <ImproveBtn id="rickhouse" board={board} me={me} compact />
+      </div>
+      {/* wood shelf rail */}
+      <div style={{ height: 8, borderRadius: 4, marginBottom: 11, flex: "0 0 auto", background: "repeating-linear-gradient(90deg, rgba(120,80,40,.12) 0 2px, transparent 2px 3px), linear-gradient(180deg,#c89a5e,#a87838)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.4), 0 1px 2px rgba(120,80,40,.3)" }} />
+
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `repeat(${rickCap}, minmax(0,1fr))`, gap: 10, alignContent: "start", overflow: "hidden" }}>
+        {agingBarrels.map((b) => {
+          const sellable = b.age >= CONFIG.MIN_SELL_AGE && b.salesRemaining > 0;
+          const trackVal = barrelValue(b.quality, b.age);
+          const baseValue = trackVal * zoneMultiplier(zone) + b.saleBonus + fnDist(me);
+          const qc = QUALITY_CHROME[b.quality] ?? QUALITY_CHROME.common!;
+          const capYear = capAge(b.quality);
+          const trackSteps: { age: number; value: number }[] = [];
+          for (let a = CONFIG.MIN_SELL_AGE, last = -1; a <= capYear; a++) {
+            const v = barrelValue(b.quality, a);
+            if (v !== last) { trackSteps.push({ age: a, value: v }); last = v; }
+          }
+          const activeStep = trackSteps.reduce((acc, s, i) => (b.age >= s.age ? i : acc), -1);
+          return (
+            <button
+              key={b.id}
+              data-tut="aging"
+              className="bb-btn"
+              onClick={() => (phaseStage === "play" && sellable && !locked ? board.setSellId(b.id) : locked ? undefined : board.flash(sellable ? "Sell in the Play phase" : `Ages until year ${CONFIG.MIN_SELL_AGE}`))}
+              style={{ textAlign: "left", position: "relative", borderRadius: 12, padding: "9px 10px 10px", border: `1px solid ${qc.border}`, background: qc.bg, boxShadow: qc.glow, cursor: phaseStage === "play" && sellable ? "pointer" : "default", overflow: "hidden", minWidth: 0 }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <div style={{ display: "flex", gap: 3, flex: 1, flexWrap: "wrap" }} title={`${b.salesRemaining} of ${b.batchQty} sales left`}>
+                  {Array.from({ length: b.batchQty }).map((_, i) => {
+                    const left = i < b.salesRemaining;
+                    return <span key={i} style={{ width: 12, height: 12, borderRadius: 999, ...(left ? { background: qc.foil, boxShadow: `inset 0 1px 0 rgba(255,255,255,.5)`, border: `1px solid ${qc.ink}` } : { background: "#efe7d4", border: `1px solid ${C.border2}` }) }} />;
+                  })}
+                </div>
+                <span style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#1a1206", background: qc.foil, padding: "2px 7px", borderRadius: 5 }}>{qc.label}</span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 3 }}>
+                {b.tags.map((t) => (
+                  <span key={t} style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: STYLE_CHROME[t].ink, background: STYLE_CHROME[t].border, padding: "1px 6px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
+                ))}
+              </div>
+              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: C.ink, lineHeight: 1.05 }}>{b.name}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 7, paddingTop: 7, borderTop: `1px dotted ${qc.ink}55` }}>
+                <span style={{ position: "relative", width: 38, height: 38, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #f7d999, #c69138 60%, #8a5a1d 100%)", display: "grid", placeItems: "center", animation: "bb-ember 3.2s ease-in-out infinite", flex: "0 0 auto" }}>
+                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: "#2a1a10", lineHeight: 1 }}>{b.age}</span>
+                </span>
+                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: C.ink, lineHeight: 1.1 }}>{sellable ? `sell ≈ ${baseValue}+` : "aging in oak"}</div>
+              </div>
+              <div style={{ marginTop: 7, padding: 6, borderRadius: 7, background: "#fffdf8", border: `1px solid ${qc.ink}2e` }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }} title="Capital value by age for this quality">
+                  {trackSteps.map((s, i) => {
+                    const active = i === activeStep;
+                    const reached = i <= activeStep;
+                    return (
+                      <span key={s.age} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 28, padding: "4px 6px", borderRadius: 6, lineHeight: 1, ...(active ? { background: qc.foil, color: "#1a1206", border: `1px solid ${qc.ink}` } : reached ? { background: `${qc.ink}1c`, color: qc.ink, border: `1px solid ${qc.ink}44` } : { background: "transparent", color: C.faint, border: `1px solid ${C.hairline}` }) }}>
+                        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17 }}>{s.value}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 8, marginTop: 1, opacity: 0.85 }}>yr{s.age}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ textAlign: "center", marginTop: 6, padding: 4, borderRadius: 6, border: `1px solid ${qc.ink}40`, background: `${qc.ink}12`, fontFamily: MONO, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: qc.ink }}>
+                {sellable ? (phaseStage === "play" ? "Tap to sell" : "Ready") : `Year ${b.age}`}
+              </div>
+            </button>
+          );
+        })}
+
+        {restingBarrels.map((b) => {
+          const ready = b.staged.length >= recipeSize(b.recipe);
+          const slotList: { kind: ResourceKind; filled: boolean }[] = [];
+          for (const k of PILE_ORDER) {
+            const have = b.staged.filter((c) => c.kind === k).length;
+            for (let i = 0; i < (b.recipe[k] ?? 0); i++) slotList.push({ kind: k, filled: i < have });
+          }
+          const needKinds = PILE_ORDER.filter((k) => (b.recipe[k] ?? 0) - b.staged.filter((c) => c.kind === k).length > 0);
+          const stageable = needKinds.find((k) => me.hand.some((c) => c.kind === k));
+          const enabled = canBuild && (ready || !!stageable);
+          const label = ready ? "✓ Build now" : stageable ? `+ Stage ${FACE[stageable].label}` : `Needs ${needKinds.map((k) => FACE[k].mono).join(" ")}`;
+          const tone = ready
+            ? { border: 0, color: "#fff", background: "linear-gradient(180deg,#56a87c,#2f6347)" }
+            : stageable
+              ? { border: 0, color: PRIMARY_INK, background: PRIMARY }
+              : { border: `1px solid ${C.border}`, color: C.muted, background: SURFACE.inset };
+          return (
+            <div key={b.id} data-tut="resting" style={{ display: "flex", flexDirection: "column", gap: 7, minWidth: 0 }}>
+              <div onContextMenu={(e) => { e.preventDefault(); board.onInspect({ kind: "bill", bill: b }); }} style={{ position: "relative", borderRadius: 11, padding: "10px 11px", border: `1px solid ${C.border}`, background: "linear-gradient(180deg,#fffdf8,#f3ecdb)", boxShadow: CARD_SHADOW, overflow: "hidden", flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted }}>Resting Bill</span>
+                  <div style={{ flex: 1 }} />
+                  {b.tags.map((t) => (
+                    <span key={t} style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: STYLE_CHROME[t].ink, background: STYLE_CHROME[t].border, padding: "1px 6px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
+                  ))}
+                  <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); board.onInspect({ kind: "bill", bill: b }); }} title="Inspect this bill" style={{ width: 17, height: 17, borderRadius: 999, display: "grid", placeItems: "center", fontFamily: SERIF, fontStyle: "italic", fontWeight: 700, fontSize: 11, color: C.brass, border: `1px solid ${C.border}`, background: "#fffdf8", cursor: "pointer" }}>i</span>
+                </div>
+                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: C.ink, lineHeight: 1.05, marginTop: 2 }}>{b.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  {slotList.map(({ kind: k, filled }, i) => (
+                    <span key={i} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, width: 38, height: 40, borderRadius: 9, ...(filled ? { background: KIND_CHROME[k].grad, border: `1.5px solid ${KIND_CHROME[k].border}` } : { background: SURFACE.inset, border: `1.5px dashed ${C.border2}` }) }}>
+                      {resMark(k, 18, filled ? KIND_CHROME[k].ink : C.faint)}
+                      <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 7, color: filled ? KIND_CHROME[k].ink : C.faint }}>{FACE[k].mono}</span>
+                    </span>
+                  ))}
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text2, marginLeft: 2 }}>{b.staged.length}/{recipeSize(b.recipe)}</span>
+                </div>
+              </div>
+              <button className="bb-btn" disabled={!enabled} onClick={() => (ready ? props.tryBuild(b) : stageable ? props.autoStage(b) : board.flash(`"${b.name}" needs ${needKinds.map((k) => FACE[k].label).join(", ")}`))} style={{ padding: 6, borderRadius: 8, fontFamily: MONO, fontWeight: 600, fontSize: 9.5, letterSpacing: ".06em", textTransform: "uppercase", cursor: enabled ? "pointer" : "default", opacity: enabled ? 1 : 0.7, ...tone }}>{label}</button>
+            </div>
+          );
+        })}
+
+        {Array.from({ length: openCount }).map((_, i) => (
+          <div key={`open${i}`} style={{ display: "flex", flexDirection: "column", gap: 7, minWidth: 0 }}>
+            <div style={{ position: "relative", flex: 1, minHeight: 110, borderRadius: 11, border: `1.5px dashed ${C.brass}88`, background: "radial-gradient(70% 60% at 50% 30%, rgba(207,138,51,.08), transparent 70%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: 12, animation: "bb-shelf 3.6s ease-in-out infinite" }}>
+              <span style={{ width: 28, height: 28, borderRadius: 999, border: `1px solid ${C.faint}`, display: "grid", placeItems: "center", fontFamily: SERIF, fontSize: 17, color: C.muted }}>+</span>
+              <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, textAlign: "center", lineHeight: 1.6 }}>Open<br />Barrel Slot</span>
+            </div>
+            <button
+              data-tut="draw"
+              className="bb-btn"
+              disabled={!canDraw}
+              onClick={() => (canDraw ? board.setDrawingBills(true) : board.flash(me.drewMashBillsThisTurn ? "Bills drawn this turn" : "Draw during the Play phase"))}
+              style={{ padding: 6, borderRadius: 8, fontFamily: MONO, fontWeight: 700, fontSize: 9.5, letterSpacing: ".06em", textTransform: "uppercase", cursor: canDraw ? "pointer" : "default", border: 0, opacity: canDraw ? 1 : 0.55, color: canDraw ? PRIMARY_INK : C.faint, background: canDraw ? PRIMARY : SURFACE.inset }}
+            >
+              ＋ Draw a mash bill
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Right rail — "The Market" (persistent in every phase) ─────────────
+function MarketRail({ game, zone }: { game: GameState; zone: Zone }) {
   const count = game.demandCards.length;
   const toCrash = CONFIG.DEMAND_CRASH_AT - count;
   const zoneMeta = ZONE_META[zone];
-  // The meter is a fixed ladder of slots — the max cards that can sit on the
-  // table before the crash. Each slot belongs to a zone "tranche"; labeled
-  // dividers show how many cards it takes to reach Mid / Hot.
-  const maxSlots = CONFIG.DEMAND_CRASH_AT - 1; // 6
-
+  const maxSlots = CONFIG.DEMAND_CRASH_AT - 1;
   return (
-    <aside data-tut="market" style={{ width: 440, flex: "0 0 auto", display: "flex", flexDirection: "column", gap: 9, borderRadius: 16, background: "linear-gradient(180deg,#1a120b,#130c06)", border: `1px solid ${C.border}`, boxShadow: "inset 0 1px 0 rgba(240,201,112,.08)", padding: 13, minHeight: 0, overflow: "hidden" }}>
+    <aside data-tut="market" style={{ display: "flex", flexDirection: "column", gap: 9, borderRadius: 16, background: SURFACE.rail, border: `1px solid ${C.border}`, boxShadow: PANEL_SHADOW, padding: 12, minHeight: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, flex: "0 0 auto" }}>
-        <span style={{ fontFamily: MONO, fontSize: 14, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>The Market</span>
+        <span style={{ fontFamily: MONO, fontSize: 13, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>The Market</span>
         <div style={{ flex: 1 }} />
-        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink }} title="orders on the table">{count}</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: "#0c0805", background: zoneMeta.color, padding: "4px 10px", borderRadius: 6 }} title="Demand zone multiplies (bourbon value + order value) at sale">
-          {zoneMeta.label}<span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18 }}>×{zoneMultiplier(zone)}</span>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.ink }} title="orders on the table">{count}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#fff", background: zoneMeta.color, padding: "4px 9px", borderRadius: 6 }} title="Demand zone multiplies (bourbon value + order value) at sale">
+          {zoneMeta.label}<span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17 }}>×{zoneMultiplier(zone)}</span>
         </span>
       </div>
 
-      {/* the meter — a fixed ladder of `maxSlots` tranche-banded slots, cards pile from the floor up */}
-      <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(12,8,5,.4)", overflow: "hidden" }}>
-        {/* crash ceiling */}
-        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderBottom: `1px dashed ${toCrash <= 1 ? C.red : "#4a3826"}` }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: toCrash <= 1 ? C.red : C.muted }}>▲ crash at {CONFIG.DEMAND_CRASH_AT}</span>
+      <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fffdf8", overflow: "hidden" }}>
+        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderBottom: `1px dashed ${toCrash <= 1 ? C.red : C.border2}` }}>
+          <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: ".14em", textTransform: "uppercase", color: toCrash <= 1 ? C.red : C.muted }}>▲ crash at {CONFIG.DEMAND_CRASH_AT}</span>
           <div style={{ flex: 1 }} />
-          {toCrash <= 1 && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".06em", color: C.red }}>⚠ crash next draw</span>}
+          {toCrash <= 1 && <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.red }}>⚠ crash next draw</span>}
         </div>
-
-        {/* slot ladder (top = highest slot / Hot; cards fill from the bottom) */}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 0, padding: "5px 7px 7px" }}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "5px 6px 6px" }}>
           {(() => {
             const rows: React.ReactNode[] = [];
-            for (let p = maxSlots; p >= 1; p--) {
-              const z = zoneForCardCount(p);
-              const below = p > 1 ? zoneForCardCount(p - 1) : null;
-              const card = game.demandCards[p - 1];
+            for (let s = maxSlots; s >= 1; s--) {
+              const z = zoneForCardCount(s);
+              const below = s > 1 ? zoneForCardCount(s - 1) : null;
+              const card = game.demandCards[s - 1];
               const zc = ZONE_META[z].color;
               const liveZone = z === zone;
               rows.push(
-                <div key={`s${p}`} style={{ flex: 1, minHeight: 0, display: "flex", borderRadius: 9, padding: card ? 0 : 0, background: liveZone ? `${zc}1c` : `${zc}0e`, border: `1px ${card ? "solid" : "dashed"} ${card ? "#4a3320" : `${zc}33`}`, marginBottom: 4, overflow: "hidden" }}>
-                  {card ? (
-                    <DemandRow card={card} zone={zone} players={game.players} />
-                  ) : (
-                    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: `${zc}66` }}>empty</div>
-                  )}
+                <div key={`s${s}`} style={{ flex: 1, minHeight: 0, display: "flex", borderRadius: 9, background: liveZone ? `${zc}18` : `${zc}0a`, border: `1px ${card ? "solid" : "dashed"} ${card ? C.border : `${zc}44`}`, marginBottom: 4, overflow: "hidden" }}>
+                  {card ? <DemandRow card={card} zone={zone} players={game.players} /> : <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: `${zc}88` }}>empty</div>}
                 </div>,
               );
-              // Tranche divider below the lowest slot of an upper zone: shows the count to reach it.
               if (below && below !== z) {
                 rows.push(
-                  <div key={`d${p}`} style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 7, padding: "1px 2px 5px" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: zc, opacity: liveZone ? 1 : 0.75 }}>{ZONE_META[z].label} ×{zoneMultiplier(z)}</span>
-                    <span style={{ flex: 1, height: 1, background: `${zc}${liveZone ? "99" : "44"}` }} />
-                    <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".04em", color: C.muted }}>{p}+ cards</span>
+                  <div key={`d${s}`} style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 7, padding: "1px 2px 5px" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: zc, opacity: liveZone ? 1 : 0.7 }}>{ZONE_META[z].label} ×{zoneMultiplier(z)}</span>
+                    <span style={{ flex: 1, height: 1, background: `${zc}${liveZone ? "aa" : "55"}` }} />
+                    <span style={{ fontFamily: MONO, fontSize: 8, color: C.muted }}>{s}+ cards</span>
                   </div>,
                 );
               }
@@ -1791,13 +1832,10 @@ function MarketAside({ game, zone, me }: { game: GameState; zone: Zone; me: Play
   );
 }
 
-/** One demand-card row in the meter — req, zone payout, a big Reputation badge, and slot fill. */
 function DemandRow({ card, zone, players }: { card: DemandCard; zone: Zone; players: Player[] }) {
   const filled = card.filledBy.filter((f) => f !== null).length;
   const complete = filled >= card.slotsActive;
-  const compact = card.slotsActive > 8; // many slots → progress bar instead of pips
-  // Gated orders carry the SAME colour tag(s) as the matching bourbon recipe,
-  // shown on the RIGHT so a player visually pattern-matches bourbon → order.
+  const compact = card.slotsActive > 8;
   const reqTags = card.requirement.tags ?? [];
   const accent = reqTags.length ? STYLE_CHROME[reqTags[0]!].border : null;
   const otherReqs: string[] = [];
@@ -1805,59 +1843,135 @@ function DemandRow({ card, zone, players }: { card: DemandCard; zone: Zone; play
   if (card.requirement.minAge !== undefined) otherReqs.push(`age ${card.requirement.minAge}+`);
   const open = reqTags.length === 0 && otherReqs.length === 0;
   return (
-    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6, borderRadius: 9, padding: "10px 13px", background: complete ? "linear-gradient(180deg, rgba(109,178,140,.2), rgba(20,14,8,.92))" : "linear-gradient(180deg, rgba(44,30,20,.62), rgba(20,14,8,.9))", borderLeft: accent ? `3px solid ${accent}` : complete ? `3px solid ${C.green}` : "3px solid transparent" }}>
+    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 5, borderRadius: 9, padding: "8px 11px", background: complete ? "linear-gradient(180deg, rgba(62,125,89,.16), #fffdf8)" : "#fffdf8", borderLeft: accent ? `3px solid ${accent}` : complete ? `3px solid ${C.green}` : "3px solid transparent" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: C.ink, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.label}</span>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: C.ink, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.label}</span>
         <div style={{ flex: 1 }} />
-        {/* required tag(s) — right side, color-coded to match the bourbon */}
         {reqTags.map((t) => (
-          <span key={t} title={`Requires a ${STYLE_LABEL[t]} bourbon`} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "#1a1209", background: STYLE_CHROME[t].border, padding: "2px 8px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
+          <span key={t} title={`Requires a ${STYLE_LABEL[t]} bourbon`} style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: STYLE_CHROME[t].ink, background: STYLE_CHROME[t].border, padding: "2px 7px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
         ))}
-        <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }} title={`order value — added to the bourbon's value before the ×${zoneMultiplier(zone)} ${ZONE_META[zone].label} multiplier`}>+{card.orderValue}</span>
-        {/* big prestige reward on completion */}
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 11px", borderRadius: 999, background: "rgba(109,178,140,.18)", border: `1px solid ${C.green}`, boxShadow: `0 0 10px ${C.green}33` }} title="prestige kept by the player who completes this order">
-          <span style={{ fontSize: 17, color: C.green, lineHeight: 1 }}>★</span>
-          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: C.green, lineHeight: 1 }}>{card.reputation}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: C.gold }} title="order value">+{card.orderValue}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 9px", borderRadius: 999, background: "rgba(138,95,176,.14)", border: `1px solid ${C.prestige}` }} title="prestige on completion">
+          <span style={{ fontSize: 14, color: C.prestige, lineHeight: 1 }}>★</span>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.prestige, lineHeight: 1 }}>{card.reputation}</span>
         </span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 7 }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted }}>Req</span>
-        {otherReqs.map((r) => (
-          <span key={r} style={{ fontFamily: MONO, fontSize: 12, color: C.amber, whiteSpace: "nowrap" }}>{r}</span>
-        ))}
-        {open && <span style={{ fontFamily: MONO, fontSize: 12, color: C.green, whiteSpace: "nowrap" }}>any bourbon</span>}
-        {!open && reqTags.length > 0 && otherReqs.length === 0 && <span style={{ fontFamily: MONO, fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>matching tag →</span>}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted }}>Req</span>
+        {otherReqs.map((r) => <span key={r} style={{ fontFamily: MONO, fontSize: 11, color: C.amber, whiteSpace: "nowrap" }}>{r}</span>)}
+        {open && <span style={{ fontFamily: MONO, fontSize: 11, color: C.green, whiteSpace: "nowrap" }}>any bourbon</span>}
+        {!open && reqTags.length > 0 && otherReqs.length === 0 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.muted, whiteSpace: "nowrap" }}>matching tag</span>}
         <div style={{ flex: 1 }} />
         {compact ? (
-          <div style={{ width: 96, height: 11, borderRadius: 6, background: "rgba(20,14,8,.7)", border: "1px solid rgba(110,80,50,.5)", overflow: "hidden" }}>
-            <div style={{ width: `${Math.round((filled / card.slotsActive) * 100)}%`, height: "100%", background: complete ? C.green : "linear-gradient(90deg,#e9b46e,#c69d52)" }} />
+          <div style={{ width: 80, height: 10, borderRadius: 6, background: SURFACE.inset, border: `1px solid ${C.border2}`, overflow: "hidden" }}>
+            <div style={{ width: `${Math.round((filled / card.slotsActive) * 100)}%`, height: "100%", background: complete ? C.green : PRIMARY }} />
           </div>
         ) : (
-          <div style={{ display: "flex", gap: 4 }}>
+          <div style={{ display: "flex", gap: 3 }}>
             {card.filledBy.map((f, i) => {
               const pi = f ? players.findIndex((pl) => pl.id === f) : -1;
-              return (
-                <span key={i} style={{ width: 18, height: 18, borderRadius: 5, ...(f ? { background: PLAYER_COLORS[pi % PLAYER_COLORS.length], boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" } : { background: "rgba(20,14,8,.5)", border: "1.5px dashed rgba(110,80,50,.55)" }) }} />
-              );
+              return <span key={i} style={{ width: 16, height: 16, borderRadius: 4, ...(f ? { background: playerColor(pi), boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" } : { background: SURFACE.inset, border: `1.5px dashed ${C.border2}` }) }} />;
             })}
           </div>
         )}
-        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: complete ? C.green : C.text2 }}>{filled}/{card.slotsActive}</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: complete ? C.green : C.text2 }}>{filled}/{card.slotsActive}</span>
       </div>
     </div>
   );
 }
 
-// ── overlays ──────────────────────────────────────────────────────────
+// ── Table Log — full-width narration ticker (dark strip for contrast) ──
+function TableLog({ game }: { game: GameState }) {
+  const lines = game.log.slice(-5);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "9px 16px", borderRadius: 12, background: "linear-gradient(180deg,#2a1d11,#211608)", border: `1px solid ${C.copper}66`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.06)", flex: "0 0 auto", overflow: "hidden" }}>
+      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "#cf9a5e", flex: "0 0 auto" }}>Table Log</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 18, flex: 1, minWidth: 0, overflow: "hidden" }}>
+        {lines.map((line, i) => {
+          const lc = lineColor(line, game.players);
+          const newest = i === lines.length - 1;
+          return (
+            <div key={`${game.log.length}-${i}`} style={{ display: "flex", alignItems: "center", gap: 7, flex: newest ? "1 1 auto" : "0 1 auto", minWidth: 0, opacity: newest ? 1 : 0.45, animation: newest ? "bb-rise .3s ease-out" : undefined }}>
+              <span style={{ width: 7, height: 7, borderRadius: 999, flex: "0 0 auto", background: lc ?? "#8a7458" }} />
+              <span style={{ fontSize: 12, color: newest ? "#f3e6cf" : "#bda886", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{line}</span>
+            </div>
+          );
+        })}
+        {lines.length === 0 && <span style={{ fontSize: 12, color: "#8a7458" }}>The table is quiet…</span>}
+      </div>
+    </div>
+  );
+}
+
+// ── Mash-bill picker (Play "Draw a mash bill") ─────────────────────────
+function BillPicker({ board }: { board: BoardProps }) {
+  const game = board.game;
+  const me = game.players[game.currentPlayerIndex]!;
+  const office = fnMash(me);
+  const offer = game.mashBillSupply.slice(0, Math.min(office, game.mashBillSupply.length));
+  const cap = Math.max(0, fnRick(me) - me.rickhouse.length);
+  return (
+    <Scrim>
+      <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 700, color: C.ink }}>Draw a Mash Bill</div>
+      <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted }}>Click to keep up to {cap} as resting barrels · the rest cycle back.</div>
+      <div data-tut="bills" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", alignItems: "stretch", maxWidth: 980 }}>
+        {offer.map((bill, i) => {
+          const sel = board.keepBills.has(i);
+          return (
+            <button
+              key={bill.id}
+              className="bb-card"
+              onClick={() => { const n = new Set(board.keepBills); n.has(i) ? n.delete(i) : n.add(i); board.setKeepBills(n); }}
+              onContextMenu={(e) => { e.preventDefault(); board.onInspect({ kind: "bill", bill }); }}
+              title="Click to keep · right-click to inspect"
+              style={{ position: "relative", width: 200, textAlign: "left", display: "flex", flexDirection: "column", gap: 7, padding: "13px 14px", borderRadius: 14, cursor: "pointer", overflow: "hidden", border: `2px solid ${sel ? C.green : C.border}`, background: sel ? "linear-gradient(180deg,#f1f9f2,#e6f1e8)" : SURFACE.panel, boxShadow: sel ? "0 0 0 3px rgba(62,125,89,.18), " + CARD_SHADOW : CARD_SHADOW }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {sel ? <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: C.green }}>✓ kept</span>
+                  : <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); board.onInspect({ kind: "bill", bill }); }} title="Inspect" style={{ width: 18, height: 18, borderRadius: 999, display: "grid", placeItems: "center", fontFamily: SERIF, fontStyle: "italic", fontWeight: 700, fontSize: 11, color: C.brass, border: `1px solid ${C.border}`, background: "#fffdf8" }}>i</span>}
+                <div style={{ flex: 1 }} />
+                {bill.tags.map((t) => (
+                  <span key={t} style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: STYLE_CHROME[t].ink, background: STYLE_CHROME[t].border, padding: "2px 7px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
+                ))}
+              </div>
+              <div>
+                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, lineHeight: 1.05, color: C.ink }}>{bill.name}</div>
+                {bill.slogan && <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 11, lineHeight: 1.25, color: C.muted, marginTop: 2 }}>{bill.slogan}</div>}
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {PILE_ORDER.filter((k) => (bill.recipe[k] ?? 0) > 0).map((k) => (
+                  <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 7px", borderRadius: 7, border: `1px solid ${KIND_CHROME[k].border}`, background: KIND_CHROME[k].grad }}>
+                    {resMark(k, 14, KIND_CHROME[k].ink)}
+                    <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 13, color: KIND_CHROME[k].ink, lineHeight: 1 }}>{bill.recipe[k]}</span>
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "auto", paddingTop: 8, borderTop: `1px dotted ${C.border2}` }}>
+                <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.gold, lineHeight: 1 }} title="Sales scale with quality">{1 + bill.batchQtyBias}–3</span>
+                <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", textTransform: "uppercase", color: C.muted }}>sales · by quality</span>
+                {bill.saleBonus > 0 && <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#1a1206", background: C.amber, padding: "2px 7px", borderRadius: 5 }}>+{bill.saleBonus}/sale</span>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", gap: 12 }}>
+        <button onClick={() => { board.setDrawingBills(false); board.setKeepBills(new Set()); }} style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".1em", color: C.muted, background: "none", border: 0, cursor: "pointer", textTransform: "uppercase" }}>cancel</button>
+        <button data-tut="keep" className="bb-btn" onClick={() => board.dispatch({ type: "DRAW_MASH_BILLS", keepIndexes: [...board.keepBills] })} style={{ padding: "11px 22px", borderRadius: 10, border: 0, cursor: "pointer", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", color: PRIMARY_INK, background: PRIMARY, boxShadow: PRIMARY_SHADOW }}>Keep {board.keepBills.size} →</button>
+      </div>
+    </Scrim>
+  );
+}
+
+// ── overlays + leaves ────────────────────────────────────────────────
 function Scrim({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(8,5,3,.82)", backdropFilter: "blur(4px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, zIndex: 60 }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(60,42,22,.42)", backdropFilter: "blur(4px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, zIndex: 60 }}>
       {children}
     </div>
   );
 }
 
-// ── Stylized resource card (Warehouse) + click-to-inspect modal ───────
 function ResMiniCard({ kind, quality, pending, onClick }: { kind: ResourceKind; quality?: Quality; pending?: boolean; onClick: () => void }) {
   const m = SUB[kind];
   const kc = KIND_CHROME[kind];
@@ -1867,14 +1981,13 @@ function ResMiniCard({ kind, quality, pending, onClick }: { kind: ResourceKind; 
       className="bb-card"
       onClick={onClick}
       title={`${quality ? quality + " " : pending ? "blind " : ""}${m.label} — click to inspect`}
-      style={{ position: "relative", width: 50, height: 70, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column", cursor: "pointer", padding: 0, background: kc.grad, border: `1px solid ${kc.border}`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14), 0 3px 9px rgba(0,0,0,.45)" }}
+      style={{ position: "relative", width: 44, height: 60, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column", cursor: "pointer", padding: 0, background: kc.grad, border: `1px solid ${kc.border}`, boxShadow: CARD_SHADOW }}
     >
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: "4px 2px 0" }}>
-        <span style={{ fontFamily: MONO, fontSize: 6.5, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: kc.ink }}>{m.label}</span>
-        {pending ? <span style={{ fontSize: 22, lineHeight: 1, color: kc.ink }}>?</span> : resMark(kind, 24, kc.ink)}
+        <span style={{ fontFamily: MONO, fontSize: 6, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: kc.ink }}>{m.label}</span>
+        {pending ? <span style={{ fontSize: 20, lineHeight: 1, color: kc.ink }}>?</span> : resMark(kind, 22, kc.ink)}
       </div>
-      {/* rarity stripe along the foot (foil for known quality, hatched for blind) */}
-      <div style={{ height: 6, width: "100%", background: pending ? "repeating-linear-gradient(45deg,#3b2818 0,#3b2818 4px,#1a130b 4px,#1a130b 8px)" : q ? q.foil : "#5a5145" }} aria-hidden />
+      <div style={{ height: 5, width: "100%", background: pending ? `repeating-linear-gradient(45deg,${kc.border} 0,${kc.border} 4px,#fffdf8 4px,#fffdf8 8px)` : q ? q.foil : "#bcae90" }} aria-hidden />
     </button>
   );
 }
@@ -1886,9 +1999,9 @@ function InspectOverlay({ inspect, onClose }: { inspect: Inspect; onClose: () =>
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(8,5,3,.85)", backdropFilter: "blur(5px)", display: "grid", placeItems: "center", padding: 24 }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(60,42,22,.5)", backdropFilter: "blur(5px)", display: "grid", placeItems: "center", padding: 24 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", width: 560, maxWidth: "92vw" }}>
-        <button onClick={onClose} aria-label="Close" style={{ position: "absolute", top: -12, right: -12, zIndex: 2, width: 32, height: 32, borderRadius: 999, border: `1px solid ${C.border}`, background: "#1a120b", color: C.muted, cursor: "pointer", fontFamily: MONO, fontSize: 13 }}>✕</button>
+        <button onClick={onClose} aria-label="Close" style={{ position: "absolute", top: -12, right: -12, zIndex: 2, width: 32, height: 32, borderRadius: 999, border: `1px solid ${C.border}`, background: SURFACE.panel, color: C.muted, cursor: "pointer", fontFamily: MONO, fontSize: 13, boxShadow: CARD_SHADOW }}>✕</button>
         {inspect.kind === "bill" ? (
           <BillDetail bill={inspect.bill} />
         ) : (
@@ -1918,24 +2031,24 @@ function ResourceDetail({ kind, quality, name, pending }: { kind: ResourceKind; 
   const q = quality ? QUALITY_CHROME[quality] : null;
   const heading = name ?? `${q ? q.label + " " : ""}${m.label}`;
   return (
-    <article style={{ display: "flex", gap: 18, borderRadius: 16, border: `2px solid ${kc.border}`, background: kc.grad, padding: 22, boxShadow: "0 18px 50px rgba(0,0,0,.6)" }}>
-      <div style={{ position: "relative", width: 150, height: 200, flex: "0 0 auto", borderRadius: 12, border: `2px solid ${kc.border}`, background: "rgba(10,7,4,.4)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" }}>
+    <article style={{ display: "flex", gap: 18, borderRadius: 16, border: `2px solid ${kc.border}`, background: SURFACE.panel, padding: 22, boxShadow: PANEL_SHADOW }}>
+      <div style={{ position: "relative", width: 150, height: 200, flex: "0 0 auto", borderRadius: 12, border: `2px solid ${kc.border}`, background: kc.grad, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: kc.ink }}>{m.label}</span>
         {pending ? <span style={{ fontSize: 64, lineHeight: 1, color: kc.ink }}>?</span> : resMark(kind, 58, kc.ink)}
         {q ? (
-          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#2a1408", background: q.foil, padding: "3px 10px", borderRadius: 5, boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{q.label}</span>
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#1a1206", background: q.foil, padding: "3px 10px", borderRadius: 5 }}>{q.label}</span>
         ) : (
           <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: kc.ink, opacity: 0.7 }}>blind quality</span>
         )}
       </div>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, color: kc.ink }}>
-        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: kc.ink, opacity: 0.75 }}>Resource</span>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, color: C.ink }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: C.muted }}>Resource</span>
         <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 28, lineHeight: 1.05 }}>{heading}</span>
-        <div style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(10,7,4,.45)", padding: 12 }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".15em", textTransform: "uppercase", color: kc.ink, opacity: 0.7 }}>Use</span>
-          <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5, color: kc.ink }}>{KIND_USE[kind]}</p>
+        <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, background: SURFACE.inset, padding: 12 }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".15em", textTransform: "uppercase", color: C.muted }}>Use</span>
+          <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5, color: C.text2 }}>{KIND_USE[kind]}</p>
         </div>
-        <div style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.6, color: kc.ink, opacity: 0.92 }}>
+        <div style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.6, color: C.text2 }}>
           {pending
             ? "Drawn blind on DRAFT — you'll see its quality once it lands in your Warehouse."
             : `Quality ${q?.label}. The best-quality card you commit sets the built barrel's tier — a higher tier rides a richer age-value track.`}
@@ -1947,12 +2060,12 @@ function ResourceDetail({ kind, quality, name, pending }: { kind: ResourceKind; 
 
 function BillDetail({ bill }: { bill: BillLike }) {
   return (
-    <article style={{ display: "flex", flexDirection: "column", gap: 12, borderRadius: 16, border: `2px solid ${C.brass}`, background: "radial-gradient(120% 70% at 50% -10%, rgba(240,201,112,.14), transparent 60%), linear-gradient(180deg,#241710,#130c07)", padding: 22, boxShadow: "0 18px 50px rgba(0,0,0,.6)" }}>
+    <article style={{ display: "flex", flexDirection: "column", gap: 12, borderRadius: 16, border: `2px solid ${C.brass}`, background: SURFACE.panel, padding: 22, boxShadow: PANEL_SHADOW }}>
       <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: C.brass }}>Mash Bill · {STYLE_LABEL[bill.styleTag]}</span>
       <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 28, color: C.ink, lineHeight: 1.05 }}>{bill.name}</span>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {recipeKinds(bill.recipe).map((k, i) => (
-          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, border: `1px solid ${KIND_CHROME[k].border}`, background: KIND_CHROME[k].grad, boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)" }}>
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, border: `1px solid ${KIND_CHROME[k].border}`, background: KIND_CHROME[k].grad }}>
             {resMark(k, 18, KIND_CHROME[k].ink)}
             <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".06em", color: KIND_CHROME[k].ink }}>{SUB[k].label}</span>
           </span>
@@ -1960,16 +2073,16 @@ function BillDetail({ bill }: { bill: BillLike }) {
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {bill.tags.map((t) => (
-          <span key={t} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#1a1209", background: STYLE_CHROME[t].border, padding: "3px 10px", borderRadius: 999 }} title={`Fills ${STYLE_LABEL[t]} demand orders`}>{STYLE_LABEL[t]}</span>
+          <span key={t} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: STYLE_CHROME[t].ink, background: STYLE_CHROME[t].border, padding: "3px 10px", borderRadius: 999 }} title={`Fills ${STYLE_LABEL[t]} demand orders`}>{STYLE_LABEL[t]}</span>
         ))}
       </div>
       <div style={{ display: "flex", gap: 18, fontFamily: MONO, fontSize: 12, color: C.text2 }}>
         <span><b style={{ color: C.gold }}>{1 + bill.batchQtyBias}–3</b> sales · by quality</span>
         {bill.saleBonus > 0 && <span>premium <b style={{ color: C.gold }}>+{bill.saleBonus}</b>/sale</span>}
       </div>
-      <div style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(10,7,4,.5)", padding: 12 }}>
+      <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, background: SURFACE.inset, padding: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".15em", textTransform: "uppercase", color: C.muted }}>Use</span>
-        <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5, color: C.ink }}>
+        <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5, color: C.text2 }}>
           Draw it as a resting barrel, then stage its recipe (every bill needs 1 cask + 1 corn + a grain) and Make Bourbon. Sales scale with the built barrel&apos;s quality — Common is one-and-done, top tiers yield up to 3{bill.saleBonus > 0 ? `, each paying a +${bill.saleBonus} complexity premium` : ""}.
         </p>
       </div>
@@ -1993,18 +2106,13 @@ function DiceTray({ dice, rollId, animate, mode, selectedIds, full, locked, onDi
 }) {
   const [rolling, setRolling] = useState(animate);
   const [tick, setTick] = useState(0);
-  // Re-run the roll animation whenever a fresh roll lands (only in claim mode —
-  // pre-roll inherited dice sit still while you pick keepers).
   useEffect(() => {
     if (!animate) { setRolling(false); return; }
     setRolling(true);
     setTick(0);
     const iv = window.setInterval(() => setTick((t) => t + 1), 75);
     const to = window.setTimeout(() => setRolling(false), ROLL_MS);
-    return () => {
-      window.clearInterval(iv);
-      window.clearTimeout(to);
-    };
+    return () => { window.clearInterval(iv); window.clearTimeout(to); };
   }, [rollId, animate]);
 
   const keepMode = mode === "keep";
@@ -2014,16 +2122,15 @@ function DiceTray({ dice, rollId, animate, mode, selectedIds, full, locked, onDi
         const face = rolling ? ALL_FACES[(tick + i * 2) % ALL_FACES.length]! : d.face;
         const meta = FACE[face];
         const selected = !rolling && selectedIds.has(d.id);
-        const claimed = !keepMode && selected; // claim-mode selection = drafted
+        const claimed = !keepMode && selected;
         const kept = keepMode && selected;
         const clickable = !rolling && !locked && (keepMode || claimed || !full);
         const wild = meta.wild;
-        const ring = claimed ? C.green : kept ? "#f0c970" : "rgba(0,0,0,.32)";
+        const ring = claimed ? C.green : kept ? C.gold : "rgba(120,90,50,.3)";
         return (
-          <div key={d.id} style={{ position: "relative", width: 104, height: 120, display: "flex", justifyContent: "center" }}>
-            {/* landing shadow */}
+          <div key={d.id} style={{ position: "relative", width: 96, height: 112, display: "flex", justifyContent: "center" }}>
             {rolling && (
-              <span className="bb-roll-shadow" style={{ position: "absolute", bottom: 0, width: 88, height: 9, borderRadius: "50%", background: "rgba(0,0,0,.6)", filter: "blur(3px)", animationDelay: `${i * 55}ms` }} aria-hidden />
+              <span className="bb-roll-shadow" style={{ position: "absolute", bottom: 0, width: 80, height: 8, borderRadius: "50%", background: "rgba(120,90,50,.4)", filter: "blur(3px)", animationDelay: `${i * 55}ms` }} aria-hidden />
             )}
             <button
               className={`${rolling ? "bb-roll-drop" : "bb-die"}${clickable ? " clk" : ""}`}
@@ -2032,41 +2139,35 @@ function DiceTray({ dice, rollId, animate, mode, selectedIds, full, locked, onDi
               style={{
                 position: "absolute",
                 top: 0,
-                width: 104,
-                height: 104,
-                borderRadius: 20,
+                width: 96,
+                height: 96,
+                borderRadius: 18,
                 animationDelay: rolling ? `${i * 55}ms` : undefined,
-                // Inverted coloring: the whole die face IS the resource colour,
-                // with a dark glyph — each resource reads at a glance.
-                background: claimed ? "#120c07" : `linear-gradient(180deg, rgba(255,255,255,.28), rgba(0,0,0,.16) 70%), ${meta.color}`,
+                background: claimed ? "linear-gradient(180deg,#f3ecdb,#e6dcc6)" : `linear-gradient(180deg, rgba(255,255,255,.32), rgba(0,0,0,.1) 70%), ${meta.color}`,
                 border: `2px solid ${ring}`,
                 boxShadow: kept
-                  ? `0 0 18px ${meta.color}, inset 0 1px 0 rgba(255,255,255,.45)`
+                  ? `0 0 16px ${meta.color}, inset 0 1px 0 rgba(255,255,255,.5)`
                   : claimed
-                    ? "inset 0 0 0 1px rgba(109,178,140,.4)"
-                    : "inset 0 1px 0 rgba(255,255,255,.3), 0 8px 18px rgba(0,0,0,.5)",
+                    ? "inset 0 0 0 1px rgba(62,125,89,.35)"
+                    : "inset 0 1px 0 rgba(255,255,255,.4), 0 6px 14px rgba(120,90,50,.3)",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 5,
+                gap: 4,
                 cursor: clickable ? "pointer" : "default",
-                opacity: claimed ? 0.5 : keepMode && !kept ? 0.82 : 1,
+                opacity: claimed ? 0.7 : keepMode && !kept ? 0.85 : 1,
                 padding: 0,
                 ...(wild && !claimed && !rolling ? { animation: "bb-wild-shimmer 2.4s ease-in-out infinite" } : {}),
               }}
-              title={
-                keepMode
-                  ? kept ? "Kept — tap to release" : `Tap to keep this ${meta.label}`
-                  : claimed ? "Tap to un-draft" : clickable ? `Draft ${meta.label}` : ""
-              }
+              title={keepMode ? (kept ? "Kept — tap to release" : `Tap to keep this ${meta.label}`) : claimed ? "Tap to un-draft" : clickable ? `Draft ${meta.label}` : ""}
             >
               {face === "anything"
-                ? <span style={{ fontSize: 42, lineHeight: 1, color: claimed ? C.green : "#1a1206", textShadow: claimed ? `0 0 12px ${C.green}66` : "0 1px 1px rgba(255,255,255,.3)" }}>✦</span>
-                : resMark(face as ResourceKind, 40, claimed ? C.green : "#1a1206")}
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: claimed ? C.green : "rgba(22,13,5,.82)" }}>{meta.label}</span>
-              {claimed && <span style={{ position: "absolute", top: -9, right: -8, fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", color: "#0c0805", background: C.green, padding: "2px 6px", borderRadius: 5 }}>DRAFTED</span>}
-              {kept && <span style={{ position: "absolute", top: -9, right: -8, fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", color: "#2a1408", background: "#f0c970", padding: "2px 6px", borderRadius: 5 }}>KEEP</span>}
+                ? <span style={{ fontSize: 38, lineHeight: 1, color: claimed ? C.green : "#3a2410" }}>✦</span>
+                : resMark(face as ResourceKind, 36, claimed ? C.green : "#241608")}
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: claimed ? C.green : "rgba(36,22,8,.85)" }}>{meta.label}</span>
+              {claimed && <span style={{ position: "absolute", top: -9, right: -8, fontFamily: MONO, fontSize: 7.5, letterSpacing: ".06em", color: "#fff", background: C.green, padding: "2px 6px", borderRadius: 5 }}>DRAFTED</span>}
+              {kept && <span style={{ position: "absolute", top: -9, right: -8, fontFamily: MONO, fontSize: 7.5, letterSpacing: ".06em", color: "#fff", background: C.gold, padding: "2px 6px", borderRadius: 5 }}>KEEP</span>}
             </button>
           </div>
         );
@@ -2075,22 +2176,12 @@ function DiceTray({ dice, rollId, animate, mode, selectedIds, full, locked, onDi
   );
 }
 
-interface Flight {
-  id: number;
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
-  kind: ResourceKind;
-}
+interface Flight { id: number; x0: number; y0: number; x1: number; y1: number; kind: ResourceKind; }
 
-/** Absolute overlay in canvas space; renders cards flying die → Warehouse. */
 function FlightLayer({ flights }: { flights: Flight[] }) {
   return (
     <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 55, overflow: "visible" }}>
-      {flights.map((f) => (
-        <FlyCard key={f.id} flight={f} />
-      ))}
+      {flights.map((f) => <FlyCard key={f.id} flight={f} />)}
     </div>
   );
 }
@@ -2101,7 +2192,7 @@ function FlyCard({ flight }: { flight: Flight }) {
     const r = requestAnimationFrame(() => requestAnimationFrame(() => setGo(true)));
     return () => cancelAnimationFrame(r);
   }, []);
-  const m = SUB[flight.kind];
+  const kc = KIND_CHROME[flight.kind];
   const dx = go ? flight.x1 - flight.x0 : 0;
   const dy = go ? flight.y1 - flight.y0 : 0;
   return (
@@ -2110,27 +2201,26 @@ function FlyCard({ flight }: { flight: Flight }) {
         position: "absolute",
         left: flight.x0,
         top: flight.y0,
-        width: 46,
-        height: 64,
-        marginLeft: -23,
-        marginTop: -32,
+        width: 44,
+        height: 60,
+        marginLeft: -22,
+        marginTop: -30,
         borderRadius: 8,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "space-between",
-        padding: "6px 4px",
-        background: `linear-gradient(180deg,${m.ink}33 0%, rgba(20,14,8,.97) 70%)`,
-        border: `1px solid ${m.ink}aa`,
-        boxShadow: `0 10px 24px ${m.ink}55, inset 0 1px 0 rgba(255,255,255,.08)`,
+        justifyContent: "center",
+        gap: 3,
+        background: kc.grad,
+        border: `1px solid ${kc.border}`,
+        boxShadow: `0 8px 20px ${kc.border}55`,
         transform: `translate(${dx}px, ${dy}px) scale(${go ? 0.55 : 1.04}) rotate(${go ? 12 : 0}deg)`,
         opacity: go ? 0.15 : 1,
         transition: "transform .56s cubic-bezier(.5,0,.35,1), opacity .56s ease-in",
         willChange: "transform, opacity",
       }}
     >
-      <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: m.ink }}>{m.label}</span>
-      {resMark(flight.kind, 22, m.ink)}
+      {resMark(flight.kind, 22, kc.ink)}
     </div>
   );
 }
@@ -2141,7 +2231,7 @@ function PileChooser({ title, onPick, onCancel }: { title: string; onPick: (k: R
       <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 600, color: C.ink }}>{title}</div>
       <div style={{ display: "flex", gap: 10 }}>
         {PILE_ORDER.map((k) => (
-          <button key={k} className="bb-card" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: KIND_CHROME[k].grad, border: `1px solid ${KIND_CHROME[k].border}`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16), 0 6px 16px rgba(0,0,0,.45)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
+          <button key={k} className="bb-card" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: KIND_CHROME[k].grad, border: `1px solid ${KIND_CHROME[k].border}`, boxShadow: CARD_SHADOW, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
             {resMark(k, 28, KIND_CHROME[k].ink)}
             <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: KIND_CHROME[k].ink }}>{SUB[k].label}</span>
           </button>
@@ -2159,14 +2249,14 @@ function FaceChooser({ title, onPick, onCancel }: { title: string; onPick: (f: D
       <div style={{ display: "flex", gap: 10 }}>
         {(["cask", "corn", "rye", "wheat", "barley", "anything"] as DieFace[]).map((k) => {
           const isWild = k === "anything";
-          const grad = isWild ? "linear-gradient(180deg,#3a3320,#1a160b)" : KIND_CHROME[k as ResourceKind].grad;
-          const border = isWild ? "#e7d9b6" : KIND_CHROME[k as ResourceKind].border;
-          const ink = isWild ? "#e7d9b6" : KIND_CHROME[k as ResourceKind].ink;
+          const grad = isWild ? "linear-gradient(180deg,#f3ead6,#fffdf8)" : KIND_CHROME[k as ResourceKind].grad;
+          const border = isWild ? C.brass : KIND_CHROME[k as ResourceKind].border;
+          const ink = isWild ? C.brass : KIND_CHROME[k as ResourceKind].ink;
           return (
-          <button key={k} className="bb-card" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: grad, border: `1px solid ${border}`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16), 0 6px 16px rgba(0,0,0,.45)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
-            {isWild ? <span style={{ fontSize: 24, lineHeight: 1, color: ink, textShadow: "0 1px 4px rgba(0,0,0,.5)" }}>✦</span> : resMark(k as ResourceKind, 28, ink)}
-            <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: ink }}>{FACE[k].label}</span>
-          </button>
+            <button key={k} className="bb-card" onClick={() => onPick(k)} style={{ width: 70, height: 70, borderRadius: 12, background: grad, border: `1px solid ${border}`, boxShadow: CARD_SHADOW, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, cursor: "pointer" }}>
+              {isWild ? <span style={{ fontSize: 24, lineHeight: 1, color: ink }}>✦</span> : resMark(k as ResourceKind, 28, ink)}
+              <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: ink }}>{FACE[k].label}</span>
+            </button>
           );
         })}
       </div>
@@ -2186,18 +2276,17 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
   const trackVal = barrelValue(bourbon.quality, bourbon.age);
   const mult = zoneMultiplier(zone);
   const dist = fnDist(me);
-  const flat = bourbon.saleBonus + dist; // premium + distribution, added after the multiply
+  const flat = bourbon.saleBonus + dist;
   const options = game.demandCards.map((c) => {
     const open = c.filledBy.indexOf(null) >= 0;
     const fits = meetsRequirement(bourbon, c.requirement);
     const filled = c.filledBy.filter((f) => f !== null).length;
     const completes = open && filled + 1 >= c.slotsActive;
-    // (age value + order value) × zone multiplier + premium + distribution
     return { card: c, open, fits, completes, payoff: (trackVal + c.orderValue) * mult + flat };
   });
   return (
     <Scrim>
-      <div style={{ width: 560, maxWidth: "90vw", display: "flex", flexDirection: "column", gap: 14, padding: 28, borderRadius: 16, border: `1px solid ${C.border}`, background: "linear-gradient(180deg,#1a120b,#130c06)", boxShadow: "0 18px 50px rgba(0,0,0,.55)" }}>
+      <div style={{ width: 560, maxWidth: "90vw", display: "flex", flexDirection: "column", gap: 14, padding: 28, borderRadius: 16, border: `1px solid ${C.border}`, background: SURFACE.panel, boxShadow: PANEL_SHADOW }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>Sell · {STYLE_LABEL[bourbon.styleTag]} · {bourbon.quality} · age {bourbon.age}</div>
           <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: C.ink }}>{bourbon.name}</div>
@@ -2210,7 +2299,7 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
             </div>
           )}
           {options.filter((o) => o.fits).map(({ card, open, completes, payoff }) => (
-            <button key={card.id} className="bb-btn" disabled={!open} onClick={() => onRoute(card.id)} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: open ? "pointer" : "default", border: `1px solid ${open ? C.brass : C.border2}`, background: open ? "#221710" : "#130d08", opacity: open ? 1 : 0.5 }}>
+            <button key={card.id} className="bb-btn" disabled={!open} onClick={() => onRoute(card.id)} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: open ? "pointer" : "default", border: `1px solid ${open ? C.brass : C.border2}`, background: open ? "#fffdf8" : SURFACE.inset, opacity: open ? 1 : 0.6 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink }}>{card.label}</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.amber }}>{requirementText(card.requirement)} · {card.filledBy.filter((f) => f).length}/{card.slotsActive} slots</div>
@@ -2219,9 +2308,9 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: C.gold }}>+{payoff}</div>
                   {completes && (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 9px", borderRadius: 999, background: "rgba(109,178,140,.18)", border: `1px solid ${C.green}` }}>
-                      <span style={{ fontSize: 13, color: C.green }}>★</span>
-                      <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: C.green, lineHeight: 1 }}>{card.reputation}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 9px", borderRadius: 999, background: "rgba(138,95,176,.14)", border: `1px solid ${C.prestige}` }}>
+                      <span style={{ fontSize: 13, color: C.prestige }}>★</span>
+                      <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: C.prestige, lineHeight: 1 }}>{card.reputation}</span>
                     </span>
                   )}
                 </div>
@@ -2249,7 +2338,7 @@ function UltimateOverlay({ dept, onChoose, onCancel }: {
   }
   return (
     <Scrim>
-      <div style={{ width: 520, maxWidth: "90vw", display: "flex", flexDirection: "column", gap: 14, padding: 28, borderRadius: 16, border: `1px solid ${C.border}`, background: "linear-gradient(180deg,#1a120b,#130c06)", boxShadow: "0 18px 50px rgba(0,0,0,.55)" }}>
+      <div style={{ width: 520, maxWidth: "90vw", display: "flex", flexDirection: "column", gap: 14, padding: 28, borderRadius: 16, border: `1px solid ${C.border}`, background: SURFACE.panel, boxShadow: PANEL_SHADOW }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>{dept.name} · Ultimate</div>
           <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink }}>Choose your ultimate</div>
@@ -2257,7 +2346,7 @@ function UltimateOverlay({ dept, onChoose, onCancel }: {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {options.map((u) => (
-            <button key={u} className="bb-btn" onClick={() => (u === "prospector" ? setPendingProspect(true) : onChoose(u))} style={{ textAlign: "left", padding: "11px 14px", borderRadius: 10, cursor: "pointer", border: `1px solid ${C.brass}`, background: "#221710" }}>
+            <button key={u} className="bb-btn" onClick={() => (u === "prospector" ? setPendingProspect(true) : onChoose(u))} style={{ textAlign: "left", padding: "11px 14px", borderRadius: 10, cursor: "pointer", border: `1px solid ${C.brass}`, background: "#fffdf8" }}>
               <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: C.gold }}>{ULT_LABEL[u].name}</div>
               <div style={{ fontFamily: MONO, fontSize: 11, color: C.text2, marginTop: 2 }}>{ULT_LABEL[u].blurb}</div>
             </button>
@@ -2271,25 +2360,25 @@ function UltimateOverlay({ dept, onChoose, onCancel }: {
 
 function EndScreen({ game, onNew }: { game: GameState; onNew: () => void }) {
   const ranked = [...game.players]
-    .map((p) => ({ name: p.name, capital: p.capital, reputation: reputationOf(p), total: p.capital + reputationOf(p), cards: p.keptCards.length }))
+    .map((pl) => ({ name: pl.name, capital: pl.capital, reputation: reputationOf(pl), total: pl.capital + reputationOf(pl), cards: pl.keptCards.length }))
     .sort((a, b) => b.total - a.total);
   return (
-    <div style={{ position: "relative", width: 1920, height: 1080, display: "grid", placeItems: "center", background: "radial-gradient(120% 90% at 50% 0%, rgba(213,150,80,.1), transparent 60%), #0c0805", color: C.ink }}>
-      <div style={{ width: 640, display: "flex", flexDirection: "column", gap: 18, padding: 40, borderRadius: 18, border: `1px solid ${C.border}`, background: "linear-gradient(180deg,#1a120b,#130c06)", boxShadow: "0 18px 50px rgba(0,0,0,.5)" }}>
+    <div style={{ position: "relative", width: 1920, height: 1080, display: "grid", placeItems: "center", background: "radial-gradient(120% 90% at 50% -10%, rgba(207,138,51,.1), transparent 60%), linear-gradient(160deg,#f6efe1,#e4d8c0)", color: C.ink }}>
+      <div style={{ width: 640, display: "flex", flexDirection: "column", gap: 18, padding: 40, borderRadius: 18, border: `1px solid ${C.border}`, background: SURFACE.panel, boxShadow: PANEL_SHADOW }}>
         <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 42, color: C.gold }}>Last Call</div>
         <div style={{ fontSize: 14, color: C.text2 }}>The demand deck ran dry. Final standings — Capital + Prestige.</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {ranked.map((r, i) => (
-            <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 11, border: `1px solid ${i === 0 ? C.brass : C.border2}`, background: i === 0 ? "linear-gradient(90deg,rgba(213,150,80,.18),transparent)" : "#150e08" }}>
+            <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 11, border: `1px solid ${i === 0 ? C.brass : C.border2}`, background: i === 0 ? "linear-gradient(90deg,rgba(207,138,51,.16),#fffdf8)" : "#fffdf8" }}>
               <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: i === 0 ? C.gold : C.muted, width: 28 }}>{i + 1}</span>
               <span style={{ flex: 1, fontFamily: SERIF, fontWeight: 700, fontSize: 20 }}>{r.name}{i === 0 ? " 🥃" : ""}</span>
               <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }}>{r.capital} cap</span>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>{r.reputation} prestige</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.prestige }}>{r.reputation} prestige</span>
               <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink, width: 56, textAlign: "right" }}>{r.total}</span>
             </div>
           ))}
         </div>
-        <button onClick={onNew} className="bb-btn" style={{ padding: "14px 24px", borderRadius: 12, border: 0, cursor: "pointer", fontFamily: MONO, fontWeight: 700, fontSize: 14, letterSpacing: ".12em", textTransform: "uppercase", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)" }}>New Game</button>
+        <button onClick={onNew} className="bb-btn" style={{ padding: "14px 24px", borderRadius: 12, border: 0, cursor: "pointer", fontFamily: MONO, fontWeight: 700, fontSize: 14, letterSpacing: ".12em", textTransform: "uppercase", color: PRIMARY_INK, background: PRIMARY }}>New Game</button>
       </div>
     </div>
   );
