@@ -26,7 +26,9 @@ import type {
 // ── tokens (kept local so this module doesn't depend on GameClient) ───
 const MONO = "'JetBrains Mono', monospace";
 const SERIF = "'Cormorant Garamond', serif";
-const T = { ink: "#f0e3c8", text2: "#b9a684", muted: "#7c6a51", gold: "#f0c970", brass: "#c69d52", border: "#3b2818", green: "#6db28c" };
+// The overlay card stays a warm dark walnut (like the board's Table Log) for
+// contrast against the parchment board; accents match the new amber/brass CTAs.
+const T = { ink: "#f6ecd6", text2: "#cbb893", muted: "#9c876a", gold: "#e7b765", brass: "#cf9a5e", border: "#5a3f25", green: "#6db28c" };
 
 // ── rigging helpers (deterministic scenario) ─────────────────────────
 function res(kind: ResourceKind, i: number): ResourceCard {
@@ -97,7 +99,7 @@ export const TUT_BEATS: TutBeat[] = [
   {
     id: "welcome",
     title: "Welcome to Bourbonomics",
-    body: "You run a bourbon distillery. Every round you read **demand**, gather **resources**, age **bourbon**, and sell it into **orders**. Let's walk one round together.",
+    body: "You run a bourbon distillery. The table sits to the **left**, the **center stage** changes with each phase, and **the Market** is on the right — with a live **Table Log** narrating every move along the bottom. Each round you read **demand**, gather **resources**, age **bourbon**, and sell into **orders**. Let's walk one round together.",
     cta: "Begin",
   },
   {
@@ -118,9 +120,9 @@ export const TUT_BEATS: TutBeat[] = [
   {
     id: "begin",
     title: "Open the dice draft",
-    body: "Each round opens with Demand, then the **Collect** dice draft. Press **Begin draft** to roll your Supply dice.",
+    body: "Each round opens with Demand, then the **Collect** dice draft. Press **Begin the Collect draft** to roll your Supply dice.",
     spotlight: "begin",
-    hint: "Press Begin draft to roll.",
+    hint: "Press Begin the Collect draft.",
     step: 1,
     allow: (a) => a.type === "BEGIN_COLLECT",
     goal: (a) => a.type === "BEGIN_COLLECT",
@@ -128,11 +130,11 @@ export const TUT_BEATS: TutBeat[] = [
   {
     id: "draft",
     title: "Draft your resources",
-    body: "Each die is a resource — **cask, corn, rye, barley**. Tap **all four dice** to collect one of each (watch them fly to your Warehouse), then press **DRAFT** to bank them.",
+    body: "Each die is a resource — **cask, corn, rye, barley**. Tap **all four dice** to collect one of each (watch them fly to your Warehouse), then press **Claim & pass** to bank them.",
     spotlight: "dice",
-    // once all four are tapped, move the halo to the DRAFT button.
+    // once all four are tapped, move the halo to the Claim & pass button.
     spotlightAfterDraft: { count: 4, target: "pass" },
-    hint: "Tap all four dice, then press DRAFT.",
+    hint: "Tap all four dice, then press Claim & pass.",
     step: 2,
     // dice rolled on BEGIN_COLLECT — rig the faces to exactly one of each resource.
     onEnter: (g) => {
@@ -147,9 +149,9 @@ export const TUT_BEATS: TutBeat[] = [
   {
     id: "draw-open",
     title: "Draw mash bills",
-    body: "The **Play** phase is where you brew. Press **Draw Mash Bills** to reveal recipes — we've stocked a simple one for you.",
+    body: "The **Play** phase is where you brew — your distillery fills the center stage. Every **open barrel slot** can pull a recipe: press **Draw a mash bill** to reveal some. We've stocked a simple one for you.",
     spotlight: "draw",
-    hint: "Press Draw Mash Bills.",
+    hint: "Press Draw a mash bill on an open slot.",
     step: 3,
     advanceOnDrawOpen: true,
     // guarantee a buildable hand (keep what they collected; ensure cask + corn)
@@ -298,7 +300,7 @@ export function TutorialOverlay({ beat, draftedCount = 0, pickedCount = 0, onCon
             {hole && <rect x={hole.left} y={hole.top} width={hole.width} height={hole.height} rx="12" fill="black" style={{ transition: "x .3s ease, y .3s ease, width .3s ease, height .3s ease" }} />}
           </mask>
         </defs>
-        <rect x="0" y="0" width="100%" height="100%" fill="rgb(8,5,3)" fillOpacity="0.8" mask="url(#tut-mask)" />
+        <rect x="0" y="0" width="100%" height="100%" fill="rgb(34,22,11)" fillOpacity="0.72" mask="url(#tut-mask)" />
       </svg>
       {/* amber ring on the target */}
       {hole && (
@@ -306,10 +308,10 @@ export function TutorialOverlay({ beat, draftedCount = 0, pickedCount = 0, onCon
       )}
 
       {/* exit (top-right) */}
-      <button onClick={onExit} style={{ position: "absolute", top: 18, right: 22, pointerEvents: "auto", fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.muted, background: "rgba(20,14,8,.9)", border: `1px solid ${T.border}`, padding: "7px 12px", borderRadius: 9, cursor: "pointer" }}>Exit tutorial ✕</button>
+      <button onClick={onExit} style={{ position: "absolute", top: 18, right: 22, pointerEvents: "auto", fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: T.muted, background: "rgba(30,20,11,.9)", border: `1px solid ${T.border}`, padding: "7px 12px", borderRadius: 9, cursor: "pointer" }}>Exit tutorial ✕</button>
 
       {/* instruction card (bottom-center) */}
-      <div style={{ position: "absolute", left: "50%", bottom: 40, transform: "translateX(-50%)", width: 600, maxWidth: "92vw", pointerEvents: "auto", borderRadius: 16, border: `1px solid ${T.brass}`, background: "linear-gradient(180deg,#221710,#140d07)", boxShadow: "0 20px 60px rgba(0,0,0,.6)", padding: "18px 22px" }}>
+      <div style={{ position: "absolute", left: "50%", bottom: 40, transform: "translateX(-50%)", width: 600, maxWidth: "92vw", pointerEvents: "auto", borderRadius: 16, border: `1px solid ${T.brass}`, background: "linear-gradient(180deg,#2e2114,#1a1108)", boxShadow: "0 20px 60px rgba(0,0,0,.5)", padding: "18px 22px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
           <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", color: T.brass }}>Tutorial</span>
           {beat.step != null && <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>step {beat.step} / {TOTAL_STEPS}</span>}
@@ -318,7 +320,7 @@ export function TutorialOverlay({ beat, draftedCount = 0, pickedCount = 0, onCon
         <div style={{ fontSize: 14, color: T.text2, lineHeight: 1.55, marginTop: 8 }}><Rich>{beat.body}</Rich></div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14 }}>
           {isPrompt ? (
-            <button onClick={onContinue} style={{ padding: "11px 22px", borderRadius: 11, border: 0, cursor: "pointer", fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", color: "#2a1408", background: "linear-gradient(180deg,#e9b46e,#c69d52)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{beat.cta}</button>
+            <button onClick={onContinue} style={{ padding: "11px 22px", borderRadius: 11, border: 0, cursor: "pointer", fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", color: "#fff7ea", background: "linear-gradient(180deg,#cf8a33,#a3531f)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.35)" }}>{beat.cta}</button>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: T.gold, animation: "bb-pip 1.4s ease-in-out infinite" }} />

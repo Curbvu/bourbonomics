@@ -100,6 +100,9 @@ const CARD_SHADOW = "inset 0 1px 0 rgba(255,255,255,.6), 0 6px 16px rgba(120,90,
 const PRIMARY = "linear-gradient(180deg,#cf8a33,#a3531f)";
 const PRIMARY_INK = "#fff7ea";
 const PRIMARY_SHADOW = "inset 0 1px 0 rgba(255,255,255,.35), 0 8px 20px rgba(163,83,31,.28)";
+// Page letterbox — a warm walnut "tasting-bar" frame around the parchment canvas
+// (was a flat near-black, which clashed with the daylight board).
+const PAGE_BG = "radial-gradient(130% 95% at 50% 6%, #3c2b19 0%, #271b0f 50%, #160d05 100%)";
 
 const FACE: Record<DieFace, { mono: string; label: string; color: string; wild?: boolean }> = {
   cask: { mono: "CK", label: "Cask", color: "#cf9a5e" },
@@ -600,7 +603,7 @@ export default function GameClient() {
 
   if (!game) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#161009" }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: PAGE_BG }}>
         <style>{GLOBAL_CSS}</style>
         <ScalingHost>
           <div style={{ width: 1920, height: 1080, background: "linear-gradient(160deg,#f6efe1,#ece2cf 55%,#e4d8c0)" }}>
@@ -612,7 +615,7 @@ export default function GameClient() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#161009" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: PAGE_BG }}>
       <style>{GLOBAL_CSS}</style>
       <ScalingHost>
         <Board
