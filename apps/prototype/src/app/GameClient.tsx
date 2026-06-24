@@ -24,8 +24,6 @@ import {
   supplyCap as fnSupply,
   warehouseCap as fnWarehouse,
   mashFloorDraw as fnMash,
-  distributionBonus as fnDist,
-  countingDiscount as fnCounting,
   rerollsFor as fnRerolls,
   hasUlt,
   CONFIG,
@@ -53,7 +51,6 @@ type BillLike = {
   styleTag: StyleTag;
   tags: StyleTag[];
   recipe: Partial<Record<ResourceKind, number>>;
-  saleBonus: number;
   batchQtyBias: number;
   slogan?: string;
 };
@@ -228,6 +225,10 @@ const ULT_LABEL: Record<UltimateId, { name: string; blurb: string }> = {
   grandWarehouse: { name: "Grand Warehouse", blurb: "+3 hold cap." },
   qualitySort: { name: "Quality Sort", blurb: "Once/round, a free blind draw from any pile." },
   longCellar: { name: "Long Cellar", blurb: "Staged cards stay swappable (not locked)." },
+  masterRecipe: { name: "Master Recipe", blurb: "+1 mash bill revealed each Draw." },
+  houseBlend: { name: "House Blend", blurb: "One recipe slot accepts any resource at build." },
+  openBill: { name: "Open Bill", blurb: "One extra Draw Mash Bills each round." },
+  privateCard: { name: "Private Demand Card", blurb: "A personal order outside the zone/crash count, paid at the current zone." },
   ph: { name: "Ultimate (TBD)", blurb: "Ultimate menu for this branch is a placeholder." },
 };
 
@@ -238,11 +239,9 @@ const DEPT_META: Record<DepartmentId, { color: string; tag: string; name: string
   warehouse: { color: "#3e7d59", tag: "Warehouse", name: "The Warehouse" },
   mashFloor: { color: "#7d8fd4", tag: "Recipes", name: "Mash Floor" },
   marketing: { color: "#b08fd8", tag: "Shape Demand", name: "Marketing Dept." },
-  distribution: { color: "#5fa6c9", tag: "Distribution", name: "Loading Dock" },
-  countingHouse: { color: "#c9a24a", tag: "Capital", name: "Counting House" },
 };
 // Iconned department cards on the Play floor (Rickhouse + Warehouse get their own rooms).
-const FLOOR_DEPTS: DepartmentId[] = ["supply", "mashFloor", "marketing", "distribution", "countingHouse"];
+const FLOOR_DEPTS: DepartmentId[] = ["supply", "mashFloor", "marketing"];
 
 const PLAYER_COLORS = ["#c4772a", "#c0492c", "#3e7d59", "#8a5fb0", "#5fa6c9", "#b07d28"];
 
@@ -916,7 +915,7 @@ function Board(p: BoardProps) {
             onExitView={() => setViewIdx(null)}
           />
 
-          <MarketRail game={game} zone={zone} />
+          <MarketRail game={game} zone={zone} privateCards={game.players[humanIdx]?.privateCards ?? []} />
         </div>
 
         <TableLog game={game} />
@@ -1105,7 +1104,7 @@ function Pips({ dept, me }: { dept: DepartmentId; me: Player }) {
 function ImproveBtn({ id, board, me, compact }: { id: DepartmentId; board: BoardProps; me: Player; compact?: boolean }) {
   const d = me.distillery.departments.find((x) => x.id === id)!;
   const maxed = d.level >= d.maxLevel;
-  const cost = improvementCost(me.improvements, d.discount + fnCounting(me));
+  const cost = improvementCost(me.improvements, d.discount);
   const isActor = me.id === board.game.players[board.game.currentPlayerIndex]?.id && !isBotTurn(board.game);
   const can = isActor && !maxed && me.capital >= cost && board.game.roundPhase === "play";
   const nextIsUlt = d.level + 1 === d.maxLevel;
@@ -1142,14 +1141,8 @@ function DeptIcon({ id, color }: { id: DepartmentId; color: string }) {
   if (id === "mashFloor") {
     return <div style={box}><div style={{ display: "flex", flexDirection: "column", gap: 3, width: 18 }}>{[16, 18, 12].map((w, i) => <span key={i} style={{ width: w, height: 3, borderRadius: 2, background: color }} />)}</div></div>;
   }
-  if (id === "marketing") {
-    return <div style={box}><div style={{ position: "relative", width: 20, height: 14 }}><span style={{ position: "absolute", top: 6, left: 0, width: 20, height: 2, borderRadius: 2, background: `${color}88` }} /><span style={{ position: "absolute", top: 1, left: 11, width: 8, height: 12, borderRadius: 3, background: color }} /></div></div>;
-  }
-  if (id === "distribution") {
-    return <div style={box}><div style={{ display: "flex", alignItems: "flex-end", gap: 3 }}>{[10, 14, 8].map((h, i) => <span key={i} style={{ width: 6, height: h, borderRadius: 1, background: color, border: `1px solid ${color}` }} />)}</div></div>;
-  }
-  // countingHouse — overlapping coins
-  return <div style={box}><div style={{ display: "flex" }}>{[0, 1, 2].map((i) => <span key={i} style={{ width: 13, height: 13, borderRadius: 999, background: `radial-gradient(circle at 35% 30%, #f0c970, ${color})`, marginLeft: i ? -5 : 0, boxShadow: "0 1px 2px rgba(0,0,0,.25)" }} />)}</div></div>;
+  // marketing — slider/dial
+  return <div style={box}><div style={{ position: "relative", width: 20, height: 14 }}><span style={{ position: "absolute", top: 6, left: 0, width: 20, height: 2, borderRadius: 2, background: `${color}88` }} /><span style={{ position: "absolute", top: 1, left: 11, width: 8, height: 12, borderRadius: 3, background: color }} /></div></div>;
 }
 
 // ── Center stage — the only zone that morphs per phase ────────────────
@@ -1543,7 +1536,7 @@ function DistilleryFloor(props: StageProps) {
       </div>
 
       {/* department row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 9, flex: "0 0 auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${FLOOR_DEPTS.length},1fr)`, gap: 9, flex: "0 0 auto" }}>
         {FLOOR_DEPTS.map((id) => <DepartmentCard key={id} id={id} board={board} me={me} />)}
       </div>
 
@@ -1600,9 +1593,7 @@ function DepartmentCard({ id, board, me }: { id: DepartmentId; board: BoardProps
   const effect =
     id === "supply" ? `Rolls ${fnSupply(me)} dice · ${fnRerolls(me)} reroll${fnRerolls(me) > 1 ? "s" : ""}`
     : id === "mashFloor" ? `Draws ${fnMash(me)} mash bills/turn`
-    : id === "marketing" ? `Shapes ${d.values[d.level]} demand card${(d.values[d.level] ?? 0) > 1 ? "s" : ""}`
-    : id === "distribution" ? `+${fnDist(me)} Capital on every sale`
-    : `−${fnCounting(me)} off every improvement`;
+    : `Shapes ${d.values[d.level]} demand card${(d.values[d.level] ?? 0) > 1 ? "s" : ""}`;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, borderRadius: 12, border: `1px solid ${C.border}`, background: `radial-gradient(80% 60% at 50% 0%, ${meta.color}12, transparent 65%), ${SURFACE.panel}`, boxShadow: CARD_SHADOW, padding: "10px 11px", minHeight: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -1656,7 +1647,7 @@ function RickhouseRoom(props: RickProps) {
         {agingBarrels.map((b) => {
           const sellable = b.age >= CONFIG.MIN_SELL_AGE && b.salesRemaining > 0;
           const trackVal = barrelValue(b.quality, b.age);
-          const baseValue = trackVal * zoneMultiplier(zone) + b.saleBonus + fnDist(me);
+          const baseValue = trackVal * zoneMultiplier(zone);
           const qc = QUALITY_CHROME[b.quality] ?? QUALITY_CHROME.common!;
           const capYear = capAge(b.quality);
           const trackSteps: { age: number; value: number }[] = [];
@@ -1781,7 +1772,7 @@ function RickhouseRoom(props: RickProps) {
 }
 
 // ── Right rail — "The Market" (persistent in every phase) ─────────────
-function MarketRail({ game, zone }: { game: GameState; zone: Zone }) {
+function MarketRail({ game, zone, privateCards }: { game: GameState; zone: Zone; privateCards: DemandCard[] }) {
   const count = game.demandCards.length;
   const toCrash = CONFIG.DEMAND_CRASH_AT - count;
   const zoneMeta = ZONE_META[zone];
@@ -1796,6 +1787,25 @@ function MarketRail({ game, zone }: { game: GameState; zone: Zone }) {
           {zoneMeta.label}<span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17 }}>×{zoneMultiplier(zone)}</span>
         </span>
       </div>
+
+      {/* private orders — pinned above the public market; only you can fill them */}
+      {privateCards.length > 0 && (
+        <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: 5, padding: "7px 9px", borderRadius: 10, background: "rgba(138,95,176,.08)", border: `1px solid ${C.prestige}55` }}>
+          <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: C.prestige }}>Your Private Orders · outside the count</span>
+          {privateCards.map((c) => {
+            const filled = c.filledBy.filter((f) => f !== null).length;
+            return (
+              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{c.label}</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.amber }}>{requirementText(c.requirement)}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold }}>+{c.orderValue}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.prestige }}>★{c.reputation}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text2 }}>{filled}/{c.slotsActive}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fffdf8", overflow: "hidden" }}>
         <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderBottom: `1px dashed ${toCrash <= 1 ? C.red : C.border2}` }}>
@@ -1952,7 +1962,6 @@ function BillPicker({ board }: { board: BoardProps }) {
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "auto", paddingTop: 8, borderTop: `1px dotted ${C.border2}` }}>
                 <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.gold, lineHeight: 1 }} title="Sales scale with quality">{1 + bill.batchQtyBias}–3</span>
                 <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", textTransform: "uppercase", color: C.muted }}>sales · by quality</span>
-                {bill.saleBonus > 0 && <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#1a1206", background: C.amber, padding: "2px 7px", borderRadius: 5 }}>+{bill.saleBonus}/sale</span>}
               </div>
             </button>
           );
@@ -2081,12 +2090,11 @@ function BillDetail({ bill }: { bill: BillLike }) {
       </div>
       <div style={{ display: "flex", gap: 18, fontFamily: MONO, fontSize: 12, color: C.text2 }}>
         <span><b style={{ color: C.gold }}>{1 + bill.batchQtyBias}–3</b> sales · by quality</span>
-        {bill.saleBonus > 0 && <span>premium <b style={{ color: C.gold }}>+{bill.saleBonus}</b>/sale</span>}
       </div>
       <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, background: SURFACE.inset, padding: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".15em", textTransform: "uppercase", color: C.muted }}>Use</span>
         <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5, color: C.text2 }}>
-          Draw it as a resting barrel, then stage its recipe (every bill needs 1 cask + 1 corn + a grain) and Make Bourbon. Sales scale with the built barrel&apos;s quality — Common is one-and-done, top tiers yield up to 3{bill.saleBonus > 0 ? `, each paying a +${bill.saleBonus} complexity premium` : ""}.
+          Draw it as a resting barrel, then stage its recipe (every bill needs 1 cask + 1 corn + a grain) and Make Bourbon. Sales scale with the built barrel&apos;s quality — Common is one-and-done, top tiers yield up to 3.
         </p>
       </div>
     </article>
@@ -2278,14 +2286,14 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
 }) {
   const trackVal = barrelValue(bourbon.quality, bourbon.age);
   const mult = zoneMultiplier(zone);
-  const dist = fnDist(me);
-  const flat = bourbon.saleBonus + dist;
-  const options = game.demandCards.map((c) => {
+  // Public table orders first, then this player's private orders (pay at the same current zone).
+  const options = [...game.demandCards, ...me.privateCards].map((c) => {
     const open = c.filledBy.indexOf(null) >= 0;
     const fits = meetsRequirement(bourbon, c.requirement);
     const filled = c.filledBy.filter((f) => f !== null).length;
     const completes = open && filled + 1 >= c.slotsActive;
-    return { card: c, open, fits, completes, payoff: (trackVal + c.orderValue) * mult + flat };
+    const isPrivate = me.privateCards.some((pc) => pc.id === c.id);
+    return { card: c, open, fits, completes, isPrivate, payoff: (trackVal + c.orderValue) * mult };
   });
   return (
     <Scrim>
@@ -2293,7 +2301,7 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
         <div>
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>Sell · {STYLE_LABEL[bourbon.styleTag]} · {bourbon.quality} · age {bourbon.age}</div>
           <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: C.ink }}>{bourbon.name}</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>(value {trackVal} <span style={{ color: ZONE_META[zone].color }}>+ order</span>) <span style={{ color: ZONE_META[zone].color }}>× {mult} {ZONE_META[zone].label}</span>{bourbon.saleBonus > 0 ? ` + ${bourbon.saleBonus} premium` : ""} + {dist} dist. Route to a matching order.</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>(value {trackVal} <span style={{ color: ZONE_META[zone].color }}>+ order</span>) <span style={{ color: ZONE_META[zone].color }}>× {mult} {ZONE_META[zone].label}</span>. Route to a matching order.</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto" }}>
           {options.filter((o) => o.fits).length === 0 && (
@@ -2301,10 +2309,10 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
               No order on the table accepts this bourbon yet.<br />Wait for a matching demand card.
             </div>
           )}
-          {options.filter((o) => o.fits).map(({ card, open, completes, payoff }) => (
-            <button key={card.id} className="bb-btn" disabled={!open} onClick={() => onRoute(card.id)} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: open ? "pointer" : "default", border: `1px solid ${open ? C.brass : C.border2}`, background: open ? "#fffdf8" : SURFACE.inset, opacity: open ? 1 : 0.6 }}>
+          {options.filter((o) => o.fits).map(({ card, open, completes, payoff, isPrivate }) => (
+            <button key={card.id} className="bb-btn" disabled={!open} onClick={() => onRoute(card.id)} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: open ? "pointer" : "default", border: `1px solid ${isPrivate ? C.prestige : open ? C.brass : C.border2}`, background: open ? "#fffdf8" : SURFACE.inset, opacity: open ? 1 : 0.6 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink }}>{card.label}</div>
+                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink }}>{card.label}{isPrivate && <span style={{ marginLeft: 7, fontFamily: MONO, fontSize: 7.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#fff", background: C.prestige, padding: "1px 6px", borderRadius: 4, verticalAlign: "middle" }}>Private</span>}</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.amber }}>{requirementText(card.requirement)} · {card.filledBy.filter((f) => f).length}/{card.slotsActive} slots</div>
               </div>
               {open ? (

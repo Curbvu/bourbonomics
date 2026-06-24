@@ -83,11 +83,11 @@ describe("full-game playthrough", () => {
       const { state, stats } = playGame(100 + players.length, players);
       console.log(`${players.length}p:`, JSON.stringify(stats));
 
-      expect(stats.ended).toBe(true); // terminates at the demand-deck clock
+      expect(stats.ended).toBe(true); // terminates (8-completion clock, or the round backstop)
       expect(stats.actions).toBeLessThan(40000); // no stall / spin
       expect(stats.builds).toBeGreaterThan(0);
       expect(stats.sales).toBeGreaterThan(0);
-      expect(stats.completions).toBeGreaterThan(0); // the only thing that ends the game
+      expect(stats.completions).toBeGreaterThan(0); // cards do get completed
       expect(stats.improvements).toBeGreaterThan(0);
       assertConsistent(state, players);
     });

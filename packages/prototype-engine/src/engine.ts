@@ -25,6 +25,7 @@ import {
 import { buildDemandDeck, buildMashBillSupply, buildPile } from "./content";
 import { rankPlayers } from "./scoring";
 import { rngRange, shuffle } from "./rng";
+import { QUALITIES } from "./types";
 import type {
   Action,
   ActionResult,
@@ -83,13 +84,12 @@ export const supplyCap = (p: Player): number =>
   deptValue(p, "supply") + (hasUlt(p, "supply", "overflowRoll") ? CONFIG.ULT_OVERFLOW_ROLL : 0);
 export const warehouseCap = (p: Player): number =>
   deptValue(p, "warehouse") + (hasUlt(p, "warehouse", "grandWarehouse") ? CONFIG.ULT_GRAND_WAREHOUSE : 0);
-export const mashFloorDraw = (p: Player): number => deptValue(p, "mashFloor");
+export const mashFloorDraw = (p: Player): number =>
+  deptValue(p, "mashFloor") + (hasUlt(p, "mashFloor", "masterRecipe") ? CONFIG.ULT_MASTER_RECIPE_REVEAL : 0);
 export const marketingDraw = (p: Player): number => deptValue(p, "marketing");
-export const distributionBonus = (p: Player): number => deptValue(p, "distribution");
-export const countingDiscount = (p: Player): number => deptValue(p, "countingHouse");
-// Base level gets NO extra reroll after the first (free) roll; the Second
-// Reroll ultimate grants one.
-export const rerollsFor = (p: Player): number => (hasUlt(p, "supply", "secondReroll") ? 1 : 0);
+// Base level gets ONE reroll after the first (free) roll; the Second Reroll
+// ultimate grants a second.
+export const rerollsFor = (p: Player): number => 1 + (hasUlt(p, "supply", "secondReroll") ? 1 : 0);
 
 // ---------------------------------------------------------------------
 // Resource piles (five, face-down; blind quality off the top)
@@ -156,8 +156,23 @@ function recipeSatisfied(
   recipe: Partial<Record<ResourceKind, number>>,
   name: string,
   cards: ResourceCard[],
+  allowSub = false,
 ): { ok: true } | { ok: false; reason: string } {
   const have = countByKind(cards);
+  // House Blend ultimate: one recipe slot may be filled by ANY resource. Require
+  // the right TOTAL number of cards with at most one kind short (one substitution).
+  if (allowSub) {
+    let total = 0, size = 0, deficit = 0;
+    for (const k of ALL_KINDS) {
+      const need = recipe[k] ?? 0;
+      size += need;
+      total += have[k];
+      deficit += Math.max(0, need - have[k]);
+    }
+    if (total !== size) return { ok: false, reason: `recipe for ${name} needs ${size} card(s) (got ${total})` };
+    if (deficit > 1) return { ok: false, reason: `House Blend substitutes only one resource — "${name}" is short ${deficit}` };
+    return { ok: true };
+  }
   for (const k of ALL_KINDS) {
     const need = recipe[k] ?? 0;
     if (have[k] !== need) {
@@ -191,12 +206,21 @@ function drawDemandCards(draft: GameState, n: number): DemandCard[] {
   const out: DemandCard[] = [];
   for (let i = 0; i < n; i++) {
     if (draft.demandDeck.length === 0) {
-      if (draft.demandDiscard.length === 0) break; // pool exhausted (clock)
-      const [reshuffled, seed] = shuffle(draft.demandDiscard, draft.rngSeed);
-      draft.demandDeck = reshuffled;
-      draft.demandDiscard = [];
-      draft.rngSeed = seed;
-      draft.log.push(`The demand discard reshuffled into the deck.`);
+      if (draft.demandDiscard.length > 0) {
+        const [reshuffled, seed] = shuffle(draft.demandDiscard, draft.rngSeed);
+        draft.demandDeck = reshuffled;
+        draft.demandDiscard = [];
+        draft.rngSeed = seed;
+        draft.log.push(`The demand discard reshuffled into the deck.`);
+      } else {
+        // The deck is renewable — it never ends the game (the clock is
+        // completions). Mint a fresh shuffled deck so a draw never dead-ends.
+        const [fresh, seed] = shuffle(buildDemandDeck(), draft.rngSeed);
+        for (const c of fresh) c.id = nextId(`dm_${c.defId}`);
+        draft.demandDeck = fresh;
+        draft.rngSeed = seed;
+        draft.log.push(`A fresh demand deck was shuffled in (the deck is renewable).`);
+      }
     }
     const card = draft.demandDeck.shift();
     if (card) out.push(card);
@@ -240,16 +264,33 @@ function demandDrawCount(draft: GameState): number {
   return Math.max(CONFIG.DEMAND_DRAW_PER_ROUND, ...draft.players.map((p) => marketingDraw(p)));
 }
 
-/** Schedule the final round if the configured clock is exhausted. */
+/**
+ * Grant a player a PRIVATE demand order (the Marketing ultimate). Drawn from the
+ * renewable deck, it lives OFF the shared table — only this player fills it,
+ * it's outside the zone/crash count, and it survives every wipe. One slot.
+ */
+function grantPrivateCard(draft: GameState, player: Player): void {
+  const [card] = drawDemandCards(draft, 1);
+  if (!card) return;
+  card.slotsActive = 1;
+  card.filledBy = [null];
+  player.privateCards.push(card);
+  draft.log.push(`${player.name} drew a PRIVATE order — "${card.label}" (only you can fill it).`);
+}
+
+/**
+ * THE clock: schedule the final round once any player has completed
+ * COMPLETE_TO_WIN demand cards. The triggering round still finishes (equal
+ * turns), then the game ends. The demand deck / mash-bill supply never end it.
+ */
 function scheduleEndIfClockDone(draft: GameState): void {
   if (draft.finalRound !== null) return;
-  const deckExhausted =
-    CONFIG.CLOCK_MODE === "demand_deck" &&
-    draft.demandDeck.length === 0 &&
-    draft.demandDiscard.length === 0;
-  if (deckExhausted) {
+  const champ = draft.players.find((p) => p.cardsCompleted >= CONFIG.COMPLETE_TO_WIN);
+  if (champ) {
     draft.finalRound = draft.roundNumber;
-    draft.log.push(`Demand deck exhausted — round ${draft.finalRound} is the final round.`);
+    draft.log.push(
+      `${champ.name} completed ${champ.cardsCompleted} orders — round ${draft.finalRound} is the final round.`,
+    );
   }
 }
 
@@ -309,6 +350,7 @@ function startCollectTurn(draft: GameState, inherited: Die[]): void {
   c.rerollsUsed = 0;
   c.maxRerolls = rerollsFor(player);
   c.tripleThreatUsed = false;
+  c.signatureUsed = false;
   if (inherited.length === 0) {
     // Nothing to keep — roll a full fresh set right away (first player / no leftovers).
     c.dice = rollDice(draft, supplyCap(player));
@@ -334,6 +376,7 @@ function enterCollect(draft: GameState): void {
     rerollsUsed: 0,
     maxRerolls: 0,
     tripleThreatUsed: false,
+    signatureUsed: false,
   };
   startCollectTurn(draft, []);
 }
@@ -420,6 +463,18 @@ function handleCollectClaim(
   }
 
   const drawn: ResourceCard[] = plan.map(({ pile }) => drawForClaim(draft, player, pile));
+
+  // Copperline Craft signature: once per Collect turn, bump one claimed card up a
+  // quality tier (a craft "lucky pull").
+  if (player.distillery.signature === "copperPlus1" && !c.signatureUsed && drawn.length > 0) {
+    const card = drawn[0]!;
+    const up = QUALITIES[Math.min(QUALITY_RANK[card.quality] + 1, QUALITIES.length - 1)]!;
+    if (up !== card.quality) {
+      card.quality = up;
+      c.signatureUsed = true;
+      draft.log.push(`${player.name}'s Copperline signature lifted a ${card.kind} to ${up}.`);
+    }
+  }
   player.hand.push(...drawn);
 
   const leftovers = c.dice.filter((d) => !claimIds.has(d.id));
@@ -449,15 +504,6 @@ function enterPlay(draft: GameState): void {
   draft.log.push(`— Play Phase (round ${draft.roundNumber}) —`);
 }
 
-/** In mash-bill-supply clock mode, schedule a final round when the supply empties. */
-function maybeTriggerMashClock(draft: GameState): void {
-  if (CONFIG.CLOCK_MODE !== "mash_bill_supply") return;
-  if (draft.finalRound === null && draft.mashBillSupply.length === 0) {
-    draft.finalRound = draft.roundNumber + 1;
-    draft.log.push(`Mash bill supply exhausted — final round will be round ${draft.finalRound}.`);
-  }
-}
-
 function endGame(draft: GameState): void {
   draft.phase = "ended";
   const winner = rankPlayers(draft)[0];
@@ -470,13 +516,17 @@ function endGame(draft: GameState): void {
 }
 
 function handleDrawMashBills(draft: GameState, player: Player, keepIndexes: number[]): string | null {
-  if (player.drewMashBillsThisTurn) return "you have already drawn mash bills this turn";
+  // Once per turn — the Open Bill ultimate grants one extra draw per round,
+  // off that limit.
+  const bonusDraw = player.drewMashBillsThisTurn;
+  if (bonusDraw && !(hasUlt(player, "mashFloor", "openBill") && !player.openBillUsedThisRound)) {
+    return "you have already drawn mash bills this turn";
+  }
 
   const reveal = mashFloorDraw(player);
-  // The mash-bill supply reshuffles when drawn-from is exhausted (it is the
-  // CLOCK only in mash_bill_supply mode; in the default demand-deck mode it is
-  // effectively infinite, so production never deadlocks before the deck does).
-  if (CONFIG.CLOCK_MODE !== "mash_bill_supply" && draft.mashBillSupply.length < reveal) {
+  // The mash-bill supply is renewable — mint a fresh shuffled batch when it runs
+  // short so production never deadlocks (it is NOT a clock).
+  if (draft.mashBillSupply.length < reveal) {
     const [fresh, seed] = shuffle(buildMashBillSupply(), draft.rngSeed);
     for (const b of fresh) b.id = nextId(`mb_${b.defId}`);
     draft.mashBillSupply.push(...fresh);
@@ -515,7 +565,6 @@ function handleDrawMashBills(draft: GameState, player: Player, keepIndexes: numb
       // placeholder (the resting barrel can't sell).
       batchQty: 0,
       batchQtyBias: bill.batchQtyBias,
-      saleBonus: bill.saleBonus,
       salesRemaining: 0,
       createdRound: draft.roundNumber,
       maturationBoosted: false,
@@ -527,8 +576,8 @@ function handleDrawMashBills(draft: GameState, player: Player, keepIndexes: numb
     draft.rngSeed = seed;
   }
 
-  player.drewMashBillsThisTurn = true;
-  maybeTriggerMashClock(draft);
+  if (bonusDraw) player.openBillUsedThisRound = true;
+  else player.drewMashBillsThisTurn = true;
   draft.log.push(
     `${player.name} drew ${offer.length} bill(s), kept ${keep.size} — ` +
       `rickhouse ${player.rickhouse.length}/${rickhouseCapacity(player)}.`,
@@ -608,7 +657,7 @@ function handleMakeBourbon(
   }
 
   const cards = [...barrel.staged, ...loose];
-  const check = recipeSatisfied(barrel.recipe, barrel.name, cards);
+  const check = recipeSatisfied(barrel.recipe, barrel.name, cards, hasUlt(player, "mashFloor", "houseBlend"));
   if (!check.ok) return check.reason;
 
   player.hand = player.hand.filter((c) => !uniqueIds.has(c.id));
@@ -648,24 +697,25 @@ function handleSell(
   if (bourbon.age < CONFIG.MIN_SELL_AGE) return `bourbon must be aged at least ${CONFIG.MIN_SELL_AGE} (age ${bourbon.age})`;
   if (bourbon.salesRemaining <= 0) return "this batch is already fully sold";
 
-  // Every sale routes to a matching demand order (the glut is gone).
+  // Every sale routes to a matching order — a public one on the table, or one of
+  // this player's PRIVATE orders (the Marketing ultimate).
   if (demandCardId === undefined) return "choose a demand order to sell into";
-  const card = draft.demandCards.find((c) => c.id === demandCardId);
-  if (!card) return "that demand card is not on the table";
+  const isPrivate = player.privateCards.some((c) => c.id === demandCardId);
+  const card = isPrivate
+    ? player.privateCards.find((c) => c.id === demandCardId)!
+    : draft.demandCards.find((c) => c.id === demandCardId);
+  if (!card) return "that demand card is not available";
   if (!meetsRequirement(bourbon, card.requirement)) return `"${bourbon.name}" does not meet "${card.label}"`;
   const slot = card.filledBy.indexOf(null);
   if (slot < 0) return `"${card.label}" has no open slot`;
 
+  // Both public and private orders pay at the CURRENT public-market zone.
   const zone = zoneForCardCount(draft.demandCards.length);
   card.filledBy[slot] = player.id;
-  // Payoff = (age-track value + the matched order's value) × the demand-zone
-  // MULTIPLIER (×1/×2/×3 for Low/Mid/High), then the recipe-complexity premium
-  // and Distribution added flat on top. The zone scales the bourbon-plus-order
-  // core; the premium and distribution stay outside the multiply.
-  const payoff =
-    (barrelValue(bourbon.quality, bourbon.age) + card.orderValue) * zoneMultiplier(zone) +
-    bourbon.saleBonus +
-    distributionBonus(player);
+  // Payoff = (age-track value + the order's value) × the demand-zone MULTIPLIER
+  // (×1/×2/×3 for Low/Mid/High). The order value (card_bonus) is the only
+  // additive term — no recipe premium, no distribution.
+  const payoff = (barrelValue(bourbon.quality, bourbon.age) + card.orderValue) * zoneMultiplier(zone);
   const completed = card.filledBy.every((f) => f !== null);
 
   player.capital += payoff;
@@ -673,13 +723,19 @@ function handleSell(
   player.bourbonsSold += 1;
   const isFinal = bourbon.salesRemaining === 0;
 
-  draft.log.push(`${player.name} sold "${bourbon.name}" (age ${bourbon.age}, ${bourbon.quality}) → "${card.label}" (${zone}) for ${payoff}.`);
+  draft.log.push(
+    `${player.name} sold "${bourbon.name}" (age ${bourbon.age}, ${bourbon.quality}) → ${isPrivate ? "private " : ""}"${card.label}" (${zone}) for ${payoff}.`,
+  );
 
   if (completed) {
-    draft.demandCards = draft.demandCards.filter((c) => c.id !== card.id);
+    if (isPrivate) player.privateCards = player.privateCards.filter((c) => c.id !== card.id);
+    else draft.demandCards = draft.demandCards.filter((c) => c.id !== card.id);
     player.keptCards.push(card);
     player.cardsCompleted += 1;
     draft.log.push(`🏅 ${player.name} completed "${card.label}" — kept for ${card.reputation} Prestige.`);
+    scheduleEndIfClockDone(draft); // THE clock: ends the round at COMPLETE_TO_WIN
+    // A completed private order is immediately replaced (the perk persists).
+    if (isPrivate) grantPrivateCard(draft, player);
   }
 
   if (isFinal) {
@@ -687,12 +743,11 @@ function handleSell(
     draft.log.push(`"${bourbon.name}" is sold out — rickhouse slot freed.`);
   }
 
-  // ⭐ HOT COMPLETION RESET — completing a card while the zone was Hot detonates
-  // the market. The completer already banked the ×3 sale and kept the card
-  // (above); now every OTHER card on the table is wiped (uncompleted orders &
-  // their Reputation forfeited — banked Capital from earlier sales is untouched)
-  // and the market resets to the gentle opener. First-to-cash-at-Hot wins.
-  if (completed && zone === "high") {
+  // ⭐ HOT COMPLETION RESET — completing a PUBLIC card while the zone was Hot
+  // detonates the market. The completer already banked the ×3 sale and kept the
+  // card; now every OTHER table card is wiped and the market resets to the
+  // opener. Private completions never trigger this (they're outside the count).
+  if (completed && !isPrivate && zone === "high") {
     const wiped = draft.demandCards.length;
     draft.demandDiscard.push(...draft.demandCards);
     draft.demandCards = [];
@@ -700,7 +755,6 @@ function handleSell(
     draft.log.push(
       `🔥 HOT RESET — ${player.name} cashed at Hot first; ${wiped} order(s) wiped, market reset to ${draft.demandCards.length}.`,
     );
-    scheduleEndIfClockDone(draft);
   }
   return null;
 }
@@ -716,8 +770,7 @@ function handleImprove(
   if (!d) return `unknown department "${departmentId}"`;
   if (d.level >= d.maxLevel) return `${d.name} is already fully grown`;
 
-  const discount = d.discount + countingDiscount(player);
-  const cost = improvementCost(player.improvements, discount);
+  const cost = improvementCost(player.improvements, d.discount);
   if (player.capital < cost) return `improving ${d.name} costs ${cost} capital (have ${player.capital})`;
 
   const advancingToUltimate = d.level + 1 === d.maxLevel;
@@ -741,10 +794,14 @@ function handleImprove(
   d.level += 1;
   player.improvements += 1;
   if (chosen) d.chosenUltimate = chosen;
+  // The Marketing ultimate immediately grants its first private order.
+  if (chosen === "privateCard") {
+    for (let i = 0; i < CONFIG.ULT_PRIVATE_CARD_SLOTS; i++) grantPrivateCard(draft, player);
+  }
   draft.log.push(
     `${player.name} improved ${d.name} to level ${d.level} for ${cost} capital` +
       `${chosen && chosen !== "ph" ? ` — ultimate: ${chosen}` : ""} ` +
-      `(next improvement costs ${improvementCost(player.improvements, discount)}).`,
+      `(next improvement costs ${improvementCost(player.improvements, d.discount)}).`,
   );
   return null;
 }
@@ -778,6 +835,7 @@ function endRound(draft: GameState): void {
       p.capital += CONFIG.ULT_WAREHOUSE_TASTING_CAPITAL;
     }
     p.qualitySortUsedThisRound = false;
+    p.openBillUsedThisRound = false;
   }
   draft.log.push(`Year passes — every aging barrel +1.`);
 
