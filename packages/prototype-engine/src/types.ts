@@ -86,8 +86,6 @@ export interface MashBill {
    * curve; the built barrel's batchQty = batchQtyForQuality(quality, bias).
    */
   batchQtyBias: number;
-  /** Per-sale Capital premium for a complex recipe (the "richer bourbon" bonus). */
-  saleBonus: number;
   placeholder: true;
 }
 
@@ -187,8 +185,6 @@ export interface Bourbon {
   batchQty: number;
   /** Off-curve batchQty adjustment inherited from the mash bill (applied at build). */
   batchQtyBias: number;
-  /** Per-sale Capital premium (recipe-complexity bonus). Copied from the mash bill. */
-  saleBonus: number;
   /** Sales left before the batch is spent. Starts at `batchQty`; each sale −1. */
   salesRemaining: number;
   /** Round index when the bourbon was built (for any aged-N-rounds gating). */
@@ -201,15 +197,13 @@ export interface Bourbon {
 // Distillery board: per-player departments on a linear improvement ramp
 // ---------------------------------------------------------------------
 
-/** The seven departments. All permanent, no upkeep, grown on the shared ramp. */
+/** The five departments. All permanent, no upkeep, grown on the shared ramp. */
 export type DepartmentId =
   | "rickhouse"
   | "supply"
   | "warehouse"
   | "mashFloor"
-  | "marketing"
-  | "distribution"
-  | "countingHouse";
+  | "marketing";
 
 /**
  * Ultimate effects (the qualitative top of each branch). The built menus —
@@ -232,7 +226,13 @@ export type UltimateId =
   | "grandWarehouse"
   | "qualitySort"
   | "longCellar"
-  // Unbuilt branches (Mash Floor / Marketing / Distribution / Counting House)
+  // Mash Floor
+  | "masterRecipe"
+  | "houseBlend"
+  | "openBill"
+  // Marketing
+  | "privateCard"
+  // Fallback stub for any branch whose ultimate menu is still `[PH]`.
   | "ph";
 
 /**
@@ -259,13 +259,19 @@ export interface Department {
   ultimatePile: ResourceKind | null;
 }
 
-/** A player's distillery — the board carrying the seven departments. */
+/** A player's distillery — the board carrying the five departments. */
 export interface DistilleryBoard {
   distilleryId: string;
   name: string;
-  /** One-line description of the distillery's tilt (cost profile / offered ults). */
+  /** One-line description of the distillery's tilt (starting stats / offered ults). */
   blurb: string;
   departments: Department[];
+  /**
+   * A passive distillery signature, applied in the engine. `"copperPlus1"` =
+   * Copperline Craft: once per Collect, one claimed card is drawn at +1 quality
+   * tier. null = no signature. `[PH]`.
+   */
+  signature: "copperPlus1" | null;
 }
 
 export interface Player {
@@ -283,6 +289,12 @@ export interface Player {
   /** Completed demand cards kept by this player — the sole Reputation source. */
   keptCards: DemandCard[];
   /**
+   * Private demand orders this player holds (the Marketing "Private Demand Card"
+   * ultimate). They live OFF the shared table — outside the zone/crash count,
+   * surviving every wipe — and only this player can fill them. Empty by default.
+   */
+  privateCards: DemandCard[];
+  /**
    * Count of improvements made across all departments. Drives the linear ramp:
    * the Nth improvement costs the Nth step. Persists all game.
    */
@@ -293,6 +305,8 @@ export interface Player {
   donePlayThisRound: boolean;
   /** Quality Sort ultimate: used its free draw this round? Reset each round. */
   qualitySortUsedThisRound: boolean;
+  /** Open Bill ultimate (Mash Floor): used its bonus extra draw this round? Reset each round. */
+  openBillUsedThisRound: boolean;
   /** Tiebreaker / stat counters. */
   bourbonsSold: number;
   cardsCompleted: number;
@@ -329,6 +343,8 @@ export interface CollectState {
   maxRerolls: number;
   /** Triple Threat ultimate: used its discard-2-take-1 this turn? */
   tripleThreatUsed: boolean;
+  /** Copperline signature: has the active player's +1-quality claim fired this turn? */
+  signatureUsed: boolean;
 }
 
 export interface GameState {

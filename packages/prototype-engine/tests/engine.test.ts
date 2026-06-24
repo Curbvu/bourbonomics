@@ -9,7 +9,6 @@ import {
   meetsRequirement,
   rankPlayers,
   reputationOf,
-  saleBonusForRecipe,
   scorePlayer,
   zoneForCardCount,
   zoneMultiplier,
@@ -72,7 +71,6 @@ function makeBourbon(over: Partial<Bourbon> = {}): Bourbon {
     quality: over.quality ?? "common",
     batchQty: over.batchQty ?? 1,
     batchQtyBias: over.batchQtyBias ?? 0,
-    saleBonus: over.saleBonus ?? 0,
     salesRemaining: over.salesRemaining ?? over.batchQty ?? 1,
     createdRound: over.createdRound ?? 0,
     maturationBoosted: over.maturationBoosted ?? false,
@@ -266,25 +264,30 @@ describe("collect dice draft", () => {
     ).toMatch(/needs a pile/);
   });
 
-  it("the first player auto-rolls, and base level gets no reroll afterward", () => {
+  it("the first player auto-rolls and gets exactly one base reroll", () => {
     let s = createGame({ seed: 5 });
     s = ok(s, { type: "BEGIN_COLLECT" });
     expect(s.collect!.rolled).toBe(true);
-    expect(s.collect!.maxRerolls).toBe(0);
-    const keep = s.collect!.dice.slice(1).map((d) => d.id); // keep all but one → reroll one
-    expect(expectRefusal(s, { type: "COLLECT_ROLL", keepDiceIds: keep })).toMatch(/no rerolls left/);
+    expect(s.collect!.maxRerolls).toBe(1);
+    const keep = s.collect!.dice.slice(1).map((d) => d.id); // reroll one
+    s = ok(s, { type: "COLLECT_ROLL", keepDiceIds: keep });
+    expect(s.collect!.rerollsUsed).toBe(1);
+    const keep2 = s.collect!.dice.slice(1).map((d) => d.id);
+    expect(expectRefusal(s, { type: "COLLECT_ROLL", keepDiceIds: keep2 })).toMatch(/no rerolls left/);
   });
 
-  it("the Second Reroll ultimate grants exactly one reroll", () => {
+  it("the Second Reroll ultimate grants a second reroll", () => {
     let s = createGame({ seed: 5 });
     const sup = dept(s.players[0]!, "supply");
     sup.level = sup.maxLevel;
     sup.chosenUltimate = "secondReroll";
     s = ok(s, { type: "BEGIN_COLLECT" });
-    expect(s.collect!.maxRerolls).toBe(1);
-    const keep = s.collect!.dice.slice(1).map((d) => d.id);
+    expect(s.collect!.maxRerolls).toBe(2);
+    let keep = s.collect!.dice.slice(1).map((d) => d.id);
     s = ok(s, { type: "COLLECT_ROLL", keepDiceIds: keep });
-    expect(s.collect!.rerollsUsed).toBe(1);
+    keep = s.collect!.dice.slice(1).map((d) => d.id);
+    s = ok(s, { type: "COLLECT_ROLL", keepDiceIds: keep });
+    expect(s.collect!.rerollsUsed).toBe(2);
     const keep2 = s.collect!.dice.slice(1).map((d) => d.id);
     expect(expectRefusal(s, { type: "COLLECT_ROLL", keepDiceIds: keep2 })).toMatch(/no rerolls left/);
   });
@@ -488,30 +491,12 @@ describe("mash-bill complexity scaling", () => {
     }
   });
 
-  it("more complex recipes earn a bigger per-sale premium", () => {
-    const simple = { cask: 1, corn: 1 }; // complexity 2
-    const rich = { cask: 1, corn: 1, rye: 1, wheat: 1, barley: 1 }; // complexity 5
-    expect(saleBonusForRecipe(simple)).toBe(0);
-    expect(saleBonusForRecipe(rich)).toBeGreaterThan(saleBonusForRecipe(simple));
-  });
-
   it("batchQty scales with quality (Common one-and-done → Legendary 3), plus bias", () => {
     expect(batchQtyForQuality("common")).toBe(1);
     expect(batchQtyForQuality("legendary")).toBe(3);
     expect(batchQtyForQuality("legendary")).toBeGreaterThan(batchQtyForQuality("common"));
     expect(batchQtyForQuality("common", 1)).toBe(2); // off-curve variance via bias
     expect(batchQtyForQuality("legendary", 5)).toBe(3); // clamped to the max
-  });
-
-  it("a sale adds the bourbon's complexity premium to the payoff", () => {
-    let s = createGame({ seed: 5 });
-    s = intoPlay(s);
-    s.players[0]!.capital = 0;
-    s.players[0]!.rickhouse = [makeBourbon({ id: "x", quality: "common", age: 3, saleBonus: 2 })];
-    s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 1, orderValue: 0, reputation: 1 })];
-    const dist = dept(s.players[0]!, "distribution").values[0]!;
-    s = ok(s, { type: "SELL", bourbonId: "x", demandCardId: "ord" });
-    expect(s.players[0]!.capital).toBe(barrelValue("common", 3) + 2 + dist); // +2 premium
   });
 });
 
@@ -548,8 +533,8 @@ describe("sell", () => {
     s.demandCards = [card]; // length 1 → low zone (×1)
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
     const p = s.players[0]!;
-    // (age value + order value 2) × low ×1 + premium 0 + dist
-    expect(p.capital).toBe((barrelValue("common", 3) + 2) * 1 + dept(p, "distribution").values[0]!);
+    // (age value + order value 2) × low ×1 — order value is the only additive term
+    expect(p.capital).toBe((barrelValue("common", 3) + 2) * 1);
     expect(p.cardsCompleted).toBe(1);
     expect(p.keptCards.map((c) => c.id)).toContain("ord");
     expect(s.demandCards.length).toBe(0); // completed card left the table
@@ -567,27 +552,25 @@ describe("sell", () => {
     let s = base({ batchQty: 2, quality: "common", age: 2 });
     // One open order deep enough for both sales.
     s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 3, orderValue: 0, reputation: 1 })];
-    const dist = dept(s.players[0]!, "distribution").values[0]!;
     const v = barrelValue("common", 2);
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }); // intermediate
-    expect(s.players[0]!.capital).toBe(v + dist);
+    expect(s.players[0]!.capital).toBe(v);
     expect(s.players[0]!.rickhouse.length).toBe(1);
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }); // final
-    expect(s.players[0]!.capital).toBe(2 * (v + dist));
+    expect(s.players[0]!.capital).toBe(2 * v);
     expect(s.players[0]!.rickhouse.length).toBe(0);
   });
 
-  it("the demand zone multiplies (age value + order value); premium & distribution stay flat", () => {
+  it("the demand zone multiplies (age value + order value); order value is the only additive term", () => {
     let s = base({ quality: "common", age: 2 }); // age value 1
     // 5 cards on the table → Mid zone (×2). Target is first + 4 fillers.
     const target = makeDemandCard({ id: "ord", slotsActive: 1, orderValue: 3, reputation: 1 });
     const fillers = Array.from({ length: 4 }, (_, i) => makeDemandCard({ id: `f${i}`, slotsActive: 1 }));
     s.demandCards = [target, ...fillers];
     expect(zoneForCardCount(s.demandCards.length)).toBe("mid");
-    const dist = dept(s.players[0]!, "distribution").values[0]!;
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
-    // (age value 1 + order value 3) × mid ×2 + premium 0 + dist
-    expect(s.players[0]!.capital).toBe((barrelValue("common", 2) + 3) * 2 + dist);
+    // (age value 1 + order value 3) × mid ×2
+    expect(s.players[0]!.capital).toBe((barrelValue("common", 2) + 3) * 2);
   });
 
   it("a Hot completion resolves at ×3, keeps the card, THEN resets the market to the opener", () => {
@@ -597,10 +580,9 @@ describe("sell", () => {
     const fillers = Array.from({ length: 5 }, (_, i) => makeDemandCard({ id: `f${i}`, slotsActive: 1 }));
     s.demandCards = [target, ...fillers];
     expect(zoneForCardCount(s.demandCards.length)).toBe("high");
-    const dist = dept(s.players[0]!, "distribution").values[0]!;
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
     const p = s.players[0]!;
-    expect(p.capital).toBe((barrelValue("common", 4) + 1) * 3 + dist); // banked at ×3 first
+    expect(p.capital).toBe((barrelValue("common", 4) + 1) * 3); // banked at ×3 first
     expect(p.keptCards.map((c) => c.id)).toContain("ord"); // completer kept the card
     expect(p.cardsCompleted).toBe(1);
     // market detonated: fillers wiped, reset to the open opener
@@ -669,23 +651,22 @@ describe("improve distillery", () => {
     let s = createGame({ seed: 1 });
     s = intoPlay(s);
     s.players[0]!.capital = 1000;
-    const max = dept(s.players[0]!, "distribution").maxLevel;
-    for (let i = 0; i < max; i++) s = ok(s, { type: "IMPROVE", departmentId: "distribution" });
-    expect(expectRefusal(s, { type: "IMPROVE", departmentId: "distribution" })).toContain(
+    // Marketing has a single ultimate (privateCard), auto-chosen at the top.
+    const max = dept(s.players[0]!, "marketing").maxLevel;
+    for (let i = 0; i < max; i++) s = ok(s, { type: "IMPROVE", departmentId: "marketing" });
+    expect(expectRefusal(s, { type: "IMPROVE", departmentId: "marketing" })).toContain(
       "fully grown",
     );
   });
 
-  it("the Counting House discounts later improvements", () => {
+  it("the Marketing ultimate grants a private demand order", () => {
     let s = createGame({ seed: 1 });
     s = intoPlay(s);
     s.players[0]!.capital = 1000;
-    s = ok(s, { type: "IMPROVE", departmentId: "countingHouse" }); // level 1 → discount 1
-    const made = s.players[0]!.improvements;
-    let c = s.players[0]!.capital;
-    s = ok(s, { type: "IMPROVE", departmentId: "supply" });
-    const spent = c - s.players[0]!.capital;
-    expect(spent).toBe(improvementCost(made, 1));
+    const max = dept(s.players[0]!, "marketing").maxLevel;
+    for (let i = 0; i < max; i++) s = ok(s, { type: "IMPROVE", departmentId: "marketing" });
+    expect(dept(s.players[0]!, "marketing").chosenUltimate).toBe("privateCard");
+    expect(s.players[0]!.privateCards.length).toBe(CONFIG.ULT_PRIVATE_CARD_SLOTS);
   });
 });
 
@@ -710,16 +691,18 @@ describe("scoring and the clock", () => {
     expect(rankPlayers(s)[0]!.name).toBe("B");
   });
 
-  it("ends the game when the demand deck is exhausted", () => {
+  it("ends the round once a player completes COMPLETE_TO_WIN cards", () => {
     let s = createGame({ seed: 2 });
     s = intoPlay(s);
-    // Drain the demand pool so the next Demand Phase can't draw.
-    s.demandDeck = [];
-    s.demandDiscard = [];
-    s = ok(s, { type: "END_TURN" }); // round ends → next Demand Phase → schedules final round
-    expect(s.finalRound).not.toBeNull();
-    s = intoPlay(s);
-    s = ok(s, { type: "END_TURN" }); // final round completes
+    const p = s.players[0]!;
+    p.cardsCompleted = CONFIG.COMPLETE_TO_WIN - 1; // one short
+    p.capital = 0;
+    p.rickhouse = [makeBourbon({ id: "win", quality: "common", age: 3 })];
+    s.demandCards = [makeDemandCard({ id: "last", slotsActive: 1, orderValue: 0, reputation: 5 })];
+    s = ok(s, { type: "SELL", bourbonId: "win", demandCardId: "last" }); // 8th completion
+    expect(s.players[0]!.cardsCompleted).toBe(CONFIG.COMPLETE_TO_WIN);
+    expect(s.finalRound).not.toBeNull(); // the clock fired
+    s = ok(s, { type: "END_TURN" }); // the triggering round finishes → game ends
     expect(s.phase).toBe("ended");
     expect(s.log.some((l) => l.includes("Game over"))).toBe(true);
   });
@@ -741,5 +724,57 @@ describe("requirement matching", () => {
     expect(meetsRequirement(b, { quality: "common" })).toBe(true); // rare ≥ common
     expect(meetsRequirement(b, { quality: "uncommon" })).toBe(true); // rare ≥ uncommon
     expect(meetsRequirement(b, { quality: "legendary" })).toBe(false);
+  });
+});
+
+// ------------------------------------------------------------------
+// private demand card (Marketing ultimate)
+// ------------------------------------------------------------------
+
+describe("private demand card", () => {
+  it("sells into a private order at the current zone, banks it, and replaces it — no Hot reset", () => {
+    let s = createGame({ seed: 5 });
+    s = intoPlay(s);
+    const p = s.players[0]!;
+    p.capital = 0;
+    p.privateCards = [makeDemandCard({ id: "priv", slotsActive: 1, orderValue: 2, reputation: 4 })];
+    p.rickhouse = [makeBourbon({ id: "pb", quality: "common", age: 3 })];
+    s.demandCards = [makeDemandCard({ id: "pub", slotsActive: 1 })]; // public market: 1 card → Low
+    s = ok(s, { type: "SELL", bourbonId: "pb", demandCardId: "priv" });
+    const q = s.players[0]!;
+    expect(q.capital).toBe((barrelValue("common", 3) + 2) * 1); // (age + order) × Low
+    expect(q.cardsCompleted).toBe(1);
+    expect(q.keptCards.some((c) => c.id === "priv")).toBe(true);
+    expect(q.privateCards.length).toBe(1); // a replacement private order was drawn
+    expect(q.privateCards[0]!.id).not.toBe("priv");
+    expect(s.demandCards.some((c) => c.id === "pub")).toBe(true); // public market untouched
+  });
+});
+
+// ------------------------------------------------------------------
+// asymmetric distilleries — starting stats + caps
+// ------------------------------------------------------------------
+
+describe("asymmetric distilleries", () => {
+  const startVal = (p: Player, id: string) => dept(p, id).values[dept(p, id).level]!;
+
+  it("Ironhill starts Supply 5 & Warehouse 5 and caps the Rickhouse at 4", () => {
+    const iron = createGame({ seed: 1, distilleryIds: ["ironhill"] }).players[0]!;
+    expect(startVal(iron, "supply")).toBe(5);
+    expect(startVal(iron, "warehouse")).toBe(5);
+    const rh = dept(iron, "rickhouse");
+    expect(rh.maxLevel).toBe(1); // values [3,4] — can't climb past 4
+    expect(rh.values[rh.maxLevel]).toBe(4);
+  });
+
+  it("Old Oak starts Rickhouse 4 but a thin Supply 3", () => {
+    const oak = createGame({ seed: 1, distilleryIds: ["oldoak"] }).players[0]!;
+    expect(startVal(oak, "rickhouse")).toBe(4);
+    expect(dept(oak, "supply").values[0]).toBe(3); // weakness: starts below base
+  });
+
+  it("Copperline carries the +1-quality signature", () => {
+    const copper = createGame({ seed: 1, distilleryIds: ["copperline"] }).players[0]!;
+    expect(copper.distillery.signature).toBe("copperPlus1");
   });
 });

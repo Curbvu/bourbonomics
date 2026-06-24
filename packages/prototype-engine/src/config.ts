@@ -6,9 +6,6 @@
 
 import type { Quality, ResourceKind, Zone } from "./types";
 
-/** Which resource the game's end-clock runs on. */
-export type ClockMode = "demand_deck" | "mash_bill_supply";
-
 export const CONFIG = {
   /** Starting Capital per player. */
   STARTING_CAPITAL: 5,
@@ -18,20 +15,18 @@ export const CONFIG = {
 
   // --- The clock -----------------------------------------------------------
   /**
-   * `demand_deck` (default): completed-and-kept cards permanently deplete the
-   * demand deck; crashed/cleared cards reshuffle; the game ends when the deck
-   * (and its discard) can no longer be drawn from. `mash_bill_supply`: the
-   * mash-bill supply is the clock (kept bills deplete it; demand reshuffles).
+   * THE clock: the game ends the round any player has COMPLETED this many demand
+   * cards (kept as Reputation). The demand deck and mash-bill supply are both
+   * renewable — neither depletes the game. `[PH]`.
    */
-  CLOCK_MODE: "demand_deck" as ClockMode,
+  COMPLETE_TO_WIN: 8,
   /**
-   * Safety backstop: force the final round at this round number so the game
-   * always terminates, even if completions can't outpace the demand crashes
-   * (which can happen at higher player counts, where each card needs more
-   * fills). The demand-deck clock stays the primary, earlier terminator. Set
-   * null to disable. `[PH]` — a balance dial, not a fixed round count.
+   * Safety backstop ONLY (not the design clock): force the final round at this
+   * round number so a game always terminates even if no one reaches
+   * COMPLETE_TO_WIN (can happen at high player counts / with passive bots). Set
+   * null to disable. `[PH]`.
    */
-  MAX_ROUNDS: 30 as number | null,
+  MAX_ROUNDS: 60 as number | null,
 
   // --- The linear improvement ramp -----------------------------------------
   /**
@@ -61,8 +56,9 @@ export const CONFIG = {
   // lookup, NOT a formula. Each tier climbs to the year it caps, then holds
   // (the barrel may keep physically aging with no further value). Ages between
   // listed entries hold the last value. A sale = (age value + the matched
-  // order's value) × the demand-zone MULTIPLIER, plus the complexity premium
-  // and Distribution. `[PH]` — edit freely.
+  // order's value) × the demand-zone MULTIPLIER. There is no recipe premium and
+  // no Distribution add-on — the order's value (card_bonus) is the only additive
+  // term. `[PH]` — edit freely.
   // The locked quality ladder (only the breakpoints where value climbs are
   // listed; ages in between hold the last value via barrelValue's hold-forward).
   AGE_VALUE_TABLE: {
@@ -92,15 +88,12 @@ export const CONFIG = {
   BATCHQTY_MIN: 1,
   BATCHQTY_MAX: 3,
 
-  // --- Mash-bill complexity scaling ----------------------------------------
+  // --- Mash-bill complexity rule -------------------------------------------
   // A bill always needs exactly 1 cask + ≥1 corn + ≥1 grain (rye/wheat/barley)
-  // — the "is it bourbon" rule, no cask/corn-only recipes. Beyond that minimum,
-  // every extra resource makes a richer bourbon worth a per-sale Capital
-  // premium (the reward for harder recipes / premium orders). All `[PH]`.
+  // — the "is it bourbon" rule, no cask/corn-only recipes. (There is no longer a
+  // per-sale complexity premium — the payoff is purely age × zone + card_bonus.)
   /** Recipe size of the simplest legal bill (1 cask + 1 corn + 1 grain). */
   COMPLEXITY_MIN: 3,
-  /** Per-sale Capital premium = (complexity − MIN) × SALE_BONUS_PER. */
-  COMPLEXITY_SALE_BONUS_PER: 1,
 
   // --- Resource piles ------------------------------------------------------
   /** Starting card count per pile. Cask is used by most recipes so it runs deepest. `[PH]`. */
@@ -123,12 +116,18 @@ export const CONFIG = {
   ULT_WAREHOUSE_TASTING_CAPITAL: 1,
   ULT_OVERFLOW_ROLL: 2, // Supply: +2 dice
   ULT_GRAND_WAREHOUSE: 3, // Warehouse: +3 hold cap
+  ULT_MASTER_RECIPE_REVEAL: 1, // Mash Floor: +1 bill revealed per Draw `[PH]`
+  // Marketing "Private Demand Card": a personal order outside the zone/crash
+  // count, paying at the current zone multiplier; completing it does NOT trigger
+  // the Hot reset. Capacity = how many private orders you hold at once. `[PH]`.
+  ULT_PRIVATE_CARD_SLOTS: 1,
 } as const;
 
 /**
  * Capital cost of a player's next improvement, given how many they have already
- * made and a discount (per-department + Counting House). The ramp is the global
- * brake; the discount is the per-distillery asymmetry. Never below 0.
+ * made. A single shared, rising per-player price (the global brake). The
+ * optional `discount` is retained for compatibility but is 0 in the current
+ * design (no Counting House, no per-distillery cost tilt). Never below 0.
  */
 export function improvementCost(improvementsMade: number, discount = 0): number {
   const ramp = CONFIG.RAMP_BASE + improvementsMade * CONFIG.RAMP_STEP;
@@ -182,12 +181,6 @@ export function recipeComplexity(recipe: Partial<Record<ResourceKind, number>>):
 export function batchQtyForQuality(quality: Quality, bias = 0): number {
   const base = CONFIG.BATCHQTY_BY_QUALITY[quality] + bias;
   return Math.max(CONFIG.BATCHQTY_MIN, Math.min(CONFIG.BATCHQTY_MAX, base));
-}
-
-/** Per-sale Capital premium a bill earns for being more complex than the minimum. */
-export function saleBonusForRecipe(recipe: Partial<Record<ResourceKind, number>>): number {
-  const over = Math.max(0, recipeComplexity(recipe) - CONFIG.COMPLEXITY_MIN);
-  return over * CONFIG.COMPLEXITY_SALE_BONUS_PER;
 }
 
 /**

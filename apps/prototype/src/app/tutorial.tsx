@@ -13,7 +13,7 @@
 // barrel aged to sellable).
 
 import { useEffect, useState } from "react";
-import { createGame, saleBonusForRecipe } from "@bourbonomics/prototype-engine";
+import { createGame } from "@bourbonomics/prototype-engine";
 import type {
   Action,
   DemandCard,
@@ -44,7 +44,7 @@ function singleBarrelBill(i: number): MashBill {
   return {
     id: `tut_sb_${i}`, defId: "mb_single_barrel", name: "Single Barrel Select",
     traits: ["clean"], expression: "bourbon", styleTag: "classic", tags: ["classic"],
-    recipe, batchQtyBias: 0, saleBonus: saleBonusForRecipe(recipe), placeholder: true,
+    recipe, batchQtyBias: 0, placeholder: true,
   };
 }
 

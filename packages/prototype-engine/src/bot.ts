@@ -18,8 +18,6 @@ const IMPROVE_PRIORITY: DepartmentId[] = [
   "supply",
   "rickhouse",
   "mashFloor",
-  "distribution",
-  "countingHouse",
   "marketing",
 ];
 
@@ -88,7 +86,7 @@ export function botAction(state: GameState): Action {
   // 1. Sell an aged batch into a matching open order (no glut — only sell when
   //    a matching slot exists). Prefer a card it can COMPLETE, then any match.
   const matchOpen = (b: Bourbon) =>
-    state.demandCards.filter((dc) => dc.filledBy.includes(null) && meetsRequirement(b, dc.requirement));
+    [...state.demandCards, ...me.privateCards].filter((dc) => dc.filledBy.includes(null) && meetsRequirement(b, dc.requirement));
   const sellable = me.rickhouse.find((b) => b.built && b.age >= CONFIG.MIN_SELL_AGE && b.salesRemaining > 0 && matchOpen(b).length > 0);
   if (sellable) {
     const matching = matchOpen(sellable);

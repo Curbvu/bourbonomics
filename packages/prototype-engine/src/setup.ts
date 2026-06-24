@@ -42,10 +42,12 @@ function makePlayer(id: string, name: string, startingCapital: number, distiller
     rickhouse: [],
     distillery: buildDistilleryBoard(distilleryId),
     keptCards: [],
+    privateCards: [],
     improvements: 0,
     drewMashBillsThisTurn: false,
     donePlayThisRound: false,
     qualitySortUsedThisRound: false,
+    openBillUsedThisRound: false,
     bourbonsSold: 0,
     cardsCompleted: 0,
   };

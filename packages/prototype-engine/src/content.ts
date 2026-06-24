@@ -18,7 +18,7 @@ import type {
   StyleTag,
   UltimateId,
 } from "./types";
-import { CONFIG, saleBonusForRecipe } from "./config";
+import { CONFIG } from "./config";
 
 // ---------------------------------------------------------------------
 // Style tags — map a mash bill's `expression` to its canonical style tag.
@@ -103,7 +103,6 @@ export function buildMashBillSupply(): MashBill[] {
         tags: def.tags ?? [expressionToStyle(def.expression)],
         recipe: { ...def.recipe },
         batchQtyBias: def.batchQtyBias ?? 0,
-        saleBonus: saleBonusForRecipe(def.recipe),
         placeholder: true,
       });
     }
@@ -228,96 +227,101 @@ export function buildDemandDeck(): DemandCard[] {
 }
 
 // ---------------------------------------------------------------------
-// Distillery boards — the seven departments on a per-player linear ramp.
+// Distillery boards — the FIVE departments on a per-player linear ramp.
 // The department MENU (names, effect levels, full ultimate menu) is shared; a
-// distillery differs by per-department cost DISCOUNT (which branches are cheap),
-// optional starting levels, and which ultimates it OFFERS per branch. All `[PH]`.
+// distillery differs by its STARTING STATS (start above or below base, or a
+// CAP via a shorter values array), which ultimates it OFFERS per branch, and an
+// optional passive signature. All `[PH]`.
 // ---------------------------------------------------------------------
+
+/** Branch shape Base → +1 → +1 → Ultimate (Marketing is the shorter Base → +1 → Ultimate). */
+const DEPARTMENT_TEMPLATE: Record<
+  DepartmentId,
+  { name: string; blurb: string; values: number[] }
+> = {
+  rickhouse: { name: "The Rickhouse", blurb: "Total barrel capacity (resting + aging).", values: [3, 4, 5, 5] },
+  supply: { name: "The Supply Room", blurb: "Resource dice you roll into the draft each Collect.", values: [4, 5, 6, 6] },
+  warehouse: { name: "The Warehouse", blurb: "Loose resource cards you may hold.", values: [4, 5, 6, 6] },
+  mashFloor: { name: "The Mash Floor", blurb: "Mash bills you may draw per Draw action.", values: [2, 3, 4, 4] },
+  marketing: { name: "Marketing Dept.", blurb: "Demand cards drawn each Demand Phase; ultimate = a Private Demand Card.", values: [1, 2, 2] },
+};
 
 /** The full ultimate menu per branch. A distillery offers a subset. */
 export const ULTIMATE_MENU: Record<DepartmentId, UltimateId[]> = {
   rickhouse: ["megaExpansion", "climateControlled", "charToast", "doubleMaturation", "warehouseTasting"],
   supply: ["secondReroll", "overflowRoll", "prospector", "tripleThreat"],
   warehouse: ["grandWarehouse", "qualitySort", "longCellar"],
-  // Unbuilt branches — ultimate menus are `[PH]` stubs.
-  mashFloor: ["ph"],
-  marketing: ["ph"],
-  distribution: ["ph"],
-  countingHouse: ["ph"],
+  mashFloor: ["masterRecipe", "houseBlend", "openBill"],
+  marketing: ["privateCard"],
 };
 
-const DEPARTMENT_TEMPLATE: Record<
-  DepartmentId,
-  { name: string; blurb: string; values: number[] }
-> = {
-  // Base → +1 → +1 → Ultimate (the ultimate step keeps the prior magnitude; the
-  // qualitative effect comes from chosenUltimate, applied in the engine).
-  rickhouse: { name: "The Rickhouse", blurb: "Total barrel capacity (resting + aging).", values: [3, 4, 5, 5] },
-  supply: { name: "The Supply Room", blurb: "Resource dice you roll into the draft each Collect.", values: [4, 5, 6, 6] },
-  warehouse: { name: "The Warehouse", blurb: "Loose resource cards you may hold.", values: [4, 5, 6, 6] },
-  mashFloor: { name: "The Mash Floor", blurb: "Mash bills you may draw per Draw action.", values: [3, 4, 5, 5] },
-  marketing: { name: "Marketing Dept.", blurb: "Demand cards drawn each Demand Phase (shapes the market).", values: [1, 2, 3, 3] },
-  distribution: { name: "The Loading Dock", blurb: "Bonus Capital on every sale (sell-side throughput).", values: [0, 1, 2, 3] },
-  countingHouse: { name: "The Counting House", blurb: "Capital efficiency — a discount on every improvement.", values: [0, 1, 2, 3] },
-};
-
-const DEPARTMENT_ORDER: DepartmentId[] = [
-  "rickhouse",
-  "supply",
-  "warehouse",
-  "mashFloor",
-  "marketing",
-  "distribution",
-  "countingHouse",
-];
+const DEPARTMENT_ORDER: DepartmentId[] = ["rickhouse", "supply", "warehouse", "mashFloor", "marketing"];
 
 interface DistilleryDef {
   id: string;
   name: string;
   blurb: string;
-  /** Per-department Capital discount off the ramp (the asymmetry). `[PH]`. */
-  discounts: Partial<Record<DepartmentId, number>>;
-  /** Per-department starting level overrides. Omitted = 0. `[PH]`. */
-  startLevels: Partial<Record<DepartmentId, number>>;
+  /** Per-department starting LEVEL (start one step in for a strength). Omitted = 0. `[PH]`. */
+  startLevels?: Partial<Record<DepartmentId, number>>;
   /**
-   * Ultimates offered per branch (the asymmetric differentiation). Omitted =
-   * the full menu for that branch. `[PH]` — for the skeleton most distilleries
-   * offer the full menu so every built ultimate is reachable.
+   * Per-department values-array OVERRIDE — express a starting stat BELOW base (a
+   * weakness) or a CAP (a shorter array can't climb as far). Omitted = the
+   * shared template. `[PH]`.
    */
+  valuesOverride?: Partial<Record<DepartmentId, number[]>>;
+  /** Ultimates offered per branch (asymmetry). Omitted = the full menu. `[PH]`. */
   ultimates?: Partial<Record<DepartmentId, UltimateId[]>>;
+  /** Passive distillery signature applied in the engine. `[PH]`. */
+  signature?: "copperPlus1" | null;
 }
 
+// Each non-Standard distillery trades a real weakness (start below base / a cap)
+// for a real strength (start above base / signature / offered ultimates). The
+// weakness pushes toward the strength's archetype; Standard is the baseline.
 const DISTILLERY_DEFS: DistilleryDef[] = [
   {
     id: "standard",
     name: "Standard Distillery",
-    blurb: "Balanced, beginner-friendly — full ultimate menus, no cost tilt.",
-    discounts: {},
-    startLevels: {},
+    blurb: "Balanced generalist — all base stats, full ultimate menus. The tuning baseline.",
   },
   {
     id: "oldoak",
     name: "Old Oak Rickhouse",
-    blurb: "Patience tilt — cheap Rickhouse; aging & maturation ultimates.",
-    discounts: { rickhouse: 1 },
-    startLevels: { rickhouse: 1 },
-    ultimates: { rickhouse: ["megaExpansion", "climateControlled", "charToast", "doubleMaturation"] },
+    blurb: "Patient & tall — starts with an extra barrel and aging ultimates, but a thin Supply.",
+    startLevels: { rickhouse: 1 }, // start Rickhouse 4
+    valuesOverride: { supply: [3, 4, 5, 5] }, // weak: start Supply 3
+    ultimates: { rickhouse: ["climateControlled", "charToast", "doubleMaturation", "megaExpansion"] },
   },
   {
     id: "ironhill",
     name: "Ironhill Volume",
-    blurb: "Throughput tilt — cheap Warehouse & a Supply head start.",
-    discounts: { warehouse: 1, supply: 1 },
-    startLevels: { supply: 1 },
+    blurb: "Volume & churn — big Supply and Warehouse head start, but the Rickhouse caps at 4.",
+    startLevels: { supply: 1, warehouse: 1 }, // start Supply 5 & Warehouse 5
+    valuesOverride: { rickhouse: [3, 4] }, // weak: Rickhouse capped at 4
     ultimates: { supply: ["overflowRoll", "secondReroll", "tripleThreat"], warehouse: ["grandWarehouse", "qualitySort"] },
   },
   {
-    id: "ryerevival",
-    name: "Rye Revival Co.",
-    blurb: "Specialist tilt — cheap Mash Floor; Prospector & Long Cellar.",
-    discounts: { mashFloor: 1 },
-    startLevels: {},
-    ultimates: { supply: ["prospector", "secondReroll", "overflowRoll"], warehouse: ["longCellar", "grandWarehouse", "qualitySort"] },
+    id: "hollowcrane",
+    name: "Hollow & Crane",
+    blurb: "Market-maker — Marketing starts a step in, best path to the Private Card, but can't hoard.",
+    startLevels: { marketing: 1 }, // Marketing one step in (draws 2)
+    valuesOverride: { warehouse: [3, 4, 5, 5] }, // weak: start Warehouse 3
+  },
+  {
+    id: "copperline",
+    name: "Copperline Craft",
+    blurb: "Craft & quality — signature +1-quality claim and quality ultimates, but a tight Rickhouse.",
+    valuesOverride: { rickhouse: [2, 3, 4, 4] }, // weak: start Rickhouse 2
+    ultimates: { supply: ["prospector", "secondReroll", "overflowRoll"], warehouse: ["qualitySort", "grandWarehouse", "longCellar"] },
+    signature: "copperPlus1",
+  },
+  {
+    id: "coopersmith",
+    name: "Coopersmith & Sons",
+    blurb: "Recipe specialist — best mash-bill selection (Master Recipe / House Blend), but a thin Warehouse.",
+    startLevels: { mashFloor: 1 }, // start Mash Floor 3
+    valuesOverride: { warehouse: [3, 4, 5, 5] }, // weak: start Warehouse 3
+    ultimates: { mashFloor: ["masterRecipe", "houseBlend"] },
   },
 ];
 
@@ -335,18 +339,20 @@ export function buildDistilleryBoard(distilleryId = "standard"): DistilleryBoard
     distilleryId: def.id,
     name: def.name,
     blurb: def.blurb,
+    signature: def.signature ?? null,
     departments: DEPARTMENT_ORDER.map((id): Department => {
       const t = DEPARTMENT_TEMPLATE[id];
-      const start = def.startLevels[id] ?? 0;
-      const maxLevel = t.values.length - 1;
+      const values = def.valuesOverride?.[id] ?? t.values;
+      const maxLevel = values.length - 1;
+      const start = def.startLevels?.[id] ?? 0;
       return {
         id,
         name: t.name,
         blurb: t.blurb,
         level: Math.min(start, maxLevel),
         maxLevel,
-        values: [...t.values],
-        discount: def.discounts[id] ?? 0,
+        values: [...values],
+        discount: 0,
         ultimateOptions: def.ultimates?.[id] ?? [...ULTIMATE_MENU[id]],
         chosenUltimate: null,
         ultimatePile: null,

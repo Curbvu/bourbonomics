@@ -218,10 +218,9 @@ function BillCard({ bill }: { bill: MashBill }) {
         <span
           className="flex-shrink-0 rounded-md border px-2 py-1 text-center font-mono text-[10px] font-bold uppercase leading-tight tracking-[.08em]"
           style={{ borderColor: chrome.border, color: chrome.ink, background: "rgba(8,5,3,.5)" }}
-          title="Sales scale with the built barrel's quality (Common 1 → Legendary 3) · per-sale complexity premium"
+          title="Sales scale with the built barrel's quality (Common 1 → Legendary 3)"
         >
           {1 + bill.batchQtyBias}–3 sales
-          {bill.saleBonus > 0 ? <><br />+{bill.saleBonus}/sale</> : null}
         </span>
       </header>
 
