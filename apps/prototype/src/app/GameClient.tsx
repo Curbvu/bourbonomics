@@ -240,8 +240,6 @@ const DEPT_META: Record<DepartmentId, { color: string; tag: string; name: string
   mashFloor: { color: "#7d8fd4", tag: "Recipes", name: "Mash Floor" },
   marketing: { color: "#b08fd8", tag: "Shape Demand", name: "Marketing Dept." },
 };
-// Iconned department cards on the Play floor (Rickhouse + Warehouse get their own rooms).
-const FLOOR_DEPTS: DepartmentId[] = ["supply", "mashFloor", "marketing"];
 // Single-letter badge per department (colour disambiguates the two M's).
 const DEPT_LETTER: Record<DepartmentId, string> = { rickhouse: "R", supply: "S", warehouse: "W", mashFloor: "M", marketing: "M" };
 // Room-style category label + the unit each level value is measured in.
@@ -1234,47 +1232,82 @@ const STAGE_PANEL: React.CSSProperties = {
 
 function CenterStage(props: StageProps) {
   const { phaseStage, botTurn, spectating, isMyTurn } = props;
-  let inner: React.ReactNode;
-  let showStrip = false;
-  if (spectating) {
-    inner = <DistilleryFloor {...props} />;
-  } else if (phaseStage === "demand") {
-    inner = <DemandStage {...props} />;
-    showStrip = true;
-  } else if (botTurn) {
-    inner = <SpectatorStage {...props} />;
-  } else if (phaseStage === "collect" && isMyTurn) {
-    inner = <DiceDraftStage {...props} />;
-    showStrip = true;
-  } else {
-    inner = <DistilleryFloor {...props} />;
-  }
+  let content: React.ReactNode;
+  if (spectating) content = <DistilleryFloor {...props} />;
+  else if (phaseStage === "demand") content = <DemandStage {...props} />;
+  else if (botTurn) content = <SpectatorStage {...props} />;
+  else if (phaseStage === "collect" && isMyTurn) content = <DiceDraftStage {...props} />;
+  else content = <DistilleryFloor {...props} />;
+  const showEnd = isMyTurn && phaseStage === "play";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, minWidth: 0 }}>
-      {inner}
-      {showStrip && <DepartmentStrip board={props.board} me={props.me} />}
+      <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column" }}>{content}</div>
+      <DepartmentBar {...props} />
+      {showEnd && (
+        <button className="bb-btn" onClick={() => props.board.dispatch({ type: "END_TURN" })} style={{ flex: "0 0 auto", padding: "10px", borderRadius: 11, border: 0, cursor: "pointer", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".12em", textTransform: "uppercase", color: "#fff", background: "linear-gradient(180deg,#56a87c,#2f6347)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.3)" }}>End turn ✓</button>
+      )}
     </div>
   );
 }
 
-// Compact quick-improve strip (Demand / Collect only — Play has full dept cards).
-function DepartmentStrip({ board, me }: { board: BoardProps; me: Player }) {
+// Persistent department bar — visible in every phase. The Warehouse is one of the
+// cards here (and doubles as your resource-card storage).
+function DepartmentBar(props: StageProps) {
+  const { board, me } = props;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 12, background: SURFACE.rail, border: `1px solid ${C.border}`, boxShadow: CARD_SHADOW, flex: "0 0 auto" }}>
-      <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, flex: "0 0 auto" }}>Departments</span>
-      <div style={{ display: "flex", gap: 6, flex: 1, minWidth: 0, overflow: "hidden" }}>
-        {(["rickhouse", "warehouse", ...FLOOR_DEPTS] as DepartmentId[]).map((id) => {
-          const d = me.distillery.departments.find((x) => x.id === id)!;
-          return (
-            <div key={id} style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 8px", borderRadius: 8, background: "#fffdf8", border: `1px solid ${C.hairline}` }}>
-              <DeptIcon id={id} size={18} />
-              <span style={{ fontSize: 11, color: C.text2, whiteSpace: "nowrap" }}>{DEPT_META[id].name}</span>
-              <Pips dept={id} me={me} />
-            </div>
-          );
-        })}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 9, flex: "0 0 auto", minWidth: 0 }}>
+      <DepartmentCard id="supply" board={board} me={me} />
+      <WarehouseDeptCard {...props} />
+      <DepartmentCard id="mashFloor" board={board} me={me} />
+      <DepartmentCard id="marketing" board={board} me={me} />
+    </div>
+  );
+}
+
+// The Warehouse as a department card — same chrome as the others, but its body is
+// your held resource cards (claimed dice fly here).
+function WarehouseDeptCard(props: StageProps) {
+  const { board, me, warehouseCap, heldTotal, whFull, optimisticClaims, warehouseRef, phaseStage, locked } = props;
+  const d = me.distillery.departments.find((x) => x.id === "warehouse")!;
+  const meta = DEPT_META.warehouse;
+  const realOptions = d.ultimateOptions.filter((o) => o !== "ph");
+  const chosen = d.chosenUltimate && d.chosenUltimate !== "ph" ? d.chosenUltimate : null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 7, borderRadius: 12, border: `1px solid ${C.border}`, background: `radial-gradient(90% 50% at 50% 0%, ${meta.color}12, transparent 60%), ${SURFACE.panel}`, boxShadow: CARD_SHADOW, padding: "10px 11px", minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+        <DeptIcon id="warehouse" size={34} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".12em", textTransform: "uppercase", color: meta.color }}>{DEPT_ROOM.warehouse}</div>
+          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta.name}</div>
+        </div>
+        <span style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 999, background: "#fffdf8", border: `1px solid ${whFull ? C.red : C.border}` }}>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: whFull ? C.red : C.green }}>{heldTotal}</span>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>/{warehouseCap}</span>
+        </span>
+        <ImproveBtn id="warehouse" board={board} me={me} compact />
       </div>
-      <span style={{ fontFamily: MONO, fontSize: 9, color: C.faint, flex: "0 0 auto" }}>improve in Play</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ width: 7, height: 7, borderRadius: 999, background: chosen ? C.gold : meta.color, opacity: chosen ? 1 : 0.5 }} />
+        <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{chosen ? `Cut · ${ULT_LABEL[chosen].name}` : `Spirit cut · open 1 of ${realOptions.length}`}</span>
+        <div style={{ flex: 1 }} />
+        <DeptValueTrack d={d} color={meta.color} unit="hold" />
+      </div>
+      <div ref={warehouseRef} style={{ flex: 1, minHeight: 0, display: "flex", gap: 5, flexWrap: "wrap", alignContent: "flex-start", paddingTop: 7, borderTop: `1px solid ${C.hairline}`, overflow: "hidden" }}>
+        {me.hand.slice(0, warehouseCap).map((card) => (
+          <ResMiniCard key={card.id} kind={card.kind} quality={card.quality} onClick={() => board.onInspect({ kind: "resource", card })} />
+        ))}
+        {optimisticClaims.slice(0, Math.max(0, warehouseCap - me.hand.length)).map((kind, i) => (
+          <ResMiniCard key={`pend${i}`} kind={kind} pending onClick={() => board.onInspect({ kind: "pending", k: kind })} />
+        ))}
+        {Array.from({ length: Math.max(0, warehouseCap - heldTotal) }).map((_, i) => (
+          <div key={`g${i}`} style={{ width: 38, height: 52, borderRadius: 7, border: `1.5px dashed ${C.border2}`, background: SURFACE.inset }} />
+        ))}
+        {hasUlt(me, "warehouse", "qualitySort") && phaseStage === "play" && !locked && (
+          <button className="bb-btn" disabled={me.qualitySortUsedThisRound} onClick={() => board.setQsOpen(true)} style={{ alignSelf: "flex-start", padding: "4px 8px", borderRadius: 7, fontFamily: MONO, fontWeight: 600, fontSize: 8.5, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.green}`, background: "rgba(62,125,89,.1)", color: C.green, cursor: me.qualitySortUsedThisRound ? "default" : "pointer", opacity: me.qualitySortUsedThisRound ? 0.5 : 1 }}>
+            ✦ QS {me.qualitySortUsedThisRound ? "used" : "free"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -1344,7 +1377,7 @@ function DemandCardFace({ card, zone }: { card: DemandCard; zone: Zone }) {
 
 // ── Collect stage — the dice draft ────────────────────────────────────
 function DiceDraftStage(props: StageProps) {
-  const { board, me, collect, supplyCap, warehouseCap, heldTotal, whFull, optimisticClaims, warehouseRef } = props;
+  const { board, me, collect, supplyCap, warehouseCap, heldTotal, whFull } = props;
   const game = board.game;
   if (!collect) return <section style={STAGE_PANEL} />;
   const preRoll = !collect.rolled;
@@ -1392,49 +1425,26 @@ function DiceDraftStage(props: StageProps) {
           />
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
-          {/* warehouse strip */}
-          <div style={{ borderRadius: 11, background: "#fffdf8", border: `1px solid ${C.border}`, padding: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-              <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: C.green }}>Warehouse</span>
-              <div style={{ flex: 1 }} />
-              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: whFull ? C.red : C.green }}>{heldTotal}</span>
-              <span style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>/{warehouseCap}</span>
-            </div>
-            <div ref={warehouseRef} style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-              {me.hand.slice(0, warehouseCap).map((card) => (
-                <ResMiniCard key={card.id} kind={card.kind} quality={card.quality} onClick={() => board.onInspect({ kind: "resource", card })} />
-              ))}
-              {optimisticClaims.slice(0, Math.max(0, warehouseCap - me.hand.length)).map((kind, i) => (
-                <ResMiniCard key={`pend${i}`} kind={kind} pending onClick={() => board.onInspect({ kind: "pending", k: kind })} />
-              ))}
-              {Array.from({ length: Math.max(0, warehouseCap - heldTotal) }).map((_, i) => (
-                <div key={`g${i}`} style={{ width: 40, height: 56, borderRadius: 7, border: `1.5px dashed ${C.border2}`, background: SURFACE.inset }} />
-              ))}
-            </div>
-          </div>
-
-          {/* controls */}
-          <div style={{ borderRadius: 11, background: SURFACE.inset, border: `1px solid ${C.border}`, padding: 12, display: "flex", flexDirection: "column", gap: 9, justifyContent: "center", flex: 1 }}>
-            {preRoll ? (
-              <>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{board.keepDice.size} kept · rolling {Math.max(0, supplyCap - board.keepDice.size)} fresh</div>
-                <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>Keep the inherited dice you like, then roll to fill up to your Supply cap.</div>
-                <button data-tut="pass" className="bb-btn" onClick={props.onRoll} style={{ padding: "13px 18px", borderRadius: 10, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW }}>🎲 Roll</button>
-              </>
-            ) : (
-              <>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{drafted} drafted · {undrafted} left</div>
-                {canReroll && (
-                  <button className="bb-btn bb-sec" onClick={props.onReroll} disabled={collect.rerollsUsed >= collect.maxRerolls} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", ...(collect.rerollsUsed < collect.maxRerolls ? { border: `1px solid ${C.brass}`, color: C.gold, background: SURFACE.inset, cursor: "pointer" } : { border: `1px solid ${C.border2}`, color: C.faint, background: SURFACE.inset, cursor: "default" }) }}>↻ Reroll · {collect.maxRerolls - collect.rerollsUsed} left</button>
-                )}
-                {canTT && (
-                  <button className="bb-btn bb-sec" onClick={props.onTT} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.amber}`, color: C.amber, background: SURFACE.inset, cursor: "pointer" }}>⚡ Triple Threat</button>
-                )}
-                <button data-tut="pass" className="bb-btn" onClick={props.onPass} style={{ padding: "12px 18px", borderRadius: 10, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW }}>Claim &amp; pass →</button>
-              </>
-            )}
-          </div>
+        <div style={{ borderRadius: 11, background: SURFACE.inset, border: `1px solid ${C.border}`, padding: 12, display: "flex", flexDirection: "column", gap: 9, justifyContent: "center", minHeight: 0 }}>
+          {preRoll ? (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{board.keepDice.size} kept · rolling {Math.max(0, supplyCap - board.keepDice.size)} fresh</div>
+              <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>Keep the inherited dice you like, then roll to fill up to your Supply cap. Claimed cards land in the Warehouse below.</div>
+              <button data-tut="pass" className="bb-btn" onClick={props.onRoll} style={{ padding: "13px 18px", borderRadius: 10, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW }}>🎲 Roll</button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{drafted} drafted · {undrafted} left</div>
+              <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>Each claim flies a card to the Warehouse below.</div>
+              {canReroll && (
+                <button className="bb-btn bb-sec" onClick={props.onReroll} disabled={collect.rerollsUsed >= collect.maxRerolls} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", ...(collect.rerollsUsed < collect.maxRerolls ? { border: `1px solid ${C.brass}`, color: C.gold, background: SURFACE.inset, cursor: "pointer" } : { border: `1px solid ${C.border2}`, color: C.faint, background: SURFACE.inset, cursor: "default" }) }}>↻ Reroll · {collect.maxRerolls - collect.rerollsUsed} left</button>
+              )}
+              {canTT && (
+                <button className="bb-btn bb-sec" onClick={props.onTT} style={{ padding: "9px 14px", borderRadius: 10, fontFamily: MONO, fontWeight: 600, fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.amber}`, color: C.amber, background: SURFACE.inset, cursor: "pointer" }}>⚡ Triple Threat</button>
+              )}
+              <button data-tut="pass" className="bb-btn" onClick={props.onPass} style={{ padding: "12px 18px", borderRadius: 10, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW }}>Claim &amp; pass →</button>
+            </>
+          )}
         </div>
       </div>
     </section>
@@ -1514,9 +1524,9 @@ function SpectatorStage(props: StageProps) {
   );
 }
 
-// ── Play stage — the distillery floor plan ────────────────────────────
+// ── Play stage — the Rickhouse barrel floor (departments live in the bar) ─
 function DistilleryFloor(props: StageProps) {
-  const { board, me, shownIdx, spectating, locked, phaseStage, zone, rickCap, warehouseCap, heldTotal, whFull, optimisticClaims } = props;
+  const { board, me, shownIdx, spectating, locked, phaseStage, rickCap } = props;
   const game = board.game;
   const agingBarrels = me.rickhouse.filter((b) => b.built);
   const restingBarrels = me.rickhouse.filter((b) => !b.built);
@@ -1539,63 +1549,13 @@ function DistilleryFloor(props: StageProps) {
         <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: ".08em" }}><b style={{ color: C.copper }}>{agingBarrels.length}</b><span style={{ color: C.muted }}>/{rickCap} aging</span></span>
       </div>
 
-      {/* top row: Rickhouse (wide) | Warehouse */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.62fr 1fr", gap: 11, flex: 1, minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1fr" }}>
         <RickhouseRoom {...props} agingBarrels={agingBarrels} restingBarrels={restingBarrels} openCount={openCount} office={office} noRoom={noRoom} supplyEmpty={supplyEmpty} isActor={isActor} />
-        <WarehouseRoom board={board} me={me} warehouseCap={warehouseCap} heldTotal={heldTotal} whFull={whFull} optimisticClaims={optimisticClaims} phaseStage={phaseStage} locked={locked} />
       </div>
-
-      {/* department row */}
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${FLOOR_DEPTS.length},1fr)`, gap: 9, flex: "0 0 auto" }}>
-        {FLOOR_DEPTS.map((id) => <DepartmentCard key={id} id={id} board={board} me={me} />)}
-      </div>
-
-      {/* end-turn bar */}
-      <button
-        className="bb-btn"
-        disabled={!isActor}
-        onClick={() => board.dispatch({ type: "END_TURN" })}
-        style={{ flex: "0 0 auto", padding: "11px", borderRadius: 11, border: 0, cursor: isActor ? "pointer" : "default", fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: ".12em", textTransform: "uppercase", color: isActor ? "#fff" : C.faint, background: isActor ? "linear-gradient(180deg,#56a87c,#2f6347)" : SURFACE.inset, boxShadow: isActor ? "inset 0 1px 0 rgba(255,255,255,.3)" : undefined }}
-      >
-        {isActor ? "End turn ✓" : spectating ? "Viewing — not your turn" : "Waiting…"}
-      </button>
     </section>
   );
 }
 
-function WarehouseRoom({ board, me, warehouseCap, heldTotal, whFull, optimisticClaims, phaseStage, locked }: { board: BoardProps; me: Player; warehouseCap: number; heldTotal: number; whFull: boolean; optimisticClaims: ResourceKind[]; phaseStage: GameState["roundPhase"]; locked: boolean }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", borderRadius: 13, border: `1px solid ${C.border}`, background: "radial-gradient(90% 60% at 50% 0%, rgba(62,125,89,.08), transparent 60%), linear-gradient(180deg,#fbfdf9,#f1f6ee)", boxShadow: CARD_SHADOW, padding: "11px 13px", minHeight: 0, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
-        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: C.ink }}>The Warehouse</span>
-        <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: C.green }}>Hold</span>
-        <div style={{ flex: 1 }} />
-        <span style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 999, background: "#fffdf8", border: `1px solid ${whFull ? C.red : C.border}` }}>
-          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: whFull ? C.red : C.green }}>{heldTotal}</span>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>/{warehouseCap}</span>
-        </span>
-        <Pips dept="warehouse" me={me} />
-        <ImproveBtn id="warehouse" board={board} me={me} compact />
-      </div>
-      <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 5, flexWrap: "wrap", alignContent: "flex-start", overflow: "hidden" }}>
-        {me.hand.slice(0, warehouseCap).map((card) => (
-          <ResMiniCard key={card.id} kind={card.kind} quality={card.quality} onClick={() => board.onInspect({ kind: "resource", card })} />
-        ))}
-        {optimisticClaims.slice(0, Math.max(0, warehouseCap - me.hand.length)).map((kind, i) => (
-          <ResMiniCard key={`pend${i}`} kind={kind} pending onClick={() => board.onInspect({ kind: "pending", k: kind })} />
-        ))}
-        {Array.from({ length: Math.max(0, warehouseCap - heldTotal) }).map((_, i) => (
-          <div key={`g${i}`} style={{ width: 44, height: 60, borderRadius: 7, border: `1.5px dashed ${C.border2}`, background: SURFACE.inset }} />
-        ))}
-      </div>
-      {hasUlt(me, "warehouse", "qualitySort") && phaseStage === "play" && !locked && (
-        <button className="bb-btn" disabled={me.qualitySortUsedThisRound} onClick={() => board.setQsOpen(true)} style={{ marginTop: 8, padding: "5px 10px", borderRadius: 7, fontFamily: MONO, fontWeight: 600, fontSize: 9, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.green}`, background: "rgba(62,125,89,.1)", color: C.green, cursor: me.qualitySortUsedThisRound ? "default" : "pointer", opacity: me.qualitySortUsedThisRound ? 0.5 : 1 }}>
-          ✦ Quality Sort {me.qualitySortUsedThisRound ? "· used" : "· free draw"}
-        </button>
-      )}
-    </div>
-  );
-}
 
 const CUT_LABELS = ["A", "B", "C", "D"];
 function DepartmentCard({ id, board, me }: { id: DepartmentId; board: BoardProps; me: Player }) {
