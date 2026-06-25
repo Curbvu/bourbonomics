@@ -1155,16 +1155,17 @@ function DeptIcon({ id, size = 40 }: { id: DepartmentId; size?: number }) {
   );
 }
 
-// The branch as a value-per-level track: roman-numeral nodes with a value+unit
-// label under each, ending in a gold UL (ultimate) diamond.
-function DeptValueTrack({ d, color, unit }: { d: Department; color: string; unit: string }) {
+// The branch's level row: roman-numeral nodes with a value+unit label under each.
+// excludeUlt = stop before the ultimate (the UL becomes a separate tree node).
+function DeptValueTrack({ d, color, unit, excludeUlt }: { d: Department; color: string; unit: string; excludeUlt?: boolean }) {
+  const count = excludeUlt ? d.maxLevel : d.maxLevel + 1;
   return (
-    <div style={{ display: "flex", alignItems: "flex-start" }}>
-      {Array.from({ length: d.maxLevel + 1 }).map((_, i) => {
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "center" }}>
+      {Array.from({ length: count }).map((_, i) => {
         const owned = i <= d.level;
         const current = i === d.level;
-        const isUlt = i === d.maxLevel;
-        const conn = i > 0 ? <span style={{ width: 16, height: 2, borderRadius: 2, marginTop: 12, background: i <= d.level ? color : C.border2 }} /> : null;
+        const isUlt = !excludeUlt && i === d.maxLevel;
+        const conn = i > 0 ? <span style={{ width: 14, height: 2, borderRadius: 2, marginTop: 12, background: i <= d.level ? color : C.border2 }} /> : null;
         const node = isUlt ? (
           <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4, width: 30 }}>
             <span title="Ultimate" style={{ width: 24, height: 24, transform: "rotate(45deg)", borderRadius: 5, display: "grid", placeItems: "center", background: owned ? "linear-gradient(135deg,#f7dd9a,#b07d28)" : "#fffdf8", border: `1.5px solid ${owned ? C.gold : C.brass}`, boxShadow: current ? `0 0 9px ${C.gold}` : owned ? "0 0 5px rgba(176,125,40,.5)" : undefined }}>
@@ -1173,15 +1174,86 @@ function DeptValueTrack({ d, color, unit }: { d: Department; color: string; unit
             <span style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".06em", textTransform: "uppercase", color: C.faint }}>ult</span>
           </span>
         ) : (
-          <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4, width: 40 }}>
+          <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 3, width: 38 }}>
             <span style={{ width: 26, height: 26, borderRadius: 8, display: "grid", placeItems: "center", background: owned ? `linear-gradient(180deg, ${color}, ${color}cc)` : "#fffdf8", border: `1.5px solid ${current ? C.ink : owned ? color : C.border2}`, boxShadow: current ? `0 0 0 2px ${color}40` : undefined }}>
               <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 11, color: owned ? "#fff" : C.muted }}>{ROMAN[i]}</span>
             </span>
-            <span style={{ fontFamily: MONO, fontSize: 8, color: current ? C.ink : C.faint, whiteSpace: "nowrap" }}>{d.values[i]} {unit}</span>
+            <span style={{ fontFamily: MONO, fontSize: 7.5, color: current ? C.ink : C.faint, whiteSpace: "nowrap" }}>{d.values[i]} {unit}</span>
           </span>
         );
         return <span key={i} style={{ display: "inline-flex", alignItems: "flex-start" }}>{conn}{node}</span>;
       })}
+    </div>
+  );
+}
+
+// The full skill-tree body: I–II–III row → vertical drop → UL diamond → fork →
+// the two (or more) ultimate "cut" boxes.
+function DeptCutTree({ d, color, unit, realOptions, chosen }: { d: Department; color: string; unit: string; realOptions: UltimateId[]; chosen: UltimateId | null }) {
+  const cols = realOptions.length > 1 ? 2 : 1;
+  const ultOwned = d.level >= d.maxLevel;
+  const line = `${color}80`;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      <DeptValueTrack d={d} color={color} unit={unit} excludeUlt />
+      <div style={{ display: "flex", justifyContent: "center" }}><span style={{ width: 2, height: 7, background: line }} /></div>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <span title={chosen ? ULT_LABEL[chosen].name : "Ultimate"} style={{ width: 22, height: 22, transform: "rotate(45deg)", borderRadius: 5, display: "grid", placeItems: "center", background: ultOwned ? "linear-gradient(135deg,#f7dd9a,#b07d28)" : "#fffdf8", border: `1.5px solid ${ultOwned ? C.gold : C.brass}`, boxShadow: ultOwned ? "0 0 6px rgba(176,125,40,.6)" : undefined }}>
+          <span style={{ transform: "rotate(-45deg)", fontFamily: MONO, fontSize: 7.5, fontWeight: 700, color: ultOwned ? "#2a1a0e" : C.brass }}>UL</span>
+        </span>
+      </div>
+      {realOptions.length > 0 && (
+        <div style={{ position: "relative", height: 11 }}>
+          <span style={{ position: "absolute", top: 0, left: "50%", width: 2, height: cols === 2 ? 5 : 11, marginLeft: -1, background: line }} />
+          {cols === 2 && (
+            <>
+              <span style={{ position: "absolute", top: 5, left: "25%", right: "25%", height: 2, background: line }} />
+              <span style={{ position: "absolute", top: 5, left: "25%", width: 2, height: 6, marginLeft: -1, background: line }} />
+              <span style={{ position: "absolute", top: 5, left: "75%", width: 2, height: 6, marginLeft: -1, background: line }} />
+            </>
+          )}
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: cols === 2 ? "1fr 1fr" : "1fr", gap: 6, flex: 1, minHeight: 0, alignContent: "start" }}>
+        {realOptions.length === 0 && <span style={{ fontFamily: MONO, fontSize: 9, color: C.faint, textAlign: "center" }}>Ultimate TBD</span>}
+        {realOptions.map((o, i) => {
+          const isChosen = chosen === o;
+          return (
+            <div key={o} style={{ padding: "4px 7px", borderRadius: 8, border: `1px solid ${isChosen ? C.gold : C.hairline}`, background: isChosen ? "rgba(176,125,40,.1)" : "#fffdf8", minWidth: 0 }}>
+              <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".1em", textTransform: "uppercase", color: isChosen ? C.gold : C.faint }}>{isChosen ? "★ Cut" : `Cut ${CUT_LABELS[i] ?? i + 1}`}</div>
+              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 12, color: C.ink, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ULT_LABEL[o].name}</div>
+              <div title={ULT_LABEL[o].blurb} style={{ fontSize: 8.5, color: C.muted, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ULT_LABEL[o].blurb}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Dark summary card describing the player's distillery (first cell of the bar).
+function DistilleryCard({ me }: { me: Player }) {
+  const grown = me.distillery.departments.filter((x) => x.chosenUltimate && x.chosenUltimate !== "ph").length;
+  return (
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", borderRadius: 12, padding: "12px 13px", background: "linear-gradient(180deg,#2e2114,#1a1108)", border: `1px solid ${C.copper}66`, boxShadow: CARD_SHADOW, overflow: "hidden", minHeight: 0 }}>
+      <span style={{ position: "absolute", right: 4, top: -14, fontFamily: SERIF, fontWeight: 700, fontSize: 96, color: "rgba(255,247,234,.05)", lineHeight: 1, pointerEvents: "none" }}>B</span>
+      <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".18em", textTransform: "uppercase", color: "#b78a52" }}>Your Board</span>
+      <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 21, color: "#f3e6cf", lineHeight: 1.05, marginTop: 5 }}>{me.distillery.name}</div>
+      <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 11.5, color: "#bda886", lineHeight: 1.3, marginTop: 5 }}>{me.distillery.blurb}</div>
+      <div style={{ flex: 1, minHeight: 6 }} />
+      <div style={{ borderTop: "1px solid rgba(207,154,94,.25)", marginTop: 9, paddingTop: 9, display: "flex", flexDirection: "column", gap: 7 }}>
+        <div style={{ fontFamily: MONO, fontSize: 9, color: "#bda886" }}>Capital on hand · <b style={{ fontFamily: SERIF, fontSize: 15, color: "#f0c970" }}>{me.capital}c</b></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: "#8a7458" }}>Spirit Safe</span>
+          <div style={{ display: "flex", gap: 4 }}>
+            {me.distillery.departments.map((x) => {
+              const g = x.chosenUltimate && x.chosenUltimate !== "ph";
+              return <span key={x.id} style={{ width: 8, height: 8, borderRadius: 999, background: g ? "linear-gradient(135deg,#f0c970,#b07d28)" : "transparent", border: `1px solid ${g ? "#f0c970" : "#6a5436"}` }} />;
+            })}
+          </div>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: "#bda886" }}>{grown} grown</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1255,7 +1327,8 @@ function CenterStage(props: StageProps) {
 function DepartmentBar(props: StageProps) {
   const { board, me } = props;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 9, flex: "0 0 auto", minWidth: 0 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 9, flex: "0 0 auto", minWidth: 0 }}>
+      <DistilleryCard me={me} />
       <DepartmentCard id="supply" board={board} me={me} />
       <WarehouseDeptCard {...props} />
       <DepartmentCard id="mashFloor" board={board} me={me} />
@@ -1289,22 +1362,27 @@ function WarehouseDeptCard(props: StageProps) {
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ width: 7, height: 7, borderRadius: 999, background: chosen ? C.gold : meta.color, opacity: chosen ? 1 : 0.5 }} />
         <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{chosen ? `Cut · ${ULT_LABEL[chosen].name}` : `Spirit cut · open 1 of ${realOptions.length}`}</span>
-        <div style={{ flex: 1 }} />
-        <DeptValueTrack d={d} color={meta.color} unit="hold" />
       </div>
-      <div ref={warehouseRef} style={{ flex: 1, minHeight: 0, display: "flex", gap: 5, flexWrap: "wrap", alignContent: "flex-start", paddingTop: 7, borderTop: `1px solid ${C.hairline}`, overflow: "hidden" }}>
-        {me.hand.slice(0, warehouseCap).map((card) => (
-          <ResMiniCard key={card.id} kind={card.kind} quality={card.quality} onClick={() => board.onInspect({ kind: "resource", card })} />
-        ))}
-        {optimisticClaims.slice(0, Math.max(0, warehouseCap - me.hand.length)).map((kind, i) => (
-          <ResMiniCard key={`pend${i}`} kind={kind} pending onClick={() => board.onInspect({ kind: "pending", k: kind })} />
-        ))}
-        {Array.from({ length: Math.max(0, warehouseCap - heldTotal) }).map((_, i) => (
-          <div key={`g${i}`} style={{ width: 38, height: 52, borderRadius: 7, border: `1.5px dashed ${C.border2}`, background: SURFACE.inset }} />
-        ))}
+
+      <DeptCutTree d={d} color={meta.color} unit="hold" realOptions={realOptions} chosen={chosen} />
+
+      {/* held resource cards — claimed dice fly here */}
+      <div style={{ flex: "0 0 auto", paddingTop: 7, borderTop: `1px solid ${C.hairline}`, display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted, flex: "0 0 auto" }}>Hold</span>
+        <div ref={warehouseRef} style={{ display: "flex", gap: 4, flex: 1, minWidth: 0, overflow: "hidden" }}>
+          {me.hand.slice(0, warehouseCap).map((card) => (
+            <ResMiniCard key={card.id} kind={card.kind} quality={card.quality} size="sm" onClick={() => board.onInspect({ kind: "resource", card })} />
+          ))}
+          {optimisticClaims.slice(0, Math.max(0, warehouseCap - me.hand.length)).map((kind, i) => (
+            <ResMiniCard key={`pend${i}`} kind={kind} pending size="sm" onClick={() => board.onInspect({ kind: "pending", k: kind })} />
+          ))}
+          {Array.from({ length: Math.max(0, warehouseCap - heldTotal) }).map((_, i) => (
+            <div key={`g${i}`} style={{ width: 30, height: 40, flex: "0 0 auto", borderRadius: 6, border: `1.5px dashed ${C.border2}`, background: SURFACE.inset }} />
+          ))}
+        </div>
         {hasUlt(me, "warehouse", "qualitySort") && phaseStage === "play" && !locked && (
-          <button className="bb-btn" disabled={me.qualitySortUsedThisRound} onClick={() => board.setQsOpen(true)} style={{ alignSelf: "flex-start", padding: "4px 8px", borderRadius: 7, fontFamily: MONO, fontWeight: 600, fontSize: 8.5, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.green}`, background: "rgba(62,125,89,.1)", color: C.green, cursor: me.qualitySortUsedThisRound ? "default" : "pointer", opacity: me.qualitySortUsedThisRound ? 0.5 : 1 }}>
-            ✦ QS {me.qualitySortUsedThisRound ? "used" : "free"}
+          <button className="bb-btn" disabled={me.qualitySortUsedThisRound} onClick={() => board.setQsOpen(true)} style={{ flex: "0 0 auto", padding: "4px 7px", borderRadius: 7, fontFamily: MONO, fontWeight: 600, fontSize: 8, letterSpacing: ".06em", textTransform: "uppercase", border: `1px solid ${C.green}`, background: "rgba(62,125,89,.1)", color: C.green, cursor: me.qualitySortUsedThisRound ? "default" : "pointer", opacity: me.qualitySortUsedThisRound ? 0.5 : 1 }}>
+            ✦ QS
           </button>
         )}
       </div>
@@ -1592,21 +1670,7 @@ function DepartmentCard({ id, board, me }: { id: DepartmentId; board: BoardProps
         <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted }}>{chosen ? "Cut chosen" : `Spirit cut · open 1 of ${realOptions.length}`}</span>
       </div>
 
-      <DeptValueTrack d={d} color={meta.color} unit={DEPT_UNIT[id]} />
-
-      <div style={{ display: "grid", gridTemplateColumns: realOptions.length > 1 ? "1fr 1fr" : "1fr", gap: 6, paddingTop: 7, borderTop: `1px solid ${C.hairline}` }}>
-        {realOptions.length === 0 && <span style={{ fontFamily: MONO, fontSize: 9, color: C.faint }}>Ultimate TBD</span>}
-        {realOptions.map((o, i) => {
-          const isChosen = chosen === o;
-          return (
-            <div key={o} style={{ padding: "5px 7px", borderRadius: 8, border: `1px solid ${isChosen ? C.gold : C.hairline}`, background: isChosen ? "rgba(176,125,40,.1)" : "#fffdf8", minWidth: 0 }}>
-              <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".1em", textTransform: "uppercase", color: isChosen ? C.gold : C.faint }}>{isChosen ? "★ Cut" : `Cut ${CUT_LABELS[i] ?? i + 1}`}</div>
-              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 12.5, color: C.ink, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ULT_LABEL[o].name}</div>
-              <div title={ULT_LABEL[o].blurb} style={{ fontSize: 9, color: C.muted, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ULT_LABEL[o].blurb}</div>
-            </div>
-          );
-        })}
-      </div>
+      <DeptCutTree d={d} color={meta.color} unit={DEPT_UNIT[id]} realOptions={realOptions} chosen={chosen} />
     </div>
   );
 }
@@ -1982,22 +2046,25 @@ function Scrim({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ResMiniCard({ kind, quality, pending, onClick }: { kind: ResourceKind; quality?: Quality; pending?: boolean; onClick: () => void }) {
+function ResMiniCard({ kind, quality, pending, onClick, size = "md" }: { kind: ResourceKind; quality?: Quality; pending?: boolean; onClick: () => void; size?: "md" | "sm" }) {
   const m = SUB[kind];
   const kc = KIND_CHROME[kind];
   const q = quality ? QUALITY_CHROME[quality] : null;
+  const sm = size === "sm";
+  const w = sm ? 30 : 44;
+  const h = sm ? 40 : 60;
   return (
     <button
       className="bb-card"
       onClick={onClick}
       title={`${quality ? quality + " " : pending ? "blind " : ""}${m.label} — click to inspect`}
-      style={{ position: "relative", width: 44, height: 60, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column", cursor: "pointer", padding: 0, background: kc.grad, border: `1px solid ${kc.border}`, boxShadow: CARD_SHADOW }}
+      style={{ position: "relative", width: w, height: h, flex: "0 0 auto", borderRadius: sm ? 6 : 8, overflow: "hidden", display: "flex", flexDirection: "column", cursor: "pointer", padding: 0, background: kc.grad, border: `1px solid ${kc.border}`, boxShadow: CARD_SHADOW }}
     >
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: "4px 2px 0" }}>
-        <span style={{ fontFamily: MONO, fontSize: 6, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: kc.ink }}>{m.label}</span>
-        {pending ? <span style={{ fontSize: 20, lineHeight: 1, color: kc.ink }}>?</span> : resMark(kind, 22, kc.ink)}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: sm ? "2px 1px 0" : "4px 2px 0" }}>
+        {!sm && <span style={{ fontFamily: MONO, fontSize: 6, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: kc.ink }}>{m.label}</span>}
+        {pending ? <span style={{ fontSize: sm ? 15 : 20, lineHeight: 1, color: kc.ink }}>?</span> : resMark(kind, sm ? 17 : 22, kc.ink)}
       </div>
-      <div style={{ height: 5, width: "100%", background: pending ? `repeating-linear-gradient(45deg,${kc.border} 0,${kc.border} 4px,#fffdf8 4px,#fffdf8 8px)` : q ? q.foil : "#bcae90" }} aria-hidden />
+      <div style={{ height: sm ? 4 : 5, width: "100%", background: pending ? `repeating-linear-gradient(45deg,${kc.border} 0,${kc.border} 4px,#fffdf8 4px,#fffdf8 8px)` : q ? q.foil : "#bcae90" }} aria-hidden />
     </button>
   );
 }
