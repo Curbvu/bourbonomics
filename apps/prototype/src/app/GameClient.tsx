@@ -1377,7 +1377,7 @@ function DemandCardFace({ card, zone }: { card: DemandCard; zone: Zone }) {
 
 // ── Collect stage — the dice draft ────────────────────────────────────
 function DiceDraftStage(props: StageProps) {
-  const { board, me, collect, supplyCap, warehouseCap, heldTotal, whFull } = props;
+  const { board, me, collect, supplyCap, warehouseCap, heldTotal, whFull, rickCap } = props;
   const game = board.game;
   if (!collect) return <section style={STAGE_PANEL} />;
   const preRoll = !collect.rolled;
@@ -1385,6 +1385,11 @@ function DiceDraftStage(props: StageProps) {
   const undrafted = collect.dice.length - drafted;
   const canReroll = collect.rolled && collect.maxRerolls > 0;
   const canTT = collect.rolled && hasUlt(me, "supply", "tripleThreat") && !collect.tripleThreatUsed;
+  // Read-only Rickhouse below the dice so you can see what your recipes need.
+  const agingBarrels = me.rickhouse.filter((b) => b.built);
+  const restingBarrels = me.rickhouse.filter((b) => !b.built);
+  const openCount = Math.max(0, rickCap - me.rickhouse.length);
+  const office = fnMash(me);
 
   return (
     <section style={{ ...STAGE_PANEL, display: "flex", flexDirection: "column", padding: "14px 18px" }}>
@@ -1411,7 +1416,7 @@ function DiceDraftStage(props: StageProps) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 250px", gap: 16, flex: 1, minHeight: 0 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 250px", gap: 16, flex: "0 0 auto", height: 200 }}>
         <div style={{ borderRadius: 12, background: SURFACE.inset, border: `1px solid ${C.border}`, padding: 14, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0 }}>
           <DiceTray
             dice={collect.dice}
@@ -1445,6 +1450,14 @@ function DiceDraftStage(props: StageProps) {
               <button data-tut="pass" className="bb-btn" onClick={props.onPass} style={{ padding: "12px 18px", borderRadius: 10, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW }}>Claim &amp; pass →</button>
             </>
           )}
+        </div>
+      </div>
+
+      {/* read-only Rickhouse — what your recipes still need */}
+      <div style={{ flex: 1, minHeight: 0, marginTop: 11, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, marginBottom: 6 }}>Your Rickhouse · what you&apos;re building</span>
+        <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1fr" }}>
+          <RickhouseRoom {...props} agingBarrels={agingBarrels} restingBarrels={restingBarrels} openCount={openCount} office={office} noRoom={openCount <= 0} supplyEmpty={game.mashBillSupply.length === 0} isActor={false} />
         </div>
       </div>
     </section>
