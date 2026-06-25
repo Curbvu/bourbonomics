@@ -1535,7 +1535,7 @@ function DiceDraftStage(props: StageProps) {
       <div style={{ flex: 1, minHeight: 0, marginTop: 11, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, marginBottom: 6 }}>Your Rickhouse · what you&apos;re building</span>
         <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1fr" }}>
-          <RickhouseRoom {...props} agingBarrels={agingBarrels} restingBarrels={restingBarrels} openCount={openCount} office={office} noRoom={openCount <= 0} supplyEmpty={game.mashBillSupply.length === 0} isActor={false} />
+          <RickhouseRoom {...props} agingBarrels={agingBarrels} restingBarrels={restingBarrels} openCount={openCount} office={office} noRoom={openCount <= 0} supplyEmpty={game.mashBillSupply.length === 0} isActor={false} compact />
         </div>
       </div>
     </section>
@@ -1683,10 +1683,12 @@ type RickProps = StageProps & {
   noRoom: boolean;
   supplyEmpty: boolean;
   isActor: boolean;
+  /** Compact = drop the aging value-by-age track + footer (e.g. the Collect peek). */
+  compact?: boolean;
 };
 
 function RickhouseRoom(props: RickProps) {
-  const { board, me, zone, locked, phaseStage, rickCap, agingBarrels, restingBarrels, openCount, isActor, supplyEmpty } = props;
+  const { board, me, zone, locked, phaseStage, rickCap, agingBarrels, restingBarrels, openCount, isActor, supplyEmpty, compact } = props;
   const canBuild = phaseStage === "play" && !locked;
   const canDraw = isActor && !me.drewMashBillsThisTurn && !supplyEmpty && openCount > 0;
 
@@ -1747,23 +1749,27 @@ function RickhouseRoom(props: RickProps) {
                 </span>
                 <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: C.ink, lineHeight: 1.1 }}>{sellable ? `sell ≈ ${baseValue}+` : "aging in oak"}</div>
               </div>
-              <div style={{ marginTop: 7, padding: 6, borderRadius: 7, background: "#fffdf8", border: `1px solid ${qc.ink}2e` }}>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }} title="Capital value by age for this quality">
-                  {trackSteps.map((s, i) => {
-                    const active = i === activeStep;
-                    const reached = i <= activeStep;
-                    return (
-                      <span key={s.age} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 28, padding: "4px 6px", borderRadius: 6, lineHeight: 1, ...(active ? { background: qc.foil, color: "#1a1206", border: `1px solid ${qc.ink}` } : reached ? { background: `${qc.ink}1c`, color: qc.ink, border: `1px solid ${qc.ink}44` } : { background: "transparent", color: C.faint, border: `1px solid ${C.hairline}` }) }}>
-                        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17 }}>{s.value}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 8, marginTop: 1, opacity: 0.85 }}>yr{s.age}</span>
-                      </span>
-                    );
-                  })}
+              {!compact && (
+                <div style={{ marginTop: 7, padding: 6, borderRadius: 7, background: "#fffdf8", border: `1px solid ${qc.ink}2e` }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }} title="Capital value by age for this quality">
+                    {trackSteps.map((s, i) => {
+                      const active = i === activeStep;
+                      const reached = i <= activeStep;
+                      return (
+                        <span key={s.age} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 28, padding: "4px 6px", borderRadius: 6, lineHeight: 1, ...(active ? { background: qc.foil, color: "#1a1206", border: `1px solid ${qc.ink}` } : reached ? { background: `${qc.ink}1c`, color: qc.ink, border: `1px solid ${qc.ink}44` } : { background: "transparent", color: C.faint, border: `1px solid ${C.hairline}` }) }}>
+                          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17 }}>{s.value}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 8, marginTop: 1, opacity: 0.85 }}>yr{s.age}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-              <div style={{ textAlign: "center", marginTop: 6, padding: 4, borderRadius: 6, border: `1px solid ${qc.ink}40`, background: `${qc.ink}12`, fontFamily: MONO, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: qc.ink }}>
-                {sellable ? (phaseStage === "play" ? "Tap to sell" : "Ready") : `Year ${b.age}`}
-              </div>
+              )}
+              {!compact && (
+                <div style={{ textAlign: "center", marginTop: 6, padding: 4, borderRadius: 6, border: `1px solid ${qc.ink}40`, background: `${qc.ink}12`, fontFamily: MONO, fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: qc.ink }}>
+                  {sellable ? (phaseStage === "play" ? "Tap to sell" : "Ready") : `Year ${b.age}`}
+                </div>
+              )}
             </button>
           );
         })}
