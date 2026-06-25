@@ -32,6 +32,7 @@ import type {
   Action,
   Bourbon,
   DemandCard,
+  Department,
   DepartmentId,
   DieFace,
   GameState,
@@ -242,6 +243,8 @@ const DEPT_META: Record<DepartmentId, { color: string; tag: string; name: string
 };
 // Iconned department cards on the Play floor (Rickhouse + Warehouse get their own rooms).
 const FLOOR_DEPTS: DepartmentId[] = ["supply", "mashFloor", "marketing"];
+// Single-letter badge per department (colour disambiguates the two M's).
+const DEPT_LETTER: Record<DepartmentId, string> = { rickhouse: "R", supply: "S", warehouse: "W", mashFloor: "M", marketing: "M" };
 
 const PLAYER_COLORS = ["#c4772a", "#c0492c", "#3e7d59", "#8a5fb0", "#5fa6c9", "#b07d28"];
 
@@ -1083,19 +1086,22 @@ function ClockCard({ game, initialPool }: { game: GameState; initialPool: number
 }
 
 // ── small shared bits ────────────────────────────────────────────────
+// Compact branch readout — connected nodes, the ultimate a gold diamond.
 function Pips({ dept, me }: { dept: DepartmentId; me: Player }) {
   const d = me.distillery.departments.find((x) => x.id === dept)!;
   const color = DEPT_META[dept].color;
   return (
-    <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+    <div style={{ display: "flex", alignItems: "center" }}>
       {Array.from({ length: d.maxLevel + 1 }).map((_, i) => {
         const owned = i <= d.level;
-        if (i === d.maxLevel) {
-          return (
-            <span key={i} title="Ultimate" style={{ width: 9, height: 9, marginLeft: 3, transform: "rotate(45deg)", borderRadius: 2, background: owned ? "linear-gradient(135deg,#f0c970,#b07d28)" : "transparent", border: `1px solid ${owned ? C.gold : C.brass}`, boxShadow: owned ? "0 0 6px rgba(176,125,40,.7)" : `inset 0 0 0 1px ${C.brass}44` }} />
-          );
-        }
-        return <span key={i} style={{ width: 11, height: 6, borderRadius: 2, background: owned ? color : C.border2 }} />;
+        const isUlt = i === d.maxLevel;
+        const conn = i > 0 ? <span style={{ width: 6, height: 2, borderRadius: 2, background: i <= d.level ? color : C.border2 }} /> : null;
+        const node = isUlt ? (
+          <span title="Ultimate" style={{ width: 9, height: 9, transform: "rotate(45deg)", borderRadius: 2, background: owned ? "linear-gradient(135deg,#f0c970,#b07d28)" : "transparent", border: `1px solid ${owned ? C.gold : C.brass}`, boxShadow: owned ? "0 0 6px rgba(176,125,40,.7)" : undefined }} />
+        ) : (
+          <span style={{ width: 8, height: 8, borderRadius: 999, background: owned ? color : "transparent", border: `1.5px solid ${owned ? color : C.border2}` }} />
+        );
+        return <span key={i} style={{ display: "inline-flex", alignItems: "center" }}>{conn}{node}</span>;
       })}
     </div>
   );
@@ -1132,17 +1138,38 @@ function ImproveBtn({ id, board, me, compact }: { id: DepartmentId; board: Board
   );
 }
 
-// Simple CSS-shape department icons (no SVG art).
-function DeptIcon({ id, color }: { id: DepartmentId; color: string }) {
-  const box: React.CSSProperties = { width: 40, height: 40, borderRadius: 10, flex: "0 0 auto", display: "grid", placeItems: "center", background: `${color}1a`, border: `1px solid ${color}66` };
-  if (id === "supply") {
-    return <div style={box}><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, width: 18, height: 18 }}>{[0, 1, 2, 3].map((i) => <span key={i} style={{ width: 7, height: 7, borderRadius: 999, background: color }} />)}</div></div>;
-  }
-  if (id === "mashFloor") {
-    return <div style={box}><div style={{ display: "flex", flexDirection: "column", gap: 3, width: 18 }}>{[16, 18, 12].map((w, i) => <span key={i} style={{ width: w, height: 3, borderRadius: 2, background: color }} />)}</div></div>;
-  }
-  // marketing — slider/dial
-  return <div style={box}><div style={{ position: "relative", width: 20, height: 14 }}><span style={{ position: "absolute", top: 6, left: 0, width: 20, height: 2, borderRadius: 2, background: `${color}88` }} /><span style={{ position: "absolute", top: 1, left: 11, width: 8, height: 12, borderRadius: 3, background: color }} /></div></div>;
+// Lettered department badge (soft tinted tile, dept-colour initial).
+function DeptIcon({ id, size = 40 }: { id: DepartmentId; size?: number }) {
+  const color = DEPT_META[id].color;
+  return (
+    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.26), flex: "0 0 auto", display: "grid", placeItems: "center", background: `linear-gradient(160deg, ${color}30, ${color}14)`, border: `1px solid ${color}66`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.5)" }}>
+      <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: Math.round(size * 0.5), lineHeight: 1, color }}>{DEPT_LETTER[id]}</span>
+    </div>
+  );
+}
+
+// The branch as a value-per-level track: numbered nodes → gold ultimate diamond.
+function LevelTrack({ d, color }: { d: Department; color: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center" }}>
+      {Array.from({ length: d.maxLevel + 1 }).map((_, i) => {
+        const owned = i <= d.level;
+        const current = i === d.level;
+        const isUlt = i === d.maxLevel;
+        const conn = i > 0 ? <span style={{ width: 13, height: 2, borderRadius: 2, background: i <= d.level ? color : C.border2 }} /> : null;
+        const node = isUlt ? (
+          <span title="Ultimate" style={{ width: 22, height: 22, transform: "rotate(45deg)", borderRadius: 5, display: "grid", placeItems: "center", background: owned ? "linear-gradient(135deg,#f7dd9a,#b07d28)" : "#fffdf8", border: `1.5px solid ${owned ? C.gold : C.brass}`, boxShadow: current ? `0 0 9px ${C.gold}` : owned ? "0 0 5px rgba(176,125,40,.5)" : undefined }}>
+            <span style={{ transform: "rotate(-45deg)", fontSize: 10, color: owned ? "#2a1a0e" : C.brass }}>★</span>
+          </span>
+        ) : (
+          <span style={{ width: 24, height: 24, borderRadius: 7, display: "grid", placeItems: "center", background: owned ? `linear-gradient(180deg, ${color}, ${color}cc)` : "#fffdf8", border: `1.5px solid ${current ? C.ink : owned ? color : C.border2}`, boxShadow: current ? `0 0 0 2px ${color}40` : undefined }}>
+            <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: owned ? "#fff" : C.muted }}>{d.values[i]}</span>
+          </span>
+        );
+        return <span key={i} style={{ display: "inline-flex", alignItems: "center" }}>{conn}{node}</span>;
+      })}
+    </div>
+  );
 }
 
 // ── Center stage — the only zone that morphs per phase ────────────────
@@ -1223,8 +1250,8 @@ function DepartmentStrip({ board, me }: { board: BoardProps; me: Player }) {
         {(["rickhouse", "warehouse", ...FLOOR_DEPTS] as DepartmentId[]).map((id) => {
           const d = me.distillery.departments.find((x) => x.id === id)!;
           return (
-            <div key={id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderRadius: 8, background: "#fffdf8", border: `1px solid ${C.hairline}` }}>
-              <span style={{ width: 7, height: 7, borderRadius: 2, background: DEPT_META[id].color }} />
+            <div key={id} style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 8px", borderRadius: 8, background: "#fffdf8", border: `1px solid ${C.hairline}` }}>
+              <DeptIcon id={id} size={18} />
               <span style={{ fontSize: 11, color: C.text2, whiteSpace: "nowrap" }}>{DEPT_META[id].name}</span>
               <Pips dept={id} me={me} />
             </div>
@@ -1594,20 +1621,27 @@ function DepartmentCard({ id, board, me }: { id: DepartmentId; board: BoardProps
     id === "supply" ? `Rolls ${fnSupply(me)} dice · ${fnRerolls(me)} reroll${fnRerolls(me) > 1 ? "s" : ""}`
     : id === "mashFloor" ? `Draws ${fnMash(me)} mash bills/turn`
     : `Shapes ${d.values[d.level]} demand card${(d.values[d.level] ?? 0) > 1 ? "s" : ""}`;
+  const realOptions = d.ultimateOptions.filter((o) => o !== "ph");
+  const chosen = d.chosenUltimate && d.chosenUltimate !== "ph" ? d.chosenUltimate : null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, borderRadius: 12, border: `1px solid ${C.border}`, background: `radial-gradient(80% 60% at 50% 0%, ${meta.color}12, transparent 65%), ${SURFACE.panel}`, boxShadow: CARD_SHADOW, padding: "10px 11px", minHeight: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-        <DeptIcon id={id} color={meta.color} />
-        <div style={{ minWidth: 0 }}>
+        <DeptIcon id={id} />
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta.name}</div>
           <div style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".1em", textTransform: "uppercase", color: meta.color }}>{meta.tag}</div>
         </div>
-      </div>
-      <div style={{ fontSize: 11, color: C.text2, lineHeight: 1.35, flex: 1 }}>{effect}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <Pips dept={id} me={me} />
-        <div style={{ flex: 1 }} />
         <ImproveBtn id={id} board={board} me={me} compact />
+      </div>
+      <LevelTrack d={d} color={meta.color} />
+      <div style={{ fontSize: 11, color: C.text2, lineHeight: 1.3 }}>{effect}</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6, paddingTop: 6, borderTop: `1px solid ${C.hairline}`, minWidth: 0 }}>
+        <span style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted, flex: "0 0 auto" }}>{chosen ? "Ult" : "Ults"}</span>
+        {chosen ? (
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>★ {ULT_LABEL[chosen].name}</span>
+        ) : (
+          <span title={realOptions.map((o) => ULT_LABEL[o].name).join(" · ")} style={{ fontFamily: MONO, fontSize: 9.5, color: C.faint, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{realOptions.length ? realOptions.map((o) => ULT_LABEL[o].name).join(" · ") : "TBD"}</span>
+        )}
       </div>
     </div>
   );
