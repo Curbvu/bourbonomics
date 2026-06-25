@@ -24,7 +24,6 @@ import {
   supplyCap as fnSupply,
   warehouseCap as fnWarehouse,
   mashFloorDraw as fnMash,
-  rerollsFor as fnRerolls,
   hasUlt,
   CONFIG,
 } from "@bourbonomics/prototype-engine";
@@ -245,6 +244,12 @@ const DEPT_META: Record<DepartmentId, { color: string; tag: string; name: string
 const FLOOR_DEPTS: DepartmentId[] = ["supply", "mashFloor", "marketing"];
 // Single-letter badge per department (colour disambiguates the two M's).
 const DEPT_LETTER: Record<DepartmentId, string> = { rickhouse: "R", supply: "S", warehouse: "W", mashFloor: "M", marketing: "M" };
+// Room-style category label + the unit each level value is measured in.
+const DEPT_ROOM: Record<DepartmentId, string> = {
+  supply: "RM 01 · Procurement", warehouse: "RM 02 · Inventory", mashFloor: "RM 03 · Production", marketing: "RM 04 · Sales & Mktg", rickhouse: "RM 05 · Operations",
+};
+const DEPT_UNIT: Record<DepartmentId, string> = { supply: "dice", warehouse: "hold", mashFloor: "bills", marketing: "demand", rickhouse: "slots" };
+const ROMAN = ["I", "II", "III", "IV", "V"];
 
 const PLAYER_COLORS = ["#c4772a", "#c0492c", "#3e7d59", "#8a5fb0", "#5fa6c9", "#b07d28"];
 
@@ -1030,7 +1035,7 @@ function TableRail({ order, game, board, shownIdx, onView }: { order: OrderRow[]
           <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: C.brass }}>At the Table</span>
           <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", color: C.muted }}>TAP TO VIEW</span>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, minHeight: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
           {order.map((o) => {
             const viewed = o.pi === shownIdx;
             const now = o.status === "now";
@@ -1039,23 +1044,27 @@ function TableRail({ order, game, board, shownIdx, onView }: { order: OrderRow[]
                 key={o.pi}
                 onClick={() => onView(o.pi)}
                 title={`View ${o.name}'s distillery`}
-                style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: 11, cursor: "pointer", flex: 1, minHeight: 0, ...(now ? { background: `linear-gradient(90deg,${o.color}1f,transparent)`, border: `1.5px solid ${o.color}`, boxShadow: `0 0 0 3px ${o.color}1a` } : viewed ? { background: SURFACE.inset, border: `1px solid ${o.color}` } : { background: "#fffdf8", border: `1px solid ${C.hairline}` }) }}
+                style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 9, padding: "11px 12px", borderRadius: 12, cursor: "pointer", flex: "0 0 auto", ...(now ? { background: `linear-gradient(120deg,${o.color}1f,#fffdf8 70%)`, border: `1.5px solid ${o.color}`, boxShadow: `0 0 0 3px ${o.color}14, ${CARD_SHADOW}` } : viewed ? { background: SURFACE.inset, border: `1px solid ${o.color}` } : { background: "#fffdf8", border: `1px solid ${C.hairline}` }) }}
               >
-                <div style={{ position: "relative", width: 38, height: 38, flex: "0 0 auto", borderRadius: 999, background: `linear-gradient(160deg,${o.color},${o.color}bb)`, display: "grid", placeItems: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>
-                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: "#fff" }}>{o.name[0]}</span>
-                  {now && <span style={{ position: "absolute", inset: -3, borderRadius: 999, border: `2px solid ${o.color}`, animation: "bb-pip 1.6s ease-in-out infinite" }} />}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}</span>
-                    {now && <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#fff", background: o.color, padding: "1px 5px", borderRadius: 4 }}>Now</span>}
-                    {o.isBot && !now && <span style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".08em", textTransform: "uppercase", color: C.muted }}>AI</span>}
+                <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+                  <div style={{ position: "relative", width: 40, height: 40, flex: "0 0 auto", borderRadius: 11, background: `linear-gradient(160deg,${o.color},${o.color}c0)`, display: "grid", placeItems: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,.45)" }}>
+                    <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fff" }}>{o.name[0]}</span>
+                    {now && <span style={{ position: "absolute", inset: -3, borderRadius: 13, border: `2px solid ${o.color}`, animation: "bb-pip 1.6s ease-in-out infinite" }} />}
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 9.5, color: now ? o.color : C.muted, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.statusText}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}</span>
+                      {now ? <span style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#fff", background: o.color, padding: "2px 6px", borderRadius: 5 }}>Now</span>
+                        : o.isBot ? <span style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted, border: `1px solid ${C.border2}`, padding: "1px 5px", borderRadius: 5 }}>AI</span> : null}
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: now ? o.color : C.muted, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.statusText}</div>
+                  </div>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flex: "0 0 auto" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12 }}><b style={{ color: C.gold }}>{o.cap}</b><span style={{ color: C.muted, fontSize: 9 }}>c</span></span>
-                  <span style={{ fontFamily: MONO, fontSize: 11 }}><span style={{ color: C.prestige }}>★</span><b style={{ color: C.prestige }}>{o.rep}</b> <span style={{ color: C.faint }}>·</span> <span style={{ color: C.copper }}>{o.barrels}🛢</span></span>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12, paddingTop: 9, borderTop: `1px solid ${now ? `${o.color}40` : C.hairline}` }}>
+                  <span style={{ fontFamily: MONO, fontSize: 11 }}><b style={{ fontFamily: SERIF, fontSize: 16, color: C.gold }}>{o.cap}</b> <span style={{ fontSize: 8, letterSpacing: ".1em", color: C.muted }}>CAP</span></span>
+                  <span style={{ fontFamily: MONO, fontSize: 11 }}><b style={{ fontFamily: SERIF, fontSize: 16, color: C.prestige }}>{o.rep}</b> <span style={{ fontSize: 8, letterSpacing: ".1em", color: C.muted }}>PRES</span></span>
+                  <span style={{ flex: 1 }} />
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.text2 }}>{o.barrels} <span style={{ color: C.muted }}>barrel{o.barrels === 1 ? "" : "s"}</span></span>
                 </div>
               </button>
             );
@@ -1148,25 +1157,32 @@ function DeptIcon({ id, size = 40 }: { id: DepartmentId; size?: number }) {
   );
 }
 
-// The branch as a value-per-level track: numbered nodes → gold ultimate diamond.
-function LevelTrack({ d, color }: { d: Department; color: string }) {
+// The branch as a value-per-level track: roman-numeral nodes with a value+unit
+// label under each, ending in a gold UL (ultimate) diamond.
+function DeptValueTrack({ d, color, unit }: { d: Department; color: string; unit: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center" }}>
+    <div style={{ display: "flex", alignItems: "flex-start" }}>
       {Array.from({ length: d.maxLevel + 1 }).map((_, i) => {
         const owned = i <= d.level;
         const current = i === d.level;
         const isUlt = i === d.maxLevel;
-        const conn = i > 0 ? <span style={{ width: 13, height: 2, borderRadius: 2, background: i <= d.level ? color : C.border2 }} /> : null;
+        const conn = i > 0 ? <span style={{ width: 16, height: 2, borderRadius: 2, marginTop: 12, background: i <= d.level ? color : C.border2 }} /> : null;
         const node = isUlt ? (
-          <span title="Ultimate" style={{ width: 22, height: 22, transform: "rotate(45deg)", borderRadius: 5, display: "grid", placeItems: "center", background: owned ? "linear-gradient(135deg,#f7dd9a,#b07d28)" : "#fffdf8", border: `1.5px solid ${owned ? C.gold : C.brass}`, boxShadow: current ? `0 0 9px ${C.gold}` : owned ? "0 0 5px rgba(176,125,40,.5)" : undefined }}>
-            <span style={{ transform: "rotate(-45deg)", fontSize: 10, color: owned ? "#2a1a0e" : C.brass }}>★</span>
+          <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4, width: 30 }}>
+            <span title="Ultimate" style={{ width: 24, height: 24, transform: "rotate(45deg)", borderRadius: 5, display: "grid", placeItems: "center", background: owned ? "linear-gradient(135deg,#f7dd9a,#b07d28)" : "#fffdf8", border: `1.5px solid ${owned ? C.gold : C.brass}`, boxShadow: current ? `0 0 9px ${C.gold}` : owned ? "0 0 5px rgba(176,125,40,.5)" : undefined }}>
+              <span style={{ transform: "rotate(-45deg)", fontFamily: MONO, fontSize: 8, fontWeight: 700, color: owned ? "#2a1a0e" : C.brass }}>UL</span>
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".06em", textTransform: "uppercase", color: C.faint }}>ult</span>
           </span>
         ) : (
-          <span style={{ width: 24, height: 24, borderRadius: 7, display: "grid", placeItems: "center", background: owned ? `linear-gradient(180deg, ${color}, ${color}cc)` : "#fffdf8", border: `1.5px solid ${current ? C.ink : owned ? color : C.border2}`, boxShadow: current ? `0 0 0 2px ${color}40` : undefined }}>
-            <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: owned ? "#fff" : C.muted }}>{d.values[i]}</span>
+          <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4, width: 40 }}>
+            <span style={{ width: 26, height: 26, borderRadius: 8, display: "grid", placeItems: "center", background: owned ? `linear-gradient(180deg, ${color}, ${color}cc)` : "#fffdf8", border: `1.5px solid ${current ? C.ink : owned ? color : C.border2}`, boxShadow: current ? `0 0 0 2px ${color}40` : undefined }}>
+              <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 11, color: owned ? "#fff" : C.muted }}>{ROMAN[i]}</span>
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 8, color: current ? C.ink : C.faint, whiteSpace: "nowrap" }}>{d.values[i]} {unit}</span>
           </span>
         );
-        return <span key={i} style={{ display: "inline-flex", alignItems: "center" }}>{conn}{node}</span>;
+        return <span key={i} style={{ display: "inline-flex", alignItems: "flex-start" }}>{conn}{node}</span>;
       })}
     </div>
   );
@@ -1269,57 +1285,24 @@ function DemandStage({ board, zone }: StageProps) {
   const [revealed, setRevealed] = useState(false);
   const count = game.demandCards.length;
   const featured = game.demandCards[count - 1];
-  const toCrash = CONFIG.DEMAND_CRASH_AT - count;
-  const maxSlots = CONFIG.DEMAND_CRASH_AT - 1;
   return (
     <section style={{ ...STAGE_PANEL, display: "flex", flexDirection: "column", padding: "16px 20px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: C.amber }}>Demand Phase</span>
         <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.ink }}>Read the Market</span>
-        <span style={{ fontSize: 12, color: C.text2 }}>A new order joins the table. Read the heat, then open the draft.</span>
+        <span style={{ fontSize: 12, color: C.text2 }}>A new order joins the table — the zone &amp; crash sit in the Market rail. Open the draft when you&apos;re ready.</span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, flex: 1, minHeight: 0, marginTop: 14, alignItems: "center" }}>
-        {/* draw + featured card */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
-          {!revealed || !featured ? (
-            <button className="bb-card" onClick={() => setRevealed(true)} style={{ width: 210, height: 280, borderRadius: 16, cursor: "pointer", border: `2px dashed ${C.brass}`, background: "repeating-linear-gradient(135deg,#f3e6c8 0 10px,#efe0bf 10px 20px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, color: C.brass }}>
-              <span style={{ fontSize: 40 }}>🂠</span>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.6 }}>Draw this<br />round&apos;s order</span>
-            </button>
-          ) : (
-            <div style={{ animation: "bb-rise .4s ease-out" }}><DemandCardFace card={featured} zone={zone} /></div>
-          )}
-          <button className="bb-btn" onClick={() => board.dispatch({ type: "BEGIN_COLLECT" })} style={{ padding: "13px 28px", borderRadius: 12, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW }} data-tut="begin">Begin the Collect draft →</button>
-        </div>
-
-        {/* market-heat meter */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16, borderRadius: 14, background: SURFACE.inset, border: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted }}>Market Heat</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: toCrash <= 1 ? C.red : C.text2 }}>{toCrash <= 0 ? "crashing" : `${toCrash} until crash`}</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column-reverse", gap: 5 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, border: `1px dashed ${toCrash <= 1 ? C.red : C.border}`, background: toCrash <= 1 ? "rgba(192,73,44,.1)" : "transparent" }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: C.red }}>▲ Crash at {CONFIG.DEMAND_CRASH_AT}</span>
-            </div>
-            {Array.from({ length: maxSlots }).map((_, i) => {
-              const slot = i + 1;
-              const z = zoneForCardCount(slot);
-              const zc = ZONE_META[z].color;
-              const filled = slot <= count;
-              return (
-                <div key={slot} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, background: filled ? `${zc}22` : "#fffdf8", border: `1px solid ${filled ? zc : C.hairline}` }}>
-                  <span style={{ width: 18, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: filled ? zc : C.faint }}>{slot}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: filled ? zc : C.faint }}>{ZONE_META[z].label}</span>
-                  <span style={{ flex: 1 }} />
-                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: filled ? zc : C.faint }}>×{zoneMultiplier(z)}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ fontSize: 10.5, color: C.muted, lineHeight: 1.4 }}>The hotter the market, the bigger the multiplier on every sale — until a crash wipes the open orders.</div>
-        </div>
+      <div style={{ flex: 1, minHeight: 0, marginTop: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+        {!revealed || !featured ? (
+          <button className="bb-card" onClick={() => setRevealed(true)} style={{ width: 210, height: 280, borderRadius: 16, cursor: "pointer", border: `2px dashed ${C.brass}`, background: "repeating-linear-gradient(135deg,#f3e6c8 0 10px,#efe0bf 10px 20px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, color: C.brass }}>
+            <span style={{ fontSize: 40 }}>🂠</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.6 }}>Draw this<br />round&apos;s order</span>
+          </button>
+        ) : (
+          <div style={{ animation: "bb-rise .4s ease-out" }}><DemandCardFace card={featured} zone={zone} /></div>
+        )}
+        <button className="bb-btn" onClick={() => board.dispatch({ type: "BEGIN_COLLECT" })} style={{ padding: "13px 28px", borderRadius: 12, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW }} data-tut="begin">Begin the Collect draft →</button>
       </div>
     </section>
   );
@@ -1614,34 +1597,42 @@ function WarehouseRoom({ board, me, warehouseCap, heldTotal, whFull, optimisticC
   );
 }
 
+const CUT_LABELS = ["A", "B", "C", "D"];
 function DepartmentCard({ id, board, me }: { id: DepartmentId; board: BoardProps; me: Player }) {
   const d = me.distillery.departments.find((x) => x.id === id)!;
   const meta = DEPT_META[id];
-  const effect =
-    id === "supply" ? `Rolls ${fnSupply(me)} dice · ${fnRerolls(me)} reroll${fnRerolls(me) > 1 ? "s" : ""}`
-    : id === "mashFloor" ? `Draws ${fnMash(me)} mash bills/turn`
-    : `Shapes ${d.values[d.level]} demand card${(d.values[d.level] ?? 0) > 1 ? "s" : ""}`;
   const realOptions = d.ultimateOptions.filter((o) => o !== "ph");
   const chosen = d.chosenUltimate && d.chosenUltimate !== "ph" ? d.chosenUltimate : null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, borderRadius: 12, border: `1px solid ${C.border}`, background: `radial-gradient(80% 60% at 50% 0%, ${meta.color}12, transparent 65%), ${SURFACE.panel}`, boxShadow: CARD_SHADOW, padding: "10px 11px", minHeight: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, borderRadius: 12, border: `1px solid ${C.border}`, background: `radial-gradient(90% 50% at 50% 0%, ${meta.color}12, transparent 60%), ${SURFACE.panel}`, boxShadow: CARD_SHADOW, padding: "10px 11px", minHeight: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-        <DeptIcon id={id} />
+        <DeptIcon id={id} size={34} />
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta.name}</div>
-          <div style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".1em", textTransform: "uppercase", color: meta.color }}>{meta.tag}</div>
+          <div style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".12em", textTransform: "uppercase", color: meta.color }}>{DEPT_ROOM[id]}</div>
+          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16, color: C.ink, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta.name}</div>
         </div>
         <ImproveBtn id={id} board={board} me={me} compact />
       </div>
-      <LevelTrack d={d} color={meta.color} />
-      <div style={{ fontSize: 11, color: C.text2, lineHeight: 1.3 }}>{effect}</div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 6, paddingTop: 6, borderTop: `1px solid ${C.hairline}`, minWidth: 0 }}>
-        <span style={{ fontFamily: MONO, fontSize: 7.5, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted, flex: "0 0 auto" }}>{chosen ? "Ult" : "Ults"}</span>
-        {chosen ? (
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>★ {ULT_LABEL[chosen].name}</span>
-        ) : (
-          <span title={realOptions.map((o) => ULT_LABEL[o].name).join(" · ")} style={{ fontFamily: MONO, fontSize: 9.5, color: C.faint, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{realOptions.length ? realOptions.map((o) => ULT_LABEL[o].name).join(" · ") : "TBD"}</span>
-        )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ width: 7, height: 7, borderRadius: 999, background: chosen ? C.gold : meta.color, opacity: chosen ? 1 : 0.5 }} />
+        <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted }}>{chosen ? "Cut chosen" : `Spirit cut · open 1 of ${realOptions.length}`}</span>
+      </div>
+
+      <DeptValueTrack d={d} color={meta.color} unit={DEPT_UNIT[id]} />
+
+      <div style={{ display: "grid", gridTemplateColumns: realOptions.length > 1 ? "1fr 1fr" : "1fr", gap: 6, paddingTop: 7, borderTop: `1px solid ${C.hairline}` }}>
+        {realOptions.length === 0 && <span style={{ fontFamily: MONO, fontSize: 9, color: C.faint }}>Ultimate TBD</span>}
+        {realOptions.map((o, i) => {
+          const isChosen = chosen === o;
+          return (
+            <div key={o} style={{ padding: "5px 7px", borderRadius: 8, border: `1px solid ${isChosen ? C.gold : C.hairline}`, background: isChosen ? "rgba(176,125,40,.1)" : "#fffdf8", minWidth: 0 }}>
+              <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".1em", textTransform: "uppercase", color: isChosen ? C.gold : C.faint }}>{isChosen ? "★ Cut" : `Cut ${CUT_LABELS[i] ?? i + 1}`}</div>
+              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 12.5, color: C.ink, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ULT_LABEL[o].name}</div>
+              <div title={ULT_LABEL[o].blurb} style={{ fontSize: 9, color: C.muted, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ULT_LABEL[o].blurb}</div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
