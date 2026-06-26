@@ -38,10 +38,10 @@ export default function MainMenu() {
       />
 
       <MenuTile
-        href="/rules"
+        href="#rules"
         eyebrow="Rules"
         title="Read the rulebook"
-        subtitle="The three-phase round, the dice draft, the demand meter, and scoring."
+        subtitle="The three-phase round, the dice draft, the demand meter, and scoring — in full, below."
         accent="slate"
       />
     </nav>
