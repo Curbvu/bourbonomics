@@ -51,6 +51,13 @@ function intoPlay(s: GameState): GameState {
   return s;
 }
 
+/** Advance Demand → Collect, landing on the first player's (auto-rolled) collect turn. */
+function intoCollect(s: GameState): GameState {
+  s = ok(s, { type: "BEGIN_COLLECT" });
+  expect(s.roundPhase).toBe("collect");
+  return s;
+}
+
 function dept(p: Player, id: string) {
   return p.distillery.departments.find((d) => d.id === id)!;
 }
@@ -155,7 +162,9 @@ describe("phase machine", () => {
 
   it("refuses play actions during the Demand Phase", () => {
     const s = createGame({ seed: 1 });
-    expect(expectRefusal(s, { type: "DRAW_MASH_BILLS", keepIndexes: [] })).toMatch(/Play Phase/);
+    expect(expectRefusal(s, { type: "END_TURN" })).toMatch(/Play Phase/);
+    // Draw Mash Bills is now a Collect-turn action, refused outside Collect.
+    expect(expectRefusal(s, { type: "DRAW_MASH_BILLS", keepIndexes: [] })).toMatch(/Collect Phase/);
   });
 
   it("a claim-nothing pass through Collect lands in the Play Phase", () => {
@@ -341,7 +350,7 @@ describe("collect dice draft", () => {
 describe("draw mash bills", () => {
   it("reveals Mash-Floor-many bills and keeps the chosen ones as resting barrels", () => {
     let s = createGame({ seed: 3 });
-    s = intoPlay(s);
+    s = intoCollect(s);
     const supplyBefore = s.mashBillSupply.length;
     s = ok(s, { type: "DRAW_MASH_BILLS", keepIndexes: [0] });
     const p = s.players[0]!;
@@ -353,14 +362,14 @@ describe("draw mash bills", () => {
 
   it("is once per turn", () => {
     let s = createGame({ seed: 3 });
-    s = intoPlay(s);
+    s = intoCollect(s);
     s = ok(s, { type: "DRAW_MASH_BILLS", keepIndexes: [] });
     expect(expectRefusal(s, { type: "DRAW_MASH_BILLS", keepIndexes: [] })).toMatch(/already drawn/);
   });
 
   it("refuses keeping more bills than the rickhouse can hold", () => {
     let s = createGame({ seed: 3 });
-    s = intoPlay(s);
+    s = intoCollect(s);
     const cap = dept(s.players[0]!, "rickhouse").values[0]!;
     s.players[0]!.rickhouse = Array.from({ length: cap }, () => makeBourbon());
     expect(expectRefusal(s, { type: "DRAW_MASH_BILLS", keepIndexes: [0] })).toMatch(/room for/);

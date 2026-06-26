@@ -1690,7 +1690,8 @@ type RickProps = StageProps & {
 function RickhouseRoom(props: RickProps) {
   const { board, me, zone, locked, phaseStage, rickCap, agingBarrels, restingBarrels, openCount, isActor, supplyEmpty, compact } = props;
   const canBuild = phaseStage === "play" && !locked;
-  const canDraw = isActor && !me.drewMashBillsThisTurn && !supplyEmpty && openCount > 0;
+  // Mash bills are drawn at the start of your Collect turn (before the draft).
+  const canDraw = !locked && phaseStage === "collect" && !me.drewMashBillsThisTurn && !supplyEmpty && openCount > 0;
 
   return (
     <div style={{ position: "relative", display: "flex", flexDirection: "column", borderRadius: 13, padding: "12px 14px", border: `1px solid ${C.copper}55`, background: "radial-gradient(120% 80% at 50% 0%, rgba(181,121,58,.1), transparent 55%), linear-gradient(180deg,#fdf6ea,#f6ead2)", boxShadow: CARD_SHADOW, minHeight: 0, overflow: "hidden" }}>
@@ -1827,10 +1828,10 @@ function RickhouseRoom(props: RickProps) {
               data-tut="draw"
               className="bb-btn"
               disabled={!canDraw}
-              onClick={() => (canDraw ? board.setDrawingBills(true) : board.flash(me.drewMashBillsThisTurn ? "Bills drawn this turn" : "Draw during the Play phase"))}
+              onClick={() => (canDraw ? board.setDrawingBills(true) : board.flash(phaseStage !== "collect" ? "Mash bills are drawn in the Collect phase" : me.drewMashBillsThisTurn ? "Bills drawn this turn" : "No room or supply"))}
               style={{ padding: 6, borderRadius: 8, fontFamily: MONO, fontWeight: 700, fontSize: 9.5, letterSpacing: ".06em", textTransform: "uppercase", cursor: canDraw ? "pointer" : "default", border: 0, opacity: canDraw ? 1 : 0.55, color: canDraw ? PRIMARY_INK : C.faint, background: canDraw ? PRIMARY : SURFACE.inset }}
             >
-              ＋ Draw a mash bill
+              {phaseStage === "collect" ? "＋ Draw a mash bill" : "Drawn in Collect"}
             </button>
           </div>
         ))}
