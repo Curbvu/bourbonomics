@@ -45,9 +45,24 @@ export function isBotTurn(state: GameState): boolean {
 export function botAction(state: GameState): Action {
   const me = state.players[state.currentPlayerIndex]!;
 
-  // ---- Collect: keep-then-roll, then draft toward needs, pass the rest ----
+  // ---- Collect: draw a bill, then keep-then-roll, draft toward needs, pass ----
   if (state.roundPhase === "collect") {
     const c = state.collect!;
+    // 0. Draw a mash bill FIRST (so we know what grain to draft toward) when
+    //    there's rickhouse room and we aren't hoarding resting barrels.
+    const restingNow = me.rickhouse.filter((x) => !x.built).length;
+    if (!me.drewMashBillsThisTurn && rickhouseCapacity(me) - me.rickhouse.length > 0 && restingNow < 2 && state.mashBillSupply.length > 0) {
+      const reveal = state.mashBillSupply.slice(0, mashFloorDraw(me));
+      const handKinds = me.hand.map((cd) => cd.kind);
+      let best = 0, bestScore = -1e9;
+      reveal.forEach((bill, i) => {
+        let s = 0;
+        for (const k of ALL_KINDS) s += Math.min(bill.recipe[k] ?? 0, handKinds.filter((h) => h === k).length);
+        s -= Object.values(bill.recipe).reduce((a, n) => a + (n ?? 0), 0) * 0.1; // prefer smaller recipes
+        if (s > bestScore) { bestScore = s; best = i; }
+      });
+      return { type: "DRAW_MASH_BILLS", keepIndexes: [best] };
+    }
     const room = Math.max(0, warehouseCap(me) - me.hand.length);
     const needs = me.rickhouse.filter((b) => !b.built).flatMap(need);
     const want = [...needs, "cask", "corn", "cask", "barley", "rye", "wheat"] as ResourceKind[];
@@ -105,22 +120,7 @@ export function botAction(state: GameState): Action {
   const buildable = me.rickhouse.find((x) => !x.built && need(x).length === 0);
   if (buildable) return { type: "MAKE_BOURBON", barrelId: buildable.id, resourceCardIds: [] };
 
-  // 4. Draw a bill when there's room and we aren't hoarding resting barrels.
-  const resting = me.rickhouse.filter((x) => !x.built).length;
-  if (!me.drewMashBillsThisTurn && rickhouseCapacity(me) - me.rickhouse.length > 0 && resting < 2 && state.mashBillSupply.length > 0) {
-    const reveal = state.mashBillSupply.slice(0, mashFloorDraw(me));
-    const handKinds = me.hand.map((cd) => cd.kind);
-    let best = 0, bestScore = -1e9;
-    reveal.forEach((bill, i) => {
-      let s = 0;
-      for (const k of ALL_KINDS) s += Math.min(bill.recipe[k] ?? 0, handKinds.filter((h) => h === k).length);
-      s -= Object.values(bill.recipe).reduce((a, n) => a + (n ?? 0), 0) * 0.1; // prefer smaller recipes
-      if (s > bestScore) { bestScore = s; best = i; }
-    });
-    return { type: "DRAW_MASH_BILLS", keepIndexes: [best] };
-  }
-
-  // 5. Grow capacity when comfortably affordable (exercises the ramp + ultimates).
+  // 4. Grow capacity when comfortably affordable (exercises the ramp + ultimates).
   const cost = improvementCost(me.improvements, 0);
   if (me.capital >= cost + 3) {
     const dep =

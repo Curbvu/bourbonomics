@@ -113,7 +113,7 @@ export const TUT_BEATS: TutBeat[] = [
   {
     id: "collect-intro",
     title: "Collect Resources",
-    body: "Now you gather what you'll brew with. **Roll the dice to see which resources you can collect** — each die is a **cask**, a **grain** (corn / rye / wheat / barley), or a wild **✦** you can assign to any pile.",
+    body: "Now you gather what you'll brew with. First you'll **draw a recipe** so you know what grain to chase, then **roll & draft dice** for it — each die is a **cask**, a **grain** (corn / rye / wheat / barley), or a wild **✦** for any pile.",
     spotlight: "begin",
     cta: "Next",
   },
@@ -128,14 +128,42 @@ export const TUT_BEATS: TutBeat[] = [
     goal: (a) => a.type === "BEGIN_COLLECT",
   },
   {
+    id: "draw-open",
+    title: "Draw a mash bill",
+    body: "Your Collect turn opens by picking a **recipe** — so you know what grain to gather. Every **open barrel slot** can pull a mash bill: press **Draw a mash bill**. We've stocked a simple one for you.",
+    spotlight: "draw",
+    hint: "Press Draw a mash bill on an open slot.",
+    step: 2,
+    advanceOnDrawOpen: true,
+    // stock a simple bill offer; the turn's draw allowance is fresh.
+    onEnter: (g) => {
+      const d = structuredClone(g);
+      d.mashBillSupply = [singleBarrelBill(0), singleBarrelBill(1), singleBarrelBill(2), ...d.mashBillSupply];
+      d.players[0]!.drewMashBillsThisTurn = false;
+      return d;
+    },
+    allow: () => false, // only opening the picker (a local action) advances this step
+  },
+  {
+    id: "draw-keep",
+    title: "Keep the recipe",
+    body: "These are the mash bills you drew. Pick a **Single Barrel Select**, then press **Keep** to rest it in your rickhouse — now you can see exactly which grain to draft.",
+    spotlight: "bills",
+    spotlightAfterPick: { count: 1, target: "keep" },
+    hint: "Tap a Single Barrel Select, then Keep.",
+    step: 3,
+    allow: (a) => a.type === "DRAW_MASH_BILLS" && a.keepIndexes.length >= 1,
+    goal: (a) => a.type === "DRAW_MASH_BILLS",
+  },
+  {
     id: "draft",
     title: "Draft your resources",
-    body: "Each die is a resource — **cask, corn, rye, barley**. Tap **all four dice** to collect one of each (watch them fly to your Warehouse), then press **Claim & pass** to bank them.",
+    body: "Now gather the grain your recipe needs. Each die is a resource — **cask, corn, rye, barley**. Tap **all four dice** (watch them fly to your Warehouse), then press **Claim & pass**.",
     spotlight: "dice",
     // once all four are tapped, move the halo to the Claim & pass button.
     spotlightAfterDraft: { count: 4, target: "pass" },
     hint: "Tap all four dice, then press Claim & pass.",
-    step: 2,
+    step: 4,
     // dice rolled on BEGIN_COLLECT — rig the faces to exactly one of each resource.
     onEnter: (g) => {
       const d = structuredClone(g);
@@ -147,46 +175,21 @@ export const TUT_BEATS: TutBeat[] = [
     goal: (a) => a.type === "COLLECT_CLAIM",
   },
   {
-    id: "draw-open",
-    title: "Draw mash bills",
-    body: "The **Play** phase is where you brew — your distillery fills the center stage. Every **open barrel slot** can pull a recipe: press **Draw a mash bill** to reveal some. We've stocked a simple one for you.",
-    spotlight: "draw",
-    hint: "Press Draw a mash bill on an open slot.",
-    step: 3,
-    advanceOnDrawOpen: true,
-    // guarantee a buildable hand (keep what they collected; ensure cask + corn)
-    // and a simple bill offer.
-    onEnter: (g) => {
-      const d = structuredClone(g);
-      const hand = d.players[0]!.hand;
-      // ensure the recipe's resources are on hand (cask + corn + barley)
-      for (const k of ["cask", "corn", "barley"] as ResourceKind[]) {
-        if (!hand.some((c) => c.kind === k)) hand.push(res(k, 1));
-      }
-      d.mashBillSupply = [singleBarrelBill(0), singleBarrelBill(1), singleBarrelBill(2), ...d.mashBillSupply];
-      d.players[0]!.drewMashBillsThisTurn = false;
-      return d;
-    },
-    allow: () => false, // only opening the picker (a local action) advances this step
-  },
-  {
-    id: "draw-keep",
-    title: "Keep the recipe",
-    body: "These are the mash bills you drew. Pick a **Single Barrel Select**, then press **Keep** to bring it into your rickhouse as a resting barrel.",
-    spotlight: "bills",
-    spotlightAfterPick: { count: 1, target: "keep" },
-    hint: "Tap a Single Barrel Select, then Keep.",
-    step: 4,
-    allow: (a) => a.type === "DRAW_MASH_BILLS" && a.keepIndexes.length >= 1,
-    goal: (a) => a.type === "DRAW_MASH_BILLS",
-  },
-  {
     id: "stage",
     title: "Stage your resources",
-    body: "Move your **cask**, **corn**, and **grain** onto the recipe. Staged cards lock to the barrel and free Warehouse space. Use **Stage** until the recipe is full.",
+    body: "Now in **Play**, move your **cask**, **corn**, and **grain** onto the recipe. Staged cards lock to the barrel and free Warehouse space. Use **Stage** until the recipe is full.",
     spotlight: "resting",
     hint: "Stage each resource the recipe needs.",
     step: 5,
+    // safety: ensure the recipe's grain is on hand (the draft should have supplied it).
+    onEnter: (g) => {
+      const d = structuredClone(g);
+      const hand = d.players[0]!.hand;
+      for (const k of ["cask", "corn", "barley"] as ResourceKind[]) {
+        if (!hand.some((c) => c.kind === k)) hand.push(res(k, 1));
+      }
+      return d;
+    },
     allow: (a) => a.type === "STAGE",
     advanceWhen: (g) =>
       g.players[0]!.rickhouse.some((b) => !b.built && b.staged.length >= recipeSize(b.recipe)),
@@ -226,7 +229,7 @@ export const TUT_BEATS: TutBeat[] = [
   {
     id: "done",
     title: "That's the loop!",
-    body: "**Demand → Collect → Play → age → repeat** until the demand deck runs dry. You bank **Capital** from every sale and **prestige** from finishing orders — most points wins. Grow your seven departments to draw harder, hold more, and sell richer. Now play a full game!",
+    body: "**Demand → Collect → Play → age → repeat** until someone completes **8 orders**. You bank **Capital** from every sale and **prestige** from finishing orders — most points wins. Grow your **five departments** to draw harder, hold more, and sell richer. Now play a full game!",
     cta: "Finish",
   },
 ];

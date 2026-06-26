@@ -345,6 +345,8 @@ function startCollectTurn(draft: GameState, inherited: Die[]): void {
   const pIndex = c.order[c.pos]!;
   const player = draft.players[pIndex]!;
   draft.currentPlayerIndex = pIndex;
+  // Each Collect turn opens with a fresh mash-bill draw allowance.
+  player.drewMashBillsThisTurn = false;
   c.inherited = inherited.map((d) => ({ ...d }));
   c.dice = inherited.map((d) => ({ ...d })); // inherited dice go straight onto the table
   c.rerollsUsed = 0;
@@ -914,7 +916,9 @@ export function applyAction(state: GameState, action: Action): ActionResult {
       return error ? refuse(error) : { ok: true, state: draft };
     }
     case "DRAW_MASH_BILLS": {
-      if (draft.roundPhase !== "play") return refuse("not the Play Phase");
+      // Drawing mash bills now happens at the start of your Collect turn (pick
+      // your recipes, then draft the grain to fill them).
+      if (draft.roundPhase !== "collect") return refuse("draw mash bills during the Collect Phase");
       const error = handleDrawMashBills(draft, player, action.keepIndexes);
       return error ? refuse(error) : { ok: true, state: draft };
     }

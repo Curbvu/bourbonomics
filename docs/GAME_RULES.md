@@ -81,11 +81,12 @@ The **Marketing Department** shapes the Demand Phase (e.g. how many cards drawn 
 **One pass around the table, most-Capital-first.** (Deliberate: the leader rolls a fresh set first; later players inherit a richer pool of pre-rolled dice to cherry-pick, compensating for going later.)
 
 **On your collect turn:**
-1. **Inherit** the leftover dice passed from the previous player. They go straight **onto your table** and **count against your Supply cap**.
-2. **Keep, then roll.** Tap the inherited dice you want to **keep**; everything else (plus enough fresh dice to fill your table up to your **Supply** cap) is then **rolled**. *(With no inherited dice — e.g. the first player — you simply roll a full fresh set.)* This first roll is **free**.
-3. **One reroll at the base level** — keep what you like, reroll the rest. *(The Supply "Second Reroll" ultimate grants a second.)*
-4. **Claim** dice into resources — each claimed die draws the top card of its matching pile (blind quality); an **anything** die draws from any one pile you choose. Claim up to what fits your **Warehouse**.
-5. **Pass** all unclaimed dice to the next player.
+1. **Draw Mash Bills (recipes first).** Reveal **Mash Floor**-many mash bills and keep any as resting (unbuilt) barrels — pick your recipes *before* you draft, so you know which grain to chase. **Once per turn**; blocked when the rickhouse is full.
+2. **Inherit** the leftover dice passed from the previous player. They go straight **onto your table** and **count against your Supply cap**.
+3. **Keep, then roll.** Tap the inherited dice you want to **keep**; everything else (plus enough fresh dice to fill your table up to your **Supply** cap) is then **rolled**. *(With no inherited dice — e.g. the first player — you simply roll a full fresh set.)* This first roll is **free**.
+4. **One reroll at the base level** — keep what you like, reroll the rest. *(The Supply "Second Reroll" ultimate grants a second.)*
+5. **Claim** dice into resources — each claimed die draws the top card of its matching pile (blind quality); an **anything** die draws from any one pile you choose. Claim up to what fits your **Warehouse**.
+6. **Pass** all unclaimed dice to the next player.
 
 One loop only; when the last player passes, the phase ends and leftover dice return to the pool. Rejected dice are optionality handed forward, not waste.
 
@@ -95,9 +96,10 @@ One loop only; when the last player passes, the phase ends and leftover dice ret
 
 Round-robin. **No action economy** — take unlimited actions, gated only by resources, departments, and capacity.
 
+*(Recipes are chosen earlier — **Draw Mash Bills** now happens at the start of your Collect turn, so resting barrels are already on your rickhouse when Play begins.)*
+
 | Action | Effect |
 |---|---|
-| **Draw Mash Bills** | Draw mash bills as resting unbuilt barrels. Count = **Mash Floor**. **Once per turn.** |
 | **Stage** | Move a **recipe-matched** resource card from hand onto a resting barrel. Staged cards leave the hand (free Warehouse) but **lock to that barrel** *(a Warehouse ultimate unlocks them)*. |
 | **Make Bourbon** | When a resting barrel's recipe is fully met (staged and/or committed from hand), build it. **Quality = best card committed.** Begins aging at age 0 *(age 1 with the Char & Toast ultimate)*. |
 | **Sell (Extract)** | Extract one sale from a built, aged batch (age ≥ 2) into a matching **demand card slot** (no glut). See §Selling. Banks Capital every time. |
@@ -112,7 +114,7 @@ Round-robin. **No action economy** — take unlimited actions, gated only by res
 - **The bourbon rule:** every mash bill requires **exactly 1 cask**, **at least 1 corn**, and **at least 1 grain** (rye / wheat / barley) — no cask/corn-only recipes. More complex bills add more resources.
 - **Tags (matchable identity):** every bourbon carries one or more **tags** (seeded with the grain identities — rye / wheat / highCorn / fourGrain / classic). Tags are shown **right-side and color-coded** on both the bourbon card and the demand cards, so filling an order is a visual pattern-match ("my crimson bourbon fills that crimson order"). A demand card's required tags must **all** be present on the bourbon.
 - **batchQty by quality:** how many sales a built barrel yields over its life is set by its **quality tier**, NOT its recipe — **Common = 1** (one-and-done), scaling up to **3** at Legendary. Per-bill `batchQtyBias` allows off-curve variance (a Common bill that still yields 2). Data-driven, `[PH]`.
-- **Two-step production:** Draw Mash Bills lays a recipe as a resting (non-aging) barrel; Stage/Make Bourbon builds it.
+- **Two-step production:** Draw Mash Bills (at the start of your Collect turn) lays a recipe as a resting (non-aging) barrel; Stage/Make Bourbon (in Play) builds it.
 - **Warehouse cap is a claim-time gate** — you can never *claim* past cap; there is no round-end discard. Loose (uncommitted) resource cards count against cap; staged/built cards do not. A lucky premium pull with no matching resting barrel sits loose and eats cap (the premium-hold tension).
 - **Aging is set-and-forget:** every built barrel ages **+1 at the end of Play**. **No aging ceiling — barrels age freely.** Sellable at **age ≥ 2**.
 
@@ -267,7 +269,7 @@ The two score sources both flow from the single act of selling into demand, diff
 
 # 🔁 The Core Loop
 
-**Demand Phase** (draw 1 card, read the zone, check the crash) → **Collect Phase** (roll/inherit/keep/reroll, claim resources into Warehouse, pass leftovers) → **Play Phase** (draw mash bills, stage & make bourbon, sell into demand for Capital + complete cards for Prestige, improve departments) → age all barrels +1 → repeat until a player has completed 8 cards → finish the round → score Capital + Prestige.
+**Demand Phase** (draw 1 card, read the zone, check the crash) → **Collect Phase** (draw mash bills, then roll/inherit/keep/reroll, claim resources into Warehouse, pass leftovers) → **Play Phase** (stage & make bourbon, sell into demand for Capital + complete cards for Prestige, improve departments) → age all barrels +1 → repeat until a player has completed 8 cards → finish the round → score Capital + Prestige.
 
 ---
 
