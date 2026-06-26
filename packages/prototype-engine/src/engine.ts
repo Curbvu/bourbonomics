@@ -559,6 +559,8 @@ function handleDrawMashBills(draft: GameState, player: Player, keepIndexes: numb
       styleTag: bill.styleTag,
       tags: [...bill.tags],
       recipe: { ...bill.recipe },
+      primeStart: bill.primeStart,
+      primeEnd: bill.primeEnd,
       staged: [],
       built: false,
       age: 0,
@@ -717,7 +719,7 @@ function handleSell(
   // Payoff = (age-track value + the order's value) × the demand-zone MULTIPLIER
   // (×1/×2/×3 for Low/Mid/High). The order value (card_bonus) is the only
   // additive term — no recipe premium, no distribution.
-  const payoff = (barrelValue(bourbon.quality, bourbon.age) + card.orderValue) * zoneMultiplier(zone);
+  const payoff = barrelValue(bourbon.quality, bourbon.age, bourbon.primeStart, bourbon.primeEnd) * zoneMultiplier(zone);
   const completed = card.filledBy.every((f) => f !== null);
 
   player.capital += payoff;

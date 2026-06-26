@@ -86,6 +86,13 @@ export interface MashBill {
    * curve; the built barrel's batchQty = batchQtyForQuality(quality, bias).
    */
   batchQtyBias: number;
+  /**
+   * The bourbon's PRIME age window (inclusive years). Sells for `prime` value
+   * inside [primeStart, primeEnd], `younger` below it, `older` above. The built
+   * barrel inherits this window. `[PH]`.
+   */
+  primeStart: number;
+  primeEnd: number;
   placeholder: true;
 }
 
@@ -105,14 +112,13 @@ export interface DemandRequirement {
 }
 
 /**
- * A demand card — the four-section grammar (On Start / Requirement / On Fill /
- * On Completed), realized as data. 🚧 Card CONTENT is placeholder; the
- * STRUCTURE is real.
+ * A demand card. A bourbon that meets the `requirement` fills one of its slots,
+ * banking that sale's value (age-phase value × zone). Completing every slot
+ * hands the card to the completer for `reputation` (Prestige). 🚧 Card CONTENT
+ * is placeholder; the STRUCTURE is real.
  *
- *   - `requirement`  : the Requirement section (what fills a slot).
- *   - `orderValue`   : the On Fill reward — Capital added to the bourbon's age
- *                      value BEFORE the demand-zone multiplier (×1/×2/×3).
- *   - `reputation`   : the On Completed reward — Reputation kept by the completer.
+ *   - `requirement`  : what a bourbon must be to fill a slot.
+ *   - `reputation`   : Prestige kept by the player who completes the card.
  *   - `slotMultiple` : fills per player (1 = player count slots; 2 = twice that…).
  *   - `slotsActive`  : how many slots are live this game (= slotMultiple × players).
  *   - `filledBy`     : player id in each active slot, or null (length = slotsActive).
@@ -126,8 +132,6 @@ export interface DemandCard {
   slotMultiple: number;
   slotsActive: number;
   filledBy: (string | null)[];
-  /** Capital this order adds to the bourbon's value before the zone multiplier. */
-  orderValue: number;
   reputation: number;
   placeholder: true;
 }
@@ -165,6 +169,9 @@ export interface Bourbon {
   tags: StyleTag[];
   /** The recipe this barrel needs to be built — shown as requirements while unbuilt. */
   recipe: Partial<Record<ResourceKind, number>>;
+  /** Prime age window (inclusive) inherited from the mash bill — sells for `prime` value inside it. */
+  primeStart: number;
+  primeEnd: number;
   /**
    * Resource cards STAGED onto this (unbuilt) barrel ahead of building. Staged
    * cards have left the Warehouse (they free hold cap) and lock to the barrel

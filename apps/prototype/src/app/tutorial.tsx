@@ -44,7 +44,7 @@ function singleBarrelBill(i: number): MashBill {
   return {
     id: `tut_sb_${i}`, defId: "mb_single_barrel", name: "Single Barrel Select",
     traits: ["clean"], expression: "bourbon", styleTag: "classic", tags: ["classic"],
-    recipe, batchQtyBias: 0, placeholder: true,
+    recipe, batchQtyBias: 0, primeStart: 6, primeEnd: 8, placeholder: true,
   };
 }
 
@@ -52,7 +52,7 @@ function houseOrder(): DemandCard {
   return {
     id: "tut_order", defId: "dm_house", label: "House Pour", requirement: {},
     slotMultiple: 1, slotsActive: 1, filledBy: [null],
-    orderValue: 2, reputation: 3, placeholder: true,
+    reputation: 3, placeholder: true,
   };
 }
 

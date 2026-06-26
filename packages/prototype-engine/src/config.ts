@@ -59,22 +59,24 @@ export const CONFIG = {
   // order's value) × the demand-zone MULTIPLIER. There is no recipe premium and
   // no Distribution add-on — the order's value (card_bonus) is the only additive
   // term. `[PH]` — edit freely.
-  // The locked quality ladder (only the breakpoints where value climbs are
-  // listed; ages in between hold the last value via barrelValue's hold-forward).
-  AGE_VALUE_TABLE: {
-    common: { 2: 1, 3: 1, 4: 2 },
-    uncommon: { 2: 1, 3: 1, 4: 2, 5: 2, 6: 3 },
-    rare: { 2: 1, 3: 2, 4: 2, 5: 3, 6: 3, 7: 4, 8: 4 },
-    epic: { 2: 2, 3: 2, 4: 3, 5: 3, 6: 4, 7: 4, 8: 5, 10: 6, 12: 7 },
-    legendary: { 2: 2, 3: 3, 4: 3, 5: 4, 6: 4, 7: 5, 8: 5, 10: 6, 12: 7, 15: 9, 18: 11 },
-  } as Record<Quality, Record<number, number>>,
-  /** The year each tier's value caps (value stops climbing; the barrel may age on). `[PH]`. */
-  QUALITY_CAP_AGE: { common: 4, uncommon: 6, rare: 8, epic: 12, legendary: 18 } as Record<Quality, number>,
+  // Age → value as THREE PHASES (younger / prime / older). A bourbon sells for
+  // one of three values depending on where its age sits relative to its mash
+  // bill's PRIME window (e.g. 6–8 yrs): too young (pre-prime), prime (the peak,
+  // in [start,end]), or past-prime (older). The magnitudes scale with QUALITY —
+  // a Legendary's prime beats a Common's. `[PH]`.
+  AGE_PHASE_VALUE: {
+    common: { younger: 1, prime: 2, older: 1 },
+    uncommon: { younger: 1, prime: 3, older: 2 },
+    rare: { younger: 2, prime: 4, older: 3 },
+    epic: { younger: 2, prime: 6, older: 4 },
+    legendary: { younger: 3, prime: 8, older: 5 },
+  } as Record<Quality, { younger: number; prime: number; older: number }>,
+  /** Default prime window (inclusive years) for a mash bill that doesn't set one. `[PH]`. */
+  PRIME_DEFAULT: { start: 6, end: 8 },
   /**
    * Demand zone MULTIPLIER — a simple ×1 / ×2 / ×3 for Low / Mid / High, read
-   * from the number of cards on the table. It scales the SUM of (age value +
-   * the matched order's value); the complexity premium and Distribution are
-   * added after, flat. `[PH]`.
+   * from the number of cards on the table. It scales the bourbon's age-phase
+   * value at sale time (the only payout term). `[PH]`.
    */
   ZONE_MULTIPLIER: { low: 1, mid: 2, high: 3 } as Record<Zone, number>,
 
@@ -142,30 +144,29 @@ export function zoneForCardCount(count: number): Zone {
 }
 
 /**
- * Barrel value read off the printed age track by (tier, age) — a 1-D lookup,
- * NOT a formula. Below MIN_SELL_AGE it's 0; at/above the tier's cap it holds the
- * cap value; ages between listed entries hold the last listed value.
+ * The sale value of a bourbon by its age PHASE relative to its prime window:
+ * 0 below MIN_SELL_AGE, then `younger` (pre-prime), `prime` (in [start,end]), or
+ * `older` (past prime). Quality sets the three magnitudes.
  */
-export function barrelValue(quality: Quality, age: number): number {
+export function barrelValue(quality: Quality, age: number, primeStart: number, primeEnd: number): number {
   if (age < CONFIG.MIN_SELL_AGE) return 0;
-  const table = CONFIG.AGE_VALUE_TABLE[quality];
-  const lookAge = Math.min(age, CONFIG.QUALITY_CAP_AGE[quality]);
-  let val = 0;
-  for (let a = CONFIG.MIN_SELL_AGE; a <= lookAge; a++) {
-    const v = table[a];
-    if (v !== undefined) val = v; // hold-forward: keep the last listed value
-  }
-  return val;
+  const v = CONFIG.AGE_PHASE_VALUE[quality];
+  if (age < primeStart) return v.younger;
+  if (age <= primeEnd) return v.prime;
+  return v.older;
 }
 
-/** The demand zone multiplier (×1/×2/×3) applied to (age value + order value) at sale time. */
+/** Which age phase a barrel is in (for the UI 3-phase display). */
+export function barrelPhase(age: number, primeStart: number, primeEnd: number): "unsellable" | "younger" | "prime" | "older" {
+  if (age < CONFIG.MIN_SELL_AGE) return "unsellable";
+  if (age < primeStart) return "younger";
+  if (age <= primeEnd) return "prime";
+  return "older";
+}
+
+/** The demand zone multiplier (×1/×2/×3) applied to the age-phase value at sale time. */
 export function zoneMultiplier(zone: Zone): number {
   return CONFIG.ZONE_MULTIPLIER[zone];
-}
-
-/** The age at which a tier's track value caps (for UI / hints). */
-export function capAge(quality: Quality): number {
-  return CONFIG.QUALITY_CAP_AGE[quality];
 }
 
 /** Total resources a recipe requires (its complexity). */
