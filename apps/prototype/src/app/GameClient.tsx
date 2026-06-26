@@ -15,9 +15,9 @@ import {
   createGame,
   improvementCost,
   barrelValue,
+  barrelPhase,
   zoneForCardCount,
   zoneMultiplier,
-  capAge,
   meetsRequirement,
   reputationOf,
   rickhouseCapacity as fnRick,
@@ -52,6 +52,8 @@ type BillLike = {
   tags: StyleTag[];
   recipe: Partial<Record<ResourceKind, number>>;
   batchQtyBias: number;
+  primeStart: number;
+  primeEnd: number;
   slogan?: string;
 };
 type Inspect =
@@ -1391,29 +1393,44 @@ function WarehouseDeptCard(props: StageProps) {
 }
 
 // ── Demand stage — draw the round's order + market-heat meter ──────────
-function DemandStage({ board, zone }: StageProps) {
+// The Rickhouse stays visible (read-only) below the draw so "what you're
+// building" is on screen in every phase.
+function DemandStage(props: StageProps) {
+  const { board, zone, me, rickCap } = props;
   const game = board.game;
   const [revealed, setRevealed] = useState(false);
   const count = game.demandCards.length;
   const featured = game.demandCards[count - 1];
+  const agingBarrels = me.rickhouse.filter((b) => b.built);
+  const restingBarrels = me.rickhouse.filter((b) => !b.built);
+  const openCount = Math.max(0, rickCap - me.rickhouse.length);
+  const office = fnMash(me);
   return (
-    <section style={{ ...STAGE_PANEL, display: "flex", flexDirection: "column", padding: "16px 20px" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: C.amber }}>Demand Phase</span>
-        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.ink }}>Read the Market</span>
-        <span style={{ fontSize: 12, color: C.text2 }}>A new order joins the table — the zone &amp; crash sit in the Market rail. Open the draft when you&apos;re ready.</span>
-      </div>
-
-      <div style={{ flex: 1, minHeight: 0, marginTop: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+    <section style={{ ...STAGE_PANEL, display: "flex", flexDirection: "column", padding: "16px 20px", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flex: "0 0 auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: C.amber }}>Demand Phase</span>
+          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.ink, lineHeight: 1 }}>Read the Market</span>
+          <span style={{ fontSize: 11, color: C.text2, maxWidth: 240 }}>A new order joins the table — the zone &amp; crash sit in the Market rail.</span>
+        </div>
         {!revealed || !featured ? (
-          <button className="bb-card" onClick={() => setRevealed(true)} style={{ width: 210, height: 280, borderRadius: 16, cursor: "pointer", border: `2px dashed ${C.brass}`, background: "repeating-linear-gradient(135deg,#f3e6c8 0 10px,#efe0bf 10px 20px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, color: C.brass }}>
-            <span style={{ fontSize: 40 }}>🂠</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.6 }}>Draw this<br />round&apos;s order</span>
+          <button className="bb-card" onClick={() => setRevealed(true)} style={{ width: 150, height: 190, borderRadius: 14, cursor: "pointer", border: `2px dashed ${C.brass}`, background: "repeating-linear-gradient(135deg,#f3e6c8 0 10px,#efe0bf 10px 20px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, color: C.brass }}>
+            <span style={{ fontSize: 32 }}>🂠</span>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.6 }}>Draw this<br />round&apos;s order</span>
           </button>
         ) : (
-          <div style={{ animation: "bb-rise .4s ease-out" }}><DemandCardFace card={featured} zone={zone} /></div>
+          <div style={{ animation: "bb-rise .4s ease-out", transform: "scale(.82)", transformOrigin: "left center" }}><DemandCardFace card={featured} zone={zone} /></div>
         )}
+        <div style={{ flex: 1 }} />
         <button className="bb-btn" onClick={() => board.dispatch({ type: "BEGIN_COLLECT" })} style={{ padding: "13px 28px", borderRadius: 12, background: PRIMARY, color: PRIMARY_INK, fontFamily: MONO, fontWeight: 700, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", border: 0, boxShadow: PRIMARY_SHADOW }} data-tut="begin">Begin the Collect draft →</button>
+      </div>
+
+      {/* read-only Rickhouse — visible in every phase */}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, marginBottom: 6 }}>Your Rickhouse · what you&apos;re building</span>
+        <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1fr" }}>
+          <RickhouseRoom {...props} agingBarrels={agingBarrels} restingBarrels={restingBarrels} openCount={openCount} office={office} noRoom={openCount <= 0} supplyEmpty={game.mashBillSupply.length === 0} isActor={false} compact />
+        </div>
       </div>
     </section>
   );
@@ -1436,8 +1453,7 @@ function DemandCardFace({ card, zone }: { card: DemandCard; zone: Zone }) {
       <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 24, color: C.ink, lineHeight: 1.05 }}>{card.label}</div>
       <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>{requirementText(card.requirement)}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 10, borderTop: `1px solid ${C.hairline}` }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>order</span>
-        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: C.gold }}>+{card.orderValue}</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: C.muted }}>Completes for</span>
         <span style={{ flex: 1 }} />
         <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 9px", borderRadius: 999, background: "rgba(138,95,176,.14)", border: `1px solid ${C.prestige}` }}>
           <span style={{ fontSize: 13, color: C.prestige }}>★</span>
@@ -1468,14 +1484,25 @@ function DiceDraftStage(props: StageProps) {
   const restingBarrels = me.rickhouse.filter((b) => !b.built);
   const openCount = Math.max(0, rickCap - me.rickhouse.length);
   const office = fnMash(me);
+  // Mash bills are drawn here at the top of the Collect turn (before rolling).
+  const canDrawBill = !me.drewMashBillsThisTurn && game.mashBillSupply.length > 0 && openCount > 0;
 
   return (
     <section style={{ ...STAGE_PANEL, display: "flex", flexDirection: "column", padding: "14px 18px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", color: C.amber }}>Collect Phase</span>
         <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.ink }}>The Dice Draft</span>
-        <span style={{ fontSize: 12, color: C.text2 }}>{preRoll ? "Keep the inherited dice you like, then roll the rest." : "Tap a die to draw it into your Warehouse, then pass the leftovers on."}</span>
+        <span style={{ fontSize: 12, color: C.text2 }}>{preRoll ? "Draw a mash bill, keep the inherited dice you like, then roll the rest." : "Tap a die to draw it into your Warehouse, then pass the leftovers on."}</span>
         <div style={{ flex: 1 }} />
+        <button
+          data-tut="draw"
+          className="bb-btn"
+          disabled={!canDrawBill}
+          onClick={() => (canDrawBill ? board.setDrawingBills(true) : board.flash(me.drewMashBillsThisTurn ? "Bills drawn this turn" : openCount <= 0 ? "No open barrel slot" : "Mash-bill supply empty"))}
+          style={{ padding: "8px 14px", borderRadius: 9, fontFamily: MONO, fontWeight: 700, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", cursor: canDrawBill ? "pointer" : "default", border: `1px solid ${C.copper}`, opacity: canDrawBill ? 1 : 0.5, color: canDrawBill ? "#fff7ea" : C.faint, background: canDrawBill ? "linear-gradient(180deg,#e0a44e,#b06a38)" : SURFACE.inset, boxShadow: canDrawBill ? "inset 0 1px 0 rgba(255,255,255,.4)" : undefined }}
+        >
+          {me.drewMashBillsThisTurn ? "✓ Mash bill drawn" : "＋ Draw a mash bill"}
+        </button>
         <Readout label="SUPPLY" value={`${supplyCap} dice`} color={C.amber} />
         <Readout label="HOLD" value={`${heldTotal}/${warehouseCap}`} color={whFull ? C.red : C.green} border={whFull ? C.red : C.border} />
       </div>
@@ -1711,16 +1738,13 @@ function RickhouseRoom(props: RickProps) {
       <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `repeat(${rickCap}, minmax(0,1fr))`, gap: 10, alignContent: "start", overflow: "hidden" }}>
         {agingBarrels.map((b) => {
           const sellable = b.age >= CONFIG.MIN_SELL_AGE && b.salesRemaining > 0;
-          const trackVal = barrelValue(b.quality, b.age);
-          const baseValue = trackVal * zoneMultiplier(zone);
+          const phase = barrelPhase(b.age, b.primeStart, b.primeEnd);
+          const baseValue = barrelValue(b.quality, b.age, b.primeStart, b.primeEnd) * zoneMultiplier(zone);
           const qc = QUALITY_CHROME[b.quality] ?? QUALITY_CHROME.common!;
-          const capYear = capAge(b.quality);
-          const trackSteps: { age: number; value: number }[] = [];
-          for (let a = CONFIG.MIN_SELL_AGE, last = -1; a <= capYear; a++) {
-            const v = barrelValue(b.quality, a);
-            if (v !== last) { trackSteps.push({ age: a, value: v }); last = v; }
-          }
-          const activeStep = trackSteps.reduce((acc, s, i) => (b.age >= s.age ? i : acc), -1);
+          // The three phase payouts (× zone), sampled at a representative age each.
+          const phases = ([["younger", CONFIG.MIN_SELL_AGE], ["prime", b.primeStart], ["older", b.primeEnd + 1]] as const).map(
+            ([ph, a]) => ({ ph, value: barrelValue(b.quality, a, b.primeStart, b.primeEnd) * zoneMultiplier(zone) }),
+          );
           return (
             <button
               key={b.id}
@@ -1748,18 +1772,18 @@ function RickhouseRoom(props: RickProps) {
                 <span style={{ position: "relative", width: 38, height: 38, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #f7d999, #c69138 60%, #8a5a1d 100%)", display: "grid", placeItems: "center", animation: "bb-ember 3.2s ease-in-out infinite", flex: "0 0 auto" }}>
                   <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17, color: "#2a1a10", lineHeight: 1 }}>{b.age}</span>
                 </span>
-                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: C.ink, lineHeight: 1.1 }}>{sellable ? `sell ≈ ${baseValue}+` : "aging in oak"}</div>
+                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: C.ink, lineHeight: 1.1 }}>{sellable ? `sell ≈ ${baseValue}` : "aging in oak"}</div>
               </div>
               {!compact && (
                 <div style={{ marginTop: 7, padding: 6, borderRadius: 7, background: "#fffdf8", border: `1px solid ${qc.ink}2e` }}>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }} title="Capital value by age for this quality">
-                    {trackSteps.map((s, i) => {
-                      const active = i === activeStep;
-                      const reached = i <= activeStep;
+                  <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: ".08em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>Prime {b.primeStart}–{b.primeEnd} yrs · ×{zoneMultiplier(zone)} zone</div>
+                  <div style={{ display: "flex", gap: 4 }} title="Payout by age phase (× current zone)">
+                    {phases.map(({ ph, value }) => {
+                      const active = phase === ph;
                       return (
-                        <span key={s.age} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 28, padding: "4px 6px", borderRadius: 6, lineHeight: 1, ...(active ? { background: qc.foil, color: "#1a1206", border: `1px solid ${qc.ink}` } : reached ? { background: `${qc.ink}1c`, color: qc.ink, border: `1px solid ${qc.ink}44` } : { background: "transparent", color: C.faint, border: `1px solid ${C.hairline}` }) }}>
-                          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 17 }}>{s.value}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 8, marginTop: 1, opacity: 0.85 }}>yr{s.age}</span>
+                        <span key={ph} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "4px 2px", borderRadius: 6, lineHeight: 1, ...(active ? { background: qc.foil, color: "#1a1206", border: `1px solid ${qc.ink}` } : { background: `${qc.ink}14`, color: qc.ink, border: `1px solid ${qc.ink}33` }) }}>
+                          <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 16 }}>{value}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 6.5, letterSpacing: ".06em", textTransform: "uppercase", marginTop: 2, opacity: 0.85 }}>{ph}</span>
                         </span>
                       );
                     })}
@@ -1819,20 +1843,10 @@ function RickhouseRoom(props: RickProps) {
         })}
 
         {Array.from({ length: openCount }).map((_, i) => (
-          <div key={`open${i}`} style={{ display: "flex", flexDirection: "column", gap: 7, minWidth: 0 }}>
-            <div style={{ position: "relative", flex: 1, minHeight: 110, borderRadius: 11, border: `1.5px dashed ${C.brass}88`, background: "radial-gradient(70% 60% at 50% 30%, rgba(207,138,51,.08), transparent 70%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: 12, animation: "bb-shelf 3.6s ease-in-out infinite" }}>
-              <span style={{ width: 28, height: 28, borderRadius: 999, border: `1px solid ${C.faint}`, display: "grid", placeItems: "center", fontFamily: SERIF, fontSize: 17, color: C.muted }}>+</span>
-              <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, textAlign: "center", lineHeight: 1.6 }}>Open<br />Barrel Slot</span>
-            </div>
-            <button
-              data-tut="draw"
-              className="bb-btn"
-              disabled={!canDraw}
-              onClick={() => (canDraw ? board.setDrawingBills(true) : board.flash(phaseStage !== "collect" ? "Mash bills are drawn in the Collect phase" : me.drewMashBillsThisTurn ? "Bills drawn this turn" : "No room or supply"))}
-              style={{ padding: 6, borderRadius: 8, fontFamily: MONO, fontWeight: 700, fontSize: 9.5, letterSpacing: ".06em", textTransform: "uppercase", cursor: canDraw ? "pointer" : "default", border: 0, opacity: canDraw ? 1 : 0.55, color: canDraw ? PRIMARY_INK : C.faint, background: canDraw ? PRIMARY : SURFACE.inset }}
-            >
-              {phaseStage === "collect" ? "＋ Draw a mash bill" : "Drawn in Collect"}
-            </button>
+          <div key={`open${i}`} style={{ position: "relative", minHeight: 110, borderRadius: 11, border: `1.5px dashed ${C.brass}88`, background: "radial-gradient(70% 60% at 50% 30%, rgba(207,138,51,.08), transparent 70%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: 12, minWidth: 0, animation: "bb-shelf 3.6s ease-in-out infinite" }}>
+            <span style={{ width: 28, height: 28, borderRadius: 999, border: `1px solid ${C.faint}`, display: "grid", placeItems: "center", fontFamily: SERIF, fontSize: 17, color: C.muted }}>+</span>
+            <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted, textAlign: "center", lineHeight: 1.6 }}>Open<br />Barrel Slot</span>
+            <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", textTransform: "uppercase", color: C.faint, textAlign: "center" }}>{canDraw ? "draw a bill above" : phaseStage === "collect" ? (me.drewMashBillsThisTurn ? "bill drawn this turn" : "—") : "drawn in Collect"}</span>
           </div>
         ))}
       </div>
@@ -1867,7 +1881,6 @@ function MarketRail({ game, zone, privateCards }: { game: GameState; zone: Zone;
               <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{c.label}</span>
                 <span style={{ fontFamily: MONO, fontSize: 9, color: C.amber }}>{requirementText(c.requirement)}</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold }}>+{c.orderValue}</span>
                 <span style={{ fontFamily: MONO, fontSize: 10, color: C.prestige }}>★{c.reputation}</span>
                 <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text2 }}>{filled}/{c.slotsActive}</span>
               </div>
@@ -1932,7 +1945,6 @@ function DemandRow({ card, zone, players }: { card: DemandCard; zone: Zone; play
         {reqTags.map((t) => (
           <span key={t} title={`Requires a ${STYLE_LABEL[t]} bourbon`} style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: STYLE_CHROME[t].ink, background: STYLE_CHROME[t].border, padding: "2px 7px", borderRadius: 999 }}>{STYLE_LABEL[t]}</span>
         ))}
-        <span style={{ fontFamily: MONO, fontSize: 11, color: C.gold }} title="order value">+{card.orderValue}</span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 9px", borderRadius: 999, background: "rgba(138,95,176,.14)", border: `1px solid ${C.prestige}` }} title="prestige on completion">
           <span style={{ fontSize: 14, color: C.prestige, lineHeight: 1 }}>★</span>
           <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: C.prestige, lineHeight: 1 }}>{card.reputation}</span>
@@ -2031,6 +2043,7 @@ function BillPicker({ board }: { board: BoardProps }) {
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "auto", paddingTop: 8, borderTop: `1px dotted ${C.border2}` }}>
                 <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: C.gold, lineHeight: 1 }} title="Sales scale with quality">{1 + bill.batchQtyBias}–3</span>
                 <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", textTransform: "uppercase", color: C.muted }}>sales · by quality</span>
+                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 8, letterSpacing: ".06em", textTransform: "uppercase", color: C.muted }}>prime <b style={{ color: C.text2 }}>{bill.primeStart}–{bill.primeEnd}</b> yrs</span>
               </div>
             </button>
           );
@@ -2162,6 +2175,7 @@ function BillDetail({ bill }: { bill: BillLike }) {
       </div>
       <div style={{ display: "flex", gap: 18, fontFamily: MONO, fontSize: 12, color: C.text2 }}>
         <span><b style={{ color: C.gold }}>{1 + bill.batchQtyBias}–3</b> sales · by quality</span>
+        <span>prime <b style={{ color: C.ink }}>{bill.primeStart}–{bill.primeEnd}</b> yrs</span>
       </div>
       <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, background: SURFACE.inset, padding: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".15em", textTransform: "uppercase", color: C.muted }}>Use</span>
@@ -2356,8 +2370,9 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
   onRoute: (demandCardId?: string) => void;
   onCancel: () => void;
 }) {
-  const trackVal = barrelValue(bourbon.quality, bourbon.age);
+  const trackVal = barrelValue(bourbon.quality, bourbon.age, bourbon.primeStart, bourbon.primeEnd);
   const mult = zoneMultiplier(zone);
+  const phase = barrelPhase(bourbon.age, bourbon.primeStart, bourbon.primeEnd);
   // Public table orders first, then this player's private orders (pay at the same current zone).
   const options = [...game.demandCards, ...me.privateCards].map((c) => {
     const open = c.filledBy.indexOf(null) >= 0;
@@ -2365,7 +2380,7 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
     const filled = c.filledBy.filter((f) => f !== null).length;
     const completes = open && filled + 1 >= c.slotsActive;
     const isPrivate = me.privateCards.some((pc) => pc.id === c.id);
-    return { card: c, open, fits, completes, isPrivate, payoff: (trackVal + c.orderValue) * mult };
+    return { card: c, open, fits, completes, isPrivate, payoff: trackVal * mult };
   });
   return (
     <Scrim>
@@ -2373,7 +2388,7 @@ function SellOverlay({ game, me, bourbon, zone, onRoute, onCancel }: {
         <div>
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: C.brass }}>Sell · {STYLE_LABEL[bourbon.styleTag]} · {bourbon.quality} · age {bourbon.age}</div>
           <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: C.ink }}>{bourbon.name}</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>(value {trackVal} <span style={{ color: ZONE_META[zone].color }}>+ order</span>) <span style={{ color: ZONE_META[zone].color }}>× {mult} {ZONE_META[zone].label}</span>. Route to a matching order.</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>{phase} value {trackVal} <span style={{ color: ZONE_META[zone].color }}>× {mult} {ZONE_META[zone].label}</span> = <b style={{ color: C.gold }}>{trackVal * mult}</b> per sale. Route to a matching order.</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto" }}>
           {options.filter((o) => o.fits).length === 0 && (

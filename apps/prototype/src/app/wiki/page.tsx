@@ -319,8 +319,8 @@ function DemandTab({ cards }: { cards: DemandCard[] }) {
           <div className="mt-2 text-[13px] text-[var(--ink-muted)]">
             <span className="text-[var(--mute)]">Requirement:</span> {reqText(c.requirement)}
           </div>
-          <div className="mt-1 font-mono text-[11px] text-[var(--gold)]" title="Added to the bourbon's age value, then multiplied by the demand zone (×1 / ×2 / ×3)">
-            order value +{c.orderValue} · ×zone at sale (low ×1 · mid ×2 · high ×3)
+          <div className="mt-1 font-mono text-[11px] text-[var(--gold)]" title="The bourbon's age-phase value is multiplied by the demand zone (×1 / ×2 / ×3) at sale">
+            pays bourbon value · ×zone at sale (low ×1 · mid ×2 · high ×3)
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
             <Chip>{c.slotMultiple}× players slots</Chip>

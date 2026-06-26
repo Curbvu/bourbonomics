@@ -58,6 +58,8 @@ interface MashBillDef {
   tags?: StyleTag[];
   /** Off-curve batchQty adjustment vs. the quality baseline (variance). `[PH]`. */
   batchQtyBias?: number;
+  /** Prime age window [start,end] (inclusive). Defaults to a complexity-based band. `[PH]`. */
+  prime?: [number, number];
 }
 
 const MASH_BILL_DEFS: MashBillDef[] = [
@@ -92,6 +94,10 @@ export function buildMashBillSupply(): MashBill[] {
   const bills: MashBill[] = [];
   for (let copy = 0; copy < 2; copy++) {
     for (const def of MASH_BILL_DEFS) {
+      // Prime window: explicit, else a complexity-derived band (simple bills
+      // drink young, showpieces prime late).
+      const complexity = (Object.values(def.recipe) as (number | undefined)[]).reduce<number>((s, n) => s + (n ?? 0), 0);
+      const prime: [number, number] = def.prime ?? (complexity <= 3 ? [5, 7] : complexity >= 6 ? [7, 9] : [6, 8]);
       bills.push({
         id: `${def.defId}#${copy}`,
         defId: def.defId,
@@ -103,6 +109,8 @@ export function buildMashBillSupply(): MashBill[] {
         tags: def.tags ?? [expressionToStyle(def.expression)],
         recipe: { ...def.recipe },
         batchQtyBias: def.batchQtyBias ?? 0,
+        primeStart: prime[0],
+        primeEnd: prime[1],
         placeholder: true,
       });
     }
@@ -163,19 +171,16 @@ export function buildPile(kind: ResourceKind): ResourceCard[] {
 }
 
 // ---------------------------------------------------------------------
-// Demand deck — 🚧 PLACEHOLDER content, REAL four-section structure.
-// requirement = what fills a slot; orderValue = the On Fill reward (added to
-// the bourbon's value before the zone ×1/×2/×3); reputation = the On Completed
-// reward kept by the completer.
+// Demand deck — 🚧 PLACEHOLDER content, REAL structure.
+// requirement = what a bourbon must be to fill a slot; reputation = the Prestige
+// kept by whoever completes the card. Each filled slot banks that sale's value
+// (age-phase value × zone) — there is no separate per-order bonus.
 //
 // The deck is ~50% OPEN ("any bourbon") + ~50% GATED (tags / quality / age):
-//   • OPEN cards are the no-lockout floor — anyone can fill them, but they pay
-//     LOW (volume / Common outlet).
+//   • OPEN cards are the no-lockout floor — anyone fills them, low Prestige.
 //   • GATED cards are the competition layer — only the matching bourbon fills
-//     them, and they pay MEANINGFULLY MORE (premium outlet). The value gap is
-//     the whole point: if open paid as well, nobody would specialize. Premium
-//     cards also gate on harder production (quality+ / age+), so reward tracks
-//     total investment. All `[PH]`.
+//     them, and they keep MORE Prestige (the reason to specialize). Premium
+//     cards also gate on harder production (quality+ / age+). All `[PH]`.
 // ---------------------------------------------------------------------
 
 interface DemandCardDef {
@@ -184,25 +189,23 @@ interface DemandCardDef {
   requirement: { tags?: StyleTag[]; minAge?: number; quality?: Quality };
   /** Fills per player (1 = player count slots; 2 = twice that). `[PH]`. */
   slotMultiple: number;
-  /** Capital added to the bourbon's value before the demand-zone multiplier. `[PH]`. */
-  orderValue: number;
   reputation: number;
   count: number;
 }
 
 const DEMAND_CARD_DEFS: DemandCardDef[] = [
-  // ── OPEN floor (~50%) — any bourbon, low value, no lockout ──
-  { defId: "dm_house", label: "House Pour", requirement: {}, slotMultiple: 1, orderValue: 1, reputation: 1, count: 10 },
-  { defId: "dm_rail", label: "Bar Rail", requirement: {}, slotMultiple: 1, orderValue: 1, reputation: 2, count: 8 },
-  // ── GATED — tag competition layer (~higher value) ──
-  { defId: "dm_rye", label: "Rye Revival", requirement: { tags: ["rye"] }, slotMultiple: 1, orderValue: 3, reputation: 4, count: 3 },
-  { defId: "dm_wheat", label: "Wheated Wishlist", requirement: { tags: ["wheat"] }, slotMultiple: 1, orderValue: 3, reputation: 4, count: 3 },
-  { defId: "dm_corn", label: "Sweet-Corn Craze", requirement: { tags: ["highCorn"] }, slotMultiple: 1, orderValue: 3, reputation: 4, count: 2 },
-  { defId: "dm_fourgrain", label: "Four-Grain Feature", requirement: { tags: ["fourGrain"] }, slotMultiple: 1, orderValue: 4, reputation: 5, count: 2 },
-  // ── GATED — premium tier (harder production: quality+/age+), top value ──
-  { defId: "dm_aged", label: "Aged-Stock Order", requirement: { minAge: 4 }, slotMultiple: 1, orderValue: 4, reputation: 5, count: 3 },
-  { defId: "dm_premium", label: "Connoisseur Order", requirement: { quality: "rare" }, slotMultiple: 1, orderValue: 5, reputation: 6, count: 2 },
-  { defId: "dm_collector", label: "Collector's Cellar", requirement: { quality: "epic", minAge: 6 }, slotMultiple: 1, orderValue: 6, reputation: 9, count: 2 },
+  // ── OPEN floor (~50%) — any bourbon, low Prestige, no lockout ──
+  { defId: "dm_house", label: "House Pour", requirement: {}, slotMultiple: 1, reputation: 1, count: 10 },
+  { defId: "dm_rail", label: "Bar Rail", requirement: {}, slotMultiple: 1, reputation: 2, count: 8 },
+  // ── GATED — tag competition layer (higher Prestige) ──
+  { defId: "dm_rye", label: "Rye Revival", requirement: { tags: ["rye"] }, slotMultiple: 1, reputation: 4, count: 3 },
+  { defId: "dm_wheat", label: "Wheated Wishlist", requirement: { tags: ["wheat"] }, slotMultiple: 1, reputation: 4, count: 3 },
+  { defId: "dm_corn", label: "Sweet-Corn Craze", requirement: { tags: ["highCorn"] }, slotMultiple: 1, reputation: 4, count: 2 },
+  { defId: "dm_fourgrain", label: "Four-Grain Feature", requirement: { tags: ["fourGrain"] }, slotMultiple: 1, reputation: 5, count: 2 },
+  // ── GATED — premium tier (harder production: quality+/age+), top Prestige ──
+  { defId: "dm_aged", label: "Aged-Stock Order", requirement: { minAge: 4 }, slotMultiple: 1, reputation: 5, count: 3 },
+  { defId: "dm_premium", label: "Connoisseur Order", requirement: { quality: "rare" }, slotMultiple: 1, reputation: 6, count: 2 },
+  { defId: "dm_collector", label: "Collector's Cellar", requirement: { quality: "epic", minAge: 6 }, slotMultiple: 1, reputation: 9, count: 2 },
 ];
 
 export function buildDemandDeck(): DemandCard[] {
@@ -217,7 +220,6 @@ export function buildDemandDeck(): DemandCard[] {
         slotMultiple: def.slotMultiple,
         slotsActive: def.slotMultiple, // re-set to slotMultiple × players at lay-out
         filledBy: [],
-        orderValue: def.orderValue,
         reputation: def.reputation,
         placeholder: true,
       });

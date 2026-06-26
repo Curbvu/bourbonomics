@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyAction,
   barrelValue,
+  barrelPhase,
   batchQtyForQuality,
   buildMashBillSupply,
   createGame,
@@ -72,6 +73,8 @@ function makeBourbon(over: Partial<Bourbon> = {}): Bourbon {
     styleTag: over.styleTag ?? "classic",
     tags: over.tags ?? (over.styleTag ? [over.styleTag] : ["classic"]),
     recipe: over.recipe ?? {},
+    primeStart: over.primeStart ?? 6,
+    primeEnd: over.primeEnd ?? 8,
     staged: over.staged ?? [],
     built: over.built ?? true,
     age: over.age ?? 3,
@@ -95,7 +98,6 @@ function makeDemandCard(over: Partial<DemandCard> = {}): DemandCard {
     slotMultiple: over.slotMultiple ?? 1,
     slotsActive,
     filledBy: over.filledBy ?? Array.from({ length: slotsActive }, () => null),
-    orderValue: over.orderValue ?? 0,
     reputation: over.reputation ?? 3,
     placeholder: true,
   };
@@ -456,20 +458,25 @@ describe("make bourbon", () => {
 // barrel value — printed age track per (tier, age), value caps by tier
 // ------------------------------------------------------------------
 
-describe("barrel value (age track)", () => {
-  it("reads value off the per-(tier, age) table", () => {
-    expect(barrelValue("common", 2)).toBe(1);
-    expect(barrelValue("common", 4)).toBe(2); // cap value
-    expect(barrelValue("rare", 3)).toBe(2);
-    expect(barrelValue("legendary", 18)).toBe(11); // cap value
+describe("barrel value (age phases)", () => {
+  it("returns younger / prime / older by where age sits in the prime window", () => {
+    expect(barrelValue("common", 3, 6, 8)).toBe(1); // younger
+    expect(barrelValue("common", 7, 6, 8)).toBe(2); // prime
+    expect(barrelValue("common", 10, 6, 8)).toBe(1); // older
+    expect(barrelValue("legendary", 7, 6, 8)).toBe(8); // prime scales with quality
   });
-  it("is 0 below the minimum sell age and holds the cap value past the cap age", () => {
-    expect(barrelValue("common", 1)).toBe(0); // below MIN_SELL_AGE
-    expect(barrelValue("common", 99)).toBe(2); // holds Common's cap value (2)
-    expect(barrelValue("legendary", 99)).toBe(11); // holds Legendary's cap value (11)
+  it("is 0 below the minimum sell age", () => {
+    expect(barrelValue("common", 1, 6, 8)).toBe(0);
   });
-  it("climbs to the cap year with no dead final step", () => {
-    expect(barrelValue("epic", 11)).toBeLessThan(barrelValue("epic", 12)); // 6 → 7
+  it("prime pays more than younger or older", () => {
+    expect(barrelValue("epic", 7, 6, 8)).toBeGreaterThan(barrelValue("epic", 3, 6, 8));
+    expect(barrelValue("epic", 7, 6, 8)).toBeGreaterThan(barrelValue("epic", 12, 6, 8));
+  });
+  it("barrelPhase classifies the age", () => {
+    expect(barrelPhase(1, 6, 8)).toBe("unsellable");
+    expect(barrelPhase(3, 6, 8)).toBe("younger");
+    expect(barrelPhase(7, 6, 8)).toBe("prime");
+    expect(barrelPhase(12, 6, 8)).toBe("older");
   });
 });
 
@@ -536,14 +543,14 @@ describe("sell", () => {
     expect(expectRefusal(s, { type: "SELL", bourbonId: "sellme" })).toContain("choose a demand order");
   });
 
-  it("routing to a matching card adds the order value and completion keeps the card", () => {
+  it("routing to a matching card banks the age value and completion keeps the card", () => {
     let s = base({ quality: "common", age: 3 });
-    const card = makeDemandCard({ id: "ord", slotsActive: 1, orderValue: 2, reputation: 5 });
+    const card = makeDemandCard({ id: "ord", slotsActive: 1, reputation: 5 });
     s.demandCards = [card]; // length 1 → low zone (×1)
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
     const p = s.players[0]!;
-    // (age value + order value 2) × low ×1 — order value is the only additive term
-    expect(p.capital).toBe((barrelValue("common", 3) + 2) * 1);
+    // age-phase value × low ×1 — the only payout term
+    expect(p.capital).toBe(barrelValue("common", 3, 6, 8) * 1);
     expect(p.cardsCompleted).toBe(1);
     expect(p.keptCards.map((c) => c.id)).toContain("ord");
     expect(s.demandCards.length).toBe(0); // completed card left the table
@@ -560,8 +567,8 @@ describe("sell", () => {
   it("a multi-sale batch banks Capital each sale; the final sale frees the slot", () => {
     let s = base({ batchQty: 2, quality: "common", age: 2 });
     // One open order deep enough for both sales.
-    s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 3, orderValue: 0, reputation: 1 })];
-    const v = barrelValue("common", 2);
+    s.demandCards = [makeDemandCard({ id: "ord", slotsActive: 3, reputation: 1 })];
+    const v = barrelValue("common", 2, 6, 8);
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" }); // intermediate
     expect(s.players[0]!.capital).toBe(v);
     expect(s.players[0]!.rickhouse.length).toBe(1);
@@ -570,28 +577,28 @@ describe("sell", () => {
     expect(s.players[0]!.rickhouse.length).toBe(0);
   });
 
-  it("the demand zone multiplies (age value + order value); order value is the only additive term", () => {
-    let s = base({ quality: "common", age: 2 }); // age value 1
+  it("the demand zone multiplies the age-phase value (the only payout term)", () => {
+    let s = base({ quality: "common", age: 2 }); // younger value 1
     // 5 cards on the table → Mid zone (×2). Target is first + 4 fillers.
-    const target = makeDemandCard({ id: "ord", slotsActive: 1, orderValue: 3, reputation: 1 });
+    const target = makeDemandCard({ id: "ord", slotsActive: 1, reputation: 1 });
     const fillers = Array.from({ length: 4 }, (_, i) => makeDemandCard({ id: `f${i}`, slotsActive: 1 }));
     s.demandCards = [target, ...fillers];
     expect(zoneForCardCount(s.demandCards.length)).toBe("mid");
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
     // (age value 1 + order value 3) × mid ×2
-    expect(s.players[0]!.capital).toBe((barrelValue("common", 2) + 3) * 2);
+    expect(s.players[0]!.capital).toBe(barrelValue("common", 2, 6, 8) * 2);
   });
 
   it("a Hot completion resolves at ×3, keeps the card, THEN resets the market to the opener", () => {
     let s = base({ quality: "common", age: 4 }); // age value 2
     // 6 cards on the table → Hot (×3). Target completes in one sale.
-    const target = makeDemandCard({ id: "ord", slotsActive: 1, orderValue: 1, reputation: 5 });
+    const target = makeDemandCard({ id: "ord", slotsActive: 1, reputation: 5 });
     const fillers = Array.from({ length: 5 }, (_, i) => makeDemandCard({ id: `f${i}`, slotsActive: 1 }));
     s.demandCards = [target, ...fillers];
     expect(zoneForCardCount(s.demandCards.length)).toBe("high");
     s = ok(s, { type: "SELL", bourbonId: "sellme", demandCardId: "ord" });
     const p = s.players[0]!;
-    expect(p.capital).toBe((barrelValue("common", 4) + 1) * 3); // banked at ×3 first
+    expect(p.capital).toBe(barrelValue("common", 4, 6, 8) * 3); // banked at ×3 first
     expect(p.keptCards.map((c) => c.id)).toContain("ord"); // completer kept the card
     expect(p.cardsCompleted).toBe(1);
     // market detonated: fillers wiped, reset to the open opener
@@ -707,7 +714,7 @@ describe("scoring and the clock", () => {
     p.cardsCompleted = CONFIG.COMPLETE_TO_WIN - 1; // one short
     p.capital = 0;
     p.rickhouse = [makeBourbon({ id: "win", quality: "common", age: 3 })];
-    s.demandCards = [makeDemandCard({ id: "last", slotsActive: 1, orderValue: 0, reputation: 5 })];
+    s.demandCards = [makeDemandCard({ id: "last", slotsActive: 1, reputation: 5 })];
     s = ok(s, { type: "SELL", bourbonId: "win", demandCardId: "last" }); // 8th completion
     expect(s.players[0]!.cardsCompleted).toBe(CONFIG.COMPLETE_TO_WIN);
     expect(s.finalRound).not.toBeNull(); // the clock fired
@@ -746,12 +753,12 @@ describe("private demand card", () => {
     s = intoPlay(s);
     const p = s.players[0]!;
     p.capital = 0;
-    p.privateCards = [makeDemandCard({ id: "priv", slotsActive: 1, orderValue: 2, reputation: 4 })];
+    p.privateCards = [makeDemandCard({ id: "priv", slotsActive: 1, reputation: 4 })];
     p.rickhouse = [makeBourbon({ id: "pb", quality: "common", age: 3 })];
     s.demandCards = [makeDemandCard({ id: "pub", slotsActive: 1 })]; // public market: 1 card → Low
     s = ok(s, { type: "SELL", bourbonId: "pb", demandCardId: "priv" });
     const q = s.players[0]!;
-    expect(q.capital).toBe((barrelValue("common", 3) + 2) * 1); // (age + order) × Low
+    expect(q.capital).toBe(barrelValue("common", 3, 6, 8) * 1); // (age + order) × Low
     expect(q.cardsCompleted).toBe(1);
     expect(q.keptCards.some((c) => c.id === "priv")).toBe(true);
     expect(q.privateCards.length).toBe(1); // a replacement private order was drawn
