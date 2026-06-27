@@ -41,8 +41,8 @@ export const CONFIG = {
   // --- Demand market -------------------------------------------------------
   /** Cards drawn each Demand Phase (the spine). Marketing can raise it. `[PH]`. */
   DEMAND_DRAW_PER_ROUND: 1,
-  /** Cards on the table at game start (and after a Hot reset) — gentle, all open. `[PH]`. */
-  DEMAND_START_CARDS: 2,
+  /** Cards on the table at game start (and after a Hot reset) — a single gentle, open card. `[PH]`. */
+  DEMAND_START_CARDS: 1,
   /** Fillable slots per demand card = this × player count (uniform, deep cards). `[PH]`. */
   DEMAND_SLOTS_PER_PLAYER: 2,
   /** The table reaching this count triggers a (passive overflow) crash, checked at the draw. */

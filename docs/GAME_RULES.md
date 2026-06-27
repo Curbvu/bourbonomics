@@ -31,7 +31,7 @@ Time advances once per round (aging at the end of Play). No fixed round count.
 
 ## 📊 1. Demand Phase
 
-**Draw 1 demand card** and add it to the shared market (the slow drip is what lets the pile climb toward Hot). The game **opens with 2 "any bourbon" cards** so nobody is locked out while producing their first bourbon. Cards **persist** on the table until **completed** (fully filled); a completed card is removed and **kept by the player who completed it** as Prestige. **Partially filled cards still sit on the table and still count** toward the market total.
+**Draw 1 demand card** and add it to the shared market (the slow drip is what lets the pile climb toward Hot). The game **opens with 1 "any bourbon" card** so nobody is locked out while producing their first bourbon. Cards **persist** on the table until **completed** (fully filled); a completed card is removed and **kept by the player who completed it** as Prestige. **Partially filled cards still sit on the table and still count** toward the market total.
 
 ### Card structure
 
@@ -60,7 +60,7 @@ Checked **at the Demand Phase draw**. If drawing this round's card would bring t
 
 If a player **completes a card while the zone is Hot (6 cards)**, the market resets — but resolution order is critical:
 1. The completer **fully resolves first** — banks their sale at the **×3 Hot** multiplier and **keeps the completed card** (Prestige).
-2. **Then** every other card on the table is **wiped** (their completions / Prestige forfeited — see below) and the market **resets to 2 open cards** (Low).
+2. **Then** every other card on the table is **wiped** (their completions / Prestige forfeited — see below) and the market **resets to 1 open card** (Low).
 
 So reaching Hot is a **race to be the first to complete**: first-to-cash takes their ×3 and detonates everyone else's held cards. **Low/Mid completions do NOT reset** the market. Hot is a brief, explosive flashpoint — holding for ×3 is lucrative only if you *win* the window; otherwise a defector's Hot completion (or the 7-card crash) wipes you. No targeted attacks — all pressure is the shared market state.
 
