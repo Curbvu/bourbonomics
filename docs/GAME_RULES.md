@@ -1,140 +1,148 @@
 # 🥃 Bourbonomics
 
-A cozy game about running a bourbon distillery: gather grain through a shared dice draft, build and age bourbon in your rickhouse, and sell it into a shared, forecastable demand market at the right moment. Grow your distillery's departments to draw harder, hold more, and sell richer. Each demand order you complete becomes a kept card worth Prestige. When the market is worked dry, the distillery with the most Capital + Prestige wins.
+A cozy game about running a bourbon distillery. Gather grain in a shared dice draft, build and age bourbon in your rickhouse, and sell it into a shared demand market at the right moment. Improve your distillery's departments to draw harder, hold more, and sell richer. Every order you complete becomes a kept card worth Prestige.
 
-**Players:** 2–6 · **Length:** ~45–60 min (variable with player count is acceptable) · **Complexity:** Medium-light
+**The game ends once a player has completed 8 orders. The distillery with the most Capital + Prestige wins.**
 
-> **The design.** This is a ground-up redesign. The game turns on one repeated decision — **when and what to sell into a shifting demand market** — and one long arc — **growing your distillery to sell better**. The lane is deliberately cozy: production-focused, gentle competition, **no direct player attacks**. "I take more" is allowed; "you get less / you lose X" aimed at an opponent is not. This document is canonical and authoritative over any code: if doc and code disagree, fix the code. All numbers are **`[PH]` placeholders, pre-playtest** — wired to be adjustable, not balanced.
+**Players:** 2–6 · **Length:** ~45–60 min · **Complexity:** Medium-light
 
-> **⚠️ Skeleton-test build.** The goal of the current build is to **play the full loop end-to-end in a web version** to validate the chassis. Card *content* (demand cards, mash bills) may be a small placeholder set using the real structure. **The clock** is the count of completed demand cards (see §The Clock); the demand deck and mash-bill supply are renewable.
+You win by selling well and finishing orders. You can take more than your share of the shared dice and the shared market, but you can never directly hurt another player — there are no attacks.
 
 ---
 
 # 🎬 Setup
 
-1. **Resource piles.** Five face-down piles — **cask, corn, rye, wheat, barley** — one per type. **Quality (Common / Uncommon / Rare / Epic / Legendary) is mixed blind into each pile** (`[PH]` distribution — Legendary rare). Piles are shared; resources are effectively infinite (no empty-pile handling). A discard beside each pile reshuffles into its own pile.
-2. **Resource dice.** A shared pool of dice, each with six faces: **cask, corn, rye, wheat, barley, anything**.
-3. **Demand deck.** Shuffle the demand cards into the demand deck. Deal the starting market (see §Demand Phase). *(Card content `[PH]`; structure is real.)*
-4. **Mash bills.** Shuffle the mash bills into a supply (reshuffles when drawn-from is exhausted; see §The Clock).
-5. **Players.** Each picks a **distillery** (board of departments + cost profile + per-branch ultimate options). Start with **5 Capital** (`[PH]`), **0 Prestige**, an empty warehouse, an empty rickhouse.
-6. First-player order is by Capital each round (most Capital first); turn-1 tiebreak `[PH]` (e.g. random).
+1. **Resource piles.** Five face-down piles — **cask, corn, rye, wheat, barley** — one per type. Each card also has a hidden **quality** (Common / Uncommon / Rare / Epic / Legendary; Legendary is rare), mixed into every pile. Piles are shared and never run out. When a pile empties, shuffle its discard back in.
+2. **Resource dice.** A shared pool of dice. Each die has six faces: **cask, corn, rye, wheat, barley, anything**.
+3. **Demand deck.** Shuffle the demand cards. Put out the starting market (see Demand Phase).
+4. **Mash bills.** Shuffle the mash bills into a supply (it reshuffles when it runs low).
+5. **Players.** Each picks a **distillery** (your board of departments). Start with **5 Capital**, **0 Prestige**, an empty warehouse, and an empty rickhouse.
+6. Each round, players go in order of most Capital first. Break first-round ties randomly.
 
 ---
 
-# 🔄 The Round — three phases
+# 🔄 The Round
 
 ```
-DEMAND  →  COLLECT  →  PLAY  →  (age all bourbon +1)  →  DEMAND …
+DEMAND  →  COLLECT  →  PLAY  →  (every barrel ages +1)  →  next round …
 ```
 
-Time advances once per round (aging at the end of Play). No fixed round count.
+Each round runs three phases — Demand, Collect, Play — and then every barrel in play ages **+1**. Repeat until someone has completed 8 orders.
 
 ---
 
 ## 📊 1. Demand Phase
 
-**Draw 1 demand card** and add it to the shared market (the slow drip is what lets the pile climb toward Hot). The game **opens with 2 "any bourbon" cards** so nobody is locked out while producing their first bourbon. Cards **persist** on the table until **completed** (fully filled); a completed card is removed and **kept by the player who completed it** as Prestige. **Partially filled cards still sit on the table and still count** toward the market total.
+At the start of each round, **1 new demand card is added to the shared market.** The game opens with a single **"any bourbon"** card, so everyone can sell while building their first bourbon.
 
-### Card structure
+Cards stay on the table until they're **completed** (every slot filled). A completed card is removed and **kept by the player who filled the last slot** as Prestige. A partly filled card stays on the table and still counts toward the market total.
 
-A demand card is just three things: a **Requirement** (what a bourbon must be to fill a slot — required **tags** / age band / quality; an "any bourbon" card has none), a row of **slots** (`2 × player count`), and the **Prestige** the completer keeps. There are no per-order cash bonuses and no on-start / on-fill / on-completed effects — **filling a slot pays the bourbon's own value** (see §Selling), and **completing the card** (its final slot) hands the whole card to that player as Prestige.
+### What a demand card is
 
-- **Open vs. gated (≈50/50):** about half the deck is **"any bourbon"** — the no-lockout floor (anyone can fill it, but it carries **little Prestige**: the volume / Common outlet). The other half is **gated** — it requires specific tags (and the premium cards add quality+/age+), and is worth **far more Prestige** (the premium outlet). Every slot pays the same way (the bourbon's own value × zone); the **Prestige gap** is the competition mechanism: only the matching bourbon fills a gated order, and the bigger Prestige is what makes specializing worth it. (Replaces the old glut as the safety valve — **there is no glut**.)
-- **Slots per card = 2 × player count** (deep cards), so a single order absorbs a lot of selling and represents a big shared opportunity — a tagged player rushes to fill it before the window closes.
-- **The current demand zone** (below) multiplies every sale — the same bourbon banks more Capital filling a slot in a Hot market than a Low one.
+Every demand card has three parts:
 
-### Demand zones (by total cards on the table)
+- **Requirement** — what a bourbon must be to fill a slot: required **tags**, a minimum age, and/or a minimum quality. An **"any bourbon"** card has no requirement.
+- **Slots** — a row of `2 × player count` slots. Each slot is one sale. **Filling a slot pays you the bourbon's own value** (see Selling).
+- **Prestige** — kept by whoever fills the **last** slot. Completing the card hands them the whole card.
+
+**Open vs. gated.** Roughly half the deck is **"any bourbon"** — anyone can fill it, but it's worth **little Prestige**. The other half is **gated**: it needs specific tags (the best ones also ask for higher quality or age) and is worth **far more Prestige**. Every slot pays the same Capital either way; the Prestige is what makes chasing a gated order — and specializing your distillery to match it — worth it.
+
+### Demand zones
+
+The **number of cards on the table** sets the current zone, which multiplies every sale:
 
 | Cards on table | Zone | Sale multiplier |
 |---|---|---|
 | 1–3 | **Low** | ×1 |
 | 4–5 | **Mid** | ×2 |
 | 6 | **Hot** | ×3 |
-| **7th card** | **MARKET CRASH** |
+| **7th card** | **Market crash** | — |
 
-The card pile **is** the demand continuum — it persists between rounds, grows as cards arrive (1/round) and lingers (deep cards complete slowly), and shrinks only as cards are completed. Higher zone = cards pay more (the market is starved). This is forecastable: count the pile.
+The pile grows by 1 each round and only shrinks when cards are completed, so a market nobody is clearing drifts toward Hot. A higher zone means every sale pays more. You can always see it coming — just count the cards.
 
-### Market crash (passive overflow)
+### Market crash
 
-Checked **at the Demand Phase draw**. If drawing this round's card would bring the table to **7 cards**, instead **wipe all cards currently on the table** (uncompleted cards lost — see *What's lost on a wipe*) and redraw the fresh market toward the starting low state. This is the passive correction if the table backs up without a Hot completion.
+When the new card would be the **7th** on the table, the whole table is **wiped instead** (uncompleted cards are lost — see *What you lose on a wipe*) and the market starts fresh with a single card. This clears a market that has backed up without anyone cashing in at Hot.
 
-### ⭐ Hot completion reset (the tension mechanic)
+### ⭐ Hot completion reset
 
-If a player **completes a card while the zone is Hot (6 cards)**, the market resets — but resolution order is critical:
-1. The completer **fully resolves first** — banks their sale at the **×3 Hot** multiplier and **keeps the completed card** (Reputation).
-2. **Then** every other card on the table is **wiped** (their completions/Reputation forfeited — see below) and the market **resets to 2 open cards** (Low).
+If a player **completes a card while the zone is Hot (6 cards)**, the market resets — in this exact order:
 
-So reaching Hot is a **race to be the first to complete**: first-to-cash takes their ×3 and detonates everyone else's held cards. **Low/Mid completions do NOT reset** the market. Hot is a brief, explosive flashpoint — holding for ×3 is lucrative only if you *win* the window; otherwise a defector's Hot completion (or the 7-card crash) wipes you. No targeted attacks — all pressure is the shared market state.
+1. **That player resolves first** — they bank their sale at the **×3 Hot** multiplier and **keep the card** they completed.
+2. **Then every other card on the table is wiped** (uncompleted, so their Prestige is lost) and the market resets to a single card (Low).
 
-### What's lost on a wipe (crash or Hot reset)
+So Hot is a **race to complete first**. Whoever cashes in first takes the ×3 *and* wipes everyone else's cards. Completing at Low or Mid does **not** reset anything. Holding your cards for the ×3 only pays off if you win the race — otherwise someone else's Hot completion, or the 7-card crash, clears the cards you were sitting on.
 
-Uncompleted cards are removed and their **completion rewards (the kept card / Reputation) forfeited**. **Capital already banked from intermediate sales is kept** (every sale banked Capital when it happened). So a partial filler keeps their per-sale Capital but loses the shot at that card's Reputation — the *completion* is what's at risk when you hold.
+### What you lose on a wipe (crash or Hot reset)
 
-### Marketing Department
+Uncompleted cards are removed and the Prestige they'd have given is lost. **Capital you already banked from earlier sales is yours to keep** — every sale paid you when you made it. So you keep your Capital, but you lose the shot at finishing those cards. The *completion* is what's at risk when you hold.
 
-The **Marketing Department** shapes the Demand Phase (e.g. how many cards drawn / a draw-and-select). Effect `[PH]`.
+### Marketing
 
----
-
-## 🎲 2. Collect Phase — shared dice draft
-
-**One pass around the table, most-Capital-first.** (Deliberate: the leader rolls a fresh set first; later players inherit a richer pool of pre-rolled dice to cherry-pick, compensating for going later.)
-
-**On your collect turn:**
-1. **Draw Mash Bills (recipes first).** Reveal **Mash Floor**-many mash bills and keep any as resting (unbuilt) barrels — pick your recipes *before* you draft, so you know which grain to chase. **Once per turn**; blocked when the rickhouse is full.
-2. **Inherit** the leftover dice passed from the previous player. They go straight **onto your table** and **count against your Supply cap**.
-3. **Keep, then roll.** Tap the inherited dice you want to **keep**; everything else (plus enough fresh dice to fill your table up to your **Supply** cap) is then **rolled**. *(With no inherited dice — e.g. the first player — you simply roll a full fresh set.)* This first roll is **free**.
-4. **One reroll at the base level** — keep what you like, reroll the rest. *(The Supply "Second Reroll" ultimate grants a second.)*
-5. **Claim** dice into resources — each claimed die draws the top card of its matching pile (blind quality); an **anything** die draws from any one pile you choose. Claim up to what fits your **Warehouse**.
-6. **Pass** all unclaimed dice to the next player.
-
-One loop only; when the last player passes, the phase ends and leftover dice return to the pool. Rejected dice are optionality handed forward, not waste.
+The **Marketing** department sets how many demand cards you draw in this phase, and at its top level grants a **Private Demand Card** only you can fill (see The Distillery).
 
 ---
 
-## ⚙️ 3. Play Phase — unlimited actions
+## 🎲 2. Collect Phase
 
-Round-robin. **No action economy** — take unlimited actions, gated only by resources, departments, and capacity.
+Players take one turn each, in order of most Capital first. The leader rolls a fresh set of dice; later players inherit the dice passed to them, so going later still has an upside — you start from dice someone already rolled.
 
-*(Recipes are chosen earlier — **Draw Mash Bills** now happens at the start of your Collect turn, so resting barrels are already on your rickhouse when Play begins.)*
+**On your turn:**
 
-| Action | Effect |
+1. **Draw mash bills.** Reveal **Mash Floor**-many mash bills and keep any you like as **resting barrels** (recipes that aren't built yet). Pick your recipes first, so you know which grain to chase. Once per turn, and only if your rickhouse has room.
+2. **Inherit** the dice passed from the previous player. They sit on your table and count against your **Supply** cap.
+3. **Keep, then roll.** Keep the inherited dice you want; everything else — plus enough fresh dice to fill your table up to your Supply cap — is rolled. (First player just rolls a fresh set.) This roll is free.
+4. **Reroll** any dice you don't like, once. (The Supply *Second Reroll* upgrade gives you a second reroll.)
+5. **Claim** dice into resource cards. Each die draws the top card of its matching pile (you don't see its quality first); an **anything** die draws from any one pile you choose. You can only claim up to what fits your **Warehouse**.
+6. **Pass** the dice you didn't claim to the next player.
+
+Once the last player passes, the phase ends and any leftover dice go back to the pool.
+
+---
+
+## ⚙️ 3. Play Phase
+
+Players take turns. On your turn you may take **as many actions as you want, in any order** — you're limited only by your resources, your departments, and your capacity.
+
+Your recipes are already chosen (you drew mash bills in Collect), so your resting barrels are waiting in the rickhouse.
+
+| Action | What it does |
 |---|---|
-| **Stage** | Move a **recipe-matched** resource card from hand onto a resting barrel. Staged cards leave the hand (free Warehouse) but **lock to that barrel** *(a Warehouse ultimate unlocks them)*. |
-| **Make Bourbon** | When a resting barrel's recipe is fully met (staged and/or committed from hand), build it. **Quality = best card committed.** Begins aging at age 0 *(age 1 with the Char & Toast ultimate)*. |
-| **Sell (Extract)** | Extract one sale from a built, aged batch (age ≥ 2) into a matching **demand card slot** (no glut). See §Selling. Banks Capital every time. |
-| **Improve Distillery** | Advance one department one step. Cost rises on the per-player linear ramp (see §The Distillery). |
+| **Stage** | Put a matching resource card from your hand onto a resting barrel. It leaves your hand (freeing Warehouse space) and locks to that barrel. *(The Warehouse* Long Cellar *upgrade lets you move staged cards back.)* |
+| **Make Bourbon** | Once a resting barrel has all the resources its recipe needs, build it. **Its quality = the best card you put in.** It starts aging at age 0. *(The Rickhouse* Char & Toast *upgrade starts it at age 1.)* |
+| **Sell** | Take one sale from a built barrel that's **aged to at least 2** and put it in a matching demand slot. You bank Capital every time. See Selling. |
+| **Improve Distillery** | Raise one department one step. Each upgrade costs more than the last (see The Distillery). |
 
 ---
 
 # 🛢️ Resources, Building, Aging
 
-- **Five types:** cask, corn, rye, wheat, barley. A bourbon's grain identity seeds its matchable **tags** (below), which demand requirements key off.
-- **Quality (five tiers):** **Common · Uncommon · Rare · Epic · Legendary**, blind in the piles (`[PH]` weights — Legendary very rare, Common abundant; the rare pull is the dopamine moment). Quality = best card committed sets a barrel's tier, which sets its **age-value track** (below). UI colors the familiar ladder grey/green/blue/purple/orange.
-- **The bourbon rule:** every mash bill requires **exactly 1 cask**, **at least 1 corn**, and **at least 1 grain** (rye / wheat / barley) — no cask/corn-only recipes. More complex bills add more resources.
-- **Tags (matchable identity):** every bourbon carries one or more **tags** (seeded with the grain identities — rye / wheat / highCorn / fourGrain / classic). Tags are shown **right-side and color-coded** on both the bourbon card and the demand cards, so filling an order is a visual pattern-match ("my crimson bourbon fills that crimson order"). A demand card's required tags must **all** be present on the bourbon.
-- **batchQty by quality:** how many sales a built barrel yields over its life is set by its **quality tier**, NOT its recipe — **Common = 1** (one-and-done), scaling up to **3** at Legendary. Per-bill `batchQtyBias` allows off-curve variance (a Common bill that still yields 2). Data-driven, `[PH]`.
-- **Two-step production:** Draw Mash Bills (at the start of your Collect turn) lays a recipe as a resting (non-aging) barrel; Stage/Make Bourbon (in Play) builds it.
-- **Warehouse cap is a claim-time gate** — you can never *claim* past cap; there is no round-end discard. Loose (uncommitted) resource cards count against cap; staged/built cards do not. A lucky premium pull with no matching resting barrel sits loose and eats cap (the premium-hold tension).
-- **Aging is set-and-forget:** every built barrel ages **+1 at the end of Play**. **No aging ceiling — barrels age freely.** Sellable at **age ≥ 2**.
+- **Five resource types:** cask, corn, rye, wheat, barley. The grains you use give your bourbon its **tags** (below), which demand cards ask for.
+- **Five quality tiers:** **Common, Uncommon, Rare, Epic, Legendary** — hidden in the piles, with Legendary the rarest. A barrel's quality is set by the **best card you build it with**, and quality drives its **sale value** (see Selling). The colors run grey → green → blue → purple → orange.
+- **What makes it bourbon:** every recipe needs **exactly 1 cask**, **at least 1 corn**, and **at least 1 grain** (rye, wheat, or barley). Fancier recipes ask for more.
+- **Tags.** Every bourbon carries one or more **tags** (its grain identity, like Rye, Wheat, High-Corn, Four-Grain, or Classic). Tags are color-coded on both the bourbon and the demand cards, so filling an order is a quick color match. To fill a gated slot, your bourbon must have **all** the tags that card requires.
+- **Sales per barrel.** How many times you can sell a barrel is set by its **quality**, not its recipe: **Common sells once**, up to **3 times** at Legendary. (A few mash bills bend this slightly — e.g. a Common that still sells twice.)
+- **Two steps to a bourbon:** drawing a mash bill (in Collect) puts a recipe in your rickhouse as a resting barrel; staging and Make Bourbon (in Play) build it.
+- **Warehouse cap is checked when you claim.** You can never claim past your Warehouse cap, and you never discard at end of round. Only loose resource cards count against the cap — once a card is staged or built into a barrel, it no longer takes space. A premium card with no matching barrel just sits in your Warehouse until you can use it.
+- **Aging is automatic:** every built barrel ages **+1 at the end of each Play phase**. There's no maximum age — barrels can age as long as you like. They become sellable at **age 2**.
 
 ---
 
-# 💰 Selling (Extraction) — three age phases, demand as a multiplier
+# 💰 Selling
 
-Selling is straightforward. A demand order pays the **bourbon's own value**, scaled by the demand zone — there is no per-order cash bonus, no recipe premium, and no distribution add-on. A sale's Capital is:
+A sale pays you the **bourbon's value**, multiplied by the **current demand zone**:
 
-```
-sale_capital = age_phase_value(quality, age, prime_window) × demand_zone_multiplier
-```
+> **Capital from a sale = bourbon's age value × zone multiplier (×1 / ×2 / ×3)**
 
-**1. Age-phase value — younger / prime / older.** Every mash bill has a **prime window** (e.g. **6–8 years**). A bourbon sells for one of **three** values depending on where its age sits relative to that window:
+### 1. The bourbon's age value — younger, prime, older
 
-- **Younger** — sellable (≥ age 2) but **before** its prime window: the low value.
-- **Prime** — inside the window `[start, end]`: the **peak** value.
-- **Older** — past the window: still good, but **below** prime (the mid value).
+Every mash bill has a **prime window** (for example, **6–8 years**). A bourbon is worth one of three amounts, depending on its age:
 
-The three magnitudes scale with **quality** — a Legendary's prime beats a Common's. A barrel under the **minimum sell age (2)** is worth nothing yet. **No rickhouse aging ceiling** — a barrel may keep aging past its window; its value just settles at the *older* tier. `[PH]`:
+- **Younger** — old enough to sell (age 2+) but not yet in its window: the **low** value.
+- **Prime** — inside its window: the **best** value.
+- **Older** — past its window: still good, but **less** than prime.
+
+These amounts get bigger with **quality** — a Legendary in its prime is worth far more than a Common. A barrel below age 2 can't be sold yet. A barrel that ages past its window simply drops to its *older* value and stays there.
 
 | Quality | younger | **prime** | older |
 |:--|:--:|:--:|:--:|
@@ -144,138 +152,131 @@ The three magnitudes scale with **quality** — a Legendary's prime beats a Comm
 | Epic | 2 | **6** | 4 |
 | Legendary | 3 | **8** | 5 |
 
-The **prime window** is per mash bill (default **6–8**; young-drinking bills prime a touch earlier, showpiece bills a touch later). A bourbon inherits its bill's window when it's built.
+The prime window is printed on each mash bill (usually **6–8**; some quick-drinking bills peak a little earlier, some showpiece bills a little later). A bourbon keeps the window of the bill it was built from.
 
-**2. Demand zone MULTIPLIER** (the timing swing) — by total cards on the table: a simple **Low ×1 · Mid ×2 · Hot ×3**, applied to the age-phase value. Reaching/cashing **Hot** is a race (see §Hot completion reset) — it's not a zone you can safely sit in.
+### 2. The zone multiplier
 
-**There is no glut:** every sale fills a matching open order slot; with no eligible order the barrel waits. A card's slots = `2 × player count`.
+The current demand zone multiplies your sale: **Low ×1, Mid ×2, Hot ×3.** Hot pays triple, but it's a race — see Hot completion reset. You can't safely sit in Hot.
 
-*Worked: a **Common in its prime** (value 2) on a **Low** order = 2 × 1 = **2** (floor). The same Common sold **older** (value 1) at **Hot** = 1 × 3 = **3**. A **Legendary in its prime** (value 8) at **Hot** = 8 × 3 = **24**. Design intent: cash your good barrels **in their window**, and time the window against a **hot** market — both levers multiply the same number. Two knobs: the age-phase values (magnitude) and the ×1/×2/×3 (timing).*
+**You need a matching open slot to sell.** If no order on the table fits your bourbon, the barrel just waits until one does.
 
-**Multi-sale batches:** a built barrel yields `batchQty` sales over its life, set by its **quality** (Common 1 → Legendary 3). **Every sale banks Capital** — intermediate or completing. A batch frees its rickhouse slot when its **last** sale is extracted. A Common is one-and-done (fills exactly one slot); higher tiers fill multiple slots, possibly across different orders / rounds — and a barrel can age out of its prime between sales.
+**Examples:**
+- A **Common in its prime** (value 2) sold at **Low** = 2 × 1 = **2**.
+- That same Common sold **older** (value 1) at **Hot** = 1 × 3 = **3**.
+- A **Legendary in its prime** (value 8) sold at **Hot** = 8 × 3 = **24**.
 
-**Completing a demand card:** the player who fills a card's **final slot keeps the card** as Prestige. Earlier fillers already banked Capital from their sales; the completer additionally takes the card. (Capital for the work, Prestige for the finish.)
+**Tip:** sell your best barrels while they're in their window, and try to time that window for a hot market — both make the same number bigger.
 
-**The magic thread:** a premium (high age-phase values), **prime-aged** (sold inside its window), well-timed (Hot zone ×3) sale is large because both levers multiply the same number — the big number emerges from quality × timing, no payoff grid.
+### Selling a barrel more than once
+
+A barrel can sell **1–3 times** over its life (set by its quality). **Each sale pays you Capital.** A barrel only leaves your rickhouse after its **last** sale. Higher-quality barrels can fill several slots across different orders and rounds — and a barrel can age out of its prime between sales, so don't wait too long.
+
+### Completing an order
+
+Whoever fills an order's **last slot** keeps the card as Prestige. Everyone who sold into it earlier already banked their Capital; the finisher additionally takes the card. **Capital is the pay for the work; Prestige is the bonus for the finish.**
 
 ---
 
 # 🏚️ The Rickhouse
 
-A small area where barrels rest, build, and age.
+Where your barrels rest, build, and age.
 
-- **Capacity** (resting + aging barrels) is set by the **Rickhouse department**. Starts at **3 slots** (`[PH]`).
-- A resting barrel holds a slot but doesn't age; a built batch ages +1/round and leaves when its last sale is extracted.
-- A full rickhouse blocks **Draw Mash Bills** — build and sell to make room.
-- **No aging ceiling from the rickhouse** — it governs how *many* barrels, not how *old* they may get.
+- Your **Rickhouse department** sets how many barrels you can hold (resting + aging). It starts at **3**.
+- A resting barrel takes a slot but doesn't age. A built barrel ages +1 each round and leaves once its last sale is made.
+- If your rickhouse is full, you can't draw mash bills — build and sell to free up room.
+- There's no limit on a barrel's age. The rickhouse limits how *many* barrels you keep, not how *old* they get.
 
 ---
 
-# 🏭 The Distillery — departments & branches
+# 🏭 The Distillery
 
-Each player runs a distillery board. Departments are **permanent, no upkeep**. The **office band sits above the Rickhouse** (offices = inputs/planning/market; Rickhouse = production anchor below).
+You run a board of **departments**. Once you improve a department, it stays improved for the rest of the game — no upkeep.
 
-### Branch structure (Polytopia-shape, per-distillery ultimates)
+### How departments grow
 
-Every department is a branch: **Base → +1 → +1 → Ultimate.** The two mid-steps are quantitative; the **Ultimate is a powerful qualitative effect.** Each distillery offers a **subset of ultimate options per branch** (the asymmetric differentiation). **Ultimate design rule:** resolvable by counting or a one-time state change — never ongoing per-use token-shuffling.
+Every department goes **Base → +1 → +1 → Ultimate.** The two middle steps raise a number (more dice, more space, and so on). The **Ultimate** is a powerful special ability. Each distillery offers a **different set of Ultimates** for its departments — that's what makes distilleries feel different to play.
 
-### The improvement ramp
+### What upgrades cost
 
-**Per-player, linear, persists all game, single shared counter:** your Nth improvement (across any department) costs the Nth step (`[PH]`, e.g. 1→2→3→4…). A player realistically affords ~5–6 improvements all game, so departments **compete for scarce slots** → forced specialization.
+Each upgrade costs more than the last: your **1st** costs **1** Capital, your **2nd** costs **2**, your **3rd** costs **3**, and so on — one rising price shared across all your departments. You'll only afford about **5–6** upgrades in a whole game, so you can't grow everything. Pick a direction.
 
 ### The five departments
 
-*(Distribution and Counting House are **cut for now** — the sell-side payoff is purely age-phase value × zone, and the improvement ramp has no discount. They may return later as new board entries with no rules change.)*
-
-| Department | Function | Starter (`[PH]`) |
+| Department | What it controls | Starts at |
 |---|---|---|
-| **Supply** | Dice rolled in Collect (second reroll folded into the branch) | 4 dice |
-| **Warehouse** | Loose resource cards held | 4 cards |
-| **Mash Floor** | Mash bills drawn per Draw Mash Bills | 2 |
-| **Marketing Department** | Demand cards drawn per Demand Phase; ultimate = a Private Demand Card | 1 (`[PH]`) |
-| **Rickhouse** | Barrel capacity (resting + aging) | 3 slots |
+| **Supply** | Dice you roll in Collect | 4 dice |
+| **Warehouse** | Loose resource cards you can hold | 4 cards |
+| **Mash Floor** | Mash bills you draw each Collect turn | 2 |
+| **Marketing** | Demand cards you draw each Demand phase; Ultimate = a Private Demand Card | 1 |
+| **Rickhouse** | Barrels you can hold | 3 |
 
-### Completed branch detail (built; others structurally defined, ultimates `[PH]`)
+### The Ultimates
 
-**Rickhouse** — base 3 → 4 → 5 → ultimate (choose from the distillery's offered subset):
-- **Mega Expansion** — +2 slots.
-- **Climate Controlled** — one designated barrel ages +2/round.
+**Rickhouse** (3 → 4 → 5 → Ultimate):
+- **Mega Expansion** — +2 barrel slots.
+- **Climate Controlled** — one chosen barrel ages +2 per round.
 - **Char & Toast** — every barrel you build starts at age 1.
-- **Double Maturation** — a barrel reaching age 8+ gains +1 batchQty.
-- **Warehouse Tasting** — while you have 3+ barrels aging, gain +1 Capital/round.
+- **Double Maturation** — a barrel that reaches age 8+ gets one extra sale.
+- **Warehouse Tasting** — while 3+ of your barrels are aging, gain +1 Capital each round.
 
-**Supply** — base 4 → 5 → 6 → ultimate:
-- **Second Reroll** — grants **one** reroll after your roll (the base level gets none).
+**Supply** (4 → 5 → 6 → Ultimate):
+- **Second Reroll** — a second reroll each Collect turn.
 - **Overflow Roll** — +2 dice.
-- **Prospector** — pick one pile; claims from it draw 2, keep the better.
-- **Triple Threat** — once per Collect turn, discard 2 unwanted dice → take 1 die of any face.
+- **Prospector** — pick one pile; claims from it draw 2 and keep the better.
+- **Triple Threat** — once per Collect turn, discard 2 dice you don't want to take 1 die of any face.
 
-**Warehouse** — base 4 → 5 → 6 → ultimate:
+**Warehouse** (4 → 5 → 6 → Ultimate):
 - **Grand Warehouse** — +3 cap.
-- **Quality Sort** — once per round, 1 free blind draw from any pile (respects cap).
-- **Long Cellar** — staged cards stay swappable (not locked to the barrel).
+- **Quality Sort** — once per round, a free draw from any pile.
+- **Long Cellar** — staged cards stay swappable instead of locking to a barrel.
 
-**Mash Floor** — base 2 → 3 → 4 → ultimate:
-- **Master Recipe** — +1 mash bill revealed each Draw.
-- **House Blend** — one recipe slot accepts any resource type at build.
-- **Open Bill** — one extra Draw Mash Bills each round (off the once-per-turn limit).
+**Mash Floor** (2 → 3 → 4 → Ultimate):
+- **Master Recipe** — +1 mash bill shown each draw.
+- **House Blend** — one slot in a recipe accepts any resource type.
+- **Open Bill** — one extra mash-bill draw each round.
 
-**Marketing** — base 1 → 2 → ultimate (a shorter branch):
-- **Private Demand Card** — a personal order on your own track that **only you** can fill. It sits **outside the zone/crash count** (it doesn't push zones, doesn't trigger crashes, and survives every wipe) but **pays at the current zone multiplier**. Completing it keeps it as Prestige and immediately draws a replacement; a private completion does **not** trigger the Hot reset.
+**Marketing** (1 → 2 → Ultimate):
+- **Private Demand Card** — a personal order only you can fill. It sits off the shared table: it doesn't change the zone, can't cause a crash, and survives every wipe, but it still pays at the current zone multiplier. Completing it keeps it as Prestige and draws you a replacement, and it never triggers the Hot reset.
 
-### Asymmetric distilleries
+### The distilleries
 
-Each distillery trades a real **weakness** (a department that starts below base, or a hard cap on how far a branch can climb) for a real **strength** (a department that starts a step in, an offered ultimate subset, or a passive signature). The weakness pushes toward the strength's archetype; **Standard** is the all-base tuning baseline.
+Each distillery has a real **strength** and a real **weakness** that point you toward a playstyle. **Standard** is the balanced all-rounder with neither.
 
 | Distillery | Strength | Weakness |
 |---|---|---|
-| **Standard** | none (balanced generalist) | none |
-| **Old Oak Rickhouse** | start Rickhouse 4; aging ultimates | start Supply 3 |
-| **Ironhill Volume** | start Supply 5 & Warehouse 5 | Rickhouse capped at 4 |
-| **Hollow & Crane** | Marketing one step in; best path to the Private Card | start Warehouse 3 |
-| **Copperline Craft** | signature: once/Collect, one claimed card is +1 quality tier; Prospector + Quality Sort offered | start Rickhouse 2 |
-| **Coopersmith & Sons** | start Mash Floor 3; Master Recipe + House Blend offered | start Warehouse 3 |
+| **Standard** | balanced, no specialty | none |
+| **Old Oak Rickhouse** | starts Rickhouse at 4; aging-focused Ultimates | starts Supply at 3 |
+| **Ironhill Volume** | starts Supply at 5 and Warehouse at 5 | Rickhouse can't grow past 4 |
+| **Hollow & Crane** | starts Marketing a step in; best path to the Private Card | starts Warehouse at 3 |
+| **Copperline Craft** | once per Collect, one claimed card is bumped +1 quality | starts Rickhouse at 2 |
+| **Coopersmith & Sons** | starts Mash Floor at 3; recipe-focused Ultimates | starts Warehouse at 3 |
 
 ---
 
-# 🪙 Capital, Prestige, Scoring
+# 🪙 Scoring
 
-- **Capital** — banked from **every sale** (the disaggregated payoff). Spent only on **Improve Distillery** (the linear ramp). Banks toward final score.
-- **Prestige** — the **completed demand cards you keep**. This is the sole prestige source. (A completed card's Prestige value is printed on it; `[PH]`.)
-- **Final score = Capital + Prestige.** Most points wins; tiebreak `[PH]` (e.g. most cards completed).
+- **Capital** — you bank it from **every sale**, and spend it only on upgrades. Whatever's left counts toward your score.
+- **Prestige** — the value of the **completed order cards you keep**. It's the only source of Prestige.
+- **Final score = Capital + Prestige.** Most points wins. Ties go to whoever completed more orders.
 
-The two score sources both flow from the single act of selling into demand, differentiated by whether you **participated** in a card (Capital) or **finished** it (the kept card / Prestige).
+Both come from selling: you earn Capital for every sale you make, and Prestige for the orders you finish.
 
 ---
 
-# ⏳ The Clock
+# ⏳ Ending the Game
 
-**The game ends when any player has completed 8 demand cards** (`COMPLETE_TO_WIN`, config). The triggering round **finishes** (all players get equal turns), then score. This is self-pacing and applies the Ticket-to-Ride virtue (the scoring action *is* the clock).
+**The game ends as soon as a player has completed 8 orders.** The current round finishes so everyone gets the same number of turns, then you score.
 
-- The **demand deck and the mash-bill supply are both renewable** — they reshuffle (and mint fresh stock when needed) and **neither ends the game**.
-- A high **`MAX_ROUNDS` backstop** guarantees termination even if no one reaches the threshold (which can happen at high player counts, where each card needs more fills) — it is a safety net, not the design clock. `COMPLETE_TO_WIN` is the dial to tune for length.
+The demand deck and mash-bill supply never run out — they reshuffle as needed, so neither one ends the game. (There's also a round limit as a safety net for big games where orders fill slowly, but normally the 8th completion is what ends it.)
 
 ---
 
 # 🧑‍🤝‍🧑 Player Count
 
-**2–6.** No direct attacks at any count — competition is at the shared edges (the dice pool & its pass, the demand commons & the crash, racing the clock). Demand scales by **card slot depth** (not card count), so the table stays readable at 6p while capacity scales. More players → faster pile growth → more frequent crashes → a more volatile market; fewer players → a slower, more contemplative market. Same rules, different feel by count (free variety).
+**2–6 players.** No one can attack anyone — you compete over the shared dice you pass along, the shared market and its crashes, and the race to 8 completions. Each order's slots scale with the player count (`2 × players`), so the table stays manageable even at 6. More players means the market fills and crashes faster and feels more volatile; fewer players means a slower, calmer market.
 
 ---
 
-# 🔁 The Core Loop
+# 🔁 The Loop at a Glance
 
-**Demand Phase** (draw 1 card, read the zone, check the crash) → **Collect Phase** (draw mash bills, then roll/inherit/keep/reroll, claim resources into Warehouse, pass leftovers) → **Play Phase** (stage & make bourbon, sell into demand for Capital + complete cards for Prestige, improve departments) → age all barrels +1 → repeat until a player has completed 8 cards → finish the round → score Capital + Prestige.
-
----
-
-# 📜 Open items
-
-**`[PH]` to tune at playtest:** `COMPLETE_TO_WIN` (8) vs. game length & player count; the linear ramp values; all department starters/tiers; quality bases & ceilings; demand-card content & slot-depth-per-player; demand-card Prestige; the open-vs-gated split and its **Prestige gradient**; the age-phase values (younger/prime/older) & the per-bill prime windows; zone multiplier; batchQty-by-quality curve & per-bill bias; quality distribution in piles; the distillery starting-stat/cap deltas.
-
-**Structure known, content/design pending:**
-- Semantics of the least-specified ultimates / signatures (Mash Floor **Master Recipe / House Blend / Open Bill**, Copperline's +1-quality signature) are the simplest faithful reading and marked `[PH]`; a UI affordance for House Blend's substitution is deferred.
-- Whether **tags** stay the grain identities or split into an orthogonal axis (the tag list is flexible either way; seeded with grain identities).
-- Whether **Distribution / Counting House** ever return (cut for now).
-
-**Confirmed structural decisions (locked):** 2–6 players; three-phase round; unlimited Play actions; most-Capital-first one-loop dice draft where **inherited dice land on the table and count against Supply, you keep-then-roll with one base reroll (the Second Reroll ultimate adds a second)**; staging (recipe-matched, locked, off-cap); Warehouse claim-time gate; per-player linear shared improvement ramp (no discount); Polytopia branches + per-distillery ultimates; ultimates count-or-state-change simple; no aging ceiling (ceiling lives on quality); **payoff = age-phase value (younger/prime/older, per-bill prime window, scaled by quality) × demand-zone multiplier — no order bonus and no other additive term**; **batchQty set by built quality (Common 1 → Legendary 3, per-bill bias)**; multi-sale batches, every sale banks Capital; **tagged matching — bourbons carry color-coded tags, demand orders require them**; demand = persistent card pile **drawn 1/round (opens with 2 open cards), slots = 2× player count**, zones **1-3 Low / 4-5 Mid / 6 Hot (×1/×2/×3)** and crash at the 7th card; **a completion at Hot resets the market — completer resolves at ×3 and keeps the card FIRST, then all other cards wipe and the market resets to 2 (race to cash first; Low/Mid completions don't reset)**; on any wipe, uncompleted cards' Reputation is forfeit but banked Capital is kept; **~50/50 open ("any bourbon", low Prestige) vs gated (tagged/premium, higher Prestige) — the Prestige gradient is the competition, and there is no glut**; **five departments** (Supply / Warehouse / Mash Floor / Marketing / Rickhouse), **Marketing ultimate = a Private Demand Card** outside the zone/crash count; **six asymmetric distilleries** (starting-stat strengths + caps); completed cards kept as Prestige; score = Capital + Prestige; no direct attacks; **the clock = 8 completed cards** (renewable deck & mash supply, `MAX_ROUNDS` backstop).
+**Demand** (add a card, read the zone) → **Collect** (draw mash bills, roll and draft dice into your Warehouse, pass the rest) → **Play** (stage, build, sell for Capital, finish orders for Prestige, improve your distillery) → every barrel ages +1 → repeat until someone completes 8 orders → finish the round → most Capital + Prestige wins.
