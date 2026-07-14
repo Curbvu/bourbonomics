@@ -18,8 +18,6 @@ export const CONFIG = {
   STARTING_DPS: 2, // active DPs each player begins with, on spread tiles
 
   // — Tiles —
-  SHELF_MIN: 3, // DP slots per tile (shared, active + inactive)
-  SHELF_MAX: 5,
   REWARD_DENSITY: 0.35, // fraction of tiles carrying a reward icon
   TILE_CAPITAL_INCOME: 2, // Capital per controlled tile, granted at age start
 

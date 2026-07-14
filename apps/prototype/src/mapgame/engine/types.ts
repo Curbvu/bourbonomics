@@ -23,7 +23,6 @@ export interface Tile {
   traits: TasteTrait[]; // tastes this market likes
   averse: TasteTrait | null; // a bourbon carrying this contradicts the tile (fit 0)
   reward: RewardIcon | null;
-  shelfCapacity: number; // shared DP slots (active + inactive)
 }
 
 export type DPStatus = "active" | "inactive";

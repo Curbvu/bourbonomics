@@ -17,7 +17,6 @@ import {
   effectiveFit,
   nicheStatus,
   playerById,
-  shelfUsed,
   tileById,
   tileController,
   tilesAdjacent,
@@ -260,8 +259,6 @@ function handlePlaceTile(draft: GameState, player: Player, nearTileId: string): 
     s = sn;
     traits.add(TASTE_TRAITS[ti]!);
   }
-  const [shelfR, s2] = rngRange(s, CONFIG.SHELF_MAX - CONFIG.SHELF_MIN + 1);
-  s = s2;
   const [rew, s3] = rngRange(s, 100);
   s = s3;
   draft.rngSeed = s;
@@ -271,7 +268,6 @@ function handlePlaceTile(draft: GameState, player: Player, nearTileId: string): 
     traits: [...traits],
     averse: null,
     reward: rew < CONFIG.REWARD_DENSITY * 100 ? "capital" : null,
-    shelfCapacity: CONFIG.SHELF_MIN + shelfR,
   };
   draft.tiles.push(tile);
   draft.log.push(`${player.name} opens new market space (blue ocean) beside "${near.id}".`);
@@ -286,7 +282,6 @@ function inRivalNiche(draft: GameState, tileId: string, playerId: string): boole
 function handleBuildDP(draft: GameState, player: Player, tileId: string): string | null {
   const tile = tileById(draft, tileId);
   if (!tile) return "unknown tile";
-  if (shelfUsed(draft, tileId) >= tile.shelfCapacity) return "that tile's shelf is full";
   const err = spend(player, CONFIG.COST_BUILD_DP);
   if (err) return err;
   // Rival DPs entering a declared niche enter INACTIVE (spec §3).

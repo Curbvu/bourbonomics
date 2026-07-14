@@ -27,11 +27,6 @@ export function activeDPCount(state: GameState, tileId: string, owner?: string):
   ).length;
 }
 
-/** Shelf slots used (active + inactive) — shared across players. */
-export function shelfUsed(state: GameState, tileId: string): number {
-  return state.dps.filter((d) => d.tileId === tileId).length;
-}
-
 /** Access = ≥1 active DP on the tile. */
 export function hasAccess(state: GameState, tileId: string, owner: string): boolean {
   return activeDPCount(state, tileId, owner) >= 1;

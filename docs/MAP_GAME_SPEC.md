@@ -26,7 +26,7 @@
 
 | Term | Code name | Definition | State it carries |
 |---|---|---|---|
-| **Tile** | `Tile` | A hex representing a slice of consumer taste-space. **Not geography.** | taste traits, optional reward icons, shelf capacity |
+| **Tile** | `Tile` | A hex representing a slice of consumer taste-space. **Not geography.** | taste traits, optional reward icons |
 | **Distribution Point** | `DP` | A player's presence on a tile. | `DPStatus` = `Active` \| `Inactive` |
 | **Niche** | `Niche` | A player-declared cluster of ≥5 contiguous controlled tiles. | declared, public, flagged; owner |
 | **Bourbon** | `Bourbon` | A card in a player's portfolio. Weapon, shield, identity. | `BourbonState` = `Fresh` \| `Flipped`; `locked` flag; `maturitySlot` (1–5) |
@@ -49,7 +49,6 @@
 | `id` | id | stable |
 | `traits` | `TasteTrait[]` | e.g. `rye`, `wheat`, `corn`, `aged`, `premium`, `channelType` |
 | `rewards` | `RewardIcon[]` | `Capital` and/or `Token` icons. Present on ~20–40% of tiles `[PH]` |
-| `shelfCapacity` | int | 3–5 `[PH]`. **Shared across all players** — DP slots, active *and* inactive, count against it |
 | `adjacency` | `TileId[]` | hex neighbors, for contiguity |
 
 ### `DP`
@@ -57,7 +56,7 @@
 |---|---|---|
 | `owner` | PlayerId | |
 | `tile` | TileId | |
-| `status` | `Active` \| `Inactive` | Inactive still occupies its shelf slot |
+| `status` | `Active` \| `Inactive` | Inactive stays on the tile until repaired or purged |
 
 ### `Bourbon`
 | Field | Type | Notes |
@@ -110,7 +109,7 @@ GAME
 
 ## 4. Tiles & Niches
 
-**Tiles** carry taste traits, optional reward icons, and a **shared** shelf capacity (3–5 `[PH]`).
+**Tiles** carry taste traits and optional reward icons. There is **no cap on how many DPs a tile holds** — any number of players may build there; presence is contested by DP count, not by capacity.
 
 - **Board setup:** ~5 tiles per player `[PH]`.
 - **Blue-ocean expansion:** players may place additional tiles during play (`PlaceTile`, 1 bip). This is the catch-up / map-growth lane — costing not yet tuned (§11).
@@ -247,7 +246,7 @@ damage = min(margin, loserActiveDPs(tile))                             // capped
 > **Attacking mortgages your portfolio. Winning a defense nails it to the board.** This tension is the game.
 
 ### Inactive DPs
-- **Occupy their shelf slot.** Knocking a rival down does **not** free shelf space.
+- **Stay on the tile.** Knocking a rival down does **not** remove their presence.
 - `RepairDP` (1 bip) → back to `Active`.
 - Removed **only** by a **Purge**.
 
@@ -303,9 +302,8 @@ Every unresolved number lives here. Wire each to a **named constant**; tuning = 
 
 | Key | Placeholder | Current guess | Notes |
 |---|---|---|---|
-| `PLAYER_COUNT` | supported range | 2–4 | affects board size, shelf pressure |
+| `PLAYER_COUNT` | supported range | 2–4 | affects board size |
 | `TILE_REWARD_DENSITY` | % of tiles with reward icons | 20–40% | |
-| `SHELF_CAPACITY` | DP slots per tile | 3–5 | shared, active+inactive |
 | `TILES_PER_PLAYER_SETUP` | starting tiles | ~5 | |
 | `COURT_ENTRY_SLOT` | cellar slot for courted bourbons | 3 | |
 | `CELLAR_CAPACITY` | cellar size / overflow rule | 5 slots, overflow TBD | |
@@ -335,6 +333,7 @@ Unresolved. Flagged for future design sessions — do **not** implement past the
 |---|---|---|
 | `0.1.0` | 2026-07-13 | Initial canonical spec — formalized from design draft. All numbers `[PH]`, pre-playtest. |
 | `0.2.0` | 2026-07-13 | **v0 prototype implemented** (`apps/prototype/src/mapgame/`, route `/mapgame`). Engine + playable UI + bots + tests. Records the v0 decisions in §15. |
+| `0.2.1` | 2026-07-13 | **Removed shelf capacity entirely.** Tiles no longer cap DP count — any number of DPs may occupy a tile; presence is contested purely by active-DP count. Dropped `Tile.shelfCapacity`, `SHELF_*` config, `shelfUsed`, and all UI/spec references. |
 
 ---
 

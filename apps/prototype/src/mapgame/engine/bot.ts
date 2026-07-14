@@ -8,7 +8,7 @@
 
 import { CONFIG, totalDistillCost } from "./config";
 import { current } from "./engine";
-import { activeDPCount, shelfUsed, tileController, tilesContiguous } from "./derive";
+import { activeDPCount, tileController, tilesContiguous } from "./derive";
 import type { Action, GameState, Player, Tile } from "./types";
 
 /** A connected component (≥min) of tiles this player controls, else null. */
@@ -58,9 +58,7 @@ function cheapestDistill(state: GameState, p: Player): number | null {
 }
 
 function buildTarget(state: GameState, p: Player): string | null {
-  const tilesWithAccess = state.tiles.filter(
-    (t) => activeDPCount(state, t.id, p.id) >= 1 && shelfUsed(state, t.id) < t.shelfCapacity,
-  );
+  const tilesWithAccess = state.tiles.filter((t) => activeDPCount(state, t.id, p.id) >= 1);
   // Prefer a contested tile the bot doesn't yet control (reinforce toward control).
   const contested = tilesWithAccess.find((t) => tileController(state, t.id) !== p.id);
   if (contested) return contested.id;

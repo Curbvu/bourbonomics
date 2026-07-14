@@ -21,7 +21,6 @@ import {
   hexPolygonPoints,
   isBotTurn,
   nicheStatus,
-  shelfUsed,
   tileController,
   totalDistillCost,
 } from "../engine";
@@ -381,7 +380,6 @@ function HexTile({ game, tile, cx, cy, size, humanId, selected, nicheSelected, o
     if (d.status === "active") e.active++; else e.inactive++;
     byOwner.set(d.owner, e);
   }
-  const used = shelfUsed(game, tile.id);
   const borderColor = nicheSelected ? C.gold : selected ? "#fff" : ctrlIdx !== null ? pc(ctrlIdx) : C.border;
   const inNiche = game.niches.find((n) => n.tileIds.includes(tile.id));
 
@@ -406,14 +404,10 @@ function HexTile({ game, tile, cx, cy, size, humanId, selected, nicheSelected, o
       )}
       {/* DP chips grouped by owner */}
       {[...byOwner.entries()].map(([owner, e], i) => (
-        <text key={owner} x={cx} y={cy + size * 0.2 + i * 15} textAnchor="middle" fontFamily={MONO} fontSize={13} fontWeight={700} fill={pc(e.colorIdx)}>
+        <text key={owner} x={cx} y={cy + size * 0.28 + i * 15} textAnchor="middle" fontFamily={MONO} fontSize={13} fontWeight={700} fill={pc(e.colorIdx)}>
           {"●".repeat(e.active)}{"○".repeat(e.inactive)}
         </text>
       ))}
-      {/* shelf capacity */}
-      <text x={cx} y={cy + size * 0.72} textAnchor="middle" fontFamily={MONO} fontSize={9} fill={C.muted}>
-        shelf {used}/{tile.shelfCapacity}
-      </text>
     </g>
   );
 }
@@ -502,7 +496,6 @@ function TileInspector({ game, humanId, canAct, tileId, mode, setMode, nicheSel,
   const rivalsActive = tile ? [...new Set(game.dps.filter((d) => d.tileId === tile.id && d.owner !== humanId && d.status === "active").map((d) => d.owner))] : [];
   const rivalsInactive = tile ? [...new Set(game.dps.filter((d) => d.tileId === tile.id && d.owner !== humanId && d.status === "inactive").map((d) => d.owner))] : [];
   const iHaveActive = myDPs.some((d) => d.status === "active");
-  const shelfFull = tile ? shelfUsed(game, tile.id) >= tile.shelfCapacity : true;
   const myNiches = game.niches.filter((n) => n.owner === humanId);
 
   return (
@@ -531,11 +524,11 @@ function TileInspector({ game, humanId, canAct, tileId, mode, setMode, nicheSel,
             <span style={{ fontFamily: MONO, fontSize: 11, color: C.muted }}>likes {tile.traits.map((t) => TRAIT_LABEL[t]).join(", ")}{tile.averse ? ` · averse ${TRAIT_LABEL[tile.averse]}` : ""}</span>
           </div>
           <div style={{ fontFamily: MONO, fontSize: 11, color: C.muted }}>
-            shelf {shelfUsed(game, tile.id)}/{tile.shelfCapacity} · controller {controllerName(game, tile.id)}{tile.reward ? ` · reward ${tile.reward}` : ""}
+            controller {controllerName(game, tile.id)}{tile.reward ? ` · reward ${tile.reward}` : ""}
           </div>
 
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
-            <ActBtn label={`Build DP (${CONFIG.COST_BUILD_DP})`} color={C.green} disabled={!canAct || shelfFull} onClick={() => onAction({ type: "BUILD_DP", tileId: tile.id })} />
+            <ActBtn label={`Build DP (${CONFIG.COST_BUILD_DP})`} color={C.green} disabled={!canAct} onClick={() => onAction({ type: "BUILD_DP", tileId: tile.id })} />
             {myInactive && <ActBtn label={`Repair DP (${CONFIG.COST_REPAIR_DP})`} color={C.blue} disabled={!canAct} onClick={() => onAction({ type: "REPAIR_DP", dpId: myInactive.id })} />}
             {iHaveActive && rivalsActive.length > 0 && (
               <ActBtn label={`Attack (${CONFIG.COST_PUSH}+◆)`} color={C.red} disabled={!canAct} onClick={() => onStartPush("attack", tile.id, rivalsActive[0]!)} />

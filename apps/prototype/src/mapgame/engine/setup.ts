@@ -72,18 +72,12 @@ function buildTiles(count: number, seed: number): [Tile[], number] {
       s = s5;
       reward = cap === 0 ? "capital" : "token";
     }
-    // shelf capacity
-    const [shelfR, s6] = rngRange(s, CONFIG.SHELF_MAX - CONFIG.SHELF_MIN + 1);
-    s = s6;
-    const shelfCapacity = CONFIG.SHELF_MIN + shelfR;
-
     tiles.push({
       id: `tile_${i}`,
       hex: hexes[i]!,
       traits: [...traits],
       averse,
       reward,
-      shelfCapacity,
     });
   }
   return [tiles, s];
