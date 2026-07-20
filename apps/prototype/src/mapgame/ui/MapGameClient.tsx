@@ -9,6 +9,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import ScalingHost from "../../app/components/ScalingHost";
+import Manual from "./Manual";
 import {
   applyAction,
   autoAdvance,
@@ -56,6 +57,7 @@ const CAT_FILL: Record<string, string> = {
 
 export default function MapGameClient() {
   const [game, setGame] = useState<GameState | null>(null);
+  const [manual, setManual] = useState(false);
 
   // ScalingHost only shrinks when its parent bounds the height — mirror the
   // full-viewport flex column the live GameClient gives it (see CLAUDE.md §1).
@@ -63,11 +65,16 @@ export default function MapGameClient() {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: C.bg }}>
       <ScalingHost>
         {game ? (
-          <Board game={game} setGame={setGame} onNew={() => setGame(null)} />
+          <Board game={game} setGame={setGame} onNew={() => setGame(null)} onManual={() => setManual(true)} />
         ) : (
-          <Setup onStart={(n) => setGame(autoAdvance(createGame({ playerNames: names(n), seed: 12345 })))} />
+          <Setup
+            onStart={(n) => setGame(autoAdvance(createGame({ playerNames: names(n), seed: 12345 })))}
+            onManual={() => setManual(true)}
+          />
         )}
       </ScalingHost>
+      {/* The manual is chrome outside the fixed canvas — it may scroll (like /rules). */}
+      {manual && <Manual onClose={() => setManual(false)} />}
     </div>
   );
 }
@@ -77,7 +84,7 @@ function names(n: number): string[] {
 }
 
 // ── Setup ────────────────────────────────────────────────────────────
-function Setup({ onStart }: { onStart: (n: number) => void }) {
+function Setup({ onStart, onManual }: { onStart: (n: number) => void; onManual: () => void }) {
   return (
     <div style={{ width: 1920, height: 1080, background: C.bg, color: C.text, fontFamily: SANS, display: "grid", placeItems: "center" }}>
       <div style={{ textAlign: "center" }}>
@@ -95,7 +102,15 @@ function Setup({ onStart }: { onStart: (n: number) => void }) {
             </button>
           ))}
         </div>
-        <div style={{ fontSize: 15, color: C.faint, marginTop: 30 }}>You are player 1 (gold). The rest are bots.</div>
+        <div style={{ marginTop: 34 }}>
+          <button
+            onClick={onManual}
+            style={{ fontSize: 16, fontWeight: 600, padding: "12px 28px", background: "transparent", color: C.gold, border: `1px solid ${C.gold}`, borderRadius: 12, cursor: "pointer" }}
+          >
+            📖 The Distiller&apos;s Field Guide
+          </button>
+        </div>
+        <div style={{ fontSize: 15, color: C.faint, marginTop: 26 }}>You are player 1 (gold). The rest are bots.</div>
       </div>
     </div>
   );
@@ -104,7 +119,7 @@ function Setup({ onStart }: { onStart: (n: number) => void }) {
 // ── Board ────────────────────────────────────────────────────────────
 type Mode = ActionType | "CLAIM_SLOT" | null;
 
-function Board({ game, setGame, onNew }: { game: GameState; setGame: (g: GameState) => void; onNew: () => void }) {
+function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (g: GameState) => void; onNew: () => void; onManual: () => void }) {
   const [mode, setMode] = useState<Mode>(null);
   const [toast, setToast] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -162,7 +177,7 @@ function Board({ game, setGame, onNew }: { game: GameState; setGame: (g: GameSta
           </div>
         )}
       </div>
-      <Rail game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} onNew={onNew} />
+      <Rail game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} onNew={onNew} onManual={onManual} />
     </div>
   );
 }
@@ -286,6 +301,7 @@ function Rail({
   setMode,
   dispatch,
   onNew,
+  onManual,
 }: {
   game: GameState;
   you: GameState["players"][number];
@@ -294,14 +310,18 @@ function Rail({
   setMode: (m: Mode) => void;
   dispatch: (a: Action) => void;
   onNew: () => void;
+  onManual: () => void;
 }) {
   return (
     <div style={{ width: 600, height: 1080, background: C.panel2, borderLeft: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: 18, gap: 12, boxSizing: "border-box" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: C.gold }}>
           Age {game.age}/5 · Round {game.round}
         </div>
-        <div style={{ fontSize: 13, color: C.muted, fontFamily: MONO, textTransform: "uppercase" }}>{game.stage}</div>
+        <div style={{ fontSize: 13, color: C.muted, fontFamily: MONO, textTransform: "uppercase", flex: 1 }}>{game.stage}</div>
+        <button onClick={onManual} title="The Distiller's Field Guide" style={{ fontSize: 12, background: "none", color: C.gold, border: `1px solid ${C.gold}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+          📖 Guide
+        </button>
         <button onClick={onNew} style={{ fontSize: 12, background: "none", color: C.faint, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
           New
         </button>
