@@ -1,68 +1,84 @@
-// Bourbonomics: Map Game — tunable constants.
+// Bourbonomics: Map Game — tunable constants (brief v3).
 //
-// This is the live mirror of the `[PH]` registry in docs/MAP_GAME_SPEC.md §12.
-// Every playtest number lives here so tuning is one edit. When you change a
-// value, update the spec's registry in the same commit.
+// Every playtest number lives here. Invariant §17.16: no numeric value is
+// hard-coded at its use site. All values are [PH], pre-balance.
 
 export const CONFIG = {
+  // — Players —
+  MIN_PLAYERS: 2,
+  MAX_PLAYERS: 5,
+
   // — Structure —
-  AGES: 5, // scoring windows
-  ROUNDS_PER_AGE: 5, // an age is up to this many rounds (one action card each)
-  HAND_SIZE: 5, // action cards drawn at age start
+  AGES: 5,
+  ROUNDS_PER_AGE: 5,
+  HAND_SIZE: 5,
+  TRADE_MAX: 2, // cards a player may put into the age-start Trade pile
+
+  // — Catch-up (brief §11) —
+  CATCHUP_MODE: "swap" as "swap" | "take",
+  /** Cards dealt to the shared catch-up board. Default PLAYERS + 1. */
+  catchUpBoardSize: (players: number) => players + 1,
 
   // — Setup —
-  TILES_PER_PLAYER: 5, // board size ≈ this × player count
-  STARTING_CAPITAL: 10,
-  STARTING_TOKENS: 1,
-  STARTING_AGENTS: 4, // agent supply per player
-  STARTING_DPS: 2, // active DPs each player begins with, on spread tiles
+  SEED_LINE_TILES: 3,
+  SETUP_TILES_PER_PLAYER: 5,
+  OPENING_DRAFT_PICKS: 4,
+  TILE_MIN_ADJACENCY: 2,
 
-  // — Tiles —
-  REWARD_DENSITY: 0.35, // fraction of tiles carrying a reward icon
-  TILE_CAPITAL_INCOME: 2, // Capital per controlled tile, granted at age start
+  // — Player start —
+  STARTING_CAPITAL: 5,
+  DP_SUPPLY: 15, // one pool: map DPs AND market bid markers
 
-  // — Cellar / maturity —
-  CELLAR_CAPACITY: 6, // finite; aging occupies space
-  GRAB_ENTRY_SLOT: 1, // maturity slot a grabbed bourbon enters at
-  COURT_ENTRY_SLOT: 3, // maturity slot a courted bourbon enters at
-  // slot (1..5) → the max fit that maturity permits. Low maturity gates fit.
-  MATURITY_ALLOWANCE: { 1: 1, 2: 2, 3: 2, 4: 3, 5: 3 } as Record<number, number>,
+  // — Market —
+  marketLots: (players: number) => players + 1,
 
-  // — Acquisition (Distill board) —
-  DISTILL_ROW: 5, // face-up slots
-  POSITION_PREMIUM: [0, 1, 1, 2, 3], // added to base price by slot index (0-based)
-  GRAB_AGENTS: 1,
-  COURT_AGENTS: 3,
+  // — Niches & scoring (brief §9 — the ONLY source of Capital) —
+  NICHE_MIN_TILES: 5,
+  CAPITAL_PER_CONTROLLED_CLAIM: 1, // tier 1
+  // tier 2 (niche majority) → collect rewards on controlled reward tiles
+  // tier 3 (niche monopoly) → collect ALL rewards in the niche
+  // No per-tile income in v3 — controlling a tile outside a niche scores 0.
 
-  // — Action economy —
-  // Action cards carry `bips` (2–4). Fewer bips ⇒ earlier initiative (inverse).
-  // A face-down sacrifice yields 1 bip and last initiative.
-  SACRIFICE_BIPS: 1,
-  TOKEN_TO_BIP: 1, // a Token spent in prelude buys this many bips
+  // — The Push (brief §8) — deterministic combat —
+  RETREAT_STRENGTH: 0, // commit no bourbon = strength 0
+  DAMAGE_PER_MARGIN: 1, // 1 margin removes 1 of the loser's DPs, outright (one step)
+  // A TIE does nothing: no tile change, no DP removal. Bourbons still deplete.
 
-  // — Action costs (bips) —
-  COST_PLACE_TILE: 1,
-  COST_BUILD_DP: 2,
+  // — Bourbon depletion / refresh (brief §7b) —
+  // Committing a bourbon depletes it (win/lose/tie). Persists across ages.
+  // Refresh (a Distill action) returns ONE depleted bourbon to FRESH.
+  REFRESH_PER_ACTION: 1,
+
+  // — Ownership / special tiles (brief §7, §13) —
+  DEFENSE_BONUS_LOYALTY: 1, // Loyal Fanbase, Word of Mouth
+  DEFENSE_BONUS_CULT_FOLLOWING: 2, // Cult Following
+  DEFENSE_BONUS_KEYSTONE: 2, // State Capital
+  KEYSTONE_TOKENS_PER_AGE: 1,
+  BLOCKING_TILE_COUNT: 4,
+
+  // — Action costs, in pips (all 1 today) —
+  COST_BUILD_DP: 1,
   COST_REPAIR_DP: 1,
   COST_PUSH: 1,
-  COST_DECLARE_NICHE: 1,
-  COST_ADD_TILE_TO_NICHE: 1,
-  COST_REMOVE_TILE_FROM_NICHE: 1,
-  COST_DISTILL: 1,
+  COST_ADD_NICHE_FLAG: 1,
+  COST_REMOVE_NICHE_FLAG: 1,
+  COST_EXPAND_DRAW: 1,
+  COST_EXPAND_PLACE: 1,
+  COST_BID: 1,
+  COST_MOVE_BID: 1,
+  COST_REFRESH: 1,
+  COST_CLAIM_SLOT: 1, // place a DP into an empty ownership slot
 
-  // — Niches —
-  NICHE_MIN_TILES: 5, // below this a niche collapses
+  // — Hand limits —
+  HELD_TILE_CAP: 1,
 
-  // — v0 simplifications (flagged for later) —
-  BOTS_AGGRESSIVE: false, // v0 bots don't initiate Pushes; they defend only
+  // — Turn structure (brief §4, §17.15) —
+  ACTION_FLOOR: 2, // a normal card grants at least this many actions
+  SACRIFICE_PER_CHAINED: 1, // each chained card costs one face-down sacrifice
+  SURRENDER_PIPS: 1, // a lone face-down = 1 action of ANY type, no icon
+
+  // — Tokens —
+  TOKEN_TO_ACTION: 1,
+  /** Brief §10 + invariant §17.9: ship UNCAPPED. null = no cap. */
+  TOKEN_STORAGE_CAP: null as null | ((controlledTiles: number) => number),
 } as const;
-
-/** Total cost to claim a bourbon = base price + slot position premium. */
-export function totalDistillCost(basePrice: number, slotIndex: number): number {
-  return basePrice + (CONFIG.POSITION_PREMIUM[slotIndex] ?? 0);
-}
-
-/** Max fit a bourbon at maturity `slot` (1..5) may reach. */
-export function maturityAllowance(slot: number): number {
-  return CONFIG.MATURITY_ALLOWANCE[Math.max(1, Math.min(5, slot))] ?? 3;
-}

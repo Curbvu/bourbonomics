@@ -10,6 +10,7 @@
 | **Playable at** | `apps/prototype/src/mapgame/` (pure-TS engine + React UI), route **`/mapgame`**. `npm run dev` → `localhost:3100/mapgame`. |
 | **Authority** | This document is **authoritative over any implementation.** If code and spec disagree, the spec wins — fix the code, or change the spec first in the same commit. |
 | **All numbers** | Every value tagged `[PH]` is a placeholder pending playtest. See §12 for the full registry. |
+| **See also** | [`MAP_GAME_BUILD_SURVEY.md`](MAP_GAME_BUILD_SURVEY.md) — the build brief this codebase implements, plus the resolved design decisions. Where the brief and this spec disagree, the brief (and the code) win. |
 
 ---
 

@@ -1,9 +1,11 @@
-// Monotonic id minting for runtime objects (DPs, bourbons, niches). Prototype
-// convenience — not part of the deterministic seed stream.
+// Deterministic id minting, threaded through GameState so state snapshots stay
+// replay-equal (brief §0: determinism is load-bearing). The counter lives on
+// the state; this helper bumps it and returns the next id.
 
-let counter = 0;
+import type { GameState } from "./types";
 
-export function nextId(prefix: string): string {
-  counter += 1;
-  return `${prefix}_${counter}`;
+/** Mutates draft.idCounter and returns a fresh id. Use only on a working draft. */
+export function mintId(draft: GameState, prefix: string): string {
+  draft.idCounter += 1;
+  return `${prefix}_${draft.idCounter}`;
 }

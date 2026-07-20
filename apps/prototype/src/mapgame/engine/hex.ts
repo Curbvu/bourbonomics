@@ -1,7 +1,11 @@
 // Axial hex math — shared by the engine (adjacency / contiguity) and the UI
 // (pixel layout). Pointy-top orientation.
 
-import type { Hex } from "./types";
+/** Axial hex coordinate. The canonical definition lives here. */
+export interface Hex {
+  q: number;
+  r: number;
+}
 
 export const HEX_DIRS: Hex[] = [
   { q: 1, r: 0 },
