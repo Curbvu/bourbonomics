@@ -2,11 +2,11 @@
 
 // Bourbonomics: Map Game — shared board theme & canonical assets.
 //
-// Implements the Asset & Visual Composition Spec: §0 design tokens, the shared
-// TagGrid (§1 — 5 fixed 2-2-1 slots, always rendered), reward-color mapping
-// (§2), the collector grain gradients (§3), and the SVG pieces (pawns/flags/
-// chips). Tiles and bourbon cards share ONE slot model so fit reads slot-for-
-// slot.
+// Implements the Asset & Visual Composition Spec on a LIGHT parchment palette:
+// design tokens, the shared TagGrid (§1 — 5 fixed 2-2-1 slots, always rendered),
+// reward-color mapping (§2), the collector grain gradients (§3), and the SVG
+// pieces (pawns / flags). Tiles and bourbon cards share ONE slot model so fit
+// reads slot-for-slot.
 
 import { tagColor } from "../engine";
 import type { Suit, Tag, TokenType } from "../engine";
@@ -224,17 +224,6 @@ export function Flag({ x, y, color, h = 20 }: { x: number; y: number; color: str
     <g transform={`translate(${x} ${y})`}>
       <rect x={-1} y={-h} width={2} height={h + 4} rx={1} fill="#2a1c0e" />
       <path d={`M 1 ${-h} L ${13} ${-h + 5} L 1 ${-h + 10} Z`} fill={color} stroke="#00000030" strokeWidth={0.5} />
-    </g>
-  );
-}
-
-/** A small reward chip / token (poker-chip look). */
-export function Chip({ x, y, r = 13, color, label }: { x: number; y: number; r?: number; color: string; label: string }) {
-  return (
-    <g transform={`translate(${x} ${y})`}>
-      <circle r={r} fill={color} stroke="#00000044" strokeWidth={1} />
-      <circle r={r - 3} fill="none" stroke="#ffffff55" strokeWidth={1} strokeDasharray="2 3" />
-      <text y={r * 0.3} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={r * 0.9} fill="#fff">{label}</text>
     </g>
   );
 }

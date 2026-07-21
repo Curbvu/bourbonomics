@@ -6,7 +6,7 @@
 // the engine refuses, guaranteeing forward progress and termination.
 
 import { applyAction } from "./engine";
-import { canPlaceDP, liveDPCount, tileById, tileController } from "./derive";
+import { canPlaceDP, liveDPCount, tileController } from "./derive";
 import { fit } from "./fit";
 import { firstOpenDPTarget, placementCandidates } from "./setup";
 import type { Action, GameState, Player, Tile } from "./types";

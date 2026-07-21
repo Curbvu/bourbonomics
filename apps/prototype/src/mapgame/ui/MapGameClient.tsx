@@ -44,7 +44,7 @@ import {
   tagGlyph,
 } from "./theme";
 
-// oak-world palette (mapped from the §0 design tokens)
+// light-parchment palette (mapped from the shared theme tokens)
 const C = {
   bg: T.oak,
   panel: T.panel,

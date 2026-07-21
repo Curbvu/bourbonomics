@@ -21,8 +21,6 @@ export type Tag =
   | { kind: "QUALITY"; value: Quality }
   | { kind: "AGE"; value: number };
 
-export type TagKind = Tag["kind"];
-
 /** AGE is meet-or-exceed; the rest are exact matches. */
 export const THRESHOLD_KINDS = ["AGE"] as const;
 export type ThresholdKind = (typeof THRESHOLD_KINDS)[number];
@@ -41,62 +39,14 @@ export const bonded = (): Tag => ({ kind: "QUALITY", value: "BONDED" });
 export const premium = (): Tag => ({ kind: "QUALITY", value: "PREMIUM" });
 export const age = (n: number): Tag => ({ kind: "AGE", value: n });
 
-// ── Canonical order (brief §3: always render/compare in this order) ──
-// GRAIN · BATCH · BONDED · AGE · PREMIUM. QUALITY splits: BONDED sorts before
-// AGE, PREMIUM after — handled in canonicalize below.
-const KIND_ORDER: Record<TagKind, number> = {
-  GRAIN: 0,
-  BATCH: 1,
-  QUALITY: 2, // BONDED here; PREMIUM is bumped past AGE in canonicalize
-  AGE: 3,
-};
-
-const VALUE_ORDER: Record<string, number> = {
-  RYE: 0,
-  WHEAT: 1,
-  TRADITIONAL: 2,
-  SINGLE_BARREL: 0,
-  SMALL_BATCH: 1,
-  BONDED: 0,
-  PREMIUM: 1,
-};
-
-/** Effective sort key: PREMIUM sorts last (after AGE), everything else by kind. */
-function orderKey(tag: Tag): number {
-  if (tag.kind === "QUALITY" && tag.value === "PREMIUM") return 5;
-  return KIND_ORDER[tag.kind];
-}
-
-/** Sort a tag bag into canonical order. Pure; returns a new array. */
-export function canonicalize(tags: readonly Tag[]): Tag[] {
-  return tags.slice().sort((a, b) => {
-    const k = orderKey(a) - orderKey(b);
-    if (k !== 0) return k;
-    if (isThreshold(a) && isThreshold(b)) return a.value - b.value;
-    return (VALUE_ORDER[String(a.value)] ?? 0) - (VALUE_ORDER[String(b.value)] ?? 0);
-  });
-}
-
 /**
- * Identity of a tag's match SLOT. Exact tags match on kind+value; thresholds
- * match on kind alone (the value is a bar to clear, not a key).
+ * Identity of a tag's match SLOT (used by fit). Exact tags match on kind+value;
+ * thresholds match on kind alone (the value is a bar to clear, not a key). The
+ * canonical GRAIN·BATCH·BONDED·AGE·PREMIUM render order lives in the UI's
+ * TagGrid (see ui/theme.tsx), which is the only place order matters.
  */
 export function slotKey(tag: Tag): string {
   return isThreshold(tag) ? tag.kind : `${tag.kind}:${tag.value}`;
-}
-
-// ── Display ──────────────────────────────────────────────────────────
-export function tagLabel(tag: Tag): string {
-  switch (tag.kind) {
-    case "GRAIN":
-      return tag.value === "TRADITIONAL" ? "TRADITIONAL" : tag.value;
-    case "BATCH":
-      return tag.value === "SINGLE_BARREL" ? "SINGLE BARREL" : "SMALL BATCH";
-    case "QUALITY":
-      return tag.value;
-    case "AGE":
-      return `AGE ${tag.value}`;
-  }
 }
 
 /** Shared by tiles and bourbons so one tag reads identically everywhere. */
