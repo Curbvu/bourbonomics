@@ -1,10 +1,9 @@
-// Bourbonomics: Map Game — setup (brief §13).
+// Bourbonomics: Map Game — setup (brief §13/§15).
 //
-// createGame() runs the whole setup phase deterministically and returns a state
-// at age 1, round 1, planning stage, ready to play. Setup auto-resolves the
-// snake tile-placement and opening draft (a human-driven setup UI can drive the
-// same primitives later); the RESULT respects every §13 rule, which is what the
-// verification checklist tests.
+// createGame() lays the fixed board (3-tile seed line + blocking terrain),
+// deals each player 5 setup tiles and the market, then STOPS at the interactive
+// setup: players place their tiles (setupPlace) and run the opening snake draft
+// (setupDraft) via applyAction. finalizeSetup() opens age 1 once the draft ends.
 
 import { beginAgeStart } from "./ageLoop";
 import { CONFIG } from "./config";
@@ -51,6 +50,7 @@ function mkPlayer(id: string, name: string, isBot: boolean, colorIdx: number): P
     hand: [],
     bourbons: [],
     heldTile: null,
+    setupTiles: [],
     committedFaceUp: [],
     committedSacrificed: [],
     surrendered: false,
@@ -61,7 +61,7 @@ function mkPlayer(id: string, name: string, isBot: boolean, colorIdx: number): P
   };
 }
 
-function tileFromDef(draft: GameState, def: TileDef, hex: Hex): Tile {
+export function tileFromDef(draft: GameState, def: TileDef, hex: Hex): Tile {
   return {
     id: mintId(draft, "tile"),
     defId: def.defId,
@@ -85,7 +85,7 @@ function tileFromDef(draft: GameState, def: TileDef, hex: Hex): Tile {
  * existing tiles. Returned in a stable order (by q then r) so placement is
  * deterministic. Blocking tiles count as existing tiles for this physical rule.
  */
-function placementCandidates(state: GameState): Hex[] {
+export function placementCandidates(state: GameState): Hex[] {
   const occupied = new Set(state.tiles.map((t) => hexKey(t.hex)));
   const seen = new Set<string>();
   const candidates: Hex[] = [];
@@ -103,7 +103,7 @@ function placementCandidates(state: GameState): Hex[] {
 }
 
 /** Snake order over player indices: 0..n-1, n-1..0, repeated. */
-function snakeOrder(players: number, rounds: number): number[] {
+export function snakeOrder(players: number, rounds: number): number[] {
   const order: number[] = [];
   for (let r = 0; r < rounds; r++) {
     const forward = r % 2 === 0;
@@ -140,6 +140,7 @@ export function createGame(opts: NewGameOptions): GameState {
     initiativeMarker: 0,
     pendingInitiative: [],
     tradeOffers: {},
+    setupDraftSeq: [],
     rngSeed: opts.seed ?? 1,
     idCounter: 0,
     log: [],
@@ -160,57 +161,47 @@ export function createGame(opts: NewGameOptions): GameState {
     draft.tiles.push(tileFromDef(draft, def, hex));
   }
 
-  // — 2. Setup tiles: deal 5 each; snake placement (>=2 adjacency) —
+  // — 1b. Blocking terrain: placed as fixed terrain during setup (brief §13.1),
+  //       spread around the seed so it walls the board. —
+  for (const bdef of blockingDefs) {
+    const cands = placementCandidates(draft);
+    if (cands.length) draft.tiles.push(tileFromDef(draft, bdef, cands[cands.length - 1]!));
+  }
+
+  // — 2. Setup tiles: deal 5 to each player's hand. Players PLACE them
+  //      interactively in the setupPlace stage (brief §13.2). —
   const perPlayer = CONFIG.SETUP_TILES_PER_PLAYER;
-  const hands: TileDef[][] = draft.players.map(() => pool.splice(0, perPlayer));
+  for (const p of draft.players) p.setupTiles = pool.splice(0, perPlayer);
   // Whatever demand tiles remain become the Expand Market supply (brief §6b).
   draft.tileSupply = pool;
 
-  // Interleave blocking terrain into the placement stream so it lands mid-board.
-  const placeOrder = snakeOrder(n, perPlayer);
-  let blockingQueue = blockingDefs.slice();
-  const blockAfter = new Set([2, 5, 8, 11].slice(0, blockingQueue.length)); // step indices
-  placeOrder.forEach((pIdx, step) => {
-    const def = hands[pIdx]!.shift();
-    if (def) {
-      const cands = placementCandidates(draft);
-      const hex = cands[0]!;
-      draft.tiles.push(tileFromDef(draft, def, hex));
-    }
-    if (blockAfter.has(step) && blockingQueue.length) {
-      const bdef = blockingQueue.shift()!;
-      const cands = placementCandidates(draft);
-      if (cands.length) draft.tiles.push(tileFromDef(draft, bdef, cands[cands.length - 1]!));
-    }
-  });
-  // any remaining blocking tiles (small boards) — drop onto valid terrain
-  for (const bdef of blockingQueue) {
-    const cands = placementCandidates(draft);
-    if (cands.length) draft.tiles.push(tileFromDef(draft, bdef, cands[0]!));
-  }
-
-  // — 3. Market: PLAYERS+1 face-up lots —
+  // — 3. Market: PLAYERS+1 face-up lots (drafted in setupDraft) —
   const [bourbonShuffled, s2] = shuffle(buildBourbonDefs(), draft.rngSeed);
   draft.rngSeed = s2;
   draft.bourbonDeck = bourbonShuffled.slice();
   refillMarket(draft, CONFIG.marketLots(n));
 
-  // — 4. Opening draft: snake, 4 turns each; draft a bourbon OR place 1 LIVE DP —
-  runOpeningDraft(draft, n);
+  // — Open the interactive setup: place tiles in turn order, one at a time. —
+  draft.phase = "setup";
+  draft.stage = "setupPlace";
+  draft.initiative = draft.players.map((_, i) => i);
+  draft.turnPos = 0;
+  draft.log.push({ age: 1, round: 1, message: `Setup — place your tiles, then draft. ${n} players.` });
+  return draft;
+}
 
-  // — 5. First player = last drafter of the FIRST snake round (index n-1);
-  //      they hold the initiative marker (brief §15.5). —
+/**
+ * Called by the engine once the opening draft finishes: fix the first player
+ * (last drafter of the first snake round = index n-1), then open age 1.
+ */
+export function finalizeSetup(draft: GameState): void {
+  const n = draft.players.length;
   draft.startPlayerIndex = n - 1;
   draft.initiativeMarker = n - 1;
-
-  // — Age 1 opening: the round-1 initiative to install after the age-start stages —
   draft.phase = "playing";
   draft.pendingInitiative = openingInitiative(draft);
-  draft.log.push({ age: 1, round: 1, message: `Game begins — ${n} players.` });
-
-  // Deal hands + catch-up board, then open the interactive age-start (trade → catch-up).
+  draft.log.push({ age: 1, round: 1, message: "Setup complete — the game begins." });
   beginAgeStart(draft);
-  return draft;
 }
 
 // ── Market ───────────────────────────────────────────────────────────
@@ -222,53 +213,13 @@ export function refillMarket(draft: GameState, target: number): void {
   }
 }
 
-// ── Opening draft ────────────────────────────────────────────────────
-function runOpeningDraft(draft: GameState, n: number): void {
-  const order = snakeOrder(n, CONFIG.OPENING_DRAFT_PICKS);
-  const perTurnIsDraft = (turn: number) => turn % 2 === 1; // alt place, draft, place, draft
-  const turnCounter = new Map<number, number>();
-
-  for (const pIdx of order) {
-    const turn = turnCounter.get(pIdx) ?? 0;
-    turnCounter.set(pIdx, turn + 1);
-    const player = draft.players[pIdx]!;
-
-    if (perTurnIsDraft(turn) && draft.market.length > 0) {
-      // draft the best-fitting available bourbon by raw tag count (simple, deterministic)
-      const lot = draft.market.reduce((a, b) => (b.def.tags.length > a.def.tags.length ? b : a));
-      draft.market = draft.market.filter((l) => l.id !== lot.id);
-      player.bourbons.push({
-        id: mintId(draft, "bourbon"),
-        defId: lot.def.defId,
-        name: lot.def.name,
-        tags: lot.def.tags,
-        owner: player.id,
-        state: "FRESH",
-      });
-      refillMarket(draft, CONFIG.marketLots(n));
-    } else {
-      // place 1 LIVE DP — setup-exempt from control adjacency (§13, step 4)
-      const target = pickOpeningDPTile(draft, player.id);
-      if (target && player.dpSupply > 0) {
-        player.dpSupply -= 1;
-        draft.dps.push({
-          id: mintId(draft, "dp"),
-          owner: player.id,
-          tileId: target.id,
-          state: "LIVE",
-          seq: draft.idCounter,
-        });
-      }
-    }
-  }
-}
-
-/** Deterministic opening-DP target: an unoccupied demand tile, else any demand tile. */
-function pickOpeningDPTile(draft: GameState, playerId: string): Tile | undefined {
+/** Deterministic opening-DP target: an unoccupied demand tile, else any demand
+ *  tile. Used by the bot during the opening draft (brief §13.4). */
+export function firstOpenDPTarget(draft: GameState, playerId: string): Tile | undefined {
   const demand = draft.tiles.filter((t) => t.category !== "BLOCKING");
   const empty = demand.filter((t) => !draft.dps.some((d) => d.tileId === t.id));
   const pool = empty.length ? empty : demand.filter((t) => !draft.dps.some((d) => d.tileId === t.id && d.owner === playerId));
-  return (pool[0] ?? demand[0]);
+  return pool[0] ?? demand[0];
 }
 
 // ── Action hands ─────────────────────────────────────────────────────

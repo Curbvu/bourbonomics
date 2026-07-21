@@ -177,6 +177,7 @@ export interface Player {
   hand: ActionCard[];
   bourbons: Bourbon[];
   heldTile: TileDef | null; // at most HELD_TILE_CAP un-placed tiles
+  setupTiles: TileDef[]; // setup-phase tiles still to place (brief §13.2)
 
   // — per-round commit (brief §4 — chaining) —
   /** Face-up cards played this round: [primary, ...chained]. Empty if surrendered. */
@@ -196,10 +197,21 @@ export interface Player {
 // ── Game ─────────────────────────────────────────────────────────────
 export type GamePhase = "setup" | "playing" | "ended";
 /**
+ * Setup (brief §13/§15): setupPlace = each player places their 5 setup tiles in
+ * turn order (>=2 adjacency); setupDraft = snake opening draft, 4 picks each
+ * (draft a bourbon OR place a LIVE DP). Then play begins.
  * Age start: trade → catchup. Round: planning → commit → resolve. ageEnd runs
  * market resolution + niche scoring.
  */
-export type RoundStage = "trade" | "catchup" | "planning" | "commit" | "resolve" | "ageEnd";
+export type RoundStage =
+  | "setupPlace"
+  | "setupDraft"
+  | "trade"
+  | "catchup"
+  | "planning"
+  | "commit"
+  | "resolve"
+  | "ageEnd";
 
 export interface LogEntry {
   age: number;
@@ -236,6 +248,8 @@ export interface GameState {
   pendingInitiative: number[];
   /** Trade offers collected during the "trade" stage, by player id. */
   tradeOffers: Record<string, string[]>;
+  /** Snake pick order for the opening draft (setupDraft); turnPos indexes it. */
+  setupDraftSeq: number[];
 
   rngSeed: number;
   idCounter: number; // threaded, so snapshots stay replay-equal
@@ -244,6 +258,10 @@ export interface GameState {
 
 // ── Actions ──────────────────────────────────────────────────────────
 export type Action =
+  // — setup phase (brief §13/§15) —
+  | { type: "SETUP_PLACE_TILE"; hex: Hex } // place your next setup tile (>=2 adjacency)
+  | { type: "SETUP_DRAFT_BOURBON"; lotId: string } // opening draft: take a bourbon
+  | { type: "SETUP_PLACE_DP"; tileId: string } // opening draft: place a LIVE DP (setup-exempt)
   | { type: "TRADE_OFFER"; cardIds: string[] } // age start: offer up to TRADE_MAX cards
   | { type: "CATCHUP_SWAP"; handCardId: string; boardCardId: string | null } // null = pass
   | { type: "SPEND_TOKEN"; token: TokenType } // planning: +1 action of that suit

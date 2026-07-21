@@ -20,6 +20,7 @@ import {
   fit,
   hexPolygonPoints,
   liveDPCount,
+  placementCandidates,
   tagColor,
   tileController,
 } from "../engine";
@@ -135,9 +136,16 @@ function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (
     timer.current = setTimeout(() => setToast(null), 2000);
   };
 
-  const actor = game.phase === "playing" ? currentActorOf(game) : null;
-  const yourTurn = actor?.id === HUMAN && game.phase === "playing";
+  const inPlay = game.phase === "playing" || game.phase === "setup";
+  const actor = inPlay ? currentActorOf(game) : null;
+  const yourTurn = actor?.id === HUMAN && inPlay;
   const you = game.players.find((p) => p.id === HUMAN)!;
+  const inSetup = game.phase === "setup";
+  // valid empty hexes to place the next setup tile (your turn only)
+  const candidates = useMemo(
+    () => (inSetup && game.stage === "setupPlace" && yourTurn ? placementCandidates(game) : []),
+    [game, inSetup, yourTurn],
+  );
 
   function dispatch(action: Action) {
     const res = applyAction(game, action);
@@ -150,6 +158,8 @@ function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (
 
   function clickTile(tile: Tile) {
     if (!yourTurn || tile.category === "BLOCKING") return;
+    // Opening draft: click a tile to place a LIVE DP on it (setup-exempt).
+    if (game.stage === "setupDraft") return dispatch({ type: "SETUP_PLACE_DP", tileId: tile.id });
     if (game.stage === "resolve" || game.stage === "planning") {
       if (mode === "BUILD_DP") return dispatch({ type: "BUILD_DP", tileId: tile.id });
       if (mode === "ADD_NICHE_FLAG") return dispatch({ type: "ADD_NICHE_FLAG", tileId: tile.id });
@@ -157,6 +167,10 @@ function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (
       if (mode === "PUSH") return push(tile);
       if (mode === "CLAIM_SLOT") return dispatch({ type: "CLAIM_SLOT", tileId: tile.id, tag: preferredGrain(you) });
     }
+  }
+
+  function placeSetupTile(hex: { q: number; r: number }) {
+    if (yourTurn && game.stage === "setupPlace") dispatch({ type: "SETUP_PLACE_TILE", hex });
   }
 
   function push(tile: Tile) {
@@ -185,9 +199,11 @@ function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (
         <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.4, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E\")" }} />
         <div style={{ position: "absolute", top: 20, left: 26, zIndex: 1 }}>
           <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 3, color: T.goldSoft, textTransform: "uppercase" }}>Bourbonomics</div>
-          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: T.cream, lineHeight: 1 }}>The Market</div>
+          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: T.cream, lineHeight: 1 }}>
+            {inSetup ? (game.stage === "setupPlace" ? "Building the Board" : "The Opening Draft") : "The Market"}
+          </div>
         </div>
-        <HexMap game={game} mode={yourTurn ? mode : null} onClick={clickTile} />
+        <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDraft"} />
         {toast && (
           <div style={{ position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#000c", color: C.gold, padding: "10px 18px", borderRadius: 8, fontSize: 15, fontFamily: MONO, border: `1px solid ${T.border}` }}>
             {toast}
@@ -202,17 +218,18 @@ function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (
 // ── Hex map ──────────────────────────────────────────────────────────
 const HEX = 56;
 
-function HexMap({ game, mode, onClick }: { game: GameState; mode: Mode; onClick: (t: Tile) => void }) {
+function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = false }: { game: GameState; mode: Mode; onClick: (t: Tile) => void; candidates?: { q: number; r: number }[]; onPlace?: (h: { q: number; r: number }) => void; draftable?: boolean }) {
   const layout = useMemo(() => {
     const pts = game.tiles.map((t) => ({ t, ...axialToPixel(t.hex, HEX) }));
-    const xs = pts.map((p) => p.x);
-    const ys = pts.map((p) => p.y);
+    const cand = candidates.map((h) => ({ h, ...axialToPixel(h, HEX) }));
+    const xs = [...pts, ...cand].map((p) => p.x);
+    const ys = [...pts, ...cand].map((p) => p.y);
     const minX = Math.min(...xs) - HEX * 1.6;
     const minY = Math.min(...ys) - HEX * 1.6;
     const w = Math.max(...xs) - minX + HEX * 1.6;
     const h = Math.max(...ys) - minY + HEX * 1.6;
-    return { pts, minX, minY, w, h };
-  }, [game.tiles]);
+    return { pts, cand, minX, minY, w, h };
+  }, [game.tiles, candidates]);
 
   const idxOf = (pid: string) => game.players.findIndex((p) => p.id === pid);
 
@@ -223,12 +240,18 @@ function HexMap({ game, mode, onClick }: { game: GameState; mode: Mode; onClick:
           <stop offset="0" stopColor="#ffffff" stopOpacity="0.35" />
           <stop offset="0.6" stopColor="#ffffff" stopOpacity="0" />
         </radialGradient>
-        <filter id="tileShadow" x="-30%" y="-30%" width="160%" height="160%">
-          <feDropShadow dx="0" dy="2.5" stdDeviation="2.5" floodColor="#000" floodOpacity="0.4" />
-        </filter>
       </defs>
       {layout.pts.map(({ t, x, y }) => (
-        <TileHex key={t.id} game={game} t={t} x={x} y={y} idxOf={idxOf} clickable={mode !== null && t.category !== "BLOCKING"} onClick={() => onClick(t)} />
+        <TileHex key={t.id} game={game} t={t} x={x} y={y} idxOf={idxOf} clickable={(mode !== null || draftable) && t.category !== "BLOCKING"} onClick={() => onClick(t)} />
+      ))}
+      {/* ghost placement targets during setup */}
+      {layout.cand.map(({ h, x, y }, i) => (
+        <g key={`c${i}`} onClick={() => onPlace?.(h)} style={{ cursor: "pointer" }}>
+          <polygon points={hexPolygonPoints(x, y, HEX)} fill={`${T.gold}18`} stroke={T.gold} strokeWidth={2} strokeDasharray="5 4">
+            <animate attributeName="opacity" values="0.55;1;0.55" dur="1.6s" repeatCount="indefinite" />
+          </polygon>
+          <text x={x} y={y + 4} textAnchor="middle" fontFamily={MONO} fontSize={11} letterSpacing={1} fill={T.gold}>PLACE</text>
+        </g>
       ))}
     </svg>
   );
@@ -368,7 +391,7 @@ function Rail({
     <div style={{ width: 600, height: 1080, background: `linear-gradient(${T.rail}, ${T.feltDeep})`, borderLeft: `3px solid ${T.border}`, boxShadow: `inset 4px 0 0 ${T.gold}22`, display: "flex", flexDirection: "column", padding: 18, gap: 12, boxSizing: "border-box" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
         <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 700, color: C.gold }}>
-          Age {game.age}<span style={{ color: T.faint }}>/5</span> · Round {game.round}
+          {game.phase === "setup" ? "Setup" : <>Age {game.age}<span style={{ color: T.faint }}>/5</span> · Round {game.round}</>}
         </div>
         <div style={{ fontSize: 12, color: C.muted, fontFamily: MONO, textTransform: "uppercase", letterSpacing: 1.5, flex: 1 }}>{game.stage}</div>
         <button onClick={onManual} title="The Distiller's Field Guide" style={{ fontSize: 12, background: "none", color: C.gold, border: `1px solid ${C.gold}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
@@ -413,10 +436,11 @@ function Standings({ game }: { game: GameState }) {
 }
 
 function Market({ game, you, yourTurn, dispatch }: { game: GameState; you: GameState["players"][number]; yourTurn: boolean; dispatch: (a: Action) => void }) {
-  const canBid = yourTurn && you.allowedSuits.some((s) => SUIT_ACTIONS[s].includes("BID"));
+  const drafting = yourTurn && game.stage === "setupDraft";
+  const canBid = drafting || (yourTurn && you.allowedSuits.some((s) => SUIT_ACTIONS[s].includes("BID")));
   return (
     <div>
-      <RailLabel>The Market</RailLabel>
+      <RailLabel>{drafting ? "Draft a bourbon" : "The Market"}</RailLabel>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {game.market.map((lot) => {
           const bids = Object.entries(lot.bids).filter(([, n]) => n > 0);
@@ -425,7 +449,7 @@ function Market({ game, you, yourTurn, dispatch }: { game: GameState; you: GameS
             <button
               key={lot.id}
               disabled={!canBid}
-              onClick={() => dispatch({ type: "BID", lotId: lot.id })}
+              onClick={() => dispatch(drafting ? { type: "SETUP_DRAFT_BOURBON", lotId: lot.id } : { type: "BID", lotId: lot.id })}
               style={{ flex: "1 1 158px", textAlign: "left", background: `linear-gradient(160deg, ${tint.a}, ${tint.b})`, border: `1px solid ${canBid ? C.gold : "#00000060"}`, borderRadius: 9, padding: "9px 10px", cursor: canBid ? "pointer" : "default", boxShadow: canBid ? `0 0 0 1px ${C.gold}44` : "none" }}
             >
               <div style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: "#f3ead2", letterSpacing: 0.3 }}>{lot.def.name}</div>
@@ -473,7 +497,11 @@ function Controls({ game, you, yourTurn, mode, setMode, dispatch }: { game: Game
 
   return (
     <div style={{ background: C.panel, borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-      {game.stage === "trade" ? (
+      {game.stage === "setupPlace" ? (
+        <SetupPlaceControls you={you} />
+      ) : game.stage === "setupDraft" ? (
+        <SetupDraftControls game={game} you={you} />
+      ) : game.stage === "trade" ? (
         <TradeControls you={you} dispatch={dispatch} />
       ) : game.stage === "catchup" ? (
         <CatchupControls game={game} you={you} dispatch={dispatch} />
@@ -482,6 +510,53 @@ function Controls({ game, you, yourTurn, mode, setMode, dispatch }: { game: Game
       ) : (
         <ActControls game={game} you={you} mode={mode} setMode={setMode} dispatch={dispatch} />
       )}
+    </div>
+  );
+}
+
+function SetupPlaceControls({ you }: { you: GameState["players"][number] }) {
+  const next = you.setupTiles[0];
+  return (
+    <div>
+      <RailLabel>Setup · Build the board</RailLabel>
+      <p style={{ fontSize: 14, color: C.muted, margin: "0 0 10px" }}>
+        Place your setup tiles onto the board — click a <span style={{ color: C.gold }}>glowing</span> hex. Every tile
+        must touch 2+ existing tiles. <B>{you.setupTiles.length}</B> left.
+      </p>
+      {next && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, background: T.panel2, borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1, color: T.muted }}>NEXT TILE</div>
+          <div>
+            <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 700, color: C.text }}>{next.name}</div>
+            <div style={{ display: "flex", gap: 4, marginTop: 3 }}>
+              {next.tags.length === 0 ? (
+                <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>wildcard</span>
+              ) : (
+                next.tags.map((tg, i) => (
+                  <span key={i} style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 11, color: "#fff", background: tagColor(tg), borderRadius: 4, padding: "1px 5px" }}>{tagGlyph(tg)}</span>
+                ))
+              )}
+              {next.reward && <span style={{ fontFamily: MONO, fontSize: 10, color: T.gold, alignSelf: "center" }}>{rewardLabel(next.reward)}</span>}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SetupDraftControls({ game, you }: { game: GameState; you: GameState["players"][number] }) {
+  // count this player's remaining picks in the snake sequence
+  const idx = game.players.indexOf(you);
+  const remaining = game.setupDraftSeq.slice(game.turnPos).filter((i) => i === idx).length;
+  return (
+    <div>
+      <RailLabel>Setup · Opening draft</RailLabel>
+      <p style={{ fontSize: 14, color: C.muted, margin: "0 0 6px" }}>
+        Each pick: <B>draft a bourbon</B> (click a market card) <B>or place a DP</B> (click a tile — anywhere, this is
+        setup). <B>{remaining}</B> pick{remaining === 1 ? "" : "s"} left.
+      </p>
+      <YourBourbons you={you} />
     </div>
   );
 }
@@ -694,6 +769,10 @@ function Log({ game }: { game: GameState }) {
 
 function btn(color: string): React.CSSProperties {
   return { fontSize: 12, fontWeight: 700, padding: "6px 11px", background: "transparent", color, border: `1px solid ${color}`, borderRadius: 7, cursor: "pointer" };
+}
+
+function B({ children }: { children: React.ReactNode }) {
+  return <strong style={{ color: C.text, fontWeight: 700 }}>{children}</strong>;
 }
 
 // A letterpress action card (matches the printed Action Cards): cream face,
