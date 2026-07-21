@@ -146,26 +146,18 @@ export function createGame(opts: NewGameOptions): GameState {
     log: [],
   };
 
-  // — Split content into demand + blocking, shuffle each —
-  const defs = buildTileDefs();
-  const demandDefs = defs.filter((d) => d.category !== "BLOCKING");
-  const blockingDefs = defs.filter((d) => d.category === "BLOCKING");
+  // — Shuffle the demand tiles (blocking is placed later, once the board is
+  //   built, so the opening ground stays open for players). —
+  const demandDefs = buildTileDefs().filter((d) => d.category !== "BLOCKING");
   const [demandShuffled, s1] = shuffle(demandDefs, draft.rngSeed);
   draft.rngSeed = s1;
 
-  // — 1. Seed: 3 tiles in a line at center —
+  // — 1. Seed: 3 tiles in a line at center. That's the whole starting board. —
   const seedHexes: Hex[] = Array.from({ length: CONFIG.SEED_LINE_TILES }, (_, i) => ({ q: i, r: 0 }));
   const pool = demandShuffled.slice();
   for (const hex of seedHexes) {
     const def = pool.shift()!;
     draft.tiles.push(tileFromDef(draft, def, hex));
-  }
-
-  // — 1b. Blocking terrain: placed as fixed terrain during setup (brief §13.1),
-  //       spread around the seed so it walls the board. —
-  for (const bdef of blockingDefs) {
-    const cands = placementCandidates(draft);
-    if (cands.length) draft.tiles.push(tileFromDef(draft, bdef, cands[cands.length - 1]!));
   }
 
   // — 2. Setup tiles: deal 5 to each player's hand. Players PLACE them
@@ -188,6 +180,21 @@ export function createGame(opts: NewGameOptions): GameState {
   draft.turnPos = 0;
   draft.log.push({ age: 1, round: 1, message: `Setup — place your tiles, then draft. ${n} players.` });
   return draft;
+}
+
+/**
+ * Blocking terrain (brief §13.1) — placed as fixed terrain once players finish
+ * laying the board, spread across it so it walls things without cluttering the
+ * opening ground. Each goes on a valid (>=2 adjacency) spot.
+ */
+export function placeBlockingTerrain(draft: GameState): void {
+  const blocking = buildTileDefs().filter((d) => d.category === "BLOCKING");
+  for (let i = 0; i < blocking.length; i++) {
+    const cands = placementCandidates(draft);
+    if (cands.length === 0) break;
+    const idx = Math.min(Math.floor(((i + 1) / (blocking.length + 1)) * cands.length), cands.length - 1);
+    draft.tiles.push(tileFromDef(draft, blocking[i]!, cands[idx]!));
+  }
 }
 
 /**

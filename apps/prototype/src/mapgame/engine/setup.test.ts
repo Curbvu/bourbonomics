@@ -36,8 +36,9 @@ describe("setup — the fixed board (brief §13)", () => {
         expect(s.tiles.some((t) => t.hex.q === q && t.hex.r === 0)).toBe(true);
       }
     });
-    it(`${n}p: places the blocking terrain up front`, () => {
-      expect(s.tiles.filter((t) => t.category === "BLOCKING").length).toBe(CONFIG.BLOCKING_TILE_COUNT);
+    it(`${n}p: the starting board is just the 3-tile line (no blocking yet)`, () => {
+      expect(s.tiles.length).toBe(CONFIG.SEED_LINE_TILES);
+      expect(s.tiles.filter((t) => t.category === "BLOCKING").length).toBe(0);
     });
     it(`${n}p: deals 5 setup tiles to each player, none yet placed`, () => {
       for (const p of s.players) expect(p.setupTiles.length).toBe(CONFIG.SETUP_TILES_PER_PLAYER);
@@ -115,6 +116,9 @@ describe("setup — completion opens age 1 (via auto-player)", () => {
       for (const p of s.players) {
         expect(p.bourbons.length + s.dps.filter((d) => d.owner === p.id).length).toBeGreaterThan(0);
       }
+    });
+    it(`${n}p: blocking terrain is placed once the board is built`, () => {
+      expect(s.tiles.filter((t) => t.category === "BLOCKING").length).toBe(CONFIG.BLOCKING_TILE_COUNT);
     });
     it(`${n}p: opening DPs are LIVE; blocking tiles hold none`, () => {
       const blocking = new Set(s.tiles.filter((t) => t.category === "BLOCKING").map((t) => t.id));

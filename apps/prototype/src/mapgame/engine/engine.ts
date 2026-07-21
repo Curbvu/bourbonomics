@@ -15,7 +15,7 @@ import { resolvePush } from "./push";
 import type { Hex } from "./hex";
 import { hexKey } from "./hex";
 import { mintId } from "./ids";
-import { finalizeSetup, refillMarket, snakeOrder, tileFromDef } from "./setup";
+import { finalizeSetup, placeBlockingTerrain, refillMarket, snakeOrder, tileFromDef } from "./setup";
 import type {
   Action,
   ActionResult,
@@ -377,11 +377,12 @@ function setupPlaceStage(draft: GameState, actor: Player, action: Action): Actio
   log(draft, `${actor.name} places ${tile.name}.`);
 
   if (!advanceSetupPlace(draft)) {
-    // → opening draft (snake), 4 picks each
+    // Board is built — drop the fixed blocking terrain, then open the draft.
+    placeBlockingTerrain(draft);
     draft.stage = "setupDraft";
     draft.setupDraftSeq = snakeOrder(draft.players.length, CONFIG.OPENING_DRAFT_PICKS);
     draft.turnPos = 0;
-    log(draft, "Opening draft — draft a bourbon or place a DP.");
+    log(draft, "Terrain settles — opening draft: a bourbon or a DP.");
   }
   return commit(draft);
 }
