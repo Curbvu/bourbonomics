@@ -30,6 +30,14 @@ export default function MainMenu() {
       />
 
       <MenuTile
+        href="/mapgame"
+        eyebrow="Map Game · v0"
+        title="Play the territorial prototype"
+        subtitle="A separate game: build Distribution Points across a hex map of taste-space, distill bourbons, and Push rivals off contested shelves. Pre-balance playtest."
+        accent="rose"
+      />
+
+      <MenuTile
         href="/wiki"
         eyebrow="Bourbon Wiki"
         title="Browse every catalog"
