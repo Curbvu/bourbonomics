@@ -1,8 +1,7 @@
-import MapGameClient from "../mapgame/ui/MapGameClient";
+import HomeMenu from "./HomeMenu";
 
-// The territory game (Map Game) is the mainline product — it lives at the apex
-// root. The older base-game landing (MainMenu + rulebook) remains reachable at
-// /play, /rules and /wiki; /mapgame also still renders this same client.
+// The landing home screen — a menu of options. "Play" leads to the territory
+// game at /mapgame; the older base-game routes remain at /play, /rules, /wiki.
 export default function Home() {
-  return <MapGameClient />;
+  return <HomeMenu />;
 }
