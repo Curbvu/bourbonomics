@@ -4,11 +4,13 @@ import { applyAction } from "./engine";
 import { createGame } from "./setup";
 import type { GameState } from "./types";
 
-// A fresh game, advanced past the age-start trade/catch-up to round-1 planning.
+// A fresh game, auto-driven through setup + age-start to round-1 planning.
 function game(n: number, seed = 3): GameState {
   let s = createGame({ playerNames: Array.from({ length: n }, (_, i) => `P${i}`), seed });
   let guard = 0;
-  while (s.stage !== "planning" && s.phase === "playing" && guard++ < 50) s = stepAuto(s);
+  while (s.stage !== "planning" && (s.phase === "setup" || s.phase === "playing") && guard++ < 400) {
+    s = stepAuto(s);
+  }
   return s;
 }
 

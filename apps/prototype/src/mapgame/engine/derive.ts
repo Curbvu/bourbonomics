@@ -11,19 +11,7 @@ export function tileById(state: GameState, id: string): Tile | undefined {
   return state.tiles.find((t) => t.id === id);
 }
 
-export function tileByHex(state: GameState, hex: { q: number; r: number }): Tile | undefined {
-  return state.tiles.find((t) => t.hex.q === hex.q && t.hex.r === hex.r);
-}
-
-export function playerById(state: GameState, id: string) {
-  return state.players.find((p) => p.id === id);
-}
-
-export function dpsOnTile(state: GameState, tileId: string) {
-  return state.dps.filter((d) => d.tileId === tileId);
-}
-
-/** LIVE DP count on a tile — for one owner, or everyone. Only LIVE counts (§16.3). */
+/** LIVE DP count on a tile — for one owner, or everyone. Only LIVE counts (§17.3). */
 export function liveDPCount(state: GameState, tileId: string, owner?: string): number {
   return state.dps.filter(
     (d) => d.tileId === tileId && d.state === "LIVE" && (owner === undefined || d.owner === owner),

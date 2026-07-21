@@ -13,7 +13,9 @@ import { CONFIG } from "./config";
 import { canAddFlag, canPlaceDP, neighborTiles, tileById, tileController } from "./derive";
 import { resolvePush } from "./push";
 import type { Hex } from "./hex";
+import { hexKey } from "./hex";
 import { mintId } from "./ids";
+import { finalizeSetup, placeBlockingTerrain, refillMarket, snakeOrder, tileFromDef } from "./setup";
 import type {
   Action,
   ActionResult,
@@ -31,7 +33,10 @@ const refuse = (reason: string): ActionResult => ({ ok: false, reason });
 const commit = (state: GameState): ActionResult => ({ ok: true, state });
 
 function currentActor(draft: GameState): Player {
-  return draft.players[draft.initiative[draft.turnPos]!]!;
+  // The opening draft runs a snake sequence; every other stage iterates
+  // `initiative` (round-robin during setup placement).
+  const seq = draft.stage === "setupDraft" ? draft.setupDraftSeq : draft.initiative;
+  return draft.players[seq[draft.turnPos]!]!;
 }
 
 function log(draft: GameState, message: string): void {
@@ -320,11 +325,15 @@ function doMoveBid(draft: GameState, actor: Player, fromLotId: string, toLotId: 
 
 // ── Dispatch ─────────────────────────────────────────────────────────
 export function applyAction(state: GameState, action: Action): ActionResult {
-  if (state.phase !== "playing") return refuse("game is not in play");
+  if (state.phase !== "playing" && state.phase !== "setup") return refuse("game is not in play");
   const draft = clone(state);
   const actor = currentActor(draft);
 
   switch (draft.stage) {
+    case "setupPlace":
+      return setupPlaceStage(draft, actor, action);
+    case "setupDraft":
+      return setupDraftStage(draft, actor, action);
     case "trade":
       return tradeStage(draft, actor, action);
     case "catchup":
@@ -338,6 +347,77 @@ export function applyAction(state: GameState, action: Action): ActionResult {
     default:
       return refuse(`cannot act during ${draft.stage}`);
   }
+}
+
+// ── Setup phase (brief §13/§15) ──────────────────────────────────────
+/** Round-robin: hop to the next player who still has setup tiles to place. */
+function advanceSetupPlace(draft: GameState): boolean {
+  const n = draft.players.length;
+  for (let step = 1; step <= n; step++) {
+    const pos = (draft.turnPos + step) % n;
+    if (draft.players[draft.initiative[pos]!]!.setupTiles.length > 0) {
+      draft.turnPos = pos;
+      return true;
+    }
+  }
+  return false; // every setup tile placed
+}
+
+function setupPlaceStage(draft: GameState, actor: Player, action: Action): ActionResult {
+  if (action.type !== "SETUP_PLACE_TILE") return refuse("place a setup tile now");
+  if (actor.setupTiles.length === 0) return refuse("you have no setup tiles left");
+  const { hex } = action;
+  if (draft.tiles.some((t) => hexKey(t.hex) === hexKey(hex))) return refuse("hex is occupied");
+  if (neighborTiles(draft, hex).length < CONFIG.TILE_MIN_ADJACENCY) {
+    return refuse(`a placed tile must touch >= ${CONFIG.TILE_MIN_ADJACENCY} existing tiles`);
+  }
+  const def = actor.setupTiles.shift()!;
+  const tile = tileFromDef(draft, def, hex);
+  draft.tiles.push(tile);
+  log(draft, `${actor.name} places ${tile.name}.`);
+
+  if (!advanceSetupPlace(draft)) {
+    // Board is built — drop the fixed blocking terrain, then open the draft.
+    placeBlockingTerrain(draft);
+    draft.stage = "setupDraft";
+    draft.setupDraftSeq = snakeOrder(draft.players.length, CONFIG.OPENING_DRAFT_PICKS);
+    draft.turnPos = 0;
+    log(draft, "Terrain settles — opening draft: a bourbon or a DP.");
+  }
+  return commit(draft);
+}
+
+function setupDraftStage(draft: GameState, actor: Player, action: Action): ActionResult {
+  if (action.type === "SETUP_DRAFT_BOURBON") {
+    const lot = draft.market.find((l) => l.id === action.lotId);
+    if (!lot) return refuse("no such market lot");
+    draft.market = draft.market.filter((l) => l.id !== lot.id);
+    actor.bourbons.push({
+      id: mintId(draft, "bourbon"),
+      defId: lot.def.defId,
+      name: lot.def.name,
+      tags: lot.def.tags,
+      owner: actor.id,
+      state: "FRESH",
+    });
+    refillMarket(draft, CONFIG.marketLots(draft.players.length));
+    log(draft, `${actor.name} drafts ${lot.def.name}.`);
+  } else if (action.type === "SETUP_PLACE_DP") {
+    const tile = tileById(draft, action.tileId);
+    if (!tile) return refuse("no such tile");
+    if (tile.category === "BLOCKING") return refuse("blocking tiles cannot hold DPs");
+    if (actor.dpSupply <= 0) return refuse("no DPs left in supply");
+    // Setup DP placement is exempt from the control-adjacency rule (brief §13.4).
+    actor.dpSupply -= 1;
+    draft.dps.push({ id: mintId(draft, "dp"), owner: actor.id, tileId: tile.id, state: "LIVE", seq: draft.idCounter });
+    log(draft, `${actor.name} places a DP on ${tile.name}.`);
+  } else {
+    return refuse("draft a bourbon or place a DP now");
+  }
+
+  draft.turnPos += 1;
+  if (draft.turnPos >= draft.setupDraftSeq.length) finalizeSetup(draft);
+  return commit(draft);
 }
 
 // ── Age-start stages ─────────────────────────────────────────────────

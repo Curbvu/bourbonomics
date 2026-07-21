@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
+import { stepAuto } from "./bot";
 import { applyAction } from "./engine";
 import { createGame } from "./setup";
 import type { GameState } from "./types";
 
 function newGame(n: number, seed = 5): GameState {
-  // all-human so we can drive every player's trade/catch-up explicitly
-  return createGame({
+  // all-human so we can drive every player's trade/catch-up explicitly — but
+  // first auto-run the setup phase so we land at the age-start Trade stage.
+  let s = createGame({
     playerNames: Array.from({ length: n }, (_, i) => `P${i}`),
     bots: Array.from({ length: n }, () => false),
     seed,
   });
+  let guard = 0;
+  while (s.phase === "setup" && guard++ < 500) s = stepAuto(s);
+  return s;
 }
 function apply(s: GameState, a: Parameters<typeof applyAction>[1]): GameState {
   const r = applyAction(s, a);

@@ -2,43 +2,45 @@
 
 // Bourbonomics: Map Game — shared board theme & canonical assets.
 //
-// Implements the Asset & Visual Composition Spec: §0 design tokens, the shared
-// TagGrid (§1 — 5 fixed 2-2-1 slots, always rendered), reward-color mapping
-// (§2), the collector grain gradients (§3), and the SVG pieces (pawns/flags/
-// chips). Tiles and bourbon cards share ONE slot model so fit reads slot-for-
-// slot.
+// Implements the Asset & Visual Composition Spec on a LIGHT parchment palette:
+// design tokens, the shared TagGrid (§1 — 5 fixed 2-2-1 slots, always rendered),
+// reward-color mapping (§2), the collector grain gradients (§3), and the SVG
+// pieces (pawns / flags). Tiles and bourbon cards share ONE slot model so fit
+// reads slot-for-slot.
 
 import { tagColor } from "../engine";
 import type { Suit, Tag, TokenType } from "../engine";
 
-// ── §0 design tokens ─────────────────────────────────────────────────
+// ── design tokens (LIGHT parchment theme) ────────────────────────────
+// Keys are stable; the client reads T.oak / T.panel / T.cream / etc. `cream`
+// is text-only, so a dark value converts all body copy in one move.
 export const T = {
-  oak: "#160d05", // charred oak, near-black base/frame
-  oak2: "#241611", // lifted oak (panels)
-  oak3: "#2c1c12",
+  oak: "#efe6d0", // page / stage base
+  oak2: "#e7dcbf", // lifted parchment
+  oak3: "#ddceac",
   copper: "#c8791e", // amber liquid accent
-  gold: "#e8b84a", // aged gold / foil
-  goldSoft: "#b8912e",
-  cream: "#f0e4cc", // label cream (text on dark)
+  gold: "#c8961f", // accents / rings / badges
+  goldSoft: "#8f6510", // heading text (darker for contrast on light)
+  cream: "#2c1e0e", // PRIMARY DARK TEXT (only ever used as text)
   cherry: "#7a2318", // deep cherry / rye depth
-  paper: "#faf6f0", // light card paper
-  plainTile: "#fbf9f5", // non-reward tile body
-  ink: "#211a13", // near-black text on light
+  paper: "#fffdf7", // light card paper
+  plainTile: "#fffef9", // non-reward tile body
+  ink: "#241a0e", // text on light tiles / cards
   grey: "#7a7268", // muted labels
   cut: "#c8c0b4", // cut-line / faint frame
   // convenience aliases used across the client
-  felt: "#160d05",
-  feltDeep: "#0e0803",
-  panel: "#241611",
-  panel2: "#2c1c12",
-  rail: "#1c1109",
-  border: "#4a3a24",
-  line: "#3a2a1a",
-  muted: "#a5926a",
-  faint: "#7a6a48",
+  felt: "#efe6d0",
+  feltDeep: "#e1d5b8", // rail gradient bottom
+  panel: "#fffdf7", // card face
+  panel2: "#f4edda", // inset panels / log
+  rail: "#ece2c8", // rail gradient top
+  border: "#cbba90",
+  line: "#d9cca9",
+  muted: "#6f5a34",
+  faint: "#93805a",
   red: "#9c3a2e",
   green: "#7a8c3a",
-  parchEdge: "#ccbf9a",
+  parchEdge: "#c2ad82",
 } as const;
 
 // ── suit colors (§0 canon) ───────────────────────────────────────────
@@ -222,17 +224,6 @@ export function Flag({ x, y, color, h = 20 }: { x: number; y: number; color: str
     <g transform={`translate(${x} ${y})`}>
       <rect x={-1} y={-h} width={2} height={h + 4} rx={1} fill="#2a1c0e" />
       <path d={`M 1 ${-h} L ${13} ${-h + 5} L 1 ${-h + 10} Z`} fill={color} stroke="#00000030" strokeWidth={0.5} />
-    </g>
-  );
-}
-
-/** A small reward chip / token (poker-chip look). */
-export function Chip({ x, y, r = 13, color, label }: { x: number; y: number; r?: number; color: string; label: string }) {
-  return (
-    <g transform={`translate(${x} ${y})`}>
-      <circle r={r} fill={color} stroke="#00000044" strokeWidth={1} />
-      <circle r={r - 3} fill="none" stroke="#ffffff55" strokeWidth={1} strokeDasharray="2 3" />
-      <text y={r * 0.3} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={r * 0.9} fill="#fff">{label}</text>
     </g>
   );
 }

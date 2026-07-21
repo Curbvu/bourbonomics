@@ -6,13 +6,16 @@
 // the engine refuses, guaranteeing forward progress and termination.
 
 import { applyAction } from "./engine";
-import { canPlaceDP, liveDPCount, tileById, tileController } from "./derive";
+import { canPlaceDP, liveDPCount, tileController } from "./derive";
 import { fit } from "./fit";
+import { firstOpenDPTarget, placementCandidates } from "./setup";
 import type { Action, GameState, Player, Tile } from "./types";
 import { SUIT_ACTIONS } from "./types";
 
 function actor(state: GameState): Player {
-  return state.players[state.initiative[state.turnPos]!]!;
+  // The opening draft runs a snake sequence; other stages iterate `initiative`.
+  const seq = state.stage === "setupDraft" ? state.setupDraftSeq : state.initiative;
+  return state.players[seq[state.turnPos]!]!;
 }
 
 /** The player whose turn it is right now. */
@@ -20,14 +23,20 @@ export function currentActorOf(state: GameState): Player {
   return actor(state);
 }
 
+/** True while the game still expects actor input (setup or play). */
+function inProgress(s: GameState): boolean {
+  return s.phase === "playing" || s.phase === "setup";
+}
+
 /**
  * Step every consecutive bot actor until it's a human's turn or the game ends.
- * Used by the UI to hand control back to the human as soon as they must act.
+ * Runs through the setup phase too. Used by the UI to hand control back to the
+ * human as soon as they must act.
  */
 export function autoAdvance(state: GameState, maxSteps = 10000): GameState {
   let s = state;
   let steps = 0;
-  while (s.phase === "playing" && currentActorOf(s).isBot && steps < maxSteps) {
+  while (inProgress(s) && currentActorOf(s).isBot && steps < maxSteps) {
     s = stepAuto(s);
     steps += 1;
   }
@@ -53,6 +62,24 @@ function actionKind(type: Action["type"]): string {
 
 export function autoAction(state: GameState): Action {
   const p = actor(state);
+
+  // Setup (brief §13): place tiles at the first valid spot; in the draft, take a
+  // bourbon while short on ammo, otherwise plant a DP.
+  if (state.stage === "setupPlace") {
+    const hex = placementCandidates(state)[0] ?? { q: 0, r: 0 };
+    return { type: "SETUP_PLACE_TILE", hex };
+  }
+  if (state.stage === "setupDraft") {
+    if (state.market.length > 0 && p.bourbons.length < 2) {
+      const lot = state.market.reduce((a, b) => (b.def.tags.length > a.def.tags.length ? b : a));
+      return { type: "SETUP_DRAFT_BOURBON", lotId: lot.id };
+    }
+    const target = firstOpenDPTarget(state, p.id);
+    if (target) return { type: "SETUP_PLACE_DP", tileId: target.id };
+    // nothing to place (no supply / no tile) — draft instead if possible
+    if (state.market[0]) return { type: "SETUP_DRAFT_BOURBON", lotId: state.market[0].id };
+    return { type: "SETUP_PLACE_TILE", hex: { q: 0, r: 0 } }; // unreachable safeguard
+  }
 
   // Age start: bots offer nothing to the Trade and pass on catch-up (v0).
   if (state.stage === "trade") return { type: "TRADE_OFFER", cardIds: [] };
@@ -152,11 +179,11 @@ export function stepAuto(state: GameState): GameState {
   return fallback.ok ? fallback.state : state;
 }
 
-/** Drive an all-auto game to its end. Guards against runaway loops. */
+/** Drive an all-auto game (setup included) to its end. Guards runaway loops. */
 export function playToEnd(state: GameState, maxSteps = 100000): GameState {
   let s = state;
   let steps = 0;
-  while (s.phase === "playing" && steps < maxSteps) {
+  while (inProgress(s) && steps < maxSteps) {
     s = stepAuto(s);
     steps += 1;
   }
