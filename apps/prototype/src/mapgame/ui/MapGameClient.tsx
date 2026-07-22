@@ -15,11 +15,15 @@ import {
   autoAdvance,
   axialToPixel,
   canPlaceDP,
+  CONFIG,
   createGame,
   currentActorOf,
+  derivedNiches,
   fit,
   hexPolygonPoints,
   liveDPCount,
+  nicheControlledCount,
+  nicheStatus,
   placementCandidates,
   tagColor,
   tileController,
@@ -478,6 +482,7 @@ function Rail({
       </div>
 
       <Standings game={game} />
+      <NicheTracker game={game} you={you} />
       <Market game={game} you={you} yourTurn={yourTurn} dispatch={dispatch} />
       <div style={{ flex: 1 }} />
       <Controls game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} />
@@ -519,6 +524,45 @@ function Stat({ value, label }: { value: number; label: string }) {
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 42 }}>
       <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: T.ink, lineHeight: 1 }}>{value}</span>
       <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: 0.5, color: T.faint }}>{label}</span>
+    </div>
+  );
+}
+
+// Niches are the ONLY source of Capital — surface the player's progress toward
+// one so the win condition is legible. Shows the largest flag cluster: claims
+// toward the 5-tile minimum, then how many of its tiles you control (tier-2 is
+// all-or-nothing — you must control EVERY tile to collect its rewards).
+function NicheTracker({ game, you }: { game: GameState; you: GameState["players"][number] }) {
+  const need = CONFIG.NICHE_MIN_TILES;
+  const best = derivedNiches(game, you.id).sort((a, b) => b.tileIds.length - a.tileIds.length)[0];
+  const size = best?.tileIds.length ?? 0;
+  const formed = size >= need;
+  const controlled = best ? nicheControlledCount(game, best) : 0;
+  const status = best && formed ? nicheStatus(game, best) : "none";
+
+  const pct = Math.min(100, (size / need) * 100);
+  const barColor = status === "full" ? "#5f7d34" : formed ? T.gold : T.goldSoft;
+  const msg = !best
+    ? "Flag connected tiles to stake a niche."
+    : !formed
+      ? `Building — ${size}/${need} connected claims.`
+      : status === "full"
+        ? `Whole niche controlled — scores all rewards ✓`
+        : `Controlled ${controlled}/${size} — hold ALL to claim its rewards.`;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "2px 0 5px" }}>
+        <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: T.goldSoft, letterSpacing: 0.3 }}>Your niche</span>
+        <span style={{ flex: 1, height: 1, background: T.line }} />
+        <span style={{ fontFamily: MONO, fontSize: 10.5, color: status === "full" ? "#5f7d34" : T.faint }}>
+          {formed ? `${controlled}/${size} held` : `${size}/${need}`}
+        </span>
+      </div>
+      <div style={{ height: 8, background: T.panel2, borderRadius: 999, overflow: "hidden", border: `1px solid ${T.line}` }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${barColor}, ${barColor}bb)`, transition: "width 200ms" }} />
+      </div>
+      <div style={{ fontFamily: SANS, fontSize: 12, color: status === "full" ? "#5f7d34" : T.muted, marginTop: 4 }}>{msg}</div>
     </div>
   );
 }
