@@ -9,6 +9,7 @@
 // This module is deployed by sst.config.ts ONLY when ENABLE_MULTIPLAYER is set,
 // so the default site build/deploy is unaffected. See the env-gated block there.
 
+import { randomInt } from "node:crypto";
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from "@aws-sdk/client-apigatewaymanagementapi";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
@@ -91,39 +92,42 @@ function roomView(room: RoomRecord, yourSeat: number): RoomView {
   return { code: room.code, hostSeat: room.hostSeat, seats: room.seats, status: room.status, yourSeat };
 }
 
-/** Broadcast the room (and game, if playing) to every connected human seat. */
+/** Broadcast the room (and game, if playing) to every connected human seat.
+ *  Send failures are ignored here — API Gateway fires the $disconnect route for
+ *  real drops, which runs handleLeave() to update + persist authoritatively. We
+ *  never mutate the room during a broadcast (that mutation wouldn't be persisted). */
 async function broadcast(api: ApiGatewayManagementApiClient, room: RoomRecord): Promise<void> {
-  const dead: number[] = [];
   for (const seat of room.seats) {
     if (seat.isBot) continue;
     const connId = room.connBySeat[seat.index];
     if (!connId) continue;
     const msg: ServerMessage =
       room.game != null ? { t: "state", room: roomView(room, seat.index), game: room.game } : { t: "room", room: roomView(room, seat.index) };
-    const ok = await send(api, connId, msg);
-    if (!ok) dead.push(seat.index);
-  }
-  if (dead.length) {
-    for (const s of dead) markDisconnected(room, s);
-    // a dead connection mid-broadcast is handled lazily; state already reflects it
+    await send(api, connId, msg);
   }
 }
 
 // ── Room mutation helpers ────────────────────────────────────────────
-function newCode(connId: string): string {
-  // Derive a short code from the connection id + time; readable, no vowels-only.
+/** A random readable room code (no ambiguous 0/O/1/I). Caller checks collisions. */
+function newCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const src = `${connId}${Date.now()}`;
   let code = "";
-  for (let i = 0; i < ROOM_CODE_LEN; i++) {
-    code += alphabet[(src.charCodeAt(i * 3 + 1) + i * 7) % alphabet.length];
-  }
+  for (let i = 0; i < ROOM_CODE_LEN; i++) code += alphabet[randomInt(alphabet.length)];
   return code;
+}
+
+/** A connection may only act on the room it actually joined (cross-room guard). */
+function sameRoom(conn: ConnRecord, code: string): boolean {
+  return conn.code.toUpperCase() === code.toUpperCase();
 }
 
 function firstOpenSeat(room: RoomRecord): number {
   return room.seats.length; // seats are appended densely 0..n-1
 }
+// KNOWN v1 LIMITATION: joins are read-modify-write without optimistic locking, so
+// two players joining the SAME room within the same few ms can race and one seat
+// can be lost (last write wins). Acceptable for playtest scale; harden with a
+// DynamoDB version attribute + ConditionExpression before wider release.
 
 function markDisconnected(room: RoomRecord, seat: number): void {
   const s = room.seats.find((x) => x.index === seat);
@@ -140,7 +144,9 @@ function markDisconnected(room: RoomRecord, seat: number): void {
 
 // ── Handlers ─────────────────────────────────────────────────────────
 async function handleCreate(api: ApiGatewayManagementApiClient, connId: string, name: string): Promise<void> {
-  const code = newCode(connId);
+  // Find a free code — retry on the rare collision rather than clobber a live room.
+  let code = newCode();
+  for (let tries = 0; tries < 10 && (await getRoom(code)) !== null; tries++) code = newCode();
   const seat: Seat = { index: 0, name: name.slice(0, 20) || "Player 1", isBot: false, connected: true };
   const room: RoomRecord = {
     pk: roomKey(code),
@@ -175,7 +181,7 @@ async function handleAddBot(api: ApiGatewayManagementApiClient, connId: string, 
   const room = await getRoom(code);
   if (!room || room.status !== "lobby") return;
   const conn = await getConn(connId);
-  if (!conn || conn.seat !== room.hostSeat) return; // host only
+  if (!conn || !sameRoom(conn, code) || conn.seat !== room.hostSeat) return; // host of THIS room only
   if (room.seats.length >= MAX_SEATS) return;
   const index = firstOpenSeat(room);
   room.seats.push({ index, name: `Bot ${index + 1}`, isBot: true, connected: true });
@@ -187,11 +193,16 @@ async function handleRemoveSeat(api: ApiGatewayManagementApiClient, connId: stri
   const room = await getRoom(code);
   if (!room || room.status !== "lobby") return;
   const conn = await getConn(connId);
-  if (!conn || conn.seat !== room.hostSeat) return; // host only
+  if (!conn || !sameRoom(conn, code) || conn.seat !== room.hostSeat) return; // host of THIS room only
   const target = room.seats.find((s) => s.index === seat);
   if (!target || !target.isBot) return; // only bot seats are removable in-lobby
   room.seats = room.seats.filter((s) => s.index !== seat);
   reindexSeats(room);
+  // Seat indices shifted — rewrite each human's per-connection record so turn
+  // authority (getConn().seat) stays aligned with the dense seat list.
+  for (const [seatStr, cId] of Object.entries(room.connBySeat)) {
+    await putConn({ pk: connKey(cId), code: room.code, seat: Number(seatStr) });
+  }
   await putRoom(room);
   await broadcast(api, room);
 }
@@ -213,7 +224,7 @@ async function handleStart(api: ApiGatewayManagementApiClient, connId: string, c
   const room = await getRoom(code);
   if (!room) return;
   const conn = await getConn(connId);
-  if (!conn || conn.seat !== room.hostSeat) return void send(api, connId, { t: "error", reason: "Only the host can start." });
+  if (!conn || !sameRoom(conn, code) || conn.seat !== room.hostSeat) return void send(api, connId, { t: "error", reason: "Only the host can start." });
   if (room.seats.length < MIN_SEATS) return void send(api, connId, { t: "error", reason: `Need at least ${MIN_SEATS} players.` });
 
   room.seed = seed ?? room.seed;
@@ -232,7 +243,7 @@ async function handleAction(api: ApiGatewayManagementApiClient, connId: string, 
   const room = await getRoom(code);
   if (!room || room.status !== "playing" || !room.game) return;
   const conn = await getConn(connId);
-  if (!conn) return;
+  if (!conn || !sameRoom(conn, code)) return;
 
   const actorSeat = room.game.players.indexOf(currentActorOf(room.game));
   if (conn.seat !== actorSeat) return void send(api, connId, { t: "error", reason: "It isn't your turn." });
@@ -253,6 +264,12 @@ async function handleLeave(api: ApiGatewayManagementApiClient, connId: string): 
   await delConn(connId);
   if (!room) return;
   markDisconnected(room, conn.seat);
+  // If the leaver was mid-game (now a bot), step the engine so the table doesn't
+  // deadlock waiting on a bot the server would otherwise never advance.
+  if (room.status === "playing" && room.game) {
+    room.game = autoAdvance(room.game);
+    if (room.game.phase === "ended") room.status = "ended";
+  }
   await putRoom(room);
   await broadcast(api, room);
 }

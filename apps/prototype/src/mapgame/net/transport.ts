@@ -11,11 +11,16 @@ import type { ClientMessage, ServerMessage } from "./protocol";
 
 export type ConnStatus = "connecting" | "open" | "closed";
 
+const MAX_RETRIES = 6;
+const RETRY_BASE_MS = 800;
+
 export class RoomConnection {
   private ws: WebSocket | null = null;
   private readonly url: string;
   private queue: ClientMessage[] = [];
   private closed = false;
+  private retries = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   onMessage: (m: ServerMessage) => void = () => {};
   onStatus: (s: ConnStatus) => void = () => {};
@@ -30,6 +35,7 @@ export class RoomConnection {
     const ws = new WebSocket(this.url);
     this.ws = ws;
     ws.onopen = () => {
+      this.retries = 0;
       this.onStatus("open");
       for (const m of this.queue) ws.send(JSON.stringify(m));
       this.queue = [];
@@ -41,8 +47,24 @@ export class RoomConnection {
         /* ignore malformed frames */
       }
     };
-    ws.onclose = () => this.onStatus("closed");
+    ws.onclose = () => {
+      this.ws = null;
+      this.onStatus("closed");
+      this.scheduleReconnect();
+    };
     ws.onerror = () => {};
+  }
+
+  /** Reconnect with capped exponential backoff after an unexpected drop. Sends
+   *  made while offline stay queued and flush on the next open. */
+  private scheduleReconnect(): void {
+    if (this.closed || this.retryTimer || this.retries >= MAX_RETRIES) return;
+    const delay = RETRY_BASE_MS * 2 ** this.retries;
+    this.retries += 1;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      this.connect();
+    }, delay);
   }
 
   send(m: ClientMessage): void {
@@ -52,6 +74,8 @@ export class RoomConnection {
 
   close(): void {
     this.closed = true;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
     this.ws?.close();
     this.ws = null;
   }
