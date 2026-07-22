@@ -14,6 +14,7 @@ import {
   tileController,
   tileOwner,
 } from "./derive";
+import { runDistilleryTrigger } from "./distilleries";
 import { mintId } from "./ids";
 import { refillMarket, dealActionHands } from "./setup";
 import type { GameState, Player, Reward } from "./types";
@@ -144,9 +145,11 @@ function declareWinner(draft: GameState): void {
  */
 export function runAgeEnd(draft: GameState, carryInitiative: number[]): void {
   log(draft, `Age ${draft.age} ends.`);
+  runDistilleryTrigger(draft, "onAgeEnd");
   resolveMarket(draft);
   keystonePayout(draft);
   convertLoyalty(draft);
+  runDistilleryTrigger(draft, "onScoring");
   scoreNiches(draft); // the ONLY source of Capital (brief §9)
   // Bourbons are NOT released — depletion persists across ages (§7b).
 
@@ -169,6 +172,7 @@ export function runAgeEnd(draft: GameState, carryInitiative: number[]): void {
  * open the "trade" stage. pendingInitiative must already hold the round-1 order.
  */
 export function beginAgeStart(draft: GameState): void {
+  runDistilleryTrigger(draft, "onAgeStart");
   refillMarket(draft, CONFIG.marketLots(draft.players.length));
   dealActionHands(draft);
   dealCatchUpBoard(draft);

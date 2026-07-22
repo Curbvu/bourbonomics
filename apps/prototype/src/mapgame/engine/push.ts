@@ -17,6 +17,7 @@
 // owns/controls the tile; otherwise it retreats to keep its bourbons.
 
 import { liveDPCount, tileById, tileController, tileOwner } from "./derive";
+import { runDistilleryTrigger } from "./distilleries";
 import { fit } from "./fit";
 import type { Tag } from "./tags";
 import type { Bourbon, GameState, Tile } from "./types";
@@ -173,6 +174,13 @@ export function resolvePush(
   }
 
   depleteAll();
+  // Distillery hooks (brief §17) — the winner, then each committed loser.
+  runDistilleryTrigger(draft, "onPushWin", winner);
+  for (const s of scored) {
+    if (s.pid !== winner && (commits.get(s.pid)?.length ?? 0) > 0) {
+      runDistilleryTrigger(draft, "onPushLose", s.pid);
+    }
+  }
   const wName = draft.players.find((p) => p.id === winner)!.name;
   return { ok: true, winner, log: `Push at ${tile.name}: ${wName} wins (strength ${top}).` };
 }

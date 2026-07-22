@@ -17,7 +17,7 @@ import { Resource } from "sst";
 import { applyAction } from "../mapgame/engine/engine";
 import { autoAdvance, currentActorOf } from "../mapgame/engine/bot";
 import { createGame } from "../mapgame/engine/setup";
-import type { GameState } from "../mapgame/engine/types";
+import type { Action, GameState } from "../mapgame/engine/types";
 import {
   MAX_SEATS,
   MIN_SEATS,
@@ -228,7 +228,7 @@ async function handleStart(api: ApiGatewayManagementApiClient, connId: string, c
   await broadcast(api, room);
 }
 
-async function handleAction(api: ApiGatewayManagementApiClient, connId: string, code: string, action: ClientMessage extends { t: "action"; action: infer A } ? A : never): Promise<void> {
+async function handleAction(api: ApiGatewayManagementApiClient, connId: string, code: string, action: Action): Promise<void> {
   const room = await getRoom(code);
   if (!room || room.status !== "playing" || !room.game) return;
   const conn = await getConn(connId);

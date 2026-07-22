@@ -11,6 +11,7 @@ import { buildActionDeck } from "./content/actionDeck";
 import { buildBourbonDefs, isPremiumDef } from "./content/bourbons";
 import { buildTileDefs } from "./content/tiles";
 import { neighborTiles } from "./derive";
+import { baseDistillery, runDistilleryTrigger } from "./distilleries";
 import { hexKey, hexNeighbors, type Hex } from "./hex";
 import { mintId } from "./ids";
 import { shuffle } from "./rng";
@@ -47,6 +48,7 @@ function mkPlayer(id: string, name: string, isBot: boolean, colorIdx: number): P
     capital: CONFIG.STARTING_CAPITAL,
     dpSupply: CONFIG.DP_SUPPLY,
     tokens: zeroTokens(),
+    distillery: baseDistillery(name),
     hand: [],
     bourbons: [],
     heldTile: null,
@@ -233,6 +235,7 @@ export function finalizeSetup(draft: GameState): void {
   draft.initiativeMarker = n - 1;
   draft.phase = "playing";
   draft.pendingInitiative = openingInitiative(draft);
+  runDistilleryTrigger(draft, "onSetup");
   draft.log.push({ age: 1, round: 1, message: "Setup complete — the game begins." });
   beginAgeStart(draft);
 }

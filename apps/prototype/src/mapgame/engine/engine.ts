@@ -11,6 +11,7 @@
 import { catchUpOrder, catchUpSwap, performTrade, runAgeEnd } from "./ageLoop";
 import { CONFIG } from "./config";
 import { canAddFlag, canPlaceDP, neighborTiles, tileById, tileController } from "./derive";
+import { runDistilleryTrigger } from "./distilleries";
 import { resolvePush } from "./push";
 import type { Hex } from "./hex";
 import { hexKey } from "./hex";
@@ -169,6 +170,7 @@ function endRound(draft: GameState): void {
   draft.initiative = next;
   draft.turnPos = 0;
   draft.stage = "planning";
+  runDistilleryTrigger(draft, "onRoundStart");
   log(draft, `Round ${draft.round} begins.`);
 }
 
@@ -446,6 +448,7 @@ function startPlanning(draft: GameState): void {
     p.allowedSuits = [];
     p.turnDone = false;
   }
+  runDistilleryTrigger(draft, "onRoundStart");
   log(draft, `Round ${draft.round} begins.`);
 }
 

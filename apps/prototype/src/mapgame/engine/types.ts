@@ -59,6 +59,29 @@ export const SUIT_ACTIONS: Record<Suit, ActionType[]> = {
 /** Six token types, one per suit, plus ANY (Keystone reward, wild). */
 export type TokenType = Suit | "ANY";
 
+// ── Distilleries (brief §17 — build the hook, not the content) ───────
+/**
+ * The expansion axis: a persistent player identity with an optional signature
+ * ability. The base game ships SYMMETRIC (abilityId null). Only DATA lives on
+ * state (so it stays structuredClone-safe); ability implementations live in a
+ * registry keyed by abilityId (see engine/distilleries.ts).
+ */
+export interface Distillery {
+  name: string;
+  abilityId: string | null; // null = no ability (symmetric base game)
+}
+
+/** The moments an ability may hook (brief §17). Reserved vocabulary; the base
+ *  game fires them but ships no abilities. */
+export type DistilleryTrigger =
+  | "onSetup"
+  | "onAgeStart"
+  | "onRoundStart"
+  | "onPushWin"
+  | "onPushLose"
+  | "onScoring"
+  | "onAgeEnd";
+
 // ── Board ────────────────────────────────────────────────────────────
 export type TileCategory =
   | "PURE_PREFERENCE"
@@ -184,6 +207,7 @@ export interface Player {
   capital: number; // SCORE ONLY — from niches only (§9)
   dpSupply: number; // one pool: map DPs AND market bid markers
   tokens: Record<TokenType, number>; // public, uncapped
+  distillery: Distillery; // §17 identity; symmetric in the base game
 
   hand: ActionCard[];
   bourbons: Bourbon[];
