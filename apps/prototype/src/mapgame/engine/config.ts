@@ -19,10 +19,12 @@ export const CONFIG = {
   /** Cards dealt to the shared catch-up board. Default PLAYERS + 1. */
   catchUpBoardSize: (players: number) => players + 1,
 
-  // — Setup —
-  SEED_LINE_TILES: 3,
+  // — Setup (brief §5) —
+  SEED_LINE_TILES: 3, // the opening line — all reward-bearing (BONUS) tiles
   SETUP_TILES_PER_PLAYER: 5,
-  OPENING_DRAFT_PICKS: 4,
+  OPENING_DRAFT_PICKS: 3, // bourbons each in the snake draft (non-premium pool)
+  OPENING_DRAFT_MODE: "bourbons" as "bourbons" | "bourbons_or_dp",
+  STARTING_DPS: 3, // LIVE DPs each player plants after the draft (setup-exempt)
   TILE_MIN_ADJACENCY: 2,
 
   // — Player start —
@@ -32,12 +34,12 @@ export const CONFIG = {
   // — Market —
   marketLots: (players: number) => players + 1,
 
-  // — Niches & scoring (brief §9 — the ONLY source of Capital) —
+  // — Niches & scoring (brief §10 — the ONLY source of Capital) —
   NICHE_MIN_TILES: 5,
-  CAPITAL_PER_CONTROLLED_CLAIM: 1, // tier 1
-  // tier 2 (niche majority) → collect rewards on controlled reward tiles
-  // tier 3 (niche monopoly) → collect ALL rewards in the niche
-  // No per-tile income in v3 — controlling a tile outside a niche scores 0.
+  CAPITAL_PER_CONTROLLED_CLAIM: 1, // tier 1: +1 per claim you control in the niche
+  // tier 2 (ALL-OR-NOTHING): control EVERY tile in the niche → take ALL its
+  // rewards; control any fewer → no tier-2 rewards. Tiers stack.
+  // No per-tile income — controlling a tile outside a niche scores 0.
 
   // — The Push (brief §8) — deterministic combat —
   RETREAT_STRENGTH: 0, // commit no bourbon = strength 0

@@ -96,21 +96,30 @@ export interface Slot {
 /** Map a tag bag onto the 5 fixed slots (null = empty). Doubled grain → "Rx2". */
 export function tagSlots(tags: readonly Tag[]): Record<SlotKey, Slot | null> {
   const grains = tags.filter((t) => t.kind === "GRAIN");
+  const anyGrain = tags.find((t) => t.kind === "WILD" && t.value === "ANYGRAIN");
   const batch = tags.find((t) => t.kind === "BATCH");
+  const anyBatch = tags.find((t) => t.kind === "WILD" && t.value === "ANYBATCH");
   const bonded = tags.find((t) => t.kind === "QUALITY" && t.value === "BONDED");
   const age = tags.find((t) => t.kind === "AGE");
   const premium = tags.find((t) => t.kind === "QUALITY" && t.value === "PREMIUM");
   return {
+    // A tile wildcard (ANYGRAIN / ANYBATCH) renders as ★ in its slot (brief §3).
     GRAIN: grains.length
       ? { glyph: grains[0]!.value[0]! + (grains.length > 1 ? `x${grains.length}` : ""), color: tagColor(grains[0]!) }
-      : null,
-    BATCH: batch ? { glyph: batch.value === "SINGLE_BARREL" ? "1B" : "SB", color: tagColor(batch) } : null,
+      : anyGrain
+        ? { glyph: "★", color: tagColor(anyGrain) }
+        : null,
+    BATCH: batch
+      ? { glyph: batch.value === "SINGLE_BARREL" ? "1B" : "SB", color: tagColor(batch) }
+      : anyBatch
+        ? { glyph: "★", color: tagColor(anyBatch) }
+        : null,
     BONDED: bonded ? { glyph: "B", color: tagColor(bonded) } : null,
     AGE: age ? { glyph: String(age.value), color: tagColor(age) } : null,
     PREMIUM: premium ? { glyph: "P", color: tagColor(premium) } : null,
   };
 }
-/** Compact single-tag glyph (R/W/T, 1B/SB, B, n, P) — for tight rows. */
+/** Compact single-tag glyph (R/W/T, 1B/SB, B, n, P, ★) — for tight rows. */
 export function tagGlyph(tag: Tag): string {
   switch (tag.kind) {
     case "GRAIN":
@@ -121,6 +130,8 @@ export function tagGlyph(tag: Tag): string {
       return tag.value === "BONDED" ? "B" : "P";
     case "AGE":
       return String(tag.value);
+    case "WILD":
+      return "★";
   }
 }
 

@@ -13,8 +13,10 @@ import type { Action, GameState, Player, Tile } from "./types";
 import { SUIT_ACTIONS } from "./types";
 
 function actor(state: GameState): Player {
-  // The opening draft runs a snake sequence; other stages iterate `initiative`.
-  const seq = state.stage === "setupDraft" ? state.setupDraftSeq : state.initiative;
+  // The opening draft (snake) and starting-DP step both iterate the setup
+  // sequence; other stages iterate `initiative`.
+  const usesSetupSeq = state.stage === "setupDraft" || state.stage === "setupDP";
+  const seq = usesSetupSeq ? state.setupDraftSeq : state.initiative;
   return state.players[seq[state.turnPos]!]!;
 }
 
@@ -63,22 +65,20 @@ function actionKind(type: Action["type"]): string {
 export function autoAction(state: GameState): Action {
   const p = actor(state);
 
-  // Setup (brief §13): place tiles at the first valid spot; in the draft, take a
-  // bourbon while short on ammo, otherwise plant a DP.
+  // Setup (brief §5): place tiles at the first valid spot; draft the richest
+  // bourbon on offer; then plant starting DPs on open ground.
   if (state.stage === "setupPlace") {
     const hex = placementCandidates(state)[0] ?? { q: 0, r: 0 };
     return { type: "SETUP_PLACE_TILE", hex };
   }
   if (state.stage === "setupDraft") {
-    if (state.market.length > 0 && p.bourbons.length < 2) {
-      const lot = state.market.reduce((a, b) => (b.def.tags.length > a.def.tags.length ? b : a));
-      return { type: "SETUP_DRAFT_BOURBON", lotId: lot.id };
-    }
+    const lot = state.market.reduce((a, b) => (b.def.tags.length > a.def.tags.length ? b : a));
+    return { type: "SETUP_DRAFT_BOURBON", lotId: lot.id };
+  }
+  if (state.stage === "setupDP") {
     const target = firstOpenDPTarget(state, p.id);
     if (target) return { type: "SETUP_PLACE_DP", tileId: target.id };
-    // nothing to place (no supply / no tile) — draft instead if possible
-    if (state.market[0]) return { type: "SETUP_DRAFT_BOURBON", lotId: state.market[0].id };
-    return { type: "SETUP_PLACE_TILE", hex: { q: 0, r: 0 } }; // unreachable safeguard
+    return { type: "SETUP_PLACE_DP", tileId: state.tiles[0]!.id }; // safeguard
   }
 
   // Age start: bots offer nothing to the Trade and pass on catch-up (v0).

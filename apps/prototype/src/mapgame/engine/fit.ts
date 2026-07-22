@@ -8,12 +8,15 @@
 // The rule, precisely: for each tag slot the tile presents, count how many the
 // bourbon can satisfy, capped by how many the tile presents. Sum across slots.
 //   - Exact tags (grain/batch/quality) match on kind+value.
-//   - Thresholds (AGE/PROOF) are MEET-OR-EXCEED: AGE 20 satisfies a demand for
-//     AGE 8, but not AGE 23.
+//   - Thresholds (AGE) are MEET-OR-EXCEED: AGE 20 satisfies a demand for AGE 8,
+//     but not AGE 23.
+//   - WILDCARDS (tile-side ANYGRAIN / ANYBATCH, brief §3) are satisfied by ANY
+//     bourbon carrying that category — a grain for ANYGRAIN, a batch for
+//     ANYBATCH — capped by how many the tile presents. The combat floor.
 //   - DEPTH: a doubled tag scores its full count only against a tile that also
 //     doubles it. min(tileCount, bourbonCount) delivers this for free.
 
-import { isThreshold, slotKey, THRESHOLD_KINDS, type Tag, type ThresholdKind } from "./tags";
+import { isThreshold, slotKey, THRESHOLD_KINDS, WILD_CATEGORY, type Tag, type ThresholdKind, type Wild } from "./tags";
 
 /**
  * Maximum matching of threshold supply against threshold demand.
@@ -40,7 +43,7 @@ function matchThresholds(demands: number[], supply: number[]): number {
 function countExactSlots(tags: readonly Tag[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const tag of tags) {
-    if (isThreshold(tag)) continue;
+    if (isThreshold(tag) || tag.kind === "WILD") continue; // wildcards resolve separately
     const key = slotKey(tag);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
@@ -49,6 +52,16 @@ function countExactSlots(tags: readonly Tag[]): Map<string, number> {
 
 function thresholdValues(tags: readonly Tag[], kind: ThresholdKind): number[] {
   return tags.filter((t) => t.kind === kind).map((t) => t.value as number);
+}
+
+/** How many tile slots demand a given wildcard (ANYGRAIN / ANYBATCH). */
+function countWild(tags: readonly Tag[], wild: Wild): number {
+  return tags.filter((t) => t.kind === "WILD" && t.value === wild).length;
+}
+
+/** How many of a bourbon's tags belong to a category (GRAIN / BATCH). */
+function countCategory(tags: readonly Tag[], kind: "GRAIN" | "BATCH"): number {
+  return tags.filter((t) => t.kind === kind).length;
 }
 
 /** Fit of a bourbon's tag bag against a tile's tag bag. Always >= 0. */
@@ -63,6 +76,14 @@ export function fit(bourbonTags: readonly Tag[], tileTags: readonly Tag[]): numb
 
   for (const kind of THRESHOLD_KINDS) {
     total += matchThresholds(thresholdValues(tileTags, kind), thresholdValues(bourbonTags, kind));
+  }
+
+  // Wildcards: a tile ANYGRAIN slot is filled by any bourbon grain, ANYBATCH by
+  // any bourbon batch. Capped by how many the tile presents (brief §3).
+  for (const wild of ["ANYGRAIN", "ANYBATCH"] as const) {
+    const demand = countWild(tileTags, wild);
+    if (demand === 0) continue;
+    total += Math.min(demand, countCategory(bourbonTags, WILD_CATEGORY[wild]));
   }
 
   return total;

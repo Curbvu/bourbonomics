@@ -197,15 +197,17 @@ export interface Player {
 // ── Game ─────────────────────────────────────────────────────────────
 export type GamePhase = "setup" | "playing" | "ended";
 /**
- * Setup (brief §13/§15): setupPlace = each player places their 5 setup tiles in
- * turn order (>=2 adjacency); setupDraft = snake opening draft, 4 picks each
- * (draft a bourbon OR place a LIVE DP). Then play begins.
+ * Setup (brief §5): setupPlace = each player places their 5 setup tiles in turn
+ * order (>=2 adjacency); setupDraft = snake opening draft, 3 BOURBONS each from
+ * the non-premium pool; setupDP = each player plants STARTING_DPS LIVE DPs in
+ * turn order (setup-exempt from control-adjacency). Then play begins.
  * Age start: trade → catchup. Round: planning → commit → resolve. ageEnd runs
  * market resolution + niche scoring.
  */
 export type RoundStage =
   | "setupPlace"
   | "setupDraft"
+  | "setupDP"
   | "trade"
   | "catchup"
   | "planning"

@@ -8,7 +8,7 @@
 import { beginAgeStart } from "./ageLoop";
 import { CONFIG } from "./config";
 import { buildActionDeck } from "./content/actionDeck";
-import { buildBourbonDefs } from "./content/bourbons";
+import { buildBourbonDefs, isPremiumDef } from "./content/bourbons";
 import { buildTileDefs } from "./content/tiles";
 import { neighborTiles } from "./derive";
 import { hexKey, hexNeighbors, type Hex } from "./hex";
@@ -26,7 +26,7 @@ import type {
 import { SUITS } from "./types";
 
 export interface NewGameOptions {
-  playerNames: string[]; // 2..4
+  playerNames: string[]; // 2..5
   bots?: boolean[]; // parallel to playerNames; default all-but-first are bots
   seed?: number;
 }
@@ -152,23 +152,29 @@ export function createGame(opts: NewGameOptions): GameState {
   const [demandShuffled, s1] = shuffle(demandDefs, draft.rngSeed);
   draft.rngSeed = s1;
 
-  // — 1. Seed: 3 tiles in a line at center. That's the whole starting board. —
+  // — 1. Seed: 3 tiles in a line at center, ALL reward-bearing (BONUS) tiles —
+  //      so the opening centre is worth contesting immediately (brief §5.1). —
   const seedHexes: Hex[] = Array.from({ length: CONFIG.SEED_LINE_TILES }, (_, i) => ({ q: i, r: 0 }));
-  const pool = demandShuffled.slice();
-  for (const hex of seedHexes) {
-    const def = pool.shift()!;
-    draft.tiles.push(tileFromDef(draft, def, hex));
+  const seedDefs = demandShuffled.filter((d) => d.reward !== null).slice(0, CONFIG.SEED_LINE_TILES);
+  const seededIds = new Set(seedDefs.map((d) => d.defId));
+  for (let i = 0; i < seedHexes.length; i++) {
+    draft.tiles.push(tileFromDef(draft, seedDefs[i]!, seedHexes[i]!));
   }
+  // Everything not seeded is available for setup tiles + the Expand supply.
+  const pool = demandShuffled.filter((d) => !seededIds.has(d.defId));
 
   // — 2. Setup tiles: deal 5 to each player's hand. Players PLACE them
-  //      interactively in the setupPlace stage (brief §13.2). —
+  //      interactively in the setupPlace stage (brief §5.3). —
   const perPlayer = CONFIG.SETUP_TILES_PER_PLAYER;
   for (const p of draft.players) p.setupTiles = pool.splice(0, perPlayer);
-  // Whatever demand tiles remain become the Expand Market supply (brief §6b).
+  // Whatever demand tiles remain become the Expand Market supply (brief §7).
   draft.tileSupply = pool;
 
-  // — 3. Market: PLAYERS+1 face-up lots (drafted in setupDraft) —
-  const [bourbonShuffled, s2] = shuffle(buildBourbonDefs(), draft.rngSeed);
+  // — 3. Opening market: PLAYERS+1 lots from the NON-PREMIUM subset only
+  //      (premium is barred from the opening draft — brief §5.4). Premium
+  //      re-enters the deck at finalizeSetup, for age 1's market on. —
+  const nonPremium = buildBourbonDefs().filter((d) => !isPremiumDef(d));
+  const [bourbonShuffled, s2] = shuffle(nonPremium, draft.rngSeed);
   draft.rngSeed = s2;
   draft.bourbonDeck = bourbonShuffled.slice();
   refillMarket(draft, CONFIG.marketLots(n));
@@ -197,12 +203,32 @@ export function placeBlockingTerrain(draft: GameState): void {
   }
 }
 
+/** Round-robin placement order for the starting-DP step: seating order 0..n-1,
+ *  repeated dpsEach times (brief §5.6). */
+export function setupDPOrder(players: number, dpsEach: number): number[] {
+  const order: number[] = [];
+  for (let d = 0; d < dpsEach; d++) for (let i = 0; i < players; i++) order.push(i);
+  return order;
+}
+
 /**
- * Called by the engine once the opening draft finishes: fix the first player
- * (last drafter of the first snake round = index n-1), then open age 1.
+ * Called by the engine once the starting-DP step finishes: fix the first player
+ * (last drafter of the first snake round = index n-1), fold PREMIUM bourbons back
+ * into the deck (they were barred from the opening draft — brief §5.4) and clear
+ * the setup market so age 1 deals a fresh pool, then open age 1.
  */
 export function finalizeSetup(draft: GameState): void {
   const n = draft.players.length;
+
+  // Rebuild the bourbon deck from every def not already drafted — this returns
+  // the withheld premium bourbons to the pool for age 1 on.
+  const owned = new Set(draft.players.flatMap((p) => p.bourbons.map((b) => b.defId)));
+  const remaining = buildBourbonDefs().filter((d) => !owned.has(d.defId));
+  const [reshuffled, s] = shuffle(remaining, draft.rngSeed);
+  draft.rngSeed = s;
+  draft.bourbonDeck = reshuffled;
+  draft.market = []; // drop leftover setup lots; age 1 deals its own market
+
   draft.startPlayerIndex = n - 1;
   draft.initiativeMarker = n - 1;
   draft.phase = "playing";
@@ -230,7 +256,7 @@ export function firstOpenDPTarget(draft: GameState, playerId: string): Tile | un
 }
 
 // ── Action hands ─────────────────────────────────────────────────────
-/** Fresh shuffled 30-card deck, deal HAND_SIZE to each player. */
+/** Fresh shuffled action deck, deal HAND_SIZE to each player. */
 export function dealActionHands(draft: GameState): void {
   const [deck, s] = shuffle(buildActionDeck(), draft.rngSeed);
   draft.rngSeed = s;

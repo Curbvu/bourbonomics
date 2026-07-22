@@ -3,8 +3,8 @@ import { CONFIG } from "../config";
 import { fit } from "../fit";
 import { SUITS, SUIT_ACTIONS, type Suit } from "../types";
 import { ACTION_DECK_SIZE, buildActionDeck } from "./actionDeck";
-import { buildBourbonDefs } from "./bourbons";
-import { buildTileDefs, demandTileDefs } from "./tiles";
+import { buildBourbonDefs, isPremiumDef } from "./bourbons";
+import { buildTileDefs, bonusTileDefs, demandTileDefs } from "./tiles";
 
 describe("action deck (brief v3 §5, §14c)", () => {
   const deck = buildActionDeck();
@@ -77,12 +77,50 @@ describe("tiles (brief v3 §13, §14b)", () => {
   });
 
   it("has the two doubled-grain depth tiles", () => {
-    expect(all.find((t) => t.name === "Rye Country")!.tags.length).toBe(2);
-    expect(all.find((t) => t.name === "Wheat Country")!.tags.length).toBe(2);
+    const grainCount = (name: string) =>
+      all.find((t) => t.name === name)!.tags.filter((t) => t.kind === "GRAIN").length;
+    expect(grainCount("Rye Country")).toBe(2);
+    expect(grainCount("Wheat Country")).toBe(2);
   });
 
-  it("has 41 tiles (copies expanded)", () => {
-    expect(all.length).toBe(41);
+  it("has 49 tiles: 45 demand copies + 4 blocking (brief v4 §15b)", () => {
+    expect(demand.length).toBe(45);
+    expect(all.length).toBe(45 + CONFIG.BLOCKING_TILE_COUNT);
+  });
+});
+
+describe("bourbons (brief v4 §15a)", () => {
+  const bourbons = buildBourbonDefs();
+
+  it("has 25 bourbons, 8 of them premium (32%)", () => {
+    expect(bourbons.length).toBe(25);
+    expect(bourbons.filter(isPremiumDef).length).toBe(8);
+  });
+
+  it("17 non-premium bourbons are draftable at setup", () => {
+    expect(bourbons.filter((b) => !isPremiumDef(b)).length).toBe(17);
+  });
+});
+
+describe("tiles (brief v4 §15b) — reward mix + seed pool", () => {
+  const demand = demandTileDefs();
+
+  it("reward mix is 13 Capital + 12 token + 20 plain (45 copies)", () => {
+    const capital = demand.filter((t) => t.reward?.kind === "CAPITAL").length;
+    const token = demand.filter((t) => t.reward?.kind === "TOKEN").length;
+    const plain = demand.filter((t) => t.reward === null).length;
+    expect([capital, token, plain]).toEqual([13, 12, 20]);
+  });
+
+  it("the seed (BONUS) pool is exactly the reward-bearing demand tiles", () => {
+    expect(bonusTileDefs().length).toBe(25); // 13 + 12
+    expect(bonusTileDefs().every((t) => t.reward !== null)).toBe(true);
+  });
+
+  it("no tile demands AGE above 15 (brief §3 cap)", () => {
+    for (const t of demand) {
+      for (const tag of t.tags) if (tag.kind === "AGE") expect(tag.value).toBeLessThanOrEqual(15);
+    }
   });
 });
 

@@ -10,16 +10,30 @@
 //
 // v3: PROOF was removed. Five slots in canonical order: Grain · Batch · Bonded ·
 // Age · Premium (Premium last, the only non-factual tag).
+//
+// v4: tile-side WILDCARD demand tags — ANYGRAIN / ANYBATCH (brief §3). They sit
+// in the grain / batch slot and are satisfied by ANY bourbon carrying that
+// category. They are the combat floor (nobody is locked out of common tiles) and
+// exist ONLY on tiles; bourbons never carry them. (Distinct from the LOYALTY /
+// KEYSTONE owner-declared wildcard, which resolves to a concrete Tag on claim.)
 
 export type Grain = "RYE" | "WHEAT" | "TRADITIONAL";
 export type Batch = "SINGLE_BARREL" | "SMALL_BATCH";
 export type Quality = "BONDED" | "PREMIUM";
+export type Wild = "ANYGRAIN" | "ANYBATCH";
 
 export type Tag =
   | { kind: "GRAIN"; value: Grain }
   | { kind: "BATCH"; value: Batch }
   | { kind: "QUALITY"; value: Quality }
-  | { kind: "AGE"; value: number };
+  | { kind: "AGE"; value: number }
+  | { kind: "WILD"; value: Wild };
+
+/** The bourbon-side category a tile wildcard draws from (ANYGRAIN → GRAIN). */
+export const WILD_CATEGORY: Record<Wild, "GRAIN" | "BATCH"> = {
+  ANYGRAIN: "GRAIN",
+  ANYBATCH: "BATCH",
+};
 
 /** AGE is meet-or-exceed; the rest are exact matches. */
 export const THRESHOLD_KINDS = ["AGE"] as const;
@@ -38,6 +52,8 @@ export const smallBatch = (): Tag => ({ kind: "BATCH", value: "SMALL_BATCH" });
 export const bonded = (): Tag => ({ kind: "QUALITY", value: "BONDED" });
 export const premium = (): Tag => ({ kind: "QUALITY", value: "PREMIUM" });
 export const age = (n: number): Tag => ({ kind: "AGE", value: n });
+export const anyGrain = (): Tag => ({ kind: "WILD", value: "ANYGRAIN" });
+export const anyBatch = (): Tag => ({ kind: "WILD", value: "ANYBATCH" });
 
 /**
  * Identity of a tag's match SLOT (used by fit). Exact tags match on kind+value;
@@ -60,5 +76,7 @@ export function tagColor(tag: Tag): string {
       return tag.value === "BONDED" ? "#5a3e2b" : "#b8912e";
     case "AGE":
       return "#5a3e2b";
+    case "WILD":
+      return "#6b5a8a";
   }
 }

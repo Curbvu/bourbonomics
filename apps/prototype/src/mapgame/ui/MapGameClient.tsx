@@ -63,6 +63,7 @@ const HUMAN = "p0";
 const STAGE_LABEL: Record<GameState["stage"], string> = {
   setupPlace: "Place tiles",
   setupDraft: "Opening draft",
+  setupDP: "Place DPs",
   trade: "The Trade",
   catchup: "Catch-up",
   planning: "Planning",
@@ -170,8 +171,8 @@ function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (
 
   function clickTile(tile: Tile) {
     if (!yourTurn || tile.category === "BLOCKING") return;
-    // Opening draft: click a tile to place a LIVE DP on it (setup-exempt).
-    if (game.stage === "setupDraft") return dispatch({ type: "SETUP_PLACE_DP", tileId: tile.id });
+    // Starting-DP step: click a tile to plant a LIVE DP on it (setup-exempt).
+    if (game.stage === "setupDP") return dispatch({ type: "SETUP_PLACE_DP", tileId: tile.id });
     if (game.stage === "resolve" || game.stage === "planning") {
       if (mode === "BUILD_DP") return dispatch({ type: "BUILD_DP", tileId: tile.id });
       if (mode === "ADD_NICHE_FLAG") return dispatch({ type: "ADD_NICHE_FLAG", tileId: tile.id });
@@ -213,17 +214,25 @@ function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (
         <div style={{ position: "absolute", top: 20, left: 26, zIndex: 1 }}>
           <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 3, color: "#4a3a1e", textTransform: "uppercase" }}>Bourbonomics</div>
           <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: "#241505", lineHeight: 1 }}>
-            {inSetup ? (game.stage === "setupPlace" ? "Building the Board" : "The Opening Draft") : "The Market"}
+            {inSetup
+              ? game.stage === "setupPlace"
+                ? "Building the Board"
+                : game.stage === "setupDraft"
+                  ? "The Opening Draft"
+                  : "Plant Your DPs"
+              : "The Market"}
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12.5, color: "#4c3c22", marginTop: 3, maxWidth: 360 }}>
             {inSetup
               ? game.stage === "setupPlace"
                 ? "Lay your tiles on the open ground — each must touch 2+ tiles."
-                : "Draft a bourbon or plant a distribution point."
+                : game.stage === "setupDraft"
+                  ? "Draft a bourbon from the market — no premium yet."
+                  : "Click any tile to plant a starting distribution point."
               : "Serve demand · control tiles · harvest niches."}
           </div>
         </div>
-        <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDraft"} />
+        <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} />
         {toast && (
           <div style={{ position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#000c", color: C.gold, padding: "10px 18px", borderRadius: 8, fontSize: 15, fontFamily: MONO, border: `1px solid ${T.border}` }}>
             {toast}
@@ -555,6 +564,8 @@ function Controls({ game, you, yourTurn, mode, setMode, dispatch }: { game: Game
         <SetupPlaceControls you={you} />
       ) : game.stage === "setupDraft" ? (
         <SetupDraftControls game={game} you={you} />
+      ) : game.stage === "setupDP" ? (
+        <SetupDPControls game={game} you={you} />
       ) : game.stage === "trade" ? (
         <TradeControls you={you} dispatch={dispatch} />
       ) : game.stage === "catchup" ? (
@@ -584,15 +595,31 @@ function SetupPlaceControls({ you }: { you: GameState["players"][number] }) {
 }
 
 function SetupDraftControls({ game, you }: { game: GameState; you: GameState["players"][number] }) {
-  // count this player's remaining picks in the snake sequence
+  // count this player's remaining bourbon picks in the snake sequence
   const idx = game.players.indexOf(you);
   const remaining = game.setupDraftSeq.slice(game.turnPos).filter((i) => i === idx).length;
   return (
     <div>
       <RailLabel>Setup · Opening draft</RailLabel>
       <p style={{ fontSize: 14, color: C.muted, margin: "0 0 6px" }}>
-        Each pick: <B>draft a bourbon</B> (click a market card) <B>or place a DP</B> (click a tile — anywhere, this is
-        setup). <B>{remaining}</B> pick{remaining === 1 ? "" : "s"} left.
+        <B>Draft a bourbon</B> — click a market card. Premium bottles are held back until age 1. <B>{remaining}</B>{" "}
+        pick{remaining === 1 ? "" : "s"} left.
+      </p>
+      <YourBourbons you={you} />
+    </div>
+  );
+}
+
+function SetupDPControls({ game, you }: { game: GameState; you: GameState["players"][number] }) {
+  // count this player's remaining DP placements in the round-robin sequence
+  const idx = game.players.indexOf(you);
+  const remaining = game.setupDraftSeq.slice(game.turnPos).filter((i) => i === idx).length;
+  return (
+    <div>
+      <RailLabel>Setup · Starting DPs</RailLabel>
+      <p style={{ fontSize: 14, color: C.muted, margin: "0 0 6px" }}>
+        <B>Plant a distribution point</B> — click any tile (anywhere, this is setup). <B>{remaining}</B> DP
+        {remaining === 1 ? "" : "s"} left to place.
       </p>
       <YourBourbons you={you} />
     </div>
