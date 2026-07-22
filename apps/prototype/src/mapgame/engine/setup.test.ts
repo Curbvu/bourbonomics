@@ -40,6 +40,9 @@ describe("setup — the fixed board (brief §13)", () => {
       expect(s.tiles.length).toBe(CONFIG.SEED_LINE_TILES);
       expect(s.tiles.filter((t) => t.category === "BLOCKING").length).toBe(0);
     });
+    it(`${n}p: every seed-line tile is reward-bearing (brief §5.1)`, () => {
+      expect(s.tiles.every((t) => t.reward !== null)).toBe(true);
+    });
     it(`${n}p: deals 5 setup tiles to each player, none yet placed`, () => {
       for (const p of s.players) expect(p.setupTiles.length).toBe(CONFIG.SETUP_TILES_PER_PLAYER);
       // hands are NOT dealt during setup
@@ -82,21 +85,41 @@ describe("setup — interactive placement & draft", () => {
     for (const p of s.players) expect(p.setupTiles.length).toBe(0);
   });
 
-  it("draft: a bourbon OR a DP per pick; DP placement is adjacency-exempt", () => {
-    // reach the draft
+  it("the opening draft pool holds NO premium bourbons (brief §5.4)", () => {
+    let s = game(3);
+    while (s.stage === "setupPlace") s = ok(s, { type: "SETUP_PLACE_TILE", hex: placementCandidates(s)[0]! });
+    expect(s.stage).toBe("setupDraft");
+    const isPremium = (tags: { kind: string; value: unknown }[]) =>
+      tags.some((t) => t.kind === "QUALITY" && t.value === "PREMIUM");
+    expect(s.market.every((l) => !isPremium(l.def.tags))).toBe(true);
+  });
+
+  it("draft is BOURBONS ONLY; a DP action is refused during setupDraft", () => {
     let s = game(2);
     while (s.stage === "setupPlace") s = ok(s, { type: "SETUP_PLACE_TILE", hex: placementCandidates(s)[0]! });
-    // first drafter takes a bourbon
-    const lot = s.market[0]!;
+    const anyTile = s.tiles.find((t) => t.category !== "BLOCKING")!;
+    expect(applyAction(s, { type: "SETUP_PLACE_DP", tileId: anyTile.id }).ok).toBe(false);
+    // a bourbon draft is accepted, refills the market, and advances the snake
     const d0 = s.players[s.setupDraftSeq[s.turnPos]!]!;
-    s = ok(s, { type: "SETUP_DRAFT_BOURBON", lotId: lot.id });
+    s = ok(s, { type: "SETUP_DRAFT_BOURBON", lotId: s.market[0]!.id });
     expect(s.players.find((p) => p.id === d0.id)!.bourbons.length).toBe(1);
     expect(s.market.length).toBe(CONFIG.marketLots(2)); // refilled
-    // next drafter places a DP on any tile
+  });
+
+  it("after the draft, setupDP lets each player plant STARTING_DPS DPs (adjacency-exempt)", () => {
+    let s = game(2);
+    while (s.stage === "setupPlace") s = ok(s, { type: "SETUP_PLACE_TILE", hex: placementCandidates(s)[0]! });
+    while (s.stage === "setupDraft") s = ok(s, { type: "SETUP_DRAFT_BOURBON", lotId: s.market[0]!.id });
+    expect(s.stage).toBe("setupDP");
+    // each player drafted exactly OPENING_DRAFT_PICKS bourbons, none premium
+    for (const p of s.players) expect(p.bourbons.length).toBe(CONFIG.OPENING_DRAFT_PICKS);
+    // sequence length = STARTING_DPS per player
+    expect(s.setupDraftSeq.length).toBe(2 * CONFIG.STARTING_DPS);
+    // a DP lands LIVE on any non-blocking tile, exempt from control-adjacency
     const anyTile = s.tiles.find((t) => t.category !== "BLOCKING")!;
-    const d1 = s.players[s.setupDraftSeq[s.turnPos]!]!;
+    const d0 = s.players[s.setupDraftSeq[s.turnPos]!]!;
     s = ok(s, { type: "SETUP_PLACE_DP", tileId: anyTile.id });
-    expect(s.dps.some((dp) => dp.owner === d1.id && dp.state === "LIVE")).toBe(true);
+    expect(s.dps.some((dp) => dp.owner === d0.id && dp.state === "LIVE")).toBe(true);
   });
 });
 

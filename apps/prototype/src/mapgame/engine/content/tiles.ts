@@ -1,11 +1,24 @@
-// Bourbonomics: Map Game — tile content (brief v3 §14b, §13).
+// Bourbonomics: Map Game — tile content (brief v4 §15b).
 //
-// 31 tile kinds (41 tiles with copies). WILDCARD tiles (LOYALTY/KEYSTONE) carry
-// an ownership slot and an owner Push-defense bonus; every other tile uses plain
-// LIVE-DP control. Blocking tiles hold no DPs and wall the board. All [PH].
+// 45 non-blocking copies (13 Capital = 29%, 12 token = 27%, 20 plain = 44%).
+// Ordinary demand tiles lean on ANYGRAIN / ANYBATCH wildcards (the combat floor).
+// WILDCARD tiles (LOYALTY/KEYSTONE) carry an ownership slot and an owner Push
+// defense bonus; every other tile uses plain LIVE-DP control. Blocking tiles hold
+// no DPs and wall the board. Age demand caps at 15. All [PH].
 
 import { CONFIG } from "../config";
-import { age, bonded, premium, rye, singleBarrel, smallBatch, traditional, wheat, type Tag } from "../tags";
+import {
+  age,
+  anyBatch,
+  anyGrain,
+  bonded,
+  premium,
+  rye,
+  singleBarrel,
+  traditional,
+  wheat,
+  type Tag,
+} from "../tags";
 import type { Reward, TileCategory, TileDef, TokenType } from "../types";
 
 const cap = (amount: number): Reward => ({ kind: "CAPITAL", amount });
@@ -25,37 +38,45 @@ interface Seed {
 
 const SEEDS: Seed[] = [
   // ── PURE PREFERENCE ──
-  { category: "PURE_PREFERENCE", name: "Traditional Drinkers", tags: [traditional()], copies: 2 },
-  { category: "PURE_PREFERENCE", name: "Rye Drinkers", tags: [rye()], copies: 2 },
-  { category: "PURE_PREFERENCE", name: "Wheat Drinkers", tags: [wheat()], copies: 2 },
-  { category: "PURE_PREFERENCE", name: "Rye Country", tags: [rye(), rye()], copies: 1, reward: tok("DISTRIBUTION") },
-  { category: "PURE_PREFERENCE", name: "Wheat Country", tags: [wheat(), wheat()], copies: 1, reward: tok("SOURCING") },
+  { category: "PURE_PREFERENCE", name: "Traditional Drinkers", tags: [anyGrain(), age(2)], copies: 2 },
+  { category: "PURE_PREFERENCE", name: "Rye Drinkers", tags: [rye(), age(2)], copies: 2 },
+  { category: "PURE_PREFERENCE", name: "Wheat Drinkers", tags: [wheat(), age(2)], copies: 2 },
+  { category: "PURE_PREFERENCE", name: "Rye Country", tags: [rye(), rye(), age(4)], copies: 1, reward: tok("DISTRIBUTION") },
+  { category: "PURE_PREFERENCE", name: "Wheat Country", tags: [wheat(), wheat(), age(4)], copies: 1, reward: tok("SOURCING") },
+  { category: "PURE_PREFERENCE", name: "Home Bar", tags: [anyGrain(), age(4)], copies: 1, reward: cap(1) },
+  { category: "PURE_PREFERENCE", name: "Craft Scene", tags: [anyGrain(), anyBatch(), age(4)], copies: 1, reward: tok("SOURCING") },
 
   // ── OFF-PREMISE ──
-  { category: "OFF_PREMISE", name: "Grocery Store", tags: [traditional(), age(4)], copies: 2 },
-  { category: "OFF_PREMISE", name: "Corner Liquor", tags: [traditional()], copies: 2 },
-  { category: "OFF_PREMISE", name: "Big-Box Retail", tags: [rye(), traditional(), age(4)], copies: 2 },
-  { category: "OFF_PREMISE", name: "Warehouse Club", tags: [traditional(), smallBatch(), age(6)], copies: 2 },
-  { category: "OFF_PREMISE", name: "Bottle Shop", tags: [singleBarrel(), age(10)], copies: 1 },
+  { category: "OFF_PREMISE", name: "Grocery Store", tags: [anyGrain(), age(4)], copies: 2 },
+  { category: "OFF_PREMISE", name: "Corner Liquor", tags: [anyGrain(), age(2)], copies: 2 },
+  { category: "OFF_PREMISE", name: "Big-Box Retail", tags: [anyGrain(), age(4)], copies: 2 },
+  { category: "OFF_PREMISE", name: "Warehouse Club", tags: [anyGrain(), anyBatch(), age(4)], copies: 2 },
+  { category: "OFF_PREMISE", name: "Bottle Shop", tags: [anyBatch(), age(6)], copies: 1, reward: cap(1) },
   { category: "OFF_PREMISE", name: "Specialty Store", tags: [rye(), bonded(), age(8)], copies: 1, reward: cap(2) },
-  { category: "OFF_PREMISE", name: "Premium Retailer", tags: [wheat(), age(12), premium()], copies: 1, reward: tok("MARKETING") },
+  { category: "OFF_PREMISE", name: "Premium Retailer", tags: [wheat(), premium(), age(12)], copies: 1, reward: cap(2) },
+  { category: "OFF_PREMISE", name: "Package Store", tags: [anyGrain(), age(4)], copies: 1, reward: cap(1) },
+  { category: "OFF_PREMISE", name: "Gas Station", tags: [anyGrain(), age(2)], copies: 1, reward: cap(1) },
+  { category: "OFF_PREMISE", name: "Discount Chain", tags: [anyGrain(), age(4)], copies: 1, reward: tok("DISTRIBUTION") },
 
   // ── ON-PREMISE ──
-  { category: "ON_PREMISE", name: "Bar", tags: [traditional()], copies: 2 },
-  { category: "ON_PREMISE", name: "Cocktail Lounge", tags: [rye(), smallBatch()], copies: 2 },
+  { category: "ON_PREMISE", name: "Bar", tags: [anyGrain(), age(2)], copies: 2 },
+  { category: "ON_PREMISE", name: "Cocktail Lounge", tags: [anyGrain(), anyBatch(), age(4)], copies: 2 },
   { category: "ON_PREMISE", name: "Speakeasy", tags: [rye(), bonded(), age(8)], copies: 1, reward: tok("SALES") },
-  { category: "ON_PREMISE", name: "Fine Dining", tags: [wheat(), age(12), premium()], copies: 1, reward: tok("DISTILL") },
+  { category: "ON_PREMISE", name: "Fine Dining", tags: [wheat(), premium(), age(12)], copies: 1, reward: tok("DISTILL") },
+  { category: "ON_PREMISE", name: "Tavern", tags: [anyGrain(), age(2)], copies: 1, reward: cap(1) },
+  { category: "ON_PREMISE", name: "Sports Bar", tags: [anyGrain(), anyBatch(), age(2)], copies: 1, reward: cap(1) },
 
   // ── EXPERIENTIAL ──
-  { category: "EXPERIENTIAL", name: "Distillery Tour", tags: [singleBarrel(), bonded(), premium()], copies: 1, reward: tok("MARKETING") },
-  { category: "EXPERIENTIAL", name: "Tasting Room", tags: [wheat(), age(8), premium()], copies: 1, reward: tok("SALES") },
-  { category: "EXPERIENTIAL", name: "Gift Shop Exclusive", tags: [singleBarrel(), bonded(), age(10), premium()], copies: 1, reward: cap(3) },
-  { category: "EXPERIENTIAL", name: "Duty-Free", tags: [wheat(), age(15), premium()], copies: 1, reward: tok("DISTILL") },
+  { category: "EXPERIENTIAL", name: "Distillery Tour", tags: [anyBatch(), premium(), bonded(), age(8)], copies: 1, reward: tok("MARKETING") },
+  { category: "EXPERIENTIAL", name: "Tasting Room", tags: [wheat(), premium(), age(8)], copies: 1, reward: cap(1) },
+  { category: "EXPERIENTIAL", name: "Gift Shop Exclusive", tags: [premium(), singleBarrel(), bonded(), age(12)], copies: 1, reward: cap(3) },
+  { category: "EXPERIENTIAL", name: "Duty-Free", tags: [wheat(), premium(), age(15)], copies: 1, reward: tok("DISTILL") },
 
   // ── EXPORT ──
-  { category: "EXPORT", name: "Export - Asia", tags: [singleBarrel(), age(12), premium()], copies: 1, reward: tok("BUSINESS_DEV") },
-  { category: "EXPORT", name: "Export - Japan", tags: [wheat(), age(18), premium()], copies: 1, reward: cap(2) },
-  { category: "EXPORT", name: "Collector Auction", tags: [smallBatch(), age(23), premium()], copies: 1, reward: cap(3) },
+  { category: "EXPORT", name: "Export - Asia", tags: [singleBarrel(), premium(), age(12)], copies: 1, reward: tok("BUSINESS_DEV") },
+  { category: "EXPORT", name: "Export - Japan", tags: [wheat(), premium(), age(15)], copies: 1, reward: cap(3) },
+  { category: "EXPORT", name: "Export - Europe", tags: [wheat(), premium(), age(12)], copies: 1, reward: tok("BUSINESS_DEV") },
+  { category: "EXPORT", name: "Collector Auction", tags: [rye(), singleBarrel(), premium(), age(15)], copies: 1, reward: cap(3) },
 
   // ── LOYALTY (WILDCARD, ownership slot) ──
   { category: "LOYALTY", name: "Loyal Fanbase", tags: [], copies: 2, defenseBonus: CONFIG.DEFENSE_BONUS_LOYALTY, ownershipSlot: true },
@@ -106,4 +127,10 @@ export function buildTileDefs(): TileDef[] {
 /** Demand (niche-eligible) tile defs — everything but blocking. */
 export function demandTileDefs(): TileDef[] {
   return buildTileDefs().filter((t) => t.category !== "BLOCKING");
+}
+
+/** Reward-bearing ("BONUS") demand tiles — the pool the 3-tile seed line draws
+ *  from (brief §5.1). Excludes blocking and plain (reward-less) tiles. */
+export function bonusTileDefs(): TileDef[] {
+  return demandTileDefs().filter((t) => t.reward !== null);
 }

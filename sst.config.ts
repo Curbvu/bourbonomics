@@ -3,11 +3,17 @@
 /**
  * SST v4 deployment config for Bourbonomics (the redesigned game).
  *
- * The game is a single **client-only** Next.js site (`apps/prototype`).
- * There is no game server / DynamoDB yet — the prototype runs the engine
- * locally in the browser; multiplayer + the WebSocket server return in a
- * later batch. SST builds the site, uploads it to S3, fronts it with
- * CloudFront, and (optionally) wires Route 53 + ACM for a custom domain.
+ * The game is a Next.js site (`apps/prototype`) that runs the engine locally in
+ * the browser. SST builds the site, uploads it to S3, fronts it with CloudFront,
+ * and (optionally) wires Route 53 + ACM for a custom domain.
+ *
+ * ── Online multiplayer (OPT-IN, env-gated) ───────────────────────────────
+ * Set `ENABLE_MULTIPLAYER=true` to also provision an authoritative game server:
+ * a DynamoDB table (`Rooms`) + an API Gateway WebSocket API backed by one Lambda
+ * (`apps/prototype/src/server/rooms.ts`). The Lambda runs the SAME pure engine
+ * and broadcasts state to a room's connections; its wss URL is injected into the
+ * site as `NEXT_PUBLIC_WS_URL`. When the flag is UNSET (the default) none of that
+ * is created and the site deploys exactly as before — the client runs local-only.
  *
  * Stage → host (matches `.github/workflows/ci.yml`):
  *   prod → <apex>          (DOMAIN — the game root, e.g. playbourbonomics.com)
@@ -69,7 +75,36 @@ export default $config({
               : undefined
         : undefined;
 
+    // ── Online multiplayer (opt-in) ──────────────────────────────────────
+    // Provision the room server only when explicitly enabled, so the default
+    // deploy path is byte-for-byte unchanged.
+    let wsUrl: string | undefined;
+    if (process.env.ENABLE_MULTIPLAYER === "true") {
+      const rooms = new sst.aws.Dynamo("Rooms", {
+        fields: { pk: "string" },
+        primaryIndex: { hashKey: "pk" },
+      });
+      const ws = new sst.aws.ApiGatewayWebSocket("GameWs");
+      const route = {
+        handler: "apps/prototype/src/server/rooms.handler",
+        link: [rooms],
+        permissions: [{ actions: ["execute-api:ManageConnections"], resources: ["*"] }],
+        nodejs: {
+          install: [
+            "@aws-sdk/client-apigatewaymanagementapi",
+            "@aws-sdk/client-dynamodb",
+            "@aws-sdk/lib-dynamodb",
+          ],
+        },
+      };
+      ws.route("$connect", route);
+      ws.route("$disconnect", route);
+      ws.route("$default", route);
+      wsUrl = ws.url;
+    }
+
     const site = new sst.aws.Nextjs("Bourbonomics", {
+      environment: wsUrl ? { NEXT_PUBLIC_WS_URL: wsUrl } : {},
       domain: siteDomain
         ? {
             name: siteDomain,

@@ -185,23 +185,26 @@ export function qualifyingNiches(state: GameState, ownerId: string): DerivedNich
   return derivedNiches(state, ownerId).filter((n) => n.tileIds.length >= CONFIG.NICHE_MIN_TILES);
 }
 
-// ── Harvest status (brief §8) ────────────────────────────────────────
-export type NicheStatus = "monopoly" | "control" | "none";
+// ── Harvest status (brief §10) ───────────────────────────────────────
+export type NicheStatus = "full" | "partial" | "none";
 
 /**
- * For a qualifying niche:
- *  - monopoly: you control a majority AND zero rival LIVE DPs anywhere in it → take ALL rewards.
- *  - control:  you control a majority (a rival LIVE DP exists) → take 1 reward.
- *  - none:     you do not control a majority of its tiles.
- * DARK rival DPs do NOT block monopoly (§8, §16).
+ * v4 two-tier scoring status for a qualifying niche (see ageLoop.scoreNiches):
+ *  - full:    you control EVERY tile → tier1 (+1/claim) AND tier2 (all rewards).
+ *  - partial: you control some (but not all) tiles → tier1 only, no rewards.
+ *  - none:    you control none of its tiles → scores 0.
+ * Control = one more LIVE DP than any single rival (NOT monopoly). Used by the UI
+ * to show whether a niche will collect its rewards.
  */
 export function nicheStatus(state: GameState, niche: DerivedNiche): NicheStatus {
   const tiles = niche.tileIds.map((id) => tileById(state, id)).filter(Boolean) as Tile[];
+  if (tiles.length === 0) return "none";
   const controlled = tiles.filter((t) => tileController(state, t.id) === niche.owner).length;
-  if (controlled * 2 <= tiles.length) return "none"; // need a strict majority
+  if (controlled === tiles.length) return "full";
+  return controlled > 0 ? "partial" : "none";
+}
 
-  const rivalLive = tiles.some((t) =>
-    state.dps.some((d) => d.tileId === t.id && d.state === "LIVE" && d.owner !== niche.owner),
-  );
-  return rivalLive ? "control" : "monopoly";
+/** Count of a niche's tiles the owner currently controls (for UI progress). */
+export function nicheControlledCount(state: GameState, niche: DerivedNiche): number {
+  return niche.tileIds.filter((id) => tileController(state, id) === niche.owner).length;
 }

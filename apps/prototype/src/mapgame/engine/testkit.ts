@@ -36,6 +36,7 @@ export function mkPlayer(id: string, over: Partial<Player> = {}): Player {
     capital: 0,
     dpSupply: 15,
     tokens: zeroTokens(),
+    distillery: { name: id, abilityId: null },
     hand: [],
     bourbons: [],
     heldTile: null,

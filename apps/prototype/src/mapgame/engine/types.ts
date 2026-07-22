@@ -34,19 +34,53 @@ export type ActionType =
   | "BID"
   | "REFRESH";
 
-/** The action menu each suit permits — mix freely up to the card's pips (§5). */
+/**
+ * The action menu each suit permits — mix freely up to the card's pips (§6).
+ * v4 capability map (§6, §18.17): every capability appears in EXACTLY 2 suits.
+ *   DP (Build/Repair) → Distribution, BusinessDev
+ *   Push             → Sales, Marketing
+ *   Niche (Add/Rm)   → Sales, Marketing
+ *   Expand (market)  → BusinessDev, Sourcing
+ *   Bourbon (Bid/Refresh) → Sourcing, Distill
+ * HARD RULE (§18.8): Refresh never shares a suit with Push. Here Refresh lives in
+ * Sourcing+Distill and Push in Sales+Marketing — disjoint. (Bid may share; it
+ * doesn't here either.)
+ */
 export const SUIT_ACTIONS: Record<Suit, ActionType[]> = {
-  DISTRIBUTION: ["BUILD_DP", "REPAIR_DP"],
-  SALES: ["PUSH", "ADD_NICHE_FLAG"],
-  MARKETING: ["ADD_NICHE_FLAG", "REMOVE_NICHE_FLAG", "EXPAND_MARKET"],
-  BUSINESS_DEV: ["EXPAND_MARKET", "BUILD_DP"],
-  SOURCING: ["BID", "BUILD_DP", "REPAIR_DP"],
-  DISTILL: ["BID", "REFRESH"],
+  DISTRIBUTION: ["BUILD_DP", "REPAIR_DP"], // DP
+  SALES: ["PUSH", "ADD_NICHE_FLAG", "REMOVE_NICHE_FLAG"], // Push, Niche
+  MARKETING: ["PUSH", "ADD_NICHE_FLAG", "REMOVE_NICHE_FLAG"], // Push, Niche
+  BUSINESS_DEV: ["EXPAND_MARKET", "BUILD_DP", "REPAIR_DP"], // Expand, DP
+  SOURCING: ["BID", "REFRESH", "EXPAND_MARKET"], // Bourbon, Expand
+  DISTILL: ["BID", "REFRESH"], // Bourbon
 };
 
 // ── Tokens ───────────────────────────────────────────────────────────
 /** Six token types, one per suit, plus ANY (Keystone reward, wild). */
 export type TokenType = Suit | "ANY";
+
+// ── Distilleries (brief §17 — build the hook, not the content) ───────
+/**
+ * The expansion axis: a persistent player identity with an optional signature
+ * ability. The base game ships SYMMETRIC (abilityId null). Only DATA lives on
+ * state (so it stays structuredClone-safe); ability implementations live in a
+ * registry keyed by abilityId (see engine/distilleries.ts).
+ */
+export interface Distillery {
+  name: string;
+  abilityId: string | null; // null = no ability (symmetric base game)
+}
+
+/** The moments an ability may hook (brief §17). Reserved vocabulary; the base
+ *  game fires them but ships no abilities. */
+export type DistilleryTrigger =
+  | "onSetup"
+  | "onAgeStart"
+  | "onRoundStart"
+  | "onPushWin"
+  | "onPushLose"
+  | "onScoring"
+  | "onAgeEnd";
 
 // ── Board ────────────────────────────────────────────────────────────
 export type TileCategory =
@@ -173,6 +207,7 @@ export interface Player {
   capital: number; // SCORE ONLY — from niches only (§9)
   dpSupply: number; // one pool: map DPs AND market bid markers
   tokens: Record<TokenType, number>; // public, uncapped
+  distillery: Distillery; // §17 identity; symmetric in the base game
 
   hand: ActionCard[];
   bourbons: Bourbon[];
@@ -197,15 +232,17 @@ export interface Player {
 // ── Game ─────────────────────────────────────────────────────────────
 export type GamePhase = "setup" | "playing" | "ended";
 /**
- * Setup (brief §13/§15): setupPlace = each player places their 5 setup tiles in
- * turn order (>=2 adjacency); setupDraft = snake opening draft, 4 picks each
- * (draft a bourbon OR place a LIVE DP). Then play begins.
+ * Setup (brief §5): setupPlace = each player places their 5 setup tiles in turn
+ * order (>=2 adjacency); setupDraft = snake opening draft, 3 BOURBONS each from
+ * the non-premium pool; setupDP = each player plants STARTING_DPS LIVE DPs in
+ * turn order (setup-exempt from control-adjacency). Then play begins.
  * Age start: trade → catchup. Round: planning → commit → resolve. ageEnd runs
  * market resolution + niche scoring.
  */
 export type RoundStage =
   | "setupPlace"
   | "setupDraft"
+  | "setupDP"
   | "trade"
   | "catchup"
   | "planning"

@@ -4,6 +4,7 @@ export * from "./tags";
 export * from "./fit";
 export * from "./hex";
 export * from "./derive";
+export * from "./distilleries";
 export * from "./content";
 export * from "./setup";
 export * from "./push";

@@ -11,11 +11,12 @@
 import { catchUpOrder, catchUpSwap, performTrade, runAgeEnd } from "./ageLoop";
 import { CONFIG } from "./config";
 import { canAddFlag, canPlaceDP, neighborTiles, tileById, tileController } from "./derive";
+import { runDistilleryTrigger } from "./distilleries";
 import { resolvePush } from "./push";
 import type { Hex } from "./hex";
 import { hexKey } from "./hex";
 import { mintId } from "./ids";
-import { finalizeSetup, placeBlockingTerrain, refillMarket, snakeOrder, tileFromDef } from "./setup";
+import { finalizeSetup, placeBlockingTerrain, refillMarket, setupDPOrder, snakeOrder, tileFromDef } from "./setup";
 import type {
   Action,
   ActionResult,
@@ -33,9 +34,10 @@ const refuse = (reason: string): ActionResult => ({ ok: false, reason });
 const commit = (state: GameState): ActionResult => ({ ok: true, state });
 
 function currentActor(draft: GameState): Player {
-  // The opening draft runs a snake sequence; every other stage iterates
-  // `initiative` (round-robin during setup placement).
-  const seq = draft.stage === "setupDraft" ? draft.setupDraftSeq : draft.initiative;
+  // The opening draft (snake) and starting-DP step (round-robin) both iterate the
+  // stored setup sequence; every other stage iterates `initiative`.
+  const usesSetupSeq = draft.stage === "setupDraft" || draft.stage === "setupDP";
+  const seq = usesSetupSeq ? draft.setupDraftSeq : draft.initiative;
   return draft.players[seq[draft.turnPos]!]!;
 }
 
@@ -168,6 +170,7 @@ function endRound(draft: GameState): void {
   draft.initiative = next;
   draft.turnPos = 0;
   draft.stage = "planning";
+  runDistilleryTrigger(draft, "onRoundStart");
   log(draft, `Round ${draft.round} begins.`);
 }
 
@@ -334,6 +337,8 @@ export function applyAction(state: GameState, action: Action): ActionResult {
       return setupPlaceStage(draft, actor, action);
     case "setupDraft":
       return setupDraftStage(draft, actor, action);
+    case "setupDP":
+      return setupDPStage(draft, actor, action);
     case "trade":
       return tradeStage(draft, actor, action);
     case "catchup":
@@ -382,38 +387,51 @@ function setupPlaceStage(draft: GameState, actor: Player, action: Action): Actio
     draft.stage = "setupDraft";
     draft.setupDraftSeq = snakeOrder(draft.players.length, CONFIG.OPENING_DRAFT_PICKS);
     draft.turnPos = 0;
-    log(draft, "Terrain settles — opening draft: a bourbon or a DP.");
+    log(draft, "Terrain settles — opening draft: take a bourbon.");
   }
   return commit(draft);
 }
 
+/** Opening draft (brief §5.5): a snake of OPENING_DRAFT_PICKS bourbons each, from
+ *  the non-premium pool. Bourbons only — DPs are seeded in the setupDP step. */
 function setupDraftStage(draft: GameState, actor: Player, action: Action): ActionResult {
-  if (action.type === "SETUP_DRAFT_BOURBON") {
-    const lot = draft.market.find((l) => l.id === action.lotId);
-    if (!lot) return refuse("no such market lot");
-    draft.market = draft.market.filter((l) => l.id !== lot.id);
-    actor.bourbons.push({
-      id: mintId(draft, "bourbon"),
-      defId: lot.def.defId,
-      name: lot.def.name,
-      tags: lot.def.tags,
-      owner: actor.id,
-      state: "FRESH",
-    });
-    refillMarket(draft, CONFIG.marketLots(draft.players.length));
-    log(draft, `${actor.name} drafts ${lot.def.name}.`);
-  } else if (action.type === "SETUP_PLACE_DP") {
-    const tile = tileById(draft, action.tileId);
-    if (!tile) return refuse("no such tile");
-    if (tile.category === "BLOCKING") return refuse("blocking tiles cannot hold DPs");
-    if (actor.dpSupply <= 0) return refuse("no DPs left in supply");
-    // Setup DP placement is exempt from the control-adjacency rule (brief §13.4).
-    actor.dpSupply -= 1;
-    draft.dps.push({ id: mintId(draft, "dp"), owner: actor.id, tileId: tile.id, state: "LIVE", seq: draft.idCounter });
-    log(draft, `${actor.name} places a DP on ${tile.name}.`);
-  } else {
-    return refuse("draft a bourbon or place a DP now");
+  if (action.type !== "SETUP_DRAFT_BOURBON") return refuse("draft a bourbon now");
+  const lot = draft.market.find((l) => l.id === action.lotId);
+  if (!lot) return refuse("no such market lot");
+  draft.market = draft.market.filter((l) => l.id !== lot.id);
+  actor.bourbons.push({
+    id: mintId(draft, "bourbon"),
+    defId: lot.def.defId,
+    name: lot.def.name,
+    tags: lot.def.tags,
+    owner: actor.id,
+    state: "FRESH",
+  });
+  refillMarket(draft, CONFIG.marketLots(draft.players.length));
+  log(draft, `${actor.name} drafts ${lot.def.name}.`);
+
+  draft.turnPos += 1;
+  if (draft.turnPos >= draft.setupDraftSeq.length) {
+    // Draft done — each player now plants their starting DPs, in turn order.
+    draft.stage = "setupDP";
+    draft.setupDraftSeq = setupDPOrder(draft.players.length, CONFIG.STARTING_DPS);
+    draft.turnPos = 0;
+    log(draft, "Draft complete — place your starting DPs.");
   }
+  return commit(draft);
+}
+
+/** Starting DPs (brief §5.6): each player plants STARTING_DPS LIVE DPs in turn
+ *  order, exempt from the control-adjacency rule. Then age 1 opens. */
+function setupDPStage(draft: GameState, actor: Player, action: Action): ActionResult {
+  if (action.type !== "SETUP_PLACE_DP") return refuse("place a starting DP now");
+  const tile = tileById(draft, action.tileId);
+  if (!tile) return refuse("no such tile");
+  if (tile.category === "BLOCKING") return refuse("blocking tiles cannot hold DPs");
+  if (actor.dpSupply <= 0) return refuse("no DPs left in supply");
+  actor.dpSupply -= 1;
+  draft.dps.push({ id: mintId(draft, "dp"), owner: actor.id, tileId: tile.id, state: "LIVE", seq: draft.idCounter });
+  log(draft, `${actor.name} places a DP on ${tile.name}.`);
 
   draft.turnPos += 1;
   if (draft.turnPos >= draft.setupDraftSeq.length) finalizeSetup(draft);
@@ -430,6 +448,7 @@ function startPlanning(draft: GameState): void {
     p.allowedSuits = [];
     p.turnDone = false;
   }
+  runDistilleryTrigger(draft, "onRoundStart");
   log(draft, `Round ${draft.round} begins.`);
 }
 

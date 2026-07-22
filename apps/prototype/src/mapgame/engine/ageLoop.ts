@@ -9,12 +9,12 @@
 import { CONFIG } from "./config";
 import {
   controlledTiles,
-  hasMonopoly,
   qualifyingNiches,
   tileById,
   tileController,
   tileOwner,
 } from "./derive";
+import { runDistilleryTrigger } from "./distilleries";
 import { mintId } from "./ids";
 import { refillMarket, dealActionHands } from "./setup";
 import type { GameState, Player, Reward } from "./types";
@@ -65,13 +65,12 @@ function resolveMarket(draft: GameState): void {
 }
 
 /**
- * Niche scoring (brief §9) — the ONLY source of Capital. Three stacking tiers,
+ * Niche scoring (brief §10) — the ONLY source of Capital. Two stacking tiers,
  * per qualifying niche (>= NICHE_MIN_TILES contiguous claims):
  *   tier 1 — +1 Capital per claim you CONTROL in the niche.
- *   tier 2 — if you control the majority of the niche's tiles, collect the
- *            reward from each reward tile you control in it.
- *   tier 3 — if you have monopoly (no rival LIVE DP anywhere in the niche),
- *            collect ALL rewards in the niche instead.
+ *   tier 2 (ALL-OR-NOTHING) — if you control EVERY tile in the niche, collect
+ *            ALL of its rewards. Control any fewer → nothing. Control here means
+ *            one more LIVE DP than any rival (NOT monopoly).
  * Non-niche tiles score 0.
  */
 function scoreNiches(draft: GameState): void {
@@ -80,25 +79,17 @@ function scoreNiches(draft: GameState): void {
       const tiles = niche.tileIds.map((id) => tileById(draft, id)!).filter(Boolean);
       const controlled = tiles.filter((t) => tileController(draft, t.id) === player.id);
 
-      // tier 1 — base
+      // tier 1 — +1 per controlled claim
       const base = controlled.length * CONFIG.CAPITAL_PER_CONTROLLED_CLAIM;
       if (base > 0) {
         player.capital += base;
         log(draft, `${player.name} scores ${base} Capital from a niche (${controlled.length} controlled claims).`);
       }
 
-      const majority = controlled.length * 2 > tiles.length;
-      if (!majority) continue;
-
-      const monopoly = tiles.every((t) => hasMonopoly(draft, t.id, player.id) || !anyRivalLive(draft, t.id, player.id));
-      if (monopoly) {
-        // tier 3 — all rewards in the niche
+      // tier 2 — control the WHOLE niche → take every reward in it (else none)
+      if (tiles.length > 0 && controlled.length === tiles.length) {
         for (const t of tiles) if (t.reward) grantReward(player, t.reward);
-        log(draft, `${player.name} monopolises a niche — collects all rewards.`);
-      } else {
-        // tier 2 — rewards on controlled reward tiles
-        for (const t of controlled) if (t.reward) grantReward(player, t.reward);
-        log(draft, `${player.name} holds a niche majority — collects its rewards.`);
+        log(draft, `${player.name} controls an entire niche — collects all its rewards.`);
       }
     }
   }
@@ -154,9 +145,11 @@ function declareWinner(draft: GameState): void {
  */
 export function runAgeEnd(draft: GameState, carryInitiative: number[]): void {
   log(draft, `Age ${draft.age} ends.`);
+  runDistilleryTrigger(draft, "onAgeEnd");
   resolveMarket(draft);
   keystonePayout(draft);
   convertLoyalty(draft);
+  runDistilleryTrigger(draft, "onScoring");
   scoreNiches(draft); // the ONLY source of Capital (brief §9)
   // Bourbons are NOT released — depletion persists across ages (§7b).
 
@@ -179,6 +172,7 @@ export function runAgeEnd(draft: GameState, carryInitiative: number[]): void {
  * open the "trade" stage. pendingInitiative must already hold the round-1 order.
  */
 export function beginAgeStart(draft: GameState): void {
+  runDistilleryTrigger(draft, "onAgeStart");
   refillMarket(draft, CONFIG.marketLots(draft.players.length));
   dealActionHands(draft);
   dealCatchUpBoard(draft);
