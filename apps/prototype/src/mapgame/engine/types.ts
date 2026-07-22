@@ -34,14 +34,25 @@ export type ActionType =
   | "BID"
   | "REFRESH";
 
-/** The action menu each suit permits — mix freely up to the card's pips (§5). */
+/**
+ * The action menu each suit permits — mix freely up to the card's pips (§6).
+ * v4 capability map (§6, §18.17): every capability appears in EXACTLY 2 suits.
+ *   DP (Build/Repair) → Distribution, BusinessDev
+ *   Push             → Sales, Marketing
+ *   Niche (Add/Rm)   → Sales, Marketing
+ *   Expand (market)  → BusinessDev, Sourcing
+ *   Bourbon (Bid/Refresh) → Sourcing, Distill
+ * HARD RULE (§18.8): Refresh never shares a suit with Push. Here Refresh lives in
+ * Sourcing+Distill and Push in Sales+Marketing — disjoint. (Bid may share; it
+ * doesn't here either.)
+ */
 export const SUIT_ACTIONS: Record<Suit, ActionType[]> = {
-  DISTRIBUTION: ["BUILD_DP", "REPAIR_DP"],
-  SALES: ["PUSH", "ADD_NICHE_FLAG"],
-  MARKETING: ["ADD_NICHE_FLAG", "REMOVE_NICHE_FLAG", "EXPAND_MARKET"],
-  BUSINESS_DEV: ["EXPAND_MARKET", "BUILD_DP"],
-  SOURCING: ["BID", "BUILD_DP", "REPAIR_DP"],
-  DISTILL: ["BID", "REFRESH"],
+  DISTRIBUTION: ["BUILD_DP", "REPAIR_DP"], // DP
+  SALES: ["PUSH", "ADD_NICHE_FLAG", "REMOVE_NICHE_FLAG"], // Push, Niche
+  MARKETING: ["PUSH", "ADD_NICHE_FLAG", "REMOVE_NICHE_FLAG"], // Push, Niche
+  BUSINESS_DEV: ["EXPAND_MARKET", "BUILD_DP", "REPAIR_DP"], // Expand, DP
+  SOURCING: ["BID", "REFRESH", "EXPAND_MARKET"], // Bourbon, Expand
+  DISTILL: ["BID", "REFRESH"], // Bourbon
 };
 
 // ── Tokens ───────────────────────────────────────────────────────────

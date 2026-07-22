@@ -18,17 +18,31 @@ describe("action deck (brief v3 §5, §14c)", () => {
     for (const suit of SUITS) expect(deck.some((c) => c.suit === suit)).toBe(true);
   });
 
-  it("Push lives only in SALES; Bid never shares a suit with Push (§17.8)", () => {
+  it("Push lives in SALES + MARKETING (brief §6)", () => {
     const pushSuits = SUITS.filter((s) => SUIT_ACTIONS[s].includes("PUSH"));
-    const bidSuits = SUITS.filter((s) => SUIT_ACTIONS[s].includes("BID"));
-    expect(pushSuits).toEqual(["SALES"]);
-    expect(pushSuits.some((s) => bidSuits.includes(s as Suit))).toBe(false);
+    expect(pushSuits).toEqual(["SALES", "MARKETING"]);
   });
 
-  it("Refresh lives only in DISTILL (breadth-2 Bid + Refresh)", () => {
+  it("Refresh NEVER shares a suit with Push (HARD RULE §18.8)", () => {
+    const pushSuits = SUITS.filter((s) => SUIT_ACTIONS[s].includes("PUSH"));
     const refreshSuits = SUITS.filter((s) => SUIT_ACTIONS[s].includes("REFRESH"));
-    expect(refreshSuits).toEqual(["DISTILL"]);
-    expect(SUIT_ACTIONS.DISTILL).toEqual(["BID", "REFRESH"]);
+    expect(refreshSuits).toEqual(["SOURCING", "DISTILL"]);
+    expect(pushSuits.some((s) => refreshSuits.includes(s as Suit))).toBe(false);
+  });
+
+  it("every capability appears in EXACTLY 2 suits (brief §6, §18.17)", () => {
+    // capability → the action types that realise it
+    const CAPS: Record<string, string[]> = {
+      DP: ["BUILD_DP", "REPAIR_DP"],
+      Push: ["PUSH"],
+      Niche: ["ADD_NICHE_FLAG", "REMOVE_NICHE_FLAG"],
+      Expand: ["EXPAND_MARKET"],
+      Bourbon: ["BID", "REFRESH"],
+    };
+    for (const [cap, actions] of Object.entries(CAPS)) {
+      const suits = SUITS.filter((s) => actions.some((a) => SUIT_ACTIONS[s].includes(a as never)));
+      expect(suits.length, `${cap} should be in 2 suits, is in ${suits.join("+")}`).toBe(2);
+    }
   });
 
   it("every card honors the action floor of 2 pips", () => {

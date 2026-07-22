@@ -187,49 +187,45 @@ describe("niches — derived from flags (brief §8)", () => {
   });
 });
 
-describe("niche harvest status (brief §8)", () => {
+describe("niche harvest status (brief §10 — v4 two-tier)", () => {
   const flags5 = [0, 1, 2, 3, 4].map((q) => mkFlag("A", `t${q}`));
 
-  it("majority control with a rival LIVE DP present = control", () => {
+  it("control EVERY tile = full (tier1 + tier2 all rewards)", () => {
     const s = mkState({
       tiles: lineBoard(5),
       nicheFlags: flags5,
-      dps: [
-        mkDP("A", "t0"),
-        mkDP("A", "t1"),
-        mkDP("A", "t2"), // A controls 3/5
-        mkDP("B", "t4"), // rival LIVE DP somewhere in the niche
-      ],
+      dps: [0, 1, 2, 3, 4].map((q) => mkDP("A", `t${q}`)),
     });
     const niche = qualifyingNiches(s, "A")[0]!;
-    expect(nicheStatus(s, niche)).toBe("control");
+    expect(nicheStatus(s, niche)).toBe("full");
   });
 
-  it("majority control with no rival LIVE DP = monopoly", () => {
+  it("control SOME but not all = partial (tier1 only, no rewards)", () => {
     const s = mkState({
       tiles: lineBoard(5),
       nicheFlags: flags5,
-      dps: [mkDP("A", "t0"), mkDP("A", "t1"), mkDP("A", "t2")],
+      dps: [mkDP("A", "t0"), mkDP("A", "t1"), mkDP("A", "t2"), mkDP("B", "t4")], // t3 empty, t4 rival
     });
     const niche = qualifyingNiches(s, "A")[0]!;
-    expect(nicheStatus(s, niche)).toBe("monopoly");
+    expect(nicheStatus(s, niche)).toBe("partial");
   });
 
-  it("a rival DARK DP does NOT block monopoly", () => {
+  it("one rival-controlled tile denies tier 2 → partial, not full", () => {
     const s = mkState({
       tiles: lineBoard(5),
       nicheFlags: flags5,
-      dps: [mkDP("A", "t0"), mkDP("A", "t1"), mkDP("A", "t2"), mkDP("B", "t3", "DARK")],
+      // A controls t0..t3; t4 contested 1-1 (nobody controls) → not all controlled
+      dps: [mkDP("A", "t0"), mkDP("A", "t1"), mkDP("A", "t2"), mkDP("A", "t3"), mkDP("A", "t4"), mkDP("B", "t4")],
     });
     const niche = qualifyingNiches(s, "A")[0]!;
-    expect(nicheStatus(s, niche)).toBe("monopoly");
+    expect(nicheStatus(s, niche)).toBe("partial");
   });
 
-  it("without a majority = none", () => {
+  it("control none = none", () => {
     const s = mkState({
       tiles: lineBoard(5),
       nicheFlags: flags5,
-      dps: [mkDP("A", "t0"), mkDP("A", "t1"), mkDP("B", "t2"), mkDP("B", "t3")],
+      dps: [mkDP("B", "t0"), mkDP("B", "t1"), mkDP("B", "t2"), mkDP("B", "t3")],
     });
     const niche = qualifyingNiches(s, "A")[0]!;
     expect(nicheStatus(s, niche)).toBe("none");
