@@ -16,5 +16,6 @@
     ".next/types/**/*.ts",
     "next.config.ts"
   ],
-  "exclude": ["node_modules", ".next"]
+  "//exclude-server": "src/server holds the WebSocket Lambda (imports 'sst' + '@aws-sdk/*', bundled only by SST at deploy) — kept out of the app typecheck/build.",
+  "exclude": ["node_modules", ".next", "src/server"]
 }

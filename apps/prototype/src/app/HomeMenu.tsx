@@ -23,12 +23,20 @@ export default function HomeMenu() {
 
   const tiles: Tile[] = [
     {
-      eyebrow: "New game · 2–5 players",
+      eyebrow: "Single player · vs bots",
       title: "Play Bourbonomics",
       subtitle:
-        "The territory game. Build the board, stake niches, distill bourbons, and Push for the tiles that pay. Bots fill the empty seats.",
+        "The territory game. Build the board, stake niches, distill bourbons, and Push for the tiles that pay. Strategic bots fill the empty seats.",
       accent: T.gold,
       href: "/mapgame",
+    },
+    {
+      eyebrow: "Online · 2–5 players",
+      title: "Play Together",
+      subtitle:
+        "Create a table, share the code, and play live over the web. Add bots to fill empty seats; the server keeps everyone in sync.",
+      accent: "#4a8a72",
+      href: "/online",
     },
     {
       eyebrow: "Player aid",

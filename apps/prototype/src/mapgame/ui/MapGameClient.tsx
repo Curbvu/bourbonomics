@@ -7,7 +7,7 @@
 // log tail). You are player 0; rivals are bots that auto-advance. No scrollbars;
 // the log shows only its tail. Rules: docs/MAP_GAME_SPEC.md + the build brief.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ScalingHost from "../../app/components/ScalingHost";
 import Manual from "./Manual";
 import {
@@ -76,13 +76,23 @@ export default function MapGameClient() {
   const [game, setGame] = useState<GameState | null>(null);
   const [manual, setManual] = useState(false);
 
+  // Local play: apply the action, then auto-play the bots, in-browser. Returns an
+  // error reason (Board flashes it) or null on success.
+  const onAction = (action: Action): string | null => {
+    if (!game) return "no game";
+    const res = applyAction(game, action);
+    if (!res.ok) return res.reason;
+    setGame(autoAdvance(res.state));
+    return null;
+  };
+
   // ScalingHost only shrinks when its parent bounds the height — mirror the
   // full-viewport flex column the live GameClient gives it (see CLAUDE.md §1).
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: C.bg }}>
       <ScalingHost>
         {game ? (
-          <Board game={game} setGame={setGame} onNew={() => setGame(null)} onManual={() => setManual(true)} />
+          <Board game={game} onAction={onAction} onNew={() => setGame(null)} onManual={() => setManual(true)} />
         ) : (
           <Setup
             onStart={(n) => setGame(autoAdvance(createGame({ playerNames: names(n), seed: 12345 })))}
@@ -138,7 +148,21 @@ function Setup({ onStart, onManual }: { onStart: (n: number) => void; onManual: 
 // ── Board ────────────────────────────────────────────────────────────
 type Mode = ActionType | "CLAIM_SLOT" | null;
 
-function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (g: GameState) => void; onNew: () => void; onManual: () => void }) {
+export function Board({
+  game,
+  onAction,
+  onNew,
+  onManual,
+  youId = HUMAN,
+  notice,
+}: {
+  game: GameState;
+  onAction: (a: Action) => string | null;
+  onNew: () => void;
+  onManual: () => void;
+  youId?: string;
+  notice?: string | null;
+}) {
   const [mode, setMode] = useState<Mode>(null);
   const [toast, setToast] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -148,11 +172,16 @@ function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setToast(null), 2000);
   };
+  // Surface async notices from an online session (e.g. "it isn't your turn").
+  useEffect(() => {
+    if (notice) flash(notice);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notice]);
 
   const inPlay = game.phase === "playing" || game.phase === "setup";
   const actor = inPlay ? currentActorOf(game) : null;
-  const yourTurn = actor?.id === HUMAN && inPlay;
-  const you = game.players.find((p) => p.id === HUMAN)!;
+  const yourTurn = actor?.id === youId && inPlay;
+  const you = game.players.find((p) => p.id === youId) ?? game.players[0]!;
   const inSetup = game.phase === "setup";
   // valid empty hexes to place the next setup tile (your turn only)
   const candidates = useMemo(
@@ -161,12 +190,8 @@ function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (
   );
 
   function dispatch(action: Action) {
-    const res = applyAction(game, action);
-    if (!res.ok) {
-      flash(res.reason);
-      return;
-    }
-    setGame(autoAdvance(res.state));
+    const err = onAction(action);
+    if (err) flash(err);
   }
 
   function clickTile(tile: Tile) {
@@ -187,7 +212,7 @@ function Board({ game, setGame, onNew, onManual }: { game: GameState; setGame: (
   }
 
   function push(tile: Tile) {
-    const cap = liveDPCount(game, tile.id, HUMAN);
+    const cap = liveDPCount(game, tile.id, youId);
     const tags = tile.wildcardTag ? [tile.wildcardTag] : tile.tags;
     const ids = you.bourbons
       .filter((b) => b.state === "FRESH") // only FRESH is committable (§7b)
