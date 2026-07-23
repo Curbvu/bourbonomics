@@ -29,7 +29,7 @@ import {
   tagColor,
   tileController,
 } from "../engine";
-import type { Action, ActionType, GameState, Suit, Tile, TokenType } from "../engine";
+import type { Action, ActionType, GameState, Suit, Tag, Tile, TokenType } from "../engine";
 import { SUIT_ACTIONS } from "../engine";
 import {
   Flag,
@@ -250,6 +250,7 @@ export function Board({
   const yourTurn = actor?.id === youId && inPlay;
   const you = game.players.find((p) => p.id === youId) ?? game.players[0]!;
   const inSetup = game.phase === "setup";
+  const playing = game.phase === "playing";
   const sel = Math.min(selTile, Math.max(0, you.setupTiles.length - 1));
   // valid empty hexes to place the next setup tile (your turn only)
   const candidates = useMemo(
@@ -305,6 +306,8 @@ export function Board({
         @keyframes bbTileDrop { 0%{transform:translateY(-80px) scale(.62);opacity:0} 60%{opacity:1} 86%{transform:translateY(0) scale(1.03)} 100%{transform:translateY(0) scale(1)} }
         @keyframes bbTrayGlow { 0%,100%{box-shadow:0 -9px 30px -10px ${T.gold}88, inset 0 2px 0 #ffffffaa} 50%{box-shadow:0 -12px 40px -6px ${T.gold}cc, inset 0 2px 0 #ffffffaa} }
         @keyframes bbLift { 0%{transform:translateY(0)} 100%{transform:translateY(-10px)} }
+        .bb-fan-card { transition: transform 130ms ease; }
+        .bb-fan-card:hover { transform: translateY(-22px) rotate(0deg) !important; z-index: 30; }
       `}</style>
       <div
         style={{
@@ -327,9 +330,12 @@ export function Board({
           </div>
         )}
 
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: showTray ? 186 : 0 }}>
+        <div style={{ position: "absolute", top: 0, left: playing ? 172 : 0, right: 0, bottom: showTray ? 186 : playing ? 232 : 0 }}>
           <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} newTiles={newTiles} tilt={!inSetup} />
         </div>
+
+        {playing && <UpForBidShelf game={game} you={you} yourTurn={yourTurn} dispatch={dispatch} />}
+        {playing && <PlayHandZone game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} />}
 
         {showTray && (
           <SetupTray tiles={you.setupTiles} selected={sel} onSelect={setSelTile} yourTurn={yourTurn} />
@@ -758,9 +764,13 @@ function Rail({
 
       <Standings game={game} />
       <NicheTracker game={game} you={you} />
-      <Market game={game} you={you} yourTurn={yourTurn} dispatch={dispatch} />
+      {/* the market shows in the rail during the opening draft; in play it moves
+          to the board's "Up for Bid" shelf. */}
+      {game.phase === "setup" && <Market game={game} you={you} yourTurn={yourTurn} dispatch={dispatch} />}
       <div style={{ flex: 1 }} />
-      <Controls game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} />
+      {/* bourbons + play controls live on the board pane now; the rail keeps the
+          play controls only during setup / game over. */}
+      {game.phase !== "playing" && <Controls game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} />}
       <Log game={game} />
     </div>
   );
@@ -783,7 +793,7 @@ function Standings({ game }: { game: GameState }) {
               <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: T.gold, lineHeight: 1 }}>{p.capital}</span>
               <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: 1, color: T.faint }}>CAPITAL</span>
             </div>
-            <Stat value={p.dpSupply} label="DP" />
+            <Stat value={p.dpSupply} label="DP" redAt0 />
             <Stat value={tiles} label="TILES" />
             <Stat value={fresh} label="CASKS" />
             <Stat value={tokTotal} label="TOKENS" />
@@ -794,11 +804,12 @@ function Standings({ game }: { game: GameState }) {
   );
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
+function Stat({ value, label, redAt0 = false }: { value: number; label: string; redAt0?: boolean }) {
+  const red = redAt0 && value === 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 42 }}>
-      <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: T.ink, lineHeight: 1 }}>{value}</span>
-      <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: 0.5, color: T.faint }}>{label}</span>
+      <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: red ? T.red : T.ink, lineHeight: 1 }}>{value}</span>
+      <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: 0.5, color: red ? T.red : T.faint }}>{label}</span>
     </div>
   );
 }
@@ -919,6 +930,80 @@ function Controls({ game, you, yourTurn, mode, setMode, dispatch }: { game: Game
   );
 }
 
+// ── Play-screen board overlays (Market handoff §4–5) ─────────────────
+// The market lots, as collector bottles, on a shelf to the LEFT of the board.
+function UpForBidShelf({ game, you, yourTurn, dispatch }: { game: GameState; you: GameState["players"][number]; yourTurn: boolean; dispatch: (a: Action) => void }) {
+  const canBid = yourTurn && you.allowedSuits.some((s) => SUIT_ACTIONS[s].includes("BID"));
+  return (
+    <div style={{ position: "absolute", left: 12, top: 104, bottom: 244, width: 152, display: "flex", flexDirection: "column", gap: 7, zIndex: 2 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: T.goldSoft }}>Up for Bid</span>
+        {canBid && <span style={{ fontFamily: MONO, fontSize: 9, color: T.gold }}>click to bid</span>}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7, overflow: "hidden" }}>
+        {game.market.map((lot) => {
+          const bids = Object.entries(lot.bids).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+          const top = bids[0];
+          return (
+            <BottleCard
+              key={lot.id}
+              name={lot.def.name}
+              tags={lot.def.tags}
+              compact
+              onClick={canBid ? () => dispatch({ type: "BID", lotId: lot.id }) : undefined}
+              footerBg="#2a1c0e"
+              footer={top
+                ? <span style={{ fontFamily: MONO, fontSize: 8.5, color: "#e7cfa0" }}>● {game.players.find((p) => p.id === top[0])?.name} · {top[1]}</span>
+                : <span style={{ fontFamily: MONO, fontSize: 8.5, color: "#8a7458" }}>no bids yet</span>}
+            />
+          );
+        })}
+        {game.market.length === 0 && <span style={{ fontFamily: SANS, fontSize: 12, color: T.faint }}>market resolved</span>}
+      </div>
+    </div>
+  );
+}
+
+// The player's bourbons, fanned as bottles at the bottom (a card lifts on hover).
+function BourbonFan({ bourbons }: { bourbons: GameState["players"][number]["bourbons"] }) {
+  const cards = bourbons.slice(0, 7);
+  const mid = (cards.length - 1) / 2;
+  if (cards.length === 0) return <span style={{ fontFamily: SANS, fontSize: 13, color: T.faint, paddingBottom: 40 }}>none — bid at the market</span>;
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", paddingLeft: 40 }}>
+      {cards.map((b, i) => (
+        <div key={b.id} className="bb-fan-card" style={{ marginLeft: i === 0 ? 0 : -66, transform: `rotate(${(i - mid) * 4.5}deg)`, transformOrigin: "50% 135%", position: "relative" }}>
+          <BourbonChip b={b} compact />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Everything at the bottom of the play screen: the action pill (stage controls +
+// fanned action cards live inside the existing controls) and the bourbon fan.
+function PlayHandZone({ game, you, yourTurn, mode, setMode, dispatch }: { game: GameState; you: GameState["players"][number]; yourTurn: boolean; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void }) {
+  return (
+    <div style={{ position: "absolute", left: 172, right: 12, bottom: 0, height: 236, display: "flex", alignItems: "flex-end", gap: 18, padding: "0 14px 14px", zIndex: 4, pointerEvents: "none" }}>
+      <div style={{ pointerEvents: "auto", flex: 1, minWidth: 0, maxWidth: 760, background: "linear-gradient(#fffdf7, #f2e8d0)", borderRadius: 14, padding: 12, border: `1px solid ${T.border}`, boxShadow: "0 8px 26px #0006", maxHeight: 208, overflow: "hidden" }}>
+        {!yourTurn ? (
+          <div style={{ textAlign: "center", color: C.muted, fontSize: 15, padding: 20 }}>Rivals are acting…</div>
+        ) : game.stage === "commit" ? (
+          <CommitControls you={you} dispatch={dispatch} />
+        ) : (
+          <ActControls game={game} you={you} mode={mode} setMode={setMode} dispatch={dispatch} />
+        )}
+      </div>
+      <div style={{ pointerEvents: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1, color: "#5a4626", textTransform: "uppercase" }}>
+          Your bourbons · {you.bourbons.filter((b) => b.state === "FRESH").length} fresh
+        </span>
+        <BourbonFan bourbons={you.bourbons} />
+      </div>
+    </div>
+  );
+}
+
 function SetupPlaceControls({ you }: { you: GameState["players"][number] }) {
   return (
     <div>
@@ -979,19 +1064,26 @@ function CommitControls({ you, dispatch }: { you: GameState["players"][number]; 
   const canPlay = faceUp.length >= 1 && rest.length >= chained;
   const totalPips = you.hand.filter((c) => faceUp.includes(c.id)).reduce((n, c) => n + c.pips, 0);
 
+  const mid = (you.hand.length - 1) / 2;
   return (
     <div>
-      <HandTray
-        label="Your action cards"
-        meta={faceUp.length ? `${faceUp.length} up${chained ? ` · ${chained} sacrificed` : ""}` : "pick a card"}
-        footer="1st card = primary; extra cards chain (each costs one face-down sacrifice)."
-      >
-        {you.hand.map((c) => {
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 2 }}>
+        <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: T.goldSoft }}>Your action cards</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>{faceUp.length ? `${faceUp.length} up${chained ? ` · ${chained} sacrificed` : ""}` : "pick a card, then Play"}</span>
+      </div>
+      {/* the hand, fanned — a card lifts on hover; selected cards raise */}
+      <div style={{ display: "flex", alignItems: "flex-end", paddingLeft: 34, minHeight: 122 }}>
+        {you.hand.map((c, i) => {
           const idx = faceUp.indexOf(c.id);
-          return <HandCard key={c.id} card={c} selected={idx >= 0} badge={idx >= 0 ? idx + 1 : undefined} onClick={() => toggle(c.id)} />;
+          return (
+            <div key={c.id} className="bb-fan-card" style={{ marginLeft: i === 0 ? 0 : -74, transform: idx >= 0 ? "translateY(-16px) rotate(0deg)" : `rotate(${(i - mid) * 3.4}deg)`, transformOrigin: "50% 135%", position: "relative", zIndex: idx >= 0 ? 20 : 1 }}>
+              <HandCard card={c} selected={idx >= 0} badge={idx >= 0 ? idx + 1 : undefined} onClick={() => toggle(c.id)} width={128} compact />
+            </div>
+          );
         })}
-      </HandTray>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+        {you.hand.length === 0 && <span style={{ fontSize: 13, color: T.faint, paddingBottom: 30 }}>hand empty — you sit this round out</span>}
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
         <button
           disabled={!canPlay}
           onClick={() => dispatch({ type: "COMMIT_PLAY", faceUpIds: faceUp, sacrificeIds: sacrifices, surrender: false })}
@@ -1004,8 +1096,9 @@ function CommitControls({ you, dispatch }: { you: GameState["players"][number]; 
           onClick={() => dispatch({ type: "COMMIT_PLAY", faceUpIds: [], sacrificeIds: [faceUp[0]!], surrender: true })}
           style={{ ...btn(C.faint), opacity: faceUp.length === 1 ? 1 : 0.4 }}
         >
-          Surrender (1 any-action)
+          Surrender
         </button>
+        <span style={{ fontFamily: SANS, fontSize: 10.5, color: T.faint, lineHeight: 1.3 }}>1st = primary; extras chain (1 sacrifice each).</span>
       </div>
     </div>
   );
@@ -1313,39 +1406,60 @@ function SetupTileCard({ tile, isNext, width = 122 }: { tile: GameState["players
 // A bourbon as a mini collector card (§3): grain-gradient art, charred-oak
 // scrim, cream serif name, and the SHARED TagGrid so it reads slot-for-slot
 // against tiles.
-function BourbonChip({ b, width = 132 }: { b: GameState["players"][number]["bourbons"][number]; width?: number }) {
-  const dep = b.state === "DEPLETED";
-  const tint = grainTint(b.tags);
-  const premium = b.tags.some((t) => t.kind === "QUALITY" && t.value === "PREMIUM");
+// The canonical collector-bottle card, used for BOTH the market "Up for Bid"
+// shelf and the player's bourbon hand. Dark bottle, grain art + scrim, premium
+// kicker, foil TagGrid, and a slot for a footer (state, or a bid line).
+function BottleCard({ name, tags, compact = false, footer, footerBg, onClick, dim = false, selected = false }: { name: string; tags: readonly Tag[]; compact?: boolean; footer?: React.ReactNode; footerBg?: string; onClick?: () => void; dim?: boolean; selected?: boolean }) {
+  const tint = grainTint(tags);
+  const premium = tags.some((t) => t.kind === "QUALITY" && t.value === "PREMIUM");
+  const artH = compact ? 40 : 66;
   return (
     <div
-      title={`${b.name} — ${b.state}`}
+      onClick={onClick}
+      title={name}
       style={{
-        width,
-        borderRadius: 11,
+        width: compact ? 132 : 138,
+        flex: "0 0 auto",
+        borderRadius: compact ? 9 : 11,
         overflow: "hidden",
-        border: `2px solid ${dep ? "#00000066" : premium ? T.gold : T.goldSoft}`,
-        opacity: dep ? 0.55 : 1,
-        filter: dep ? "grayscale(0.5)" : "none",
-        boxShadow: dep ? "none" : `0 4px 11px #6b512e55`,
+        border: `2px solid ${dim ? "#00000055" : selected ? T.gold : premium ? T.gold : T.goldSoft}`,
+        opacity: dim ? 0.6 : 1,
+        filter: dim ? "grayscale(0.4)" : "none",
+        boxShadow: selected ? `0 0 0 2px ${T.gold}, 0 7px 16px #0008` : `0 4px 11px #6b512e55`,
         background: "#1c110a",
+        cursor: onClick ? "pointer" : "default",
       }}
     >
-      {/* art + scrim + name (a dark collector bottle) */}
-      <div style={{ position: "relative", height: 66, background: `linear-gradient(160deg, ${tint.a}, ${tint.b})` }}>
+      <div style={{ position: "relative", height: artH, background: `linear-gradient(160deg, ${tint.a}, ${tint.b})` }}>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(22,13,5,0.96), rgba(22,13,5,0) 72%)" }} />
-        <div style={{ position: "absolute", top: 5, left: 8, fontFamily: MONO, fontSize: 8, letterSpacing: 1.5, color: "#d9c49c", textTransform: "uppercase" }}>{premium ? "★ Premium" : "Bourbon"}</div>
-        <div style={{ position: "absolute", left: 8, right: 8, bottom: 6, fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: "#f0e4cc", lineHeight: 1.04 }}>{b.name}</div>
+        <div style={{ position: "absolute", top: 4, left: 8, fontFamily: MONO, fontSize: 8, letterSpacing: 1.5, color: "#d9c49c", textTransform: "uppercase" }}>{premium ? "★ Premium" : "Bourbon"}</div>
+        <div style={{ position: "absolute", left: 8, right: 8, bottom: 5, fontFamily: SERIF, fontWeight: 700, fontSize: compact ? 12.5 : 14, color: "#f0e4cc", lineHeight: 1.03 }}>{name}</div>
       </div>
-      {/* foil spec grid — the shared TagGrid */}
-      <div style={{ background: "#1c110a", padding: "8px 0 6px", display: "grid", placeItems: "center" }}>
-        <TagGridHTML tags={b.tags} cell={18} />
+      <div style={{ background: "#1c110a", padding: compact ? "5px 0 4px" : "8px 0 6px", display: "grid", placeItems: "center" }}>
+        <TagGridHTML tags={tags} cell={compact ? 13 : 18} />
       </div>
-      {/* state footer */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: dep ? "#3a241a" : "#26401f", padding: "4px 0" }}>
-        <span style={{ width: 7, height: 7, borderRadius: "50%", background: dep ? "#c07a4a" : "#8fc25a" }} />
-        <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: 1, color: dep ? "#e7bfa4" : "#c6e3a0" }}>{b.state}</span>
-      </div>
+      {footer != null && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: footerBg ?? "#241705", padding: "4px 6px", minHeight: 18 }}>{footer}</div>
+      )}
     </div>
+  );
+}
+
+function BourbonChip({ b, compact = false }: { b: GameState["players"][number]["bourbons"][number]; compact?: boolean }) {
+  const dep = b.state === "DEPLETED";
+  return (
+    <BottleCard
+      name={b.name}
+      tags={b.tags}
+      compact={compact}
+      dim={dep}
+      footerBg={dep ? "#3a241a" : "#26401f"}
+      footer={
+        <>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: dep ? "#c07a4a" : "#8fc25a" }} />
+          <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: 1, color: dep ? "#e7bfa4" : "#c6e3a0" }}>{b.state}</span>
+        </>
+      }
+    />
   );
 }
