@@ -25,6 +25,7 @@ import {
   nicheControlledCount,
   nicheStatus,
   placementCandidates,
+  stepAuto,
   tagColor,
   tileController,
 } from "../engine";
@@ -76,18 +77,54 @@ const STAGE_LABEL: Record<GameState["stage"], string> = {
   ageEnd: "Scoring",
 };
 
+// How long each kind of bot setup action lingers before the next, so the board
+// visibly grows one placement at a time (tile placement is the headline moment).
+const SETUP_STEP_MS: Record<string, number> = { setupPlace: 430, setupDP: 300, setupDraft: 170 };
+
 export default function MapGameClient() {
   const [game, setGame] = useState<GameState | null>(null);
   const [manual, setManual] = useState(false);
+  const botTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Local play: apply the action, then auto-play the bots, in-browser. Returns an
-  // error reason (Board flashes it) or null on success.
+  const stopBots = () => {
+    if (botTimer.current) clearTimeout(botTimer.current);
+    botTimer.current = null;
+  };
+  useEffect(() => stopBots, []);
+
+  // During SETUP, step bots ONE action at a time on a timer so the human watches
+  // the board grow tile by tile. Once setup ends, resolve play-phase bots at once.
+  const stepSetupBots = (s: GameState) => {
+    stopBots();
+    if (s.phase !== "setup" || !currentActorOf(s).isBot) return;
+    const delay = SETUP_STEP_MS[s.stage] ?? 300;
+    botTimer.current = setTimeout(() => {
+      let next = stepAuto(s);
+      if (next.phase !== "setup") next = autoAdvance(next);
+      setGame(next);
+      stepSetupBots(next);
+    }, delay);
+  };
+
+  // Local play: apply the action, show it, then advance the bots. Returns an error
+  // reason (Board flashes it) or null on success.
   const onAction = (action: Action): string | null => {
     if (!game) return "no game";
     const res = applyAction(game, action);
     if (!res.ok) return res.reason;
-    setGame(autoAdvance(res.state));
+    if (res.state.phase === "setup") {
+      setGame(res.state); // show your move immediately…
+      stepSetupBots(res.state); // …then let the bots place, one at a time
+    } else {
+      setGame(autoAdvance(res.state)); // in play, resolve bots instantly
+    }
     return null;
+  };
+
+  const startGame = (n: number) => {
+    const g = createGame({ playerNames: names(n), seed: 12345 });
+    setGame(g);
+    stepSetupBots(g); // animate any leading bot placements (human is p0, usually none)
   };
 
   // ScalingHost only shrinks when its parent bounds the height — mirror the
@@ -96,12 +133,9 @@ export default function MapGameClient() {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: C.bg }}>
       <ScalingHost>
         {game ? (
-          <Board game={game} onAction={onAction} onNew={() => setGame(null)} onManual={() => setManual(true)} />
+          <Board game={game} onAction={onAction} onNew={() => { stopBots(); setGame(null); }} onManual={() => setManual(true)} />
         ) : (
-          <Setup
-            onStart={(n) => setGame(autoAdvance(createGame({ playerNames: names(n), seed: 12345 })))}
-            onManual={() => setManual(true)}
-          />
+          <Setup onStart={startGame} onManual={() => setManual(true)} />
         )}
       </ScalingHost>
       {/* The manual is chrome outside the fixed canvas — it may scroll (like /rules). */}
@@ -184,6 +218,8 @@ export function Board({
 
   // Which of your setup tiles is lifted, ready to place.
   const [selTile, setSelTile] = useState(0);
+  // The setup how-to layover — shown once at the start, reopenable via the chip.
+  const [helpOpen, setHelpOpen] = useState(true);
   // Tiles that just appeared on the board → play a placement pop (setup + expand).
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const prevIds = useRef<Set<string>>(new Set());
@@ -250,7 +286,7 @@ export function Board({
   return (
     <div style={{ width: 1920, height: 1080, background: C.bg, color: C.text, fontFamily: SANS, display: "flex", overflow: "hidden" }}>
       <style>{`
-        @keyframes bbTilePop { 0%{transform:scale(.45);opacity:0} 55%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+        @keyframes bbTilePop { 0%{transform:translateY(46px) scale(.5);opacity:0} 55%{transform:translateY(-4px) scale(1.08);opacity:1} 100%{transform:translateY(0) scale(1);opacity:1} }
         @keyframes bbTrayGlow { 0%,100%{box-shadow:0 -9px 30px -10px ${T.gold}88, inset 0 2px 0 #ffffffaa} 50%{box-shadow:0 -12px 40px -6px ${T.gold}cc, inset 0 2px 0 #ffffffaa} }
         @keyframes bbLift { 0%{transform:translateY(0)} 100%{transform:translateY(-10px)} }
       `}</style>
@@ -260,12 +296,14 @@ export function Board({
           position: "relative",
           background: "radial-gradient(125% 95% at 42% 34%, #f6eede 0%, #ddceac 55%, #c3b083 100%)",
           boxShadow: "inset 0 0 220px 24px #7a5a2a44",
+          userSelect: "none",
+          WebkitUserSelect: "none",
         }}
       >
         {/* paper grain (multiplies onto the light stage) */}
         <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.22, mixBlendMode: "multiply", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E\")" }} />
 
-        {inSetup ? <SetupExplainer stage={game.stage} yourTurn={yourTurn} /> : (
+        {inSetup ? <SetupStatus stage={game.stage} yourTurn={yourTurn} actorName={actor?.name} actorColor={actor ? PC[actor.colorIdx] : undefined} onHelp={() => setHelpOpen(true)} /> : (
           <div style={{ position: "absolute", top: 20, left: 26, zIndex: 1 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 3, color: "#4a3a1e", textTransform: "uppercase" }}>Bourbonomics</div>
             <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: "#241505", lineHeight: 1 }}>The Market</div>
@@ -286,43 +324,88 @@ export function Board({
             {toast}
           </div>
         )}
+        {inSetup && helpOpen && <SetupHelpOverlay activeStage={game.stage} onClose={() => setHelpOpen(false)} />}
       </div>
       <Rail game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} onNew={onNew} onManual={onManual} />
     </div>
   );
 }
 
-// A persistent setup explainer + progress rail: SETUP eyebrow, three step chips
-// (Build the market → Draft bourbons → Plant DPs) with the active step lit, and a
-// one-line "what to do now". Doubles as an intro and a where-am-I indicator.
-function SetupExplainer({ stage, yourTurn }: { stage: GameState["stage"]; yourTurn: boolean }) {
-  const steps = [
-    { key: "setupPlace", label: "Build the market", hint: "Pick a tile from your hand below, then click a glowing socket. Each tile must touch 2+ others." },
-    { key: "setupDraft", label: "Draft bourbons", hint: "Take bottles from the market — premium is held back until age 1." },
-    { key: "setupDP", label: "Plant DPs", hint: "Drop your starting distribution points anywhere on the board." },
-  ];
-  const activeIdx = Math.max(0, steps.findIndex((s) => s.key === stage));
-  const active = steps[activeIdx]!;
+const SETUP_STEPS = [
+  { key: "setupPlace", label: "Build the market", hint: "Pick a tile from your hand below the board, then click a glowing socket. Each tile must touch 2+ others." },
+  { key: "setupDraft", label: "Draft bourbons", hint: "Take bottles from the market on the right. Premium bottles are held back until age 1." },
+  { key: "setupDP", label: "Plant DPs", hint: "Drop your starting distribution points on any tiles — this is setup, so place them anywhere." },
+] as const;
+
+// Slim top-left status: the three step chips with the active one lit, a "how to
+// play" chip that reopens the layover, and whose turn it is (so you can follow
+// the board growing during rivals' turns). The instructions live in the layover.
+function SetupStatus({ stage, yourTurn, actorName, actorColor, onHelp }: { stage: GameState["stage"]; yourTurn: boolean; actorName?: string; actorColor?: string; onHelp: () => void }) {
+  const activeIdx = Math.max(0, SETUP_STEPS.findIndex((s) => s.key === stage));
   return (
-    <div style={{ position: "absolute", top: 18, left: 24, zIndex: 3, maxWidth: 520 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 4, color: T.goldSoft, textTransform: "uppercase", marginBottom: 7 }}>Setup · Bourbonomics</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 9 }}>
-        {steps.map((s, i) => {
+    <div style={{ position: "absolute", top: 18, left: 24, zIndex: 3, display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {SETUP_STEPS.map((s, i) => {
           const done = i < activeIdx;
           const on = i === activeIdx;
           return (
             <span key={s.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: SERIF, fontWeight: 700, fontSize: 13.5, color: on ? "#1c110a" : done ? T.goldSoft : "#9a8358", background: on ? "linear-gradient(#f6d98a,#e7b64a)" : done ? "#e9dcbb" : "#00000010", border: `1px solid ${on ? T.gold : done ? T.border : "#00000018"}`, borderRadius: 999, padding: "4px 12px", boxShadow: on ? `0 3px 10px ${T.gold}55` : "none" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: SERIF, fontWeight: 700, fontSize: 13, color: on ? "#1c110a" : done ? T.goldSoft : "#9a8358", background: on ? "linear-gradient(#f6d98a,#e7b64a)" : done ? "#e9dcbb" : "#ffffff55", border: `1px solid ${on ? T.gold : done ? T.border : "#00000018"}`, borderRadius: 999, padding: "3px 11px", boxShadow: on ? `0 3px 10px ${T.gold}55` : "none" }}>
                 <span style={{ fontFamily: MONO, fontSize: 10, opacity: 0.85 }}>{done ? "✓" : i + 1}</span>
                 {s.label}
               </span>
-              {i < steps.length - 1 && <span style={{ color: "#00000030", fontSize: 12 }}>→</span>}
+              {i < SETUP_STEPS.length - 1 && <span style={{ color: "#00000030", fontSize: 12 }}>→</span>}
             </span>
           );
         })}
       </div>
-      <div style={{ fontFamily: SANS, fontSize: 13.5, color: "#3a2c14", maxWidth: 460, lineHeight: 1.45, background: "#fffef8cc", borderLeft: `3px solid ${T.gold}`, borderRadius: "0 8px 8px 0", padding: "7px 12px", boxShadow: "0 2px 8px #6b512e22" }}>
-        {yourTurn ? active.hint : "Rivals are taking their setup turns…"}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={onHelp} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: T.goldSoft, background: "#fffef8cc", border: `1px solid ${T.border}`, borderRadius: 999, padding: "4px 12px", cursor: "pointer" }}>
+          ⓘ How to play
+        </button>
+        {!yourTurn && actorColor && (
+          <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: SANS, fontSize: 12.5, color: "#3a2c14", background: "#fffef8cc", border: `1px solid ${actorColor}66`, borderRadius: 999, padding: "3px 11px 3px 8px" }}>
+            <span style={{ width: 11, height: 11, borderRadius: "50%", background: actorColor, boxShadow: `0 0 0 2px ${actorColor}44` }} />
+            {actorName ?? "A rival"} is placing…
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// The dismissible how-to layover, shown once at the start of setup and reopenable
+// from the "How to play" chip. Click the backdrop, ✕, or "Got it" to dismiss.
+function SetupHelpOverlay({ activeStage, onClose }: { activeStage: GameState["stage"]; onClose: () => void }) {
+  const activeIdx = Math.max(0, SETUP_STEPS.findIndex((s) => s.key === activeStage));
+  return (
+    <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 30, background: "#241606c2", display: "grid", placeItems: "center", padding: 24 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", width: 580, maxWidth: "92%", background: "linear-gradient(#fffdf5, #f1e6cd)", border: `1px solid ${T.gold}`, borderRadius: 18, padding: "30px 34px 28px", boxShadow: "0 28px 70px #000a" }}>
+        <button onClick={onClose} aria-label="Close" style={{ position: "absolute", top: 14, right: 16, width: 30, height: 30, borderRadius: 999, background: "#00000010", border: `1px solid ${T.border}`, color: T.muted, fontSize: 15, cursor: "pointer", lineHeight: 1 }}>✕</button>
+        <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: 5, color: T.goldSoft, textTransform: "uppercase" }}>Setup</div>
+        <h2 style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 800, color: T.ink, margin: "4px 0 6px" }}>Lay the board &amp; stock up</h2>
+        <p style={{ fontFamily: SANS, fontSize: 14.5, color: T.muted, margin: "0 0 18px", lineHeight: 1.5 }}>
+          Before age 1, you and your rivals build the market together and gather your bourbons. Three quick steps:
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
+          {SETUP_STEPS.map((s, i) => {
+            const on = i === activeIdx;
+            return (
+              <div key={s.key} style={{ display: "flex", gap: 13, alignItems: "flex-start", background: on ? "#f7eccf" : "transparent", border: `1px solid ${on ? T.gold : "transparent"}`, borderRadius: 12, padding: "9px 12px" }}>
+                <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 999, background: on ? "linear-gradient(#f6d98a,#e7b64a)" : "#e9dcbb", color: "#1c110a", fontFamily: SERIF, fontWeight: 800, fontSize: 14, display: "grid", placeItems: "center", boxShadow: on ? `0 2px 8px ${T.gold}66` : "none" }}>{i + 1}</span>
+                <div>
+                  <div style={{ fontFamily: SERIF, fontSize: 16.5, fontWeight: 700, color: T.ink }}>
+                    {s.label} {on && <span style={{ fontFamily: MONO, fontSize: 10, color: T.goldSoft, letterSpacing: 1 }}>· NOW</span>}
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 13.5, color: T.muted, lineHeight: 1.45, marginTop: 1 }}>{s.hint}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={onClose} style={{ width: "100%", fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: "#1c110a", background: "linear-gradient(#f0c65a, #d69f2a)", border: `1px solid ${T.gold}`, borderRadius: 12, padding: "12px 0", cursor: "pointer", boxShadow: `0 5px 16px ${T.gold}55` }}>
+          Got it — let&apos;s play →
+        </button>
       </div>
     </div>
   );
@@ -395,7 +478,7 @@ function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = fal
   const idxOf = (pid: string) => game.players.findIndex((p) => p.id === pid);
 
   return (
-    <svg viewBox={`${layout.minX} ${layout.minY} ${layout.w} ${layout.h}`} style={{ width: "100%", height: "100%" }}>
+    <svg viewBox={`${layout.minX} ${layout.minY} ${layout.w} ${layout.h}`} style={{ width: "100%", height: "100%", userSelect: "none", WebkitUserSelect: "none" }}>
       <defs>
         <radialGradient id="tileSheen" cx="0.35" cy="0.22" r="0.9">
           <stop offset="0" stopColor="#ffffff" stopOpacity="0.5" />
@@ -493,9 +576,9 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick, isNew = false }: { 
         </>
       ) : (
         <>
-          <text x={x} y={y - HEX * (nm.length > 1 ? 0.66 : 0.6)} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={12.5} fill={T.ink}>
+          <text x={x} y={y - HEX * (nm.length > 1 ? 0.6 : 0.54)} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={13} fill={T.ink} stroke="#fffdf5" strokeWidth={3.2} strokeLinejoin="round" style={{ paintOrder: "stroke" } as React.CSSProperties}>
             {nm.map((ln, i) => (
-              <tspan key={i} x={x} dy={i === 0 ? 0 : 12.5}>{ln}</tspan>
+              <tspan key={i} x={x} dy={i === 0 ? 0 : 13}>{ln}</tspan>
             ))}
           </text>
           {reward && (

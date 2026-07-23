@@ -169,22 +169,25 @@ export function TagGridSVG({ tags, cx, cy, cell = 14, sub = false }: { tags: rea
 }
 
 function SlotSVG({ x, y, cell, slot, sub }: { x: number; y: number; cell: number; slot: Slot | null; sub?: string }) {
-  const r = cell * 0.18;
+  const r = cell * 0.26;
+  const h = cell / 2;
   return (
     <g transform={`translate(${x} ${y})`}>
       {slot ? (
         <>
-          <rect x={-cell / 2} y={-cell / 2} width={cell} height={cell} rx={r} fill={slot.color} />
-          <rect x={-cell / 2 + cell * 0.06} y={-cell / 2 + cell * 0.06} width={cell * 0.88} height={cell * 0.88} rx={r} fill="none" stroke="#00000033" strokeWidth={0.8} />
-          <text y={cell * 0.19} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={slot.glyph.length > 1 ? cell * 0.5 : cell * 0.62} fill="#fff">
+          {/* drop shadow → the tag reads as a raised token */}
+          <rect x={-h} y={-h + 1.3} width={cell} height={cell} rx={r} fill="#00000038" />
+          <rect x={-h} y={-h} width={cell} height={cell} rx={r} fill={slot.color} />
+          {/* top sheen + inner rim for depth */}
+          <rect x={-h} y={-h} width={cell} height={cell * 0.52} rx={r} fill="#ffffff" opacity={0.2} />
+          <rect x={-h + 0.6} y={-h + 0.6} width={cell - 1.2} height={cell - 1.2} rx={r - 0.6} fill="none" stroke="#00000045" strokeWidth={0.8} />
+          <text y={cell * 0.2} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={slot.glyph.length > 1 ? cell * 0.48 : cell * 0.6} fill="#fff" style={{ paintOrder: "stroke" } as React.CSSProperties} stroke="#00000030" strokeWidth={0.5}>
             {slot.glyph}
           </text>
         </>
       ) : (
-        <>
-          <rect x={-cell / 2} y={-cell / 2} width={cell} height={cell} rx={r} fill="none" stroke={T.cut} strokeWidth={0.9} strokeDasharray="2 2" />
-          <text y={cell * 0.18} textAnchor="middle" fontFamily={SERIF} fontSize={cell * 0.5} fill={T.cut}>–</text>
-        </>
+        // empty slot — a faint recessed square (no dash), so filled tags pop
+        <rect x={-h} y={-h} width={cell} height={cell} rx={r} fill="#00000009" stroke={T.cut} strokeOpacity={0.45} strokeWidth={0.9} strokeDasharray="2.2 2.4" />
       )}
       {sub && <text y={cell * 0.62 + cell * 0.28} textAnchor="middle" fontFamily={MONO} fontSize={cell * 0.3} letterSpacing={0.3} fill={slot ? slot.color : T.grey}>{sub}</text>}
     </g>
