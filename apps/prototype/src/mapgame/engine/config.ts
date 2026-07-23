@@ -22,7 +22,7 @@ export const CONFIG = {
   TILE_MIN_ADJACENCY: 2,
 
   // — Player start —
-  STARTING_CAPITAL: 5,
+  STARTING_CAPITAL: 0,
   DP_SUPPLY: 15, // one pool: map DPs AND market bid markers
 
   // — Market —
