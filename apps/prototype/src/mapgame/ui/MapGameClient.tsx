@@ -328,7 +328,7 @@ export function Board({
         )}
 
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: showTray ? 186 : 0 }}>
-          <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} newTiles={newTiles} />
+          <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} newTiles={newTiles} tilt={!inSetup} />
         </div>
 
         {showTray && (
@@ -477,8 +477,24 @@ function SetupTray({ tiles, selected, onSelect, yourTurn }: { tiles: GameState["
 
 // ── Hex map ──────────────────────────────────────────────────────────
 const HEX = 56;
+const THICK = 7; // slim cardboard edge for the extruded chip
 
-function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = false, newTiles }: { game: GameState; mode: Mode; onClick: (t: Tile) => void; candidates?: { q: number; r: number }[]; onPlace?: (h: { q: number; r: number }) => void; draftable?: boolean; newTiles?: Map<string, { dir: "you" | "rival"; color: string }> }) {
+// Territorial washes on the top face + darkened side-wall colors, by controller
+// colorIdx (0 = you/gold, 1 = rosé, 2 = green, 3 = blue, 4 = plum).
+const OWN_FACE = ["#f6e6c4", "#f4dbd1", "#dcecd5", "#d9e2ee", "#e9dcee"];
+const OWN_EDGE = ["#a8842f", "#a85c47", "#4d7d6a", "#3a5a82", "#6a4a80"];
+
+/** Pointy-top hex corner coords (matches hexPolygonPoints order). */
+function hexCorners(cx: number, cy: number, size: number): [number, number][] {
+  const pts: [number, number][] = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 180) * (60 * i - 30);
+    pts.push([cx + size * Math.cos(a), cy + size * Math.sin(a)]);
+  }
+  return pts;
+}
+
+function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = false, newTiles, tilt = false }: { game: GameState; mode: Mode; onClick: (t: Tile) => void; candidates?: { q: number; r: number }[]; onPlace?: (h: { q: number; r: number }) => void; draftable?: boolean; newTiles?: Map<string, { dir: "you" | "rival"; color: string }>; tilt?: boolean }) {
   const layout = useMemo(() => {
     const pts = game.tiles.map((t) => ({ t, ...axialToPixel(t.hex, HEX) }));
     const cand = candidates.map((h) => ({ h, ...axialToPixel(h, HEX) }));
@@ -493,26 +509,39 @@ function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = fal
 
   const idxOf = (pid: string) => game.players.findIndex((p) => p.id === pid);
 
+  // Ground the cluster with one soft elliptical shadow under it (parchment table).
+  const cx = layout.minX + layout.w / 2;
+  const gy = layout.minY + layout.h * 0.66;
   return (
-    <svg viewBox={`${layout.minX} ${layout.minY} ${layout.w} ${layout.h}`} style={{ width: "100%", height: "100%", userSelect: "none", WebkitUserSelect: "none" }}>
-      <defs>
-        <radialGradient id="tileSheen" cx="0.35" cy="0.22" r="0.9">
-          <stop offset="0" stopColor="#ffffff" stopOpacity="0.5" />
-          <stop offset="0.6" stopColor="#ffffff" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="plainFace" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="1" stopColor="#ede4d0" />
-        </linearGradient>
-        <linearGradient id="rewardFace" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fdf3cf" />
-          <stop offset="1" stopColor="#eccb70" />
-        </linearGradient>
-        {/* soft gold bloom for the placement sockets */}
-        <filter id="socketGlow" x="-60%" y="-60%" width="220%" height="220%">
-          <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor="#e6a92a" floodOpacity="0.95" />
-        </filter>
-      </defs>
+    <div style={{ width: "100%", height: "100%", perspective: tilt ? "1700px" : undefined, userSelect: "none", WebkitUserSelect: "none" }}>
+      <svg
+        viewBox={`${layout.minX} ${layout.minY} ${layout.w} ${layout.h}`}
+        style={{ width: "100%", height: "100%", transform: tilt ? "rotateX(12deg)" : undefined, transformOrigin: "center 55%", overflow: "visible" }}
+      >
+        <defs>
+          <radialGradient id="tileSheen" cx="0.35" cy="0.22" r="0.9">
+            <stop offset="0" stopColor="#ffffff" stopOpacity="0.42" />
+            <stop offset="0.6" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id="plainFace" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fffef9" />
+            <stop offset="1" stopColor="#efe6d2" />
+          </linearGradient>
+          <linearGradient id="rewardFace" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fdf3cf" />
+            <stop offset="1" stopColor="#eccb70" />
+          </linearGradient>
+          <radialGradient id="groundShadow" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stopColor="#2a1c0c" stopOpacity="0.34" />
+            <stop offset="0.7" stopColor="#2a1c0c" stopOpacity="0.14" />
+            <stop offset="1" stopColor="#2a1c0c" stopOpacity="0" />
+          </radialGradient>
+          {/* soft gold bloom for the placement sockets */}
+          <filter id="socketGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor="#e6a92a" floodOpacity="0.95" />
+          </filter>
+        </defs>
+        <ellipse cx={cx} cy={gy} rx={layout.w * 0.46} ry={layout.h * 0.2} fill="url(#groundShadow)" pointerEvents="none" />
       {/* ghost placement sockets (drawn UNDER tiles so tiles always read on top) */}
       {layout.cand.map(({ h, x, y }, i) => (
         <g key={`c${i}`} onClick={() => onPlace?.(h)} style={{ cursor: "pointer" }}>
@@ -523,10 +552,11 @@ function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = fal
           <text x={x} y={y + 25} textAnchor="middle" fontFamily={MONO} fontSize={10.5} letterSpacing={1.5} fill="#8a6416">PLACE</text>
         </g>
       ))}
-      {layout.pts.map(({ t, x, y }) => (
-        <TileHex key={t.id} game={game} t={t} x={x} y={y} idxOf={idxOf} clickable={(mode !== null || draftable) && t.category !== "BLOCKING"} onClick={() => onClick(t)} fx={newTiles?.get(t.id)} />
-      ))}
-    </svg>
+        {layout.pts.map(({ t, x, y }) => (
+          <TileHex key={t.id} game={game} t={t} x={x} y={y} idxOf={idxOf} clickable={(mode !== null || draftable) && t.category !== "BLOCKING"} onClick={() => onClick(t)} fx={newTiles?.get(t.id)} />
+        ))}
+      </svg>
+    </div>
   );
 }
 
@@ -554,21 +584,33 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick, fx }: { game: GameS
   const isWild = t.category === "LOYALTY" || t.category === "KEYSTONE";
   const reward = t.reward;
 
-  // §2: tile COLOR denotes its REWARD. Reward tiles = warm gold gradient; plain
-  // tiles = white gradient; blocking = charred oak (dark against the light board).
+  // §1/§2: an extruded chip. Top face carries a TERRITORIAL wash by controller;
+  // side walls are a darkened shade of that; reward is signalled by a ribbon (not
+  // the whole face). Blocking = charred oak.
   const rc = reward ? rewardColor(reward) : null;
-  const face = isBlock ? "#3a352c" : rc ? "url(#rewardFace)" : "url(#plainFace)";
-  const frame = ctrlIdx >= 0 ? PC[ctrlIdx]! : isBlock ? "#160d05" : rc ? "#c69a2c" : "#a98f5f";
-  const frameW = ctrlIdx >= 0 ? 3.5 : rc ? 3 : 2.2;
+  const face = isBlock ? "#3a352c" : ctrlIdx >= 0 ? OWN_FACE[ctrlIdx]! : rc ? "url(#rewardFace)" : "url(#plainFace)";
+  const edge = isBlock ? "#140f07" : ctrlIdx >= 0 ? OWN_EDGE[ctrlIdx]! : rc ? "#9a7420" : "#b09965";
+  const rim = isBlock ? "#160d05" : ctrlIdx >= 0 ? PC[ctrlIdx]! : rc ? "#c69a2c" : "#a98f5f";
+  const rimW = ctrlIdx >= 0 ? 3 : rc ? 2.4 : 1.8;
   const nm = nameLines(t.name);
+  const corners = hexCorners(x, y, HEX);
+  const lowerEdges: [number, number][] = [[0, 1], [1, 2], [2, 3], [3, 4]];
 
   const anim = fx ? `${fx.dir === "rival" ? "bbTileDrop" : "bbTilePop"} 640ms cubic-bezier(0.22, 1, 0.36, 1) both` : undefined;
   return (
     <g onClick={onClick} style={{ cursor: clickable ? "pointer" : "default", ...(anim ? { animation: anim, transformBox: "fill-box", transformOrigin: "center" } as React.CSSProperties : {}) }}>
-      {/* warm drop shadow — deeper so tiles float clearly above the board + sockets */}
-      <polygon points={hexPolygonPoints(x, y + 7, HEX)} fill="#4a3316" opacity={0.34} />
-      <polygon points={hexPolygonPoints(x, y, HEX)} fill={face} stroke={frame} strokeWidth={frameW} />
-      {!isBlock && <polygon points={hexPolygonPoints(x, y, HEX - 3.5)} fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1.4} />}
+      {/* 1. contact shadow */}
+      <polygon points={hexPolygonPoints(x, y + THICK + 5, HEX)} fill="#2a1c0c" opacity={0.26} />
+      {/* 2. extruded side walls (the four lower/front edges) */}
+      {lowerEdges.map(([a, b], i) => {
+        const [ax, ay] = corners[a]!;
+        const [bx, by] = corners[b]!;
+        return <polygon key={i} points={`${ax},${ay} ${bx},${by} ${bx},${by + THICK} ${ax},${ay + THICK}`} fill={edge} />;
+      })}
+      {/* 3. top face + barely-there inner hairline (no heavy bevel) */}
+      <polygon points={hexPolygonPoints(x, y, HEX)} fill={face} stroke={rim} strokeWidth={rimW} />
+      {!isBlock && <polygon points={hexPolygonPoints(x, y, HEX - 3.5)} fill="none" stroke="#ffffff" strokeOpacity={0.06} strokeWidth={1.2} />}
+      {/* 4. sheen */}
       <polygon points={hexPolygonPoints(x, y, HEX)} fill="url(#tileSheen)" pointerEvents="none" />
       {/* soft ripple as the tile settles — tinted with the placer's colour */}
       {isNew && (
@@ -577,6 +619,7 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick, fx }: { game: GameS
           <animate attributeName="opacity" values="0.7;0" dur="0.6s" begin="0.18s" fill="freeze" />
         </polygon>
       )}
+      {t.defenseBonus > 0 && !isBlock && <DefBadge x={x + HEX * 0.5} y={y + HEX * 0.5} n={t.defenseBonus} />}
       {isBlock ? (
         <>
           {/* diagonal charred staves */}
@@ -594,25 +637,27 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick, fx }: { game: GameS
         </>
       ) : (
         <>
-          <text x={x} y={y - HEX * (nm.length > 1 ? 0.6 : 0.54)} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={13} fill={T.ink} stroke="#fffdf5" strokeWidth={3.2} strokeLinejoin="round" style={{ paintOrder: "stroke" } as React.CSSProperties}>
+          {/* reward ribbon — a dark notched banner at the top edge */}
+          {reward && (
+            <g transform={`translate(${x} ${y - HEX * 0.64})`}>
+              <polygon points="-36,-8 36,-8 31,0 36,8 -36,8 -31,0" fill={darken(rc!, 0.52)} stroke={rc!} strokeWidth={1} />
+              <text y={3} textAnchor="middle" fontFamily={MONO} fontWeight={700} fontSize={8} letterSpacing={0.3} fill="#ffe9c0">{rewardLabel(reward)}</text>
+            </g>
+          )}
+          {isWild && <text x={x} y={y - HEX * 0.36} textAnchor="middle" fontFamily={MONO} fontSize={8} letterSpacing={1.2} fill={T.ink} opacity={0.6}>WILDCARD</text>}
+          <text x={x} y={y - HEX * (reward || isWild ? 0.16 : 0.34)} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={13.5} fill={T.ink} stroke="#fffdf5" strokeWidth={3.2} strokeLinejoin="round" style={{ paintOrder: "stroke" } as React.CSSProperties}>
             {nm.map((ln, i) => (
               <tspan key={i} x={x} dy={i === 0 ? 0 : 13}>{ln}</tspan>
             ))}
           </text>
-          {reward && (
-            <g transform={`translate(${x} ${y - HEX * (nm.length > 1 ? 0.30 : 0.42)})`}>
-              <rect x={-34} y={-8} width={68} height={15} rx={7.5} fill={rc!} />
-              <text y={3} textAnchor="middle" fontFamily={MONO} fontWeight={700} fontSize={8} letterSpacing={0.3} fill="#fff">{rewardLabel(reward)}</text>
-            </g>
-          )}
           {isWild ? (
-            <OwnerSlot game={game} t={t} x={x} y={y + HEX * 0.05} idxOf={idxOf} />
+            <OwnerSlot game={game} t={t} x={x} y={y + HEX * 0.16} idxOf={idxOf} />
           ) : (
-            <TagGridSVG tags={t.tags} cx={x} cy={y + HEX * (reward ? 0.15 : 0.04)} cell={13} />
+            <TagGridSVG tags={t.tags} cx={x} cy={y + HEX * 0.2} cell={13} />
           )}
-          <DPRow dps={dps} x={x} y={y + HEX * 0.74} idxOf={idxOf} />
+          <DPRow dps={dps} x={x} y={y + HEX * 0.76} idxOf={idxOf} />
           {flags.length > 0 && (
-            <g transform={`translate(${x - HEX * 0.66} ${y - HEX * 0.1})`}>
+            <g transform={`translate(${x - HEX * 0.68} ${y - HEX * 0.02})`}>
               {flags.slice(0, 4).map((f, i) => <Flag key={f.id} x={0} y={i * 8} color={PC[idxOf(f.owner)]!} h={15} />)}
             </g>
           )}
@@ -622,22 +667,37 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick, fx }: { game: GameS
   );
 }
 
+// Wildcard tiles carry no shelf slot / star — the owner reads from their seated
+// pawn's colour and the territorial tint; defense shows via the shared DefBadge.
 function OwnerSlot({ game, t, x, y, idxOf }: { game: GameState; t: Tile; x: number; y: number; idxOf: (p: string) => number }) {
   const ownerDP = t.ownerSlotDP ? game.dps.find((d) => d.id === t.ownerSlotDP) : null;
+  return ownerDP ? (
+    <text x={x} y={y} textAnchor="middle" fontFamily={MONO} fontSize={8} letterSpacing={0.5} fill={PC[idxOf(ownerDP.owner)]!} fontWeight={700}>
+      held ●
+    </text>
+  ) : (
+    <text x={x} y={y} textAnchor="middle" fontFamily={MONO} fontSize={8} letterSpacing={0.5} fill="#8a6a3a">unclaimed</text>
+  );
+}
+
+/** Owner defense badge — a small red disc at a tile's lower-right. */
+function DefBadge({ x, y, n }: { x: number; y: number; n: number }) {
   return (
-    <g>
-      <text x={x} y={y - 20} textAnchor="middle" fontFamily={MONO} fontSize={8} letterSpacing={1} fill={T.ink} opacity={0.7}>WILDCARD</text>
-      <circle cx={x} cy={y + 2} r={13} fill="#00000012" stroke={ownerDP ? PC[idxOf(ownerDP.owner)]! : "#00000055"} strokeWidth={2} strokeDasharray={ownerDP ? "0" : "3 3"} />
-      {ownerDP ? (
-        <Pawn x={x} y={y + 7} color={PC[idxOf(ownerDP.owner)]!} s={0.72} />
-      ) : (
-        <text x={x} y={y + 6} textAnchor="middle" fontFamily={MONO} fontSize={7} fill="#8a6a3a">OWNER</text>
-      )}
-      {t.defenseBonus > 0 && (
-        <text x={x} y={y + 26} textAnchor="middle" fontFamily={MONO} fontWeight={700} fontSize={9} fill={T.red}>+{t.defenseBonus} DEF</text>
-      )}
+    <g transform={`translate(${x} ${y})`}>
+      <circle r={11} fill="#9c2f24" stroke="#ffffff" strokeWidth={1.4} />
+      <text y={-1} textAnchor="middle" fontFamily={SERIF} fontWeight={800} fontSize={11} fill="#fff">+{n}</text>
+      <text y={7} textAnchor="middle" fontFamily={MONO} fontSize={4.5} letterSpacing={0.5} fill="#ffd9d0">DEF</text>
     </g>
   );
+}
+
+/** Darken a #rrggbb color toward black by fraction f. */
+function darken(hex: string, f: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * (1 - f));
+  const g = Math.round(((n >> 8) & 255) * (1 - f));
+  const b = Math.round((n & 255) * (1 - f));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
 // A tidy row of DP pawns (live upright, dark tipped), wrapping to two rows.

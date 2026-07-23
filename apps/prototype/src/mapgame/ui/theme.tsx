@@ -218,16 +218,33 @@ export function TagGridHTML({ tags, cell = 26 }: { tags: readonly Tag[]; cell?: 
 }
 
 // ── SVG pieces ───────────────────────────────────────────────────────
-/** A Distribution Point pawn. Live = upright; dark = tipped + faded. */
+/** Lighten a #rrggbb toward white by fraction f (for pawn gradient tops). */
+function lighten(hex: string, f: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) + (255 - ((n >> 16) & 255)) * f);
+  const g = Math.round(((n >> 8) & 255) + (255 - ((n >> 8) & 255)) * f);
+  const b = Math.round((n & 255) + (255 - (n & 255)) * f);
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+/** A standing Distribution Point pawn (a meeple), filled from a per-player radial
+ *  gradient. Live = upright; dark = toppled + faded. */
 export function Pawn({ x, y, color, dead = false, s = 1 }: { x: number; y: number; color: string; dead?: boolean; s?: number }) {
   const c = dead ? "#8a7a5e" : color;
+  const gid = `pawn-${c.replace("#", "")}${dead ? "-d" : ""}`;
   return (
-    <g transform={`translate(${x} ${y}) scale(${s}) ${dead ? "rotate(66)" : ""}`} opacity={dead ? 0.78 : 1}>
+    <g transform={`translate(${x} ${y}) scale(${s}) ${dead ? "rotate(78)" : ""}`} opacity={dead ? 0.72 : 1}>
+      <defs>
+        <radialGradient id={gid} cx="0.38" cy="0.28" r="0.85">
+          <stop offset="0" stopColor={lighten(c, 0.42)} />
+          <stop offset="1" stopColor={c} />
+        </radialGradient>
+      </defs>
       <ellipse cx={0} cy={11} rx={9} ry={3} fill="#00000038" />
-      <circle cx={0} cy={-10} r={5.4} fill={c} />
-      <path d="M -6.2 9 Q -6.2 -2 0 -3.4 Q 6.2 -2 6.2 9 Z" fill={c} />
-      <rect x={-8} y={8.5} width={16} height={3.4} rx={1.7} fill={c} />
-      {!dead && <circle cx={-1.7} cy={-11.4} r={1.7} fill="#ffffff66" />}
+      <circle cx={0} cy={-10} r={5.4} fill={`url(#${gid})`} stroke="#00000030" strokeWidth={0.6} />
+      <path d="M -6.2 9 Q -6.2 -2 0 -3.4 Q 6.2 -2 6.2 9 Z" fill={`url(#${gid})`} stroke="#00000030" strokeWidth={0.6} />
+      <rect x={-8} y={8.5} width={16} height={3.4} rx={1.7} fill={`url(#${gid})`} />
+      {!dead && <circle cx={-1.7} cy={-11.4} r={1.7} fill="#ffffff88" />}
     </g>
   );
 }
