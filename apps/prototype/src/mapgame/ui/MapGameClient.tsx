@@ -78,7 +78,7 @@ const STAGE_LABEL: Record<GameState["stage"], string> = {
 // How long each kind of bot setup action lingers before the next, so the board
 // visibly grows one placement at a time (tile placement is the headline moment —
 // paced slow enough to watch each rival lay their tile).
-const SETUP_STEP_MS: Record<string, number> = { setupPlace: 720, setupDP: 400, setupDraft: 200 };
+const SETUP_STEP_MS: Record<string, number> = { setupPlace: 980, setupDP: 560, setupDraft: 260 };
 
 export default function MapGameClient() {
   const [game, setGame] = useState<GameState | null>(null);
@@ -152,7 +152,7 @@ function names(n: number): string[] {
 // ── Setup ────────────────────────────────────────────────────────────
 function Setup({ onStart, onManual }: { onStart: (n: number) => void; onManual: () => void }) {
   return (
-    <div style={{ width: 1920, height: 1080, background: "radial-gradient(125% 95% at 42% 34%, #f4ecd6 0%, #e4d6b6 52%, #d0bf99 100%)", boxShadow: "inset 0 0 160px 10px #8a6a3a30", color: C.text, fontFamily: SANS, display: "grid", placeItems: "center" }}>
+    <div style={{ width: 1920, height: 1080, background: "radial-gradient(125% 95% at 42% 34%, #f8f6ef 0%, #ece7db 52%, #dbd6c8 100%)", boxShadow: "inset 0 0 160px 12px #8a806a26", color: C.text, fontFamily: SANS, display: "grid", placeItems: "center" }}>
       <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.22, mixBlendMode: "multiply", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E\")" }} />
       <div style={{ textAlign: "center", position: "relative" }}>
         <div style={{ fontFamily: MONO, fontSize: 14, letterSpacing: 6, color: T.goldSoft, textTransform: "uppercase", marginBottom: 6 }}>The Territory Game</div>
@@ -221,6 +221,9 @@ export function Board({
   const [selTile, setSelTile] = useState(0);
   // The setup how-to layover — shown once at the start, reopenable via the chip.
   const [helpOpen, setHelpOpen] = useState(true);
+  // Board zoom (buttons + scroll wheel).
+  const [zoom, setZoom] = useState(1);
+  const zoomBy = (d: number) => setZoom((z) => Math.min(2.2, Math.max(0.6, +(z + d).toFixed(2))));
   // Tiles that just appeared → animate them flying in from their placer. Your
   // tiles rise from your hand (bottom); a rival's drop in from across the table
   // (top), tinted that rival's colour so you can see who laid it.
@@ -240,7 +243,7 @@ export function Board({
       const isYou = placer ? placer.id === youId : true;
       const fx: PlaceFX = { dir: isYou ? "you" : "rival", color: placer ? PC[placer.colorIdx]! : T.gold };
       setNewTiles(new Map(fresh.map((t) => [t.id, fx])));
-      const h = setTimeout(() => setNewTiles(new Map()), 720);
+      const h = setTimeout(() => setNewTiles(new Map()), 1000);
       return () => clearTimeout(h);
     }
   }, [game.tiles, youId]);
@@ -302,8 +305,8 @@ export function Board({
   return (
     <div style={{ width: 1920, height: 1080, background: C.bg, color: C.text, fontFamily: SANS, display: "flex", overflow: "hidden" }}>
       <style>{`
-        @keyframes bbTilePop { 0%{transform:translateY(74px) scale(.62);opacity:0} 60%{opacity:1} 86%{transform:translateY(0) scale(1.03)} 100%{transform:translateY(0) scale(1)} }
-        @keyframes bbTileDrop { 0%{transform:translateY(-80px) scale(.62);opacity:0} 60%{opacity:1} 86%{transform:translateY(0) scale(1.03)} 100%{transform:translateY(0) scale(1)} }
+        @keyframes bbTilePop { 0%{transform:translateY(130px) scale(.35) rotate(-9deg);opacity:0} 45%{opacity:1} 70%{transform:translateY(-12px) scale(1.1) rotate(3deg)} 85%{transform:translateY(3px) scale(.97) rotate(-1.5deg)} 100%{transform:translateY(0) scale(1) rotate(0)} }
+        @keyframes bbTileDrop { 0%{transform:translateY(-140px) scale(.35) rotate(9deg);opacity:0} 45%{opacity:1} 70%{transform:translateY(12px) scale(1.1) rotate(-3deg)} 85%{transform:translateY(-3px) scale(.97) rotate(1.5deg)} 100%{transform:translateY(0) scale(1) rotate(0)} }
         @keyframes bbTrayGlow { 0%,100%{box-shadow:0 -9px 30px -10px ${T.gold}88, inset 0 2px 0 #ffffffaa} 50%{box-shadow:0 -12px 40px -6px ${T.gold}cc, inset 0 2px 0 #ffffffaa} }
         @keyframes bbLift { 0%{transform:translateY(0)} 100%{transform:translateY(-10px)} }
         .bb-fan-card { transition: transform 130ms ease; }
@@ -313,8 +316,8 @@ export function Board({
         style={{
           flex: 1,
           position: "relative",
-          background: "radial-gradient(125% 95% at 42% 34%, #f6eede 0%, #ddceac 55%, #c3b083 100%)",
-          boxShadow: "inset 0 0 220px 24px #7a5a2a44",
+          background: "radial-gradient(125% 95% at 42% 34%, #f8f6ef 0%, #ebe7db 55%, #dcd7c9 100%)",
+          boxShadow: "inset 0 0 220px 30px #8a806a2e",
           userSelect: "none",
           WebkitUserSelect: "none",
         }}
@@ -330,8 +333,17 @@ export function Board({
           </div>
         )}
 
-        <div style={{ position: "absolute", top: 0, left: playing ? 172 : 0, right: 0, bottom: showTray ? 186 : playing ? 232 : 0 }}>
-          <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} newTiles={newTiles} tilt={!inSetup} />
+        <div
+          onWheel={(e) => { if (e.deltaY !== 0) zoomBy(e.deltaY < 0 ? 0.12 : -0.12); }}
+          style={{ position: "absolute", top: 0, left: playing ? 172 : 0, right: 0, bottom: showTray ? 186 : playing ? 266 : 0 }}
+        >
+          <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} newTiles={newTiles} tilt={!inSetup} zoom={zoom} />
+          {/* zoom controls */}
+          <div style={{ position: "absolute", top: 14, right: 16, display: "flex", flexDirection: "column", gap: 5, zIndex: 3 }}>
+            <ZoomBtn label="+" onClick={() => zoomBy(0.15)} />
+            <ZoomBtn label="−" onClick={() => zoomBy(-0.15)} />
+            <ZoomBtn label="⤢" onClick={() => setZoom(1)} small />
+          </div>
         </div>
 
         {playing && <UpForBidShelf game={game} you={you} yourTurn={yourTurn} dispatch={dispatch} />}
@@ -444,7 +456,7 @@ function SetupTray({ tiles, selected, onSelect, yourTurn }: { tiles: GameState["
         right: 0,
         bottom: 0,
         height: 186,
-        background: "linear-gradient(to top, #efe4c6 0%, #efe4c6ee 55%, #efe4c600 100%)",
+        background: "linear-gradient(to top, #efece1 0%, #efece1ee 55%, #efece100 100%)",
         borderTop: `2px solid ${T.gold}`,
         animation: "bbTrayGlow 2.6s ease-in-out infinite",
         display: "flex",
@@ -473,7 +485,7 @@ function SetupTray({ tiles, selected, onSelect, yourTurn }: { tiles: GameState["
             disabled={!yourTurn}
             style={{ background: "none", border: "none", padding: 0, cursor: yourTurn ? "pointer" : "default" }}
           >
-            <SetupTileCard tile={t} isNext={i === selected && yourTurn} width={118} />
+            <SetupTileCard tile={t} isNext={i === selected && yourTurn} />
           </button>
         ))}
       </div>
@@ -500,7 +512,7 @@ function hexCorners(cx: number, cy: number, size: number): [number, number][] {
   return pts;
 }
 
-function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = false, newTiles, tilt = false }: { game: GameState; mode: Mode; onClick: (t: Tile) => void; candidates?: { q: number; r: number }[]; onPlace?: (h: { q: number; r: number }) => void; draftable?: boolean; newTiles?: Map<string, { dir: "you" | "rival"; color: string }>; tilt?: boolean }) {
+function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = false, newTiles, tilt = false, zoom = 1 }: { game: GameState; mode: Mode; onClick: (t: Tile) => void; candidates?: { q: number; r: number }[]; onPlace?: (h: { q: number; r: number }) => void; draftable?: boolean; newTiles?: Map<string, { dir: "you" | "rival"; color: string }>; tilt?: boolean; zoom?: number }) {
   const layout = useMemo(() => {
     const pts = game.tiles.map((t) => ({ t, ...axialToPixel(t.hex, HEX) }));
     const cand = candidates.map((h) => ({ h, ...axialToPixel(h, HEX) }));
@@ -522,7 +534,7 @@ function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = fal
     <div style={{ width: "100%", height: "100%", perspective: tilt ? "1700px" : undefined, userSelect: "none", WebkitUserSelect: "none" }}>
       <svg
         viewBox={`${layout.minX} ${layout.minY} ${layout.w} ${layout.h}`}
-        style={{ width: "100%", height: "100%", transform: tilt ? "rotateX(12deg)" : undefined, transformOrigin: "center 55%", overflow: "visible" }}
+        style={{ width: "100%", height: "100%", transform: `${tilt ? "rotateX(12deg) " : ""}scale(${zoom})`, transformOrigin: "center 55%", overflow: "visible", transition: "transform 120ms ease" }}
       >
         <defs>
           <radialGradient id="tileSheen" cx="0.35" cy="0.22" r="0.9">
@@ -602,7 +614,7 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick, fx }: { game: GameS
   const corners = hexCorners(x, y, HEX);
   const lowerEdges: [number, number][] = [[0, 1], [1, 2], [2, 3], [3, 4]];
 
-  const anim = fx ? `${fx.dir === "rival" ? "bbTileDrop" : "bbTilePop"} 640ms cubic-bezier(0.22, 1, 0.36, 1) both` : undefined;
+  const anim = fx ? `${fx.dir === "rival" ? "bbTileDrop" : "bbTilePop"} 900ms cubic-bezier(0.16, 1, 0.3, 1) both` : undefined;
   return (
     <g onClick={onClick} style={{ cursor: clickable ? "pointer" : "default", ...(anim ? { animation: anim, transformBox: "fill-box", transformOrigin: "center" } as React.CSSProperties : {}) }}>
       {/* 1. contact shadow */}
@@ -621,8 +633,8 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick, fx }: { game: GameS
       {/* soft ripple as the tile settles — tinted with the placer's colour */}
       {isNew && (
         <polygon points={hexPolygonPoints(x, y, HEX)} fill="none" stroke={fx!.color} strokeWidth={2} pointerEvents="none">
-          <animate attributeName="stroke-width" values="1;9" dur="0.6s" begin="0.18s" fill="freeze" calcMode="spline" keySplines="0.2 0.8 0.3 1" keyTimes="0;1" />
-          <animate attributeName="opacity" values="0.7;0" dur="0.6s" begin="0.18s" fill="freeze" />
+          <animate attributeName="stroke-width" values="1;11" dur="0.72s" begin="0.42s" fill="freeze" calcMode="spline" keySplines="0.2 0.8 0.3 1" keyTimes="0;1" />
+          <animate attributeName="opacity" values="0.75;0" dur="0.72s" begin="0.42s" fill="freeze" />
         </polygon>
       )}
       {t.defenseBonus > 0 && !isBlock && <DefBadge x={x + HEX * 0.5} y={y + HEX * 0.5} n={t.defenseBonus} />}
@@ -704,6 +716,12 @@ function darken(hex: string, f: number): string {
   const g = Math.round(((n >> 8) & 255) * (1 - f));
   const b = Math.round((n & 255) * (1 - f));
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+function ZoomBtn({ label, onClick, small = false }: { label: string; onClick: () => void; small?: boolean }) {
+  return (
+    <button onClick={onClick} title="Zoom" style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${T.border}`, background: "#fffef8dd", color: T.goldSoft, fontSize: small ? 13 : 19, fontWeight: 700, cursor: "pointer", lineHeight: 1, display: "grid", placeItems: "center", boxShadow: "0 2px 6px #0003" }}>{label}</button>
+  );
 }
 
 // A tidy row of DP pawns (live upright, dark tipped), wrapping to two rows.
@@ -968,12 +986,12 @@ function UpForBidShelf({ game, you, yourTurn, dispatch }: { game: GameState; you
 function BourbonFan({ bourbons }: { bourbons: GameState["players"][number]["bourbons"] }) {
   const cards = bourbons.slice(0, 7);
   const mid = (cards.length - 1) / 2;
-  if (cards.length === 0) return <span style={{ fontFamily: SANS, fontSize: 13, color: T.faint, paddingBottom: 40 }}>none — bid at the market</span>;
+  if (cards.length === 0) return <span style={{ fontFamily: SANS, fontSize: 13, color: T.faint, paddingBottom: 60 }}>none — bid at the market</span>;
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", paddingLeft: 40 }}>
+    <div style={{ display: "flex", alignItems: "flex-end", paddingLeft: 54 }}>
       {cards.map((b, i) => (
-        <div key={b.id} className="bb-fan-card" style={{ marginLeft: i === 0 ? 0 : -66, transform: `rotate(${(i - mid) * 4.5}deg)`, transformOrigin: "50% 135%", position: "relative" }}>
-          <BourbonChip b={b} compact />
+        <div key={b.id} className="bb-fan-card" style={{ marginLeft: i === 0 ? 0 : -104, transform: `rotate(${(i - mid) * 4}deg)`, transformOrigin: "50% 140%", position: "relative", zIndex: i }}>
+          <BourbonChip b={b} />
         </div>
       ))}
     </div>
@@ -984,8 +1002,8 @@ function BourbonFan({ bourbons }: { bourbons: GameState["players"][number]["bour
 // fanned action cards live inside the existing controls) and the bourbon fan.
 function PlayHandZone({ game, you, yourTurn, mode, setMode, dispatch }: { game: GameState; you: GameState["players"][number]; yourTurn: boolean; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void }) {
   return (
-    <div style={{ position: "absolute", left: 172, right: 12, bottom: 0, height: 236, display: "flex", alignItems: "flex-end", gap: 18, padding: "0 14px 14px", zIndex: 4, pointerEvents: "none" }}>
-      <div style={{ pointerEvents: "auto", flex: 1, minWidth: 0, maxWidth: 760, background: "linear-gradient(#fffdf7, #f2e8d0)", borderRadius: 14, padding: 12, border: `1px solid ${T.border}`, boxShadow: "0 8px 26px #0006", maxHeight: 208, overflow: "hidden" }}>
+    <div style={{ position: "absolute", left: 172, right: 12, bottom: 0, height: 270, display: "flex", alignItems: "flex-end", gap: 18, padding: "0 14px 14px", zIndex: 4, pointerEvents: "none" }}>
+      <div style={{ pointerEvents: "auto", flex: 1, minWidth: 0, maxWidth: 720, background: "linear-gradient(#fdfcf7, #efe9dc)", borderRadius: 14, padding: 12, border: `1px solid ${T.border}`, boxShadow: "0 8px 26px #0006", maxHeight: 240, overflow: "hidden" }}>
         {!yourTurn ? (
           <div style={{ textAlign: "center", color: C.muted, fontSize: 15, padding: 20 }}>Rivals are acting…</div>
         ) : game.stage === "commit" ? (
@@ -1356,46 +1374,43 @@ function HandTray({ label, meta, footer, children }: { label: string; meta?: Rea
 // A setup tile rendered as a card, mirroring HandCard: grain-tinted header strip
 // ("DEMAND"), reward coin, serif name (up to 2 lines), and the shared 2-2-1
 // TagGrid. The next tile to place lifts with a gold ring + NEXT badge.
-function SetupTileCard({ tile, isNext, width = 122 }: { tile: GameState["players"][number]["setupTiles"][number]; isNext: boolean; width?: number }) {
-  const grain = tile.tags.find((t) => t.kind === "GRAIN");
-  const accent = grain ? tagColor(grain) : tile.reward ? rewardColor(tile.reward) : T.goldSoft;
+// A setup tile in the hand, rendered as the ACTUAL hex tile it will become on the
+// board (extruded chip + reward ribbon + name + spec grid). The lifted/selected
+// one rises with a gold glow.
+function SetupTileCard({ tile, isNext }: { tile: GameState["players"][number]["setupTiles"][number]; isNext: boolean }) {
+  const reward = tile.reward;
+  const rc = reward ? rewardColor(reward) : null;
+  const isWild = tile.category === "LOYALTY" || tile.category === "KEYSTONE";
   const nm = nameLines(tile.name);
+  const S = 55;
+  const w = S * 2, hgt = S * 2.3;
+  const cx = w / 2, cy = S + 5;
+  const corners = hexCorners(cx, cy, S);
+  const faceFill = rc ? "#f5e7bb" : "#fbf9f1";
   return (
-    <div
-      style={{
-        position: "relative",
-        width,
-        background: "linear-gradient(#fffdf7, #f3ecd9)",
-        border: `2px solid ${isNext ? T.gold : accent}`,
-        borderRadius: 8,
-        overflow: "hidden",
-        transform: isNext ? "translateY(-8px)" : "none",
-        transition: "transform 120ms",
-        boxShadow: isNext ? `0 0 0 2px ${T.gold}, 0 7px 14px #6b512e40` : "0 2px 6px #6b512e40",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: accent, padding: "2px 7px" }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: 1, color: "#fff" }}>
-          {tile.category === "LOYALTY" || tile.category === "KEYSTONE" ? "WILD" : "DEMAND"}
-        </span>
-        {tile.reward && (
-          <span style={{ width: 15, height: 15, borderRadius: 999, background: rewardColor(tile.reward), border: "1px solid #ffffff88", display: "grid", placeItems: "center", fontFamily: SERIF, fontWeight: 700, fontSize: 9, color: "#fff" }}>
-            {tile.reward.kind === "CAPITAL" ? tile.reward.amount : "⊙"}
-          </span>
+    <div style={{ position: "relative", transform: isNext ? "translateY(-12px)" : "none", transition: "transform 130ms", filter: isNext ? `drop-shadow(0 0 7px ${T.gold}bb)` : "none" }}>
+      <svg width={w} height={hgt} style={{ overflow: "visible", display: "block" }}>
+        <polygon points={hexPolygonPoints(cx, cy + THICK + 4, S)} fill="#2a1c0c" opacity={0.22} />
+        {([[0, 1], [1, 2], [2, 3], [3, 4]] as [number, number][]).map(([a, b], i) => {
+          const [ax, ay] = corners[a]!;
+          const [bx, by] = corners[b]!;
+          return <polygon key={i} points={`${ax},${ay} ${bx},${by} ${bx},${by + THICK} ${ax},${ay + THICK}`} fill={rc ? "#9a7420" : "#b09965"} />;
+        })}
+        <polygon points={hexPolygonPoints(cx, cy, S)} fill={faceFill} stroke={isNext ? T.gold : rc ? "#c69a2c" : "#a98f5f"} strokeWidth={isNext ? 3 : 2} />
+        {reward && (
+          <g transform={`translate(${cx} ${cy - S * 0.64})`}>
+            <polygon points="-34,-8 34,-8 29,0 34,8 -34,8 -29,0" fill={darken(rc!, 0.52)} stroke={rc!} strokeWidth={1} />
+            <text y={3} textAnchor="middle" fontFamily={MONO} fontWeight={700} fontSize={7.5} letterSpacing={0.3} fill="#ffe9c0">{rewardLabel(reward)}</text>
+          </g>
         )}
-      </div>
-      <div style={{ padding: "5px 7px 7px" }}>
-        <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 700, color: T.ink, lineHeight: 1.05, minHeight: 30 }}>
-          {nm.map((ln, i) => (
-            <div key={i}>{ln}</div>
-          ))}
-        </div>
-        <div style={{ display: "grid", placeItems: "center", marginTop: 4 }}>
-          <TagGridHTML tags={tile.tags} cell={16} />
-        </div>
-      </div>
+        {isWild && <text x={cx} y={cy - S * 0.36} textAnchor="middle" fontFamily={MONO} fontSize={8} letterSpacing={1.2} fill={T.ink} opacity={0.6}>WILDCARD</text>}
+        <text x={cx} y={cy - S * (reward || isWild ? 0.16 : 0.34)} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={12.5} fill={T.ink} stroke="#fffdf5" strokeWidth={3} strokeLinejoin="round" style={{ paintOrder: "stroke" } as React.CSSProperties}>
+          {nm.map((ln, i) => <tspan key={i} x={cx} dy={i === 0 ? 0 : 12}>{ln}</tspan>)}
+        </text>
+        <TagGridSVG tags={tile.tags} cx={cx} cy={cy + S * 0.24} cell={12} />
+      </svg>
       {isNext && (
-        <span style={{ position: "absolute", top: -9, left: "50%", transform: "translateX(-50%)", fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: 1, color: "#fff", background: T.gold, borderRadius: 999, padding: "1px 8px", boxShadow: "0 2px 4px #0004" }}>
+        <span style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: 1, color: "#1c110a", background: T.gold, borderRadius: 999, padding: "1px 9px", boxShadow: "0 2px 4px #0005" }}>
           NEXT
         </span>
       )}
@@ -1412,31 +1427,49 @@ function SetupTileCard({ tile, isNext, width = 122 }: { tile: GameState["players
 function BottleCard({ name, tags, compact = false, footer, footerBg, onClick, dim = false, selected = false }: { name: string; tags: readonly Tag[]; compact?: boolean; footer?: React.ReactNode; footerBg?: string; onClick?: () => void; dim?: boolean; selected?: boolean }) {
   const tint = grainTint(tags);
   const premium = tags.some((t) => t.kind === "QUALITY" && t.value === "PREMIUM");
-  const artH = compact ? 40 : 66;
+  const ageTag = tags.find((t) => t.kind === "AGE");
+  const grainVal = tags.find((t) => t.kind === "GRAIN")?.value;
+  const batchVal = tags.find((t) => t.kind === "BATCH")?.value;
+  const subtitle = [grainVal, batchVal].filter(Boolean).map((v) => String(v).replace(/_/g, " ")).join(" · ");
+  const artH = compact ? 42 : 92;
   return (
     <div
       onClick={onClick}
       title={name}
       style={{
-        width: compact ? 132 : 138,
+        width: compact ? 132 : 172,
         flex: "0 0 auto",
-        borderRadius: compact ? 9 : 11,
+        borderRadius: compact ? 9 : 13,
         overflow: "hidden",
-        border: `2px solid ${dim ? "#00000055" : selected ? T.gold : premium ? T.gold : T.goldSoft}`,
+        border: `${compact ? 2 : 2.5}px solid ${dim ? "#00000055" : selected ? T.gold : premium ? T.gold : T.goldSoft}`,
         opacity: dim ? 0.6 : 1,
         filter: dim ? "grayscale(0.4)" : "none",
-        boxShadow: selected ? `0 0 0 2px ${T.gold}, 0 7px 16px #0008` : `0 4px 11px #6b512e55`,
+        boxShadow: selected ? `0 0 0 2px ${T.gold}, 0 7px 16px #0008` : `0 5px 14px #6b512e55`,
         background: "#1c110a",
         cursor: onClick ? "pointer" : "default",
       }}
     >
       <div style={{ position: "relative", height: artH, background: `linear-gradient(160deg, ${tint.a}, ${tint.b})` }}>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(22,13,5,0.96), rgba(22,13,5,0) 72%)" }} />
-        <div style={{ position: "absolute", top: 4, left: 8, fontFamily: MONO, fontSize: 8, letterSpacing: 1.5, color: "#d9c49c", textTransform: "uppercase" }}>{premium ? "★ Premium" : "Bourbon"}</div>
-        <div style={{ position: "absolute", left: 8, right: 8, bottom: 5, fontFamily: SERIF, fontWeight: 700, fontSize: compact ? 12.5 : 14, color: "#f0e4cc", lineHeight: 1.03 }}>{name}</div>
+        <div style={{ position: "absolute", top: 5, left: 9, fontFamily: MONO, fontSize: compact ? 8 : 8.5, letterSpacing: 1.5, color: premium ? "#f0d38a" : "#d9c49c", textTransform: "uppercase" }}>{premium ? "★ Premium" : "Bourbon"}</div>
+        {!compact && (
+          <div style={{ position: "absolute", top: 6, right: 9, textAlign: "center", fontFamily: MONO, fontSize: 7.5, lineHeight: 1.15, color: "#cbb488", border: "1px solid #cbb48866", borderRadius: 3, padding: "2px 5px", transform: "rotate(4deg)" }}>
+            {premium ? "RE-\nSERVE".split("\n").map((s, i) => <div key={i}>{s}</div>) : <><div>EST</div><div>1870</div></>}
+          </div>
+        )}
+        {!compact && ageTag && (
+          <div style={{ position: "absolute", bottom: 8, right: 9, width: 34, height: 34, borderRadius: "50%", background: "#241705", border: "1.5px solid #c9a24a", display: "grid", placeItems: "center", boxShadow: "0 2px 6px #0006" }}>
+            <div style={{ textAlign: "center", lineHeight: 1 }}>
+              <div style={{ fontFamily: SERIF, fontWeight: 800, fontSize: 15, color: "#f0d38a" }}>{ageTag.value}</div>
+              <div style={{ fontFamily: MONO, fontSize: 5, letterSpacing: 1, color: "#c9b48e" }}>AGE</div>
+            </div>
+          </div>
+        )}
+        <div style={{ position: "absolute", left: 9, right: compact ? 9 : 46, bottom: compact ? 5 : 22, fontFamily: SERIF, fontWeight: 700, fontSize: compact ? 12.5 : 16, color: "#f4e8cf", lineHeight: 1.04 }}>{name}</div>
+        {!compact && subtitle && <div style={{ position: "absolute", left: 9, bottom: 6, fontFamily: MONO, fontSize: 7.5, letterSpacing: 0.6, color: "#c6ad82", textTransform: "uppercase" }}>{subtitle}</div>}
       </div>
-      <div style={{ background: "#1c110a", padding: compact ? "5px 0 4px" : "8px 0 6px", display: "grid", placeItems: "center" }}>
-        <TagGridHTML tags={tags} cell={compact ? 13 : 18} />
+      <div style={{ background: "#1c110a", padding: compact ? "5px 0 4px" : "9px 0 7px", display: "grid", placeItems: "center" }}>
+        <TagGridHTML tags={tags} cell={compact ? 13 : 21} />
       </div>
       {footer != null && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: footerBg ?? "#241705", padding: "4px 6px", minHeight: 18 }}>{footer}</div>

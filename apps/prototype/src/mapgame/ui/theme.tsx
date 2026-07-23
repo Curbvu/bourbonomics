@@ -14,33 +14,36 @@ import type { Suit, Tag, TokenType } from "../engine";
 // ── design tokens (LIGHT parchment theme) ────────────────────────────
 // Keys are stable; the client reads T.oak / T.panel / T.cream / etc. `cream`
 // is text-only, so a dark value converts all body copy in one move.
+// Softer, lighter, less-saturated warm-neutral palette (was a heavy sepia wash) —
+// big surfaces read as calm off-white; gold stays only as an accent so it no
+// longer bathes the whole screen.
 export const T = {
-  oak: "#efe6d0", // page / stage base
-  oak2: "#e7dcbf", // lifted parchment
-  oak3: "#ddceac",
-  copper: "#c8791e", // amber liquid accent
-  gold: "#c8961f", // accents / rings / badges
-  goldSoft: "#8f6510", // heading text (darker for contrast on light)
-  cream: "#2c1e0e", // PRIMARY DARK TEXT (only ever used as text)
+  oak: "#f1efe8", // page / stage base
+  oak2: "#eae6da", // lifted parchment
+  oak3: "#e3dfd2",
+  copper: "#bd7a2c", // amber liquid accent
+  gold: "#c39a35", // accents / rings / badges (a touch softer)
+  goldSoft: "#8a6a20", // heading text (darker for contrast on light)
+  cream: "#2c261c", // PRIMARY DARK TEXT (only ever used as text)
   cherry: "#7a2318", // deep cherry / rye depth
-  paper: "#fffdf7", // light card paper
-  plainTile: "#fffef9", // non-reward tile body
-  ink: "#241a0e", // text on light tiles / cards
-  grey: "#7a7268", // muted labels
-  cut: "#c8c0b4", // cut-line / faint frame
+  paper: "#fdfcf8", // light card paper
+  plainTile: "#fefdf9", // non-reward tile body
+  ink: "#2a2418", // text on light tiles / cards
+  grey: "#78736a", // muted labels
+  cut: "#cbc6ba", // cut-line / faint frame
   // convenience aliases used across the client
-  felt: "#efe6d0",
-  feltDeep: "#e1d5b8", // rail gradient bottom
-  panel: "#fffdf7", // card face
-  panel2: "#f4edda", // inset panels / log
-  rail: "#ece2c8", // rail gradient top
-  border: "#cbba90",
-  line: "#d9cca9",
-  muted: "#6f5a34",
-  faint: "#93805a",
-  red: "#9c3a2e",
+  felt: "#f1efe8",
+  feltDeep: "#e7e2d4", // rail gradient bottom
+  panel: "#fdfcf8", // card face
+  panel2: "#f4f1e8", // inset panels / log
+  rail: "#efece3", // rail gradient top
+  border: "#cdc7b6",
+  line: "#ddd8ca",
+  muted: "#6b6350",
+  faint: "#928a76",
+  red: "#a3453a",
   green: "#7a8c3a",
-  parchEdge: "#c2ad82",
+  parchEdge: "#c9c1ab",
 } as const;
 
 // ── suit colors (§0 canon) ───────────────────────────────────────────
