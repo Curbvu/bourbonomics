@@ -5,7 +5,7 @@
 // the in-game manual overlay in place.
 
 import Link from "next/link";
-import { useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import Manual from "../mapgame/ui/Manual";
 import { MONO, SERIF, T } from "../mapgame/ui/theme";
 
@@ -73,7 +73,7 @@ export default function HomeMenu() {
     <main
       style={{
         minHeight: "100vh",
-        background: `radial-gradient(120% 100% at 50% 20%, #2a2016, ${T.oak} 60%, ${T.feltDeep})`,
+        background: `radial-gradient(135% 115% at 50% 8%, #3a2c1c 0%, #241a10 46%, #14100a 100%)`,
         color: T.cream,
         fontFamily: "var(--font-inter), system-ui, sans-serif",
         display: "flex",
@@ -81,21 +81,25 @@ export default function HomeMenu() {
         alignItems: "center",
         padding: "clamp(40px, 8vh, 96px) 20px 64px",
         position: "relative",
+        overflow: "hidden",
       }}
     >
+      <Ambience />
+
       {/* paper grain */}
       <div
         aria-hidden
         style={{
           position: "absolute",
           inset: 0,
+          zIndex: 1,
           pointerEvents: "none",
-          opacity: 0.4,
+          opacity: 0.35,
           backgroundImage:
             "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E\")",
         }}
       />
-      <header style={{ textAlign: "center", position: "relative", marginBottom: "clamp(28px, 5vh, 52px)" }}>
+      <header style={{ textAlign: "center", position: "relative", zIndex: 2, marginBottom: "clamp(28px, 5vh, 52px)" }}>
         <div style={{ fontFamily: MONO, fontSize: 13, letterSpacing: 6, color: T.goldSoft, textTransform: "uppercase", marginBottom: 8 }}>
           The Territory Game
         </div>
@@ -107,18 +111,125 @@ export default function HomeMenu() {
         </p>
       </header>
 
-      <nav style={{ position: "relative", width: "100%", maxWidth: 660, display: "flex", flexDirection: "column", gap: 12 }}>
+      <nav style={{ position: "relative", zIndex: 2, width: "100%", maxWidth: 660, display: "flex", flexDirection: "column", gap: 12 }}>
         {tiles.map((t, i) => (
           <MenuTile key={t.title} tile={t} primary={i === 0} />
         ))}
       </nav>
 
-      <footer style={{ position: "relative", marginTop: 40, fontFamily: MONO, fontSize: 11, letterSpacing: 1.5, color: T.faint, textTransform: "uppercase" }}>
+      <footer style={{ position: "relative", zIndex: 2, marginTop: 40, fontFamily: MONO, fontSize: 11, letterSpacing: 1.5, color: T.faint, textTransform: "uppercase" }}>
         Bourbonomics · pre-balance playtest
       </footer>
 
       {manual && <Manual onClose={() => setManual(false)} />}
     </main>
+  );
+}
+
+// ── Ambient background — drifting warm light pools + slowly rising "angel's
+// share" embers (evaporating bourbon vapor). Subtle, low-opacity, and disabled
+// under prefers-reduced-motion. Lives behind all content (zIndex 0).
+function Ambience() {
+  // Purely decorative — mount client-side only so the randomized ember field
+  // never has to reconcile against server-rendered HTML (Math.sin differs by a
+  // ULP between Node and the browser, which trips React's hydration check).
+  const [shown, setShown] = useState(false);
+  useEffect(() => setShown(true), []);
+
+  const embers = useMemo(
+    () =>
+      Array.from({ length: 22 }, (_, i) => {
+        const r = (n: number) => {
+          // cheap seeded-ish jitter so the field looks scattered, not gridded
+          const x = Math.sin((i + 1) * (n * 12.9898)) * 43758.5453;
+          return x - Math.floor(x);
+        };
+        const size = 2 + r(1) * 4;
+        return {
+          left: r(2) * 100,
+          size,
+          dur: 14 + r(3) * 16,
+          delay: -r(4) * 30,
+          dx: (r(5) - 0.5) * 120,
+          op: 0.18 + r(6) * 0.4,
+          gold: r(7) > 0.35,
+        };
+      }),
+    [],
+  );
+
+  return (
+    <div
+      aria-hidden
+      className="bb-amb"
+      style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}
+    >
+      <style>{`
+        @keyframes bbGlowA { 0%,100%{transform:translate(-6%,-4%) scale(1)} 50%{transform:translate(7%,9%) scale(1.28)} }
+        @keyframes bbGlowB { 0%,100%{transform:translate(9%,3%) scale(1.18)} 50%{transform:translate(-7%,-9%) scale(1)} }
+        @keyframes bbGlowC { 0%,100%{transform:translate(0,8%) scale(1.1);opacity:.45} 50%{transform:translate(-4%,-5%) scale(1.34);opacity:.75} }
+        @keyframes bbRise {
+          0%   { transform: translateY(30px) translateX(0) scale(1); opacity: 0; }
+          12%  { opacity: var(--o); }
+          85%  { opacity: var(--o); }
+          100% { transform: translateY(-108vh) translateX(var(--dx)) scale(.35); opacity: 0; }
+        }
+        .bb-glow { position:absolute; border-radius:50%; filter:blur(64px); will-change:transform; }
+        .bb-ember { position:absolute; bottom:-12px; border-radius:50%; will-change:transform,opacity;
+                    animation:bbRise var(--dur) linear var(--delay) infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .bb-amb .bb-glow, .bb-amb .bb-ember { animation:none !important; }
+          .bb-amb .bb-ember { display:none; }
+        }
+      `}</style>
+
+      {/* drifting warm light pools */}
+      <div
+        className="bb-glow"
+        style={{
+          top: "-14%", left: "6%", width: 640, height: 640,
+          background: "radial-gradient(circle, rgba(214,164,74,0.30), rgba(214,164,74,0) 68%)",
+          animation: "bbGlowA 26s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="bb-glow"
+        style={{
+          bottom: "-18%", right: "2%", width: 720, height: 720,
+          background: "radial-gradient(circle, rgba(168,92,46,0.24), rgba(168,92,46,0) 70%)",
+          animation: "bbGlowB 34s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="bb-glow"
+        style={{
+          top: "34%", left: "44%", width: 520, height: 520,
+          background: "radial-gradient(circle, rgba(240,214,150,0.20), rgba(240,214,150,0) 66%)",
+          animation: "bbGlowC 22s ease-in-out infinite",
+        }}
+      />
+
+      {/* rising embers / angel's share (client-only to avoid hydration drift) */}
+      {shown && embers.map((e, i) => (
+        <span
+          key={i}
+          className="bb-ember"
+          style={
+            {
+              left: `${e.left}%`,
+              width: e.size,
+              height: e.size,
+              background: e.gold ? "#e8c877" : "#d68b46",
+              boxShadow: `0 0 ${e.size * 2.4}px ${e.size * 0.8}px ${e.gold ? "rgba(232,200,119,0.55)" : "rgba(214,139,70,0.5)"}`,
+              "--dur": `${e.dur}s`,
+              "--delay": `${e.delay}s`,
+              "--dx": `${e.dx}px`,
+              "--o": e.op,
+            } as CSSProperties
+          }
+        />
+      ))}
+    </div>
   );
 }
 
