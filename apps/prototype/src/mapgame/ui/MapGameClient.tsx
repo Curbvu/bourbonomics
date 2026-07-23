@@ -69,8 +69,6 @@ const STAGE_LABEL: Record<GameState["stage"], string> = {
   setupPlace: "Place tiles",
   setupDraft: "Opening draft",
   setupDP: "Place DPs",
-  trade: "The Trade",
-  catchup: "Catch-up",
   planning: "Planning",
   commit: "Commit",
   resolve: "Resolve",
@@ -123,7 +121,9 @@ export default function MapGameClient() {
   };
 
   const startGame = (n: number) => {
-    const g = createGame({ playerNames: names(n), seed: 12345 });
+    // A fresh random seed each game → tiles, market, and hands all shuffle
+    // differently (the seed is client input; the engine stays deterministic).
+    const g = createGame({ playerNames: names(n), seed: Math.floor(Math.random() * 1_000_000_000) });
     setGame(g);
     stepSetupBots(g); // animate any leading bot placements (human is p0, usually none)
   };
@@ -272,6 +272,11 @@ export function Board({
       if (mode === "REMOVE_NICHE_FLAG") return dispatch({ type: "REMOVE_NICHE_FLAG", tileId: tile.id });
       if (mode === "PUSH") return push(tile);
       if (mode === "CLAIM_SLOT") return dispatch({ type: "CLAIM_SLOT", tileId: tile.id, tag: preferredGrain(you) });
+      if (mode === "REPAIR_DP") {
+        const dp = game.dps.find((d) => d.tileId === tile.id && d.owner === youId && d.state === "DARK");
+        if (dp) return dispatch({ type: "REPAIR_DP", dpId: dp.id });
+        return flash("No DARK DP of yours on that tile.");
+      }
     }
   }
 
@@ -296,8 +301,8 @@ export function Board({
   return (
     <div style={{ width: 1920, height: 1080, background: C.bg, color: C.text, fontFamily: SANS, display: "flex", overflow: "hidden" }}>
       <style>{`
-        @keyframes bbTilePop { 0%{transform:translateY(58px) scale(.45);opacity:0} 55%{transform:translateY(-5px) scale(1.09);opacity:1} 100%{transform:translateY(0) scale(1);opacity:1} }
-        @keyframes bbTileDrop { 0%{transform:translateY(-64px) scale(.45);opacity:0} 55%{transform:translateY(5px) scale(1.09);opacity:1} 100%{transform:translateY(0) scale(1);opacity:1} }
+        @keyframes bbTilePop { 0%{transform:translateY(74px) scale(.62);opacity:0} 60%{opacity:1} 86%{transform:translateY(0) scale(1.03)} 100%{transform:translateY(0) scale(1)} }
+        @keyframes bbTileDrop { 0%{transform:translateY(-80px) scale(.62);opacity:0} 60%{opacity:1} 86%{transform:translateY(0) scale(1.03)} 100%{transform:translateY(0) scale(1)} }
         @keyframes bbTrayGlow { 0%,100%{box-shadow:0 -9px 30px -10px ${T.gold}88, inset 0 2px 0 #ffffffaa} 50%{box-shadow:0 -12px 40px -6px ${T.gold}cc, inset 0 2px 0 #ffffffaa} }
         @keyframes bbLift { 0%{transform:translateY(0)} 100%{transform:translateY(-10px)} }
       `}</style>
@@ -557,7 +562,7 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick, fx }: { game: GameS
   const frameW = ctrlIdx >= 0 ? 3.5 : rc ? 3 : 2.2;
   const nm = nameLines(t.name);
 
-  const anim = fx ? `${fx.dir === "rival" ? "bbTileDrop" : "bbTilePop"} 560ms cubic-bezier(.2,.7,.3,1.3) both` : undefined;
+  const anim = fx ? `${fx.dir === "rival" ? "bbTileDrop" : "bbTilePop"} 640ms cubic-bezier(0.22, 1, 0.36, 1) both` : undefined;
   return (
     <g onClick={onClick} style={{ cursor: clickable ? "pointer" : "default", ...(anim ? { animation: anim, transformBox: "fill-box", transformOrigin: "center" } as React.CSSProperties : {}) }}>
       {/* warm drop shadow — deeper so tiles float clearly above the board + sockets */}
@@ -565,11 +570,11 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick, fx }: { game: GameS
       <polygon points={hexPolygonPoints(x, y, HEX)} fill={face} stroke={frame} strokeWidth={frameW} />
       {!isBlock && <polygon points={hexPolygonPoints(x, y, HEX - 3.5)} fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1.4} />}
       <polygon points={hexPolygonPoints(x, y, HEX)} fill="url(#tileSheen)" pointerEvents="none" />
-      {/* ripple when the tile lands — tinted with the placer's colour */}
+      {/* soft ripple as the tile settles — tinted with the placer's colour */}
       {isNew && (
         <polygon points={hexPolygonPoints(x, y, HEX)} fill="none" stroke={fx!.color} strokeWidth={2} pointerEvents="none">
-          <animate attributeName="stroke-width" values="1;14" dur="0.55s" begin="0.05s" fill="freeze" />
-          <animate attributeName="opacity" values="1;0" dur="0.55s" begin="0.05s" fill="freeze" />
+          <animate attributeName="stroke-width" values="1;9" dur="0.6s" begin="0.18s" fill="freeze" calcMode="spline" keySplines="0.2 0.8 0.3 1" keyTimes="0;1" />
+          <animate attributeName="opacity" values="0.7;0" dur="0.6s" begin="0.18s" fill="freeze" />
         </polygon>
       )}
       {isBlock ? (
@@ -845,10 +850,6 @@ function Controls({ game, you, yourTurn, mode, setMode, dispatch }: { game: Game
         <SetupDraftControls game={game} you={you} />
       ) : game.stage === "setupDP" ? (
         <SetupDPControls game={game} you={you} />
-      ) : game.stage === "trade" ? (
-        <TradeControls you={you} dispatch={dispatch} />
-      ) : game.stage === "catchup" ? (
-        <CatchupControls game={game} you={you} dispatch={dispatch} />
       ) : game.stage === "commit" ? (
         <CommitControls you={you} dispatch={dispatch} />
       ) : (
@@ -905,56 +906,6 @@ function SetupDPControls({ game, you }: { game: GameState; you: GameState["playe
   );
 }
 
-function TradeControls({ you, dispatch }: { you: GameState["players"][number]; dispatch: (a: Action) => void }) {
-  const [sel, setSel] = useState<string[]>([]);
-  const toggle = (id: string) =>
-    setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length < 2 ? [...s, id] : s));
-  return (
-    <div>
-      <div style={{ fontSize: 14, color: C.muted, marginBottom: 8 }}>
-        The Trade — offer up to 2 cards into a shared shuffle, draw back the same number. (Age {""}
-        start)
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        {you.hand.map((c) => (
-          <HandCard key={c.id} card={c} selected={sel.includes(c.id)} onClick={() => toggle(c.id)} width={148} />
-        ))}
-      </div>
-      <button onClick={() => dispatch({ type: "TRADE_OFFER", cardIds: sel })} style={btn(C.gold)}>
-        {sel.length ? `Offer ${sel.length}` : "Offer nothing"}
-      </button>
-    </div>
-  );
-}
-
-function CatchupControls({ game, you, dispatch }: { game: GameState; you: GameState["players"][number]; dispatch: (a: Action) => void }) {
-  const [board, setBoard] = useState<string | null>(null);
-  return (
-    <div>
-      <div style={{ fontSize: 14, color: C.muted, marginBottom: 8 }}>
-        Catch-up — swap one hand card for one board card, or pass. (Least-Capital player goes first.)
-      </div>
-      <div style={{ fontSize: 11, color: C.faint, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Shared board — pick one</div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        {game.catchUpBoard.map((c) => (
-          <HandCard key={c.id} card={c} selected={board === c.id} onClick={() => setBoard(board === c.id ? null : c.id)} width={124} compact />
-        ))}
-      </div>
-      <div style={{ fontSize: 11, color: C.faint, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-        {board ? "…and click a hand card to give away" : "Your hand"}
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        {you.hand.map((c) => (
-          <HandCard key={c.id} card={c} disabled={!board} onClick={() => board && dispatch({ type: "CATCHUP_SWAP", handCardId: c.id, boardCardId: board })} width={124} compact />
-        ))}
-      </div>
-      <button onClick={() => dispatch({ type: "CATCHUP_SWAP", handCardId: "", boardCardId: null })} style={btn(C.gold)}>
-        Pass
-      </button>
-    </div>
-  );
-}
-
 function CommitControls({ you, dispatch }: { you: GameState["players"][number]; dispatch: (a: Action) => void }) {
   // Select face-up cards: the first is your primary, the rest are chained. Each
   // chained card is paid by one face-down sacrifice, auto-chosen (lowest pips)
@@ -1003,12 +954,15 @@ function CommitControls({ you, dispatch }: { you: GameState["players"][number]; 
 function ActControls({ game, you, mode, setMode, dispatch }: { game: GameState; you: GameState["players"][number]; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void }) {
   const allowed = new Set<ActionType>();
   for (const s of you.allowedSuits) for (const a of SUIT_ACTIONS[s]) allowed.add(a);
+  const hasDarkDP = game.dps.some((d) => d.owner === you.id && d.state === "DARK");
   const tileModes: { t: Mode; label: string; need: ActionType }[] = [
     { t: "BUILD_DP", label: "Build DP", need: "BUILD_DP" },
     { t: "PUSH", label: "Push", need: "PUSH" },
     { t: "ADD_NICHE_FLAG", label: "Flag", need: "ADD_NICHE_FLAG" },
     { t: "REMOVE_NICHE_FLAG", label: "Unflag", need: "REMOVE_NICHE_FLAG" },
     { t: "CLAIM_SLOT", label: "Claim slot", need: "BUILD_DP" },
+    // Repair a DARK DP back to LIVE — only offered when you actually have one.
+    ...(hasDarkDP ? [{ t: "REPAIR_DP" as Mode, label: "Repair DP", need: "REPAIR_DP" as ActionType }] : []),
   ];
   const tokens = Object.entries(you.tokens).filter(([, n]) => n > 0) as [TokenType, number][];
   const depleted = you.bourbons.find((b) => b.state === "DEPLETED");
@@ -1140,6 +1094,15 @@ const SUIT_FULL: Record<Suit, string> = {
   SOURCING: "Sourcing",
   DISTILL: "Distill",
 };
+// One-line "rules text" describing what each suit's card does — like a game card.
+const SUIT_TAGLINE: Record<Suit, string> = {
+  DISTRIBUTION: "Grow & mend your distribution — build or repair DPs.",
+  SALES: "Fight for a tile (Push) and stake or drop niche claims.",
+  MARKETING: "Fight for a tile (Push) and stake or drop niche claims.",
+  BUSINESS_DEV: "Push the frontier — draw/place tiles and build DPs.",
+  SOURCING: "Stock the shelves — bid on bourbons and expand the map.",
+  DISTILL: "Run the still — bid on bourbons and refresh depleted ones.",
+};
 
 function HandCard({ card, selected, badge, disabled, onClick, width = 158, compact = false }: { card: GameState["players"][number]["hand"][number]; selected?: boolean; badge?: number; disabled?: boolean; onClick: () => void; width?: number; compact?: boolean }) {
   const sc = SUIT_COLOR[card.suit];
@@ -1197,8 +1160,12 @@ function HandCard({ card, selected, badge, disabled, onClick, width = 158, compa
                 <span key={c} style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: sc, background: `${sc}1c`, border: `1px solid ${sc}44`, borderRadius: 999, padding: "1px 7px" }}>{c}</span>
               ))}
             </div>
+            {/* rules text */}
+            <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 11, color: T.muted, marginTop: 7, lineHeight: 1.32, borderTop: `1px solid ${T.line}`, paddingTop: 6 }}>
+              {SUIT_TAGLINE[card.suit]}
+            </div>
             {card.icon && (
-              <div style={{ fontFamily: SANS, fontSize: 9.5, color: T.faint, marginTop: 7, lineHeight: 1.3 }}>
+              <div style={{ fontFamily: SANS, fontSize: 9.5, color: T.faint, marginTop: 6, lineHeight: 1.3 }}>
                 ⬧ Play last to seize initiative next round.
               </div>
             )}
@@ -1288,32 +1255,38 @@ function SetupTileCard({ tile, isNext, width = 122 }: { tile: GameState["players
 // A bourbon as a mini collector card (§3): grain-gradient art, charred-oak
 // scrim, cream serif name, and the SHARED TagGrid so it reads slot-for-slot
 // against tiles.
-function BourbonChip({ b }: { b: GameState["players"][number]["bourbons"][number] }) {
+function BourbonChip({ b, width = 132 }: { b: GameState["players"][number]["bourbons"][number]; width?: number }) {
   const dep = b.state === "DEPLETED";
   const tint = grainTint(b.tags);
+  const premium = b.tags.some((t) => t.kind === "QUALITY" && t.value === "PREMIUM");
   return (
     <div
       title={`${b.name} — ${b.state}`}
       style={{
-        width: 96,
-        borderRadius: 8,
+        width,
+        borderRadius: 11,
         overflow: "hidden",
-        border: `1px solid ${dep ? "#00000066" : T.goldSoft}`,
-        opacity: dep ? 0.5 : 1,
-        filter: dep ? "grayscale(0.55)" : "none",
-        boxShadow: dep ? "none" : "0 2px 6px #6b512e40",
+        border: `2px solid ${dep ? "#00000066" : premium ? T.gold : T.goldSoft}`,
+        opacity: dep ? 0.55 : 1,
+        filter: dep ? "grayscale(0.5)" : "none",
+        boxShadow: dep ? "none" : `0 4px 11px #6b512e55`,
         background: "#1c110a",
       }}
     >
-      {/* art + scrim + name (this card stays dark — a collector bottle) */}
-      <div style={{ position: "relative", height: 44, background: `linear-gradient(160deg, ${tint.a}, ${tint.b})` }}>
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(22,13,5,0.96), rgba(22,13,5,0) 70%)" }} />
-        <div style={{ position: "absolute", left: 6, right: 6, bottom: 4, fontFamily: SERIF, fontWeight: 700, fontSize: 11.5, color: "#f0e4cc", lineHeight: 1.02 }}>{b.name}</div>
-        {dep && <div style={{ position: "absolute", top: 3, right: 5, fontFamily: MONO, fontSize: 7, letterSpacing: 0.5, color: "#e0b0a0" }}>DEPLETED</div>}
+      {/* art + scrim + name (a dark collector bottle) */}
+      <div style={{ position: "relative", height: 66, background: `linear-gradient(160deg, ${tint.a}, ${tint.b})` }}>
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(22,13,5,0.96), rgba(22,13,5,0) 72%)" }} />
+        <div style={{ position: "absolute", top: 5, left: 8, fontFamily: MONO, fontSize: 8, letterSpacing: 1.5, color: "#d9c49c", textTransform: "uppercase" }}>{premium ? "★ Premium" : "Bourbon"}</div>
+        <div style={{ position: "absolute", left: 8, right: 8, bottom: 6, fontFamily: SERIF, fontWeight: 700, fontSize: 14, color: "#f0e4cc", lineHeight: 1.04 }}>{b.name}</div>
       </div>
       {/* foil spec grid — the shared TagGrid */}
-      <div style={{ background: "#1c110a", padding: "5px 0 4px", display: "grid", placeItems: "center" }}>
-        <TagGridHTML tags={b.tags} cell={13} />
+      <div style={{ background: "#1c110a", padding: "8px 0 6px", display: "grid", placeItems: "center" }}>
+        <TagGridHTML tags={b.tags} cell={18} />
+      </div>
+      {/* state footer */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: dep ? "#3a241a" : "#26401f", padding: "4px 0" }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: dep ? "#c07a4a" : "#8fc25a" }} />
+        <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: 1, color: dep ? "#e7bfa4" : "#c6e3a0" }}>{b.state}</span>
       </div>
     </div>
   );

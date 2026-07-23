@@ -243,8 +243,6 @@ export type RoundStage =
   | "setupPlace"
   | "setupDraft"
   | "setupDP"
-  | "trade"
-  | "catchup"
   | "planning"
   | "commit"
   | "resolve"
@@ -273,7 +271,6 @@ export interface GameState {
 
   actionDeck: ActionCard[];
   actionDiscard: ActionCard[];
-  catchUpBoard: ActionCard[];
 
   /** Player indices in acting order for the CURRENT stage. */
   initiative: number[];
@@ -281,10 +278,8 @@ export interface GameState {
   startPlayerIndex: number;
   /** Holder of the initiative marker — leads the next round (brief §4). */
   initiativeMarker: number;
-  /** The round-1 initiative to install once the age-start stages finish. */
+  /** The round-1 initiative to install once setup finishes. */
   pendingInitiative: number[];
-  /** Trade offers collected during the "trade" stage, by player id. */
-  tradeOffers: Record<string, string[]>;
   /** Snake pick order for the opening draft (setupDraft); turnPos indexes it. */
   setupDraftSeq: number[];
 
@@ -299,8 +294,6 @@ export type Action =
   | { type: "SETUP_PLACE_TILE"; hex: Hex; tileIndex?: number } // place a setup tile (>=2 adjacency); tileIndex picks which (default 0)
   | { type: "SETUP_DRAFT_BOURBON"; lotId: string } // opening draft: take a bourbon
   | { type: "SETUP_PLACE_DP"; tileId: string } // opening draft: place a LIVE DP (setup-exempt)
-  | { type: "TRADE_OFFER"; cardIds: string[] } // age start: offer up to TRADE_MAX cards
-  | { type: "CATCHUP_SWAP"; handCardId: string; boardCardId: string | null } // null = pass
   | { type: "SPEND_TOKEN"; token: TokenType } // planning: +1 action of that suit
   // commit (brief §4): one primary face-up card, N chained (each paid by a
   // face-down sacrifice), OR a surrender (empty faceUp, one sacrifice).

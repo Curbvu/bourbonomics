@@ -11,13 +11,7 @@ export const CONFIG = {
   // — Structure —
   AGES: 5,
   ROUNDS_PER_AGE: 5,
-  HAND_SIZE: 5,
-  TRADE_MAX: 2, // cards a player may put into the age-start Trade pile
-
-  // — Catch-up (brief §11) —
-  CATCHUP_MODE: "swap" as "swap" | "take",
-  /** Cards dealt to the shared catch-up board. Default PLAYERS + 1. */
-  catchUpBoardSize: (players: number) => players + 1,
+  HAND_SIZE: 5, // each age simply deals a fresh 5-card hand (no Trade / catch-up)
 
   // — Setup (brief §5) —
   SEED_LINE_TILES: 3, // the opening line — all reward-bearing (BONUS) tiles

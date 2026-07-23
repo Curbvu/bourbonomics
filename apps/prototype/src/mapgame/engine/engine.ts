@@ -8,7 +8,7 @@
 // initiative order. The initiative MARKER (last icon-card played) sets who leads
 // next round; sticky if none. Age end is delegated to ageLoop.ts.
 
-import { catchUpOrder, catchUpSwap, performTrade, runAgeEnd } from "./ageLoop";
+import { runAgeEnd } from "./ageLoop";
 import { CONFIG } from "./config";
 import { canAddFlag, canPlaceDP, neighborTiles, tileById, tileController } from "./derive";
 import { runDistilleryTrigger } from "./distilleries";
@@ -339,10 +339,6 @@ export function applyAction(state: GameState, action: Action): ActionResult {
       return setupDraftStage(draft, actor, action);
     case "setupDP":
       return setupDPStage(draft, actor, action);
-    case "trade":
-      return tradeStage(draft, actor, action);
-    case "catchup":
-      return catchupStage(draft, actor, action);
     case "planning":
       return planning(draft, actor, action);
     case "commit":
@@ -437,53 +433,6 @@ function setupDPStage(draft: GameState, actor: Player, action: Action): ActionRe
 
   draft.turnPos += 1;
   if (draft.turnPos >= draft.setupDraftSeq.length) finalizeSetup(draft);
-  return commit(draft);
-}
-
-// ── Age-start stages ─────────────────────────────────────────────────
-function startPlanning(draft: GameState): void {
-  draft.stage = "planning";
-  draft.initiative = draft.pendingInitiative.length ? draft.pendingInitiative : draft.players.map((_, i) => i);
-  draft.turnPos = 0;
-  for (const p of allPlayers(draft)) {
-    p.pipsRemaining = 0;
-    p.allowedSuits = [];
-    p.turnDone = false;
-  }
-  runDistilleryTrigger(draft, "onRoundStart");
-  log(draft, `Round ${draft.round} begins.`);
-}
-
-function tradeStage(draft: GameState, actor: Player, action: Action): ActionResult {
-  if (action.type !== "TRADE_OFFER") return refuse("offer trade cards now (may be empty)");
-  const ids = action.cardIds.slice(0, CONFIG.TRADE_MAX);
-  for (const id of ids) {
-    if (!actor.hand.some((c) => c.id === id)) return refuse("offered card not in hand");
-  }
-  if (new Set(ids).size !== ids.length) return refuse("duplicate card in offer");
-  draft.tradeOffers[actor.id] = ids;
-  actor.turnDone = true;
-  if (!advance(draft)) {
-    performTrade(draft, draft.tradeOffers);
-    log(draft, "The Trade resolves.");
-    // → catch-up, least-Capital first
-    draft.stage = "catchup";
-    draft.initiative = catchUpOrder(draft);
-    draft.turnPos = 0;
-    for (const p of allPlayers(draft)) p.turnDone = false;
-  }
-  return commit(draft);
-}
-
-function catchupStage(draft: GameState, actor: Player, action: Action): ActionResult {
-  if (action.type !== "CATCHUP_SWAP") return refuse("swap a catch-up card or pass now");
-  if (action.boardCardId !== null) {
-    const ok = catchUpSwap(draft, actor.id, action.handCardId, action.boardCardId);
-    if (!ok) return refuse("invalid catch-up swap");
-    log(draft, `${actor.name} swaps a card from the catch-up board.`);
-  }
-  actor.turnDone = true;
-  if (!advance(draft)) startPlanning(draft);
   return commit(draft);
 }
 

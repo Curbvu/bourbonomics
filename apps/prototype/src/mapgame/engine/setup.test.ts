@@ -11,7 +11,7 @@ function game(n: number, seed = 7): GameState {
   return createGame({ playerNames: Array.from({ length: n }, (_, i) => `P${i}`), seed });
 }
 // Drive the whole setup (tile placement + opening draft) to completion via the
-// auto-player, landing at age 1's Trade stage.
+// auto-player, landing at age 1's round-1 planning.
 function played(n: number, seed = 7): GameState {
   let s = game(n, seed);
   let guard = 0;
@@ -126,9 +126,9 @@ describe("setup — interactive placement & draft", () => {
 describe("setup — completion opens age 1 (via auto-player)", () => {
   for (const n of [2, 3, 4, 5]) {
     const s = played(n);
-    it(`${n}p: lands at age 1 Trade with hands dealt`, () => {
+    it(`${n}p: lands at age 1 round-1 planning with hands dealt`, () => {
       expect(s.phase).toBe("playing");
-      expect(s.stage).toBe("trade");
+      expect(s.stage).toBe("planning");
       for (const p of s.players) expect(p.hand.length).toBe(CONFIG.HAND_SIZE);
     });
     it(`${n}p: first player = last drafter of round 1 (index n-1)`, () => {
