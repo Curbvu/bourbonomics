@@ -296,7 +296,7 @@ export interface GameState {
 // ── Actions ──────────────────────────────────────────────────────────
 export type Action =
   // — setup phase (brief §13/§15) —
-  | { type: "SETUP_PLACE_TILE"; hex: Hex } // place your next setup tile (>=2 adjacency)
+  | { type: "SETUP_PLACE_TILE"; hex: Hex; tileIndex?: number } // place a setup tile (>=2 adjacency); tileIndex picks which (default 0)
   | { type: "SETUP_DRAFT_BOURBON"; lotId: string } // opening draft: take a bourbon
   | { type: "SETUP_PLACE_DP"; tileId: string } // opening draft: place a LIVE DP (setup-exempt)
   | { type: "TRADE_OFFER"; cardIds: string[] } // age start: offer up to TRADE_MAX cards

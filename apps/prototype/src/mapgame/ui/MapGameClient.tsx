@@ -182,11 +182,29 @@ export function Board({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notice]);
 
+  // Which of your setup tiles is lifted, ready to place.
+  const [selTile, setSelTile] = useState(0);
+  // Tiles that just appeared on the board → play a placement pop (setup + expand).
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
+  const prevIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const cur = new Set(game.tiles.map((t) => t.id));
+    const fresh = [...cur].filter((id) => !prevIds.current.has(id));
+    const firstPaint = prevIds.current.size === 0;
+    prevIds.current = cur;
+    if (fresh.length > 0 && !firstPaint) {
+      setNewIds(new Set(fresh));
+      const h = setTimeout(() => setNewIds(new Set()), 560);
+      return () => clearTimeout(h);
+    }
+  }, [game.tiles]);
+
   const inPlay = game.phase === "playing" || game.phase === "setup";
   const actor = inPlay ? currentActorOf(game) : null;
   const yourTurn = actor?.id === youId && inPlay;
   const you = game.players.find((p) => p.id === youId) ?? game.players[0]!;
   const inSetup = game.phase === "setup";
+  const sel = Math.min(selTile, Math.max(0, you.setupTiles.length - 1));
   // valid empty hexes to place the next setup tile (your turn only)
   const candidates = useMemo(
     () => (inSetup && game.stage === "setupPlace" && yourTurn ? placementCandidates(game) : []),
@@ -212,7 +230,7 @@ export function Board({
   }
 
   function placeSetupTile(hex: { q: number; r: number }) {
-    if (yourTurn && game.stage === "setupPlace") dispatch({ type: "SETUP_PLACE_TILE", hex });
+    if (yourTurn && game.stage === "setupPlace") dispatch({ type: "SETUP_PLACE_TILE", hex, tileIndex: sel });
   }
 
   function push(tile: Tile) {
@@ -228,42 +246,43 @@ export function Board({
     dispatch({ type: "PUSH", tileId: tile.id, bourbonIds: ids });
   }
 
+  const showTray = inSetup && game.stage === "setupPlace";
   return (
     <div style={{ width: 1920, height: 1080, background: C.bg, color: C.text, fontFamily: SANS, display: "flex", overflow: "hidden" }}>
+      <style>{`
+        @keyframes bbTilePop { 0%{transform:scale(.45);opacity:0} 55%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+        @keyframes bbTrayGlow { 0%,100%{box-shadow:0 -9px 30px -10px ${T.gold}88, inset 0 2px 0 #ffffffaa} 50%{box-shadow:0 -12px 40px -6px ${T.gold}cc, inset 0 2px 0 #ffffffaa} }
+        @keyframes bbLift { 0%{transform:translateY(0)} 100%{transform:translateY(-10px)} }
+      `}</style>
       <div
         style={{
           flex: 1,
           position: "relative",
-          background: "radial-gradient(125% 95% at 42% 34%, #f4ecd6 0%, #e4d6b6 52%, #d0bf99 100%)",
-          boxShadow: "inset 0 0 160px 10px #8a6a3a30",
+          background: "radial-gradient(125% 95% at 42% 34%, #f6eede 0%, #ddceac 55%, #c3b083 100%)",
+          boxShadow: "inset 0 0 220px 24px #7a5a2a44",
         }}
       >
         {/* paper grain (multiplies onto the light stage) */}
         <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.22, mixBlendMode: "multiply", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E\")" }} />
-        <div style={{ position: "absolute", top: 20, left: 26, zIndex: 1 }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 3, color: "#4a3a1e", textTransform: "uppercase" }}>Bourbonomics</div>
-          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: "#241505", lineHeight: 1 }}>
-            {inSetup
-              ? game.stage === "setupPlace"
-                ? "Building the Board"
-                : game.stage === "setupDraft"
-                  ? "The Opening Draft"
-                  : "Plant Your DPs"
-              : "The Market"}
+
+        {inSetup ? <SetupExplainer stage={game.stage} yourTurn={yourTurn} /> : (
+          <div style={{ position: "absolute", top: 20, left: 26, zIndex: 1 }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 3, color: "#4a3a1e", textTransform: "uppercase" }}>Bourbonomics</div>
+            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: "#241505", lineHeight: 1 }}>The Market</div>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: "#4c3c22", marginTop: 3, maxWidth: 360 }}>Serve demand · control tiles · harvest niches.</div>
           </div>
-          <div style={{ fontFamily: SANS, fontSize: 12.5, color: "#4c3c22", marginTop: 3, maxWidth: 360 }}>
-            {inSetup
-              ? game.stage === "setupPlace"
-                ? "Lay your tiles on the open ground — each must touch 2+ tiles."
-                : game.stage === "setupDraft"
-                  ? "Draft a bourbon from the market — no premium yet."
-                  : "Click any tile to plant a starting distribution point."
-              : "Serve demand · control tiles · harvest niches."}
-          </div>
+        )}
+
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: showTray ? 186 : 0 }}>
+          <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} newIds={newIds} />
         </div>
-        <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} />
+
+        {showTray && (
+          <SetupTray tiles={you.setupTiles} selected={sel} onSelect={setSelTile} yourTurn={yourTurn} />
+        )}
+
         {toast && (
-          <div style={{ position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#000c", color: C.gold, padding: "10px 18px", borderRadius: 8, fontSize: 15, fontFamily: MONO, border: `1px solid ${T.border}` }}>
+          <div style={{ position: "absolute", bottom: showTray ? 200 : 24, left: "50%", transform: "translateX(-50%)", background: "#000c", color: C.gold, padding: "10px 18px", borderRadius: 8, fontSize: 15, fontFamily: MONO, border: `1px solid ${T.border}`, zIndex: 5 }}>
             {toast}
           </div>
         )}
@@ -273,10 +292,94 @@ export function Board({
   );
 }
 
+// A persistent setup explainer + progress rail: SETUP eyebrow, three step chips
+// (Build the market → Draft bourbons → Plant DPs) with the active step lit, and a
+// one-line "what to do now". Doubles as an intro and a where-am-I indicator.
+function SetupExplainer({ stage, yourTurn }: { stage: GameState["stage"]; yourTurn: boolean }) {
+  const steps = [
+    { key: "setupPlace", label: "Build the market", hint: "Pick a tile from your hand below, then click a glowing socket. Each tile must touch 2+ others." },
+    { key: "setupDraft", label: "Draft bourbons", hint: "Take bottles from the market — premium is held back until age 1." },
+    { key: "setupDP", label: "Plant DPs", hint: "Drop your starting distribution points anywhere on the board." },
+  ];
+  const activeIdx = Math.max(0, steps.findIndex((s) => s.key === stage));
+  const active = steps[activeIdx]!;
+  return (
+    <div style={{ position: "absolute", top: 18, left: 24, zIndex: 3, maxWidth: 520 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 4, color: T.goldSoft, textTransform: "uppercase", marginBottom: 7 }}>Setup · Bourbonomics</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 9 }}>
+        {steps.map((s, i) => {
+          const done = i < activeIdx;
+          const on = i === activeIdx;
+          return (
+            <span key={s.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: SERIF, fontWeight: 700, fontSize: 13.5, color: on ? "#1c110a" : done ? T.goldSoft : "#9a8358", background: on ? "linear-gradient(#f6d98a,#e7b64a)" : done ? "#e9dcbb" : "#00000010", border: `1px solid ${on ? T.gold : done ? T.border : "#00000018"}`, borderRadius: 999, padding: "4px 12px", boxShadow: on ? `0 3px 10px ${T.gold}55` : "none" }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, opacity: 0.85 }}>{done ? "✓" : i + 1}</span>
+                {s.label}
+              </span>
+              {i < steps.length - 1 && <span style={{ color: "#00000030", fontSize: 12 }}>→</span>}
+            </span>
+          );
+        })}
+      </div>
+      <div style={{ fontFamily: SANS, fontSize: 13.5, color: "#3a2c14", maxWidth: 460, lineHeight: 1.45, background: "#fffef8cc", borderLeft: `3px solid ${T.gold}`, borderRadius: "0 8px 8px 0", padding: "7px 12px", boxShadow: "0 2px 8px #6b512e22" }}>
+        {yourTurn ? active.hint : "Rivals are taking their setup turns…"}
+      </div>
+    </div>
+  );
+}
+
+// The glowing "hand" of setup tiles, docked below the board. Click a card to lift
+// it; the lifted card is the one placed when you click a socket.
+function SetupTray({ tiles, selected, onSelect, yourTurn }: { tiles: GameState["players"][number]["setupTiles"]; selected: number; onSelect: (i: number) => void; yourTurn: boolean }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: 186,
+        background: "linear-gradient(to top, #efe4c6 0%, #efe4c6ee 55%, #efe4c600 100%)",
+        borderTop: `2px solid ${T.gold}`,
+        animation: "bbTrayGlow 2.6s ease-in-out infinite",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        padding: "0 20px 16px",
+        gap: 8,
+        zIndex: 4,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, alignSelf: "stretch", justifyContent: "center", marginBottom: 2 }}>
+        <span style={{ flex: 1, maxWidth: 220, height: 1, background: `linear-gradient(90deg, transparent, ${T.gold})` }} />
+        <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: T.goldSoft, letterSpacing: 0.5 }}>
+          {yourTurn ? "Your tiles — pick one, then click a glowing socket" : "Your tiles"}
+        </span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>{tiles.length} to place</span>
+        <span style={{ flex: 1, maxWidth: 220, height: 1, background: `linear-gradient(90deg, ${T.gold}, transparent)` }} />
+      </div>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-end", minHeight: 132 }}>
+        {tiles.length === 0 && <span style={{ fontSize: 14, color: T.faint, alignSelf: "center", paddingBottom: 40 }}>All tiles placed — on to the draft.</span>}
+        {tiles.map((t, i) => (
+          <button
+            key={t.defId + i}
+            onClick={() => onSelect(i)}
+            disabled={!yourTurn}
+            style={{ background: "none", border: "none", padding: 0, cursor: yourTurn ? "pointer" : "default" }}
+          >
+            <SetupTileCard tile={t} isNext={i === selected && yourTurn} width={118} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Hex map ──────────────────────────────────────────────────────────
 const HEX = 56;
 
-function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = false }: { game: GameState; mode: Mode; onClick: (t: Tile) => void; candidates?: { q: number; r: number }[]; onPlace?: (h: { q: number; r: number }) => void; draftable?: boolean }) {
+function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = false, newIds }: { game: GameState; mode: Mode; onClick: (t: Tile) => void; candidates?: { q: number; r: number }[]; onPlace?: (h: { q: number; r: number }) => void; draftable?: boolean; newIds?: Set<string> }) {
   const layout = useMemo(() => {
     const pts = game.tiles.map((t) => ({ t, ...axialToPixel(t.hex, HEX) }));
     const cand = candidates.map((h) => ({ h, ...axialToPixel(h, HEX) }));
@@ -306,19 +409,23 @@ function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = fal
           <stop offset="0" stopColor="#fdf3cf" />
           <stop offset="1" stopColor="#eccb70" />
         </linearGradient>
+        {/* soft gold bloom for the placement sockets */}
+        <filter id="socketGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor="#e6a92a" floodOpacity="0.95" />
+        </filter>
       </defs>
-      {layout.pts.map(({ t, x, y }) => (
-        <TileHex key={t.id} game={game} t={t} x={x} y={y} idxOf={idxOf} clickable={(mode !== null || draftable) && t.category !== "BLOCKING"} onClick={() => onClick(t)} />
-      ))}
-      {/* ghost placement sockets during setup */}
+      {/* ghost placement sockets (drawn UNDER tiles so tiles always read on top) */}
       {layout.cand.map(({ h, x, y }, i) => (
         <g key={`c${i}`} onClick={() => onPlace?.(h)} style={{ cursor: "pointer" }}>
-          <polygon points={hexPolygonPoints(x, y, HEX)} fill="#ffffff2e" stroke="#b8901e" strokeWidth={2.5} strokeDasharray="7 6">
-            <animate attributeName="opacity" values="0.5;0.95;0.5" dur="1.8s" repeatCount="indefinite" />
+          <polygon points={hexPolygonPoints(x, y, HEX - 4)} fill="#e7b53a22" stroke="#d89f1c" strokeWidth={3} strokeDasharray="9 6" filter="url(#socketGlow)">
+            <animate attributeName="opacity" values="0.55;1;0.55" dur="1.7s" repeatCount="indefinite" />
           </polygon>
-          <text x={x} y={y - 2} textAnchor="middle" fontFamily={SERIF} fontSize={34} fontWeight={700} fill="#7a5f22">＋</text>
-          <text x={x} y={y + 24} textAnchor="middle" fontFamily={MONO} fontSize={10.5} letterSpacing={1} fill="#7a5f22">PLACE</text>
+          <text x={x} y={y - 1} textAnchor="middle" fontFamily={SERIF} fontSize={36} fontWeight={700} fill="#a9781a" opacity={0.9}>＋</text>
+          <text x={x} y={y + 25} textAnchor="middle" fontFamily={MONO} fontSize={10.5} letterSpacing={1.5} fill="#8a6416">PLACE</text>
         </g>
+      ))}
+      {layout.pts.map(({ t, x, y }) => (
+        <TileHex key={t.id} game={game} t={t} x={x} y={y} idxOf={idxOf} clickable={(mode !== null || draftable) && t.category !== "BLOCKING"} onClick={() => onClick(t)} isNew={newIds?.has(t.id) ?? false} />
       ))}
     </svg>
   );
@@ -338,7 +445,7 @@ function nameLines(name: string): string[] {
   return best[1];
 }
 
-function TileHex({ game, t, x, y, idxOf, clickable, onClick }: { game: GameState; t: Tile; x: number; y: number; idxOf: (p: string) => number; clickable: boolean; onClick: () => void }) {
+function TileHex({ game, t, x, y, idxOf, clickable, onClick, isNew = false }: { game: GameState; t: Tile; x: number; y: number; idxOf: (p: string) => number; clickable: boolean; onClick: () => void; isNew?: boolean }) {
   const ctrl = tileController(game, t.id);
   const ctrlIdx = ctrl ? idxOf(ctrl) : -1;
   const flags = game.nicheFlags.filter((f) => f.tileId === t.id);
@@ -351,17 +458,24 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick }: { game: GameState
   // tiles = white gradient; blocking = charred oak (dark against the light board).
   const rc = reward ? rewardColor(reward) : null;
   const face = isBlock ? "#3a352c" : rc ? "url(#rewardFace)" : "url(#plainFace)";
-  const frame = ctrlIdx >= 0 ? PC[ctrlIdx]! : isBlock ? "#160d05" : rc ? "#caa23a" : "#c2ad82";
-  const frameW = ctrlIdx >= 0 ? 3.5 : rc ? 3 : 1.5;
+  const frame = ctrlIdx >= 0 ? PC[ctrlIdx]! : isBlock ? "#160d05" : rc ? "#c69a2c" : "#a98f5f";
+  const frameW = ctrlIdx >= 0 ? 3.5 : rc ? 3 : 2.2;
   const nm = nameLines(t.name);
 
   return (
-    <g onClick={onClick} style={{ cursor: clickable ? "pointer" : "default" }}>
-      {/* warm drop shadow */}
-      <polygon points={hexPolygonPoints(x, y + 6, HEX)} fill="#5a4020" opacity={0.26} />
+    <g onClick={onClick} style={{ cursor: clickable ? "pointer" : "default", ...(isNew ? { animation: "bbTilePop 460ms cubic-bezier(.2,.7,.3,1.35) both", transformBox: "fill-box", transformOrigin: "center" } as React.CSSProperties : {}) }}>
+      {/* warm drop shadow — deeper so tiles float clearly above the board + sockets */}
+      <polygon points={hexPolygonPoints(x, y + 7, HEX)} fill="#4a3316" opacity={0.34} />
       <polygon points={hexPolygonPoints(x, y, HEX)} fill={face} stroke={frame} strokeWidth={frameW} />
       {!isBlock && <polygon points={hexPolygonPoints(x, y, HEX - 3.5)} fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1.4} />}
       <polygon points={hexPolygonPoints(x, y, HEX)} fill="url(#tileSheen)" pointerEvents="none" />
+      {/* gold ripple when the tile lands */}
+      {isNew && (
+        <polygon points={hexPolygonPoints(x, y, HEX)} fill="none" stroke={T.gold} strokeWidth={2} pointerEvents="none">
+          <animate attributeName="stroke-width" values="1;13" dur="0.5s" begin="0.05s" fill="freeze" />
+          <animate attributeName="opacity" values="0.95;0" dur="0.5s" begin="0.05s" fill="freeze" />
+        </polygon>
+      )}
       {isBlock ? (
         <>
           {/* diagonal charred staves */}
@@ -582,7 +696,7 @@ function Market({ game, you, yourTurn, dispatch }: { game: GameState; you: GameS
               key={lot.id}
               disabled={!canBid}
               onClick={() => dispatch(drafting ? { type: "SETUP_DRAFT_BOURBON", lotId: lot.id } : { type: "BID", lotId: lot.id })}
-              style={{ flex: "1 1 158px", textAlign: "left", background: T.panel, border: `1px solid ${canBid ? T.gold : T.line}`, borderLeft: `4px solid ${accent}`, borderRadius: 9, padding: "8px 10px", cursor: canBid ? "pointer" : "default", boxShadow: canBid ? `0 1px 4px #7a5f2a26` : "none" }}
+              style={{ flex: "1 1 158px", textAlign: "left", background: T.panel, borderTop: `1px solid ${canBid ? T.gold : T.line}`, borderRight: `1px solid ${canBid ? T.gold : T.line}`, borderBottom: `1px solid ${canBid ? T.gold : T.line}`, borderLeft: `4px solid ${accent}`, borderRadius: 9, padding: "8px 10px", cursor: canBid ? "pointer" : "default", boxShadow: canBid ? `0 1px 4px #7a5f2a26` : "none" }}
             >
               <div style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: T.ink, letterSpacing: 0.3 }}>{lot.def.name}</div>
               <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
@@ -650,16 +764,16 @@ function Controls({ game, you, yourTurn, mode, setMode, dispatch }: { game: Game
 
 function SetupPlaceControls({ you }: { you: GameState["players"][number] }) {
   return (
-    <HandTray
-      label="Your setup tiles"
-      meta={`${you.setupTiles.length} to place`}
-      footer="Click a glowing hex to place the lifted tile — it must touch 2+ tiles. In play, this tray becomes your action cards."
-    >
-      {you.setupTiles.map((t, i) => (
-        <SetupTileCard key={t.defId + i} tile={t} isNext={i === 0} />
-      ))}
-      {you.setupTiles.length === 0 && <span style={{ fontSize: 13, color: T.faint, alignSelf: "center" }}>All tiles placed — on to the draft.</span>}
-    </HandTray>
+    <div>
+      <RailLabel>Setup · Build the market</RailLabel>
+      <p style={{ fontSize: 14, color: C.muted, margin: "0 0 4px", lineHeight: 1.5 }}>
+        Your tiles are in the <B>glowing tray below the board</B>. Click one to lift it, then click a{" "}
+        <B>glowing socket</B> to lay it (each tile must touch 2+ others).
+      </p>
+      <p style={{ fontSize: 13, color: T.faint, margin: 0 }}>
+        <B>{you.setupTiles.length}</B> tile{you.setupTiles.length === 1 ? "" : "s"} left to place.
+      </p>
+    </div>
   );
 }
 

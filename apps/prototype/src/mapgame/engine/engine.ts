@@ -376,7 +376,9 @@ function setupPlaceStage(draft: GameState, actor: Player, action: Action): Actio
   if (neighborTiles(draft, hex).length < CONFIG.TILE_MIN_ADJACENCY) {
     return refuse(`a placed tile must touch >= ${CONFIG.TILE_MIN_ADJACENCY} existing tiles`);
   }
-  const def = actor.setupTiles.shift()!;
+  // The player may choose WHICH held tile to place (tileIndex); bots omit it → 0.
+  const idx = Math.min(Math.max(action.tileIndex ?? 0, 0), actor.setupTiles.length - 1);
+  const def = actor.setupTiles.splice(idx, 1)[0]!;
   const tile = tileFromDef(draft, def, hex);
   draft.tiles.push(tile);
   log(draft, `${actor.name} places ${tile.name}.`);
