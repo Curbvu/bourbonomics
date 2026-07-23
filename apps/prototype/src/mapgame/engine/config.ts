@@ -18,7 +18,7 @@ export const CONFIG = {
   SETUP_TILES_PER_PLAYER: 5,
   OPENING_DRAFT_PICKS: 3, // bourbons each in the snake draft (non-premium pool)
   OPENING_DRAFT_MODE: "bourbons" as "bourbons" | "bourbons_or_dp",
-  STARTING_DPS: 3, // LIVE DPs each player plants after the draft (setup-exempt)
+  STARTING_DPS: 2, // LIVE DPs each player plants after the draft (setup-exempt)
   TILE_MIN_ADJACENCY: 2,
 
   // — Player start —

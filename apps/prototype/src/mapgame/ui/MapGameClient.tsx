@@ -267,16 +267,16 @@ export function Board({
     // Starting-DP step: click a tile to plant a LIVE DP on it (setup-exempt).
     if (game.stage === "setupDP") return dispatch({ type: "SETUP_PLACE_DP", tileId: tile.id });
     if (game.stage === "resolve" || game.stage === "planning") {
-      if (mode === "BUILD_DP") return dispatch({ type: "BUILD_DP", tileId: tile.id });
+      if (mode === "BUILD_DP") {
+        // One DP action: a DARK DP of yours here → revive it; otherwise place a new one.
+        const dark = game.dps.find((d) => d.tileId === tile.id && d.owner === youId && d.state === "DARK");
+        if (dark) return dispatch({ type: "REPAIR_DP", dpId: dark.id });
+        return dispatch({ type: "BUILD_DP", tileId: tile.id });
+      }
       if (mode === "ADD_NICHE_FLAG") return dispatch({ type: "ADD_NICHE_FLAG", tileId: tile.id });
       if (mode === "REMOVE_NICHE_FLAG") return dispatch({ type: "REMOVE_NICHE_FLAG", tileId: tile.id });
       if (mode === "PUSH") return push(tile);
       if (mode === "CLAIM_SLOT") return dispatch({ type: "CLAIM_SLOT", tileId: tile.id, tag: preferredGrain(you) });
-      if (mode === "REPAIR_DP") {
-        const dp = game.dps.find((d) => d.tileId === tile.id && d.owner === youId && d.state === "DARK");
-        if (dp) return dispatch({ type: "REPAIR_DP", dpId: dp.id });
-        return flash("No DARK DP of yours on that tile.");
-      }
     }
   }
 
@@ -955,14 +955,13 @@ function ActControls({ game, you, mode, setMode, dispatch }: { game: GameState; 
   const allowed = new Set<ActionType>();
   for (const s of you.allowedSuits) for (const a of SUIT_ACTIONS[s]) allowed.add(a);
   const hasDarkDP = game.dps.some((d) => d.owner === you.id && d.state === "DARK");
-  const tileModes: { t: Mode; label: string; need: ActionType }[] = [
-    { t: "BUILD_DP", label: "Build DP", need: "BUILD_DP" },
-    { t: "PUSH", label: "Push", need: "PUSH" },
-    { t: "ADD_NICHE_FLAG", label: "Flag", need: "ADD_NICHE_FLAG" },
-    { t: "REMOVE_NICHE_FLAG", label: "Unflag", need: "REMOVE_NICHE_FLAG" },
-    { t: "CLAIM_SLOT", label: "Claim slot", need: "BUILD_DP" },
-    // Repair a DARK DP back to LIVE — only offered when you actually have one.
-    ...(hasDarkDP ? [{ t: "REPAIR_DP" as Mode, label: "Repair DP", need: "REPAIR_DP" as ActionType }] : []),
+  // Build + repair are one gesture: click a tile to place a DP, or a dead one to revive it.
+  const tileModes: { t: Mode; label: string; enabled: boolean }[] = [
+    { t: "BUILD_DP", label: hasDarkDP ? "Place / repair DP" : "Place DP", enabled: allowed.has("BUILD_DP") || allowed.has("REPAIR_DP") },
+    { t: "PUSH", label: "Push", enabled: allowed.has("PUSH") },
+    { t: "ADD_NICHE_FLAG", label: "Flag", enabled: allowed.has("ADD_NICHE_FLAG") },
+    { t: "REMOVE_NICHE_FLAG", label: "Unflag", enabled: allowed.has("REMOVE_NICHE_FLAG") },
+    { t: "CLAIM_SLOT", label: "Claim slot", enabled: allowed.has("BUILD_DP") },
   ];
   const tokens = Object.entries(you.tokens).filter(([, n]) => n > 0) as [TokenType, number][];
   const depleted = you.bourbons.find((b) => b.state === "DEPLETED");
@@ -989,19 +988,16 @@ function ActControls({ game, you, mode, setMode, dispatch }: { game: GameState; 
       )}
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {tileModes.map(({ t, label, need }) => {
-          const on = allowed.has(need);
-          return (
-            <button
-              key={label}
-              disabled={!on}
-              onClick={() => setMode(mode === t ? null : t)}
-              style={{ ...btn(mode === t ? C.green : C.border), opacity: on ? 1 : 0.35 }}
-            >
-              {label}
-            </button>
-          );
-        })}
+        {tileModes.map(({ t, label, enabled }) => (
+          <button
+            key={label}
+            disabled={!enabled}
+            onClick={() => setMode(mode === t ? null : t)}
+            style={{ ...btn(mode === t ? C.green : C.border), opacity: enabled ? 1 : 0.35 }}
+          >
+            {label}
+          </button>
+        ))}
         {allowed.has("REFRESH") && depleted && (
           <button onClick={() => dispatch({ type: "REFRESH", bourbonId: depleted.id })} style={btn(C.gold)}>
             Refresh {depleted.name}
@@ -1011,7 +1007,9 @@ function ActControls({ game, you, mode, setMode, dispatch }: { game: GameState; 
 
       {mode && (
         <div style={{ fontSize: 12, color: C.green, fontFamily: MONO }}>
-          ▸ click a tile to {mode.replace(/_/g, " ").toLowerCase()}
+          ▸ {mode === "BUILD_DP"
+            ? "click a tile to place a DP — or a tile with your dead DP to revive it"
+            : `click a tile to ${mode.replace(/_/g, " ").toLowerCase()}`}
         </div>
       )}
 
