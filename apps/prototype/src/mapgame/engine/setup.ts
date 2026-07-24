@@ -146,22 +146,23 @@ export function createGame(opts: NewGameOptions): GameState {
     log: [],
   };
 
-  // — Shuffle the demand tiles (blocking is placed later, once the board is
-  //   built, so the opening ground stays open for players). —
-  const demandDefs = buildTileDefs().filter((d) => d.category !== "BLOCKING");
-  const [demandShuffled, s1] = shuffle(demandDefs, draft.rngSeed);
+  // — Shuffle the whole tile deck. Blocking tiles ride along in the deck like
+  //   any other tile (they're dealt and placed by players, never force-dropped).
+  //   The seed line filters to reward-bearing tiles, so blocking never seeds. —
+  const [tilesShuffled, s1] = shuffle(buildTileDefs(), draft.rngSeed);
   draft.rngSeed = s1;
 
   // — 1. Seed: 3 tiles in a line at center, ALL reward-bearing (BONUS) tiles —
   //      so the opening centre is worth contesting immediately (brief §5.1). —
   const seedHexes: Hex[] = Array.from({ length: CONFIG.SEED_LINE_TILES }, (_, i) => ({ q: i, r: 0 }));
-  const seedDefs = demandShuffled.filter((d) => d.reward !== null).slice(0, CONFIG.SEED_LINE_TILES);
+  const seedDefs = tilesShuffled.filter((d) => d.reward !== null).slice(0, CONFIG.SEED_LINE_TILES);
   const seededIds = new Set(seedDefs.map((d) => d.defId));
   for (let i = 0; i < seedHexes.length; i++) {
     draft.tiles.push(tileFromDef(draft, seedDefs[i]!, seedHexes[i]!));
   }
-  // Everything not seeded is available for setup tiles + the Expand supply.
-  const pool = demandShuffled.filter((d) => !seededIds.has(d.defId));
+  // Everything not seeded is available for setup tiles + the Expand supply
+  // (blocking tiles included — drawn and placed like the rest).
+  const pool = tilesShuffled.filter((d) => !seededIds.has(d.defId));
 
   // — 2. Setup tiles: deal 5 to each player's hand. Players PLACE them
   //      interactively in the setupPlace stage (brief §5.3). —
@@ -186,21 +187,6 @@ export function createGame(opts: NewGameOptions): GameState {
   draft.turnPos = 0;
   draft.log.push({ age: 1, round: 1, message: `Setup — place your tiles, then draft. ${n} players.` });
   return draft;
-}
-
-/**
- * Blocking terrain (brief §13.1) — placed as fixed terrain once players finish
- * laying the board, spread across it so it walls things without cluttering the
- * opening ground. Each goes on a valid (>=2 adjacency) spot.
- */
-export function placeBlockingTerrain(draft: GameState): void {
-  const blocking = buildTileDefs().filter((d) => d.category === "BLOCKING");
-  for (let i = 0; i < blocking.length; i++) {
-    const cands = placementCandidates(draft);
-    if (cands.length === 0) break;
-    const idx = Math.min(Math.floor(((i + 1) / (blocking.length + 1)) * cands.length), cands.length - 1);
-    draft.tiles.push(tileFromDef(draft, blocking[i]!, cands[idx]!));
-  }
 }
 
 /** Round-robin placement order for the starting-DP step: seating order 0..n-1,

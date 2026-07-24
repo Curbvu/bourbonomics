@@ -140,8 +140,16 @@ describe("setup — completion opens age 1 (via auto-player)", () => {
         expect(p.bourbons.length + s.dps.filter((d) => d.owner === p.id).length).toBeGreaterThan(0);
       }
     });
-    it(`${n}p: blocking terrain is placed once the board is built`, () => {
-      expect(s.tiles.filter((t) => t.category === "BLOCKING").length).toBe(CONFIG.BLOCKING_TILE_COUNT);
+    it(`${n}p: blocking tiles ride in the tile deck, never force-placed`, () => {
+      // Every blocking tile is dealt into the deck (players' setup tiles + the
+      // Expand supply) rather than auto-dropped onto the board.
+      const fresh = game(n);
+      const inDeck = [...fresh.players.flatMap((p) => p.setupTiles), ...fresh.tileSupply].filter(
+        (t) => t.category === "BLOCKING",
+      ).length;
+      expect(inDeck).toBe(CONFIG.BLOCKING_TILE_COUNT);
+      // The opening board is the 3-tile reward seed — blocking never seeds.
+      expect(fresh.tiles.filter((t) => t.category === "BLOCKING").length).toBe(0);
     });
     it(`${n}p: opening DPs are LIVE; blocking tiles hold none`, () => {
       const blocking = new Set(s.tiles.filter((t) => t.category === "BLOCKING").map((t) => t.id));

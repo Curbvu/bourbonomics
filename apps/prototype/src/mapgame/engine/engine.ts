@@ -16,7 +16,7 @@ import { resolvePush } from "./push";
 import type { Hex } from "./hex";
 import { hexKey } from "./hex";
 import { mintId } from "./ids";
-import { finalizeSetup, placeBlockingTerrain, refillMarket, setupDPOrder, snakeOrder, tileFromDef } from "./setup";
+import { finalizeSetup, refillMarket, setupDPOrder, snakeOrder, tileFromDef } from "./setup";
 import type {
   Action,
   ActionResult,
@@ -380,12 +380,11 @@ function setupPlaceStage(draft: GameState, actor: Player, action: Action): Actio
   log(draft, `${actor.name} places ${tile.name}.`);
 
   if (!advanceSetupPlace(draft)) {
-    // Board is built — drop the fixed blocking terrain, then open the draft.
-    placeBlockingTerrain(draft);
+    // Board is built (blocking rode along in the deck) — open the draft.
     draft.stage = "setupDraft";
     draft.setupDraftSeq = snakeOrder(draft.players.length, CONFIG.OPENING_DRAFT_PICKS);
     draft.turnPos = 0;
-    log(draft, "Terrain settles — opening draft: take a bourbon.");
+    log(draft, "The board is set — opening draft: take a bourbon.");
   }
   return commit(draft);
 }
