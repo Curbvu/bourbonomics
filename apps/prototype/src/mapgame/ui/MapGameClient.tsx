@@ -311,6 +311,8 @@ export function Board({
         @keyframes bbLift { 0%{transform:translateY(0)} 100%{transform:translateY(-10px)} }
         .bb-fan-card { transition: transform 130ms ease; }
         .bb-fan-card:hover { transform: translateY(-22px) rotate(0deg) !important; z-index: 30; }
+        .bb-play-card { transition: transform 130ms ease; }
+        .bb-play-card:hover { transform: translateY(-7px); z-index: 30; }
       `}</style>
       <div
         style={{
@@ -335,7 +337,7 @@ export function Board({
 
         <div
           onWheel={(e) => { if (e.deltaY !== 0) zoomBy(e.deltaY < 0 ? 0.12 : -0.12); }}
-          style={{ position: "absolute", top: 0, left: playing ? 172 : 0, right: 0, bottom: showTray ? 186 : playing ? 266 : 0 }}
+          style={{ position: "absolute", top: 0, left: playing ? 172 : 0, right: 0, bottom: showTray ? 186 : playing ? 312 : 0 }}
         >
           <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} newTiles={newTiles} tilt={!inSetup} zoom={zoom} />
           {/* zoom controls */}
@@ -1001,9 +1003,10 @@ function BourbonFan({ bourbons }: { bourbons: GameState["players"][number]["bour
 // Everything at the bottom of the play screen: the action pill (stage controls +
 // fanned action cards live inside the existing controls) and the bourbon fan.
 function PlayHandZone({ game, you, yourTurn, mode, setMode, dispatch }: { game: GameState; you: GameState["players"][number]; yourTurn: boolean; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void }) {
+  const committing = yourTurn && game.stage === "commit";
   return (
-    <div style={{ position: "absolute", left: 172, right: 12, bottom: 0, height: 270, display: "flex", alignItems: "flex-end", gap: 18, padding: "0 14px 14px", zIndex: 4, pointerEvents: "none" }}>
-      <div style={{ pointerEvents: "auto", flex: 1, minWidth: 0, maxWidth: 720, background: "linear-gradient(#fdfcf7, #efe9dc)", borderRadius: 14, padding: 12, border: `1px solid ${T.border}`, boxShadow: "0 8px 26px #0006", maxHeight: 240, overflow: "hidden" }}>
+    <div style={{ position: "absolute", left: 172, right: 12, bottom: 0, height: committing ? 350 : 316, display: "flex", alignItems: "flex-end", gap: 18, padding: "0 14px 14px", zIndex: 4, pointerEvents: "none" }}>
+      <div style={{ pointerEvents: "auto", flex: 1, minWidth: 0, maxWidth: committing ? 1120 : 720, background: "linear-gradient(#fdfcf7, #efe9dc)", borderRadius: 14, padding: 12, border: `1px solid ${T.border}`, boxShadow: "0 8px 26px #0006", maxHeight: committing ? 334 : 240, overflow: "hidden" }}>
         {!yourTurn ? (
           <div style={{ textAlign: "center", color: C.muted, fontSize: 15, padding: 20 }}>Rivals are acting…</div>
         ) : game.stage === "commit" ? (
@@ -1082,20 +1085,19 @@ function CommitControls({ you, dispatch }: { you: GameState["players"][number]; 
   const canPlay = faceUp.length >= 1 && rest.length >= chained;
   const totalPips = you.hand.filter((c) => faceUp.includes(c.id)).reduce((n, c) => n + c.pips, 0);
 
-  const mid = (you.hand.length - 1) / 2;
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 2 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
         <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: T.goldSoft }}>Your action cards</span>
-        <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>{faceUp.length ? `${faceUp.length} up${chained ? ` · ${chained} sacrificed` : ""}` : "pick a card, then Play"}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>{faceUp.length ? `${faceUp.length} up${chained ? ` · ${chained} sacrificed` : ""}` : "click a card to read it, then Play"}</span>
       </div>
-      {/* the hand, fanned — a card lifts on hover; selected cards raise */}
-      <div style={{ display: "flex", alignItems: "flex-end", paddingLeft: 34, minHeight: 122 }}>
-        {you.hand.map((c, i) => {
+      {/* the hand — full-size cards, spread so you can read every action before you commit */}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, minHeight: 188 }}>
+        {you.hand.map((c) => {
           const idx = faceUp.indexOf(c.id);
           return (
-            <div key={c.id} className="bb-fan-card" style={{ marginLeft: i === 0 ? 0 : -74, transform: idx >= 0 ? "translateY(-16px) rotate(0deg)" : `rotate(${(i - mid) * 3.4}deg)`, transformOrigin: "50% 135%", position: "relative", zIndex: idx >= 0 ? 20 : 1 }}>
-              <HandCard card={c} selected={idx >= 0} badge={idx >= 0 ? idx + 1 : undefined} onClick={() => toggle(c.id)} width={128} compact />
+            <div key={c.id} className="bb-play-card" style={{ position: "relative", zIndex: idx >= 0 ? 20 : 1 }}>
+              <HandCard card={c} selected={idx >= 0} badge={idx >= 0 ? idx + 1 : undefined} onClick={() => toggle(c.id)} width={150} />
             </div>
           );
         })}
@@ -1310,10 +1312,10 @@ function HandCard({ card, selected, badge, disabled, onClick, width = 158, compa
           {badge != null && <span style={{ fontFamily: SERIF, fontSize: 12, fontWeight: 700, color: "#fff" }}>{badge}</span>}
         </span>
       </div>
-      <div style={{ padding: compact ? "5px 8px 7px" : "7px 10px 9px" }}>
-        <div style={{ fontFamily: SERIF, fontSize: compact ? 14 : 16, fontWeight: 700, color: T.ink, lineHeight: 1.08, minHeight: compact ? 30 : 36 }}>{card.name}</div>
+      <div style={{ padding: compact ? "5px 8px 7px" : "6px 10px 8px" }}>
+        <div style={{ fontFamily: SERIF, fontSize: compact ? 14 : 15.5, fontWeight: 700, color: T.ink, lineHeight: 1.06, minHeight: compact ? 30 : 27 }}>{card.name}</div>
         {/* actions this round */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: compact ? 4 : 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: compact ? 4 : 5 }}>
           <span style={{ display: "flex", gap: 3 }}>
             {Array.from({ length: card.pips }).map((_, i) => (
               <span key={i} style={{ width: compact ? 8 : 10, height: compact ? 8 : 10, borderRadius: 2.5, background: sc, boxShadow: "inset 0 0 0 1.5px #ffffff99" }} />
@@ -1324,20 +1326,16 @@ function HandCard({ card, selected, badge, disabled, onClick, width = 158, compa
         {/* what you can do with them (full cards only — dense swap views stay compact) */}
         {!compact && (
           <>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 7 }}>
+            <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: 0.8, color: sc, textTransform: "uppercase", marginTop: 6 }}>Actions available</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
               {caps.map((c) => (
                 <span key={c} style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: sc, background: `${sc}1c`, border: `1px solid ${sc}44`, borderRadius: 999, padding: "1px 7px" }}>{c}</span>
               ))}
             </div>
             {/* rules text */}
-            <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 11, color: T.muted, marginTop: 7, lineHeight: 1.32, borderTop: `1px solid ${T.line}`, paddingTop: 6 }}>
+            <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 10.5, color: T.muted, marginTop: 6, lineHeight: 1.26, borderTop: `1px solid ${T.line}`, paddingTop: 5 }}>
               {SUIT_TAGLINE[card.suit]}
             </div>
-            {card.icon && (
-              <div style={{ fontFamily: SANS, fontSize: 9.5, color: T.faint, marginTop: 6, lineHeight: 1.3 }}>
-                ⬧ Play last to seize initiative next round.
-              </div>
-            )}
           </>
         )}
       </div>
