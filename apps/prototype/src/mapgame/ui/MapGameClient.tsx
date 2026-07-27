@@ -213,6 +213,8 @@ export function Board({
   const [toast, setToast] = useState<string | null>(null);
   // The tile currently pinned in the inspector (§3). Read-only info + fit + acts.
   const [inspectId, setInspectId] = useState<string | null>(null);
+  // The tile a Push is being staged on (§2.4) — opens the commit→reveal overlay.
+  const [pushTile, setPushTile] = useState<Tile | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flash = (m: string) => {
@@ -307,17 +309,11 @@ export function Board({
     if (yourTurn && game.stage === "setupPlace") dispatch({ type: "SETUP_PLACE_TILE", hex, tileIndex: sel });
   }
 
+  // Opening a Push stages it in an overlay (§2.4) rather than resolving silently:
+  // the player picks which bourbons to commit, sees the fit math, then reveals.
   function push(tile: Tile) {
-    const cap = liveDPCount(game, tile.id, youId);
-    const tags = tile.wildcardTag ? [tile.wildcardTag] : tile.tags;
-    const ids = you.bourbons
-      .filter((b) => b.state === "FRESH") // only FRESH is committable (§7b)
-      .map((b) => ({ id: b.id, f: fit(b.tags, tags) }))
-      .filter((b) => b.f > 0)
-      .sort((a, b) => b.f - a.f)
-      .slice(0, cap)
-      .map((b) => b.id);
-    dispatch({ type: "PUSH", tileId: tile.id, bourbonIds: ids });
+    setInspectId(null);
+    setPushTile(tile);
   }
 
   const showTray = inSetup && game.stage === "setupPlace";
@@ -380,6 +376,15 @@ export function Board({
           </div>
         )}
         {inSetup && helpOpen && <SetupHelpOverlay activeStage={game.stage} onClose={() => setHelpOpen(false)} />}
+        {pushTile && (
+          <PushOverlay
+            game={game}
+            tile={pushTile}
+            youId={youId}
+            onCommit={(ids) => { dispatch({ type: "PUSH", tileId: pushTile.id, bourbonIds: ids }); setPushTile(null); }}
+            onCancel={() => setPushTile(null)}
+          />
+        )}
       </div>
       <Rail game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} onNew={onNew} onManual={onManual} youId={youId} inspect={inspectId ? game.tiles.find((t) => t.id === inspectId) ?? null : null} onCloseInspect={() => setInspectId(null)} onPush={push} />
     </div>
@@ -1027,6 +1032,148 @@ function TileInspector({ game, tile, youId, yourTurn, dispatch, onPush, onClose 
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// §2.4 — the staged Push. Instead of resolving combat silently, this overlay
+// stages it: pick which FRESH bourbons to commit (capped at your LIVE DPs),
+// watch the fit total build, then REVEAL — the engine resolves on a clone so we
+// can show both sides' strength, the winner, and the DPs each loser sheds
+// before the result is actually applied.
+function PushOverlay({ game, tile, youId, onCommit, onCancel }: {
+  game: GameState;
+  tile: Tile;
+  youId: string;
+  onCommit: (bourbonIds: string[]) => void;
+  onCancel: () => void;
+}) {
+  const idxOf = (pid: string) => game.players.findIndex((p) => p.id === pid);
+  const you = game.players.find((p) => p.id === youId)!;
+  const target = tileTargetTags(tile);
+  const owner = tileOwner(game, tile.id);
+  const cap = liveDPCount(game, tile.id, youId);
+  const fresh = you.bourbons
+    .filter((b) => b.state === "FRESH")
+    .map((b) => ({ b, f: fit(b.tags, target) }))
+    .sort((a, z) => z.f - a.f);
+
+  const strengthOf = (pid: string, ids: string[]) => {
+    const p = game.players.find((x) => x.id === pid)!;
+    let s = 0;
+    for (const id of ids) {
+      const b = p.bourbons.find((x) => x.id === id);
+      if (b) s += fit(b.tags, target);
+    }
+    if (s > 0 && owner === pid) s += tile.defenseBonus;
+    return s;
+  };
+
+  const [sel, setSel] = useState<string[]>(fresh.filter((x) => x.f > 0).slice(0, cap).map((x) => x.b.id));
+  const [result, setResult] = useState<null | { winnerName: string | null; tie: boolean; you: number; defs: { name: string; idx: number; strength: number; lost: number }[]; youLost: number }>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const toggle = (id: string) =>
+    setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length < cap ? [...s, id] : s));
+
+  const myStrength = strengthOf(youId, sel);
+  const defenders = game.players.filter((p) => p.id !== youId && liveDPCount(game, tile.id, p.id) >= 1);
+
+  const reveal = () => {
+    const res = applyAction(game, { type: "PUSH", tileId: tile.id, bourbonIds: sel });
+    if (!res.ok) { setErr(res.reason); return; }
+    const after = res.state;
+    const removed: Record<string, number> = {};
+    for (const d of game.dps) if (!after.dps.some((x) => x.id === d.id)) removed[d.owner] = (removed[d.owner] ?? 0) + 1;
+    const defs = defenders.map((p) => {
+      const ap = after.players.find((q) => q.id === p.id)!;
+      const ids = p.bourbons.filter((b) => b.state === "FRESH" && ap.bourbons.find((x) => x.id === b.id)?.state === "DEPLETED").map((b) => b.id);
+      return { name: p.name, idx: idxOf(p.id), strength: strengthOf(p.id, ids), lost: removed[p.id] ?? 0 };
+    });
+    const line = [...after.log].reverse().find((l) => /Push at /.test(l.message))?.message ?? "";
+    const tie = /tie/.test(line);
+    const win = line.match(/: (.+?) wins/);
+    setResult({ winnerName: tie ? null : win?.[1] ?? null, tie, you: myStrength, defs, youLost: removed[youId] ?? 0 });
+  };
+
+  const youWon = result && !result.tie && result.winnerName === you.name;
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "#0b0805cc", zIndex: 30, display: "grid", placeItems: "center" }} onClick={onCancel}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 640, maxHeight: 900, background: `linear-gradient(${T.oak}, ${T.feltDeep})`, border: `2px solid ${T.gold}`, borderRadius: 16, padding: 22, boxShadow: "0 18px 60px #000a", color: T.cream }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+          <span style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 800, color: T.gold }}>Push — {tile.name}</span>
+          <button onClick={onCancel} style={{ background: "none", border: "none", color: T.faint, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 14 }}>
+          Commit up to <b>{cap}</b> FRESH bourbon{cap === 1 ? "" : "s"} (your LIVE DPs here){owner ? ` · owner defense +${tile.defenseBonus}` : ""}.
+        </div>
+
+        {!result ? (
+          <>
+            {/* your commitment */}
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1, color: T.faint, textTransform: "uppercase", marginBottom: 6 }}>Your bourbons — click to commit</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+              {fresh.length === 0 && <span style={{ fontSize: 13, color: T.faint }}>no FRESH bourbons — you can only retreat (strength 0)</span>}
+              {fresh.map(({ b, f }) => {
+                const on = sel.includes(b.id);
+                return (
+                  <button key={b.id} onClick={() => toggle(b.id)} style={{ textAlign: "left", background: on ? `${T.gold}2e` : T.panel, border: `2px solid ${on ? T.gold : T.border}`, borderRadius: 10, padding: "7px 11px", cursor: "pointer", color: T.cream, minWidth: 128 }}>
+                    <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 13 }}>{b.name}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: f > 0 ? T.gold : T.faint }}>fit {f}{on ? " · committed" : ""}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 800, color: T.gold, marginBottom: 14 }}>
+              Your strength: {myStrength} <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: T.muted }}>({sel.length}/{cap} committed)</span>
+            </div>
+
+            {/* who defends */}
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1, color: T.faint, textTransform: "uppercase", marginBottom: 6 }}>Defenders on this tile</div>
+            {defenders.length === 0 ? (
+              <div style={{ fontSize: 13, color: T.muted, marginBottom: 14 }}>none — an uncontested push.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
+                {defenders.map((p) => (
+                  <div key={p.id} style={{ fontSize: 13 }}>
+                    <b style={{ color: PC[idxOf(p.id)] }}>{p.name}</b>
+                    <span style={{ color: T.muted }}> — {liveDPCount(game, tile.id, p.id)} live DP{owner === p.id ? ` · owner (+${tile.defenseBonus} def)` : ""} · will field its best fresh bourbons</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {err && <div style={{ color: T.red, fontSize: 12.5, marginBottom: 10 }}>{err}</div>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={reveal} style={{ ...btn(C.green), fontSize: 15, padding: "10px 20px" }}>Reveal &amp; Push →</button>
+              <button onClick={onCancel} style={{ ...btn(C.faint), fontSize: 15, padding: "10px 20px" }}>Cancel</button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* the reveal */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16 }}>
+                <b style={{ color: T.gold }}>You</b>
+                <span style={{ fontFamily: SERIF, fontWeight: 800, fontSize: 20, color: T.gold }}>{result.you}{result.youLost ? <span style={{ fontFamily: MONO, fontSize: 12, color: T.red }}> · −{result.youLost} DP</span> : null}</span>
+              </div>
+              {result.defs.map((d) => (
+                <div key={d.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 16 }}>
+                  <b style={{ color: PC[d.idx] }}>{d.name}</b>
+                  <span style={{ fontFamily: SERIF, fontWeight: 800, fontSize: 20, color: PC[d.idx] }}>{d.strength}{d.lost ? <span style={{ fontFamily: MONO, fontSize: 12, color: T.red }}> · −{d.lost} DP</span> : null}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ textAlign: "center", fontFamily: SERIF, fontSize: 26, fontWeight: 800, color: result.tie ? T.muted : youWon ? "#6fae52" : T.red, marginBottom: 16 }}>
+              {result.tie ? "Tie — nothing changes" : youWon ? "You take the tile!" : `${result.winnerName} holds`}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 10.5, color: T.faint, textAlign: "center", marginBottom: 14 }}>All committed bourbons deplete.</div>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <button onClick={() => onCommit(sel)} style={{ ...btn(C.gold), fontSize: 15, padding: "10px 26px" }}>Continue</button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
