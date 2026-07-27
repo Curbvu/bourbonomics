@@ -458,6 +458,13 @@ export function autoAction(state: GameState): Action {
     return { type: "SETUP_PLACE_DP", tileId: state.tiles[0]!.id };
   }
 
+  // Cull (draw 6, keep 5): drop the lowest-pip card — the least actions.
+  if (state.stage === "cull") {
+    const worst = [...p.hand].sort((a, b) => a.pips - b.pips || a.id.localeCompare(b.id))[0];
+    if (worst) return { type: "CULL_CARD", cardId: worst.id };
+    return { type: "END_TURN" };
+  }
+
   // Planning: spend a token if it buys a useful action, then take it.
   if (state.stage === "planning") {
     if (p.pipsRemaining > 0) {

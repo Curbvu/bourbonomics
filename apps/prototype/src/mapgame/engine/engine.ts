@@ -8,7 +8,7 @@
 // initiative order. The initiative MARKER (last icon-card played) sets who leads
 // next round; sticky if none. Age end is delegated to ageLoop.ts.
 
-import { runAgeEnd } from "./ageLoop";
+import { beginPlanning, runAgeEnd } from "./ageLoop";
 import { CONFIG } from "./config";
 import { canAddFlag, canPlaceDP, neighborTiles, tileById, tileController } from "./derive";
 import { runDistilleryTrigger } from "./distilleries";
@@ -339,6 +339,8 @@ export function applyAction(state: GameState, action: Action): ActionResult {
       return setupDraftStage(draft, actor, action);
     case "setupDP":
       return setupDPStage(draft, actor, action);
+    case "cull":
+      return cullStage(draft, actor, action);
     case "planning":
       return planning(draft, actor, action);
     case "commit":
@@ -432,6 +434,33 @@ function setupDPStage(draft: GameState, actor: Player, action: Action): ActionRe
 
   draft.turnPos += 1;
   if (draft.turnPos >= draft.setupDraftSeq.length) finalizeSetup(draft);
+  return commit(draft);
+}
+
+// ── Cull (brief §4/§12: draw HAND_DRAW, keep HAND_SIZE) ──────────────
+/** Hop to the next player still holding more than HAND_SIZE cards. */
+function advanceCull(draft: GameState): boolean {
+  const n = draft.players.length;
+  for (let step = 1; step <= n; step++) {
+    const pos = (draft.turnPos + step) % n;
+    if (draft.players[draft.initiative[pos]!]!.hand.length > CONFIG.HAND_SIZE) {
+      draft.turnPos = pos;
+      return true;
+    }
+  }
+  return false; // everyone is down to HAND_SIZE
+}
+
+function cullStage(draft: GameState, actor: Player, action: Action): ActionResult {
+  if (action.type !== "CULL_CARD") return refuse("discard a card down to your keep-size now");
+  if (actor.hand.length <= CONFIG.HAND_SIZE) return refuse("your hand is already at keep-size");
+  const idx = actor.hand.findIndex((c) => c.id === action.cardId);
+  if (idx < 0) return refuse("that card is not in your hand");
+  const [culled] = actor.hand.splice(idx, 1);
+  draft.actionDeck.push(culled!); // discard back into the deck (brief §12)
+  log(draft, `${actor.name} keeps ${actor.hand.length}, discards one.`);
+
+  if (!advanceCull(draft)) beginPlanning(draft); // everyone culled → open round 1
   return commit(draft);
 }
 

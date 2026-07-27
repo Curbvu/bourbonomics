@@ -15,7 +15,8 @@ function game(n: number, seed = 7): GameState {
 function played(n: number, seed = 7): GameState {
   let s = game(n, seed);
   let guard = 0;
-  while (s.phase === "setup" && guard++ < 500) s = stepAuto(s);
+  // drive setup AND the age-1 cull stage, landing at round-1 planning
+  while ((s.phase === "setup" || s.stage === "cull") && guard++ < 600) s = stepAuto(s);
   return s;
 }
 const ok = (s: GameState, a: Parameters<typeof applyAction>[1]): GameState => {

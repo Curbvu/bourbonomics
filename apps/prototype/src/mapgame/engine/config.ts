@@ -11,7 +11,8 @@ export const CONFIG = {
   // — Structure —
   AGES: 5,
   ROUNDS_PER_AGE: 5,
-  HAND_SIZE: 5, // each age simply deals a fresh 5-card hand (no Trade / catch-up)
+  HAND_DRAW: 6, // brief §4/§12: each age start deals 6…
+  HAND_SIZE: 5, // …and the player culls down to this — keep 5, discard 1 to the deck
 
   // — Setup (brief §5) —
   SEED_LINE_TILES: 3, // the opening line — all reward-bearing (BONUS) tiles

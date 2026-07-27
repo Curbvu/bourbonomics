@@ -243,14 +243,15 @@ export function firstOpenDPTarget(draft: GameState, playerId: string): Tile | un
 }
 
 // ── Action hands ─────────────────────────────────────────────────────
-/** Fresh shuffled action deck, deal HAND_SIZE to each player. */
+/** Fresh shuffled action deck, deal HAND_DRAW to each player (they cull to
+ *  HAND_SIZE in the cull stage — brief §4/§12). */
 export function dealActionHands(draft: GameState): void {
   const [deck, s] = shuffle(buildActionDeck(), draft.rngSeed);
   draft.rngSeed = s;
   const drawPile = deck.slice();
   draft.actionDiscard = [];
   for (const p of draft.players) {
-    p.hand = drawPile.splice(0, CONFIG.HAND_SIZE);
+    p.hand = drawPile.splice(0, CONFIG.HAND_DRAW);
     p.committedFaceUp = [];
     p.committedSacrificed = [];
     p.surrendered = false;

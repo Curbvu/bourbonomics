@@ -69,6 +69,7 @@ const STAGE_LABEL: Record<GameState["stage"], string> = {
   setupPlace: "Place tiles",
   setupDraft: "Opening draft",
   setupDP: "Place DPs",
+  cull: "New hand",
   planning: "Planning",
   commit: "Commit",
   resolve: "Resolve",
@@ -1008,12 +1009,16 @@ function BourbonFan({ bourbons }: { bourbons: GameState["players"][number]["bour
 // Everything at the bottom of the play screen: the action pill (stage controls +
 // fanned action cards live inside the existing controls) and the bourbon fan.
 function PlayHandZone({ game, you, yourTurn, mode, setMode, dispatch }: { game: GameState; you: GameState["players"][number]; yourTurn: boolean; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void }) {
-  const committing = yourTurn && game.stage === "commit";
+  // Both the commit and cull stages show the full-size action-card row, so give
+  // them the taller/wider hand panel.
+  const bigHand = yourTurn && (game.stage === "commit" || game.stage === "cull");
   return (
-    <div style={{ position: "absolute", left: 172, right: 12, bottom: 0, height: committing ? 350 : 316, display: "flex", alignItems: "flex-end", gap: 18, padding: "0 14px 14px", zIndex: 4, pointerEvents: "none" }}>
-      <div style={{ pointerEvents: "auto", flex: 1, minWidth: 0, maxWidth: committing ? 1120 : 720, background: "linear-gradient(#fdfcf7, #efe9dc)", borderRadius: 14, padding: 12, border: `1px solid ${T.border}`, boxShadow: "0 8px 26px #0006", maxHeight: committing ? 334 : 240, overflow: "hidden" }}>
+    <div style={{ position: "absolute", left: 172, right: 12, bottom: 0, height: bigHand ? 350 : 316, display: "flex", alignItems: "flex-end", gap: 18, padding: "0 14px 14px", zIndex: 4, pointerEvents: "none" }}>
+      <div style={{ pointerEvents: "auto", flex: 1, minWidth: 0, maxWidth: bigHand ? 1120 : 720, background: "linear-gradient(#fdfcf7, #efe9dc)", borderRadius: 14, padding: 12, border: `1px solid ${T.border}`, boxShadow: "0 8px 26px #0006", maxHeight: bigHand ? 334 : 240, overflow: "hidden" }}>
         {!yourTurn ? (
           <div style={{ textAlign: "center", color: C.muted, fontSize: 15, padding: 20 }}>Rivals are acting…</div>
+        ) : game.stage === "cull" ? (
+          <CullControls you={you} dispatch={dispatch} />
         ) : game.stage === "commit" ? (
           <CommitControls you={you} dispatch={dispatch} />
         ) : (
@@ -1073,6 +1078,50 @@ function SetupDPControls({ game, you }: { game: GameState; you: GameState["playe
         {remaining === 1 ? "" : "s"} left to place.
       </p>
       <YourBourbons you={you} />
+    </div>
+  );
+}
+
+// Age start: draw HAND_DRAW, keep HAND_SIZE. Pick one card to discard (click to
+// select, then confirm) — the full-size row so you can read every card first.
+function CullControls({ you, dispatch }: { you: GameState["players"][number]; dispatch: (a: Action) => void }) {
+  const [pick, setPick] = useState<string | null>(null);
+  const toDrop = you.hand.length - CONFIG.HAND_SIZE;
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+        <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: T.goldSoft }}>Your new hand — keep {CONFIG.HAND_SIZE}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>{pick ? "discard the marked card, or pick another" : `pick ${toDrop} card${toDrop === 1 ? "" : "s"} to discard`}</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, minHeight: 188 }}>
+        {you.hand.map((c) => {
+          const marked = pick === c.id;
+          return (
+            <div
+              key={c.id}
+              className="bb-play-card"
+              style={{ position: "relative", borderRadius: 12, boxShadow: marked ? `0 0 0 3px ${T.red}, 0 6px 16px #0007` : "none", opacity: marked ? 0.85 : 1 }}
+            >
+              <HandCard card={c} selected={false} onClick={() => setPick((s) => (s === c.id ? null : c.id))} width={150} />
+              {marked && (
+                <div style={{ position: "absolute", top: 6, right: 6, fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, color: "#fff", background: T.red, borderRadius: 6, padding: "2px 6px", pointerEvents: "none" }}>
+                  DISCARD
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+        <button
+          disabled={!pick}
+          onClick={() => { if (pick) { dispatch({ type: "CULL_CARD", cardId: pick }); setPick(null); } }}
+          style={{ ...btn(T.red), opacity: pick ? 1 : 0.4 }}
+        >
+          Discard &amp; keep {CONFIG.HAND_SIZE}
+        </button>
+        <span style={{ fontFamily: SANS, fontSize: 10.5, color: T.faint }}>The discard goes back into the deck.</span>
+      </div>
     </div>
   );
 }

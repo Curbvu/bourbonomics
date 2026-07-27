@@ -168,15 +168,26 @@ export function runAgeEnd(draft: GameState, carryInitiative: number[]): void {
 
 /**
  * Age-start setup shared by age 1 (from createGame) and later ages (from
- * runAgeEnd): refresh the market, deal a fresh 5-card hand, and open round 1
- * planning directly — no Trade or catch-up. pendingInitiative holds the round-1
- * order. (The Trade + catch-up card-exchange phases were removed by request:
- * each age simply deals a new hand.)
+ * runAgeEnd): refresh the market and deal HAND_DRAW cards, then open the
+ * interactive CULL stage where each player discards down to HAND_SIZE (brief
+ * §4/§12 — draw 6, keep 5). Culling completes → beginPlanning opens round 1.
+ * pendingInitiative holds the round-1 order.
  */
 export function beginAgeStart(draft: GameState): void {
   runDistilleryTrigger(draft, "onAgeStart");
   refillMarket(draft, CONFIG.marketLots(draft.players.length));
   dealActionHands(draft);
+  draft.stage = "cull";
+  draft.initiative = draft.pendingInitiative.length ? draft.pendingInitiative : draft.players.map((_, i) => i);
+  draft.turnPos = 0;
+  log(draft, `Age ${draft.age}, round ${draft.round} — draw ${CONFIG.HAND_DRAW}, keep ${CONFIG.HAND_SIZE}.`);
+}
+
+/**
+ * The cull stage is done — every player is down to HAND_SIZE. Open round-1
+ * planning proper: reset the acting order and each player's pip/suit state.
+ */
+export function beginPlanning(draft: GameState): void {
   draft.stage = "planning";
   draft.initiative = draft.pendingInitiative.length ? draft.pendingInitiative : draft.players.map((_, i) => i);
   draft.turnPos = 0;
