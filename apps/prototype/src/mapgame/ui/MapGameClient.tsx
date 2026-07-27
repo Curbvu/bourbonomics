@@ -107,17 +107,41 @@ export default function MapGameClient() {
     }, delay);
   };
 
+  // Within-turn undo (§4): snapshots of the pre-action state, only while it's
+  // still your turn (a sub-action that never handed off to a bot). Cleared the
+  // moment the turn passes, so undo can never rewind across an opponent's move.
+  const [undoStack, setUndoStack] = useState<GameState[]>([]);
+  const onUndo = () => {
+    setUndoStack((s) => {
+      if (s.length === 0) return s;
+      setGame(s[s.length - 1]!);
+      return s.slice(0, -1);
+    });
+  };
+
   // Local play: apply the action, show it, then advance the bots. Returns an error
   // reason (Board flashes it) or null on success.
   const onAction = (action: Action): string | null => {
     if (!game) return "no game";
+    const before = game;
     const res = applyAction(game, action);
     if (!res.ok) return res.reason;
     if (res.state.phase === "setup") {
       setGame(res.state); // show your move immediately…
       stepSetupBots(res.state); // …then let the bots place, one at a time
+      setUndoStack([]);
     } else {
-      setGame(autoAdvance(res.state)); // in play, resolve bots instantly
+      const advanced = autoAdvance(res.state); // in play, resolve bots instantly
+      // Keep an undo point only if this was a reversible sub-action that left it
+      // your turn (no bot acted) — so a misclick during resolve/planning is safe.
+      const stillYours =
+        advanced.phase === "playing" &&
+        (advanced.stage === "resolve" || advanced.stage === "planning") &&
+        currentActorOf(advanced).id === HUMAN &&
+        action.type !== "END_TURN" &&
+        action.type !== "COMMIT_PLAY";
+      setUndoStack((s) => (stillYours ? [...s, before] : []));
+      setGame(advanced);
     }
     return null;
   };
@@ -136,7 +160,7 @@ export default function MapGameClient() {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: C.bg }}>
       <ScalingHost>
         {game ? (
-          <Board game={game} onAction={onAction} onNew={() => { stopBots(); setGame(null); }} onManual={() => setManual(true)} />
+          <Board game={game} onAction={onAction} onUndo={onUndo} canUndo={undoStack.length > 0} onNew={() => { stopBots(); setUndoStack([]); setGame(null); }} onManual={() => setManual(true)} />
         ) : (
           <Setup onStart={startGame} onManual={() => setManual(true)} />
         )}
@@ -197,6 +221,8 @@ type Mode = ActionType | "CLAIM_SLOT" | null;
 export function Board({
   game,
   onAction,
+  onUndo,
+  canUndo = false,
   onNew,
   onManual,
   youId = HUMAN,
@@ -204,6 +230,8 @@ export function Board({
 }: {
   game: GameState;
   onAction: (a: Action) => string | null;
+  onUndo?: () => void;
+  canUndo?: boolean;
   onNew: () => void;
   onManual: () => void;
   youId?: string;
@@ -364,7 +392,7 @@ export function Board({
         </div>
 
         {playing && <UpForBidShelf game={game} you={you} yourTurn={yourTurn} dispatch={dispatch} />}
-        {playing && <PlayHandZone game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} />}
+        {playing && <PlayHandZone game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} onUndo={onUndo} canUndo={canUndo} />}
 
         {showTray && (
           <SetupTray tiles={you.setupTiles} selected={sel} onSelect={setSelTile} yourTurn={yourTurn} />
@@ -1384,7 +1412,7 @@ function BourbonFan({ bourbons }: { bourbons: GameState["players"][number]["bour
 
 // Everything at the bottom of the play screen: the action pill (stage controls +
 // fanned action cards live inside the existing controls) and the bourbon fan.
-function PlayHandZone({ game, you, yourTurn, mode, setMode, dispatch }: { game: GameState; you: GameState["players"][number]; yourTurn: boolean; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void }) {
+function PlayHandZone({ game, you, yourTurn, mode, setMode, dispatch, onUndo, canUndo }: { game: GameState; you: GameState["players"][number]; yourTurn: boolean; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void; onUndo?: () => void; canUndo?: boolean }) {
   // Both the commit and cull stages show the full-size action-card row, so give
   // them the taller/wider hand panel.
   const bigHand = yourTurn && (game.stage === "commit" || game.stage === "cull");
@@ -1398,7 +1426,7 @@ function PlayHandZone({ game, you, yourTurn, mode, setMode, dispatch }: { game: 
         ) : game.stage === "commit" ? (
           <CommitControls you={you} dispatch={dispatch} />
         ) : (
-          <ActControls game={game} you={you} mode={mode} setMode={setMode} dispatch={dispatch} />
+          <ActControls game={game} you={you} mode={mode} setMode={setMode} dispatch={dispatch} onUndo={onUndo} canUndo={canUndo} />
         )}
       </div>
       <div style={{ pointerEvents: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
@@ -1554,7 +1582,7 @@ function CommitControls({ you, dispatch }: { you: GameState["players"][number]; 
   );
 }
 
-function ActControls({ game, you, mode, setMode, dispatch }: { game: GameState; you: GameState["players"][number]; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void }) {
+function ActControls({ game, you, mode, setMode, dispatch, onUndo, canUndo }: { game: GameState; you: GameState["players"][number]; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void; onUndo?: () => void; canUndo?: boolean }) {
   const allowed = new Set<ActionType>();
   for (const s of you.allowedSuits) for (const a of SUIT_ACTIONS[s]) allowed.add(a);
   const hasDarkDP = game.dps.some((d) => d.owner === you.id && d.state === "DARK");
@@ -1572,11 +1600,29 @@ function ActControls({ game, you, mode, setMode, dispatch }: { game: GameState; 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 14, color: C.muted }}>
-          {game.stage === "planning" ? "Planning — spend tokens, then commit" : `${you.pipsRemaining} pips left`}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 14, color: C.muted, display: "flex", alignItems: "center", gap: 8 }}>
+          {game.stage === "planning" ? (
+            "Planning — spend tokens, then commit"
+          ) : (
+            <>
+              {/* pip budget: filled = actions you can still spend this turn */}
+              <span style={{ display: "inline-flex", gap: 3 }}>
+                {Array.from({ length: Math.max(you.pipsRemaining, 0) }).map((_, i) => (
+                  <span key={i} style={{ width: 11, height: 11, borderRadius: 3, background: C.gold, boxShadow: "inset 0 0 0 1.5px #ffffff99" }} />
+                ))}
+                {you.pipsRemaining === 0 && <span style={{ width: 11, height: 11, borderRadius: 3, border: `1.5px solid ${C.border}` }} />}
+              </span>
+              <b style={{ color: C.text }}>{you.pipsRemaining}</b> action{you.pipsRemaining === 1 ? "" : "s"} left
+            </>
+          )}
           {played ? ` · ${played}` : ""}
         </span>
+        {game.stage === "resolve" && onUndo && (
+          <button onClick={onUndo} disabled={!canUndo} title="Undo your last action this turn" style={{ ...btn(C.border), opacity: canUndo ? 1 : 0.4, padding: "5px 12px" }}>
+            ↶ Undo
+          </button>
+        )}
       </div>
 
       {game.stage === "planning" && (
