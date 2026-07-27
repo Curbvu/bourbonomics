@@ -28,6 +28,7 @@ import {
   stepAuto,
   tagColor,
   tileController,
+  tileOwner,
 } from "../engine";
 import type { Action, ActionType, GameState, Suit, Tag, Tile, TokenType } from "../engine";
 import { SUIT_ACTIONS } from "../engine";
@@ -210,6 +211,8 @@ export function Board({
 }) {
   const [mode, setMode] = useState<Mode>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // The tile currently pinned in the inspector (§3). Read-only info + fit + acts.
+  const [inspectId, setInspectId] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flash = (m: string) => {
@@ -272,22 +275,32 @@ export function Board({
     if (err) flash(err);
   }
 
-  function clickTile(tile: Tile) {
-    if (!yourTurn || tile.category === "BLOCKING") return;
+  // Try to perform the active action-mode on a tile. Returns true if it acted.
+  function tryActOnTile(tile: Tile): boolean {
+    if (!yourTurn || tile.category === "BLOCKING") return false;
     // Starting-DP step: click a tile to plant a LIVE DP on it (setup-exempt).
-    if (game.stage === "setupDP") return dispatch({ type: "SETUP_PLACE_DP", tileId: tile.id });
+    if (game.stage === "setupDP") { dispatch({ type: "SETUP_PLACE_DP", tileId: tile.id }); return true; }
     if (game.stage === "resolve" || game.stage === "planning") {
       if (mode === "BUILD_DP") {
         // One DP action: a DARK DP of yours here → revive it; otherwise place a new one.
         const dark = game.dps.find((d) => d.tileId === tile.id && d.owner === youId && d.state === "DARK");
-        if (dark) return dispatch({ type: "REPAIR_DP", dpId: dark.id });
-        return dispatch({ type: "BUILD_DP", tileId: tile.id });
+        dispatch(dark ? { type: "REPAIR_DP", dpId: dark.id } : { type: "BUILD_DP", tileId: tile.id });
+        return true;
       }
-      if (mode === "ADD_NICHE_FLAG") return dispatch({ type: "ADD_NICHE_FLAG", tileId: tile.id });
-      if (mode === "REMOVE_NICHE_FLAG") return dispatch({ type: "REMOVE_NICHE_FLAG", tileId: tile.id });
-      if (mode === "PUSH") return push(tile);
-      if (mode === "CLAIM_SLOT") return dispatch({ type: "CLAIM_SLOT", tileId: tile.id, tag: preferredGrain(you) });
+      if (mode === "ADD_NICHE_FLAG") { dispatch({ type: "ADD_NICHE_FLAG", tileId: tile.id }); return true; }
+      if (mode === "REMOVE_NICHE_FLAG") { dispatch({ type: "REMOVE_NICHE_FLAG", tileId: tile.id }); return true; }
+      if (mode === "PUSH") { push(tile); return true; }
+      if (mode === "CLAIM_SLOT") { dispatch({ type: "CLAIM_SLOT", tileId: tile.id, tag: preferredGrain(you) }); return true; }
     }
+    return false;
+  }
+
+  // A click either takes the active action on the tile, or (no action pending)
+  // pins it in the inspector (§3). Inspection works any time — even on a rival's
+  // turn — since it is read-only.
+  function clickTile(tile: Tile) {
+    if (tryActOnTile(tile)) return;
+    setInspectId((cur) => (cur === tile.id ? null : tile.id));
   }
 
   function placeSetupTile(hex: { q: number; r: number }) {
@@ -345,7 +358,7 @@ export function Board({
           onWheel={(e) => { if (e.deltaY !== 0) zoomBy(e.deltaY < 0 ? 0.12 : -0.12); }}
           style={{ position: "absolute", top: 0, left: playing ? 172 : 0, right: 0, bottom: showTray ? 186 : playing ? 312 : 0 }}
         >
-          <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} newTiles={newTiles} tilt={!inSetup} zoom={zoom} />
+          <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} newTiles={newTiles} tilt={!inSetup} zoom={zoom} selectedId={inspectId} />
           {/* zoom controls */}
           <div style={{ position: "absolute", top: 14, right: 16, display: "flex", flexDirection: "column", gap: 5, zIndex: 3 }}>
             <ZoomBtn label="+" onClick={() => zoomBy(0.15)} />
@@ -368,7 +381,7 @@ export function Board({
         )}
         {inSetup && helpOpen && <SetupHelpOverlay activeStage={game.stage} onClose={() => setHelpOpen(false)} />}
       </div>
-      <Rail game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} onNew={onNew} onManual={onManual} />
+      <Rail game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} onNew={onNew} onManual={onManual} youId={youId} inspect={inspectId ? game.tiles.find((t) => t.id === inspectId) ?? null : null} onCloseInspect={() => setInspectId(null)} onPush={push} />
     </div>
   );
 }
@@ -520,7 +533,7 @@ function hexCorners(cx: number, cy: number, size: number): [number, number][] {
   return pts;
 }
 
-function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = false, newTiles, tilt = false, zoom = 1 }: { game: GameState; mode: Mode; onClick: (t: Tile) => void; candidates?: { q: number; r: number }[]; onPlace?: (h: { q: number; r: number }) => void; draftable?: boolean; newTiles?: Map<string, { dir: "you" | "rival"; color: string }>; tilt?: boolean; zoom?: number }) {
+function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = false, newTiles, tilt = false, zoom = 1, selectedId }: { game: GameState; mode: Mode; onClick: (t: Tile) => void; candidates?: { q: number; r: number }[]; onPlace?: (h: { q: number; r: number }) => void; draftable?: boolean; newTiles?: Map<string, { dir: "you" | "rival"; color: string }>; tilt?: boolean; zoom?: number; selectedId?: string | null }) {
   const layout = useMemo(() => {
     const pts = game.tiles.map((t) => ({ t, ...axialToPixel(t.hex, HEX) }));
     const cand = candidates.map((h) => ({ h, ...axialToPixel(h, HEX) }));
@@ -579,7 +592,7 @@ function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = fal
         </g>
       ))}
         {layout.pts.map(({ t, x, y }) => (
-          <TileHex key={t.id} game={game} t={t} x={x} y={y} idxOf={idxOf} clickable={(mode !== null || draftable) && t.category !== "BLOCKING"} onClick={() => onClick(t)} fx={newTiles?.get(t.id)} />
+          <TileHex key={t.id} game={game} t={t} x={x} y={y} idxOf={idxOf} clickable actionable={(mode !== null || draftable) && t.category !== "BLOCKING"} selected={t.id === selectedId} onClick={() => onClick(t)} fx={newTiles?.get(t.id)} />
         ))}
       </svg>
     </div>
@@ -600,7 +613,7 @@ function nameLines(name: string): string[] {
   return best[1];
 }
 
-function TileHex({ game, t, x, y, idxOf, clickable, onClick, fx }: { game: GameState; t: Tile; x: number; y: number; idxOf: (p: string) => number; clickable: boolean; onClick: () => void; fx?: { dir: "you" | "rival"; color: string } }) {
+function TileHex({ game, t, x, y, idxOf, clickable, actionable = false, selected = false, onClick, fx }: { game: GameState; t: Tile; x: number; y: number; idxOf: (p: string) => number; clickable: boolean; actionable?: boolean; selected?: boolean; onClick: () => void; fx?: { dir: "you" | "rival"; color: string } }) {
   const isNew = fx != null;
   const ctrl = tileController(game, t.id);
   const ctrlIdx = ctrl ? idxOf(ctrl) : -1;
@@ -689,6 +702,15 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick, fx }: { game: GameS
           )}
         </>
       )}
+      {/* actionable hint (a mode targets this tile) and the inspector selection ring */}
+      {actionable && !selected && (
+        <polygon points={hexPolygonPoints(x, y, HEX - 2)} fill="none" stroke={T.green} strokeWidth={2} strokeDasharray="6 5" opacity={0.75} pointerEvents="none" />
+      )}
+      {selected && (
+        <polygon points={hexPolygonPoints(x, y, HEX + 2.5)} fill="none" stroke={T.gold} strokeWidth={3.5} pointerEvents="none">
+          <animate attributeName="stroke-opacity" values="1;0.35;1" dur="1.4s" repeatCount="indefinite" />
+        </polygon>
+      )}
     </g>
   );
 }
@@ -760,6 +782,10 @@ function Rail({
   dispatch,
   onNew,
   onManual,
+  youId,
+  inspect,
+  onCloseInspect,
+  onPush,
 }: {
   game: GameState;
   you: GameState["players"][number];
@@ -769,6 +795,10 @@ function Rail({
   dispatch: (a: Action) => void;
   onNew: () => void;
   onManual: () => void;
+  youId: string;
+  inspect: Tile | null;
+  onCloseInspect: () => void;
+  onPush: (t: Tile) => void;
 }) {
   return (
     <div style={{ width: 600, height: 1080, background: `linear-gradient(${T.rail}, ${T.feltDeep})`, borderLeft: `3px solid ${T.border}`, boxShadow: `inset 4px 0 0 ${T.gold}44`, display: "flex", flexDirection: "column", padding: 18, gap: 12, boxSizing: "border-box" }}>
@@ -793,11 +823,150 @@ function Rail({
       {/* the market shows in the rail during the opening draft; in play it moves
           to the board's "Up for Bid" shelf. */}
       {game.phase === "setup" && <Market game={game} you={you} yourTurn={yourTurn} dispatch={dispatch} />}
+      {inspect && (
+        <TileInspector game={game} tile={inspect} youId={youId} yourTurn={yourTurn} dispatch={dispatch} onPush={onPush} onClose={onCloseInspect} />
+      )}
       <div style={{ flex: 1 }} />
       {/* bourbons + play controls live on the board pane now; the rail keeps the
           play controls only during setup / game over. */}
       {game.phase !== "playing" && <Controls game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} />}
       <Log game={game} />
+    </div>
+  );
+}
+
+/** A tile's effective demand tags for fit (a declared wildcard tag overrides). */
+function tileTargetTags(t: Tile): Tag[] {
+  return t.wildcardTag ? [t.wildcardTag] : t.tags;
+}
+
+// §3 — the tile inspector. Surfaces everything the tabletop makes you compute:
+// control, per-player DP breakdown, niche flags, YOUR bourbons ranked by fit,
+// and the actions you can take on this tile right now.
+function TileInspector({ game, tile, youId, yourTurn, dispatch, onPush, onClose }: {
+  game: GameState;
+  tile: Tile;
+  youId: string;
+  yourTurn: boolean;
+  dispatch: (a: Action) => void;
+  onPush: (t: Tile) => void;
+  onClose: () => void;
+}) {
+  const idxOf = (pid: string) => game.players.findIndex((p) => p.id === pid);
+  const you = game.players.find((p) => p.id === youId)!;
+  const isBlock = tile.category === "BLOCKING";
+  const isWild = tile.category === "LOYALTY" || tile.category === "KEYSTONE";
+  const ctrl = tileController(game, tile.id);
+  const owner = tileOwner(game, tile.id);
+  const target = tileTargetTags(tile);
+
+  const dpByPlayer = game.players
+    .map((p) => ({
+      p,
+      live: game.dps.filter((d) => d.tileId === tile.id && d.owner === p.id && d.state === "LIVE").length,
+      dark: game.dps.filter((d) => d.tileId === tile.id && d.owner === p.id && d.state === "DARK").length,
+    }))
+    .filter((x) => x.live + x.dark > 0);
+
+  const flaggers = game.players.filter((p) => game.nicheFlags.some((f) => f.tileId === tile.id && f.owner === p.id));
+
+  const ranked = isBlock
+    ? []
+    : [...you.bourbons]
+        .map((b) => ({ b, f: fit(b.tags, target) }))
+        .sort((a, z) => Number(z.b.state === "FRESH") - Number(a.b.state === "FRESH") || z.f - a.f);
+
+  const allowed = new Set<ActionType>();
+  if (yourTurn) for (const s of you.allowedSuits) for (const a of SUIT_ACTIONS[s]) allowed.add(a);
+  const canSpend = yourTurn && you.pipsRemaining > 0 && (game.stage === "resolve" || game.stage === "planning") && !isBlock;
+  const myDark = game.dps.find((d) => d.tileId === tile.id && d.owner === youId && d.state === "DARK");
+  const myLive = liveDPCount(game, tile.id, youId);
+  const freshFit = ranked.filter((r) => r.b.state === "FRESH" && r.f > 0).length;
+  const slotOpen = tile.ownershipSlot && !tile.ownerSlotDP;
+  const acts = !canSpend
+    ? []
+    : ([
+        { label: myDark ? "Repair DP" : "Build DP", on: allowed.has("BUILD_DP") || allowed.has("REPAIR_DP"), run: () => (myDark ? dispatch({ type: "REPAIR_DP", dpId: myDark.id }) : dispatch({ type: "BUILD_DP", tileId: tile.id })) },
+        { label: "Push", on: allowed.has("PUSH") && myLive > 0 && freshFit > 0, run: () => onPush(tile) },
+        { label: "Add flag", on: allowed.has("ADD_NICHE_FLAG"), run: () => dispatch({ type: "ADD_NICHE_FLAG", tileId: tile.id }) },
+        { label: "Remove flag", on: allowed.has("REMOVE_NICHE_FLAG") && game.nicheFlags.some((f) => f.tileId === tile.id && f.owner === youId), run: () => dispatch({ type: "REMOVE_NICHE_FLAG", tileId: tile.id }) },
+        { label: "Claim slot", on: allowed.has("BUILD_DP") && !!slotOpen, run: () => dispatch({ type: "CLAIM_SLOT", tileId: tile.id, tag: preferredGrain(you) }) },
+      ].filter((a) => a.on) as { label: string; run: () => void }[]);
+
+  const dot = (i: number) => <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: PC[i]!, marginRight: 5 }} />;
+  const sub = { fontFamily: MONO, fontSize: 9, letterSpacing: 1, color: T.faint, textTransform: "uppercase" as const, marginBottom: 3 };
+
+  return (
+    <div style={{ background: T.panel, border: `1px solid ${T.gold}66`, borderRadius: 12, padding: 12, boxShadow: "0 4px 14px #0004" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 800, color: T.cream }}>{tile.name}</span>
+        <button onClick={onClose} title="Close" style={{ background: "none", border: "none", color: T.faint, fontSize: 18, cursor: "pointer", lineHeight: 1 }}>×</button>
+      </div>
+      <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: 1, color: T.faint, textTransform: "uppercase", marginBottom: 8 }}>
+        {tile.category.replace(/_/g, " ").toLowerCase()}{isBlock ? " · terrain" : ""}
+      </div>
+
+      {isBlock ? (
+        <div style={{ fontSize: 12.5, color: T.muted }}>Blocking terrain — holds no DPs and breaks adjacency chains.</div>
+      ) : (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 9 }}>
+            {(isWild ? ([tile.wildcardTag].filter(Boolean) as Tag[]) : tile.tags).map((tg, i) => (
+              <span key={i} style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 12, color: "#fff", background: tagColor(tg), borderRadius: 5, padding: "2px 7px" }}>{tagGlyph(tg)}</span>
+            ))}
+            {isWild && tile.tags.length === 0 && !tile.wildcardTag && <span style={{ fontFamily: MONO, fontSize: 9, color: T.muted }}>owner declares tag</span>}
+            {tile.reward && <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: rewardColor(tile.reward), border: `1px solid ${rewardColor(tile.reward)}66`, borderRadius: 999, padding: "2px 8px" }}>{rewardLabel(tile.reward)}</span>}
+            {tile.defenseBonus > 0 && <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: "#e08b7f" }}>DEF +{tile.defenseBonus}</span>}
+          </div>
+
+          <div style={{ display: "flex", gap: 16, fontSize: 12.5, marginBottom: 9 }}>
+            <span style={{ color: T.muted }}>Controlled by {ctrl ? <b style={{ color: PC[idxOf(ctrl)] }}>{game.players[idxOf(ctrl)]!.name}</b> : <span style={{ color: T.faint }}>nobody</span>}</span>
+            {tile.ownershipSlot && <span style={{ color: T.muted }}>Owner {owner ? <b style={{ color: PC[idxOf(owner)] }}>{game.players[idxOf(owner)]!.name}</b> : <span style={{ color: T.faint }}>unclaimed</span>}</span>}
+          </div>
+
+          <div style={{ marginBottom: 9 }}>
+            <div style={sub}>Distribution points</div>
+            {dpByPlayer.length === 0 ? (
+              <span style={{ fontSize: 12, color: T.faint }}>none yet</span>
+            ) : (
+              dpByPlayer.map(({ p, live, dark }) => (
+                <div key={p.id} style={{ fontSize: 12.5 }}>{dot(idxOf(p.id))}<b style={{ color: PC[idxOf(p.id)] }}>{p.name}</b> <span style={{ color: T.muted }}>{live} live{dark ? ` · ${dark} dark` : ""}</span></div>
+              ))
+            )}
+          </div>
+
+          {flaggers.length > 0 && (
+            <div style={{ marginBottom: 9, fontSize: 12.5 }}>
+              <span style={sub}>Claimed by </span>
+              {flaggers.map((p, i) => <span key={p.id}>{i ? ", " : ""}<b style={{ color: PC[idxOf(p.id)] }}>{p.name}</b></span>)}
+            </div>
+          )}
+
+          <div>
+            <div style={sub}>Your bourbons · fit here</div>
+            {ranked.length === 0 ? (
+              <span style={{ fontSize: 12, color: T.faint }}>no bourbons yet</span>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {ranked.slice(0, 6).map(({ b, f }) => (
+                  <div key={b.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, opacity: b.state === "FRESH" ? 1 : 0.45 }}>
+                    <span style={{ color: b.state === "FRESH" ? T.cream : T.muted }}>{b.name}{b.state !== "FRESH" ? " · depleted" : ""}</span>
+                    <b style={{ color: f > 0 ? T.gold : T.faint, fontFamily: MONO }}>fit {f}</b>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {acts.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, borderTop: `1px solid ${T.line}`, paddingTop: 8, marginTop: 9 }}>
+          {acts.map((a) => (
+            <button key={a.label} onClick={a.run} style={btn(C.green)}>{a.label}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
