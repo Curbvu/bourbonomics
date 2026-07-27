@@ -543,7 +543,8 @@ function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = fal
     const minY = Math.min(...ys) - HEX * 1.6;
     const w = Math.max(...xs) - minX + HEX * 1.6;
     const h = Math.max(...ys) - minY + HEX * 1.6;
-    return { pts, cand, minX, minY, w, h };
+    const posOf = new Map(pts.map(({ t, x, y }) => [t.id, { x, y }]));
+    return { pts, cand, minX, minY, w, h, posOf };
   }, [game.tiles, candidates]);
 
   const idxOf = (pid: string) => game.players.findIndex((p) => p.id === pid);
@@ -594,6 +595,7 @@ function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = fal
         {layout.pts.map(({ t, x, y }) => (
           <TileHex key={t.id} game={game} t={t} x={x} y={y} idxOf={idxOf} clickable actionable={(mode !== null || draftable) && t.category !== "BLOCKING"} selected={t.id === selectedId} onClick={() => onClick(t)} fx={newTiles?.get(t.id)} />
         ))}
+        <NicheGroups game={game} pos={layout.posOf} />
       </svg>
     </div>
   );
@@ -713,6 +715,64 @@ function TileHex({ game, t, x, y, idxOf, clickable, actionable = false, selected
       )}
     </g>
   );
+}
+
+// §2.3 — draw each player's contiguous claim clusters as a colored outline:
+// dashed while building (< NICHE_MIN tiles), solid once it's a niche. For a
+// formed niche, flag tier-2 all-or-nothing status — a "n/m" or "✓" badge and a
+// "!" warning on every niche tile the owner does NOT control (the tile denying
+// the whole bonus). Clusters stagger by player so overlaps stay readable.
+function NicheGroups({ game, pos }: { game: GameState; pos: Map<string, { x: number; y: number }> }) {
+  const out: React.ReactNode[] = [];
+  game.players.forEach((p, pi) => {
+    const col = PC[pi]!;
+    derivedNiches(game, p.id).forEach((n, ci) => {
+      if (n.tileIds.length < 2) return; // a lone flag isn't a group worth outlining
+      const formed = n.tileIds.length >= CONFIG.NICHE_MIN_TILES;
+      const ringR = HEX + 3 + pi * 2.5;
+      for (const tid of n.tileIds) {
+        const q = pos.get(tid);
+        if (!q) continue;
+        out.push(
+          <polygon
+            key={`ng-${p.id}-${ci}-${tid}`}
+            points={hexPolygonPoints(q.x, q.y, ringR)}
+            fill="none"
+            stroke={col}
+            strokeWidth={formed ? 3 : 2}
+            strokeDasharray={formed ? undefined : "7 6"}
+            strokeLinejoin="round"
+            opacity={0.9}
+            pointerEvents="none"
+          />,
+        );
+        if (formed && tileController(game, tid) !== p.id) {
+          out.push(
+            <g key={`ngw-${p.id}-${ci}-${tid}`} transform={`translate(${q.x - HEX * 0.52} ${q.y - HEX * 0.52})`} pointerEvents="none">
+              <circle r={8.5} fill="#d39a1e" stroke="#fff" strokeWidth={1.3} />
+              <text y={3.2} textAnchor="middle" fontFamily={MONO} fontWeight={800} fontSize={12} fill="#3a2600">!</text>
+            </g>,
+          );
+        }
+      }
+      if (formed) {
+        const first = pos.get(n.tileIds[0]!);
+        if (first) {
+          const held = nicheControlledCount(game, n);
+          const all = held === n.tileIds.length;
+          out.push(
+            <g key={`ngb-${p.id}-${ci}`} transform={`translate(${first.x} ${first.y - HEX - 7})`} pointerEvents="none">
+              <rect x={-24} y={-9} width={48} height={17} rx={8} fill={all ? "#3f6d34" : "#7a531c"} stroke={col} strokeWidth={1.3} />
+              <text y={3.4} textAnchor="middle" fontFamily={MONO} fontWeight={700} fontSize={8.5} letterSpacing={0.3} fill="#fff">
+                {all ? "NICHE ✓" : `${held}/${n.tileIds.length}`}
+              </text>
+            </g>,
+          );
+        }
+      }
+    });
+  });
+  return <>{out}</>;
 }
 
 // Wildcard tiles carry no shelf slot / star — the owner reads from their seated
