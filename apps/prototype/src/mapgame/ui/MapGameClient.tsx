@@ -154,31 +154,36 @@ function Setup({ onStart, onManual }: { onStart: (n: number) => void; onManual: 
   return (
     <div style={{ width: 1920, height: 1080, background: "radial-gradient(125% 95% at 42% 34%, #f8f6ef 0%, #ece7db 52%, #dbd6c8 100%)", boxShadow: "inset 0 0 160px 12px #8a806a26", color: C.text, fontFamily: SANS, display: "grid", placeItems: "center" }}>
       <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.22, mixBlendMode: "multiply", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E\")" }} />
-      <div style={{ textAlign: "center", position: "relative" }}>
-        <div style={{ fontFamily: MONO, fontSize: 14, letterSpacing: 6, color: T.goldSoft, textTransform: "uppercase", marginBottom: 6 }}>The Territory Game</div>
-        <div style={{ fontFamily: SERIF, fontSize: 96, fontWeight: 800, letterSpacing: -2, color: "#8f6510", lineHeight: 0.95, textShadow: "0 2px 10px #c8961f2e" }}>Bourbonomics</div>
-        <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 22, color: T.muted, marginTop: 10, marginBottom: 8 }}>A game of demand, distribution &amp; the angel&apos;s share.</div>
-        <div style={{ fontSize: 16, color: C.faint, marginBottom: 46 }}>Serve the market — build, flag, and Push for the tiles that pay. Most Capital after 5 ages wins.</div>
+      <div style={{ textAlign: "center", position: "relative", maxWidth: 760 }}>
+        {/* This is the game's setup step, not a second landing — keep the brand a
+            quiet wordmark and make the player-count choice the hero. */}
+        <a href="/" style={{ position: "absolute", top: -70, left: 0, fontFamily: MONO, fontSize: 13, letterSpacing: 1, color: T.goldSoft, textDecoration: "none" }}>← Menu</a>
+        <div style={{ fontFamily: MONO, fontSize: 13, letterSpacing: 5, color: T.goldSoft, textTransform: "uppercase", marginBottom: 10 }}>Bourbonomics · New game</div>
+        <div style={{ fontFamily: SERIF, fontSize: 52, fontWeight: 800, letterSpacing: -1, color: "#8f6510", lineHeight: 1 }}>How many at the table?</div>
+        <div style={{ fontSize: 17, color: C.muted, marginTop: 12, marginBottom: 44 }}>
+          You play as <B>gold</B> — strategic bots fill the other seats. Most Capital after 5 ages wins.
+        </div>
         <div style={{ display: "flex", gap: 18, justifyContent: "center" }}>
           {[2, 3, 4, 5].map((n) => (
             <button
               key={n}
               onClick={() => onStart(n)}
-              style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 700, padding: "20px 44px", background: "linear-gradient(#fffdf7, #f1e7cf)", color: T.ink, border: `1px solid ${T.gold}`, borderRadius: 14, cursor: "pointer", boxShadow: "0 4px 12px #7a5f2a2e" }}
+              style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 700, padding: "22px 46px", background: "linear-gradient(#fffdf7, #f1e7cf)", color: T.ink, border: `1px solid ${T.gold}`, borderRadius: 14, cursor: "pointer", boxShadow: "0 4px 12px #7a5f2a2e" }}
             >
               {n} <span style={{ fontFamily: MONO, fontSize: 13, color: T.muted }}>PLAYERS</span>
             </button>
           ))}
         </div>
-        <div style={{ marginTop: 34 }}>
+        <div style={{ marginTop: 30, fontSize: 15 }}>
+          New here?{" "}
           <button
             onClick={onManual}
-            style={{ fontSize: 16, fontWeight: 600, padding: "12px 28px", background: "transparent", color: C.gold, border: `1px solid ${C.gold}`, borderRadius: 12, cursor: "pointer" }}
+            style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, background: "none", border: "none", color: C.gold, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, padding: 0 }}
           >
-            📖 The Distiller&apos;s Field Guide
-          </button>
+            📖 Read the Field Guide
+          </button>{" "}
+          first.
         </div>
-        <div style={{ fontSize: 15, color: C.faint, marginTop: 26 }}>You are player 1 (gold). The rest are bots.</div>
       </div>
     </div>
   );

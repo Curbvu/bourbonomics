@@ -21,7 +21,8 @@ type Tile = {
 export default function HomeMenu() {
   const [manual, setManual] = useState(false);
 
-  const tiles: Tile[] = [
+  // Two ways to PLAY (primary), then a secondary shelf to LEARN the game.
+  const playTiles: Tile[] = [
     {
       eyebrow: "Single player · vs bots",
       title: "Play Bourbonomics",
@@ -38,18 +39,19 @@ export default function HomeMenu() {
       accent: "#4a8a72",
       href: "/online",
     },
+  ];
+  const learnTiles: Tile[] = [
     {
-      eyebrow: "Player aid",
-      title: "The Distiller's Field Guide",
-      subtitle:
-        "The illustrated manual — every action, tile, and the Push, laid out slot-for-slot. Read before your first game.",
+      eyebrow: "Start here",
+      title: "How to Play",
+      subtitle: "Illustrated field guide — every action, tile, and the Push.",
       accent: T.copper,
       onClick: () => setManual(true),
     },
     {
       eyebrow: "Reference",
       title: "The Rulebook",
-      subtitle: "The full written rules — the round, the market, combat, and scoring.",
+      subtitle: "The full written rules — round, market, combat, scoring.",
       accent: "#7a8c3a",
       href: "/rules",
     },
@@ -59,13 +61,6 @@ export default function HomeMenu() {
       subtitle: "Browse every bourbon, tile, and reward token in the box.",
       accent: "#3a6a8b",
       href: "/wiki",
-    },
-    {
-      eyebrow: "Archive · v1",
-      title: "The Classic Deckbuilder",
-      subtitle: "The original Bourbonomics prototype — drafting, aging, and the demand market.",
-      accent: "#8a5a2b",
-      href: "/play",
     },
   ];
 
@@ -112,9 +107,21 @@ export default function HomeMenu() {
       </header>
 
       <nav style={{ position: "relative", zIndex: 2, width: "100%", maxWidth: 660, display: "flex", flexDirection: "column", gap: 12 }}>
-        {tiles.map((t, i) => (
+        {playTiles.map((t, i) => (
           <MenuTile key={t.title} tile={t} primary={i === 0} />
         ))}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "18px 2px 4px" }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 2.5, color: T.faint, textTransform: "uppercase" }}>
+            Learn &amp; reference
+          </span>
+          <span style={{ flex: 1, height: 1, background: "#ffffff1a" }} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          {learnTiles.map((t) => (
+            <MenuTile key={t.title} tile={t} compact />
+          ))}
+        </div>
       </nav>
 
       <footer style={{ position: "relative", zIndex: 2, marginTop: 40, fontFamily: MONO, fontSize: 11, letterSpacing: 1.5, color: T.faint, textTransform: "uppercase" }}>
@@ -233,8 +240,33 @@ function Ambience() {
   );
 }
 
-function MenuTile({ tile, primary }: { tile: Tile; primary: boolean }) {
-  const inner = (
+function MenuTile({ tile, primary = false, compact = false }: { tile: Tile; primary?: boolean; compact?: boolean }) {
+  const inner = compact ? (
+    <div
+      className="bb-tile"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        borderRadius: 11,
+        border: `1px solid ${tile.accent}44`,
+        borderTop: `3px solid ${tile.accent}`,
+        background: T.panel,
+        padding: "13px 15px 14px",
+        cursor: "pointer",
+        transition: "background 120ms, transform 120ms",
+        boxShadow: "0 2px 8px #0004",
+      }}
+    >
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: tile.accent }}>
+        {tile.eyebrow}
+      </div>
+      <h2 style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: T.cream, margin: "4px 0 5px", lineHeight: 1.1 }}>
+        {tile.title}
+      </h2>
+      <p style={{ fontSize: 12, lineHeight: 1.4, color: T.muted, margin: 0 }}>{tile.subtitle}</p>
+    </div>
+  ) : (
     <div
       className="bb-tile"
       style={{
@@ -267,13 +299,13 @@ function MenuTile({ tile, primary }: { tile: Tile; primary: boolean }) {
 
   if (tile.href) {
     return (
-      <Link href={tile.href} style={{ textDecoration: "none" }}>
+      <Link href={tile.href} style={{ textDecoration: "none", display: "block", height: "100%" }}>
         {inner}
       </Link>
     );
   }
   return (
-    <button onClick={tile.onClick} style={{ textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+    <button onClick={tile.onClick} style={{ textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", height: "100%", width: "100%" }}>
       {inner}
     </button>
   );
