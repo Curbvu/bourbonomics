@@ -11,24 +11,19 @@ export const CONFIG = {
   // — Structure —
   AGES: 5,
   ROUNDS_PER_AGE: 5,
-  HAND_SIZE: 5,
-  TRADE_MAX: 2, // cards a player may put into the age-start Trade pile
-
-  // — Catch-up (brief §11) —
-  CATCHUP_MODE: "swap" as "swap" | "take",
-  /** Cards dealt to the shared catch-up board. Default PLAYERS + 1. */
-  catchUpBoardSize: (players: number) => players + 1,
+  HAND_DRAW: 6, // brief §4/§12: each age start deals 6…
+  HAND_SIZE: 5, // …and the player culls down to this — keep 5, discard 1 to the deck
 
   // — Setup (brief §5) —
   SEED_LINE_TILES: 3, // the opening line — all reward-bearing (BONUS) tiles
   SETUP_TILES_PER_PLAYER: 5,
   OPENING_DRAFT_PICKS: 3, // bourbons each in the snake draft (non-premium pool)
   OPENING_DRAFT_MODE: "bourbons" as "bourbons" | "bourbons_or_dp",
-  STARTING_DPS: 3, // LIVE DPs each player plants after the draft (setup-exempt)
+  STARTING_DPS: 2, // LIVE DPs each player plants after the draft (setup-exempt)
   TILE_MIN_ADJACENCY: 2,
 
   // — Player start —
-  STARTING_CAPITAL: 5,
+  STARTING_CAPITAL: 0,
   DP_SUPPLY: 15, // one pool: map DPs AND market bid markers
 
   // — Market —

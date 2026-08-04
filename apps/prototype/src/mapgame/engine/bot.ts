@@ -458,9 +458,12 @@ export function autoAction(state: GameState): Action {
     return { type: "SETUP_PLACE_DP", tileId: state.tiles[0]!.id };
   }
 
-  // Age start.
-  if (state.stage === "trade") return { type: "TRADE_OFFER", cardIds: [] };
-  if (state.stage === "catchup") return catchupMove(state, p);
+  // Cull (draw 6, keep 5): drop the lowest-pip card — the least actions.
+  if (state.stage === "cull") {
+    const worst = [...p.hand].sort((a, b) => a.pips - b.pips || a.id.localeCompare(b.id))[0];
+    if (worst) return { type: "CULL_CARD", cardId: worst.id };
+    return { type: "END_TURN" };
+  }
 
   // Planning: spend a token if it buys a useful action, then take it.
   if (state.stage === "planning") {
@@ -483,18 +486,4 @@ export function autoAction(state: GameState): Action {
   }
 
   return { type: "END_TURN" };
-}
-
-/** Catch-up: if my hand can't score (no Sales/Marketing card), grab one. */
-function catchupMove(state: GameState, p: Player): Action {
-  const scoringSuits: Suit[] = ["SALES", "MARKETING"];
-  const hasScoring = p.hand.some((c) => scoringSuits.includes(c.suit));
-  if (!hasScoring) {
-    const board = bestCardIn(state.catchUpBoard, scoringSuits, new Set());
-    if (board) {
-      const give = [...p.hand].sort((a, b) => a.pips - b.pips || a.id.localeCompare(b.id))[0];
-      if (give) return { type: "CATCHUP_SWAP", handCardId: give.id, boardCardId: board.id };
-    }
-  }
-  return { type: "CATCHUP_SWAP", handCardId: "", boardCardId: null };
 }

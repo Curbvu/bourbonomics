@@ -25,10 +25,12 @@ import {
   nicheControlledCount,
   nicheStatus,
   placementCandidates,
+  stepAuto,
   tagColor,
   tileController,
+  tileOwner,
 } from "../engine";
-import type { Action, ActionType, GameState, Suit, Tile, TokenType } from "../engine";
+import type { Action, ActionType, GameState, Suit, Tag, Tile, TokenType } from "../engine";
 import { SUIT_ACTIONS } from "../engine";
 import {
   Flag,
@@ -68,26 +70,88 @@ const STAGE_LABEL: Record<GameState["stage"], string> = {
   setupPlace: "Place tiles",
   setupDraft: "Opening draft",
   setupDP: "Place DPs",
-  trade: "The Trade",
-  catchup: "Catch-up",
+  cull: "New hand",
   planning: "Planning",
   commit: "Commit",
   resolve: "Resolve",
   ageEnd: "Scoring",
 };
 
+// How long each kind of bot setup action lingers before the next, so the board
+// visibly grows one placement at a time (tile placement is the headline moment —
+// paced slow enough to watch each rival lay their tile).
+const SETUP_STEP_MS: Record<string, number> = { setupPlace: 980, setupDP: 560, setupDraft: 260 };
+
 export default function MapGameClient() {
   const [game, setGame] = useState<GameState | null>(null);
   const [manual, setManual] = useState(false);
+  const botTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Local play: apply the action, then auto-play the bots, in-browser. Returns an
-  // error reason (Board flashes it) or null on success.
+  const stopBots = () => {
+    if (botTimer.current) clearTimeout(botTimer.current);
+    botTimer.current = null;
+  };
+  useEffect(() => stopBots, []);
+
+  // During SETUP, step bots ONE action at a time on a timer so the human watches
+  // the board grow tile by tile. Once setup ends, resolve play-phase bots at once.
+  const stepSetupBots = (s: GameState) => {
+    stopBots();
+    if (s.phase !== "setup" || !currentActorOf(s).isBot) return;
+    const delay = SETUP_STEP_MS[s.stage] ?? 300;
+    botTimer.current = setTimeout(() => {
+      let next = stepAuto(s);
+      if (next.phase !== "setup") next = autoAdvance(next);
+      setGame(next);
+      stepSetupBots(next);
+    }, delay);
+  };
+
+  // Within-turn undo (§4): snapshots of the pre-action state, only while it's
+  // still your turn (a sub-action that never handed off to a bot). Cleared the
+  // moment the turn passes, so undo can never rewind across an opponent's move.
+  const [undoStack, setUndoStack] = useState<GameState[]>([]);
+  const onUndo = () => {
+    setUndoStack((s) => {
+      if (s.length === 0) return s;
+      setGame(s[s.length - 1]!);
+      return s.slice(0, -1);
+    });
+  };
+
+  // Local play: apply the action, show it, then advance the bots. Returns an error
+  // reason (Board flashes it) or null on success.
   const onAction = (action: Action): string | null => {
     if (!game) return "no game";
+    const before = game;
     const res = applyAction(game, action);
     if (!res.ok) return res.reason;
-    setGame(autoAdvance(res.state));
+    if (res.state.phase === "setup") {
+      setGame(res.state); // show your move immediately…
+      stepSetupBots(res.state); // …then let the bots place, one at a time
+      setUndoStack([]);
+    } else {
+      const advanced = autoAdvance(res.state); // in play, resolve bots instantly
+      // Keep an undo point only if this was a reversible sub-action that left it
+      // your turn (no bot acted) — so a misclick during resolve/planning is safe.
+      const stillYours =
+        advanced.phase === "playing" &&
+        (advanced.stage === "resolve" || advanced.stage === "planning") &&
+        currentActorOf(advanced).id === HUMAN &&
+        action.type !== "END_TURN" &&
+        action.type !== "COMMIT_PLAY";
+      setUndoStack((s) => (stillYours ? [...s, before] : []));
+      setGame(advanced);
+    }
     return null;
+  };
+
+  const startGame = (n: number) => {
+    // A fresh random seed each game → tiles, market, and hands all shuffle
+    // differently (the seed is client input; the engine stays deterministic).
+    const g = createGame({ playerNames: names(n), seed: Math.floor(Math.random() * 1_000_000_000) });
+    setGame(g);
+    stepSetupBots(g); // animate any leading bot placements (human is p0, usually none)
   };
 
   // ScalingHost only shrinks when its parent bounds the height — mirror the
@@ -96,12 +160,9 @@ export default function MapGameClient() {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: C.bg }}>
       <ScalingHost>
         {game ? (
-          <Board game={game} onAction={onAction} onNew={() => setGame(null)} onManual={() => setManual(true)} />
+          <Board game={game} onAction={onAction} onUndo={onUndo} canUndo={undoStack.length > 0} onNew={() => { stopBots(); setUndoStack([]); setGame(null); }} onManual={() => setManual(true)} />
         ) : (
-          <Setup
-            onStart={(n) => setGame(autoAdvance(createGame({ playerNames: names(n), seed: 12345 })))}
-            onManual={() => setManual(true)}
-          />
+          <Setup onStart={startGame} onManual={() => setManual(true)} />
         )}
       </ScalingHost>
       {/* The manual is chrome outside the fixed canvas — it may scroll (like /rules). */}
@@ -117,33 +178,38 @@ function names(n: number): string[] {
 // ── Setup ────────────────────────────────────────────────────────────
 function Setup({ onStart, onManual }: { onStart: (n: number) => void; onManual: () => void }) {
   return (
-    <div style={{ width: 1920, height: 1080, background: "radial-gradient(125% 95% at 42% 34%, #f4ecd6 0%, #e4d6b6 52%, #d0bf99 100%)", boxShadow: "inset 0 0 160px 10px #8a6a3a30", color: C.text, fontFamily: SANS, display: "grid", placeItems: "center" }}>
+    <div style={{ width: 1920, height: 1080, background: "radial-gradient(125% 95% at 42% 34%, #f8f6ef 0%, #ece7db 52%, #dbd6c8 100%)", boxShadow: "inset 0 0 160px 12px #8a806a26", color: C.text, fontFamily: SANS, display: "grid", placeItems: "center" }}>
       <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.22, mixBlendMode: "multiply", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E\")" }} />
-      <div style={{ textAlign: "center", position: "relative" }}>
-        <div style={{ fontFamily: MONO, fontSize: 14, letterSpacing: 6, color: T.goldSoft, textTransform: "uppercase", marginBottom: 6 }}>The Territory Game</div>
-        <div style={{ fontFamily: SERIF, fontSize: 96, fontWeight: 800, letterSpacing: -2, color: "#8f6510", lineHeight: 0.95, textShadow: "0 2px 10px #c8961f2e" }}>Bourbonomics</div>
-        <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 22, color: T.muted, marginTop: 10, marginBottom: 8 }}>A game of demand, distribution &amp; the angel&apos;s share.</div>
-        <div style={{ fontSize: 16, color: C.faint, marginBottom: 46 }}>Serve the market — build, flag, and Push for the tiles that pay. Most Capital after 5 ages wins.</div>
+      <div style={{ textAlign: "center", position: "relative", maxWidth: 760 }}>
+        {/* This is the game's setup step, not a second landing — keep the brand a
+            quiet wordmark and make the player-count choice the hero. */}
+        <a href="/" style={{ position: "absolute", top: -70, left: 0, fontFamily: MONO, fontSize: 13, letterSpacing: 1, color: T.goldSoft, textDecoration: "none" }}>← Menu</a>
+        <div style={{ fontFamily: MONO, fontSize: 13, letterSpacing: 5, color: T.goldSoft, textTransform: "uppercase", marginBottom: 10 }}>Bourbonomics · New game</div>
+        <div style={{ fontFamily: SERIF, fontSize: 52, fontWeight: 800, letterSpacing: -1, color: "#8f6510", lineHeight: 1 }}>How many at the table?</div>
+        <div style={{ fontSize: 17, color: C.muted, marginTop: 12, marginBottom: 44 }}>
+          You play as <B>gold</B> — strategic bots fill the other seats. Most Capital after 5 ages wins.
+        </div>
         <div style={{ display: "flex", gap: 18, justifyContent: "center" }}>
           {[2, 3, 4, 5].map((n) => (
             <button
               key={n}
               onClick={() => onStart(n)}
-              style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 700, padding: "20px 44px", background: "linear-gradient(#fffdf7, #f1e7cf)", color: T.ink, border: `1px solid ${T.gold}`, borderRadius: 14, cursor: "pointer", boxShadow: "0 4px 12px #7a5f2a2e" }}
+              style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 700, padding: "22px 46px", background: "linear-gradient(#fffdf7, #f1e7cf)", color: T.ink, border: `1px solid ${T.gold}`, borderRadius: 14, cursor: "pointer", boxShadow: "0 4px 12px #7a5f2a2e" }}
             >
               {n} <span style={{ fontFamily: MONO, fontSize: 13, color: T.muted }}>PLAYERS</span>
             </button>
           ))}
         </div>
-        <div style={{ marginTop: 34 }}>
+        <div style={{ marginTop: 30, fontSize: 15 }}>
+          New here?{" "}
           <button
             onClick={onManual}
-            style={{ fontSize: 16, fontWeight: 600, padding: "12px 28px", background: "transparent", color: C.gold, border: `1px solid ${C.gold}`, borderRadius: 12, cursor: "pointer" }}
+            style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, background: "none", border: "none", color: C.gold, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, padding: 0 }}
           >
-            📖 The Distiller&apos;s Field Guide
-          </button>
+            📖 Read the Field Guide
+          </button>{" "}
+          first.
         </div>
-        <div style={{ fontSize: 15, color: C.faint, marginTop: 26 }}>You are player 1 (gold). The rest are bots.</div>
       </div>
     </div>
   );
@@ -155,6 +221,8 @@ type Mode = ActionType | "CLAIM_SLOT" | null;
 export function Board({
   game,
   onAction,
+  onUndo,
+  canUndo = false,
   onNew,
   onManual,
   youId = HUMAN,
@@ -162,6 +230,8 @@ export function Board({
 }: {
   game: GameState;
   onAction: (a: Action) => string | null;
+  onUndo?: () => void;
+  canUndo?: boolean;
   onNew: () => void;
   onManual: () => void;
   youId?: string;
@@ -169,6 +239,10 @@ export function Board({
 }) {
   const [mode, setMode] = useState<Mode>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // The tile currently pinned in the inspector (§3). Read-only info + fit + acts.
+  const [inspectId, setInspectId] = useState<string | null>(null);
+  // The tile a Push is being staged on (§2.4) — opens the commit→reveal overlay.
+  const [pushTile, setPushTile] = useState<Tile | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flash = (m: string) => {
@@ -182,11 +256,44 @@ export function Board({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notice]);
 
+  // Which of your setup tiles is lifted, ready to place.
+  const [selTile, setSelTile] = useState(0);
+  // The setup how-to layover — shown once at the start, reopenable via the chip.
+  const [helpOpen, setHelpOpen] = useState(true);
+  // Board zoom (buttons + scroll wheel).
+  const [zoom, setZoom] = useState(1);
+  const zoomBy = (d: number) => setZoom((z) => Math.min(2.2, Math.max(0.6, +(z + d).toFixed(2))));
+  // Tiles that just appeared → animate them flying in from their placer. Your
+  // tiles rise from your hand (bottom); a rival's drop in from across the table
+  // (top), tinted that rival's colour so you can see who laid it.
+  type PlaceFX = { dir: "you" | "rival"; color: string };
+  const [newTiles, setNewTiles] = useState<Map<string, PlaceFX>>(new Map());
+  const prevIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const cur = new Set(game.tiles.map((t) => t.id));
+    const fresh = game.tiles.filter((t) => !prevIds.current.has(t.id));
+    const firstPaint = prevIds.current.size === 0;
+    prevIds.current = cur;
+    if (fresh.length > 0 && !firstPaint) {
+      // who placed it? the newest "X places …" log line names the player.
+      const placeLog = [...game.log].reverse().find((l) => / places /.test(l.message));
+      const placerName = placeLog ? placeLog.message.split(" places ")[0] : null;
+      const placer = placerName ? game.players.find((p) => p.name === placerName) : undefined;
+      const isYou = placer ? placer.id === youId : true;
+      const fx: PlaceFX = { dir: isYou ? "you" : "rival", color: placer ? PC[placer.colorIdx]! : T.gold };
+      setNewTiles(new Map(fresh.map((t) => [t.id, fx])));
+      const h = setTimeout(() => setNewTiles(new Map()), 1000);
+      return () => clearTimeout(h);
+    }
+  }, [game.tiles, youId]);
+
   const inPlay = game.phase === "playing" || game.phase === "setup";
   const actor = inPlay ? currentActorOf(game) : null;
   const yourTurn = actor?.id === youId && inPlay;
   const you = game.players.find((p) => p.id === youId) ?? game.players[0]!;
   const inSetup = game.phase === "setup";
+  const playing = game.phase === "playing";
+  const sel = Math.min(selTile, Math.max(0, you.setupTiles.length - 1));
   // valid empty hexes to place the next setup tile (your turn only)
   const candidates = useMemo(
     () => (inSetup && game.stage === "setupPlace" && yourTurn ? placementCandidates(game) : []),
@@ -198,85 +305,268 @@ export function Board({
     if (err) flash(err);
   }
 
-  function clickTile(tile: Tile) {
-    if (!yourTurn || tile.category === "BLOCKING") return;
+  // Try to perform the active action-mode on a tile. Returns true if it acted.
+  function tryActOnTile(tile: Tile): boolean {
+    if (!yourTurn || tile.category === "BLOCKING") return false;
     // Starting-DP step: click a tile to plant a LIVE DP on it (setup-exempt).
-    if (game.stage === "setupDP") return dispatch({ type: "SETUP_PLACE_DP", tileId: tile.id });
+    if (game.stage === "setupDP") { dispatch({ type: "SETUP_PLACE_DP", tileId: tile.id }); return true; }
     if (game.stage === "resolve" || game.stage === "planning") {
-      if (mode === "BUILD_DP") return dispatch({ type: "BUILD_DP", tileId: tile.id });
-      if (mode === "ADD_NICHE_FLAG") return dispatch({ type: "ADD_NICHE_FLAG", tileId: tile.id });
-      if (mode === "REMOVE_NICHE_FLAG") return dispatch({ type: "REMOVE_NICHE_FLAG", tileId: tile.id });
-      if (mode === "PUSH") return push(tile);
-      if (mode === "CLAIM_SLOT") return dispatch({ type: "CLAIM_SLOT", tileId: tile.id, tag: preferredGrain(you) });
+      if (mode === "BUILD_DP") {
+        // One DP action: a DARK DP of yours here → revive it; otherwise place a new one.
+        const dark = game.dps.find((d) => d.tileId === tile.id && d.owner === youId && d.state === "DARK");
+        dispatch(dark ? { type: "REPAIR_DP", dpId: dark.id } : { type: "BUILD_DP", tileId: tile.id });
+        return true;
+      }
+      if (mode === "ADD_NICHE_FLAG") { dispatch({ type: "ADD_NICHE_FLAG", tileId: tile.id }); return true; }
+      if (mode === "REMOVE_NICHE_FLAG") { dispatch({ type: "REMOVE_NICHE_FLAG", tileId: tile.id }); return true; }
+      if (mode === "PUSH") { push(tile); return true; }
+      if (mode === "CLAIM_SLOT") { dispatch({ type: "CLAIM_SLOT", tileId: tile.id, tag: preferredGrain(you) }); return true; }
     }
+    return false;
+  }
+
+  // A click either takes the active action on the tile, or (no action pending)
+  // pins it in the inspector (§3). Inspection works any time — even on a rival's
+  // turn — since it is read-only.
+  function clickTile(tile: Tile) {
+    if (tryActOnTile(tile)) return;
+    setInspectId((cur) => (cur === tile.id ? null : tile.id));
   }
 
   function placeSetupTile(hex: { q: number; r: number }) {
-    if (yourTurn && game.stage === "setupPlace") dispatch({ type: "SETUP_PLACE_TILE", hex });
+    if (yourTurn && game.stage === "setupPlace") dispatch({ type: "SETUP_PLACE_TILE", hex, tileIndex: sel });
   }
 
+  // Opening a Push stages it in an overlay (§2.4) rather than resolving silently:
+  // the player picks which bourbons to commit, sees the fit math, then reveals.
   function push(tile: Tile) {
-    const cap = liveDPCount(game, tile.id, youId);
-    const tags = tile.wildcardTag ? [tile.wildcardTag] : tile.tags;
-    const ids = you.bourbons
-      .filter((b) => b.state === "FRESH") // only FRESH is committable (§7b)
-      .map((b) => ({ id: b.id, f: fit(b.tags, tags) }))
-      .filter((b) => b.f > 0)
-      .sort((a, b) => b.f - a.f)
-      .slice(0, cap)
-      .map((b) => b.id);
-    dispatch({ type: "PUSH", tileId: tile.id, bourbonIds: ids });
+    setInspectId(null);
+    setPushTile(tile);
   }
 
+  const showTray = inSetup && game.stage === "setupPlace";
   return (
     <div style={{ width: 1920, height: 1080, background: C.bg, color: C.text, fontFamily: SANS, display: "flex", overflow: "hidden" }}>
+      <style>{`
+        @keyframes bbTilePop { 0%{transform:translateY(130px) scale(.35) rotate(-9deg);opacity:0} 45%{opacity:1} 70%{transform:translateY(-12px) scale(1.1) rotate(3deg)} 85%{transform:translateY(3px) scale(.97) rotate(-1.5deg)} 100%{transform:translateY(0) scale(1) rotate(0)} }
+        @keyframes bbTileDrop { 0%{transform:translateY(-140px) scale(.35) rotate(9deg);opacity:0} 45%{opacity:1} 70%{transform:translateY(12px) scale(1.1) rotate(-3deg)} 85%{transform:translateY(-3px) scale(.97) rotate(1.5deg)} 100%{transform:translateY(0) scale(1) rotate(0)} }
+        @keyframes bbTrayGlow { 0%,100%{box-shadow:0 -9px 30px -10px ${T.gold}88, inset 0 2px 0 #ffffffaa} 50%{box-shadow:0 -12px 40px -6px ${T.gold}cc, inset 0 2px 0 #ffffffaa} }
+        @keyframes bbLift { 0%{transform:translateY(0)} 100%{transform:translateY(-10px)} }
+        .bb-fan-card { transition: transform 130ms ease; }
+        .bb-fan-card:hover { transform: translateY(-22px) rotate(0deg) !important; z-index: 30; }
+        .bb-play-card { transition: transform 130ms ease; }
+        .bb-play-card:hover { transform: translateY(-7px); z-index: 30; }
+      `}</style>
       <div
         style={{
           flex: 1,
           position: "relative",
-          background: "radial-gradient(125% 95% at 42% 34%, #f4ecd6 0%, #e4d6b6 52%, #d0bf99 100%)",
-          boxShadow: "inset 0 0 160px 10px #8a6a3a30",
+          background: "radial-gradient(125% 95% at 42% 34%, #f8f6ef 0%, #ebe7db 55%, #dcd7c9 100%)",
+          boxShadow: "inset 0 0 220px 30px #8a806a2e",
+          userSelect: "none",
+          WebkitUserSelect: "none",
         }}
       >
         {/* paper grain (multiplies onto the light stage) */}
         <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.22, mixBlendMode: "multiply", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E\")" }} />
-        <div style={{ position: "absolute", top: 20, left: 26, zIndex: 1 }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 3, color: "#4a3a1e", textTransform: "uppercase" }}>Bourbonomics</div>
-          <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: "#241505", lineHeight: 1 }}>
-            {inSetup
-              ? game.stage === "setupPlace"
-                ? "Building the Board"
-                : game.stage === "setupDraft"
-                  ? "The Opening Draft"
-                  : "Plant Your DPs"
-              : "The Market"}
+
+        {inSetup ? <SetupStatus stage={game.stage} yourTurn={yourTurn} actorName={actor?.name} actorColor={actor ? PC[actor.colorIdx] : undefined} onHelp={() => setHelpOpen(true)} /> : (
+          <div style={{ position: "absolute", top: 20, left: 26, zIndex: 1 }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 3, color: "#4a3a1e", textTransform: "uppercase" }}>Bourbonomics</div>
+            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: "#241505", lineHeight: 1 }}>The Market</div>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: "#4c3c22", marginTop: 3, maxWidth: 360 }}>Serve demand · control tiles · harvest niches.</div>
           </div>
-          <div style={{ fontFamily: SANS, fontSize: 12.5, color: "#4c3c22", marginTop: 3, maxWidth: 360 }}>
-            {inSetup
-              ? game.stage === "setupPlace"
-                ? "Lay your tiles on the open ground — each must touch 2+ tiles."
-                : game.stage === "setupDraft"
-                  ? "Draft a bourbon from the market — no premium yet."
-                  : "Click any tile to plant a starting distribution point."
-              : "Serve demand · control tiles · harvest niches."}
+        )}
+
+        <div
+          onWheel={(e) => { if (e.deltaY !== 0) zoomBy(e.deltaY < 0 ? 0.12 : -0.12); }}
+          style={{ position: "absolute", top: 0, left: playing ? 172 : 0, right: 0, bottom: showTray ? 186 : playing ? 312 : 0 }}
+        >
+          <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} newTiles={newTiles} tilt={!inSetup} zoom={zoom} selectedId={inspectId} />
+          {/* zoom controls */}
+          <div style={{ position: "absolute", top: 14, right: 16, display: "flex", flexDirection: "column", gap: 5, zIndex: 3 }}>
+            <ZoomBtn label="+" onClick={() => zoomBy(0.15)} />
+            <ZoomBtn label="−" onClick={() => zoomBy(-0.15)} />
+            <ZoomBtn label="⤢" onClick={() => setZoom(1)} small />
           </div>
         </div>
-        <HexMap game={game} mode={yourTurn && !inSetup ? mode : null} onClick={clickTile} candidates={candidates} onPlace={placeSetupTile} draftable={yourTurn && game.stage === "setupDP"} />
+
+        {playing && <UpForBidShelf game={game} you={you} yourTurn={yourTurn} dispatch={dispatch} />}
+        {playing && <PlayHandZone game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} onUndo={onUndo} canUndo={canUndo} />}
+
+        {showTray && (
+          <SetupTray tiles={you.setupTiles} selected={sel} onSelect={setSelTile} yourTurn={yourTurn} />
+        )}
+
         {toast && (
-          <div style={{ position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#000c", color: C.gold, padding: "10px 18px", borderRadius: 8, fontSize: 15, fontFamily: MONO, border: `1px solid ${T.border}` }}>
+          <div style={{ position: "absolute", bottom: showTray ? 200 : 24, left: "50%", transform: "translateX(-50%)", background: "#000c", color: C.gold, padding: "10px 18px", borderRadius: 8, fontSize: 15, fontFamily: MONO, border: `1px solid ${T.border}`, zIndex: 5 }}>
             {toast}
           </div>
         )}
+        {inSetup && helpOpen && <SetupHelpOverlay activeStage={game.stage} onClose={() => setHelpOpen(false)} />}
+        {pushTile && (
+          <PushOverlay
+            game={game}
+            tile={pushTile}
+            youId={youId}
+            onCommit={(ids) => { dispatch({ type: "PUSH", tileId: pushTile.id, bourbonIds: ids }); setPushTile(null); }}
+            onCancel={() => setPushTile(null)}
+          />
+        )}
       </div>
-      <Rail game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} onNew={onNew} onManual={onManual} />
+      <Rail game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} onNew={onNew} onManual={onManual} youId={youId} inspect={inspectId ? game.tiles.find((t) => t.id === inspectId) ?? null : null} onCloseInspect={() => setInspectId(null)} onPush={push} />
+    </div>
+  );
+}
+
+const SETUP_STEPS = [
+  { key: "setupPlace", label: "Build the market", hint: "Pick a tile from your hand below the board, then click a glowing socket. Each tile must touch 2+ others." },
+  { key: "setupDraft", label: "Draft bourbons", hint: "Take bottles from the market on the right. Premium bottles are held back until age 1." },
+  { key: "setupDP", label: "Plant DPs", hint: "Drop your starting distribution points on any tiles — this is setup, so place them anywhere." },
+] as const;
+
+// Slim top-left status: the three step chips with the active one lit, a "how to
+// play" chip that reopens the layover, and whose turn it is (so you can follow
+// the board growing during rivals' turns). The instructions live in the layover.
+function SetupStatus({ stage, yourTurn, actorName, actorColor, onHelp }: { stage: GameState["stage"]; yourTurn: boolean; actorName?: string; actorColor?: string; onHelp: () => void }) {
+  const activeIdx = Math.max(0, SETUP_STEPS.findIndex((s) => s.key === stage));
+  return (
+    <div style={{ position: "absolute", top: 18, left: 24, zIndex: 3, display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {SETUP_STEPS.map((s, i) => {
+          const done = i < activeIdx;
+          const on = i === activeIdx;
+          return (
+            <span key={s.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: SERIF, fontWeight: 700, fontSize: 13, color: on ? "#1c110a" : done ? T.goldSoft : "#9a8358", background: on ? "linear-gradient(#f6d98a,#e7b64a)" : done ? "#e9dcbb" : "#ffffff55", border: `1px solid ${on ? T.gold : done ? T.border : "#00000018"}`, borderRadius: 999, padding: "3px 11px", boxShadow: on ? `0 3px 10px ${T.gold}55` : "none" }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, opacity: 0.85 }}>{done ? "✓" : i + 1}</span>
+                {s.label}
+              </span>
+              {i < SETUP_STEPS.length - 1 && <span style={{ color: "#00000030", fontSize: 12 }}>→</span>}
+            </span>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={onHelp} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: T.goldSoft, background: "#fffef8cc", border: `1px solid ${T.border}`, borderRadius: 999, padding: "4px 12px", cursor: "pointer" }}>
+          ⓘ How to play
+        </button>
+        {!yourTurn && actorColor && (
+          <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: SANS, fontSize: 12.5, color: "#3a2c14", background: "#fffef8cc", border: `1px solid ${actorColor}66`, borderRadius: 999, padding: "3px 11px 3px 8px" }}>
+            <span style={{ width: 11, height: 11, borderRadius: "50%", background: actorColor, boxShadow: `0 0 0 2px ${actorColor}44` }} />
+            {actorName ?? "A rival"} is placing…
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// The dismissible how-to layover, shown once at the start of setup and reopenable
+// from the "How to play" chip. Click the backdrop, ✕, or "Got it" to dismiss.
+function SetupHelpOverlay({ activeStage, onClose }: { activeStage: GameState["stage"]; onClose: () => void }) {
+  const activeIdx = Math.max(0, SETUP_STEPS.findIndex((s) => s.key === activeStage));
+  return (
+    <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 30, background: "#241606c2", display: "grid", placeItems: "center", padding: 24 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", width: 580, maxWidth: "92%", background: "linear-gradient(#fffdf5, #f1e6cd)", border: `1px solid ${T.gold}`, borderRadius: 18, padding: "30px 34px 28px", boxShadow: "0 28px 70px #000a" }}>
+        <button onClick={onClose} aria-label="Close" style={{ position: "absolute", top: 14, right: 16, width: 30, height: 30, borderRadius: 999, background: "#00000010", border: `1px solid ${T.border}`, color: T.muted, fontSize: 15, cursor: "pointer", lineHeight: 1 }}>✕</button>
+        <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: 5, color: T.goldSoft, textTransform: "uppercase" }}>Setup</div>
+        <h2 style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 800, color: T.ink, margin: "4px 0 6px" }}>Lay the board &amp; stock up</h2>
+        <p style={{ fontFamily: SANS, fontSize: 14.5, color: T.muted, margin: "0 0 18px", lineHeight: 1.5 }}>
+          Before age 1, you and your rivals build the market together and gather your bourbons. Three quick steps:
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
+          {SETUP_STEPS.map((s, i) => {
+            const on = i === activeIdx;
+            return (
+              <div key={s.key} style={{ display: "flex", gap: 13, alignItems: "flex-start", background: on ? "#f7eccf" : "transparent", border: `1px solid ${on ? T.gold : "transparent"}`, borderRadius: 12, padding: "9px 12px" }}>
+                <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 999, background: on ? "linear-gradient(#f6d98a,#e7b64a)" : "#e9dcbb", color: "#1c110a", fontFamily: SERIF, fontWeight: 800, fontSize: 14, display: "grid", placeItems: "center", boxShadow: on ? `0 2px 8px ${T.gold}66` : "none" }}>{i + 1}</span>
+                <div>
+                  <div style={{ fontFamily: SERIF, fontSize: 16.5, fontWeight: 700, color: T.ink }}>
+                    {s.label} {on && <span style={{ fontFamily: MONO, fontSize: 10, color: T.goldSoft, letterSpacing: 1 }}>· NOW</span>}
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 13.5, color: T.muted, lineHeight: 1.45, marginTop: 1 }}>{s.hint}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={onClose} style={{ width: "100%", fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: "#1c110a", background: "linear-gradient(#f0c65a, #d69f2a)", border: `1px solid ${T.gold}`, borderRadius: 12, padding: "12px 0", cursor: "pointer", boxShadow: `0 5px 16px ${T.gold}55` }}>
+          Got it — let&apos;s play →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// The glowing "hand" of setup tiles, docked below the board. Click a card to lift
+// it; the lifted card is the one placed when you click a socket.
+function SetupTray({ tiles, selected, onSelect, yourTurn }: { tiles: GameState["players"][number]["setupTiles"]; selected: number; onSelect: (i: number) => void; yourTurn: boolean }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: 186,
+        background: "linear-gradient(to top, #efece1 0%, #efece1ee 55%, #efece100 100%)",
+        borderTop: `2px solid ${T.gold}`,
+        animation: "bbTrayGlow 2.6s ease-in-out infinite",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        padding: "0 20px 16px",
+        gap: 8,
+        zIndex: 4,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, alignSelf: "stretch", justifyContent: "center", marginBottom: 2 }}>
+        <span style={{ flex: 1, maxWidth: 220, height: 1, background: `linear-gradient(90deg, transparent, ${T.gold})` }} />
+        <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: T.goldSoft, letterSpacing: 0.5 }}>
+          {yourTurn ? "Your tiles — pick one, then click a glowing socket" : "Your tiles"}
+        </span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>{tiles.length} to place</span>
+        <span style={{ flex: 1, maxWidth: 220, height: 1, background: `linear-gradient(90deg, ${T.gold}, transparent)` }} />
+      </div>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-end", minHeight: 132 }}>
+        {tiles.length === 0 && <span style={{ fontSize: 14, color: T.faint, alignSelf: "center", paddingBottom: 40 }}>All tiles placed — on to the draft.</span>}
+        {tiles.map((t, i) => (
+          <button
+            key={t.defId + i}
+            onClick={() => onSelect(i)}
+            disabled={!yourTurn}
+            style={{ background: "none", border: "none", padding: 0, cursor: yourTurn ? "pointer" : "default" }}
+          >
+            <SetupTileCard tile={t} isNext={i === selected && yourTurn} />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
 // ── Hex map ──────────────────────────────────────────────────────────
 const HEX = 56;
+const THICK = 7; // slim cardboard edge for the extruded chip
 
-function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = false }: { game: GameState; mode: Mode; onClick: (t: Tile) => void; candidates?: { q: number; r: number }[]; onPlace?: (h: { q: number; r: number }) => void; draftable?: boolean }) {
+// Territorial washes on the top face + darkened side-wall colors, by controller
+// colorIdx (0 = you/gold, 1 = rosé, 2 = green, 3 = blue, 4 = plum).
+const OWN_FACE = ["#f6e6c4", "#f4dbd1", "#dcecd5", "#d9e2ee", "#e9dcee"];
+const OWN_EDGE = ["#a8842f", "#a85c47", "#4d7d6a", "#3a5a82", "#6a4a80"];
+
+/** Pointy-top hex corner coords (matches hexPolygonPoints order). */
+function hexCorners(cx: number, cy: number, size: number): [number, number][] {
+  const pts: [number, number][] = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 180) * (60 * i - 30);
+    pts.push([cx + size * Math.cos(a), cy + size * Math.sin(a)]);
+  }
+  return pts;
+}
+
+function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = false, newTiles, tilt = false, zoom = 1, selectedId }: { game: GameState; mode: Mode; onClick: (t: Tile) => void; candidates?: { q: number; r: number }[]; onPlace?: (h: { q: number; r: number }) => void; draftable?: boolean; newTiles?: Map<string, { dir: "you" | "rival"; color: string }>; tilt?: boolean; zoom?: number; selectedId?: string | null }) {
   const layout = useMemo(() => {
     const pts = game.tiles.map((t) => ({ t, ...axialToPixel(t.hex, HEX) }));
     const cand = candidates.map((h) => ({ h, ...axialToPixel(h, HEX) }));
@@ -286,41 +576,61 @@ function HexMap({ game, mode, onClick, candidates = [], onPlace, draftable = fal
     const minY = Math.min(...ys) - HEX * 1.6;
     const w = Math.max(...xs) - minX + HEX * 1.6;
     const h = Math.max(...ys) - minY + HEX * 1.6;
-    return { pts, cand, minX, minY, w, h };
+    const posOf = new Map(pts.map(({ t, x, y }) => [t.id, { x, y }]));
+    return { pts, cand, minX, minY, w, h, posOf };
   }, [game.tiles, candidates]);
 
   const idxOf = (pid: string) => game.players.findIndex((p) => p.id === pid);
 
+  // Ground the cluster with one soft elliptical shadow under it (parchment table).
+  const cx = layout.minX + layout.w / 2;
+  const gy = layout.minY + layout.h * 0.66;
   return (
-    <svg viewBox={`${layout.minX} ${layout.minY} ${layout.w} ${layout.h}`} style={{ width: "100%", height: "100%" }}>
-      <defs>
-        <radialGradient id="tileSheen" cx="0.35" cy="0.22" r="0.9">
-          <stop offset="0" stopColor="#ffffff" stopOpacity="0.5" />
-          <stop offset="0.6" stopColor="#ffffff" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="plainFace" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="1" stopColor="#ede4d0" />
-        </linearGradient>
-        <linearGradient id="rewardFace" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fdf3cf" />
-          <stop offset="1" stopColor="#eccb70" />
-        </linearGradient>
-      </defs>
-      {layout.pts.map(({ t, x, y }) => (
-        <TileHex key={t.id} game={game} t={t} x={x} y={y} idxOf={idxOf} clickable={(mode !== null || draftable) && t.category !== "BLOCKING"} onClick={() => onClick(t)} />
-      ))}
-      {/* ghost placement sockets during setup */}
+    <div style={{ width: "100%", height: "100%", perspective: tilt ? "1700px" : undefined, userSelect: "none", WebkitUserSelect: "none" }}>
+      <svg
+        viewBox={`${layout.minX} ${layout.minY} ${layout.w} ${layout.h}`}
+        style={{ width: "100%", height: "100%", transform: `${tilt ? "rotateX(12deg) " : ""}scale(${zoom})`, transformOrigin: "center 55%", overflow: "visible", transition: "transform 120ms ease" }}
+      >
+        <defs>
+          <radialGradient id="tileSheen" cx="0.35" cy="0.22" r="0.9">
+            <stop offset="0" stopColor="#ffffff" stopOpacity="0.42" />
+            <stop offset="0.6" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id="plainFace" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fffef9" />
+            <stop offset="1" stopColor="#efe6d2" />
+          </linearGradient>
+          <linearGradient id="rewardFace" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fdf3cf" />
+            <stop offset="1" stopColor="#eccb70" />
+          </linearGradient>
+          <radialGradient id="groundShadow" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stopColor="#2a1c0c" stopOpacity="0.34" />
+            <stop offset="0.7" stopColor="#2a1c0c" stopOpacity="0.14" />
+            <stop offset="1" stopColor="#2a1c0c" stopOpacity="0" />
+          </radialGradient>
+          {/* soft gold bloom for the placement sockets */}
+          <filter id="socketGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor="#e6a92a" floodOpacity="0.95" />
+          </filter>
+        </defs>
+        <ellipse cx={cx} cy={gy} rx={layout.w * 0.46} ry={layout.h * 0.2} fill="url(#groundShadow)" pointerEvents="none" />
+      {/* ghost placement sockets (drawn UNDER tiles so tiles always read on top) */}
       {layout.cand.map(({ h, x, y }, i) => (
         <g key={`c${i}`} onClick={() => onPlace?.(h)} style={{ cursor: "pointer" }}>
-          <polygon points={hexPolygonPoints(x, y, HEX)} fill="#ffffff2e" stroke="#b8901e" strokeWidth={2.5} strokeDasharray="7 6">
-            <animate attributeName="opacity" values="0.5;0.95;0.5" dur="1.8s" repeatCount="indefinite" />
+          <polygon points={hexPolygonPoints(x, y, HEX - 4)} fill="#e7b53a22" stroke="#d89f1c" strokeWidth={3} strokeDasharray="9 6" filter="url(#socketGlow)">
+            <animate attributeName="opacity" values="0.55;1;0.55" dur="1.7s" repeatCount="indefinite" />
           </polygon>
-          <text x={x} y={y - 2} textAnchor="middle" fontFamily={SERIF} fontSize={34} fontWeight={700} fill="#7a5f22">＋</text>
-          <text x={x} y={y + 24} textAnchor="middle" fontFamily={MONO} fontSize={10.5} letterSpacing={1} fill="#7a5f22">PLACE</text>
+          <text x={x} y={y - 1} textAnchor="middle" fontFamily={SERIF} fontSize={36} fontWeight={700} fill="#a9781a" opacity={0.9}>＋</text>
+          <text x={x} y={y + 25} textAnchor="middle" fontFamily={MONO} fontSize={10.5} letterSpacing={1.5} fill="#8a6416">PLACE</text>
         </g>
       ))}
-    </svg>
+        {layout.pts.map(({ t, x, y }) => (
+          <TileHex key={t.id} game={game} t={t} x={x} y={y} idxOf={idxOf} clickable actionable={(mode !== null || draftable) && t.category !== "BLOCKING"} selected={t.id === selectedId} onClick={() => onClick(t)} fx={newTiles?.get(t.id)} />
+        ))}
+        <NicheGroups game={game} pos={layout.posOf} />
+      </svg>
+    </div>
   );
 }
 
@@ -338,7 +648,8 @@ function nameLines(name: string): string[] {
   return best[1];
 }
 
-function TileHex({ game, t, x, y, idxOf, clickable, onClick }: { game: GameState; t: Tile; x: number; y: number; idxOf: (p: string) => number; clickable: boolean; onClick: () => void }) {
+function TileHex({ game, t, x, y, idxOf, clickable, actionable = false, selected = false, onClick, fx }: { game: GameState; t: Tile; x: number; y: number; idxOf: (p: string) => number; clickable: boolean; actionable?: boolean; selected?: boolean; onClick: () => void; fx?: { dir: "you" | "rival"; color: string } }) {
+  const isNew = fx != null;
   const ctrl = tileController(game, t.id);
   const ctrlIdx = ctrl ? idxOf(ctrl) : -1;
   const flags = game.nicheFlags.filter((f) => f.tileId === t.id);
@@ -347,21 +658,42 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick }: { game: GameState
   const isWild = t.category === "LOYALTY" || t.category === "KEYSTONE";
   const reward = t.reward;
 
-  // §2: tile COLOR denotes its REWARD. Reward tiles = warm gold gradient; plain
-  // tiles = white gradient; blocking = charred oak (dark against the light board).
+  // §1/§2: an extruded chip. Top face carries a TERRITORIAL wash by controller;
+  // side walls are a darkened shade of that; reward is signalled by a ribbon (not
+  // the whole face). Blocking = charred oak.
   const rc = reward ? rewardColor(reward) : null;
-  const face = isBlock ? "#3a352c" : rc ? "url(#rewardFace)" : "url(#plainFace)";
-  const frame = ctrlIdx >= 0 ? PC[ctrlIdx]! : isBlock ? "#160d05" : rc ? "#caa23a" : "#c2ad82";
-  const frameW = ctrlIdx >= 0 ? 3.5 : rc ? 3 : 1.5;
+  const face = isBlock ? "#3a352c" : ctrlIdx >= 0 ? OWN_FACE[ctrlIdx]! : rc ? "url(#rewardFace)" : "url(#plainFace)";
+  const edge = isBlock ? "#140f07" : ctrlIdx >= 0 ? OWN_EDGE[ctrlIdx]! : rc ? "#9a7420" : "#b09965";
+  const rim = isBlock ? "#160d05" : ctrlIdx >= 0 ? PC[ctrlIdx]! : rc ? "#c69a2c" : "#a98f5f";
+  const rimW = ctrlIdx >= 0 ? 3 : rc ? 2.4 : 1.8;
   const nm = nameLines(t.name);
+  const corners = hexCorners(x, y, HEX);
+  const lowerEdges: [number, number][] = [[0, 1], [1, 2], [2, 3], [3, 4]];
 
+  const anim = fx ? `${fx.dir === "rival" ? "bbTileDrop" : "bbTilePop"} 900ms cubic-bezier(0.16, 1, 0.3, 1) both` : undefined;
   return (
-    <g onClick={onClick} style={{ cursor: clickable ? "pointer" : "default" }}>
-      {/* warm drop shadow */}
-      <polygon points={hexPolygonPoints(x, y + 6, HEX)} fill="#5a4020" opacity={0.26} />
-      <polygon points={hexPolygonPoints(x, y, HEX)} fill={face} stroke={frame} strokeWidth={frameW} />
-      {!isBlock && <polygon points={hexPolygonPoints(x, y, HEX - 3.5)} fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1.4} />}
+    <g onClick={onClick} style={{ cursor: clickable ? "pointer" : "default", ...(anim ? { animation: anim, transformBox: "fill-box", transformOrigin: "center" } as React.CSSProperties : {}) }}>
+      {/* 1. contact shadow */}
+      <polygon points={hexPolygonPoints(x, y + THICK + 5, HEX)} fill="#2a1c0c" opacity={0.26} />
+      {/* 2. extruded side walls (the four lower/front edges) */}
+      {lowerEdges.map(([a, b], i) => {
+        const [ax, ay] = corners[a]!;
+        const [bx, by] = corners[b]!;
+        return <polygon key={i} points={`${ax},${ay} ${bx},${by} ${bx},${by + THICK} ${ax},${ay + THICK}`} fill={edge} />;
+      })}
+      {/* 3. top face + barely-there inner hairline (no heavy bevel) */}
+      <polygon points={hexPolygonPoints(x, y, HEX)} fill={face} stroke={rim} strokeWidth={rimW} />
+      {!isBlock && <polygon points={hexPolygonPoints(x, y, HEX - 3.5)} fill="none" stroke="#ffffff" strokeOpacity={0.06} strokeWidth={1.2} />}
+      {/* 4. sheen */}
       <polygon points={hexPolygonPoints(x, y, HEX)} fill="url(#tileSheen)" pointerEvents="none" />
+      {/* soft ripple as the tile settles — tinted with the placer's colour */}
+      {isNew && (
+        <polygon points={hexPolygonPoints(x, y, HEX)} fill="none" stroke={fx!.color} strokeWidth={2} pointerEvents="none">
+          <animate attributeName="stroke-width" values="1;11" dur="0.72s" begin="0.42s" fill="freeze" calcMode="spline" keySplines="0.2 0.8 0.3 1" keyTimes="0;1" />
+          <animate attributeName="opacity" values="0.75;0" dur="0.72s" begin="0.42s" fill="freeze" />
+        </polygon>
+      )}
+      {t.defenseBonus > 0 && !isBlock && <DefBadge x={x + HEX * 0.5} y={y + HEX * 0.5} n={t.defenseBonus} />}
       {isBlock ? (
         <>
           {/* diagonal charred staves */}
@@ -379,49 +711,139 @@ function TileHex({ game, t, x, y, idxOf, clickable, onClick }: { game: GameState
         </>
       ) : (
         <>
-          <text x={x} y={y - HEX * (nm.length > 1 ? 0.66 : 0.6)} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={12.5} fill={T.ink}>
-            {nm.map((ln, i) => (
-              <tspan key={i} x={x} dy={i === 0 ? 0 : 12.5}>{ln}</tspan>
-            ))}
-          </text>
+          {/* reward ribbon — a dark notched banner at the top edge */}
           {reward && (
-            <g transform={`translate(${x} ${y - HEX * (nm.length > 1 ? 0.30 : 0.42)})`}>
-              <rect x={-34} y={-8} width={68} height={15} rx={7.5} fill={rc!} />
-              <text y={3} textAnchor="middle" fontFamily={MONO} fontWeight={700} fontSize={8} letterSpacing={0.3} fill="#fff">{rewardLabel(reward)}</text>
+            <g transform={`translate(${x} ${y - HEX * 0.64})`}>
+              <polygon points="-36,-8 36,-8 31,0 36,8 -36,8 -31,0" fill={darken(rc!, 0.52)} stroke={rc!} strokeWidth={1} />
+              <text y={3} textAnchor="middle" fontFamily={MONO} fontWeight={700} fontSize={8} letterSpacing={0.3} fill="#ffe9c0">{rewardLabel(reward)}</text>
             </g>
           )}
+          {isWild && <text x={x} y={y - HEX * 0.36} textAnchor="middle" fontFamily={MONO} fontSize={8} letterSpacing={1.2} fill={T.ink} opacity={0.6}>WILDCARD</text>}
+          <text x={x} y={y - HEX * (reward || isWild ? 0.16 : 0.34)} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={13.5} fill={T.ink} stroke="#fffdf5" strokeWidth={3.2} strokeLinejoin="round" style={{ paintOrder: "stroke" } as React.CSSProperties}>
+            {nm.map((ln, i) => (
+              <tspan key={i} x={x} dy={i === 0 ? 0 : 13}>{ln}</tspan>
+            ))}
+          </text>
           {isWild ? (
-            <OwnerSlot game={game} t={t} x={x} y={y + HEX * 0.05} idxOf={idxOf} />
+            <OwnerSlot game={game} t={t} x={x} y={y + HEX * 0.16} idxOf={idxOf} />
           ) : (
-            <TagGridSVG tags={t.tags} cx={x} cy={y + HEX * (reward ? 0.15 : 0.04)} cell={13} />
+            <TagGridSVG tags={t.tags} cx={x} cy={y + HEX * 0.2} cell={13} />
           )}
-          <DPRow dps={dps} x={x} y={y + HEX * 0.74} idxOf={idxOf} />
+          <DPRow dps={dps} x={x} y={y + HEX * 0.76} idxOf={idxOf} />
           {flags.length > 0 && (
-            <g transform={`translate(${x - HEX * 0.66} ${y - HEX * 0.1})`}>
+            <g transform={`translate(${x - HEX * 0.68} ${y - HEX * 0.02})`}>
               {flags.slice(0, 4).map((f, i) => <Flag key={f.id} x={0} y={i * 8} color={PC[idxOf(f.owner)]!} h={15} />)}
             </g>
           )}
         </>
       )}
+      {/* actionable hint (a mode targets this tile) and the inspector selection ring */}
+      {actionable && !selected && (
+        <polygon points={hexPolygonPoints(x, y, HEX - 2)} fill="none" stroke={T.green} strokeWidth={2} strokeDasharray="6 5" opacity={0.75} pointerEvents="none" />
+      )}
+      {selected && (
+        <polygon points={hexPolygonPoints(x, y, HEX + 2.5)} fill="none" stroke={T.gold} strokeWidth={3.5} pointerEvents="none">
+          <animate attributeName="stroke-opacity" values="1;0.35;1" dur="1.4s" repeatCount="indefinite" />
+        </polygon>
+      )}
     </g>
   );
 }
 
+// §2.3 — draw each player's contiguous claim clusters as a colored outline:
+// dashed while building (< NICHE_MIN tiles), solid once it's a niche. For a
+// formed niche, flag tier-2 all-or-nothing status — a "n/m" or "✓" badge and a
+// "!" warning on every niche tile the owner does NOT control (the tile denying
+// the whole bonus). Clusters stagger by player so overlaps stay readable.
+function NicheGroups({ game, pos }: { game: GameState; pos: Map<string, { x: number; y: number }> }) {
+  const out: React.ReactNode[] = [];
+  game.players.forEach((p, pi) => {
+    const col = PC[pi]!;
+    derivedNiches(game, p.id).forEach((n, ci) => {
+      if (n.tileIds.length < 2) return; // a lone flag isn't a group worth outlining
+      const formed = n.tileIds.length >= CONFIG.NICHE_MIN_TILES;
+      const ringR = HEX + 3 + pi * 2.5;
+      for (const tid of n.tileIds) {
+        const q = pos.get(tid);
+        if (!q) continue;
+        out.push(
+          <polygon
+            key={`ng-${p.id}-${ci}-${tid}`}
+            points={hexPolygonPoints(q.x, q.y, ringR)}
+            fill="none"
+            stroke={col}
+            strokeWidth={formed ? 3 : 2}
+            strokeDasharray={formed ? undefined : "7 6"}
+            strokeLinejoin="round"
+            opacity={0.9}
+            pointerEvents="none"
+          />,
+        );
+        if (formed && tileController(game, tid) !== p.id) {
+          out.push(
+            <g key={`ngw-${p.id}-${ci}-${tid}`} transform={`translate(${q.x - HEX * 0.52} ${q.y - HEX * 0.52})`} pointerEvents="none">
+              <circle r={8.5} fill="#d39a1e" stroke="#fff" strokeWidth={1.3} />
+              <text y={3.2} textAnchor="middle" fontFamily={MONO} fontWeight={800} fontSize={12} fill="#3a2600">!</text>
+            </g>,
+          );
+        }
+      }
+      if (formed) {
+        const first = pos.get(n.tileIds[0]!);
+        if (first) {
+          const held = nicheControlledCount(game, n);
+          const all = held === n.tileIds.length;
+          out.push(
+            <g key={`ngb-${p.id}-${ci}`} transform={`translate(${first.x} ${first.y - HEX - 7})`} pointerEvents="none">
+              <rect x={-24} y={-9} width={48} height={17} rx={8} fill={all ? "#3f6d34" : "#7a531c"} stroke={col} strokeWidth={1.3} />
+              <text y={3.4} textAnchor="middle" fontFamily={MONO} fontWeight={700} fontSize={8.5} letterSpacing={0.3} fill="#fff">
+                {all ? "NICHE ✓" : `${held}/${n.tileIds.length}`}
+              </text>
+            </g>,
+          );
+        }
+      }
+    });
+  });
+  return <>{out}</>;
+}
+
+// Wildcard tiles carry no shelf slot / star — the owner reads from their seated
+// pawn's colour and the territorial tint; defense shows via the shared DefBadge.
 function OwnerSlot({ game, t, x, y, idxOf }: { game: GameState; t: Tile; x: number; y: number; idxOf: (p: string) => number }) {
   const ownerDP = t.ownerSlotDP ? game.dps.find((d) => d.id === t.ownerSlotDP) : null;
+  return ownerDP ? (
+    <text x={x} y={y} textAnchor="middle" fontFamily={MONO} fontSize={8} letterSpacing={0.5} fill={PC[idxOf(ownerDP.owner)]!} fontWeight={700}>
+      held ●
+    </text>
+  ) : (
+    <text x={x} y={y} textAnchor="middle" fontFamily={MONO} fontSize={8} letterSpacing={0.5} fill="#8a6a3a">unclaimed</text>
+  );
+}
+
+/** Owner defense badge — a small red disc at a tile's lower-right. */
+function DefBadge({ x, y, n }: { x: number; y: number; n: number }) {
   return (
-    <g>
-      <text x={x} y={y - 20} textAnchor="middle" fontFamily={MONO} fontSize={8} letterSpacing={1} fill={T.ink} opacity={0.7}>WILDCARD</text>
-      <circle cx={x} cy={y + 2} r={13} fill="#00000012" stroke={ownerDP ? PC[idxOf(ownerDP.owner)]! : "#00000055"} strokeWidth={2} strokeDasharray={ownerDP ? "0" : "3 3"} />
-      {ownerDP ? (
-        <Pawn x={x} y={y + 7} color={PC[idxOf(ownerDP.owner)]!} s={0.72} />
-      ) : (
-        <text x={x} y={y + 6} textAnchor="middle" fontFamily={MONO} fontSize={7} fill="#8a6a3a">OWNER</text>
-      )}
-      {t.defenseBonus > 0 && (
-        <text x={x} y={y + 26} textAnchor="middle" fontFamily={MONO} fontWeight={700} fontSize={9} fill={T.red}>+{t.defenseBonus} DEF</text>
-      )}
+    <g transform={`translate(${x} ${y})`}>
+      <circle r={11} fill="#9c2f24" stroke="#ffffff" strokeWidth={1.4} />
+      <text y={-1} textAnchor="middle" fontFamily={SERIF} fontWeight={800} fontSize={11} fill="#fff">+{n}</text>
+      <text y={7} textAnchor="middle" fontFamily={MONO} fontSize={4.5} letterSpacing={0.5} fill="#ffd9d0">DEF</text>
     </g>
+  );
+}
+
+/** Darken a #rrggbb color toward black by fraction f. */
+function darken(hex: string, f: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * (1 - f));
+  const g = Math.round(((n >> 8) & 255) * (1 - f));
+  const b = Math.round((n & 255) * (1 - f));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+function ZoomBtn({ label, onClick, small = false }: { label: string; onClick: () => void; small?: boolean }) {
+  return (
+    <button onClick={onClick} title="Zoom" style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${T.border}`, background: "#fffef8dd", color: T.goldSoft, fontSize: small ? 13 : 19, fontWeight: 700, cursor: "pointer", lineHeight: 1, display: "grid", placeItems: "center", boxShadow: "0 2px 6px #0003" }}>{label}</button>
   );
 }
 
@@ -453,6 +875,10 @@ function Rail({
   dispatch,
   onNew,
   onManual,
+  youId,
+  inspect,
+  onCloseInspect,
+  onPush,
 }: {
   game: GameState;
   you: GameState["players"][number];
@@ -462,6 +888,10 @@ function Rail({
   dispatch: (a: Action) => void;
   onNew: () => void;
   onManual: () => void;
+  youId: string;
+  inspect: Tile | null;
+  onCloseInspect: () => void;
+  onPush: (t: Tile) => void;
 }) {
   return (
     <div style={{ width: 600, height: 1080, background: `linear-gradient(${T.rail}, ${T.feltDeep})`, borderLeft: `3px solid ${T.border}`, boxShadow: `inset 4px 0 0 ${T.gold}44`, display: "flex", flexDirection: "column", padding: 18, gap: 12, boxSizing: "border-box" }}>
@@ -483,10 +913,295 @@ function Rail({
 
       <Standings game={game} />
       <NicheTracker game={game} you={you} />
-      <Market game={game} you={you} yourTurn={yourTurn} dispatch={dispatch} />
+      {/* the market shows in the rail during the opening draft; in play it moves
+          to the board's "Up for Bid" shelf. */}
+      {game.phase === "setup" && <Market game={game} you={you} yourTurn={yourTurn} dispatch={dispatch} />}
+      {inspect && (
+        <TileInspector game={game} tile={inspect} youId={youId} yourTurn={yourTurn} dispatch={dispatch} onPush={onPush} onClose={onCloseInspect} />
+      )}
       <div style={{ flex: 1 }} />
-      <Controls game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} />
+      {/* bourbons + play controls live on the board pane now; the rail keeps the
+          play controls only during setup / game over. */}
+      {game.phase !== "playing" && <Controls game={game} you={you} yourTurn={yourTurn} mode={mode} setMode={setMode} dispatch={dispatch} />}
       <Log game={game} />
+    </div>
+  );
+}
+
+/** A tile's effective demand tags for fit (a declared wildcard tag overrides). */
+function tileTargetTags(t: Tile): Tag[] {
+  return t.wildcardTag ? [t.wildcardTag] : t.tags;
+}
+
+// §3 — the tile inspector. Surfaces everything the tabletop makes you compute:
+// control, per-player DP breakdown, niche flags, YOUR bourbons ranked by fit,
+// and the actions you can take on this tile right now.
+function TileInspector({ game, tile, youId, yourTurn, dispatch, onPush, onClose }: {
+  game: GameState;
+  tile: Tile;
+  youId: string;
+  yourTurn: boolean;
+  dispatch: (a: Action) => void;
+  onPush: (t: Tile) => void;
+  onClose: () => void;
+}) {
+  const idxOf = (pid: string) => game.players.findIndex((p) => p.id === pid);
+  const you = game.players.find((p) => p.id === youId)!;
+  const isBlock = tile.category === "BLOCKING";
+  const isWild = tile.category === "LOYALTY" || tile.category === "KEYSTONE";
+  const ctrl = tileController(game, tile.id);
+  const owner = tileOwner(game, tile.id);
+  const target = tileTargetTags(tile);
+
+  const dpByPlayer = game.players
+    .map((p) => ({
+      p,
+      live: game.dps.filter((d) => d.tileId === tile.id && d.owner === p.id && d.state === "LIVE").length,
+      dark: game.dps.filter((d) => d.tileId === tile.id && d.owner === p.id && d.state === "DARK").length,
+    }))
+    .filter((x) => x.live + x.dark > 0);
+
+  const flaggers = game.players.filter((p) => game.nicheFlags.some((f) => f.tileId === tile.id && f.owner === p.id));
+
+  const ranked = isBlock
+    ? []
+    : [...you.bourbons]
+        .map((b) => ({ b, f: fit(b.tags, target) }))
+        .sort((a, z) => Number(z.b.state === "FRESH") - Number(a.b.state === "FRESH") || z.f - a.f);
+
+  const allowed = new Set<ActionType>();
+  if (yourTurn) for (const s of you.allowedSuits) for (const a of SUIT_ACTIONS[s]) allowed.add(a);
+  const canSpend = yourTurn && you.pipsRemaining > 0 && (game.stage === "resolve" || game.stage === "planning") && !isBlock;
+  const myDark = game.dps.find((d) => d.tileId === tile.id && d.owner === youId && d.state === "DARK");
+  const myLive = liveDPCount(game, tile.id, youId);
+  const freshFit = ranked.filter((r) => r.b.state === "FRESH" && r.f > 0).length;
+  const slotOpen = tile.ownershipSlot && !tile.ownerSlotDP;
+  const acts = !canSpend
+    ? []
+    : ([
+        { label: myDark ? "Repair DP" : "Build DP", on: allowed.has("BUILD_DP") || allowed.has("REPAIR_DP"), run: () => (myDark ? dispatch({ type: "REPAIR_DP", dpId: myDark.id }) : dispatch({ type: "BUILD_DP", tileId: tile.id })) },
+        { label: "Push", on: allowed.has("PUSH") && myLive > 0 && freshFit > 0, run: () => onPush(tile) },
+        { label: "Add flag", on: allowed.has("ADD_NICHE_FLAG"), run: () => dispatch({ type: "ADD_NICHE_FLAG", tileId: tile.id }) },
+        { label: "Remove flag", on: allowed.has("REMOVE_NICHE_FLAG") && game.nicheFlags.some((f) => f.tileId === tile.id && f.owner === youId), run: () => dispatch({ type: "REMOVE_NICHE_FLAG", tileId: tile.id }) },
+        { label: "Claim slot", on: allowed.has("BUILD_DP") && !!slotOpen, run: () => dispatch({ type: "CLAIM_SLOT", tileId: tile.id, tag: preferredGrain(you) }) },
+      ].filter((a) => a.on) as { label: string; run: () => void }[]);
+
+  const dot = (i: number) => <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: PC[i]!, marginRight: 5 }} />;
+  const sub = { fontFamily: MONO, fontSize: 9, letterSpacing: 1, color: T.faint, textTransform: "uppercase" as const, marginBottom: 3 };
+
+  return (
+    <div style={{ background: T.panel, border: `1px solid ${T.gold}66`, borderRadius: 12, padding: 12, boxShadow: "0 4px 14px #0004" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 800, color: T.cream }}>{tile.name}</span>
+        <button onClick={onClose} title="Close" style={{ background: "none", border: "none", color: T.faint, fontSize: 18, cursor: "pointer", lineHeight: 1 }}>×</button>
+      </div>
+      <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: 1, color: T.faint, textTransform: "uppercase", marginBottom: 8 }}>
+        {tile.category.replace(/_/g, " ").toLowerCase()}{isBlock ? " · terrain" : ""}
+      </div>
+
+      {isBlock ? (
+        <div style={{ fontSize: 12.5, color: T.muted }}>Blocking terrain — holds no DPs and breaks adjacency chains.</div>
+      ) : (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 9 }}>
+            {(isWild ? ([tile.wildcardTag].filter(Boolean) as Tag[]) : tile.tags).map((tg, i) => (
+              <span key={i} style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 12, color: "#fff", background: tagColor(tg), borderRadius: 5, padding: "2px 7px" }}>{tagGlyph(tg)}</span>
+            ))}
+            {isWild && tile.tags.length === 0 && !tile.wildcardTag && <span style={{ fontFamily: MONO, fontSize: 9, color: T.muted }}>owner declares tag</span>}
+            {tile.reward && <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: rewardColor(tile.reward), border: `1px solid ${rewardColor(tile.reward)}66`, borderRadius: 999, padding: "2px 8px" }}>{rewardLabel(tile.reward)}</span>}
+            {tile.defenseBonus > 0 && <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: "#e08b7f" }}>DEF +{tile.defenseBonus}</span>}
+          </div>
+
+          <div style={{ display: "flex", gap: 16, fontSize: 12.5, marginBottom: 9 }}>
+            <span style={{ color: T.muted }}>Controlled by {ctrl ? <b style={{ color: PC[idxOf(ctrl)] }}>{game.players[idxOf(ctrl)]!.name}</b> : <span style={{ color: T.faint }}>nobody</span>}</span>
+            {tile.ownershipSlot && <span style={{ color: T.muted }}>Owner {owner ? <b style={{ color: PC[idxOf(owner)] }}>{game.players[idxOf(owner)]!.name}</b> : <span style={{ color: T.faint }}>unclaimed</span>}</span>}
+          </div>
+
+          <div style={{ marginBottom: 9 }}>
+            <div style={sub}>Distribution points</div>
+            {dpByPlayer.length === 0 ? (
+              <span style={{ fontSize: 12, color: T.faint }}>none yet</span>
+            ) : (
+              dpByPlayer.map(({ p, live, dark }) => (
+                <div key={p.id} style={{ fontSize: 12.5 }}>{dot(idxOf(p.id))}<b style={{ color: PC[idxOf(p.id)] }}>{p.name}</b> <span style={{ color: T.muted }}>{live} live{dark ? ` · ${dark} dark` : ""}</span></div>
+              ))
+            )}
+          </div>
+
+          {flaggers.length > 0 && (
+            <div style={{ marginBottom: 9, fontSize: 12.5 }}>
+              <span style={sub}>Claimed by </span>
+              {flaggers.map((p, i) => <span key={p.id}>{i ? ", " : ""}<b style={{ color: PC[idxOf(p.id)] }}>{p.name}</b></span>)}
+            </div>
+          )}
+
+          <div>
+            <div style={sub}>Your bourbons · fit here</div>
+            {ranked.length === 0 ? (
+              <span style={{ fontSize: 12, color: T.faint }}>no bourbons yet</span>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {ranked.slice(0, 6).map(({ b, f }) => (
+                  <div key={b.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, opacity: b.state === "FRESH" ? 1 : 0.45 }}>
+                    <span style={{ color: b.state === "FRESH" ? T.cream : T.muted }}>{b.name}{b.state !== "FRESH" ? " · depleted" : ""}</span>
+                    <b style={{ color: f > 0 ? T.gold : T.faint, fontFamily: MONO }}>fit {f}</b>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {acts.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, borderTop: `1px solid ${T.line}`, paddingTop: 8, marginTop: 9 }}>
+          {acts.map((a) => (
+            <button key={a.label} onClick={a.run} style={btn(C.green)}>{a.label}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// §2.4 — the staged Push. Instead of resolving combat silently, this overlay
+// stages it: pick which FRESH bourbons to commit (capped at your LIVE DPs),
+// watch the fit total build, then REVEAL — the engine resolves on a clone so we
+// can show both sides' strength, the winner, and the DPs each loser sheds
+// before the result is actually applied.
+function PushOverlay({ game, tile, youId, onCommit, onCancel }: {
+  game: GameState;
+  tile: Tile;
+  youId: string;
+  onCommit: (bourbonIds: string[]) => void;
+  onCancel: () => void;
+}) {
+  const idxOf = (pid: string) => game.players.findIndex((p) => p.id === pid);
+  const you = game.players.find((p) => p.id === youId)!;
+  const target = tileTargetTags(tile);
+  const owner = tileOwner(game, tile.id);
+  const cap = liveDPCount(game, tile.id, youId);
+  const fresh = you.bourbons
+    .filter((b) => b.state === "FRESH")
+    .map((b) => ({ b, f: fit(b.tags, target) }))
+    .sort((a, z) => z.f - a.f);
+
+  const strengthOf = (pid: string, ids: string[]) => {
+    const p = game.players.find((x) => x.id === pid)!;
+    let s = 0;
+    for (const id of ids) {
+      const b = p.bourbons.find((x) => x.id === id);
+      if (b) s += fit(b.tags, target);
+    }
+    if (s > 0 && owner === pid) s += tile.defenseBonus;
+    return s;
+  };
+
+  const [sel, setSel] = useState<string[]>(fresh.filter((x) => x.f > 0).slice(0, cap).map((x) => x.b.id));
+  const [result, setResult] = useState<null | { winnerName: string | null; tie: boolean; you: number; defs: { name: string; idx: number; strength: number; lost: number }[]; youLost: number }>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const toggle = (id: string) =>
+    setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length < cap ? [...s, id] : s));
+
+  const myStrength = strengthOf(youId, sel);
+  const defenders = game.players.filter((p) => p.id !== youId && liveDPCount(game, tile.id, p.id) >= 1);
+
+  const reveal = () => {
+    const res = applyAction(game, { type: "PUSH", tileId: tile.id, bourbonIds: sel });
+    if (!res.ok) { setErr(res.reason); return; }
+    const after = res.state;
+    const removed: Record<string, number> = {};
+    for (const d of game.dps) if (!after.dps.some((x) => x.id === d.id)) removed[d.owner] = (removed[d.owner] ?? 0) + 1;
+    const defs = defenders.map((p) => {
+      const ap = after.players.find((q) => q.id === p.id)!;
+      const ids = p.bourbons.filter((b) => b.state === "FRESH" && ap.bourbons.find((x) => x.id === b.id)?.state === "DEPLETED").map((b) => b.id);
+      return { name: p.name, idx: idxOf(p.id), strength: strengthOf(p.id, ids), lost: removed[p.id] ?? 0 };
+    });
+    const line = [...after.log].reverse().find((l) => /Push at /.test(l.message))?.message ?? "";
+    const tie = /tie/.test(line);
+    const win = line.match(/: (.+?) wins/);
+    setResult({ winnerName: tie ? null : win?.[1] ?? null, tie, you: myStrength, defs, youLost: removed[youId] ?? 0 });
+  };
+
+  const youWon = result && !result.tie && result.winnerName === you.name;
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "#0b0805cc", zIndex: 30, display: "grid", placeItems: "center" }} onClick={onCancel}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 640, maxHeight: 900, background: `linear-gradient(${T.oak}, ${T.feltDeep})`, border: `2px solid ${T.gold}`, borderRadius: 16, padding: 22, boxShadow: "0 18px 60px #000a", color: T.cream }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+          <span style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 800, color: T.gold }}>Push — {tile.name}</span>
+          <button onClick={onCancel} style={{ background: "none", border: "none", color: T.faint, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 14 }}>
+          Commit up to <b>{cap}</b> FRESH bourbon{cap === 1 ? "" : "s"} (your LIVE DPs here){owner ? ` · owner defense +${tile.defenseBonus}` : ""}.
+        </div>
+
+        {!result ? (
+          <>
+            {/* your commitment */}
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1, color: T.faint, textTransform: "uppercase", marginBottom: 6 }}>Your bourbons — click to commit</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+              {fresh.length === 0 && <span style={{ fontSize: 13, color: T.faint }}>no FRESH bourbons — you can only retreat (strength 0)</span>}
+              {fresh.map(({ b, f }) => {
+                const on = sel.includes(b.id);
+                return (
+                  <button key={b.id} onClick={() => toggle(b.id)} style={{ textAlign: "left", background: on ? `${T.gold}2e` : T.panel, border: `2px solid ${on ? T.gold : T.border}`, borderRadius: 10, padding: "7px 11px", cursor: "pointer", color: T.cream, minWidth: 128 }}>
+                    <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 13 }}>{b.name}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: f > 0 ? T.gold : T.faint }}>fit {f}{on ? " · committed" : ""}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 800, color: T.gold, marginBottom: 14 }}>
+              Your strength: {myStrength} <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: T.muted }}>({sel.length}/{cap} committed)</span>
+            </div>
+
+            {/* who defends */}
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1, color: T.faint, textTransform: "uppercase", marginBottom: 6 }}>Defenders on this tile</div>
+            {defenders.length === 0 ? (
+              <div style={{ fontSize: 13, color: T.muted, marginBottom: 14 }}>none — an uncontested push.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
+                {defenders.map((p) => (
+                  <div key={p.id} style={{ fontSize: 13 }}>
+                    <b style={{ color: PC[idxOf(p.id)] }}>{p.name}</b>
+                    <span style={{ color: T.muted }}> — {liveDPCount(game, tile.id, p.id)} live DP{owner === p.id ? ` · owner (+${tile.defenseBonus} def)` : ""} · will field its best fresh bourbons</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {err && <div style={{ color: T.red, fontSize: 12.5, marginBottom: 10 }}>{err}</div>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={reveal} style={{ ...btn(C.green), fontSize: 15, padding: "10px 20px" }}>Reveal &amp; Push →</button>
+              <button onClick={onCancel} style={{ ...btn(C.faint), fontSize: 15, padding: "10px 20px" }}>Cancel</button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* the reveal */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16 }}>
+                <b style={{ color: T.gold }}>You</b>
+                <span style={{ fontFamily: SERIF, fontWeight: 800, fontSize: 20, color: T.gold }}>{result.you}{result.youLost ? <span style={{ fontFamily: MONO, fontSize: 12, color: T.red }}> · −{result.youLost} DP</span> : null}</span>
+              </div>
+              {result.defs.map((d) => (
+                <div key={d.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 16 }}>
+                  <b style={{ color: PC[d.idx] }}>{d.name}</b>
+                  <span style={{ fontFamily: SERIF, fontWeight: 800, fontSize: 20, color: PC[d.idx] }}>{d.strength}{d.lost ? <span style={{ fontFamily: MONO, fontSize: 12, color: T.red }}> · −{d.lost} DP</span> : null}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ textAlign: "center", fontFamily: SERIF, fontSize: 26, fontWeight: 800, color: result.tie ? T.muted : youWon ? "#6fae52" : T.red, marginBottom: 16 }}>
+              {result.tie ? "Tie — nothing changes" : youWon ? "You take the tile!" : `${result.winnerName} holds`}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 10.5, color: T.faint, textAlign: "center", marginBottom: 14 }}>All committed bourbons deplete.</div>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <button onClick={() => onCommit(sel)} style={{ ...btn(C.gold), fontSize: 15, padding: "10px 26px" }}>Continue</button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -508,7 +1223,7 @@ function Standings({ game }: { game: GameState }) {
               <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: T.gold, lineHeight: 1 }}>{p.capital}</span>
               <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: 1, color: T.faint }}>CAPITAL</span>
             </div>
-            <Stat value={p.dpSupply} label="DP" />
+            <Stat value={p.dpSupply} label="DP" redAt0 />
             <Stat value={tiles} label="TILES" />
             <Stat value={fresh} label="CASKS" />
             <Stat value={tokTotal} label="TOKENS" />
@@ -519,11 +1234,12 @@ function Standings({ game }: { game: GameState }) {
   );
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
+function Stat({ value, label, redAt0 = false }: { value: number; label: string; redAt0?: boolean }) {
+  const red = redAt0 && value === 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 42 }}>
-      <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: T.ink, lineHeight: 1 }}>{value}</span>
-      <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: 0.5, color: T.faint }}>{label}</span>
+      <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: red ? T.red : T.ink, lineHeight: 1 }}>{value}</span>
+      <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: 0.5, color: red ? T.red : T.faint }}>{label}</span>
     </div>
   );
 }
@@ -582,7 +1298,7 @@ function Market({ game, you, yourTurn, dispatch }: { game: GameState; you: GameS
               key={lot.id}
               disabled={!canBid}
               onClick={() => dispatch(drafting ? { type: "SETUP_DRAFT_BOURBON", lotId: lot.id } : { type: "BID", lotId: lot.id })}
-              style={{ flex: "1 1 158px", textAlign: "left", background: T.panel, border: `1px solid ${canBid ? T.gold : T.line}`, borderLeft: `4px solid ${accent}`, borderRadius: 9, padding: "8px 10px", cursor: canBid ? "pointer" : "default", boxShadow: canBid ? `0 1px 4px #7a5f2a26` : "none" }}
+              style={{ flex: "1 1 158px", textAlign: "left", background: T.panel, borderTop: `1px solid ${canBid ? T.gold : T.line}`, borderRight: `1px solid ${canBid ? T.gold : T.line}`, borderBottom: `1px solid ${canBid ? T.gold : T.line}`, borderLeft: `4px solid ${accent}`, borderRadius: 9, padding: "8px 10px", cursor: canBid ? "pointer" : "default", boxShadow: canBid ? `0 1px 4px #7a5f2a26` : "none" }}
             >
               <div style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: T.ink, letterSpacing: 0.3 }}>{lot.def.name}</div>
               <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
@@ -635,10 +1351,6 @@ function Controls({ game, you, yourTurn, mode, setMode, dispatch }: { game: Game
         <SetupDraftControls game={game} you={you} />
       ) : game.stage === "setupDP" ? (
         <SetupDPControls game={game} you={you} />
-      ) : game.stage === "trade" ? (
-        <TradeControls you={you} dispatch={dispatch} />
-      ) : game.stage === "catchup" ? (
-        <CatchupControls game={game} you={you} dispatch={dispatch} />
       ) : game.stage === "commit" ? (
         <CommitControls you={you} dispatch={dispatch} />
       ) : (
@@ -648,18 +1360,97 @@ function Controls({ game, you, yourTurn, mode, setMode, dispatch }: { game: Game
   );
 }
 
+// ── Play-screen board overlays (Market handoff §4–5) ─────────────────
+// The market lots, as collector bottles, on a shelf to the LEFT of the board.
+function UpForBidShelf({ game, you, yourTurn, dispatch }: { game: GameState; you: GameState["players"][number]; yourTurn: boolean; dispatch: (a: Action) => void }) {
+  const canBid = yourTurn && you.allowedSuits.some((s) => SUIT_ACTIONS[s].includes("BID"));
+  return (
+    <div style={{ position: "absolute", left: 12, top: 104, bottom: 244, width: 152, display: "flex", flexDirection: "column", gap: 7, zIndex: 2 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, color: T.goldSoft }}>Up for Bid</span>
+        {canBid && <span style={{ fontFamily: MONO, fontSize: 9, color: T.gold }}>click to bid</span>}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7, overflow: "hidden" }}>
+        {game.market.map((lot) => {
+          const bids = Object.entries(lot.bids).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+          const top = bids[0];
+          return (
+            <BottleCard
+              key={lot.id}
+              name={lot.def.name}
+              tags={lot.def.tags}
+              compact
+              onClick={canBid ? () => dispatch({ type: "BID", lotId: lot.id }) : undefined}
+              footerBg="#2a1c0e"
+              footer={top
+                ? <span style={{ fontFamily: MONO, fontSize: 8.5, color: "#e7cfa0" }}>● {game.players.find((p) => p.id === top[0])?.name} · {top[1]}</span>
+                : <span style={{ fontFamily: MONO, fontSize: 8.5, color: "#8a7458" }}>no bids yet</span>}
+            />
+          );
+        })}
+        {game.market.length === 0 && <span style={{ fontFamily: SANS, fontSize: 12, color: T.faint }}>market resolved</span>}
+      </div>
+    </div>
+  );
+}
+
+// The player's bourbons, fanned as bottles at the bottom (a card lifts on hover).
+function BourbonFan({ bourbons }: { bourbons: GameState["players"][number]["bourbons"] }) {
+  const cards = bourbons.slice(0, 7);
+  const mid = (cards.length - 1) / 2;
+  if (cards.length === 0) return <span style={{ fontFamily: SANS, fontSize: 13, color: T.faint, paddingBottom: 60 }}>none — bid at the market</span>;
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", paddingLeft: 54 }}>
+      {cards.map((b, i) => (
+        <div key={b.id} className="bb-fan-card" style={{ marginLeft: i === 0 ? 0 : -104, transform: `rotate(${(i - mid) * 4}deg)`, transformOrigin: "50% 140%", position: "relative", zIndex: i }}>
+          <BourbonChip b={b} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Everything at the bottom of the play screen: the action pill (stage controls +
+// fanned action cards live inside the existing controls) and the bourbon fan.
+function PlayHandZone({ game, you, yourTurn, mode, setMode, dispatch, onUndo, canUndo }: { game: GameState; you: GameState["players"][number]; yourTurn: boolean; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void; onUndo?: () => void; canUndo?: boolean }) {
+  // Both the commit and cull stages show the full-size action-card row, so give
+  // them the taller/wider hand panel.
+  const bigHand = yourTurn && (game.stage === "commit" || game.stage === "cull");
+  return (
+    <div style={{ position: "absolute", left: 172, right: 12, bottom: 0, height: bigHand ? 350 : 316, display: "flex", alignItems: "flex-end", gap: 18, padding: "0 14px 14px", zIndex: 4, pointerEvents: "none" }}>
+      <div style={{ pointerEvents: "auto", flex: 1, minWidth: 0, maxWidth: bigHand ? 1120 : 720, background: "linear-gradient(#fdfcf7, #efe9dc)", borderRadius: 14, padding: 12, border: `1px solid ${T.border}`, boxShadow: "0 8px 26px #0006", maxHeight: bigHand ? 334 : 240, overflow: "hidden" }}>
+        {!yourTurn ? (
+          <div style={{ textAlign: "center", color: C.muted, fontSize: 15, padding: 20 }}>Rivals are acting…</div>
+        ) : game.stage === "cull" ? (
+          <CullControls you={you} dispatch={dispatch} />
+        ) : game.stage === "commit" ? (
+          <CommitControls you={you} dispatch={dispatch} />
+        ) : (
+          <ActControls game={game} you={you} mode={mode} setMode={setMode} dispatch={dispatch} onUndo={onUndo} canUndo={canUndo} />
+        )}
+      </div>
+      <div style={{ pointerEvents: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1, color: "#5a4626", textTransform: "uppercase" }}>
+          Your bourbons · {you.bourbons.filter((b) => b.state === "FRESH").length} fresh
+        </span>
+        <BourbonFan bourbons={you.bourbons} />
+      </div>
+    </div>
+  );
+}
+
 function SetupPlaceControls({ you }: { you: GameState["players"][number] }) {
   return (
-    <HandTray
-      label="Your setup tiles"
-      meta={`${you.setupTiles.length} to place`}
-      footer="Click a glowing hex to place the lifted tile — it must touch 2+ tiles. In play, this tray becomes your action cards."
-    >
-      {you.setupTiles.map((t, i) => (
-        <SetupTileCard key={t.defId + i} tile={t} isNext={i === 0} />
-      ))}
-      {you.setupTiles.length === 0 && <span style={{ fontSize: 13, color: T.faint, alignSelf: "center" }}>All tiles placed — on to the draft.</span>}
-    </HandTray>
+    <div>
+      <RailLabel>Setup · Build the market</RailLabel>
+      <p style={{ fontSize: 14, color: C.muted, margin: "0 0 4px", lineHeight: 1.5 }}>
+        Your tiles are in the <B>glowing tray below the board</B>. Click one to lift it, then click a{" "}
+        <B>glowing socket</B> to lay it (each tile must touch 2+ others).
+      </p>
+      <p style={{ fontSize: 13, color: T.faint, margin: 0 }}>
+        <B>{you.setupTiles.length}</B> tile{you.setupTiles.length === 1 ? "" : "s"} left to place.
+      </p>
+    </div>
   );
 }
 
@@ -695,52 +1486,46 @@ function SetupDPControls({ game, you }: { game: GameState; you: GameState["playe
   );
 }
 
-function TradeControls({ you, dispatch }: { you: GameState["players"][number]; dispatch: (a: Action) => void }) {
-  const [sel, setSel] = useState<string[]>([]);
-  const toggle = (id: string) =>
-    setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length < 2 ? [...s, id] : s));
+// Age start: draw HAND_DRAW, keep HAND_SIZE. Pick one card to discard (click to
+// select, then confirm) — the full-size row so you can read every card first.
+function CullControls({ you, dispatch }: { you: GameState["players"][number]; dispatch: (a: Action) => void }) {
+  const [pick, setPick] = useState<string | null>(null);
+  const toDrop = you.hand.length - CONFIG.HAND_SIZE;
   return (
     <div>
-      <div style={{ fontSize: 14, color: C.muted, marginBottom: 8 }}>
-        The Trade — offer up to 2 cards into a shared shuffle, draw back the same number. (Age {""}
-        start)
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+        <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: T.goldSoft }}>Your new hand — keep {CONFIG.HAND_SIZE}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>{pick ? "discard the marked card, or pick another" : `pick ${toDrop} card${toDrop === 1 ? "" : "s"} to discard`}</span>
       </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        {you.hand.map((c) => (
-          <HandCard key={c.id} card={c} selected={sel.includes(c.id)} onClick={() => toggle(c.id)} width={116} />
-        ))}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, minHeight: 188 }}>
+        {you.hand.map((c) => {
+          const marked = pick === c.id;
+          return (
+            <div
+              key={c.id}
+              className="bb-play-card"
+              style={{ position: "relative", borderRadius: 12, boxShadow: marked ? `0 0 0 3px ${T.red}, 0 6px 16px #0007` : "none", opacity: marked ? 0.85 : 1 }}
+            >
+              <HandCard card={c} selected={false} onClick={() => setPick((s) => (s === c.id ? null : c.id))} width={150} />
+              {marked && (
+                <div style={{ position: "absolute", top: 6, right: 6, fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, color: "#fff", background: T.red, borderRadius: 6, padding: "2px 6px", pointerEvents: "none" }}>
+                  DISCARD
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-      <button onClick={() => dispatch({ type: "TRADE_OFFER", cardIds: sel })} style={btn(C.gold)}>
-        {sel.length ? `Offer ${sel.length}` : "Offer nothing"}
-      </button>
-    </div>
-  );
-}
-
-function CatchupControls({ game, you, dispatch }: { game: GameState; you: GameState["players"][number]; dispatch: (a: Action) => void }) {
-  const [board, setBoard] = useState<string | null>(null);
-  return (
-    <div>
-      <div style={{ fontSize: 14, color: C.muted, marginBottom: 8 }}>
-        Catch-up — swap one hand card for one board card, or pass. (Least-Capital player goes first.)
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+        <button
+          disabled={!pick}
+          onClick={() => { if (pick) { dispatch({ type: "CULL_CARD", cardId: pick }); setPick(null); } }}
+          style={{ ...btn(T.red), opacity: pick ? 1 : 0.4 }}
+        >
+          Discard &amp; keep {CONFIG.HAND_SIZE}
+        </button>
+        <span style={{ fontFamily: SANS, fontSize: 10.5, color: T.faint }}>The discard goes back into the deck.</span>
       </div>
-      <div style={{ fontSize: 11, color: C.faint, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Shared board — pick one</div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        {game.catchUpBoard.map((c) => (
-          <HandCard key={c.id} card={c} selected={board === c.id} onClick={() => setBoard(board === c.id ? null : c.id)} width={116} />
-        ))}
-      </div>
-      <div style={{ fontSize: 11, color: C.faint, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-        {board ? "…and click a hand card to give away" : "Your hand"}
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        {you.hand.map((c) => (
-          <HandCard key={c.id} card={c} disabled={!board} onClick={() => board && dispatch({ type: "CATCHUP_SWAP", handCardId: c.id, boardCardId: board })} width={116} />
-        ))}
-      </div>
-      <button onClick={() => dispatch({ type: "CATCHUP_SWAP", handCardId: "", boardCardId: null })} style={btn(C.gold)}>
-        Pass
-      </button>
     </div>
   );
 }
@@ -760,17 +1545,23 @@ function CommitControls({ you, dispatch }: { you: GameState["players"][number]; 
 
   return (
     <div>
-      <HandTray
-        label="Your action cards"
-        meta={faceUp.length ? `${faceUp.length} up${chained ? ` · ${chained} sacrificed` : ""}` : "pick a card"}
-        footer="1st card = primary; extra cards chain (each costs one face-down sacrifice)."
-      >
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+        <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: T.goldSoft }}>Your action cards</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>{faceUp.length ? `${faceUp.length} up${chained ? ` · ${chained} sacrificed` : ""}` : "click a card to read it, then Play"}</span>
+      </div>
+      {/* the hand — full-size cards, spread so you can read every action before you commit */}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, minHeight: 188 }}>
         {you.hand.map((c) => {
           const idx = faceUp.indexOf(c.id);
-          return <HandCard key={c.id} card={c} selected={idx >= 0} badge={idx >= 0 ? idx + 1 : undefined} onClick={() => toggle(c.id)} />;
+          return (
+            <div key={c.id} className="bb-play-card" style={{ position: "relative", zIndex: idx >= 0 ? 20 : 1 }}>
+              <HandCard card={c} selected={idx >= 0} badge={idx >= 0 ? idx + 1 : undefined} onClick={() => toggle(c.id)} width={150} />
+            </div>
+          );
         })}
-      </HandTray>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+        {you.hand.length === 0 && <span style={{ fontSize: 13, color: T.faint, paddingBottom: 30 }}>hand empty — you sit this round out</span>}
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
         <button
           disabled={!canPlay}
           onClick={() => dispatch({ type: "COMMIT_PLAY", faceUpIds: faceUp, sacrificeIds: sacrifices, surrender: false })}
@@ -783,22 +1574,25 @@ function CommitControls({ you, dispatch }: { you: GameState["players"][number]; 
           onClick={() => dispatch({ type: "COMMIT_PLAY", faceUpIds: [], sacrificeIds: [faceUp[0]!], surrender: true })}
           style={{ ...btn(C.faint), opacity: faceUp.length === 1 ? 1 : 0.4 }}
         >
-          Surrender (1 any-action)
+          Surrender
         </button>
+        <span style={{ fontFamily: SANS, fontSize: 10.5, color: T.faint, lineHeight: 1.3 }}>1st = primary; extras chain (1 sacrifice each).</span>
       </div>
     </div>
   );
 }
 
-function ActControls({ game, you, mode, setMode, dispatch }: { game: GameState; you: GameState["players"][number]; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void }) {
+function ActControls({ game, you, mode, setMode, dispatch, onUndo, canUndo }: { game: GameState; you: GameState["players"][number]; mode: Mode; setMode: (m: Mode) => void; dispatch: (a: Action) => void; onUndo?: () => void; canUndo?: boolean }) {
   const allowed = new Set<ActionType>();
   for (const s of you.allowedSuits) for (const a of SUIT_ACTIONS[s]) allowed.add(a);
-  const tileModes: { t: Mode; label: string; need: ActionType }[] = [
-    { t: "BUILD_DP", label: "Build DP", need: "BUILD_DP" },
-    { t: "PUSH", label: "Push", need: "PUSH" },
-    { t: "ADD_NICHE_FLAG", label: "Flag", need: "ADD_NICHE_FLAG" },
-    { t: "REMOVE_NICHE_FLAG", label: "Unflag", need: "REMOVE_NICHE_FLAG" },
-    { t: "CLAIM_SLOT", label: "Claim slot", need: "BUILD_DP" },
+  const hasDarkDP = game.dps.some((d) => d.owner === you.id && d.state === "DARK");
+  // Build + repair are one gesture: click a tile to place a DP, or a dead one to revive it.
+  const tileModes: { t: Mode; label: string; enabled: boolean }[] = [
+    { t: "BUILD_DP", label: hasDarkDP ? "Place / repair DP" : "Place DP", enabled: allowed.has("BUILD_DP") || allowed.has("REPAIR_DP") },
+    { t: "PUSH", label: "Push", enabled: allowed.has("PUSH") },
+    { t: "ADD_NICHE_FLAG", label: "Flag", enabled: allowed.has("ADD_NICHE_FLAG") },
+    { t: "REMOVE_NICHE_FLAG", label: "Unflag", enabled: allowed.has("REMOVE_NICHE_FLAG") },
+    { t: "CLAIM_SLOT", label: "Claim slot", enabled: allowed.has("BUILD_DP") },
   ];
   const tokens = Object.entries(you.tokens).filter(([, n]) => n > 0) as [TokenType, number][];
   const depleted = you.bourbons.find((b) => b.state === "DEPLETED");
@@ -806,11 +1600,29 @@ function ActControls({ game, you, mode, setMode, dispatch }: { game: GameState; 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 14, color: C.muted }}>
-          {game.stage === "planning" ? "Planning — spend tokens, then commit" : `${you.pipsRemaining} pips left`}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 14, color: C.muted, display: "flex", alignItems: "center", gap: 8 }}>
+          {game.stage === "planning" ? (
+            "Planning — spend tokens, then commit"
+          ) : (
+            <>
+              {/* pip budget: filled = actions you can still spend this turn */}
+              <span style={{ display: "inline-flex", gap: 3 }}>
+                {Array.from({ length: Math.max(you.pipsRemaining, 0) }).map((_, i) => (
+                  <span key={i} style={{ width: 11, height: 11, borderRadius: 3, background: C.gold, boxShadow: "inset 0 0 0 1.5px #ffffff99" }} />
+                ))}
+                {you.pipsRemaining === 0 && <span style={{ width: 11, height: 11, borderRadius: 3, border: `1.5px solid ${C.border}` }} />}
+              </span>
+              <b style={{ color: C.text }}>{you.pipsRemaining}</b> action{you.pipsRemaining === 1 ? "" : "s"} left
+            </>
+          )}
           {played ? ` · ${played}` : ""}
         </span>
+        {game.stage === "resolve" && onUndo && (
+          <button onClick={onUndo} disabled={!canUndo} title="Undo your last action this turn" style={{ ...btn(C.border), opacity: canUndo ? 1 : 0.4, padding: "5px 12px" }}>
+            ↶ Undo
+          </button>
+        )}
       </div>
 
       {game.stage === "planning" && (
@@ -825,19 +1637,16 @@ function ActControls({ game, you, mode, setMode, dispatch }: { game: GameState; 
       )}
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {tileModes.map(({ t, label, need }) => {
-          const on = allowed.has(need);
-          return (
-            <button
-              key={label}
-              disabled={!on}
-              onClick={() => setMode(mode === t ? null : t)}
-              style={{ ...btn(mode === t ? C.green : C.border), opacity: on ? 1 : 0.35 }}
-            >
-              {label}
-            </button>
-          );
-        })}
+        {tileModes.map(({ t, label, enabled }) => (
+          <button
+            key={label}
+            disabled={!enabled}
+            onClick={() => setMode(mode === t ? null : t)}
+            style={{ ...btn(mode === t ? C.green : C.border), opacity: enabled ? 1 : 0.35 }}
+          >
+            {label}
+          </button>
+        ))}
         {allowed.has("REFRESH") && depleted && (
           <button onClick={() => dispatch({ type: "REFRESH", bourbonId: depleted.id })} style={btn(C.gold)}>
             Refresh {depleted.name}
@@ -847,7 +1656,9 @@ function ActControls({ game, you, mode, setMode, dispatch }: { game: GameState; 
 
       {mode && (
         <div style={{ fontSize: 12, color: C.green, fontFamily: MONO }}>
-          ▸ click a tile to {mode.replace(/_/g, " ").toLowerCase()}
+          ▸ {mode === "BUILD_DP"
+            ? "click a tile to place a DP — or a tile with your dead DP to revive it"
+            : `click a tile to ${mode.replace(/_/g, " ").toLowerCase()}`}
         </div>
       )}
 
@@ -911,8 +1722,38 @@ function B({ children }: { children: React.ReactNode }) {
 
 // A letterpress action card (matches the printed Action Cards): cream face,
 // suit-colored header strip, serif name, pip squares, barrel initiative icon.
-function HandCard({ card, selected, badge, disabled, onClick, width = 122 }: { card: GameState["players"][number]["hand"][number]; selected?: boolean; badge?: number; disabled?: boolean; onClick: () => void; width?: number }) {
+// Friendly labels for what a card can DO, and full suit names — for the card body.
+const ACTION_LABEL: Record<string, string> = {
+  BUILD_DP: "Build DP",
+  REPAIR_DP: "Repair DP",
+  PUSH: "Push a tile",
+  ADD_NICHE_FLAG: "Flag niche",
+  REMOVE_NICHE_FLAG: "Remove flag",
+  EXPAND_MARKET: "Expand map",
+  BID: "Bid bourbon",
+  REFRESH: "Refresh bourbon",
+};
+const SUIT_FULL: Record<Suit, string> = {
+  DISTRIBUTION: "Distribution",
+  SALES: "Sales",
+  MARKETING: "Marketing",
+  BUSINESS_DEV: "Business Dev",
+  SOURCING: "Sourcing",
+  DISTILL: "Distill",
+};
+// One-line "rules text" describing what each suit's card does — like a game card.
+const SUIT_TAGLINE: Record<Suit, string> = {
+  DISTRIBUTION: "Grow & mend your distribution — build or repair DPs.",
+  SALES: "Fight for a tile (Push) and stake or drop niche claims.",
+  MARKETING: "Fight for a tile (Push) and stake or drop niche claims.",
+  BUSINESS_DEV: "Push the frontier — draw/place tiles and build DPs.",
+  SOURCING: "Stock the shelves — bid on bourbons and expand the map.",
+  DISTILL: "Run the still — bid on bourbons and refresh depleted ones.",
+};
+
+function HandCard({ card, selected, badge, disabled, onClick, width = 158, compact = false }: { card: GameState["players"][number]["hand"][number]; selected?: boolean; badge?: number; disabled?: boolean; onClick: () => void; width?: number; compact?: boolean }) {
   const sc = SUIT_COLOR[card.suit];
+  const caps = SUIT_ACTIONS[card.suit].map((a) => ACTION_LABEL[a] ?? a);
   return (
     <button
       onClick={onClick}
@@ -920,35 +1761,59 @@ function HandCard({ card, selected, badge, disabled, onClick, width = 122 }: { c
       style={{
         width,
         textAlign: "left",
-        background: "#f3ead2",
+        background: "linear-gradient(#fbf5e6, #efe4c9)",
         border: `2px solid ${selected ? T.gold : sc}`,
-        borderRadius: 8,
+        borderRadius: 11,
         padding: 0,
         overflow: "hidden",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.5 : 1,
-        boxShadow: selected ? `0 0 0 2px ${T.gold}, 0 3px 8px #0007` : "0 2px 5px #0005",
+        boxShadow: selected ? `0 0 0 3px ${T.gold}, 0 6px 14px #0007` : "0 3px 9px #0006",
+        transform: selected ? "translateY(-4px)" : "none",
+        transition: "transform 120ms",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: sc, padding: "2px 7px" }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: 1, color: "#fff" }}>{SUIT_SHORT[card.suit]}</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: `linear-gradient(${sc}, ${sc}d0)`, padding: "4px 9px" }}>
+        <span style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "#fff" }}>{SUIT_SHORT[card.suit]}</span>
+          <span style={{ fontFamily: SERIF, fontSize: 9.5, color: "#ffffffcc" }}>{SUIT_FULL[card.suit]}</span>
+        </span>
         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {card.icon && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }} title="Initiative — play last to lead next round">
               <BarrelIcon color="#fff" />
-              <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#fff" }}>LEAD</span>
+              <span style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#fff" }}>LEAD</span>
             </span>
           )}
-          {badge != null && <span style={{ fontFamily: SERIF, fontSize: 11, fontWeight: 700, color: "#fff" }}>{badge}</span>}
+          {badge != null && <span style={{ fontFamily: SERIF, fontSize: 12, fontWeight: 700, color: "#fff" }}>{badge}</span>}
         </span>
       </div>
-      <div style={{ padding: "5px 8px 7px" }}>
-        <div style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 700, color: T.ink, lineHeight: 1.05 }}>{card.name}</div>
-        <div style={{ display: "flex", gap: 3, marginTop: 5 }}>
-          {Array.from({ length: card.pips }).map((_, i) => (
-            <span key={i} style={{ width: 9, height: 9, borderRadius: 2, background: sc, boxShadow: "inset 0 0 0 1.5px #ffffff88" }} />
-          ))}
+      <div style={{ padding: compact ? "5px 8px 7px" : "6px 10px 8px" }}>
+        <div style={{ fontFamily: SERIF, fontSize: compact ? 14 : 15.5, fontWeight: 700, color: T.ink, lineHeight: 1.06, minHeight: compact ? 30 : 27 }}>{card.name}</div>
+        {/* actions this round */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: compact ? 4 : 5 }}>
+          <span style={{ display: "flex", gap: 3 }}>
+            {Array.from({ length: card.pips }).map((_, i) => (
+              <span key={i} style={{ width: compact ? 8 : 10, height: compact ? 8 : 10, borderRadius: 2.5, background: sc, boxShadow: "inset 0 0 0 1.5px #ffffff99" }} />
+            ))}
+          </span>
+          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: T.muted }}>{card.pips} actions</span>
         </div>
+        {/* what you can do with them (full cards only — dense swap views stay compact) */}
+        {!compact && (
+          <>
+            <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: 0.8, color: sc, textTransform: "uppercase", marginTop: 6 }}>Actions available</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
+              {caps.map((c) => (
+                <span key={c} style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: sc, background: `${sc}1c`, border: `1px solid ${sc}44`, borderRadius: 999, padding: "1px 7px" }}>{c}</span>
+              ))}
+            </div>
+            {/* rules text */}
+            <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: 10.5, color: T.muted, marginTop: 6, lineHeight: 1.26, borderTop: `1px solid ${T.line}`, paddingTop: 5 }}>
+              {SUIT_TAGLINE[card.suit]}
+            </div>
+          </>
+        )}
       </div>
     </button>
   );
@@ -983,46 +1848,43 @@ function HandTray({ label, meta, footer, children }: { label: string; meta?: Rea
 // A setup tile rendered as a card, mirroring HandCard: grain-tinted header strip
 // ("DEMAND"), reward coin, serif name (up to 2 lines), and the shared 2-2-1
 // TagGrid. The next tile to place lifts with a gold ring + NEXT badge.
-function SetupTileCard({ tile, isNext, width = 122 }: { tile: GameState["players"][number]["setupTiles"][number]; isNext: boolean; width?: number }) {
-  const grain = tile.tags.find((t) => t.kind === "GRAIN");
-  const accent = grain ? tagColor(grain) : tile.reward ? rewardColor(tile.reward) : T.goldSoft;
+// A setup tile in the hand, rendered as the ACTUAL hex tile it will become on the
+// board (extruded chip + reward ribbon + name + spec grid). The lifted/selected
+// one rises with a gold glow.
+function SetupTileCard({ tile, isNext }: { tile: GameState["players"][number]["setupTiles"][number]; isNext: boolean }) {
+  const reward = tile.reward;
+  const rc = reward ? rewardColor(reward) : null;
+  const isWild = tile.category === "LOYALTY" || tile.category === "KEYSTONE";
   const nm = nameLines(tile.name);
+  const S = 55;
+  const w = S * 2, hgt = S * 2.3;
+  const cx = w / 2, cy = S + 5;
+  const corners = hexCorners(cx, cy, S);
+  const faceFill = rc ? "#f5e7bb" : "#fbf9f1";
   return (
-    <div
-      style={{
-        position: "relative",
-        width,
-        background: "linear-gradient(#fffdf7, #f3ecd9)",
-        border: `2px solid ${isNext ? T.gold : accent}`,
-        borderRadius: 8,
-        overflow: "hidden",
-        transform: isNext ? "translateY(-8px)" : "none",
-        transition: "transform 120ms",
-        boxShadow: isNext ? `0 0 0 2px ${T.gold}, 0 7px 14px #6b512e40` : "0 2px 6px #6b512e40",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: accent, padding: "2px 7px" }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: 1, color: "#fff" }}>
-          {tile.category === "LOYALTY" || tile.category === "KEYSTONE" ? "WILD" : "DEMAND"}
-        </span>
-        {tile.reward && (
-          <span style={{ width: 15, height: 15, borderRadius: 999, background: rewardColor(tile.reward), border: "1px solid #ffffff88", display: "grid", placeItems: "center", fontFamily: SERIF, fontWeight: 700, fontSize: 9, color: "#fff" }}>
-            {tile.reward.kind === "CAPITAL" ? tile.reward.amount : "⊙"}
-          </span>
+    <div style={{ position: "relative", transform: isNext ? "translateY(-12px)" : "none", transition: "transform 130ms", filter: isNext ? `drop-shadow(0 0 7px ${T.gold}bb)` : "none" }}>
+      <svg width={w} height={hgt} style={{ overflow: "visible", display: "block" }}>
+        <polygon points={hexPolygonPoints(cx, cy + THICK + 4, S)} fill="#2a1c0c" opacity={0.22} />
+        {([[0, 1], [1, 2], [2, 3], [3, 4]] as [number, number][]).map(([a, b], i) => {
+          const [ax, ay] = corners[a]!;
+          const [bx, by] = corners[b]!;
+          return <polygon key={i} points={`${ax},${ay} ${bx},${by} ${bx},${by + THICK} ${ax},${ay + THICK}`} fill={rc ? "#9a7420" : "#b09965"} />;
+        })}
+        <polygon points={hexPolygonPoints(cx, cy, S)} fill={faceFill} stroke={isNext ? T.gold : rc ? "#c69a2c" : "#a98f5f"} strokeWidth={isNext ? 3 : 2} />
+        {reward && (
+          <g transform={`translate(${cx} ${cy - S * 0.64})`}>
+            <polygon points="-34,-8 34,-8 29,0 34,8 -34,8 -29,0" fill={darken(rc!, 0.52)} stroke={rc!} strokeWidth={1} />
+            <text y={3} textAnchor="middle" fontFamily={MONO} fontWeight={700} fontSize={7.5} letterSpacing={0.3} fill="#ffe9c0">{rewardLabel(reward)}</text>
+          </g>
         )}
-      </div>
-      <div style={{ padding: "5px 7px 7px" }}>
-        <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 700, color: T.ink, lineHeight: 1.05, minHeight: 30 }}>
-          {nm.map((ln, i) => (
-            <div key={i}>{ln}</div>
-          ))}
-        </div>
-        <div style={{ display: "grid", placeItems: "center", marginTop: 4 }}>
-          <TagGridHTML tags={tile.tags} cell={16} />
-        </div>
-      </div>
+        {isWild && <text x={cx} y={cy - S * 0.36} textAnchor="middle" fontFamily={MONO} fontSize={8} letterSpacing={1.2} fill={T.ink} opacity={0.6}>WILDCARD</text>}
+        <text x={cx} y={cy - S * (reward || isWild ? 0.16 : 0.34)} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={12.5} fill={T.ink} stroke="#fffdf5" strokeWidth={3} strokeLinejoin="round" style={{ paintOrder: "stroke" } as React.CSSProperties}>
+          {nm.map((ln, i) => <tspan key={i} x={cx} dy={i === 0 ? 0 : 12}>{ln}</tspan>)}
+        </text>
+        <TagGridSVG tags={tile.tags} cx={cx} cy={cy + S * 0.24} cell={12} />
+      </svg>
       {isNext && (
-        <span style={{ position: "absolute", top: -9, left: "50%", transform: "translateX(-50%)", fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: 1, color: "#fff", background: T.gold, borderRadius: 999, padding: "1px 8px", boxShadow: "0 2px 4px #0004" }}>
+        <span style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: 1, color: "#1c110a", background: T.gold, borderRadius: 999, padding: "1px 9px", boxShadow: "0 2px 4px #0005" }}>
           NEXT
         </span>
       )}
@@ -1033,33 +1895,78 @@ function SetupTileCard({ tile, isNext, width = 122 }: { tile: GameState["players
 // A bourbon as a mini collector card (§3): grain-gradient art, charred-oak
 // scrim, cream serif name, and the SHARED TagGrid so it reads slot-for-slot
 // against tiles.
-function BourbonChip({ b }: { b: GameState["players"][number]["bourbons"][number] }) {
-  const dep = b.state === "DEPLETED";
-  const tint = grainTint(b.tags);
+// The canonical collector-bottle card, used for BOTH the market "Up for Bid"
+// shelf and the player's bourbon hand. Dark bottle, grain art + scrim, premium
+// kicker, foil TagGrid, and a slot for a footer (state, or a bid line).
+function BottleCard({ name, tags, compact = false, footer, footerBg, onClick, dim = false, selected = false }: { name: string; tags: readonly Tag[]; compact?: boolean; footer?: React.ReactNode; footerBg?: string; onClick?: () => void; dim?: boolean; selected?: boolean }) {
+  const tint = grainTint(tags);
+  const premium = tags.some((t) => t.kind === "QUALITY" && t.value === "PREMIUM");
+  const ageTag = tags.find((t) => t.kind === "AGE");
+  const grainVal = tags.find((t) => t.kind === "GRAIN")?.value;
+  const batchVal = tags.find((t) => t.kind === "BATCH")?.value;
+  const subtitle = [grainVal, batchVal].filter(Boolean).map((v) => String(v).replace(/_/g, " ")).join(" · ");
+  const artH = compact ? 42 : 92;
   return (
     <div
-      title={`${b.name} — ${b.state}`}
+      onClick={onClick}
+      title={name}
       style={{
-        width: 96,
-        borderRadius: 8,
+        width: compact ? 132 : 172,
+        flex: "0 0 auto",
+        borderRadius: compact ? 9 : 13,
         overflow: "hidden",
-        border: `1px solid ${dep ? "#00000066" : T.goldSoft}`,
-        opacity: dep ? 0.5 : 1,
-        filter: dep ? "grayscale(0.55)" : "none",
-        boxShadow: dep ? "none" : "0 2px 6px #6b512e40",
+        border: `${compact ? 2 : 2.5}px solid ${dim ? "#00000055" : selected ? T.gold : premium ? T.gold : T.goldSoft}`,
+        opacity: dim ? 0.6 : 1,
+        filter: dim ? "grayscale(0.4)" : "none",
+        boxShadow: selected ? `0 0 0 2px ${T.gold}, 0 7px 16px #0008` : `0 5px 14px #6b512e55`,
         background: "#1c110a",
+        cursor: onClick ? "pointer" : "default",
       }}
     >
-      {/* art + scrim + name (this card stays dark — a collector bottle) */}
-      <div style={{ position: "relative", height: 44, background: `linear-gradient(160deg, ${tint.a}, ${tint.b})` }}>
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(22,13,5,0.96), rgba(22,13,5,0) 70%)" }} />
-        <div style={{ position: "absolute", left: 6, right: 6, bottom: 4, fontFamily: SERIF, fontWeight: 700, fontSize: 11.5, color: "#f0e4cc", lineHeight: 1.02 }}>{b.name}</div>
-        {dep && <div style={{ position: "absolute", top: 3, right: 5, fontFamily: MONO, fontSize: 7, letterSpacing: 0.5, color: "#e0b0a0" }}>DEPLETED</div>}
+      <div style={{ position: "relative", height: artH, background: `linear-gradient(160deg, ${tint.a}, ${tint.b})` }}>
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(22,13,5,0.96), rgba(22,13,5,0) 72%)" }} />
+        <div style={{ position: "absolute", top: 5, left: 9, fontFamily: MONO, fontSize: compact ? 8 : 8.5, letterSpacing: 1.5, color: premium ? "#f0d38a" : "#d9c49c", textTransform: "uppercase" }}>{premium ? "★ Premium" : "Bourbon"}</div>
+        {!compact && (
+          <div style={{ position: "absolute", top: 6, right: 9, textAlign: "center", fontFamily: MONO, fontSize: 7.5, lineHeight: 1.15, color: "#cbb488", border: "1px solid #cbb48866", borderRadius: 3, padding: "2px 5px", transform: "rotate(4deg)" }}>
+            {premium ? "RE-\nSERVE".split("\n").map((s, i) => <div key={i}>{s}</div>) : <><div>EST</div><div>1870</div></>}
+          </div>
+        )}
+        {!compact && ageTag && (
+          <div style={{ position: "absolute", bottom: 8, right: 9, width: 34, height: 34, borderRadius: "50%", background: "#241705", border: "1.5px solid #c9a24a", display: "grid", placeItems: "center", boxShadow: "0 2px 6px #0006" }}>
+            <div style={{ textAlign: "center", lineHeight: 1 }}>
+              <div style={{ fontFamily: SERIF, fontWeight: 800, fontSize: 15, color: "#f0d38a" }}>{ageTag.value}</div>
+              <div style={{ fontFamily: MONO, fontSize: 5, letterSpacing: 1, color: "#c9b48e" }}>AGE</div>
+            </div>
+          </div>
+        )}
+        <div style={{ position: "absolute", left: 9, right: compact ? 9 : 46, bottom: compact ? 5 : 22, fontFamily: SERIF, fontWeight: 700, fontSize: compact ? 12.5 : 16, color: "#f4e8cf", lineHeight: 1.04 }}>{name}</div>
+        {!compact && subtitle && <div style={{ position: "absolute", left: 9, bottom: 6, fontFamily: MONO, fontSize: 7.5, letterSpacing: 0.6, color: "#c6ad82", textTransform: "uppercase" }}>{subtitle}</div>}
       </div>
-      {/* foil spec grid — the shared TagGrid */}
-      <div style={{ background: "#1c110a", padding: "5px 0 4px", display: "grid", placeItems: "center" }}>
-        <TagGridHTML tags={b.tags} cell={13} />
+      <div style={{ background: "#1c110a", padding: compact ? "5px 0 4px" : "9px 0 7px", display: "grid", placeItems: "center" }}>
+        <TagGridHTML tags={tags} cell={compact ? 13 : 21} />
       </div>
+      {footer != null && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: footerBg ?? "#241705", padding: "4px 6px", minHeight: 18 }}>{footer}</div>
+      )}
     </div>
+  );
+}
+
+function BourbonChip({ b, compact = false }: { b: GameState["players"][number]["bourbons"][number]; compact?: boolean }) {
+  const dep = b.state === "DEPLETED";
+  return (
+    <BottleCard
+      name={b.name}
+      tags={b.tags}
+      compact={compact}
+      dim={dep}
+      footerBg={dep ? "#3a241a" : "#26401f"}
+      footer={
+        <>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: dep ? "#c07a4a" : "#8fc25a" }} />
+          <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: 1, color: dep ? "#e7bfa4" : "#c6e3a0" }}>{b.state}</span>
+        </>
+      }
+    />
   );
 }

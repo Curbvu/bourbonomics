@@ -421,18 +421,19 @@ function SectionFloor() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
           <MiniPanel ok caption="touches 2 tiles → place it">
             <svg viewBox="0 0 200 120" width="100%" height="110">
-              <Hex cx={70} cy={44} stroke={P.gold} />
-              <Hex cx={100} cy={44} stroke={P.gold} />
-              <Hex cx={130} cy={44} stroke={P.gold} />
-              <Hex cx={100} cy={76} fill={`${P.green}33`} stroke={P.green} label="NEW" labelColor={P.green} />
+              {/* pointy-top hexes tile edge-to-edge: row step = √3·size ≈ 35, row-to-row = 1.5·size = 30 */}
+              <Hex cx={65} cy={42} size={20} stroke={P.gold} />
+              <Hex cx={100} cy={42} size={20} stroke={P.gold} />
+              <Hex cx={135} cy={42} size={20} stroke={P.gold} />
+              <Hex cx={82.5} cy={72} size={20} fill={`${P.green}33`} stroke={P.green} sw={2.4} label="NEW" labelColor={P.green} />
             </svg>
           </MiniPanel>
           <MiniPanel caption="touches only 1 tile">
             <svg viewBox="0 0 200 120" width="100%" height="110">
-              <Hex cx={60} cy={44} stroke={P.gold} />
-              <Hex cx={90} cy={44} stroke={P.gold} />
-              <Hex cx={120} cy={44} stroke={P.gold} />
-              <Hex cx={150} cy={76} fill={`${P.red}22`} stroke={P.red} label="NEW" labelColor={P.red} />
+              <Hex cx={65} cy={42} size={20} stroke={P.gold} />
+              <Hex cx={100} cy={42} size={20} stroke={P.gold} />
+              <Hex cx={135} cy={42} size={20} stroke={P.gold} />
+              <Hex cx={152.5} cy={72} size={20} fill={`${P.red}22`} stroke={P.red} sw={2.4} label="NEW" labelColor={P.red} />
             </svg>
           </MiniPanel>
         </div>
@@ -498,7 +499,7 @@ function SectionFloor() {
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}><h4 style={h4()}>Add niche flag</h4><Pill tone={P.red}>niche</Pill></div>
           <svg viewBox="0 0 260 90" width="100%" height="84" style={{ margin: "6px 0" }}>
             <rect x={6} y={12} width={248} height={66} rx={8} fill="none" stroke={P.red} strokeWidth={1.5} strokeDasharray="5 4" />
-            {[40, 82, 124, 166, 208].map((x, i) => <Hex key={x} cx={x} cy={45} size={22} stroke={i === 2 ? P.red : P.gold} fill={i === 2 ? `${P.red}22` : "none"} />)}
+            {[48, 86, 124, 162, 200].map((x, i) => <Hex key={x} cx={x} cy={45} size={22} stroke={i === 2 ? P.red : P.gold} fill={i === 2 ? `${P.red}22` : "none"} />)}
             <Flag x={124} y={34} />
           </svg>
           <div style={{ textAlign: "center", fontFamily: MONO, fontSize: 10, color: P.red, marginBottom: 8 }}>NICHE = 5+ ADJACENT TILES</div>
@@ -508,7 +509,7 @@ function SectionFloor() {
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}><h4 style={h4()}>Remove niche flag</h4><Pill tone={P.red}>niche</Pill></div>
           <svg viewBox="0 0 260 90" width="100%" height="84" style={{ margin: "6px 0" }}>
             <rect x={6} y={12} width={248} height={66} rx={8} fill="none" stroke={P.muted} strokeWidth={1.5} strokeDasharray="5 4" />
-            {[40, 82, 124, 166, 208].map((x) => <Hex key={x} cx={x} cy={45} size={22} stroke={P.gold} />)}
+            {[48, 86, 124, 162, 200].map((x) => <Hex key={x} cx={x} cy={45} size={22} stroke={P.gold} />)}
             <g opacity={0.5}><Flag x={124} y={30} color={P.muted} /></g>
             <path d="M 124 30 L 124 8 M 118 14 L 124 8 L 130 14" stroke={P.brown} strokeWidth={1.5} fill="none" />
           </svg>

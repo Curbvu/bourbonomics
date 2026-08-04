@@ -11,11 +11,12 @@ function game(n: number, seed = 7): GameState {
   return createGame({ playerNames: Array.from({ length: n }, (_, i) => `P${i}`), seed });
 }
 // Drive the whole setup (tile placement + opening draft) to completion via the
-// auto-player, landing at age 1's Trade stage.
+// auto-player, landing at age 1's round-1 planning.
 function played(n: number, seed = 7): GameState {
   let s = game(n, seed);
   let guard = 0;
-  while (s.phase === "setup" && guard++ < 500) s = stepAuto(s);
+  // drive setup AND the age-1 cull stage, landing at round-1 planning
+  while ((s.phase === "setup" || s.stage === "cull") && guard++ < 600) s = stepAuto(s);
   return s;
 }
 const ok = (s: GameState, a: Parameters<typeof applyAction>[1]): GameState => {
@@ -126,9 +127,9 @@ describe("setup — interactive placement & draft", () => {
 describe("setup — completion opens age 1 (via auto-player)", () => {
   for (const n of [2, 3, 4, 5]) {
     const s = played(n);
-    it(`${n}p: lands at age 1 Trade with hands dealt`, () => {
+    it(`${n}p: lands at age 1 round-1 planning with hands dealt`, () => {
       expect(s.phase).toBe("playing");
-      expect(s.stage).toBe("trade");
+      expect(s.stage).toBe("planning");
       for (const p of s.players) expect(p.hand.length).toBe(CONFIG.HAND_SIZE);
     });
     it(`${n}p: first player = last drafter of round 1 (index n-1)`, () => {
@@ -140,8 +141,16 @@ describe("setup — completion opens age 1 (via auto-player)", () => {
         expect(p.bourbons.length + s.dps.filter((d) => d.owner === p.id).length).toBeGreaterThan(0);
       }
     });
-    it(`${n}p: blocking terrain is placed once the board is built`, () => {
-      expect(s.tiles.filter((t) => t.category === "BLOCKING").length).toBe(CONFIG.BLOCKING_TILE_COUNT);
+    it(`${n}p: blocking tiles ride in the tile deck, never force-placed`, () => {
+      // Every blocking tile is dealt into the deck (players' setup tiles + the
+      // Expand supply) rather than auto-dropped onto the board.
+      const fresh = game(n);
+      const inDeck = [...fresh.players.flatMap((p) => p.setupTiles), ...fresh.tileSupply].filter(
+        (t) => t.category === "BLOCKING",
+      ).length;
+      expect(inDeck).toBe(CONFIG.BLOCKING_TILE_COUNT);
+      // The opening board is the 3-tile reward seed — blocking never seeds.
+      expect(fresh.tiles.filter((t) => t.category === "BLOCKING").length).toBe(0);
     });
     it(`${n}p: opening DPs are LIVE; blocking tiles hold none`, () => {
       const blocking = new Set(s.tiles.filter((t) => t.category === "BLOCKING").map((t) => t.id));

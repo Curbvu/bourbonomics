@@ -168,83 +168,34 @@ export function runAgeEnd(draft: GameState, carryInitiative: number[]): void {
 
 /**
  * Age-start setup shared by age 1 (from createGame) and later ages (from
- * runAgeEnd): refresh the market, deal fresh hands + the catch-up board, and
- * open the "trade" stage. pendingInitiative must already hold the round-1 order.
+ * runAgeEnd): refresh the market and deal HAND_DRAW cards, then open the
+ * interactive CULL stage where each player discards down to HAND_SIZE (brief
+ * §4/§12 — draw 6, keep 5). Culling completes → beginPlanning opens round 1.
+ * pendingInitiative holds the round-1 order.
  */
 export function beginAgeStart(draft: GameState): void {
   runDistilleryTrigger(draft, "onAgeStart");
   refillMarket(draft, CONFIG.marketLots(draft.players.length));
   dealActionHands(draft);
-  dealCatchUpBoard(draft);
-  draft.tradeOffers = {};
-  draft.stage = "trade";
-  draft.initiative = draft.players.map((_, i) => i); // trade is simultaneous — any order
+  draft.stage = "cull";
+  draft.initiative = draft.pendingInitiative.length ? draft.pendingInitiative : draft.players.map((_, i) => i);
+  draft.turnPos = 0;
+  log(draft, `Age ${draft.age}, round ${draft.round} — draw ${CONFIG.HAND_DRAW}, keep ${CONFIG.HAND_SIZE}.`);
+}
+
+/**
+ * The cull stage is done — every player is down to HAND_SIZE. Open round-1
+ * planning proper: reset the acting order and each player's pip/suit state.
+ */
+export function beginPlanning(draft: GameState): void {
+  draft.stage = "planning";
+  draft.initiative = draft.pendingInitiative.length ? draft.pendingInitiative : draft.players.map((_, i) => i);
   draft.turnPos = 0;
   for (const p of draft.players) {
     p.pipsRemaining = 0;
+    p.allowedSuits = [];
     p.turnDone = false;
   }
-}
-
-/** Least-Capital-first order (ties by seating index) for the catch-up swaps. */
-export function catchUpOrder(draft: GameState): number[] {
-  return draft.players
-    .map((p, i) => ({ i, cap: p.capital }))
-    .sort((a, b) => a.cap - b.cap || a.i - b.i)
-    .map((x) => x.i);
-}
-
-// ── Age-start primitives (Trade + catch-up) ──────────────────────────
-// Callable by a setup/age-start UI. Auto-play currently passes on both (a pass
-// is legal — "up to 2" / an optional swap). Kept as primitives so they're
-// testable and wireable without touching the age-end path.
-
-/**
- * The Trade (brief §4): each player may put up to TRADE_MAX cards into a shared
- * pile; it is shuffled and each draws back the number they contributed.
- * `contributions` maps player id → card ids offered.
- */
-export function performTrade(draft: GameState, contributions: Record<string, string[]>): void {
-  const takeCount = new Map<string, number>();
-  const pile: Player["hand"] = [];
-  for (const p of draft.players) {
-    const ids = (contributions[p.id] ?? []).slice(0, CONFIG.TRADE_MAX);
-    let n = 0;
-    for (const cid of ids) {
-      const card = p.hand.find((c) => c.id === cid);
-      if (!card) continue;
-      p.hand = p.hand.filter((c) => c.id !== cid);
-      pile.push(card);
-      n += 1;
-    }
-    takeCount.set(p.id, n);
-  }
-  // shuffle-and-redraw is deterministic here: preserve order, redistribute by count.
-  let cursor = 0;
-  for (const p of draft.players) {
-    const take = takeCount.get(p.id) ?? 0;
-    p.hand.push(...pile.slice(cursor, cursor + take));
-    cursor += take;
-  }
-}
-
-/** Deal the shared catch-up board (brief §9). */
-export function dealCatchUpBoard(draft: GameState): void {
-  const size = CONFIG.catchUpBoardSize(draft.players.length);
-  draft.catchUpBoard = draft.actionDeck.splice(0, size);
-}
-
-/**
- * A single catch-up swap (brief §9): a player exchanges one hand card for one
- * board card. The UI drives these least-Capital-player-first.
- */
-export function catchUpSwap(draft: GameState, playerId: string, handCardId: string, boardCardId: string): boolean {
-  const p = draft.players.find((pl) => pl.id === playerId);
-  if (!p) return false;
-  const hand = p.hand.find((c) => c.id === handCardId);
-  const board = draft.catchUpBoard.find((c) => c.id === boardCardId);
-  if (!hand || !board) return false;
-  p.hand = p.hand.filter((c) => c.id !== handCardId).concat(board);
-  draft.catchUpBoard = draft.catchUpBoard.filter((c) => c.id !== boardCardId).concat(hand);
-  return true;
+  runDistilleryTrigger(draft, "onRoundStart");
+  log(draft, `Round ${draft.round} begins.`);
 }

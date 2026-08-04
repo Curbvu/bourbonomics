@@ -8,7 +8,7 @@
 // initiative order. The initiative MARKER (last icon-card played) sets who leads
 // next round; sticky if none. Age end is delegated to ageLoop.ts.
 
-import { catchUpOrder, catchUpSwap, performTrade, runAgeEnd } from "./ageLoop";
+import { beginPlanning, runAgeEnd } from "./ageLoop";
 import { CONFIG } from "./config";
 import { canAddFlag, canPlaceDP, neighborTiles, tileById, tileController } from "./derive";
 import { runDistilleryTrigger } from "./distilleries";
@@ -16,7 +16,7 @@ import { resolvePush } from "./push";
 import type { Hex } from "./hex";
 import { hexKey } from "./hex";
 import { mintId } from "./ids";
-import { finalizeSetup, placeBlockingTerrain, refillMarket, setupDPOrder, snakeOrder, tileFromDef } from "./setup";
+import { finalizeSetup, refillMarket, setupDPOrder, snakeOrder, tileFromDef } from "./setup";
 import type {
   Action,
   ActionResult,
@@ -339,10 +339,8 @@ export function applyAction(state: GameState, action: Action): ActionResult {
       return setupDraftStage(draft, actor, action);
     case "setupDP":
       return setupDPStage(draft, actor, action);
-    case "trade":
-      return tradeStage(draft, actor, action);
-    case "catchup":
-      return catchupStage(draft, actor, action);
+    case "cull":
+      return cullStage(draft, actor, action);
     case "planning":
       return planning(draft, actor, action);
     case "commit":
@@ -376,18 +374,19 @@ function setupPlaceStage(draft: GameState, actor: Player, action: Action): Actio
   if (neighborTiles(draft, hex).length < CONFIG.TILE_MIN_ADJACENCY) {
     return refuse(`a placed tile must touch >= ${CONFIG.TILE_MIN_ADJACENCY} existing tiles`);
   }
-  const def = actor.setupTiles.shift()!;
+  // The player may choose WHICH held tile to place (tileIndex); bots omit it → 0.
+  const idx = Math.min(Math.max(action.tileIndex ?? 0, 0), actor.setupTiles.length - 1);
+  const def = actor.setupTiles.splice(idx, 1)[0]!;
   const tile = tileFromDef(draft, def, hex);
   draft.tiles.push(tile);
   log(draft, `${actor.name} places ${tile.name}.`);
 
   if (!advanceSetupPlace(draft)) {
-    // Board is built — drop the fixed blocking terrain, then open the draft.
-    placeBlockingTerrain(draft);
+    // Board is built (blocking rode along in the deck) — open the draft.
     draft.stage = "setupDraft";
     draft.setupDraftSeq = snakeOrder(draft.players.length, CONFIG.OPENING_DRAFT_PICKS);
     draft.turnPos = 0;
-    log(draft, "Terrain settles — opening draft: take a bourbon.");
+    log(draft, "The board is set — opening draft: take a bourbon.");
   }
   return commit(draft);
 }
@@ -438,50 +437,30 @@ function setupDPStage(draft: GameState, actor: Player, action: Action): ActionRe
   return commit(draft);
 }
 
-// ── Age-start stages ─────────────────────────────────────────────────
-function startPlanning(draft: GameState): void {
-  draft.stage = "planning";
-  draft.initiative = draft.pendingInitiative.length ? draft.pendingInitiative : draft.players.map((_, i) => i);
-  draft.turnPos = 0;
-  for (const p of allPlayers(draft)) {
-    p.pipsRemaining = 0;
-    p.allowedSuits = [];
-    p.turnDone = false;
+// ── Cull (brief §4/§12: draw HAND_DRAW, keep HAND_SIZE) ──────────────
+/** Hop to the next player still holding more than HAND_SIZE cards. */
+function advanceCull(draft: GameState): boolean {
+  const n = draft.players.length;
+  for (let step = 1; step <= n; step++) {
+    const pos = (draft.turnPos + step) % n;
+    if (draft.players[draft.initiative[pos]!]!.hand.length > CONFIG.HAND_SIZE) {
+      draft.turnPos = pos;
+      return true;
+    }
   }
-  runDistilleryTrigger(draft, "onRoundStart");
-  log(draft, `Round ${draft.round} begins.`);
+  return false; // everyone is down to HAND_SIZE
 }
 
-function tradeStage(draft: GameState, actor: Player, action: Action): ActionResult {
-  if (action.type !== "TRADE_OFFER") return refuse("offer trade cards now (may be empty)");
-  const ids = action.cardIds.slice(0, CONFIG.TRADE_MAX);
-  for (const id of ids) {
-    if (!actor.hand.some((c) => c.id === id)) return refuse("offered card not in hand");
-  }
-  if (new Set(ids).size !== ids.length) return refuse("duplicate card in offer");
-  draft.tradeOffers[actor.id] = ids;
-  actor.turnDone = true;
-  if (!advance(draft)) {
-    performTrade(draft, draft.tradeOffers);
-    log(draft, "The Trade resolves.");
-    // → catch-up, least-Capital first
-    draft.stage = "catchup";
-    draft.initiative = catchUpOrder(draft);
-    draft.turnPos = 0;
-    for (const p of allPlayers(draft)) p.turnDone = false;
-  }
-  return commit(draft);
-}
+function cullStage(draft: GameState, actor: Player, action: Action): ActionResult {
+  if (action.type !== "CULL_CARD") return refuse("discard a card down to your keep-size now");
+  if (actor.hand.length <= CONFIG.HAND_SIZE) return refuse("your hand is already at keep-size");
+  const idx = actor.hand.findIndex((c) => c.id === action.cardId);
+  if (idx < 0) return refuse("that card is not in your hand");
+  const [culled] = actor.hand.splice(idx, 1);
+  draft.actionDeck.push(culled!); // discard back into the deck (brief §12)
+  log(draft, `${actor.name} keeps ${actor.hand.length}, discards one.`);
 
-function catchupStage(draft: GameState, actor: Player, action: Action): ActionResult {
-  if (action.type !== "CATCHUP_SWAP") return refuse("swap a catch-up card or pass now");
-  if (action.boardCardId !== null) {
-    const ok = catchUpSwap(draft, actor.id, action.handCardId, action.boardCardId);
-    if (!ok) return refuse("invalid catch-up swap");
-    log(draft, `${actor.name} swaps a card from the catch-up board.`);
-  }
-  actor.turnDone = true;
-  if (!advance(draft)) startPlanning(draft);
+  if (!advanceCull(draft)) beginPlanning(draft); // everyone culled → open round 1
   return commit(draft);
 }
 

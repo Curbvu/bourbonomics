@@ -14,33 +14,36 @@ import type { Suit, Tag, TokenType } from "../engine";
 // ── design tokens (LIGHT parchment theme) ────────────────────────────
 // Keys are stable; the client reads T.oak / T.panel / T.cream / etc. `cream`
 // is text-only, so a dark value converts all body copy in one move.
+// Softer, lighter, less-saturated warm-neutral palette (was a heavy sepia wash) —
+// big surfaces read as calm off-white; gold stays only as an accent so it no
+// longer bathes the whole screen.
 export const T = {
-  oak: "#efe6d0", // page / stage base
-  oak2: "#e7dcbf", // lifted parchment
-  oak3: "#ddceac",
-  copper: "#c8791e", // amber liquid accent
-  gold: "#c8961f", // accents / rings / badges
-  goldSoft: "#8f6510", // heading text (darker for contrast on light)
-  cream: "#2c1e0e", // PRIMARY DARK TEXT (only ever used as text)
+  oak: "#f1efe8", // page / stage base
+  oak2: "#eae6da", // lifted parchment
+  oak3: "#e3dfd2",
+  copper: "#bd7a2c", // amber liquid accent
+  gold: "#c39a35", // accents / rings / badges (a touch softer)
+  goldSoft: "#8a6a20", // heading text (darker for contrast on light)
+  cream: "#2c261c", // PRIMARY DARK TEXT (only ever used as text)
   cherry: "#7a2318", // deep cherry / rye depth
-  paper: "#fffdf7", // light card paper
-  plainTile: "#fffef9", // non-reward tile body
-  ink: "#241a0e", // text on light tiles / cards
-  grey: "#7a7268", // muted labels
-  cut: "#c8c0b4", // cut-line / faint frame
+  paper: "#fdfcf8", // light card paper
+  plainTile: "#fefdf9", // non-reward tile body
+  ink: "#2a2418", // text on light tiles / cards
+  grey: "#78736a", // muted labels
+  cut: "#cbc6ba", // cut-line / faint frame
   // convenience aliases used across the client
-  felt: "#efe6d0",
-  feltDeep: "#e1d5b8", // rail gradient bottom
-  panel: "#fffdf7", // card face
-  panel2: "#f4edda", // inset panels / log
-  rail: "#ece2c8", // rail gradient top
-  border: "#cbba90",
-  line: "#d9cca9",
-  muted: "#6f5a34",
-  faint: "#93805a",
-  red: "#9c3a2e",
+  felt: "#f1efe8",
+  feltDeep: "#e7e2d4", // rail gradient bottom
+  panel: "#fdfcf8", // card face
+  panel2: "#f4f1e8", // inset panels / log
+  rail: "#efece3", // rail gradient top
+  border: "#cdc7b6",
+  line: "#ddd8ca",
+  muted: "#6b6350",
+  faint: "#928a76",
+  red: "#a3453a",
   green: "#7a8c3a",
-  parchEdge: "#c2ad82",
+  parchEdge: "#c9c1ab",
 } as const;
 
 // ── suit colors (§0 canon) ───────────────────────────────────────────
@@ -169,22 +172,25 @@ export function TagGridSVG({ tags, cx, cy, cell = 14, sub = false }: { tags: rea
 }
 
 function SlotSVG({ x, y, cell, slot, sub }: { x: number; y: number; cell: number; slot: Slot | null; sub?: string }) {
-  const r = cell * 0.18;
+  const r = cell * 0.26;
+  const h = cell / 2;
   return (
     <g transform={`translate(${x} ${y})`}>
       {slot ? (
         <>
-          <rect x={-cell / 2} y={-cell / 2} width={cell} height={cell} rx={r} fill={slot.color} />
-          <rect x={-cell / 2 + cell * 0.06} y={-cell / 2 + cell * 0.06} width={cell * 0.88} height={cell * 0.88} rx={r} fill="none" stroke="#00000033" strokeWidth={0.8} />
-          <text y={cell * 0.19} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={slot.glyph.length > 1 ? cell * 0.5 : cell * 0.62} fill="#fff">
+          {/* drop shadow → the tag reads as a raised token */}
+          <rect x={-h} y={-h + 1.3} width={cell} height={cell} rx={r} fill="#00000038" />
+          <rect x={-h} y={-h} width={cell} height={cell} rx={r} fill={slot.color} />
+          {/* top sheen + inner rim for depth */}
+          <rect x={-h} y={-h} width={cell} height={cell * 0.52} rx={r} fill="#ffffff" opacity={0.2} />
+          <rect x={-h + 0.6} y={-h + 0.6} width={cell - 1.2} height={cell - 1.2} rx={r - 0.6} fill="none" stroke="#00000045" strokeWidth={0.8} />
+          <text y={cell * 0.2} textAnchor="middle" fontFamily={SERIF} fontWeight={700} fontSize={slot.glyph.length > 1 ? cell * 0.48 : cell * 0.6} fill="#fff" style={{ paintOrder: "stroke" } as React.CSSProperties} stroke="#00000030" strokeWidth={0.5}>
             {slot.glyph}
           </text>
         </>
       ) : (
-        <>
-          <rect x={-cell / 2} y={-cell / 2} width={cell} height={cell} rx={r} fill="none" stroke={T.cut} strokeWidth={0.9} strokeDasharray="2 2" />
-          <text y={cell * 0.18} textAnchor="middle" fontFamily={SERIF} fontSize={cell * 0.5} fill={T.cut}>–</text>
-        </>
+        // empty slot — a faint recessed square (no dash), so filled tags pop
+        <rect x={-h} y={-h} width={cell} height={cell} rx={r} fill="#00000009" stroke={T.cut} strokeOpacity={0.45} strokeWidth={0.9} strokeDasharray="2.2 2.4" />
       )}
       {sub && <text y={cell * 0.62 + cell * 0.28} textAnchor="middle" fontFamily={MONO} fontSize={cell * 0.3} letterSpacing={0.3} fill={slot ? slot.color : T.grey}>{sub}</text>}
     </g>
@@ -215,16 +221,33 @@ export function TagGridHTML({ tags, cell = 26 }: { tags: readonly Tag[]; cell?: 
 }
 
 // ── SVG pieces ───────────────────────────────────────────────────────
-/** A Distribution Point pawn. Live = upright; dark = tipped + faded. */
+/** Lighten a #rrggbb toward white by fraction f (for pawn gradient tops). */
+function lighten(hex: string, f: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) + (255 - ((n >> 16) & 255)) * f);
+  const g = Math.round(((n >> 8) & 255) + (255 - ((n >> 8) & 255)) * f);
+  const b = Math.round((n & 255) + (255 - (n & 255)) * f);
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+/** A standing Distribution Point pawn (a meeple), filled from a per-player radial
+ *  gradient. Live = upright; dark = toppled + faded. */
 export function Pawn({ x, y, color, dead = false, s = 1 }: { x: number; y: number; color: string; dead?: boolean; s?: number }) {
   const c = dead ? "#8a7a5e" : color;
+  const gid = `pawn-${c.replace("#", "")}${dead ? "-d" : ""}`;
   return (
-    <g transform={`translate(${x} ${y}) scale(${s}) ${dead ? "rotate(66)" : ""}`} opacity={dead ? 0.78 : 1}>
+    <g transform={`translate(${x} ${y}) scale(${s}) ${dead ? "rotate(78)" : ""}`} opacity={dead ? 0.72 : 1}>
+      <defs>
+        <radialGradient id={gid} cx="0.38" cy="0.28" r="0.85">
+          <stop offset="0" stopColor={lighten(c, 0.42)} />
+          <stop offset="1" stopColor={c} />
+        </radialGradient>
+      </defs>
       <ellipse cx={0} cy={11} rx={9} ry={3} fill="#00000038" />
-      <circle cx={0} cy={-10} r={5.4} fill={c} />
-      <path d="M -6.2 9 Q -6.2 -2 0 -3.4 Q 6.2 -2 6.2 9 Z" fill={c} />
-      <rect x={-8} y={8.5} width={16} height={3.4} rx={1.7} fill={c} />
-      {!dead && <circle cx={-1.7} cy={-11.4} r={1.7} fill="#ffffff66" />}
+      <circle cx={0} cy={-10} r={5.4} fill={`url(#${gid})`} stroke="#00000030" strokeWidth={0.6} />
+      <path d="M -6.2 9 Q -6.2 -2 0 -3.4 Q 6.2 -2 6.2 9 Z" fill={`url(#${gid})`} stroke="#00000030" strokeWidth={0.6} />
+      <rect x={-8} y={8.5} width={16} height={3.4} rx={1.7} fill={`url(#${gid})`} />
+      {!dead && <circle cx={-1.7} cy={-11.4} r={1.7} fill="#ffffff88" />}
     </g>
   );
 }
